@@ -1,0 +1,295 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
+import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
+
+import 'profiles_controller.dart';
+
+/// Real two-dimensional virtualized profile table. Only the visible cells are
+/// built, so 10k+ rows render without materializing 14*k widgets.
+class ProfilesTable extends ConsumerStatefulWidget {
+  const ProfilesTable({
+    super.key,
+    this.verticalController,
+    this.horizontalController,
+  });
+
+  final ScrollController? verticalController;
+  final ScrollController? horizontalController;
+
+  @override
+  ConsumerState<ProfilesTable> createState() => _ProfilesTableState();
+}
+
+class _ProfilesTableState extends ConsumerState<ProfilesTable> {
+  static const _handleWidth = 48.0;
+  static const _headerHeight = 30.0;
+  static const _rowHeight = 26.0;
+
+  final FocusNode _focusNode = FocusNode(debugLabel: 'profiles-table');
+  late final ScrollController _vertical =
+      widget.verticalController ?? ScrollController();
+  late final ScrollController _horizontal =
+      widget.horizontalController ?? ScrollController();
+  bool _ownsVertical = false;
+  bool _ownsHorizontal = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsVertical = widget.verticalController == null;
+    _ownsHorizontal = widget.horizontalController == null;
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    if (_ownsVertical) _vertical.dispose();
+    if (_ownsHorizontal) _horizontal.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(profilesControllerProvider);
+    final controller = ref.read(profilesControllerProvider.notifier);
+    final columns = state.columns;
+    final rows = state.visible;
+
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: (node, event) => controller.handleKeyEvent(event)
+          ? KeyEventResult.handled
+          : KeyEventResult.ignored,
+      child: Listener(
+        onPointerDown: (_) => _focusNode.requestFocus(),
+        child: TableView.builder(
+          verticalDetails: ScrollableDetails.vertical(controller: _vertical),
+          horizontalDetails: ScrollableDetails.horizontal(
+            controller: _horizontal,
+          ),
+          pinnedRowCount: 1,
+          pinnedColumnCount: 1,
+          columnCount: columns.length + 1,
+          rowCount: rows.length + 1,
+          columnBuilder: (index) => _buildColumnSpan(index, columns),
+          rowBuilder: (index) => _buildRowSpan(index, state, context),
+          cellBuilder: (context, vicinity) => TableViewCell(
+            child: _buildCell(
+              context,
+              vicinity,
+              state,
+              controller,
+              columns,
+              rows,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  TableSpan _buildColumnSpan(int index, List<ProfileColumn> columns) {
+    final width = index == 0 ? _handleWidth : columns[index - 1].width;
+    return TableSpan(
+      extent: FixedTableSpanExtent(width),
+      foregroundDecoration: TableSpanDecoration(
+        border: TableSpanBorder(
+          trailing: BorderSide(color: Colors.grey.shade400, width: 1),
+        ),
+      ),
+    );
+  }
+
+  TableSpan _buildRowSpan(
+    int index,
+    ProfilesState state,
+    BuildContext context,
+  ) {
+    final isHeader = index == 0;
+    return TableSpan(
+      extent: FixedTableSpanExtent(isHeader ? _headerHeight : _rowHeight),
+      backgroundDecoration: TableSpanDecoration(
+        color: isHeader
+            ? Theme.of(context).colorScheme.surfaceContainerHighest
+            : null,
+        border: const TableSpanBorder(
+          trailing: BorderSide(color: Color(0x33000000), width: 1),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCell(
+    BuildContext context,
+    TableVicinity vicinity,
+    ProfilesState state,
+    ProfilesController controller,
+    List<ProfileColumn> columns,
+    List<ProfileSummary> rows,
+  ) {
+    if (vicinity.row == 0) {
+      return _headerCell(context, vicinity.column, state, controller, columns);
+    }
+    final dataIndex = vicinity.row - 1;
+    if (dataIndex >= rows.length) return const SizedBox.shrink();
+    final row = rows[dataIndex];
+    if (vicinity.column == 0) {
+      return _handleCell(context, row, dataIndex, state, controller);
+    }
+    final column = columns[vicinity.column - 1];
+    return _dataCell(context, row, column, state, controller);
+  }
+
+  Widget _headerCell(
+    BuildContext context,
+    int columnIndex,
+    ProfilesState state,
+    ProfilesController controller,
+    List<ProfileColumn> columns,
+  ) {
+    if (columnIndex == 0) {
+      return Container(
+        key: const ValueKey('header-handle'),
+        alignment: Alignment.center,
+        child: const Text('#', style: TextStyle(fontWeight: FontWeight.w600)),
+      );
+    }
+    final column = columns[columnIndex - 1];
+    final sorted =
+        state.sort.columnKey == column.key &&
+        state.sort.direction != SortDirection.none;
+    final indicator = !sorted
+        ? ''
+        : (state.sort.direction == SortDirection.ascending
+              ? ' \u25B2'
+              : ' \u25BC');
+    return Stack(
+      children: <Widget>[
+        Positioned.fill(
+          child: GestureDetector(
+            key: ValueKey('header-${column.title}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => controller.sortBy(column.key),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  '${column.title}$indicator',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.clip,
+                  softWrap: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 0,
+          bottom: 0,
+          right: 0,
+          width: 8,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.resizeColumn,
+            child: GestureDetector(
+              key: ValueKey('resize-${column.title}'),
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragUpdate: (details) =>
+                  controller.resizeColumn(column.key, details.delta.dx),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dataCell(
+    BuildContext context,
+    ProfileSummary row,
+    ProfileColumn column,
+    ProfilesState state,
+    ProfilesController controller,
+  ) {
+    final selected = state.selected.contains(row.id);
+    return GestureDetector(
+      key: ValueKey('cell-${row.id}-${column.key}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => controller.selectRow(
+        row.id,
+        ctrl: HardwareKeyboard.instance.isControlPressed,
+        shift: HardwareKeyboard.instance.isShiftPressed,
+      ),
+      onDoubleTap: () => controller.handleDoubleClick(row.id),
+      onSecondaryTap: () => controller.handleRightTap(row.id),
+      child: Container(
+        color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
+        alignment: column.numeric
+            ? Alignment.centerRight
+            : Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: Text(
+          column.display(row),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ),
+    );
+  }
+
+  Widget _handleCell(
+    BuildContext context,
+    ProfileSummary row,
+    int index,
+    ProfilesState state,
+    ProfilesController controller,
+  ) {
+    final selected = state.selected.contains(row.id);
+    final content = Container(
+      color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
+      alignment: Alignment.center,
+      child: Draggable<ProfileSummary>(
+        data: row,
+        dragAnchorStrategy: pointerDragAnchorStrategy,
+        onDragStarted: () => controller.handleDragStart(row.id),
+        feedback: Material(
+          elevation: 4,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            child: Text(row.remarks),
+          ),
+        ),
+        childWhenDragging: Opacity(
+          opacity: 0.3,
+          child: Text('${index + 1}', style: const TextStyle(fontSize: 11)),
+        ),
+        child: Text('${index + 1}', style: const TextStyle(fontSize: 11)),
+      ),
+    );
+    return DragTarget<ProfileSummary>(
+      key: ValueKey('drop-${row.id}'),
+      onAcceptWithDetails: (details) =>
+          controller.handleDrop(details.data.id, row.id),
+      builder: (context, candidate, rejected) => Container(
+        key: ValueKey('handle-${row.id}'),
+        foregroundDecoration: candidate.isEmpty
+            ? null
+            : BoxDecoration(
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.primary,
+                  width: 2,
+                ),
+              ),
+        child: content,
+      ),
+    );
+  }
+}

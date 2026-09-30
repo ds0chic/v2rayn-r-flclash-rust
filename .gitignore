@@ -1,0 +1,28 @@
+# Rust
+target/
+**/target/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+**/build/
+*.iml
+.idea/
+.vscode/
+
+# T00 frozen inputs (large, externally pinned)
+work/
+
+
+# local evidence scratch
+*.log
+docs/evidence/audit/*.run.log
+
+# toolchains / local
+.tool-versions
+*.tmp
+*.bak
+Thumbs.db
+desktop.ini

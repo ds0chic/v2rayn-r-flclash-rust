@@ -1,0 +1,1927 @@
+schema_version: 1
+source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+note: T00 布局台账。所有条目 status 一律 identified；implementation_location 一律 null。platform 为锚定源码文件的平台；跨平台共享结构另用 platforms 数组标注。
+source_roots:
+  wpf: v2rayN/v2rayN
+  avalonia: v2rayN/v2rayN.Desktop
+main_layouts:
+- mode: horizontal
+  id: LAY-MAIN-001
+  name: 主窗口-水平布局
+  enum: EGirdOrientation.Horizontal
+  default: false
+  grid: gridMain
+  panels:
+    left: tabProfiles (ContentControl, Grid.Column=0, Width="1*")
+    splitter: GridSplitter (Grid.Column=1, Width=10)
+    right: tabMain (TabControl, Grid.Column=2, Width="1*")
+    right_tabs:
+    - tabMsgView
+    - tabClashProxies
+    - tabClashConnections
+  splitter_key: MainGirdHeight1/MainGirdHeight2
+  persistence_keys:
+  - UIItem.MainGirdHeight1
+  - UIItem.MainGirdHeight2
+  - UIItem.MainGirdOrientation
+  - UIItem.WindowSizeItem
+  source_file:
+  - v2rayN/v2rayN/Views/MainWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:334
+  - v2rayN/v2rayN/Views/MainWindow.xaml:335
+  - v2rayN/v2rayN/Views/MainWindow.xaml:336
+  - v2rayN/v2rayN/Views/MainWindow.xaml:340
+  - v2rayN/v2rayN/Views/MainWindow.xaml:341
+  - v2rayN/v2rayN/Views/MainWindow.xaml:342
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:117
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:119
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:121
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:122
+  status: identified
+  implementation_location: null
+- mode: vertical
+  id: LAY-MAIN-002
+  name: 主窗口-垂直布局
+  enum: EGirdOrientation.Vertical
+  default: true
+  default_verified: true
+  grid: gridMain1
+  panels:
+    top: tabProfiles1 (ContentControl, Grid.Row=0, Height="1*")
+    splitter: GridSplitter (Grid.Row=1, Height=10)
+    bottom: tabMain1 (TabControl, Grid.Row=2, Height="1*", TabStripPlacement="Left")
+    bottom_tabs:
+    - tabMsgView1
+    - tabClashProxies1
+    - tabClashConnections1
+  splitter_key: MainGirdHeight1/MainGirdHeight2
+  persistence_keys:
+  - UIItem.MainGirdHeight1
+  - UIItem.MainGirdHeight2
+  - UIItem.MainGirdOrientation
+  - UIItem.WindowSizeItem
+  source_file:
+  - v2rayN/v2rayN/Views/MainWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml
+  evidence:
+  - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:93
+  - v2rayN/v2rayN/Views/MainWindow.xaml:351
+  - v2rayN/v2rayN/Views/MainWindow.xaml:352
+  - v2rayN/v2rayN/Views/MainWindow.xaml:353
+  - v2rayN/v2rayN/Views/MainWindow.xaml:357
+  - v2rayN/v2rayN/Views/MainWindow.xaml:358
+  - v2rayN/v2rayN/Views/MainWindow.xaml:359
+  - v2rayN/v2rayN/Views/MainWindow.xaml:364
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:132
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:135
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:136
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:137
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:141
+  notes: WPF 用 materialDesign NavigationRail TabControl + PackIcon 图标头；Avalonia 仅 TabStripPlacement=Left 纯文本头。
+  status: identified
+  implementation_location: null
+- mode: tab
+  id: LAY-MAIN-003
+  name: 主窗口-标签布局
+  enum: EGirdOrientation.Tab
+  default: false
+  grid: gridMain2
+  panels:
+    single: tabMain2 (TabControl, TabStripPlacement="Left")
+    tabs:
+    - tabProfiles2
+    - tabMsgView2
+    - tabClashProxies2
+    - tabClashConnections2
+    splitter: null
+  splitter_key: null
+  persistence_keys:
+  - UIItem.MainGirdOrientation
+  - UIItem.WindowSizeItem
+  source_file:
+  - v2rayN/v2rayN/Views/MainWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:400
+  - v2rayN/v2rayN/Views/MainWindow.xaml:401
+  - v2rayN/v2rayN/Views/MainWindow.xaml:406
+  - v2rayN/v2rayN/Views/MainWindow.xaml:417
+  - v2rayN/v2rayN/Views/MainWindow.xaml:428
+  - v2rayN/v2rayN/Views/MainWindow.xaml:439
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:147
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:148
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:149
+  notes: Tab 模式下 profiles 是第一个 TabItem；Avalonia 的 tabClashConnections2 无单独 IsVisible 绑定（UpdateLayout:444-445 仅对 proxies2/connections2 绑定 ShowClashUI）。
+  status: identified
+  implementation_location: null
+window_inventory:
+- id: INV-WPF-001
+  name: App
+  kind: application
+  platform: windows-wpf
+  file: v2rayN/v2rayN/App.xaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN/App.xaml:1
+  - v2rayN/v2rayN/App.xaml:7
+  status: identified
+- id: INV-WPF-002
+  name: MainWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/MainWindow.xaml
+  is_dialog: false
+  title: v2rayN
+  default_size:
+    width: 1200
+    height: 800
+  min_size:
+    width: 800
+    height: null
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:2
+  - v2rayN/v2rayN/Views/MainWindow.xaml:14
+  - v2rayN/v2rayN/Views/MainWindow.xaml:16
+  status: identified
+- id: INV-WPF-003
+  name: ProfilesView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/ProfilesView.xaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:2
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:100
+  status: identified
+- id: INV-WPF-004
+  name: StatusBarView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/StatusBarView.xaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN/Views/StatusBarView.xaml:2
+  - v2rayN/v2rayN/Views/StatusBarView.xaml:18
+  - v2rayN/v2rayN/Views/StatusBarView.xaml:106
+  status: identified
+- id: INV-WPF-005
+  name: MsgView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/MsgView.xaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN/Views/MsgView.xaml:2
+  - v2rayN/v2rayN/Views/MsgView.xaml:16
+  status: identified
+- id: INV-WPF-006
+  name: ThemeSettingView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/ThemeSettingView.xaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml:2
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml:15
+  status: identified
+- id: INV-WPF-007
+  name: ClashProxiesView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/ClashProxiesView.xaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN/Views/ClashProxiesView.xaml:2
+  - v2rayN/v2rayN/Views/ClashProxiesView.xaml:23
+  status: identified
+- id: INV-WPF-008
+  name: ClashConnectionsView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/ClashConnectionsView.xaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml:2
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml:17
+  status: identified
+- id: INV-WPF-009
+  name: BackupAndRestoreView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/BackupAndRestoreView.xaml
+  is_dialog: true
+  notes: 由 MainWindow 经 DialogHost RootDialog 弹出
+  evidence:
+  - v2rayN/v2rayN/Views/BackupAndRestoreView.xaml:2
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:289
+  status: identified
+- id: INV-WPF-010
+  name: CheckUpdateView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/CheckUpdateView.xaml
+  is_dialog: true
+  notes: DialogHost RootDialog
+  evidence:
+  - v2rayN/v2rayN/Views/CheckUpdateView.xaml:2
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:282
+  status: identified
+- id: INV-WPF-011
+  name: QrcodeView
+  kind: usercontrol_view
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/QrcodeView.xaml
+  is_dialog: true
+  notes: DialogHost RootDialog
+  evidence:
+  - v2rayN/v2rayN/Views/QrcodeView.xaml:2
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:168
+  status: identified
+- id: INV-WPF-012
+  name: AddServerWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/AddServerWindow.xaml
+  is_dialog: true
+  title: menuServers
+  default_size:
+    width: 900
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/AddServerWindow.xaml:2
+  - v2rayN/v2rayN/Views/AddServerWindow.xaml:13
+  - v2rayN/v2rayN/Views/AddServerWindow.xaml:14
+  status: identified
+- id: INV-WPF-013
+  name: AddServer2Window
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/AddServer2Window.xaml
+  is_dialog: true
+  default_size:
+    width: 700
+    height: 500
+  evidence:
+  - v2rayN/v2rayN/Views/AddServer2Window.xaml:2
+  - v2rayN/v2rayN/Views/AddServer2Window.xaml:13
+  status: identified
+- id: INV-WPF-014
+  name: AddGroupServerWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/AddGroupServerWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/AddGroupServerWindow.xaml:2
+  - v2rayN/v2rayN/Views/AddGroupServerWindow.xaml:13
+  status: identified
+- id: INV-WPF-015
+  name: OptionSettingWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/OptionSettingWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 1000
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:2
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:13
+  status: identified
+- id: INV-WPF-016
+  name: RoutingSettingWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/RoutingSettingWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 1000
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/RoutingSettingWindow.xaml:2
+  - v2rayN/v2rayN/Views/RoutingSettingWindow.xaml:13
+  status: identified
+- id: INV-WPF-017
+  name: RoutingRuleSettingWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 1000
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml:2
+  - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml:13
+  status: identified
+- id: INV-WPF-018
+  name: RoutingRuleDetailsWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/RoutingRuleDetailsWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/RoutingRuleDetailsWindow.xaml:2
+  - v2rayN/v2rayN/Views/RoutingRuleDetailsWindow.xaml:13
+  status: identified
+- id: INV-WPF-019
+  name: DNSSettingWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/DNSSettingWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 1000
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/DNSSettingWindow.xaml:2
+  - v2rayN/v2rayN/Views/DNSSettingWindow.xaml:13
+  status: identified
+- id: INV-WPF-020
+  name: FullConfigTemplateWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/FullConfigTemplateWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 1000
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/FullConfigTemplateWindow.xaml:2
+  - v2rayN/v2rayN/Views/FullConfigTemplateWindow.xaml:13
+  status: identified
+- id: INV-WPF-021
+  name: GlobalHotkeySettingWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/GlobalHotkeySettingWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 700
+    height: 500
+  evidence:
+  - v2rayN/v2rayN/Views/GlobalHotkeySettingWindow.xaml:2
+  - v2rayN/v2rayN/Views/GlobalHotkeySettingWindow.xaml:13
+  status: identified
+- id: INV-WPF-022
+  name: SubSettingWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/SubSettingWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 1000
+    height: 700
+  evidence:
+  - v2rayN/v2rayN/Views/SubSettingWindow.xaml:2
+  - v2rayN/v2rayN/Views/SubSettingWindow.xaml:13
+  status: identified
+- id: INV-WPF-023
+  name: SubEditWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/SubEditWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 700
+    height: 650
+  evidence:
+  - v2rayN/v2rayN/Views/SubEditWindow.xaml:2
+  - v2rayN/v2rayN/Views/SubEditWindow.xaml:13
+  status: identified
+- id: INV-WPF-024
+  name: ProfilesSelectWindow
+  kind: window
+  platform: windows-wpf
+  file: v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml
+  is_dialog: true
+  default_size:
+    width: 800
+    height: 450
+  evidence:
+  - v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml:2
+  - v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml:14
+  status: identified
+- id: INV-AVA-001
+  name: App
+  kind: application
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/App.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/App.axaml:1
+  - v2rayN/v2rayN.Desktop/App.axaml:35
+  status: identified
+- id: INV-AVA-002
+  name: GlobalResources
+  kind: resourcedictionary
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Assets/GlobalResources.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/Assets/GlobalResources.axaml:1
+  status: identified
+- id: INV-AVA-003
+  name: GlobalStyles
+  kind: styles
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Assets/GlobalStyles.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/Assets/GlobalStyles.axaml:1
+  status: identified
+- id: INV-AVA-004
+  name: MainWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/MainWindow.axaml
+  is_dialog: false
+  title: v2rayN
+  default_size:
+    width: 1200
+    height: 800
+  min_size:
+    width: 600
+    height: null
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:12
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:14
+  status: identified
+- id: INV-AVA-005
+  name: ProfilesView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:102
+  status: identified
+- id: INV-AVA-006
+  name: StatusBarView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml:13
+  status: identified
+- id: INV-AVA-007
+  name: MsgView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/MsgView.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/MsgView.axaml:2
+  status: identified
+- id: INV-AVA-008
+  name: ThemeSettingView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/ThemeSettingView.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/ThemeSettingView.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/ThemeSettingView.axaml:22
+  status: identified
+- id: INV-AVA-009
+  name: ClashProxiesView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml:20
+  status: identified
+- id: INV-AVA-010
+  name: ClashConnectionsView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/ClashConnectionsView.axaml
+  is_dialog: false
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/ClashConnectionsView.axaml:2
+  status: identified
+- id: INV-AVA-011
+  name: BackupAndRestoreView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/BackupAndRestoreView.axaml
+  is_dialog: true
+  notes: DialogHost.Show(_backupAndRestoreView)
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/BackupAndRestoreView.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:287
+  status: identified
+- id: INV-AVA-012
+  name: CheckUpdateView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml
+  is_dialog: true
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:278
+  status: identified
+- id: INV-AVA-013
+  name: QrcodeView
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/QrcodeView.axaml
+  is_dialog: true
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/QrcodeView.axaml:2
+  status: identified
+- id: INV-AVA-014
+  name: JsonEditor
+  kind: usercontrol_view
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/JsonEditor.axaml
+  is_dialog: false
+  notes: 仅 Avalonia 存在；基于 AvaloniaEdit TextEditor，被 AddServerWindow 嵌套
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/JsonEditor.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/JsonEditor.axaml:11
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml:927
+  status: identified
+- id: INV-AVA-015
+  name: SudoPasswordInputView
+  kind: usercontrol_view
+  platforms:
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml
+  is_dialog: true
+  notes: Linux sudo 密码输入，仅 Avalonia；资源键 TbSettingsLinuxSudoPassword
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:46
+  status: identified
+- id: INV-AVA-016
+  name: MessageBoxDialog
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml
+  is_dialog: true
+  default_size:
+    width: 420
+    height: null
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:8
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:15
+  status: identified
+- id: INV-AVA-017
+  name: AddServerWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml:13
+  status: identified
+- id: INV-AVA-018
+  name: AddServer2Window
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/AddServer2Window.axaml
+  is_dialog: true
+  default_size:
+    width: 700
+    height: 500
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/AddServer2Window.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/AddServer2Window.axaml:12
+  status: identified
+- id: INV-AVA-019
+  name: AddGroupServerWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/AddGroupServerWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 700
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/AddGroupServerWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/AddGroupServerWindow.axaml:12
+  status: identified
+- id: INV-AVA-020
+  name: OptionSettingWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 1000
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:12
+  status: identified
+- id: INV-AVA-021
+  name: RoutingSettingWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/RoutingSettingWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/RoutingSettingWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/RoutingSettingWindow.axaml:12
+  status: identified
+- id: INV-AVA-022
+  name: RoutingRuleSettingWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/RoutingRuleSettingWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleSettingWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleSettingWindow.axaml:12
+  status: identified
+- id: INV-AVA-023
+  name: RoutingRuleDetailsWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/RoutingRuleDetailsWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleDetailsWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleDetailsWindow.axaml:12
+  status: identified
+- id: INV-AVA-024
+  name: DNSSettingWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/DNSSettingWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/DNSSettingWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/DNSSettingWindow.axaml:12
+  status: identified
+- id: INV-AVA-025
+  name: FullConfigTemplateWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/FullConfigTemplateWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/FullConfigTemplateWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/FullConfigTemplateWindow.axaml:12
+  status: identified
+- id: INV-AVA-026
+  name: GlobalHotkeySettingWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/GlobalHotkeySettingWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 700
+    height: 500
+  notes: 菜单项 BlIsWindows 可见性；HotkeyManager 仅 Windows 初始化
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/GlobalHotkeySettingWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:73
+  - v2rayN/v2rayN.Desktop/Manager/HotkeyManager.cs:32
+  status: identified
+- id: INV-AVA-027
+  name: SubSettingWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/SubSettingWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 900
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/SubSettingWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/SubSettingWindow.axaml:12
+  status: identified
+- id: INV-AVA-028
+  name: SubEditWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/SubEditWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 700
+    height: 600
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/SubEditWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/SubEditWindow.axaml:12
+  status: identified
+- id: INV-AVA-029
+  name: ProfilesSelectWindow
+  kind: window
+  platforms:
+  - windows-avalonia
+  - macos-avalonia
+  - linux-avalonia
+  file: v2rayN/v2rayN.Desktop/Views/ProfilesSelectWindow.axaml
+  is_dialog: true
+  default_size:
+    width: 800
+    height: 450
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/ProfilesSelectWindow.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/ProfilesSelectWindow.axaml:12
+  status: identified
+items:
+- id: LAY-MAIN-004
+  name: 主窗口-顶部菜单/工具栏
+  window: MainWindow
+  platform: windows-wpf
+  platforms:
+  - windows
+  - macos
+  - linux
+  layout_mode: shared
+  structure: WPF ToolBarTray>ToolBar>Menu(ToolbarMenu)x6 + PopupBox(pbTheme) + btnNewUpdate；DockPanel.Dock=Top。Avalonia 为 DockPanel>Menu（无 ToolBarTray）+ conTheme（DockPanel.Dock=Right）+ btnNewUpdate。
+  anchors:
+  - 'WPF: ToolBarTray:41'
+  - menuServers:49
+  - menuSubscription:140
+  - menuSetting:175
+  - menuHelp:246
+  - menuReload:265
+  - menuPromotion:282
+  - menuClose:299
+  - pbTheme:319
+  - btnNewUpdate:323
+  - 'Avalonia: Menu:25'
+  - conTheme:24
+  - menuClose->menuExit:103
+  persistence_keys: []
+  platform_differences:
+    avalonia_menu_item_visibility:
+      menuGlobalHotkeySetting: '{Binding BlIsWindows}'
+      menuRebootAsAdmin: '{Binding BlIsWindows}'
+      menuSettingsSetUWP: '{Binding BlIsWindows}'
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/MainWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:41
+  - v2rayN/v2rayN/Views/MainWindow.xaml:49
+  - v2rayN/v2rayN/Views/MainWindow.xaml:299
+  - v2rayN/v2rayN/Views/MainWindow.xaml:319
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:23
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:25
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:73
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:78
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:82
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:103
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:101
+  unresolved: []
+  status: identified
+  implementation_location: null
+  notes: 审计 FND-003：menuPromotion 在 Avalonia 亦存在（MainWindow.axaml:101），原 unresolved 关闭。
+- id: LAY-MAIN-005
+  name: 主题快速入口控件
+  window: MainWindow
+  platform: windows-wpf
+  layout_mode: shared
+  structure: WPF pbTheme（PopupBox, HorizontalAlignment=Right, StaysOpen=True）承载 ThemeSettingView；Avalonia conTheme（ContentControl, DockPanel.Dock=Right）承载 ThemeSettingView。
+  anchors:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:314
+  - v2rayN/v2rayN/Views/MainWindow.xaml:319
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:33
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:24
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:33
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/MainWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:314
+  - v2rayN/v2rayN/Views/MainWindow.xaml:319
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:24
+  status: identified
+  implementation_location: null
+- id: LAY-MAIN-006
+  name: 主窗口-底部状态栏宿主
+  window: MainWindow
+  platform: windows-wpf
+  layout_mode: shared
+  structure: WPF ContentControl contentStatusBarView（DockPanel.Dock=Bottom）经 ViewHost.Show 绑定 StatusBarViewModel；Avalonia 直接绑定 Content。
+  anchors:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:331
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:89
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:114
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:81
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/MainWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:331
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:114
+  status: identified
+  implementation_location: null
+- id: LAY-MAIN-007
+  name: 主窗口-布局恢复与持久化
+  window: MainWindow
+  platform: windows-wpf
+  layout_mode: shared
+  structure: RestoreUI 在 Loaded/UpdateLayout 后按 orientation 设置 gridMain 列或 gridMain1 行的 Star 值；StorageUI 在 AppExit 与关闭时保存窗口尺寸与两个分栏尺寸。MainGirdHeight1/2 分别对应第一/第二面板（星值）。
+  anchors:
+  - RestoreUI:328-343
+  - StorageUI:345-357
+  - UpdateLayout:359-429
+  - SaveMainGirdHeight:2989
+  - MainGirdHeight1/2 语义
+  splitter:
+    horizontal: MainGirdHeight1->gridMain.ColumnDefinitions[0]; MainGirdHeight2->gridMain.ColumnDefinitions[2]
+    vertical: MainGirdHeight1->gridMain1.RowDefinitions[0]; MainGirdHeight2->gridMain1.RowDefinitions[2]
+  persistence_keys:
+  - UIItem.MainGirdHeight1
+  - UIItem.MainGirdHeight2
+  - UIItem.MainGirdOrientation
+  - UIItem.WindowSizeItem
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:328
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:330
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:334
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:339
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:347
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:351
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:355
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:359
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2989
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2993
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2994
+  status: identified
+  implementation_location: null
+- id: LAY-PROFILES-001
+  name: 节点视图-容器与工具栏
+  window: ProfilesView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: DockPanel：顶部 WrapPanel（分组 ListBox lstGroup + 编辑/新增按钮 + 过滤框 txtServerFilter + 自适应列宽 + 快速测试按钮），下方 DataGrid lstProfiles。Avalonia 分组用 PureCardRadioGroupListBox；按钮用 PathIcon 图标。
+  anchors:
+  - WPF WrapPanel:24
+  - lstGroup:25
+  - btnEditSub:40
+  - btnAddSub:49
+  - txtServerFilter:60
+  - btnAutofitColumnWidth:70
+  - lstProfiles:100
+  - Avalonia WrapPanel:22
+  - lstGroup:23
+  - lstProfiles:102
+  table_virtualization: WPF EnableRowVirtualization=True; Avalonia 未显式声明（DataGrid 默认）
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:24
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:25
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:60
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:100
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:108
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:22
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:102
+  status: identified
+  implementation_location: null
+- id: LAY-PROFILES-002
+  name: 节点表-列定义与默认顺序
+  window: ProfilesView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: WPF 列（ExName/默认宽）：ConfigType 80, Remarks 150, Address 120, Port 60, Network 100, StreamSecurity 100, SubRemarks 100, DelayVal 100, SpeedVal 100, TodayUp 100, IpInfo 100, TodayDown 100, TotalUp 100, TotalDown 100。Avalonia 列使用 Tag：ConfigType 80, Remarks(模板,无显式宽), Address 120, Port 60, Network 100, StreamSecurity 100, SubRemarks 100, DelayVal(模板), SpeedVal 100, IpInfo(模板,SelectableTextBlock), TodayUp 100, TodayDown 100, TotalUp 100, TotalDown 100。
+  anchors:
+  - WPF DataGrid.Columns:281-374
+  - Avalonia DataGrid.Columns:209-318
+  - WPF RowHeaderWidth=40
+  - WPF MyDGTextColumn.ExName
+  - Avalonia Tag
+  columns:
+  - ConfigType
+  - Remarks
+  - Address
+  - Port
+  - Network
+  - StreamSecurity
+  - SubRemarks
+  - DelayVal
+  - SpeedVal
+  - TodayUp
+  - IpInfo
+  - TodayDown
+  - TotalUp
+  - TotalDown
+  table_virtualization: WPF EnableRowVirtualization=True (ProfilesView.xaml:108)
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:281
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:287
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:330
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:342
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:349
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:356
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:362
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:368
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:209
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:284
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:298
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:303
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:308
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:313
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml.cs:367
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml.cs:371
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml.cs:428
+  unresolved: []
+  status: identified
+  implementation_location: null
+  notes: 审计 FND-003：Avalonia 列恢复由 ProfilesView.axaml.cs RestoreUI(:367)/MainColumnItem(:371)/StorageUI(:428) 驱动，原 unresolved 关闭。
+- id: LAY-PROFILES-003
+  name: 节点表-列状态持久化
+  window: ProfilesView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: RestoreUI 读 UiItem.MainColumnItem（按 Index 排序），按 Name==ExName 恢复 Width/DisplayIndex，Width<0 隐藏；to* 列受 GuiItem.EnableStatistics；IpInfo 列受 SpeedTestItem.IPAPIUrl 与 UiItem.HideColumnIpInfo。StorageUI 写回 Name/Width(-1=隐藏)/Index。
+  persistence_keys:
+  - UIItem.MainColumnItem
+  - GuiItem.EnableStatistics
+  - SpeedTestItem.IPAPIUrl
+  - UiItem.HideColumnIpInfo
+  runtime_symbols:
+  - ProfilesView.RestoreUI
+  - ProfilesView.StorageUI
+  - ColumnItem
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs
+  - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
+  evidence:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:328
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:332
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:343
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:347
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:349
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:353
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:355
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:367
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:381
+  - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:178
+  status: identified
+  implementation_location: null
+- id: LAY-PROFILES-004
+  name: 节点表-右键菜单
+  window: ProfilesView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: DataGrid.ContextMenu：设置默认/编辑/复制/删除/去重/移除无效/延迟测试组/移动组/移动方位/全选/分享/导出/生成分组。WPF 与 Avalonia 项基本一致；Avalonia 的 MoveToGroup 用 ItemsSource+Command 绑定，WPF 用 ComboBox cmbMoveToGroup。
+  anchors:
+  - WPF ContextMenu:121-262
+  - Avalonia ContextMenu:117-207
+  - WPF cmbMoveToGroup:182
+  - Avalonia MoveToGroup DataTemplate:154
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:121
+  - v2rayN/v2rayN/Views/ProfilesView.xaml:182
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:117
+  - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml:154
+  status: identified
+  implementation_location: null
+- id: LAY-CLASHPROXY-001
+  name: 代理视图-分组与明细
+  window: ClashProxiesView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: DockPanel：顶部 WrapPanel（规则模式 cmbRulemode + 排序 cmbSorting + 重载/延迟测试 + 自动刷新 togAutoRefresh）；下方左右两个 ListView（分组 lstProxyGroups, 明细 lstProxyDetails, 卡片 160 宽）。
+  anchors:
+  - WPF WrapPanel:24
+  - cmbRulemode:36
+  - cmbSorting:53
+  - lstProxyGroups:94
+  - lstProxyDetails:138
+  - Avalonia WrapPanel:21
+  - lstProxyGroups:86
+  - lstProxyDetails:113
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ClashProxiesView.xaml
+  - v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/ClashProxiesView.xaml:24
+  - v2rayN/v2rayN/Views/ClashProxiesView.xaml:98
+  - v2rayN/v2rayN/Views/ClashProxiesView.xaml:138
+  - v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml:21
+  - v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml:113
+  status: identified
+  implementation_location: null
+- id: LAY-CLASHCN-001
+  name: 连接表-列定义
+  window: ClashConnectionsView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: DataGrid lstConnections 列 ExName/默认宽：Host 300, Chain 500, Network 80, Type 160, ProcessPath 100, Elapsed 100。顶部过滤 txtHostFilter、关闭全部、自适应列宽、自动刷新。
+  columns:
+  - Host
+  - Chain
+  - Network
+  - Type
+  - ProcessPath
+  - Elapsed
+  anchors:
+  - WPF Columns:81-112
+  - Avalonia Columns:82-111
+  table_virtualization: WPF EnableRowVirtualization=True (ClashConnectionsView.xaml:70)
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml
+  - v2rayN/v2rayN.Desktop/Views/ClashConnectionsView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml:81
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml:88
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml:93
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml:103
+  - v2rayN/v2rayN.Desktop/Views/ClashConnectionsView.axaml:82
+  status: identified
+  implementation_location: null
+- id: LAY-CLASHCN-002
+  name: 连接表-列状态持久化
+  window: ClashConnectionsView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: RestoreUI 读 ClashUIItem.ConnectionsColumnItem（按 Index 排序）恢复 Width/DisplayIndex；StorageUI 回写 Name/Width/Index。
+  persistence_keys:
+  - ClashUIItem.ConnectionsColumnItem
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs
+  - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
+  evidence:
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs:74
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs:89
+  - v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs:125
+  - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:219
+  status: identified
+  implementation_location: null
+- id: LAY-MSG-001
+  name: 消息视图
+  window: MsgView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: DockPanel：顶部过滤 ComboBox cmbMsgFilter + 复制/清空 + 自动刷新/滚动到底 ToggleButton；主体只读 TextBox txtMsg（Wrap）。
+  anchors:
+  - WPF WrapPanel:17
+  - cmbMsgFilter:23
+  - txtMsg:75
+  - Avalonia
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/MsgView.xaml
+  - v2rayN/v2rayN.Desktop/Views/MsgView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/MsgView.xaml:16
+  - v2rayN/v2rayN/Views/MsgView.xaml:75
+  - v2rayN/v2rayN.Desktop/Views/MsgView.axaml:2
+  status: identified
+  implementation_location: null
+- id: LAY-STATUSBAR-001
+  name: 状态栏视图
+  window: StatusBarView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: WPF Grid>ColorZone>DockPanel：右侧上下行/直连速度，左侧入站/入站LAN、TUN 开关 spEnableTun、系统代理 cmbSystemProxy(4项)、路由 cmbRoutings2、运行服务器信息；另含 H.NotifyIcon 托盘 TaskbarIcon tbNotify 及其右键菜单。Avalonia 无 ColorZone，ProfileIcon/托盘菜单移入 App.axaml NativeMenu。
+  anchors:
+  - WPF ColorZone:18
+  - togEnableTun:60
+  - cmbSystemProxy:73
+  - cmbRoutings2:87
+  - tbNotify:106
+  - Avalonia DockPanel:14
+  - togEnableTun ToggleSwitch:43
+  platform_differences:
+    wpf_tray: StatusBarView.xaml 内 TaskbarIcon + ContextMenu
+    avalonia_tray: App.axaml TrayIcon + NativeMenu；Pac 项 IsVisible=BlSystemProxyPacVisible
+    avalonia_tray_nonwindows_items:
+    - '{Binding BlIsNonWindows} 显示 GUI / 显示或隐藏主窗口'
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/StatusBarView.xaml
+  - v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml
+  - v2rayN/v2rayN.Desktop/App.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/StatusBarView.xaml:18
+  - v2rayN/v2rayN/Views/StatusBarView.xaml:60
+  - v2rayN/v2rayN/Views/StatusBarView.xaml:73
+  - v2rayN/v2rayN/Views/StatusBarView.xaml:106
+  - v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml:14
+  - v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml:43
+  - v2rayN/v2rayN.Desktop/App.axaml:35
+  - v2rayN/v2rayN.Desktop/App.axaml:46
+  - v2rayN/v2rayN.Desktop/App.axaml:72
+  status: identified
+  implementation_location: null
+- id: LAY-THEME-001
+  name: 主题设置控件
+  window: ThemeSettingView
+  platform: windows-wpf
+  layout_mode: embedded
+  structure: WPF 5行2列 Grid：主题 cmbCurrentTheme、配色 cmbSwatches、字号 cmbCurrentFontSize、语言 cmbCurrentLanguage（均 120 宽 ComboBox）。Avalonia 为 IconButton+Flyout：主题/字号/语言三个 ComboBox（宽 130），无独立配色项。
+  anchors:
+  - WPF cmbCurrentTheme:35
+  - cmbSwatches:49
+  - cmbCurrentFontSize:64
+  - cmbCurrentLanguage:78
+  - Avalonia Flyout:30
+  - cmbCurrentTheme:38
+  - cmbCurrentFontSize:48
+  - cmbCurrentLanguage:58
+  platform_differences:
+    avalonia_missing: cmbSwatches（配色）在 Avalonia 版本中未出现
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml
+  - v2rayN/v2rayN.Desktop/Views/ThemeSettingView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml:35
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml:49
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml:64
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml:78
+  - v2rayN/v2rayN.Desktop/Views/ThemeSettingView.axaml:30
+  - v2rayN/v2rayN.Desktop/Views/ThemeSettingView.axaml:38
+  status: identified
+  implementation_location: null
+- id: LAY-OPTSET-001
+  name: 参数设置窗口-Tab 结构与平台可见性
+  window: OptionSettingWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: WPF TabItem：核心/显示(TbSettingsN)/系统代理/ Tun 模式/内核类型。Avalonia 同结构。平台条件可见项见 platform_differences。
+  anchors:
+  - WPF TabItem Core:49
+  - N:739
+  - Systemproxy:1193
+  - TunMode:1264
+  - CoreType:1464
+  - Avalonia Core:38
+  - N:547
+  - Systemproxy:934
+  - TunMode:1027
+  - CoreType:1191
+  platform_differences:
+    wpf_only:
+    - togEnableHWA (OptionSettingWindow.xaml:906) 硬件加速开关
+    - cmbSpeedTestUrl (OptionSettingWindow.xaml:1030)
+    avalonia_only:
+    - tbAutoRun 区域 (OptionSettingWindow.axaml:555) + togAutoRun:562
+    - togHide2TrayWhenClose:649 (IsVisible BlIsLinux:646/654/660)
+    - togMacOSShowInDock:671 (IsVisible BlIsIsMacOS:668/676)
+    - txtCustomSystemProxyScriptPath:946 + btnBrowse:954 (IsVisible BlIsNonWindows:938)
+    windows_only:
+    - togAutoRun 相关 IsVisible=BlIsWindows (OptionSettingWindow.axaml:572)
+    - 系统代理 Pac 路径 IsVisible=BlIsWindows (OptionSettingWindow.axaml:1009)
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:49
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:739
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:906
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:1111
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:1193
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:1264
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:547
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:572
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:646
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:668
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:938
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:934
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:1191
+  status: identified
+  implementation_location: null
+- id: LAY-OPTSET-002
+  name: 参数设置-字体/主题/DPI/主布局方向入口
+  window: OptionSettingWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 显示页内：cmbcurrentFontFamily（字体族）、cmbMainGirdOrientation（主界面布局 Horizontal/Vertical/Tab）、cmbEnableHWA(WPF)、AutoRun、单实例等。CurrentFontSize/CurrentTheme/ColorPrimaryName 由 ThemeSettingView 与 App.xaml 资源驱动；EnableHWA 在 MainWindow 构造中读取。
+  anchors:
+  - WPF cmbcurrentFontFamily:976
+  - cmbMainGirdOrientation:1111
+  - togEnableHWA:906
+  - Avalonia cmbcurrentFontFamily:745
+  - cmbMainGirdOrientation:862
+  - App.xaml WindowGlobal:206
+  persistence_keys:
+  - UIItem.CurrentFontFamily
+  - UIItem.CurrentFontSize
+  - UIItem.CurrentTheme
+  - UIItem.ColorPrimaryName
+  - UIItem.MainGirdOrientation
+  - GuiItem.EnableHWA
+  platform_differences:
+    dpi: WPF 通过 App.xaml WindowGlobal TextOptions(Display/ClearType/Fixed) 设置渲染；Avalonia 无此机制，DPI 由 Avalonia 渲染栈处理。
+    hwa: WPF MainWindow 构造 RenderOptions.ProcessRenderMode=SoftwareOnly 当 !EnableHWA (MainWindow.xaml.cs:151-154)；Avalonia 无对应。
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml
+  - v2rayN/v2rayN/App.xaml
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:976
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:1111
+  - v2rayN/v2rayN/Views/OptionSettingWindow.xaml:906
+  - v2rayN/v2rayN/App.xaml:206
+  - v2rayN/v2rayN/App.xaml:210
+  - v2rayN/v2rayN/App.xaml:217
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:151
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:153
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:745
+  - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:862
+  status: identified
+  implementation_location: null
+- id: LAY-DNSSET-001
+  name: DNS 设置窗口
+  window: DNSSettingWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: TabControl 4 页：基础 DNS(ThBasicDNSSettings)/高级 DNS(ThAdvancedDNSSettings)/自定义 DNS v2ray(TbCustomDnsRay)/自定义 DNS sing-box(TbCustomDnsSingbox)。基本 DNS 字段一致，Avalonia 同样 4 页。
+  anchors:
+  - WPF TabItem Basic:42
+  - Advanced:270
+  - CustomRay:456
+  - CustomSingbox:569
+  - Avalonia Basic:39
+  - Advanced:239
+  - CustomRay:402
+  - CustomSingbox:493
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/DNSSettingWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/DNSSettingWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/DNSSettingWindow.xaml:42
+  - v2rayN/v2rayN/Views/DNSSettingWindow.xaml:270
+  - v2rayN/v2rayN/Views/DNSSettingWindow.xaml:456
+  - v2rayN/v2rayN/Views/DNSSettingWindow.xaml:569
+  - v2rayN/v2rayN.Desktop/Views/DNSSettingWindow.axaml:39
+  - v2rayN/v2rayN.Desktop/Views/DNSSettingWindow.axaml:493
+  status: identified
+  implementation_location: null
+- id: LAY-ROUTINGSET-001
+  name: 路由设置窗口
+  window: RoutingSettingWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 顶部 ToolBarTray（添加/导入规则）+ domainStrategy / domainStrategy4Singbox 两个 300 宽 ComboBox 与文档超链；TabControl tabAdvanced 规则列表 DataGrid（Remarks * / RuleNum 60 / Sort 60 / Url * / CustomIcon 300）。Avalonia 用 Menu 代替 ToolBarTray，无 CustomIcon 列。
+  anchors:
+  - WPF ToolBarTray:27
+  - cmbdomainStrategy:76
+  - cmbdomainStrategy4Singbox:95
+  - tabAdvanced:104
+  - Columns:157-177
+  - Avalonia Menu:20
+  - tabAdvanced:68
+  platform_differences:
+    avalonia_columns: Avalonia 规则列表仅 Remarks/Count/Sort/Url 4 列（RoutingSettingWindow.axaml:108-120），缺 CustomIcon 列
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/RoutingSettingWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/RoutingSettingWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/RoutingSettingWindow.xaml:27
+  - v2rayN/v2rayN/Views/RoutingSettingWindow.xaml:104
+  - v2rayN/v2rayN/Views/RoutingSettingWindow.xaml:174
+  - v2rayN/v2rayN.Desktop/Views/RoutingSettingWindow.axaml:20
+  - v2rayN/v2rayN.Desktop/Views/RoutingSettingWindow.axaml:68
+  - v2rayN/v2rayN.Desktop/Views/RoutingSettingWindow.axaml:120
+  status: identified
+  implementation_location: null
+- id: LAY-ROUTINGRULESET-001
+  name: 路由规则集窗口
+  window: RoutingRuleSettingWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 顶部备注/排序/domainStrategy/Url/CustomIcon/RulesetPath；TabControl tabAdvanced 列表列：Remarks * / RuleType 60 / Sort 100 / ... WPF 有 menuRuleAdd 等在 ToolBar；Avalonia 用菜单。列表上下文菜单新增/删除/全选/导出选中/移动。
+  anchors:
+  - WPF tab:244
+  - rules grid:302-334
+  - Avalonia tab:172
+  - menuRuleAdd:20
+  - lstRules:174
+  - columns:219-251
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleSettingWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml:244
+  - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml:302
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleSettingWindow.axaml:20
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleSettingWindow.axaml:172
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleSettingWindow.axaml:219
+  status: identified
+  implementation_location: null
+- id: LAY-ROUTINGRULEDETAIL-001
+  name: 路由规则详情窗口
+  window: RoutingRuleDetailsWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 7行表单（Remarks/Enabled/RuleType/outboundTag/port/protocol/inboundTag/network）+ 底部自动排序与保存/取消 + 三栏 GroupBox（Domain/IP/Process，带两个 GridSplitter）。Avalonia 同结构。
+  anchors:
+  - WPF txtRemarks:44
+  - togEnabled:59
+  - cmbRuleType:73
+  - clbProtocol:156
+  - clbInboundTag:183
+  - chkAutoSort:234
+  - GroupBox Domain:261
+  - Avalonia txtRemarks:31
+  - GroupBox:227
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/RoutingRuleDetailsWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleDetailsWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/RoutingRuleDetailsWindow.xaml:44
+  - v2rayN/v2rayN/Views/RoutingRuleDetailsWindow.xaml:234
+  - v2rayN/v2rayN/Views/RoutingRuleDetailsWindow.xaml:261
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleDetailsWindow.axaml:31
+  - v2rayN/v2rayN.Desktop/Views/RoutingRuleDetailsWindow.axaml:227
+  status: identified
+  implementation_location: null
+- id: LAY-SUBSET-001
+  name: 订阅设置窗口
+  window: SubSettingWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: DialogHost(SubDialog)>DockPanel：顶部 ToolBarTray（新增/删除/编辑/分享/关闭）；订阅表 lstSubscription 列 Remarks * / Url * / Enabled 100 / AutoUpdateInterval 150 / UserAgent 150 / Sort 80；右键菜单同上。
+  anchors:
+  - WPF DialogHost:21
+  - ToolBarTray:27
+  - lstSubscription:84
+  - Columns:116-141
+  - Avalonia lstSubscription:33
+  columns:
+  - Remarks
+  - Url
+  - Enabled
+  - AutoUpdateInterval
+  - UserAgent
+  - Sort
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/SubSettingWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/SubSettingWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/SubSettingWindow.xaml:21
+  - v2rayN/v2rayN/Views/SubSettingWindow.xaml:27
+  - v2rayN/v2rayN/Views/SubSettingWindow.xaml:84
+  - v2rayN/v2rayN/Views/SubSettingWindow.xaml:116
+  - v2rayN/v2rayN/Views/SubSettingWindow.xaml:137
+  - v2rayN/v2rayN.Desktop/Views/SubSettingWindow.axaml:33
+  status: identified
+  implementation_location: null
+- id: LAY-SUBEDIT-001
+  name: 订阅编辑窗口
+  window: SubEditWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 表单：备注/URL/多个URL/启用/自动更新间隔/过滤/转换目标/UA/请求头/排序/前置节点/后置节点/自定义内核/前置Socks端口/备注。Avalonia 字段更全（含 RequestHeaders 等）。
+  anchors:
+  - WPF ModuleTitle:80
+  - Avalonia txtRemarks:53
+  - txtMoreUrl:95
+  - txtRequestHeaders:193
+  - txtPrevProfile:228
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/SubEditWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/SubEditWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/SubEditWindow.xaml:2
+  - v2rayN/v2rayN.Desktop/Views/SubEditWindow.axaml:53
+  - v2rayN/v2rayN.Desktop/Views/SubEditWindow.axaml:193
+  status: identified
+  implementation_location: null
+- id: LAY-ADDSERVER-001
+  name: 添加/编辑节点窗口-主体
+  window: AddServerWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 顶部 cmbCoreType + 备注/地址/端口；中部按协议切换的 GroupBox/Grid（gridVMess/gridSs/gridSocks/gridVLESS/gridTrojan/gridHysteria2/gridTuic/gridWireguard/gridAnytls/gridNaive）；下部传输 gridTransport（raw/xhttp/kcp/grpc/ws/httpupgrade）与 TLS/Reality。Avalonia 结构对应（txtExtraXhttp 使用 JsonEditor）。
+  anchors:
+  - WPF ModuleTitle:84
+  - Avalonia cmbCoreType:55
+  - gridVMess:105
+  - gridTransport:792
+  - gridTls:1127
+  - txtExtraXhttp(JsonEditor):927
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/AddServerWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/AddServerWindow.xaml:84
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml:55
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml:105
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml:792
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml:1127
+  - v2rayN/v2rayN.Desktop/Views/AddServerWindow.axaml:927
+  - v2rayN/v2rayN/Views/AddServerWindow.xaml:151
+  - v2rayN/v2rayN/Views/AddServerWindow.xaml:1009
+  unresolved: []
+  status: identified
+  implementation_location: null
+  notes: 审计 FND-003：WPF AddServerWindow.xaml 同名 gridVMess(:151)…gridTransport(:1009)，两套分区命名一致，原 unresolved 关闭。
+- id: LAY-ADDSERVER2-001
+  name: 添加自定义节点窗口
+  window: AddServer2Window
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 备注/地址/浏览/编辑/内核类型；自定义服务 gridCustomServer 与自定义出站 gridCustomOutbound；Avalonia 有 togDisplayLog/togSingBoxEndpoint/txtPreSocksPort。
+  anchors:
+  - WPF ModuleTitle:66
+  - Avalonia gridCustomServer:113
+  - gridCustomOutbound:174
+  - togDisplayLog:132
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/AddServer2Window.xaml
+  - v2rayN/v2rayN.Desktop/Views/AddServer2Window.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/AddServer2Window.xaml:2
+  - v2rayN/v2rayN.Desktop/Views/AddServer2Window.axaml:113
+  - v2rayN/v2rayN.Desktop/Views/AddServer2Window.axaml:174
+  status: identified
+  implementation_location: null
+- id: LAY-ADDGROUP-001
+  name: 添加分组节点窗口
+  window: AddGroupServerWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 备注/内核类型/策略组类型；TabControl：服务器列表/列表2(子节点表 lstChild)/预出站列表(lstPreviewChild)；表列 ServiceType/Remarks/Address/Port/TransportProtocol/TLS；右键新增/删除子节点/全选/移动。
+  anchors:
+  - WPF tab:142
+  - List2:198
+  - Preview:277
+  - Avalonia tabControl:94
+  - List:97
+  - List2:142
+  - Preview:214
+  columns:
+  - ConfigType
+  - Remarks
+  - Address
+  - Port
+  - Network
+  - StreamSecurity
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/AddGroupServerWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/AddGroupServerWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/AddGroupServerWindow.xaml:142
+  - v2rayN/v2rayN/Views/AddGroupServerWindow.xaml:198
+  - v2rayN/v2rayN/Views/AddGroupServerWindow.xaml:277
+  - v2rayN/v2rayN.Desktop/Views/AddGroupServerWindow.axaml:94
+  - v2rayN/v2rayN.Desktop/Views/AddGroupServerWindow.axaml:97
+  status: identified
+  implementation_location: null
+- id: LAY-PROFILESELECT-001
+  name: 选择节点窗口
+  window: ProfilesSelectWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 底部保存/取消；顶部 lstGroup + 自适应列宽 btnAutofitColumnWidth + 过滤 txtServerFilter；DataGrid lstProfiles（单选中）列 ConfigType 80/Remarks 200/Address 200/Port 100/Network 100/StreamSecurity 100/SubRemarks 100/Delay 100/Speed 100。
+  anchors:
+  - WPF btnSave:31
+  - lstGroup:48
+  - lstProfiles:82
+  - Columns:119-178
+  - Avalonia lstProfiles:82
+  columns:
+  - ConfigType
+  - Remarks
+  - Address
+  - Port
+  - Network
+  - StreamSecurity
+  - SubRemarks
+  - Delay
+  - Speed
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/ProfilesSelectWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml:82
+  - v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml:119
+  - v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml:168
+  - v2rayN/v2rayN.Desktop/Views/ProfilesSelectWindow.axaml:82
+  status: identified
+  implementation_location: null
+- id: LAY-FULLCONFIG-001
+  name: 完整配置模板窗口
+  window: FullConfigTemplateWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 底部保存/取消；TabControl：v2ray 模板(TbRayFullConfigTemplate) 与 sing-box 模板(TbSBFullConfigTemplate)；每页两个并排 TextBox（配置/ TUN 配置）+ 两侧开关与 detour。
+  anchors:
+  - WPF btnSave:26
+  - Tab Ray:42
+  - rayFullConfigTemplate:117
+  - Tab SB:143
+  - Avalonia rayFullConfigTemplate:102 / sbFullConfigTemplate:180
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/FullConfigTemplateWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/FullConfigTemplateWindow.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/FullConfigTemplateWindow.xaml:26
+  - v2rayN/v2rayN/Views/FullConfigTemplateWindow.xaml:42
+  - v2rayN/v2rayN/Views/FullConfigTemplateWindow.xaml:117
+  - v2rayN/v2rayN/Views/FullConfigTemplateWindow.xaml:143
+  - v2rayN/v2rayN.Desktop/Views/FullConfigTemplateWindow.axaml:26
+  - v2rayN/v2rayN.Desktop/Views/FullConfigTemplateWindow.axaml:102
+  - v2rayN/v2rayN.Desktop/Views/FullConfigTemplateWindow.axaml:180
+  status: identified
+  implementation_location: null
+- id: LAY-HOTKEY-001
+  name: 全局热键设置窗口
+  window: GlobalHotkeySettingWindow
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: 底部重置/保存/取消；gridText 5 个只读热键框：显示GUI/清除系统代理/设置系统代理/不改变/ PAC。仅 Windows 可用（Avalonia 菜单项 IsVisible=BlIsWindows）。
+  anchors:
+  - WPF btnReset:26
+  - txtGlobalHotkey0:85
+  - txtGlobalHotkey4:151
+  - Avalonia MainWindow.axaml:73
+  - HotkeyManager.cs:32
+  platforms:
+  - windows
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/GlobalHotkeySettingWindow.xaml
+  - v2rayN/v2rayN.Desktop/Views/GlobalHotkeySettingWindow.axaml
+  - v2rayN/v2rayN.Desktop/Manager/HotkeyManager.cs
+  evidence:
+  - v2rayN/v2rayN/Views/GlobalHotkeySettingWindow.xaml:26
+  - v2rayN/v2rayN/Views/GlobalHotkeySettingWindow.xaml:85
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:73
+  - v2rayN/v2rayN.Desktop/Manager/HotkeyManager.cs:32
+  status: identified
+  implementation_location: null
+- id: LAY-BACKUP-001
+  name: 备份与恢复视图
+  window: BackupAndRestoreView
+  platform: windows-wpf
+  layout_mode: embedded_dialog
+  structure: 两张卡片：本地备份/恢复（menuLocalBackup/menuLocalRestore）；远程备份/恢复（WebDAV PopupBox 内 URL/用户名/密码/目录/检查 + menuRemoteBackup/menuRemoteRestore）。底部 txtMsg。
+  anchors:
+  - WPF Card1:34
+  - menuLocalBackup:60
+  - PopupBox:112
+  - menuWebDavCheck:194
+  - menuRemoteRestore:234
+  - Avalonia menuWebDavCheck:162
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/BackupAndRestoreView.xaml
+  - v2rayN/v2rayN.Desktop/Views/BackupAndRestoreView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/BackupAndRestoreView.xaml:34
+  - v2rayN/v2rayN/Views/BackupAndRestoreView.xaml:60
+  - v2rayN/v2rayN/Views/BackupAndRestoreView.xaml:194
+  - v2rayN/v2rayN/Views/BackupAndRestoreView.xaml:234
+  - v2rayN/v2rayN.Desktop/Views/BackupAndRestoreView.axaml:162
+  status: identified
+  implementation_location: null
+- id: LAY-CHECKUPDATE-001
+  name: 检查更新视图
+  window: CheckUpdateView
+  platform: windows-wpf
+  layout_mode: embedded_dialog
+  structure: 底部开关（通过代理更新/预发布）+ btnCheckOnly/btnCheckUpdate(IsDefault)；上方内核列表 lstCheckUpdates（选择/名称/说明）。
+  anchors:
+  - WPF togEnableUpdateViaProxy:30
+  - btnCheckUpdate:52
+  - lstCheckUpdates:62
+  - Avalonia togEnableUpdateViaProxy:34 / btnCheckUpdate:55 / lstCheckUpdates:68
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/CheckUpdateView.xaml
+  - v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/CheckUpdateView.xaml:30
+  - v2rayN/v2rayN/Views/CheckUpdateView.xaml:52
+  - v2rayN/v2rayN/Views/CheckUpdateView.xaml:62
+  - v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml:34
+  - v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml:55
+  - v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml:68
+  status: identified
+  implementation_location: null
+- id: LAY-QRCODE-001
+  name: 二维码视图
+  window: QrcodeView
+  platform: windows-wpf
+  layout_mode: embedded_dialog
+  structure: Image imgQrcode(400x400) + 只读 TextBox txtContent（3 行）。Avalonia 同。
+  anchors:
+  - WPF QrcodeWidth:15
+  - imgQrcode:25
+  - txtContent:32
+  - Avalonia QrcodeView.axaml:17
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Views/QrcodeView.xaml
+  - v2rayN/v2rayN.Desktop/Views/QrcodeView.axaml
+  evidence:
+  - v2rayN/v2rayN/Views/QrcodeView.xaml:15
+  - v2rayN/v2rayN/Views/QrcodeView.xaml:25
+  - v2rayN/v2rayN/Views/QrcodeView.xaml:32
+  - v2rayN/v2rayN.Desktop/Views/QrcodeView.axaml:17
+  status: identified
+  implementation_location: null
+- id: LAY-DIALOG-WPF-001
+  name: WPF 确认/错误对话框
+  window: System.Windows.MessageBox
+  platform: windows-wpf
+  layout_mode: dialog
+  structure: WPF 用 UI.ShowYesNo（封装 MessageBox）做删除/退出确认；字符串由 Interaction 传入。位置/按钮关系由系统 MessageBox 决定（未在源码布局中声明）。
+  anchors:
+  - UI.ShowYesNo:14
+  - ProfilesView.xaml.cs:88
+  - MainWindow.xaml.cs（退出由菜单 Close 隐藏，不做确认）
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Common/UI.cs
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs
+  evidence:
+  - v2rayN/v2rayN/Common/UI.cs:14
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:85
+  - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:88
+  unresolved:
+  - WPF 删除确认（ProfilesViewModel.RemoveServerAsync 调用 ShowYesNoInteraction ResUI.RemoveServer）的实际按钮文案/默认按钮/窗口标题由系统 MessageBox 与资源决定，本阶段未逐条读取资源文本。
+  status: identified
+  implementation_location: null
+- id: LAY-MSGBOX-AVA-001
+  name: Avalonia 消息框
+  window: MessageBoxDialog
+  platform: windows-avalonia
+  platforms:
+  - windows
+  - macos
+  - linux
+  layout_mode: dialog
+  structure: 无标题栏按钮：只读文本框 txtMessage（可滚动）+ 右下 btnYes(TbConfirm, IsDefault) / btnNo(TbCancel, IsCancel)；WindowStartupLocation=CenterOwner, CanResize=False, SizeToContent=Height。经 UI.ShowYesNo 弹出。
+  anchors:
+  - txtMessage:27
+  - btnYes:40
+  - btnNo:45
+  - UI.ShowYesNo:11
+  - MainWindow.axaml.cs:294
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml
+  - v2rayN/v2rayN.Desktop/Common/UI.cs
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:2
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:27
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:40
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:45
+  - v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:15
+  - v2rayN/v2rayN.Desktop/Common/UI.cs:11
+  - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:294
+  status: identified
+  implementation_location: null
+- id: LAY-JSONEDITOR-001
+  name: JSON 编辑器（仅 Avalonia）
+  window: JsonEditor
+  platform: windows-avalonia
+  platforms:
+  - windows
+  - macos
+  - linux
+  layout_mode: embedded
+  structure: AvaloniaEdit TextEditor（行号开启，Cascadia Code/Consolas/Monospace 14）；右键格式化/复制/粘贴/全选。被 AddServerWindow 的 XHTTP extra 使用。
+  anchors:
+  - Editor:11
+  - FontFamily:13
+  - ShowLineNumbers:15
+  - ContextMenu:16
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN.Desktop/Views/JsonEditor.axaml
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/JsonEditor.axaml:11
+  - v2rayN/v2rayN.Desktop/Views/JsonEditor.axaml:13
+  - v2rayN/v2rayN.Desktop/Views/JsonEditor.axaml:15
+  status: identified
+  implementation_location: null
+- id: LAY-SUDOPW-001
+  name: Linux sudo 密码输入视图
+  window: SudoPasswordInputView
+  platform: linux-avalonia
+  platforms:
+  - linux
+  layout_mode: dialog
+  structure: 提示 TbSettingsLinuxSudoPassword + 密码 TextBox(400 宽, revealPasswordButton) + 提示 TbSettingsLinuxSudoPasswordTip；底部确认/取消。
+  anchors:
+  - txtPassword:48
+  - btnSave:21
+  - TbSettingsLinuxSudoPassword:46
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml
+  evidence:
+  - v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:46
+  - v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:48
+  - v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:21
+  status: identified
+  implementation_location: null
+- id: LAY-WINSIZE-001
+  name: 窗口尺寸持久化矩阵
+  window: WindowBase
+  platform: windows-wpf
+  layout_mode: shared
+  structure: WPF/Avalonia 的 WindowBase 在 Loaded 时按 GetType().Name 从 UiItem.WindowSizeItem 恢复尺寸并居中，OnClosed 保存；MainWindow 单独在 StorageUI 保存。窗口 TypeName=类名。
+  persistence_keys:
+  - UIItem.WindowSizeItem
+  connections:
+    wpf_windows_using_windowbase:
+    - AddServerWindow
+    - AddServer2Window
+    - AddGroupServerWindow
+    - DNSSettingWindow
+    - FullConfigTemplateWindow
+    - GlobalHotkeySettingWindow
+    - MainWindow
+    - OptionSettingWindow
+    - ProfilesSelectWindow
+    - RoutingRuleDetailsWindow
+    - RoutingRuleSettingWindow
+    - RoutingSettingWindow
+    - SubEditWindow
+    - SubSettingWindow
+    avalonia_windows_using_windowbase:
+    - AddGroupServerWindow
+    - AddServer2Window
+    - AddServerWindow
+    - DNSSettingWindow
+    - FullConfigTemplateWindow
+    - GlobalHotkeySettingWindow
+    - MainWindow
+    - OptionSettingWindow
+    - ProfilesSelectWindow
+    - RoutingRuleDetailsWindow
+    - RoutingRuleSettingWindow
+    - RoutingSettingWindow
+    - SubEditWindow
+    - SubSettingWindow
+    not_using_windowbase:
+    - MessageBoxDialog(Avalonia
+    - 自定义 Window)
+  anchors:
+  - WPF WindowBase.cs:14
+  - WPF WindowBase.cs:35
+  - Avalonia WindowBase.cs:26
+  - Avalonia WindowBase.cs:32
+  - Avalonia WindowBase.cs:58
+  - ConfigHandler.GetWindowSizeItem:2963
+  - ConfigHandler.SaveWindowSizeItem:2974
+  screenshots: []
+  source_file:
+  - v2rayN/v2rayN/Base/WindowBase.cs
+  - v2rayN/v2rayN.Desktop/Base/WindowBase.cs
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs
+  evidence:
+  - v2rayN/v2rayN/Base/WindowBase.cs:14
+  - v2rayN/v2rayN/Base/WindowBase.cs:20
+  - v2rayN/v2rayN/Base/WindowBase.cs:35
+  - v2rayN/v2rayN.Desktop/Base/WindowBase.cs:26
+  - v2rayN/v2rayN.Desktop/Base/WindowBase.cs:32
+  - v2rayN/v2rayN.Desktop/Base/WindowBase.cs:58
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2963
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2974
+  status: identified
+  implementation_location: null

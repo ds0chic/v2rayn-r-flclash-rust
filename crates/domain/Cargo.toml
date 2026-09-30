@@ -1,0 +1,12 @@
+[package]
+name = "domain"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pure domain models for the v2rayN Flutter+Rust rewrite (T01 subset)."
+
+[dependencies]
+
+[lints]
+workspace = true

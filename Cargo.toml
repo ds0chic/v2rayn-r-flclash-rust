@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/domain",
+    "crates/application",
+    "crates/bridge_api",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0"
+repository = "https://github.com/2dust/v2rayN"
+
+[workspace.dependencies]
+domain = { path = "crates/domain" }
+application = { path = "crates/application" }
+flutter_rust_bridge = "=2.13.0"
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

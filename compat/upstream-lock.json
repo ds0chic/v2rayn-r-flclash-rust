@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-01T00:00:00+08:00",
+  "generated_by": "T00 baseline freeze (executor)",
+  "upstream": {
+    "repo": "https://github.com/2dust/v2rayN",
+    "license": "GPL-3.0",
+    "baseline": {
+      "tag": "7.25.4",
+      "prerelease": true,
+      "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "commit_message": "up 7.25.4",
+      "commit_date_utc": "2026-09-30T06:38:34Z",
+      "release_published_utc": "2026-09-30T06:39:05Z",
+      "release_url": "https://github.com/2dust/v2rayN/releases/tag/7.25.4"
+    },
+    "stable_regression_sample": {
+      "tag": "7.24.9",
+      "prerelease": false,
+      "release_published_utc": "2026-08-29T02:47:27Z",
+      "release_url": "https://github.com/2dust/v2rayN/releases/tag/7.24.9"
+    },
+    "interface_baseline": {
+      "windows": "WPF (v2rayN/v2rayN)",
+      "macos_linux": "Avalonia Desktop (v2rayN/v2rayN.Desktop)",
+      "note": "Windows Avalonia build is a differential check target only, not a 1:1 baseline."
+    }
+  },
+  "source_archive_local": {
+    "path": "work/research-v2rayn/source-7.25.4.zip",
+    "provenance": "GitHub codeload tag archive https://github.com/2dust/v2rayN/archive/refs/tags/7.25.4.zip (folder name embeds commit 7d6a967)",
+    "size_bytes": 7634669,
+    "sha256": "E391AE72F7AAADAE3DA90D6C0196B8AAB19FA1686FC7900EB9A74A0E85D3AB0D",
+    "sha1": "C2E874043E9D4A8859A9291A9AD03B66BF4FD821"
+  },
+  "extracted_tree_local": {
+    "path": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967",
+    "file_count": 431,
+    "xaml_axaml_count": 53,
+    "cs_count": 282,
+    "note": "Extracted tag archive; no .git directory. Commit identity taken from archive folder name + tag archive provenance + GitHub API commit 7d6a967 message 'up 7.25.4'."
+  },
+  "release_assets_7_25_4": {
+    "note": "41 assets from GitHub API. Every payload asset has a paired .sig (297 bytes) signed with v2rayN-public-key.asc (547 bytes). Local hash verification not yet performed; verification method recorded in docs/evidence/T00.md.",
+    "public_key_asset": "v2rayN-public-key.asc",
+    "payload_assets": [
+      { "name": "v2rayN-windows-64.zip", "size": 167955516 },
+      { "name": "v2rayN-windows-64-desktop.zip", "size": 143961123 },
+      { "name": "v2rayN-windows-86.zip", "size": 140150258 },
+      { "name": "v2rayN-windows-86-desktop.zip", "size": 144430795 },
+      { "name": "v2rayN-windows-arm64.zip", "size": 155187289 },
+      { "name": "v2rayN-windows-arm64-desktop.zip", "size": 134266552 },
+      { "name": "v2rayN-macos-64.dmg", "size": 142014810 },
+      { "name": "v2rayN-macos-64.zip", "size": 144247575 },
+      { "name": "v2rayN-macos-arm64.dmg", "size": 134901306 },
+      { "name": "v2rayN-macos-arm64.zip", "size": 136813275 },
+      { "name": "v2rayN-linux-64.deb", "size": 85994720 },
+      { "name": "v2rayN-linux-64.zip", "size": 142089035 },
+      { "name": "v2rayN-linux-arm64.deb", "size": 78036132 },
+      { "name": "v2rayN-linux-arm64.zip", "size": 133503295 },
+      { "name": "v2rayN-linux-loong64.deb", "size": 73729064 },
+      { "name": "v2rayN-linux-riscv64.deb", "size": 147146656 },
+      { "name": "v2rayN-linux-rhel-64.rpm", "size": 95417923 },
+      { "name": "v2rayN-linux-rhel-arm64.rpm", "size": 89143245 },
+      { "name": "v2rayN-linux-rhel-loong64.rpm", "size": 84743925 },
+      { "name": "v2rayN-linux-rhel-riscv64.rpm", "size": 88211652 }
+    ],
+    "unverified": [
+      "Release asset SHA256 hashes (multiple GB download) not verified in this environment.",
+      "GPG signature verification not executed; public key recorded for later verification."
+    ]
+  },
+  "cores": {
+    "source_of_truth": "v2rayN/ServiceLib/Global.cs CoreUrls + v2rayN/ServiceLib/Manager/CoreInfoManager.cs",
+    "github_repos": {
+      "v2fly": "v2fly/v2ray-core",
+      "v2fly_v5": "v2fly/v2ray-core",
+      "Xray": "XTLS/Xray-core",
+      "sing_box": "SagerNet/sing-box",
+      "mihomo": "MetaCubeX/mihomo",
+      "hysteria": "apernet/hysteria",
+      "hysteria2": "apernet/hysteria",
+      "naiveproxy": "klzgrad/naiveproxy",
+      "tuic": "EAimTY/tuic",
+      "juicity": "juicity/juicity",
+      "brook": "txthinking/brook",
+      "overtls": "ShadowsocksR-Live/overtls",
+      "shadowquic": "spongebob888/shadowquic",
+      "mieru": "enfein/mieru",
+      "v2rayN": "2dust/v2rayN (self-update target, not a proxy core)"
+    },
+    "version_constraints": {
+      "sing_box": {
+        "LockedMaxVersion": "1.14.*",
+        "evidence": "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:232"
+      }
+    },
+    "unverified": [
+      "Exact bundled core versions inside release packages (release assets not downloaded).",
+      "Pinned core GitHub release version at date of release (cores are downloaded at runtime)."
+    ]
+  },
+  "toolchain_pending": {
+    "note": "Flutter SDK / Rust toolchain / FRB / plugin versions are locked in T01; not part of T00 freeze."
+  }
+}

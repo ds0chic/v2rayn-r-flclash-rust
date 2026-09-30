@@ -1,0 +1,560 @@
+{
+ "changes": [
+  {
+   "file": "layouts.yaml",
+   "note": "window_inventory status added: 53 entries"
+  },
+  {
+   "id": "LAY-MAIN-004",
+   "note": "promotion menu unresolved closed"
+  },
+  {
+   "id": "LAY-PROFILES-002",
+   "note": "avalonia column restore unresolved closed"
+  },
+  {
+   "id": "LAY-ADDSERVER-001",
+   "note": "addserver grid mapping unresolved closed"
+  },
+  {
+   "id": "LAY-SUBSET-001",
+   "note": "avalonia anchor added"
+  },
+  {
+   "id": "LAY-FULLCONFIG-001",
+   "note": "avalonia anchors added"
+  },
+  {
+   "id": "LAY-BACKUP-001",
+   "note": "avalonia anchor added"
+  },
+  {
+   "id": "LAY-CHECKUPDATE-001",
+   "note": "avalonia anchors added"
+  },
+  {
+   "id": "FLD-CFG-001",
+   "note": "default_verified true->false: CLR 缺省（无初始化器）；ConfigHandler 无 IndexId 初始化分支，默认值实为选中态回写（A03）。"
+  },
+  {
+   "id": "FLD-CFG-041",
+   "note": "default_verified true->false: CLR 缺省 false；ConfigHandler 新建 Inbound 未显式初始化该字段（A03）。"
+  },
+  {
+   "id": "FLD-CFG-042",
+   "note": "default_verified true->false: CLR 缺省 false；ConfigHandler 新建 Inbound 未显式初始化该字段（A03）。"
+  },
+  {
+   "id": "FLD-CFG-044",
+   "note": "default_verified true->false: CLR 缺省 null；未见 LoadConfig/初始化追踪（A03）。"
+  },
+  {
+   "id": "FLD-CFG-118",
+   "note": "default_verified true->false: CLR 缺省 0；未见初始化路径追踪（A03）。"
+  },
+  {
+   "id": "FLD-CFG-130",
+   "note": "default_verified true->false: CLR 缺省 false；未见初始化路径追踪（A03）。"
+  },
+  {
+   "id": "FLD-CFG-056",
+   "note": "evidence lines fixed (FND-002)"
+  },
+  {
+   "id": "FLD-CFG-062",
+   "note": "EnableHWA unresolved closed"
+  },
+  {
+   "id": "FLD-CFG-098",
+   "note": "default_verified true->false: 有效值 gvisor 系生成器运行时回退（SingboxInboundService.cs:60-62），非持久默认（A02）。"
+  },
+  {
+   "id": "FLD-CFG-112",
+   "note": "default_verified true->false: 有效值 1000 系 SpeedtestService 运行时回退（SpeedtestService.cs:12），非持久默认（A02）。"
+  },
+  {
+   "id": "FLD-CFG-170",
+   "note": "Strategy4Proxy unresolved closed"
+  },
+  {
+   "id": "FLD-CFG-079",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-080",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-083",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-089",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-090",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-091",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-092",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-113",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-115",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-117",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-119",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-125",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-128",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-129",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-131",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-132",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-133",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-134",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-135",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-137",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-142",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-143",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-144",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-145",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-146",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-169",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-171",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-174",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "id": "FLD-CFG-175",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。"
+  },
+  {
+   "file": "fields.settings.yaml",
+   "note": "systemic default_verified downgrades: 29"
+  },
+  {
+   "id": "FLD-ENT-015",
+   "note": "default_verified downgraded (A03)"
+  },
+  {
+   "id": "FLD-ENT-139",
+   "note": "U4 closed; obsolete_candidate"
+  },
+  {
+   "id": "FLD-ENT-002",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-010",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-011",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-012",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-013",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-014",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-018",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-019",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-020",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-021",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-022",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-023",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-024",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-025",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-028",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-029",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-030",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-031",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-033",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-034",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-035",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-041",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-043",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-044",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-046",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-048",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-051",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-063",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-064",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-066",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-067",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-069",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-070",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-072",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-073",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-075",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-076",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-077",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-078",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-079",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-080",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-081",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-104",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-105",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-106",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-108",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-109",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-110",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-111",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-112",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-113",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-114",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-115",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-128",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-133",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-134",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-135",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-138",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-139",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-140",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-141",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-142",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-143",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-144",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-145",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-146",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-147",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-148",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-149",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-150",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-153",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-155",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-156",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-157",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "id": "FLD-ENT-158",
+   "note": "default_verified true->false: 系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。"
+  },
+  {
+   "file": "fields.entities.yaml",
+   "note": "systemic default_verified downgrades: 75"
+  },
+  {
+   "id": "ACT-ROUTE-003",
+   "note": "mouse misattribution fixed"
+  },
+  {
+   "id": "ACT-STAT-004",
+   "note": "mouse description fixed"
+  },
+  {
+   "id": "ACT-MAIN-020",
+   "note": "tray/scheduled attribution fixed"
+  },
+  {
+   "id": "ACT-MAIN-021",
+   "note": "tray attribution fixed"
+  },
+  {
+   "id": "ACT-PROF-038",
+   "note": "cancellation semantics clarified"
+  },
+  {
+   "id": "HKR-001",
+   "note": "evidence line corrected"
+  },
+  {
+   "file": "actions.yaml",
+   "note": "added ACT-ROUTE-008 (double-click edit)"
+  },
+  {
+   "id": "F-DESKTOP-007",
+   "note": "single-instance resolved"
+  },
+  {
+   "id": "F-MONITOR-001",
+   "note": "log filter/pause resolved, clear noted"
+  },
+  {
+   "id": "F-DESKTOP-001",
+   "note": "evidence completed (A07-L4)"
+  },
+  {
+   "id": "F-CORE-003",
+   "note": "UpgradeApp evidence added (A07-L2)"
+  },
+  {
+   "file": "fields.yaml",
+   "note": "regenerated from patched partitions"
+  }
+ ]
+}

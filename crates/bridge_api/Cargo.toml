@@ -1,0 +1,18 @@
+[package]
+name = "bridge_api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "flutter_rust_bridge public API surface (T01)."
+
+[lib]
+crate-type = ["cdylib", "staticlib", "lib"]
+
+[dependencies]
+domain.workspace = true
+application.workspace = true
+flutter_rust_bridge.workspace = true
+
+[lints]
+workspace = true

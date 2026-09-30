@@ -1,0 +1,463 @@
+schema_version: 1
+artifact: codegen-map.singbox
+task: T08
+source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+upstream_version: 7.25.4
+core: sing_box
+note: >
+  T08 sing-box 生成器的输入->输出契约附属表。所有 path:line 均指冻结源码
+  work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967 下的相对路径。
+  generated JSON 路径以 SingboxConfig.cs 成员名为准。
+
+generator_entry:
+  class: CoreConfigSingboxService
+  file: v2rayN/ServiceLib/Services/CoreConfig/Singbox/CoreConfigSingboxService.cs
+  entry_symbol: CoreConfigSingboxService.GenerateClientConfigContent()
+  entry_line: 13
+  base_template_symbol: Global.SingboxSampleClient
+  base_template_constant: v2rayN/ServiceLib/Global.cs:20
+  base_template_file: v2rayN/ServiceLib/Sample/SingboxSampleClientConfig
+  outbound_template_symbol: Global.SingboxSampleOutbound
+  outbound_template_constant: v2rayN/ServiceLib/Global.cs:27
+  outbound_template_file: v2rayN/ServiceLib/Sample/SingboxSampleOutbound
+  tun_inbound_symbol: Global.TunSingboxInboundFileName
+  tun_inbound_file: v2rayN/ServiceLib/Sample/tun_singbox_inbound
+  tun_rules_symbol: Global.TunSingboxRulesFileName
+  tun_rules_file: v2rayN/ServiceLib/Sample/tun_singbox_rules
+  config_dispatch: v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:24-27
+
+generation_order:
+- {step: 1, op: 读取 Global.SingboxSampleClient 反序列化为 SingboxConfig, evidence: "CoreConfigSingboxService.cs:32-44"}
+- {step: 2, op: GenLog, evidence: "CoreConfigSingboxService.cs:46"}
+- {step: 3, op: GenInbounds, evidence: "CoreConfigSingboxService.cs:48"}
+- {step: 4, op: GenOutbounds, evidence: "CoreConfigSingboxService.cs:50"}
+- {step: 5, op: GenRouting, evidence: "CoreConfigSingboxService.cs:52"}
+- {step: 6, op: GenDns, evidence: "CoreConfigSingboxService.cs:54"}
+- {step: 7, op: GenExperimental（clash_api/cache_file）, evidence: "CoreConfigSingboxService.cs:56"}
+- {step: 8, op: ConvertGeo2Ruleset, evidence: "CoreConfigSingboxService.cs:58"}
+- {step: 9, op: ApplyFinalConfigModifiers, evidence: "CoreConfigSingboxService.cs:63"}
+
+rejected_networks:
+- {network: kcp, evidence: "CoreConfigSingboxService.cs:24-28"}
+- {network: xhttp, evidence: "CoreConfigSingboxService.cs:24-28"}
+- {network: quic, reason: "不在 Global.Networks，GetNetwork 归一到 raw", evidence: "Global.cs:330-338"}
+
+base_template_shape:
+  source: v2rayN/ServiceLib/Sample/SingboxSampleClientConfig:1-16
+  log: {level: debug, timestamp: true}
+  inbounds: []
+  outbounds: [{type: direct, tag: direct}]
+  route: {rules: []}
+  serialized_members: v2rayN/ServiceLib/Models/CoreConfigs/SingboxConfig.cs:3-13
+
+# ---------------------------------------------------------------------------
+# 每个 EConfigType -> outbound 路径（sing-box）
+# ---------------------------------------------------------------------------
+protocol_output_map:
+- config_type: VMess
+  enum_value: 1
+  outbound_type_value: vmess
+  endpoint: false
+  fields:
+  - {input: ProfileItem.Address, path: "outbounds[i].server", evidence: "SingboxOutboundService.cs:107"}
+  - {input: ProfileItem.Port, path: "outbounds[i].server_port", evidence: "SingboxOutboundService.cs:108"}
+  - {input: ProfileItem.Password, path: "outbounds[i].uuid", evidence: "SingboxOutboundService.cs:115"}
+  - {input: ProtocolExtraItem.AlterId, path: "outbounds[i].alter_id", rule: "int.TryParse 失败=0", evidence: "SingboxOutboundService.cs:116"}
+  - {input: ProtocolExtraItem.VmessSecurity, path: "outbounds[i].security", rule: "合法否则 Global.DefaultSecurity=auto", evidence: "SingboxOutboundService.cs:117-124"}
+  transport: FillOutboundTransport
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:113-129
+
+- config_type: Shadowsocks
+  enum_value: 3
+  outbound_type_value: shadowsocks
+  endpoint: false
+  fields:
+  - {input: ProtocolExtraItem.SsMethod, path: "outbounds[i].method", rule: "合法否则 Global.None='none'", evidence: "SingboxOutboundService.cs:132-133"}
+  - {input: ProfileItem.Password, path: "outbounds[i].password", evidence: "SingboxOutboundService.cs:134"}
+  - {input: ProtocolExtraItem.Uot, path: "outbounds[i].udp_over_tcp", rule: "true 才写否则 null", evidence: "SingboxOutboundService.cs:135"}
+  - {input: TransportExtraItem.RawHeaderType+Host, path: "outbounds[i].plugin=obfs-local; plugin_opts=obfs=http;obfs-host={Host};", rule: "raw+headerType==http", evidence: "SingboxOutboundService.cs:137-141"}
+  - {input: TransportExtraItem.Host/Path+ProfileItem.StreamSecurity+Cert, path: "outbounds[i].plugin=v2ray-plugin; plugin_opts=mode=websocket;host=..;path=..;tls;certRaw=..;mux=0", rule: "ws 或 tls", evidence: "SingboxOutboundService.cs:144-178"}
+  note: Shadowsocks 不使用 FillOutboundTransport，走 plugin/plugin_opts；sing-box 仅允许 raw/ws 传输（NodeValidator）。
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:130-183
+
+- config_type: SOCKS
+  enum_value: 4
+  outbound_type_value: socks
+  endpoint: false
+  fields:
+  - {input: "(constant)", path: "outbounds[i].version", value: "5", evidence: "SingboxOutboundService.cs:186"}
+  - {input: ProfileItem.Username+Password, path: "outbounds[i].username/password", rule: "两者都非空", evidence: "SingboxOutboundService.cs:187-192"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:184-194
+
+- config_type: HTTP
+  enum_value: 10
+  outbound_type_value: http
+  endpoint: false
+  fields:
+  - {input: ProfileItem.Username+Password, path: "outbounds[i].username/password", rule: "两者都非空", evidence: "SingboxOutboundService.cs:197-202"}
+  note: HttpHeaders 未在 sing-box 生成器读取（差异项）
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:195-204
+
+- config_type: VLESS
+  enum_value: 5
+  outbound_type_value: vless
+  endpoint: false
+  fields:
+  - {input: ProfileItem.Password, path: "outbounds[i].uuid", evidence: "SingboxOutboundService.cs:207"}
+  - {input: "(constant)", path: "outbounds[i].packet_encoding", value: xudp, evidence: "SingboxOutboundService.cs:209"}
+  - {input: ProtocolExtraItem.Flow, path: "outbounds[i].flow", rule: "vision/vision-udp443 归一到 xtls-rprx-vision", evidence: "SingboxOutboundService.cs:211-218"}
+  transport: FillOutboundTransport
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:205-223
+
+- config_type: Trojan
+  enum_value: 6
+  outbound_type_value: trojan
+  endpoint: false
+  fields:
+  - {input: ProfileItem.Password, path: "outbounds[i].password", evidence: "SingboxOutboundService.cs:226"}
+  transport: FillOutboundTransport
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:224-231
+
+- config_type: Hysteria2
+  enum_value: 7
+  outbound_type_value: hysteria2
+  endpoint: false
+  fields:
+  - {input: ProfileItem.Password, path: "outbounds[i].password", evidence: "SingboxOutboundService.cs:234"}
+  - {input: ProtocolExtraItem.SalamanderPass, path: "outbounds[i].obfs.{type,password}", evidence: "SingboxOutboundService.cs:236-243"}
+  - {input: ProtocolExtraItem.GeckoMinPacketSize+Max, path: "outbounds[i].obfs.{type:gecko,min_packet_size,max_packet_size}", evidence: "SingboxOutboundService.cs:238-248"}
+  - {input: ProtocolExtraItem.UpMbps / HysteriaItem.UpMbps, path: "outbounds[i].up_mbps", rule: ">0 才写", evidence: "SingboxOutboundService.cs:250-256"}
+  - {input: ProtocolExtraItem.DownMbps / HysteriaItem.DownMbps, path: "outbounds[i].down_mbps", evidence: "SingboxOutboundService.cs:253-257"}
+  - {input: ProtocolExtraItem.Ports, path: "outbounds[i].server_ports + hop_interval; server_port=null", rule: "含 :/-/, 才写；'-'->':' 且单端口补 x:x", evidence: "SingboxOutboundService.cs:258-289"}
+  - {input: ProtocolExtraItem.HopInterval / HysteriaItem.HopInterval, path: "outbounds[i].hop_interval", fallback: "HysteriaItem.HopInterval>=5 否则 Global.Hysteria2DefaultHopInt=30", evidence: "SingboxOutboundService.cs:271-288"}
+  - {input: ProtocolExtraItem.Hy2RealmUrl, path: "outbounds[i].realm.{server_url,token,realm_id,stun_servers}；server/server_port/server_ports=null", evidence: "SingboxOutboundService.cs:291-305"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:232-308
+
+- config_type: TUIC
+  enum_value: 8
+  outbound_type_value: tuic
+  endpoint: false
+  singbox_only: true
+  fields:
+  - {input: ProfileItem.Username, path: "outbounds[i].uuid", evidence: "SingboxOutboundService.cs:311"}
+  - {input: ProfileItem.Password, path: "outbounds[i].password", evidence: "SingboxOutboundService.cs:312"}
+  - {input: ProtocolExtraItem.CongestionControl, path: "outbounds[i].congestion_control", evidence: "SingboxOutboundService.cs:313"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:309-315
+
+- config_type: Anytls
+  enum_value: 11
+  outbound_type_value: anytls
+  endpoint: false
+  singbox_only: true
+  fields:
+  - {input: ProfileItem.Password, path: "outbounds[i].password", evidence: "SingboxOutboundService.cs:318"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:316-320
+
+- config_type: Naive
+  enum_value: 12
+  outbound_type_value: naive
+  endpoint: false
+  singbox_only: true
+  fields:
+  - {input: ProfileItem.Username, path: "outbounds[i].username", evidence: "SingboxOutboundService.cs:323"}
+  - {input: ProfileItem.Password, path: "outbounds[i].password", evidence: "SingboxOutboundService.cs:324"}
+  - {input: ProtocolExtraItem.NaiveQuic, path: "outbounds[i].quic=true + quic_congestion_control=CongestionControl", evidence: "SingboxOutboundService.cs:325-329"}
+  - {input: ProtocolExtraItem.InsecureConcurrency, path: "outbounds[i].insecure_concurrency", rule: ">0 才写", evidence: "SingboxOutboundService.cs:330-333"}
+  - {input: ProtocolExtraItem.Uot, path: "outbounds[i].udp_over_tcp", rule: "true 才写", evidence: "SingboxOutboundService.cs:334"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:321-336
+
+- config_type: WireGuard
+  enum_value: 9
+  outbound_type_value: wireguard
+  endpoint: true
+  endpoint_class: Endpoints4Sbox
+  fields:
+  - {input: ProtocolExtraItem.WgInterfaceAddress, path: "endpoints[i].address", rule: "逗号拆分；缺省 [172.16.0.2/32]", evidence: "SingboxOutboundService.cs:353"}
+  - {input: ProfileItem.Password, path: "endpoints[i].private_key", evidence: "SingboxOutboundService.cs:369"}
+  - {input: ProtocolExtraItem.WgMtu, path: "endpoints[i].mtu", fallback: ">0 否则 Global.TunMtus.First()=1280", evidence: "SingboxOutboundService.cs:370"}
+  - {input: ProtocolExtraItem.WgPublicKey, path: "endpoints[i].peers[0].public_key", evidence: "SingboxOutboundService.cs:362"}
+  - {input: ProtocolExtraItem.WgPresharedKey, path: "endpoints[i].peers[0].pre_shared_key", evidence: "SingboxOutboundService.cs:363"}
+  - {input: ProtocolExtraItem.WgReserved, path: "endpoints[i].peers[0].reserved", evidence: "SingboxOutboundService.cs:364"}
+  - {input: ProfileItem.Address, path: "endpoints[i].peers[0].address", evidence: "SingboxOutboundService.cs:365"}
+  - {input: ProfileItem.Port, path: "endpoints[i].peers[0].port", evidence: "SingboxOutboundService.cs:366"}
+  - {input: "(constant)", path: "endpoints[i].peers[0].allowed_ips", value: ["0.0.0.0/0","::/0"], evidence: "SingboxOutboundService.cs:367"}
+  note: WgDns 在 sing-box 生成器未读取（差异项）；WireGuard 跳过 FillOutboundTls。
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:80-85,347-380
+
+- config_type: Outbound
+  enum_value: 13
+  note: 自定义出站文件；IsSingboxEndpoint==true 时反序列化为 Endpoints4Sbox，否则 Outbound4Sbox，随后 ApplyCustomOutboundReplace 替换。
+  fields:
+  - {input: ProtocolExtraItem.IsSingboxEndpoint, path: "endpoints[] 还是 outbounds[]", evidence: "SingboxOutboundService.cs:66-78"}
+  - {input: ProfileItem.Address, path: CustomOutboundContent 源文件路径, evidence: "CoreConfigContextBuilder.cs:345-357"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:34-43,61-98
+
+- config_type: PolicyGroup
+  enum_value: 101
+  note: 展开为多出站 + urltest/selector（proxy-auto/proxy）
+  fields:
+  - {input: ProtocolExtraItem.ChildItems, path: "outbounds[].tag + selector.outbounds", evidence: "SingboxOutboundService.cs:622-654;593-620"}
+  - {input: ProtocolExtraItem.MultipleLoad, path: "urltest.tolerance（Fallback=5000）", evidence: "SingboxOutboundService.cs:595-607"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:45-59
+
+- config_type: ProxyChain
+  enum_value: 102
+  note: 链式代理，用 detour 串联
+  fields:
+  - {input: ProtocolExtraItem.ChildItems, path: "outbounds[].tag + .detour", evidence: "SingboxOutboundService.cs:656-740"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:54-56
+
+not_singbox_generated:
+- {config_type: Custom, reason: "CoreConfigHandler 走复制文件/ClashService", evidence: "CoreConfigHandler.cs:16-22"}
+- {config_type: v2fly, reason: "RunCoreType!=sing_box 走 V2ray 分支", evidence: "CoreConfigHandler.cs:24-31"}
+
+# ---------------------------------------------------------------------------
+# transport -> outbound.transport 路径
+# ---------------------------------------------------------------------------
+transport_output_map:
+  source_file: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs
+  producer: FillOutboundTransport
+  producer_line: 487
+  transports:
+  - network: raw
+    rule: 仅 RawHeaderType==http 时写 transport.type=http
+    fields:
+    - {input: TransportExtraItem.RawHeaderType, path: "outbounds[i].transport.type", value: http, evidence: "SingboxOutboundService.cs:499-501"}
+    - {input: TransportExtraItem.Host, path: "outbounds[i].transport.host", rule: "String2List", evidence: "SingboxOutboundService.cs:502-504"}
+    - {input: TransportExtraItem.Path, path: "outbounds[i].transport.path", evidence: "SingboxOutboundService.cs:505"}
+    - {input: CoreBasicItem.DefUserAgent, path: "outbounds[i].transport.headers.User-Agent", evidence: "SingboxOutboundService.cs:506-510"}
+  - network: ws
+    fields:
+    - {input: "(constant)", path: "outbounds[i].transport.type", value: ws, evidence: "SingboxOutboundService.cs:515"}
+    - {input: TransportExtraItem.Path, path: "outbounds[i].transport.path", rule: "解析 ?ed=N -> max_early_data + early_data_header_name; ?eh -> early_data_header_name", evidence: "SingboxOutboundService.cs:516-544"}
+    - {input: TransportExtraItem.Host, path: "outbounds[i].transport.headers.Host", evidence: "SingboxOutboundService.cs:545-551"}
+    - {input: CoreBasicItem.DefUserAgent, path: "outbounds[i].transport.headers.User-Agent", evidence: "SingboxOutboundService.cs:552-556"}
+  - network: httpupgrade
+    fields:
+    - {input: "(constant)", path: "outbounds[i].transport.type", value: httpupgrade, evidence: "SingboxOutboundService.cs:560"}
+    - {input: TransportExtraItem.Path, path: "outbounds[i].transport.path", evidence: "SingboxOutboundService.cs:561"}
+    - {input: TransportExtraItem.Host, path: "outbounds[i].transport.host", evidence: "SingboxOutboundService.cs:562"}
+    - {input: CoreBasicItem.DefUserAgent, path: "outbounds[i].transport.headers.User-Agent", evidence: "SingboxOutboundService.cs:563-567"}
+  - network: grpc
+    fields:
+    - {input: "(constant)", path: "outbounds[i].transport.type", value: grpc, evidence: "SingboxOutboundService.cs:572"}
+    - {input: TransportExtraItem.GrpcServiceName, path: "outbounds[i].transport.service_name", evidence: "SingboxOutboundService.cs:573"}
+    - {input: GrpcItem.IdleTimeout, path: "outbounds[i].transport.idle_timeout", rule: "##s 格式", evidence: "SingboxOutboundService.cs:574"}
+    - {input: GrpcItem.HealthCheckTimeout, path: "outbounds[i].transport.ping_timeout", evidence: "SingboxOutboundService.cs:575"}
+    - {input: GrpcItem.PermitWithoutStream, path: "outbounds[i].transport.permit_without_stream", evidence: "SingboxOutboundService.cs:576"}
+    note: GrpcAuthority 不写 transport（仅用作 tls.serverName 回退）；GrpcMode 未使用。
+  only_if_type_non_null:
+    evidence: SingboxOutboundService.cs:582-585
+
+# ---------------------------------------------------------------------------
+# security -> tls/reality 路径 (sing-box)
+# ---------------------------------------------------------------------------
+security_output_map:
+  source_file: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs
+  producer: FillOutboundTls
+  producer_line: 405
+  early_return: "StreamSecurity 非 tls/reality 直接返回；Shadowsocks/SOCKS/WireGuard 不写 tls"
+  early_return_evidence: SingboxOutboundService.cs:409-416
+  fields:
+  - {input: "(constant)", path: "outbounds[i].tls.enabled", value: true, evidence: "SingboxOutboundService.cs:437"}
+  - {input: ProfileItem.Sni, path: "outbounds[i].tls.server_name", fallback: "按 network 取 TransportExtra.Host 首项；grpc 用 GrpcAuthority", evidence: "SingboxOutboundService.cs:417-434"}
+  - {input: ProfileItem.AllowInsecure, path: "outbounds[i].tls.insecure", rule: "GetAllowInsecure()；tls 有证书/reality 时强制 false", evidence: "SingboxOutboundService.cs:439,461,472"}
+  - {input: ProfileItem.Alpn, path: "outbounds[i].tls.alpn", evidence: "SingboxOutboundService.cs:440"}
+  - {input: CoreBasicItem.EnableFragment, path: "outbounds[i].tls.fragment=true; record_fragment=true", evidence: "SingboxOutboundService.cs:442-446"}
+  - {input: ProfileItem.Fingerprint, path: "outbounds[i].tls.utls.{enabled,fingerprint}", fallback: "CoreBasicItem.DefFingerprint", evidence: "SingboxOutboundService.cs:447-454"}
+  - {input: ProfileItem.Cert, path: "outbounds[i].tls.certificate + insecure=false", rule: "tls 且 PEM 链可解析", evidence: "SingboxOutboundService.cs:455-463"}
+  - {input: ProfileItem.PublicKey, path: "outbounds[i].tls.reality.public_key", rule: "reality", evidence: "SingboxOutboundService.cs:464-473"}
+  - {input: ProfileItem.ShortId, path: "outbounds[i].tls.reality.short_id", rule: "reality", evidence: "SingboxOutboundService.cs:470"}
+  - {input: "(constant)", path: "outbounds[i].tls.reality.enabled", value: true, evidence: "SingboxOutboundService.cs:467"}
+  - {input: ProfileItem.EchConfigList, path: "outbounds[i].tls.ech (config 或 query_server_name)", rule: "ParseEchParam", evidence: "SingboxOutboundService.cs:474-478,802-826"}
+  not_written:
+  - {input: ProfileItem.SpiderX, path: NOT_WRITTEN, evidence: "源码 reality 块未含 spiderX"}
+  - {input: ProfileItem.VerifyPeerCertByName, path: NOT_WRITTEN, evidence: "sing-box 生成器未读取"}
+  - {input: ProfileItem.CertSha, path: NOT_WRITTEN, evidence: "sing-box 生成器未读取 pinnedPeerCertSha256"}
+  - {input: ProfileItem.Mldsa65Verify, path: NOT_WRITTEN, evidence: "sing-box 生成器未读取"}
+
+mux_output_map:
+  producer: FillOutboundMux
+  producer_line: 382
+  fields:
+  - {input: ProfileItem.MuxEnabled + Mux4SboxItem.Protocol, path: "outbounds[i].multiplex.{enabled,protocol,max_connections,padding}", rule: "MuxEnabled 且 Protocol 非空", evidence: "SingboxOutboundService.cs:386-397"}
+  called_from: [VMess(126), Shadowsocks(181), VLESS(220), Trojan(228)]
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:382-403
+
+# ---------------------------------------------------------------------------
+# 全局设置注入 (sing-box)
+# ---------------------------------------------------------------------------
+global_injection:
+- setting: CoreBasicItem.Loglevel
+  path: "log.level（warning->warn；none->log.disabled=true）"
+  evidence: SingboxLogService.cs:9-27;ConfigItems.cs:8
+- setting: CoreBasicItem.LogEnabled
+  path: "log.output = bin/sbox_yyyy-MM-dd.txt"
+  evidence: SingboxLogService.cs:28-32
+- setting: CoreBasicItem.DefFingerprint
+  path: "outbounds[i].tls.utls.fingerprint"
+  evidence: SingboxOutboundService.cs:452
+- setting: CoreBasicItem.DefUserAgent
+  path: "outbounds[i].transport.headers.User-Agent"
+  evidence: SingboxOutboundService.cs:493-510,552-556,563-567
+- setting: CoreBasicItem.SendThrough
+  path: "outbounds[i].inet4_bind_address"
+  evidence: SingboxConfigTemplateService.cs:159-171;ConfigItems.cs:14
+- setting: CoreBasicItem.BindInterface
+  path: "outbounds[i].bind_interface"
+  evidence: SingboxConfigTemplateService.cs:146-157;ConfigItems.cs:16
+- setting: CoreBasicItem.EnableFragment
+  path: "outbounds[i].tls.fragment=true;record_fragment=true"
+  evidence: SingboxOutboundService.cs:442-446;ConfigItems.cs:18
+- setting: CoreBasicItem.EnableFinalFragment
+  path: "route.rules[] {protocol:[tls],action:route-options,tls_record_fragment:true}"
+  evidence: SingboxRoutingService.cs:133-141,150-157;ConfigItems.cs:20
+- setting: CoreBasicItem.EnableCacheFile4Sbox
+  path: "experimental.cache_file.{enabled,path=bin/cache.db,store_fakeip}"
+  evidence: SingboxStatisticService.cs:16-25;ConfigItems.cs:22
+- setting: Mux4SboxItem.*
+  path: "outbounds[i].multiplex.*"
+  evidence: SingboxOutboundService.cs:387-396;ConfigItems.cs:193-199
+- setting: Mux4RayItem.*
+  path: NOT_APPLICABLE
+  evidence: 仅 Xray 使用
+- setting: KcpItem.*
+  path: NOT_APPLICABLE
+  evidence: sing-box 拒绝 kcp
+- setting: GrpcItem.*
+  path: "outbounds[i].transport.{idle_timeout,ping_timeout,permit_without_stream}"
+  evidence: SingboxOutboundService.cs:574-576;ConfigHandler.cs:83-89
+- setting: HysteriaItem.UpMbps/DownMbps/HopInterval
+  path: "outbounds[i].{up_mbps,down_mbps,hop_interval}"
+  evidence: SingboxOutboundService.cs:250-288;ConfigHandler.cs:158-162
+- setting: Fragment4RayItem.*
+  path: NOT_APPLICABLE（sing-box 用 tls.fragment 布尔，不写 packets/lengths/delays）
+  evidence: SingboxOutboundService.cs:442-446
+- setting: HappyEyeballs4RayItem.*
+  path: NOT_APPLICABLE
+  evidence: 仅 Xray；sing-box 无对应 happyEyeballs 结构
+- setting: SimpleDNSItem.*
+  path: "dns.servers/rules/final；route.default_domain_resolver"
+  evidence: SingboxDnsService.cs:5-30,32-136,148-521;SingboxRoutingService.cs:9-34
+- setting: SimpleDNSItem.FakeIP
+  path: "dns.servers[] {type:fakeip,inet4_range}; dns.rules[] fakeip 规则; cache_file.store_fakeip"
+  fallback: "FakeIPRange=Global.FakeIPRanges.First()=198.18.0.0/15"
+  evidence: SingboxDnsService.cs:123-135,256-278;Global.cs:752-756
+- setting: RoutingBasicItem.DomainStrategy4Singbox
+  path: "dns.rules[].strategy / route resolve rule.strategy"
+  evidence: SingboxRoutingService.cs:238-252;ConfigItems.cs:173
+- setting: RoutingBasicItem.DomainStrategy
+  path: "route resolve 规则触发（IPOnDemand/IPIfNonMatch）"
+  evidence: SingboxRoutingService.cs:249-285
+- setting: GuiItem.EnableStatistics/DisplayRealTimeSpeed
+  path: "experimental.clash_api.external_controller=127.0.0.1:{StatePort2}"
+  note: 源码无条件写入（注释掉的条件）
+  evidence: SingboxStatisticService.cs:7-14;AppManager.cs:24-31
+- setting: TunModeItem.*
+  path: "inbounds[tun].*"
+  evidence: SingboxInboundService.cs:54-82
+- setting: Inbound[0].*
+  path: "inbounds[].{listen,listen_port,type}"
+  note: sing-box mixed inbound 不写 sniffing；（sniff 走 route 规则）
+  evidence: SingboxInboundService.cs:5-97
+- setting: Inbound[0].SniffingEnabled
+  path: "route.rules[] {action:sniff}"
+  evidence: SingboxRoutingService.cs:116-158
+- setting: RoutingItem.RuleSet
+  path: "route.rules[]（跳过 RuleType==DNS）"
+  evidence: SingboxRoutingService.cs:254-277;ERuleType.cs:3-7
+
+tun_singbox_structure:
+  template_symbol: Global.TunSingboxInboundFileName
+  template_constant: Global.cs:30
+  template_file: v2rayN/ServiceLib/Sample/tun_singbox_inbound
+  fields:
+  - {input: "(constant)", path: "inbounds[tun].interface_name", value: "singbox_tun / utunN(mac)", evidence: "SingboxInboundService.cs:66"}
+  - {input: TunModeItem.Mtu, path: "inbounds[tun].mtu", fallback: "<=0 -> Global.TunMtus.First()=1280；默认 9000", evidence: "SingboxInboundService.cs:56-67"}
+  - {input: TunModeItem.AutoRoute, path: "inbounds[tun].auto_route", evidence: "SingboxInboundService.cs:68"}
+  - {input: TunModeItem.StrictRoute, path: "inbounds[tun].strict_route", evidence: "SingboxInboundService.cs:69"}
+  - {input: TunModeItem.Stack, path: "inbounds[tun].stack", fallback: "Global.TunStacks.First()=gvisor", evidence: "SingboxInboundService.cs:60-70;Global.cs:585-590"}
+  - {input: TunModeItem.IPv4Address, path: "inbounds[tun].address[0]", fallback: "Global.TunIPv4Address.First()", evidence: "SingboxInboundService.cs:72-73"}
+  - {input: TunModeItem.EnableIPv6Address+IPv6Address, path: "inbounds[tun].address[1]", evidence: "SingboxInboundService.cs:74-78"}
+  - {input: TunModeItem.RouteExcludeAddress, path: "inbounds[tun].route_exclude_address", evidence: "SingboxInboundService.cs:79"}
+  tun_rules_symbol: Global.TunSingboxRulesFileName
+  tun_rules_file: v2rayN/ServiceLib/Sample/tun_singbox_rules
+  tun_rules_evidence: SingboxRoutingService.cs:36-45
+  auto_detect_interface: SingboxRoutingService.cs:38
+  icmp_routing:
+    input: TunModeItem.IcmpRouting
+    path: "route.rules[] {network:[icmp],...}"
+    evidence: SingboxRoutingService.cs:85-113
+
+template_merge:
+  class: CoreConfigSingboxService（partial）SingboxConfigTemplateService.cs
+  full_template_fetch: v2rayN/ServiceLib/Manager/AppManager.cs:321-324
+  enabled_guard: "FullConfigTemplate.Enabled==true 且 Config/TunConfig 非空"
+  enabled_evidence: SingboxConfigTemplateService.cs:86-104
+  config_vs_tun_selection: "IsTunEnabled ? TunConfig : Config"
+  selection_evidence: SingboxConfigTemplateService.cs:94
+  insert_points:
+  - {what: outbounds 合并, path: "generated（AddProxyOnly 时跳过 direct/block）在前，template.outbounds 追加在后", evidence: "SingboxConfigTemplateService.cs:106-125"}
+  - {what: endpoints 合并, path: "generated endpoints 追加到 template.endpoints", evidence: "SingboxConfigTemplateService.cs:127-141"}
+  - {what: ProxyDetour, path: "无 detour 且非私网 -> outbounds[].detour / endpoints[].detour", evidence: "SingboxConfigTemplateService.cs:119-122,134-137"}
+  custom_outbound_placeholders:
+  - "{{tag}} -> 出站 tag"
+  - "{{detour}} -> outbounds[].detour"
+  - "{{interface}} -> outbounds[].bind_interface"
+  evidence: SingboxConfigTemplateService.cs:38-83
+
+precedence_rules:
+- {order: 1, rule: "SingboxSampleClientConfig 提供骨架", evidence: "CoreConfigSingboxService.cs:32-44"}
+- {order: 2, rule: "GenInbounds 清空并重建 inbounds", evidence: "SingboxInboundService.cs:12"}
+- {order: 3, rule: "GenOutbounds 将 proxy 出站插入 outbounds 头部（FillRangeProxy prepend=true）", evidence: "SingboxOutboundService.cs:5-9,774-800"}
+- {order: 4, rule: "节点可选字段按需写入；空值不写", evidence: "SingboxOutboundService.cs:100-345"}
+- {order: 5, rule: "ConvertGeo2Ruleset 把 geosite/geoip 转 rule_set 并收集远程 srs", evidence: "SingboxRulesetService.cs:5-131"}
+- {order: 6, rule: "ApplyCustomOutboundReplace 按 tag 替换 outbounds/endpoints", evidence: "SingboxConfigTemplateService.cs:15-84"}
+- {order: 7, rule: "ApplyFullConfigTemplate 合并 outbounds/endpoints", evidence: "SingboxConfigTemplateService.cs:86-144"}
+- {order: 8, rule: "GenRouting 先写 final=proxy 与 DNS resolver，再写规则", evidence: "SingboxRoutingService.cs:9-34"}
+
+capability_matrix:
+  SingboxSupportConfigType:
+    value: [VMess, VLESS, Shadowsocks, Trojan, Hysteria2, TUIC, Anytls, Naive, WireGuard, SOCKS, HTTP]
+    evidence: v2rayN/ServiceLib/Global.cs:378-391
+  SingboxOnlyConfigType:
+    value: [TUIC, Anytls, Naive]
+    evidence: v2rayN/ServiceLib/Global.cs:393
+  transport_constraints:
+  - {rule: "sing-box 不支持 kcp/xhttp", evidence: "NodeValidator.cs:16-17,173-179"}
+  - {rule: "非 VMess/VLESS/Trojan/Shadowsocks 只允许 raw", evidence: "NodeValidator.cs:19-20,181-186"}
+  - {rule: "Shadowsocks 只允许 raw/ws", evidence: "NodeValidator.cs:22-23,188-193"}
+  endpoint_types: [WireGuard, Outbound(IsSingboxEndpoint=true)]
+  endpoint_evidence: SingboxOutboundService.cs:80-85,66-78
+
+unconfirmed:
+- id: UNC-S-001
+  item: sing-box HTTP 的 HttpHeaders 是否有其它注入点
+  why: FillOutbound HTTP 分支只写 username/password，未见 headers
+  evidence: SingboxOutboundService.cs:195-204
+  status: unresolved
+- id: UNC-S-002
+  item: WgDns -> sing-box DNS 的映射
+  why: FillEndpoint 未读取 WgDns
+  evidence: SingboxOutboundService.cs:347-380
+  status: unresolved
+- id: UNC-S-003
+  item: SpiderX / VerifyPeerCertByName / CertSha / Mldsa65Verify 在 sing-box 的替代路径
+  why: 上述字段未出现在 sing-box 生成器
+  evidence: SingboxOutboundService.cs:405-485
+  status: unresolved
+- id: UNC-S-004
+  item: sing-box 版本上限对生成结构的影响（LockedMaxVersion 1.14）
+  why: 生成器未按版本分支，能力表限制在 CoreInfoManager
+  evidence: features.yaml CRM-004
+  status: unresolved
+- id: UNC-S-005
+  item: GrpcMode/GrpcAuthority 在 sing-box transport 的完整语义
+  why: 仅 GrpcAuthority 作 tls.serverName 回退，GrpcMode 未使用
+  evidence: SingboxOutboundService.cs:424-434,571-577
+  status: unresolved
+- id: UNC-S-006
+  item: experimental.clash_api 是否受 GuiItem 开关控制
+  why: 源码条件被注释，实际无条件写入 external_controller
+  evidence: SingboxStatisticService.cs:7-14
+  status: unresolved

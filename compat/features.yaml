@@ -1,0 +1,4544 @@
+schema_version: 1
+source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+upstream_version: 7.25.4
+config_types:
+- id: CFG-001
+  name: EConfigType.VMess
+  enum_value: 1
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: VmessFmt
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.VMess
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:13
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:284
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:308
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:24
+  status: identified
+- id: CFG-002
+  name: EConfigType.Custom
+  enum_value: 2
+  form_entry: AddServer2Window (AddServer2ViewModel)
+  fmt: 无分享 Fmt；InnerFmt 支持 v2rayn:// 导入导出
+  generators:
+  - GenerateClientCustomConfig
+  - CoreConfigClashService.GenerateClientCustomConfig
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.Custom
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:6
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:550
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:16
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:44
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:459
+  status: identified
+- id: CFG-003
+  name: EConfigType.Shadowsocks
+  enum_value: 3
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: ShadowsocksFmt
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.Shadowsocks
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:7
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:14
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:285
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:669
+  status: identified
+- id: CFG-004
+  name: EConfigType.SOCKS
+  enum_value: 4
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: SocksFmt
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.SOCKS
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:8
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:15
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:286
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:702
+  status: identified
+- id: CFG-005
+  name: EConfigType.VLESS
+  enum_value: 5
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: VLESSFmt
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.VLESS
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:9
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:17
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:289
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1122
+  status: identified
+- id: CFG-006
+  name: EConfigType.Trojan
+  enum_value: 6
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: TrojanFmt
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.Trojan
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:10
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:16
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:288
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:740
+  status: identified
+- id: CFG-007
+  name: EConfigType.Hysteria2
+  enum_value: 7
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: Hysteria2Fmt
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.Hysteria2
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:11
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:18
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:75
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:290
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:769
+  status: identified
+- id: CFG-008
+  name: EConfigType.TUIC
+  enum_value: 8
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: TuicFmt
+  generators:
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.TUIC
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:12
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:19
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:291
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:847
+  notes: AddTuicServer 强制 CoreType=sing_box。
+  status: identified
+- id: CFG-009
+  name: EConfigType.WireGuard
+  enum_value: 9
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: WireguardFmt
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.WireGuard
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:13
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:20
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:292
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:891
+  status: identified
+- id: CFG-010
+  name: EConfigType.HTTP
+  enum_value: 10
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: 无分享 Fmt（Global.ProtocolShares 不含 HTTP）
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.HTTP
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:14
+  - v2rayN/ServiceLib/Global.cs:238
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:287
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:721
+  status: identified
+- id: CFG-011
+  name: EConfigType.Anytls
+  enum_value: 11
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: AnytlsFmt
+  generators:
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.Anytls
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:15
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:21
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:293
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:943
+  notes: AddAnytlsServer 强制 CoreType=sing_box。
+  status: identified
+- id: CFG-012
+  name: EConfigType.Naive
+  enum_value: 12
+  form_entry: AddServerWindow (AddServerViewModel)
+  fmt: NaiveFmt
+  generators:
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.Naive
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:16
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:22
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:294
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:971
+  notes: AddNaiveServer 强制 CoreType=sing_box。
+  status: identified
+- id: CFG-013
+  name: EConfigType.Outbound
+  enum_value: 13
+  form_entry: AddServer2Window (AddServer2ViewModel)
+  fmt: 无分享 Fmt；InnerFmt 导出时内嵌 CustomOutboundObj
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.Outbound
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:17
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:587
+  - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:178
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:459
+  status: identified
+- id: CFG-014
+  name: EConfigType.PolicyGroup
+  enum_value: 101
+  form_entry: AddGroupServerWindow (AddGroupServerViewModel)
+  fmt: 无分享 Fmt（GetShareUri 对 PolicyGroup 返回 null；测试已断言）
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.PolicyGroup
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:18
+  - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:90
+  - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:205
+  - v2rayN/ServiceLib.Tests/Fmt/FmtHandlerTests.cs:277
+  notes: 五模式见 EMultipleLoad。
+  status: identified
+- id: CFG-015
+  name: EConfigType.ProxyChain
+  enum_value: 102
+  form_entry: AddGroupServerWindow (AddGroupServerViewModel)
+  fmt: 无分享 Fmt；订阅前后置生成虚拟 ProxyChain 节点
+  generators:
+  - CoreConfigV2rayService
+  - CoreConfigSingboxService
+  ui_form_supported: true
+  supported_cores:
+  - Xray
+  - sing_box
+  source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  source_symbol: EConfigType.ProxyChain
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:19
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:300
+  - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:238
+  status: identified
+core_capability_matrix:
+- id: CRM-001
+  core: v2fly
+  enum_value: 1
+  structured_config_generation: true_via_v2ray_branch
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: -version
+  special_handling: CoreExes=[v2ray]; Arguments={0}; 环境变量 V2RAY_LOCATION_ASSET；IsRunningCore 中 Xray 覆盖 v2fly/v2fly_v5
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:5
+  - v2rayN/ServiceLib/Global.cs:360
+  - v2rayN/ServiceLib/Global.cs:649
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:122
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:24
+  - v2rayN/ServiceLib/Manager/AppManager.cs:43
+  unresolved: v2fly 未出现在 Global.CoreTypes(仅 Xray/sing_box)，界面是否可选择未核实；结构化生成走 V2ray 分支但未找到 v2fly 专属差异。
+  status: identified
+- id: CRM-002
+  core: v2fly_v5
+  enum_value: 4
+  structured_config_generation: unknown
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: version
+  special_handling: CoreExes=[v2ray]; Arguments="run -c {0} -format jsonv5"; 环境变量 V2RAY_LOCATION_ASSET
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:7
+  - v2rayN/ServiceLib/Global.cs:649
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:135
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  unresolved: jsonv5 格式是否由 CoreConfigV2rayService 生成、界面可选性均未核实。
+  status: identified
+- id: CRM-003
+  core: Xray
+  enum_value: 2
+  structured_config_generation: true
+  custom_config_support: true
+  update_supported: true
+  stats_support: true
+  version_param: -version
+  special_handling: CoreConfigV2rayService 生成结构化配置；统计经 http://127.0.0.1:StatePort/debug/vars；环境变量 XRAY_LOCATION_ASSET、XRAY_LOCATION_CERT；DownloadUrl 覆盖 Win/Linux/macOS x64/arm64/riscv64/loong64
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:6
+  - v2rayN/ServiceLib/Global.cs:653
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:149
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:30
+  - v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs:10
+  status: identified
+- id: CRM-004
+  core: sing_box
+  enum_value: 24
+  structured_config_generation: true
+  custom_config_support: true
+  update_supported: true
+  stats_support: true
+  version_param: version
+  special_handling: CoreConfigSingboxService 生成结构化配置；Arguments="run -c {0} --disable-color"；LockedMaxVersion=1.14.int.MaxValue 限制 sing-box 上限；DownloadUrl 含 {1} 版本占位；统计经 ws://127.0.0.1:StatePort2/traffic
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:12
+  - v2rayN/ServiceLib/Global.cs:654
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:216
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:232
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Services/Statistics/StatisticsSingboxService.cs:10
+  status: identified
+- id: CRM-005
+  core: mihomo
+  enum_value: 13
+  structured_config_generation: custom_only_partial
+  custom_config_support: true
+  update_supported: true
+  stats_support: partial_via_clash_api
+  version_param: -v
+  special_handling: Custom 节点经 CoreConfigClashService 复制并在 YAML 层改写 mixed-port/log-level/external-controller/tun/mixin；CoreExes 平台相关含 clash/mihomo；Arguments="-f {0}" + -d bin 便携目录；DownloadUrl 各平台
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:8
+  - v2rayN/ServiceLib/Global.cs:655
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:173
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:20
+  - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:15
+  - v2rayN/ServiceLib/Manager/ClashApiManager.cs:11
+  unresolved: mihomo 流量统计是否走 Statistics 服务未核实；已知经 Clash API /proxies 与 /connections 查询。
+  status: identified
+- id: CRM-006
+  core: hysteria
+  enum_value: 21
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes=[hysteria]; Arguments 为空串；仅作为 Custom 内核运行
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:9
+  - v2rayN/ServiceLib/Global.cs:656
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:192
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  status: identified
+- id: CRM-007
+  core: hysteria2
+  enum_value: 26
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes 平台候选 [hysteria-windows-amd64, hysteria-linux-amd64, hysteria]；Arguments 为空串；hysteria2 协议节点实际由 sing_box 结构化生成
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:14
+  - v2rayN/ServiceLib/Global.cs:657
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:245
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:769
+  status: identified
+- id: CRM-008
+  core: naiveproxy
+  enum_value: 22
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes=[naive, naiveproxy]; Arguments={0}；Naive 协议结构化由 sing_box 生成
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:10
+  - v2rayN/ServiceLib/Global.cs:658
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:200
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:971
+  status: identified
+- id: CRM-009
+  core: tuic
+  enum_value: 23
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes=[tuic-client, tuic]; Arguments="-c {0}"; TUIC 协议结构化由 sing_box 生成
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:11
+  - v2rayN/ServiceLib/Global.cs:659
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:208
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:847
+  status: identified
+- id: CRM-010
+  core: juicity
+  enum_value: 25
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes=[juicity-client, juicity]; Arguments="run -c {0}"
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:13
+  - v2rayN/ServiceLib/Global.cs:660
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:237
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  status: identified
+- id: CRM-011
+  core: brook
+  enum_value: 27
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes 平台候选; Arguments=" {0}"; AbsolutePath=true（配置路径为 bin 绝对路径）
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:15
+  - v2rayN/ServiceLib/Global.cs:661
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:253
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:259
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  status: identified
+- id: CRM-012
+  core: overtls
+  enum_value: 28
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes=[overtls-bin, overtls]; Arguments="-r client -c {0}"; AbsolutePath=false
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:16
+  - v2rayN/ServiceLib/Global.cs:662
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:262
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  status: identified
+- id: CRM-013
+  core: shadowquic
+  enum_value: 29
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes=[shadowquic]; Arguments="-c {0}"; AbsolutePath=false
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:17
+  - v2rayN/ServiceLib/Global.cs:663
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:271
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  status: identified
+- id: CRM-014
+  core: mieru
+  enum_value: 30
+  structured_config_generation: false
+  custom_config_support: true
+  update_supported: false
+  stats_support: false
+  version_param: null
+  special_handling: CoreExes=[mieru]; Arguments="run"; 环境变量 MIERU_CONFIG_JSON_FILE={0}; AbsolutePath=false
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:18
+  - v2rayN/ServiceLib/Global.cs:664
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:280
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  status: identified
+- id: CRM-015
+  core: v2rayN
+  enum_value: 99
+  structured_config_generation: not_applicable
+  custom_config_support: not_applicable
+  update_supported: true_if_not_packaged
+  stats_support: not_applicable
+  version_param: null
+  special_handling: 应用自身更新标识而非代理内核；IsCheckUpdateSupported 仅当非打包安装；GetCheckUpdateCoreTypes 中始终优先加入；下载含 -desktop.zip 分支
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:19
+  - v2rayN/ServiceLib/Global.cs:665
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:106
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:87
+  - v2rayN/ServiceLib/Services/UpdateService.cs:291
+  status: identified
+fmt_formats:
+- id: FMT-001
+  name: VmessFmt
+  kind: 分享链接 Resolve/ToUri
+  entry: FmtHandler.GetShareUri / ResolveConfig
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/VmessFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/VmessFmt.cs:20
+  - v2rayN/ServiceLib/Handler/Fmt/VmessFmt.cs:152
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:13
+  status: identified
+- id: FMT-002
+  name: VLESSFmt
+  kind: 分享链接 Resolve/ToUri
+  entry: FmtHandler
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs:37
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:17
+  status: identified
+- id: FMT-003
+  name: ShadowsocksFmt
+  kind: 分享链接 + SIP008 订阅解析
+  entry: FmtHandler / AddBatchServers4SsSIP008
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/ShadowsocksFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/ShadowsocksFmt.cs:26
+  - v2rayN/ServiceLib/Handler/Fmt/ShadowsocksFmt.cs:281
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1920
+  status: identified
+- id: FMT-004
+  name: SocksFmt
+  kind: socks/socks5/socks4 分享链接
+  entry: FmtHandler
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/SocksFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/SocksFmt.cs:24
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:56
+  status: identified
+- id: FMT-005
+  name: TrojanFmt
+  kind: 分享链接 Resolve/ToUri
+  entry: FmtHandler
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/TrojanFmt.cs:7
+  - v2rayN/ServiceLib/Handler/Fmt/TrojanFmt.cs:38
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:16
+  status: identified
+- id: FMT-006
+  name: Hysteria2Fmt
+  kind: 分享链接 + Realm + 全量配置
+  entry: FmtHandler / HyRealm
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/Hysteria2Fmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/Hysteria2Fmt.cs:35
+  - v2rayN/ServiceLib/Handler/Fmt/Hysteria2Fmt.cs:77
+  - v2rayN/ServiceLib/Handler/Fmt/Hysteria2Fmt.cs:119
+  - v2rayN/ServiceLib/Handler/Fmt/Hysteria2Fmt.cs:59
+  status: identified
+- id: FMT-007
+  name: TuicFmt
+  kind: 分享链接 Resolve/ToUri
+  entry: FmtHandler
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/TuicFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/TuicFmt.cs:45
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:19
+  status: identified
+- id: FMT-008
+  name: WireguardFmt
+  kind: 分享链接 + wg 配置解析
+  entry: FmtHandler / AddBatchServers4Wireguard
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/WireguardFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/WireguardFmt.cs:58
+  - v2rayN/ServiceLib/Handler/Fmt/WireguardFmt.cs:113
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1947
+  status: identified
+- id: FMT-009
+  name: AnytlsFmt
+  kind: 分享链接 Resolve/ToUri
+  entry: FmtHandler
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/AnytlsFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/AnytlsFmt.cs:36
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:21
+  status: identified
+- id: FMT-010
+  name: NaiveFmt
+  kind: naive+https / naive+quic 分享链接
+  entry: FmtHandler
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/NaiveFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/NaiveFmt.cs:57
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:92
+  status: identified
+- id: FMT-011
+  name: InnerFmt
+  kind: v2rayn:// 内部 URI 导入导出
+  entry: ConfigHandler.AddBatchServers4InnerUri / ProfilesViewModel.Export2InnerUrlAsync
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:7
+  - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:98
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1977
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:832
+  status: identified
+- id: FMT-012
+  name: V2rayFmt
+  kind: v2ray 全量/出站 JSON 识别为 Custom/Outbound
+  entry: ConfigHandler.AddBatchServers4Custom
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/V2rayFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/V2rayFmt.cs:11
+  - v2rayN/ServiceLib/Handler/Fmt/V2rayFmt.cs:111
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1715
+  status: identified
+- id: FMT-013
+  name: SingboxFmt
+  kind: sing-box 全量/出站 JSON 识别为 Custom/Outbound
+  entry: ConfigHandler.AddBatchServers4Custom
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/SingboxFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/SingboxFmt.cs:11
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1732
+  status: identified
+- id: FMT-014
+  name: ClashFmt
+  kind: Clash YAML 全量识别为 mihomo Custom
+  entry: ConfigHandler.AddBatchServers4Custom
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/ClashFmt.cs:5
+  - v2rayN/ServiceLib/Handler/Fmt/ClashFmt.cs:7
+  status: identified
+- id: FMT-015
+  name: HtmlPageFmt
+  kind: 订阅返回 HTML 页面检测
+  entry: AddBatchServers 格式识别
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/HtmlPageFmt.cs:5
+  status: identified
+- id: FMT-016
+  name: BaseFmt
+  kind: 分享链接公共基类（查询串、传输、IPv6 处理）
+  entry: 各 Fmt 继承
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs:20
+  - v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs:197
+  - v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs:330
+  status: identified
+- id: FMT-017
+  name: FmtHandler
+  kind: 分享 URI 统一入口与协议分发
+  entry: GetShareUri / ResolveConfig
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:7
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:35
+  status: identified
+features:
+- id: F-PROFILE-001
+  name: 添加基础协议节点
+  family: profile
+  summary: 菜单选择 VMess/VLESS/SS/SOCKS/HTTP/Trojan/Hysteria2/TUIC/WireGuard/AnyTLS/Naive 之一新建节点
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 服务器/添加[协议]节点
+    symbol: MainWindowViewModel.AddServerAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 打开 AddServerWindow 编辑草稿，保存经 ConfigHandler.Add*Server 校验后写入 ProfileItem
+  failure_behavior: 校验失败提示字段错误并不落库
+  cancel_behavior: 关闭窗口丢弃草稿
+  acceptance: 对 11 类协议各新增一条，重开应用后节点仍在且字段一致
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:99
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:449
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:282
+  status: identified
+- id: F-PROFILE-002
+  name: 编辑节点
+  family: profile
+  summary: 编辑选中节点草稿并保存
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/编辑
+    symbol: ProfilesViewModel.EditServerAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-PROFILE-001
+  preconditions:
+  - 至少一个节点
+  normal_behavior: 打开编辑窗口，保存后更新 ProfileItem
+  failure_behavior: 校验失败不落库
+  cancel_behavior: 关闭丢弃草稿
+  acceptance: 修改备注/地址后重开仍一致
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:50
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:464
+  status: identified
+- id: F-PROFILE-003
+  name: 删除节点
+  family: profile
+  summary: 删除选中/多个节点
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/删除
+    symbol: ProfilesViewModel.RemoveServerAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions:
+  - 至少一个节点
+  normal_behavior: 经 ConfigHandler.RemoveServers 通过临时 Subid 删除
+  failure_behavior: 无
+  cancel_behavior: 确认框取消则不删除
+  acceptance: 删除后节点表与数据库均无该行
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:504
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:341
+  status: identified
+- id: F-PROFILE-004
+  name: 复制节点
+  family: profile
+  summary: 复制节点，备注追加 -clone
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/复制
+    symbol: ProfilesViewModel.CopyServer
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions:
+  - 至少一个节点
+  normal_behavior: ConfigHandler.CopyServer 深拷贝，Custom/Outbound 复制文件，其余 AddServerCommon
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 复制后新增一行且备注带 -clone
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:546
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:362
+  status: identified
+- id: F-PROFILE-005
+  name: 去重节点
+  family: profile
+  summary: 按协议字段比较删除重复项，可保留较新或较旧
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/移除重复
+    symbol: ProfilesViewModel.RemoveDuplicateServer
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions:
+  - 存在重复节点
+  normal_behavior: ConfigHandler.DedupServerList 依 CompareProfileItem 保留，KeepOlderDedupl 控制方向，复杂节点跳过
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 构造重复节点后去重仅保留一条
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:530
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1156
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1173
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1258
+  status: identified
+- id: F-PROFILE-006
+  name: 设为默认节点
+  family: profile
+  summary: 设置活动节点 IndexId
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/设为活动
+    symbol: ProfilesViewModel.SetDefaultServer
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: ConfigHandler.SetDefaultServerIndex 写 config.IndexId 并保存，触发重载
+  failure_behavior: indexId 为空返回 -1
+  cancel_behavior: 无
+  acceptance: 重开后活动节点为所选
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:560
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:406
+  status: identified
+- id: F-PROFILE-007
+  name: 节点移动与排序
+  family: profile
+  summary: 置顶/上移/下移/置底、按列排序、拖拽排序
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/排序
+    symbol: ProfilesViewModel.MoveServer / SortServer
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: EMove(Top/Up/Down/Bottom/Position)；SortServers 按 EServerColName 排序；EnableDragDropSort 控制拖拽
+  failure_behavior: 越界返回 0/-1
+  cancel_behavior: 无
+  acceptance: 移动后 ProfileExItem.Sort 顺序符合预期并持久化
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:676
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:635
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:476
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1004
+  - v2rayN/ServiceLib/Enums/EMove.cs:3
+  - v2rayN/ServiceLib/Enums/EServerColName.cs:3
+  status: identified
+- id: F-PROFILE-008
+  name: 节点分组与移动到组
+  family: profile
+  summary: 按订阅分组显示、移动节点到其它订阅
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/移动到分组
+    symbol: ProfilesViewModel.MoveToGroup
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: ConfigHandler.MoveToGroup 更新 ProfileItem.Subid
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 移动后节点归属目标订阅
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:660
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2301
+  status: identified
+- id: F-PROFILE-009
+  name: 生成策略组（全部/按地区）
+  family: profile
+  summary: 一键生成“全部节点”与地区策略组
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/生成策略组
+    symbol: ProfilesViewModel.GenGroupAllServer / GenGroupRegionServer
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions:
+  - 存在节点
+  normal_behavior: ConfigHandler.AddGroupAllServer / AddGroupRegionServer 创建 PolicyGroup 节点
+  failure_behavior: 无节点提示
+  cancel_behavior: 无
+  acceptance: 生成后出现对应 PolicyGroup 节点且 ChildItems 正确
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:610
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:622
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1422
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1487
+  status: identified
+- id: F-PROFILE-010
+  name: 移除无效节点结果
+  family: profile
+  summary: 清除延迟/速度无效的测试结果记录
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/移除无效
+    symbol: ProfilesViewModel.RemoveInvalidServerResult
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: ConfigHandler.RemoveInvalidServerResult 删除无结果项
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 无效结果被清除且返回条数提示
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:652
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1595
+  status: identified
+- id: F-PROFILE-011
+  name: 分享单个节点链接
+  family: profile
+  summary: 调用 FmtHandler 生成分享 URI 并弹二维码/复制
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/分享
+    symbol: ProfilesViewModel.ShareServerAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-IMPORT-001
+  preconditions:
+  - 节点协议在 ProtocolShares 内
+  normal_behavior: FmtHandler.GetShareUri 生成，ShareServerInteraction 分享
+  failure_behavior: 不支持协议返回 null
+  cancel_behavior: 无
+  acceptance: 各可导出协议分享链接可被反解回同节点
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:593
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:601
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:7
+  status: identified
+- id: F-PROFILE-012
+  name: 从剪贴板导入节点
+  family: profile
+  summary: 读取剪贴板文本批量导入
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 服务器/从剪贴板导入
+    symbol: MainWindowViewModel.AddServerViaClipboardAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-IMPORT-002
+  preconditions:
+  - 剪贴板含可识别链接
+  normal_behavior: ConfigHandler.AddBatchServers 识别并导入，成功计数提示
+  failure_behavior: 空/无法识别提示失败
+  cancel_behavior: 无
+  acceptance: 粘贴分享链接后节点出现
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:484
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:497
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:244
+  status: identified
+- id: F-PROFILE-013
+  name: 屏幕扫码与图片扫码导入
+  family: profile
+  summary: 屏幕截取二维码或选择图片解析导入
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 服务器/扫描屏幕二维码、扫描图片二维码
+    symbol: MainWindowViewModel.AddServerViaScanAsync / AddServerViaImageAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-IMPORT-002
+  preconditions: []
+  normal_behavior: QRCodeUtils.ParseBarcode 解码后 AddBatchServers
+  failure_behavior: 未找到有效二维码提示
+  cancel_behavior: 取消截图无操作
+  acceptance: 二维码图片可导入对应节点
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:510
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:522
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:539
+  - v2rayN/ServiceLib/Common/QRCodeUtils.cs
+  status: identified
+- id: F-PROFILE-014
+  name: 节点过滤与搜索
+  family: profile
+  summary: 按备注/地址关键字过滤
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点表搜索框
+    symbol: ProfilesViewModel.ServerFilterChanged
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: AppManager.ProfileModels 以 like 过滤，含单引号清理
+  failure_behavior: 无
+  cancel_behavior: 清空过滤恢复全部
+  acceptance: 输入关键字仅显示匹配节点
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:343
+  - v2rayN/ServiceLib/Manager/AppManager.cs:202
+  - v2rayN/ServiceLib/Manager/AppManager.cs:220
+  status: identified
+- id: F-PROFILE-015
+  name: 节点列表列与实时统计展示
+  family: profile
+  summary: 显示协议/地址/端口/网络/安全/延迟/速度/IP/流量等列
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点表格
+    symbol: ProfilesViewModel.UpdateStatistics / AdjustMainLvColWidth
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-MONITOR-003
+  preconditions: []
+  normal_behavior: 服务端统计与测试结果合并入 ProfileItemModel
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 统计/测试结果反映到对应列并可排序
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:304
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:393
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1011
+  - v2rayN/ServiceLib/Enums/EServerColName.cs:3
+  status: identified
+- id: F-PROFILE-016
+  name: 批量导入多格式文本
+  family: profile
+  summary: 识别 base64/分享链接/SIP008/WireGuard/v2rayn:///v2ray/sing-box JSON/clash YAML
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 从剪贴板导入
+    symbol: ConfigHandler.AddBatchServers
+    files:
+    - v2rayN/ServiceLib/Handler/ConfigHandler.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 按顺序尝试 Common/SIP008/Wireguard/InnerUri/Custom 分支
+  failure_behavior: 无法识别返回 0
+  cancel_behavior: 无
+  acceptance: 各格式样本均可导入
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2037
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2055
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2068
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2074
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2081
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2106
+  status: identified
+- id: F-SUB-001
+  name: 订阅列表管理
+  family: subscription
+  summary: 查看订阅列表并显示自动更新间隔
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubSettingWindow
+    menu_path: 订阅/订阅设置
+    symbol: SubSettingViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/SubSettingViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: AppManager.SubItems 按 Sort 列出
+  failure_behavior: 无
+  cancel_behavior: 关闭窗口
+  acceptance: 新增订阅后列表刷新
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/SubSettingViewModel.cs:56
+  - v2rayN/ServiceLib/Manager/AppManager.cs:175
+  status: identified
+- id: F-SUB-002
+  name: 新增/编辑/删除订阅
+  family: subscription
+  summary: 编辑订阅 URL、备注、UA、Header、间隔等
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 订阅设置/新增编辑
+    symbol: SubEditViewModel.SaveSubAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 校验备注/URL/Header 后 ConfigHandler.AddSubItem / DeleteSubItem
+  failure_behavior: 备注或 URL 非法提示并不保存
+  cancel_behavior: 关闭丢弃草稿
+  acceptance: 订阅可增删改并持久化
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:54
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:80
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2187
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2275
+  status: identified
+- id: F-SUB-003
+  name: 订阅更新（全部/单组、直连/经代理）
+  family: subscription
+  summary: 四个菜单命令覆盖全部或当前组、直连或经代理更新
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 订阅/更新订阅[经代理]、更新当前分组[经代理]
+    symbol: MainWindowViewModel.UpdateSubscriptionProcess
+    files:
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-002
+  preconditions:
+  - 存在启用订阅
+  normal_behavior: SubscriptionHandler.UpdateProcess 逐个下载解析并 AddBatchServers
+  failure_behavior: 无效订阅跳过，失败保留并回报
+  cancel_behavior: 无显式取消
+  acceptance: 成功更新后节点刷新，失败订阅不破坏既有节点
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:178
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:574
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:5
+  status: identified
+- id: F-SUB-004
+  name: 订阅自定义 HTTP Header
+  family: subscription
+  summary: 每条订阅可配置 RequestHeaders JSON
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 订阅设置/请求头
+    symbol: HttpRequestHeadersHelper.TryParse
+    files:
+    - v2rayN/ServiceLib/Helper/HttpRequestHeadersHelper.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-003
+  preconditions: []
+  normal_behavior: 解析后作为 DownloadService.RequestHeaders 发送
+  failure_behavior: 非法 JSON 抛 SubRequestHeadersInvalid
+  cancel_behavior: 无
+  acceptance: 抓包确认自定义 Header 随订阅请求发送
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:83
+  - v2rayN/ServiceLib/Helper/HttpRequestHeadersHelper.cs
+  - v2rayN/ServiceLib.Tests/Helper/HttpRequestHeadersHelperTests.cs:16
+  status: identified
+- id: F-SUB-005
+  name: 订阅 User-Agent
+  family: subscription
+  summary: 每条订阅可指定下载 UA
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 订阅设置/UA
+    symbol: SubItem.UserAgent
+    files:
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-003
+  preconditions: []
+  normal_behavior: DownloadSubscriptionContent 使用 item.UserAgent
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: UA 字段影响请求头
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:102
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:155
+  status: identified
+- id: F-SUB-006
+  name: MoreUrl 附加订阅合并
+  family: subscription
+  summary: 主订阅外加若干附加订阅链接合并结果
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 订阅设置/MoreUrl
+    symbol: SubscriptionHandler.DownloadAdditionalSubscriptions
+    files:
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-003
+  preconditions:
+  - ConvertTarget 为空
+  normal_behavior: 逗号分隔 MoreUrl 逐个下载；主结果为 base64 先解码后拼接
+  failure_behavior: 空行跳过
+  cancel_behavior: 无
+  acceptance: 附加订阅节点被合并导入
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:121
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:158
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:169
+  status: identified
+- id: F-SUB-007
+  name: 订阅转换 ConvertTarget
+  family: subscription
+  summary: 通过转换服务把订阅转为 mixed/v2ray/clash/ss
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 订阅设置/转换目标
+    symbol: SubscriptionHandler.DownloadMainSubscription
+    files:
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-003
+  preconditions:
+  - 设置 ConvertTarget
+  normal_behavior: 按 Global.SubConvertUrls / ConstItem.SubConvertUrl 拼接 target 与 config
+  failure_behavior: 转换失败按空结果处理
+  cancel_behavior: 无
+  acceptance: 指定目标后请求转换服务并成功导入
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:129
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:137
+  - v2rayN/ServiceLib/Global.cs:142
+  - v2rayN/ServiceLib/Global.cs:155
+  status: identified
+- id: F-SUB-008
+  name: 订阅前后置节点
+  family: subscription
+  summary: 为订阅配置前置/后置节点，构成虚拟代理链
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 订阅设置/前置节点、后置节点
+    symbol: SubEditViewModel.PrevProfile / NextProfile
+    files:
+    - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-SUB-002
+  preconditions: []
+  normal_behavior: 运行时按 remarks 解析 prev/next 并生成 ProxyChain 节点
+  failure_behavior: 节点未找到则警告并使用原节点
+  cancel_behavior: 清除选择则不生成链
+  acceptance: 配置前后置后生成链式出站
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:14
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:87
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:258
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:279
+  status: identified
+- id: F-SUB-009
+  name: 订阅过滤与自定义内核
+  family: subscription
+  summary: 订阅级 Filter 正则过滤节点，CustomCoreType 指定内核
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 订阅设置/过滤、内核
+    symbol: SubEditViewModel.CustomCoreType
+    files:
+    - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-002
+  preconditions: []
+  normal_behavior: Filter 用于策略组/订阅过滤，CustomCoreType 解析为 ECoreType
+  failure_behavior: 非法内核名置 null
+  cancel_behavior: 无
+  acceptance: Filter 生效仅保留匹配节点；CustomCoreType 影响运行内核
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:11
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:86
+  - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:26
+  - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:104
+  status: identified
+- id: F-SUB-010
+  name: 订阅自动更新
+  family: subscription
+  summary: 按订阅 AutoUpdateInterval 分钟周期后台更新
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: background
+    menu_path: 定时任务
+    symbol: TaskManager.UpdateTaskRunSubscription
+    files:
+    - v2rayN/ServiceLib/Manager/TaskManager.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-003
+  preconditions:
+  - AutoUpdateInterval>0
+  normal_behavior: 每分钟检查，达到间隔则更新并回写 UpdateTime
+  failure_behavior: 异常记录日志
+  cancel_behavior: 无
+  acceptance: 到点自动更新且 UpdateTime 刷新
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:87
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:90
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:98
+  status: identified
+- id: F-SUB-011
+  name: 订阅更新失败保留旧节点
+  family: subscription
+  summary: 下载为空/解码失败时不删除既有节点
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: background
+    menu_path: 订阅更新
+    symbol: SubscriptionHandler.ProcessDownloadResult
+    files:
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-003
+  preconditions: []
+  normal_behavior: 结果为空提前返回 false，不调用 AddBatchServers；成功时 AddBatchServers 先删除该 subid 旧节点再写入
+  failure_behavior: 仍会返回失败消息
+  cancel_behavior: 无
+  acceptance: 模拟下载失败后旧节点仍存在
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:197
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:199
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2049
+  status: identified
+- id: F-IMPORT-001
+  name: 单条分享链接解析
+  family: import-export
+  summary: FmtHandler.ResolveConfig 按前缀分发到各协议 Fmt
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 从剪贴板导入
+    symbol: FmtHandler.ResolveConfig
+    files:
+    - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions:
+  - 字符串以已知协议前缀开头
+  normal_behavior: 依 ProtocolShares/特殊前缀解析为 ProfileItem
+  failure_behavior: 未知协议返回 null 并给消息
+  cancel_behavior: 无
+  acceptance: 各协议分享链接解析成功且字段正确
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:35
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:48
+  - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:98
+  status: identified
+- id: F-IMPORT-002
+  name: 分享链接批量文本导入
+  family: import-export
+  summary: 多行分享链接/文本批量导入
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 从剪贴板导入
+    symbol: ConfigHandler.AddBatchServersCommon
+    files:
+    - v2rayN/ServiceLib/Handler/ConfigHandler.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-IMPORT-001
+  preconditions: []
+  normal_behavior: 逐行解析并统计成功数
+  failure_behavior: 无有效行返回 0
+  cancel_behavior: 无
+  acceptance: 多行文本导入计数正确
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1627
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2055
+  status: identified
+- id: F-IMPORT-003
+  name: SIP008 订阅导入
+  family: import-export
+  summary: 解析 Shadowsocks SIP008 JSON 订阅
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 从剪贴板导入
+    symbol: ShadowsocksFmt.ResolveSip008
+    files:
+    - v2rayN/ServiceLib/Handler/Fmt/ShadowsocksFmt.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions:
+  - 存在 sshadowsocks 方法
+  normal_behavior: AddBatchServers4SsSIP008 解析 servers 数组
+  failure_behavior: 解析失败返回 0
+  cancel_behavior: 无
+  acceptance: SIP008 样本导入成功
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/ShadowsocksFmt.cs:281
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1920
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2068
+  status: identified
+- id: F-IMPORT-004
+  name: WireGuard 配置导入
+  family: import-export
+  summary: 解析 wg 配置文件为 WireGuard 节点
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 从剪贴板导入
+    symbol: WireguardFmt.ResolveConfig
+    files:
+    - v2rayN/ServiceLib/Handler/Fmt/WireguardFmt.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions:
+  - 含 Interface/Peer
+  normal_behavior: AddBatchServers4Wireguard 解析
+  failure_behavior: 解析失败返回 0
+  cancel_behavior: 无
+  acceptance: wg 配置导入字段正确
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/WireguardFmt.cs:113
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1947
+  - v2rayN/ServiceLib.Tests/Fmt/WireguardFmtTests.cs:6
+  status: identified
+- id: F-IMPORT-005
+  name: v2rayn:// 内部协议导入导出
+  family: import-export
+  summary: base64 JSON 内部 URI 批量导入导出，保留组引用
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 从剪贴板导入、导出内部URI
+    symbol: InnerFmt
+    files:
+    - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 导入覆盖 indexId 防注入，Custom 跳过；组节点重写 ChildItems/SubChildItems
+  failure_behavior: 版本非 4 或类型非法跳过
+  cancel_behavior: 无
+  acceptance: 导出后再导入组引用可解析
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:7
+  - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:98
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1977
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:832
+  status: identified
+- id: F-IMPORT-006
+  name: 图片二维码导入
+  family: import-export
+  summary: 选择图片文件解析二维码导入
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 扫描图片二维码
+    symbol: MainWindowViewModel.AddServerViaImageAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-IMPORT-002
+  preconditions: []
+  normal_behavior: QRCodeUtils.ParseBarcode(fileName)
+  failure_behavior: 无有效二维码提示
+  cancel_behavior: 取消选择无操作
+  acceptance: 图片导入成功
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:522
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:528
+  status: identified
+- id: F-IMPORT-007
+  name: 屏幕扫码导入
+  family: import-export
+  summary: 截取屏幕二维码区域解析导入
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 扫描屏幕二维码
+    symbol: MainWindowViewModel.AddServerViaScanAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-IMPORT-002
+  preconditions: []
+  normal_behavior: ScanScreenInteraction 返回字节后 ParseBarcode
+  failure_behavior: 无有效二维码提示
+  cancel_behavior: 取消截图无操作
+  acceptance: 屏幕二维码导入成功
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:510
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:516
+  status: identified
+- id: F-IMPORT-008
+  name: 导出客户端配置
+  family: import-export
+  summary: 将节点导出为客户端配置文件（或复制到剪贴板）
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/导出客户端配置
+    symbol: ProfilesViewModel.Export2ClientConfigAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions:
+  - 选中节点
+  normal_behavior: CoreConfigHandler.GenerateClientConfig 生成配置写入文件或剪贴板
+  failure_behavior: 生成失败提示
+  cancel_behavior: 无
+  acceptance: 导出文件可被对应内核加载
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:743
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:777
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:10
+  status: identified
+- id: F-IMPORT-009
+  name: 导出分享链接
+  family: import-export
+  summary: 批量导出分享链接（可选 base64）
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/导出分享链接
+    symbol: ProfilesViewModel.Export2ShareUrlAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-IMPORT-001
+  preconditions:
+  - 选中节点
+  normal_behavior: FmtHandler.GetShareUri 批量拼接，可 base64
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 导出文本可再次导入
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:799
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:810
+  status: identified
+- id: F-IMPORT-010
+  name: 导出分享二维码
+  family: import-export
+  summary: 单节点分享二维码
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 节点右键/分享
+    symbol: ProfilesViewModel.ShareServerInteraction
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-PROFILE-011
+  preconditions:
+  - 节点可导出
+  normal_behavior: 由 UI 依据分享 URI 渲染二维码
+  failure_behavior: 无
+  cancel_behavior: 关闭二维码
+  acceptance: 分享二维码可被扫码导入
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:9
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:593
+  status: identified
+- id: F-IMPORT-011
+  name: 全量配置识别为 Custom
+  family: import-export
+  summary: 识别 v2ray/sing-box 全量配置 JSON 与 clash YAML
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 从剪贴板导入
+    symbol: ConfigHandler.AddBatchServers4Custom
+    files:
+    - v2rayN/ServiceLib/Handler/ConfigHandler.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  depends_on_features:
+  - F-IMPORT-002
+  preconditions: []
+  normal_behavior: V2rayFmt/SingboxFmt/ClashFmt 判定并落 Custom/Outbound
+  failure_behavior: 不匹配则尝试 outbound
+  cancel_behavior: 无
+  acceptance: 全量配置导入为 Custom 节点
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1715
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1732
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1783
+  - v2rayN/ServiceLib/Handler/Fmt/ClashFmt.cs:7
+  status: identified
+- id: F-TEST-001
+  name: TCP 延迟测试
+  family: test
+  summary: TCP 连接延迟测试
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 测试/TcpPing
+    symbol: ProfilesViewModel.TcpingServerCmd
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions:
+  - 选中节点
+  normal_behavior: ESpeedActionType.Tcping 执行
+  failure_behavior: 失败记 0/-1
+  cancel_behavior: ServerSpeedtestStop
+  acceptance: 延迟写入 Delay 列
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:71
+  - v2rayN/ServiceLib/Enums/ESpeedActionType.cs:3
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:705
+  status: identified
+- id: F-TEST-002
+  name: 真实延迟测试
+  family: test
+  summary: 经本地代理请求测试 URL 计算真实延迟
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 测试/RealPing
+    symbol: ProfilesViewModel.RealPingServerCmd
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions:
+  - 节点可运行
+  normal_behavior: 启动内核经 socks 请求 SpeedPingTestUrl
+  failure_behavior: 超时返回 -1
+  cancel_behavior: ServerSpeedtestStop
+  acceptance: 结果写入 Delay/IpInfo
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:72
+  - v2rayN/ServiceLib/Handler/ConnectionHandler.cs:10
+  - v2rayN/ServiceLib/Handler/ConnectionHandler.cs:69
+  status: identified
+- id: F-TEST-003
+  name: UDP 测试
+  family: test
+  summary: 对 UDP 目标（ntp/dns/stun/mcbe）测试
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 测试/UDP测试
+    symbol: ProfilesViewModel.UdpTestServerCmd
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions:
+  - 配置 UdpTestTarget
+  normal_behavior: ESpeedActionType.UdpTest 与 ServiceLib.UdpTest
+  failure_behavior: 超时无效
+  cancel_behavior: ServerSpeedtestStop
+  acceptance: UDP 结果反映到测试结果
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:73
+  - v2rayN/ServiceLib/Global.cs:684
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:59
+  status: identified
+- id: F-TEST-004
+  name: 下载速度测试
+  family: test
+  summary: 经节点下载测速文件计算速度
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 测试/下载速度
+    symbol: ProfilesViewModel.SpeedServerCmd
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions:
+  - 配置 SpeedTestUrl
+  normal_behavior: ESpeedActionType.Speedtest
+  failure_behavior: 无
+  cancel_behavior: ServerSpeedtestStop
+  acceptance: 速度写入 Speed 列
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:74
+  - v2rayN/ServiceLib/Global.cs:164
+  status: identified
+- id: F-TEST-005
+  name: 混合测试
+  family: test
+  summary: 一次执行延迟+测速混合
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 测试/混合测试
+    symbol: ProfilesViewModel.MixedTestServerCmd
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-TEST-002
+  - F-TEST-004
+  preconditions: []
+  normal_behavior: ESpeedActionType.Mixedtest，MixedConcurrencyCount 控制并发
+  failure_behavior: 无
+  cancel_behavior: ServerSpeedtestStop
+  acceptance: 延迟与速度同时更新
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:69
+  - v2rayN/ServiceLib/Enums/ESpeedActionType.cs:7
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:60
+  status: identified
+- id: F-TEST-006
+  name: 快速真延迟
+  family: test
+  summary: 快速真实延迟测试
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 测试/快速真延迟
+    symbol: ProfilesViewModel.FastRealPingCmd
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-TEST-002
+  preconditions: []
+  normal_behavior: ESpeedActionType.FastRealping
+  failure_behavior: 无
+  cancel_behavior: ServerSpeedtestStop
+  acceptance: 延迟更新
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:77
+  - v2rayN/ServiceLib/Enums/ESpeedActionType.cs:8
+  status: identified
+- id: F-TEST-007
+  name: 测试结果排序
+  family: test
+  summary: 按延迟/速度结果排序节点
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 测试/按结果排序
+    symbol: ProfilesViewModel.SortServerResultCmd
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-PROFILE-007
+  preconditions:
+  - 有测试结果
+  normal_behavior: SortServers 按 DelayVal/SpeedVal 等
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 节点按结果重排
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:75
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1089
+  status: identified
+- id: F-TEST-008
+  name: 停止测试
+  family: test
+  summary: 取消正在进行的批量测试
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 测试/停止
+    symbol: ProfilesViewModel.ServerSpeedtestStop
+    files:
+    - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-TEST-005
+  preconditions:
+  - 测试进行中
+  normal_behavior: 设置取消令牌停止任务
+  failure_behavior: 无
+  cancel_behavior: 立即停止并保留已完成结果
+  acceptance: 长测试可被中断
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:738
+  status: identified
+- id: F-ROUTING-001
+  name: 基础路由模式
+  family: routing
+  summary: 规则/全局/直连三种基础策略
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 状态栏/路由
+    symbol: StatusBarViewModel.RoutingSelectedChangedAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: ERuleMode(Rule/Global/Direct) 决定生成配置的路由策略
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 三种模式生成配置路由段不同
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Enums/ERuleMode.cs:3
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:400
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:391
+  status: identified
+- id: F-ROUTING-002
+  name: 路由设置与高级路由列表
+  family: routing
+  summary: 路由模板列表、域名策略、增删/设默认/导入
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: RoutingSettingWindow
+    menu_path: 设置/路由设置
+    symbol: RoutingSettingViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: ConfigHandler.InitBuiltinRouting 与 SaveRoutingItem/SetDefaultRouting
+  failure_behavior: 无
+  cancel_behavior: 关闭窗口
+  acceptance: 路由模板可增删并设默认
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:22
+  - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:78
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2322
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2599
+  status: identified
+- id: F-ROUTING-003
+  name: 路由规则编辑与排序
+  family: routing
+  summary: 规则增删、上下移动、导入（文件/剪贴板/URL）
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: RoutingRuleSettingWindow
+    menu_path: 路由设置/编辑规则
+    symbol: RoutingRuleSettingViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-ROUTING-002
+  preconditions: []
+  normal_behavior: MoveRoutingRule 支持 Top/Up/Down/Bottom；AddBatchRoutingRules 批量导入
+  failure_behavior: 无
+  cancel_behavior: 关闭丢弃
+  acceptance: 规则顺序与内容持久化
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:24
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2345
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2389
+  status: identified
+- id: F-ROUTING-004
+  name: 规则详情与出站绑定
+  family: routing
+  summary: 规则详情中按备注选择目标出站节点
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: RoutingRuleDetailsWindow
+    menu_path: 路由规则/详情
+    symbol: RoutingRuleDetailsViewModel.SelectProfileCmd
+    files:
+    - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-ROUTING-003
+  preconditions: []
+  normal_behavior: 选择节点写入 OutboundTag（remarks 引用）
+  failure_behavior: 未找到节点时运行期警告并回退 proxy
+  cancel_behavior: 关闭丢弃
+  acceptance: 规则出站按备注正确解析
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:43
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:75
+  status: identified
+- id: F-ROUTING-005
+  name: 外部路由模板下载
+  family: routing
+  summary: 从远程模板源导入路由/规则集/域名模板
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: RoutingSettingWindow
+    menu_path: 路由设置/导入规则
+    symbol: ConfigHandler.InitExternalRouting
+    files:
+    - v2rayN/ServiceLib/Handler/ConfigHandler.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-ROUTING-002
+  preconditions:
+  - 配置源 URL
+  normal_behavior: RoutingRulesSources/DNSTemplateSources 下载并解析模板
+  failure_behavior: 失败回退内置模板
+  cancel_behavior: 无
+  acceptance: 外部模板导入成功
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2536
+  - v2rayN/ServiceLib/Global.cs:199
+  - v2rayN/ServiceLib/Global.cs:206
+  status: identified
+- id: F-ROUTING-006
+  name: sing-box rule-set/srs 资源下载
+  family: routing
+  summary: 依据路由与 DNS 收集 geosite/geoip 规则集并下载 .srs
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 更新 Geo 文件
+    symbol: UpdateService.GetSrsFileAllRequest
+    files:
+    - v2rayN/ServiceLib/Services/UpdateService.cs
+  depends_on_cores:
+  - sing_box
+  depends_on_features:
+  - F-CORE-013
+  preconditions: []
+  normal_behavior: 从 RoutingItem/DNS 提取前缀规则集并下载到 srss 目录
+  failure_behavior: 下载失败逐项报错
+  cancel_behavior: 无
+  acceptance: srss 目录生成对应 .srs
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Services/UpdateService.cs:415
+  - v2rayN/ServiceLib/Services/UpdateService.cs:441
+  - v2rayN/ServiceLib/Services/UpdateService.cs:515
+  - v2rayN/ServiceLib/Global.cs:9
+  status: identified
+- id: F-DNS-001
+  name: 简单 DNS 设置界面
+  family: dns
+  summary: 直连/远端/引导 DNS、hosts、FakeIP、AAAA 等设置
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: DNSSettingWindow
+    menu_path: 设置/DNS设置
+    symbol: DNSSettingViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 保存到 SimpleDNSItem 与 DNSItem
+  failure_behavior: 非法 DNS JSON 提示不保存
+  cancel_behavior: 关闭丢弃
+  acceptance: 设置持久化并进入生成配置
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:7
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:106
+  status: identified
+- id: F-DNS-002
+  name: 原生 DNS 配置（Xray/sing-box）
+  family: dns
+  summary: 每内核独立启用自定义 DNS 文本
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: DNSSettingWindow
+    menu_path: DNS设置/自定义DNS
+    symbol: DNSSettingViewModel.SaveSettingAsync
+    files:
+    - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-001
+  preconditions: []
+  normal_behavior: Xray NormalDNS/TunDNS 与 sing-box Dns4Sbox 分别校验保存
+  failure_behavior: 非法内容提示
+  cancel_behavior: 关闭丢弃
+  acceptance: 自定义 DNS 进入对应内核配置
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:125
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:185
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:193
+  status: identified
+- id: F-DNS-003
+  name: 直连/远端/引导 DNS 预设
+  family: dns
+  summary: 提供直连、远端、纯 IP 引导 DNS 候选
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: DNSSettingWindow
+    menu_path: DNS设置
+    symbol: SimpleDNSItem.DirectDNS/RemoteDNS/BootstrapDNS
+    files:
+    - v2rayN/ServiceLib/Global.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-001
+  preconditions: []
+  normal_behavior: 候选列表来自 Global 常量
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 候选选择写入配置
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Global.cs:464
+  - v2rayN/ServiceLib/Global.cs:475
+  - v2rayN/ServiceLib/Global.cs:491
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:79
+  status: identified
+- id: F-DNS-004
+  name: hosts 与预定义域名解析
+  family: dns
+  summary: 使用系统 hosts/附加 hosts 与预定义域名 IP
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: DNSSettingWindow
+    menu_path: DNS设置/hosts
+    symbol: SimpleDNSItem.UseSystemHosts/AddCommonHosts/Hosts
+    files:
+    - v2rayN/ServiceLib/Global.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-001
+  preconditions: []
+  normal_behavior: PredefinedHosts 与 hosts 文本进入 DNS 配置
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: hosts 生效于解析
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Global.cs:717
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:73
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:85
+  status: identified
+- id: F-DNS-005
+  name: FakeIP
+  family: dns
+  summary: FakeIP 开关与地址段
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: DNSSettingWindow
+    menu_path: DNS设置/FakeIP
+    symbol: SimpleDNSItem.FakeIP/FakeIPRange
+    files:
+    - v2rayN/ServiceLib/Global.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-001
+  preconditions: []
+  normal_behavior: FakeIPRanges 作为候选，GlobalFakeIp 控制
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 开启后生成配置含 fakeip
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:9
+  - v2rayN/ServiceLib/Global.cs:752
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:119
+  status: identified
+- id: F-DNS-006
+  name: AAAA 与绑定查询屏蔽
+  family: dns
+  summary: BlockAAAAQuery / BlockBindingQuery
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: DNSSettingWindow
+    menu_path: DNS设置
+    symbol: SimpleDNSItem.BlockAAAAQuery/BlockBindingQuery
+    files:
+    - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-001
+  preconditions: []
+  normal_behavior: 生成配置时屏蔽 AAAA/绑定查询
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 开启后配置含对应规则
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:11
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:12
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:118
+  status: identified
+- id: F-DNS-007
+  name: 域名解析策略
+  family: dns
+  summary: 域名策略（AsIs/IPIfNonMatch/IPOnDemand）与 sing-box 策略
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: RoutingSettingWindow/DNSSettingWindow
+    menu_path: 路由/DNS设置
+    symbol: RoutingBasicItem.DomainStrategy
+    files:
+    - v2rayN/ServiceLib/Global.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-001
+  preconditions: []
+  normal_behavior: DomainStrategies / DomainStrategies4Sbox 候选
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 策略进入配置
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Global.cs:395
+  - v2rayN/ServiceLib/Global.cs:402
+  - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:75
+  status: identified
+- id: F-DNS-008
+  name: 内核 DNS 差异生成
+  family: dns
+  summary: Xray 与 sing-box DNS 由各自 Service 生成
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 配置生成
+    menu_path: null
+    symbol: V2rayDnsService / SingboxDnsService
+    files:
+    - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs
+    - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-001
+  preconditions: []
+  normal_behavior: 分别生成 DNS 段
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 差分测试两内核 DNS 段符合基线
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs
+  - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs
+  status: identified
+- id: F-DNS-009
+  name: 区域预设 DNS/路由
+  family: dns
+  summary: 默认/俄罗斯/伊朗区域预设替换 DNS 与路由模板
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 设置/区域预设
+    symbol: ConfigHandler.ApplyRegionalPreset
+    files:
+    - v2rayN/ServiceLib/Handler/ConfigHandler.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-001
+  - F-ROUTING-002
+  preconditions: []
+  normal_behavior: EPresetType 切换对应内置 DNS/路由模板并更新 Geo
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 切换到 Russia/Iran 后模板改变
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2894
+  - v2rayN/ServiceLib/Enums/EPresetType.cs:3
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:780
+  status: identified
+- id: F-CORE-001
+  name: 内核类型选择
+  family: core
+  summary: 为不同协议配置默认内核（Xray/sing_box）
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/参数设置/内核
+    symbol: OptionSettingViewModel.SaveCoreType
+    files:
+    - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: CoreTypeItem 保存 ConfigType→CoreType 映射；AppManager.GetCoreType 解析
+  failure_behavior: 解析失败回退 Xray
+  cancel_behavior: 关闭丢弃
+  acceptance: 更改后节点使用对应内核生成配置
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:233
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:414
+  - v2rayN/ServiceLib/Manager/AppManager.cs:666
+  - v2rayN/ServiceLib/Global.cs:360
+  status: identified
+- id: F-CORE-002
+  name: 内置内核更新
+  family: core
+  summary: 检查并下载更新 Xray/mihomo/sing-box
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: CheckUpdateWindow
+    menu_path: 帮助/检查更新
+    symbol: UpdateService.CheckUpdateCore
+    files:
+    - v2rayN/ServiceLib/Services/UpdateService.cs
+  depends_on_cores:
+  - Xray
+  - mihomo
+  - sing_box
+  depends_on_features:
+  - F-CORE-004
+  preconditions:
+  - 非 x86/低版本 Windows
+  normal_behavior: GetRemoteVersion 取 latest/Release API，ParseDownloadUrl 生成平台 URL 并下载解压
+  failure_behavior: 不支持时返回 MsgNotSupport
+  cancel_behavior: 无显式取消
+  acceptance: 更新后内核二进制替换且版本刷新
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:53
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
+  - v2rayN/ServiceLib/Services/UpdateService.cs:49
+  - v2rayN/ServiceLib/Services/UpdateService.cs:261
+  status: identified
+- id: F-CORE-003
+  name: 应用自身更新
+  family: core
+  summary: 检查并升级 v2rayN 应用，支持 prerelease
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: CheckUpdateWindow
+    menu_path: 检查更新
+    symbol: UpdateService.CheckUpdateGuiN
+    files:
+    - v2rayN/ServiceLib/Services/UpdateService.cs
+  depends_on_cores:
+  - v2rayN
+  depends_on_features:
+  - F-APP-007
+  preconditions:
+  - 非打包安装
+  normal_behavior: 下载 zip 后由 UpgradeApp 启动替换并退出
+  failure_behavior: 打包安装提示不支持
+  cancel_behavior: 无
+  acceptance: 非打包环境可升级
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Services/UpdateService.cs:9
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:79
+  - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:259
+  - v2rayN/AmazTool/UpgradeApp.cs:24
+  status: identified
+- id: F-CORE-004
+  name: 仅检查更新（不下载）
+  family: core
+  summary: 检查各内核/应用是否有新版本
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: CheckUpdateWindow
+    menu_path: 检查更新/仅检查
+    symbol: UpdateService.CheckHasUpdateOnly
+    files:
+    - v2rayN/ServiceLib/Services/UpdateService.cs
+  depends_on_cores:
+  - Xray
+  - mihomo
+  - sing_box
+  - v2rayN
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 逐内核比较远端版本，结果存 AppManager.LastCheckUpdateResults
+  failure_behavior: 不支持返回 MsgNotSupport
+  cancel_behavior: 无
+  acceptance: 有新版时给出提示
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Services/UpdateService.cs:102
+  - v2rayN/ServiceLib/Services/UpdateService.cs:114
+  - v2rayN/ServiceLib/Manager/AppManager.cs:54
+  - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:143
+  status: identified
+- id: F-CORE-005
+  name: 内核启动/停止/重载
+  family: core
+  summary: 生成配置后启动内核，重载时先停后启
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 重载
+    symbol: CoreManager.LoadCore / CoreStop
+    files:
+    - v2rayN/ServiceLib/Manager/CoreManager.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  depends_on_features:
+  - F-CORE-008
+  preconditions:
+  - 有效节点
+  normal_behavior: GenerateClientConfig→CoreStop→CoreStart；Windows TUN 先 RemoveTunDevice；Reload 用信号量串行
+  failure_behavior: 生成失败中止并提示
+  cancel_behavior: 无
+  acceptance: 切换节点后仅新节点进程存活
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/CoreManager.cs:65
+  - v2rayN/ServiceLib/Manager/CoreManager.cs:147
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:664
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:662
+  status: identified
+- id: F-CORE-006
+  name: 预 SOCKS 端口
+  family: core
+  summary: 节点可配置预代理 SOCKS 端口，运行前先起预内核
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: AddServerWindow
+    menu_path: 节点编辑/预SocksPort
+    symbol: ConfigHandler.GetPreSocksItem
+    files:
+    - v2rayN/ServiceLib/Handler/ConfigHandler.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-CORE-005
+  preconditions:
+  - 节点设置 PreSocksPort
+  normal_behavior: BuildPreSocksIfNeeded 生成 preContext，CoreStartPreService 另起进程，WaitForProxyPort 探测就绪
+  failure_behavior: 端口未就绪记录超时
+  cancel_behavior: 无
+  acceptance: 预内核先于主内核就绪
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1555
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:189
+  - v2rayN/ServiceLib/Manager/CoreManager.cs:194
+  - v2rayN/ServiceLib/Manager/CoreManager.cs:219
+  status: identified
+- id: F-CORE-007
+  name: 自定义配置生成
+  family: core
+  summary: Custom 节点按文件复制（mihomo 走 YAML 处理）
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 配置生成
+    menu_path: null
+    symbol: CoreConfigHandler.GenerateClientCustomConfig
+    files:
+    - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  depends_on_features: []
+  preconditions:
+  - Custom 节点文件存在
+  normal_behavior: 复制配置文件到 bin/config.json，mihomo 经 CoreConfigClashService
+  failure_behavior: 文件缺失报错
+  cancel_behavior: 无
+  acceptance: Custom 节点生成内容与源一致
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:16
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:44
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:20
+  status: identified
+- id: F-CORE-008
+  name: 结构化配置生成
+  family: core
+  summary: 由领域节点生成 Xray/sing-box 完整配置
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 配置生成
+    menu_path: null
+    symbol: CoreConfigV2rayService / CoreConfigSingboxService
+    files:
+    - v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs
+    - v2rayN/ServiceLib/Services/CoreConfig/Singbox/CoreConfigSingboxService.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 依 RunCoreType 分支生成，写入 bin/config.json
+  failure_behavior: 生成失败返回消息
+  cancel_behavior: 无
+  acceptance: 差分测试输出配置
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:24
+  - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:30
+  - v2rayN/ServiceLib.Tests/CoreConfig/V2ray/CoreConfigV2rayServiceTests.cs:6
+  - v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs:6
+  status: identified
+- id: F-CORE-009
+  name: 完整配置模板
+  family: core
+  summary: 为 Xray/sing-box 维护可编辑完整配置模板
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: FullConfigTemplateWindow
+    menu_path: 设置/完整配置模板
+    symbol: FullConfigTemplateViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-CORE-008
+  preconditions: []
+  normal_behavior: 保存 FullConfigTemplateItem，生成时合并
+  failure_behavior: 无
+  cancel_behavior: 关闭丢弃
+  acceptance: 模板内容进入生成配置
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs:39
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2838
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:44
+  status: identified
+- id: F-CORE-010
+  name: Clash Mixin 合并
+  family: core
+  summary: mihomo 自定义配置支持 Mixin 覆盖，含 prepend-/append-/removed- 前缀
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/参数设置/Mixin
+    symbol: CoreConfigClashService.MixinContent
+    files:
+    - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs
+  depends_on_cores:
+  - mihomo
+  depends_on_features:
+  - F-CORE-007
+  preconditions:
+  - ClashUIItem.EnableMixinContent
+  normal_behavior: 读取 Mixin.yaml；普通键覆盖，prepend-/append- 合并列表，removed- 删除前缀项；TUN 关闭时跳过 tun 键
+  failure_behavior: Mixin 解析异常记录日志不阻断
+  cancel_behavior: 无
+  acceptance: Mixin 键按前缀语义合并进最终 YAML
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:113
+  - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:164
+  - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:192
+  - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:206
+  status: identified
+- id: F-CORE-011
+  name: 内核可执行文件定位
+  family: core
+  summary: 按 CoreExes 候选列表在 bin/内核名 目录查找可执行文件
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 启动内核
+    menu_path: null
+    symbol: CoreInfoManager.GetCoreExecFile
+    files:
+    - v2rayN/ServiceLib/Manager/CoreInfoManager.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 遍历 CoreExes 找存在文件，否则提示 NotFoundCore
+  failure_behavior: 未找到给出下载 URL 提示
+  cancel_behavior: 无
+  acceptance: 缺失内核时明确提示
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:32
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:38
+  status: identified
+- id: F-CORE-012
+  name: Linux/macOS TUN 提权运行
+  family: core
+  summary: TUN 启动且为非 Windows 时以 sudo 运行内核
+  platforms:
+  - linux
+  - macos
+  upstream_entry:
+    window: 启动内核
+    menu_path: null
+    symbol: CoreManager.ShouldRunAsSudo / CoreAdminManager
+    files:
+    - v2rayN/ServiceLib/Manager/CoreManager.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  depends_on_features:
+  - F-TUN-001
+  preconditions:
+  - TUN 开启，非 Windows
+  normal_behavior: 生成 run_as_sudo.sh 并 sudo -S 执行，退出时 kill_as_sudo
+  failure_behavior: 启动失败抛 FailedToRunCore
+  cancel_behavior: CoreStop 时结束 sudo 进程
+  acceptance: TUN 下内核以提权运行并可终止
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/CoreManager.cs:298
+  - v2rayN/ServiceLib/Manager/CoreManager.cs:316
+  - v2rayN/ServiceLib/Manager/CoreAdminManager.cs:32
+  - v2rayN/ServiceLib/Manager/CoreAdminManager.cs:72
+  status: identified
+- id: F-CORE-013
+  name: Geo/规则资源更新
+  family: core
+  summary: 下载 geosite/geoip 及附加 dat/mmdb
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 更新Geo文件
+    symbol: UpdateService.UpdateGeoFileAll
+    files:
+    - v2rayN/ServiceLib/Services/UpdateService.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 下载到临时文件再原子替换；非中国区额外下载 OtherGeoUrls
+  failure_behavior: 单项失败记录消息
+  cancel_behavior: 无
+  acceptance: bin 下 dat 更新
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Services/UpdateService.cs:139
+  - v2rayN/ServiceLib/Services/UpdateService.cs:369
+  - v2rayN/ServiceLib/Services/UpdateService.cs:391
+  - v2rayN/ServiceLib/Services/UpdateService.cs:533
+  status: identified
+- id: F-SYSPROXY-001
+  name: 系统代理四种语义
+  family: system-proxy
+  summary: ForcedClear/ForcedChange/Unchanged/Pac 四种系统代理状态
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: StatusBarView
+    menu_path: 状态栏/系统代理
+    symbol: SysProxyHandler.UpdateSysProxy
+    files:
+    - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 按平台分发到 ProxySettingWindows/Linux/OSX；Pac 仅 Windows
+  failure_behavior: 异常记录日志仍返回 true
+  cancel_behavior: 切到 Unchanged 不修改系统
+  acceptance: 四态切换与退出恢复行为符合基线
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Enums/ESysProxyType.cs:3
+  - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:8
+  - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:26
+  - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:53
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:183
+  status: identified
+- id: F-SYSPROXY-002
+  name: 系统代理绕过项与高级协议
+  family: system-proxy
+  summary: 绕过列表、NotProxyLocalAddress、SystemProxyAdvancedProtocol 模板
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/系统代理
+    symbol: SysProxyHandler.GetWindowsProxyString
+    files:
+    - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SYSPROXY-001
+  preconditions: []
+  normal_behavior: 高级协议替换 {ip}/{http_port}/{socks_port}；本地地址加 <local>
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 设置生效于系统代理字符串
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:86
+  - v2rayN/ServiceLib/Global.cs:133
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:83
+  status: identified
+- id: F-SYSPROXY-003
+  name: PAC 本地服务
+  family: system-proxy
+  summary: 本地 HTTP 服务提供 PAC 脚本，支持自定义 PAC 文件
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/系统代理
+    symbol: PacManager
+    files:
+    - v2rayN/ServiceLib/Manager/PacManager.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SYSPROXY-001
+  preconditions:
+  - SystemProxyType=Pac；Windows 设系统代理
+  normal_behavior: 读取 pac.txt 或自定义路径，替换 __PROXY__ 后监听 pac 端口
+  failure_behavior: 监听异常记录日志
+  cancel_behavior: 停止 PAC 服务
+  acceptance: 浏览器通过 PAC 正常代理
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/PacManager.cs:11
+  - v2rayN/ServiceLib/Manager/PacManager.cs:32
+  - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:110
+  status: identified
+- id: F-SYSPROXY-004
+  name: 退出时恢复系统代理
+  family: system-proxy
+  summary: 应用退出强制清除系统代理（除非 Unchanged）
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 退出
+    menu_path: 退出
+    symbol: AppManager.AppExitAsync
+    files:
+    - v2rayN/ServiceLib/Manager/AppManager.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SYSPROXY-001
+  preconditions: []
+  normal_behavior: UpdateSysProxy(forceDisable=true) 将非 Unchanged 置 ForcedClear
+  failure_behavior: 异常静默
+  cancel_behavior: 无
+  acceptance: 退出后系统代理被清除
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/AppManager.cs:128
+  - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:12
+  status: identified
+- id: F-TUN-001
+  name: TUN 模式开关
+  family: tun
+  summary: 状态栏开关 TUN，需内核与管理员权限
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: StatusBarView
+    menu_path: 状态栏/TUN
+    symbol: StatusBarViewModel.DoEnableTun
+    files:
+    - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  depends_on_features:
+  - F-CORE-005
+  preconditions:
+  - AllowEnableTun
+  normal_behavior: 写入 TunModeItem.EnableTun 并 Reload
+  failure_behavior: 不满足条件回退关闭
+  cancel_behavior: 关闭即回退
+  acceptance: 开关触发配置 TUN 段与提权
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:430
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:437
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:463
+  status: identified
+- id: F-TUN-002
+  name: TUN 参数（栈/MTU/自动路由/严格路由/ICMP）
+  family: tun
+  summary: 栈、MTU、AutoRoute、StrictRoute、IcmpRouting、LegacyProtect 设置
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/参数设置/TUN
+    symbol: TunModeItem
+    files:
+    - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  depends_on_features:
+  - F-TUN-001
+  preconditions: []
+  normal_behavior: 候选来自 Global.TunStacks/TunMtus/TunIcmpRoutingPolicies
+  failure_behavior: 无
+  cancel_behavior: 关闭丢弃
+  acceptance: 参数进入 TUN 配置
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Global.cs:585
+  - v2rayN/ServiceLib/Global.cs:575
+  - v2rayN/ServiceLib/Global.cs:743
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:217
+  status: identified
+- id: F-TUN-003
+  name: TUN 地址与路由排除
+  family: tun
+  summary: IPv4/IPv6 地址与 RouteExcludeAddress
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/TUN 地址
+    symbol: TunModeItem.IPv4Address/IPv6Address/RouteExcludeAddress
+    files:
+    - v2rayN/ServiceLib/Global.cs
+  depends_on_cores:
+  - sing_box
+  depends_on_features:
+  - F-TUN-001
+  preconditions: []
+  normal_behavior: TunIPv4Address/TunIPv6Address 候选；Builder 校验排除地址
+  failure_behavior: 非法地址警告并过滤
+  cancel_behavior: 无
+  acceptance: 地址进入配置且非法项被剔除
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Global.cs:765
+  - v2rayN/ServiceLib/Global.cs:779
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:100
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:100
+  status: identified
+- id: F-TUN-004
+  name: TUN DNS 与 FakeIP
+  family: tun
+  summary: TUN 专用 DNS 段与 FakeIP 过滤
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: DNSSettingWindow
+    menu_path: DNS设置/TunDNS
+    symbol: DNSItem.TunDNS
+    files:
+    - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-DNS-002
+  - F-TUN-001
+  preconditions: []
+  normal_behavior: TunDNS 进入 TUN 生成配置
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: TUN DNS 生效
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:29
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:140
+  - v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs:50
+  status: identified
+- id: F-TUN-005
+  name: Windows TUN 设备清理
+  family: tun
+  summary: TUN 启动前移除旧 TUN 设备
+  platforms:
+  - windows
+  upstream_entry:
+    window: 启动内核
+    menu_path: null
+    symbol: WindowsUtils.RemoveTunDevice
+    files:
+    - v2rayN/ServiceLib/Manager/CoreManager.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  - mihomo
+  depends_on_features:
+  - F-TUN-001
+  preconditions:
+  - Windows 且 TUN
+  normal_behavior: CoreStart 前调用 RemoveTunDevice
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 重复切换 TUN 不残留设备
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/CoreManager.cs:88
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:53
+  status: identified
+- id: F-MONITOR-001
+  name: 运行日志显示
+  family: monitor
+  summary: 显示内核 stdout 日志，级别可设
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 消息/日志标签
+    symbol: Logging / CoreBasicItem.LogEnabled
+    files:
+    - v2rayN/ServiceLib/Common/Logging.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: LogEnabled/Loglevel 控制日志；ProcessService displayLog 输出
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 日志随内核输出刷新
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Common/Logging.cs
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:19
+  - v2rayN/ServiceLib/Manager/AppManager.cs:101
+  - v2rayN/ServiceLib/Manager/CoreManager.cs:185
+  - v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:12
+  - v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:20
+  - v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:109
+  status: identified
+  notes: 审计 A06/FND-004：日志过滤（MsgFilter/DoMsgFilter）与自动刷新（AutoRefresh）已实现；清空 ClearMsg 在冻结版本被注释（MsgViewModel.cs:109-112）。
+- id: F-MONITOR-002
+  name: 流量统计
+  family: monitor
+  summary: 统计活动节点上下行流量并写入 ServerStatItem
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 参数设置/启用统计
+    symbol: StatisticsManager
+    files:
+    - v2rayN/ServiceLib/Manager/StatisticsManager.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features: []
+  preconditions:
+  - GuiItem.EnableStatistics 或 DisplayRealTimeSpeed
+  normal_behavior: Xray 读 /debug/vars，sing-box 读 ws /traffic
+  failure_behavior: 无
+  cancel_behavior: Close 停止采集
+  acceptance: 流量累计到对应节点
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/StatisticsManager.cs:18
+  - v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs:10
+  - v2rayN/ServiceLib/Services/Statistics/StatisticsSingboxService.cs:10
+  status: identified
+- id: F-MONITOR-003
+  name: 历史统计与清零
+  family: monitor
+  summary: 今日/累计上下行持久化，清空所有统计
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 设置/清空统计
+    symbol: StatisticsManager.ClearAllServerStatistics
+    files:
+    - v2rayN/ServiceLib/Manager/StatisticsManager.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-MONITOR-002
+  preconditions: []
+  normal_behavior: 跨日 Today 归零；ClearAll 删除 ServerStatItem
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 清空后统计为 0
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/StatisticsManager.cs:44
+  - v2rayN/ServiceLib/Manager/StatisticsManager.cs:90
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:224
+  status: identified
+- id: F-MONITOR-004
+  name: Clash 代理组视图
+  family: monitor
+  summary: 展示 Clash 兼容代理组、延迟测试、切换活动代理
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow(tabClashProxies)
+    menu_path: 代理标签
+    symbol: ClashProxiesViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs
+  depends_on_cores:
+  - sing_box
+  - mihomo
+  depends_on_features: []
+  preconditions:
+  - 运行 sing-box/mihomo
+  normal_behavior: ClashApiManager.GetProxies/TestDelay/SetActiveProxy
+  failure_behavior: API 不可达重试 3 次后返回
+  cancel_behavior: 无
+  acceptance: 代理组与节点状态正确显示并可切换
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs:77
+  - v2rayN/ServiceLib/Manager/ClashApiManager.cs:11
+  - v2rayN/ServiceLib/Manager/ClashApiManager.cs:61
+  - v2rayN/ServiceLib/Manager/ClashApiManager.cs:95
+  status: identified
+- id: F-MONITOR-005
+  name: Clash 连接视图与断开
+  family: monitor
+  summary: 展示活动连接并可断开单个/全部
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow(tabClashConnections)
+    menu_path: 连接标签
+    symbol: ClashConnectionsViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs
+  depends_on_cores:
+  - sing_box
+  - mihomo
+  depends_on_features:
+  - F-MONITOR-004
+  preconditions:
+  - 运行 sing-box/mihomo
+  normal_behavior: ClashApiManager.GetConnections/CloseConnection
+  failure_behavior: 异常记录日志
+  cancel_behavior: 无
+  acceptance: 连接列表与断开生效
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs:41
+  - v2rayN/ServiceLib/Manager/ClashApiManager.cs:166
+  - v2rayN/ServiceLib/Manager/ClashApiManager.cs:184
+  status: identified
+- id: F-MONITOR-006
+  name: 实时速度显示
+  family: monitor
+  summary: 状态栏/节点表实时上下行速度
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 参数设置/显示实时速度
+    symbol: GuiItem.DisplayRealTimeSpeed
+    files:
+    - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-MONITOR-002
+  preconditions: []
+  normal_behavior: StatisticsManager 推送 ServerSpeedItem 到 UI
+  failure_behavior: 无
+  cancel_behavior: 关闭即停止
+  acceptance: 实时速度刷新且隐藏到托盘停止刷新
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:509
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:389
+  - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:304
+  status: identified
+- id: F-DESKTOP-001
+  name: 托盘菜单与显示隐藏
+  family: desktop
+  summary: 托盘图标、显示/隐藏窗口、切节点、系统代理、退出
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: StatusBarView
+    menu_path: 托盘
+    symbol: StatusBarViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs
+    - v2rayN/v2rayN/Views/StatusBarView.xaml.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SYSPROXY-001
+  preconditions: []
+  normal_behavior: copyProxy/NotifyLeftClick/Show/Hide Window；TrayMenuServersLimit 限制节点数
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 托盘可切换窗口与代理
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:36
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:59
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:227
+  - v2rayN/v2rayN/Views/StatusBarView.xaml.cs:14
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:229
+  - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:230
+  - v2rayN/v2rayN.Desktop/App.axaml:43
+  - v2rayN/v2rayN.Desktop/App.axaml:51
+  status: identified
+- id: F-DESKTOP-002
+  name: 全局热键
+  family: desktop
+  summary: 配置全局热键（显示窗口/清除/设置/不变/PAC）
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: GlobalHotkeySettingWindow
+    menu_path: 设置/全局热键
+    symbol: GlobalHotkeySettingViewModel / EGlobalHotkey
+    files:
+    - v2rayN/ServiceLib/ViewModels/GlobalHotkeySettingViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SYSPROXY-001
+  preconditions: []
+  normal_behavior: 保存 GlobalHotkeys 并注册
+  failure_behavior: 无
+  cancel_behavior: 关闭丢弃
+  acceptance: 热键触发对应动作
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/GlobalHotkeySettingViewModel.cs:9
+  - v2rayN/ServiceLib/Enums/EGlobalHotkey.cs:3
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:212
+  status: identified
+- id: F-DESKTOP-003
+  name: 开机自启
+  family: desktop
+  summary: Windows 注册表/计划任务、Linux .desktop、macOS LaunchAgent
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/开机自启
+    symbol: AutoStartupHandler.UpdateTask
+    files:
+    - v2rayN/ServiceLib/Handler/AutoStartupHandler.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 按平台写入/清除自启；Windows 管理员用计划任务
+  failure_behavior: 异常记录日志
+  cancel_behavior: 关闭即清除
+  acceptance: 开启后系统登录自动启动
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Handler/AutoStartupHandler.cs:9
+  - v2rayN/ServiceLib/Handler/AutoStartupHandler.cs:88
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:43
+  status: identified
+- id: F-DESKTOP-004
+  name: 关闭行为与启动隐藏
+  family: desktop
+  summary: 关闭时最小化到托盘、启动时隐藏
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/关闭行为
+    symbol: UiItem.Hide2TrayWhenClose/AutoHideStartup
+    files:
+    - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 依设置决定关闭/启动显示
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 行为与设置一致
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:48
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:49
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:356
+  status: identified
+- id: F-DESKTOP-005
+  name: Windows UWP 回环设置
+  family: desktop
+  summary: 运行 EnableLoopback.exe 解除 UWP 回环限制
+  platforms:
+  - windows
+  upstream_entry:
+    window: MainWindow
+    menu_path: 设置/设置UWP回环
+    symbol: MenuSettingsSetUWP_Click
+    files:
+    - v2rayN/v2rayN/Views/MainWindow.xaml.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions:
+  - bin 下存在 EnableLoopback.exe
+  normal_behavior: ProcUtils.ProcessStart(GetBinPath("EnableLoopback.exe"))
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 启动 UWP 回环工具
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:251
+  - v2rayN/v2rayN/Views/MainWindow.xaml:211
+  - v2rayN/ServiceLib/Resx/ResUI.Designer.cs:4713
+  status: identified
+- id: F-DESKTOP-006
+  name: 管理员重启
+  family: desktop
+  summary: 以管理员身份重启应用
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 设置/以管理员身份重启
+    symbol: AppManager.RebootAsAdmin
+    files:
+    - v2rayN/ServiceLib/Manager/AppManager.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: ProcUtils.RebootAsAdmin 后退出
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 重启后进程具备管理员权限
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/AppManager.cs:155
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:220
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:58
+  status: identified
+- id: F-DESKTOP-007
+  name: 单实例运行
+  family: desktop
+  summary: 通过命名事件/互斥体防止多实例运行
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: App / Program
+    menu_path: null
+    symbol: App.ProgramStarted / ProgramStarted + Mutex
+    files:
+    - v2rayN/v2rayN/App.xaml.cs
+    - v2rayN/v2rayN.Desktop/Program.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: WPF 用 EventWaitHandle 抢锁（App.xaml.cs:11,29）；Avalonia Windows 用 EventWaitHandle、非 Windows 用命名 Mutex("v2rayN")（Program.cs:32,41）；抢锁失败的第二实例退出。
+  failure_behavior: 单实例锁失败时第二实例退出（Program.cs:42）。
+  cancel_behavior: 无
+  acceptance: 第二实例启动即退出；reboot-as-admin 除外路径按源码。
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/v2rayN/App.xaml.cs:11
+  - v2rayN/v2rayN/App.xaml.cs:29
+  - v2rayN/v2rayN.Desktop/Program.cs:32
+  - v2rayN/v2rayN.Desktop/Program.cs:41
+  unresolved: ''
+  status: identified
+  notes: 审计 A06：原 unresolved 关闭（单实例实现已定位）。
+- id: F-APP-001
+  name: 参数设置（核心/UI/系统代理/TUN/内核）
+  family: app-mgmt
+  summary: 综合设置窗口，覆盖端口、日志、Mux、分片、UI、系统代理、TUN、内核映射
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/参数设置
+    symbol: OptionSettingViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 校验后写入对应子项并保存，必要时提示重启
+  failure_behavior: 端口/分片参数非法提示不保存
+  cancel_behavior: 关闭丢弃
+  acceptance: 各分组设置持久化并回读一致
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:291
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:400
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:196
+  status: identified
+- id: F-APP-002
+  name: 主题
+  family: app-mgmt
+  summary: 跟随系统/深色/浅色主题（WPF 仅前 3 项）
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: ThemeSettingView
+    menu_path: 设置/主题
+    symbol: ETheme / ThemeSettingViewModel
+    files:
+    - v2rayN/v2rayN/Views/ThemeSettingView.xaml.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: ETheme 枚举，UI 绑定 CurrentTheme
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 主题切换即时生效
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Enums/ETheme.cs:3
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml.cs:15
+  - v2rayN/ServiceLib/Handler/SysProxy/ProxySettingWindows.cs
+  status: identified
+- id: F-APP-003
+  name: 语言切换
+  family: app-mgmt
+  summary: 9 种语言，重启后生效
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: OptionSettingWindow
+    menu_path: 设置/语言
+    symbol: UiItem.CurrentLanguage / Global.LanguageOptions
+    files:
+    - v2rayN/ServiceLib/Global.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: LoadConfig 依据文化回填默认语言
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 切换语言后界面文案改变
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Global.cs:498
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:108
+  - v2rayN/ServiceLib/Manager/AppManager.cs:77
+  status: identified
+- id: F-APP-004
+  name: 打开程序目录
+  family: app-mgmt
+  summary: 打开应用启动目录
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 帮助/打开文件所在位置
+    symbol: MainWindowViewModel.OpenTheFileLocation
+    files:
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 按平台用 explorer/xdg-open/open 打开路径
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 文件管理器打开目标目录
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:639
+  - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:60
+  status: identified
+- id: F-APP-005
+  name: 更新检查页面（含 prerelease 与经代理）
+  family: app-mgmt
+  summary: 选择要检查的内核/Geo，开关 prerelease 与经代理
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: CheckUpdateWindow
+    menu_path: 检查更新
+    symbol: CheckUpdateViewModel
+    files:
+    - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs
+  depends_on_cores:
+  - Xray
+  - mihomo
+  - sing_box
+  - v2rayN
+  depends_on_features:
+  - F-CORE-002
+  - F-CORE-003
+  preconditions: []
+  normal_behavior: 选中项存 CheckUpdateItem.SelectedCoreTypes；prerelease 与 UpdateViaProxy 即时保存
+  failure_behavior: 打包安装 v2rayN 提示不支持
+  cancel_behavior: 无
+  acceptance: 检查结果与开关持久化
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:13
+  - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:36
+  - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:123
+  - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:87
+  status: identified
+- id: F-APP-006
+  name: 日志与临时文件清理
+  family: app-mgmt
+  summary: 定期清理测试配置、日志、临时文件
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: background
+    menu_path: null
+    symbol: TaskManager.ScheduledTasks
+    files:
+    - v2rayN/ServiceLib/Manager/TaskManager.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 每小时删除 1h 前 Test 文件、7 天前日志与临时文件
+  failure_behavior: 异常记录日志
+  cancel_behavior: 无
+  acceptance: 过期文件被删除
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:57
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:58
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:59
+  status: identified
+- id: F-APP-007
+  name: 经代理检查更新
+  family: app-mgmt
+  summary: 通过本地代理下载更新与订阅
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: CheckUpdateWindow
+    menu_path: 检查更新/经代理
+    symbol: CheckUpdateItem.UpdateViaProxy
+    files:
+    - v2rayN/ServiceLib/Services/UpdateService.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SYSPROXY-001
+  preconditions: []
+  normal_behavior: blProxy 透传到 DownloadService/TryDownloadString
+  failure_behavior: 代理失败可回退直连（订阅下载）
+  cancel_behavior: 无
+  acceptance: 开关控制是否经代理
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:16
+  - v2rayN/ServiceLib/Services/UpdateService.cs:49
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:107
+  status: identified
+- id: F-BACKUP-001
+  name: 本地备份
+  family: backup
+  summary: 打包配置目录为 zip
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 菜单/备份与恢复
+    menu_path: 备份与恢复/本地备份
+    symbol: BackupAndRestoreViewModel.LocalBackup
+    files:
+    - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 复制配置目录到临时 guiConfigs 后 CreateFromDirectory
+  failure_behavior: 失败显示错误
+  cancel_behavior: 无
+  acceptance: 生成 backup_*.zip
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:92
+  - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:158
+  status: identified
+- id: F-BACKUP-002
+  name: 本地恢复
+  family: backup
+  summary: 校验 zip 后恢复配置并重启应用
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 菜单/备份与恢复
+    menu_path: 备份与恢复/本地恢复
+    symbol: BackupAndRestoreViewModel.LocalRestore
+    files:
+    - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-BACKUP-001
+  preconditions:
+  - zip 含 guiConfigs
+  normal_behavior: 先备份当前配置再解压覆盖并重启
+  failure_behavior: 非法 zip 提示
+  cancel_behavior: 无
+  acceptance: 恢复后配置与备份一致
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:108
+  - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:121
+  - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:129
+  status: identified
+- id: F-BACKUP-003
+  name: WebDAV 远程备份/恢复
+  family: backup
+  summary: 检查连接、上传/下载 backup.zip
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 菜单/备份与恢复
+    menu_path: 备份与恢复/WebDAV
+    symbol: WebDavManager / BackupAndRestoreViewModel
+    files:
+    - v2rayN/ServiceLib/Manager/WebDavManager.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-BACKUP-001
+  preconditions:
+  - 配置 WebDavItem.Url/UserName/Password
+  normal_behavior: PutFile/GetRawFile 到 backup.zip，目录默认 v2rayN_backup
+  failure_behavior: 连接/权限失败返回错误
+  cancel_behavior: 无
+  acceptance: 远程备份可下载恢复
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/WebDavManager.cs:22
+  - v2rayN/ServiceLib/Manager/WebDavManager.cs:98
+  - v2rayN/ServiceLib/Manager/WebDavManager.cs:128
+  - v2rayN/ServiceLib/Manager/WebDavManager.cs:154
+  - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:43
+  status: identified
+- id: F-BACKUP-004
+  name: 旧配置升级 V2→V3→V4
+  family: backup
+  summary: 迁移 protocolExtra 与 transportExtra
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: 启动迁移
+    menu_path: null
+    symbol: AppManager.MigrateProfileExtra
+    files:
+    - v2rayN/ServiceLib/Manager/AppManager.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions:
+  - ConfigVersion<4
+  normal_behavior: 分批迁移 V2→V3（字段搬入 ProtoExtra）、V3→V4（传输字段搬入 TransportExtra）
+  failure_behavior: 单项异常记录日志并重试其余
+  cancel_behavior: 无
+  acceptance: 迁移后 ConfigVersion=4 且字段不丢
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/ServiceLib/Manager/AppManager.cs:328
+  - v2rayN/ServiceLib/Manager/AppManager.cs:337
+  - v2rayN/ServiceLib/Manager/AppManager.cs:364
+  - v2rayN/ServiceLib/Manager/AppManager.cs:575
+  status: identified
+- id: F-HELP-001
+  name: 帮助菜单入口
+  family: help
+  summary: 帮助菜单含推广、检查更新、关闭等项
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 帮助
+    symbol: MainWindowViewModel / MainWindow.xaml.cs
+    files:
+    - v2rayN/v2rayN/Views/MainWindow.xaml.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: menuHelp 动态添加项并绑定检查更新/推广/关闭
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 帮助菜单项可用
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml:246
+  - v2rayN/v2rayN/Views/MainWindow.xaml:258
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:444
+  status: identified
+- id: F-HELP-002
+  name: 推广入口
+  family: help
+  summary: 帮助菜单推广项打开 Base64 解码的网址
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 帮助/推广
+    symbol: MenuPromotion_Click
+    files:
+    - v2rayN/v2rayN/Views/MainWindow.xaml.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: ProcUtils.ProcessStart(Base64Decode(Global.PromotionUrl))
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 打开目标网址
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:246
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:248
+  - v2rayN/ServiceLib/Global.cs:11
+  - v2rayN/v2rayN/Views/MainWindow.xaml:282
+  status: identified
+- id: F-HELP-003
+  name: 关闭/退出
+  family: help
+  summary: 帮助菜单关闭项退出应用
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: MainWindow
+    menu_path: 帮助/关闭
+    symbol: MenuClose_Click
+    files:
+    - v2rayN/v2rayN/Views/MainWindow.xaml.cs
+  depends_on_cores: []
+  depends_on_features: []
+  preconditions: []
+  normal_behavior: 触发应用退出流程
+  failure_behavior: 无
+  cancel_behavior: 无
+  acceptance: 应用退出且系统代理恢复
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: null
+  test_ids: []
+  evidence:
+  - v2rayN/v2rayN/Views/MainWindow.xaml.cs:240
+  - v2rayN/v2rayN/Views/MainWindow.xaml:299
+  status: identified
+scheduled_and_background:
+- id: BG-TASK-001
+  name: 定时任务主循环（每 1 分钟）
+  summary: PeriodicTimer 每分钟触发订阅检查，20 分钟保存配置，60 分钟清理/Geo，24 小时检查更新
+  trigger: every_1_minute
+  behavior: numOfExecuted 计数：%20 保存 Config/ProfileEx；%60 清理 Test(1h)/log(7d)/temp(7d) 并 UpdateTaskRunGeo；%1440==1 检查更新
+  source_file: v2rayN/ServiceLib/Manager/TaskManager.cs
+  evidence:
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:18
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:22
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:37
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:53
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:72
+  status: identified
+- id: BG-TASK-002
+  name: 订阅自动更新任务
+  summary: 达到 AutoUpdateInterval 的订阅自动更新
+  trigger: every_1_minute
+  behavior: 过滤 AutoUpdateInterval>0 且已到期订阅，逐个 UpdateProcess 后写 UpdateTime
+  source_file: v2rayN/ServiceLib/Manager/TaskManager.cs
+  evidence:
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:87
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:104
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:112
+  status: identified
+- id: BG-TASK-003
+  name: Geo 文件自动更新任务
+  summary: 按 GuiItem.AutoUpdateInterval 小时周期更新 Geo
+  trigger: hourly_check
+  behavior: hours % AutoUpdateInterval == 0 时 UpdateGeoFileAll
+  source_file: v2rayN/ServiceLib/Manager/TaskManager.cs
+  evidence:
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:118
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:120
+  status: identified
+- id: BG-TASK-004
+  name: 每日更新检查任务
+  summary: 每 24 小时检查一次所有内核/应用更新
+  trigger: every_24_hours
+  behavior: CheckHasUpdateOnlyAll，结果入 NoticeManager 并发布 HasUpdateNotified
+  source_file: v2rayN/ServiceLib/Manager/TaskManager.cs
+  evidence:
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:131
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:137
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:142
+  status: identified
+- id: BG-TASK-005
+  name: 统计采集后台循环
+  summary: 内核统计轮询/WS 订阅，非 UI 定时任务
+  trigger: continuous
+  behavior: StatisticsXrayService 轮询 /debug/vars；StatisticsSingboxService 订阅 /traffic
+  source_file: v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs
+  evidence:
+  - v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs:35
+  - v2rayN/ServiceLib/Services/Statistics/StatisticsSingboxService.cs:35
+  status: identified
+- id: BG-TASK-006
+  name: 配置持久化任务
+  summary: 20 分钟周期保存 Config 与 ProfileEx
+  trigger: every_20_minutes
+  behavior: ConfigHandler.SaveConfig + ProfileExManager.SaveTo
+  source_file: v2rayN/ServiceLib/Manager/TaskManager.cs
+  evidence:
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:42
+  - v2rayN/ServiceLib/Manager/TaskManager.cs:44
+  status: identified
+existing_tests:
+- id: TEST-001
+  file: v2rayN/ServiceLib.Tests/Fmt/FmtHandlerTests.cs
+  topics: 分享 URI 往返：VMess/VLESS/SS/SOCKS/Trojan/TUIC/Anytls/Hysteria2/WireGuard/Naive(https/quic)、编码字段、unsupported 返回 null
+  evidence:
+  - v2rayN/ServiceLib.Tests/Fmt/FmtHandlerTests.cs:25
+  - v2rayN/ServiceLib.Tests/Fmt/FmtHandlerTests.cs:265
+  - v2rayN/ServiceLib.Tests/Fmt/FmtHandlerTests.cs:275
+  status: identified
+- id: TEST-002
+  file: v2rayN/ServiceLib.Tests/Fmt/HyRealmTests.cs
+  topics: Hysteria2 Realm 解析/生成/往返，sing-box server url
+  evidence:
+  - v2rayN/ServiceLib.Tests/Fmt/HyRealmTests.cs:6
+  - v2rayN/ServiceLib.Tests/Fmt/HyRealmTests.cs:75
+  status: identified
+- id: TEST-003
+  file: v2rayN/ServiceLib.Tests/Fmt/Hysteria2FmtTests.cs
+  topics: Hysteria2 缺省端口 443、显式端口、零端口不套默认
+  evidence:
+  - v2rayN/ServiceLib.Tests/Fmt/Hysteria2FmtTests.cs:13
+  - v2rayN/ServiceLib.Tests/Fmt/Hysteria2FmtTests.cs:44
+  status: identified
+- id: TEST-004
+  file: v2rayN/ServiceLib.Tests/Fmt/InnerFmtTests.cs
+  topics: v2rayn:// 内部 URI 组引用往返
+  evidence:
+  - v2rayN/ServiceLib.Tests/Fmt/InnerFmtTests.cs:8
+  status: identified
+- id: TEST-005
+  file: v2rayN/ServiceLib.Tests/Fmt/ShareUriQueryTests.cs
+  topics: 查询串百分号/等号转义只解码一次、sip002 plugin
+  evidence:
+  - v2rayN/ServiceLib.Tests/Fmt/ShareUriQueryTests.cs:9
+  - v2rayN/ServiceLib.Tests/Fmt/ShareUriQueryTests.cs:34
+  status: identified
+- id: TEST-006
+  file: v2rayN/ServiceLib.Tests/Fmt/WireguardFmtTests.cs
+  topics: WireGuard 配置解析 peers 与行内注释
+  evidence:
+  - v2rayN/ServiceLib.Tests/Fmt/WireguardFmtTests.cs:6
+  status: identified
+- id: TEST-007
+  file: v2rayN/ServiceLib.Tests/CoreConfig/CoreConfigTestFactory.cs
+  topics: 测试配置工厂（Config/节点/组/代理链/上下文构造）
+  evidence:
+  - v2rayN/ServiceLib.Tests/CoreConfig/CoreConfigTestFactory.cs:16
+  - v2rayN/ServiceLib.Tests/CoreConfig/CoreConfigTestFactory.cs:170
+  - v2rayN/ServiceLib.Tests/CoreConfig/CoreConfigTestFactory.cs:208
+  status: identified
+- id: TEST-008
+  file: v2rayN/ServiceLib.Tests/CoreConfig/Context/CoreConfigContextBuilderTests.cs
+  topics: 组节点循环依赖检测（直接/间接/合法分支）
+  evidence:
+  - v2rayN/ServiceLib.Tests/CoreConfig/Context/CoreConfigContextBuilderTests.cs:6
+  - v2rayN/ServiceLib.Tests/CoreConfig/Context/CoreConfigContextBuilderTests.cs:30
+  - v2rayN/ServiceLib.Tests/CoreConfig/Context/CoreConfigContextBuilderTests.cs:57
+  status: identified
+- id: TEST-009
+  file: v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs
+  topics: sing-box 生成：基础代理、TUN+预SOCKS、DNS(引导/直连期望IP/hosts/fakeip)、策略组、代理链、路由拆分、Hysteria2 Realm、自定义出站
+  evidence:
+  - v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs:6
+  - v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs:155
+  - v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs:721
+  status: identified
+- id: TEST-010
+  file: v2rayN/ServiceLib.Tests/CoreConfig/V2ray/CoreConfigV2rayServiceTests.cs
+  topics: Xray 生成：基础、HTTP 出站 headers、策略组 balancer、代理链、路由拆分、DirectExpectedIPs、bootstrap、TUN IPv6/路由排除、自定义出站
+  evidence:
+  - v2rayN/ServiceLib.Tests/CoreConfig/V2ray/CoreConfigV2rayServiceTests.cs:6
+  - v2rayN/ServiceLib.Tests/CoreConfig/V2ray/CoreConfigV2rayServiceTests.cs:25
+  - v2rayN/ServiceLib.Tests/CoreConfig/V2ray/CoreConfigV2rayServiceTests.cs:680
+  status: identified
+- id: TEST-011
+  file: v2rayN/ServiceLib.Tests/Helper/HttpRequestHeadersHelperTests.cs
+  topics: 订阅自定义请求头解析：空设置、大小写不敏感、非法拒绝、迁移/编辑保留
+  evidence:
+  - v2rayN/ServiceLib.Tests/Helper/HttpRequestHeadersHelperTests.cs:6
+  - v2rayN/ServiceLib.Tests/Helper/HttpRequestHeadersHelperTests.cs:58
+  status: identified
+- id: TEST-012
+  file: v2rayN/ServiceLib.Tests/Helper/RegexGuardTests.cs
+  topics: RegexGuard 非法/空/超时模式 fail-open
+  evidence:
+  - v2rayN/ServiceLib.Tests/Helper/RegexGuardTests.cs:6
+  - v2rayN/ServiceLib.Tests/Helper/RegexGuardTests.cs:26
+  status: identified
+- id: TEST-013
+  file: v2rayN/ServiceLib.Tests/Manager/CoreManagerTests.cs
+  topics: ShouldRunAsSudo：TUN 非 Windows 提权、非 TUN 不提权、Windows 不提权、不支持内核不提权
+  evidence:
+  - v2rayN/ServiceLib.Tests/Manager/CoreManagerTests.cs:9
+  - v2rayN/ServiceLib.Tests/Manager/CoreManagerTests.cs:15
+  - v2rayN/ServiceLib.Tests/Manager/CoreManagerTests.cs:35
+  status: identified
+- id: TEST-014
+  file: v2rayN/ServiceLib.Tests/Services/DownloadServiceHeadersTests.cs
+  topics: 下载自定义 Header 在两个下载器下透传、默认 Accept/UA/BasicAuth、Header 不跨请求共享
+  evidence:
+  - v2rayN/ServiceLib.Tests/Services/DownloadServiceHeadersTests.cs:10
+  - v2rayN/ServiceLib.Tests/Services/DownloadServiceHeadersTests.cs:51
+  - v2rayN/ServiceLib.Tests/Services/DownloadServiceHeadersTests.cs:71
+  status: identified
+enum_scan:
+- id: ENUM-001
+  file: v2rayN/ServiceLib/Enums/EConfigType.cs
+  classification: real_functional
+  values:
+  - VMess=1
+  - Custom=2
+  - Shadowsocks=3
+  - SOCKS=4
+  - VLESS=5
+  - Trojan=6
+  - Hysteria2=7
+  - TUIC=8
+  - WireGuard=9
+  - HTTP=10
+  - Anytls=11
+  - Naive=12
+  - Outbound=13
+  - PolicyGroup=101
+  - ProxyChain=102
+  rationale: 15 类配置类型，被 ConfigHandler/Fmt/生成器广泛引用
+  evidence:
+  - v2rayN/ServiceLib/Enums/EConfigType.cs:3
+  status: identified
+- id: ENUM-002
+  file: v2rayN/ServiceLib/Enums/ECoreType.cs
+  classification: real_functional
+  values:
+  - v2fly=1
+  - Xray=2
+  - v2fly_v5=4
+  - mihomo=13
+  - hysteria=21
+  - naiveproxy=22
+  - tuic=23
+  - sing_box=24
+  - juicity=25
+  - hysteria2=26
+  - brook=27
+  - overtls=28
+  - shadowquic=29
+  - mieru=30
+  - v2rayN=99
+  rationale: 内核标识 + 应用更新标识 v2rayN=99
+  evidence:
+  - v2rayN/ServiceLib/Enums/ECoreType.cs:3
+  status: identified
+- id: ENUM-003
+  file: v2rayN/ServiceLib/Enums/EGirdOrientation.cs
+  classification: real_functional_ui
+  values:
+  - Horizontal
+  - Vertical
+  - Tab
+  rationale: 主界面布局方向，UiItem.MainGirdOrientation
+  evidence:
+  - v2rayN/ServiceLib/Enums/EGirdOrientation.cs:3
+  - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:196
+  status: identified
+- id: ENUM-004
+  file: v2rayN/ServiceLib/Enums/EGlobalHotkey.cs
+  classification: real_functional
+  values:
+  - ShowForm=0
+  - SystemProxyClear=1
+  - SystemProxySet=2
+  - SystemProxyUnchanged=3
+  - SystemProxyPac=4
+  rationale: 全局热键动作
+  evidence:
+  - v2rayN/ServiceLib/Enums/EGlobalHotkey.cs:3
+  status: identified
+- id: ENUM-005
+  file: v2rayN/ServiceLib/Enums/EInboundProtocol.cs
+  classification: real_functional
+  values:
+  - socks=0
+  - socks2
+  - socks3
+  - pac
+  - api
+  - api2
+  - mixed
+  - speedtest=21
+  rationale: 本地入站协议与本地端口偏移来源（AppManager.GetLocalPort 用枚举值加偏移）
+  evidence:
+  - v2rayN/ServiceLib/Enums/EInboundProtocol.cs:3
+  - v2rayN/ServiceLib/Manager/AppManager.cs:165
+  status: identified
+- id: ENUM-006
+  file: v2rayN/ServiceLib/Enums/EMove.cs
+  classification: real_functional
+  values:
+  - Top=1
+  - Up=2
+  - Down=3
+  - Bottom=4
+  - Position=5
+  rationale: 节点/规则移动方向
+  evidence:
+  - v2rayN/ServiceLib/Enums/EMove.cs:3
+  status: identified
+- id: ENUM-007
+  file: v2rayN/ServiceLib/Enums/EMultipleLoad.cs
+  classification: real_functional
+  values:
+  - LeastPing
+  - Fallback
+  - Random
+  - RoundRobin
+  - LeastLoad
+  rationale: 策略组五种负载模式
+  evidence:
+  - v2rayN/ServiceLib/Enums/EMultipleLoad.cs:3
+  - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:90
+  status: identified
+- id: ENUM-008
+  file: v2rayN/ServiceLib/Enums/EPresetType.cs
+  classification: real_functional
+  values:
+  - Default=0
+  - Russia=1
+  - Iran=2
+  rationale: 区域预设
+  evidence:
+  - v2rayN/ServiceLib/Enums/EPresetType.cs:3
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2894
+  status: identified
+- id: ENUM-009
+  file: v2rayN/ServiceLib/Enums/ERuleMode.cs
+  classification: real_functional
+  values:
+  - Rule=0
+  - Global=1
+  - Direct=2
+  rationale: 基础路由模式
+  evidence:
+  - v2rayN/ServiceLib/Enums/ERuleMode.cs:3
+  - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:97
+  status: identified
+- id: ENUM-010
+  file: v2rayN/ServiceLib/Enums/ERuleType.cs
+  classification: real_functional
+  values:
+  - ALL=0
+  - Routing=1
+  - DNS=2
+  rationale: 规则/资源类型区分
+  evidence:
+  - v2rayN/ServiceLib/Enums/ERuleType.cs:3
+  status: identified
+- id: ENUM-011
+  file: v2rayN/ServiceLib/Enums/EServerColName.cs
+  classification: real_functional
+  values:
+  - Def=0
+  - ConfigType
+  - Remarks
+  - Address
+  - Port
+  - Network
+  - StreamSecurity
+  - SubRemarks
+  - DelayVal
+  - SpeedVal
+  - IpInfo
+  - TodayDown
+  - TodayUp
+  - TotalDown
+  - TotalUp
+  rationale: 节点表列名与排序键
+  evidence:
+  - v2rayN/ServiceLib/Enums/EServerColName.cs:3
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1038
+  status: identified
+- id: ENUM-012
+  file: v2rayN/ServiceLib/Enums/ESpeedActionType.cs
+  classification: real_functional
+  values:
+  - Tcping
+  - Realping
+  - UdpTest
+  - Speedtest
+  - Mixedtest
+  - FastRealping
+  rationale: 测试动作类型
+  evidence:
+  - v2rayN/ServiceLib/Enums/ESpeedActionType.cs:3
+  status: identified
+- id: ENUM-013
+  file: v2rayN/ServiceLib/Enums/ESysProxyType.cs
+  classification: real_functional
+  values:
+  - ForcedClear=0
+  - ForcedChange=1
+  - Unchanged=2
+  - Pac=3
+  rationale: 系统代理四语义
+  evidence:
+  - v2rayN/ServiceLib/Enums/ESysProxyType.cs:3
+  - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:10
+  status: identified
+- id: ENUM-014
+  file: v2rayN/ServiceLib/Enums/ETheme.cs
+  classification: real_functional_ui
+  values:
+  - FollowSystem
+  - Dark
+  - Light
+  - Aquatic
+  - Desert
+  - Dusk
+  - NightSky
+  rationale: 主题；WPF 界面仅取前 3 项
+  evidence:
+  - v2rayN/ServiceLib/Enums/ETheme.cs:3
+  - v2rayN/v2rayN/Views/ThemeSettingView.xaml.cs:15
+  status: identified
+- id: ENUM-015
+  file: v2rayN/ServiceLib/Enums/ETransport.cs
+  classification: real_functional
+  values:
+  - raw
+  - kcp
+  - ws
+  - httpupgrade
+  - xhttp
+  - h2
+  - http
+  - quic
+  - grpc
+  rationale: 传输层标识；注意 Global.Networks 仅暴露 raw/xhttp/kcp/grpc/ws/httpupgrade
+  evidence:
+  - v2rayN/ServiceLib/Enums/ETransport.cs:3
+  - v2rayN/ServiceLib/Global.cs:330
+  status: identified

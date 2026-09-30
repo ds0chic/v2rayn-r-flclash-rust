@@ -1,0 +1,482 @@
+schema_version: 1
+artifact: codegen-map.xray
+task: T07
+source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+upstream_version: 7.25.4
+core: Xray
+note: >
+  T07 Xray 生成器的输入->输出契约附属表。所有 path:line 均指冻结源码
+  work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967 下的相对路径。
+  generated JSON 路径以 V2rayConfig.cs 的模型成员名为准（序列化保留 C# 属性名）。
+
+generator_entry:
+  class: CoreConfigV2rayService
+  file: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs
+  entry_symbol: CoreConfigV2rayService.GenerateClientConfigContent()
+  entry_line: 13
+  base_template_symbol: Global.V2raySampleClient
+  base_template_constant: v2rayN/ServiceLib/Global.cs:19
+  base_template_file: v2rayN/ServiceLib/Sample/SampleClientConfig
+  outbound_template_symbol: Global.V2raySampleOutbound
+  outbound_template_constant: v2rayN/ServiceLib/Global.cs:24
+  outbound_template_file: v2rayN/ServiceLib/Sample/SampleOutbound
+  inbound_template_symbol: Global.V2raySampleInbound
+  inbound_template_constant: v2rayN/ServiceLib/Global.cs:23
+  inbound_template_file: v2rayN/ServiceLib/Sample/SampleInbound
+  config_dispatch: v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:24-31
+
+generation_order:
+- step: 1
+  op: 读取 Global.V2raySampleClient 反序列化为 V2rayConfig（base template）
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:33-45
+- step: 2
+  op: GenLog 写 log
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:47
+- step: 3
+  op: GenInbounds 重建 inbounds
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:49
+- step: 4
+  op: GenOutbounds 前置插入 proxy 出站
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:51
+- step: 5
+  op: GenRouting 写 routing
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:53
+- step: 6
+  op: GenDns 写 dns/fakedns
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:55
+- step: 7
+  op: GenStatistic 写 metrics/policy/stats
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:57
+- step: 8
+  op: EnableFragment -> ApplyOutboundFragment
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:59-62
+- step: 9
+  op: EnableFinalFragment -> ApplyFinalFragment
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:63-66
+- step: 10
+  op: BuildFinalRule 追加（仅当存在 balancerTag）
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:68-72
+- step: 11
+  op: ApplyFinalConfigModifiers = BindInterface -> SendThrough -> CustomOutboundReplace -> FullConfigTemplate
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayConfigTemplateService.cs:5-13
+
+base_template_shape:
+  source: v2rayN/ServiceLib/Sample/SampleClientConfig:1-22
+  log:
+    access: Vaccess.log
+    error: Verror.log
+    loglevel: warning
+  inbounds: []
+  outbounds:
+  - {protocol: freedom, tag: direct}
+  - {protocol: blackhole, tag: block}
+  routing:
+    domainStrategy: IPIfNonMatch
+    rules: []
+  serialized_members: v2rayN/ServiceLib/Models/CoreConfigs/V2rayConfig.cs:3-17
+
+# ---------------------------------------------------------------------------
+# 每个 EConfigType 的输入字段 -> generated JSON 路径（Xray）
+# ---------------------------------------------------------------------------
+protocol_output_map:
+- config_type: VMess
+  enum_value: 1
+  supported_by_xray: true
+  outbound_protocol_value: vmess
+  fields:
+  - {input: ProfileItem.Address, path: "outbounds[i].settings.address", evidence: "V2rayOutboundService.cs:77"}
+  - {input: ProfileItem.Port, path: "outbounds[i].settings.port", evidence: "V2rayOutboundService.cs:78"}
+  - {input: ProfileItem.Password, path: "outbounds[i].settings.id", evidence: "V2rayOutboundService.cs:79"}
+  - {input: ProtocolExtraItem.AlterId, path: "outbounds[i].settings.alterId", rule: "int.TryParse 失败=0", evidence: "V2rayOutboundService.cs:80"}
+  - {input: "(constant) Global.UserEMail", path: "outbounds[i].settings.email", value: t@t.tt, evidence: "V2rayOutboundService.cs:81; Global.cs:77"}
+  - {input: ProtocolExtraItem.VmessSecurity, path: "outbounds[i].settings.security", rule: "合法值(Global.VmessSecurities)否则 Global.DefaultSecurity=auto", evidence: "V2rayOutboundService.cs:82-89; Global.cs:49,267-274"}
+  - {input: ProfileItem.MuxEnabled, path: "outbounds[i].mux.*", evidence: "V2rayOutboundService.cs:91;225-248"}
+  transport: FillBoundStreamSettings
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:75-93
+
+- config_type: Shadowsocks
+  enum_value: 3
+  supported_by_xray: true
+  outbound_protocol_value: shadowsocks
+  fields:
+  - {input: ProfileItem.Address, path: "outbounds[i].settings.address", evidence: "V2rayOutboundService.cs:96"}
+  - {input: ProfileItem.Port, path: "outbounds[i].settings.port", evidence: "V2rayOutboundService.cs:97"}
+  - {input: ProfileItem.Password, path: "outbounds[i].settings.password", evidence: "V2rayOutboundService.cs:98"}
+  - {input: ProtocolExtraItem.SsMethod, path: "outbounds[i].settings.method", rule: "GetShadowsocksSecurities 合法否则 none", evidence: "V2rayOutboundService.cs:99-100"}
+  - {input: ProtocolExtraItem.Uot, path: "outbounds[i].settings.uot", rule: "true 才写，否则 null", evidence: "V2rayOutboundService.cs:101"}
+  - {input: "(constant)", path: "outbounds[i].settings.ota", value: false, evidence: "V2rayOutboundService.cs:103"}
+  - {input: "(constant)", path: "outbounds[i].settings.level", value: 1, evidence: "V2rayOutboundService.cs:104"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:94-108
+
+- config_type: SOCKS
+  enum_value: 4
+  supported_by_xray: true
+  outbound_protocol_value: socks
+  fields:
+  - {input: ProfileItem.Address, path: "outbounds[i].settings.address", evidence: "V2rayOutboundService.cs:111"}
+  - {input: ProfileItem.Port, path: "outbounds[i].settings.port", evidence: "V2rayOutboundService.cs:112"}
+  - {input: ProfileItem.Username+Password, path: "outbounds[i].settings.user/pass/level/email", rule: "两者都非空才写", evidence: "V2rayOutboundService.cs:113-120"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:109-124
+
+- config_type: HTTP
+  enum_value: 10
+  supported_by_xray: true
+  outbound_protocol_value: http
+  fields:
+  - {input: ProfileItem.Address, path: "outbounds[i].settings.address", evidence: "V2rayOutboundService.cs:127"}
+  - {input: ProfileItem.Port, path: "outbounds[i].settings.port", evidence: "V2rayOutboundService.cs:128"}
+  - {input: ProtocolExtraItem.HttpHeaders, path: "outbounds[i].settings.headers", rule: "非空才 JsonUtils.ParseJson", evidence: "V2rayOutboundService.cs:130-133"}
+  - {input: ProfileItem.Username+Password, path: "outbounds[i].settings.user/pass/level/email", rule: "两者都非空才写", evidence: "V2rayOutboundService.cs:135-142"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:125-146
+
+- config_type: VLESS
+  enum_value: 5
+  supported_by_xray: true
+  outbound_protocol_value: vless
+  fields:
+  - {input: ProfileItem.Address, path: "outbounds[i].settings.address", evidence: "V2rayOutboundService.cs:149"}
+  - {input: ProfileItem.Port, path: "outbounds[i].settings.port", evidence: "V2rayOutboundService.cs:150"}
+  - {input: ProfileItem.Password, path: "outbounds[i].settings.id", evidence: "V2rayOutboundService.cs:151"}
+  - {input: "(constant) Global.UserEMail", path: "outbounds[i].settings.email", evidence: "V2rayOutboundService.cs:152"}
+  - {input: ProtocolExtraItem.VlessEncryption, path: "outbounds[i].settings.encryption", evidence: "V2rayOutboundService.cs:153"}
+  - {input: ProtocolExtraItem.Flow, path: "outbounds[i].settings.flow", rule: "非空才写；空则走 mux(tcp)", evidence: "V2rayOutboundService.cs:155-163"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:147-165
+
+- config_type: Trojan
+  enum_value: 6
+  supported_by_xray: true
+  outbound_protocol_value: trojan
+  fields:
+  - {input: ProfileItem.Address, path: "outbounds[i].settings.address", evidence: "V2rayOutboundService.cs:168"}
+  - {input: ProfileItem.Port, path: "outbounds[i].settings.port", evidence: "V2rayOutboundService.cs:169"}
+  - {input: ProfileItem.Password, path: "outbounds[i].settings.password", evidence: "V2rayOutboundService.cs:170"}
+  - {input: "(constant)", path: "outbounds[i].settings.ota", value: false, evidence: "V2rayOutboundService.cs:172"}
+  - {input: "(constant)", path: "outbounds[i].settings.level", value: 1, evidence: "V2rayOutboundService.cs:173"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:166-177
+
+- config_type: Hysteria2
+  enum_value: 7
+  supported_by_xray: true
+  outbound_protocol_value: hysteria
+  protocol_rename: "Hysteria2 -> 'hysteria' 覆盖 Global.ProtocolTypes"
+  protocol_rename_evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:213-216
+  fields:
+  - {input: ProfileItem.Address, path: "outbounds[i].settings.address", evidence: "V2rayOutboundService.cs:180"}
+  - {input: ProfileItem.Port, path: "outbounds[i].settings.port", evidence: "V2rayOutboundService.cs:181"}
+  - {input: "(constant)", path: "outbounds[i].settings.version", value: 2, evidence: "V2rayOutboundService.cs:182"}
+  - {input: ProfileItem.Password, path: "outbounds[i].streamSettings.hysteriaSettings.auth", evidence: "V2rayOutboundService.cs:568-572"}
+  - {input: "(constant)", path: "outbounds[i].streamSettings.hysteriaSettings.version", value: 2, evidence: "V2rayOutboundService.cs:569"}
+  - {input: ProtocolExtraItem.Ports, path: "outbounds[i].streamSettings.finalmask.quicParams.udpHop.ports", rule: "含 :/-/, 才写，':'->'-'", evidence: "V2rayOutboundService.cs:520-529"}
+  - {input: ProtocolExtraItem.HopInterval / HysteriaItem.HopInterval, path: "outbounds[i].streamSettings.finalmask.quicParams.udpHop.interval", fallback: "HysteriaItem.HopInterval>=5 否则 Global.Hysteria2DefaultHopInt=30", evidence: "V2rayOutboundService.cs:513-517"}
+  - {input: ProtocolExtraItem.UpMbps / HysteriaItem.UpMbps, path: "outbounds[i].streamSettings.finalmask.quicParams.brutalUp", rule: ">0 时 congestion=brutal 并写 brutalUp，否则 congestion=bbr", evidence: "V2rayOutboundService.cs:507-539"}
+  - {input: ProtocolExtraItem.DownMbps / HysteriaItem.DownMbps, path: "outbounds[i].streamSettings.finalmask.quicParams.brutalDown", evidence: "V2rayOutboundService.cs:510-534"}
+  - {input: ProtocolExtraItem.Hy2RealmUrl, path: "outbounds[i].streamSettings.finalmask.udp[].{type:realm,url,stunServers}", evidence: "V2rayOutboundService.cs:542-550"}
+  - {input: ProtocolExtraItem.SalamanderPass, path: "outbounds[i].streamSettings.finalmask.udp[].{type:salamander,password}", evidence: "V2rayOutboundService.cs:551-567"}
+  - {input: ProtocolExtraItem.GeckoMinPacketSize+Max, path: "outbounds[i].streamSettings.finalmask.udp[].settings.packetSize", rule: "min-max 字符串", evidence: "V2rayOutboundService.cs:553-560"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:178-184,504-575
+
+- config_type: WireGuard
+  enum_value: 9
+  supported_by_xray: true
+  outbound_protocol_value: wireguard
+  settings_shape: Outboundsettings4Ray（非 address/port 常规形状）
+  fields:
+  - {input: ProtocolExtraItem.WgInterfaceAddress, path: "outbounds[i].settings.address", rule: "逗号拆分；缺省 [172.16.0.2/32]", evidence: "V2rayOutboundService.cs:200"}
+  - {input: ProfileItem.Password, path: "outbounds[i].settings.secretKey", evidence: "V2rayOutboundService.cs:201"}
+  - {input: ProtocolExtraItem.WgReserved, path: "outbounds[i].settings.reserved", rule: "逗号->int", evidence: "V2rayOutboundService.cs:202"}
+  - {input: ProtocolExtraItem.WgMtu, path: "outbounds[i].settings.mtu", fallback: ">0 否则 Global.TunMtus.First()=1280", evidence: "V2rayOutboundService.cs:203"}
+  - {input: ProtocolExtraItem.WgDns, path: "outbounds[i].settings.remoteDNS", evidence: "V2rayOutboundService.cs:204"}
+  - {input: ProtocolExtraItem.WgPublicKey, path: "outbounds[i].settings.peers[0].publicKey", evidence: "V2rayOutboundService.cs:194"}
+  - {input: ProfileItem.Address+Port, path: "outbounds[i].settings.peers[0].endpoint", rule: "IPv6 加方括号", evidence: "V2rayOutboundService.cs:187-196"}
+  - {input: ProtocolExtraItem.WgPresharedKey, path: "outbounds[i].settings.peers[0].preSharedKey", evidence: "V2rayOutboundService.cs:196"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:185-209
+
+- config_type: Outbound
+  enum_value: 13
+  supported_by_xray: true
+  note: 自定义出站文件。BuildProxyOutbound 只设置 tag 并登记 CustomOutboundMap，随后 ApplyCustomOutboundReplace 用文件内容替换。
+  fields:
+  - {input: ProfileItem.IndexId, path: context.CustomOutboundMap 键（不直接外显）, evidence: "V2rayOutboundService.cs:55-60;57-59"}
+  - {input: ProfileItem.Address, path: CustomOutboundContent 源文件路径, evidence: "CoreConfigContextBuilder.cs:345-357"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:51-64;V2rayConfigTemplateService.cs:15-84
+
+- config_type: PolicyGroup
+  enum_value: 101
+  supported_by_xray: true
+  note: 组节点，展开为多个出站；单节点 tag=proxy，多节点 tag=proxy-N-Remarks 并生成 observatory+balancer。
+  fields:
+  - {input: ProtocolExtraItem.ChildItems, path: "outbounds[].tag/selector", evidence: "V2rayOutboundService.cs:622-654;9-14"}
+  - {input: ProtocolExtraItem.MultipleLoad, path: "routing.balancers[].strategy.type + observatory/burstObservatory", evidence: "V2rayBalancerService.cs:5-82,84-115"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:35-49
+
+- config_type: ProxyChain
+  enum_value: 102
+  supported_by_xray: true
+  note: 链式代理，按 reverse 顺序生成 tag，用 streamSettings.sockopt.dialerProxy 串联；xhttp 额外写 downloadSettings.sockopt.dialerProxy。
+  fields:
+  - {input: ProtocolExtraItem.ChildItems, path: "outbounds[].tag + streamSettings.sockopt.dialerProxy", evidence: "V2rayOutboundService.cs:656-740;742-761"}
+  evidence: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:44-46
+
+not_xray_generated:
+- {config_type: Custom, enum_value: 2, reason: "CoreConfigHandler 走 GenerateClientCustomConfig（复制文件），不经 CoreConfigV2rayService", evidence: "CoreConfigHandler.cs:16-22,44-91"}
+- {config_type: TUIC, enum_value: 8, reason: "不在 Global.XraySupportConfigType", evidence: "Global.cs:366-376;NodeValidator.cs:73-79"}
+- {config_type: Anytls, enum_value: 11, reason: "不在 Global.XraySupportConfigType", evidence: "Global.cs:366-376"}
+- {config_type: Naive, enum_value: 12, reason: "不在 Global.XraySupportConfigType", evidence: "Global.cs:366-376"}
+
+# ---------------------------------------------------------------------------
+# network (ETransport) -> streamSettings 路径
+# ---------------------------------------------------------------------------
+transport_output_map:
+  source_file: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs
+  network_default: raw
+  network_default_evidence: Global.cs:50;ProfileItem.GetNetwork() ProfileItem.cs:53-60
+  common:
+  - {path: "outbounds[i].streamSettings.network", value: "network；Hysteria2 固定 hysteria", evidence: "V2rayOutboundService.cs:255-260"}
+  - {input: ProfileItem.Network, path: "outbounds[i].streamSettings.network", rule: "不在 Global.Networks -> DefaultNetwork=raw", evidence: "ProfileItem.cs:53-60;Global.cs:330-338"}
+  transports:
+  - network: raw
+    fields:
+    - {input: TransportExtraItem.Host, path: "outbounds[i].streamSettings.rawSettings.header.request.headers.Host[0]", rule: "仅 RawHeaderType==http", evidence: "V2rayOutboundService.cs:271,579-604"}
+    - {input: TransportExtraItem.Path, path: "outbounds[i].streamSettings.rawSettings.header.request.path[0]", evidence: "V2rayOutboundService.cs:272,597-603"}
+    - {input: TransportExtraItem.RawHeaderType, path: "outbounds[i].streamSettings.rawSettings.header.type", rule: "==Global.RawHeaderHttp('http')", evidence: "V2rayOutboundService.cs:273,579-587"}
+    - {input: CoreBasicItem.DefUserAgent, path: "outbounds[i].streamSettings.rawSettings.header.request.headers.User-Agent[0]", rule: "经 Global.RawHttpUserAgentTexts 映射", evidence: "V2rayOutboundService.cs:307,590-595;Global.cs:213-222"}
+    note: 非 http header 时 raw 分支不写任何 rawSettings
+  - network: ws
+    fields:
+    - {input: TransportExtraItem.Host, path: "outbounds[i].streamSettings.wsSettings.host", evidence: "V2rayOutboundService.cs:283,426-429"}
+    - {input: TransportExtraItem.Path, path: "outbounds[i].streamSettings.wsSettings.path", evidence: "V2rayOutboundService.cs:284,430-433"}
+    - {input: CoreBasicItem.DefUserAgent, path: "outbounds[i].streamSettings.wsSettings.headers.User-Agent", evidence: "V2rayOutboundService.cs:434-438"}
+  - network: httpupgrade
+    fields:
+    - {input: TransportExtraItem.Host, path: "outbounds[i].streamSettings.httpupgradeSettings.host", evidence: "V2rayOutboundService.cs:287-290,446-449"}
+    - {input: TransportExtraItem.Path, path: "outbounds[i].streamSettings.httpupgradeSettings.path", evidence: "V2rayOutboundService.cs:450-453"}
+    - {input: CoreBasicItem.DefUserAgent, path: "outbounds[i].streamSettings.httpupgradeSettings.headers.User-Agent", evidence: "V2rayOutboundService.cs:454-458"}
+  - network: xhttp
+    fields:
+    - {input: TransportExtraItem.Path, path: "outbounds[i].streamSettings.xhttpSettings.path", evidence: "V2rayOutboundService.cs:292-297,467-470"}
+    - {input: TransportExtraItem.Host, path: "outbounds[i].streamSettings.xhttpSettings.host", evidence: "V2rayOutboundService.cs:471-474"}
+    - {input: TransportExtraItem.XhttpMode, path: "outbounds[i].streamSettings.xhttpSettings.mode", rule: "须在 Global.XhttpMode", evidence: "V2rayOutboundService.cs:475-478;Global.cs:445-451"}
+    - {input: TransportExtraItem.XhttpExtra, path: "outbounds[i].streamSettings.xhttpSettings.extra", rule: "JSON 解析", evidence: "V2rayOutboundService.cs:479-482"}
+    - {input: ProfileItem.MuxEnabled, path: "outbounds[i].mux.*", evidence: "V2rayOutboundService.cs:485"}
+  - network: kcp
+    fields:
+    - {input: KcpItem.*, path: "outbounds[i].streamSettings.kcpSettings.{mtu,tti,uplinkCapacity,downlinkCapacity,cwndMultiplier,maxSendingWindow}", evidence: "V2rayOutboundService.cs:380-388"}
+    - {input: TransportExtraItem.KcpMtu, path: "outbounds[i].streamSettings.kcpSettings.mtu", fallback: ">0 否则 KcpItem.Mtu", evidence: "V2rayOutboundService.cs:279"}
+    - {input: TransportExtraItem.KcpHeaderType, path: "outbounds[i].streamSettings.finalmask.udp[].settings.header", rule: "经 Global.KcpHeaderMaskMap", evidence: "V2rayOutboundService.cs:391-401;Global.cs:340-358"}
+    - {input: TransportExtraItem.KcpSeed, path: "outbounds[i].streamSettings.finalmask.udp[].settings.value", evidence: "V2rayOutboundService.cs:403-417"}
+  - network: grpc
+    fields:
+    - {input: TransportExtraItem.GrpcAuthority, path: "outbounds[i].streamSettings.grpcSettings.authority", rule: "空则 null", evidence: "V2rayOutboundService.cs:300,492"}
+    - {input: TransportExtraItem.GrpcServiceName, path: "outbounds[i].streamSettings.grpcSettings.serviceName", evidence: "V2rayOutboundService.cs:301,493"}
+    - {input: TransportExtraItem.GrpcMode, path: "outbounds[i].streamSettings.grpcSettings.multiMode", rule: "==Global.GrpcMultiMode('multi')", evidence: "V2rayOutboundService.cs:302,494;Global.cs:83-84"}
+    - {input: GrpcItem.IdleTimeout, path: "outbounds[i].streamSettings.grpcSettings.idle_timeout", evidence: "V2rayOutboundService.cs:495"}
+    - {input: GrpcItem.HealthCheckTimeout, path: "outbounds[i].streamSettings.grpcSettings.health_check_timeout", evidence: "V2rayOutboundService.cs:496"}
+    - {input: GrpcItem.PermitWithoutStream, path: "outbounds[i].streamSettings.grpcSettings.permit_without_stream", evidence: "V2rayOutboundService.cs:497"}
+    - {input: GrpcItem.InitialWindowsSize, path: "outbounds[i].streamSettings.grpcSettings.initial_windows_size", evidence: "V2rayOutboundService.cs:498"}
+    - {input: CoreBasicItem.DefUserAgent, path: "outbounds[i].streamSettings.grpcSettings.user_agent", evidence: "V2rayOutboundService.cs:499"}
+  rejected:
+  - {network: quic, reason: "GenerateClientConfigContent 直接拒绝", evidence: "CoreConfigV2rayService.cs:25-29"}
+  - {network: h2/http, reason: "不在 Global.Networks，GetNetwork 归一到 raw；streamSettings 无 h2/http 分支", evidence: "Global.cs:330-338;V2rayOutboundService.cs:377-608"}
+
+# ---------------------------------------------------------------------------
+# security (StreamSecurity) -> 路径
+# ---------------------------------------------------------------------------
+security_output_map:
+  source_file: v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs
+  entries:
+  - security: tls
+    match: ProfileItem.StreamSecurity == Global.StreamSecurity ('tls')
+    fields:
+    - {input: "(constant)", path: "outbounds[i].streamSettings.security", value: tls, evidence: "V2rayOutboundService.cs:312"}
+    - {input: ProfileItem.Alpn, path: "outbounds[i].streamSettings.tlsSettings.alpn", evidence: "V2rayOutboundService.cs:316;ProfileItem.cs:48-51"}
+    - {input: ProfileItem.Fingerprint, path: "outbounds[i].streamSettings.tlsSettings.fingerprint", fallback: "CoreBasicItem.DefFingerprint", evidence: "V2rayOutboundService.cs:317"}
+    - {input: ProfileItem.EchConfigList, path: "outbounds[i].streamSettings.tlsSettings.echConfigList", evidence: "V2rayOutboundService.cs:318"}
+    - {input: ProfileItem.VerifyPeerCertByName, path: "outbounds[i].streamSettings.tlsSettings.verifyPeerCertByName", evidence: "V2rayOutboundService.cs:319"}
+    - {input: ProfileItem.Sni, path: "outbounds[i].streamSettings.tlsSettings.serverName", fallback: "host 首项", evidence: "V2rayOutboundService.cs:321-328"}
+    - {input: "(derived)", path: "outbounds[i].streamSettings.tlsSettings.echForceQuery", value: full, rule: "仅 echConfigList 非空", evidence: "V2rayOutboundService.cs:329-333"}
+    - {input: ProfileItem.Cert, path: "outbounds[i].streamSettings.tlsSettings.certificates[].certificate + disableSystemRoot", rule: "PEM 链可解析", evidence: "V2rayOutboundService.cs:334-349"}
+    - {input: ProfileItem.CertSha, path: "outbounds[i].streamSettings.tlsSettings.pinnedPeerCertSha256", rule: "无 Cert 时", evidence: "V2rayOutboundService.cs:350-353"}
+    - {input: ProfileItem.AllowInsecure, path: NOT_WRITTEN, rule: "Xray 生成器从不写 allowInsecure/insecure；仅 NodeValidator 告警 MsgAllowInsecureDeprecated", evidence: "NodeValidator.cs:134-147;ProfileItem.cs:149-152"}
+  - security: reality
+    match: ProfileItem.StreamSecurity == Global.StreamSecurityReality ('reality')
+    fields:
+    - {input: "(constant)", path: "outbounds[i].streamSettings.security", value: reality, evidence: "V2rayOutboundService.cs:360"}
+    - {input: ProfileItem.Fingerprint, path: "outbounds[i].streamSettings.realitySettings.fingerprint", fallback: "CoreBasicItem.DefFingerprint", evidence: "V2rayOutboundService.cs:364"}
+    - {input: ProfileItem.Sni, path: "outbounds[i].streamSettings.realitySettings.serverName", evidence: "V2rayOutboundService.cs:365"}
+    - {input: ProfileItem.PublicKey, path: "outbounds[i].streamSettings.realitySettings.publicKey", evidence: "V2rayOutboundService.cs:366"}
+    - {input: ProfileItem.ShortId, path: "outbounds[i].streamSettings.realitySettings.shortId", evidence: "V2rayOutboundService.cs:367"}
+    - {input: ProfileItem.SpiderX, path: "outbounds[i].streamSettings.realitySettings.spiderX", evidence: "V2rayOutboundService.cs:368"}
+    - {input: ProfileItem.Mldsa65Verify, path: "outbounds[i].streamSettings.realitySettings.mldsa65Verify", evidence: "V2rayOutboundService.cs:369"}
+    - {input: "(constant)", path: "outbounds[i].streamSettings.realitySettings.show", value: false, evidence: "V2rayOutboundService.cs:370"}
+
+# ---------------------------------------------------------------------------
+# 全局设置注入
+# ---------------------------------------------------------------------------
+global_injection:
+- setting: CoreBasicItem.Loglevel
+  xray_path: "log.loglevel"
+  evidence: V2rayLogService.cs:12,18;ConfigItems.cs:8
+- setting: CoreBasicItem.LogEnabled
+  xray_path: "log.access / log.error（false 时置 null）"
+  evidence: V2rayLogService.cs:9-21;ConfigItems.cs:6
+- setting: CoreBasicItem.DefFingerprint
+  xray_path: "tlsSettings.fingerprint / realitySettings.fingerprint（节点未指定时）"
+  evidence: V2rayOutboundService.cs:317,364;ConfigItems.cs:10
+- setting: CoreBasicItem.DefUserAgent
+  xray_path: "wsSettings/httpupgradeSettings.headers.User-Agent; grpcSettings.user_agent; raw request User-Agent"
+  evidence: V2rayOutboundService.cs:434-438,454-458,499,590-595;ConfigItems.cs:12
+- setting: CoreBasicItem.SendThrough
+  xray_path: "outbounds[i].sendThrough"
+  evidence: V2rayConfigTemplateService.cs:259-271;ConfigItems.cs:14
+- setting: CoreBasicItem.BindInterface
+  xray_path: "outbounds[i].streamSettings.sockopt.interface；TUN inbound.settings.autoOutboundsInterface"
+  evidence: V2rayConfigTemplateService.cs:225-257;V2rayInboundService.cs:84-88;ConfigItems.cs:16
+- setting: CoreBasicItem.EnableFragment
+  xray_path: "outbounds[i].streamSettings.finalmask.tcp += fragment"
+  evidence: V2rayOutboundService.cs:769-791;ConfigItems.cs:18
+- setting: CoreBasicItem.EnableFinalFragment
+  xray_path: "插入 {tag}-fragment-freedom 出站 + 原出站 sockopt.dialerProxy"
+  evidence: V2rayOutboundService.cs:793-824;ConfigItems.cs:20
+- setting: CoreBasicItem.EnableCacheFile4Sbox
+  xray_path: NOT_APPLICABLE
+  evidence: ConfigItems.cs:22
+- setting: Fragment4RayItem.Packets/Lengths/Delays/MaxSplit
+  xray_path: "finalmask 中 fragment.settings.{packets,lengths,delays,maxSplit,length,delay}"
+  fallback: "Packets=tlshello; Lengths=[50-100]; Delays=[10-20]; MaxSplit=0"
+  evidence: V2rayOutboundService.cs:826-865;ConfigHandler.cs:168-188
+- setting: Mux4RayItem.Concurrency
+  xray_path: "outbounds[i].mux.concurrency（mux 仅 TCP 启用时）"
+  evidence: V2rayOutboundService.cs:232-242;ConfigItems.cs:186-191
+- setting: Mux4RayItem.XudpConcurrency
+  xray_path: "outbounds[i].mux.xudpConcurrency"
+  evidence: V2rayOutboundService.cs:237-242
+- setting: Mux4RayItem.XudpProxyUDP443
+  xray_path: "outbounds[i].mux.xudpProxyUDP443"
+  evidence: V2rayOutboundService.cs:241
+- setting: KcpItem.*
+  xray_path: "outbounds[i].streamSettings.kcpSettings.*"
+  evidence: V2rayOutboundService.cs:380-388;ConfigHandler.cs:72-82
+- setting: GrpcItem.*
+  xray_path: "outbounds[i].streamSettings.grpcSettings.*"
+  evidence: V2rayOutboundService.cs:494-499;ConfigHandler.cs:83-89
+- setting: HysteriaItem.UpMbps/DownMbps/HopInterval
+  xray_path: "finalmask.quicParams.brutalUp/Down 与 udpHop.interval（节点未指定时）"
+  evidence: V2rayOutboundService.cs:507-517;ConfigHandler.cs:158-162
+- setting: HappyEyeballs4RayItem.*
+  xray_path: "outbounds[i].streamSettings.sockopt.happyEyeballs.{tryDelayMs,prioritizeIPv6,interleave,maxConcurrentTry}"
+  rule: "仅 SimpleDNSItem.EnableHappyEyeballs==true 且写 domainStrategy 时"
+  evidence: V2rayDnsService.cs:532-554;ConfigItems.cs:296-303
+- setting: SimpleDNSItem.*
+  xray_path: "dns.* 与 outbounds[].targetStrategy / sockopt.domainStrategy"
+  evidence: V2rayDnsService.cs:36-121,155-426
+- setting: SimpleDNSItem.FakeIP
+  xray_path: "fakedns.{ipPool,poolSize}（顶层，不在 inbounds.settings）"
+  fallback: "FakeIPRange=Global.FakeIPRanges.First()=198.18.0.0/15"
+  evidence: V2rayDnsService.cs:128-153;Global.cs:752-756
+- setting: RoutingBasicItem.DomainStrategy
+  xray_path: "routing.domainStrategy"
+  evidence: V2rayRoutingService.cs:40-48
+- setting: GuiItem.EnableStatistics / DisplayRealTimeSpeed
+  xray_path: "stats{}; metrics.listen=127.0.0.1:{StatePort}; policy.system.statsOutbound{Up,Down}link=true"
+  evidence: V2rayStatisticService.cs:7-22;AppManager.cs:15-22
+- setting: TunModeItem.*
+  xray_path: "inbounds[tun].settings.{name,MTU,gateway,autoSystemRoutingTable,autoOutboundsInterface}"
+  evidence: V2rayInboundService.cs:56-135;Config.cs:16
+- setting: Inbound[0].*
+  xray_path: "inbounds[].{port,listen,settings.udp,sniffing.*}"
+  evidence: V2rayInboundService.cs:5-54,143-175
+- setting: RoutingItem.RuleSet
+  xray_path: "routing.rules[]"
+  rule: "跳过 RuleType==DNS 项"
+  evidence: V2rayRoutingService.cs:42-65;ERuleType.cs:3-7
+- setting: RoutingItem.DomainStrategy4Singbox
+  xray_path: NOT_APPLICABLE
+  evidence: V2rayRoutingService.cs:45-48（xray 用 RoutingBasicItem.DomainStrategy，非 4Singbox）
+
+tun_xray_structure:
+  template_symbol: Global.V2raySampleTunInbound
+  template_constant: Global.cs:25
+  template_file: v2rayN/ServiceLib/Sample/SampleTunInbound
+  fields:
+  - {input: "(constant)", path: "inbounds[tun].settings.name", value: "xray_tun / utunN(mac)", evidence: "V2rayInboundService.cs:65"}
+  - {input: TunModeItem.Mtu, path: "inbounds[tun].settings.MTU", fallback: "<=0 -> Global.TunMtus.First()=1280；默认 9000", evidence: "V2rayInboundService.cs:58-66;ConfigHandler.cs:90-96"}
+  - {input: TunModeItem.IPv4Address, path: "inbounds[tun].settings.gateway[0]", fallback: "Global.TunIPv4Address.First()=172.18.0.1/30", evidence: "V2rayInboundService.cs:68-69;Global.cs:765-775"}
+  - {input: TunModeItem.EnableIPv6Address+IPv6Address, path: "inbounds[tun].settings.gateway[1]", fallback: "Global.TunIPv6Address.First()", evidence: "V2rayInboundService.cs:78-82"}
+  - {input: "(derived) HasGlobalIPv6Address", path: "inbounds[tun].settings.autoSystemRoutingTable", value: "[0.0.0.0/0] 或 [0.0.0.0/0,::/0]", evidence: "V2rayInboundService.cs:75-77"}
+  - {input: TunModeItem.RouteExcludeAddress, path: "inbounds[tun].settings.autoSystemRoutingTable", rule: "对 0.0.0.0/0 与 ::/0 做 Subtract 后 Supernet", evidence: "V2rayInboundService.cs:93-132"}
+  - {input: CoreBasicItem.BindInterface, path: "inbounds[tun].settings.autoOutboundsInterface", evidence: "V2rayInboundService.cs:84-88"}
+  - {input: "Inbound[0].SniffingEnabled/DestOverride", path: "inbounds[tun].sniffing", rule: "routeOnly 强制 true", evidence: "V2rayInboundService.cs:89-91"}
+  tun_rules_symbol: Global.V2raySampleTunRules
+  tun_rules_file: v2rayN/ServiceLib/Sample/SampleTunRules
+  tun_rules_evidence: V2rayRoutingService.cs:11-15
+
+template_merge:
+  class: CoreConfigV2rayService（partial）V2rayConfigTemplateService.cs
+  full_template_source: FullConfigTemplateItem（按 CoreType 从 guiNDB 取单条）
+  full_template_fetch: v2rayN/ServiceLib/Manager/AppManager.cs:321-324
+  enabled_guard: "FullConfigTemplate.Enabled==true 且 Config/TunConfig 非空"
+  enabled_evidence: V2rayConfigTemplateService.cs:86-104
+  config_vs_tun_selection: "IsTunEnabled ? TunConfig : Config"
+  selection_evidence: V2rayConfigTemplateService.cs:94
+  insert_points:
+  - {what: balancer 规则改写, path: "template.routing.rules[outboundTag==proxy] -> balancerTag", evidence: "V2rayConfigTemplateService.cs:107-127"}
+  - {what: balancers 追加, path: template.routing.balancers += generated, evidence: "V2rayConfigTemplateService.cs:133-146"}
+  - {what: observatory 合并, path: template.observatory.subjectSelector 去重, evidence: "V2rayConfigTemplateService.cs:149-161"}
+  - {what: burstObservatory 合并, path: template.burstObservatory.subjectSelector 去重, evidence: "V2rayConfigTemplateService.cs:163-175"}
+  - {what: outbounds 合并, path: "generated（AddProxyOnly 时跳过 blackhole/dns/freedom）在前，template.outbounds 追加在后", evidence: "V2rayConfigTemplateService.cs:177-220"}
+  - {what: ProxyDetour, path: "非私网且无 dialerProxy 的出站写 streamSettings.sockopt.dialerProxy", evidence: "V2rayConfigTemplateService.cs:190-208"}
+  custom_outbound_placeholders:
+  - "{{tag}} -> 出站 tag"
+  - "{{detour}} -> sockopt.dialerProxy / xhttp downloadSettings.sockopt.dialerProxy"
+  - "{{interface}} -> sockopt.interface / xhttp downloadSettings.sockopt.interface"
+  evidence: V2rayConfigTemplateService.cs:34-72
+
+precedence_rules:
+- {order: 1, rule: "SampleClientConfig 提供骨架；随后 log/inbounds/outbounds/routing/dns 逐段被覆盖", evidence: "CoreConfigV2rayService.cs:33-57"}
+- {order: 2, rule: "GenInbounds 直接 _coreConfig.inbounds=[] 重建，模板 inbounds 不保留（除非 FullConfigTemplate 启用则整体作为模板）", evidence: "V2rayInboundService.cs:11"}
+- {order: 3, rule: "节点字段填充在 template 之后；空值不写（地址/端口总是写；可选字段用 NullIfEmpty/条件写入）", evidence: "V2rayOutboundService.cs:66-217"}
+- {order: 4, rule: "FillBoundStreamSettings 末尾：ProfileItem.Finalmask 非空时整体覆盖 streamSettings.finalmask", evidence: "V2rayOutboundService.cs:611-614"}
+- {order: 5, rule: "EnableFragment/EnableFinalFragment 在 Fill 之后对最终 outbounds 追加", evidence: "CoreConfigV2rayService.cs:59-66"}
+- {order: 6, rule: "ApplyCustomOutboundReplace 按 tag 替换自定义出站", evidence: "V2rayConfigTemplateService.cs:15-84"}
+- {order: 7, rule: "ApplyFullConfigTemplate 最后合并并整体替换 outbounds（generated + template）", evidence: "V2rayConfigTemplateService.cs:86-223"}
+- {order: 8, rule: "BuildFinalRule 在 Routing 之后、Fragment 之前加入 routing.rules", evidence: "CoreConfigV2rayService.cs:68-72;V2rayRoutingService.cs:215-237"}
+- {order: 9, rule: "GenDns 在 GenRouting 之后，DNS 规则/最终规则以此时 domainStrategy 值为准", evidence: "CoreConfigV2rayService.cs:53-55;V2rayDnsService.cs:5-126"}
+
+capability_matrix:
+  XraySupportConfigType:
+    value: [VMess, VLESS, Shadowsocks, Trojan, Hysteria2, WireGuard, SOCKS, HTTP]
+    evidence: v2rayN/ServiceLib/Global.cs:366-376
+  protocol_names:
+    value: {VMess: vmess, Shadowsocks: shadowsocks, SOCKS: socks, HTTP: http, VLESS: vless, Trojan: trojan, Hysteria2: hysteria2, TUIC: tuic, WireGuard: wireguard, Anytls: anytls, Naive: naive}
+    evidence: v2rayN/ServiceLib/Global.cs:252-265
+  rejected_networks: [quic]
+  rejected_networks_evidence: CoreConfigV2rayService.cs:25-29
+  allowinsecure_xray: false
+  allowinsecure_evidence: NodeValidator.cs:134-147
+
+unconfirmed:
+- id: UNC-X-001
+  item: v2fly / v2fly_v5 是否经 CoreConfigV2rayService 生成
+  why: CoreConfigHandler 仅按 RunCoreType==sing_box 区分，其余走 V2ray 分支；Global.CoreTypes 仅 Xray/sing_box
+  evidence: CoreConfigHandler.cs:24-31;Global.cs:360-364
+  status: unresolved
+- id: UNC-X-002
+  item: Custom 节点在非 mihomo 内核下的 pre-socks (PreSocksPort) 出站是否由 configPre.json 承载且合并顺序
+  why: CoreManager 生成 configPre.json，但本契约未逐行确证 preContext 的 outbound 生成细节
+  evidence: CoreManager.cs:194-212;ConfigHandler.cs:1555-1586
+  status: unresolved
+- id: UNC-X-003
+  item: FakeDns 在旧文档中的 inbounds[].settings.fakedns 路径
+  why: 源码实际写顶层 fakedns，非 inbound settings；任务示例路径未确证
+  evidence: V2rayDnsService.cs:148-152;V2rayConfig.cs:7
+  status: contradicted_by_source
+- id: UNC-X-004
+  item: Xray quic/h2/http 传输是否有隐藏分支
+  why: GetNetwork 会归一化，network switch 无对应 case；无法确证外部直接注入
+  evidence: Global.cs:330-338;V2rayOutboundService.cs:377-608
+  status: unresolved
+- id: UNC-X-005
+  item: Global.InboundAPIProtocol（dokodemo-door）是否被生成器使用
+  why: V2ray 生成器未见该常量引用
+  evidence: v2rayN/ServiceLib/Global.cs:65
+  status: unresolved

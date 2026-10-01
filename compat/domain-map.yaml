@@ -213,7 +213,7 @@ types:
       request_headers:     { fld: FLD-ENT-088, upstream_key: RequestHeaders,     type: "string?" }
       sort:                { fld: FLD-ENT-089, upstream_key: Sort,               type: i32 }
       filter:              { fld: FLD-ENT-090, upstream_key: Filter,             type: "string?" }
-      auto_update_interval:{ fld: FLD-ENT-091, upstream_key: AutoUpdateInterval, type: i32 }
+      auto_update_interval: { fld: FLD-ENT-091, upstream_key: AutoUpdateInterval, type: i32 }
       update_time:         { fld: FLD-ENT-092, upstream_key: UpdateTime,         type: i64 }
       convert_target:      { fld: FLD-ENT-093, upstream_key: ConvertTarget,      type: "string?" }
       prev_profile:        { fld: FLD-ENT-094, upstream_key: PrevProfile,        type: "string?" }
@@ -233,7 +233,7 @@ types:
     fields:
       index_id:       { fld: FLD-ENT-099, upstream_key: IndexId,       type: string }
       child_items:    { fld: FLD-ENT-100, upstream_key: ChildItems,    type: string }
-      sub_child_items:{ fld: FLD-ENT-101, upstream_key: SubChildItems, type: "string?" }
+      sub_child_items: { fld: FLD-ENT-101, upstream_key: SubChildItems, type: "string?" }
       filter:         { fld: FLD-ENT-102, upstream_key: Filter,        type: "string?" }
       multiple_load:  { fld: FLD-ENT-103, upstream_key: MultipleLoad,  type: "enum<MultipleLoad>" }
 
@@ -280,7 +280,7 @@ types:
       use_system_hosts:        { fld: FLD-ENT-120, upstream_key: UseSystemHosts,          type: bool }
       normal_dns:              { fld: FLD-ENT-121, upstream_key: NormalDNS,               type: "string?" }
       tun_dns:                 { fld: FLD-ENT-122, upstream_key: TunDNS,                  type: "string?" }
-      domain_strategy4_freedom:{ fld: FLD-ENT-123, upstream_key: DomainStrategy4Freedom,  type: "string?" }
+      domain_strategy4_freedom: { fld: FLD-ENT-123, upstream_key: DomainStrategy4Freedom,  type: "string?" }
       domain_dns_address:      { fld: FLD-ENT-124, upstream_key: DomainDNSAddress,        type: "string?" }
       extra:                   { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
 
@@ -299,7 +299,7 @@ types:
       enabled:                     { fld: FLD-ENT-130, upstream_key: Enabled,                     type: bool }
       locked:                      { fld: FLD-ENT-131, upstream_key: Locked,                      type: bool }
       custom_icon:                 { fld: FLD-ENT-132, upstream_key: CustomIcon,                  type: string }
-      custom_ruleset_path4_singbox:{ fld: FLD-ENT-133, upstream_key: CustomRulesetPath4Singbox,  type: string }
+      custom_ruleset_path4_singbox: { fld: FLD-ENT-133, upstream_key: CustomRulesetPath4Singbox,  type: string }
       domain_strategy:             { fld: FLD-ENT-134, upstream_key: DomainStrategy,              type: string }
       domain_strategy4_singbox:    { fld: FLD-ENT-135, upstream_key: DomainStrategy4Singbox,     type: string }
       sort:                        { fld: FLD-ENT-136, upstream_key: Sort,                        type: i32 }
@@ -379,7 +379,7 @@ settings:
       global_hotkeys:          { fld: FLD-CFG-022, upstream_key: GlobalHotkeys }
       core_type_item:          { fld: FLD-CFG-023, upstream_key: CoreTypeItem }
       simple_dns_item:         { fld: FLD-CFG-024, upstream_key: SimpleDNSItem }
-      happy_eyeballs4_ray_item:{ fld: FLD-CFG-025, upstream_key: HappyEyeballs4RayItem }
+      happy_eyeballs4_ray_item: { fld: FLD-CFG-025, upstream_key: HappyEyeballs4RayItem }
       extra:                   { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
 
   items:
@@ -396,7 +396,7 @@ settings:
         enable_final_fragment:  { fld: FLD-CFG-033, upstream_key: EnableFinalFragment }
         enable_cache_file4_sbox: { fld: FLD-CFG-034, upstream_key: EnableCacheFile4Sbox }
     - rust: domain::InboundListener
-      storage: { kind: guiNConfig.json, key: Inbound[] }
+      storage: { kind: guiNConfig.json, key: "Inbound[]" }
       fields:
         local_port:             { fld: FLD-CFG-035, upstream_key: LocalPort }
         protocol:               { fld: FLD-CFG-036, upstream_key: Protocol }
@@ -470,7 +470,7 @@ settings:
         srs_source_url:                { fld: FLD-CFG-086, upstream_key: SrsSourceUrl }
         route_rules_template_source_url: { fld: FLD-CFG-087, upstream_key: RouteRulesTemplateSourceUrl }
     - rust: domain::GlobalHotkey
-      storage: { kind: guiNConfig.json, key: GlobalHotkeys[] }
+      storage: { kind: guiNConfig.json, key: "GlobalHotkeys[]" }
       fields:
         action:   { fld: FLD-CFG-088, upstream_key: EGlobalHotkey }
         alt:      { fld: FLD-CFG-089, upstream_key: Alt }
@@ -478,7 +478,7 @@ settings:
         shift:    { fld: FLD-CFG-091, upstream_key: Shift }
         key_code: { fld: FLD-CFG-092, upstream_key: KeyCode }
     - rust: domain::CoreTypeBinding
-      storage: { kind: guiNConfig.json, key: CoreTypeItem[] }
+      storage: { kind: guiNConfig.json, key: "CoreTypeItem[]" }
       fields:
         config_type: { fld: FLD-CFG-093, upstream_key: ConfigType }
         core_type:   { fld: FLD-CFG-094, upstream_key: CoreType }
@@ -506,7 +506,7 @@ settings:
         ipapi_url:                { fld: FLD-CFG-110, upstream_key: IPAPIUrl }
         udp_test_target:          { fld: FLD-CFG-111, upstream_key: UdpTestTarget }
         speed_test_page_size:     { fld: FLD-CFG-112, upstream_key: SpeedTestPageSize }
-        speed_test_delay_interval:{ fld: FLD-CFG-113, upstream_key: SpeedTestDelayInterval }
+        speed_test_delay_interval: { fld: FLD-CFG-113, upstream_key: SpeedTestDelayInterval }
     - rust: domain::RoutingBasicItem
       storage: { kind: guiNConfig.json, key: RoutingBasicItem }
       fields:
@@ -546,7 +546,7 @@ settings:
         proxies_auto_refresh:       { fld: FLD-CFG-132, upstream_key: ProxiesAutoRefresh }
         proxies_refresh_interval:   { fld: FLD-CFG-133, upstream_key: ProxiesRefreshInterval }
         connections_auto_refresh:   { fld: FLD-CFG-134, upstream_key: ConnectionsAutoRefresh }
-        connections_refresh_interval:{ fld: FLD-CFG-135, upstream_key: ConnectionsRefreshInterval }
+        connections_refresh_interval: { fld: FLD-CFG-135, upstream_key: ConnectionsRefreshInterval }
         connections_column_item:    { fld: FLD-CFG-136, upstream_key: ConnectionsColumnItem }
     - rust: domain::SystemProxyItem
       storage: { kind: guiNConfig.json, key: SystemProxyItem }
@@ -580,7 +580,7 @@ settings:
         length:    { fld: FLD-CFG-154, upstream_key: Length, legacy: true }
         interval:  { fld: FLD-CFG-155, upstream_key: Interval, legacy: true }
     - rust: domain::WindowState
-      storage: { kind: guiNConfig.json, key: UIItem.WindowSizeItem[] }
+      storage: { kind: guiNConfig.json, key: "UIItem.WindowSizeItem[]" }
       fields:
         type_name: { fld: FLD-CFG-156, upstream_key: TypeName }
         width:     { fld: FLD-CFG-157, upstream_key: Width }
@@ -605,7 +605,7 @@ settings:
         parallel_query:       { fld: FLD-CFG-173, upstream_key: ParallelQuery }
         hosts:                { fld: FLD-CFG-174, upstream_key: Hosts }
         direct_expected_ips:  { fld: FLD-CFG-175, upstream_key: DirectExpectedIPs }
-        enable_happy_eyeballs:{ fld: FLD-CFG-176, upstream_key: EnableHappyEyeballs }
+        enable_happy_eyeballs: { fld: FLD-CFG-176, upstream_key: EnableHappyEyeballs }
     - rust: domain::HappyEyeballs4RayItem
       storage: { kind: guiNConfig.json, key: HappyEyeballs4RayItem }
       fields:

@@ -8,6 +8,7 @@ import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Main window shell: top menu/toolbar, three grid layouts, bottom status bar.
@@ -189,6 +190,7 @@ class _MenuToolbarBar extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 8),
+          const _RuntimeToolbar(),
           PopupMenuButton<AppLayoutMode>(
             key: const ValueKey('layout-selector'),
             tooltip: '主界面布局',
@@ -301,6 +303,39 @@ class _MenuToolbarBar extends ConsumerWidget {
               style: const TextStyle(fontSize: 11, color: Colors.grey),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Minimal runtime controls (T03): start the Xray smoke session and stop it.
+class _RuntimeToolbar extends ConsumerWidget {
+  const _RuntimeToolbar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final runtime = ref.watch(runtimeControllerProvider);
+    final controller = ref.read(runtimeControllerProvider.notifier);
+    return Row(
+      children: <Widget>[
+        Text(
+          '运行时: ${runtime.state}',
+          key: const ValueKey('runtime-state-chip'),
+          style: const TextStyle(fontSize: 12),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.tonal(
+          key: const ValueKey('runtime-start'),
+          onPressed: runtime.isBusy ? null : controller.applySmoke,
+          child: const Text('启动测试会话', style: TextStyle(fontSize: 12)),
+        ),
+        const SizedBox(width: 6),
+        OutlinedButton(
+          key: const ValueKey('runtime-stop'),
+          onPressed: controller.stop,
+          child: const Text('停止', style: TextStyle(fontSize: 12)),
+        ),
+        const SizedBox(width: 8),
       ],
     );
   }

@@ -9,7 +9,7 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ApplyRuntimeRequest`, `RevisionDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
 
 /// Result of `apply_runtime`.
 class ApplyRuntimeResult {
@@ -387,11 +387,23 @@ class SaveProfileResult {
 }
 
 /// The `get_snapshot` result.
+///
+/// Runtime facts (`runtime_pid`, `runtime_ports`, ...) are the live values
+/// reported by net-host; they are `None`/empty when the runtime is not running
+/// and are never synthesized from UI state.
 class SnapshotDto {
   final BigInt desiredRevision;
   final BigInt appliedRevision;
   final RevisionState revisionState;
   final RuntimeState runtimeState;
+  final bool hostAlive;
+  final int? runtimePid;
+  final PlatformInt64? runtimeCreatedAtMs;
+  final Uint16List runtimePorts;
+  final String? runtimeSessionId;
+  final String? runtimeConfigSha256;
+  final String? runtimeOperationId;
+  final ErrorDto? runtimeError;
   final List<JobDto> activeJobs;
   final List<CapabilityDto> capabilities;
   final RecoveryDto recovery;
@@ -402,6 +414,14 @@ class SnapshotDto {
     required this.appliedRevision,
     required this.revisionState,
     required this.runtimeState,
+    required this.hostAlive,
+    this.runtimePid,
+    this.runtimeCreatedAtMs,
+    required this.runtimePorts,
+    this.runtimeSessionId,
+    this.runtimeConfigSha256,
+    this.runtimeOperationId,
+    this.runtimeError,
     required this.activeJobs,
     required this.capabilities,
     required this.recovery,
@@ -414,6 +434,14 @@ class SnapshotDto {
       appliedRevision.hashCode ^
       revisionState.hashCode ^
       runtimeState.hashCode ^
+      hostAlive.hashCode ^
+      runtimePid.hashCode ^
+      runtimeCreatedAtMs.hashCode ^
+      runtimePorts.hashCode ^
+      runtimeSessionId.hashCode ^
+      runtimeConfigSha256.hashCode ^
+      runtimeOperationId.hashCode ^
+      runtimeError.hashCode ^
       activeJobs.hashCode ^
       capabilities.hashCode ^
       recovery.hashCode ^
@@ -428,8 +456,35 @@ class SnapshotDto {
           appliedRevision == other.appliedRevision &&
           revisionState == other.revisionState &&
           runtimeState == other.runtimeState &&
+          hostAlive == other.hostAlive &&
+          runtimePid == other.runtimePid &&
+          runtimeCreatedAtMs == other.runtimeCreatedAtMs &&
+          runtimePorts == other.runtimePorts &&
+          runtimeSessionId == other.runtimeSessionId &&
+          runtimeConfigSha256 == other.runtimeConfigSha256 &&
+          runtimeOperationId == other.runtimeOperationId &&
+          runtimeError == other.runtimeError &&
           activeJobs == other.activeJobs &&
           capabilities == other.capabilities &&
           recovery == other.recovery &&
           profileCount == other.profileCount;
+}
+
+/// Result of `stop_runtime`.
+class StopRuntimeResult {
+  final bool ok;
+  final ErrorDto? error;
+
+  const StopRuntimeResult({required this.ok, this.error});
+
+  @override
+  int get hashCode => ok.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is StopRuntimeResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          error == other.error;
 }

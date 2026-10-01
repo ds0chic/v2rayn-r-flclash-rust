@@ -1,0 +1,22 @@
+{
+  "IndexId": "node-hk",
+  "SubIndexId": "sub-main",
+  "UIItem": {
+    "CurrentTheme": "Dark",
+    "CurrentLanguage": "zh-Hans",
+    "CurrentFontFamily": "Microsoft YaHei",
+    "CurrentFontSize": 12,
+    "MainGridOrientation": 1,
+    "WindowSizeItem": [
+      {"TypeName": "MainWindow", "Width": 1200, "Height": 800, "MainGridHeight1": 300, "MainGridHeight2": 0, "Orientation": 1}
+    ],
+    "MainColumnItem": [
+      {"Name": "Remarks", "Width": 180, "Index": 0},
+      {"Name": "TestResult", "Width": 90, "Index": 1}
+    ],
+    "FutureUiFlag": true
+  },
+  "HysteriaItem": {"UpMbps": 50, "DownMbps": 100, "HopInterval": 15},
+  "SystemProxyItem": {"SysProxyType": 1, "SystemProxyExceptions": "", "CustomSystemProxyPacPath": ""},
+  "BrandNewRootItem": {"enabled": true, "weight": 7}
+}

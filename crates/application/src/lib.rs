@@ -11,6 +11,7 @@
 
 pub mod engine;
 pub mod jobs;
+pub mod net_host_client;
 pub mod repository;
 pub mod runtime_client;
 pub mod snapshot;
@@ -23,9 +24,12 @@ pub use synthetic::{
 
 pub use engine::{capability_table, empty_snapshot, AppEngine};
 pub use jobs::{JobManager, JobView};
+pub use net_host_client::NetHostClient;
 pub use repository::{
     InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage, ProfileRepository,
     ProfileSort, RevisionStore,
 };
-pub use runtime_client::{ApplyOutcome, NullRuntimeClient, RuntimeClient, RuntimeSnapshot};
+pub use runtime_client::{
+    ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
+};
 pub use snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};

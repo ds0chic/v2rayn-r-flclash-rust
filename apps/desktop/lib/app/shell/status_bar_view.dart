@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Bottom status bar (compat/layouts.yaml LAY-STATUSBAR-001).
@@ -17,6 +18,7 @@ class StatusBarView extends ConsumerWidget {
     final shell = ref.watch(uiShellControllerProvider);
     final shellController = ref.read(uiShellControllerProvider.notifier);
     final profiles = ref.watch(profilesControllerProvider);
+    final runtime = ref.watch(runtimeControllerProvider);
     final scheme = Theme.of(context).colorScheme;
     final muted = TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant);
 
@@ -81,10 +83,27 @@ class StatusBarView extends ConsumerWidget {
               ),
               const _Sep(),
               Text(
-                '节点: ${shell.runningNode ?? '未运行'}',
+                '节点: ${runtime.statusLabel}',
                 key: const ValueKey('running-node'),
                 style: muted,
               ),
+              const _Sep(),
+              Text(
+                '运行时: ${runtime.state} '
+                'host=${runtime.hostAlive ? 'alive' : 'down'} '
+                'PID=${runtime.pid ?? '--'} '
+                '端口=${runtime.ports.isEmpty ? '--' : runtime.ports.join(',')}',
+                key: const ValueKey('runtime-info'),
+                style: muted,
+              ),
+              if (runtime.error != null) ...<Widget>[
+                const _Sep(),
+                Text(
+                  '错误 ${runtime.error!.code}: ${runtime.error!.messageKey}',
+                  key: const ValueKey('runtime-error'),
+                  style: TextStyle(fontSize: 11.5, color: scheme.error),
+                ),
+              ],
               const _Sep(),
               Text(
                 'total=${profiles.totalCount} visible=${profiles.visible.length} '

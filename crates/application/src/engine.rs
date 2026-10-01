@@ -13,11 +13,14 @@ use domain::{
 };
 
 use crate::jobs::{JobManager, JobView};
+use crate::net_host_client::NetHostClient;
 use crate::repository::{
     InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage, ProfileRepository,
     ProfileSort, RevisionStore,
 };
-use crate::runtime_client::{ApplyOutcome, NullRuntimeClient, RuntimeClient, RuntimeSnapshot};
+use crate::runtime_client::{
+    ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
+};
 use crate::snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
 
 /// Shared engine handle. Cloning shares all state.
@@ -30,9 +33,16 @@ pub struct AppEngine {
 }
 
 impl AppEngine {
-    /// Build an engine with a Null runtime client (T02 default).
+    /// Build an engine with a Null runtime client (T02 default, used by tests).
     pub fn in_memory() -> Self {
         Self::with_runtime(Arc::new(NullRuntimeClient::new()))
+    }
+
+    /// Build an engine backed by the real net-host client (T03 production
+    /// default). Constructing the client does not connect or spawn anything;
+    /// the first runtime call does.
+    pub fn production() -> Self {
+        Self::with_runtime(Arc::new(NetHostClient::new()))
     }
 
     pub fn with_runtime(runtime: Arc<dyn RuntimeClient>) -> Self {
@@ -126,9 +136,30 @@ impl AppEngine {
         }
     }
 
+    /// `stop_runtime` use case: ask net-host to stop the managed core.
+    pub fn stop_runtime(&self) -> Result<(), DomainError> {
+        self.runtime.stop()
+    }
+
+    /// Register the sink for unsolicited net-host events (control + detail).
+    pub fn subscribe_runtime_events(&self, sink: EventSink) {
+        self.runtime.subscribe_events(sink);
+    }
+
     /// `cancel_job` use case (idempotent).
+    ///
+    /// The application job manager is the authority for job ids; the runtime
+    /// is consulted first so a runtime-side operation is also signalled. A
+    /// runtime that cannot cancel returns `NotCancellable`, which does not
+    /// override the job-manager result.
     pub fn cancel_job(&self, job_id: &JobId) -> CancelOutcome {
-        self.jobs.cancel(job_id)
+        let outcome = self.jobs.cancel(job_id);
+        if outcome == CancelOutcome::AlreadyFinished {
+            if let Ok(runtime_outcome) = self.runtime.cancel(job_id) {
+                return runtime_outcome;
+            }
+        }
+        outcome
     }
 
     /// Assemble the current snapshot.

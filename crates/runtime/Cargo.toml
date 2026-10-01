@@ -3,7 +3,21 @@ name = "runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Runtime topology execution, core adapters and process ownership (T03)."
 
 [dependencies]
+domain.workspace = true
+ipc_contract.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Threading",
+    "Win32_System_JobObjects",
+] }
+
+[lints]
+workspace = true

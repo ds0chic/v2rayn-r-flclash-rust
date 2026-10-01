@@ -1,0 +1,91 @@
+# T03 case smoke-config - passed
+
+## Timeline
+- 16:32:58.917 generated codegen Xray smoke config (1360 bytes)
+- 16:32:58.957 xray run -test -c smoke.json exit=0
+- 16:32:58.958 PASS
+
+## Detail
+```json
+{
+  "config": {
+    "log": {
+      "loglevel": "warning"
+    },
+    "inbounds": [
+      {
+        "tag": "socks",
+        "port": 11808,
+        "protocol": "mixed",
+        "listen": "127.0.0.1",
+        "settings": {
+          "auth": "noauth",
+          "udp": true,
+          "allowTransparent": false
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": [
+            "http",
+            "tls"
+          ],
+          "routeOnly": false
+        }
+      }
+    ],
+    "routing": {
+      "domainStrategy": "IPIfNonMatch",
+      "rules": [
+        {
+          "type": "field",
+          "inboundTag": [
+            "dns-module"
+          ],
+          "outboundTag": "proxy"
+        }
+      ]
+    },
+    "dns": {
+      "servers": [
+        {
+          "address": "119.29.29.29",
+          "domains": [
+            "full:cloudflare-dns.com"
+          ],
+          "skipFallback": true
+        },
+        "https://cloudflare-dns.com/dns-query"
+      ],
+      "serveStale": false,
+      "tag": "dns-module"
+    },
+    "outbounds": [
+      {
+        "tag": "proxy",
+        "protocol": "socks",
+        "settings": {
+          "address": "192.0.2.10",
+          "port": 1080
+        },
+        "streamSettings": {
+          "network": "raw"
+        },
+        "mux": {
+          "enabled": false,
+          "concurrency": -1
+        }
+      },
+      {
+        "protocol": "freedom",
+        "tag": "direct"
+      },
+      {
+        "protocol": "blackhole",
+        "tag": "block"
+      }
+    ]
+  },
+  "xray_test_exit": 0,
+  "xray_test_output": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.\n"
+}
+```

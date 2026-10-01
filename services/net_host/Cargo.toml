@@ -3,11 +3,40 @@ name = "net_host"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Sole owner of managed core processes and runtime state (T03)."
 
 [[bin]]
 name = "net_host"
 path = "src/main.rs"
 
+[[bin]]
+name = "t03_client"
+path = "src/bin/t03_client.rs"
+
 [dependencies]
+domain.workspace = true
+ipc_contract.workspace = true
+runtime.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio = { version = "1.53", features = [
+    "rt-multi-thread",
+    "net",
+    "io-util",
+    "fs",
+    "process",
+    "sync",
+    "time",
+    "macros",
+] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Threading",
+] }
+
+[lints]
+workspace = true

@@ -9,11 +9,17 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `engine`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `next_event`, `profile_to_dto`, `seq_counter`, `stub_plan`, `subscribers`
+// These functions are ignored because they are not marked as `pub`: `broadcast`, `build_plan`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `job_dto`, `next_event`, `profile_to_dto`, `seq_counter`, `smoke_body`, `smoke_plan`, `snapshot_to_dto`, `subscribers`
+// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `xray_smoke_config_json`
 
 /// `get_snapshot` — settings version, runtime snapshot, active jobs,
 /// capabilities and startup-recovery status.
-SnapshotDto getSnapshot() => RustLib.instance.api.crateApiEngineGetSnapshot();
+///
+/// The runtime facts come from net-host (or the in-memory client under test);
+/// the fallback is an honest "host down / stopped" snapshot, never a fake
+/// running state.
+Future<SnapshotDto> getSnapshot() =>
+    RustLib.instance.api.crateApiEngineGetSnapshot();
 
 /// `query_profiles` — filter/sort/cursor/page_size with stable ids.
 ProfilePageDto queryProfiles({
@@ -40,13 +46,17 @@ SaveProfileResult saveProfile({
 
 /// `apply_runtime` — target id + expected revision; returns an operation id.
 /// The result flows on the event stream.
-ApplyRuntimeResult applyRuntime({
+Future<ApplyRuntimeResult> applyRuntime({
   required String targetId,
   required BigInt expectedRevision,
 }) => RustLib.instance.api.crateApiEngineApplyRuntime(
   targetId: targetId,
   expectedRevision: expectedRevision,
 );
+
+/// `stop_runtime` — stop the managed core; idempotent.
+Future<StopRuntimeResult> stopRuntime() =>
+    RustLib.instance.api.crateApiEngineStopRuntime();
 
 /// `cancel_job` — idempotent cancellation.
 CancelResult cancelJob({required String jobId}) =>

@@ -51,12 +51,24 @@ pub struct RecoveryDto {
 }
 
 /// The `get_snapshot` result.
+///
+/// Runtime facts (`runtime_pid`, `runtime_ports`, ...) are the live values
+/// reported by net-host; they are `None`/empty when the runtime is not running
+/// and are never synthesized from UI state.
 #[derive(Clone)]
 pub struct SnapshotDto {
     pub desired_revision: u64,
     pub applied_revision: u64,
     pub revision_state: RevisionState,
     pub runtime_state: RuntimeState,
+    pub host_alive: bool,
+    pub runtime_pid: Option<u32>,
+    pub runtime_created_at_ms: Option<i64>,
+    pub runtime_ports: Vec<u16>,
+    pub runtime_session_id: Option<String>,
+    pub runtime_config_sha256: Option<String>,
+    pub runtime_operation_id: Option<String>,
+    pub runtime_error: Option<ErrorDto>,
     pub active_jobs: Vec<JobDto>,
     pub capabilities: Vec<CapabilityDto>,
     pub recovery: RecoveryDto,
@@ -145,6 +157,13 @@ pub struct SaveProfileResult {
 pub struct ApplyRuntimeResult {
     pub ok: bool,
     pub operation_id: Option<String>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Result of `stop_runtime`.
+#[derive(Clone)]
+pub struct StopRuntimeResult {
+    pub ok: bool,
     pub error: Option<ErrorDto>,
 }
 

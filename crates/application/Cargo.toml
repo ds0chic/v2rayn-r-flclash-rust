@@ -3,11 +3,12 @@ name = "application"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-repository.workspace = true
 description = "Minimal T01 use cases: synthetic node generation and ping."
 
 [dependencies]
 domain.workspace = true
+ipc_contract.workspace = true
+runtime.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

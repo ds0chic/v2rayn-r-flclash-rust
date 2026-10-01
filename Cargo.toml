@@ -8,6 +8,7 @@ members = [
     "crates/config_codegen",
     "crates/runtime",
     "crates/persistence",
+    "crates/subscriptions",
     "services/net_host",
 ]
 
@@ -23,6 +24,7 @@ ipc_contract = { path = "crates/ipc_contract" }
 config_codegen = { path = "crates/config_codegen" }
 runtime = { path = "crates/runtime" }
 persistence = { path = "crates/persistence" }
+subscriptions = { path = "crates/subscriptions" }
 flutter_rust_bridge = "=2.13.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

@@ -1,18 +1,36 @@
 //! The runtime client boundary.
 //!
 //! T02 defines only the trait; T03 implements it with the real IPC client to
-//! net-host. Keeping the trait here lets the in-memory `AppEngine` be tested
-//! without any process or socket.
+//! net-host ([`crate::net_host_client::NetHostClient`]). Keeping the trait here
+//! lets the in-memory `AppEngine` be tested without any process or socket.
 
-use domain::{AppliedRevision, CancelOutcome, DomainError, JobId, RuntimePlan, RuntimeState};
+use std::sync::Arc;
+
+use domain::{
+    AppliedRevision, CancelOutcome, DomainError, EventEnvelope, JobId, RuntimePlan, RuntimeState,
+};
+
+/// Callback invoked for every unsolicited runtime event (control + telemetry).
+pub type EventSink = Arc<dyn Fn(EventEnvelope) + Send + Sync>;
 
 /// A runtime snapshot as reported by net-host, decoupled from the ipc crate so
 /// `application` does not depend on the wire format.
+///
+/// `state`/`applied_revision`/`host_alive` are the authoritative state; the
+/// optional fields carry the live process facts the UI displays. A missing
+/// `pid` is never turned into a fake "running" state.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuntimeSnapshot {
     pub state: RuntimeState,
     pub applied_revision: AppliedRevision,
     pub host_alive: bool,
+    pub pid: Option<u32>,
+    pub created_at_ms: Option<i64>,
+    pub ports: Vec<u16>,
+    pub session_id: Option<String>,
+    pub config_sha256: Option<String>,
+    pub operation_id: Option<String>,
+    pub error: Option<DomainError>,
 }
 
 impl Default for RuntimeSnapshot {
@@ -21,6 +39,13 @@ impl Default for RuntimeSnapshot {
             state: RuntimeState::Stopped,
             applied_revision: AppliedRevision::ZERO,
             host_alive: false,
+            pid: None,
+            created_at_ms: None,
+            ports: Vec::new(),
+            session_id: None,
+            config_sha256: None,
+            operation_id: None,
+            error: None,
         }
     }
 }
@@ -47,6 +72,10 @@ pub trait RuntimeClient: Send + Sync {
 
     /// Request cancellation of a running operation. Idempotent.
     fn cancel(&self, job_id: &JobId) -> Result<CancelOutcome, DomainError>;
+
+    /// Register the sink for unsolicited events. The in-memory client has no
+    /// asynchronous producer, so the default is a no-op.
+    fn subscribe_events(&self, _sink: EventSink) {}
 }
 
 /// A no-op runtime client used by the T02 in-memory engine and tests.
@@ -94,6 +123,7 @@ impl RuntimeClient for NullRuntimeClient {
                 .map(|a| *a)
                 .unwrap_or(AppliedRevision::ZERO),
             host_alive: true,
+            ..RuntimeSnapshot::default()
         })
     }
 
@@ -115,5 +145,22 @@ impl RuntimeClient for NullRuntimeClient {
 
     fn cancel(&self, _job_id: &JobId) -> Result<CancelOutcome, DomainError> {
         Ok(CancelOutcome::Requested)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn null_client_records_plan_and_marks_running() {
+        let client = NullRuntimeClient::new();
+        assert_eq!(client.snapshot().unwrap().state, RuntimeState::Stopped);
+        client.mark_running(AppliedRevision::new(2));
+        let snap = client.snapshot().unwrap();
+        assert_eq!(snap.state, RuntimeState::Running);
+        assert_eq!(snap.applied_revision, AppliedRevision::new(2));
+        assert!(snap.host_alive);
+        assert!(snap.pid.is_none());
     }
 }

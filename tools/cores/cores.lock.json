@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "note": "Downloaded core binaries are git-ignored (tools/cores/**/*.exe, *.zip). This lock file pins the exact release and hashes for reproducibility.",
+  "cores": [
+    {
+      "core": "xray",
+      "release_tag": "v26.3.27",
+      "core_version": "26.3.27",
+      "asset": "Xray-windows-64.zip",
+      "asset_size_bytes": 20913304,
+      "source": "https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-windows-64.zip",
+      "sha256": "d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
+      "dgst_asset": "Xray-windows-64.zip.dgst",
+      "dgst": {
+        "MD5": "402f65a8cccdf123a6c0d5c176ef5252",
+        "SHA1": "42e5e9a66b970b5499c34e99d8da6c986c67c2cc",
+        "SHA2-256": "d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
+        "SHA2-512": "5b1356f07a91cbd4fb538fd7eccc494967ea045e770fb60887a9bec0412f0b3bce6148a6514ce7c661824daefe83929b7ffa8b059c22abfc1f1299d9d228712c"
+      },
+      "sha256_verified": true,
+      "extracted_to": "tools/cores/xray/v26.3.27/",
+      "executable": "tools/cores/xray/v26.3.27/xray.exe",
+      "platform": "windows-amd64"
+    }
+  ]
+}

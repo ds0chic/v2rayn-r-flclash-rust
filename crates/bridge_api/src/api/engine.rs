@@ -1,37 +1,47 @@
-//! T02 FRB functions: snapshot, profile query/save, runtime apply, cancel and
+//! FRB functions: snapshot, profile query/save, runtime apply/stop, cancel and
 //! the event stream.
 //!
-//! All of these run against the in-memory [`application::AppEngine`]. The
-//! runtime boundary is the `NullRuntimeClient` for T02; T03 swaps in the real
-//! net-host client without changing this surface.
+//! T03 wires the runtime boundary to the real net-host client in production
+//! builds; unit tests keep the in-memory engine so no process or pipe is
+//! touched. The API surface is unchanged apart from the added `stop_runtime`.
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
-use application::{AppEngine, PageRequest, ProfileFilter, ProfileSort};
+use application::{AppEngine, EventSink, PageRequest, ProfileFilter, ProfileSort};
 use domain::event::{EventEnvelope, EventEpoch, EventKind, EventSeq};
 use domain::job::JobId;
 use domain::revision::DesiredRevision;
 use domain::runtime_plan::{
-    ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, ProcessGraph, RuntimePlan,
-    RuntimeTarget,
+    ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, PortRequest, ProcessGraph,
+    ProcessNode, RequiredPrivilege, RuntimePlan, RuntimeTarget,
 };
-use domain::{CoreType, Profile};
+use domain::{CoreType, DomainError, Profile};
 use serde_json::Value;
 
 use crate::api::contract::{
     ApplyRuntimeResult, CancelResult, CapabilityDto, ErrorDto, EventEnvelopeDto, JobDto,
     ProfileDto, ProfileFilterDto, ProfilePageDto, ProfileSortDto, RecoveryDto, SaveProfileResult,
-    SnapshotDto,
+    SnapshotDto, StopRuntimeResult,
 };
 use crate::frb_generated::StreamSink;
 use flutter_rust_bridge::frb;
 
-/// Global engine for the process. T02 keeps a single in-memory instance.
+/// Reserved smoke-session port. Never 10808 (the user's live proxy).
+pub const SMOKE_PORT: u16 = 11808;
+
+/// Global engine for the process. Tests use the in-memory engine; production
+/// builds use the real net-host client.
 static ENGINE: OnceLock<AppEngine> = OnceLock::new();
 
 fn engine() -> &'static AppEngine {
-    ENGINE.get_or_init(AppEngine::in_memory)
+    ENGINE.get_or_init(|| {
+        if cfg!(test) {
+            AppEngine::in_memory()
+        } else {
+            AppEngine::production()
+        }
+    })
 }
 
 /// Monotonic epoch for the in-process event stream.
@@ -47,7 +57,7 @@ fn seq_counter() -> &'static AtomicU64 {
     EVENT_SEQ.get_or_init(|| AtomicU64::new(0))
 }
 
-fn error_dto(e: domain::DomainError) -> ErrorDto {
+fn error_dto(e: DomainError) -> ErrorDto {
     ErrorDto::from(e)
 }
 
@@ -90,62 +100,89 @@ fn dto_to_profile(d: ProfileDto) -> Profile {
     p
 }
 
+fn job_dto(j: application::JobView) -> JobDto {
+    JobDto {
+        job_id: j.job_id.0,
+        kind: j.kind,
+        state: j.state,
+        percent: j.percent,
+        stage_key: j.stage_key,
+        error_code: j.error.as_ref().map(|e| e.code.clone()),
+        error_message_key: j.error.as_ref().map(|e| e.message_key.clone()),
+    }
+}
+
+fn snapshot_to_dto(s: application::Snapshot) -> SnapshotDto {
+    SnapshotDto {
+        desired_revision: s.revisions.desired.get(),
+        applied_revision: s.revisions.applied.get(),
+        revision_state: s.revision_state,
+        runtime_state: s.runtime_state,
+        host_alive: s.host_alive,
+        runtime_pid: s.runtime_pid,
+        runtime_created_at_ms: s.runtime_created_at_ms,
+        runtime_ports: s.runtime_ports,
+        runtime_session_id: s.runtime_session_id,
+        runtime_config_sha256: s.runtime_config_sha256,
+        runtime_operation_id: s.runtime_operation_id,
+        runtime_error: s.runtime_error.map(ErrorDto::from),
+        active_jobs: s.active_jobs.into_iter().map(job_dto).collect(),
+        capabilities: s
+            .capabilities
+            .into_iter()
+            .map(|c| CapabilityDto {
+                core: c.core,
+                config_types: c.config_types,
+                structured_generation: c.structured_generation,
+                update_supported: c.update_supported,
+            })
+            .collect(),
+        recovery: RecoveryDto {
+            recovery_needed: s.recovery.recovery_needed,
+            stage: s.recovery.stage,
+            restored: s.recovery.restored,
+            pending: s.recovery.pending,
+        },
+        profile_count: s.profile_count,
+    }
+}
+
+fn empty_snapshot_dto() -> SnapshotDto {
+    SnapshotDto {
+        desired_revision: 0,
+        applied_revision: 0,
+        revision_state: domain::RevisionState::Empty,
+        runtime_state: domain::RuntimeState::Stopped,
+        host_alive: false,
+        runtime_pid: None,
+        runtime_created_at_ms: None,
+        runtime_ports: Vec::new(),
+        runtime_session_id: None,
+        runtime_config_sha256: None,
+        runtime_operation_id: None,
+        runtime_error: None,
+        active_jobs: Vec::new(),
+        capabilities: Vec::new(),
+        recovery: RecoveryDto {
+            recovery_needed: false,
+            stage: None,
+            restored: 0,
+            pending: 0,
+        },
+        profile_count: 0,
+    }
+}
+
 /// `get_snapshot` — settings version, runtime snapshot, active jobs,
 /// capabilities and startup-recovery status.
-#[frb(sync)]
+///
+/// The runtime facts come from net-host (or the in-memory client under test);
+/// the fallback is an honest "host down / stopped" snapshot, never a fake
+/// running state.
 pub fn get_snapshot() -> SnapshotDto {
     match engine().snapshot() {
-        Ok(s) => SnapshotDto {
-            desired_revision: s.revisions.desired.get(),
-            applied_revision: s.revisions.applied.get(),
-            revision_state: s.revision_state,
-            runtime_state: s.runtime_state,
-            active_jobs: s
-                .active_jobs
-                .into_iter()
-                .map(|j| JobDto {
-                    job_id: j.job_id.0,
-                    kind: j.kind,
-                    state: j.state,
-                    percent: j.percent,
-                    stage_key: j.stage_key,
-                    error_code: j.error.as_ref().map(|e| e.code.clone()),
-                    error_message_key: j.error.as_ref().map(|e| e.message_key.clone()),
-                })
-                .collect(),
-            capabilities: s
-                .capabilities
-                .into_iter()
-                .map(|c| CapabilityDto {
-                    core: c.core,
-                    config_types: c.config_types,
-                    structured_generation: c.structured_generation,
-                    update_supported: c.update_supported,
-                })
-                .collect(),
-            recovery: RecoveryDto {
-                recovery_needed: s.recovery.recovery_needed,
-                stage: s.recovery.stage,
-                restored: s.recovery.restored,
-                pending: s.recovery.pending,
-            },
-            profile_count: s.profile_count,
-        },
-        Err(_e) => SnapshotDto {
-            desired_revision: 0,
-            applied_revision: 0,
-            revision_state: domain::RevisionState::Empty,
-            runtime_state: domain::RuntimeState::Stopped,
-            active_jobs: Vec::new(),
-            capabilities: Vec::new(),
-            recovery: RecoveryDto {
-                recovery_needed: false,
-                stage: None,
-                restored: 0,
-                pending: 0,
-            },
-            profile_count: 0,
-        },
+        Ok(s) => snapshot_to_dto(s),
+        Err(_) => empty_snapshot_dto(),
     }
 }
 
@@ -207,40 +244,95 @@ pub fn save_profile(draft: ProfileDto, expected_revision: u64) -> SaveProfileRes
     }
 }
 
-/// Build a minimal, valid runtime plan for a target id (T02 stub).
+/// Build the T03 Xray smoke plan through the real structured generator.
 ///
-/// T03 replaces this with the real `config_codegen` output. It is honest about
-/// being a stub: the plan carries the target id and a placeholder hash, and
-/// uses no ports so it can never touch the user's running proxy.
-fn stub_plan(target_id: &str, desired_revision: u64) -> RuntimePlan {
-    let body = serde_json::json!({
-        "stub": true,
-        "target": target_id,
+/// The generated config is a v2rayN client config: a `mixed` (SOCKS+HTTP)
+/// inbound on `127.0.0.1:11808` tagged `socks`, and a `freedom` outbound
+/// tagged `direct` so the core can serve. The profile outbound itself points
+/// at a documentation address (RFC5737) and is never exercised by the smoke
+/// test. Port 10808 is never emitted.
+fn smoke_body() -> Result<String, DomainError> {
+    use config_codegen::input::CodegenInput;
+
+    let mut input = CodegenInput::default();
+    input.profile.config_type = config_codegen::ConfigType::Socks;
+    input.profile.address = "192.0.2.10".into();
+    input.profile.port = 1080;
+    input.profile.network = "tcp".into();
+    input.settings.inbound.local_port = SMOKE_PORT as i32;
+    input.settings.inbound.udp_enabled = true;
+    input.settings.inbound.sniffing_enabled = true;
+
+    let generated = config_codegen::generate_xray(&input).map_err(|e| {
+        DomainError::new(domain::codes::INVALID_PLAN, "error.codegen_failed")
+            .with_detail(e.to_string())
+    })?;
+    serde_json::to_string(&generated.main).map_err(|e| {
+        DomainError::new(domain::codes::INTERNAL, "error.config_serialize_failed")
+            .with_detail(e.to_string())
     })
-    .to_string();
+}
+
+/// Pretty-printed Xray smoke config (evidence tool). Marked `frb(ignore)` so it
+/// is not part of the Dart API surface.
+#[frb(ignore)]
+pub fn xray_smoke_config_json() -> Result<String, DomainError> {
+    let body = smoke_body()?;
+    let value: Value = serde_json::from_str(&body).unwrap_or(Value::Null);
+    Ok(serde_json::to_string_pretty(&value).unwrap_or(body))
+}
+
+fn smoke_plan(target_id: &str, desired_revision: u64) -> Result<RuntimePlan, DomainError> {
+    let body = smoke_body()?;
+    let plan_id = format!("t03-smoke-{target_id}-{desired_revision}");
+    Ok(build_plan(&body, &plan_id, desired_revision))
+}
+
+fn build_plan(body: &str, plan_id: &str, desired_revision: u64) -> RuntimePlan {
+    let node = ProcessNode {
+        id: "xray".into(),
+        core_type: CoreType::Xray,
+        config: ConfigSource::Inline {
+            body: body.to_string(),
+        },
+        ports: vec![PortRequest::tcp(SMOKE_PORT, "inbound-socks")],
+        privileges: vec![RequiredPrivilege::None],
+    };
+    let mut graph = ProcessGraph::default();
+    graph.add_process(node);
     RuntimePlan {
-        plan_id: format!("stub-{target_id}-{desired_revision}"),
+        plan_id: plan_id.to_string(),
         desired_revision,
         target: RuntimeTarget {
             core_type: CoreType::Xray,
             version: None,
-            config: ConfigSource::Inline { body },
-            config_sha256: ContentHash::new("0000000000000000"),
+            config: ConfigSource::Inline {
+                body: body.to_string(),
+            },
+            config_sha256: ContentHash::new(runtime::sha256_hex(body.as_bytes())),
         },
-        process_graph: ProcessGraph::default(),
+        process_graph: graph,
         outbound_graph: OutboundGraph::default(),
-        ports: Vec::new(),
-        privileges: Vec::new(),
+        ports: vec![PortRequest::tcp(SMOKE_PORT, "inbound-socks")],
+        privileges: vec![RequiredPrivilege::None],
         network_policy: NetworkPolicy::default(),
-        resources: Vec::new(),
+        resources: vec![],
     }
 }
 
 /// `apply_runtime` — target id + expected revision; returns an operation id.
 /// The result flows on the event stream.
-#[frb(sync)]
 pub fn apply_runtime(target_id: String, expected_revision: u64) -> ApplyRuntimeResult {
-    let plan = stub_plan(&target_id, expected_revision);
+    let plan = match smoke_plan(&target_id, expected_revision) {
+        Ok(plan) => plan,
+        Err(error) => {
+            return ApplyRuntimeResult {
+                ok: false,
+                operation_id: None,
+                error: Some(error_dto(error)),
+            };
+        }
+    };
     match engine().apply_runtime(plan, DesiredRevision::new(expected_revision)) {
         Ok(operation_id) => {
             emit_control(
@@ -256,6 +348,20 @@ pub fn apply_runtime(target_id: String, expected_revision: u64) -> ApplyRuntimeR
         Err(e) => ApplyRuntimeResult {
             ok: false,
             operation_id: None,
+            error: Some(error_dto(e)),
+        },
+    }
+}
+
+/// `stop_runtime` — stop the managed core; idempotent.
+pub fn stop_runtime() -> StopRuntimeResult {
+    match engine().stop_runtime() {
+        Ok(()) => StopRuntimeResult {
+            ok: true,
+            error: None,
+        },
+        Err(e) => StopRuntimeResult {
+            ok: false,
             error: Some(error_dto(e)),
         },
     }
@@ -293,6 +399,8 @@ fn emit_control(kind: &str, payload: Value) {
 type Sink = StreamSink<EventEnvelopeDto>;
 
 static SUBSCRIBERS: OnceLock<Mutex<Vec<Sink>>> = OnceLock::new();
+/// Guards one-time registration of the net-host event forwarder.
+static RUNTIME_SUBSCRIPTION: OnceLock<()> = OnceLock::new();
 
 fn subscribers() -> &'static Mutex<Vec<Sink>> {
     SUBSCRIBERS.get_or_init(|| Mutex::new(Vec::new()))
@@ -318,9 +426,18 @@ fn broadcast(env: &EventEnvelope) {
     subs.retain(|sink| sink.add(dto.clone()).is_ok());
 }
 
+/// Start forwarding net-host events into the FRB stream exactly once.
+fn ensure_runtime_subscription() {
+    RUNTIME_SUBSCRIPTION.get_or_init(|| {
+        let sink: EventSink = Arc::new(|env: EventEnvelope| broadcast(&env));
+        engine().subscribe_runtime_events(sink);
+    });
+}
+
 /// `subscribe_events` — FRB stream of events. On subscribe the current
 /// epoch/seq is sent first so a reconnecting UI can detect gaps.
 pub fn subscribe_events(sink: StreamSink<EventEnvelopeDto>) {
+    ensure_runtime_subscription();
     let header = EventEnvelope::new(
         EventEpoch(epoch_counter().load(Ordering::Acquire)),
         EventSeq(seq_counter().load(Ordering::Acquire)),
@@ -375,6 +492,29 @@ mod tests {
     use super::*;
 
     #[test]
+    fn smoke_plan_has_socks_inbound_and_freedom_outbound() {
+        let plan = smoke_plan("smoke", 0).expect("generate smoke plan");
+        let body = match &plan.target.config {
+            ConfigSource::Inline { body } => body,
+            other => panic!("expected inline config, got {other:?}"),
+        };
+        let value: Value = serde_json::from_str(body).unwrap();
+        let inbound = &value["inbounds"][0];
+        assert_eq!(inbound["listen"], "127.0.0.1");
+        assert_eq!(inbound["port"], SMOKE_PORT);
+        assert_eq!(inbound["tag"], "socks");
+        let outbounds = value["outbounds"].as_array().unwrap();
+        assert!(outbounds.iter().any(|o| o["protocol"] == "freedom"));
+        assert!(!body.contains("10808"));
+        // Hash matches the staged body.
+        assert_eq!(
+            plan.target.config_sha256.as_str(),
+            runtime::sha256_hex(body.as_bytes())
+        );
+        assert_eq!(plan.ports[0].port, SMOKE_PORT);
+    }
+
+    #[test]
     fn snapshot_dto_serializes_with_contract_fields() {
         seed_synthetic_profiles(3);
         let snap = get_snapshot();
@@ -387,6 +527,7 @@ mod tests {
         let json = snap_json_probe(&snap);
         assert!(json.get("revision_state").is_some());
         assert!(json.get("runtime_state").is_some());
+        assert!(json.get("runtime_pid").is_some());
         assert!(json.get("profile_count").is_some());
     }
 
@@ -399,6 +540,8 @@ mod tests {
             "applied_revision": s.applied_revision,
             "revision_state": format!("{:?}", s.revision_state),
             "runtime_state": format!("{:?}", s.runtime_state),
+            "runtime_pid": s.runtime_pid,
+            "runtime_ports": s.runtime_ports,
             "profile_count": s.profile_count,
             "capabilities": s.capabilities.len(),
             "active_jobs": s.active_jobs.len(),

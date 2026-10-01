@@ -7,7 +7,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use domain::{AppliedRevision, DesiredRevision, RevisionPair, RevisionState, RuntimeState};
+use domain::{
+    AppliedRevision, DesiredRevision, DomainError, RevisionPair, RevisionState, RuntimeState,
+};
 
 use crate::jobs::JobView;
 use crate::runtime_client::RuntimeSnapshot;
@@ -44,6 +46,22 @@ pub struct Snapshot {
     pub runtime_state: RuntimeState,
     /// Applied revision as reported by net-host.
     pub applied_revision: AppliedRevision,
+    /// Whether net-host itself is alive and holding the runtime lease.
+    pub host_alive: bool,
+    /// OS pid of the managed core, when running (never fabricated).
+    pub runtime_pid: Option<u32>,
+    /// Creation time of the managed core (Windows 100ns -> Unix ms).
+    pub runtime_created_at_ms: Option<i64>,
+    /// Ports the managed core is listening on.
+    pub runtime_ports: Vec<u16>,
+    /// Current net-host session id.
+    pub runtime_session_id: Option<String>,
+    /// staged config SHA-256 as verified by net-host.
+    pub runtime_config_sha256: Option<String>,
+    /// Currently running operation id, when any.
+    pub runtime_operation_id: Option<String>,
+    /// Last structured runtime error, when the runtime is not healthy.
+    pub runtime_error: Option<DomainError>,
     /// Active (non-terminal) jobs.
     pub active_jobs: Vec<JobView>,
     /// Core capability table.
@@ -69,6 +87,14 @@ pub fn assemble(
         revisions,
         runtime_state: runtime.state,
         applied_revision: runtime.applied_revision,
+        host_alive: runtime.host_alive,
+        runtime_pid: runtime.pid,
+        runtime_created_at_ms: runtime.created_at_ms,
+        runtime_ports: runtime.ports.clone(),
+        runtime_session_id: runtime.session_id.clone(),
+        runtime_config_sha256: runtime.config_sha256.clone(),
+        runtime_operation_id: runtime.operation_id.clone(),
+        runtime_error: runtime.error.clone(),
         active_jobs,
         capabilities,
         recovery,
@@ -86,6 +112,7 @@ mod tests {
             state: RuntimeState::Stopped,
             applied_revision: AppliedRevision::new(3),
             host_alive: true,
+            ..RuntimeSnapshot::default()
         };
         let snap = assemble(
             DesiredRevision::new(5),
@@ -111,6 +138,7 @@ mod tests {
             state: RuntimeState::Running,
             applied_revision: AppliedRevision::new(4),
             host_alive: true,
+            ..RuntimeSnapshot::default()
         };
         let snap = assemble(
             DesiredRevision::new(4),

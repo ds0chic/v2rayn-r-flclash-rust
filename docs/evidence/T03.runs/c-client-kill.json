@@ -1,0 +1,30 @@
+{
+  "case": "c-client-kill",
+  "status": "passed",
+  "timeline": [
+    "16:33:01.550 net_host pid=40780 ready=True grace=3000ms",
+    "16:33:01.865 apply-exit exit=0 completed=True",
+    "16:33:05.629 xray pid=39592 gone after client disconnect (lease reclaim)",
+    "16:33:05.650 snapshot state=stopped",
+    "16:33:05.650 PASS",
+    "16:33:05.651 cleanup net_host pid=40780"
+  ],
+  "extra": {
+    "detail": {
+      "state": "running",
+      "applied_revision": 1,
+      "pid": 39592,
+      "created_at_ms": 1790843581568,
+      "ports": [
+        11808
+      ],
+      "session_id": "s-1790843581564-2",
+      "config_sha256": "9da10a2ece14b0a5b55363557d05e97fb1c755fce9e29d86f10e847640c776b3",
+      "operation_id": "op-1790843581564-1",
+      "error": null
+    },
+    "xray_pid": 39592,
+    "xray_exit_seen": true,
+    "snapshot_state": "stopped"
+  }
+}

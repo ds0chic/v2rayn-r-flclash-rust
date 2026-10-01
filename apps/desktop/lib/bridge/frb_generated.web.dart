@@ -6,6 +6,8 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'api/contract.dart';
+import 'api/engine.dart';
 import 'api/mirrors.dart';
 import 'api/profiles.dart';
 
@@ -28,6 +30,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException dco_decode_AnyhowException(dynamic raw);
 
   @protected
+  RustStreamSink<EventEnvelopeDto> dco_decode_StreamSink_event_envelope_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
   RustStreamSink<ProgressEvent> dco_decode_StreamSink_progress_event_Sse(
     dynamic raw,
   );
@@ -36,7 +43,43 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  ApplyRuntimeResult dco_decode_apply_runtime_result(dynamic raw);
+
+  @protected
+  bool dco_decode_bool(dynamic raw);
+
+  @protected
+  bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CoreType dco_decode_box_autoadd_core_type(dynamic raw);
+
+  @protected
+  ErrorDto dco_decode_box_autoadd_error_dto(dynamic raw);
+
+  @protected
+  ProfileDto dco_decode_box_autoadd_profile_dto(dynamic raw);
+
+  @protected
+  ProfileFilterDto dco_decode_box_autoadd_profile_filter_dto(dynamic raw);
+
+  @protected
   ProfileSummary dco_decode_box_autoadd_profile_summary(dynamic raw);
+
+  @protected
+  BigInt dco_decode_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  int dco_decode_box_autoadd_u_8(dynamic raw);
+
+  @protected
+  CancelOutcome dco_decode_cancel_outcome(dynamic raw);
+
+  @protected
+  CancelResult dco_decode_cancel_result(dynamic raw);
+
+  @protected
+  CapabilityDto dco_decode_capability_dto(dynamic raw);
 
   @protected
   ConfigType dco_decode_config_type(dynamic raw);
@@ -45,22 +88,94 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreType dco_decode_core_type(dynamic raw);
 
   @protected
+  ErrorDto dco_decode_error_dto(dynamic raw);
+
+  @protected
+  EventEnvelopeDto dco_decode_event_envelope_dto(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
+
+  @protected
+  JobDto dco_decode_job_dto(dynamic raw);
+
+  @protected
+  JobState dco_decode_job_state(dynamic raw);
+
+  @protected
+  List<CapabilityDto> dco_decode_list_capability_dto(dynamic raw);
+
+  @protected
+  List<ConfigType> dco_decode_list_config_type(dynamic raw);
+
+  @protected
+  List<JobDto> dco_decode_list_job_dto(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<ProfileDto> dco_decode_list_profile_dto(dynamic raw);
+
+  @protected
   List<ProfileSummary> dco_decode_list_profile_summary(dynamic raw);
 
   @protected
+  String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CoreType? dco_decode_opt_box_autoadd_core_type(dynamic raw);
+
+  @protected
+  ErrorDto? dco_decode_opt_box_autoadd_error_dto(dynamic raw);
+
+  @protected
+  ProfileDto? dco_decode_opt_box_autoadd_profile_dto(dynamic raw);
+
+  @protected
   ProfileSummary? dco_decode_opt_box_autoadd_profile_summary(dynamic raw);
+
+  @protected
+  BigInt? dco_decode_opt_box_autoadd_u_64(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_8(dynamic raw);
+
+  @protected
+  ProfileDto dco_decode_profile_dto(dynamic raw);
+
+  @protected
+  ProfileFilterDto dco_decode_profile_filter_dto(dynamic raw);
+
+  @protected
+  ProfilePageDto dco_decode_profile_page_dto(dynamic raw);
+
+  @protected
+  ProfileSortDto dco_decode_profile_sort_dto(dynamic raw);
 
   @protected
   ProfileSummary dco_decode_profile_summary(dynamic raw);
 
   @protected
   ProgressEvent dco_decode_progress_event(dynamic raw);
+
+  @protected
+  RecoveryDto dco_decode_recovery_dto(dynamic raw);
+
+  @protected
+  RevisionState dco_decode_revision_state(dynamic raw);
+
+  @protected
+  RuntimeState dco_decode_runtime_state(dynamic raw);
+
+  @protected
+  SaveProfileResult dco_decode_save_profile_result(dynamic raw);
+
+  @protected
+  SnapshotDto dco_decode_snapshot_dto(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -84,6 +199,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
+  RustStreamSink<EventEnvelopeDto> sse_decode_StreamSink_event_envelope_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<ProgressEvent> sse_decode_StreamSink_progress_event_Sse(
     SseDeserializer deserializer,
   );
@@ -92,9 +212,49 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  ApplyRuntimeResult sse_decode_apply_runtime_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CoreType sse_decode_box_autoadd_core_type(SseDeserializer deserializer);
+
+  @protected
+  ErrorDto sse_decode_box_autoadd_error_dto(SseDeserializer deserializer);
+
+  @protected
+  ProfileDto sse_decode_box_autoadd_profile_dto(SseDeserializer deserializer);
+
+  @protected
+  ProfileFilterDto sse_decode_box_autoadd_profile_filter_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ProfileSummary sse_decode_box_autoadd_profile_summary(
     SseDeserializer deserializer,
   );
+
+  @protected
+  BigInt sse_decode_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_box_autoadd_u_8(SseDeserializer deserializer);
+
+  @protected
+  CancelOutcome sse_decode_cancel_outcome(SseDeserializer deserializer);
+
+  @protected
+  CancelResult sse_decode_cancel_result(SseDeserializer deserializer);
+
+  @protected
+  CapabilityDto sse_decode_capability_dto(SseDeserializer deserializer);
 
   @protected
   ConfigType sse_decode_config_type(SseDeserializer deserializer);
@@ -103,13 +263,56 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreType sse_decode_core_type(SseDeserializer deserializer);
 
   @protected
+  ErrorDto sse_decode_error_dto(SseDeserializer deserializer);
+
+  @protected
+  EventEnvelopeDto sse_decode_event_envelope_dto(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
+
+  @protected
+  JobDto sse_decode_job_dto(SseDeserializer deserializer);
+
+  @protected
+  JobState sse_decode_job_state(SseDeserializer deserializer);
+
+  @protected
+  List<CapabilityDto> sse_decode_list_capability_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ConfigType> sse_decode_list_config_type(SseDeserializer deserializer);
+
+  @protected
+  List<JobDto> sse_decode_list_job_dto(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<ProfileDto> sse_decode_list_profile_dto(SseDeserializer deserializer);
+
+  @protected
   List<ProfileSummary> sse_decode_list_profile_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CoreType? sse_decode_opt_box_autoadd_core_type(SseDeserializer deserializer);
+
+  @protected
+  ErrorDto? sse_decode_opt_box_autoadd_error_dto(SseDeserializer deserializer);
+
+  @protected
+  ProfileDto? sse_decode_opt_box_autoadd_profile_dto(
     SseDeserializer deserializer,
   );
 
@@ -119,10 +322,45 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  BigInt? sse_decode_opt_box_autoadd_u_64(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_8(SseDeserializer deserializer);
+
+  @protected
+  ProfileDto sse_decode_profile_dto(SseDeserializer deserializer);
+
+  @protected
+  ProfileFilterDto sse_decode_profile_filter_dto(SseDeserializer deserializer);
+
+  @protected
+  ProfilePageDto sse_decode_profile_page_dto(SseDeserializer deserializer);
+
+  @protected
+  ProfileSortDto sse_decode_profile_sort_dto(SseDeserializer deserializer);
+
+  @protected
   ProfileSummary sse_decode_profile_summary(SseDeserializer deserializer);
 
   @protected
   ProgressEvent sse_decode_progress_event(SseDeserializer deserializer);
+
+  @protected
+  RecoveryDto sse_decode_recovery_dto(SseDeserializer deserializer);
+
+  @protected
+  RevisionState sse_decode_revision_state(SseDeserializer deserializer);
+
+  @protected
+  RuntimeState sse_decode_runtime_state(SseDeserializer deserializer);
+
+  @protected
+  SaveProfileResult sse_decode_save_profile_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SnapshotDto sse_decode_snapshot_dto(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -143,11 +381,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
-  bool sse_decode_bool(SseDeserializer deserializer);
-
-  @protected
   void sse_encode_AnyhowException(
     AnyhowException self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_StreamSink_event_envelope_dto_Sse(
+    RustStreamSink<EventEnvelopeDto> self,
     SseSerializer serializer,
   );
 
@@ -161,10 +402,61 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_apply_runtime_result(
+    ApplyRuntimeResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_core_type(
+    CoreType self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_error_dto(
+    ErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_profile_dto(
+    ProfileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_profile_filter_dto(
+    ProfileFilterDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_profile_summary(
     ProfileSummary self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_u_64(BigInt self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_u_8(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_cancel_outcome(CancelOutcome self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_cancel_result(CancelResult self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_capability_dto(CapabilityDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_config_type(ConfigType self, SseSerializer serializer);
@@ -173,11 +465,47 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_core_type(CoreType self, SseSerializer serializer);
 
   @protected
+  void sse_encode_error_dto(ErrorDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_event_envelope_dto(
+    EventEnvelopeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_job_dto(JobDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_job_state(JobState self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_capability_dto(
+    List<CapabilityDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_config_type(
+    List<ConfigType> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_job_dto(List<JobDto> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_profile_dto(
+    List<ProfileDto> self,
     SseSerializer serializer,
   );
 
@@ -188,8 +516,59 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_core_type(
+    CoreType? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_error_dto(
+    ErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_profile_dto(
+    ProfileDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_profile_summary(
     ProfileSummary? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_64(BigInt? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_8(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_profile_dto(ProfileDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_profile_filter_dto(
+    ProfileFilterDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_profile_page_dto(
+    ProfilePageDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_profile_sort_dto(
+    ProfileSortDto self,
     SseSerializer serializer,
   );
 
@@ -201,6 +580,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_progress_event(ProgressEvent self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_recovery_dto(RecoveryDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_revision_state(RevisionState self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_runtime_state(RuntimeState self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_save_profile_result(
+    SaveProfileResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_snapshot_dto(SnapshotDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_16(int self, SseSerializer serializer);
@@ -219,9 +616,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_bool(bool self, SseSerializer serializer);
 }
 
 // Section: wire_class

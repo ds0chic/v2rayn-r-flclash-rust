@@ -6,26 +6,46 @@
 
 use flutter_rust_bridge::frb;
 
-pub use domain::{ConfigType, CoreType, ProfileSummary};
+pub use domain::{
+    CancelOutcome, ConfigType, CoreType, JobState, ProfileSummary, RevisionState, RuntimeState,
+};
 
 #[frb(mirror(CoreType))]
 pub enum _CoreType {
+    V2fly,
     Xray,
-    SingBox,
+    V2flyV5,
     Mihomo,
-    Custom,
+    Hysteria,
+    NaiveProxy,
+    Tuic,
+    SingBox,
+    Juicity,
+    Hysteria2,
+    Brook,
+    OverTls,
+    ShadowQuic,
+    Mieru,
+    App,
 }
 
 #[frb(mirror(ConfigType))]
 pub enum _ConfigType {
     Vmess,
-    Vless,
-    Trojan,
+    Custom,
     Shadowsocks,
     Socks,
-    Http,
+    Vless,
+    Trojan,
     Hysteria2,
     Tuic,
+    WireGuard,
+    Http,
+    Anytls,
+    Naive,
+    Outbound,
+    PolicyGroup,
+    ProxyChain,
 }
 
 #[frb(mirror(ProfileSummary))]
@@ -46,4 +66,42 @@ pub struct _ProfileSummary {
     pub total_up: u64,
     pub total_down: u64,
     pub core_type: CoreType,
+}
+
+#[frb(mirror(RevisionState))]
+pub enum _RevisionState {
+    Empty,
+    InSync,
+    Pending,
+    Ahead,
+}
+
+#[frb(mirror(RuntimeState))]
+pub enum _RuntimeState {
+    Stopped,
+    Validating,
+    Preparing,
+    Starting,
+    Checking,
+    Running,
+    RollingBack,
+    Degraded,
+}
+
+#[frb(mirror(JobState))]
+pub enum _JobState {
+    Running,
+    Cancelling,
+    Compensating,
+    Done,
+    Failed,
+    Cancelled,
+}
+
+#[frb(mirror(CancelOutcome))]
+pub enum _CancelOutcome {
+    Requested,
+    Compensating,
+    AlreadyFinished,
+    NotCancellable,
 }

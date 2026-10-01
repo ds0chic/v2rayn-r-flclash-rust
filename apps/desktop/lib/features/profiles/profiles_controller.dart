@@ -54,6 +54,9 @@ class ProfilesState {
   final List<TableEvent> events;
   final bool doubleClick2Activate;
   final int rustCount;
+
+  /// Full column set in display order; hidden columns are retained so their
+  /// position/width survives toggling (LAY-PROFILES-003).
   final List<ProfileColumn> columns;
   final int? lastAckSeq;
   final int? lastAckRustCount;
@@ -63,6 +66,9 @@ class ProfilesState {
   int get selectedCount => selected.length;
   int get totalCount => all.length;
   TableEvent? get lastEvent => events.isEmpty ? null : events.last;
+
+  List<ProfileColumn> get visibleColumns =>
+      columns.where((c) => c.visible).toList();
 
   ProfilesState copyWith({
     List<ProfileSummary>? all,
@@ -98,6 +104,8 @@ class ProfilesState {
 }
 
 class ProfilesController extends Notifier<ProfilesState> {
+  static const columnSection = 'column_layout';
+
   BridgePort get _bridge => ref.read(bridgePortProvider);
   UiStateStore get _store => ref.read(uiStateStoreProvider);
 
@@ -107,7 +115,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   ProfilesState build() {
     final count = ref.read(profileRowCountProvider);
     final rows = _bridge.generate(count);
-    final columns = _applyStoredWidths(defaultProfileColumns());
+    final columns = _applyStoredLayout(defaultProfileColumns());
     return ProfilesState(
       all: rows,
       visible: List<ProfileSummary>.of(rows),
@@ -121,27 +129,49 @@ class ProfilesController extends Notifier<ProfilesState> {
     );
   }
 
-  List<ProfileColumn> _applyStoredWidths(List<ProfileColumn> columns) {
-    final stored = _store.loadColumnWidths();
-    if (stored.isEmpty) return columns;
-    return columns
+  List<ProfileColumn> _applyStoredLayout(List<ProfileColumn> defaults) {
+    final section = _store.loadSection(columnSection);
+    if (section == null) {
+      final legacy = _store.loadColumnWidths();
+      if (legacy.isEmpty) return defaults;
+      return defaults
+          .map(
+            (c) => legacy.containsKey(c.key)
+                ? c.copyWith(width: legacy[c.key])
+                : c,
+          )
+          .toList();
+    }
+
+    final order = (section['order'] as List?)?.cast<String>() ?? const [];
+    final widths = (section['widths'] as Map?) ?? const {};
+    final visible = (section['visible'] as Map?) ?? const {};
+
+    final byKey = <String, ProfileColumn>{for (final c in defaults) c.key: c};
+    final ordered = <ProfileColumn>[];
+    for (final key in order) {
+      final column = byKey.remove(key);
+      if (column != null) ordered.add(column);
+    }
+    ordered.addAll(defaults.where((c) => byKey.containsKey(c.key)));
+
+    return ordered
         .map(
-          (c) => stored.containsKey(c.key)
-              ? ProfileColumn(
-                  key: c.key,
-                  title: c.title,
-                  width: stored[c.key]!,
-                  numeric: c.numeric,
-                  display: c.display,
-                )
-              : c,
+          (c) => c.copyWith(
+            width: widths[c.key] is num
+                ? (widths[c.key] as num).toDouble()
+                : c.width,
+            visible: visible.containsKey(c.key)
+                ? visible[c.key] == true
+                : c.visible,
+          ),
         )
         .toList();
   }
 
   ProfilesState _recompute(ProfilesState base) {
     final filtered = applyFilter(base.all, base.filter);
-    final sorted = applySort(filtered, base.columns, base.sort);
+    final sorted = applySort(filtered, base.visibleColumns, base.sort);
     return base.copyWith(visible: sorted);
   }
 
@@ -239,6 +269,22 @@ class ProfilesController extends Notifier<ProfilesState> {
       case ProfileAction.escape:
         clearSelection();
         return;
+      case ProfileAction.moveTop:
+        moveSelected(toStart: true);
+        _log(action, 'selected=${state.selected.length}');
+        return;
+      case ProfileAction.moveBottom:
+        moveSelected(toEnd: true);
+        _log(action, 'selected=${state.selected.length}');
+        return;
+      case ProfileAction.moveUp:
+        moveSelected(delta: -1);
+        _log(action, 'selected=${state.selected.length}');
+        return;
+      case ProfileAction.moveDown:
+        moveSelected(delta: 1);
+        _log(action, 'selected=${state.selected.length}');
+        return;
       default:
         _log(action, 'selected=${state.selected.length}');
         _echo(action);
@@ -264,20 +310,83 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   void resizeColumn(String key, double delta) {
-    final updated = state.columns.map((c) {
-      if (c.key != key) return c;
-      final width = (c.width + delta).clamp(40.0, 600.0);
-      return ProfileColumn(
-        key: c.key,
-        title: c.title,
-        width: width,
-        numeric: c.numeric,
-        display: c.display,
-      );
-    }).toList();
+    final updated = state.columns
+        .map(
+          (c) => c.key == key
+              ? c.copyWith(width: (c.width + delta).clamp(40.0, 600.0))
+              : c,
+        )
+        .toList();
     state = state.copyWith(columns: updated);
-    _store.saveColumnWidths(<String, double>{
-      for (final c in updated) c.key: c.width,
+    _persistColumns();
+  }
+
+  void toggleColumnVisibility(String key) {
+    final visibleCount = state.columns.where((c) => c.visible).length;
+    final target = state.columns.firstWhere((c) => c.key == key);
+    if (target.visible && visibleCount <= 1) return;
+    final updated = state.columns
+        .map((c) => c.key == key ? c.copyWith(visible: !c.visible) : c)
+        .toList();
+    state = state.copyWith(columns: updated);
+    _persistColumns();
+    _log('column-visibility', '${target.key} -> ${!target.visible}');
+  }
+
+  /// Move a column by [delta] positions in the display order.
+  void moveColumn(String key, int delta) {
+    final columns = List<ProfileColumn>.of(state.columns);
+    final index = columns.indexWhere((c) => c.key == key);
+    if (index < 0) return;
+    final target = (index + delta).clamp(0, columns.length - 1);
+    if (target == index) return;
+    final column = columns.removeAt(index);
+    columns.insert(target, column);
+    state = state.copyWith(columns: columns);
+    _persistColumns();
+    _log('column-move', '$key $index -> $target');
+  }
+
+  /// UI-only reorder of the selected rows, preserving relative order.
+  void moveSelected({int delta = 0, bool toStart = false, bool toEnd = false}) {
+    if (state.selected.isEmpty) {
+      _log('move', 'no-selection');
+      return;
+    }
+    final selected = state.all.where((r) => state.selected.contains(r.id));
+    final selectedIds = selected.map((r) => r.id).toSet();
+    final rest = state.all.where((r) => !selectedIds.contains(r.id)).toList();
+    final block = selected.toList();
+    late List<ProfileSummary> next;
+    if (toStart) {
+      next = <ProfileSummary>[...block, ...rest];
+    } else if (toEnd) {
+      next = <ProfileSummary>[...rest, ...block];
+    } else if (delta < 0) {
+      next = <ProfileSummary>[...rest];
+      final firstIndex = state.all.indexWhere(
+        (r) => selectedIds.contains(r.id),
+      );
+      final insertAt = (firstIndex - 1).clamp(0, next.length);
+      next.insertAll(insertAt, block);
+    } else {
+      next = <ProfileSummary>[...rest];
+      final lastIndex = state.all.lastIndexWhere(
+        (r) => selectedIds.contains(r.id),
+      );
+      final insertAt = (lastIndex + 1 - block.length + 1).clamp(0, next.length);
+      next.insertAll(insertAt, block);
+    }
+    state = _recompute(state.copyWith(all: next));
+  }
+
+  void _persistColumns() {
+    _store.saveSection(columnSection, <String, dynamic>{
+      'order': state.columns.map((c) => c.key).toList(),
+      'visible': <String, bool>{
+        for (final c in state.columns) c.key: c.visible,
+      },
+      'widths': <String, double>{for (final c in state.columns) c.key: c.width},
     });
   }
 

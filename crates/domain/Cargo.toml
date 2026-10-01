@@ -4,9 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Pure domain models for the v2rayN Flutter+Rust rewrite (T01 subset)."
+description = "Pure domain models for the v2rayN Flutter+Rust rewrite (T02)."
 
 [dependencies]
+serde.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

@@ -9,6 +9,7 @@ class ProfileColumn {
     required this.width,
     required this.numeric,
     required this.display,
+    this.visible = true,
   });
 
   final String key;
@@ -16,6 +17,27 @@ class ProfileColumn {
   final double width;
   final bool numeric;
   final String Function(ProfileSummary row) display;
+
+  /// Column visibility, persisted through `ui_state.json` (LAY-PROFILES-003).
+  final bool visible;
+
+  ProfileColumn copyWith({
+    String? key,
+    String? title,
+    double? width,
+    bool? numeric,
+    String Function(ProfileSummary row)? display,
+    bool? visible,
+  }) {
+    return ProfileColumn(
+      key: key ?? this.key,
+      title: title ?? this.title,
+      width: width ?? this.width,
+      numeric: numeric ?? this.numeric,
+      display: display ?? this.display,
+      visible: visible ?? this.visible,
+    );
+  }
 }
 
 /// Default column set and widths from LAY-PROFILES-002.
@@ -242,12 +264,20 @@ List<ProfileSummary> applySort(
     (c) => c.key == sort.columnKey,
     orElse: () => columns.first,
   );
-  final sorted = List<ProfileSummary>.of(rows);
-  sorted.sort((a, b) {
-    final cmp = _compare(valueForColumn(column, a), valueForColumn(column, b));
+  // Stable sort: decorate with the original index so equal rows keep their
+  // relative order (the plan requires selection/scroll anchors to survive).
+  final indexed = <(int, ProfileSummary)>[
+    for (var i = 0; i < rows.length; i++) (i, rows[i]),
+  ];
+  indexed.sort((a, b) {
+    final cmp = _compare(
+      valueForColumn(column, a.$2),
+      valueForColumn(column, b.$2),
+    );
+    if (cmp == 0) return a.$1.compareTo(b.$1);
     return sort.direction == SortDirection.ascending ? cmp : -cmp;
   });
-  return sorted;
+  return indexed.map((e) => e.$2).toList();
 }
 
 int _compare(Object? a, Object? b) {

@@ -13,6 +13,7 @@ crate-type = ["cdylib", "staticlib", "lib"]
 domain.workspace = true
 application.workspace = true
 flutter_rust_bridge.workspace = true
+serde_json.workspace = true
 
 [lints]
 workspace = true

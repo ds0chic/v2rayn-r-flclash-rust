@@ -1,66 +1,69 @@
-//! Pure domain models for the T01 feasibility probe.
+//! Pure domain models for the v2rayN Flutter+Rust rewrite (T02).
 //!
-//! This crate must stay free of Flutter, window and platform APIs. It only
-//! carries the node summary shape needed by the 14-column profile table
-//! (`compat/layouts.yaml` LAY-PROFILES-002) plus the owning core kind.
+//! This crate carries no Flutter, window or platform APIs. It defines the
+//! contract types shared by the application layer, the bridge and net-host:
+//!
+//! - [`enums`] — upstream enums with their exact numeric values;
+//! - [`error`] — stable, front-end-safe error model;
+//! - [`revision`] — desired vs. applied revision semantics;
+//! - [`job`] — job identity, lifecycle and idempotent cancellation;
+//! - [`reference`] — the six upstream reference-expression semantics;
+//! - [`profile`] — `ProfileItem` + `ProtoExtra` + `TransportExtra`;
+//! - [`entities`] — subscription/routing/DNS/template/stat/migration records;
+//! - [`settings`] — the guiNConfig.json `Config` tree skeleton;
+//! - [`runtime_plan`] — `RuntimePlan` + `OutboundGraph`/`ProcessGraph`;
+//! - [`event`] — the `EventEnvelope` control/telemetry contract.
 
-/// Core engine that owns the generated configuration for a node.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoreType {
-    Xray,
-    SingBox,
-    Mihomo,
-    Custom,
-}
+// `DomainError` is the deliberate shared error contract type. Boxing it would
+// ripple through every public signature and the FRB/IPC boundary, so the
+// large-Err lint is allowed here with intent.
+#![allow(clippy::result_large_err)]
 
-/// Protocol family of a node, expressed as the display token used by the
-/// `ConfigType` column.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ConfigType {
-    Vmess,
-    Vless,
-    Trojan,
-    Shadowsocks,
-    Socks,
-    Http,
-    Hysteria2,
-    Tuic,
-}
+pub mod entities;
+pub mod enums;
+pub mod error;
+pub mod event;
+pub mod job;
+pub mod profile;
+pub mod reference;
+pub mod revision;
+pub mod runtime_plan;
+pub mod settings;
+pub mod summary;
 
-impl ConfigType {
-    /// Stable display token, matching the upstream `ConfigType` column text.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            ConfigType::Vmess => "vmess",
-            ConfigType::Vless => "vless",
-            ConfigType::Trojan => "trojan",
-            ConfigType::Shadowsocks => "shadowsocks",
-            ConfigType::Socks => "socks",
-            ConfigType::Http => "http",
-            ConfigType::Hysteria2 => "hysteria2",
-            ConfigType::Tuic => "tuic",
-        }
-    }
-}
+// Re-export the most-used items at the crate root for ergonomics.
+pub use entities::{
+    ColumnDefinition, CoreInstallation, CoreTypeBinding, DnsProfile, FullConfigTemplate,
+    GlobalHotkey, InboundListener, MigrationRecord, RoutingProfile, RoutingRule, Subscription,
+    TaskRecord, TrafficStats, WindowState,
+};
+pub use enums::{
+    ConfigType, CoreType, GirdOrientation, InboundProtocol, MultipleLoad, Network, RuleMode,
+    RuleType, Security, SpeedTestAction, SysProxyType,
+};
+pub use error::{codes, DomainError};
+pub use event::{
+    EventChannel, EventEnvelope, EventEpoch, EventKind, EventSeq, JobEvent, RuntimeState,
+    RuntimeStateChanged,
+};
+pub use job::{CancelOutcome, CancellationToken, JobId, JobState};
+pub use profile::{ExtraMap, Profile, ProtocolExtra, SecurityParams, TransportExtra};
+pub use reference::{ReferenceExpr, ReferenceKind, ReferenceSource, SELF_SENTINEL};
+pub use revision::{AppliedRevision, DesiredRevision, RevisionPair, RevisionState};
+pub use runtime_plan::{
+    ConfigSource, ContentHash, NetworkPolicy, OutboundEdge, OutboundGraph, OutboundNode,
+    PortRequest, PortTransport, ProcessEdge, ProcessGraph, ProcessNode, RequiredPrivilege,
+    RuntimePlan, RuntimeTarget,
+};
+pub use settings::{
+    AppSettings, CheckUpdateItem, ClashUiItem, ConstItem, CoreBasicItem, Fragment4RayItem,
+    GrpcItem, GuiItem, HappyEyeballs4RayItem, HysteriaItem, KcpItem, MsgUiItem, Mux4RayItem,
+    Mux4SboxItem, RoutingBasicItem, SimpleDnsItem, SpeedTestItem, SystemProxyItem, TunModeItem,
+    UiItem, WebDavItem,
+};
+pub use summary::ProfileSummary;
 
-/// One row of the profiles table. Field set mirrors the 14 columns of
-/// `LAY-PROFILES-002` and adds the row identity plus the owning core.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProfileSummary {
-    pub id: String,
-    pub config_type: ConfigType,
-    pub remarks: String,
-    pub address: String,
-    pub port: u16,
-    pub network: String,
-    pub stream_security: String,
-    pub sub_remarks: String,
-    pub delay: i32,
-    pub speed: String,
-    pub today_up: u64,
-    pub ip_info: String,
-    pub today_down: u64,
-    pub total_up: u64,
-    pub total_down: u64,
-    pub core_type: CoreType,
-}
+/// The upstream baseline this model set was derived from.
+pub const SOURCE_COMMIT: &str = "7d6a967c18c697f28dc6917122ed3a4993fcf336";
+/// Upstream release version of the frozen baseline.
+pub const UPSTREAM_VERSION: &str = "7.25.4";

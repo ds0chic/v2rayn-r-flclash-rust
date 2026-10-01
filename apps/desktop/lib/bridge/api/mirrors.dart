@@ -7,18 +7,45 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
+enum CancelOutcome { requested, compensating, alreadyFinished, notCancellable }
+
 enum ConfigType {
   vmess,
-  vless,
-  trojan,
+  custom,
   shadowsocks,
   socks,
-  http,
+  vless,
+  trojan,
   hysteria2,
   tuic,
+  wireGuard,
+  http,
+  anytls,
+  naive,
+  outbound,
+  policyGroup,
+  proxyChain,
 }
 
-enum CoreType { xray, singBox, mihomo, custom }
+enum CoreType {
+  v2Fly,
+  xray,
+  v2FlyV5,
+  mihomo,
+  hysteria,
+  naiveProxy,
+  tuic,
+  singBox,
+  juicity,
+  hysteria2,
+  brook,
+  overTls,
+  shadowQuic,
+  mieru,
+  app,
+}
+
+enum JobState { running, cancelling, compensating, done, failed, cancelled }
 
 class ProfileSummary {
   final String id;
@@ -97,4 +124,17 @@ class ProfileSummary {
           totalUp == other.totalUp &&
           totalDown == other.totalDown &&
           coreType == other.coreType;
+}
+
+enum RevisionState { empty, inSync, pending, ahead }
+
+enum RuntimeState {
+  stopped,
+  validating,
+  preparing,
+  starting,
+  checking,
+  running,
+  rollingBack,
+  degraded,
 }

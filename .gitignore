@@ -26,3 +26,9 @@ docs/evidence/audit/*.run.log
 *.bak
 Thumbs.db
 desktop.ini
+
+# downloaded cores/toolchains
+tools/cores/**/*.exe
+tools/cores/**/*.zip
+tools/cores/**/*.sha256
+

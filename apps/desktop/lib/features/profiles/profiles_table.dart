@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
+import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/features/profiles/context_menu.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
+import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 import 'profiles_controller.dart';
 
@@ -24,11 +28,11 @@ class ProfilesTable extends ConsumerStatefulWidget {
 }
 
 class _ProfilesTableState extends ConsumerState<ProfilesTable> {
-  static const _handleWidth = 48.0;
-  static const _headerHeight = 30.0;
-  static const _rowHeight = 26.0;
+  static const _headerHeight = AppTokens.tableHeaderHeight;
+  static const _rowHeight = AppTokens.tableRowHeight;
 
   final FocusNode _focusNode = FocusNode(debugLabel: 'profiles-table');
+  final MenuController _menuController = MenuController();
   late final ScrollController _vertical =
       widget.verticalController ?? ScrollController();
   late final ScrollController _horizontal =
@@ -54,37 +58,34 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(profilesControllerProvider);
-    final controller = ref.read(profilesControllerProvider.notifier);
-    final columns = state.columns;
+    final columns = state.visibleColumns;
     final rows = state.visible;
 
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: (node, event) => controller.handleKeyEvent(event)
-          ? KeyEventResult.handled
-          : KeyEventResult.ignored,
-      child: Listener(
-        onPointerDown: (_) => _focusNode.requestFocus(),
-        child: TableView.builder(
-          verticalDetails: ScrollableDetails.vertical(controller: _vertical),
-          horizontalDetails: ScrollableDetails.horizontal(
-            controller: _horizontal,
-          ),
-          pinnedRowCount: 1,
-          pinnedColumnCount: 1,
-          columnCount: columns.length + 1,
-          rowCount: rows.length + 1,
-          columnBuilder: (index) => _buildColumnSpan(index, columns),
-          rowBuilder: (index) => _buildRowSpan(index, state, context),
-          cellBuilder: (context, vicinity) => TableViewCell(
-            child: _buildCell(
-              context,
-              vicinity,
-              state,
-              controller,
-              columns,
-              rows,
+    return MenuAnchor(
+      controller: _menuController,
+      menuChildren: _buildContextMenu(context, profilesContextMenu),
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: (node, event) =>
+            ref.read(profilesControllerProvider.notifier).handleKeyEvent(event)
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored,
+        child: Listener(
+          onPointerDown: (_) => _focusNode.requestFocus(),
+          child: TableView.builder(
+            verticalDetails: ScrollableDetails.vertical(controller: _vertical),
+            horizontalDetails: ScrollableDetails.horizontal(
+              controller: _horizontal,
+            ),
+            pinnedRowCount: 1,
+            pinnedColumnCount: 1,
+            columnCount: columns.length + 1,
+            rowCount: rows.length + 1,
+            columnBuilder: (index) => _buildColumnSpan(index, columns),
+            rowBuilder: (index) => _buildRowSpan(index, context),
+            cellBuilder: (context, vicinity) => TableViewCell(
+              child: _buildCell(context, vicinity, state, columns, rows),
             ),
           ),
         ),
@@ -93,7 +94,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
   }
 
   TableSpan _buildColumnSpan(int index, List<ProfileColumn> columns) {
-    final width = index == 0 ? _handleWidth : columns[index - 1].width;
+    final width = index == 0
+        ? AppTokens.tableHandleWidth
+        : columns[index - 1].width;
     return TableSpan(
       extent: FixedTableSpanExtent(width),
       foregroundDecoration: TableSpanDecoration(
@@ -104,11 +107,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     );
   }
 
-  TableSpan _buildRowSpan(
-    int index,
-    ProfilesState state,
-    BuildContext context,
-  ) {
+  TableSpan _buildRowSpan(int index, BuildContext context) {
     final isHeader = index == 0;
     return TableSpan(
       extent: FixedTableSpanExtent(isHeader ? _headerHeight : _rowHeight),
@@ -116,8 +115,8 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         color: isHeader
             ? Theme.of(context).colorScheme.surfaceContainerHighest
             : null,
-        border: const TableSpanBorder(
-          trailing: BorderSide(color: Color(0x33000000), width: 1),
+        border: TableSpanBorder(
+          trailing: BorderSide(color: AppTokens.lightGrid, width: 1),
         ),
       ),
     );
@@ -127,28 +126,26 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     BuildContext context,
     TableVicinity vicinity,
     ProfilesState state,
-    ProfilesController controller,
     List<ProfileColumn> columns,
     List<ProfileSummary> rows,
   ) {
     if (vicinity.row == 0) {
-      return _headerCell(context, vicinity.column, state, controller, columns);
+      return _headerCell(context, vicinity.column, state, columns);
     }
     final dataIndex = vicinity.row - 1;
     if (dataIndex >= rows.length) return const SizedBox.shrink();
     final row = rows[dataIndex];
     if (vicinity.column == 0) {
-      return _handleCell(context, row, dataIndex, state, controller);
+      return _handleCell(context, row, dataIndex, state);
     }
     final column = columns[vicinity.column - 1];
-    return _dataCell(context, row, column, state, controller);
+    return _dataCell(context, row, column, state);
   }
 
   Widget _headerCell(
     BuildContext context,
     int columnIndex,
     ProfilesState state,
-    ProfilesController controller,
     List<ProfileColumn> columns,
   ) {
     if (columnIndex == 0) {
@@ -173,7 +170,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
           child: GestureDetector(
             key: ValueKey('header-${column.title}'),
             behavior: HitTestBehavior.opaque,
-            onTap: () => controller.sortBy(column.key),
+            onTap: () => _sortWithAnchor(column.key, state),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Padding(
@@ -201,8 +198,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
             child: GestureDetector(
               key: ValueKey('resize-${column.title}'),
               behavior: HitTestBehavior.opaque,
-              onHorizontalDragUpdate: (details) =>
-                  controller.resizeColumn(column.key, details.delta.dx),
+              onHorizontalDragUpdate: (details) => ref
+                  .read(profilesControllerProvider.notifier)
+                  .resizeColumn(column.key, details.delta.dx),
             ),
           ),
         ),
@@ -210,14 +208,42 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     );
   }
 
+  /// Stable sort that keeps the row currently at the top scroll position in
+  /// place, so the viewport anchor survives the reorder (plan §08).
+  void _sortWithAnchor(String key, ProfilesState state) {
+    final rows = state.visible;
+    double offset = 0;
+    if (_vertical.hasClients) offset = _vertical.offset;
+    final topIndex = rows.isEmpty
+        ? 0
+        : (offset / _rowHeight).floor().clamp(0, rows.length - 1);
+    final anchorId = rows.isEmpty ? null : rows[topIndex].id;
+
+    ref.read(profilesControllerProvider.notifier).sortBy(key);
+
+    if (anchorId == null || !_vertical.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final next = ref.read(profilesControllerProvider).visible;
+      final newIndex = next.indexWhere((r) => r.id == anchorId);
+      if (newIndex < 0) return;
+      final position = _vertical.position;
+      final target = (newIndex * _rowHeight).clamp(
+        0.0,
+        position.maxScrollExtent,
+      );
+      _vertical.jumpTo(target);
+    });
+  }
+
   Widget _dataCell(
     BuildContext context,
     ProfileSummary row,
     ProfileColumn column,
     ProfilesState state,
-    ProfilesController controller,
   ) {
     final selected = state.selected.contains(row.id);
+    final controller = ref.read(profilesControllerProvider.notifier);
     return GestureDetector(
       key: ValueKey('cell-${row.id}-${column.key}'),
       behavior: HitTestBehavior.opaque,
@@ -227,7 +253,8 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         shift: HardwareKeyboard.instance.isShiftPressed,
       ),
       onDoubleTap: () => controller.handleDoubleClick(row.id),
-      onSecondaryTap: () => controller.handleRightTap(row.id),
+      onSecondaryTapDown: (details) =>
+          _showContextMenu(details.globalPosition, row),
       child: Container(
         color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
         alignment: column.numeric
@@ -249,16 +276,19 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     ProfileSummary row,
     int index,
     ProfilesState state,
-    ProfilesController controller,
   ) {
     final selected = state.selected.contains(row.id);
+    final controller = ref.read(profilesControllerProvider.notifier);
     final content = Container(
       color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
       alignment: Alignment.center,
       child: Draggable<ProfileSummary>(
         data: row,
         dragAnchorStrategy: pointerDragAnchorStrategy,
-        onDragStarted: () => controller.handleDragStart(row.id),
+        onDragStarted: () {
+          _menuController.close();
+          controller.handleDragStart(row.id);
+        },
         feedback: Material(
           elevation: 4,
           child: Container(
@@ -291,5 +321,77 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         child: content,
       ),
     );
+  }
+
+  void _showContextMenu(Offset globalPosition, ProfileSummary row) {
+    ref.read(profilesControllerProvider.notifier).handleRightTap(row.id);
+    _menuController.open(position: globalPosition);
+  }
+
+  List<Widget> _buildContextMenu(
+    BuildContext context,
+    List<ContextMenuEntry> entries,
+  ) {
+    final widgets = <Widget>[];
+    for (final entry in entries) {
+      if (entry.isSubmenu) {
+        widgets.add(
+          SubmenuButton(
+            key: ValueKey('ctx-${entry.label}'),
+            menuChildren: _buildContextMenu(context, entry.submenu),
+            child: _menuLabel(entry),
+          ),
+        );
+      } else {
+        widgets.add(
+          MenuItemButton(
+            key: ValueKey('ctx-${entry.label}'),
+            onPressed: () => _onContextAction(entry),
+            child: _menuLabel(entry),
+          ),
+        );
+      }
+      if (entry.separatorAfter) {
+        widgets.add(const Divider(height: 1));
+      }
+    }
+    return widgets;
+  }
+
+  Widget _menuLabel(ContextMenuEntry entry) {
+    return Row(
+      children: <Widget>[
+        Expanded(
+          child: Text(entry.label, style: const TextStyle(fontSize: 12)),
+        ),
+        if (entry.shortcut != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: Text(
+              entry.shortcut!,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _onContextAction(ContextMenuEntry entry) {
+    final profiles = ref.read(profilesControllerProvider.notifier);
+    final shell = ref.read(uiShellControllerProvider.notifier);
+    switch (entry.kind) {
+      case ContextActionKind.selectAll:
+        profiles.emitAction(ProfileAction.selectAll);
+      case ContextActionKind.moveTop:
+        profiles.emitAction(ProfileAction.moveTop);
+      case ContextActionKind.moveUp:
+        profiles.emitAction(ProfileAction.moveUp);
+      case ContextActionKind.moveDown:
+        profiles.emitAction(ProfileAction.moveDown);
+      case ContextActionKind.moveBottom:
+        profiles.emitAction(ProfileAction.moveBottom);
+      case ContextActionKind.notImplemented:
+        shell.notImplemented(entry.label, entry.actionId);
+    }
   }
 }

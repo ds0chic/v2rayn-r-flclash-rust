@@ -8,6 +8,8 @@ description = "Minimal T01 use cases: synthetic node generation and ping."
 
 [dependencies]
 domain.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 [dev-dependencies]
 rustls-pemfile = "2"

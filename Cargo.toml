@@ -4,18 +4,28 @@ members = [
     "crates/domain",
     "crates/application",
     "crates/bridge_api",
+    "crates/ipc_contract",
+    "crates/config_codegen",
+    "crates/runtime",
+    "crates/persistence",
+    "services/net_host",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0"
-repository = "https://github.com/2dust/v2rayN"
 
 [workspace.dependencies]
 domain = { path = "crates/domain" }
 application = { path = "crates/application" }
+ipc_contract = { path = "crates/ipc_contract" }
+config_codegen = { path = "crates/config_codegen" }
+runtime = { path = "crates/runtime" }
+persistence = { path = "crates/persistence" }
 flutter_rust_bridge = "=2.13.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }

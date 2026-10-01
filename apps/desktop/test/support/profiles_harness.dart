@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:v2rayn_desktop/app/shell/main_shell.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
-import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
 
-/// Shared WidgetTester harness for the T01 profiles table interaction tests.
+/// Shared WidgetTester harness for the T01/T05 profiles table interaction
+/// tests. It now pumps the full [MainShell] so the tests exercise the real
+/// menu/layout/status-bar composition.
 ///
 /// The locked Flutter build leaks native resources per `pumpWidget`, so the
 /// flutter_tester process segfaults after a handful of page builds. Tests are
@@ -29,6 +31,7 @@ Future<ProviderContainer> pumpApp(
   double width = 1440,
   double height = 900,
   bool setViewSize = true,
+  MemoryUiStateStore? store,
 }) async {
   if (setViewSize) {
     tester.view.physicalSize = Size(width, height);
@@ -37,12 +40,18 @@ Future<ProviderContainer> pumpApp(
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
-  final container = makeContainer(rows: rows);
+  final container = ProviderContainer(
+    overrides: [
+      bridgePortProvider.overrideWithValue(SyntheticBridgePort()),
+      uiStateStoreProvider.overrideWithValue(store ?? MemoryUiStateStore()),
+      profileRowCountProvider.overrideWithValue(rows),
+    ],
+  );
   addTearDown(container.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: ProfilesPage()),
+      child: const MaterialApp(home: MainShell()),
     ),
   );
   await tester.pump();

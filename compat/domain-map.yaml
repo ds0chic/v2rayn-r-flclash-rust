@@ -1,0 +1,673 @@
+# domain-map.yaml - T02 Rust domain model <-> FLD-* <-> storage index
+#
+# Bidirectional index between the T02 Rust domain types/fields, the T00 field
+# ledger ids (compat/fields.yaml), and the storage location in the frozen
+# upstream (guiNConfig.json / guiNDB.db).
+#
+# This file is additive: it never deletes or rewrites fields.yaml entries.
+# Field ids are taken verbatim from compat/fields.yaml (settings items
+# FLD-CFG-001..180; entity items FLD-ENT-001..158).
+#
+# Casing: Rust fields are snake_case; upstream JSON/SQLite columns are
+# PascalCase. `upstream_key` records the exact upstream casing so migration
+# (T04) can map without guessing. `extra` stands for the unknown-extension
+# `#[serde(flatten)] extra` bag on every domain struct.
+
+schema_version: 1
+source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+upstream_version: 7.25.4
+task: T02
+rust_crate: domain
+
+# ---------------------------------------------------------------------------
+# Enums (numeric values must match upstream exactly)
+# ---------------------------------------------------------------------------
+enums:
+  - rust: domain::ConfigType
+    ledger: FLD-ENT-002
+    upstream_enum: v2rayN/ServiceLib/Enums/EConfigType.cs
+    values:
+      Vmess: 1
+      Custom: 2
+      Shadowsocks: 3
+      Socks: 4
+      Vless: 5
+      Trojan: 6
+      Hysteria2: 7
+      Tuic: 8
+      WireGuard: 9
+      Http: 10
+      Anytls: 11
+      Naive: 12
+      Outbound: 13
+      PolicyGroup: 101
+      ProxyChain: 102
+  - rust: domain::CoreType
+    ledger: FLD-ENT-003
+    upstream_enum: v2rayN/ServiceLib/Enums/ECoreType.cs
+    values:
+      V2fly: 1
+      Xray: 2
+      V2flyV5: 4
+      Mihomo: 13
+      Hysteria: 21
+      NaiveProxy: 22
+      Tuic: 23
+      SingBox: 24
+      Juicity: 25
+      Hysteria2: 26
+      Brook: 27
+      OverTls: 28
+      ShadowQuic: 29
+      Mieru: 30
+      App: 99
+    note: App=99 is the application-update identity, not a proxy core.
+  - rust: domain::Network
+    ledger: FLD-ENT-014
+    upstream_enum: v2rayN/ServiceLib/Enums/ETransport.cs
+    serialization: lowercase upstream name; h2/http normalize to raw at generation.
+  - rust: domain::RuleType
+    ledger: FLD-ENT-150
+    values: { All: 0, Routing: 1, Dns: 2 }
+  - rust: domain::MultipleLoad
+    ledger: FLD-ENT-069
+    values: [LeastPing, Fallback, Random, RoundRobin, LeastLoad]
+  - rust: domain::SysProxyType
+    ledger: FLD-CFG-137
+    values: { ForcedClear: 0, ForcedChange: 1, Unchanged: 2, Pac: 3 }
+  - rust: domain::GirdOrientation
+    ledger: FLD-CFG-070
+    values: [Horizontal, Vertical, Tab]
+  - rust: domain::SpeedTestAction
+    upstream_enum: v2rayN/ServiceLib/Enums/ESpeedActionType.cs
+    values: [Tcping, Realping, UdpTest, Speedtest, Mixedtest, FastRealping]
+  - rust: domain::RuleMode
+    upstream_enum: v2rayN/ServiceLib/Enums/ERuleMode.cs
+    values: { Rule: 0, Global: 1, Direct: 2 }
+  - rust: domain::InboundProtocol
+    upstream_enum: v2rayN/ServiceLib/Enums/EInboundProtocol.cs
+    values: { Socks: 0, Socks2: 1, Socks3: 2, Pac: 3, Api: 4, Api2: 5, Mixed: 6, Speedtest: 21 }
+    note: inbound local port = Inbound[0].LocalPort + protocol value.
+
+# ---------------------------------------------------------------------------
+# ProfileItem (40) + ProtocolExtraItem (30) + TransportExtraItem (11)
+# storage: guiNDB.db table ProfileItem. ProtoExtra/TransportExtra are JSON
+# text columns whose members are the nested ProtocolExtra/TransportExtra maps.
+# ---------------------------------------------------------------------------
+types:
+  - rust: domain::Profile
+    storage: { kind: guiNDB.db, table: ProfileItem, primary_key: IndexId }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/ProfileItem.cs
+    fields:
+      index_id:          { fld: FLD-ENT-001, upstream_key: IndexId,         type: string }
+      config_type:       { fld: FLD-ENT-002, upstream_key: ConfigType,      type: "enum<ConfigType>" }
+      core_type:         { fld: FLD-ENT-003, upstream_key: CoreType,        type: "enum<CoreType>?" }
+      config_version:    { fld: FLD-ENT-004, upstream_key: ConfigVersion,   type: i32 }
+      subid:             { fld: FLD-ENT-005, upstream_key: Subid,           type: string }
+      is_sub:            { fld: FLD-ENT-006, upstream_key: IsSub,           type: bool }
+      pre_socks_port:    { fld: FLD-ENT-007, upstream_key: PreSocksPort,    type: "i32?" }
+      display_log:       { fld: FLD-ENT-008, upstream_key: DisplayLog,      type: bool }
+      remarks:           { fld: FLD-ENT-009, upstream_key: Remarks,         type: string }
+      address:           { fld: FLD-ENT-010, upstream_key: Address,         type: string }
+      port:              { fld: FLD-ENT-011, upstream_key: Port,            type: i32 }
+      password:          { fld: FLD-ENT-012, upstream_key: Password,        type: string }
+      username:          { fld: FLD-ENT-013, upstream_key: Username,        type: string }
+      network:           { fld: FLD-ENT-014, upstream_key: Network,         type: string }
+      mux_enabled:       { fld: FLD-ENT-028, upstream_key: MuxEnabled,      type: "bool?" }
+      finalmask:         { fld: FLD-ENT-033, upstream_key: Finalmask,       type: "string?" }
+      # protocol/transport JSON blob columns
+      proto_extra:       { fld: FLD-ENT-034, upstream_key: ProtoExtra,      type: "ProtocolExtra (JSON text)" }
+      transport_extra:   { fld: FLD-ENT-035, upstream_key: TransportExtra,  type: "TransportExtra (JSON text)" }
+      # legacy/obsolete columns preserved (HeaderType/RequestHost/Path/Extra/
+      # Ports/AlterId/Flow/Id/Security). They are NOT mapped to typed fields;
+      # they are preserved in `extra` to avoid data loss on round-trip.
+      extra:             { fld: "FLD-ENT-015/016/017/027/036/037/038/039/040", upstream_key: "HeaderType,RequestHost,Path,Extra,Ports,AlterId,Flow,Id,Security", type: "Map (preserved)" }
+    obsolete_upstream:
+      note: All mapped to `extra`; ProtoExtra/TransportExtra supersede them.
+      ids: [FLD-ENT-015, FLD-ENT-016, FLD-ENT-017, FLD-ENT-027, FLD-ENT-036, FLD-ENT-037, FLD-ENT-038, FLD-ENT-039, FLD-ENT-040]
+
+  - rust: domain::SecurityParams
+    storage: { kind: guiNDB.db, table: ProfileItem, note: "columns on ProfileItem" }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/ProfileItem.cs
+    fields:
+      stream_security:       { fld: FLD-ENT-018, upstream_key: StreamSecurity,       type: "string?" }
+      allow_insecure:        { fld: FLD-ENT-019, upstream_key: AllowInsecure,        type: "string?" }
+      sni:                   { fld: FLD-ENT-020, upstream_key: Sni,                  type: "string?" }
+      alpn:                  { fld: FLD-ENT-021, upstream_key: Alpn,                 type: "string?" }
+      fingerprint:           { fld: FLD-ENT-022, upstream_key: Fingerprint,          type: "string?" }
+      public_key:            { fld: FLD-ENT-023, upstream_key: PublicKey,            type: "string?" }
+      short_id:              { fld: FLD-ENT-024, upstream_key: ShortId,              type: "string?" }
+      spider_x:              { fld: FLD-ENT-025, upstream_key: SpiderX,              type: "string?" }
+      mldsa65_verify:        { fld: FLD-ENT-026, upstream_key: Mldsa65Verify,        type: "string?" }
+      cert:                  { fld: FLD-ENT-029, upstream_key: Cert,                 type: "string?" }
+      cert_sha:              { fld: FLD-ENT-030, upstream_key: CertSha,              type: "string?" }
+      ech_config_list:       { fld: FLD-ENT-031, upstream_key: EchConfigList,        type: "string?" }
+      verify_peer_cert_by_name: { fld: FLD-ENT-032, upstream_key: VerifyPeerCertByName, type: "string?" }
+
+  - rust: domain::ProtocolExtra
+    storage: { kind: guiNDB.db, table: ProfileItem, column: ProtoExtra, encoding: json_text }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/ProtocolExtraItem.cs
+    fields:
+      uot:                    { fld: FLD-ENT-041, upstream_key: Uot,                  type: "bool?" }
+      congestion_control:     { fld: FLD-ENT-042, upstream_key: CongestionControl,    type: "string?" }
+      http_headers:           { fld: FLD-ENT-043, upstream_key: HttpHeaders,          type: "string?" }
+      alter_id:               { fld: FLD-ENT-044, upstream_key: AlterId,              type: "string?" }
+      vmess_security:         { fld: FLD-ENT-045, upstream_key: VmessSecurity,        type: "string?" }
+      flow:                   { fld: FLD-ENT-046, upstream_key: Flow,                 type: "string?" }
+      vless_encryption:       { fld: FLD-ENT-047, upstream_key: VlessEncryption,      type: "string?" }
+      ss_method:              { fld: FLD-ENT-048, upstream_key: SsMethod,             type: "string?" }
+      wg_public_key:          { fld: FLD-ENT-049, upstream_key: WgPublicKey,          type: "string?" }
+      wg_preshared_key:       { fld: FLD-ENT-050, upstream_key: WgPresharedKey,       type: "string?" }
+      wg_interface_address:   { fld: FLD-ENT-051, upstream_key: WgInterfaceAddress,   type: "string?" }
+      wg_reserved:            { fld: FLD-ENT-052, upstream_key: WgReserved,           type: "string?" }
+      wg_mtu:                 { fld: FLD-ENT-053, upstream_key: WgMtu,                type: "i32?" }
+      wg_dns:                 { fld: FLD-ENT-054, upstream_key: WgDns,                type: "string?" }
+      salamander_pass:        { fld: FLD-ENT-055, upstream_key: SalamanderPass,       type: "string?" }
+      up_mbps:                { fld: FLD-ENT-056, upstream_key: UpMbps,               type: "i32?" }
+      down_mbps:              { fld: FLD-ENT-057, upstream_key: DownMbps,             type: "i32?" }
+      ports:                  { fld: FLD-ENT-058, upstream_key: Ports,                type: "string?" }
+      hop_interval:           { fld: FLD-ENT-059, upstream_key: HopInterval,          type: "string?" }
+      hy2_realm_url:          { fld: FLD-ENT-060, upstream_key: Hy2RealmUrl,          type: "string?" }
+      gecko_min_packet_size:  { fld: FLD-ENT-061, upstream_key: GeckoMinPacketSize,   type: "string?" }
+      gecko_max_packet_size:  { fld: FLD-ENT-062, upstream_key: GeckoMaxPacketSize,   type: "string?" }
+      insecure_concurrency:   { fld: FLD-ENT-063, upstream_key: InsecureConcurrency,  type: "i32?" }
+      naive_quic:             { fld: FLD-ENT-064, upstream_key: NaiveQuic,            type: "bool?" }
+      group_type:             { fld: FLD-ENT-065, upstream_key: GroupType,            type: "string?" }
+      child_items:            { fld: FLD-ENT-066, upstream_key: ChildItems,           type: "string?" }
+      sub_child_items:        { fld: FLD-ENT-067, upstream_key: SubChildItems,        type: "string?" }
+      filter:                 { fld: FLD-ENT-068, upstream_key: Filter,              type: "string?" }
+      multiple_load:          { fld: FLD-ENT-069, upstream_key: MultipleLoad,         type: "enum<MultipleLoad>?" }
+      is_singbox_endpoint:    { fld: FLD-ENT-070, upstream_key: IsSingboxEndpoint,    type: "bool?" }
+      extra:                  { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+  - rust: domain::TransportExtra
+    storage: { kind: guiNDB.db, table: ProfileItem, column: TransportExtra, encoding: json_text }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs
+    fields:
+      raw_header_type:  { fld: FLD-ENT-071, upstream_key: RawHeaderType,  type: "string?" }
+      host:             { fld: FLD-ENT-072, upstream_key: Host,           type: "string?" }
+      path:             { fld: FLD-ENT-073, upstream_key: Path,           type: "string?" }
+      xhttp_mode:       { fld: FLD-ENT-074, upstream_key: XhttpMode,      type: "string?" }
+      xhttp_extra:      { fld: FLD-ENT-075, upstream_key: XhttpExtra,     type: "string?" }
+      grpc_authority:   { fld: FLD-ENT-076, upstream_key: GrpcAuthority,  type: "string?" }
+      grpc_service_name: { fld: FLD-ENT-077, upstream_key: GrpcServiceName, type: "string?" }
+      grpc_mode:        { fld: FLD-ENT-078, upstream_key: GrpcMode,       type: "string?" }
+      kcp_header_type:  { fld: FLD-ENT-079, upstream_key: KcpHeaderType,  type: "string?" }
+      kcp_seed:         { fld: FLD-ENT-080, upstream_key: KcpSeed,        type: "string?" }
+      kcp_mtu:          { fld: FLD-ENT-081, upstream_key: KcpMtu,         type: "i32?" }
+      extra:            { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+# ---------------------------------------------------------------------------
+# Subscription (17)
+# ---------------------------------------------------------------------------
+  - rust: domain::Subscription
+    storage: { kind: guiNDB.db, table: SubItem, primary_key: Id }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/SubItem.cs
+    fields:
+      id:                  { fld: FLD-ENT-082, upstream_key: Id,                 type: string }
+      remarks:             { fld: FLD-ENT-083, upstream_key: Remarks,            type: string }
+      url:                 { fld: FLD-ENT-084, upstream_key: Url,                type: string }
+      more_url:            { fld: FLD-ENT-085, upstream_key: MoreUrl,            type: string }
+      enabled:             { fld: FLD-ENT-086, upstream_key: Enabled,            type: bool }
+      user_agent:          { fld: FLD-ENT-087, upstream_key: UserAgent,          type: string }
+      request_headers:     { fld: FLD-ENT-088, upstream_key: RequestHeaders,     type: "string?" }
+      sort:                { fld: FLD-ENT-089, upstream_key: Sort,               type: i32 }
+      filter:              { fld: FLD-ENT-090, upstream_key: Filter,             type: "string?" }
+      auto_update_interval:{ fld: FLD-ENT-091, upstream_key: AutoUpdateInterval, type: i32 }
+      update_time:         { fld: FLD-ENT-092, upstream_key: UpdateTime,         type: i64 }
+      convert_target:      { fld: FLD-ENT-093, upstream_key: ConvertTarget,      type: "string?" }
+      prev_profile:        { fld: FLD-ENT-094, upstream_key: PrevProfile,        type: "string?" }
+      next_profile:        { fld: FLD-ENT-095, upstream_key: NextProfile,        type: "string?" }
+      pre_socks_port:      { fld: FLD-ENT-096, upstream_key: PreSocksPort,       type: "i32?" }
+      memo:                { fld: FLD-ENT-097, upstream_key: Memo,               type: "string?" }
+      custom_core_type:    { fld: FLD-ENT-098, upstream_key: CustomCoreType,     type: "enum<CoreType>?" }
+      extra:               { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+# ---------------------------------------------------------------------------
+# ProfileGroupItem (5) - deprecated upstream; mapped to ProtocolExtra for V3+
+# ---------------------------------------------------------------------------
+  - rust: "domain::ProtocolExtra (group fields)"
+    upstream_source: v2rayN/ServiceLib/Models/Entities/ProfileGroupItem.cs
+    storage: { kind: guiNDB.db, table: ProfileGroupItem, primary_key: IndexId, deprecated: true }
+    note: V2->V3 migration moves these into ProtocolExtra.
+    fields:
+      index_id:       { fld: FLD-ENT-099, upstream_key: IndexId,       type: string }
+      child_items:    { fld: FLD-ENT-100, upstream_key: ChildItems,    type: string }
+      sub_child_items:{ fld: FLD-ENT-101, upstream_key: SubChildItems, type: "string?" }
+      filter:         { fld: FLD-ENT-102, upstream_key: Filter,        type: "string?" }
+      multiple_load:  { fld: FLD-ENT-103, upstream_key: MultipleLoad,  type: "enum<MultipleLoad>" }
+
+# ---------------------------------------------------------------------------
+# ProfileExItem (6) - speed/delay cache
+# ---------------------------------------------------------------------------
+  - rust: "domain::ProfileExItem"
+    storage: { kind: guiNDB.db, table: ProfileExItem, primary_key: IndexId }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/ProfileExItem.cs
+    fields:
+      index_id: { fld: FLD-ENT-104, upstream_key: IndexId, type: string }
+      delay:    { fld: FLD-ENT-105, upstream_key: Delay,   type: i32 }
+      speed:    { fld: FLD-ENT-106, upstream_key: Speed,   type: decimal }
+      sort:     { fld: FLD-ENT-107, upstream_key: Sort,    type: i32 }
+      message:  { fld: FLD-ENT-108, upstream_key: Message, type: "string?" }
+      ip_info:  { fld: FLD-ENT-109, upstream_key: IpInfo,  type: "string?" }
+
+# ---------------------------------------------------------------------------
+# ServerStatItem (6) -> domain::TrafficStats
+# ---------------------------------------------------------------------------
+  - rust: domain::TrafficStats
+    storage: { kind: guiNDB.db, table: ServerStatItem, primary_key: IndexId }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs
+    fields:
+      index_id:   { fld: FLD-ENT-110, upstream_key: IndexId,   type: string }
+      total_up:   { fld: FLD-ENT-111, upstream_key: TotalUp,   type: i64 }
+      total_down: { fld: FLD-ENT-112, upstream_key: TotalDown, type: i64 }
+      today_up:   { fld: FLD-ENT-113, upstream_key: TodayUp,   type: i64 }
+      today_down: { fld: FLD-ENT-114, upstream_key: TodayDown, type: i64 }
+      date_now:   { fld: FLD-ENT-115, upstream_key: DateNow,   type: i64 }
+      extra:      { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+# ---------------------------------------------------------------------------
+# DNSItem (9) -> domain::DnsProfile
+# ---------------------------------------------------------------------------
+  - rust: domain::DnsProfile
+    storage: { kind: guiNDB.db, table: DNSItem, primary_key: Id }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/DNSItem.cs
+    fields:
+      id:                      { fld: FLD-ENT-116, upstream_key: Id,                      type: string }
+      remarks:                 { fld: FLD-ENT-117, upstream_key: Remarks,                 type: string }
+      enabled:                 { fld: FLD-ENT-118, upstream_key: Enabled,                 type: bool }
+      core_type:               { fld: FLD-ENT-119, upstream_key: CoreType,                type: "enum<CoreType>" }
+      use_system_hosts:        { fld: FLD-ENT-120, upstream_key: UseSystemHosts,          type: bool }
+      normal_dns:              { fld: FLD-ENT-121, upstream_key: NormalDNS,               type: "string?" }
+      tun_dns:                 { fld: FLD-ENT-122, upstream_key: TunDNS,                  type: "string?" }
+      domain_strategy4_freedom:{ fld: FLD-ENT-123, upstream_key: DomainStrategy4Freedom,  type: "string?" }
+      domain_dns_address:      { fld: FLD-ENT-124, upstream_key: DomainDNSAddress,        type: "string?" }
+      extra:                   { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+# ---------------------------------------------------------------------------
+# RoutingItem (13) -> domain::RoutingProfile
+# ---------------------------------------------------------------------------
+  - rust: domain::RoutingProfile
+    storage: { kind: guiNDB.db, table: RoutingItem, primary_key: Id }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/RoutingItem.cs
+    fields:
+      id:                          { fld: FLD-ENT-125, upstream_key: Id,                          type: string }
+      remarks:                     { fld: FLD-ENT-126, upstream_key: Remarks,                     type: string }
+      url:                         { fld: FLD-ENT-127, upstream_key: Url,                         type: string }
+      rule_set:                    { fld: FLD-ENT-128, upstream_key: RuleSet,                     type: "string (JSON array of RoutingRule)" }
+      rule_num:                    { fld: FLD-ENT-129, upstream_key: RuleNum,                     type: i32 }
+      enabled:                     { fld: FLD-ENT-130, upstream_key: Enabled,                     type: bool }
+      locked:                      { fld: FLD-ENT-131, upstream_key: Locked,                      type: bool }
+      custom_icon:                 { fld: FLD-ENT-132, upstream_key: CustomIcon,                  type: string }
+      custom_ruleset_path4_singbox:{ fld: FLD-ENT-133, upstream_key: CustomRulesetPath4Singbox,  type: string }
+      domain_strategy:             { fld: FLD-ENT-134, upstream_key: DomainStrategy,              type: string }
+      domain_strategy4_singbox:    { fld: FLD-ENT-135, upstream_key: DomainStrategy4Singbox,     type: string }
+      sort:                        { fld: FLD-ENT-136, upstream_key: Sort,                        type: i32 }
+      is_active:                   { fld: FLD-ENT-137, upstream_key: IsActive,                    type: bool }
+      extra:                       { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+# ---------------------------------------------------------------------------
+# RulesItem (13) -> domain::RoutingRule (nested in RoutingProfile.rule_set)
+# ---------------------------------------------------------------------------
+  - rust: domain::RoutingRule
+    storage: { kind: guiNDB.db, table: RoutingItem, column: RuleSet, encoding: json_array }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/RulesItem.cs
+    fields:
+      id:           { fld: FLD-ENT-138, upstream_key: Id,           type: string }
+      rule_kind:    { fld: FLD-ENT-139, upstream_key: Type,         type: "string?" }
+      port:         { fld: FLD-ENT-140, upstream_key: Port,         type: "string?" }
+      network:      { fld: FLD-ENT-141, upstream_key: Network,      type: "string?" }
+      inbound_tag:  { fld: FLD-ENT-142, upstream_key: InboundTag,   type: "List<string>?" }
+      outbound_tag: { fld: FLD-ENT-143, upstream_key: OutboundTag,  type: "string? (Remarks ref)" }
+      ip:           { fld: FLD-ENT-144, upstream_key: Ip,           type: "List<string>?" }
+      domain:       { fld: FLD-ENT-145, upstream_key: Domain,       type: "List<string>?" }
+      protocol:     { fld: FLD-ENT-146, upstream_key: Protocol,     type: "List<string>?" }
+      process:      { fld: FLD-ENT-147, upstream_key: Process,      type: "List<string>?" }
+      enabled:      { fld: FLD-ENT-148, upstream_key: Enabled,      type: bool }
+      remarks:      { fld: FLD-ENT-149, upstream_key: Remarks,      type: "string?" }
+      rule_type:    { fld: FLD-ENT-150, upstream_key: RuleType,     type: "enum<RuleType>?" }
+      extra:        { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+# ---------------------------------------------------------------------------
+# FullConfigTemplateItem (8) -> domain::FullConfigTemplate
+# ---------------------------------------------------------------------------
+  - rust: domain::FullConfigTemplate
+    storage: { kind: guiNDB.db, table: FullConfigTemplateItem, primary_key: Id }
+    upstream_source: v2rayN/ServiceLib/Models/Entities/FullConfigTemplateItem.cs
+    fields:
+      id:             { fld: FLD-ENT-151, upstream_key: Id,             type: string }
+      remarks:        { fld: FLD-ENT-152, upstream_key: Remarks,        type: string }
+      enabled:        { fld: FLD-ENT-153, upstream_key: Enabled,        type: bool }
+      core_type:      { fld: FLD-ENT-154, upstream_key: CoreType,       type: "enum<CoreType>" }
+      config:         { fld: FLD-ENT-155, upstream_key: Config,         type: "string?" }
+      tun_config:     { fld: FLD-ENT-156, upstream_key: TunConfig,      type: "string?" }
+      add_proxy_only: { fld: FLD-ENT-157, upstream_key: AddProxyOnly,   type: "bool?" }
+      proxy_detour:   { fld: FLD-ENT-158, upstream_key: ProxyDetour,    type: "string?" }
+      extra:          { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+# ---------------------------------------------------------------------------
+# ConfigItems (guiNConfig.json) -> domain::AppSettings and sub-items
+# storage key is `guiNConfig.json:<Class>.<Property>`.
+# ---------------------------------------------------------------------------
+settings:
+  root:
+    rust: domain::AppSettings
+    storage: { kind: guiNConfig.json, root_type: ServiceLib.Models.Configs.Config }
+    upstream_source: v2rayN/ServiceLib/Models/Configs/Config.cs
+    fields:
+      index_id:     { fld: FLD-CFG-001, upstream_key: IndexId }
+      sub_index_id: { fld: FLD-CFG-002, upstream_key: SubIndexId }
+      core_basic_item:         { fld: FLD-CFG-003, upstream_key: CoreBasicItem }
+      tun_mode_item:           { fld: FLD-CFG-004, upstream_key: TunModeItem }
+      kcp_item:                { fld: FLD-CFG-005, upstream_key: KcpItem }
+      grpc_item:               { fld: FLD-CFG-006, upstream_key: GrpcItem }
+      routing_basic_item:      { fld: FLD-CFG-007, upstream_key: RoutingBasicItem }
+      gui_item:                { fld: FLD-CFG-008, upstream_key: GuiItem }
+      msg_ui_item:             { fld: FLD-CFG-009, upstream_key: MsgUIItem }
+      ui_item:                 { fld: FLD-CFG-010, upstream_key: UiItem }
+      const_item:              { fld: FLD-CFG-011, upstream_key: ConstItem }
+      speed_test_item:         { fld: FLD-CFG-012, upstream_key: SpeedTestItem }
+      mux4_ray_item:           { fld: FLD-CFG-013, upstream_key: Mux4RayItem }
+      mux4_sbox_item:          { fld: FLD-CFG-014, upstream_key: Mux4SboxItem }
+      hysteria_item:           { fld: FLD-CFG-015, upstream_key: HysteriaItem }
+      clash_ui_item:           { fld: FLD-CFG-016, upstream_key: ClashUIItem }
+      system_proxy_item:       { fld: FLD-CFG-017, upstream_key: SystemProxyItem }
+      web_dav_item:            { fld: FLD-CFG-018, upstream_key: WebDavItem }
+      check_update_item:       { fld: FLD-CFG-019, upstream_key: CheckUpdateItem }
+      fragment4_ray_item:      { fld: FLD-CFG-020, upstream_key: Fragment4RayItem }
+      inbound:                 { fld: FLD-CFG-021, upstream_key: Inbound }
+      global_hotkeys:          { fld: FLD-CFG-022, upstream_key: GlobalHotkeys }
+      core_type_item:          { fld: FLD-CFG-023, upstream_key: CoreTypeItem }
+      simple_dns_item:         { fld: FLD-CFG-024, upstream_key: SimpleDNSItem }
+      happy_eyeballs4_ray_item:{ fld: FLD-CFG-025, upstream_key: HappyEyeballs4RayItem }
+      extra:                   { fld: null, upstream_key: "<unknown>", type: "Map (preserved)" }
+
+  items:
+    - rust: domain::CoreBasicItem
+      storage: { kind: guiNConfig.json, key: CoreBasicItem }
+      fields:
+        log_enabled:            { fld: FLD-CFG-026, upstream_key: LogEnabled }
+        loglevel:               { fld: FLD-CFG-027, upstream_key: Loglevel }
+        def_fingerprint:        { fld: FLD-CFG-028, upstream_key: DefFingerprint }
+        def_user_agent:         { fld: FLD-CFG-029, upstream_key: DefUserAgent }
+        send_through:           { fld: FLD-CFG-030, upstream_key: SendThrough }
+        bind_interface:         { fld: FLD-CFG-031, upstream_key: BindInterface }
+        enable_fragment:        { fld: FLD-CFG-032, upstream_key: EnableFragment }
+        enable_final_fragment:  { fld: FLD-CFG-033, upstream_key: EnableFinalFragment }
+        enable_cache_file4_sbox: { fld: FLD-CFG-034, upstream_key: EnableCacheFile4Sbox }
+    - rust: domain::InboundListener
+      storage: { kind: guiNConfig.json, key: Inbound[] }
+      fields:
+        local_port:             { fld: FLD-CFG-035, upstream_key: LocalPort }
+        protocol:               { fld: FLD-CFG-036, upstream_key: Protocol }
+        udp_enabled:            { fld: FLD-CFG-037, upstream_key: UdpEnabled }
+        sniffing_enabled:       { fld: FLD-CFG-038, upstream_key: SniffingEnabled }
+        dest_override:          { fld: FLD-CFG-039, upstream_key: DestOverride }
+        route_only:             { fld: FLD-CFG-040, upstream_key: RouteOnly }
+        allow_lan_conn:         { fld: FLD-CFG-041, upstream_key: AllowLANConn }
+        new_port4_lan:          { fld: FLD-CFG-042, upstream_key: NewPort4LAN }
+        user:                   { fld: FLD-CFG-043, upstream_key: User }
+        pass:                   { fld: FLD-CFG-044, upstream_key: Pass }
+        second_local_port_enabled: { fld: FLD-CFG-045, upstream_key: SecondLocalPortEnabled }
+    - rust: domain::KcpItem
+      storage: { kind: guiNConfig.json, key: KcpItem }
+      fields:
+        mtu:                { fld: FLD-CFG-046, upstream_key: Mtu }
+        tti:                { fld: FLD-CFG-047, upstream_key: Tti }
+        uplink_capacity:    { fld: FLD-CFG-048, upstream_key: UplinkCapacity }
+        downlink_capacity:  { fld: FLD-CFG-049, upstream_key: DownlinkCapacity }
+        cwnd_multiplier:    { fld: FLD-CFG-050, upstream_key: CwndMultiplier }
+        max_sending_window: { fld: FLD-CFG-051, upstream_key: MaxSendingWindow }
+    - rust: domain::GrpcItem
+      storage: { kind: guiNConfig.json, key: GrpcItem }
+      fields:
+        idle_timeout:           { fld: FLD-CFG-052, upstream_key: IdleTimeout }
+        health_check_timeout:   { fld: FLD-CFG-053, upstream_key: HealthCheckTimeout }
+        permit_without_stream:  { fld: FLD-CFG-054, upstream_key: PermitWithoutStream }
+        initial_windows_size:   { fld: FLD-CFG-055, upstream_key: InitialWindowsSize }
+    - rust: domain::GuiItem
+      storage: { kind: guiNConfig.json, key: GuiItem }
+      fields:
+        auto_run:                 { fld: FLD-CFG-056, upstream_key: AutoRun }
+        enable_statistics:        { fld: FLD-CFG-057, upstream_key: EnableStatistics }
+        display_real_time_speed:  { fld: FLD-CFG-058, upstream_key: DisplayRealTimeSpeed }
+        keep_older_dedupl:        { fld: FLD-CFG-059, upstream_key: KeepOlderDedupl }
+        auto_update_interval:     { fld: FLD-CFG-060, upstream_key: AutoUpdateInterval }
+        tray_menu_servers_limit:  { fld: FLD-CFG-061, upstream_key: TrayMenuServersLimit }
+        enable_hwa:               { fld: FLD-CFG-062, upstream_key: EnableHWA }
+        enable_log:               { fld: FLD-CFG-063, upstream_key: EnableLog }
+        root_cert_provider:       { fld: FLD-CFG-064, upstream_key: RootCertProvider }
+    - rust: domain::MsgUiItem
+      storage: { kind: guiNConfig.json, key: MsgUIItem }
+      fields:
+        main_msg_filter: { fld: FLD-CFG-065, upstream_key: MainMsgFilter }
+        auto_refresh:    { fld: FLD-CFG-066, upstream_key: AutoRefresh }
+    - rust: domain::UiItem
+      storage: { kind: guiNConfig.json, key: UIItem }
+      fields:
+        enable_auto_adjust_main_lv_col_width: { fld: FLD-CFG-067, upstream_key: EnableAutoAdjustMainLvColWidth }
+        main_gird_height1:      { fld: FLD-CFG-068, upstream_key: MainGirdHeight1 }
+        main_gird_height2:      { fld: FLD-CFG-069, upstream_key: MainGirdHeight2 }
+        main_gird_orientation:  { fld: FLD-CFG-070, upstream_key: MainGirdOrientation }
+        color_primary_name:     { fld: FLD-CFG-071, upstream_key: ColorPrimaryName }
+        current_theme:          { fld: FLD-CFG-072, upstream_key: CurrentTheme }
+        current_language:       { fld: FLD-CFG-073, upstream_key: CurrentLanguage }
+        current_font_family:    { fld: FLD-CFG-074, upstream_key: CurrentFontFamily }
+        current_font_size:      { fld: FLD-CFG-075, upstream_key: CurrentFontSize }
+        enable_drag_drop_sort:  { fld: FLD-CFG-076, upstream_key: EnableDragDropSort }
+        double_click2_activate: { fld: FLD-CFG-077, upstream_key: DoubleClick2Activate }
+        auto_hide_startup:      { fld: FLD-CFG-078, upstream_key: AutoHideStartup }
+        hide2_tray_when_close:  { fld: FLD-CFG-079, upstream_key: Hide2TrayWhenClose }
+        macos_show_in_dock:     { fld: FLD-CFG-080, upstream_key: MacOSShowInDock }
+        main_column_item:       { fld: FLD-CFG-081, upstream_key: MainColumnItem }
+        window_size_item:       { fld: FLD-CFG-082, upstream_key: WindowSizeItem }
+        hide_column_ip_info:    { fld: FLD-CFG-083, upstream_key: HideColumnIpInfo }
+    - rust: domain::ConstItem
+      storage: { kind: guiNConfig.json, key: ConstItem }
+      fields:
+        sub_convert_url:               { fld: FLD-CFG-084, upstream_key: SubConvertUrl }
+        geo_source_url:                { fld: FLD-CFG-085, upstream_key: GeoSourceUrl }
+        srs_source_url:                { fld: FLD-CFG-086, upstream_key: SrsSourceUrl }
+        route_rules_template_source_url: { fld: FLD-CFG-087, upstream_key: RouteRulesTemplateSourceUrl }
+    - rust: domain::GlobalHotkey
+      storage: { kind: guiNConfig.json, key: GlobalHotkeys[] }
+      fields:
+        action:   { fld: FLD-CFG-088, upstream_key: EGlobalHotkey }
+        alt:      { fld: FLD-CFG-089, upstream_key: Alt }
+        control:  { fld: FLD-CFG-090, upstream_key: Control }
+        shift:    { fld: FLD-CFG-091, upstream_key: Shift }
+        key_code: { fld: FLD-CFG-092, upstream_key: KeyCode }
+    - rust: domain::CoreTypeBinding
+      storage: { kind: guiNConfig.json, key: CoreTypeItem[] }
+      fields:
+        config_type: { fld: FLD-CFG-093, upstream_key: ConfigType }
+        core_type:   { fld: FLD-CFG-094, upstream_key: CoreType }
+    - rust: domain::TunModeItem
+      storage: { kind: guiNConfig.json, key: TunModeItem }
+      fields:
+        enable_tun:             { fld: FLD-CFG-095, upstream_key: EnableTun }
+        auto_route:             { fld: FLD-CFG-096, upstream_key: AutoRoute }
+        strict_route:           { fld: FLD-CFG-097, upstream_key: StrictRoute }
+        stack:                  { fld: FLD-CFG-098, upstream_key: Stack }
+        mtu:                    { fld: FLD-CFG-099, upstream_key: Mtu }
+        enable_ipv6_address:    { fld: FLD-CFG-100, upstream_key: EnableIPv6Address }
+        icmp_routing:           { fld: FLD-CFG-101, upstream_key: IcmpRouting }
+        enable_legacy_protect:  { fld: FLD-CFG-102, upstream_key: EnableLegacyProtect }
+        route_exclude_address:  { fld: FLD-CFG-103, upstream_key: RouteExcludeAddress }
+        ipv4_address:           { fld: FLD-CFG-104, upstream_key: IPv4Address }
+        ipv6_address:           { fld: FLD-CFG-105, upstream_key: IPv6Address }
+    - rust: domain::SpeedTestItem
+      storage: { kind: guiNConfig.json, key: SpeedTestItem }
+      fields:
+        speed_test_timeout:       { fld: FLD-CFG-106, upstream_key: SpeedTestTimeout }
+        speed_test_url:           { fld: FLD-CFG-107, upstream_key: SpeedTestUrl }
+        speed_ping_test_url:      { fld: FLD-CFG-108, upstream_key: SpeedPingTestUrl }
+        mixed_concurrency_count:  { fld: FLD-CFG-109, upstream_key: MixedConcurrencyCount }
+        ipapi_url:                { fld: FLD-CFG-110, upstream_key: IPAPIUrl }
+        udp_test_target:          { fld: FLD-CFG-111, upstream_key: UdpTestTarget }
+        speed_test_page_size:     { fld: FLD-CFG-112, upstream_key: SpeedTestPageSize }
+        speed_test_delay_interval:{ fld: FLD-CFG-113, upstream_key: SpeedTestDelayInterval }
+    - rust: domain::RoutingBasicItem
+      storage: { kind: guiNConfig.json, key: RoutingBasicItem }
+      fields:
+        domain_strategy:            { fld: FLD-CFG-114, upstream_key: DomainStrategy }
+        domain_strategy4_singbox:   { fld: FLD-CFG-115, upstream_key: DomainStrategy4Singbox }
+        routing_index_id:           { fld: FLD-CFG-116, upstream_key: RoutingIndexId }
+    - rust: domain::ColumnDefinition
+      storage: { kind: guiNConfig.json, key: "UIItem.MainColumnItem[] / ClashUIItem.ConnectionsColumnItem[]" }
+      fields:
+        name:  { fld: FLD-CFG-117, upstream_key: Name }
+        width: { fld: FLD-CFG-118, upstream_key: Width }
+        index: { fld: FLD-CFG-119, upstream_key: Index }
+    - rust: domain::Mux4RayItem
+      storage: { kind: guiNConfig.json, key: Mux4RayItem }
+      fields:
+        concurrency:        { fld: FLD-CFG-120, upstream_key: Concurrency }
+        xudp_concurrency:   { fld: FLD-CFG-121, upstream_key: XudpConcurrency }
+        xudp_proxy_udp443:  { fld: FLD-CFG-122, upstream_key: XudpProxyUDP443 }
+    - rust: domain::Mux4SboxItem
+      storage: { kind: guiNConfig.json, key: Mux4SboxItem }
+      fields:
+        protocol:        { fld: FLD-CFG-123, upstream_key: Protocol }
+        max_connections: { fld: FLD-CFG-124, upstream_key: MaxConnections }
+        padding:         { fld: FLD-CFG-125, upstream_key: Padding }
+    - rust: domain::HysteriaItem
+      storage: { kind: guiNConfig.json, key: HysteriaItem }
+      fields:
+        up_mbps:       { fld: FLD-CFG-126, upstream_key: UpMbps }
+        down_mbps:     { fld: FLD-CFG-127, upstream_key: DownMbps }
+        hop_interval:  { fld: FLD-CFG-128, upstream_key: HopInterval }
+    - rust: domain::ClashUiItem
+      storage: { kind: guiNConfig.json, key: ClashUIItem }
+      fields:
+        enable_ipv6:                { fld: FLD-CFG-129, upstream_key: EnableIPv6 }
+        enable_mixin_content:       { fld: FLD-CFG-130, upstream_key: EnableMixinContent }
+        proxies_sorting:            { fld: FLD-CFG-131, upstream_key: ProxiesSorting }
+        proxies_auto_refresh:       { fld: FLD-CFG-132, upstream_key: ProxiesAutoRefresh }
+        proxies_refresh_interval:   { fld: FLD-CFG-133, upstream_key: ProxiesRefreshInterval }
+        connections_auto_refresh:   { fld: FLD-CFG-134, upstream_key: ConnectionsAutoRefresh }
+        connections_refresh_interval:{ fld: FLD-CFG-135, upstream_key: ConnectionsRefreshInterval }
+        connections_column_item:    { fld: FLD-CFG-136, upstream_key: ConnectionsColumnItem }
+    - rust: domain::SystemProxyItem
+      storage: { kind: guiNConfig.json, key: SystemProxyItem }
+      fields:
+        sys_proxy_type:                  { fld: FLD-CFG-137, upstream_key: SysProxyType }
+        system_proxy_exceptions:         { fld: FLD-CFG-138, upstream_key: SystemProxyExceptions }
+        not_proxy_local_address:         { fld: FLD-CFG-139, upstream_key: NotProxyLocalAddress }
+        system_proxy_advanced_protocol:  { fld: FLD-CFG-140, upstream_key: SystemProxyAdvancedProtocol }
+        custom_system_proxy_pac_path:    { fld: FLD-CFG-141, upstream_key: CustomSystemProxyPacPath }
+        custom_system_proxy_script_path: { fld: FLD-CFG-142, upstream_key: CustomSystemProxyScriptPath }
+    - rust: domain::WebDavItem
+      storage: { kind: guiNConfig.json, key: WebDavItem }
+      fields:
+        url:       { fld: FLD-CFG-143, upstream_key: Url }
+        user_name: { fld: FLD-CFG-144, upstream_key: UserName }
+        password:  { fld: FLD-CFG-145, upstream_key: Password }
+        dir_name:  { fld: FLD-CFG-146, upstream_key: DirName }
+    - rust: domain::CheckUpdateItem
+      storage: { kind: guiNConfig.json, key: CheckUpdateItem }
+      fields:
+        check_pre_release_update: { fld: FLD-CFG-147, upstream_key: CheckPreReleaseUpdate }
+        update_via_proxy:         { fld: FLD-CFG-148, upstream_key: UpdateViaProxy }
+        selected_core_types:      { fld: FLD-CFG-149, upstream_key: SelectedCoreTypes }
+    - rust: domain::Fragment4RayItem
+      storage: { kind: guiNConfig.json, key: Fragment4RayItem }
+      fields:
+        packets:   { fld: FLD-CFG-150, upstream_key: Packets }
+        lengths:   { fld: FLD-CFG-151, upstream_key: Lengths }
+        delays:    { fld: FLD-CFG-152, upstream_key: Delays }
+        max_split: { fld: FLD-CFG-153, upstream_key: MaxSplit }
+        length:    { fld: FLD-CFG-154, upstream_key: Length, legacy: true }
+        interval:  { fld: FLD-CFG-155, upstream_key: Interval, legacy: true }
+    - rust: domain::WindowState
+      storage: { kind: guiNConfig.json, key: UIItem.WindowSizeItem[] }
+      fields:
+        type_name: { fld: FLD-CFG-156, upstream_key: TypeName }
+        width:     { fld: FLD-CFG-157, upstream_key: Width }
+        height:    { fld: FLD-CFG-158, upstream_key: Height }
+    - rust: domain::SimpleDnsItem
+      storage: { kind: guiNConfig.json, key: SimpleDNSItem }
+      fields:
+        use_system_hosts:     { fld: FLD-CFG-159, upstream_key: UseSystemHosts }
+        add_common_hosts:     { fld: FLD-CFG-160, upstream_key: AddCommonHosts }
+        fake_ip:              { fld: FLD-CFG-161, upstream_key: FakeIP }
+        global_fake_ip:       { fld: FLD-CFG-162, upstream_key: GlobalFakeIp }
+        fake_ip_range:        { fld: FLD-CFG-163, upstream_key: FakeIPRange }
+        block_binding_query:  { fld: FLD-CFG-164, upstream_key: BlockBindingQuery }
+        block_aaaa_query:     { fld: FLD-CFG-165, upstream_key: BlockAAAAQuery }
+        direct_dns:           { fld: FLD-CFG-166, upstream_key: DirectDNS }
+        remote_dns:           { fld: FLD-CFG-167, upstream_key: RemoteDNS }
+        bootstrap_dns:        { fld: FLD-CFG-168, upstream_key: BootstrapDNS }
+        strategy4_freedom:    { fld: FLD-CFG-169, upstream_key: Strategy4Freedom }
+        strategy4_proxy:      { fld: FLD-CFG-170, upstream_key: Strategy4Proxy }
+        strategy4_proxy_dial: { fld: FLD-CFG-171, upstream_key: Strategy4ProxyDial }
+        serve_stale:          { fld: FLD-CFG-172, upstream_key: ServeStale }
+        parallel_query:       { fld: FLD-CFG-173, upstream_key: ParallelQuery }
+        hosts:                { fld: FLD-CFG-174, upstream_key: Hosts }
+        direct_expected_ips:  { fld: FLD-CFG-175, upstream_key: DirectExpectedIPs }
+        enable_happy_eyeballs:{ fld: FLD-CFG-176, upstream_key: EnableHappyEyeballs }
+    - rust: domain::HappyEyeballs4RayItem
+      storage: { kind: guiNConfig.json, key: HappyEyeballs4RayItem }
+      fields:
+        try_delay_ms:       { fld: FLD-CFG-177, upstream_key: TryDelayMs }
+        prioritize_ipv6:    { fld: FLD-CFG-178, upstream_key: PrioritizeIPv6 }
+        interleave:         { fld: FLD-CFG-179, upstream_key: Interleave }
+        max_concurrent_try: { fld: FLD-CFG-180, upstream_key: MaxConcurrentTry }
+
+# ---------------------------------------------------------------------------
+# Reference semantics (compat/fields.yaml reference_semantics REF-ENT-001..006)
+# ---------------------------------------------------------------------------
+references:
+  - rust: domain::ReferenceExpr::remarks
+    ledger: REF-ENT-001
+    kind: string_remarks
+    used_by: "RoutingRule.outbound_tag -> Profile.remarks"
+  - rust: domain::ReferenceExpr::remarks
+    ledger: REF-ENT-002
+    kind: string_remarks
+    used_by: "Subscription.prev_profile / next_profile -> Profile.remarks"
+  - rust: domain::ReferenceExpr::parse_index_ids
+    ledger: REF-ENT-003
+    kind: comma_separated_index_ids
+    used_by: "ProtocolExtra.child_items -> Profile.index_id"
+  - rust: domain::ReferenceExpr::subscription_with_filter
+    ledger: REF-ENT-004
+    kind: subscription_id_plus_regex
+    used_by: "ProtocolExtra.sub_child_items + filter -> Subscription.id + remarks regex"
+  - rust: domain::ReferenceExpr (ReferenceSource::Remapped)
+    ledger: REF-ENT-005
+    kind: id_remap
+    used_by: "internal import/export id rewriting"
+  - rust: domain::SELF_SENTINEL
+    ledger: REF-ENT-006
+    kind: sentinel_string
+    used_by: "SubChildItems == \"self\" -> owning subscription id"
+
+# ---------------------------------------------------------------------------
+# Migration paths (compat/fields.yaml migration_paths MIG-ENT-*)
+# ---------------------------------------------------------------------------
+migrations:
+  - rust: domain::MigrationRecord
+    ledger: [MIG-ENT-001, MIG-ENT-002, MIG-ENT-003]
+    note: >-
+      MigrateProfileExtra V2->V4: GroupV2ToV3 moves ProfileGroupItem into
+      ProtocolExtra; ProfileV2ToV3 maps legacy ProfileItem columns
+      (AlterId/Flow/Id/Security/Ports) into ProtocolExtra; TransportV3ToV4
+      maps HeaderType/RequestHost/Path/Extra into TransportExtra. Legacy
+      columns are preserved in `Profile.extra` until T04 migrates them.
+
+coverage:
+  profile_item: 40
+  protocol_extra_item: 30
+  transport_extra_item: 11
+  security_params: 13
+  subscription: 17
+  routing_profile: 13
+  routing_rule: 13
+  dns_profile: 9
+  full_config_template: 8
+  traffic_stats: 6
+  app_settings_root: 25
+  app_settings_items: 180
+  references: 6
+  enums: 10

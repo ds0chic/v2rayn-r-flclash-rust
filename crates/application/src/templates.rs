@@ -1,90 +1,67 @@
-//! `FullConfigTemplateItem` (T10): the 8-field full-config template model,
-//! CRUD validation and the built-in defaults.
+//! `FullConfigTemplateItem` (T10): validation and defaults for the 8-field
+//! full-config template model.
 //!
-//! Upstream stores one row per core in its own SQLite table. This port keeps
-//! the same shape and persists it in `guiNConfig.json` so a save survives a
-//! restart without a schema migration.
+//! Upstream stores one row per core in its own SQLite table
+//! (`compat/fields.entities.yaml`). This port keeps the same 8-field shape
+//! ([`domain::FullConfigTemplate`]) and persists it inside `guiNConfig.json`
+//! so a save survives a restart without a schema migration.
 
-use domain::{codes, CoreType, DomainError};
-use serde::{Deserialize, Serialize};
+use domain::{codes, CoreType, DomainError, FullConfigTemplate};
+use serde_json::Value;
 
-/// One full-config template row (upstream `FullConfigTemplateItem`).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(default, rename_all = "camelCase")]
-pub struct FullConfigTemplate {
-    pub id: String,
-    pub remarks: String,
-    pub enabled: bool,
-    pub core_type: CoreType,
-    pub config: Option<String>,
-    pub tun_config: Option<String>,
-    pub add_proxy_only: bool,
-    pub proxy_detour: Option<String>,
-}
-
-impl Default for FullConfigTemplate {
-    fn default() -> Self {
-        Self {
-            id: String::new(),
-            remarks: String::new(),
-            enabled: false,
+/// The two built-in rows upstream seeds on first run (Xray + sing-box).
+pub fn builtins() -> Vec<FullConfigTemplate> {
+    vec![
+        FullConfigTemplate {
+            remarks: "V2ray".into(),
             core_type: CoreType::Xray,
-            config: None,
-            tun_config: None,
-            add_proxy_only: false,
-            proxy_detour: None,
-        }
-    }
+            ..Default::default()
+        },
+        FullConfigTemplate {
+            remarks: "sing-box".into(),
+            core_type: CoreType::SingBox,
+            ..Default::default()
+        },
+    ]
 }
 
-impl FullConfigTemplate {
-    /// The two built-in rows upstream seeds on first run.
-    pub fn builtins() -> Vec<Self> {
-        vec![
-            Self {
-                remarks: "V2ray".into(),
-                core_type: CoreType::Xray,
-                ..Default::default()
-            },
-            Self {
-                remarks: "sing-box".into(),
-                core_type: CoreType::SingBox,
-                ..Default::default()
-            },
-        ]
+/// Validate an edited template. Both JSON blobs, when present, must parse as a
+/// JSON object (a template may legitimately be empty/disabled).
+pub fn validate(item: &FullConfigTemplate) -> Result<(), DomainError> {
+    if item.remarks.trim().is_empty() {
+        return Err(
+            DomainError::new(codes::FIELD_REQUIRED, "error.remarks_required").with_field("remarks"),
+        );
     }
+    if !matches!(item.core_type, CoreType::Xray | CoreType::SingBox) {
+        return Err(DomainError::new(
+            codes::FIELD_FORMAT,
+            "error.template_core_unsupported",
+        )
+        .with_field("coreType"));
+    }
+    validate_json_object(item.config.as_deref(), "config")?;
+    validate_json_object(item.tun_config.as_deref(), "tunConfig")?;
+    Ok(())
+}
 
-    /// Validate an edited template. Both JSON blobs, when present, must parse
-    /// as a JSON object (a template may legitimately be empty/disabled).
-    pub fn validate(&self) -> Result<(), DomainError> {
-        if self.remarks.trim().is_empty() {
-            return Err(
-                DomainError::new(codes::FIELD_REQUIRED, "error.remarks_required")
-                    .with_field("remarks"),
-            );
-        }
-        if !matches!(self.core_type, CoreType::Xray | CoreType::SingBox) {
-            return Err(DomainError::new(
-                codes::FIELD_FORMAT,
-                "error.template_core_unsupported",
-            )
-            .with_field("coreType"));
-        }
-        validate_json_object(self.config.as_deref(), "config")?;
-        validate_json_object(self.tun_config.as_deref(), "tunConfig")?;
-        Ok(())
+/// Apply `id`/`remarks` defaults for a new row.
+pub fn normalize(mut item: FullConfigTemplate, generated_id: String) -> FullConfigTemplate {
+    if item.id.trim().is_empty() {
+        item.id = generated_id;
     }
+    if item.remarks.trim().is_empty() {
+        item.remarks = default_remarks(item.core_type);
+    }
+    item
+}
 
-    /// Apply `id`/`remarks` defaults for a new row.
-    pub fn normalize(mut self, generated_id: String) -> Self {
-        if self.id.trim().is_empty() {
-            self.id = generated_id;
-        }
-        if self.remarks.trim().is_empty() {
-            self.remarks = default_remarks(self.core_type);
-        }
-        self
-    }
+/// Locate the template for `core` (by core type, stable order).
+pub fn for_core<'a>(
+    items: &'a [FullConfigTemplate],
+    core: CoreType,
+) -> Option<&'a FullConfigTemplate> {
+    items.iter().find(|t| t.core_type == core)
 }
 
 fn validate_json_object(text: Option<&str>, field: &str) -> Result<(), DomainError> {
@@ -92,7 +69,7 @@ fn validate_json_object(text: Option<&str>, field: &str) -> Result<(), DomainErr
     if text.trim().is_empty() {
         return Ok(());
     }
-    let value: serde_json::Value = serde_json::from_str(text).map_err(|error| {
+    let value: Value = serde_json::from_str(text).map_err(|error| {
         DomainError::new(codes::FIELD_FORMAT, "error.template_json_invalid")
             .with_field(field)
             .with_detail(error.to_string())
@@ -118,46 +95,57 @@ fn default_remarks(core: CoreType) -> String {
 mod tests {
     use super::*;
 
-    #[test]
-    fn accepts_valid_json() {
-        let item = FullConfigTemplate {
+    fn item() -> FullConfigTemplate {
+        FullConfigTemplate {
             remarks: "t".into(),
             core_type: CoreType::Xray,
-            config: Some(r#"{"log": {"loglevel": "warning"}}"#.into()),
-            tun_config: Some("{}".into()),
             ..Default::default()
-        };
-        assert!(item.validate().is_ok());
+        }
+    }
+
+    #[test]
+    fn accepts_valid_json() {
+        let mut it = item();
+        it.config = Some(r#"{"log": {"loglevel": "warning"}}"#.into());
+        it.tun_config = Some("{}".into());
+        assert!(validate(&it).is_ok());
     }
 
     #[test]
     fn rejects_invalid_json() {
-        let item = FullConfigTemplate {
-            remarks: "t".into(),
-            config: Some("{not json".into()),
-            ..Default::default()
-        };
-        let err = item.validate().unwrap_err();
+        let mut it = item();
+        it.config = Some("{not json".into());
+        let err = validate(&it).unwrap_err();
         assert_eq!(err.code, codes::FIELD_FORMAT);
         assert_eq!(err.field_path.as_deref(), Some("config"));
     }
 
     #[test]
     fn rejects_non_object_json() {
-        let item = FullConfigTemplate {
-            remarks: "t".into(),
-            config: Some("[1,2,3]".into()),
-            ..Default::default()
-        };
-        assert_eq!(item.validate().unwrap_err().code, codes::FIELD_FORMAT);
+        let mut it = item();
+        it.config = Some("[1,2,3]".into());
+        assert_eq!(validate(&it).unwrap_err().code, codes::FIELD_FORMAT);
     }
 
     #[test]
     fn empty_template_is_valid() {
-        let item = FullConfigTemplate {
-            remarks: "t".into(),
-            ..Default::default()
-        };
-        assert!(item.validate().is_ok());
+        assert!(validate(&item()).is_ok());
+    }
+
+    #[test]
+    fn normalize_fills_id_and_remarks() {
+        let mut it = item();
+        it.remarks = String::new();
+        it.id = String::new();
+        let out = normalize(it, "gen-1".into());
+        assert_eq!(out.id, "gen-1");
+        assert_eq!(out.remarks, "V2ray");
+    }
+
+    #[test]
+    fn builtins_cover_both_cores() {
+        let items = builtins();
+        assert!(for_core(&items, CoreType::Xray).is_some());
+        assert!(for_core(&items, CoreType::SingBox).is_some());
     }
 }

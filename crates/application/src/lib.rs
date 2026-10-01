@@ -9,7 +9,9 @@
 // every signature, so the large-Err lint is allowed with intent (see `domain`).
 #![allow(clippy::result_large_err)]
 
+pub mod codegen;
 pub mod engine;
+pub mod groups;
 pub mod jobs;
 pub mod net_host_client;
 pub mod repository;
@@ -18,6 +20,7 @@ pub mod snapshot;
 pub mod store_repo;
 pub mod subs;
 pub mod synthetic;
+pub mod templates;
 
 // T01 compatibility surface.
 pub use synthetic::{

@@ -49,7 +49,7 @@ pub struct ConfigStorage {
     pub items: Map<String, Value>,
 }
 
-/// `WindowSizeItem` as stored inside `UIItem.WindowSizeItem[]`.
+/// `WindowSizeItem` as stored inside `UiItem.WindowSizeItem[]`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase", default)]
 pub struct WindowStateStorage {
@@ -67,7 +67,7 @@ pub struct WindowStateStorage {
     pub extra: Map<String, Value>,
 }
 
-/// `ColumnItem` as stored inside `UIItem.MainColumnItem[]` /
+/// `ColumnItem` as stored inside `UiItem.MainColumnItem[]` /
 /// `ClashUIItem.ConnectionsColumnItem[]`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase", default)]
@@ -219,7 +219,14 @@ impl ConfigDocument {
     }
 
     fn item(&self, key: &str) -> Option<&Value> {
-        self.raw.get(key)
+        // Upstream serializes the `UIItem` CLR class as the JSON key `"UiItem"`
+        // (PascalCase of the property name). Older/hand-edited configs sometimes
+        // carry `"UIItem"`; accept both, preferring the canonical spelling.
+        if key == "UiItem" {
+            self.raw.get("UiItem").or_else(|| self.raw.get("UIItem"))
+        } else {
+            self.raw.get(key)
+        }
     }
 
     fn array_at<'a>(&'a self, parent: &str, key: &str) -> Result<Vec<&'a Value>> {
@@ -233,7 +240,7 @@ impl ConfigDocument {
     }
 
     pub fn window_states(&self) -> Result<Vec<WindowStateStorage>> {
-        self.array_at("UIItem", "WindowSizeItem")?
+        self.array_at("UiItem", "WindowSizeItem")?
             .into_iter()
             .map(|v| Ok(serde_json::from_value(v.clone())?))
             .collect()
@@ -248,7 +255,7 @@ impl ConfigDocument {
     }
 
     pub fn main_columns(&self) -> Result<Vec<ColumnItemStorage>> {
-        self.array_at("UIItem", "MainColumnItem")?
+        self.array_at("UiItem", "MainColumnItem")?
             .into_iter()
             .map(|v| Ok(serde_json::from_value(v.clone())?))
             .collect()
@@ -262,32 +269,28 @@ impl ConfigDocument {
     }
 
     pub fn theme(&self) -> Option<String> {
-        self.raw
-            .get("UIItem")
+        self.item("UiItem")
             .and_then(|ui| ui.get("CurrentTheme"))
             .and_then(Value::as_str)
             .map(str::to_string)
     }
 
     pub fn language(&self) -> Option<String> {
-        self.raw
-            .get("UIItem")
+        self.item("UiItem")
             .and_then(|ui| ui.get("CurrentLanguage"))
             .and_then(Value::as_str)
             .map(str::to_string)
     }
 
     pub fn font_family(&self) -> Option<String> {
-        self.raw
-            .get("UIItem")
+        self.item("UiItem")
             .and_then(|ui| ui.get("CurrentFontFamily"))
             .and_then(Value::as_str)
             .map(str::to_string)
     }
 
     pub fn font_size(&self) -> Option<i64> {
-        self.raw
-            .get("UIItem")
+        self.item("UiItem")
             .and_then(|ui| ui.get("CurrentFontSize"))
             .and_then(Value::as_i64)
     }
@@ -364,5 +367,28 @@ mod tests {
     fn non_object_root_is_rejected() {
         assert!(ConfigDocument::parse("[]").is_err());
         assert!(ConfigDocument::parse("\"x\"").is_err());
+    }
+
+    #[test]
+    fn canonical_ui_item_key_is_read() {
+        // Upstream writes `UiItem` (PascalCase of the CLR property), not `UIItem`.
+        let raw = r#"{
+            "IndexId": "n1",
+            "UiItem": {
+                "CurrentTheme": "Dark",
+                "CurrentLanguage": "zh-Hans",
+                "CurrentFontFamily": "Microsoft YaHei",
+                "CurrentFontSize": 13,
+                "MainColumnItem": [{"Name": "Remarks", "Width": 180, "Index": 0}],
+                "WindowSizeItem": [{"TypeName": "MainWindow", "Width": 1200, "Height": 800}]
+            }
+        }"#;
+        let doc = ConfigDocument::parse(raw).unwrap();
+        assert_eq!(doc.theme().as_deref(), Some("Dark"));
+        assert_eq!(doc.language().as_deref(), Some("zh-Hans"));
+        assert_eq!(doc.font_family().as_deref(), Some("Microsoft YaHei"));
+        assert_eq!(doc.font_size(), Some(13));
+        assert_eq!(doc.window_states().unwrap().len(), 1);
+        assert_eq!(doc.main_columns().unwrap()[0].width, 180);
     }
 }

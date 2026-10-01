@@ -95,3 +95,22 @@
 - 本地 bundle ≠ 上游兼容库：T04 自产 bundle 仅供本应用，T16 若要与上游 `guiConfigs/` 互操作需另做差分。
 
 以上两项是**结构性安全未决项**，在 T16 收敛前相关能力不得标记 `verified`。
+
+---
+
+## 8. 修订注记（T04b 真实配置兼容验证）
+
+用真实 v2rayN 配置（只读）验证导入/迁移，证据见 `docs/evidence/T04b-realconfig.md`。
+
+- **按列名映射是硬保证**：真实 v4 `guiNDB.db` 的 `ProfileItem` 列顺序与冻结 7.25.4
+  （`schema.rs`）完全不同，且列集合随版本增删（旧库 35 列、新库 41 列，`SubItem`
+  缺 `RequestHeaders`，旧 `ProfileExItem` 缺 `IpInfo`）。`rows.rs::read_table` 以
+  `stmt.column_names()` 建名→值映射，绝不用列序；`SELECT *` 后按名取值，未知列进
+  `raw_records`，缺失列得 `None`。该形状已由 `tests/real_shape.rs` 固定。
+- **内嵌 JSON 列契约**：`ProtoExtra`/`TransportExtra`/`Extra`/`RuleSet` 必须能
+  `serde_json` 解析（真实上游始终写合法 JSON）。脱敏夹具须保留其结构、键名与
+  非字符串叶子，仅替换字符串叶子；见 `tools/sanitize_upstream.py::sanitize_json`。
+- **泄漏扫描口径**：脱敏 0 命中证明以“用户承载值”（普通 TEXT ∪ 内嵌 JSON 字符串叶子）
+  为准，排除 JSON 键与非字符串叶子（schema/结构），否则 schema 令牌会产生不可消除的
+  子串误报。
+- 未决：更旧（v1）与更新上游版本未验证；`SubItem.RequestHeaders` 缺失沿用现有“候选库建全列”策略。

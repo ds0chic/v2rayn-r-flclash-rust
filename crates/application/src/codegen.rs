@@ -187,6 +187,21 @@ pub fn to_codegen_profile(profile: &Profile, custom_config: Option<String>) -> C
     }
 }
 
+/// Key under `proto_extra.extra` holding the pass-through custom/outbound JSON
+/// text for `ConfigType::Custom` / `ConfigType::Outbound` profiles.
+pub const CUSTOM_CONFIG_KEY: &str = "customConfigText";
+
+/// Read the persisted custom/outbound config text, if any.
+pub fn custom_config_text(profile: &Profile) -> Option<String> {
+    profile
+        .proto_extra
+        .extra
+        .get(CUSTOM_CONFIG_KEY)
+        .and_then(|value| value.as_str())
+        .map(str::to_string)
+        .filter(|text| !text.trim().is_empty())
+}
+
 /// Assemble the complete generation input for `active` against `all`.
 pub fn build_input(
     active: &Profile,
@@ -198,11 +213,11 @@ pub fn build_input(
 ) -> CodegenInput {
     let mut profiles: BTreeMap<String, CodegenProfile> = BTreeMap::new();
     for profile in all {
-        let custom = if profile.config_type == ConfigType::Custom {
+        let custom = if matches!(profile.config_type, ConfigType::Custom | ConfigType::Outbound) {
             outbound_contents
                 .get(&profile.index_id)
                 .cloned()
-                .or_else(|| profile.custom_config_hint())
+                .or_else(|| custom_config_text(profile))
         } else {
             None
         };
@@ -211,8 +226,8 @@ pub fn build_input(
             to_codegen_profile(profile, custom),
         );
     }
-    let active_custom = if active.config_type == ConfigType::Custom {
-        custom_config.or_else(|| active.custom_config_hint())
+    let active_custom = if matches!(active.config_type, ConfigType::Custom | ConfigType::Outbound) {
+        custom_config.or_else(|| custom_config_text(active))
     } else {
         None
     };

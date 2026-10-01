@@ -11,7 +11,9 @@ members = [
     "crates/subscriptions",
     "crates/platform",
     "crates/core_adapters",
+    "crates/updater",
     "services/net_host",
+    "services/privileged_helper",
 ]
 
 [workspace.package]
@@ -29,6 +31,7 @@ persistence = { path = "crates/persistence" }
 subscriptions = { path = "crates/subscriptions" }
 platform = { path = "crates/platform" }
 core_adapters = { path = "crates/core_adapters" }
+updater = { path = "crates/updater" }
 flutter_rust_bridge = "=2.13.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }

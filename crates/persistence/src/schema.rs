@@ -123,6 +123,10 @@ const PROFILE_ITEM: &[Column] = &[
     text("Cert"),
     text("CertSha"),
     text("EchConfigList"),
+    // Added by upstream builds newer than the frozen 7.25.4 baseline. Kept as an
+    // additive compatibility column so a newer source's live value survives the
+    // import instead of only living in `raw_records`.
+    text("EchForceQuery"),
     text("VerifyPeerCertByName"),
     text("Finalmask"),
     text("ProtoExtra"),
@@ -291,8 +295,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn profile_item_has_forty_columns() {
-        assert_eq!(PROFILE_ITEM.len(), 40);
+    fn profile_item_has_forty_one_columns() {
+        // 40 frozen-7.25.4 columns + additive `EchForceQuery` for newer sources.
+        assert_eq!(PROFILE_ITEM.len(), 41);
         assert_eq!(SUB_ITEM.len(), 17);
         assert_eq!(SERVER_STAT_ITEM.len(), 6);
         assert_eq!(ROUTING_ITEM.len(), 13);

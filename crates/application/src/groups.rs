@@ -10,7 +10,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use domain::{codes, ConfigType, DomainError, Profile, ReferenceSource};
+use domain::{codes, ConfigType, DomainError, Profile};
 
 use crate::repository::new_index_id;
 
@@ -248,7 +248,6 @@ pub fn set_child_index_ids(profile: &mut Profile, ids: &[String]) {
     } else {
         Some(ids.join(","))
     };
-    let _ = ReferenceSource::Native;
 }
 
 #[cfg(test)]

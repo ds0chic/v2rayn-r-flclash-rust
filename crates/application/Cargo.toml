@@ -11,10 +11,12 @@ ipc_contract.workspace = true
 persistence.workspace = true
 runtime.workspace = true
 subscriptions.workspace = true
+config_codegen.workspace = true
 rusqlite = "0.32.1"
-tokio = { version = "1.53", features = ["rt", "time", "sync"] }
+regex = "1"
 serde.workspace = true
 serde_json.workspace = true
+tokio = { version = "1.53", features = ["rt", "time", "sync"] }
 
 [dev-dependencies]
 rustls-pemfile = "2"

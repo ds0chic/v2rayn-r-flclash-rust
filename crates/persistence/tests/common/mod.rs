@@ -19,6 +19,20 @@ pub fn upstream_v3() -> PathBuf {
     fixtures_dir().join("upstream-v3")
 }
 
+/// Sanitized copies of real upstream data shapes (see the fixture README).
+pub fn real_shape_dir() -> PathBuf {
+    fixtures_dir().join("upstream-real-shape")
+}
+
+/// A directory source holding a sanitized bare database copied to `guiNDB.db`.
+pub fn bare_db_source(fixture_db: &str) -> (tempfile::TempDir, PathBuf) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let source = dir.path().join("source");
+    std::fs::create_dir_all(&source).unwrap();
+    std::fs::copy(real_shape_dir().join(fixture_db), source.join("guiNDB.db")).unwrap();
+    (dir, source)
+}
+
 /// A fresh temp work directory plus target path, kept alive by the caller.
 pub fn temp_workspace() -> (tempfile::TempDir, PathBuf, PathBuf) {
     let dir = tempfile::tempdir().expect("tempdir");

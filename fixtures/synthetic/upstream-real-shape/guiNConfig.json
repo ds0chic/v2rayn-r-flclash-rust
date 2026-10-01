@@ -1,0 +1,434 @@
+{
+  "IndexId": "gpceeqmamdgqxvfksjo",
+  "SubIndexId": "ljhnrwufsnujtvfacpb",
+  "CoreBasicItem": {
+    "LogEnabled": false,
+    "Loglevel": "gsnsmqo",
+    "DefFingerprint": null,
+    "DefUserAgent": null,
+    "SendThrough": "",
+    "BindInterface": "",
+    "EnableFragment": false,
+    "EnableFinalFragment": false,
+    "EnableCacheFile4Sbox": true
+  },
+  "TunModeItem": {
+    "EnableTun": false,
+    "AutoRoute": true,
+    "StrictRoute": true,
+    "Stack": "wwtjha",
+    "Mtu": 1500,
+    "EnableIPv6Address": true,
+    "IcmpRouting": null,
+    "EnableLegacyProtect": false,
+    "RouteExcludeAddress": null,
+    "IPv4Address": null,
+    "IPv6Address": null
+  },
+  "KcpItem": {
+    "Mtu": 1350,
+    "Tti": 50,
+    "UplinkCapacity": 12,
+    "DownlinkCapacity": 100,
+    "CwndMultiplier": 1,
+    "MaxSendingWindow": 2097152
+  },
+  "GrpcItem": {
+    "IdleTimeout": 60,
+    "HealthCheckTimeout": 20,
+    "PermitWithoutStream": false,
+    "InitialWindowsSize": 0
+  },
+  "RoutingBasicItem": {
+    "DomainStrategy": "lnzo",
+    "DomainStrategy4Singbox": null,
+    "RoutingIndexId": null
+  },
+  "GuiItem": {
+    "AutoRun": true,
+    "EnableStatistics": false,
+    "DisplayRealTimeSpeed": true,
+    "KeepOlderDedupl": false,
+    "AutoUpdateInterval": 0,
+    "TrayMenuServersLimit": 20,
+    "EnableHWA": true,
+    "EnableLog": true,
+    "RootCertProvider": "uivdqs"
+  },
+  "MsgUIItem": {
+    "MainMsgFilter": "",
+    "AutoRefresh": true
+  },
+  "UiItem": {
+    "EnableAutoAdjustMainLvColWidth": false,
+    "MainGirdHeight1": 345,
+    "MainGirdHeight2": 309,
+    "MainGirdOrientation": 1,
+    "ColorPrimaryName": null,
+    "CurrentTheme": null,
+    "CurrentLanguage": "wcuxmlv",
+    "CurrentFontFamily": null,
+    "CurrentFontSize": 0,
+    "EnableDragDropSort": false,
+    "DoubleClick2Activate": false,
+    "AutoHideStartup": true,
+    "Hide2TrayWhenClose": false,
+    "MacOSShowInDock": false,
+    "MainColumnItem": [
+      {
+        "Name": "tpiqxjdxxq",
+        "Width": 80,
+        "Index": 0
+      },
+      {
+        "Name": "fozqwrw",
+        "Width": 150,
+        "Index": 1
+      },
+      {
+        "Name": "jlnpyqw",
+        "Width": 120,
+        "Index": 2
+      },
+      {
+        "Name": "odqi",
+        "Width": 60,
+        "Index": 3
+      },
+      {
+        "Name": "qtgcdmq",
+        "Width": 100,
+        "Index": 4
+      },
+      {
+        "Name": "nkiwhmvyxvnjpc",
+        "Width": 100,
+        "Index": 5
+      },
+      {
+        "Name": "cyoyxoabtz",
+        "Width": 100,
+        "Index": 6
+      },
+      {
+        "Name": "cnxdjagw",
+        "Width": 96,
+        "Index": 7
+      },
+      {
+        "Name": "lbjdtpms",
+        "Width": 185,
+        "Index": 8
+      },
+      {
+        "Name": "qdgmoob",
+        "Width": -1,
+        "Index": 9
+      },
+      {
+        "Name": "efdjkh",
+        "Width": -1,
+        "Index": 10
+      },
+      {
+        "Name": "sntchottp",
+        "Width": -1,
+        "Index": 11
+      },
+      {
+        "Name": "dnecnno",
+        "Width": -1,
+        "Index": 12
+      },
+      {
+        "Name": "odhhynfkm",
+        "Width": -1,
+        "Index": 13
+      }
+    ],
+    "WindowSizeItem": [
+      {
+        "TypeName": "syffduevglqeecnslcyhwlbb",
+        "Width": 900,
+        "Height": 700
+      },
+      {
+        "TypeName": "nxgxfvpiyssqebezjxwygsec",
+        "Width": 1000,
+        "Height": 700
+      },
+      {
+        "TypeName": "aazvkyvrnnfxszzhkzhr",
+        "Width": 1000,
+        "Height": 700
+      },
+      {
+        "TypeName": "nqrctpcummuciyrc",
+        "Width": 1000,
+        "Height": 700
+      },
+      {
+        "TypeName": "qqifkxbudg",
+        "Width": 1200,
+        "Height": 800
+      },
+      {
+        "TypeName": "ozocrdezasnrzqadizk",
+        "Width": 1000,
+        "Height": 586
+      },
+      {
+        "TypeName": "ycrbubmltfkraloyivirnvhy",
+        "Width": 1000,
+        "Height": 700
+      },
+      {
+        "TypeName": "dgkotvlsspmfbpnxfxhcsckam",
+        "Width": 700,
+        "Height": 500
+      },
+      {
+        "TypeName": "jucotomorpvfpel",
+        "Width": 900,
+        "Height": 691
+      },
+      {
+        "TypeName": "fuaqqvldkaaifviuucec",
+        "Width": 800,
+        "Height": 450
+      },
+      {
+        "TypeName": "ucxmymdipltocipgwobb",
+        "Width": 900,
+        "Height": 700
+      },
+      {
+        "TypeName": "ayhfefimsgoal",
+        "Width": 700,
+        "Height": 650
+      },
+      {
+        "TypeName": "tnhgagrsgxhkijgp",
+        "Width": 1000,
+        "Height": 700
+      },
+      {
+        "TypeName": "avbctgrmsppuzgwc",
+        "Width": 700,
+        "Height": 500
+      }
+    ],
+    "HideColumnIpInfo": false
+  },
+  "ConstItem": {
+    "SubConvertUrl": null,
+    "GeoSourceUrl": null,
+    "SrsSourceUrl": null,
+    "RouteRulesTemplateSourceUrl": null
+  },
+  "SpeedTestItem": {
+    "SpeedTestTimeout": 10,
+    "SpeedTestUrl": "pufzxgjdkghrqkswulonjahdrcokgzclmbdbmojylvhgfbvcla",
+    "SpeedPingTestUrl": "mueorpepzhgbzkyaifquhwedxkdxdscqdqozuz",
+    "MixedConcurrencyCount": 5,
+    "IPAPIUrl": null,
+    "UdpTestTarget": "jgqmfthhsdktrttw",
+    "SpeedTestPageSize": null,
+    "SpeedTestDelayInterval": null
+  },
+  "Mux4RayItem": {
+    "Concurrency": 8,
+    "XudpConcurrency": 16,
+    "XudpProxyUDP443": "denqyc"
+  },
+  "Mux4SboxItem": {
+    "Protocol": "pviqt",
+    "MaxConnections": 8,
+    "Padding": null
+  },
+  "HysteriaItem": {
+    "UpMbps": 60,
+    "DownMbps": 250,
+    "HopInterval": 30
+  },
+  "ClashUIItem": {
+    "RuleMode": 0,
+    "EnableIPv6": false,
+    "EnableMixinContent": false,
+    "ProxiesSorting": 0,
+    "ProxiesAutoRefresh": false,
+    "ProxiesAutoDelayTestInterval": 10,
+    "ConnectionsAutoRefresh": false,
+    "ConnectionsRefreshInterval": 2,
+    "ConnectionsColumnItem": [
+      {
+        "Name": "uvmc",
+        "Width": 300,
+        "Index": 0
+      },
+      {
+        "Name": "xktua",
+        "Width": 500,
+        "Index": 1
+      },
+      {
+        "Name": "qtgcdmq",
+        "Width": 80,
+        "Index": 2
+      },
+      {
+        "Name": "broc",
+        "Width": 160,
+        "Index": 3
+      },
+      {
+        "Name": "sqakcvj",
+        "Width": 100,
+        "Index": 4
+      }
+    ]
+  },
+  "SystemProxyItem": {
+    "SysProxyType": 1,
+    "SystemProxyExceptions": "fuxvpeprtcdlrookalvtzzqqsnfumydcuktjfbcyemnreamjknanyzrijlnfjcmzuuczkghsdtvqohyjivqalbroisltyaftavxzibqyvdzajvrzlteijrjculhsshlqhmqavzufftrlnojsaacvpesbswblalqgipiebsuqvacokw",
+    "NotProxyLocalAddress": true,
+    "SystemProxyAdvancedProtocol": null,
+    "CustomSystemProxyPacPath": "",
+    "CustomSystemProxyScriptPath": null
+  },
+  "WebDavItem": {
+    "Url": null,
+    "UserName": null,
+    "Password": null,
+    "DirName": null
+  },
+  "CheckUpdateItem": {
+    "CheckPreReleaseUpdate": false,
+    "SelectedCoreTypes": [
+      "yovooe",
+      "vufj",
+      "qmmunrmy"
+    ]
+  },
+  "Fragment4RayItem": {
+    "Packets": "vbezhssm",
+    "Lengths": [
+      "sywkaoo"
+    ],
+    "Delays": [
+      "rnvai"
+    ],
+    "MaxSplit": "",
+    "Length": "sywkaoo",
+    "Interval": "rnvai"
+  },
+  "Inbound": [
+    {
+      "LocalPort": 20808,
+      "Protocol": "gijtj",
+      "UdpEnabled": true,
+      "SniffingEnabled": true,
+      "DestOverride": [
+        "qlob",
+        "ntr",
+        "mhpi",
+        "ojesujb"
+      ],
+      "RouteOnly": false,
+      "AllowLANConn": true,
+      "NewPort4LAN": false,
+      "User": "",
+      "Pass": "",
+      "SecondLocalPortEnabled": false
+    }
+  ],
+  "GlobalHotkeys": [],
+  "CoreTypeItem": [
+    {
+      "ConfigType": 1,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 2,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 3,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 4,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 5,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 6,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 7,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 8,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 9,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 10,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 11,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 101,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 102,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 12,
+      "CoreType": 2
+    },
+    {
+      "ConfigType": 13,
+      "CoreType": 2
+    }
+  ],
+  "SimpleDNSItem": {
+    "UseSystemHosts": false,
+    "AddCommonHosts": true,
+    "FakeIP": false,
+    "GlobalFakeIp": true,
+    "FakeIPRange": "nlickkncrvbzx",
+    "BlockBindingQuery": true,
+    "BlockAAAAQuery": false,
+    "DirectDNS": "nrcbvrdynsrsoijansbmgmlfoebltusz",
+    "RemoteDNS": "ybfdinh",
+    "BootstrapDNS": "oktdqfdec",
+    "Strategy4Freedom": "qfojzyikf",
+    "Strategy4Proxy": "qfojzyikf",
+    "Strategy4ProxyDial": "",
+    "ServeStale": false,
+    "ParallelQuery": true,
+    "Hosts": "",
+    "DirectExpectedIPs": "",
+    "EnableHappyEyeballs": true
+  },
+  "HappyEyeballs4RayItem": {
+    "TryDelayMs": 250,
+    "PrioritizeIPv6": false,
+    "Interleave": 1,
+    "MaxConcurrentTry": 4
+  }
+}

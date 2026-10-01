@@ -13,6 +13,8 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart'
     as profile_actions;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
+import 'package:v2rayn_desktop/features/routing/routing_actions.dart'
+    as routing_actions;
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_actions.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
@@ -67,6 +69,16 @@ class _MainShellState extends ConsumerState<MainShell> {
       final openHotkey = Platform.environment['V2RAYN_R_OPEN_HOTKEY'];
       if (openHotkey == '1' || openHotkey == 'true') {
         openGlobalHotkeyWindow(context, ref);
+      }
+      // T11 evidence hooks: auto-open the routing / DNS windows for release
+      // screenshots. No-ops in normal runs.
+      final openRouting = Platform.environment['V2RAYN_R_OPEN_ROUTING'];
+      if (openRouting == '1' || openRouting == 'true') {
+        routing_actions.openRoutingSettings(context, ref);
+      }
+      final openDns = Platform.environment['V2RAYN_R_OPEN_DNS'];
+      if (openDns == '1' || openDns == 'true') {
+        routing_actions.openDnsSettings(context, ref);
       }
     });
   }
@@ -273,9 +285,9 @@ class _MainShellState extends ConsumerState<MainShell> {
       case 'UI-THEME-WINDOW':
         openThemeSettingDialog(context, ref);
       case 'ACT-MAIN-025':
-        shell.notImplemented('路由设置', 'ACT-MAIN-025');
+        routing_actions.openRoutingSettings(context, ref);
       case 'ACT-MAIN-026':
-        shell.notImplemented('DNS 设置', 'ACT-MAIN-026');
+        routing_actions.openDnsSettings(context, ref);
       case 'ACT-MAIN-029':
         shell.notImplemented('以管理员身份重启', 'ACT-MAIN-029');
       case 'ACT-WIN-004':

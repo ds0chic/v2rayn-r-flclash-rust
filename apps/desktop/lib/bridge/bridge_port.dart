@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
+import 'package:v2rayn_desktop/bridge/api/dns.dart' as dns;
 import 'package:v2rayn_desktop/bridge/api/engine.dart' as engine;
 import 'package:v2rayn_desktop/bridge/api/groups.dart' as groups;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/profiles.dart' as rust;
+import 'package:v2rayn_desktop/bridge/api/routing.dart' as routing;
 import 'package:v2rayn_desktop/bridge/api/settings.dart' as settings;
 import 'package:v2rayn_desktop/bridge/api/subs.dart' as subs;
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
@@ -140,6 +142,60 @@ abstract class BridgePort {
   );
 
   int settingsRevision();
+
+  // -- T11 routing / DNS surface -----------------------------------------
+
+  routing.RoutingsPageDto listRoutings();
+
+  routing.RoutingDtoResult getRouting(String id);
+
+  routing.RoutingDtoResult saveRouting(routing.RoutingProfileDto draft);
+
+  c.SimpleResult deleteRouting(String id);
+
+  c.SimpleResult setDefaultRouting(String id);
+
+  routing.RoutingRulesPageDto listRoutingRules(String routingId);
+
+  routing.RoutingDtoResult saveRoutingRules(
+    String routingId,
+    List<routing.RoutingRuleDto> rules,
+  );
+
+  routing.RoutingDtoResult moveRoutingRule(
+    String routingId,
+    int index,
+    int direction,
+  );
+
+  routing.RoutingRulesTextResult importRoutingRules(
+    String routingId,
+    String text,
+    bool replace,
+  );
+
+  routing.RoutingRulesTextResult exportRoutingRules(
+    String routingId,
+    List<String> ids,
+  );
+
+  routing.RuleModeResult getRuleMode();
+
+  c.SimpleResult setRuleMode(String mode);
+
+  dns.DnsPageDto listDns();
+
+  dns.DnsDtoResult saveDns(dns.DnsProfileDto draft);
+
+  dns.DnsDtoResult importDefaultDns(CoreType core);
+
+  dns.SimpleDnsDtoResult loadSimpleDns();
+
+  dns.SimpleDnsDtoResult saveSimpleDns(dns.SimpleDnsDto draft, int revision);
+
+  dns.RegionalPresetResult applyRegionalPreset(String preset);
+
+  String defaultDnsText(String kind);
 }
 
 class FrbBridgePort implements BridgePort {
@@ -347,6 +403,94 @@ class FrbBridgePort implements BridgePort {
 
   @override
   int settingsRevision() => settings.settingsRevision().toInt();
+
+  // -- T11 routing / DNS (FRB) -------------------------------------------
+
+  @override
+  routing.RoutingsPageDto listRoutings() => routing.listRoutings();
+
+  @override
+  routing.RoutingDtoResult getRouting(String id) => routing.getRouting(id: id);
+
+  @override
+  routing.RoutingDtoResult saveRouting(routing.RoutingProfileDto draft) =>
+      routing.saveRouting(draft: draft);
+
+  @override
+  c.SimpleResult deleteRouting(String id) => routing.deleteRouting(id: id);
+
+  @override
+  c.SimpleResult setDefaultRouting(String id) =>
+      routing.setDefaultRouting(id: id);
+
+  @override
+  routing.RoutingRulesPageDto listRoutingRules(String routingId) =>
+      routing.listRoutingRules(routingId: routingId);
+
+  @override
+  routing.RoutingDtoResult saveRoutingRules(
+    String routingId,
+    List<routing.RoutingRuleDto> rules,
+  ) => routing.saveRoutingRules(routingId: routingId, rules: rules);
+
+  @override
+  routing.RoutingDtoResult moveRoutingRule(
+    String routingId,
+    int index,
+    int direction,
+  ) => routing.moveRoutingRule(
+    routingId: routingId,
+    index: index,
+    direction: direction,
+  );
+
+  @override
+  routing.RoutingRulesTextResult importRoutingRules(
+    String routingId,
+    String text,
+    bool replace,
+  ) => routing.importRoutingRules(
+    routingId: routingId,
+    text: text,
+    replace: replace,
+  );
+
+  @override
+  routing.RoutingRulesTextResult exportRoutingRules(
+    String routingId,
+    List<String> ids,
+  ) => routing.exportRoutingRules(routingId: routingId, ids: ids);
+
+  @override
+  routing.RuleModeResult getRuleMode() => routing.getRuleMode();
+
+  @override
+  c.SimpleResult setRuleMode(String mode) => routing.setRuleMode(mode: mode);
+
+  @override
+  dns.DnsPageDto listDns() => dns.listDns();
+
+  @override
+  dns.DnsDtoResult saveDns(dns.DnsProfileDto draft) =>
+      dns.saveDns(draft: draft);
+
+  @override
+  dns.DnsDtoResult importDefaultDns(CoreType core) =>
+      dns.importDefaultDns(core: core);
+
+  @override
+  dns.SimpleDnsDtoResult loadSimpleDns() => dns.loadSimpleDns();
+
+  @override
+  dns.SimpleDnsDtoResult saveSimpleDns(dns.SimpleDnsDto draft, int revision) =>
+      dns.saveSimpleDns(draft: draft, expectedRevision: BigInt.from(revision));
+
+  @override
+  dns.RegionalPresetResult applyRegionalPreset(String preset) =>
+      dns.applyRegionalPreset(preset: preset);
+
+  @override
+  String defaultDnsText(String kind) => dns.defaultDnsText(kind: kind);
 }
 
 /// Map a stored profile DTO onto the node-table summary shape. Traffic/delay
@@ -1374,5 +1518,403 @@ class SyntheticBridgePort implements BridgePort {
       messageKey: 'error.settings_json',
       retryable: false,
     ),
+  );
+
+  // -- T11 routing / DNS (synthetic) -------------------------------------
+
+  // -- T11 routing / DNS (synthetic) -------------------------------------
+
+  final List<routing.RoutingProfileDto> _routings = <routing.RoutingProfileDto>[
+    const routing.RoutingProfileDto(
+      id: 'syn-rt-white',
+      remarks: 'V4-绕过大陆(Whitelist)',
+      url: '',
+      ruleSet: '[]',
+      ruleNum: 0,
+      enabled: true,
+      locked: false,
+      customIcon: '',
+      customRulesetPath4Singbox: '',
+      domainStrategy: '',
+      domainStrategy4Singbox: '',
+      sort: 1,
+      isActive: true,
+    ),
+  ];
+  final Map<String, List<routing.RoutingRuleDto>> _rules =
+      <String, List<routing.RoutingRuleDto>>{};
+  final List<dns.DnsProfileDto> _dns = <dns.DnsProfileDto>[
+    const dns.DnsProfileDto(
+      id: 'syn-dns-xray',
+      remarks: 'V2ray',
+      enabled: false,
+      coreType: CoreType.xray,
+      useSystemHosts: false,
+    ),
+    const dns.DnsProfileDto(
+      id: 'syn-dns-sbox',
+      remarks: 'sing-box',
+      enabled: false,
+      coreType: CoreType.singBox,
+      useSystemHosts: false,
+    ),
+  ];
+  dns.SimpleDnsDto _simpleDns = const dns.SimpleDnsDto();
+  String _ruleMode = 'Rule';
+  int _rtSeq = 0;
+
+  @override
+  routing.RoutingsPageDto listRoutings() {
+    final items = List<routing.RoutingProfileDto>.of(_routings)
+      ..sort((a, b) => a.sort.compareTo(b.sort));
+    return routing.RoutingsPageDto(items: items);
+  }
+
+  @override
+  routing.RoutingDtoResult getRouting(String id) {
+    for (final r in _routings) {
+      if (r.id == id) return routing.RoutingDtoResult(ok: true, item: r);
+    }
+    return const routing.RoutingDtoResult(
+      ok: false,
+      error: c.ErrorDto(
+        code: 'E_NOT_FOUND',
+        messageKey: 'error.not_found',
+        retryable: false,
+      ),
+    );
+  }
+
+  @override
+  routing.RoutingDtoResult saveRouting(routing.RoutingProfileDto draft) {
+    if (draft.remarks.trim().isEmpty) {
+      return const routing.RoutingDtoResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_FIELD_REQUIRED',
+          messageKey: 'error.remarks_required',
+          fieldPath: 'remarks',
+          retryable: false,
+        ),
+      );
+    }
+    var saved = draft;
+    if (draft.id.trim().isEmpty) {
+      saved = _withRoutingId(draft, 'syn-rt-${_rtSeq++}');
+    }
+    final index = _routings.indexWhere((r) => r.id == saved.id);
+    if (index >= 0) {
+      _routings[index] = saved;
+    } else {
+      _routings.add(saved);
+    }
+    return routing.RoutingDtoResult(ok: true, item: saved);
+  }
+
+  @override
+  c.SimpleResult deleteRouting(String id) {
+    final before = _routings.length;
+    _routings.removeWhere((r) => r.id == id);
+    return before == _routings.length
+        ? const c.SimpleResult(
+            ok: false,
+            error: c.ErrorDto(
+              code: 'E_NOT_FOUND',
+              messageKey: 'error.not_found',
+              retryable: false,
+            ),
+          )
+        : const c.SimpleResult(ok: true);
+  }
+
+  @override
+  c.SimpleResult setDefaultRouting(String id) {
+    var found = false;
+    for (var i = 0; i < _routings.length; i++) {
+      final active = _routings[i].id == id;
+      if (active) found = true;
+      _routings[i] = _withRoutingActive(_routings[i], active);
+    }
+    return found
+        ? const c.SimpleResult(ok: true)
+        : const c.SimpleResult(
+            ok: false,
+            error: c.ErrorDto(
+              code: 'E_NOT_FOUND',
+              messageKey: 'error.not_found',
+              retryable: false,
+            ),
+          );
+  }
+
+  @override
+  routing.RoutingRulesPageDto listRoutingRules(String routingId) =>
+      routing.RoutingRulesPageDto(
+        ok: true,
+        rules: List<routing.RoutingRuleDto>.of(
+          _rules[routingId] ?? const <routing.RoutingRuleDto>[],
+        ),
+        warnings: const [],
+      );
+
+  @override
+  routing.RoutingDtoResult saveRoutingRules(
+    String routingId,
+    List<routing.RoutingRuleDto> rules,
+  ) {
+    _rules[routingId] = List.of(rules);
+    return getRouting(routingId);
+  }
+
+  @override
+  routing.RoutingDtoResult moveRoutingRule(
+    String routingId,
+    int index,
+    int direction,
+  ) {
+    final list = List<routing.RoutingRuleDto>.of(
+      _rules[routingId] ?? const <routing.RoutingRuleDto>[],
+    );
+    if (index < 0 || index >= list.length) {
+      return getRouting(routingId);
+    }
+    var target = index;
+    switch (direction) {
+      case 0:
+        target = 0;
+      case 1:
+        target = index - 1;
+      case 2:
+        target = index + 1;
+      case 3:
+        target = list.length - 1;
+    }
+    if (target >= 0 && target < list.length && target != index) {
+      final item = list.removeAt(index);
+      list.insert(target, item);
+      _rules[routingId] = list;
+    }
+    return getRouting(routingId);
+  }
+
+  @override
+  routing.RoutingRulesTextResult importRoutingRules(
+    String routingId,
+    String text,
+    bool replace,
+  ) {
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is! List) throw const FormatException();
+      final current = replace
+          ? <routing.RoutingRuleDto>[]
+          : List<routing.RoutingRuleDto>.of(
+              _rules[routingId] ?? const <routing.RoutingRuleDto>[],
+            );
+      for (final entry in decoded) {
+        if (entry is! Map) continue;
+        current.add(
+          routing.RoutingRuleDto(
+            id: 'syn-rule-${_rtSeq++}',
+            port: entry['port']?.toString(),
+            network: entry['network']?.toString(),
+            inboundTag: const [],
+            hasInboundTag: false,
+            outboundTag: entry['outboundTag']?.toString() ?? 'proxy',
+            ip: const [],
+            hasIp: false,
+            domain: const [],
+            hasDomain: false,
+            protocol: const [],
+            hasProtocol: false,
+            process: const [],
+            hasProcess: false,
+            enabled: true,
+            remarks: entry['remarks']?.toString(),
+          ),
+        );
+      }
+      _rules[routingId] = current;
+      return routing.RoutingRulesTextResult(
+        ok: true,
+        text: '',
+        ruleCount: current.length,
+      );
+    } catch (_) {
+      return const routing.RoutingRulesTextResult(
+        ok: false,
+        text: '',
+        ruleCount: 0,
+        error: c.ErrorDto(
+          code: 'E_FIELD_FORMAT',
+          messageKey: 'error.routing_rules_invalid',
+          retryable: false,
+        ),
+      );
+    }
+  }
+
+  @override
+  routing.RoutingRulesTextResult exportRoutingRules(
+    String routingId,
+    List<String> ids,
+  ) {
+    final list = _rules[routingId] ?? const [];
+    final selected = ids.isEmpty
+        ? list
+        : list.where((r) => ids.contains(r.id)).toList();
+    return routing.RoutingRulesTextResult(
+      ok: true,
+      text: jsonEncode(
+        selected.map((r) => {'outboundTag': r.outboundTag}).toList(),
+      ),
+      ruleCount: selected.length,
+    );
+  }
+
+  @override
+  routing.RuleModeResult getRuleMode() =>
+      routing.RuleModeResult(mode: _ruleMode);
+
+  @override
+  c.SimpleResult setRuleMode(String mode) {
+    if (mode != 'Rule' && mode != 'Global' && mode != 'Direct') {
+      return const c.SimpleResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_FIELD_RANGE',
+          messageKey: 'error.rule_mode_invalid',
+          fieldPath: 'mode',
+          retryable: false,
+        ),
+      );
+    }
+    _ruleMode = mode;
+    return const c.SimpleResult(ok: true);
+  }
+
+  @override
+  dns.DnsPageDto listDns() => dns.DnsPageDto(items: List.of(_dns));
+
+  @override
+  dns.DnsDtoResult saveDns(dns.DnsProfileDto draft) {
+    if (draft.remarks.trim().isEmpty) {
+      return const dns.DnsDtoResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_FIELD_REQUIRED',
+          messageKey: 'error.remarks_required',
+          fieldPath: 'remarks',
+          retryable: false,
+        ),
+      );
+    }
+    var saved = draft;
+    if (draft.id.trim().isEmpty) {
+      saved = dns.DnsProfileDto(
+        id: 'syn-dns-${_rtSeq++}',
+        remarks: draft.remarks,
+        enabled: draft.enabled,
+        coreType: draft.coreType,
+        useSystemHosts: draft.useSystemHosts,
+        normalDns: draft.normalDns,
+        tunDns: draft.tunDns,
+        domainStrategy4Freedom: draft.domainStrategy4Freedom,
+        domainDnsAddress: draft.domainDnsAddress,
+      );
+    }
+    final index = _dns.indexWhere((d) => d.id == saved.id);
+    if (index >= 0) {
+      _dns[index] = saved;
+    } else {
+      _dns.add(saved);
+    }
+    return dns.DnsDtoResult(ok: true, item: saved);
+  }
+
+  @override
+  dns.DnsDtoResult importDefaultDns(CoreType core) {
+    final index = _dns.indexWhere((d) => d.coreType == core);
+    const text = '{"servers": []}';
+    if (index >= 0) {
+      final current = _dns[index];
+      final updated = dns.DnsProfileDto(
+        id: current.id,
+        remarks: current.remarks,
+        enabled: current.enabled,
+        coreType: current.coreType,
+        useSystemHosts: current.useSystemHosts,
+        normalDns: text,
+        tunDns: text,
+        domainStrategy4Freedom: current.domainStrategy4Freedom,
+        domainDnsAddress: current.domainDnsAddress,
+      );
+      _dns[index] = updated;
+      return dns.DnsDtoResult(ok: true, item: updated);
+    }
+    return const dns.DnsDtoResult(ok: false);
+  }
+
+  @override
+  dns.SimpleDnsDtoResult loadSimpleDns() => dns.SimpleDnsDtoResult(
+    ok: true,
+    item: _simpleDns,
+    revision: BigInt.from(_settingsRevision),
+  );
+
+  @override
+  dns.SimpleDnsDtoResult saveSimpleDns(dns.SimpleDnsDto draft, int revision) {
+    _simpleDns = draft;
+    _settingsRevision += 1;
+    return dns.SimpleDnsDtoResult(
+      ok: true,
+      item: _simpleDns,
+      revision: BigInt.from(_settingsRevision),
+    );
+  }
+
+  @override
+  dns.RegionalPresetResult applyRegionalPreset(String preset) =>
+      dns.RegionalPresetResult(ok: true, preset: preset, pendingUrls: const []);
+
+  @override
+  String defaultDnsText(String kind) => '{"servers": []}';
+
+  routing.RoutingProfileDto _withRoutingId(
+    routing.RoutingProfileDto r,
+    String id,
+  ) => routing.RoutingProfileDto(
+    id: id,
+    remarks: r.remarks,
+    url: r.url,
+    ruleSet: r.ruleSet,
+    ruleNum: r.ruleNum,
+    enabled: r.enabled,
+    locked: r.locked,
+    customIcon: r.customIcon,
+    customRulesetPath4Singbox: r.customRulesetPath4Singbox,
+    domainStrategy: r.domainStrategy,
+    domainStrategy4Singbox: r.domainStrategy4Singbox,
+    sort: r.sort,
+    isActive: r.isActive,
+  );
+
+  routing.RoutingProfileDto _withRoutingActive(
+    routing.RoutingProfileDto r,
+    bool active,
+  ) => routing.RoutingProfileDto(
+    id: r.id,
+    remarks: r.remarks,
+    url: r.url,
+    ruleSet: r.ruleSet,
+    ruleNum: r.ruleNum,
+    enabled: r.enabled,
+    locked: r.locked,
+    customIcon: r.customIcon,
+    customRulesetPath4Singbox: r.customRulesetPath4Singbox,
+    domainStrategy: r.domainStrategy,
+    domainStrategy4Singbox: r.domainStrategy4Singbox,
+    sort: r.sort,
+    isActive: active,
   );
 }

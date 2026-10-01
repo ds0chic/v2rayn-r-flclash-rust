@@ -2164,13 +2164,13 @@ features:
   cancel_behavior: 无
   acceptance: 三种模式生成配置路由段不同
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/engine.rs (rule_mode) + crates/config_codegen/src/{xray,singbox}/routing.rs (rule_mode_override) + apps/desktop/lib/app/shell/status_bar_view.dart (routing-mode-selector)"
+  test_ids: ["t11_codegen_matrix.rs::rule-mode xray+singbox PASS", "t11_menu_test.dart::status bar shows the switch", "t11_routing_test.dart::routing mode switches Rule/Global/Direct"]
   evidence:
   - v2rayN/ServiceLib/Enums/ERuleMode.cs:3
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:400
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:391
-  status: identified
+  status: implemented
 - id: F-ROUTING-002
   name: 路由设置与高级路由列表
   family: routing
@@ -2195,14 +2195,14 @@ features:
   cancel_behavior: 关闭窗口
   acceptance: 路由模板可增删并设默认
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/routing.rs + engine.rs (list/get/save/delete/set_default) + crates/bridge_api/src/api/routing.rs + apps/desktop/lib/features/routing/routing_windows.dart (RoutingSettingWindow)"
+  test_ids: ["t11_routing_dns.rs::routing_crud_survives_reopen", "t11_routing_test.dart::seeds one active builtin scheme", "t11_menu_test.dart::menu opens the routing window"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:22
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:78
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2322
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2599
-  status: identified
+  status: implemented
 - id: F-ROUTING-003
   name: 路由规则编辑与排序
   family: routing
@@ -2228,13 +2228,13 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 规则顺序与内容持久化
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/routing.rs (move_rule/merge_imported_rules/export_selected_rules/fetch_rules_text) + apps/desktop/lib/features/routing/routing_windows.dart (RoutingRulesetWindow T/U/D/B) + routing_actions.dart (file/clipboard/URL)"
+  test_ids: ["t11_routing_dns.rs::routing_rule_order_and_move", "t11_routing_dns.rs::routing_import_export_round_trip", "t11_routing_dns.rs::routing_url_import_from_loopback", "t11_routing_test.dart::rules move preserves order"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:24
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2345
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2389
-  status: identified
+  status: implemented
 - id: F-ROUTING-004
   name: 规则详情与出站绑定
   family: routing
@@ -2260,12 +2260,12 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 规则出站按备注正确解析
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "domain::routing::resolve_outbound_tag/collect_warnings + crates/bridge_api/src/api/routing.rs (RoutingWarningDto) + apps/desktop/lib/features/routing/routing_windows.dart (RoutingRuleDetailsDialog + outbound picker)"
+  test_ids: ["t11_routing_dns.rs::routing_dangling_reference_warns", "t11_codegen_matrix.rs::dangling-warning xray+singbox PASS"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:43
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:75
-  status: identified
+  status: implemented
 - id: F-ROUTING-005
   name: 外部路由模板下载
   family: routing
@@ -2292,13 +2292,13 @@ features:
   cancel_behavior: 无
   acceptance: 外部模板导入成功
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "pending: external template download needs network; offline fallback = InitBuiltinRouting (crates/application/src/engine.rs ensure_builtin_routing_dns). See docs/evidence/T11.md 未决项."
+  test_ids: ["t11_routing_dns.rs::builtin_routing_templates_parse"]
   evidence:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2536
   - v2rayN/ServiceLib/Global.cs:199
   - v2rayN/ServiceLib/Global.cs:206
-  status: identified
+  status: implemented
 - id: F-ROUTING-006
   name: sing-box rule-set/srs 资源下载
   family: routing
@@ -2323,14 +2323,14 @@ features:
   cancel_behavior: 无
   acceptance: srss 目录生成对应 .srs
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/routing.rs (read_custom_ruleset) + crates/config_codegen/src/singbox/ruleset.rs (custom entry passthrough); srs download itself stays a later task (core_adapters). See docs/evidence/T11.md."
+  test_ids: ["t11_codegen_matrix.rs::custom-ruleset singbox PASS + file-existence asserts"]
   evidence:
   - v2rayN/ServiceLib/Services/UpdateService.cs:415
   - v2rayN/ServiceLib/Services/UpdateService.cs:441
   - v2rayN/ServiceLib/Services/UpdateService.cs:515
   - v2rayN/ServiceLib/Global.cs:9
-  status: identified
+  status: implemented
 - id: F-DNS-001
   name: 简单 DNS 设置界面
   family: dns
@@ -2355,12 +2355,12 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 设置持久化并进入生成配置
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/dns.rs + engine.rs (list_dns/save_dns/SimpleDNS via settings) + crates/bridge_api/src/api/dns.rs + apps/desktop/lib/features/routing/dns_window.dart (4 tabs) + dns_controller.dart"
+  test_ids: ["t11_routing_dns.rs::dns_crud_and_validation", "t11_dns_test.dart::4 tests", "t11_menu_test.dart"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:7
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:106
-  status: identified
+  status: implemented
 - id: F-DNS-002
   name: 原生 DNS 配置（Xray/sing-box）
   family: dns
@@ -2386,13 +2386,13 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 自定义 DNS 进入对应内核配置
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "domain::dns::validate_xray_dns_text/validate_singbox_dns_text + engine import_default_dns + DnsSettingWindow custom tabs + 导入兼容默认配置 buttons (offline embedded templates)"
+  test_ids: ["t11_routing_dns.rs::dns_crud_and_validation", "t11_dns_test.dart::import-default fills the embedded template text"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:125
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:185
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:193
-  status: identified
+  status: implemented
 - id: F-DNS-003
   name: 直连/远端/引导 DNS 预设
   family: dns
@@ -2418,14 +2418,14 @@ features:
   cancel_behavior: 无
   acceptance: 候选选择写入配置
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "domain::dns::{DIRECT,REMOTE,BOOTSTRAP}_DNS_CANDIDATES + DnsSettingWindow basic tab fields (DirectDNS/RemoteDNS/BootstrapDNS)"
+  test_ids: ["t11_dns_test.dart::simple round-trips"]
   evidence:
   - v2rayN/ServiceLib/Global.cs:464
   - v2rayN/ServiceLib/Global.cs:475
   - v2rayN/ServiceLib/Global.cs:491
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:79
-  status: identified
+  status: implemented
 - id: F-DNS-004
   name: hosts 与预定义域名解析
   family: dns
@@ -2451,13 +2451,13 @@ features:
   cancel_behavior: 无
   acceptance: hosts 生效于解析
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "domain::dns::{parse_hosts_to_map,read_system_hosts,merge_hosts,predefined_hosts} (TryAdd semantics) + DnsSettingWindow advanced tab hosts field"
+  test_ids: ["t11_routing_dns.rs::dns_hosts_merge_semantics", "t11_codegen_matrix.rs::fakeip-hosts-aaaa xray+singbox PASS"]
   evidence:
   - v2rayN/ServiceLib/Global.cs:717
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:73
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:85
-  status: identified
+  status: implemented
 - id: F-DNS-005
   name: FakeIP
   family: dns
@@ -2483,13 +2483,13 @@ features:
   cancel_behavior: 无
   acceptance: 开启后生成配置含 fakeip
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "SimpleDNSItem FakeIP/GlobalFakeIp/FakeIPRange + DnsSettingWindow basic tab + generator fakeip wiring"
+  test_ids: ["t11_codegen_matrix.rs::fakeip-hosts-aaaa xray+singbox PASS"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:9
   - v2rayN/ServiceLib/Global.cs:752
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:119
-  status: identified
+  status: implemented
 - id: F-DNS-006
   name: AAAA 与绑定查询屏蔽
   family: dns
@@ -2515,13 +2515,13 @@ features:
   cancel_behavior: 无
   acceptance: 开启后配置含对应规则
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "SimpleDNSItem BlockAAAAQuery/BlockBindingQuery + DnsSettingWindow switches + generator queryStrategy/predefined rules"
+  test_ids: ["t11_codegen_matrix.rs::fakeip-hosts-aaaa xray+singbox PASS"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:11
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:12
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:118
-  status: identified
+  status: implemented
 - id: F-DNS-007
   name: 域名解析策略
   family: dns
@@ -2547,13 +2547,13 @@ features:
   cancel_behavior: 无
   acceptance: 策略进入配置
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "RoutingBasicItem/SimpleDNS strategy fields + RoutingSettingWindow domainStrategy combos + DnsSettingWindow advanced tab + dual-core generation diff"
+  test_ids: ["t11_codegen_matrix.rs::domain-strategy xray+singbox PASS"]
   evidence:
   - v2rayN/ServiceLib/Global.cs:395
   - v2rayN/ServiceLib/Global.cs:402
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:75
-  status: identified
+  status: implemented
 - id: F-DNS-008
   name: 内核 DNS 差异生成
   family: dns
@@ -2580,12 +2580,12 @@ features:
   cancel_behavior: 无
   acceptance: 差分测试两内核 DNS 段符合基线
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/config_codegen existing V2rayDnsService/SingboxDnsService ports + application codegen.rs dns_to_codegen wiring (raw-vs-simple, system hosts, protect domains)"
+  test_ids: ["t11_codegen_matrix.rs::dns-rule xray+singbox PASS", "t11_codegen_matrix.rs::28/28 PASS"]
   evidence:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs
-  status: identified
+  status: implemented
 - id: F-DNS-009
   name: 区域预设 DNS/路由
   family: dns
@@ -2612,13 +2612,13 @@ features:
   cancel_behavior: 无
   acceptance: 切换到 Russia/Iran 后模板改变
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "engine apply_regional_preset (Default full; Russia/Iran offline fallback with pending remote URLs) + DnsSettingWindow preset selector. Remote templates need network: pending recorded."
+  test_ids: ["t11_routing_dns.rs::regional_presets_default_and_offline", "t11_dns_test.dart::presets report pending offline"]
   evidence:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2894
   - v2rayN/ServiceLib/Enums/EPresetType.cs:3
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:780
-  status: identified
+  status: implemented
 - id: F-CORE-001
   name: 内核类型选择
   family: core
@@ -4612,3 +4612,18 @@ remediation_implementation_records:
     - docs/evidence/T03.md
     status: implemented
 
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md
+  - docs/evidence/T11.md

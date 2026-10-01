@@ -190,6 +190,107 @@ impl SubRepository for SqliteSubRepository {
     }
 }
 
+/// A SQLite-backed routing repository sharing the profile store's `Store`.
+pub struct SqliteRoutingRepository {
+    store: Store,
+}
+
+impl SqliteRoutingRepository {
+    pub fn from_store(store: Store) -> Self {
+        Self { store }
+    }
+}
+
+impl crate::routing::RoutingRepository for SqliteRoutingRepository {
+    fn list(&self) -> Result<Vec<domain::RoutingProfile>, DomainError> {
+        let rows = self.store.read_rows("RoutingItem").map_err(storage_error)?;
+        let mut items: Vec<domain::RoutingProfile> =
+            rows.iter().map(crate::routing::routing_from_row).collect();
+        items.sort_by_key(|r| r.sort);
+        Ok(items)
+    }
+
+    fn get(&self, id: &str) -> Result<Option<domain::RoutingProfile>, DomainError> {
+        let rows = self
+            .store
+            .query_rows("SELECT * FROM \"RoutingItem\" WHERE \"Id\" = ?1", &[&id])
+            .map_err(storage_error)?;
+        Ok(rows.first().map(crate::routing::routing_from_row))
+    }
+
+    fn upsert(&mut self, item: domain::RoutingProfile) -> Result<(), DomainError> {
+        let row = crate::routing::routing_to_row(&item);
+        self.store
+            .upsert_row(self.store.connection(), &row)
+            .map_err(storage_error)
+    }
+
+    fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
+        let affected = self
+            .store
+            .execute("DELETE FROM \"RoutingItem\" WHERE \"Id\" = ?1", &[&id])
+            .map_err(storage_error)?;
+        Ok(affected > 0)
+    }
+
+    fn count(&self) -> usize {
+        self.store.count_rows("RoutingItem").unwrap_or(0) as usize
+    }
+}
+
+/// A SQLite-backed DNS repository sharing the profile store's `Store`.
+pub struct SqliteDnsRepository {
+    store: Store,
+}
+
+impl SqliteDnsRepository {
+    pub fn from_store(store: Store) -> Self {
+        Self { store }
+    }
+}
+
+impl crate::dns::DnsRepository for SqliteDnsRepository {
+    fn list(&self) -> Result<Vec<domain::DnsProfile>, DomainError> {
+        let rows = self.store.read_rows("DNSItem").map_err(storage_error)?;
+        let mut items: Vec<domain::DnsProfile> =
+            rows.iter().map(crate::dns::dns_from_row).collect();
+        items.sort_by(|a, b| {
+            a.core_type
+                .value()
+                .cmp(&b.core_type.value())
+                .then_with(|| a.remarks.cmp(&b.remarks))
+        });
+        Ok(items)
+    }
+
+    fn get(&self, id: &str) -> Result<Option<domain::DnsProfile>, DomainError> {
+        let rows = self
+            .store
+            .query_rows("SELECT * FROM \"DNSItem\" WHERE \"Id\" = ?1", &[&id])
+            .map_err(storage_error)?;
+        Ok(rows.first().map(crate::dns::dns_from_row))
+    }
+
+    fn upsert(&mut self, item: domain::DnsProfile) -> Result<(), DomainError> {
+        let row = crate::dns::dns_to_row(&item);
+        self.store
+            .upsert_row(self.store.connection(), &row)
+            .map_err(storage_error)
+    }
+
+    fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
+        let affected = self
+            .store
+            .execute("DELETE FROM \"DNSItem\" WHERE \"Id\" = ?1", &[&id])
+            .map_err(storage_error)?;
+        Ok(affected > 0)
+    }
+
+    fn count(&self) -> usize {
+        self.store.count_rows("DNSItem").unwrap_or(0) as usize
+    }
+}
+
 fn build_where(filter: &ProfileFilter) -> (String, Vec<String>) {
     let mut parts: Vec<String> = Vec::new();
     let mut params: Vec<String> = Vec::new();
@@ -471,6 +572,92 @@ impl SubRepository for SubStore {
         match self {
             SubStore::Memory(repo) => repo.count(),
             SubStore::Sqlite(repo) => repo.count(),
+        }
+    }
+}
+
+/// Storage backend for routing profiles, selected at engine construction.
+pub enum RoutingStore {
+    Memory(crate::routing::InMemoryRoutingRepository),
+    Sqlite(SqliteRoutingRepository),
+}
+
+impl crate::routing::RoutingRepository for RoutingStore {
+    fn list(&self) -> Result<Vec<domain::RoutingProfile>, DomainError> {
+        match self {
+            RoutingStore::Memory(repo) => repo.list(),
+            RoutingStore::Sqlite(repo) => repo.list(),
+        }
+    }
+
+    fn get(&self, id: &str) -> Result<Option<domain::RoutingProfile>, DomainError> {
+        match self {
+            RoutingStore::Memory(repo) => repo.get(id),
+            RoutingStore::Sqlite(repo) => repo.get(id),
+        }
+    }
+
+    fn upsert(&mut self, item: domain::RoutingProfile) -> Result<(), DomainError> {
+        match self {
+            RoutingStore::Memory(repo) => repo.upsert(item),
+            RoutingStore::Sqlite(repo) => repo.upsert(item),
+        }
+    }
+
+    fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
+        match self {
+            RoutingStore::Memory(repo) => repo.remove(id),
+            RoutingStore::Sqlite(repo) => repo.remove(id),
+        }
+    }
+
+    fn count(&self) -> usize {
+        match self {
+            RoutingStore::Memory(repo) => repo.count(),
+            RoutingStore::Sqlite(repo) => repo.count(),
+        }
+    }
+}
+
+/// Storage backend for DNS profiles, selected at engine construction.
+pub enum DnsStore {
+    Memory(crate::dns::InMemoryDnsRepository),
+    Sqlite(SqliteDnsRepository),
+}
+
+impl crate::dns::DnsRepository for DnsStore {
+    fn list(&self) -> Result<Vec<domain::DnsProfile>, DomainError> {
+        match self {
+            DnsStore::Memory(repo) => repo.list(),
+            DnsStore::Sqlite(repo) => repo.list(),
+        }
+    }
+
+    fn get(&self, id: &str) -> Result<Option<domain::DnsProfile>, DomainError> {
+        match self {
+            DnsStore::Memory(repo) => repo.get(id),
+            DnsStore::Sqlite(repo) => repo.get(id),
+        }
+    }
+
+    fn upsert(&mut self, item: domain::DnsProfile) -> Result<(), DomainError> {
+        match self {
+            DnsStore::Memory(repo) => repo.upsert(item),
+            DnsStore::Sqlite(repo) => repo.upsert(item),
+        }
+    }
+
+    fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
+        match self {
+            DnsStore::Memory(repo) => repo.remove(id),
+            DnsStore::Sqlite(repo) => repo.remove(id),
+        }
+    }
+
+    fn count(&self) -> usize {
+        match self {
+            DnsStore::Memory(repo) => repo.count(),
+            DnsStore::Sqlite(repo) => repo.count(),
         }
     }
 }

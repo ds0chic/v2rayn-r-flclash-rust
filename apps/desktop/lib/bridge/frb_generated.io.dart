@@ -4,10 +4,12 @@
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
 import 'api/contract.dart';
+import 'api/dns.dart';
 import 'api/engine.dart';
 import 'api/groups.dart';
 import 'api/mirrors.dart';
 import 'api/profiles.dart';
+import 'api/routing.dart';
 import 'api/settings.dart';
 import 'api/subs.dart';
 
@@ -56,6 +58,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreType dco_decode_box_autoadd_core_type(dynamic raw);
 
   @protected
+  DnsProfileDto dco_decode_box_autoadd_dns_profile_dto(dynamic raw);
+
+  @protected
   ErrorDto dco_decode_box_autoadd_error_dto(dynamic raw);
 
   @protected
@@ -87,7 +92,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProfileSummary dco_decode_box_autoadd_profile_summary(dynamic raw);
 
   @protected
+  RoutingProfileDto dco_decode_box_autoadd_routing_profile_dto(dynamic raw);
+
+  @protected
   SettingsDto dco_decode_box_autoadd_settings_dto(dynamic raw);
+
+  @protected
+  SimpleDnsDto dco_decode_box_autoadd_simple_dns_dto(dynamic raw);
 
   @protected
   SubItemDto dco_decode_box_autoadd_sub_item_dto(dynamic raw);
@@ -145,6 +156,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   DeleteSubsResult dco_decode_delete_subs_result(dynamic raw);
+
+  @protected
+  DnsDtoResult dco_decode_dns_dto_result(dynamic raw);
+
+  @protected
+  DnsPageDto dco_decode_dns_page_dto(dynamic raw);
+
+  @protected
+  DnsProfileDto dco_decode_dns_profile_dto(dynamic raw);
 
   @protected
   ErrorDto dco_decode_error_dto(dynamic raw);
@@ -215,6 +235,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CoreTypeBindingDto> dco_decode_list_core_type_binding_dto(dynamic raw);
 
   @protected
+  List<DnsProfileDto> dco_decode_list_dns_profile_dto(dynamic raw);
+
+  @protected
   List<FullConfigTemplateDto> dco_decode_list_full_config_template_dto(
     dynamic raw,
   );
@@ -242,6 +265,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ProfileSummary> dco_decode_list_profile_summary(dynamic raw);
+
+  @protected
+  List<RoutingProfileDto> dco_decode_list_routing_profile_dto(dynamic raw);
+
+  @protected
+  List<RoutingRuleDto> dco_decode_list_routing_rule_dto(dynamic raw);
+
+  @protected
+  List<RoutingWarningDto> dco_decode_list_routing_warning_dto(dynamic raw);
 
   @protected
   List<SettingsChangeDto> dco_decode_list_settings_change_dto(dynamic raw);
@@ -274,6 +306,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreType? dco_decode_opt_box_autoadd_core_type(dynamic raw);
 
   @protected
+  DnsProfileDto? dco_decode_opt_box_autoadd_dns_profile_dto(dynamic raw);
+
+  @protected
   ErrorDto? dco_decode_opt_box_autoadd_error_dto(dynamic raw);
 
   @protected
@@ -302,7 +337,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProfileSummary? dco_decode_opt_box_autoadd_profile_summary(dynamic raw);
 
   @protected
+  RoutingProfileDto? dco_decode_opt_box_autoadd_routing_profile_dto(
+    dynamic raw,
+  );
+
+  @protected
   SettingsDto? dco_decode_opt_box_autoadd_settings_dto(dynamic raw);
+
+  @protected
+  SimpleDnsDto? dco_decode_opt_box_autoadd_simple_dns_dto(dynamic raw);
 
   @protected
   SubItemDto? dco_decode_opt_box_autoadd_sub_item_dto(dynamic raw);
@@ -355,10 +398,37 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecoveryDto dco_decode_recovery_dto(dynamic raw);
 
   @protected
+  RegionalPresetResult dco_decode_regional_preset_result(dynamic raw);
+
+  @protected
   RevisionState dco_decode_revision_state(dynamic raw);
 
   @protected
   RoutingBasicItemDto dco_decode_routing_basic_item_dto(dynamic raw);
+
+  @protected
+  RoutingDtoResult dco_decode_routing_dto_result(dynamic raw);
+
+  @protected
+  RoutingProfileDto dco_decode_routing_profile_dto(dynamic raw);
+
+  @protected
+  RoutingRuleDto dco_decode_routing_rule_dto(dynamic raw);
+
+  @protected
+  RoutingRulesPageDto dco_decode_routing_rules_page_dto(dynamic raw);
+
+  @protected
+  RoutingRulesTextResult dco_decode_routing_rules_text_result(dynamic raw);
+
+  @protected
+  RoutingWarningDto dco_decode_routing_warning_dto(dynamic raw);
+
+  @protected
+  RoutingsPageDto dco_decode_routings_page_dto(dynamic raw);
+
+  @protected
+  RuleModeResult dco_decode_rule_mode_result(dynamic raw);
 
   @protected
   RuntimeState dco_decode_runtime_state(dynamic raw);
@@ -383,6 +453,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ShareExportResult dco_decode_share_export_result(dynamic raw);
+
+  @protected
+  SimpleDnsDto dco_decode_simple_dns_dto(dynamic raw);
+
+  @protected
+  SimpleDnsDtoResult dco_decode_simple_dns_dto_result(dynamic raw);
 
   @protected
   SimpleDnsItemDto dco_decode_simple_dns_item_dto(dynamic raw);
@@ -490,6 +566,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreType sse_decode_box_autoadd_core_type(SseDeserializer deserializer);
 
   @protected
+  DnsProfileDto sse_decode_box_autoadd_dns_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ErrorDto sse_decode_box_autoadd_error_dto(SseDeserializer deserializer);
 
   @protected
@@ -525,7 +606,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RoutingProfileDto sse_decode_box_autoadd_routing_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SettingsDto sse_decode_box_autoadd_settings_dto(SseDeserializer deserializer);
+
+  @protected
+  SimpleDnsDto sse_decode_box_autoadd_simple_dns_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   SubItemDto sse_decode_box_autoadd_sub_item_dto(SseDeserializer deserializer);
@@ -591,6 +682,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   DeleteSubsResult sse_decode_delete_subs_result(SseDeserializer deserializer);
+
+  @protected
+  DnsDtoResult sse_decode_dns_dto_result(SseDeserializer deserializer);
+
+  @protected
+  DnsPageDto sse_decode_dns_page_dto(SseDeserializer deserializer);
+
+  @protected
+  DnsProfileDto sse_decode_dns_profile_dto(SseDeserializer deserializer);
 
   @protected
   ErrorDto sse_decode_error_dto(SseDeserializer deserializer);
@@ -673,6 +773,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<DnsProfileDto> sse_decode_list_dns_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<FullConfigTemplateDto> sse_decode_list_full_config_template_dto(
     SseDeserializer deserializer,
   );
@@ -706,6 +811,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ProfileSummary> sse_decode_list_profile_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RoutingProfileDto> sse_decode_list_routing_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RoutingRuleDto> sse_decode_list_routing_rule_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RoutingWarningDto> sse_decode_list_routing_warning_dto(
     SseDeserializer deserializer,
   );
 
@@ -746,6 +866,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreType? sse_decode_opt_box_autoadd_core_type(SseDeserializer deserializer);
 
   @protected
+  DnsProfileDto? sse_decode_opt_box_autoadd_dns_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ErrorDto? sse_decode_opt_box_autoadd_error_dto(SseDeserializer deserializer);
 
   @protected
@@ -778,7 +903,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RoutingProfileDto? sse_decode_opt_box_autoadd_routing_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SettingsDto? sse_decode_opt_box_autoadd_settings_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SimpleDnsDto? sse_decode_opt_box_autoadd_simple_dns_dto(
     SseDeserializer deserializer,
   );
 
@@ -835,12 +970,49 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecoveryDto sse_decode_recovery_dto(SseDeserializer deserializer);
 
   @protected
+  RegionalPresetResult sse_decode_regional_preset_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RevisionState sse_decode_revision_state(SseDeserializer deserializer);
 
   @protected
   RoutingBasicItemDto sse_decode_routing_basic_item_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  RoutingDtoResult sse_decode_routing_dto_result(SseDeserializer deserializer);
+
+  @protected
+  RoutingProfileDto sse_decode_routing_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RoutingRuleDto sse_decode_routing_rule_dto(SseDeserializer deserializer);
+
+  @protected
+  RoutingRulesPageDto sse_decode_routing_rules_page_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RoutingRulesTextResult sse_decode_routing_rules_text_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RoutingWarningDto sse_decode_routing_warning_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RoutingsPageDto sse_decode_routings_page_dto(SseDeserializer deserializer);
+
+  @protected
+  RuleModeResult sse_decode_rule_mode_result(SseDeserializer deserializer);
 
   @protected
   RuntimeState sse_decode_runtime_state(SseDeserializer deserializer);
@@ -871,6 +1043,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ShareExportResult sse_decode_share_export_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SimpleDnsDto sse_decode_simple_dns_dto(SseDeserializer deserializer);
+
+  @protected
+  SimpleDnsDtoResult sse_decode_simple_dns_dto_result(
     SseDeserializer deserializer,
   );
 
@@ -1001,6 +1181,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_dns_profile_dto(
+    DnsProfileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_error_dto(
     ErrorDto self,
     SseSerializer serializer,
@@ -1049,8 +1235,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_routing_profile_dto(
+    RoutingProfileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_settings_dto(
     SettingsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_simple_dns_dto(
+    SimpleDnsDto self,
     SseSerializer serializer,
   );
 
@@ -1134,6 +1332,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     DeleteSubsResult self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_dns_dto_result(DnsDtoResult self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_dns_page_dto(DnsPageDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_dns_profile_dto(DnsProfileDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_error_dto(ErrorDto self, SseSerializer serializer);
@@ -1238,6 +1445,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_dns_profile_dto(
+    List<DnsProfileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_full_config_template_dto(
     List<FullConfigTemplateDto> self,
     SseSerializer serializer,
@@ -1285,6 +1498,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_profile_summary(
     List<ProfileSummary> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_routing_profile_dto(
+    List<RoutingProfileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_routing_rule_dto(
+    List<RoutingRuleDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_routing_warning_dto(
+    List<RoutingWarningDto> self,
     SseSerializer serializer,
   );
 
@@ -1340,6 +1571,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_dns_profile_dto(
+    DnsProfileDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_error_dto(
     ErrorDto? self,
     SseSerializer serializer,
@@ -1385,8 +1622,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_routing_profile_dto(
+    RoutingProfileDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_settings_dto(
     SettingsDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_simple_dns_dto(
+    SimpleDnsDto? self,
     SseSerializer serializer,
   );
 
@@ -1460,11 +1709,65 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_recovery_dto(RecoveryDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_regional_preset_result(
+    RegionalPresetResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_revision_state(RevisionState self, SseSerializer serializer);
 
   @protected
   void sse_encode_routing_basic_item_dto(
     RoutingBasicItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_routing_dto_result(
+    RoutingDtoResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_routing_profile_dto(
+    RoutingProfileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_routing_rule_dto(
+    RoutingRuleDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_routing_rules_page_dto(
+    RoutingRulesPageDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_routing_rules_text_result(
+    RoutingRulesTextResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_routing_warning_dto(
+    RoutingWarningDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_routings_page_dto(
+    RoutingsPageDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_rule_mode_result(
+    RuleModeResult self,
     SseSerializer serializer,
   );
 
@@ -1504,6 +1807,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_share_export_result(
     ShareExportResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_simple_dns_dto(SimpleDnsDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_simple_dns_dto_result(
+    SimpleDnsDtoResult self,
     SseSerializer serializer,
   );
 

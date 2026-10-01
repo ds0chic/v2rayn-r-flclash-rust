@@ -234,15 +234,29 @@ pub(crate) fn build_routing(state: &mut SboxState<'_>) -> Result<(), CodegenErro
     }
 
     let mut ip_rules: Vec<crate::input::CodegenRule> = Vec::new();
-    for rule in &routing.rule_set {
-        if !rule.enabled || rule.is_dns() {
-            continue;
-        }
-        gen_user_rule(state, rule)?;
-        if rule.ip.as_ref().is_some_and(|v| !v.is_empty()) {
-            ip_rules.push(rule.clone());
+    // `ERuleMode.Global` / `Direct` bypass user rules (F-ROUTING-001). The
+    // split position is recorded so the override can drop exactly the user
+    // rules while keeping the sniff / hijack-dns / clash_mode base.
+    let user_rule_start = state
+        .config
+        .get("route")
+        .and_then(|r| r.get("rules"))
+        .and_then(Value::as_array)
+        .map(|list| list.len())
+        .unwrap_or(0);
+    let bypass_user_rules = matches!(input.rule_mode.as_deref(), Some("Global") | Some("Direct"));
+    if !bypass_user_rules {
+        for rule in &routing.rule_set {
+            if !rule.enabled || rule.is_dns() {
+                continue;
+            }
+            gen_user_rule(state, rule)?;
+            if rule.ip.as_ref().is_some_and(|v| !v.is_empty()) {
+                ip_rules.push(rule.clone());
+            }
         }
     }
+    apply_rule_mode_override(state, user_rule_start);
     if input.settings.routing_basic.domain_strategy == IP_IF_NON_MATCH {
         push_rules(state, vec![resolve_rule]);
         for rule in &ip_rules {
@@ -256,6 +270,34 @@ fn set_route(state: &mut SboxState<'_>, key: &str, value: Value) {
     if let Some(route) = state.config.get_mut("route").and_then(Value::as_object_mut) {
         route.insert(key.into(), value);
     }
+}
+
+/// `ERuleMode` override (F-ROUTING-001). Drops the user rules emitted above
+/// and leaves a single catch-all; also points `final` at the mode outbound.
+fn apply_rule_mode_override(state: &mut SboxState<'_>, user_rule_start: usize) {
+    let mode = state.input.rule_mode.as_deref().unwrap_or("Rule");
+    if mode != "Global" && mode != "Direct" {
+        return;
+    }
+    let outbound = if mode == "Global" {
+        PROXY_TAG
+    } else {
+        DIRECT_TAG
+    };
+    if let Some(list) = state
+        .config
+        .get_mut("route")
+        .and_then(|r| r.get_mut("rules"))
+        .and_then(Value::as_array_mut)
+    {
+        list.truncate(user_rule_start);
+        list.push(json!({"outbound": outbound}));
+    }
+    set_route(state, "final", json!(outbound));
+    state.diagnostics.push(Diagnostic::info(
+        "rule_mode_override",
+        format!("rule mode '{mode}' replaced the user routing rules"),
+    ));
 }
 
 pub(crate) fn push_rules(state: &mut SboxState<'_>, rules: Vec<Value>) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
@@ -19,6 +20,8 @@ class StatusBarView extends ConsumerWidget {
     final shellController = ref.read(uiShellControllerProvider.notifier);
     final profiles = ref.watch(profilesControllerProvider);
     final runtime = ref.watch(runtimeControllerProvider);
+    final routing = ref.watch(routingControllerProvider);
+    final routingController = ref.read(routingControllerProvider.notifier);
     final scheme = Theme.of(context).colorScheme;
     final muted = TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant);
 
@@ -70,16 +73,47 @@ class StatusBarView extends ConsumerWidget {
                 ),
               ),
               const _Sep(),
-              PopupMenuButton<int>(
+              // F-ROUTING-001: Rule / Global / Direct mode switch (real
+              // backend switch through the routing controller).
+              PopupMenuButton<String>(
+                key: const ValueKey('routing-mode-selector'),
+                tooltip: '路由模式',
+                onSelected: routingController.setRuleMode,
+                itemBuilder: (context) => <PopupMenuEntry<String>>[
+                  for (final mode in ['Rule', 'Global', 'Direct'])
+                    PopupMenuItem<String>(
+                      value: mode,
+                      child: Text(
+                        mode == routing.ruleMode ? '✓ $mode' : mode,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                ],
+                child: Text('路由模式: ${routing.ruleMode}', style: muted),
+              ),
+              const _Sep(),
+              // Active routing scheme (upstream cmbRoutings2): switch default.
+              PopupMenuButton<String>(
                 key: const ValueKey('routing-selector'),
                 tooltip: '路由',
-                itemBuilder: (context) => const <PopupMenuEntry<int>>[
-                  PopupMenuItem<int>(
-                    value: 0,
-                    child: Text('(无路由配置)', style: TextStyle(fontSize: 12)),
-                  ),
+                onSelected: routingController.setDefault,
+                itemBuilder: (context) => <PopupMenuEntry<String>>[
+                  if (routing.items.isEmpty)
+                    const PopupMenuItem<String>(
+                      value: '',
+                      enabled: false,
+                      child: Text('(无路由配置)', style: TextStyle(fontSize: 12)),
+                    ),
+                  for (final item in routing.items)
+                    PopupMenuItem<String>(
+                      value: item.id,
+                      child: Text(
+                        item.isActive ? '✓ ${item.remarks}' : item.remarks,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
                 ],
-                child: Text('路由: ${shell.routingLabel ?? '--'}', style: muted),
+                child: Text('路由: ${_activeSchemeLabel(routing)}', style: muted),
               ),
               const _Sep(),
               Text(
@@ -149,6 +183,13 @@ class StatusBarView extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _activeSchemeLabel(RoutingState routing) {
+  for (final item in routing.items) {
+    if (item.isActive) return item.remarks;
+  }
+  return routing.items.isEmpty ? '--' : routing.items.first.remarks;
 }
 
 class _Sep extends StatelessWidget {

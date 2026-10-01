@@ -3279,7 +3279,7 @@ items:
   evidence:
   - v2rayN/ServiceLib/Models/Entities/DNSItem.cs:7
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2742
-  status: identified
+  status: implemented
 - id: FLD-ENT-117
   entity: DNSItem
   name: Remarks
@@ -3302,7 +3302,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/DNSItem.cs:9
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2709
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2717
-  status: identified
+  status: implemented
 - id: FLD-ENT-118
   entity: DNSItem
   name: Enabled
@@ -3326,7 +3326,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2692
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:91
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:179
-  status: identified
+  status: implemented
 - id: FLD-ENT-119
   entity: DNSItem
   name: CoreType
@@ -3349,7 +3349,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/DNSItem.cs:11
   - v2rayN/ServiceLib/Manager/AppManager.cs:313
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:48
-  status: identified
+  status: implemented
 - id: FLD-ENT-120
   entity: DNSItem
   name: UseSystemHosts
@@ -3373,7 +3373,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:466
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:92
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:182
-  status: identified
+  status: implemented
 - id: FLD-ENT-121
   entity: DNSItem
   name: NormalDNS
@@ -3398,7 +3398,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:433
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:554
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:95
-  status: identified
+  status: implemented
 - id: FLD-ENT-122
   entity: DNSItem
   name: TunDNS
@@ -3422,7 +3422,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:433
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:548
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:96
-  status: identified
+  status: implemented
 - id: FLD-ENT-123
   entity: DNSItem
   name: DomainStrategy4Freedom
@@ -3446,7 +3446,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:434
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:19
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:93
-  status: identified
+  status: implemented
 - id: FLD-ENT-124
   entity: DNSItem
   name: DomainDNSAddress
@@ -3470,7 +3470,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:525
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:593
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:94
-  status: identified
+  status: implemented
 - id: FLD-ENT-125
   entity: RoutingItem
   name: Id
@@ -3494,7 +3494,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/RoutingItem.cs:7
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2350
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2618
-  status: identified
+  status: implemented
 - id: FLD-ENT-126
   entity: RoutingItem
   name: Remarks
@@ -3517,7 +3517,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/RoutingItem.cs:9
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2633
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:96
-  status: identified
+  status: implemented
 - id: FLD-ENT-127
   entity: RoutingItem
   name: Url
@@ -3541,7 +3541,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2561
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2578
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:97
-  status: identified
+  status: implemented
 - id: FLD-ENT-128
   entity: RoutingItem
   name: RuleSet
@@ -3567,7 +3567,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:49
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:257
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:96
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-129
@@ -3593,7 +3593,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2362
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:237
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:94
-  status: identified
+  status: implemented
 - id: FLD-ENT-130
   entity: RoutingItem
   name: Enabled
@@ -3615,7 +3615,7 @@ items:
   evidence:
   - v2rayN/ServiceLib/Models/Entities/RoutingItem.cs:13
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2576
-  status: identified
+  status: implemented
 - id: FLD-ENT-131
   entity: RoutingItem
   name: Locked
@@ -3639,7 +3639,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2605
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2608
   notes: 代码注释标注为待移除的临时兼容逻辑
-  status: identified
+  status: implemented
 - id: FLD-ENT-132
   entity: RoutingItem
   name: CustomIcon
@@ -3665,7 +3665,7 @@ items:
   - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml.cs:30
   unresolved:
   - Avalonia 端 CustomIcon 绑定被注释（RoutingRuleSettingWindow.axaml.cs:34），跨平台行为未核实
-  status: identified
+  status: implemented
 - id: FLD-ENT-133
   entity: RoutingItem
   name: CustomRulesetPath4Singbox
@@ -3689,7 +3689,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRulesetService.cs:64
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRulesetService.cs:66
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:99
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-134
@@ -3714,7 +3714,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/RoutingItem.cs:17
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:40
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:45
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-135
@@ -3739,7 +3739,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/RoutingItem.cs:18
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:238
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:240
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-136
@@ -3765,7 +3765,7 @@ items:
   - v2rayN/ServiceLib/Manager/AppManager.cs:298
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2635
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2577
-  status: identified
+  status: implemented
 - id: FLD-ENT-137
   entity: RoutingItem
   name: IsActive
@@ -3790,7 +3790,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2477
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2498
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:397
-  status: identified
+  status: implemented
 - id: FLD-ENT-138
   entity: RulesItem
   name: Id
@@ -3814,7 +3814,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/RulesItem.cs:6
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:59
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:188
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-139
@@ -3841,7 +3841,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:130
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
-  status: identified
+  status: implemented
   notes: 审计 A06/U4：疑似死字段；保留数据不删行。生成期输出恒为 type=field，真正分支键是 ERuleType RuleType。
 - id: FLD-ENT-140
   entity: RulesItem
@@ -3867,7 +3867,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:95
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:356
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:105
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-141
@@ -3894,7 +3894,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:99
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:364
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:106
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-142
@@ -3921,7 +3921,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:115
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:372
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:101
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-143
@@ -3949,7 +3949,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:343
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:67
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:138
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-144
@@ -3976,7 +3976,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:107
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:142
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:97
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-145
@@ -4004,7 +4004,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:125
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:335
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:96
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-146
@@ -4031,7 +4031,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:111
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:368
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:100
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-147
@@ -4059,7 +4059,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:151
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:456
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:98
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-148
@@ -4086,7 +4086,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayRoutingService.cs:52
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxRoutingService.cs:260
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:221
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-149
@@ -4112,7 +4112,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/RulesItem.cs:17
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:71
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:104
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-150
@@ -4141,7 +4141,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:226
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:340
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:102
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-151

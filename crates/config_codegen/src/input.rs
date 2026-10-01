@@ -585,4 +585,7 @@ pub struct CodegenInput {
     pub routing: Option<CodegenRouting>,
     pub dns: Option<CodegenDns>,
     pub template: Option<CodegenTemplate>,
+    /// `ERuleMode` name (`Rule` / `Global` / `Direct`; `None` means `Rule`).
+    /// `Global` routes everything through the proxy, `Direct` through direct.
+    pub rule_mode: Option<String>,
 }

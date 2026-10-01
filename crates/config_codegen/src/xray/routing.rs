@@ -58,14 +58,19 @@ pub(crate) fn build_routing(state: &mut XrayState<'_>) -> Result<(), CodegenErro
     }
 
     if let Some(active) = &input.routing {
-        for rule in &active.rule_set {
-            if !rule.enabled || rule.is_dns() {
-                continue;
+        // `ERuleMode.Global` / `Direct` bypass user rules entirely: a single
+        // catch-all replaces them (F-ROUTING-001).
+        if !is_global_or_direct(input) {
+            for rule in &active.rule_set {
+                if !rule.enabled || rule.is_dns() {
+                    continue;
+                }
+                let copies = build_user_rule(state, rule)?;
+                push_rules(state, copies);
             }
-            let copies = build_user_rule(state, rule)?;
-            push_rules(state, copies);
         }
     }
+    apply_rule_mode_override(state);
 
     // balancer rewrite
     let balancer_tags: Vec<String> = state
@@ -119,6 +124,37 @@ fn push_rules(state: &mut XrayState<'_>, rules: Vec<Value>) {
     {
         list.extend(rules);
     }
+}
+
+/// `ERuleMode` override (F-ROUTING-001): `Global` forces a proxy catch-all,
+/// `Direct` a direct catch-all, replacing the user rule set.
+fn is_global_or_direct(input: &crate::input::CodegenInput) -> bool {
+    matches!(input.rule_mode.as_deref(), Some("Global") | Some("Direct"))
+}
+
+fn apply_rule_mode_override(state: &mut XrayState<'_>) {
+    let mode = state.input.rule_mode.as_deref().unwrap_or("Rule");
+    if mode != "Global" && mode != "Direct" {
+        return;
+    }
+    let outbound = if mode == "Global" {
+        PROXY_TAG
+    } else {
+        DIRECT_TAG
+    };
+    if let Some(rules) = state
+        .config
+        .get_mut("routing")
+        .and_then(|r| r.get_mut("rules"))
+        .and_then(Value::as_array_mut)
+    {
+        rules.clear();
+        rules.push(json!({"type": "field", "network": "tcp,udp", "outboundTag": outbound}));
+    }
+    state.diagnostics.push(Diagnostic::info(
+        "rule_mode_override",
+        format!("rule mode '{mode}' replaced the user routing rules"),
+    ));
 }
 
 fn append_tun_rules(state: &mut XrayState<'_>) {

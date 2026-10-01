@@ -10,7 +10,8 @@ use std::sync::{Arc, Mutex};
 
 use domain::{
     AppSettings, AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType,
-    DesiredRevision, DomainError, FullConfigTemplate, JobId, Profile, RuntimePlan,
+    DesiredRevision, DnsProfile, DomainError, FullConfigTemplate, JobId, Profile, RoutingProfile,
+    RuleMode, RuntimePlan,
 };
 use serde_json::Value;
 
@@ -30,8 +31,11 @@ use crate::settings::{
 use crate::snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
 use persistence::Store;
 
+use crate::dns::{DnsRepository, InMemoryDnsRepository};
+use crate::routing::{InMemoryRoutingRepository, RoutingRepository};
 use crate::store_repo::{
-    storage_error, ProfileStore, SqliteProfileRepository, SqliteSubRepository, SubStore,
+    storage_error, DnsStore, ProfileStore, RoutingStore, SqliteDnsRepository,
+    SqliteProfileRepository, SqliteRoutingRepository, SqliteSubRepository, SubStore,
 };
 use crate::subs::{
     build_candidates, download_all, new_sub_id, report_to_json, sub_error_outcome, unix_now,
@@ -46,6 +50,9 @@ pub const DATA_DIR_ENV: &str = "V2RAYN_R_DATA_DIR";
 pub struct AppEngine {
     repo: Arc<Mutex<ProfileStore>>,
     subs: Arc<Mutex<SubStore>>,
+    routing: Arc<Mutex<RoutingStore>>,
+    dns_items: Arc<Mutex<DnsStore>>,
+    rule_mode: Arc<Mutex<RuleMode>>,
     revisions: Arc<Mutex<RevisionStore>>,
     active: Arc<Mutex<Option<String>>>,
     templates: Arc<Mutex<Vec<FullConfigTemplate>>>,
@@ -72,11 +79,16 @@ impl AppEngine {
     }
 
     pub fn with_runtime(runtime: Arc<dyn RuntimeClient>) -> Self {
-        Self {
+        let engine = Self {
             repo: Arc::new(Mutex::new(ProfileStore::Memory(
                 InMemoryProfileRepository::new(),
             ))),
             subs: Arc::new(Mutex::new(SubStore::Memory(InMemorySubRepository::new()))),
+            routing: Arc::new(Mutex::new(RoutingStore::Memory(
+                InMemoryRoutingRepository::new(),
+            ))),
+            dns_items: Arc::new(Mutex::new(DnsStore::Memory(InMemoryDnsRepository::new()))),
+            rule_mode: Arc::new(Mutex::new(RuleMode::Rule)),
             revisions: Arc::new(Mutex::new(RevisionStore::new())),
             active: Arc::new(Mutex::new(None)),
             templates: Arc::new(Mutex::new(crate::templates::builtins())),
@@ -86,7 +98,9 @@ impl AppEngine {
             runtime,
             sub_scheduler: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
-        }
+        };
+        engine.ensure_builtin_routing_dns();
+        engine
     }
 
     /// Open a real SQLite-backed engine rooted at `data_dir` (creating
@@ -118,10 +132,26 @@ impl AppEngine {
 
         let sub_store =
             SqliteSubRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+        let routing_store =
+            SqliteRoutingRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+        let dns_store =
+            SqliteDnsRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+        let rule_mode = config
+            .get("rule_mode")
+            .and_then(Value::as_str)
+            .map(|s| match s {
+                "Global" => RuleMode::Global,
+                "Direct" => RuleMode::Direct,
+                _ => RuleMode::Rule,
+            })
+            .unwrap_or(RuleMode::Rule);
 
-        Ok(Self {
+        let engine = Self {
             repo: Arc::new(Mutex::new(ProfileStore::Sqlite(sqlite))),
             subs: Arc::new(Mutex::new(SubStore::Sqlite(sub_store))),
+            routing: Arc::new(Mutex::new(RoutingStore::Sqlite(routing_store))),
+            dns_items: Arc::new(Mutex::new(DnsStore::Sqlite(dns_store))),
+            rule_mode: Arc::new(Mutex::new(rule_mode)),
             revisions: Arc::new(Mutex::new(RevisionStore::with_desired(
                 DesiredRevision::new(desired),
             ))),
@@ -133,7 +163,9 @@ impl AppEngine {
             runtime,
             sub_scheduler: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
-        })
+        };
+        engine.ensure_builtin_routing_dns();
+        Ok(engine)
     }
 
     /// Resolve the application data directory: `V2RAYN_R_DATA_DIR` when set,
@@ -353,6 +385,428 @@ impl AppEngine {
         self.active.lock().ok().and_then(|guard| guard.clone())
     }
 
+    // -- T11 routing / DNS use cases ----------------------------------------
+
+    /// Seed built-in routing profiles + DNS rows when the stores are empty
+    /// (upstream `ConfigHandler.InitBuiltinRouting` / `InitBuiltinDNS`).
+    fn ensure_builtin_routing_dns(&self) {
+        let empty_routing = self.routing.lock().map(|r| r.count() == 0).unwrap_or(false);
+        if empty_routing {
+            let mut seq = 0;
+            for (mut profile, _) in domain::routing::builtin_profiles() {
+                seq += 1;
+                profile.id = crate::routing::new_routing_id();
+                profile.sort = seq;
+                // First profile (whitelist) becomes the default.
+                profile.is_active = seq == 1;
+                if let Ok(normalized) = crate::routing::normalize_routing(profile.clone()) {
+                    profile = normalized;
+                }
+                let _ = self.routing.lock().map(|mut r| r.upsert(profile));
+            }
+        }
+        let empty_dns = self
+            .dns_items
+            .lock()
+            .map(|d| d.count() == 0)
+            .unwrap_or(false);
+        if empty_dns {
+            for mut item in domain::dns::builtin_dns_profiles() {
+                item.id = crate::dns::new_dns_id();
+                let _ = self.dns_items.lock().map(|mut d| d.upsert(item));
+            }
+        }
+    }
+
+    /// All routing profiles in `Sort` order.
+    pub fn list_routings(&self) -> Result<Vec<RoutingProfile>, DomainError> {
+        self.routing
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .list()
+    }
+
+    /// One routing profile by id.
+    pub fn get_routing(&self, id: &str) -> Result<Option<RoutingProfile>, DomainError> {
+        self.routing
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .get(id)
+    }
+
+    /// The active routing profile, falling back to the first row (upstream
+    /// `ConfigHandler.GetDefaultRouting`).
+    pub fn default_routing(&self) -> Result<Option<RoutingProfile>, DomainError> {
+        let items = self.list_routings()?;
+        if items.is_empty() {
+            return Ok(None);
+        }
+        Ok(Some(
+            items
+                .iter()
+                .find(|r| r.is_active)
+                .or_else(|| items.first())
+                .cloned()
+                .unwrap(),
+        ))
+    }
+
+    /// Save (insert or replace) one routing profile. Remarks are required and
+    /// the embedded rules must each carry a match criterion.
+    pub fn save_routing(&self, profile: RoutingProfile) -> Result<RoutingProfile, DomainError> {
+        let normalized = crate::routing::normalize_routing(profile)?;
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        self.routing
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .upsert(normalized.clone())?;
+        revisions.bump();
+        self.persist_config(&revisions)?;
+        Ok(normalized)
+    }
+
+    /// Delete one routing profile. Deleting the active profile promotes the
+    /// first remaining row to active (upstream always has a default).
+    pub fn delete_routing(&self, id: &str) -> Result<bool, DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let was_active = self.get_routing(id)?.map(|r| r.is_active).unwrap_or(false);
+        let removed = self
+            .routing
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .remove(id)?;
+        if removed && was_active {
+            let items = self
+                .routing
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+                .list()?;
+            if let Some(first) = items.into_iter().next() {
+                let mut first = first;
+                first.is_active = true;
+                self.routing
+                    .lock()
+                    .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+                    .upsert(first)?;
+            }
+        }
+        if removed {
+            revisions.bump();
+            self.persist_config(&revisions)?;
+        }
+        Ok(removed)
+    }
+
+    /// Mark one routing profile as the default (`IsActive` switch, upstream
+    /// `ConfigHandler.SetDefaultRouting`). Already-active is a no-op error.
+    pub fn set_default_routing(&self, id: &str) -> Result<(), DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut store = self
+            .routing
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let items = store.list()?;
+        if items.iter().any(|r| r.id == id && r.is_active) {
+            return Err(DomainError::new(
+                domain::codes::CONFLICT,
+                "error.routing_already_default",
+            ));
+        }
+        if !items.iter().any(|r| r.id == id) {
+            return Err(DomainError::not_found("routing", id));
+        }
+        for mut item in items {
+            item.is_active = item.id == id;
+            store.upsert(item)?;
+        }
+        revisions.bump();
+        drop(store);
+        self.persist_config(&revisions)?;
+        Ok(())
+    }
+
+    /// Move one rule inside a profile's rule set and persist the new order.
+    pub fn move_routing_rule(
+        &self,
+        routing_id: &str,
+        index: usize,
+        direction: domain::routing::MoveDirection,
+    ) -> Result<RoutingProfile, DomainError> {
+        let mut profile = self
+            .get_routing(routing_id)?
+            .ok_or_else(|| DomainError::not_found("routing", routing_id))?;
+        let mut rules = domain::routing::parse_rules(&profile)?;
+        domain::routing::move_rule(&mut rules, index, direction)?;
+        domain::routing::set_rules(&mut profile, &rules)?;
+        self.save_routing(profile)
+    }
+
+    /// Replace or append imported rules on a profile and persist.
+    pub fn import_routing_rules(
+        &self,
+        routing_id: &str,
+        text: &str,
+        replace: bool,
+    ) -> Result<RoutingProfile, DomainError> {
+        let mut profile = self
+            .get_routing(routing_id)?
+            .ok_or_else(|| DomainError::not_found("routing", routing_id))?;
+        let current = domain::routing::parse_rules(&profile)?;
+        let merged = crate::routing::merge_imported_rules(&current, text, replace)?;
+        domain::routing::set_rules(&mut profile, &merged)?;
+        self.save_routing(profile)
+    }
+
+    /// Export rules of a profile (all, or the `ids` selection) as JSON text.
+    pub fn export_routing_rules(
+        &self,
+        routing_id: &str,
+        ids: Option<&[String]>,
+    ) -> Result<String, DomainError> {
+        let profile = self
+            .get_routing(routing_id)?
+            .ok_or_else(|| DomainError::not_found("routing", routing_id))?;
+        let rules = domain::routing::parse_rules(&profile)?;
+        match ids {
+            Some(ids) => crate::routing::export_selected_rules(&rules, ids),
+            None => domain::routing::export_rules(&rules),
+        }
+    }
+
+    /// Structured dangling-reference warnings for a profile's rule set
+    /// (upstream: fall back to `proxy` with a warning).
+    pub fn routing_warnings(
+        &self,
+        routing_id: &str,
+    ) -> Result<Vec<domain::routing::RoutingWarning>, DomainError> {
+        let profile = self
+            .get_routing(routing_id)?
+            .ok_or_else(|| DomainError::not_found("routing", routing_id))?;
+        let rules = domain::routing::parse_rules(&profile)?;
+        let remarks = self.profile_remarks()?;
+        Ok(domain::routing::collect_warnings(&rules, &remarks))
+    }
+
+    fn profile_remarks(&self) -> Result<Vec<String>, DomainError> {
+        let repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let page = repo.query(
+            &crate::repository::ProfileFilter::default(),
+            crate::repository::ProfileSort::IndexId,
+            crate::repository::PageRequest {
+                cursor: 0,
+                page_size: u32::MAX,
+            },
+        )?;
+        Ok(page.items.into_iter().map(|p| p.remarks).collect())
+    }
+
+    /// All DNS profiles ordered by core then remarks.
+    pub fn list_dns(&self) -> Result<Vec<DnsProfile>, DomainError> {
+        self.dns_items
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .list()
+    }
+
+    /// The DNS row for one core, if any.
+    pub fn get_dns_for_core(&self, core: CoreType) -> Result<Option<DnsProfile>, DomainError> {
+        Ok(self.list_dns()?.into_iter().find(|d| d.core_type == core))
+    }
+
+    /// Save (insert or replace) one DNS profile with per-core validation.
+    pub fn save_dns(&self, profile: DnsProfile) -> Result<DnsProfile, DomainError> {
+        let normalized = crate::dns::normalize_dns(profile)?;
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        self.dns_items
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .upsert(normalized.clone())?;
+        revisions.bump();
+        self.persist_config(&revisions)?;
+        Ok(normalized)
+    }
+
+    /// Fill a core's DNS row with the embedded default config
+    /// (`ImportDefConfig4V2ray` / `ImportDefConfig4Singbox`). Creates the row
+    /// when missing. Returns the saved profile.
+    pub fn import_default_dns(&self, core: CoreType) -> Result<DnsProfile, DomainError> {
+        let existing = self.get_dns_for_core(core)?;
+        let mut profile = existing.unwrap_or(DnsProfile {
+            id: String::new(),
+            remarks: if core == CoreType::SingBox {
+                "sing-box".to_string()
+            } else {
+                "V2ray".to_string()
+            },
+            enabled: false,
+            core_type: core,
+            ..Default::default()
+        });
+        let (normal, tun) = if core == CoreType::SingBox {
+            (
+                domain::dns::DEFAULT_SINGBOX_DNS.to_string(),
+                domain::dns::DEFAULT_TUN_SINGBOX_DNS.to_string(),
+            )
+        } else {
+            (
+                domain::dns::DEFAULT_V2RAY_DNS.to_string(),
+                domain::dns::DEFAULT_V2RAY_DNS.to_string(),
+            )
+        };
+        profile.normal_dns = Some(normal);
+        profile.tun_dns = Some(tun);
+        self.save_dns(profile)
+    }
+
+    /// Apply a regional preset (upstream `ConfigHandler.ApplyRegionalPreset`).
+    ///
+    /// `Default` resets geo/SRS/routing-template URLs, re-seeds built-in DNS
+    /// rows and restores the built-in SimpleDNS. Russia / Iran set the region
+    /// URLs and enable custom DNS with the embedded defaults; the remote
+    /// per-region templates need network, so their URLs are reported pending
+    /// (no silent fake content is written).
+    pub fn apply_regional_preset(
+        &self,
+        preset: crate::dns::RegionalPreset,
+    ) -> Result<(Vec<String>, crate::dns::RegionalPreset), DomainError> {
+        {
+            let mut settings = self
+                .settings
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            match preset {
+                crate::dns::RegionalPreset::Default => {
+                    settings.settings.const_item.geo_source_url = None;
+                    settings.settings.const_item.srs_source_url = None;
+                    settings.settings.const_item.route_rules_template_source_url = None;
+                    settings.settings.simple_dns_item = domain::SimpleDnsItem::builtin();
+                }
+                crate::dns::RegionalPreset::RussiaOffline => {
+                    settings.settings.const_item.geo_source_url = Some(
+                        "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/{0}.dat"
+                            .to_string(),
+                    );
+                    settings.settings.const_item.srs_source_url = Some(
+                        "https://github.com/runetfreedom/sing-box-rules/rule-set-{0}/{1}.srs"
+                            .to_string(),
+                    );
+                    settings.settings.const_item.route_rules_template_source_url = Some(
+                        "https://github.com/runetfreedom/russia-v2ray-rules-dat/release/routing.json"
+                            .to_string(),
+                    );
+                }
+                crate::dns::RegionalPreset::IranOffline => {
+                    settings.settings.const_item.geo_source_url = Some(
+                        "https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/{0}.dat"
+                            .to_string(),
+                    );
+                    settings.settings.const_item.srs_source_url = Some(
+                        "https://github.com/Chocolate4U/Iran-sing-box-rules/rule-set-{0}/{1}.srs"
+                            .to_string(),
+                    );
+                    settings.settings.const_item.route_rules_template_source_url = Some(
+                        "https://github.com/Chocolate4U/Iran-v2ray-rules/release/routing.json"
+                            .to_string(),
+                    );
+                }
+            }
+            settings.revision += 1;
+        }
+        if preset == crate::dns::RegionalPreset::Default {
+            let mut store = self
+                .dns_items
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for item in store.list()? {
+                let _ = store.remove(&item.id.clone());
+            }
+            drop(store);
+            self.ensure_builtin_routing_dns();
+            let revisions = self
+                .revisions
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            self.persist_config(&revisions)?;
+            return Ok((Vec::new(), preset));
+        }
+        // Offline fallback: enable custom DNS rows with the embedded defaults
+        // so generation keeps working; remote region templates stay pending.
+        for core in [CoreType::Xray, CoreType::SingBox] {
+            let mut profile = self.get_dns_for_core(core)?.unwrap_or(DnsProfile {
+                id: String::new(),
+                remarks: if core == CoreType::SingBox {
+                    "sing-box".to_string()
+                } else {
+                    "V2ray".to_string()
+                },
+                enabled: true,
+                core_type: core,
+                ..Default::default()
+            });
+            profile.enabled = true;
+            if profile
+                .normal_dns
+                .as_ref()
+                .is_none_or(|s| s.trim().is_empty())
+            {
+                let (normal, tun) = if core == CoreType::SingBox {
+                    (
+                        domain::dns::DEFAULT_SINGBOX_DNS.to_string(),
+                        domain::dns::DEFAULT_TUN_SINGBOX_DNS.to_string(),
+                    )
+                } else {
+                    (
+                        domain::dns::DEFAULT_V2RAY_DNS.to_string(),
+                        domain::dns::DEFAULT_V2RAY_DNS.to_string(),
+                    )
+                };
+                profile.normal_dns = Some(normal);
+                profile.tun_dns = Some(tun);
+            }
+            let _ = self.save_dns(profile);
+        }
+        let pending = crate::dns::pending_remote_templates(&preset);
+        Ok((pending, preset))
+    }
+
+    /// Current routing mode (`ERuleMode`: Rule / Global / Direct).
+    pub fn rule_mode(&self) -> RuleMode {
+        self.rule_mode
+            .lock()
+            .ok()
+            .map(|g| *g)
+            .unwrap_or(RuleMode::Rule)
+    }
+
+    /// Switch the routing mode (persisted in `guiNConfig.json`).
+    pub fn set_rule_mode(&self, mode: RuleMode) -> Result<(), DomainError> {
+        let revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        *self
+            .rule_mode
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))? = mode;
+        self.persist_config(&revisions)?;
+        Ok(())
+    }
+
     // -- T12a settings use cases -------------------------------------------
 
     /// Current whole-tree settings revision.
@@ -457,6 +911,12 @@ impl AppEngine {
             return Ok(());
         };
         let active = self.active.lock().ok().and_then(|guard| guard.clone());
+        let rule_mode = self
+            .rule_mode
+            .lock()
+            .ok()
+            .map(|g| *g)
+            .unwrap_or(RuleMode::Rule);
         let templates = self
             .templates
             .lock()
@@ -482,6 +942,14 @@ impl AppEngine {
             serde_json::json!(revisions.desired().get()),
         );
         object.insert("active_index_id".to_string(), serde_json::json!(active));
+        object.insert(
+            "rule_mode".to_string(),
+            serde_json::json!(match rule_mode {
+                RuleMode::Global => "Global",
+                RuleMode::Direct => "Direct",
+                _ => "Rule",
+            }),
+        );
         object.insert(
             "full_config_templates".to_string(),
             serde_json::json!(templates),
@@ -1040,7 +1508,9 @@ impl AppEngine {
     }
 
     /// Assemble the pure generator input for `index_id` on `core`: the full
-    /// profile set, inline custom/outbound contents and the stored template.
+    /// profile set, inline custom/outbound contents, the stored template, and
+    /// — since T11 — the real active routing profile, DNS rows, SimpleDNS,
+    /// settings tree and routing mode.
     pub fn build_codegen_input(
         &self,
         index_id: &str,
@@ -1068,13 +1538,56 @@ impl AppEngine {
             .get_template_for_core(core)?
             .as_ref()
             .and_then(crate::codegen::template_for);
-        Ok(crate::codegen::build_input(
+        // Active routing profile -> generator model (custom ruleset file is IO
+        // done here; the generator only sees the parsed value).
+        let routing = self.default_routing()?.map(|item| {
+            let custom = if item.custom_ruleset_path4_singbox.trim().is_empty() {
+                None
+            } else {
+                crate::routing::read_custom_ruleset(&item.custom_ruleset_path4_singbox)
+            };
+            crate::codegen::routing_to_codegen(&item, custom)
+        });
+        // DNS row for this core + SimpleDNS + read-only system hosts.
+        let dns_row = self.get_dns_for_core(core).ok().flatten();
+        let settings_snapshot = self
+            .settings
+            .lock()
+            .map(|g| g.settings.clone())
+            .unwrap_or_default();
+        let system_hosts = domain::dns::read_system_hosts();
+        let protect_domains: Vec<String> = profiles
+            .iter()
+            .filter_map(|p| {
+                if is_domain_name(&p.address) {
+                    Some(p.address.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let dns = Some(crate::codegen::dns_to_codegen(
+            dns_row.as_ref(),
+            &settings_snapshot.simple_dns_item,
+            system_hosts,
+            protect_domains,
+        ));
+        let rule_mode = match self.rule_mode() {
+            RuleMode::Global => Some("Global".to_string()),
+            RuleMode::Direct => Some("Direct".to_string()),
+            _ => None,
+        };
+        Ok(crate::codegen::build_input_full(
             &active,
             &profiles,
             None,
             outbound_contents,
             template,
             opts,
+            &settings_snapshot,
+            routing,
+            dns,
+            rule_mode,
         ))
     }
 
@@ -1169,6 +1682,7 @@ fn read_config(dir: &Path) -> Result<Value, DomainError> {
 pub const SETTINGS_META_KEYS: &[&str] = &[
     "desired_revision",
     "active_index_id",
+    "rule_mode",
     "full_config_templates",
     "settings_revision",
     "settings_group_revisions",
@@ -1301,6 +1815,20 @@ pub fn empty_snapshot() -> Snapshot {
 
 /// Marker for the applied revision type used by tests.
 pub type Applied = AppliedRevision;
+
+/// Upstream `Utils.IsDomain` subset: non-IP, non-localhost, dotted hostname.
+fn is_domain_name(value: &str) -> bool {
+    let value = value.trim();
+    if value.is_empty() || value == "localhost" || !value.contains('.') {
+        return false;
+    }
+    if value.parse::<std::net::IpAddr>().is_ok() {
+        return false;
+    }
+    value
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_'))
+}
 
 /// Marker to keep `JobView` import used in public signatures.
 pub type ActiveJob = JobView;

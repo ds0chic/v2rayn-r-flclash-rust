@@ -19,6 +19,7 @@
 // large-Err lint is allowed here with intent.
 #![allow(clippy::result_large_err)]
 
+pub mod dns;
 pub mod entities;
 pub mod enums;
 pub mod error;
@@ -27,6 +28,7 @@ pub mod job;
 pub mod profile;
 pub mod reference;
 pub mod revision;
+pub mod routing;
 pub mod runtime_plan;
 pub mod settings;
 pub mod settings_timing;

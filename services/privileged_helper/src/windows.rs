@@ -53,10 +53,73 @@ extern "system" {
         startup_info: *mut StartupInfoW,
         process_information: *mut ProcessInformation,
     ) -> i32;
-    fn CreateJobObjectW(job_attributes: *mut c_void, name: *const u16) -> *mut c_void;
-    fn AssignProcessToJobObject(job: *mut c_void, process: *mut c_void) -> i32;
     fn ResumeThread(thread: *mut c_void) -> u32;
     fn TerminateProcess(process: *mut c_void, exit_code: u32) -> i32;
+}
+
+/// Arm a Job Object with `KILL_ON_JOB_CLOSE` so a managed core can never
+/// outlive the helper that owns it.
+fn configure_job_kill_on_close(job: HANDLE) -> Result<(), HelperError> {
+    use windows::Win32::System::JobObjects::{
+        JobObjectExtendedLimitInformation, SetInformationJobObject,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+    let mut info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION::default();
+    info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+    unsafe {
+        SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const std::ffi::c_void,
+            std::mem::size_of_val(&info) as u32,
+        )
+    }
+    .map_err(|error| HelperError::Backend {
+        detail: format!("SetInformationJobObject(KILL_ON_JOB_CLOSE) failed: {error}"),
+    })
+}
+
+/// Bind a process to its Job Object. Any failure aborts the launch: without
+/// the job the core could outlive the helper, so the session fails instead
+/// of running unowned.
+fn assign_to_job(job: HANDLE, process: HANDLE) -> Result<(), HelperError> {
+    use windows::Win32::System::JobObjects::AssignProcessToJobObject;
+    unsafe { AssignProcessToJobObject(job, process) }.map_err(|error| {
+        HelperError::JobAssignFailed {
+            detail: format!("AssignProcessToJobObject failed: {error}"),
+        }
+    })
+}
+
+/// Creation time of the process behind `handle`, as Unix milliseconds.
+fn creation_time_of_handle(handle: HANDLE) -> Option<i64> {
+    use windows::Win32::System::Threading::GetProcessTimes;
+    unsafe {
+        let mut creation = windows::Win32::Foundation::FILETIME::default();
+        let mut exit = windows::Win32::Foundation::FILETIME::default();
+        let mut kernel = windows::Win32::Foundation::FILETIME::default();
+        let mut user = windows::Win32::Foundation::FILETIME::default();
+        GetProcessTimes(handle, &mut creation, &mut exit, &mut kernel, &mut user).ok()?;
+        Some(filetime_to_unix_ms(&creation))
+    }
+}
+
+/// Creation time of a live `pid`, as Unix milliseconds (`None` when the
+/// process is gone or not visible).
+fn pid_creation_time_ms(pid: u32) -> Option<i64> {
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let created = creation_time_of_handle(handle);
+        let _ = CloseHandle(handle);
+        created
+    }
+}
+
+fn filetime_to_unix_ms(ft: &windows::Win32::Foundation::FILETIME) -> i64 {
+    const WINDOWS_TO_UNIX_EPOCH_100NS: i64 = 116_444_736_000_000_000;
+    let raw = ((ft.dwHighDateTime as u64) << 32) | ft.dwLowDateTime as u64;
+    ((raw as i64) - WINDOWS_TO_UNIX_EPOCH_100NS) / 10_000
 }
 
 #[link(name = "iphlpapi")]
@@ -277,6 +340,10 @@ fn unicast_row(
 struct CoreRecord {
     process: usize,
     job: usize,
+    /// PID plus creation time (cf. `runtime::identity::ProcessIdentity`): a
+    /// bare PID can be recycled, so `stop` re-verifies both before killing.
+    pid: u32,
+    created_at_ms: i64,
 }
 
 /// Real Windows backend. Constructor and method construction logic are compiled
@@ -406,11 +473,34 @@ impl HelperBackend for WindowsBackend {
             });
         }
 
-        let job = unsafe { CreateJobObjectW(std::ptr::null_mut(), std::ptr::null()) };
-        if !job.is_null() {
+        let created_at_ms = creation_time_of_handle(HANDLE(info.h_process)).unwrap_or(0);
+        let pid = info.dw_process_id;
+
+        let job = {
+            use windows::Win32::System::JobObjects::CreateJobObjectW;
             unsafe {
-                AssignProcessToJobObject(job, info.h_process);
+                CreateJobObjectW(None, None).map_err(|error| HelperError::Backend {
+                    detail: format!("CreateJobObjectW failed: {error}"),
+                })?
             }
+        };
+        if let Err(error) = configure_job_kill_on_close(job) {
+            unsafe {
+                TerminateProcess(info.h_process, 1);
+                let _ = CloseHandle(HANDLE(info.h_process));
+                let _ = CloseHandle(HANDLE(info.h_thread));
+                let _ = CloseHandle(job);
+            }
+            return Err(error);
+        }
+        if let Err(error) = assign_to_job(job, HANDLE(info.h_process)) {
+            unsafe {
+                TerminateProcess(info.h_process, 1);
+                let _ = CloseHandle(HANDLE(info.h_process));
+                let _ = CloseHandle(HANDLE(info.h_thread));
+                let _ = CloseHandle(job);
+            }
+            return Err(error);
         }
         unsafe {
             ResumeThread(info.h_thread);
@@ -423,13 +513,12 @@ impl HelperBackend for WindowsBackend {
             handle,
             CoreRecord {
                 process: info.h_process as usize,
-                job: job as usize,
+                job: job.0 as usize,
+                pid,
+                created_at_ms,
             },
         );
-        Ok(StartedCore {
-            handle,
-            pid: info.dw_process_id,
-        })
+        Ok(StartedCore { handle, pid })
     }
 
     fn stop_elevated_core(&self, handle: u64) -> Result<(), HelperError> {
@@ -437,6 +526,18 @@ impl HelperBackend for WindowsBackend {
             return Err(HelperError::UnknownHandle { handle });
         }
         if let Some(record) = self.cores.lock().expect("cores poisoned").remove(&handle) {
+            // PID + creation-time binding: refuse to kill a recycled PID that
+            // merely reused the recorded number.
+            let live = pid_creation_time_ms(record.pid);
+            if live.is_none_or(|created| created != record.created_at_ms) {
+                unsafe {
+                    let _ = CloseHandle(HANDLE(record.process as *mut c_void));
+                    if record.job != 0 {
+                        let _ = CloseHandle(HANDLE(record.job as *mut c_void));
+                    }
+                }
+                return Err(HelperError::UnknownHandle { handle });
+            }
             unsafe {
                 TerminateProcess(record.process as *mut c_void, 1);
                 let _ = CloseHandle(HANDLE(record.process as *mut c_void));
@@ -538,5 +639,38 @@ mod tests {
         assert_eq!(row.interface_index, 7);
         assert_eq!(row.destination_prefix.prefix_length, 0);
         assert_eq!(row.metric, 3);
+    }
+
+    #[test]
+    fn job_object_arms_kill_on_close() {
+        use windows::Win32::System::JobObjects::CreateJobObjectW;
+        let job = unsafe { CreateJobObjectW(None, None) }.expect("create job object");
+        configure_job_kill_on_close(job).expect("arm KILL_ON_JOB_CLOSE");
+        unsafe {
+            let _ = CloseHandle(job);
+        }
+    }
+
+    #[test]
+    fn assign_to_invalid_job_fails_structured() {
+        let err =
+            assign_to_job(HANDLE(std::ptr::null_mut()), HANDLE(std::ptr::null_mut())).unwrap_err();
+        assert!(matches!(err, HelperError::JobAssignFailed { .. }));
+        // `privileged_helper` has no direct `domain` dependency; compare the
+        // stable code string (`ipc_contract` maps it to E_JOB_ASSIGN_FAILED).
+        assert_eq!(err.to_domain().code, "E_JOB_ASSIGN_FAILED");
+    }
+
+    #[test]
+    fn process_identity_binds_pid_and_creation_time() {
+        // `privileged_helper` cannot add a `runtime` dependency here, so the
+        // PID + creation-time binding lives next to the Job code and mirrors
+        // `runtime::identity::ProcessIdentity`.
+        let me = std::process::id();
+        let created = pid_creation_time_ms(me).expect("current process has a creation time");
+        assert!(created > 0);
+        // Same PID still matches itself; a bogus PID has no creation time.
+        assert_eq!(pid_creation_time_ms(me), Some(created));
+        assert_eq!(pid_creation_time_ms(0xFFFF_FFF0), None);
     }
 }

@@ -7,9 +7,11 @@ import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Theme setting window (LAY-THEME-001).
 ///
-/// Theme, accent, font family, font size and language apply immediately to the
-/// live UI (`immediate` timing) and persist to `UIItem`; reopening the app
-/// restores them.
+/// Theme, accent and font size apply immediately (`immediate` timing);
+/// font family, language and main layout direction are applied live
+/// in-session ahead of restart but their authoritative `apply_timing` is
+/// `RestartApp` (see `settings_timing.rs`), so a restart converges them.
+/// All persist to `UIItem`; reopening the app restores them.
 class ThemeSettingDialog extends ConsumerStatefulWidget {
   const ThemeSettingDialog({super.key});
 
@@ -35,6 +37,10 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
     });
   }
 
+  /// Last successfully persisted `UiItem` draft. A failed save rolls the
+  /// draft entry back to this snapshot and keeps the old theme applied.
+  Map<String, dynamic> _lastSaved = <String, dynamic>{};
+
   void _ensureDraft() {
     final state = ref.read(settingsControllerProvider);
     if (!state.loaded) return;
@@ -42,35 +48,47 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
         ref.read(settingsControllerProvider.notifier).draft()['UiItem']
             as Map<String, dynamic>? ??
         <String, dynamic>{};
+    _lastSaved = Map<String, dynamic>.of(_ui);
   }
 
-  void _apply() {
-    final theme = _ui['CurrentTheme'] as String?;
-    final accent = _ui['ColorPrimaryName'] as String?;
-    final family = _ui['CurrentFontFamily'] as String?;
-    final size = (_ui['CurrentFontSize'] as num?)?.toInt();
-    ref
-        .read(uiShellControllerProvider.notifier)
-        .applyThemeSelection(
-          theme: theme,
-          accent: accent ?? '',
-          fontFamily: family ?? '',
-          fontSize: size,
-          language: _ui['CurrentLanguage'] as String?,
-        );
+  void _apply(String key) {
     final result = ref
         .read(settingsControllerProvider.notifier)
         .saveGroup('UiItem', _ui);
-    setState(() {
-      _status = result.ok ? '已应用' : (result.error?.messageKey ?? '保存失败');
-    });
+    if (result.ok) {
+      _lastSaved = Map<String, dynamic>.of(_ui);
+      _applyTheme(_ui);
+      setState(() {
+        _status = '已应用';
+      });
+    } else {
+      // Save first, apply second: on failure the old theme stays applied
+      // and the draft entry is reverted so the UI cannot diverge from it.
+      _ui[key] = _lastSaved[key];
+      _applyTheme(_lastSaved);
+      setState(() {
+        _status = result.error?.messageKey ?? '保存失败';
+      });
+    }
+  }
+
+  void _applyTheme(Map<String, dynamic> ui) {
+    ref
+        .read(uiShellControllerProvider.notifier)
+        .applyThemeSelection(
+          theme: ui['CurrentTheme'] as String?,
+          accent: (ui['ColorPrimaryName'] as String?) ?? '',
+          fontFamily: (ui['CurrentFontFamily'] as String?) ?? '',
+          fontSize: (ui['CurrentFontSize'] as num?)?.toInt(),
+          language: ui['CurrentLanguage'] as String?,
+        );
   }
 
   String? _status;
 
   void _set(String key, Object? value) {
     setState(() => _ui[key] = value);
-    _apply();
+    _apply(key);
   }
 
   bool _draftInit = false;

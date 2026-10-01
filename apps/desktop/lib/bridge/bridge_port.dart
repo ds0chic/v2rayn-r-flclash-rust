@@ -94,6 +94,9 @@ abstract class BridgePort {
 
   c.JobDto? jobView(String jobId);
 
+  /// Idempotent cancellation of an in-flight job (F-SUB-003).
+  c.CancelResult cancelJob(String jobId);
+
   Future<c.ImportResult> importFromText(
     String text, {
     String? subid,
@@ -335,6 +338,9 @@ class FrbBridgePort implements BridgePort {
   c.JobDto? jobView(String jobId) => subs.jobView(jobId: jobId);
 
   @override
+  c.CancelResult cancelJob(String jobId) => engine.cancelJob(jobId: jobId);
+
+  @override
   Future<c.ImportResult> importFromText(
     String text, {
     String? subid,
@@ -531,6 +537,12 @@ class RustBridgeInit {
 }
 
 /// Deterministic Dart-side generator used only by tests.
+///
+/// UI-state assertions only: synthetic successes (`added: 3`) never traverse
+/// the Rust pipeline. Successful subscription replacement is evidenced
+/// solely by the Rust `subs_pipeline` tests; widget tests must not be cited
+/// as replacement evidence. Disk-writing operations (`writeExportFile`)
+/// report a structured "not wired" failure instead of faking success.
 class SyntheticBridgePort implements BridgePort {
   SyntheticBridgePort({this.count = 10000});
 
@@ -871,7 +883,9 @@ class SyntheticBridgePort implements BridgePort {
         );
         continue;
       }
-      // Synthetic success: 3 deterministic nodes per subscription.
+      // Synthetic success (UI-only): 3 deterministic nodes per
+      // subscription. The `synthetic` marker distinguishes this from a
+      // real Rust pipeline result; see the class docs.
       entries.add(
         c.SubUpdateEntryDto(
           subId: item.id,
@@ -879,6 +893,7 @@ class SyntheticBridgePort implements BridgePort {
           status: 'updated',
           added: 3,
           existing: 0,
+          message: 'synthetic',
         ),
       );
     }
@@ -907,6 +922,16 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   c.JobDto? jobView(String jobId) => null;
+
+  /// Jobs cancelled through the synthetic bridge, in call order. Widget
+  /// tests assert against this; it is not a success signal.
+  final List<String> cancelledJobs = <String>[];
+
+  @override
+  c.CancelResult cancelJob(String jobId) {
+    cancelledJobs.add(jobId);
+    return const c.CancelResult(outcome: CancelOutcome.requested);
+  }
 
   @override
   Future<c.ImportResult> importFromText(
@@ -1034,7 +1059,17 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   c.SimpleResult writeExportFile(String path, String text) =>
-      const c.SimpleResult(ok: true);
+      const c.SimpleResult(
+        // Synthetic: nothing is written to disk. A structured "not wired"
+        // failure (never `ok: true`) so the test double cannot be mistaken
+        // for a real export; the production FRB bridge performs the write.
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_NOT_WIRED',
+          messageKey: 'error.not_wired',
+          retryable: false,
+        ),
+      );
 
   // -- T10 group / template (synthetic) ----------------------------------
 

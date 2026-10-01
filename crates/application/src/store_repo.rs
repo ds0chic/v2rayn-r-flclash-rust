@@ -57,6 +57,59 @@ impl SqliteProfileRepository {
     pub fn store(&self) -> &Store {
         &self.store
     }
+
+    /// Atomically replace one subscription's nodes in a single SQLite
+    /// transaction: delete the existing rows for `subid`, then upsert the
+    /// replacement set. Any failure rolls the transaction back so the old
+    /// nodes survive. `fail_after_delete` is a test-only injection that
+    /// errors after the deletes (before commit) to prove the rollback.
+    pub fn replace_for_sub(
+        &self,
+        subid: &str,
+        profiles: Vec<Profile>,
+        remove_existing: bool,
+        fail_after_delete: bool,
+    ) -> Result<(usize, usize), DomainError> {
+        let existing: Vec<String> = self
+            .store
+            .query_rows(
+                "SELECT * FROM \"ProfileItem\" WHERE \"Subid\" = ?1",
+                &[&subid],
+            )
+            .map_err(storage_error)?
+            .iter()
+            .map(|row| row.string("IndexId"))
+            .collect();
+        let removed = if remove_existing { existing.len() } else { 0 };
+        let tx = self.store.begin().map_err(storage_error)?;
+        if remove_existing {
+            for id in &existing {
+                tx.execute(
+                    "DELETE FROM \"ProfileItem\" WHERE \"IndexId\" = ?1",
+                    rusqlite::params![id],
+                )
+                .map_err(storage_error)?;
+            }
+        }
+        if fail_after_delete {
+            return Err(DomainError::new(codes::INTERNAL, "error.storage")
+                .with_detail("injected failure after delete"));
+        }
+        for profile in &profiles {
+            let row = row_from_profile(profile);
+            self.store.upsert_row(&tx, &row).map_err(storage_error)?;
+        }
+        tx.commit().map_err(storage_error)?;
+        let added = self
+            .store
+            .query_rows(
+                "SELECT * FROM \"ProfileItem\" WHERE \"Subid\" = ?1",
+                &[&subid],
+            )
+            .map_err(storage_error)?
+            .len();
+        Ok((added, removed))
+    }
 }
 
 impl ProfileRepository for SqliteProfileRepository {
@@ -491,6 +544,69 @@ pub enum ProfileStore {
     Sqlite(SqliteProfileRepository),
 }
 
+impl ProfileStore {
+    /// Transactional replace for one subscription (see
+    /// [`SqliteProfileRepository::replace_for_sub`]). The in-memory backend
+    /// snapshots the affected rows and restores them on failure so the
+    /// "old data survives a mid-replace error" contract holds for tests.
+    pub fn replace_for_sub(
+        &mut self,
+        subid: &str,
+        profiles: Vec<Profile>,
+        remove_existing: bool,
+        fail_after_delete: bool,
+    ) -> Result<(usize, usize), DomainError> {
+        match self {
+            ProfileStore::Memory(repo) => {
+                let snapshot = repo.snapshot_for_sub(subid);
+                let mut removed = 0usize;
+                let result: Result<(usize, usize), DomainError> = (|| {
+                    if remove_existing {
+                        for id in snapshot
+                            .iter()
+                            .map(|p| p.index_id.clone())
+                            .collect::<Vec<_>>()
+                        {
+                            if repo.remove(&id)? {
+                                removed += 1;
+                            }
+                        }
+                    }
+                    if fail_after_delete {
+                        return Err(DomainError::new(codes::INTERNAL, "error.storage")
+                            .with_detail("injected failure after delete"));
+                    }
+                    for profile in &profiles {
+                        repo.upsert(profile.clone())?;
+                    }
+                    let added = repo
+                        .query(
+                            &crate::repository::ProfileFilter {
+                                subid: Some(subid.to_string()),
+                                ..Default::default()
+                            },
+                            crate::repository::ProfileSort::IndexId,
+                            crate::repository::PageRequest {
+                                cursor: 0,
+                                page_size: u32::MAX,
+                            },
+                        )?
+                        .items
+                        .len();
+                    Ok((added, removed))
+                })();
+                if result.is_err() {
+                    repo.restore_snapshot(subid, snapshot);
+                }
+                result
+            }
+            ProfileStore::Sqlite(repo) => {
+                repo.replace_for_sub(subid, profiles, remove_existing, fail_after_delete)
+            }
+        }
+    }
+}
+
 impl ProfileRepository for ProfileStore {
     fn get(&self, index_id: &str) -> Result<Option<Profile>, DomainError> {
         match self {
@@ -666,6 +782,41 @@ impl crate::dns::DnsRepository for DnsStore {
 mod tests {
     use super::*;
     use crate::synthetic::synthetic_full_profile;
+
+    #[test]
+    fn sqlite_replace_for_sub_rolls_back_on_injected_failure() {
+        use crate::synthetic::synthetic_full_profile;
+        let repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let mut seed = vec![synthetic_full_profile(1), synthetic_full_profile(2)];
+        for p in &mut seed {
+            p.subid = "s-sql".to_string();
+        }
+        let (added, _) = repo.replace_for_sub("s-sql", seed, true, false).unwrap();
+        assert_eq!(added, 2);
+        let mut replacement = vec![synthetic_full_profile(3)];
+        for p in &mut replacement {
+            p.subid = "s-sql".to_string();
+        }
+        let err = repo
+            .replace_for_sub("s-sql", replacement, true, true)
+            .unwrap_err();
+        assert_eq!(err.code, domain::codes::INTERNAL);
+        let kept: Vec<_> = repo
+            .query(
+                &crate::repository::ProfileFilter {
+                    subid: Some("s-sql".to_string()),
+                    ..Default::default()
+                },
+                crate::repository::ProfileSort::IndexId,
+                crate::repository::PageRequest {
+                    cursor: 0,
+                    page_size: u32::MAX,
+                },
+            )
+            .unwrap()
+            .items;
+        assert_eq!(kept.len(), 2);
+    }
 
     #[test]
     fn round_trips_all_extras_through_sqlite() {

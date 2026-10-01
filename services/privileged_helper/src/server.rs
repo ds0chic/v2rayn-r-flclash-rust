@@ -283,41 +283,65 @@ impl<B: HelperBackend> HelperServer<B> {
 
     /// Clean up the resources owned by a disconnected session. Idempotent:
     /// a second call on an already-closed lease performs no backend work.
-    pub fn on_disconnect(&self, lease: &mut ConnectionLease) {
+    ///
+    /// Per-resource failures are returned (not swallowed) and recorded in the
+    /// audit log with an `Error` outcome so an operator can see what was left
+    /// behind. Failed cleanups need recovery by the owning plane (net-host
+    /// owns route/TUN reconciliation; see the T17 input register).
+    pub fn on_disconnect(&self, lease: &mut ConnectionLease) -> Vec<HelperError> {
         if lease.closed {
-            return;
+            return Vec::new();
         }
         lease.closed = true;
+        let mut failures: Vec<HelperError> = Vec::new();
         let policy = self.config.lease_policy;
         match policy {
             LeasePolicy::LeaveRunning => {}
             LeasePolicy::StopCoresOnly => {
                 for handle in std::mem::take(&mut lease.cores) {
-                    let _ = self.backend.stop_elevated_core(handle);
+                    if let Err(error) = self.backend.stop_elevated_core(handle) {
+                        failures.push(error);
+                    }
                 }
             }
             LeasePolicy::CleanOwned => {
                 if !lease.routes.is_empty() {
                     let routes = std::mem::take(&mut lease.routes);
-                    let _ = self.backend.remove_routes(&routes);
+                    if let Err(error) = self.backend.remove_routes(&routes) {
+                        failures.push(error);
+                    }
                 }
                 for interface_index in std::mem::take(&mut lease.tun_interfaces) {
-                    let _ = self.backend.reset_tun_address(interface_index);
+                    if let Err(error) = self.backend.reset_tun_address(interface_index) {
+                        failures.push(error);
+                    }
                 }
                 for handle in std::mem::take(&mut lease.cores) {
-                    let _ = self.backend.stop_elevated_core(handle);
+                    if let Err(error) = self.backend.stop_elevated_core(handle) {
+                        failures.push(error);
+                    }
                 }
             }
         }
         lease.routes.clear();
         lease.tun_interfaces.clear();
         lease.cores.clear();
-        self.audit.record(
-            &lease.session_id,
-            "lease_cleanup",
-            &format!("policy={policy:?}"),
-            AuditOutcome::Ok,
-        );
+        let (outcome, summary) = if failures.is_empty() {
+            (AuditOutcome::Ok, format!("policy={policy:?}"))
+        } else {
+            let labels: Vec<&str> = failures.iter().map(error_label).collect();
+            (
+                AuditOutcome::Error,
+                format!(
+                    "policy={policy:?} cleanup_failures={} [{}] (needs owner recovery)",
+                    failures.len(),
+                    labels.join(","),
+                ),
+            )
+        };
+        self.audit
+            .record(&lease.session_id, "lease_cleanup", &summary, outcome);
+        failures
     }
 }
 
@@ -349,6 +373,7 @@ fn error_label(error: &HelperError) -> &'static str {
         HelperError::PathOutOfBounds { .. } => "path_out_of_bounds",
         HelperError::UnknownHandle { .. } => "unknown_handle",
         HelperError::Backend { .. } => "backend",
+        HelperError::JobAssignFailed { .. } => "job_assign_failed",
         HelperError::Timeout { .. } => "timeout",
     }
 }
@@ -362,7 +387,9 @@ fn classify(error: &HelperError) -> AuditOutcome {
         | HelperError::NotAllowlisted { .. }
         | HelperError::PathOutOfBounds { .. }
         | HelperError::UnknownHandle { .. } => AuditOutcome::Rejected,
-        HelperError::Backend { .. } | HelperError::Timeout { .. } => AuditOutcome::Error,
+        HelperError::Backend { .. }
+        | HelperError::JobAssignFailed { .. }
+        | HelperError::Timeout { .. } => AuditOutcome::Error,
     }
 }
 
@@ -443,7 +470,10 @@ where
                 detail: "client SID mismatch".to_string(),
             });
             let _ = write_response(&mut writer, &response).await;
-            server.on_disconnect(&mut lease);
+            let failures = server.on_disconnect(&mut lease);
+            if !failures.is_empty() {
+                eprintln!("[helper] disconnect cleanup failures: {}", failures.len());
+            }
             server.connection_closed();
             return Ok(());
         }
@@ -494,7 +524,99 @@ where
         }
     }
 
-    server.on_disconnect(&mut lease);
+    let failures = server.on_disconnect(&mut lease);
+    if !failures.is_empty() {
+        eprintln!("[helper] disconnect cleanup failures: {}", failures.len());
+    }
     server.connection_closed();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::backend::{FakeBackend, FakeOp};
+
+    fn valid_session() -> ipc_contract::SessionIdentity {
+        ipc_contract::SessionIdentity {
+            protocol_version: HELPER_PROTOCOL_VERSION,
+            session_token: "tok".into(),
+            peer_pid: 7,
+            peer_created_at_ms: 1,
+        }
+    }
+
+    fn valid_entry() -> RouteEntry {
+        RouteEntry {
+            destination: "0.0.0.0/0".into(),
+            next_hop: "10.0.0.1".into(),
+            interface_index: 3,
+            metric: 1,
+            family: ipc_contract::AddressFamily::V4,
+        }
+    }
+
+    fn add_route_request() -> HelperRequest {
+        HelperRequest {
+            session: valid_session(),
+            request_id: "r1".into(),
+            operation: HelperOp::AddRoutes {
+                entries: vec![valid_entry()],
+            },
+        }
+    }
+
+    #[test]
+    fn disconnect_cleanup_failure_is_surfaced_and_audited() {
+        let backend = Arc::new(FakeBackend::new().fail_on(
+            FakeOp::RemoveRoutes,
+            HelperError::Backend {
+                detail: "boom".into(),
+            },
+        ));
+        let server = HelperServer::new(
+            backend,
+            HelperServerConfig {
+                lease_policy: LeasePolicy::CleanOwned,
+                ..HelperServerConfig::default()
+            },
+        );
+        let mut lease = ConnectionLease::new("s-cleanup-fail");
+        let response = server.handle(&mut lease, &add_route_request());
+        assert!(matches!(
+            response.result,
+            HelperResult::RoutesAdded { count: 1 }
+        ));
+        let failures = server.on_disconnect(&mut lease);
+        assert_eq!(failures.len(), 1);
+        let records = server.audit().records();
+        let last = records.last().expect("lease_cleanup audit record");
+        assert_eq!(last.operation, "lease_cleanup");
+        assert_eq!(last.outcome, AuditOutcome::Error);
+        assert!(last.summary.contains("cleanup_failures=1"));
+        // Second call is idempotent and performs no further work.
+        assert!(server.on_disconnect(&mut lease).is_empty());
+    }
+
+    #[test]
+    fn disconnect_cleanup_success_audits_ok() {
+        let backend = Arc::new(FakeBackend::new());
+        let server = HelperServer::new(
+            backend,
+            HelperServerConfig {
+                lease_policy: LeasePolicy::CleanOwned,
+                ..HelperServerConfig::default()
+            },
+        );
+        let mut lease = ConnectionLease::new("s-cleanup-ok");
+        let response = server.handle(&mut lease, &add_route_request());
+        assert!(matches!(
+            response.result,
+            HelperResult::RoutesAdded { count: 1 }
+        ));
+        assert!(server.on_disconnect(&mut lease).is_empty());
+        let records = server.audit().records();
+        let last = records.last().expect("lease_cleanup audit record");
+        assert_eq!(last.outcome, AuditOutcome::Ok);
+    }
 }

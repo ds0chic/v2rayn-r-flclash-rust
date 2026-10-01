@@ -176,13 +176,15 @@ class SubsController extends Notifier<SubsState> {
     return result;
   }
 
-  /// Cancel the in-flight update job (idempotent).
+  /// Cancel the in-flight update job (idempotent). Calls through to the
+  /// Rust job manager; the returned outcome is shown so a fake cancel
+  /// cannot be mistaken for a real one.
   void cancel() {
     final jobId = state.lastJobId;
     if (jobId == null) return;
-    ref.read(bridgePortProvider).jobView(jobId);
+    final result = ref.read(bridgePortProvider).cancelJob(jobId);
     state = state.copyWith(
-      status: const SubStatus(kind: 'info', message: '已请求取消'),
+      status: SubStatus(kind: 'info', message: '已请求取消：${result.outcome.name}'),
     );
   }
 
@@ -219,6 +221,12 @@ class SubsController extends Notifier<SubsState> {
       if (entry.status == 'failed' || entry.status == 'preserved_error') {
         return '${entry.remarks}: ${entry.message ?? entry.code ?? ''}';
       }
+    }
+    // Request-level failures (e.g. E_PROXY_UNAVAILABLE when "via proxy" is
+    // requested without a local proxy endpoint) carry no per-entry rows.
+    final error = result.error;
+    if (error != null) {
+      return '${error.code}: ${error.messageKey}';
     }
     return null;
   }

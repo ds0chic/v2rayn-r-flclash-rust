@@ -1,0 +1,146 @@
+[
+  {
+    "core": "xray",
+    "case": "g-least-ping",
+    "file": "<repo>/target/t10/matrix/xray--g-least-ping.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.",
+    "file_portable": "<repo>/target/t10/matrix/xray--g-least-ping.json"
+  },
+  {
+    "core": "xray",
+    "case": "g-fallback",
+    "file": "<repo>/target/t10/matrix/xray--g-fallback.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.",
+    "file_portable": "<repo>/target/t10/matrix/xray--g-fallback.json"
+  },
+  {
+    "core": "xray",
+    "case": "g-random",
+    "file": "<repo>/target/t10/matrix/xray--g-random.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.",
+    "file_portable": "<repo>/target/t10/matrix/xray--g-random.json"
+  },
+  {
+    "core": "xray",
+    "case": "g-round-robin",
+    "file": "<repo>/target/t10/matrix/xray--g-round-robin.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.",
+    "file_portable": "<repo>/target/t10/matrix/xray--g-round-robin.json"
+  },
+  {
+    "core": "xray",
+    "case": "g-least-load",
+    "file": "<repo>/target/t10/matrix/xray--g-least-load.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.",
+    "file_portable": "<repo>/target/t10/matrix/xray--g-least-load.json"
+  },
+  {
+    "core": "xray",
+    "case": "chain-1",
+    "file": "<repo>/target/t10/matrix/xray--chain-1.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.",
+    "file_portable": "<repo>/target/t10/matrix/xray--chain-1.json"
+  },
+  {
+    "core": "xray",
+    "case": "custom-xray",
+    "file": "<repo>/target/t10/matrix/xray--custom-xray.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.",
+    "file_portable": "<repo>/target/t10/matrix/xray--custom-xray.json"
+  },
+  {
+    "core": "xray",
+    "case": "template",
+    "file": "<repo>/target/t10/matrix/xray--template.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.",
+    "file_portable": "<repo>/target/t10/matrix/xray--template.json"
+  },
+  {
+    "core": "singbox",
+    "case": "g-least-ping",
+    "file": "<repo>/target/t10/matrix/singbox--g-least-ping.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "",
+    "file_portable": "<repo>/target/t10/matrix/singbox--g-least-ping.json"
+  },
+  {
+    "core": "singbox",
+    "case": "g-fallback",
+    "file": "<repo>/target/t10/matrix/singbox--g-fallback.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "",
+    "file_portable": "<repo>/target/t10/matrix/singbox--g-fallback.json"
+  },
+  {
+    "core": "singbox",
+    "case": "g-random",
+    "file": "<repo>/target/t10/matrix/singbox--g-random.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "",
+    "file_portable": "<repo>/target/t10/matrix/singbox--g-random.json"
+  },
+  {
+    "core": "singbox",
+    "case": "g-round-robin",
+    "file": "<repo>/target/t10/matrix/singbox--g-round-robin.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "",
+    "file_portable": "<repo>/target/t10/matrix/singbox--g-round-robin.json"
+  },
+  {
+    "core": "singbox",
+    "case": "g-least-load",
+    "file": "<repo>/target/t10/matrix/singbox--g-least-load.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "",
+    "file_portable": "<repo>/target/t10/matrix/singbox--g-least-load.json"
+  },
+  {
+    "core": "singbox",
+    "case": "chain-1",
+    "file": "<repo>/target/t10/matrix/singbox--chain-1.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "",
+    "file_portable": "<repo>/target/t10/matrix/singbox--chain-1.json"
+  },
+  {
+    "core": "singbox",
+    "case": "custom-sbox",
+    "file": "<repo>/target/t10/matrix/singbox--custom-sbox.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "",
+    "file_portable": "<repo>/target/t10/matrix/singbox--custom-sbox.json"
+  },
+  {
+    "core": "singbox",
+    "case": "template",
+    "file": "<repo>/target/t10/matrix/singbox--template.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "",
+    "file_portable": "<repo>/target/t10/matrix/singbox--template.json"
+  }
+]

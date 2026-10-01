@@ -1298,11 +1298,11 @@ features:
   - 存在启用订阅
   normal_behavior: SubscriptionHandler.UpdateProcess 逐个下载解析并 AddBatchServers
   failure_behavior: 无效订阅跳过，失败保留并回报
-  cancel_behavior: 无显式取消
+  cancel_behavior: 运行时经 JobManager token 取消；Flutter cancel() 透传 cancelJob 并显示请求结果
   acceptance: 成功更新后节点刷新，失败订阅不破坏既有节点
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: crates/application/src/engine.rs (refresh_subscriptions) + crates/bridge_api/src/api/subs.rs (update_subscriptions)
-  test_ids: ["subs_pipeline.rs::successful_update_replaces_subid_nodes", "t09_sub_setting_test.dart::update reports a structured success status"]
+  implementation_location: crates/application/src/engine.rs (refresh_subscriptions) + crates/bridge_api/src/api/subs.rs (update_subscriptions) + apps/desktop/lib/bridge/bridge_port.dart (cancelJob 透传)
+  test_ids: ["subs_pipeline.rs::successful_update_replaces_subid_nodes", "t09_sub_setting_test.dart::update reports a structured success status", "t09_sub_setting_test.dart::cancel forwards to the bridge cancelJob"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:178
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:574
@@ -1399,9 +1399,9 @@ features:
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:169
   status: implemented
 - id: F-SUB-007
-  name: 订阅转换 ConvertTarget
+  name: 订阅转换 ConvertTarget（本轮：字段保留-only）
   family: subscription
-  summary: 通过转换服务把订阅转为 mixed/v2ray/clash/ss
+  summary: 通过转换服务把订阅转为 mixed/v2ray/clash/ss。本轮仅保留 convert_target 字段并对 custom_core_type hint 生效；远端转换服务拼接未实现（preserved_only）
   platforms:
   - windows
   - macos
@@ -1422,18 +1422,18 @@ features:
   cancel_behavior: 无
   acceptance: 指定目标后请求转换服务并成功导入
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: crates/application/src/subs.rs (build_candidates custom_core_type hint)
-  test_ids: ["subs.rs::validate_rejects_bad_url_and_headers"]
+  implementation_location: crates/application/src/subs.rs (convert_target field retained; build_candidates custom_core_type hint; remote SubConvertUrl request not built)
+  test_ids: ["subs::tests::build_candidates_honors_custom_core_hint (hint path)", "subs_pipeline.rs::subitem_crud_survives_reopen (convert_target persistence only)"]
   evidence:
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:129
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:137
   - v2rayN/ServiceLib/Global.cs:142
   - v2rayN/ServiceLib/Global.cs:155
-  status: implemented
+  status: preserved_only
 - id: F-SUB-008
-  name: 订阅前后置节点
+  name: 订阅前后置节点（本轮：持久化-only）
   family: subscription
-  summary: 为订阅配置前置/后置节点，构成虚拟代理链
+  summary: 为订阅配置前置/后置节点，构成虚拟代理链。本轮仅持久化 prev/next；链组装与出站生成见 T10（proxy_chain_save_reopen）
   platforms:
   - windows
   - macos
@@ -1455,13 +1455,14 @@ features:
   cancel_behavior: 清除选择则不生成链
   acceptance: 配置前后置后生成链式出站
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: crates/application/src/engine.rs (SubItem prev/next persisted)
-  test_ids: ["subitem_crud_survives_reopen"]
+  implementation_location: crates/application/src/engine.rs (SubItem prev/next persisted only)
+  test_ids: ["subs_pipeline::subitem_crud_survives_reopen (persistence only)", "t10_groups_templates::proxy_chain_save_reopen (chain behavior)"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:14
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:87
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:258
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:279
+  - docs/evidence/T10.md
   status: implemented
 - id: F-SUB-009
   name: 订阅过滤与自定义内核
@@ -3777,11 +3778,12 @@ features:
   acceptance: 各分组设置持久化并回读一致
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   implementation_location: "apps/desktop/lib/features/settings/option_setting_window.dart; crates/domain/src/settings.rs; crates/application/src/settings.rs; crates/bridge_api/src/api/settings.rs"
-  test_ids: [T12A-settings]
+  test_ids: ["t12a_option_window_test.dart (whole-window save + KCP all-6 editable)", "t12a_settings_storage_test.dart (group/whole optimistic save + stale rejection)"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:291
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:400
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:196
+  - docs/evidence/T12a.md
   status: implemented
 - id: F-APP-002
   name: 主题
@@ -3806,11 +3808,12 @@ features:
   acceptance: 主题切换即时生效
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   implementation_location: "apps/desktop/lib/features/settings/theme_setting_dialog.dart; apps/desktop/lib/shared/theme/app_theme.dart"
-  test_ids: [T12A-settings]
+  test_ids: ["t12a_theme_test.dart (apply+persist, and failed-save keeps old theme)"]
   evidence:
   - v2rayN/ServiceLib/Enums/ETheme.cs:3
   - v2rayN/v2rayN/Views/ThemeSettingView.xaml.cs:15
   - v2rayN/ServiceLib/Handler/SysProxy/ProxySettingWindows.cs
+  - docs/evidence/T12a.md
   status: implemented
 - id: F-APP-003
   name: 语言切换
@@ -3835,11 +3838,12 @@ features:
   acceptance: 切换语言后界面文案改变
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   implementation_location: "apps/desktop/lib/features/settings/settings_controller.dart; apps/desktop/lib/app/shell/ui_shell_controller.dart"
-  test_ids: [T12A-settings]
+  test_ids: ["t12a_theme_test.dart (language dropdown persists)", "t12a_option_window_test.dart (UIItem round-trip)"]
   evidence:
   - v2rayN/ServiceLib/Global.cs:498
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:108
   - v2rayN/ServiceLib/Manager/AppManager.cs:77
+  - docs/evidence/T12a.md
   status: implemented
 - id: F-APP-004
   name: 打开程序目录
@@ -4584,7 +4588,7 @@ enum_scan:
 # --- 审计整改追加区（M-020/D12；仅追加，不改上方 T00 条目）---
 # implementation_location / test_ids / evidence 以 HEAD 2fbe9f1 + 整改回合实测为准。
 remediation_implementation_records:
-  note: T03 运行时（F-CORE）与 T04 迁移/引用偏离的落地登记；状态用 implemented（未 verified）。
+  note: T03 运行时（F-CORE）、T04 迁移/引用偏离，以及 T13–T16（platform/helper/core_adapters/updater）已实现项的落地登记；状态用 implemented（未 verified）。
   features:
   - id: F-CORE-005
     name: 内核启动/停止/重启
@@ -4627,3 +4631,152 @@ remediation_implementation_records:
   - docs/evidence/T11.md
   - docs/evidence/T11.md
   - docs/evidence/T11.md
+  # --- T13 platform（系统代理/PAC/自启/单实例）：编译存在，系统真实写入未执行 ---
+  - id: F-SYSPROXY-001
+    name: 系统代理四种语义
+    implementation_location: crates/platform/src/sysproxy.rs (SysProxyMode / ProxyField / apply / restore_if_owned)
+    test_ids:
+    - crates/platform/tests/sysproxy_ownership.rs (13)
+    evidence:
+    - docs/evidence/T13-platform.md
+    status: implemented
+    note: WindowsSystemProxyBackend 编译未执行；测试全走 FakeSystemProxyBackend。
+  - id: F-SYSPROXY-002
+    name: 系统代理绕过项与高级协议
+    implementation_location: crates/platform/src/sysproxy.rs (default_proxy_string / windows_bypass 含 <local>)
+    test_ids:
+    - crates/platform/tests/models_and_script.rs (8)
+    evidence:
+    - docs/evidence/T13-platform.md
+    status: implemented
+    note: <local> 与去空格规则未与真实 ProxyOverride 往返验证。
+  - id: F-SYSPROXY-003
+    name: PAC 本地服务
+    implementation_location: crates/platform/src/pac.rs (PacServer / render_pac；DEFAULT_PAC_PORT_BASE=11808)
+    test_ids:
+    - crates/platform/tests/pac_server.rs (10)
+    evidence:
+    - docs/evidence/T13-platform.md
+    status: implemented
+  - id: F-SYSPROXY-004
+    name: 退出时恢复系统代理
+    implementation_location: crates/platform/src/sysproxy.rs (restore_if_owned / RestoreReport)
+    test_ids:
+    - crates/platform/tests/sysproxy_ownership.rs (13)
+    evidence:
+    - docs/evidence/T13-platform.md
+    status: implemented
+  - id: F-DESKTOP-003
+    name: 开机自启
+    implementation_location: crates/platform/src/autostart.rs (AutoStartBackend / WindowsRunKeyBackend / FakeRegistry)
+    test_ids:
+    - crates/platform/tests/autostart.rs (9)
+    evidence:
+    - docs/evidence/T13-platform.md
+    status: implemented
+    note: HKCU Run 键真实读写未执行（仅 FakeRegistry）。
+  - id: F-DESKTOP-007
+    name: 单实例运行
+    implementation_location: crates/platform/src/single_instance.rs (SingleInstanceGuard)
+    test_ids:
+    - crates/platform/tests/single_instance.rs (3)
+    evidence:
+    - docs/evidence/T13-platform.md
+    status: implemented
+  # --- T14 privileged helper（协议/校验/编排已实现；平台真实行为未验证） ---
+  - id: F-TUN-003
+    name: TUN 地址与路由排序
+    implementation_location: crates/ipc_contract/src/helper.rs (parse_cidr/validate_route_entries/validate_tun_address); services/privileged_helper/src/windows.rs (CreateIpForwardEntry2/CreateUnicastIpAddressEntry)
+    test_ids:
+    - services/privileged_helper/tests/dispatch.rs (28)
+    - services/privileged_helper/tests/loopback.rs (7)
+    evidence:
+    - docs/evidence/T14-helper.md
+    status: implemented
+    note: WindowsBackend 路由/TUN 路径编译未执行；未提权、未碰真实路由表。
+  - id: F-TUN-005
+    name: Windows TUN 设备清理
+    implementation_location: services/privileged_helper/src/server.rs (LeasePolicy / on_disconnect 清理)
+    test_ids:
+    - services/privileged_helper/tests/dispatch.rs (租约清理用例)
+    evidence:
+    - docs/evidence/T14-helper.md
+    status: implemented
+    note: 租约清理为 best-effort；helper 无持久恢复日志（归 net-host）。
+  # --- T15 core_adapters（统计/Clash API/日志流；真实 Xray 冒烟已归档） ---
+  - id: F-MONITOR-001
+    name: 运行日志显示
+    implementation_location: crates/core_adapters/src/log_stream.rs (LineReader / RingBuffer / LogFilter / LogBuffer)
+    test_ids:
+    - crates/core_adapters/tests/log_stream.rs (17)
+    evidence:
+    - docs/evidence/T15-core.md
+    status: implemented
+  - id: F-MONITOR-002
+    name: 流量统计
+    implementation_location: crates/core_adapters/src/stats.rs (XrayStatsSource /debug/vars、SingboxTrafficSource /traffic、StatsAggregator、TagClass)
+    test_ids:
+    - crates/core_adapters/tests/stats_xray.rs (13)
+    - crates/core_adapters/tests/stats_singbox.rs (11)
+    - crates/core_adapters/tests/stats_aggregator.rs (8)
+    - docs/evidence/T15.runs/stdout.log
+    evidence:
+    - docs/evidence/T15-core.md
+    - docs/evidence/T15.runs/
+    status: implemented
+    note: sing-box 真实 /traffic 冒烟未跑；聚合器未按 TagClass 分桶（UI 需自行聚合）。
+  - id: F-MONITOR-004
+    name: Clash 代理组视图
+    implementation_location: crates/core_adapters/src/clash_api.rs (get_proxies / providers 合并)
+    test_ids:
+    - crates/core_adapters/tests/clash_api.rs (17)
+    evidence:
+    - docs/evidence/T15-core.md
+    status: implemented
+  - id: F-MONITOR-005
+    name: Clash 连接视图与断开
+    implementation_location: crates/core_adapters/src/clash_api.rs (get_connections / close_connection / close_all_connections)
+    test_ids:
+    - crates/core_adapters/tests/clash_api.rs (17)
+    evidence:
+    - docs/evidence/T15-core.md
+    status: implemented
+  - id: F-MONITOR-006
+    name: 实时速度显示
+    implementation_location: crates/core_adapters/src/stats.rs (StatsAggregator up_bps/down_bps，限流不丢量)
+    test_ids:
+    - crates/core_adapters/tests/stats_aggregator.rs (8)
+    evidence:
+    - docs/evidence/T15-core.md
+    status: implemented
+  # --- T16 updater（更新管线基础设施；默认不验签、未实跑，不可发布） ---
+  - id: F-CORE-002
+    name: 内置内核更新
+    implementation_location: crates/updater/src (metadata/channel/download/unpack/install/signature)
+    test_ids:
+    - crates/updater/tests/download.rs (10)
+    - crates/updater/tests/unpack.rs (13)
+    - crates/updater/tests/install.rs (14)
+    - crates/updater/tests/pipeline.rs (3)
+    evidence:
+    - docs/evidence/T16-updater.md
+    status: implemented
+    note: 默认 UnsupportedSignatureVerifier；未下载/替换任何真实文件，发布前需选签名方案+实跑。
+  - id: F-CORE-003
+    name: 应用自身更新
+    implementation_location: crates/updater/src/install.rs (UpgradeCoordinator::external_upgrade_spec)
+    test_ids:
+    - crates/updater/tests/install.rs (external spec 不启动外部进程)
+    evidence:
+    - docs/evidence/T16-updater.md
+    status: implemented
+    note: 外部 updater 自替换实跑未验证（对齐上游 AmazTool 的等待退出后替换）。
+  - id: F-CORE-004
+    name: 仅检查更新（不下载）
+    implementation_location: crates/updater/src/metadata.rs + channel.rs + fetch::CoreReleaseApi
+    test_ids:
+    - crates/updater/tests/metadata.rs (14)
+    - crates/updater/tests/channel.rs (11)
+    evidence:
+    - docs/evidence/T16-updater.md
+    status: implemented

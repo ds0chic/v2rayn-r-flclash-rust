@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 
@@ -137,5 +138,14 @@ void main() {
     await tester.tap(find.text('关闭'));
     await tester.pumpAndSettle();
     await future;
+  });
+
+  test('synthetic file writes return a structured not-wired result', () {
+    final bridge = SyntheticBridgePort(count: 1);
+    final result = bridge.writeExportFile('C:/tmp/export.txt', 'vless://x');
+    // Must not fake success: callers/tests cannot cite the test double as
+    // real export evidence.
+    expect(result.ok, isFalse);
+    expect(result.error?.code, 'E_NOT_WIRED');
   });
 }

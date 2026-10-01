@@ -282,11 +282,28 @@ class ProfilesController extends Notifier<ProfilesState> {
 
   ProfilesState _recompute(ProfilesState base) {
     final filtered = applyFilter(base.all, base.filter);
-    final grouped = base.groupSubId == null
-        ? filtered
-        : filtered.where((r) => r.subRemarks == base.groupSubId).toList();
+    final String? group = base.groupSubId;
+    final List<ProfileSummary> grouped;
+    if (group == null) {
+      grouped = filtered;
+    } else {
+      final subById = <String, String>{
+        for (final p in base.profiles) p.indexId: p.subid,
+      };
+      grouped = filtered.where((r) => _rowSubId(subById, r) == group).toList();
+    }
     final sorted = applySort(grouped, base.visibleColumns, base.sort);
     return base.copyWith(visible: sorted);
+  }
+
+  /// Owning subscription id of a table row.
+  ///
+  /// The stored profiles are the authority (`ProfileDto.subid`, matching
+  /// `setGroupSubId(sub.id)` and the groups-panel `counts[p.subid]`); the
+  /// summary `subRemarks` slot only carries it as display text, so it is
+  /// merely the fallback for generated rows without a stored profile.
+  String _rowSubId(Map<String, String> subById, ProfileSummary row) {
+    return subById[row.id] ?? row.subRemarks;
   }
 
   /// Select the subscription group shown in the node table (`null` = all).

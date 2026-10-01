@@ -123,6 +123,18 @@ const REMOTE_DNS: &str = "https://cloudflare-dns.com/dns-query";
 const FAKE_IP_RANGE: &str = "198.18.0.0/15";
 const TUN_ICMP_ROUTING: &str = "rule";
 const SYSTEM_PROXY_EXCEPTIONS_WINDOWS: &str = "localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*";
+/// Upstream `Global.SystemProxyExceptionsLinux` (used on non-Windows hosts).
+const SYSTEM_PROXY_EXCEPTIONS_LINUX: &str = "localhost,127.0.0.0/8,::1";
+
+/// Platform default for `SystemProxyItem.SystemProxyExceptions`, mirroring
+/// upstream (Windows vs Linux strings in `Global.cs`).
+pub fn default_system_proxy_exceptions() -> String {
+    if cfg!(windows) {
+        SYSTEM_PROXY_EXCEPTIONS_WINDOWS.to_string()
+    } else {
+        SYSTEM_PROXY_EXCEPTIONS_LINUX.to_string()
+    }
+}
 
 fn default_true() -> bool {
     true
@@ -676,7 +688,7 @@ impl Default for SystemProxyItem {
     fn default() -> Self {
         Self {
             sys_proxy_type: SysProxyType::ForcedClear,
-            system_proxy_exceptions: Some(SYSTEM_PROXY_EXCEPTIONS_WINDOWS.to_string()),
+            system_proxy_exceptions: Some(default_system_proxy_exceptions()),
             not_proxy_local_address: true,
             system_proxy_advanced_protocol: None,
             custom_system_proxy_pac_path: None,
@@ -1035,6 +1047,8 @@ impl AppSettings {
             self.simple_dns_item.enable_happy_eyeballs = Some(false);
         }
 
+        // FLD-CFG-106: enforced by correction-on-normalize (>=10), never by
+        // rejecting the save; `validate_settings` therefore only rejects <0.
         if self.speed_test_item.speed_test_timeout < 10 {
             self.speed_test_item.speed_test_timeout = 10;
         }
@@ -1044,6 +1058,7 @@ impl AppSettings {
         if !non_empty(&self.speed_test_item.speed_ping_test_url) {
             self.speed_test_item.speed_ping_test_url = Some(SPEED_PING_TEST_URL.to_string());
         }
+        // Same correction-not-rejection contract as SpeedTestTimeout above.
         if self.speed_test_item.mixed_concurrency_count < 10 {
             self.speed_test_item.mixed_concurrency_count = 10;
         }
@@ -1053,7 +1068,7 @@ impl AppSettings {
 
         if !non_empty(&self.system_proxy_item.system_proxy_exceptions) {
             self.system_proxy_item.system_proxy_exceptions =
-                Some(SYSTEM_PROXY_EXCEPTIONS_WINDOWS.to_string());
+                Some(default_system_proxy_exceptions());
         }
 
         // Fragment4RayItem is nullable upstream: a missing object is created,

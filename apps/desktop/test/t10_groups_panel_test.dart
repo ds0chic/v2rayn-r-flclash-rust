@@ -46,4 +46,51 @@ void main() {
     expect(readState(container).groupSubId, isNull);
     expect(readState(container).visible.length, before);
   });
+
+  testWidgets('group filter compares sub ids, not display remarks', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester, rows: 200);
+    final bridge = container.read(bridgePortProvider) as SyntheticBridgePort;
+    // Trap: sub A's display remarks collide with sub B's id. Filtering by
+    // A must still resolve by id (`setGroupSubId(sub.id)`), never by the
+    // display name.
+    bridge.saveSubItem(
+      const c.SubItemDto(
+        id: 'sub-000',
+        remarks: 'sub-001',
+        url: 'https://example.com/a',
+        moreUrl: '',
+        enabled: true,
+        userAgent: '',
+        sort: 1,
+        autoUpdateInterval: 0,
+        updateTime: 0,
+      ),
+    );
+    bridge.saveSubItem(
+      const c.SubItemDto(
+        id: 'sub-001',
+        remarks: 'other',
+        url: 'https://example.com/b',
+        moreUrl: '',
+        enabled: true,
+        userAgent: '',
+        sort: 2,
+        autoUpdateInterval: 0,
+        updateTime: 0,
+      ),
+    );
+    container.read(profilesControllerProvider.notifier).reload();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('group-filter-sub-000')));
+    await tester.pumpAndSettle();
+    expect(readState(container).groupSubId, 'sub-000');
+    // rows 0..99 carry sub-000; rows 100..199 carry sub-001.
+    expect(readState(container).visible.length, 100);
+    for (final row in readState(container).visible) {
+      expect(row.subRemarks, 'sub-000');
+    }
+  });
 }

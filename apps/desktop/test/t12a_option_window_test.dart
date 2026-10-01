@@ -71,6 +71,21 @@ void main() {
     await tapVisible('启用 FakeIP');
     expect(find.text('FakeIP 范围 (FakeIPRange)'), findsOneWidget);
 
+    // KCP tab: all 6 upstream KcpItem fields are editable (no fake
+    // read-only note).
+    await tester.ensureVisible(find.text('KCP'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('KCP'));
+    await tester.pumpAndSettle();
+    for (final label in <String>[
+      'MTU',
+      'TTI',
+      '拥塞窗口倍数 (CwndMultiplier)',
+      '最大发送窗口 (MaxSendingWindow)',
+    ]) {
+      expect(find.text(label), findsOneWidget, reason: 'missing KCP $label');
+    }
+
     // Cancel: the draft never reached the engine.
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();

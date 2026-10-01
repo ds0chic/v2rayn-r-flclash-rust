@@ -17,5 +17,8 @@ subscriptions.workspace = true
 flutter_rust_bridge.workspace = true
 serde_json.workspace = true
 
+[dev-dependencies]
+tokio = { version = "1.53", features = ["rt", "macros"] }
+
 [lints]
 workspace = true

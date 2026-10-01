@@ -2452,7 +2452,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Id
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:7
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2214
@@ -2476,7 +2476,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Remarks
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:9
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1434
@@ -2501,7 +2501,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Url
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:11
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:121
@@ -2525,7 +2525,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.MoreUrl
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:13
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:121
@@ -2549,7 +2549,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Enabled
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:15
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:27
@@ -2572,7 +2572,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.UserAgent
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:17
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:155
@@ -2596,7 +2596,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.RequestHeaders
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:19
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:85
@@ -2620,7 +2620,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Sort
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:21
   - v2rayN/ServiceLib/Manager/AppManager.cs:177
@@ -2644,7 +2644,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Filter
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:23
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1665
@@ -2668,7 +2668,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.AutoUpdateInterval
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:25
   - v2rayN/ServiceLib/Manager/TaskManager.cs:91
@@ -2692,7 +2692,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.UpdateTime
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:27
   - v2rayN/ServiceLib/Manager/TaskManager.cs:92
@@ -2716,7 +2716,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.ConvertTarget
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:29
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:135
@@ -2740,7 +2740,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.PrevProfile
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:31
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:277
@@ -2765,7 +2765,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.NextProfile
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:33
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:285
@@ -2790,7 +2790,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.PreSocksPort
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:35
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1778
@@ -2814,7 +2814,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Memo
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:37
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2210
@@ -2837,7 +2837,7 @@ items:
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.CustomCoreType
   implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
-  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
+  test_ids: ["subs_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:39
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1724
@@ -4387,5 +4387,19 @@ remediation_implementation_records:
     evidence:
     - docs/decisions/T04-storage.md
     decision: docs/decisions/T04-storage.md §7.1 (T16 严格/保留模式开关待办)
+    status: implemented
+  # F13：字段类 location/test 回填（T10 FullConfigTemplateItem 8 字段）。上方 T00 条目
+  # 保持 `implementation_location: null` 不改（仅追加），此处按字段类统一给出落地位置与用例口径。
+  fields:
+  - id: FLD-ENT-151..158
+    entity: FullConfigTemplateItem
+    fields: [Id, Remarks, Enabled, CoreType, Config, TunConfig, AddProxyOnly, ProxyDetour]
+    implementation_location: >-
+      crates/domain/src/entities.rs (FullConfigTemplate); crates/application/src/templates.rs
+      (save/list/get/delete + JSON validation); crates/bridge_api/src/api/groups.rs (DTO 映射与 CRUD API)
+    test_ids:
+    - crates/application/tests/t10_groups_templates.rs::template_crud_survives_reopen
+    evidence:
+    - docs/evidence/T10.md
     status: implemented
 

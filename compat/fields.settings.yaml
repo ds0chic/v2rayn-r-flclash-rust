@@ -1625,7 +1625,7 @@ items:
   type: string
   default_value: null
   default_verified: true
-  null_handling: 缺省 null；仅 NewPort4LAN 且 User/Pass 均非空时写入认证
+  null_handling: 缺省 null；仅 NewPort4LAN 且 User/Pass 均非空时写入认证；解析侧 null→"" 归一（与夹具实测 "" 一致，Rust 保持 String 类型）
   range: null
   enum_values: []
   linked_fields:
@@ -1664,7 +1664,7 @@ items:
   type: string
   default_value: null
   default_verified: false
-  null_handling: 缺省 null；仅 NewPort4LAN 且 User/Pass 均非空时写入认证
+  null_handling: 缺省 null；仅 NewPort4LAN 且 User/Pass 均非空时写入认证；解析侧 null→"" 归一（与夹具实测 "" 一致，Rust 保持 String 类型）
   range: null
   enum_values: []
   linked_fields:
@@ -3950,7 +3950,7 @@ items:
   - v2rayN/ServiceLib/Services/SpeedtestService.cs:522
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:106
   unresolved: []
-  notes: 单位秒；运行期直接读 config。
+  notes: 单位秒；运行期直接读 config。范围由 normalize 在存取时校正为 >=10（校正非报错；validate 仅拒 <0）。
   status: implemented
 - id: FLD-CFG-107
   name: SpeedTestUrl
@@ -4054,7 +4054,7 @@ items:
   - v2rayN/ServiceLib/Global.cs:95
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:110
   unresolved: []
-  notes: 最小值见 Global.SpeedTestConcurrencyCountMin。
+  notes: 最小值见 Global.SpeedTestConcurrencyCountMin。范围由 normalize 在存取时校正为 >=10（校正非报错）。
   status: implemented
 - id: FLD-CFG-110
   name: IPAPIUrl

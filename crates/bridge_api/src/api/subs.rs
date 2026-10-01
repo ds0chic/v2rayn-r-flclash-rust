@@ -186,7 +186,9 @@ pub fn set_local_proxy_port(port: Option<u16>) {
 
 /// Per-process counter minting subscription update job ids.
 static SUB_JOB_SEQ: OnceLock<AtomicU64> = OnceLock::new();
-/// Registry of live update jobs, so `cancel_job` can reach their token.
+/// Debug-only count of live update jobs (not a cancellation path).
+/// Cancellation always goes through `JobManager::cancel` via the job id
+/// returned to the caller; this registry is never read by `cancel_job`.
 static SUB_JOBS: OnceLock<Mutex<Vec<JobId>>> = OnceLock::new();
 
 fn sub_job_seq() -> &'static AtomicU64 {
@@ -281,11 +283,36 @@ fn report_to_result(report: SubUpdateReport) -> SubUpdateResult {
 /// `update_subscriptions` — the F-SUB-003 pipeline.
 ///
 /// `sub_ids` empty means every subscription; `via_proxy` uses the recorded
-/// local session port (falling back per upstream when none is running). The
-/// returned `job_id` can be passed to `cancel_job`.
+/// local session port. When `via_proxy` is requested but no local proxy
+/// endpoint is known, a structured `E_PROXY_UNAVAILABLE` error is returned
+/// and no direct download is attempted. The returned `job_id` can be passed
+/// to `cancel_job`.
 pub async fn update_subscriptions(sub_ids: Vec<String>, via_proxy: bool) -> SubUpdateResult {
-    let (job_id, token) = register_sub_job();
     let proxy_url = via_proxy.then(|| engine().local_proxy_url()).flatten();
+    if via_proxy
+        && proxy_url
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .is_none()
+    {
+        return SubUpdateResult {
+            ok: false,
+            success: 0,
+            cancelled: false,
+            entries: Vec::new(),
+            job_id: None,
+            error: Some(ErrorDto {
+                code: domain::codes::PROXY_UNAVAILABLE.to_string(),
+                message_key: "error.proxy_unavailable".to_string(),
+                field_path: None,
+                retryable: false,
+                operation_id: None,
+                detail: Some("no local proxy endpoint available".to_string()),
+            }),
+        };
+    }
+    let (job_id, token) = register_sub_job();
     let request = SubUpdateRequest {
         sub_ids,
         via_proxy,
@@ -573,6 +600,7 @@ mod tests {
 
     #[test]
     fn import_share_uri_assigns_ids_and_subid() {
+        let _guard = crate::api::engine::engine_test_lock();
         let text =
             "vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none#one";
         let result = import_from_text(text.to_string(), Some("sub-x".into()), true);
@@ -588,6 +616,24 @@ mod tests {
         let result = import_from_text("just words".to_string(), None, false);
         assert!(!result.ok);
         assert_eq!(result.imported, 0);
+    }
+
+    #[test]
+    fn update_via_proxy_without_endpoint_returns_proxy_unavailable() {
+        // Drive the future on a dedicated current-thread runtime while
+        // holding the engine lock. `block_on` keeps the guard from crossing
+        // an `.await` in this test body (clippy::await_holding_lock) while
+        // still serializing against the other process-global engine tests.
+        let _guard = crate::api::engine::engine_test_lock();
+        engine().set_local_proxy_port(None);
+        let result = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("current-thread runtime")
+            .block_on(update_subscriptions(Vec::new(), true));
+        assert!(!result.ok);
+        assert_eq!(result.success, 0);
+        let error = result.error.expect("structured proxy error");
+        assert_eq!(error.code, domain::codes::PROXY_UNAVAILABLE);
     }
 
     #[test]

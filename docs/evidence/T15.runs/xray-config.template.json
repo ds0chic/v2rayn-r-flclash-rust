@@ -1,0 +1,19 @@
+{
+  "log": { "loglevel": "warning" },
+  "inbounds": [
+    {
+      "tag": "socks",
+      "listen": "127.0.0.1",
+      "port": "<socks_port>",
+      "protocol": "socks",
+      "settings": { "udp": false }
+    }
+  ],
+  "outbounds": [
+    { "tag": "proxy", "protocol": "freedom", "settings": {} },
+    { "tag": "direct", "protocol": "freedom", "settings": {} }
+  ],
+  "stats": {},
+  "metrics": { "listen": "127.0.0.1:<metrics_port>" },
+  "policy": { "system": { "statsOutboundUplink": true, "statsOutboundDownlink": true } }
+}

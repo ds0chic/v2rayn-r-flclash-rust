@@ -200,15 +200,40 @@ pub enum HelperResult {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HelperError {
-    VersionMismatch { peer: u32, host: u32 },
-    MessageTooLarge { size: usize, limit: usize },
-    Malformed { detail: String },
-    Unauthorized { detail: String },
-    NotAllowlisted { detail: String },
-    PathOutOfBounds { detail: String },
-    UnknownHandle { handle: u64 },
-    Backend { detail: String },
-    Timeout { timeout_ms: u64 },
+    VersionMismatch {
+        peer: u32,
+        host: u32,
+    },
+    MessageTooLarge {
+        size: usize,
+        limit: usize,
+    },
+    Malformed {
+        detail: String,
+    },
+    Unauthorized {
+        detail: String,
+    },
+    NotAllowlisted {
+        detail: String,
+    },
+    PathOutOfBounds {
+        detail: String,
+    },
+    UnknownHandle {
+        handle: u64,
+    },
+    Backend {
+        detail: String,
+    },
+    /// The managed core could not be bound into the ownership Job Object.
+    /// The launch is aborted rather than leaving a process running unowned.
+    JobAssignFailed {
+        detail: String,
+    },
+    Timeout {
+        timeout_ms: u64,
+    },
 }
 
 impl HelperError {
@@ -249,6 +274,10 @@ impl HelperError {
             }
             HelperError::Backend { detail } => {
                 DomainError::new(codes::UNAVAILABLE, "error.helper_backend")
+                    .with_detail(detail.clone())
+            }
+            HelperError::JobAssignFailed { detail } => {
+                DomainError::new(codes::JOB_ASSIGN_FAILED, "error.job_assign_failed")
                     .with_detail(detail.clone())
             }
             HelperError::Timeout { timeout_ms } => {
@@ -520,7 +549,64 @@ pub fn validate_elevated_core(
         });
     }
 
+    // Filesystem re-verification: defeat symlink / junction / 8.3 escapes
+    // that are invisible to the lexical checks above.
+    validate_elevated_core_canonical(&spec.exe_path, &spec.run_dir, allowed_run_roots)?;
+
     validate_args(&spec.args)
+}
+
+/// Re-verify the lexical containment of [`validate_elevated_core`] against
+/// canonicalized paths when the entries exist on disk.
+///
+/// `std::fs::canonicalize` resolves symlinks, junctions, 8.3 short names and
+/// mount points, so an `exe_path` that is lexically inside `run_dir` but
+/// resolves outside is rejected here. Entries that do not exist yet (staging
+/// layout) are skipped: the lexical checks already passed and there is
+/// nothing to resolve. On non-Windows hosts Windows-style paths cannot be
+/// canonicalized and the check is skipped as well.
+pub fn validate_elevated_core_canonical(
+    exe_path: &str,
+    run_dir: &str,
+    allowed_run_roots: &[String],
+) -> Result<(), HelperError> {
+    let canon_exe = match std::fs::canonicalize(exe_path) {
+        Ok(path) => path,
+        Err(_) => return Ok(()),
+    };
+    let canon_run = match std::fs::canonicalize(run_dir) {
+        Ok(path) => path,
+        Err(_) => return Ok(()),
+    };
+    let canon_parent = canon_exe
+        .parent()
+        .ok_or_else(|| HelperError::PathOutOfBounds {
+            detail: "canonical exe_path has no parent directory".to_string(),
+        })?;
+    if canon_parent != canon_run {
+        return Err(HelperError::PathOutOfBounds {
+            detail: "canonical exe_path is not directly inside run_dir (possible symlink escape)"
+                .to_string(),
+        });
+    }
+    let mut under_root = false;
+    for root in allowed_run_roots {
+        match std::fs::canonicalize(root) {
+            Ok(canon_root) => {
+                if canon_run == canon_root || canon_run.starts_with(&canon_root) {
+                    under_root = true;
+                    break;
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+    if !under_root {
+        return Err(HelperError::PathOutOfBounds {
+            detail: "canonical run_dir is not under any controlled run root".to_string(),
+        });
+    }
+    Ok(())
 }
 
 /// Alias table for core ids whose executable name differs (e.g. `naive`).
@@ -876,6 +962,65 @@ mod tests {
         assert_eq!(normalize_windows_path(r"C:\a\.\b\").unwrap(), r"C:\a\b");
         assert!(path_under(r"C:\a\b", r"C:\a"));
         assert!(!path_under(r"C:\ab", r"C:\a"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn canonical_recheck_accepts_real_layout() {
+        let root = tempfile::tempdir().expect("temp root");
+        let core_dir = root.path().join("core");
+        std::fs::create_dir_all(&core_dir).unwrap();
+        let exe = core_dir.join("xray.exe");
+        std::fs::write(&exe, b"fake-exe").unwrap();
+        let spec = ElevatedCoreSpec {
+            core: "xray".into(),
+            exe_path: exe.to_string_lossy().into_owned(),
+            args: vec!["run".into()],
+            run_dir: core_dir.to_string_lossy().into_owned(),
+        };
+        let roots = vec![root.path().to_string_lossy().into_owned()];
+        assert!(validate_elevated_core(&spec, &roots).is_ok());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn canonical_recheck_rejects_symlink_escape() {
+        let root = tempfile::tempdir().expect("temp root");
+        let core_dir = root.path().join("core");
+        std::fs::create_dir_all(&core_dir).unwrap();
+        let outside = root.path().join("outside");
+        std::fs::create_dir_all(&outside).unwrap();
+        let real_exe = outside.join("xray.exe");
+        std::fs::write(&real_exe, b"fake-exe").unwrap();
+        let link = core_dir.join("xray.exe");
+        if std::os::windows::fs::symlink_file(&real_exe, &link).is_err() {
+            // Creating symlinks needs Developer Mode / privilege; without it
+            // the escape cannot be staged, so there is nothing to reject.
+            return;
+        }
+        let spec = ElevatedCoreSpec {
+            core: "xray".into(),
+            exe_path: link.to_string_lossy().into_owned(),
+            args: vec!["run".into()],
+            run_dir: core_dir.to_string_lossy().into_owned(),
+        };
+        let roots = vec![root.path().to_string_lossy().into_owned()];
+        assert!(matches!(
+            validate_elevated_core(&spec, &roots).unwrap_err(),
+            HelperError::PathOutOfBounds { .. }
+        ));
+    }
+
+    #[test]
+    fn job_assign_failed_maps_to_stable_code() {
+        assert_eq!(
+            HelperError::JobAssignFailed {
+                detail: "assign".into()
+            }
+            .to_domain()
+            .code,
+            codes::JOB_ASSIGN_FAILED
+        );
     }
 
     #[test]

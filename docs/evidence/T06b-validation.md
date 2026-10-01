@@ -131,6 +131,9 @@ failed to build mask with type mkcp-legacy > unknown config id: mkcp-legacy
 5. **sing-box `endpoints` 空语义**：仅覆盖“无 endpoint 时省略”，未对自定义 endpoint 与模板并存做真实内核差分（已有单测）。
 6. **M-011 上游差分**：模板合并顺序经上游源码核实为“生成在前”，但未逐字段做上游真实输出二进制差分（无上游可运行 exe）。
 7. **未在非 Windows 平台验证**：本轮全部为 windows-amd64。
+8. **冒烟脚本端口硬编码**：`T06b.runs/smoke_runner.ps1:74` 将 socks 入站端口固定为 11808（未做占用探测）；11808 是既有约定测试端口，若被占用冒烟会直接失败，接线阶段应改为先探测再选。
+9. **sing-box 用例空 error 字段**：`T06b.runs/results.json:146-289` 的 sing-box 条目 error 为空字符串，单测结论仅由 exit 码支撑；xray 条目有版本串+`Configuration OK`，sing-box 侧自证力较弱，需在复跑时补 stdout 尾行。
+10. **TUN 驱动枚举 stderr**：`xray-global-tun-fragment` 用例 stderr 含 TUN 驱动枚举信息（未启真实 TUN），属环境探测输出而非本生成器错误；结论仍以 exit/配置校验为准。
 
 ---
 

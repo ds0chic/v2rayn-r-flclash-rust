@@ -335,6 +335,17 @@ impl CoreTypeBinding {
     }
 }
 
+/// Deserialize a string that upstream may emit as explicit `null` (C# stores
+/// CLR `null` for an unset reference type). Missing keys still use `Default`;
+/// explicit `null` normalizes to `""`, matching the observed fixture shape
+/// (`"User": ""`, `"Pass": ""`).
+fn null_to_empty_string<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<String>::deserialize(deserializer)?.unwrap_or_default())
+}
+
 /// An inbound listener row (`InItem`, 11 properties; stored in guiNConfig.json).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase", default)]
@@ -351,7 +362,13 @@ pub struct InboundListener {
     pub allow_lan_conn: bool,
     #[serde(rename = "NewPort4LAN")]
     pub new_port4_lan: bool,
+    // Upstream `InItem.User/Pass` are non-nullable `string` (ConfigItems.cs
+    // `InItem`); the CLR runtime default is `null`, so explicit nulls are
+    // accepted and normalized rather than widening the type to `Option`
+    // (which would churn the FRB contract for no upstream fidelity gain).
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub user: String,
+    #[serde(default, deserialize_with = "null_to_empty_string")]
     pub pass: String,
     pub second_local_port_enabled: bool,
     #[serde(flatten)]
@@ -361,3 +378,24 @@ pub struct InboundListener {
 /// `EMultipleLoad` carried alongside group nodes for convenience.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct GroupLoadPolicy(pub MultipleLoad);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inbound_user_pass_accept_explicit_null_as_empty() {
+        // Upstream may persist CLR null for an unset User/Pass; both the
+        // missing-key and explicit-null shapes must load as "".
+        let missing: InboundListener = serde_json::from_str("{}").unwrap();
+        assert_eq!(missing.user, "");
+        assert_eq!(missing.pass, "");
+        let explicit: InboundListener =
+            serde_json::from_str(r#"{"User": null, "Pass": null}"#).unwrap();
+        assert_eq!(explicit.user, "");
+        assert_eq!(explicit.pass, "");
+        let set: InboundListener = serde_json::from_str(r#"{"User": "u", "Pass": "p"}"#).unwrap();
+        assert_eq!(set.user, "u");
+        assert_eq!(set.pass, "p");
+    }
+}

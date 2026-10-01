@@ -360,6 +360,9 @@ pub async fn download_all(
 ) -> Result<String, SubError> {
     let headers = parse_request_headers(item.request_headers.as_deref())
         .map_err(|_| SubError::HeaderInvalid("request headers".into()))?;
+    if via_proxy && proxy_url.map(str::trim).filter(|s| !s.is_empty()).is_none() {
+        return Err(SubError::ProxyUnavailable);
+    }
     let proxy = if via_proxy {
         proxy_url.map(ProxyConfig::new)
     } else {
@@ -646,6 +649,72 @@ mod tests {
         );
         item.request_headers = None;
         assert!(item.validate().is_ok());
+    }
+
+    #[test]
+    fn build_candidates_honors_custom_core_hint() {
+        // F-SUB-007: the persisted `custom_core_type` narrows the parse hint
+        // (here Xray, so a full Xray JSON document resolves to candidates).
+        // Remote conversion itself is out of scope; the hint path is what
+        // ships, and `convert_target` persistence is covered by
+        // `subitem_crud_survives_reopen`.
+        let item = SubItem {
+            id: "s-hint".into(),
+            remarks: "hint".into(),
+            url: "https://example.com/s".into(),
+            custom_core_type: Some(domain::CoreType::Xray.value()),
+            ..SubItem::default()
+        };
+        let content = r#"{"inbounds":[{"port":1080,"protocol":"socks"}],"outbounds":[{"protocol":"vmess","tag":"proxy","settings":{},"streamSettings":{"network":"ws"}}]}"#;
+        let out = build_candidates(&item, content, &[], 100).unwrap();
+        assert_eq!(out.len(), 1);
+        // The hint path leaves `subid` for `replace_sub_profiles` to fill.
+        assert_eq!(out[0].core_type, Some(domain::CoreType::Xray));
+    }
+
+    #[tokio::test]
+    async fn via_proxy_without_endpoint_returns_proxy_unavailable() {
+        let item = SubItem {
+            url: "https://example.com/sub".into(),
+            ..SubItem::default()
+        };
+        let err = download_all(&item, true, None, &CancellationToken::new())
+            .await
+            .unwrap_err();
+        assert_eq!(err, SubError::ProxyUnavailable);
+        assert_eq!(err.code(), domain::codes::PROXY_UNAVAILABLE);
+        // Direct mode must not raise the proxy error (it proceeds to network;
+        // here we only assert the guard does not fire for via_proxy=false by
+        // checking a header-validation failure fires first instead).
+        let mut bad = item.clone();
+        bad.request_headers = Some("not json".into());
+        let err = download_all(&bad, false, None, &CancellationToken::new())
+            .await
+            .unwrap_err();
+        assert!(matches!(err, SubError::HeaderInvalid(_)));
+    }
+
+    #[tokio::test]
+    async fn via_proxy_with_endpoint_is_not_reported_unavailable() {
+        let item = SubItem {
+            url: "https://example.com/sub".into(),
+            ..SubItem::default()
+        };
+        // A whitespace-only endpoint counts as "no endpoint".
+        let err = download_all(&item, true, Some("   "), &CancellationToken::new())
+            .await
+            .unwrap_err();
+        assert_eq!(err, SubError::ProxyUnavailable);
+        // A real endpoint bypasses the guard. A pre-cancelled token
+        // short-circuits before any network I/O, so the surfaced error is
+        // cancellation rather than `E_PROXY_UNAVAILABLE`.
+        let cancelled = CancellationToken::new();
+        assert!(cancelled.cancel());
+        let err = download_all(&item, true, Some("http://127.0.0.1:9"), &cancelled)
+            .await
+            .unwrap_err();
+        assert_ne!(err, SubError::ProxyUnavailable);
+        assert_eq!(err, SubError::Cancelled);
     }
 
     #[test]

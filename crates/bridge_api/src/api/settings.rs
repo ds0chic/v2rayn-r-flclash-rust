@@ -1423,8 +1423,9 @@ mod tests {
 
     #[test]
     fn save_settings_group_returns_timing() {
-        // The process-global engine is shared with other tests, so use a fresh
-        // group revision read from the engine instead of assuming zero.
+        // Serialized with the other global-engine tests; the group revision
+        // is still re-read instead of assuming zero.
+        let _guard = crate::api::engine::engine_test_lock();
         let loaded = get_settings();
         assert!(loaded.ok);
         let group_rev: u64 = serde_json::from_str::<std::collections::BTreeMap<String, u64>>(
@@ -1452,6 +1453,7 @@ mod tests {
 
     #[test]
     fn save_settings_group_rejects_unknown_group() {
+        let _guard = crate::api::engine::engine_test_lock();
         let result = save_settings_group("NotAGroup".to_string(), "{}".to_string(), 0);
         assert!(!result.ok);
         assert_eq!(result.error.unwrap().code, domain::codes::INVALID_ARGUMENT);

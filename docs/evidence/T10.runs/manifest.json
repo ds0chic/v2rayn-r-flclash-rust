@@ -1,0 +1,30 @@
+{
+  "command": "cargo test -p application --test t10_core_matrix -- --nocapture",
+  "timestamp_local": "2026-10-01T23:20:15+08:00",
+  "duration_s_test": 1.92,
+  "duration_s_wall_incl_compile": 7.23,
+  "result": "ok (2 passed: t10_mihomo_mixin_file_round_trip, t10_real_core_matrix)",
+  "cases": 16,
+  "pass": 16,
+  "fail": 0,
+  "sanitization": "absolute `file` paths replaced with <repo>/target/t10/matrix/<name> (16 entries); no host username/absolute path remains",
+  "cores": {
+    "xray": {
+      "version": "26.3.27",
+      "sha256": "d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
+      "sha256_verified": true,
+      "validator": "xray run -test -config <cfg>",
+      "evidence": "stdout carries version string + 'Configuration OK.'"
+    },
+    "sing-box": {
+      "version": "1.14.2",
+      "executable_sha256": "7bbef1dea9189ee12799ae834ea4b4658355da25c47a21ad8804904c0ccd9410",
+      "sha256_verified": false,
+      "validator": "sing-box check -c <cfg>",
+      "evidence": "pass by exit code only; validator stdout is empty (recorded weakness, not hidden)"
+    }
+  },
+  "kernel": "Windows 11 build 26220 (Microsoft Windows NT 10.0.26220.0) x64",
+  "toolchain": "cargo 1.98.1 stable-x86_64-pc-windows-msvc (rustc 1.98.1)",
+  "note": "xray 8/8 carry version + 'Configuration OK.'; sing-box 8/8 pass with empty validator output (exit-code-only evidence). Matrix files under target/t10/matrix are git-ignored; this directory is the portable archive."
+}

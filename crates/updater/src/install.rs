@@ -123,7 +123,7 @@ impl InstallPlan {
 
     fn validate(&self) -> Result<(), UpdateError> {
         for path in [&self.current_dir, &self.staged_dir] {
-            if !path.starts_with(&self.root) {
+            if !is_within_root(&self.root, path) {
                 return Err(UpdateError::UnsafeTarget(path.display().to_string()));
             }
         }
@@ -296,7 +296,7 @@ impl UpgradeCoordinator {
         wait_for_pid: u32,
     ) -> Result<ExternalUpgradeSpec, UpdateError> {
         let source = source.into();
-        if !source.starts_with(&self.install_root) && !source.is_absolute() {
+        if !is_within_root(&self.install_root, &source) {
             return Err(UpdateError::UnsafeTarget(source.display().to_string()));
         }
         Ok(ExternalUpgradeSpec {
@@ -316,6 +316,75 @@ pub fn external_upgrade_spec(
     wait_for_pid: u32,
 ) -> Result<ExternalUpgradeSpec, UpdateError> {
     coordinator.external_upgrade_spec(source, wait_for_pid)
+}
+
+/// Lexically normalize a path (resolve `.`/`..` without touching the fs).
+fn normalize_lexically(path: &Path) -> PathBuf {
+    use std::path::Component;
+    let mut out = PathBuf::new();
+    for comp in path.components() {
+        match comp {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !out.pop() {
+                    // Keep leading `..` for relative paths.
+                    out.push("..");
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    if out.as_os_str().is_empty() {
+        PathBuf::from(".")
+    } else {
+        out
+    }
+}
+
+/// A Windows drive-absolute path (`C:\…` / `C:/…`), even when parsed on a
+/// non-Windows host where `Path::is_absolute` would be false.
+fn is_absolute_any(path: &Path) -> bool {
+    if path.is_absolute() {
+        return true;
+    }
+    let s = path.as_os_str().to_string_lossy();
+    let mut chars = s.chars();
+    matches!(
+        (chars.next(), chars.next()),
+        (Some(d), Some(':')) if d.is_ascii_alphabetic()
+    )
+}
+
+/// Whether `path` is located inside `root` after lexical normalization.
+/// When both paths exist on disk, canonicalized prefixes are compared as
+/// well so symlinks cannot escape the managed root.
+fn is_within_root(root: &Path, path: &Path) -> bool {
+    // Windows drive-absolute sources never live inside the managed root
+    // unless they lexically start with it (checked below on Windows).
+    if is_absolute_any(path) && cfg!(not(windows)) {
+        let norm_root = normalize_lexically(root);
+        let norm_path = normalize_lexically(path);
+        // On non-Windows hosts a `C:\…` path cannot be inside a POSIX root.
+        if !norm_path.starts_with(&norm_root) {
+            return false;
+        }
+    }
+    let norm_root = normalize_lexically(root);
+    // Relative sources are resolved against the root (staging layout).
+    let joined = if path.is_absolute() || is_absolute_any(path) {
+        normalize_lexically(path)
+    } else {
+        normalize_lexically(&norm_root.join(path))
+    };
+    if !joined.starts_with(&norm_root) {
+        return false;
+    }
+    // When the filesystem entries exist, re-verify via canonical paths to
+    // defeat symlink / 8.3 / mount-point escapes.
+    match (std::fs::canonicalize(root), std::fs::canonicalize(&joined)) {
+        (Ok(canon_root), Ok(canon_path)) => canon_path.starts_with(&canon_root),
+        _ => true,
+    }
 }
 
 #[cfg(test)]
@@ -349,5 +418,31 @@ mod tests {
         assert_eq!(spec.wait_for_pid, 4242);
         assert_eq!(spec.args, vec!["/root/stage/new.zip".to_string()]);
         assert!(!spec.source.is_dir());
+    }
+
+    #[test]
+    fn external_spec_rejects_absolute_path_outside_root() {
+        let coordinator = UpgradeCoordinator::new("/root/helper.exe", "/root");
+        assert!(matches!(
+            coordinator.external_upgrade_spec("/elsewhere/evil.zip", 1),
+            Err(UpdateError::UnsafeTarget(_))
+        ));
+        assert!(matches!(
+            coordinator.external_upgrade_spec("C:/Windows/evil.zip", 1),
+            Err(UpdateError::UnsafeTarget(_))
+        ));
+        assert!(matches!(
+            coordinator.external_upgrade_spec(r"C:\Windows\evil.zip", 1),
+            Err(UpdateError::UnsafeTarget(_))
+        ));
+        // Traversal via `..` must not escape either.
+        assert!(matches!(
+            coordinator.external_upgrade_spec("/root/../evil.zip", 1),
+            Err(UpdateError::UnsafeTarget(_))
+        ));
+        // Relative paths resolve against the root staging layout.
+        assert!(coordinator
+            .external_upgrade_spec("stage/new.zip", 1)
+            .is_ok());
     }
 }

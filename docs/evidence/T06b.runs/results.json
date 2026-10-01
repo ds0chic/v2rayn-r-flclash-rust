@@ -141,7 +141,7 @@
     "file": "target/t06b/matrix\\xray--xray-global-tun-fragment.json",
     "status": "PASS",
     "exit": 0,
-    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\n2026/10/01 18:24:40.825350 [Info] infra/conf/serial: Reading config: &{Name:target/t06b/matrix\\xray--xray-global-tun-fragment.json Format:json}\r\n2026/10/01 18:24:40.832502 Failed to find matching adapter name: 鎵句笉鍒板厓绱犮€?(Code 0x00000490)\r\n2026/10/01 18:24:40.920516 Using existing driver 0.14\r\n2026/10/01 18:24:40.930245 Creating adapter\r\nConfiguration OK."
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\n2026/10/01 23:20:56.466988 [Info] infra/conf/serial: Reading config: &{Name:target/t06b/matrix\\xray--xray-global-tun-fragment.json Format:json}\r\n2026/10/01 23:20:56.476743 Failed to find matching adapter name: 鎵句笉鍒板厓绱犮€?(Code 0x00000490)\r\n2026/10/01 23:20:56.587659 Using existing driver 0.14\r\n2026/10/01 23:20:56.598384 Creating adapter\r\nConfiguration OK."
   },
   {
     "core": "singbox",

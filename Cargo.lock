@@ -195,6 +195,7 @@ dependencies = [
  "runtime",
  "serde_json",
  "subscriptions",
+ "tokio",
 ]
 
 [[package]]
@@ -1013,6 +1014,7 @@ dependencies = [
  "domain",
  "serde",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

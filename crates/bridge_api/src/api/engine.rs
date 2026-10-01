@@ -41,6 +41,22 @@ static ENGINE: OnceLock<AppEngine> = OnceLock::new();
 /// Optional data-directory override set by [`init_engine`] before first use.
 static ENGINE_DIR: OnceLock<Mutex<Option<std::path::PathBuf>>> = OnceLock::new();
 
+/// Serializes tests that touch the process-global [`ENGINE`].
+///
+/// Production keeps a single shared engine; tests must not run those cases
+/// concurrently or the desired-revision counter races. Holding this lock is
+/// the equivalent of running with `--test-threads=1` for the
+/// engine-touching subset, without forcing the whole workspace
+/// single-threaded.
+#[cfg(test)]
+pub(crate) fn engine_test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static ENGINE_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    ENGINE_TEST_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
 fn engine_dir() -> &'static Mutex<Option<std::path::PathBuf>> {
     ENGINE_DIR.get_or_init(|| Mutex::new(None))
 }
@@ -832,6 +848,7 @@ pub fn profile_count() -> u64 {
 
 #[cfg(test)]
 mod tests {
+    use super::engine_test_lock;
     use super::*;
 
     #[test]
@@ -859,9 +876,11 @@ mod tests {
 
     #[test]
     fn snapshot_dto_serializes_with_contract_fields() {
+        let _guard = engine_test_lock();
         seed_synthetic_profiles(3);
         let snap = get_snapshot();
-        // The engine is process-global; other tests may have added profiles.
+        // The engine is process-global and serialized by `engine_test_lock`;
+        // other engine-touching tests run before/after, never concurrently.
         assert!(snap.profile_count >= 3);
         assert_eq!(snap.applied_revision, 0);
         // Capabilities must be populated and never empty.
@@ -921,29 +940,50 @@ mod tests {
 
     #[test]
     fn save_profile_rejects_stale_revision_through_bridge() {
+        let _guard = engine_test_lock();
         let engine = engine();
-        let draft = draft_dto();
-        // The engine is process-global and other tests bump the revision
-        // concurrently; re-read until the save lands so the stale-rejection
-        // below tests the contract instead of a race.
-        let mut before;
-        let mut attempts = 0;
-        let ok = loop {
-            before = engine
-                .snapshot()
-                .map(|s| s.revisions.desired.get())
-                .unwrap_or(0);
-            let ok = save_profile(draft.clone(), before);
-            attempts += 1;
-            if ok.ok || attempts >= 10 {
-                break ok;
-            }
-        };
+        // A fresh id per run so reordered/retried runs never collide with a
+        // row left behind by an earlier case.
+        let mut draft = draft_dto();
+        draft.index_id = format!(
+            "bridge-stale-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        );
+        // Serialized by `engine_test_lock`: no concurrent bump can land
+        // between the read and the save, so no retry loop is needed.
+        let before = engine
+            .snapshot()
+            .map(|s| s.revisions.desired.get())
+            .unwrap_or(0);
+        let ok = save_profile(draft.clone(), before);
         assert!(ok.ok, "{:?}", ok.error.map(|e| e.code));
         // Reuse the now-stale revision.
         let stale = save_profile(draft, before);
         assert!(!stale.ok);
         assert_eq!(stale.error.unwrap().code, domain::codes::REVISION_STALE);
+    }
+
+    #[test]
+    fn global_engine_tests_are_serialized_not_concurrent() {
+        // Documents the F10 contract: any test touching the process-global
+        // `ENGINE` must hold `engine_test_lock()`. Trying to lock it from
+        // this test while it is free proves the lock exists and is usable;
+        // production code paths are unaffected (single shared engine).
+        let guard = engine_test_lock();
+        let first = engine()
+            .snapshot()
+            .map(|s| s.revisions.desired.get())
+            .unwrap_or(0);
+        drop(guard);
+        let _guard = engine_test_lock();
+        let second = engine()
+            .snapshot()
+            .map(|s| s.revisions.desired.get())
+            .unwrap_or(0);
+        assert!(second >= first);
     }
 
     #[test]

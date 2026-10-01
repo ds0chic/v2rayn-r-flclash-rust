@@ -203,6 +203,7 @@ mod tests {
 
     #[test]
     fn template_round_trip_through_bridge() {
+        let _guard = crate::api::engine::engine_test_lock();
         let before = list_templates();
         assert!(before.error.is_none());
         assert!(before.items.iter().any(|t| t.core_type == CoreType::Xray));
@@ -225,6 +226,7 @@ mod tests {
 
     #[test]
     fn group_children_empty_for_unknown_group() {
+        let _guard = crate::api::engine::engine_test_lock();
         let page = group_children("no-such-group".into());
         assert_eq!(page.total, 0);
         assert!(page.items.is_empty());

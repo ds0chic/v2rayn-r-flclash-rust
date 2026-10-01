@@ -71,6 +71,38 @@ void main() {
     expect(bridge.getSubItem(id)!.enabled, isFalse);
   });
 
+  testWidgets('cancel forwards to the bridge cancelJob', (tester) async {
+    final bridge = SeededSubsBridge();
+    final container = makeSubsContainer(bridge: bridge);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: SubSettingWindow())),
+      ),
+    );
+    await tester.pump();
+
+    final controller = container.read(subsControllerProvider.notifier);
+    await controller.update(viaProxy: false);
+    await tester.pump();
+    final jobId = container.read(subsControllerProvider).lastJobId;
+    expect(jobId, isNotNull);
+
+    controller.cancel();
+    await tester.pump();
+
+    // The fake records the real call; the UI status names the outcome.
+    expect(bridge.cancelledJobs, contains(jobId));
+    expect(
+      container.read(subsControllerProvider).status!.message,
+      contains('requested'),
+    );
+  });
+
+  // UI-state assertion only: the synthetic bridge never traverses the
+  // Rust pipeline, so this must not be cited as replacement evidence
+  // (that comes from the Rust `subs_pipeline` tests).
   testWidgets('update reports a structured success status', (tester) async {
     final container = makeSubsContainer();
     addTearDown(container.dispose);

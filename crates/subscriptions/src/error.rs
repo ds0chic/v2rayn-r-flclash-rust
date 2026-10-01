@@ -87,6 +87,10 @@ pub enum SubError {
     /// Local I/O failure while writing/reading a temp artifact.
     #[error("io error: {0}")]
     Io(String),
+    /// `via_proxy` was requested but no local proxy endpoint is available.
+    /// The caller must surface this instead of silently downloading direct.
+    #[error("proxy unavailable")]
+    ProxyUnavailable,
 }
 
 impl SubError {
@@ -106,6 +110,7 @@ impl SubError {
             SubError::TooLarge => codes::FIELD_RANGE,
             SubError::HeaderInvalid(_) => codes::FIELD_FORMAT,
             SubError::Io(_) => codes::INTERNAL,
+            SubError::ProxyUnavailable => codes::PROXY_UNAVAILABLE,
         }
     }
 
@@ -141,6 +146,7 @@ impl SubError {
             SubError::TooLarge => "too_large",
             SubError::HeaderInvalid(_) => "header_invalid",
             SubError::Io(_) => "io",
+            SubError::ProxyUnavailable => "proxy_unavailable",
         }
     }
 

@@ -1091,11 +1091,42 @@ impl AppEngine {
     }
 
     /// `delete_sub_items` use case. Returns the number of removed rows.
+    ///
+    /// Mirrors upstream `ConfigHandler.DeleteSubItem`: deleting a subscription
+    /// also deletes every `ProfileItem` with that `subid`
+    /// (`RemoveServersViaSubid(config, id, isSub: false)`). Profile rows are
+    /// removed before the subscription row so a mid-way failure leaves the
+    /// subscription intact rather than orphaning its nodes. (Upstream also
+    /// deletes on-disk custom-config files for Custom/Outbound rows; this
+    /// engine keeps those contents inline, so there is no file to delete.)
     pub fn delete_sub_items(&self, ids: &[String]) -> Result<u64, DomainError> {
         let mut revisions = self
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        // Remove dependent nodes first (upstream `RemoveServersViaSubid`).
+        {
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for id in ids {
+                let existing = repo.query(
+                    &ProfileFilter {
+                        subid: Some(id.clone()),
+                        ..ProfileFilter::default()
+                    },
+                    ProfileSort::IndexId,
+                    PageRequest {
+                        cursor: 0,
+                        page_size: u32::MAX,
+                    },
+                )?;
+                for profile in existing.items {
+                    repo.remove(&profile.index_id)?;
+                }
+            }
+        }
         let mut subs = self
             .subs
             .lock()
@@ -1273,13 +1304,24 @@ impl AppEngine {
     }
 
     /// Insert-or-replace records for a subid. Removes existing rows, then
-    /// upserts the replacement set. Returns `(added, removed)`.
+    /// upserts the replacement set inside a single storage transaction.
+    /// Returns `(added, removed)`; any mid-replace failure rolls back so the
+    /// old nodes survive.
     pub fn replace_sub_profiles(
         &self,
         subid: &str,
         profiles: Vec<Profile>,
         remove_existing: bool,
     ) -> Result<(usize, usize), DomainError> {
+        let mut profiles = profiles;
+        for profile in &mut profiles {
+            if profile.subid.is_empty() {
+                profile.subid = subid.to_string();
+            }
+            if profile.index_id.trim().is_empty() {
+                profile.index_id = crate::repository::new_index_id();
+            }
+        }
         let mut revisions = self
             .revisions
             .lock()
@@ -1288,58 +1330,11 @@ impl AppEngine {
             .repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut removed = 0usize;
-        if remove_existing {
-            let existing = repo.query(
-                &ProfileFilter {
-                    subid: Some(subid.to_string()),
-                    ..ProfileFilter::default()
-                },
-                ProfileSort::IndexId,
-                PageRequest {
-                    cursor: 0,
-                    page_size: u32::MAX,
-                },
-            )?;
-            for profile in existing.items {
-                if repo.remove(&profile.index_id)? {
-                    removed += 1;
-                }
-            }
-        }
-        for mut profile in profiles {
-            if profile.subid.is_empty() {
-                profile.subid = subid.to_string();
-            }
-            if profile.index_id.trim().is_empty() {
-                profile.index_id = crate::repository::new_index_id();
-            }
-            repo.upsert(profile)?;
-        }
-        let added = self.profiles_by_subid_locked(&repo, subid)?.len();
+        let (added, removed) = repo.replace_for_sub(subid, profiles, remove_existing, false)?;
         revisions.bump();
         drop(repo);
         self.persist_config(&revisions)?;
         Ok((added, removed))
-    }
-
-    fn profiles_by_subid_locked(
-        &self,
-        repo: &ProfileStore,
-        subid: &str,
-    ) -> Result<Vec<Profile>, DomainError> {
-        let page = repo.query(
-            &ProfileFilter {
-                subid: Some(subid.to_string()),
-                ..ProfileFilter::default()
-            },
-            ProfileSort::IndexId,
-            PageRequest {
-                cursor: 0,
-                page_size: u32::MAX,
-            },
-        )?;
-        Ok(page.items)
     }
 
     /// Overwrite only `UpdateTime` for a subscription (scheduler bookkeeping).
@@ -2053,6 +2048,69 @@ mod tests {
                 .gui_item
                 .enable_statistics
         );
+    }
+
+    #[test]
+    fn delete_sub_items_removes_orphan_nodes() {
+        use crate::synthetic::synthetic_full_profile;
+        let engine = AppEngine::in_memory();
+        let item = crate::subs::SubItem {
+            id: "s-del".into(),
+            remarks: "del".into(),
+            url: "https://example.com/s".into(),
+            ..Default::default()
+        };
+        engine.subs.lock().unwrap().upsert(item).unwrap();
+        let mut seed = vec![synthetic_full_profile(1), synthetic_full_profile(2)];
+        for p in &mut seed {
+            p.subid = "s-del".to_string();
+        }
+        let mut other = vec![synthetic_full_profile(3)];
+        for p in &mut other {
+            p.subid = "s-keep".to_string();
+        }
+        engine.replace_sub_profiles("s-del", seed, true).unwrap();
+        engine.replace_sub_profiles("s-keep", other, true).unwrap();
+        assert_eq!(engine.profiles_by_subid("s-del").unwrap().len(), 2);
+        let removed = engine.delete_sub_items(&["s-del".to_string()]).unwrap();
+        assert_eq!(removed, 1);
+        assert!(engine.profiles_by_subid("s-del").unwrap().is_empty());
+        // Unrelated subscriptions are untouched.
+        assert_eq!(engine.profiles_by_subid("s-keep").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn replace_sub_profiles_failure_keeps_old_nodes() {
+        use crate::synthetic::synthetic_full_profile;
+        let engine = AppEngine::in_memory();
+        let mut seed = vec![synthetic_full_profile(1), synthetic_full_profile(2)];
+        for p in &mut seed {
+            p.subid = "s-tx".to_string();
+        }
+        let (added, _) = engine.replace_sub_profiles("s-tx", seed, true).unwrap();
+        assert_eq!(added, 2);
+        // Inject a mid-replace failure after the deletes; the old set must
+        // survive intact.
+        let mut replacement = vec![synthetic_full_profile(3)];
+        for p in &mut replacement {
+            p.subid = "s-tx".to_string();
+        }
+        {
+            let mut repo = engine.repo.lock().unwrap();
+            let err = repo
+                .replace_for_sub("s-tx", replacement, true, true)
+                .unwrap_err();
+            assert_eq!(err.code, domain::codes::INTERNAL);
+        }
+        let kept = engine.profiles_by_subid("s-tx").unwrap();
+        assert_eq!(kept.len(), 2);
+        // A successful replace still works after the aborted attempt.
+        let mut next = vec![synthetic_full_profile(4)];
+        for p in &mut next {
+            p.subid = "s-tx".to_string();
+        }
+        let (added, removed) = engine.replace_sub_profiles("s-tx", next, true).unwrap();
+        assert_eq!((added, removed), (1, 2));
     }
 
     #[test]

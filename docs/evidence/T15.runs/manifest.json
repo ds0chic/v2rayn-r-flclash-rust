@@ -1,0 +1,18 @@
+{
+  "command": "cargo test -p core_adapters --test xray_smoke -- --ignored --nocapture",
+  "timestamp_local": "2026-10-01T23:19:41+08:00",
+  "duration_s": 3.86,
+  "timeout_s": 60,
+  "result": "ok (1 passed; 0 failed)",
+  "runs": 1,
+  "pids": [2840],
+  "observed_metrics_port": 11809,
+  "ports": "127.0.0.1 loopback only, picked from 11808..13000 (common::pick_port); observed metrics 11809; 10808 never touched",
+  "samples": { "direct": { "down": 0, "up": 0 }, "proxy": { "down": 13372, "up": 210 } },
+  "kernel": "tools/cores/xray/v26.3.27/xray.exe (Xray 26.3.27 d2758a0 go1.26.1 windows/amd64) sha256 d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
+  "config": "xray-config.template.json in this directory (ports filled at runtime; temp file removed after run)",
+  "cleanup": "kill_on_drop + explicit kill/wait; tempdir removed on drop; no project xray process remains after run (verified via Get-Process xray path filter)",
+  "toolchain": "cargo 1.98.1 stable-x86_64-pc-windows-msvc (rustc 1.98.1)",
+  "os": "Windows 11 build 26220 (Microsoft Windows NT 10.0.26220.0) x64",
+  "output": "stdout.log in this directory"
+}

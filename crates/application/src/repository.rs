@@ -111,6 +111,39 @@ impl InMemoryProfileRepository {
         repo
     }
 
+    /// Snapshot every profile of one subscription (rollback support for the
+    /// transactional `replace_for_sub` path).
+    pub fn snapshot_for_sub(&self, subid: &str) -> Vec<Profile> {
+        self.order
+            .iter()
+            .filter_map(|id| self.by_id.get(id))
+            .filter(|p| p.subid == subid)
+            .cloned()
+            .collect()
+    }
+
+    /// Restore a snapshot taken by [`Self::snapshot_for_sub`], replacing the
+    /// current rows of the affected subscription.
+    pub fn restore_snapshot(&mut self, subid: &str, snapshot: Vec<Profile>) {
+        let stale: Vec<String> = self
+            .order
+            .iter()
+            .filter_map(|id| self.by_id.get(id))
+            .filter(|p| p.subid == subid)
+            .map(|p| p.index_id.clone())
+            .collect();
+        for id in stale {
+            self.by_id.remove(&id);
+            self.order.retain(|o| o != &id);
+        }
+        for profile in snapshot {
+            if !self.by_id.contains_key(&profile.index_id) {
+                self.order.push(profile.index_id.clone());
+            }
+            self.by_id.insert(profile.index_id.clone(), profile);
+        }
+    }
+
     fn matches(profile: &Profile, filter: &ProfileFilter) -> bool {
         if let Some(subid) = &filter.subid {
             if &profile.subid != subid {

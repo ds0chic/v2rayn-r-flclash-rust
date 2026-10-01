@@ -179,12 +179,19 @@ Future<void> updateAllSubscriptions(
   ref.read(subsControllerProvider.notifier).reload();
   final result = await subs.update(viaProxy: viaProxy);
   ref.read(profilesControllerProvider.notifier).reload();
-  _toast(
-    ref,
-    result.ok
-        ? '订阅更新完成：成功 ${result.success}'
-        : (result.cancelled ? '订阅更新已取消' : '订阅更新未成功，旧节点已保留'),
-  );
+  _toast(ref, _updateToast(result, viaProxy: viaProxy));
+}
+
+String _updateToast(dynamic result, {required bool viaProxy}) {
+  if (result.ok) return '订阅更新完成：成功 ${result.success}';
+  if (result.cancelled) return '订阅更新已取消';
+  // "Via proxy" without a local endpoint never falls back to direct:
+  // say so instead of a generic failure.
+  if (result.error?.code == 'E_PROXY_UNAVAILABLE') {
+    return '经代理更新失败：本地代理不可用（E_PROXY_UNAVAILABLE），已保留旧节点';
+  }
+  final detail = result.error?.code;
+  return detail == null ? '订阅更新未成功，旧节点已保留' : '订阅更新未成功（$detail），旧节点已保留';
 }
 
 /// ACT-MAIN-022/023: update the current subscription group.
@@ -207,7 +214,11 @@ Future<void> updateCurrentGroup(
     ref,
     result.ok
         ? '订阅“${selected.remarks}”更新完成'
-        : (result.cancelled ? '已取消' : '更新未成功，旧节点已保留'),
+        : (result.cancelled
+              ? '已取消'
+              : (result.error?.code == 'E_PROXY_UNAVAILABLE'
+                    ? '经代理更新失败：本地代理不可用（E_PROXY_UNAVAILABLE），已保留旧节点'
+                    : '更新未成功，旧节点已保留')),
   );
 }
 

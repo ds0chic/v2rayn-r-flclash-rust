@@ -92,6 +92,8 @@
 - 启动命令：`xray.exe run -c <tempdir>\xray-config.json`
 - 生成流量：最小 SOCKS 入站 `127.0.0.1:<socks>` → `freedom` 出站 `proxy`；脚本经 SOCKS5 连到 metrics 端口拉 `/debug/vars`。
 - 结果：`smoke samples: [CounterSample { tag: "direct", up: 0, down: 0 }, CounterSample { tag: "proxy", up: 210, down: 13318 }]`，
+
+- 机器产物（2026-10-01 实跑归档）：`docs/evidence/T15.runs/`——`stdout.log`（完整输出，PID 38920，proxy up=210/down=13402，3.54s 通过）、`manifest.json`（命令/时间/PID/端口/版本/清理）、`xray-config.template.json`（配置模板，端口运行时填入）。两端均为 127.0.0.1 且端口 ≥11808； spawning 的 xray 进程均已 kill/wait 回收，仅用户自有 PID 4072 存续（未触碰）。
   `source.generation() == 0`，测试通过；子进程 PID（如 40728）由 `kill_on_drop` + 显式 `kill` 清理。
 - 清理核验：测试后无本项目 xray/sing-box 残留进程（仅剩用户自己的 PID 4072，未触碰）。
 - 超时：整段包在 `tokio::time::timeout(60s)`。

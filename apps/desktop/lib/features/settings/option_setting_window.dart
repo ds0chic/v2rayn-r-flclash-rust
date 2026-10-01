@@ -740,7 +740,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
   Widget _kcpTab() {
     final kcp = _group('KcpItem');
     return _scroll(<Widget>[
-      const SettingsNote('上游 KCP 页 UI 已注释；此处为只读展示，保存时原样保留。'),
+      const SettingsNote('KCP 参数可编辑，共 6 项，与上游 KcpItem 对齐。'),
       SettingsNumberField(
         label: 'MTU',
         value: _int(kcp, 'Mtu'),
@@ -760,6 +760,16 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         label: '下行容量',
         value: _int(kcp, 'DownlinkCapacity'),
         onChanged: (v) => _set('KcpItem', 'DownlinkCapacity', v),
+      ),
+      SettingsNumberField(
+        label: '拥塞窗口倍数 (CwndMultiplier)',
+        value: _int(kcp, 'CwndMultiplier'),
+        onChanged: (v) => _set('KcpItem', 'CwndMultiplier', v),
+      ),
+      SettingsNumberField(
+        label: '最大发送窗口 (MaxSendingWindow)',
+        value: _int(kcp, 'MaxSendingWindow'),
+        onChanged: (v) => _set('KcpItem', 'MaxSendingWindow', v),
       ),
     ]);
   }

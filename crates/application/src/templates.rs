@@ -13,11 +13,13 @@ use serde_json::Value;
 pub fn builtins() -> Vec<FullConfigTemplate> {
     vec![
         FullConfigTemplate {
+            id: "builtin-xray".into(),
             remarks: "V2ray".into(),
             core_type: CoreType::Xray,
             ..Default::default()
         },
         FullConfigTemplate {
+            id: "builtin-singbox".into(),
             remarks: "sing-box".into(),
             core_type: CoreType::SingBox,
             ..Default::default()
@@ -34,11 +36,10 @@ pub fn validate(item: &FullConfigTemplate) -> Result<(), DomainError> {
         );
     }
     if !matches!(item.core_type, CoreType::Xray | CoreType::SingBox) {
-        return Err(DomainError::new(
-            codes::FIELD_FORMAT,
-            "error.template_core_unsupported",
-        )
-        .with_field("coreType"));
+        return Err(
+            DomainError::new(codes::FIELD_FORMAT, "error.template_core_unsupported")
+                .with_field("coreType"),
+        );
     }
     validate_json_object(item.config.as_deref(), "config")?;
     validate_json_object(item.tun_config.as_deref(), "tunConfig")?;
@@ -57,10 +58,7 @@ pub fn normalize(mut item: FullConfigTemplate, generated_id: String) -> FullConf
 }
 
 /// Locate the template for `core` (by core type, stable order).
-pub fn for_core<'a>(
-    items: &'a [FullConfigTemplate],
-    core: CoreType,
-) -> Option<&'a FullConfigTemplate> {
+pub fn for_core(items: &[FullConfigTemplate], core: CoreType) -> Option<&FullConfigTemplate> {
     items.iter().find(|t| t.core_type == core)
 }
 
@@ -75,11 +73,10 @@ fn validate_json_object(text: Option<&str>, field: &str) -> Result<(), DomainErr
             .with_detail(error.to_string())
     })?;
     if !value.is_object() {
-        return Err(DomainError::new(
-            codes::FIELD_FORMAT,
-            "error.template_json_object_required",
-        )
-        .with_field(field));
+        return Err(
+            DomainError::new(codes::FIELD_FORMAT, "error.template_json_object_required")
+                .with_field(field),
+        );
     }
     Ok(())
 }

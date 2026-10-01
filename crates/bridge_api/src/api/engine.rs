@@ -923,11 +923,22 @@ mod tests {
     fn save_profile_rejects_stale_revision_through_bridge() {
         let engine = engine();
         let draft = draft_dto();
-        let before = engine
-            .snapshot()
-            .map(|s| s.revisions.desired.get())
-            .unwrap_or(0);
-        let ok = save_profile(draft.clone(), before);
+        // The engine is process-global and other tests bump the revision
+        // concurrently; re-read until the save lands so the stale-rejection
+        // below tests the contract instead of a race.
+        let mut before;
+        let mut attempts = 0;
+        let ok = loop {
+            before = engine
+                .snapshot()
+                .map(|s| s.revisions.desired.get())
+                .unwrap_or(0);
+            let ok = save_profile(draft.clone(), before);
+            attempts += 1;
+            if ok.ok || attempts >= 10 {
+                break ok;
+            }
+        };
         assert!(ok.ok, "{:?}", ok.error.map(|e| e.code));
         // Reuse the now-stale revision.
         let stale = save_profile(draft, before);

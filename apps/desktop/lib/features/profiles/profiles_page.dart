@@ -36,7 +36,7 @@ class _ProfilesPageState extends ConsumerState<ProfilesPage> {
         Expanded(
           child: Row(
             children: <Widget>[
-              const _GroupPlaceholder(),
+              const GroupsPanel(),
               const VerticalDivider(width: 1),
               Expanded(
                 child: ProfilesTable(
@@ -176,32 +176,98 @@ class _AddButton extends ConsumerWidget {
   }
 }
 
-class _GroupPlaceholder extends StatelessWidget {
-  const _GroupPlaceholder();
+/// Left subscription-groups panel: All + one row per SubItem with node
+/// counts. Selecting a row filters the node table by `subid`
+/// (`ProfilesController.setGroupSubId`); the two buttons generate policy
+/// groups for the selected subscription.
+class GroupsPanel extends ConsumerWidget {
+  const GroupsPanel({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.read(profilesControllerProvider.notifier);
+    final state = ref.watch(profilesControllerProvider);
+    final subs = controller.subItems();
+    final counts = <String, int>{};
+    for (final p in state.profiles) {
+      counts[p.subid] = (counts[p.subid] ?? 0) + 1;
+    }
+    final selected = state.groupSubId;
     return SizedBox(
-      width: 150,
-      child: ListView(
-        padding: const EdgeInsets.all(8),
-        children: const <Widget>[
-          Text('Groups', style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          ListTile(
-            dense: true,
-            title: Text('All', style: TextStyle(fontSize: 12)),
+      width: 170,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: Text(
+              '分组',
+              key: ValueKey('groups-title'),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
           ),
-          ListTile(
-            dense: true,
-            title: Text('sub-000', style: TextStyle(fontSize: 12)),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              children: <Widget>[
+                _row(
+                  key: 'group-filter-all',
+                  label: '全部 (${state.profiles.length})',
+                  selected: selected == null,
+                  onTap: () => controller.setGroupSubId(null),
+                ),
+                for (final sub in subs)
+                  _row(
+                    key: 'group-filter-${sub.id}',
+                    label:
+                        '${sub.remarks.isEmpty ? sub.id : sub.remarks} (${counts[sub.id] ?? 0})',
+                    selected: selected == sub.id,
+                    onTap: () => controller.setGroupSubId(sub.id),
+                  ),
+              ],
+            ),
           ),
-          ListTile(
-            dense: true,
-            title: Text('sub-001', style: TextStyle(fontSize: 12)),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                OutlinedButton(
+                  key: const ValueKey('group-gen-all'),
+                  onPressed: selected == null
+                      ? null
+                      : () => controller.genGroupAll(selected),
+                  child: const Text('生成全部组', style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(height: 4),
+                OutlinedButton(
+                  key: const ValueKey('group-gen-region'),
+                  onPressed: selected == null
+                      ? null
+                      : () => controller.genGroupRegion(selected),
+                  child: const Text('生成地区组', style: TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _row({
+    required String key,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      key: ValueKey(key),
+      dense: true,
+      selected: selected,
+      title: Text(label, style: const TextStyle(fontSize: 12)),
+      onTap: onTap,
     );
   }
 }

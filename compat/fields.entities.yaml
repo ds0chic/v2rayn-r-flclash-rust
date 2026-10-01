@@ -4166,7 +4166,8 @@ items:
   evidence:
   - v2rayN/ServiceLib/Models/Entities/FullConfigTemplateItem.cs:7
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2867
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 - id: FLD-ENT-152
   entity: FullConfigTemplateItem
   name: Remarks
@@ -4189,7 +4190,8 @@ items:
   - v2rayN/ServiceLib/Models/Entities/FullConfigTemplateItem.cs:9
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2844
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2851
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 - id: FLD-ENT-153
   entity: FullConfigTemplateItem
   name: Enabled
@@ -4212,7 +4214,8 @@ items:
   - v2rayN/ServiceLib/Models/Entities/FullConfigTemplateItem.cs:10
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayConfigTemplateService.cs:88
   - v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs:61
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-154
@@ -4237,7 +4240,8 @@ items:
   - v2rayN/ServiceLib/Models/Entities/FullConfigTemplateItem.cs:11
   - v2rayN/ServiceLib/Manager/AppManager.cs:323
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:44
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 - id: FLD-ENT-155
   entity: FullConfigTemplateItem
   name: Config
@@ -4260,7 +4264,8 @@ items:
   - v2rayN/ServiceLib/Models/Entities/FullConfigTemplateItem.cs:12
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayConfigTemplateService.cs:94
   - v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs:62
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-156
@@ -4285,7 +4290,8 @@ items:
   - v2rayN/ServiceLib/Models/Entities/FullConfigTemplateItem.cs:13
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayConfigTemplateService.cs:94
   - v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs:63
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-157
@@ -4311,7 +4317,8 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayConfigTemplateService.cs:185
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxConfigTemplateService.cs:114
   - v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs:64
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-158
@@ -4338,7 +4345,8 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayConfigTemplateService.cs:201
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxConfigTemplateService.cs:119
   - v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs:65
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 

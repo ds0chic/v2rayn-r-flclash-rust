@@ -3,7 +3,44 @@ name = "updater"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Update pipeline: metadata, download, verify, atomic replace, rollback (T16)."
 
 [dependencies]
+domain.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.10.9"
+hex = "0.4.3"
+thiserror = "1"
+zip = { version = "4.6.1", default-features = false, features = ["deflate"] }
+flate2 = "1.1"
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-native-roots",
+    "gzip",
+    "brotli",
+    "deflate",
+    "stream",
+    "http2",
+] }
+tokio = { version = "1.53", features = [
+    "rt",
+    "rt-multi-thread",
+    "time",
+    "sync",
+    "macros",
+    "net",
+    "io-util",
+] }
+futures-util = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1.53", features = ["full"] }
+tiny_http = "0.12"
+tempfile = "3.27.0"
+zip = { version = "4.6.1", default-features = false, features = ["deflate"] }
+flate2 = "1.1"
+sha2 = "0.10.9"
+hex = "0.4.3"
+
+[lints]
+workspace = true

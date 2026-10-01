@@ -3,11 +3,36 @@ name = "privileged_helper"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Minimal elevated helper: enumerated privileged operations only (T14)."
+
+[lib]
+name = "privileged_helper"
+path = "src/lib.rs"
 
 [[bin]]
 name = "privileged_helper"
 path = "src/main.rs"
 
 [dependencies]
+ipc_contract.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio = { version = "1.53", features = [
+    "rt-multi-thread",
+    "net",
+    "io-util",
+    "sync",
+    "time",
+    "macros",
+] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_Threading",
+] }
+
+[lints]
+workspace = true

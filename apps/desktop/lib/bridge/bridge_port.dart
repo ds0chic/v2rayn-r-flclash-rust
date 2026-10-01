@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/engine.dart' as engine;
+import 'package:v2rayn_desktop/bridge/api/groups.dart' as groups;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/profiles.dart' as rust;
 import 'package:v2rayn_desktop/bridge/api/subs.dart' as subs;
@@ -100,6 +101,22 @@ abstract class BridgePort {
   Future<c.ShareExportResult> exportProfiles(List<String> ids, String kind);
 
   c.SimpleResult writeExportFile(String path, String text);
+
+  // -- T10 group / custom / template surface -----------------------------
+
+  groups.TemplatesPageDto listTemplates();
+
+  groups.FullConfigTemplateDto? getTemplate(CoreType core);
+
+  groups.TemplateDtoResult saveTemplate(groups.FullConfigTemplateDto item);
+
+  c.SimpleResult deleteTemplate(String id);
+
+  c.ProfilePageDto groupChildren(String indexId);
+
+  c.SaveProfileResult genGroupAll(String subId);
+
+  groups.GroupGenResult genGroupRegion(String subId);
 }
 
 class FrbBridgePort implements BridgePort {
@@ -255,6 +272,32 @@ class FrbBridgePort implements BridgePort {
   @override
   c.SimpleResult writeExportFile(String path, String text) =>
       subs.writeExportFile(path: path, text: text);
+
+  @override
+  groups.TemplatesPageDto listTemplates() => groups.listTemplates();
+
+  @override
+  groups.FullConfigTemplateDto? getTemplate(CoreType core) =>
+      groups.getTemplate(core: core);
+
+  @override
+  groups.TemplateDtoResult saveTemplate(groups.FullConfigTemplateDto item) =>
+      groups.saveTemplate(item: item);
+
+  @override
+  c.SimpleResult deleteTemplate(String id) => groups.deleteTemplate(id: id);
+
+  @override
+  c.ProfilePageDto groupChildren(String indexId) =>
+      groups.groupChildren(indexId: indexId);
+
+  @override
+  c.SaveProfileResult genGroupAll(String subId) =>
+      groups.genGroupAll(subId: subId);
+
+  @override
+  groups.GroupGenResult genGroupRegion(String subId) =>
+      groups.genGroupRegion(subId: subId);
 }
 
 /// Map a stored profile DTO onto the node-table summary shape. Traffic/delay
@@ -799,6 +842,264 @@ class SyntheticBridgePort implements BridgePort {
   @override
   c.SimpleResult writeExportFile(String path, String text) =>
       const c.SimpleResult(ok: true);
+
+  // -- T10 group / template (synthetic) ----------------------------------
+
+  final List<groups.FullConfigTemplateDto> _templates =
+      <groups.FullConfigTemplateDto>[
+        const groups.FullConfigTemplateDto(
+          id: 'builtin-xray',
+          remarks: 'V2ray',
+          enabled: false,
+          coreType: CoreType.xray,
+        ),
+        const groups.FullConfigTemplateDto(
+          id: 'builtin-singbox',
+          remarks: 'sing-box',
+          enabled: false,
+          coreType: CoreType.singBox,
+        ),
+      ];
+
+  @override
+  groups.TemplatesPageDto listTemplates() =>
+      groups.TemplatesPageDto(items: List.of(_templates));
+
+  @override
+  groups.FullConfigTemplateDto? getTemplate(CoreType core) {
+    for (final t in _templates) {
+      if (t.coreType == core) return t;
+    }
+    return null;
+  }
+
+  @override
+  groups.TemplateDtoResult saveTemplate(groups.FullConfigTemplateDto item) {
+    final invalid = _validateTemplate(item);
+    if (invalid != null) {
+      return groups.TemplateDtoResult(ok: false, error: invalid);
+    }
+    var saved = item;
+    if (item.id.trim().isEmpty) {
+      saved = _withTemplateId(item, 'syn-tpl-${_subSeq++}');
+    }
+    final index = _templates.indexWhere((t) => t.id == saved.id);
+    if (index >= 0) {
+      _templates[index] = saved;
+    } else {
+      final coreIndex = _templates.indexWhere(
+        (t) => t.coreType == saved.coreType,
+      );
+      if (coreIndex >= 0) {
+        saved = _withTemplateId(saved, _templates[coreIndex].id);
+        _templates[coreIndex] = saved;
+      } else {
+        _templates.add(saved);
+      }
+    }
+    return groups.TemplateDtoResult(ok: true, item: saved);
+  }
+
+  @override
+  c.SimpleResult deleteTemplate(String id) {
+    final before = _templates.length;
+    _templates.removeWhere((t) => t.id == id);
+    final removed = _templates.length != before;
+    return removed
+        ? const c.SimpleResult(ok: true)
+        : const c.SimpleResult(
+            ok: false,
+            error: c.ErrorDto(
+              code: 'E_NOT_FOUND',
+              messageKey: 'error.not_found',
+              retryable: false,
+            ),
+          );
+  }
+
+  @override
+  c.ProfilePageDto groupChildren(String indexId) {
+    _ensureProfiles();
+    final group = getProfile(indexId);
+    if (group == null) {
+      return c.ProfilePageDto(items: const [], total: BigInt.zero);
+    }
+    final byId = <String, c.ProfileDto>{
+      for (final p in _profiles) p.indexId: p,
+    };
+    final ordered = <c.ProfileDto>[];
+    final subItems = (group.protoExtra.subChildItems ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (subItems.isNotEmpty) {
+      final filter = (group.protoExtra.filter ?? '').trim();
+      final needles = RegExp(
+        filter.replaceAll(RegExp(r'[^A-Za-z\u4e00-\u9fa5]'), '|'),
+      );
+      for (final p in _profiles) {
+        if (!subItems.contains(p.subid)) continue;
+        if (filter.isNotEmpty && !needles.hasMatch(p.remarks)) continue;
+        ordered.add(p);
+      }
+    }
+    for (final id in (group.protoExtra.childItems ?? '').split(',')) {
+      final child = byId[id.trim()];
+      if (child != null && !ordered.any((p) => p.indexId == child.indexId)) {
+        ordered.add(child);
+      }
+    }
+    return c.ProfilePageDto(items: ordered, total: BigInt.from(ordered.length));
+  }
+
+  @override
+  c.SaveProfileResult genGroupAll(String subId) {
+    _ensureProfiles();
+    final sub = getSubItem(subId);
+    if (sub == null) {
+      return const c.SaveProfileResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_NOT_FOUND',
+          messageKey: 'error.not_found',
+          retryable: false,
+        ),
+      );
+    }
+    final draft = c.ProfileDto(
+      indexId: '',
+      configType: ConfigType.policyGroup,
+      coreType: CoreType.xray,
+      configVersion: 4,
+      subid: subId,
+      isSub: false,
+      displayLog: true,
+      remarks: '${sub.remarks} - PolicyGroup',
+      address: '',
+      port: 0,
+      password: '',
+      username: '',
+      network: 'raw',
+      security: const c.SecurityDto(),
+      protoExtra: c.ProtocolExtraDto(
+        groupType: 'PolicyGroup',
+        subChildItems: subId,
+        multipleLoad: 0,
+        extraJson: '{}',
+      ),
+      transportExtra: const c.TransportExtraDto(extraJson: '{}'),
+      extraJson: '{}',
+    );
+    return saveProfile(draft, _revision);
+  }
+
+  @override
+  groups.GroupGenResult genGroupRegion(String subId) {
+    _ensureProfiles();
+    const regions = <String>['HK', 'US', 'JP', 'SG', 'TW', 'KR', 'DE'];
+    const excluded = <String>['剩余', '过期', '到期', '重置'];
+    final created = <c.ProfileDto>[];
+    for (final region in regions) {
+      final matched = _profiles.where(
+        (p) =>
+            p.subid == subId &&
+            p.remarks.toUpperCase().contains(region) &&
+            !excluded.any((w) => p.remarks.contains(w)),
+      );
+      if (matched.isEmpty) continue;
+      final result = saveProfile(
+        c.ProfileDto(
+          indexId: '',
+          configType: ConfigType.policyGroup,
+          coreType: CoreType.xray,
+          configVersion: 4,
+          subid: subId,
+          isSub: false,
+          displayLog: true,
+          remarks: '$subId - $region',
+          address: '',
+          port: 0,
+          password: '',
+          username: '',
+          network: 'raw',
+          security: const c.SecurityDto(),
+          protoExtra: c.ProtocolExtraDto(
+            groupType: 'PolicyGroup',
+            subChildItems: subId,
+            filter: region,
+            multipleLoad: 0,
+            extraJson: '{}',
+          ),
+          transportExtra: const c.TransportExtraDto(extraJson: '{}'),
+          extraJson: '{}',
+        ),
+        _revision,
+      );
+      if (result.ok && result.profile != null) created.add(result.profile!);
+    }
+    return groups.GroupGenResult(ok: true, profiles: created);
+  }
+
+  groups.FullConfigTemplateDto _withTemplateId(
+    groups.FullConfigTemplateDto t,
+    String id,
+  ) => groups.FullConfigTemplateDto(
+    id: id,
+    remarks: t.remarks,
+    enabled: t.enabled,
+    coreType: t.coreType,
+    config: t.config,
+    tunConfig: t.tunConfig,
+    addProxyOnly: t.addProxyOnly,
+    proxyDetour: t.proxyDetour,
+  );
+
+  c.ErrorDto? _validateTemplate(groups.FullConfigTemplateDto item) {
+    if (item.remarks.trim().isEmpty) {
+      return const c.ErrorDto(
+        code: 'E_FIELD_REQUIRED',
+        messageKey: 'error.remarks_required',
+        fieldPath: 'remarks',
+        retryable: false,
+      );
+    }
+    if (item.coreType != CoreType.xray && item.coreType != CoreType.singBox) {
+      return const c.ErrorDto(
+        code: 'E_FIELD_FORMAT',
+        messageKey: 'error.template_core_unsupported',
+        fieldPath: 'coreType',
+        retryable: false,
+      );
+    }
+    for (final entry in {
+      'config': item.config,
+      'tunConfig': item.tunConfig,
+    }.entries) {
+      final text = entry.value;
+      if (text == null || text.trim().isEmpty) continue;
+      if (!_isJsonObject(text) && !_looksYamlMapping(text)) {
+        return c.ErrorDto(
+          code: 'E_FIELD_FORMAT',
+          messageKey: 'error.template_json_invalid',
+          fieldPath: entry.key,
+          retryable: false,
+        );
+      }
+    }
+    return null;
+  }
+
+  bool _isJsonObject(String text) {
+    try {
+      return jsonDecode(text) is Map;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool _looksYamlMapping(String text) =>
+      !text.trimLeft().startsWith(RegExp(r'[[{]')) && text.contains(':');
 
   c.ErrorDto? _validateSub(c.SubItemDto item) {
     if (item.remarks.trim().isEmpty) {

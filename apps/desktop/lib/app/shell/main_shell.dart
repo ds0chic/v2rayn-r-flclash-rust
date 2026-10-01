@@ -39,6 +39,20 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (open == '1' || open == 'true') {
         openSubSettings(context, ref);
       }
+      // T10 evidence hooks (same pattern): auto-open the group editor or the
+      // template window for release screenshots. No-ops in normal runs.
+      final openGroup = Platform.environment['V2RAYN_R_OPEN_GROUP'];
+      if (openGroup == '1' || openGroup == 'true') {
+        profile_actions.startAddGroupProfile(
+          context,
+          ref,
+          ConfigType.policyGroup,
+        );
+      }
+      final openTemplate = Platform.environment['V2RAYN_R_OPEN_TEMPLATE'];
+      if (openTemplate == '1' || openTemplate == 'true') {
+        profile_actions.openFullConfigTemplateWindow(context, ref);
+      }
     });
   }
 
@@ -199,6 +213,26 @@ class _MainShellState extends ConsumerState<MainShell> {
         profile_actions.startAddProfile(context, ref, ConfigType.anytls);
       case 'ACT-MAIN-011':
         profile_actions.startAddProfile(context, ref, ConfigType.naive);
+      case 'ACT-MAIN-012':
+        profile_actions.startAddCustomProfile(context, ref, ConfigType.custom);
+      case 'ACT-MAIN-013':
+        profile_actions.startAddCustomProfile(
+          context,
+          ref,
+          ConfigType.outbound,
+        );
+      case 'ACT-MAIN-014':
+        profile_actions.startAddGroupProfile(
+          context,
+          ref,
+          ConfigType.policyGroup,
+        );
+      case 'ACT-MAIN-015':
+        profile_actions.startAddGroupProfile(
+          context,
+          ref,
+          ConfigType.proxyChain,
+        );
       case 'ACT-MAIN-016':
         importFromClipboard(context, ref);
       case 'ACT-MAIN-017':
@@ -215,6 +249,8 @@ class _MainShellState extends ConsumerState<MainShell> {
         updateCurrentGroup(context, ref, viaProxy: false);
       case 'ACT-MAIN-023':
         updateCurrentGroup(context, ref, viaProxy: true);
+      case 'ACT-MAIN-027':
+        profile_actions.openFullConfigTemplateWindow(context, ref);
       default:
         shell.notImplemented(entry.label, entry.actionId);
     }

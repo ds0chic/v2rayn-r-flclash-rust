@@ -102,6 +102,7 @@ dependencies = [
  "rustls-pemfile",
  "serde",
  "serde_json",
+ "serde_yaml",
  "subscriptions",
  "tempfile",
  "tokio",
@@ -1307,8 +1308,11 @@ dependencies = [
 name = "privileged_helper"
 version = "0.1.0"
 dependencies = [
+ "ipc_contract",
  "serde",
  "serde_json",
+ "tokio",
+ "windows",
 ]
 
 [[package]]
@@ -2176,8 +2180,19 @@ checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
 name = "updater"
 version = "0.1.0"
 dependencies = [
+ "domain",
+ "flate2",
+ "futures-util",
+ "hex",
+ "reqwest",
  "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tiny_http",
+ "tokio",
+ "zip",
 ]
 
 [[package]]

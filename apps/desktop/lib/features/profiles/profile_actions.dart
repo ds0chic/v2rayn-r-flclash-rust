@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/features/profiles/custom_editor_dialog.dart';
+import 'package:v2rayn_desktop/features/profiles/group_editor_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_editor_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
+import 'package:v2rayn_desktop/features/profiles/template_window.dart';
 
 /// Add a node of [configType] through the real editor + bridge.
 Future<void> startAddProfile(
@@ -149,6 +152,124 @@ Future<void> toggleActiveSelected(WidgetRef ref) async {
   final result = controller.setActive(next);
   controller.logAction(ProfileAction.activate, 'id=${next ?? "(none)"}');
   _toast(ref, result.ok ? (next == null ? '已停用活动节点' : '已启用为活动节点') : '操作失败');
+}
+
+/// Add a PolicyGroup / ProxyChain node through the group editor + bridge.
+Future<void> startAddGroupProfile(
+  BuildContext context,
+  WidgetRef ref,
+  ConfigType configType,
+) async {
+  assert(
+    configType == ConfigType.policyGroup || configType == ConfigType.proxyChain,
+  );
+  final controller = ref.read(profilesControllerProvider.notifier);
+  final draft = controller.newDraft(configType)
+    ..coreType = CoreType.xray
+    ..port = 0
+    ..address = '';
+  final saved = await showGroupEditor(
+    context,
+    initial: draft,
+    allProfiles: ref.read(profilesControllerProvider).profiles,
+    subItems: controller.subItems(),
+    onSave: controller.saveDraft,
+  );
+  _toast(ref, saved == null ? '已取消添加' : '已保存 ${saved.remarks}');
+}
+
+/// Edit the single selected group/chain node.
+Future<void> editSelectedGroup(BuildContext context, WidgetRef ref) async {
+  final controller = ref.read(profilesControllerProvider.notifier);
+  final state = ref.read(profilesControllerProvider);
+  if (state.selected.length != 1) {
+    _toast(ref, state.selected.isEmpty ? '请先选择节点' : '请选择单个节点后编辑');
+    return;
+  }
+  final id = state.selected.first;
+  final dto = controller.profileById(id);
+  if (dto == null) {
+    _toast(ref, '未找到节点 $id');
+    return;
+  }
+  if (dto.configType != ConfigType.policyGroup &&
+      dto.configType != ConfigType.proxyChain) {
+    _toast(ref, '所选不是策略组/代理链节点');
+    return;
+  }
+  final saved = await showGroupEditor(
+    context,
+    initial: ProfileDraft.fromDto(dto),
+    allProfiles: state.profiles,
+    subItems: controller.subItems(),
+    onSave: controller.saveDraft,
+  );
+  _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
+}
+
+/// Add a Custom / Outbound node through the AddServer2 editor + bridge.
+Future<void> startAddCustomProfile(
+  BuildContext context,
+  WidgetRef ref,
+  ConfigType configType,
+) async {
+  assert(configType == ConfigType.custom || configType == ConfigType.outbound);
+  final controller = ref.read(profilesControllerProvider.notifier);
+  final draft = controller.newDraft(configType)
+    ..port = 0
+    ..address = '';
+  final saved = await showCustomEditor(
+    context,
+    initial: draft,
+    onSave: controller.saveDraft,
+  );
+  _toast(ref, saved == null ? '已取消添加' : '已保存 ${saved.remarks}');
+}
+
+/// Edit the single selected Custom / Outbound node.
+Future<void> editSelectedCustom(BuildContext context, WidgetRef ref) async {
+  final controller = ref.read(profilesControllerProvider.notifier);
+  final state = ref.read(profilesControllerProvider);
+  if (state.selected.length != 1) {
+    _toast(ref, state.selected.isEmpty ? '请先选择节点' : '请选择单个节点后编辑');
+    return;
+  }
+  final dto = controller.profileById(state.selected.first);
+  if (dto == null) {
+    _toast(ref, '未找到节点');
+    return;
+  }
+  if (dto.configType != ConfigType.custom &&
+      dto.configType != ConfigType.outbound) {
+    _toast(ref, '所选不是自定义配置/出站节点');
+    return;
+  }
+  final saved = await showCustomEditor(
+    context,
+    initial: ProfileDraft.fromDto(dto),
+    onSave: controller.saveDraft,
+  );
+  _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
+}
+
+/// Open the full-config template settings window.
+Future<void> openFullConfigTemplateWindow(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final bridge = ref.read(bridgePortProvider);
+  final controller = ref.read(profilesControllerProvider.notifier);
+  final saved = await showFullConfigTemplateWindow(
+    context,
+    initial: bridge.listTemplates().items,
+    onSave: (item) => bridge.saveTemplate(item),
+  );
+  if (saved == true) {
+    controller.reload();
+    _toast(ref, '完整配置模板已保存');
+  } else {
+    _toast(ref, '已取消模板设置');
+  }
 }
 
 void _toast(WidgetRef ref, String message) {

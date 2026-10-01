@@ -179,7 +179,10 @@ pub fn to_codegen_profile(profile: &Profile, custom_config: Option<String>) -> C
         cert: security.cert.clone().unwrap_or_default(),
         cert_sha: security.cert_sha.clone().unwrap_or_default(),
         ech_config_list: security.ech_config_list.clone().unwrap_or_default(),
-        verify_peer_cert_by_name: security.verify_peer_cert_by_name.clone().unwrap_or_default(),
+        verify_peer_cert_by_name: security
+            .verify_peer_cert_by_name
+            .clone()
+            .unwrap_or_default(),
         finalmask: parse_finalmask(profile.finalmask.as_ref()),
         proto_extra: proto_extra(profile),
         transport_extra: transport_extra(profile),
@@ -213,7 +216,10 @@ pub fn build_input(
 ) -> CodegenInput {
     let mut profiles: BTreeMap<String, CodegenProfile> = BTreeMap::new();
     for profile in all {
-        let custom = if matches!(profile.config_type, ConfigType::Custom | ConfigType::Outbound) {
+        let custom = if matches!(
+            profile.config_type,
+            ConfigType::Custom | ConfigType::Outbound
+        ) {
             outbound_contents
                 .get(&profile.index_id)
                 .cloned()
@@ -226,7 +232,10 @@ pub fn build_input(
             to_codegen_profile(profile, custom),
         );
     }
-    let active_custom = if matches!(active.config_type, ConfigType::Custom | ConfigType::Outbound) {
+    let active_custom = if matches!(
+        active.config_type,
+        ConfigType::Custom | ConfigType::Outbound
+    ) {
         custom_config.or_else(|| custom_config_text(active))
     } else {
         None
@@ -249,6 +258,34 @@ pub fn generate(core: CoreType, input: &CodegenInput) -> Result<GeneratedConfigs
         CoreType::SingBox => generate_singbox(input),
         _ => generate_xray(input),
     }
+}
+
+/// Map a stored [`domain::FullConfigTemplate`] row onto the generator model.
+///
+/// A disabled row, or an enabled row with no content, yields `None` (the
+/// generator then behaves as if no template was set).
+pub fn template_for(item: &domain::FullConfigTemplate) -> Option<CodegenTemplate> {
+    if !item.enabled {
+        return None;
+    }
+    let has_config = item
+        .config
+        .as_deref()
+        .is_some_and(|text| !text.trim().is_empty());
+    let has_tun = item
+        .tun_config
+        .as_deref()
+        .is_some_and(|text| !text.trim().is_empty());
+    if !has_config && !has_tun {
+        return None;
+    }
+    Some(CodegenTemplate {
+        enabled: true,
+        config: item.config.clone(),
+        tun_config: item.tun_config.clone(),
+        add_proxy_only: item.add_proxy_only.unwrap_or(false),
+        proxy_detour: item.proxy_detour.clone(),
+    })
 }
 
 #[cfg(test)]
@@ -284,8 +321,19 @@ mod tests {
     #[test]
     fn engine_input_generates_xray_balancer() {
         let active = group();
-        let all = vec![active.clone(), leaf("c1", "192.0.2.1"), leaf("c2", "192.0.2.2")];
-        let input = build_input(&active, &all, None, BTreeMap::new(), None, &CodegenOptions::default());
+        let all = vec![
+            active.clone(),
+            leaf("c1", "192.0.2.1"),
+            leaf("c2", "192.0.2.2"),
+        ];
+        let input = build_input(
+            &active,
+            &all,
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
         let generated = generate(CoreType::Xray, &input).unwrap();
         assert_eq!(
             generated.main["routing"]["balancers"][0]["tag"],
@@ -296,8 +344,19 @@ mod tests {
     #[test]
     fn engine_input_generates_singbox_selector() {
         let active = group();
-        let all = vec![active.clone(), leaf("c1", "192.0.2.1"), leaf("c2", "192.0.2.2")];
-        let input = build_input(&active, &all, None, BTreeMap::new(), None, &CodegenOptions::default());
+        let all = vec![
+            active.clone(),
+            leaf("c1", "192.0.2.1"),
+            leaf("c2", "192.0.2.2"),
+        ];
+        let input = build_input(
+            &active,
+            &all,
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
         let generated = generate(CoreType::SingBox, &input).unwrap();
         let outbounds = generated.main["outbounds"].as_array().unwrap();
         assert!(outbounds.iter().any(|o| o["type"] == "selector"));

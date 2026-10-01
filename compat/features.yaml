@@ -44,7 +44,8 @@ config_types:
   - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:16
   - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:44
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:459
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 - id: CFG-003
   name: EConfigType.Shadowsocks
   enum_value: 3
@@ -262,7 +263,8 @@ config_types:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:587
   - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:178
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:459
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 - id: CFG-014
   name: EConfigType.PolicyGroup
   enum_value: 101
@@ -282,8 +284,9 @@ config_types:
   - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:90
   - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:205
   - v2rayN/ServiceLib.Tests/Fmt/FmtHandlerTests.cs:277
+  - docs/evidence/T10.md
   notes: 五模式见 EMultipleLoad。
-  status: identified
+  status: implemented
 - id: CFG-015
   name: EConfigType.ProxyChain
   enum_value: 102
@@ -302,7 +305,8 @@ config_types:
   - v2rayN/ServiceLib/Enums/EConfigType.cs:19
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:300
   - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:238
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 core_capability_matrix:
 - id: CRM-001
   core: v2fly
@@ -990,14 +994,18 @@ features:
   cancel_behavior: 无
   acceptance: 生成后出现对应 PolicyGroup 节点且 ChildItems 正确
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/engine.rs (gen_group_all/gen_group_region); crates/application/src/groups.rs (REGION_FILTERS); apps/desktop/lib/features/profiles/profiles_page.dart (GroupsPanel)
+
+  test_ids:
+  - t10_groups_templates.rs::gen_group_all_and_region
+  - t10_groups_panel_test.dart
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:610
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:622
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1422
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1487
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 - id: F-PROFILE-010
   name: 移除无效节点结果
   family: profile
@@ -2905,13 +2913,18 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 模板内容进入生成配置
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/profiles/template_window.dart; crates/application/src/templates.rs + engine template store; crates/bridge_api/src/api/groups.rs
+
+  test_ids:
+  - t10_groups_templates.rs::template_crud_survives_reopen
+  - t10_template_window_test.dart (4 tests)
+  - t10_core_matrix.rs::template xray+singbox PASS
   evidence:
   - v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs:39
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2838
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:44
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 - id: F-CORE-010
   name: Clash Mixin 合并
   family: core
@@ -2937,14 +2950,18 @@ features:
   cancel_behavior: 无
   acceptance: Mixin 键按前缀语义合并进最终 YAML
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/mixin.rs (GenerateClientCustomConfig merge)
+
+  test_ids:
+  - mixin.rs unit tests (6)
+  - t10_core_matrix.rs::t10_mihomo_mixin_file_round_trip
   evidence:
   - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:113
   - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:164
   - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:192
   - v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:206
-  status: identified
+  - docs/evidence/T10.md
+  status: implemented
 - id: F-CORE-011
   name: 内核可执行文件定位
   family: core

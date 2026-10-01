@@ -62,19 +62,93 @@ pub fn sub_child_ids(profile: &Profile) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// Match `remarks` against a stored filter string: an empty filter matches
+/// everything; an uncompilable filter matches nothing (validation rejects such
+/// drafts at save time, this is only the generation-time fallback).
+pub fn remarks_match(filter: Option<&str>, remarks: &str) -> bool {
+    let Some(filter) = filter else {
+        return true;
+    };
+    if filter.trim().is_empty() {
+        return true;
+    }
+    RemarksFilter::compile(filter).is_ok_and(|compiled| compiled.is_match(remarks))
+}
+
 /// Compile the Remarks filter regex, if one is configured.
-fn compile_filter(profile: &Profile) -> Result<Option<regex::Regex>, DomainError> {
+fn compile_filter(profile: &Profile) -> Result<Option<RemarksFilter>, DomainError> {
     let Some(filter) = profile.proto_extra.filter.as_deref() else {
         return Ok(None);
     };
     if filter.trim().is_empty() {
         return Ok(None);
     }
-    regex::Regex::new(filter).map(Some).map_err(|error| {
+    RemarksFilter::compile(filter).map(Some).map_err(|error| {
         DomainError::new(codes::FIELD_FORMAT, "error.group_filter_invalid")
             .with_field("proto_extra.filter")
-            .with_detail(error.to_string())
+            .with_detail(error)
     })
+}
+
+/// A compiled Remarks filter.
+///
+/// Upstream (`Utils.IsRegexMatch`) runs on .NET regexes, and the built-in
+/// group filters rely on a negative look-ahead wrapper
+/// (`^(?!.*(?:<exclusions>)).*$` / `... .*(?:<pattern>).*$`). The Rust `regex`
+/// crate has no look-around, so that exact wrapper is evaluated as an
+/// exclusion regex plus an inclusion regex; every other pattern compiles
+/// directly.
+#[derive(Debug, Clone)]
+enum RemarksFilter {
+    Simple(regex::Regex),
+    ExcludeInclude {
+        exclude: regex::Regex,
+        include: Option<regex::Regex>,
+    },
+}
+
+impl RemarksFilter {
+    fn compile(filter: &str) -> Result<Self, String> {
+        match regex::Regex::new(filter) {
+            Ok(simple) => Ok(RemarksFilter::Simple(simple)),
+            Err(error) => split_exclude_wrapper(filter)
+                .ok_or_else(|| error.to_string())
+                .and_then(|(exclude, include)| {
+                    let exclude = regex::Regex::new(&exclude).map_err(|error| error.to_string())?;
+                    let include = include
+                        .map(|pattern| regex::Regex::new(&pattern))
+                        .transpose()
+                        .map_err(|error| error.to_string())?;
+                    Ok(RemarksFilter::ExcludeInclude { exclude, include })
+                }),
+        }
+    }
+
+    fn is_match(&self, remarks: &str) -> bool {
+        match self {
+            RemarksFilter::Simple(re) => re.is_match(remarks),
+            RemarksFilter::ExcludeInclude { exclude, include } => {
+                if exclude.is_match(remarks) {
+                    return false;
+                }
+                include.as_ref().is_some_and(|re| re.is_match(remarks)) || include.is_none()
+            }
+        }
+    }
+}
+
+/// Split the upstream `^(?!.*(?:<exclude>)).*$` / `^(?!.*(?:<exclude>)).*(?:<include>).*$`
+/// wrapper. Returns `None` for any other shape.
+fn split_exclude_wrapper(filter: &str) -> Option<(String, Option<String>)> {
+    let rest = filter.strip_prefix("^(?!.*(?:")?;
+    let end = rest.find("))")?;
+    let (exclude, mut tail) = rest.split_at(end);
+    tail = &tail[2..];
+    if tail == ".*$" {
+        return Some((exclude.to_string(), None));
+    }
+    let include = tail.strip_prefix(".*(?:")?.strip_suffix(").*$")?;
+    Some((exclude.to_string(), Some(include.to_string())))
 }
 
 /// Validate a group/chain draft against the current profile set. Leaves and
@@ -96,11 +170,10 @@ pub fn validate_group(
     let child_ids = child_index_ids(profile);
     let sub_ids = sub_child_ids(profile);
     if child_ids.is_empty() && sub_ids.is_empty() {
-        return Err(DomainError::new(
-            codes::FIELD_REQUIRED,
-            "error.group_children_required",
-        )
-        .with_field("proto_extra.childItems"));
+        return Err(
+            DomainError::new(codes::FIELD_REQUIRED, "error.group_children_required")
+                .with_field("proto_extra.childItems"),
+        );
     }
     for id in &child_ids {
         if !all.contains_key(id) {
@@ -183,10 +256,7 @@ pub fn resolve_sub_children<'a>(
     if sub_ids.is_empty() {
         return Vec::new();
     }
-    let filter = match compile_filter(profile) {
-        Ok(filter) => filter,
-        Err(_) => None,
-    };
+    let filter = compile_filter(profile).ok().flatten();
     let mut matched: Vec<&Profile> = all
         .values()
         .filter(|p| sub_ids.contains(&p.subid) && is_eligible_child(p))
@@ -241,6 +311,75 @@ pub fn new_group(
     profile
 }
 
+/// Upstream `Global.PolicyGroupExcludeKeywords`.
+pub const EXCLUDE_KEYWORDS: &str = "剩余|过期|到期|重置|[Rr]emaining|[Ee]xpir|[Rr]eset";
+
+/// Upstream `Global.PolicyGroupDefaultAllFilter`.
+pub const DEFAULT_ALL_FILTER: &str =
+    "^(?!.*(?:剩余|过期|到期|重置|[Rr]emaining|[Ee]xpir|[Rr]eset)).*$";
+
+/// Region remark filters, mirroring upstream `PolicyGroupRegionFilters`
+/// (`ConfigHandler.cs`) combined with `CombineWithDefaultAllFilter`.
+pub const REGION_FILTERS: &[(&str, &str)] = &[
+    ("JP", "日本|\\b[Jj][Pp]\\b|🇯🇵|[Jj]apan"),
+    (
+        "US",
+        "美国|\\b[Uu][Ss]\\b|🇺🇸|[Uu]nited [Ss]tates|\\b[Uu][Ss][Aa]\\b",
+    ),
+    ("HK", "香港|\\b[Hh][Kk]\\b|🇭🇰|[Hh]ong ?[Kk]ong"),
+    ("TW", "台湾|台灣|\\b[Tt][Ww]\\b|🇹🇼|[Tt]aiwan"),
+    ("KR", "韩国|\\b[Kk][Rr]\\b|🇰🇷|[Kk]orea"),
+    ("SG", "新加坡|\\b[Ss][Gg]\\b|🇸🇬|[Ss]ingapore"),
+    ("DE", "德国|\\b[Dd][Ee]\\b|🇩🇪|[Gg]ermany"),
+    ("FR", "法国|\\b[Ff][Rr]\\b|🇫🇷|[Ff]rance"),
+    (
+        "GB",
+        "英国|\\b[Gg][Bb]\\b|🇬🇧|[Uu]nited [Kk]ingdom|[Bb]ritain",
+    ),
+    ("CA", "加拿大|🇨🇦|[Cc]anada"),
+    ("AU", "澳大利亚|\\b[Aa][Uu]\\b|🇦🇺|[Aa]ustralia"),
+    ("RU", "俄罗斯|\\b[Rr][Uu]\\b|🇷🇺|[Rr]ussia"),
+    ("BR", "巴西|\\b[Bb][Rr]\\b|🇧🇷|[Bb]razil"),
+    ("IN", "印度|🇮🇳|[Ii]ndia"),
+    ("VN", "越南|\\b[Vv][Nn]\\b|🇻🇳|[Vv]ietnam"),
+    ("ID", "印度尼西亚|\\b[Ii][Dd]\\b|🇮🇩|[Ii]ndonesia"),
+    ("MX", "墨西哥|\\b[Mm][Xx]\\b|🇲🇽|[Mm]exico"),
+];
+
+/// Wrap a region pattern with the default-all exclusion prefix.
+pub fn region_filter(region_pattern: &str) -> String {
+    format!("^(?!.*(?:{EXCLUDE_KEYWORDS})).*(?:{region_pattern}).*$")
+}
+
+/// Build an "all nodes of this subscription" policy-group draft
+/// (upstream `ConfigHandler.AddGroupAllServer`).
+pub fn new_group_all(sub_id: &str, remarks: String) -> Profile {
+    let mut profile = new_group(
+        ConfigType::PolicyGroup,
+        remarks,
+        domain::MultipleLoad::LeastPing,
+    );
+    profile.subid = sub_id.to_string();
+    profile.proto_extra.sub_child_items = Some(sub_id.to_string());
+    profile.proto_extra.filter = Some(DEFAULT_ALL_FILTER.to_string());
+    profile
+}
+
+/// Build one policy-group draft per region that has matching nodes
+/// (upstream `ConfigHandler.AddGroupRegionServer`; regions without matches
+/// are skipped by the caller via [`resolve_sub_children`]-style matching).
+pub fn new_group_region(sub_id: &str, remarks: String, region: &str, pattern: &str) -> Profile {
+    let mut profile = new_group(
+        ConfigType::PolicyGroup,
+        format!("{remarks} - {region}"),
+        domain::MultipleLoad::LeastPing,
+    );
+    profile.subid = sub_id.to_string();
+    profile.proto_extra.sub_child_items = Some(sub_id.to_string());
+    profile.proto_extra.filter = Some(region_filter(pattern));
+    profile
+}
+
 /// Reconstruct a reference expression from an explicit id list (test helper).
 pub fn set_child_index_ids(profile: &mut Profile, ids: &[String]) {
     profile.proto_extra.child_items = if ids.is_empty() {
@@ -268,16 +407,28 @@ mod tests {
     }
 
     fn map(profiles: Vec<Profile>) -> HashMap<String, Profile> {
-        profiles.into_iter().map(|p| (p.index_id.clone(), p)).collect()
+        profiles
+            .into_iter()
+            .map(|p| (p.index_id.clone(), p))
+            .collect()
+    }
+
+    #[test]
+    fn builtin_all_filter_compiles_and_excludes() {
+        let filter = RemarksFilter::compile(DEFAULT_ALL_FILTER).expect("builtin filter");
+        assert!(filter.is_match("HK-1"));
+        assert!(!filter.is_match("过期节点"));
+        assert!(!filter.is_match("Expired node"));
+        let region = region_filter("香港|\\b[Hh][Kk]\\b");
+        let filter = RemarksFilter::compile(&region).expect("region filter");
+        assert!(filter.is_match("香港专线"));
+        assert!(!filter.is_match("US-1"));
+        assert!(!filter.is_match("HK-到期"));
     }
 
     #[test]
     fn rejects_missing_child() {
-        let mut group = new_group(
-            ConfigType::PolicyGroup,
-            "g".into(),
-            MultipleLoad::LeastPing,
-        );
+        let mut group = new_group(ConfigType::PolicyGroup, "g".into(), MultipleLoad::LeastPing);
         set_child_index_ids(&mut group, &["missing".into()]);
         let err = validate_group(&group, &HashMap::new()).unwrap_err();
         assert_eq!(err.code, codes::DANGLING_REFERENCE);
@@ -299,11 +450,7 @@ mod tests {
 
     #[test]
     fn rejects_invalid_filter_regex() {
-        let mut group = new_group(
-            ConfigType::PolicyGroup,
-            "g".into(),
-            MultipleLoad::LeastPing,
-        );
+        let mut group = new_group(ConfigType::PolicyGroup, "g".into(), MultipleLoad::LeastPing);
         group.proto_extra.sub_child_items = Some("sub-1".into());
         group.proto_extra.filter = Some("(".into());
         let err = validate_group(&group, &HashMap::new()).unwrap_err();
@@ -319,10 +466,7 @@ mod tests {
         );
         group.proto_extra.child_items = Some(" c2 , c1 ,c2".into());
         let normalized = normalize_group(group);
-        assert_eq!(
-            normalized.proto_extra.child_items.as_deref(),
-            Some("c2,c1")
-        );
+        assert_eq!(normalized.proto_extra.child_items.as_deref(), Some("c2,c1"));
         assert_eq!(
             normalized.proto_extra.group_type.as_deref(),
             Some("ProxyChain")
@@ -331,11 +475,7 @@ mod tests {
 
     #[test]
     fn sub_children_filter_and_order() {
-        let mut group = new_group(
-            ConfigType::PolicyGroup,
-            "g".into(),
-            MultipleLoad::LeastPing,
-        );
+        let mut group = new_group(ConfigType::PolicyGroup, "g".into(), MultipleLoad::LeastPing);
         group.index_id = "g".into();
         group.subid = "sub-1".into();
         group.proto_extra.sub_child_items = Some("self".into());

@@ -8,6 +8,7 @@
 
 import 'api/contract.dart';
 import 'api/engine.dart';
+import 'api/groups.dart';
 import 'api/mirrors.dart';
 import 'api/profiles.dart';
 import 'api/subs.dart';
@@ -57,6 +58,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto dco_decode_box_autoadd_error_dto(dynamic raw);
+
+  @protected
+  FullConfigTemplateDto dco_decode_box_autoadd_full_config_template_dto(
+    dynamic raw,
+  );
 
   @protected
   int dco_decode_box_autoadd_i_32(dynamic raw);
@@ -122,6 +128,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EventEnvelopeDto dco_decode_event_envelope_dto(dynamic raw);
 
   @protected
+  FullConfigTemplateDto dco_decode_full_config_template_dto(dynamic raw);
+
+  @protected
+  GroupGenResult dco_decode_group_gen_result(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
@@ -144,6 +156,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ConfigType> dco_decode_list_config_type(dynamic raw);
+
+  @protected
+  List<FullConfigTemplateDto> dco_decode_list_full_config_template_dto(
+    dynamic raw,
+  );
 
   @protected
   List<JobDto> dco_decode_list_job_dto(dynamic raw);
@@ -180,6 +197,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto? dco_decode_opt_box_autoadd_error_dto(dynamic raw);
+
+  @protected
+  FullConfigTemplateDto? dco_decode_opt_box_autoadd_full_config_template_dto(
+    dynamic raw,
+  );
 
   @protected
   int? dco_decode_opt_box_autoadd_i_32(dynamic raw);
@@ -278,6 +300,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SubsPageDto dco_decode_subs_page_dto(dynamic raw);
 
   @protected
+  TemplateDtoResult dco_decode_template_dto_result(dynamic raw);
+
+  @protected
+  TemplatesPageDto dco_decode_templates_page_dto(dynamic raw);
+
+  @protected
   TransportExtraDto dco_decode_transport_extra_dto(dynamic raw);
 
   @protected
@@ -333,6 +361,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto sse_decode_box_autoadd_error_dto(SseDeserializer deserializer);
+
+  @protected
+  FullConfigTemplateDto sse_decode_box_autoadd_full_config_template_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int sse_decode_box_autoadd_i_32(SseDeserializer deserializer);
@@ -406,6 +439,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EventEnvelopeDto sse_decode_event_envelope_dto(SseDeserializer deserializer);
 
   @protected
+  FullConfigTemplateDto sse_decode_full_config_template_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  GroupGenResult sse_decode_group_gen_result(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
@@ -430,6 +471,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ConfigType> sse_decode_list_config_type(SseDeserializer deserializer);
+
+  @protected
+  List<FullConfigTemplateDto> sse_decode_list_full_config_template_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<JobDto> sse_decode_list_job_dto(SseDeserializer deserializer);
@@ -472,6 +518,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto? sse_decode_opt_box_autoadd_error_dto(SseDeserializer deserializer);
+
+  @protected
+  FullConfigTemplateDto? sse_decode_opt_box_autoadd_full_config_template_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer);
@@ -584,6 +635,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SubsPageDto sse_decode_subs_page_dto(SseDeserializer deserializer);
 
   @protected
+  TemplateDtoResult sse_decode_template_dto_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TemplatesPageDto sse_decode_templates_page_dto(SseDeserializer deserializer);
+
+  @protected
   TransportExtraDto sse_decode_transport_extra_dto(
     SseDeserializer deserializer,
   );
@@ -651,6 +710,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_error_dto(
     ErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_full_config_template_dto(
+    FullConfigTemplateDto self,
     SseSerializer serializer,
   );
 
@@ -745,6 +810,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_full_config_template_dto(
+    FullConfigTemplateDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_group_gen_result(
+    GroupGenResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
@@ -771,6 +848,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_config_type(
     List<ConfigType> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_full_config_template_dto(
+    List<FullConfigTemplateDto> self,
     SseSerializer serializer,
   );
 
@@ -834,6 +917,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_error_dto(
     ErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_full_config_template_dto(
+    FullConfigTemplateDto? self,
     SseSerializer serializer,
   );
 
@@ -980,6 +1069,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_subs_page_dto(SubsPageDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_template_dto_result(
+    TemplateDtoResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_templates_page_dto(
+    TemplatesPageDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_transport_extra_dto(

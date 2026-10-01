@@ -45,6 +45,7 @@ class ProfilesState {
     required this.columns,
     this.profiles = const <c.ProfileDto>[],
     this.activeId,
+    this.groupSubId,
     this.lastAckSeq,
     this.lastAckRustCount,
     this.blockingBusy = false,
@@ -65,6 +66,9 @@ class ProfilesState {
 
   /// Persisted active node id, if any.
   final String? activeId;
+
+  /// Selected subscription group filter (`null` = all groups).
+  final String? groupSubId;
 
   /// Full column set in display order; hidden columns are retained so their
   /// position/width survives toggling (LAY-PROFILES-003).
@@ -94,6 +98,8 @@ class ProfilesState {
     List<c.ProfileDto>? profiles,
     String? activeId,
     bool clearActive = false,
+    String? groupSubId,
+    bool clearGroup = false,
     int? lastAckSeq,
     int? lastAckRustCount,
     bool? blockingBusy,
@@ -111,6 +117,7 @@ class ProfilesState {
       columns: columns ?? this.columns,
       profiles: profiles ?? this.profiles,
       activeId: clearActive ? null : (activeId ?? this.activeId),
+      groupSubId: clearGroup ? null : (groupSubId ?? this.groupSubId),
       lastAckSeq: lastAckSeq ?? this.lastAckSeq,
       lastAckRustCount: lastAckRustCount ?? this.lastAckRustCount,
       blockingBusy: blockingBusy ?? this.blockingBusy,
@@ -275,8 +282,49 @@ class ProfilesController extends Notifier<ProfilesState> {
 
   ProfilesState _recompute(ProfilesState base) {
     final filtered = applyFilter(base.all, base.filter);
-    final sorted = applySort(filtered, base.visibleColumns, base.sort);
+    final grouped = base.groupSubId == null
+        ? filtered
+        : filtered.where((r) => r.subRemarks == base.groupSubId).toList();
+    final sorted = applySort(grouped, base.visibleColumns, base.sort);
     return base.copyWith(visible: sorted);
+  }
+
+  /// Select the subscription group shown in the node table (`null` = all).
+  void setGroupSubId(String? subId) {
+    state = _recompute(
+      state.copyWith(groupSubId: subId, clearGroup: subId == null),
+    );
+    _log('group-filter', 'sub=${subId ?? "(all)"}');
+  }
+
+  /// Subscription rows for the groups panel.
+  List<c.SubItemDto> subItems() {
+    try {
+      return _bridge.listSubItems().items;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Generate the "all nodes" policy group for one subscription.
+  c.SaveProfileResult genGroupAll(String subId) {
+    final result = _bridge.genGroupAll(subId);
+    if (result.ok) {
+      reload();
+      _log('gen-group-all', 'sub=$subId');
+    }
+    return result;
+  }
+
+  /// Generate one policy group per matching region.
+  int genGroupRegion(String subId) {
+    final result = _bridge.genGroupRegion(subId);
+    if (result.ok) {
+      reload();
+      _log('gen-group-region', 'sub=$subId count=${result.profiles.length}');
+      return result.profiles.length;
+    }
+    return -1;
   }
 
   void setFilter(String value) {

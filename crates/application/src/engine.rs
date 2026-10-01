@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use domain::{
     AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType, DesiredRevision,
-    DomainError, JobId, Profile, RuntimePlan,
+    DomainError, FullConfigTemplate, JobId, Profile, RuntimePlan,
 };
 use serde_json::Value;
 
@@ -44,6 +44,7 @@ pub struct AppEngine {
     subs: Arc<Mutex<SubStore>>,
     revisions: Arc<Mutex<RevisionStore>>,
     active: Arc<Mutex<Option<String>>>,
+    templates: Arc<Mutex<Vec<FullConfigTemplate>>>,
     data_dir: Option<PathBuf>,
     jobs: JobManager,
     runtime: Arc<dyn RuntimeClient>,
@@ -73,6 +74,7 @@ impl AppEngine {
             subs: Arc::new(Mutex::new(SubStore::Memory(InMemorySubRepository::new()))),
             revisions: Arc::new(Mutex::new(RevisionStore::new())),
             active: Arc::new(Mutex::new(None)),
+            templates: Arc::new(Mutex::new(crate::templates::builtins())),
             data_dir: None,
             jobs: JobManager::new(),
             runtime,
@@ -118,6 +120,7 @@ impl AppEngine {
                 DesiredRevision::new(desired),
             ))),
             active: Arc::new(Mutex::new(active)),
+            templates: Arc::new(Mutex::new(read_templates(&config))),
             data_dir: Some(data_dir),
             jobs: JobManager::new(),
             runtime,
@@ -200,7 +203,9 @@ impl AppEngine {
     /// `save_profile` use case: optimistic-concurrency save.
     ///
     /// Rejects a stale `expected_revision`, validates the draft, persists it
-    /// and bumps the desired revision.
+    /// and bumps the desired revision. Group drafts (`PolicyGroup` /
+    /// `ProxyChain`) are normalized and cycle-checked against the full profile
+    /// set; `Custom` / `Outbound` drafts go through the AddServer2 validation.
     pub fn save_profile(
         &self,
         draft: Profile,
@@ -211,7 +216,19 @@ impl AppEngine {
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         revisions.check(expected_revision)?;
+        let mut draft = draft;
+        draft.config_version = 4;
         draft.validate()?;
+        if crate::groups::is_group(draft.config_type) {
+            draft = crate::groups::normalize_group(draft);
+            let mut all = self.all_profiles_map_locked()?;
+            all.insert(draft.index_id.clone(), draft.clone());
+            crate::groups::validate_group(&draft, &all)?;
+        }
+        if matches!(draft.config_type, ConfigType::Custom | ConfigType::Outbound) {
+            draft = crate::custom::normalize_custom(draft);
+            crate::custom::validate_custom(&draft)?;
+        }
 
         let mut repo = self
             .repo
@@ -334,9 +351,15 @@ impl AppEngine {
             return Ok(());
         };
         let active = self.active.lock().ok().and_then(|guard| guard.clone());
+        let templates = self
+            .templates
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default();
         let value = serde_json::json!({
             "desired_revision": revisions.desired().get(),
             "active_index_id": active,
+            "full_config_templates": templates,
         });
         write_config(dir, &value)?;
         Ok(())
@@ -732,11 +755,200 @@ impl AppEngine {
         Ok(())
     }
 
+    // -- T10 group / custom / template use cases -----------------------------
+
+    /// Every profile keyed by stable id (group validation + child resolution).
+    fn all_profiles_map_locked(
+        &self,
+    ) -> Result<std::collections::HashMap<String, Profile>, DomainError> {
+        let repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let page = repo.query(
+            &ProfileFilter::default(),
+            ProfileSort::IndexId,
+            PageRequest {
+                cursor: 0,
+                page_size: u32::MAX,
+            },
+        )?;
+        Ok(page
+            .items
+            .into_iter()
+            .map(|p| (p.index_id.clone(), p))
+            .collect())
+    }
+
+    /// Ordered, de-duplicated child profiles of a group/chain node: subscription
+    /// matches first, then the explicit `ChildItems` order.
+    pub fn group_children(&self, index_id: &str) -> Result<Vec<Profile>, DomainError> {
+        let all = self.all_profiles_map_locked()?;
+        let group = all
+            .get(index_id)
+            .ok_or_else(|| DomainError::not_found("profile", index_id))?;
+        Ok(crate::groups::resolve_children(group, &all)
+            .into_iter()
+            .cloned()
+            .collect())
+    }
+
+    /// Create the "all nodes of this subscription" policy group
+    /// (upstream `ConfigHandler.AddGroupAllServer`).
+    pub fn gen_group_all(&self, sub_id: &str) -> Result<Profile, DomainError> {
+        let sub = self
+            .get_sub_item(sub_id)?
+            .ok_or_else(|| DomainError::not_found("subscription", sub_id))?;
+        let remarks = format!("{} - PolicyGroup", sub.remarks);
+        let draft = crate::groups::new_group_all(sub_id, remarks);
+        let revision = self.desired_revision();
+        Ok(self.save_profile(draft, DesiredRevision::new(revision))?.0)
+    }
+
+    /// Create one policy group per region with at least one matching node
+    /// (upstream `ConfigHandler.AddGroupRegionServer`).
+    pub fn gen_group_region(&self, sub_id: &str) -> Result<Vec<Profile>, DomainError> {
+        let sub = self
+            .get_sub_item(sub_id)?
+            .ok_or_else(|| DomainError::not_found("subscription", sub_id))?;
+        let nodes = self.profiles_by_subid(sub_id)?;
+        let mut created = Vec::new();
+        for (region, pattern) in crate::groups::REGION_FILTERS {
+            let filter = crate::groups::region_filter(pattern);
+            let matches = nodes.iter().any(|p| {
+                crate::groups::is_eligible_child(p)
+                    && crate::groups::remarks_match(Some(&filter), &p.remarks)
+            });
+            if !matches {
+                continue;
+            }
+            let draft =
+                crate::groups::new_group_region(sub_id, sub.remarks.clone(), region, pattern);
+            let revision = self.desired_revision();
+            created.push(self.save_profile(draft, DesiredRevision::new(revision))?.0);
+        }
+        Ok(created)
+    }
+
+    /// All full-config templates in stable order.
+    pub fn list_templates(&self) -> Result<Vec<FullConfigTemplate>, DomainError> {
+        self.templates
+            .lock()
+            .map(|guard| guard.clone())
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))
+    }
+
+    /// The template row for `core`, if any.
+    pub fn get_template_for_core(
+        &self,
+        core: CoreType,
+    ) -> Result<Option<FullConfigTemplate>, DomainError> {
+        Ok(self
+            .list_templates()?
+            .into_iter()
+            .find(|t| t.core_type == core))
+    }
+
+    /// Validate, normalize and persist one template row.
+    ///
+    /// Upstream keeps one row per core; a draft without an id therefore
+    /// updates the existing row for its core instead of adding a duplicate.
+    pub fn save_template(
+        &self,
+        item: FullConfigTemplate,
+    ) -> Result<FullConfigTemplate, DomainError> {
+        crate::templates::validate(&item)?;
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut templates = self
+            .templates
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut item = crate::templates::normalize(item, crate::repository::new_index_id());
+        if item.id.trim().is_empty() {
+            item.id = crate::repository::new_index_id();
+        }
+        if let Some(slot) = templates.iter_mut().find(|t| t.id == item.id) {
+            *slot = item.clone();
+        } else if let Some(slot) = templates.iter_mut().find(|t| t.core_type == item.core_type) {
+            item.id = slot.id.clone();
+            *slot = item.clone();
+        } else {
+            templates.push(item.clone());
+        }
+        templates.sort_by_key(|t| t.core_type.value());
+        revisions.bump();
+        drop(templates);
+        self.persist_config(&revisions)?;
+        Ok(item)
+    }
+
+    /// Delete one template row by id. Returns whether a row was removed.
+    pub fn delete_template(&self, id: &str) -> Result<bool, DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut templates = self
+            .templates
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let before = templates.len();
+        templates.retain(|t| t.id != id);
+        let removed = templates.len() != before;
+        if removed {
+            revisions.bump();
+            drop(templates);
+            self.persist_config(&revisions)?;
+        }
+        Ok(removed)
+    }
+
+    /// Assemble the pure generator input for `index_id` on `core`: the full
+    /// profile set, inline custom/outbound contents and the stored template.
+    pub fn build_codegen_input(
+        &self,
+        index_id: &str,
+        core: CoreType,
+        opts: &crate::codegen::CodegenOptions,
+    ) -> Result<config_codegen::input::CodegenInput, DomainError> {
+        let all = self.all_profiles_map_locked()?;
+        let active = all
+            .get(index_id)
+            .ok_or_else(|| DomainError::not_found("profile", index_id))?
+            .clone();
+        let profiles: Vec<Profile> = all.values().cloned().collect();
+        let mut outbound_contents = std::collections::BTreeMap::new();
+        for profile in &profiles {
+            if matches!(
+                profile.config_type,
+                ConfigType::Custom | ConfigType::Outbound
+            ) {
+                if let Some(text) = crate::codegen::custom_config_text(profile) {
+                    outbound_contents.insert(profile.index_id.clone(), text);
+                }
+            }
+        }
+        let template = self
+            .get_template_for_core(core)?
+            .as_ref()
+            .and_then(crate::codegen::template_for);
+        Ok(crate::codegen::build_input(
+            &active,
+            &profiles,
+            None,
+            outbound_contents,
+            template,
+            opts,
+        ))
+    }
+
     /// The JSON event payload for a refresh report.
     pub fn refresh_report_json(report: &SubUpdateReport) -> serde_json::Value {
         report_to_json(report)
     }
-
     /// Start the background subscription scheduler (idempotent).
     pub fn start_sub_scheduler(&self, interval: std::time::Duration, max_items: usize) -> bool {
         let mut guard = match self.sub_scheduler.lock() {
@@ -827,6 +1039,20 @@ fn write_config(dir: &Path, value: &Value) -> Result<(), DomainError> {
     std::fs::write(&tmp, text).map_err(storage_error)?;
     std::fs::rename(&tmp, &path).map_err(storage_error)?;
     Ok(())
+}
+
+/// Read the persisted full-config templates, seeding the two built-in rows
+/// (Xray + sing-box) when the key is absent or empty.
+fn read_templates(config: &Value) -> Vec<FullConfigTemplate> {
+    let stored: Vec<FullConfigTemplate> = config
+        .get("full_config_templates")
+        .and_then(|value| serde_json::from_value(value.clone()).ok())
+        .unwrap_or_default();
+    if stored.is_empty() {
+        crate::templates::builtins()
+    } else {
+        stored
+    }
 }
 
 /// Static capability table derived from `compat/features.yaml`.

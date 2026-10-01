@@ -10,9 +10,11 @@
 #![allow(clippy::result_large_err)]
 
 pub mod codegen;
+pub mod custom;
 pub mod engine;
 pub mod groups;
 pub mod jobs;
+pub mod mixin;
 pub mod net_host_client;
 pub mod repository;
 pub mod runtime_client;

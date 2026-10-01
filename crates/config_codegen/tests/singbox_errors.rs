@@ -64,6 +64,102 @@ fn singbox_unsupported_config_type() {
 }
 
 #[test]
+fn singbox_reality_requires_public_key_for_all_protocols() {
+    // M-014: reality without a public key fails for any protocol type.
+    for config_type in [ConfigType::Vmess, ConfigType::Tuic, ConfigType::Anytls] {
+        let mut p = profile(config_type, "192.0.2.154", 443);
+        p.password = "synthetic-pass".into();
+        p.username = "11111111-2222-3333-4444-555555555555".into();
+        p.stream_security = "reality".into();
+        let err = generate_singbox(&codegen_input(p)).expect_err("reality publicKey");
+        assert_eq!(err.code, "missing_required_field", "{config_type:?}");
+        assert_eq!(
+            err.field_path.as_deref(),
+            Some("profile.publicKey"),
+            "{config_type:?}"
+        );
+    }
+}
+
+#[test]
+fn singbox_rejects_reserved_live_port() {
+    // ISSUE-01.
+    let mut p = vless_base();
+    p.port = 443;
+    let mut input = codegen_input(p);
+    input.settings.inbound.local_port = 10808;
+    let err = generate_singbox(&input).expect_err("reserved port");
+    assert_eq!(err.code, "reserved_port");
+    assert_eq!(
+        err.field_path.as_deref(),
+        Some("settings.inbound.localPort")
+    );
+
+    let mut input = codegen_input(vless_base());
+    input.settings.state_port2 = 10808;
+    let err = generate_singbox(&input).expect_err("reserved state port2");
+    assert_eq!(err.code, "reserved_port");
+    assert_eq!(err.field_path.as_deref(), Some("settings.statePort2"));
+}
+
+#[test]
+fn singbox_reports_ignored_transport() {
+    // M-012: a transport sing-box cannot carry is dropped, but must warn.
+    let mut p = profile(ConfigType::Tuic, "192.0.2.155", 443);
+    p.username = "11111111-2222-3333-4444-555555555555".into();
+    p.password = "pw".into();
+    p.network = "ws".into();
+    let generated = generate_singbox(&codegen_input(p)).expect("tuic ws");
+    let warning = generated
+        .diagnostics
+        .iter()
+        .find(|d| d.code == "singbox_transport_ignored")
+        .expect("transport warning");
+    assert!(warning.message.contains("ws"), "{}", warning.message);
+    // The bogus transport must not leak into the outbound.
+    assert!(json_at(&generated.main, "/outbounds/0/transport").is_null());
+}
+
+#[test]
+fn singbox_reports_dangling_reference() {
+    // ISSUE-04 (sing-box side).
+    let routing = CodegenRouting {
+        rule_set: vec![CodegenRule {
+            enabled: true,
+            rule_type: RuleType::Routing,
+            outbound_tag: "Missing Node".into(),
+            domain: Some(vec!["full:missing.test".into()]),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mut input = codegen_input(vless_base());
+    input.routing = Some(routing);
+    let generated = generate_singbox(&input).expect("routing");
+    let warning = generated
+        .diagnostics
+        .iter()
+        .find(|d| d.code == "routing_dangling_reference")
+        .expect("dangling warning");
+    assert!(
+        warning.message.contains("Missing Node"),
+        "{}",
+        warning.message
+    );
+}
+
+#[test]
+fn singbox_omits_empty_endpoints() {
+    // M-013: `endpoints` must not be emitted when there is nothing to put in it.
+    let generated = generate_singbox(&codegen_input(vless_base())).expect("plain outbound");
+    assert!(
+        generated.main.get("endpoints").is_none(),
+        "empty endpoints must be omitted: {}",
+        generated.main
+    );
+}
+
+#[test]
 fn singbox_deterministic_output() {
     let mut p = vless_base();
     p.network = "ws".into();

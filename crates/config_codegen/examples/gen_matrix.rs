@@ -24,6 +24,29 @@ const WG_PRESHARED_KEY: &str = "aSCZjZclAGEU2PGAypHYF5PTew6YEeiVGsy6UbqPY+s=";
 /// Valid 64-hex sha256 (synthetic certificate pin).
 const CERT_SHA: &str = "0d3c61a18544a97916ff01682072bba0f6ca447cd04e4b64c67075795529a35c";
 
+/// A synthetic self-signed certificate (CN=example.test) used only so the real
+/// sing-box core accepts the mandatory TLS block for hysteria2/tuic/anytls/naive.
+const SELF_SIGNED_CERT: &str = "\
+-----BEGIN CERTIFICATE-----
+MIIDBjCCAe6gAwIBAgIQajvnUbiCkHXCq0SFSxm58jANBgkqhkiG9w0BAQsFADAX
+MRUwEwYDVQQDEwxleGFtcGxlLnRlc3QwHhcNMjYxMDAxMDkwMDA1WhcNMjYxMTAx
+MTAwMDA1WjAXMRUwEwYDVQQDEwxleGFtcGxlLnRlc3QwggEiMA0GCSqGSIb3DQEB
+AQUAA4IBDwAwggEKAoIBAQCwdZZNECKt+0HjZkqvzxOyYoVwxVKY6EJE2WtfFYfL
+SMGGKroVhCnz2asPKY2l4m6OsdVJZZL87YOekReQEI6bss74bO3adKVIfoJfRxMt
+ldImxf0EGoLYPJa2XQhu5DjmEdCmXC7luG2aiX+pZmDShcs42q1z1k6JHSoGKQMa
+LM6x5ahJAUVhG51RZxIB4bgxSplyAnij6d57zZV4NV6Am3EfIrc/ltDk3hOje0/m
+FcYbpfre9ud9lXTtCAltt7Al6OWDOPu0bOQJg2RaYW0pEfYfpD70HLWQ1voVIII7
+kBgnSLS4VqQFSvZj7+L7WDIaw0bTOHOBbZSs1Huc4arLAgMBAAGjTjBMMA4GA1Ud
+DwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAAMBcG
+A1UdEQQQMA6CDGV4YW1wbGUudGVzdDANBgkqhkiG9w0BAQsFAAOCAQEAc60kSDVU
+5a+twewvJ+7JJ7AlO2Tj42rjnpobL9NBKdo4ejygmi3wFNHtdAF4qpor8/ZdMuth
+fgEeUouWXioPCf53/NfG1z1ieKra8LItKEickUk1cq4tN6qhlFcXel9Fh7Ur5P/q
+nFSZzbnS+t8j7fsi3h3qWUHxmgrpUhEz/oVSkJxkpmBS3mUAKtvI30ClkKjXrlf+
+GRIz7gsoUsChUWAjGfo9tNI0WTzthIy5GwqxEboJfJD6amXt/hW7oyGlKZVggcT/
+vke9FwOzAEeAOjWFUBH+jMI000D5bhQlD5RVayWX9X+EUaSf0CTp5L7hK248xizS
+5n1C9vCNrTdQoQ==
+-----END CERTIFICATE-----";
+
 fn profile(config_type: ConfigType, address: &str, port: i32) -> CodegenProfile {
     CodegenProfile {
         index_id: "node-1".into(),
@@ -456,43 +479,55 @@ fn singbox_cases() -> Vec<Case> {
         input: input(c),
     });
 
-    // S4. Hysteria2.
+    // S4. Hysteria2 (TLS is mandatory in sing-box).
     let mut c = profile(ConfigType::Hysteria2, "192.0.2.27", 443);
     c.password = "hy2-pass".into();
     c.proto_extra.ports = Some("20000-30000,40000".into());
     c.proto_extra.up_mbps = Some(50);
     c.proto_extra.salamander_pass = Some("pw".into());
     c.proto_extra.hop_interval = Some("30".into());
+    c.stream_security = "tls".into();
+    c.sni = "hy2.test".into();
+    c.cert = SELF_SIGNED_CERT.into();
     cases.push(Case {
         id: "singbox-hysteria2",
         input: input(c),
     });
 
-    // S3. TUIC.
+    // S3. TUIC (TLS is mandatory in sing-box).
     let mut c = profile(ConfigType::Tuic, "192.0.2.28", 443);
     c.username = "11111111-2222-3333-4444-555555555555".into();
     c.password = "tuic-pass".into();
     c.proto_extra.congestion_control = Some("bbr".into());
+    c.stream_security = "tls".into();
+    c.sni = "tuic.test".into();
+    c.cert = SELF_SIGNED_CERT.into();
     cases.push(Case {
         id: "singbox-tuic",
         input: input(c),
     });
 
-    // Anytls.
+    // Anytls (TLS is mandatory in sing-box).
     let mut c = profile(ConfigType::Anytls, "192.0.2.29", 443);
     c.password = "anytls-pass".into();
+    c.stream_security = "tls".into();
+    c.sni = "anytls.test".into();
+    c.cert = SELF_SIGNED_CERT.into();
     cases.push(Case {
         id: "singbox-anytls",
         input: input(c),
     });
 
-    // Naive.
+    // Naive (TLS/quic is mandatory in sing-box).
     let mut c = profile(ConfigType::Naive, "192.0.2.30", 443);
     c.username = "user".into();
     c.password = "pass".into();
     c.proto_extra.naive_quic = Some(true);
     c.proto_extra.congestion_control = Some("bbr".into());
     c.proto_extra.insecure_concurrency = Some(4);
+    c.stream_security = "tls".into();
+    c.sni = "naive.test".into();
+    c.cert = SELF_SIGNED_CERT.into();
     cases.push(Case {
         id: "singbox-naive",
         input: input(c),

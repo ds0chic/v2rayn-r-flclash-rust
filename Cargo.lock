@@ -100,7 +100,9 @@ dependencies = [
  "rustls-pemfile",
  "serde",
  "serde_json",
+ "subscriptions",
  "tempfile",
+ "tokio",
  "windows",
 ]
 
@@ -183,6 +185,7 @@ dependencies = [
  "flutter_rust_bridge",
  "runtime",
  "serde_json",
+ "subscriptions",
 ]
 
 [[package]]

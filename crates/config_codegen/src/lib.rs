@@ -51,6 +51,11 @@ impl CodegenError {
     pub fn custom_outbound_missing(message: impl Into<String>, field_path: &str) -> Self {
         Self::new("custom_outbound_missing", message, Some(field_path))
     }
+
+    /// The generator refuses to emit the host's reserved live proxy port.
+    pub fn reserved_port(message: impl Into<String>, field_path: &str) -> Self {
+        Self::new("reserved_port", message, Some(field_path))
+    }
 }
 
 impl std::fmt::Display for CodegenError {

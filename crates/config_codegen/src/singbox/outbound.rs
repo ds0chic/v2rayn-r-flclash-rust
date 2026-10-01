@@ -4,7 +4,7 @@ use serde_json::{json, Map, Value};
 
 use crate::input::{CodegenInput, CodegenProfile, ConfigType, MultipleLoad, TransportExtra};
 use crate::util::*;
-use crate::CodegenError;
+use crate::{CodegenError, Diagnostic};
 
 /// Generated servers, split by sing-box container.
 #[derive(Debug, Default)]
@@ -41,6 +41,27 @@ impl BuiltServers {
 
 pub(crate) fn child_items(node: &CodegenProfile) -> Option<Vec<String>> {
     string2_list_opt(node.proto_extra.child_items.as_ref())
+}
+
+/// Diagnostics are collected through a thread-local sink because the pure
+/// builder functions only receive `&CodegenInput`. The generator sets a sink
+/// around each run.
+use std::cell::RefCell;
+
+thread_local! {
+    static DIAGNOSTIC_SINK: RefCell<Vec<Diagnostic>> = const { RefCell::new(Vec::new()) };
+}
+
+pub(crate) fn diagnostic_sink_reset() {
+    DIAGNOSTIC_SINK.with(|sink| sink.borrow_mut().clear());
+}
+
+pub(crate) fn diagnostic_sink_take() -> Vec<Diagnostic> {
+    DIAGNOSTIC_SINK.with(|sink| std::mem::take(&mut *sink.borrow_mut()))
+}
+
+fn push_diagnostic(_input: &CodegenInput, diagnostic: Diagnostic) {
+    DIAGNOSTIC_SINK.with(|sink| sink.borrow_mut().push(diagnostic));
 }
 
 pub(crate) fn resolve_children<'a>(
@@ -82,11 +103,60 @@ pub(crate) fn get_network(node: &CodegenProfile) -> String {
     }
 }
 
+/// Issue T06b/M-012: mirror `NodeValidator.ValidateSingboxTransport`. The
+/// generator silently ignores a non-`raw` transport for protocols that cannot
+/// carry it (e.g. TUIC+ws); surface that as a structured warning instead of
+/// dropping it without a trace.
+pub(crate) fn transport_diagnostic(node: &CodegenProfile) -> Option<Diagnostic> {
+    if node.config_type.is_group()
+        || node.config_type == ConfigType::Custom
+        || node.config_type == ConfigType::Outbound
+    {
+        return None;
+    }
+    let network = get_network(node);
+    if SINGBOX_REJECTED_NETWORKS.contains(&network.as_str()) {
+        // Already rejected by `validate()` with a hard error.
+        return None;
+    }
+    let transport_protocols = [
+        ConfigType::Vmess,
+        ConfigType::Vless,
+        ConfigType::Trojan,
+        ConfigType::Shadowsocks,
+    ];
+    if !transport_protocols.contains(&node.config_type) && network != DEFAULT_NETWORK {
+        return Some(Diagnostic::warning(
+            "singbox_transport_ignored",
+            format!(
+                "transport '{network}' is ignored for config type {:?}: sing-box only supports \
+                 the raw transport for this protocol",
+                node.config_type
+            ),
+            Some("profile.network"),
+        ));
+    }
+    if node.config_type == ConfigType::Shadowsocks && !["raw", "ws"].contains(&network.as_str()) {
+        return Some(Diagnostic::warning(
+            "singbox_transport_ignored",
+            format!(
+                "transport '{network}' is ignored for Shadowsocks: sing-box only supports \
+                 raw/ws (plugin based) for it"
+            ),
+            Some("profile.network"),
+        ));
+    }
+    None
+}
+
 pub(crate) fn build_all_proxy_outbounds(
     input: &CodegenInput,
     node: &CodegenProfile,
     base_tag: &str,
 ) -> Result<BuiltServers, CodegenError> {
+    if let Some(diagnostic) = transport_diagnostic(node) {
+        push_diagnostic(input, diagnostic);
+    }
     let mut servers = if node.config_type.is_group() {
         match node.config_type {
             ConfigType::PolicyGroup => build_outbounds_list(input, node, base_tag)?,

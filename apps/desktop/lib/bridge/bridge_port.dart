@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/engine.dart' as engine;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/profiles.dart' as rust;
+import 'package:v2rayn_desktop/bridge/api/subs.dart' as subs;
 
 /// Thin, testable seam over the flutter_rust_bridge generated API.
 ///
@@ -52,6 +55,51 @@ abstract class BridgePort {
   /// Point the engine at an explicit data directory (tests/portable). No-op
   /// once the engine is live.
   c.SimpleResult initEngine(String? dataDir);
+
+  // -- T09 subscription + import/export surface --------------------------
+
+  c.SubsPageDto listSubItems();
+
+  c.SubItemDto? getSubItem(String id);
+
+  c.SubItemDtoResult saveSubItem(c.SubItemDto item);
+
+  c.DeleteSubsResult deleteSubItems(List<String> ids);
+
+  c.SubItemDtoResult setSubEnabled(String id, bool enabled);
+
+  c.SimpleResult reorderSubItems(List<String> ids);
+
+  c.SimpleResult validateSubItem(c.SubItemDto item);
+
+  void setLocalProxyPort(int? port);
+
+  Future<c.SubUpdateResult> updateSubscriptions(
+    List<String> subIds,
+    bool viaProxy,
+  );
+
+  Future<c.SubUpdateResult> updateSubscription(String subId, bool viaProxy);
+
+  c.SimpleResult startSubScheduler();
+
+  c.SimpleResult stopSubScheduler();
+
+  bool subSchedulerRunning();
+
+  c.JobDto? jobView(String jobId);
+
+  Future<c.ImportResult> importFromText(
+    String text, {
+    String? subid,
+    bool deduplicate = true,
+  });
+
+  c.UriParseResult parseShareUri(String line);
+
+  Future<c.ShareExportResult> exportProfiles(List<String> ids, String kind);
+
+  c.SimpleResult writeExportFile(String path, String text);
 }
 
 class FrbBridgePort implements BridgePort {
@@ -138,6 +186,75 @@ class FrbBridgePort implements BridgePort {
   @override
   c.SimpleResult initEngine(String? dataDir) =>
       engine.initEngine(dataDir: dataDir);
+
+  @override
+  c.SubsPageDto listSubItems() => subs.listSubItems();
+
+  @override
+  c.SubItemDto? getSubItem(String id) => subs.getSubItem(id: id);
+
+  @override
+  c.SubItemDtoResult saveSubItem(c.SubItemDto item) =>
+      subs.saveSubItem(item: item);
+
+  @override
+  c.DeleteSubsResult deleteSubItems(List<String> ids) =>
+      subs.deleteSubItems(ids: ids);
+
+  @override
+  c.SubItemDtoResult setSubEnabled(String id, bool enabled) =>
+      subs.setSubEnabled(id: id, enabled: enabled);
+
+  @override
+  c.SimpleResult reorderSubItems(List<String> ids) =>
+      subs.reorderSubItems(ids: ids);
+
+  @override
+  c.SimpleResult validateSubItem(c.SubItemDto item) =>
+      subs.validateSubItem(item: item);
+
+  @override
+  void setLocalProxyPort(int? port) => subs.setLocalProxyPort(port: port);
+
+  @override
+  Future<c.SubUpdateResult> updateSubscriptions(
+    List<String> subIds,
+    bool viaProxy,
+  ) => subs.updateSubscriptions(subIds: subIds, viaProxy: viaProxy);
+
+  @override
+  Future<c.SubUpdateResult> updateSubscription(String subId, bool viaProxy) =>
+      subs.updateSubscription(subId: subId, viaProxy: viaProxy);
+
+  @override
+  c.SimpleResult startSubScheduler() => subs.startSubScheduler();
+
+  @override
+  c.SimpleResult stopSubScheduler() => subs.stopSubScheduler();
+
+  @override
+  bool subSchedulerRunning() => subs.subSchedulerRunning();
+
+  @override
+  c.JobDto? jobView(String jobId) => subs.jobView(jobId: jobId);
+
+  @override
+  Future<c.ImportResult> importFromText(
+    String text, {
+    String? subid,
+    bool deduplicate = true,
+  }) => subs.importFromText(text: text, subid: subid, deduplicate: deduplicate);
+
+  @override
+  c.UriParseResult parseShareUri(String line) => subs.parseShareUri(line: line);
+
+  @override
+  Future<c.ShareExportResult> exportProfiles(List<String> ids, String kind) =>
+      subs.exportProfiles(ids: ids, kind: kind);
+
+  @override
+  c.SimpleResult writeExportFile(String path, String text) =>
+      subs.writeExportFile(path: path, text: text);
 }
 
 /// Map a stored profile DTO onto the node-table summary shape. Traffic/delay
@@ -403,6 +520,349 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   c.SimpleResult initEngine(String? dataDir) => const c.SimpleResult(ok: true);
+
+  // -- T09 subscription + import/export (synthetic) ----------------------
+
+  final List<c.SubItemDto> _subs = <c.SubItemDto>[];
+  int _subSeq = 0;
+
+  @override
+  c.SubsPageDto listSubItems() {
+    final items = List<c.SubItemDto>.of(_subs)
+      ..sort((a, b) => a.sort.compareTo(b.sort));
+    return c.SubsPageDto(items: items);
+  }
+
+  @override
+  c.SubItemDto? getSubItem(String id) {
+    for (final s in _subs) {
+      if (s.id == id) return s;
+    }
+    return null;
+  }
+
+  @override
+  c.SubItemDtoResult saveSubItem(c.SubItemDto item) {
+    final invalid = _validateSub(item);
+    if (invalid != null) {
+      return c.SubItemDtoResult(ok: false, error: invalid);
+    }
+    var saved = item;
+    if (item.id.trim().isEmpty) {
+      saved = _withSubId(item, 'syn-sub-${_subSeq++}');
+    }
+    final index = _subs.indexWhere((s) => s.id == saved.id);
+    if (index >= 0) {
+      _subs[index] = saved;
+    } else {
+      _subs.add(saved);
+    }
+    return c.SubItemDtoResult(ok: true, item: saved);
+  }
+
+  @override
+  c.DeleteSubsResult deleteSubItems(List<String> ids) {
+    final before = _subs.length;
+    _subs.removeWhere((s) => ids.contains(s.id));
+    return c.DeleteSubsResult(
+      ok: true,
+      removed: BigInt.from(before - _subs.length),
+    );
+  }
+
+  @override
+  c.SubItemDtoResult setSubEnabled(String id, bool enabled) {
+    final index = _subs.indexWhere((s) => s.id == id);
+    if (index < 0) {
+      return const c.SubItemDtoResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_NOT_FOUND',
+          messageKey: 'error.not_found',
+          retryable: false,
+        ),
+      );
+    }
+    final updated = _withSubId(_subs[index], id, enabled: enabled);
+    _subs[index] = updated;
+    return c.SubItemDtoResult(ok: true, item: updated);
+  }
+
+  @override
+  c.SimpleResult reorderSubItems(List<String> ids) {
+    final byId = <String, c.SubItemDto>{for (final s in _subs) s.id: s};
+    final ordered = <c.SubItemDto>[];
+    for (var i = 0; i < ids.length; i++) {
+      final item = byId.remove(ids[i]);
+      if (item != null) ordered.add(_withSubId(item, item.id, sort: i + 1));
+    }
+    ordered.addAll(byId.values);
+    _subs
+      ..clear()
+      ..addAll(ordered);
+    return const c.SimpleResult(ok: true);
+  }
+
+  @override
+  c.SimpleResult validateSubItem(c.SubItemDto item) {
+    final invalid = _validateSub(item);
+    return invalid == null
+        ? const c.SimpleResult(ok: true)
+        : c.SimpleResult(ok: false, error: invalid);
+  }
+
+  @override
+  void setLocalProxyPort(int? port) {}
+
+  @override
+  Future<c.SubUpdateResult> updateSubscriptions(
+    List<String> subIds,
+    bool viaProxy,
+  ) async {
+    final targets = subIds.isEmpty
+        ? _subs.where((s) => s.enabled).toList()
+        : _subs.where((s) => subIds.contains(s.id) && s.enabled).toList();
+    final entries = <c.SubUpdateEntryDto>[];
+    for (final item in targets) {
+      if (item.url.trim().isEmpty) {
+        entries.add(
+          c.SubUpdateEntryDto(
+            subId: item.id,
+            remarks: item.remarks,
+            status: 'skipped',
+            message: 'error.url_required',
+          ),
+        );
+        continue;
+      }
+      // Synthetic success: 3 deterministic nodes per subscription.
+      entries.add(
+        c.SubUpdateEntryDto(
+          subId: item.id,
+          remarks: item.remarks,
+          status: 'updated',
+          added: 3,
+          existing: 0,
+        ),
+      );
+    }
+    final success = entries.where((e) => e.status == 'updated').length;
+    return c.SubUpdateResult(
+      ok: success > 0,
+      success: success,
+      cancelled: false,
+      entries: entries,
+      jobId: 'syn-sub-job-${_subSeq++}',
+    );
+  }
+
+  @override
+  Future<c.SubUpdateResult> updateSubscription(String subId, bool viaProxy) =>
+      updateSubscriptions(<String>[subId], viaProxy);
+
+  @override
+  c.SimpleResult startSubScheduler() => const c.SimpleResult(ok: true);
+
+  @override
+  c.SimpleResult stopSubScheduler() => const c.SimpleResult(ok: true);
+
+  @override
+  bool subSchedulerRunning() => false;
+
+  @override
+  c.JobDto? jobView(String jobId) => null;
+
+  @override
+  Future<c.ImportResult> importFromText(
+    String text, {
+    String? subid,
+    bool deduplicate = true,
+  }) async {
+    final lines = text
+        .split(RegExp(r'\r?\n'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty && l.contains('://'))
+        .toList();
+    final profiles = <c.ProfileDto>[];
+    for (var i = 0; i < lines.length; i++) {
+      final uri = lines[i];
+      if (uri.startsWith('vmess://') ||
+          uri.startsWith('vless://') ||
+          uri.startsWith('ss://') ||
+          uri.startsWith('trojan://') ||
+          uri.startsWith('hysteria2://')) {
+        profiles.add(
+          c.ProfileDto(
+            indexId: 'syn-import-${_subSeq++}',
+            configType: ConfigType.vless,
+            coreType: CoreType.xray,
+            configVersion: 4,
+            subid: subid ?? '',
+            isSub: true,
+            displayLog: true,
+            remarks: uri.split('#').length > 1
+                ? Uri.decodeComponent(uri.split('#').last)
+                : 'import-${i + 1}',
+            address: '192.0.2.${i + 1}',
+            port: 443,
+            password: '',
+            username: '',
+            network: 'raw',
+            security: const c.SecurityDto(),
+            protoExtra: const c.ProtocolExtraDto(extraJson: '{}'),
+            transportExtra: const c.TransportExtraDto(extraJson: '{}'),
+            extraJson: '{}',
+          ),
+        );
+      }
+    }
+    return c.ImportResult(
+      ok: profiles.isNotEmpty,
+      imported: profiles.length,
+      profiles: profiles,
+      errors: const <c.ParseIssueDto>[],
+      error: profiles.isEmpty
+          ? const c.ErrorDto(
+              code: 'E_FIELD_FORMAT',
+              messageKey: 'error.import_nothing',
+              retryable: false,
+            )
+          : null,
+    );
+  }
+
+  @override
+  c.UriParseResult parseShareUri(String line) {
+    if (!line.contains('://')) {
+      return const c.UriParseResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_FIELD_FORMAT',
+          messageKey: 'error.invalid_uri',
+          retryable: false,
+        ),
+      );
+    }
+    return c.UriParseResult(
+      ok: true,
+      profile: c.ProfileDto(
+        indexId: 'syn-uri-${_subSeq++}',
+        configType: ConfigType.vless,
+        coreType: CoreType.xray,
+        configVersion: 4,
+        subid: '',
+        isSub: false,
+        displayLog: true,
+        remarks: 'uri',
+        address: '192.0.2.1',
+        port: 443,
+        password: '',
+        username: '',
+        network: 'raw',
+        security: const c.SecurityDto(),
+        protoExtra: const c.ProtocolExtraDto(extraJson: '{}'),
+        transportExtra: const c.TransportExtraDto(extraJson: '{}'),
+        extraJson: '{}',
+      ),
+    );
+  }
+
+  @override
+  Future<c.ShareExportResult> exportProfiles(
+    List<String> ids,
+    String kind,
+  ) async {
+    _ensureProfiles();
+    final selected = _profiles.where((p) => ids.contains(p.indexId)).toList();
+    if (selected.isEmpty) {
+      return const c.ShareExportResult(
+        ok: false,
+        text: '',
+        count: 0,
+        error: c.ErrorDto(
+          code: 'E_NOT_FOUND',
+          messageKey: 'error.no_profiles_selected',
+          retryable: false,
+        ),
+      );
+    }
+    final lines = selected
+        .map(
+          (p) => 'vless://syn-${p.indexId}@${p.address}:${p.port}#${p.remarks}',
+        )
+        .toList();
+    final joined = lines.join('\n');
+    final text = kind == 'base64' ? base64Encode(utf8.encode(joined)) : joined;
+    return c.ShareExportResult(ok: true, text: text, count: selected.length);
+  }
+
+  @override
+  c.SimpleResult writeExportFile(String path, String text) =>
+      const c.SimpleResult(ok: true);
+
+  c.ErrorDto? _validateSub(c.SubItemDto item) {
+    if (item.remarks.trim().isEmpty) {
+      return const c.ErrorDto(
+        code: 'E_FIELD_REQUIRED',
+        messageKey: 'error.remarks_required',
+        fieldPath: 'remarks',
+        retryable: false,
+      );
+    }
+    if (item.url.trim().isEmpty) {
+      return const c.ErrorDto(
+        code: 'E_FIELD_REQUIRED',
+        messageKey: 'error.url_required',
+        fieldPath: 'url',
+        retryable: false,
+      );
+    }
+    if (!item.url.startsWith('http://') && !item.url.startsWith('https://')) {
+      return const c.ErrorDto(
+        code: 'E_FIELD_FORMAT',
+        messageKey: 'error.url_invalid',
+        fieldPath: 'url',
+        retryable: false,
+      );
+    }
+    final headers = item.requestHeaders;
+    if (headers != null && headers.trim().isNotEmpty) {
+      if (!headers.trimLeft().startsWith('{')) {
+        return const c.ErrorDto(
+          code: 'E_FIELD_FORMAT',
+          messageKey: 'error.sub_headers_invalid',
+          fieldPath: 'requestHeaders',
+          retryable: false,
+        );
+      }
+    }
+    return null;
+  }
+
+  c.SubItemDto _withSubId(
+    c.SubItemDto s,
+    String id, {
+    bool? enabled,
+    int? sort,
+  }) => c.SubItemDto(
+    id: id,
+    remarks: s.remarks,
+    url: s.url,
+    moreUrl: s.moreUrl,
+    enabled: enabled ?? s.enabled,
+    userAgent: s.userAgent,
+    requestHeaders: s.requestHeaders,
+    sort: sort ?? s.sort,
+    filter: s.filter,
+    autoUpdateInterval: s.autoUpdateInterval,
+    updateTime: s.updateTime,
+    convertTarget: s.convertTarget,
+    prevProfile: s.prevProfile,
+    nextProfile: s.nextProfile,
+    preSocksPort: s.preSocksPort,
+    memo: s.memo,
+    customCoreType: s.customCoreType,
+  );
 
   c.ProfileDto _withId(c.ProfileDto p, String id, {String? remarks}) =>
       c.ProfileDto(

@@ -1,4 +1,4 @@
-schema_version: 1
+﻿schema_version: 1
 source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
 upstream_version: 7.25.4
 config_types:
@@ -1233,12 +1233,12 @@ features:
   cancel_behavior: 关闭窗口
   acceptance: 新增订阅后列表刷新
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/engine.rs + apps/desktop/lib/features/subs/sub_setting_window.dart
+  test_ids: ["t09_sub_setting_test.dart::renders the seeded list"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/SubSettingViewModel.cs:56
   - v2rayN/ServiceLib/Manager/AppManager.cs:175
-  status: identified
+  status: implemented
 - id: F-SUB-002
   name: 新增/编辑/删除订阅
   family: subscription
@@ -1261,14 +1261,14 @@ features:
   cancel_behavior: 关闭丢弃草稿
   acceptance: 订阅可增删改并持久化
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem::validate) + apps/desktop/lib/features/subs/sub_edit_window.dart
+  test_ids: ["t09_sub_edit_test.dart::renders all 17 fields", "subitem_crud_survives_reopen"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:54
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:80
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2187
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2275
-  status: identified
+  status: implemented
 - id: F-SUB-003
   name: 订阅更新（全部/单组、直连/经代理）
   family: subscription
@@ -1293,13 +1293,13 @@ features:
   cancel_behavior: 无显式取消
   acceptance: 成功更新后节点刷新，失败订阅不破坏既有节点
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/engine.rs (refresh_subscriptions) + crates/bridge_api/src/api/subs.rs (update_subscriptions)
+  test_ids: ["subs_pipeline.rs::successful_update_replaces_subid_nodes", "t09_sub_setting_test.dart::update reports a structured success status"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:178
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:574
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:5
-  status: identified
+  status: implemented
 - id: F-SUB-004
   name: 订阅自定义 HTTP Header
   family: subscription
@@ -1323,13 +1323,13 @@ features:
   cancel_behavior: 无
   acceptance: 抓包确认自定义 Header 随订阅请求发送
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (parse_request_headers)
+  test_ids: ["subs.rs::request_headers_must_be_string_object", "subs_pipeline.rs::request_headers_are_sent"]
   evidence:
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:83
   - v2rayN/ServiceLib/Helper/HttpRequestHeadersHelper.cs
   - v2rayN/ServiceLib.Tests/Helper/HttpRequestHeadersHelperTests.cs:16
-  status: identified
+  status: implemented
 - id: F-SUB-005
   name: 订阅 User-Agent
   family: subscription
@@ -1353,12 +1353,12 @@ features:
   cancel_behavior: 无
   acceptance: UA 字段影响请求头
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (download_all user_agent)
+  test_ids: ["subs_pipeline.rs::request_headers_are_sent"]
   evidence:
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:102
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:155
-  status: identified
+  status: implemented
 - id: F-SUB-006
   name: MoreUrl 附加订阅合并
   family: subscription
@@ -1383,13 +1383,13 @@ features:
   cancel_behavior: 无
   acceptance: 附加订阅节点被合并导入
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (download_all more_url)
+  test_ids: ["subs_pipeline.rs::more_url_merges_in_order"]
   evidence:
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:121
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:158
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:169
-  status: identified
+  status: implemented
 - id: F-SUB-007
   name: 订阅转换 ConvertTarget
   family: subscription
@@ -1414,14 +1414,14 @@ features:
   cancel_behavior: 无
   acceptance: 指定目标后请求转换服务并成功导入
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (build_candidates custom_core_type hint)
+  test_ids: ["subs.rs::validate_rejects_bad_url_and_headers"]
   evidence:
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:129
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:137
   - v2rayN/ServiceLib/Global.cs:142
   - v2rayN/ServiceLib/Global.cs:155
-  status: identified
+  status: implemented
 - id: F-SUB-008
   name: 订阅前后置节点
   family: subscription
@@ -1447,14 +1447,14 @@ features:
   cancel_behavior: 清除选择则不生成链
   acceptance: 配置前后置后生成链式出站
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/engine.rs (SubItem prev/next persisted)
+  test_ids: ["subitem_crud_survives_reopen"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:14
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:87
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:258
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:279
-  status: identified
+  status: implemented
 - id: F-SUB-009
   name: 订阅过滤与自定义内核
   family: subscription
@@ -1478,14 +1478,14 @@ features:
   cancel_behavior: 无
   acceptance: Filter 生效仅保留匹配节点；CustomCoreType 影响运行内核
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (merge_options filter)
+  test_ids: ["subs_pipeline.rs::filter_drops_non_matching_nodes"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:11
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:86
   - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:26
   - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:104
-  status: identified
+  status: implemented
 - id: F-SUB-010
   name: 订阅自动更新
   family: subscription
@@ -1510,13 +1510,13 @@ features:
   cancel_behavior: 无
   acceptance: 到点自动更新且 UpdateTime 刷新
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubScheduler + is_due)
+  test_ids: ["subs.rs::is_due_respects_interval_and_enabled"]
   evidence:
   - v2rayN/ServiceLib/Manager/TaskManager.cs:87
   - v2rayN/ServiceLib/Manager/TaskManager.cs:90
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:98
-  status: identified
+  status: implemented
 - id: F-SUB-011
   name: 订阅更新失败保留旧节点
   family: subscription
@@ -1540,13 +1540,13 @@ features:
   cancel_behavior: 无
   acceptance: 模拟下载失败后旧节点仍存在
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/engine.rs (candidate-first refresh)
+  test_ids: ["subs_pipeline.rs::http_failure_preserves_existing_nodes", "empty_result_preserves_existing_nodes"]
   evidence:
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:197
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:199
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2049
-  status: identified
+  status: implemented
 - id: F-IMPORT-001
   name: 单条分享链接解析
   family: import-export
@@ -1570,13 +1570,13 @@ features:
   cancel_behavior: 无
   acceptance: 各协议分享链接解析成功且字段正确
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/bridge_api/src/api/subs.rs (import_from_text -> resolve_uri)
+  test_ids: ["subs.rs::import_share_uri_assigns_ids_and_subid", "t09_import_export_test.dart::clipboard import reads injected content"]
   evidence:
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:35
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:48
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:98
-  status: identified
+  status: implemented
 - id: F-IMPORT-002
   name: 分享链接批量文本导入
   family: import-export
@@ -1600,12 +1600,12 @@ features:
   cancel_behavior: 无
   acceptance: 多行文本导入计数正确
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/bridge_api/src/api/subs.rs (import_from_text)
+  test_ids: ["t09_import_export_test.dart::clipboard import reads injected content"]
   evidence:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1627
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2055
-  status: identified
+  status: implemented
 - id: F-IMPORT-003
   name: SIP008 订阅导入
   family: import-export
@@ -1692,14 +1692,14 @@ features:
   cancel_behavior: 无
   acceptance: 导出后再导入组引用可解析
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/subscriptions to_inner_uri + crates/bridge_api/src/api/subs.rs (render_export inner)
+  test_ids: ["subs.rs::export_share_and_base64_agree"]
   evidence:
   - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:7
   - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:98
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1977
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:832
-  status: identified
+  status: implemented
 - id: F-IMPORT-006
   name: 图片二维码导入
   family: import-export
@@ -1783,13 +1783,13 @@ features:
   cancel_behavior: 无
   acceptance: 导出文件可被对应内核加载
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/bridge_api/src/api/subs.rs (write_export_file) + apps/desktop/lib/features/subs/subs_actions.dart
+  test_ids: ["t09_import_export_test.dart::export writes share text"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:743
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:777
   - v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:10
-  status: identified
+  status: implemented
 - id: F-IMPORT-009
   name: 导出分享链接
   family: import-export
@@ -1814,12 +1814,12 @@ features:
   cancel_behavior: 无
   acceptance: 导出文本可再次导入
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/bridge_api/src/api/subs.rs (export_profiles)
+  test_ids: ["subs.rs::export_share_and_base64_agree", "t09_import_export_test.dart::export writes share text"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:799
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:810
-  status: identified
+  status: implemented
 - id: F-IMPORT-010
   name: 导出分享二维码
   family: import-export
@@ -1844,12 +1844,12 @@ features:
   cancel_behavior: 关闭二维码
   acceptance: 分享二维码可被扫码导入
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/subs/sub_share_dialog.dart (qr_flutter)
+  test_ids: ["t09_import_export_test.dart::share dialog renders a QR view"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:9
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:593
-  status: identified
+  status: implemented
 - id: F-IMPORT-011
   name: 全量配置识别为 Custom
   family: import-export

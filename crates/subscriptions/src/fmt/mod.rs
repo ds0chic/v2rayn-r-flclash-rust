@@ -162,6 +162,13 @@ pub fn to_uri(item: &domain::Profile) -> Result<String, SubError> {
     }
 }
 
+/// `InnerFmt` export: encode profiles as `v2rayn://` inner URIs.
+///
+/// Returns the newline-joined URI list, or `None` when nothing is exportable.
+pub fn to_inner_uri(items: &[domain::Profile]) -> Option<String> {
+    inner::emit(items)
+}
+
 /// Best-effort identification of a single line's format.
 pub fn fmt_kind_of(input: &str) -> Option<FmtKind> {
     let trimmed = input.trim();

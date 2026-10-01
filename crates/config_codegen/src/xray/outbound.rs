@@ -310,7 +310,7 @@ fn build_proxy_outbound(
         put(
             &mut placeholder,
             "settings",
-            json!({"address": "v2ray.cool", "port": 10086}),
+            json!({"address": "invalid.invalid", "port": 0}),
         );
         put(
             &mut placeholder,

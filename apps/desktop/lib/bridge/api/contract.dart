@@ -9,7 +9,7 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ApplyRuntimeRequest`, `RevisionDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
 
 /// Result of `apply_runtime`.
 class ApplyRuntimeResult {
@@ -133,6 +133,27 @@ class DeleteProfilesResult {
           error == other.error;
 }
 
+/// Result of `delete_sub_items`.
+class DeleteSubsResult {
+  final bool ok;
+  final BigInt removed;
+  final ErrorDto? error;
+
+  const DeleteSubsResult({required this.ok, required this.removed, this.error});
+
+  @override
+  int get hashCode => ok.hashCode ^ removed.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DeleteSubsResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          removed == other.removed &&
+          error == other.error;
+}
+
 /// Error DTO carrying the stable contract fields.
 class ErrorDto {
   final String code;
@@ -213,6 +234,42 @@ class EventEnvelopeDto {
           payloadJson == other.payloadJson;
 }
 
+/// Result of importing from clipboard text.
+class ImportResult {
+  final bool ok;
+  final int imported;
+  final List<ProfileDto> profiles;
+  final List<ParseIssueDto> errors;
+  final ErrorDto? error;
+
+  const ImportResult({
+    required this.ok,
+    required this.imported,
+    required this.profiles,
+    required this.errors,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      imported.hashCode ^
+      profiles.hashCode ^
+      errors.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ImportResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          imported == other.imported &&
+          profiles == other.profiles &&
+          errors == other.errors &&
+          error == other.error;
+}
+
 /// Active job summary.
 class JobDto {
   final String jobId;
@@ -257,6 +314,38 @@ class JobDto {
           stageKey == other.stageKey &&
           errorCode == other.errorCode &&
           errorMessageKey == other.errorMessageKey;
+}
+
+/// A located per-item parse failure.
+class ParseIssueDto {
+  final String code;
+  final String message;
+  final int? itemIndex;
+  final BigInt? byteOffset;
+
+  const ParseIssueDto({
+    required this.code,
+    required this.message,
+    this.itemIndex,
+    this.byteOffset,
+  });
+
+  @override
+  int get hashCode =>
+      code.hashCode ^
+      message.hashCode ^
+      itemIndex.hashCode ^
+      byteOffset.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ParseIssueDto &&
+          runtimeType == other.runtimeType &&
+          code == other.code &&
+          message == other.message &&
+          itemIndex == other.itemIndex &&
+          byteOffset == other.byteOffset;
 }
 
 /// A profile row carrying every editable field.
@@ -685,6 +774,35 @@ class SecurityDto {
           verifyPeerCertByName == other.verifyPeerCertByName;
 }
 
+/// Result of exporting profiles as share/base64/inner text.
+class ShareExportResult {
+  final bool ok;
+  final String text;
+  final int count;
+  final ErrorDto? error;
+
+  const ShareExportResult({
+    required this.ok,
+    required this.text,
+    required this.count,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^ text.hashCode ^ count.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ShareExportResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          text == other.text &&
+          count == other.count &&
+          error == other.error;
+}
+
 /// Result of a simple boolean mutation.
 class SimpleResult {
   final bool ok;
@@ -807,6 +925,217 @@ class StopRuntimeResult {
           error == other.error;
 }
 
+/// The 17-field subscription model (`SubItem`).
+class SubItemDto {
+  final String id;
+  final String remarks;
+  final String url;
+  final String moreUrl;
+  final bool enabled;
+  final String userAgent;
+  final String? requestHeaders;
+  final int sort;
+  final String? filter;
+  final int autoUpdateInterval;
+  final PlatformInt64 updateTime;
+  final String? convertTarget;
+  final String? prevProfile;
+  final String? nextProfile;
+  final int? preSocksPort;
+  final String? memo;
+  final int? customCoreType;
+
+  const SubItemDto({
+    required this.id,
+    required this.remarks,
+    required this.url,
+    required this.moreUrl,
+    required this.enabled,
+    required this.userAgent,
+    this.requestHeaders,
+    required this.sort,
+    this.filter,
+    required this.autoUpdateInterval,
+    required this.updateTime,
+    this.convertTarget,
+    this.prevProfile,
+    this.nextProfile,
+    this.preSocksPort,
+    this.memo,
+    this.customCoreType,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      remarks.hashCode ^
+      url.hashCode ^
+      moreUrl.hashCode ^
+      enabled.hashCode ^
+      userAgent.hashCode ^
+      requestHeaders.hashCode ^
+      sort.hashCode ^
+      filter.hashCode ^
+      autoUpdateInterval.hashCode ^
+      updateTime.hashCode ^
+      convertTarget.hashCode ^
+      prevProfile.hashCode ^
+      nextProfile.hashCode ^
+      preSocksPort.hashCode ^
+      memo.hashCode ^
+      customCoreType.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SubItemDto &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          remarks == other.remarks &&
+          url == other.url &&
+          moreUrl == other.moreUrl &&
+          enabled == other.enabled &&
+          userAgent == other.userAgent &&
+          requestHeaders == other.requestHeaders &&
+          sort == other.sort &&
+          filter == other.filter &&
+          autoUpdateInterval == other.autoUpdateInterval &&
+          updateTime == other.updateTime &&
+          convertTarget == other.convertTarget &&
+          prevProfile == other.prevProfile &&
+          nextProfile == other.nextProfile &&
+          preSocksPort == other.preSocksPort &&
+          memo == other.memo &&
+          customCoreType == other.customCoreType;
+}
+
+/// Result of a subscription mutation.
+class SubItemDtoResult {
+  final bool ok;
+  final SubItemDto? item;
+  final ErrorDto? error;
+
+  const SubItemDtoResult({required this.ok, this.item, this.error});
+
+  @override
+  int get hashCode => ok.hashCode ^ item.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SubItemDtoResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          item == other.item &&
+          error == other.error;
+}
+
+/// One entry of a subscription update report.
+class SubUpdateEntryDto {
+  final String subId;
+  final String remarks;
+
+  /// `updated` / `preserved_empty` / `preserved_error` / `skipped` /
+  /// `cancelled` / `failed`.
+  final String status;
+  final int? added;
+  final int? existing;
+  final String? code;
+  final String? message;
+
+  const SubUpdateEntryDto({
+    required this.subId,
+    required this.remarks,
+    required this.status,
+    this.added,
+    this.existing,
+    this.code,
+    this.message,
+  });
+
+  @override
+  int get hashCode =>
+      subId.hashCode ^
+      remarks.hashCode ^
+      status.hashCode ^
+      added.hashCode ^
+      existing.hashCode ^
+      code.hashCode ^
+      message.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SubUpdateEntryDto &&
+          runtimeType == other.runtimeType &&
+          subId == other.subId &&
+          remarks == other.remarks &&
+          status == other.status &&
+          added == other.added &&
+          existing == other.existing &&
+          code == other.code &&
+          message == other.message;
+}
+
+/// Result of `update_subscriptions`.
+class SubUpdateResult {
+  final bool ok;
+  final int success;
+  final bool cancelled;
+  final List<SubUpdateEntryDto> entries;
+  final String? jobId;
+  final ErrorDto? error;
+
+  const SubUpdateResult({
+    required this.ok,
+    required this.success,
+    required this.cancelled,
+    required this.entries,
+    this.jobId,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      success.hashCode ^
+      cancelled.hashCode ^
+      entries.hashCode ^
+      jobId.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SubUpdateResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          success == other.success &&
+          cancelled == other.cancelled &&
+          entries == other.entries &&
+          jobId == other.jobId &&
+          error == other.error;
+}
+
+/// Result of `list_sub_items`.
+class SubsPageDto {
+  final List<SubItemDto> items;
+  final ErrorDto? error;
+
+  const SubsPageDto({required this.items, this.error});
+
+  @override
+  int get hashCode => items.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SubsPageDto &&
+          runtimeType == other.runtimeType &&
+          items == other.items &&
+          error == other.error;
+}
+
 /// `TransportExtraItem` (11 properties) exposed to the editor.
 class TransportExtraDto {
   final String? rawHeaderType;
@@ -874,4 +1203,25 @@ class TransportExtraDto {
           kcpSeed == other.kcpSeed &&
           kcpMtu == other.kcpMtu &&
           extraJson == other.extraJson;
+}
+
+/// Result of parsing a single share URI.
+class UriParseResult {
+  final bool ok;
+  final ProfileDto? profile;
+  final ErrorDto? error;
+
+  const UriParseResult({required this.ok, this.profile, this.error});
+
+  @override
+  int get hashCode => ok.hashCode ^ profile.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UriParseResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          profile == other.profile &&
+          error == other.error;
 }

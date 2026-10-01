@@ -39,6 +39,9 @@ pub const SINGBOX_SRS_HTTP_CLIENT_TAG: &str = "srs-download-http-client";
 pub const SINGBOX_RULESET_URL: &str =
     "https://raw.githubusercontent.com/2dust/sing-box-rules/rule-set-{0}/{1}.srs";
 
+/// Reserved live proxy port (host-owned). The generators must never emit it.
+pub const RESERVED_LIVE_PORT: i32 = 10808;
+
 pub const TUN_MTU_DEFAULT: i32 = 1280;
 pub const TUN_IPV4_DEFAULT: &str = "172.18.0.1/30";
 pub const TUN_IPV6_DEFAULT: &str = "fc00::172:18:0:1/126";
@@ -249,6 +252,32 @@ pub fn sample_fakeip_filter() -> Value {
             "localhost", "msftconnecttest.com", "msftncsi.com", "oray.com"
         ]
     })
+}
+
+/// Reject the host's reserved live proxy port anywhere in the input settings.
+/// Issue T06b/ISSUE-01: the generator must never emit an inbound or state port
+/// that would collide with the user's running proxy on `127.0.0.1:10808`.
+pub fn reserved_port_error(input: &crate::input::CodegenInput) -> Option<crate::CodegenError> {
+    let settings = &input.settings;
+    if settings.inbound.local_port == RESERVED_LIVE_PORT {
+        return Some(crate::CodegenError::reserved_port(
+            "inbound local port must not reuse the reserved live proxy port 10808",
+            "settings.inbound.localPort",
+        ));
+    }
+    if settings.state_port == RESERVED_LIVE_PORT {
+        return Some(crate::CodegenError::reserved_port(
+            "state port must not reuse the reserved live proxy port 10808",
+            "settings.statePort",
+        ));
+    }
+    if settings.state_port2 == RESERVED_LIVE_PORT {
+        return Some(crate::CodegenError::reserved_port(
+            "state port 2 must not reuse the reserved live proxy port 10808",
+            "settings.statePort2",
+        ));
+    }
+    None
 }
 
 pub fn obj() -> Map<String, Value> {

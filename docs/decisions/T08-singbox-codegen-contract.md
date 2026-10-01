@@ -176,6 +176,9 @@ sing-box 侧差异：`SpiderX`、`VerifyPeerCertByName`、`CertSha`、`Mldsa65Ve
 6. `ApplyCustomOutboundReplace` → `ApplyFullConfigTemplate` 最后合并。
 7. 默认回退：`DefFingerprint`/`DefUserAgent`；`WgInterfaceAddress→172.16.0.2/32`；`WgMtu→1280`；`TunStacks.First()=gvisor`；`Hysteria2DefaultHopInt=30`；FakeIPRange=`Global.FakeIPRanges.First()=198.18.0.0/15`（`ConfigHandler.cs:90-96,158-188`；`Global.cs:575-590,752-756`）。
 8. **禁止的旧字段**：sing-box 允许 `tls.insecure`（来自 `AllowInsecure`），但不写 Xray 专用 `allowInsecure`；`SpiderX/VerifyPeerCertByName/CertSha/Mldsa65Verify` 无对应输出。
+9. **路由引用悬空语义（T06b 更正）**：`remark:<outboundTag>` 未解析到节点（或类型不在能力集/非组/非 Outbound）时，**按上游回退 `Global.ProxyTag`**（与 Xray 侧同源，`GenRoutingUserRuleOutbound`），生成器补发 `routing_dangling_reference` warning。组/链子项缺失、自定义出站内容缺失仍为硬错误。
+10. **被忽略的 transport（T06b）**：`NodeValidator.ValidateSingboxTransport`（`NodeValidator.cs:173-196`）规定非 VMess/VLESS/Trojan/SS 协议只允许 `raw`、SS 只允许 `raw/ws`。生成器对不满足者静默丢弃该 transport，T06b 起补发 `singbox_transport_ignored` warning。
+11. **空 `endpoints`（T06b）**：无 WireGuard/自定义 endpoint 时不再写出 `"endpoints":[]`，改为省略该键（对齐上游 `SingboxConfig.endpoints == null` 语义）。
 
 ---
 

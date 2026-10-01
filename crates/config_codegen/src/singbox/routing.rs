@@ -6,7 +6,7 @@ use crate::input::{CodegenProfile, ConfigType};
 use crate::singbox::outbound::build_all_proxy_outbounds;
 use crate::singbox::SboxState;
 use crate::util::*;
-use crate::CodegenError;
+use crate::{CodegenError, Diagnostic};
 
 pub(crate) fn build_routing(state: &mut SboxState<'_>) -> Result<(), CodegenError> {
     let input = state.input;
@@ -466,12 +466,21 @@ fn gen_user_rule_outbound(
         .find(|p| p.remarks == tag)
         .cloned();
     let Some(node) = node else {
+        warn_dangling(state, tag, "no profile matches the remarks");
         return Ok(PROXY_TAG.to_string());
     };
     if !singbox_supported_type(node.config_type)
         && !node.config_type.is_group()
         && node.config_type != ConfigType::Outbound
     {
+        warn_dangling(
+            state,
+            tag,
+            &format!(
+                "config type {:?} is not in Global.SingboxSupportConfigType",
+                node.config_type
+            ),
+        );
         return Ok(PROXY_TAG.to_string());
     }
     let generated_tag = format!("{}-{PROXY_TAG}-{}", node.index_id, node.remarks);
@@ -509,6 +518,19 @@ fn singbox_supported_type(config_type: ConfigType) -> bool {
             | ConfigType::Socks
             | ConfigType::Http
     )
+}
+
+/// Issue T06b/ISSUE-04: an unresolved routing reference still falls back to
+/// `Global.ProxyTag` (upstream behavior) but must not do so silently.
+fn warn_dangling(state: &mut SboxState<'_>, tag: &str, reason: &str) {
+    state.diagnostics.push(Diagnostic::warning(
+        "routing_dangling_reference",
+        format!(
+            "routing rule references outbound '{tag}' that cannot be resolved ({reason}); \
+             falling back to '{PROXY_TAG}'"
+        ),
+        Some("routing.ruleSet[].outboundTag"),
+    ));
 }
 
 pub(crate) fn parse_v2_domain(domain: &str, rule: &mut Map<String, Value>) -> bool {

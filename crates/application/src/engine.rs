@@ -9,22 +9,30 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use domain::{
-    AppliedRevision, CancelOutcome, ConfigType, CoreType, DesiredRevision, DomainError, JobId,
-    Profile, RuntimePlan,
+    AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType, DesiredRevision,
+    DomainError, JobId, Profile, RuntimePlan,
 };
 use serde_json::Value;
 
 use crate::jobs::{JobManager, JobView};
 use crate::net_host_client::NetHostClient;
 use crate::repository::{
-    InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage, ProfileRepository,
-    ProfileSort, RevisionStore,
+    InMemoryProfileRepository, InMemorySubRepository, PageRequest, ProfileFilter, ProfilePage,
+    ProfileRepository, ProfileSort, RevisionStore, SubRepository,
 };
 use crate::runtime_client::{
     ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
 };
 use crate::snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
-use crate::store_repo::{storage_error, ProfileStore, SqliteProfileRepository};
+use persistence::Store;
+
+use crate::store_repo::{
+    storage_error, ProfileStore, SqliteProfileRepository, SqliteSubRepository, SubStore,
+};
+use crate::subs::{
+    build_candidates, download_all, new_sub_id, report_to_json, sub_error_outcome, unix_now,
+    SubItem, SubScheduler, SubUpdateEntry, SubUpdateOutcome, SubUpdateReport, SubUpdateRequest,
+};
 
 /// Application data directory override.
 pub const DATA_DIR_ENV: &str = "V2RAYN_R_DATA_DIR";
@@ -33,11 +41,15 @@ pub const DATA_DIR_ENV: &str = "V2RAYN_R_DATA_DIR";
 #[derive(Clone)]
 pub struct AppEngine {
     repo: Arc<Mutex<ProfileStore>>,
+    subs: Arc<Mutex<SubStore>>,
     revisions: Arc<Mutex<RevisionStore>>,
     active: Arc<Mutex<Option<String>>>,
     data_dir: Option<PathBuf>,
     jobs: JobManager,
     runtime: Arc<dyn RuntimeClient>,
+    sub_scheduler: Arc<Mutex<Option<SubScheduler>>>,
+    /// The local socks/mixed port of the running session, when known.
+    local_proxy_port: Arc<Mutex<Option<u16>>>,
 }
 
 impl AppEngine {
@@ -58,11 +70,14 @@ impl AppEngine {
             repo: Arc::new(Mutex::new(ProfileStore::Memory(
                 InMemoryProfileRepository::new(),
             ))),
+            subs: Arc::new(Mutex::new(SubStore::Memory(InMemorySubRepository::new()))),
             revisions: Arc::new(Mutex::new(RevisionStore::new())),
             active: Arc::new(Mutex::new(None)),
             data_dir: None,
             jobs: JobManager::new(),
             runtime,
+            sub_scheduler: Arc::new(Mutex::new(None)),
+            local_proxy_port: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -93,8 +108,12 @@ impl AppEngine {
             .and_then(Value::as_str)
             .map(str::to_string);
 
+        let sub_store =
+            SqliteSubRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+
         Ok(Self {
             repo: Arc::new(Mutex::new(ProfileStore::Sqlite(sqlite))),
+            subs: Arc::new(Mutex::new(SubStore::Sqlite(sub_store))),
             revisions: Arc::new(Mutex::new(RevisionStore::with_desired(
                 DesiredRevision::new(desired),
             ))),
@@ -102,6 +121,8 @@ impl AppEngine {
             data_dir: Some(data_dir),
             jobs: JobManager::new(),
             runtime,
+            sub_scheduler: Arc::new(Mutex::new(None)),
+            local_proxy_port: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -378,6 +399,371 @@ impl AppEngine {
             }
         }
         outcome
+    }
+
+    // -- T09 subscription use cases ----------------------------------------
+
+    /// Record the running session's local socks/mixed port (proxy updates).
+    pub fn set_local_proxy_port(&self, port: Option<u16>) {
+        if let Ok(mut guard) = self.local_proxy_port.lock() {
+            *guard = port;
+        }
+    }
+
+    /// The local proxy endpoint as an explicit URL, when known.
+    pub fn local_proxy_url(&self) -> Option<String> {
+        self.local_proxy_port
+            .lock()
+            .ok()
+            .and_then(|guard| *guard)
+            .map(|port| format!("http://127.0.0.1:{port}"))
+    }
+
+    /// `list_sub_items` use case, ordered by `Sort`.
+    pub fn list_sub_items(&self) -> Result<Vec<SubItem>, DomainError> {
+        self.subs
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .list()
+    }
+
+    /// One subscription by id.
+    pub fn get_sub_item(&self, id: &str) -> Result<Option<SubItem>, DomainError> {
+        self.subs
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .get(id)
+    }
+
+    /// `save_sub_item` use case: validates, persists and bumps the revision.
+    ///
+    /// A new item without an id is assigned a stable id and the next `Sort`.
+    pub fn save_sub_item(&self, mut item: SubItem) -> Result<SubItem, DomainError> {
+        item.validate()?;
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut subs = self
+            .subs
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        if item.id.trim().is_empty() {
+            item.id = new_sub_id();
+        }
+        if subs.get(&item.id)?.is_none() && item.sort == 0 {
+            item.sort = subs
+                .list()?
+                .iter()
+                .map(|s| s.sort)
+                .max()
+                .map_or(1, |m| m + 1);
+        }
+        subs.upsert(item.clone())?;
+        revisions.bump();
+        drop(subs);
+        self.persist_config(&revisions)?;
+        Ok(item)
+    }
+
+    /// `delete_sub_items` use case. Returns the number of removed rows.
+    pub fn delete_sub_items(&self, ids: &[String]) -> Result<u64, DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut subs = self
+            .subs
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut removed = 0u64;
+        for id in ids {
+            if subs.remove(id)? {
+                removed += 1;
+            }
+        }
+        if removed > 0 {
+            revisions.bump();
+            drop(subs);
+            self.persist_config(&revisions)?;
+        }
+        Ok(removed)
+    }
+
+    /// `set_sub_enabled` use case.
+    pub fn set_sub_enabled(&self, id: &str, enabled: bool) -> Result<SubItem, DomainError> {
+        let mut item = self
+            .get_sub_item(id)?
+            .ok_or_else(|| DomainError::not_found("subscription", id))?;
+        item.enabled = enabled;
+        self.save_sub_item(item)
+    }
+
+    /// Persist a new `Sort` order. `ids` is the intended display order.
+    pub fn reorder_sub_items(&self, ids: &[String]) -> Result<(), DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut subs = self
+            .subs
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        for (index, id) in ids.iter().enumerate() {
+            if let Some(mut item) = subs.get(id)? {
+                item.sort = (index + 1) as i32;
+                subs.upsert(item)?;
+            }
+        }
+        revisions.bump();
+        drop(subs);
+        self.persist_config(&revisions)?;
+        Ok(())
+    }
+
+    /// Select the subscriptions a request targets (enabled-only, non-empty urls).
+    fn target_subs(&self, request: &SubUpdateRequest) -> Result<Vec<SubItem>, DomainError> {
+        let all = self.list_sub_items()?;
+        if request.sub_ids.is_empty() {
+            return Ok(all);
+        }
+        Ok(all
+            .into_iter()
+            .filter(|s| request.sub_ids.contains(&s.id))
+            .collect())
+    }
+
+    /// `refresh_subscriptions` use case (the F-SUB-003 update pipeline).
+    ///
+    /// For each targeted subscription: download (with `MoreUrl` merge), parse
+    /// and filter into a candidate set, then atomically replace that `subid`'s
+    /// nodes. A failed or empty download preserves the old nodes and surfaces a
+    /// structured error. Returns a report and updates `UpdateTime` on success.
+    pub async fn refresh_subscriptions(
+        &self,
+        request: SubUpdateRequest,
+        cancellation: &CancellationToken,
+        max_items: usize,
+    ) -> SubUpdateReport {
+        let mut report = SubUpdateReport::default();
+        let targets = match self.target_subs(&request) {
+            Ok(items) => items,
+            Err(_) => return report,
+        };
+        for item in targets {
+            if cancellation.is_cancelled() {
+                report.entries.push(SubUpdateEntry {
+                    sub_id: item.id.clone(),
+                    remarks: item.remarks.clone(),
+                    outcome: SubUpdateOutcome::Cancelled,
+                });
+                break;
+            }
+            report.entries.push(
+                self.refresh_one(&item, &request, cancellation, max_items)
+                    .await,
+            );
+        }
+        report
+    }
+
+    async fn refresh_one(
+        &self,
+        item: &SubItem,
+        request: &SubUpdateRequest,
+        cancellation: &CancellationToken,
+        max_items: usize,
+    ) -> SubUpdateEntry {
+        let entry = |outcome: SubUpdateOutcome| SubUpdateEntry {
+            sub_id: item.id.clone(),
+            remarks: item.remarks.clone(),
+            outcome,
+        };
+        if item.url.trim().is_empty() {
+            return entry(SubUpdateOutcome::Skipped {
+                reason: "error.url_required".into(),
+            });
+        }
+        if !item.enabled {
+            return entry(SubUpdateOutcome::Skipped {
+                reason: "error.sub_disabled".into(),
+            });
+        }
+        if cancellation.is_cancelled() {
+            return entry(SubUpdateOutcome::Cancelled);
+        }
+        let existing = self.profiles_by_subid(&item.id).unwrap_or_default();
+
+        // Candidate-first: download and parse before touching storage.
+        let content = match download_all(
+            item,
+            request.via_proxy,
+            request.proxy_url.as_deref(),
+            cancellation,
+        )
+        .await
+        {
+            Ok(content) => content,
+            Err(subscriptions::SubError::Cancelled) => return entry(SubUpdateOutcome::Cancelled),
+            Err(err) => return entry(sub_error_outcome(&err)),
+        };
+
+        let mut candidates = match build_candidates(item, &content, &existing, max_items) {
+            Ok(profiles) => profiles,
+            Err(err) => return entry(sub_error_outcome(&err)),
+        };
+        crate::subs::assign_candidate_ids(&mut candidates);
+
+        // Atomic replace for this subid (upstream: remove-then-write).
+        match self.replace_sub_profiles(&item.id, candidates, true) {
+            Ok((added, removed)) => {
+                let _ = self.touch_sub_update_time(&item.id, unix_now());
+                SubUpdateEntry {
+                    sub_id: item.id.clone(),
+                    remarks: item.remarks.clone(),
+                    outcome: SubUpdateOutcome::Updated { added, removed },
+                }
+            }
+            Err(err) => entry(SubUpdateOutcome::Failed {
+                code: err.code,
+                message: err.message_key,
+            }),
+        }
+    }
+
+    /// All profiles belonging to a subscription, in stable order.
+    pub fn profiles_by_subid(&self, subid: &str) -> Result<Vec<Profile>, DomainError> {
+        let filter = ProfileFilter {
+            subid: Some(subid.to_string()),
+            ..ProfileFilter::default()
+        };
+        let page = self.query_profiles(
+            filter,
+            ProfileSort::IndexId,
+            PageRequest {
+                cursor: 0,
+                page_size: u32::MAX,
+            },
+        )?;
+        Ok(page.items)
+    }
+
+    /// Insert-or-replace records for a subid. Removes existing rows, then
+    /// upserts the replacement set. Returns `(added, removed)`.
+    pub fn replace_sub_profiles(
+        &self,
+        subid: &str,
+        profiles: Vec<Profile>,
+        remove_existing: bool,
+    ) -> Result<(usize, usize), DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut removed = 0usize;
+        if remove_existing {
+            let existing = repo.query(
+                &ProfileFilter {
+                    subid: Some(subid.to_string()),
+                    ..ProfileFilter::default()
+                },
+                ProfileSort::IndexId,
+                PageRequest {
+                    cursor: 0,
+                    page_size: u32::MAX,
+                },
+            )?;
+            for profile in existing.items {
+                if repo.remove(&profile.index_id)? {
+                    removed += 1;
+                }
+            }
+        }
+        for mut profile in profiles {
+            if profile.subid.is_empty() {
+                profile.subid = subid.to_string();
+            }
+            if profile.index_id.trim().is_empty() {
+                profile.index_id = crate::repository::new_index_id();
+            }
+            repo.upsert(profile)?;
+        }
+        let added = self.profiles_by_subid_locked(&repo, subid)?.len();
+        revisions.bump();
+        drop(repo);
+        self.persist_config(&revisions)?;
+        Ok((added, removed))
+    }
+
+    fn profiles_by_subid_locked(
+        &self,
+        repo: &ProfileStore,
+        subid: &str,
+    ) -> Result<Vec<Profile>, DomainError> {
+        let page = repo.query(
+            &ProfileFilter {
+                subid: Some(subid.to_string()),
+                ..ProfileFilter::default()
+            },
+            ProfileSort::IndexId,
+            PageRequest {
+                cursor: 0,
+                page_size: u32::MAX,
+            },
+        )?;
+        Ok(page.items)
+    }
+
+    /// Overwrite only `UpdateTime` for a subscription (scheduler bookkeeping).
+    pub fn touch_sub_update_time(&self, id: &str, time: i64) -> Result<(), DomainError> {
+        let mut item = self
+            .get_sub_item(id)?
+            .ok_or_else(|| DomainError::not_found("subscription", id))?;
+        item.update_time = time;
+        let mut subs = self
+            .subs
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        subs.upsert(item)?;
+        Ok(())
+    }
+
+    /// The JSON event payload for a refresh report.
+    pub fn refresh_report_json(report: &SubUpdateReport) -> serde_json::Value {
+        report_to_json(report)
+    }
+
+    /// Start the background subscription scheduler (idempotent).
+    pub fn start_sub_scheduler(&self, interval: std::time::Duration, max_items: usize) -> bool {
+        let mut guard = match self.sub_scheduler.lock() {
+            Ok(guard) => guard,
+            Err(_) => return false,
+        };
+        if guard.is_some() {
+            return true;
+        }
+        *guard = Some(SubScheduler::start(self.clone(), interval, max_items));
+        true
+    }
+
+    /// Stop the scheduler gracefully. Never blocks process exit.
+    pub fn stop_sub_scheduler(&self) {
+        if let Ok(mut guard) = self.sub_scheduler.lock() {
+            if let Some(scheduler) = guard.take() {
+                scheduler.stop();
+            }
+        }
+    }
+
+    pub fn sub_scheduler_running(&self) -> bool {
+        self.sub_scheduler
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
     }
 
     /// Assemble the current snapshot.

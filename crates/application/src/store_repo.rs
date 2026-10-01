@@ -14,8 +14,9 @@ use serde_json::{json, Value};
 
 use crate::repository::{
     InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage, ProfileRepository,
-    ProfileSort,
+    ProfileSort, SubRepository,
 };
+use crate::subs::SubItem;
 
 /// Columns retained verbatim in `Profile::extra` (superseded by the JSON
 /// blobs, but still present in an imported database).
@@ -139,6 +140,53 @@ impl ProfileRepository for SqliteProfileRepository {
 
     fn count(&self) -> usize {
         self.store.count_rows("ProfileItem").unwrap_or(0) as usize
+    }
+}
+
+/// A SQLite-backed subscription repository sharing the profile store's `Store`.
+pub struct SqliteSubRepository {
+    store: Store,
+}
+
+impl SqliteSubRepository {
+    pub fn from_store(store: Store) -> Self {
+        Self { store }
+    }
+}
+
+impl SubRepository for SqliteSubRepository {
+    fn list(&self) -> Result<Vec<SubItem>, DomainError> {
+        let rows = self.store.read_rows("SubItem").map_err(storage_error)?;
+        let mut items: Vec<SubItem> = rows.iter().map(SubItem::from_row).collect();
+        items.sort_by_key(|s| s.sort);
+        Ok(items)
+    }
+
+    fn get(&self, id: &str) -> Result<Option<SubItem>, DomainError> {
+        let rows = self
+            .store
+            .query_rows("SELECT * FROM \"SubItem\" WHERE \"Id\" = ?1", &[&id])
+            .map_err(storage_error)?;
+        Ok(rows.first().map(SubItem::from_row))
+    }
+
+    fn upsert(&mut self, item: SubItem) -> Result<(), DomainError> {
+        let row = item.to_row();
+        self.store
+            .upsert_row(self.store.connection(), &row)
+            .map_err(storage_error)
+    }
+
+    fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
+        let affected = self
+            .store
+            .execute("DELETE FROM \"SubItem\" WHERE \"Id\" = ?1", &[&id])
+            .map_err(storage_error)?;
+        Ok(affected > 0)
+    }
+
+    fn count(&self) -> usize {
+        self.store.count_rows("SubItem").unwrap_or(0) as usize
     }
 }
 
@@ -380,6 +428,49 @@ impl ProfileRepository for ProfileStore {
         match self {
             ProfileStore::Memory(repo) => repo.count(),
             ProfileStore::Sqlite(repo) => repo.count(),
+        }
+    }
+}
+
+/// Storage backend for subscriptions, selected at engine construction.
+pub enum SubStore {
+    Memory(crate::repository::InMemorySubRepository),
+    Sqlite(SqliteSubRepository),
+}
+
+impl SubRepository for SubStore {
+    fn list(&self) -> Result<Vec<SubItem>, DomainError> {
+        match self {
+            SubStore::Memory(repo) => repo.list(),
+            SubStore::Sqlite(repo) => repo.list(),
+        }
+    }
+
+    fn get(&self, id: &str) -> Result<Option<SubItem>, DomainError> {
+        match self {
+            SubStore::Memory(repo) => repo.get(id),
+            SubStore::Sqlite(repo) => repo.get(id),
+        }
+    }
+
+    fn upsert(&mut self, item: SubItem) -> Result<(), DomainError> {
+        match self {
+            SubStore::Memory(repo) => repo.upsert(item),
+            SubStore::Sqlite(repo) => repo.upsert(item),
+        }
+    }
+
+    fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
+        match self {
+            SubStore::Memory(repo) => repo.remove(id),
+            SubStore::Sqlite(repo) => repo.remove(id),
+        }
+    }
+
+    fn count(&self) -> usize {
+        match self {
+            SubStore::Memory(repo) => repo.count(),
+            SubStore::Sqlite(repo) => repo.count(),
         }
     }
 }

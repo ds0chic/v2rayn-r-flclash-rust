@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `broadcast`, `build_plan`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `job_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `smoke_body`, `smoke_plan`, `snapshot_to_dto`, `subscribers`, `transport_from_dto`, `transport_to_dto`
+// These functions are ignored because they are not marked as `pub`: `broadcast`, `build_plan`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `profile_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `smoke_body`, `smoke_plan`, `snapshot_to_dto`, `subscribers`, `transport_from_dto`, `transport_to_dto`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `xray_smoke_config_json`
 
 /// Open the application engine against an explicit data directory (tests and

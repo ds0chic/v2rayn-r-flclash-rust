@@ -10,6 +10,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use domain::{DesiredRevision, DomainError, Profile};
 
+use crate::subs::SubItem;
+
 static INDEX_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// Generate a fresh stable profile id (time + process-local counter). Never a
@@ -198,6 +200,56 @@ impl ProfileRepository for InMemoryProfileRepository {
             total,
             next_cursor,
         })
+    }
+
+    fn count(&self) -> usize {
+        self.by_id.len()
+    }
+}
+
+/// Storage contract for subscription items (`SubItem`, 17 columns).
+pub trait SubRepository: Send {
+    fn list(&self) -> Result<Vec<SubItem>, DomainError>;
+
+    fn get(&self, id: &str) -> Result<Option<SubItem>, DomainError>;
+
+    fn upsert(&mut self, item: SubItem) -> Result<(), DomainError>;
+
+    fn remove(&mut self, id: &str) -> Result<bool, DomainError>;
+
+    fn count(&self) -> usize;
+}
+
+/// In-memory subscription repository (tests + `AppEngine::in_memory`).
+#[derive(Debug, Default)]
+pub struct InMemorySubRepository {
+    by_id: std::collections::HashMap<String, SubItem>,
+}
+
+impl InMemorySubRepository {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl SubRepository for InMemorySubRepository {
+    fn list(&self) -> Result<Vec<SubItem>, DomainError> {
+        let mut items: Vec<SubItem> = self.by_id.values().cloned().collect();
+        items.sort_by_key(|s| s.sort);
+        Ok(items)
+    }
+
+    fn get(&self, id: &str) -> Result<Option<SubItem>, DomainError> {
+        Ok(self.by_id.get(id).cloned())
+    }
+
+    fn upsert(&mut self, item: SubItem) -> Result<(), DomainError> {
+        self.by_id.insert(item.id.clone(), item);
+        Ok(())
+    }
+
+    fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
+        Ok(self.by_id.remove(id).is_some())
     }
 
     fn count(&self) -> usize {

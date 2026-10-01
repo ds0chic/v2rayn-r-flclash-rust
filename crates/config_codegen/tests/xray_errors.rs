@@ -54,6 +54,53 @@ fn xray_reality_requires_public_key() {
 }
 
 #[test]
+fn xray_reality_requires_public_key_for_all_protocols() {
+    // M-014: reality without a public key must fail for any protocol type, not
+    // just VLESS/Trojan.
+    for config_type in [
+        ConfigType::Vmess,
+        ConfigType::Shadowsocks,
+        ConfigType::Socks,
+    ] {
+        let mut p = profile(config_type, "192.0.2.106", 443);
+        p.password = "synthetic-pass".into();
+        p.username = "synthetic-user".into();
+        p.stream_security = "reality".into();
+        let err = generate_xray(&codegen_input(p)).expect_err("reality publicKey");
+        assert_eq!(err.code, "missing_required_field", "{config_type:?}");
+        assert_eq!(
+            err.field_path.as_deref(),
+            Some("profile.publicKey"),
+            "{config_type:?}"
+        );
+    }
+}
+
+#[test]
+fn xray_rejects_reserved_live_port() {
+    // ISSUE-01: the inbound local port must never be the host's live proxy port.
+    let mut p = profile(ConfigType::Vless, "192.0.2.107", 443);
+    p.password = "11111111-2222-3333-4444-555555555555".into();
+    let mut input = codegen_input(p);
+    input.settings.inbound.local_port = 10808;
+    let err = generate_xray(&input).expect_err("reserved port");
+    assert_eq!(err.code, "reserved_port");
+    assert_eq!(
+        err.field_path.as_deref(),
+        Some("settings.inbound.localPort")
+    );
+
+    // state_port is rejected as well.
+    let mut p = profile(ConfigType::Vless, "192.0.2.108", 443);
+    p.password = "11111111-2222-3333-4444-555555555555".into();
+    let mut input = codegen_input(p);
+    input.settings.state_port = 10808;
+    let err = generate_xray(&input).expect_err("reserved state port");
+    assert_eq!(err.code, "reserved_port");
+    assert_eq!(err.field_path.as_deref(), Some("settings.statePort"));
+}
+
+#[test]
 fn xray_group_dangling_child_reference() {
     let mut group = profile(ConfigType::PolicyGroup, "", 0);
     group.proto_extra.child_items = Some("missing-id".into());

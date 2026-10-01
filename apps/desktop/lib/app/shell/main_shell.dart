@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,19 +9,41 @@ import 'package:v2rayn_desktop/app/shell/status_bar_view.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
-import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
+import 'package:v2rayn_desktop/features/profiles/profile_actions.dart'
+    as profile_actions;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Main window shell: top menu/toolbar, three grid layouts, bottom status bar.
 /// Mirrors compat/layouts.yaml LAY-MAIN-001/002/003 and LAY-MAIN-004.
-class MainShell extends ConsumerWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  @override
+  void initState() {
+    super.initState();
+    // Evidence-run hook: `V2RAYN_R_OPEN_SUBS=1` opens the subscription settings
+    // window on launch so the T09 screenshot can be captured without scripted
+    // menu clicks. It is a no-op in normal runs.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final open = Platform.environment['V2RAYN_R_OPEN_SUBS'];
+      if (open == '1' || open == 'true') {
+        openSubSettings(context, ref);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(uiShellControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
@@ -30,19 +54,11 @@ class MainShell extends ConsumerWidget {
               .read(uiShellControllerProvider.notifier)
               .notImplemented('重启服务', 'ACT-MAIN-035'),
           const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
-              _guarded(
-                ref,
-                () => ref
-                    .read(uiShellControllerProvider.notifier)
-                    .notImplemented('扫描屏幕上的二维码', 'ACT-MAIN-017'),
-              ),
+              _guarded(ref, () => shareProfilesQr(context, ref)),
           const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
-              _guarded(
-                ref,
-                () => ref
-                    .read(uiShellControllerProvider.notifier)
-                    .notImplemented('从剪贴板导入分享链接', 'ACT-MAIN-016'),
-              ),
+              _guarded(ref, () => importFromClipboard(context, ref)),
+          const SingleActivator(LogicalKeyboardKey.keyC, control: true): () =>
+              _guarded(ref, () => exportProfiles(context, ref, kind: 'share')),
         },
         child: Column(
           children: <Widget>[
@@ -162,27 +178,43 @@ class MainShell extends ConsumerWidget {
       case 'UI-THEME':
         shell.toggleTheme();
       case 'ACT-MAIN-001':
-        startAddProfile(context, ref, ConfigType.vmess);
+        profile_actions.startAddProfile(context, ref, ConfigType.vmess);
       case 'ACT-MAIN-002':
-        startAddProfile(context, ref, ConfigType.vless);
+        profile_actions.startAddProfile(context, ref, ConfigType.vless);
       case 'ACT-MAIN-003':
-        startAddProfile(context, ref, ConfigType.shadowsocks);
+        profile_actions.startAddProfile(context, ref, ConfigType.shadowsocks);
       case 'ACT-MAIN-004':
-        startAddProfile(context, ref, ConfigType.socks);
+        profile_actions.startAddProfile(context, ref, ConfigType.socks);
       case 'ACT-MAIN-005':
-        startAddProfile(context, ref, ConfigType.http);
+        profile_actions.startAddProfile(context, ref, ConfigType.http);
       case 'ACT-MAIN-006':
-        startAddProfile(context, ref, ConfigType.trojan);
+        profile_actions.startAddProfile(context, ref, ConfigType.trojan);
       case 'ACT-MAIN-007':
-        startAddProfile(context, ref, ConfigType.hysteria2);
+        profile_actions.startAddProfile(context, ref, ConfigType.hysteria2);
       case 'ACT-MAIN-008':
-        startAddProfile(context, ref, ConfigType.tuic);
+        profile_actions.startAddProfile(context, ref, ConfigType.tuic);
       case 'ACT-MAIN-009':
-        startAddProfile(context, ref, ConfigType.wireGuard);
+        profile_actions.startAddProfile(context, ref, ConfigType.wireGuard);
       case 'ACT-MAIN-010':
-        startAddProfile(context, ref, ConfigType.anytls);
+        profile_actions.startAddProfile(context, ref, ConfigType.anytls);
       case 'ACT-MAIN-011':
-        startAddProfile(context, ref, ConfigType.naive);
+        profile_actions.startAddProfile(context, ref, ConfigType.naive);
+      case 'ACT-MAIN-016':
+        importFromClipboard(context, ref);
+      case 'ACT-MAIN-017':
+        shareProfilesQr(context, ref);
+      case 'ACT-MAIN-018':
+        importFromTextDialog(context, ref);
+      case 'ACT-MAIN-019':
+        openSubSettings(context, ref);
+      case 'ACT-MAIN-020':
+        updateAllSubscriptions(context, ref, viaProxy: false);
+      case 'ACT-MAIN-021':
+        updateAllSubscriptions(context, ref, viaProxy: true);
+      case 'ACT-MAIN-022':
+        updateCurrentGroup(context, ref, viaProxy: false);
+      case 'ACT-MAIN-023':
+        updateCurrentGroup(context, ref, viaProxy: true);
       default:
         shell.notImplemented(entry.label, entry.actionId);
     }

@@ -10,7 +10,9 @@ domain.workspace = true
 ipc_contract.workspace = true
 persistence.workspace = true
 runtime.workspace = true
+subscriptions.workspace = true
 rusqlite = "0.32.1"
+tokio = { version = "1.53", features = ["rt", "time", "sync"] }
 serde.workspace = true
 serde_json.workspace = true
 

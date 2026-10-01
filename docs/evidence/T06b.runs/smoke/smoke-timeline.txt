@@ -1,0 +1,14 @@
+18:20:50 HTTP server started 127.0.0.1:11880 pid=39604
+18:20:50 xray noauth started pid=34312 cfg=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\target\t06b\smoke\xray-smoke-noauth.json
+18:20:51 xray noauth probe OK: 'T06B-SMOKE-OK'
+18:20:51 xray noauth stopped pid=34312
+18:20:51 singbox noauth started pid=40808 cfg=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\target\t06b\smoke\singbox-smoke-noauth.json
+18:20:51 singbox noauth probe OK: 'T06B-SMOKE-OK'
+18:20:51 singbox noauth stopped pid=40808
+18:20:51 xray auth started pid=34028 cfg=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\target\t06b\smoke\xray-smoke-auth.json
+18:20:52 xray auth probe OK: 'T06B-SMOKE-OK'
+18:20:52 xray auth stopped pid=34028
+18:20:52 singbox auth started pid=38656 cfg=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\target\t06b\smoke\singbox-smoke-auth.json
+18:20:53 singbox auth probe OK: 'T06B-SMOKE-OK'
+18:20:53 singbox auth stopped pid=38656
+18:20:53 HTTP server stopped pid=39604

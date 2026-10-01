@@ -296,3 +296,111 @@ pub struct ApplyRuntimeRequest {
     pub target_id: String,
     pub expected_revision: u64,
 }
+
+// -- T09 subscription + import/export DTOs ---------------------------------
+
+/// The 17-field subscription model (`SubItem`).
+#[derive(Clone)]
+pub struct SubItemDto {
+    pub id: String,
+    pub remarks: String,
+    pub url: String,
+    pub more_url: String,
+    pub enabled: bool,
+    pub user_agent: String,
+    pub request_headers: Option<String>,
+    pub sort: i32,
+    pub filter: Option<String>,
+    pub auto_update_interval: i32,
+    pub update_time: i64,
+    pub convert_target: Option<String>,
+    pub prev_profile: Option<String>,
+    pub next_profile: Option<String>,
+    pub pre_socks_port: Option<i32>,
+    pub memo: Option<String>,
+    pub custom_core_type: Option<i32>,
+}
+
+/// Result of a subscription mutation.
+#[derive(Clone)]
+pub struct SubItemDtoResult {
+    pub ok: bool,
+    pub item: Option<SubItemDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Result of `list_sub_items`.
+#[derive(Clone)]
+pub struct SubsPageDto {
+    pub items: Vec<SubItemDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Result of `delete_sub_items`.
+#[derive(Clone)]
+pub struct DeleteSubsResult {
+    pub ok: bool,
+    pub removed: u64,
+    pub error: Option<ErrorDto>,
+}
+
+/// One entry of a subscription update report.
+#[derive(Clone)]
+pub struct SubUpdateEntryDto {
+    pub sub_id: String,
+    pub remarks: String,
+    /// `updated` / `preserved_empty` / `preserved_error` / `skipped` /
+    /// `cancelled` / `failed`.
+    pub status: String,
+    pub added: Option<u32>,
+    pub existing: Option<u32>,
+    pub code: Option<String>,
+    pub message: Option<String>,
+}
+
+/// Result of `update_subscriptions`.
+#[derive(Clone)]
+pub struct SubUpdateResult {
+    pub ok: bool,
+    pub success: u32,
+    pub cancelled: bool,
+    pub entries: Vec<SubUpdateEntryDto>,
+    pub job_id: Option<String>,
+    pub error: Option<ErrorDto>,
+}
+
+/// A located per-item parse failure.
+#[derive(Clone)]
+pub struct ParseIssueDto {
+    pub code: String,
+    pub message: String,
+    pub item_index: Option<u32>,
+    pub byte_offset: Option<u64>,
+}
+
+/// Result of importing from clipboard text.
+#[derive(Clone)]
+pub struct ImportResult {
+    pub ok: bool,
+    pub imported: u32,
+    pub profiles: Vec<ProfileDto>,
+    pub errors: Vec<ParseIssueDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Result of parsing a single share URI.
+#[derive(Clone)]
+pub struct UriParseResult {
+    pub ok: bool,
+    pub profile: Option<ProfileDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Result of exporting profiles as share/base64/inner text.
+#[derive(Clone)]
+pub struct ShareExportResult {
+    pub ok: bool,
+    pub text: String,
+    pub count: u32,
+    pub error: Option<ErrorDto>,
+}

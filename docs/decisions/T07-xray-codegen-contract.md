@@ -165,6 +165,8 @@ sing-box endpoint 在 T07 不适用（Xray 无 endpoints 段）。
 5. **后写覆盖前写**：`ProfileItem.Finalmask` 覆盖 `streamSettings.finalmask`（`V2rayOutboundService.cs:611-614`）；`ApplyCustomOutboundReplace` 覆盖整段出站；`ApplyFullConfigTemplate` 最后整体替换 `outbounds`。
 6. **禁止的旧字段**：Xray 输出不得含 `allowInsecure`/`insecure`（已在 7.25.x 移除，`NodeValidator.cs:134-147`）；旧 `HeaderType/RequestHost/Path/Extra/Ports/AlterId/Flow/Id/Security`（`ProfileItem.cs:173-218` 均标 `[Obsolete]`，迁移后由 ProtoExtra/TransportExtra 取代，`AppManager.cs:134,159`）。
 
+**路由引用悬空语义（T06b 更正）**：路由规则 `remark:<outboundTag>` 未解析到任何节点（或节点类型不在能力集/非组/非 Outbound）时，**按上游源码回退 `Global.ProxyTag`**（`V2rayRoutingService.cs:189-195`），不直接报错。生成器在此情形补发结构化 `routing_dangling_reference` warning 诊断（携带 rule 的 `outboundTag`）。（此前其他文档“悬空一律报错”的表述与本契约不符，以本条为准；组/链 `ChildItems` 缺失、自定义出站内容缺失仍为硬错误。）
+
 ---
 
 ## 7. 差分测试建议（最小合成输入）

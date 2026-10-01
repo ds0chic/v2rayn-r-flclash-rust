@@ -45,6 +45,9 @@ fn validate(input: &CodegenInput) -> Result<(), CodegenError> {
         // Pass-through is handled separately; it is valid.
         return Ok(());
     }
+    if let Some(error) = reserved_port_error(input) {
+        return Err(error);
+    }
     if !xray_supported(node.config_type)
         && node.config_type != ConfigType::Outbound
         && !node.config_type.is_group()
@@ -95,10 +98,7 @@ fn validate(input: &CodegenInput) -> Result<(), CodegenError> {
         }
         _ => {}
     }
-    if matches!(node.config_type, ConfigType::Vless | ConfigType::Trojan)
-        && node.stream_security == STREAM_SECURITY_REALITY
-        && node.public_key.is_empty()
-    {
+    if node.stream_security == STREAM_SECURITY_REALITY && node.public_key.is_empty() {
         return Err(CodegenError::missing_required_field(
             "publicKey is required for reality",
             "profile.publicKey",

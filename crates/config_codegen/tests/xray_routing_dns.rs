@@ -108,6 +108,74 @@ fn xray_simple_dns_fakeip_and_rule_types() {
 }
 
 #[test]
+fn xray_routing_protocol_condition_is_written() {
+    // ISSUE-03: the `protocol` filter must reach the generated rule JSON.
+    let routing = CodegenRouting {
+        rule_set: vec![CodegenRule {
+            enabled: true,
+            rule_type: RuleType::Routing,
+            outbound_tag: "block".into(),
+            protocol: Some(vec!["bittorrent".into()]),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mut input = codegen_input(vless_base());
+    input.routing = Some(routing);
+
+    let generated = generate_xray(&input).expect("protocol rule");
+    let rules = generated.main["routing"]["rules"].as_array().unwrap();
+    let rule = rules
+        .iter()
+        .find(|r| r.get("protocol").is_some())
+        .expect("protocol rule present");
+    assert_eq!(json_at(rule, "/protocol"), json!(["bittorrent"]));
+    assert_eq!(string_at(rule, "/outboundTag"), "block");
+    assert_eq!(string_at(rule, "/type"), "field");
+}
+
+#[test]
+fn xray_routing_dangling_reference_warns() {
+    // ISSUE-04: unresolved remarks still fall back to `proxy` (upstream
+    // behavior) but must emit a structured warning, not stay silent.
+    let routing = CodegenRouting {
+        rule_set: vec![CodegenRule {
+            enabled: true,
+            rule_type: RuleType::Routing,
+            outbound_tag: "Missing Node".into(),
+            domain: Some(vec!["full:missing.test".into()]),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let mut input = codegen_input(vless_base());
+    input.routing = Some(routing);
+
+    let generated = generate_xray(&input).expect("routing");
+    let rules = generated.main["routing"]["rules"].as_array().unwrap();
+    let rule = rules
+        .iter()
+        .find(|r| {
+            r.get("domain")
+                .and_then(|d| d.as_array())
+                .map(|list| list.iter().any(|v| v.as_str() == Some("full:missing.test")))
+                .unwrap_or(false)
+        })
+        .expect("fallback rule");
+    assert_eq!(string_at(rule, "/outboundTag"), "proxy");
+    let warning = generated
+        .diagnostics
+        .iter()
+        .find(|d| d.code == "routing_dangling_reference")
+        .expect("dangling warning");
+    assert!(
+        warning.message.contains("Missing Node"),
+        "{}",
+        warning.message
+    );
+}
+
+#[test]
 fn xray_routing_remark_resolution_and_fallback() {
     let mut other = profile(ConfigType::Vless, "192.0.2.81", 443);
     other.index_id = "node-2".into();

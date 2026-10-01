@@ -51,8 +51,8 @@ crates/config_codegen/
 
 ### 2.3 结构化错误
 
-`unsupported_combination`、`missing_required_field`、`dangling_reference`、`custom_outbound_missing`、`custom_outbound_invalid`、`invalid_template`，均带 `field_path`。
-引用悬空（PolicyGroup/ProxyChain 子项缺失、自定义出站内容缺失）明确报错而非静默丢弃。
+`unsupported_combination`、`missing_required_field`、`dangling_reference`、`custom_outbound_missing`、`custom_outbound_invalid`、`invalid_template`、`reserved_port`（T06b），均带 `field_path`。
+组/链子项缺失、自定义出站内容缺失明确报错；**路由规则引用悬空按上游回退 `Global.ProxyTag` 并发 `routing_dangling_reference` warning（T06b 更正，非直接报错）**。
 
 ## 3. 测试与结果
 

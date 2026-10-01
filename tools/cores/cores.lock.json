@@ -21,6 +21,22 @@
       "extracted_to": "tools/cores/xray/v26.3.27/",
       "executable": "tools/cores/xray/v26.3.27/xray.exe",
       "platform": "windows-amd64"
+    },
+    {
+      "core": "sing-box",
+      "release_tag": "v1.14.2",
+      "core_version": "1.14.2",
+      "asset": "sing-box-1.14.2-windows-amd64.zip",
+      "asset_size_bytes": 32857903,
+      "source": "https://github.com/SagerNet/sing-box/releases/download/v1.14.2/sing-box-1.14.2-windows-amd64.zip",
+      "sha256": "c2d8bfff918755808781dfdeeb8581b6c91eb3a243d9a7b55483cfc0c0684d32",
+      "sha256_reported": "GitHub release body publishes checksums in the release notes only for some assets; the zip hash here is the locally computed value (no bundled .dgst asset).",
+      "sha256_verified": false,
+      "extracted_to": "tools/cores/singbox/v1.14.2/",
+      "executable": "tools/cores/singbox/v1.14.2/sing-box.exe",
+      "executable_sha256": "7bbef1dea9189ee12799ae834ea4b4658355da25c47a21ad8804904c0ccd9410",
+      "core_version_reported": "sing-box version 1.14.2 (go1.26.8, revision af6e64c3b69e6132ebaee0e1a3d24e93903f6709)",
+      "platform": "windows-amd64"
     }
   ]
 }

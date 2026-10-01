@@ -27,6 +27,7 @@ use crate::api::contract::{
     ProfileSortDto, ProtocolExtraDto, RecoveryDto, SaveProfileResult, SecurityDto, SimpleResult,
     SnapshotDto, StopRuntimeResult, TransportExtraDto,
 };
+
 use crate::frb_generated::StreamSink;
 use flutter_rust_bridge::frb;
 
@@ -44,7 +45,7 @@ fn engine_dir() -> &'static Mutex<Option<std::path::PathBuf>> {
     ENGINE_DIR.get_or_init(|| Mutex::new(None))
 }
 
-fn engine() -> &'static AppEngine {
+pub(crate) fn engine() -> &'static AppEngine {
     ENGINE.get_or_init(|| {
         if cfg!(test) {
             return AppEngine::in_memory();
@@ -111,7 +112,7 @@ fn seq_counter() -> &'static AtomicU64 {
     EVENT_SEQ.get_or_init(|| AtomicU64::new(0))
 }
 
-fn error_dto(e: DomainError) -> ErrorDto {
+pub(crate) fn error_dto(e: DomainError) -> ErrorDto {
     ErrorDto::from(e)
 }
 
@@ -709,6 +710,16 @@ pub fn cancel_job(job_id: String) -> CancelResult {
     }
 }
 
+/// Public alias of the profile DTO mapper for other API modules.
+pub(crate) fn profile_dto(profile: Profile) -> ProfileDto {
+    profile_to_dto(profile)
+}
+
+/// Public alias of the job DTO mapper for other API modules.
+pub(crate) fn job_view_dto(job: application::JobView) -> JobDto {
+    job_dto(job)
+}
+
 /// Build an event envelope with a fresh sequence.
 fn next_event(kind: EventKind, payload: Value) -> EventEnvelope {
     let seq = seq_counter().fetch_add(1, Ordering::AcqRel) + 1;
@@ -721,7 +732,7 @@ fn next_event(kind: EventKind, payload: Value) -> EventEnvelope {
 }
 
 /// Emit a control event to any subscribers.
-fn emit_control(kind: &str, payload: Value) {
+pub(crate) fn emit_control(kind: &str, payload: Value) {
     let env = next_event(EventKind::Other(kind.to_string()), payload);
     broadcast(&env);
 }

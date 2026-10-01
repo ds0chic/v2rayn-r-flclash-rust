@@ -10,6 +10,7 @@ import 'api/contract.dart';
 import 'api/engine.dart';
 import 'api/mirrors.dart';
 import 'api/profiles.dart';
+import 'api/subs.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -64,6 +65,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
   @protected
+  JobDto dco_decode_box_autoadd_job_dto(dynamic raw);
+
+  @protected
   ProfileDto dco_decode_box_autoadd_profile_dto(dynamic raw);
 
   @protected
@@ -71,6 +75,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ProfileSummary dco_decode_box_autoadd_profile_summary(dynamic raw);
+
+  @protected
+  SubItemDto dco_decode_box_autoadd_sub_item_dto(dynamic raw);
+
+  @protected
+  int dco_decode_box_autoadd_u_16(dynamic raw);
 
   @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
@@ -103,6 +113,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DeleteProfilesResult dco_decode_delete_profiles_result(dynamic raw);
 
   @protected
+  DeleteSubsResult dco_decode_delete_subs_result(dynamic raw);
+
+  @protected
   ErrorDto dco_decode_error_dto(dynamic raw);
 
   @protected
@@ -113,6 +126,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
+
+  @protected
+  ImportResult dco_decode_import_result(dynamic raw);
 
   @protected
   JobDto dco_decode_job_dto(dynamic raw);
@@ -133,6 +149,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<JobDto> dco_decode_list_job_dto(dynamic raw);
 
   @protected
+  List<ParseIssueDto> dco_decode_list_parse_issue_dto(dynamic raw);
+
+  @protected
   Uint16List dco_decode_list_prim_u_16_strict(dynamic raw);
 
   @protected
@@ -143,6 +162,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ProfileSummary> dco_decode_list_profile_summary(dynamic raw);
+
+  @protected
+  List<SubItemDto> dco_decode_list_sub_item_dto(dynamic raw);
+
+  @protected
+  List<SubUpdateEntryDto> dco_decode_list_sub_update_entry_dto(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -163,10 +188,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
 
   @protected
+  JobDto? dco_decode_opt_box_autoadd_job_dto(dynamic raw);
+
+  @protected
   ProfileDto? dco_decode_opt_box_autoadd_profile_dto(dynamic raw);
 
   @protected
   ProfileSummary? dco_decode_opt_box_autoadd_profile_summary(dynamic raw);
+
+  @protected
+  SubItemDto? dco_decode_opt_box_autoadd_sub_item_dto(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_u_16(dynamic raw);
 
   @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
@@ -176,6 +210,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int? dco_decode_opt_box_autoadd_u_8(dynamic raw);
+
+  @protected
+  ParseIssueDto dco_decode_parse_issue_dto(dynamic raw);
 
   @protected
   ProfileDto dco_decode_profile_dto(dynamic raw);
@@ -214,6 +251,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SecurityDto dco_decode_security_dto(dynamic raw);
 
   @protected
+  ShareExportResult dco_decode_share_export_result(dynamic raw);
+
+  @protected
   SimpleResult dco_decode_simple_result(dynamic raw);
 
   @protected
@@ -221,6 +261,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   StopRuntimeResult dco_decode_stop_runtime_result(dynamic raw);
+
+  @protected
+  SubItemDto dco_decode_sub_item_dto(dynamic raw);
+
+  @protected
+  SubItemDtoResult dco_decode_sub_item_dto_result(dynamic raw);
+
+  @protected
+  SubUpdateEntryDto dco_decode_sub_update_entry_dto(dynamic raw);
+
+  @protected
+  SubUpdateResult dco_decode_sub_update_result(dynamic raw);
+
+  @protected
+  SubsPageDto dco_decode_subs_page_dto(dynamic raw);
 
   @protected
   TransportExtraDto dco_decode_transport_extra_dto(dynamic raw);
@@ -242,6 +297,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void dco_decode_unit(dynamic raw);
+
+  @protected
+  UriParseResult dco_decode_uri_parse_result(dynamic raw);
 
   @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
@@ -283,6 +341,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  JobDto sse_decode_box_autoadd_job_dto(SseDeserializer deserializer);
+
+  @protected
   ProfileDto sse_decode_box_autoadd_profile_dto(SseDeserializer deserializer);
 
   @protected
@@ -294,6 +355,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProfileSummary sse_decode_box_autoadd_profile_summary(
     SseDeserializer deserializer,
   );
+
+  @protected
+  SubItemDto sse_decode_box_autoadd_sub_item_dto(SseDeserializer deserializer);
+
+  @protected
+  int sse_decode_box_autoadd_u_16(SseDeserializer deserializer);
 
   @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
@@ -330,6 +397,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  DeleteSubsResult sse_decode_delete_subs_result(SseDeserializer deserializer);
+
+  @protected
   ErrorDto sse_decode_error_dto(SseDeserializer deserializer);
 
   @protected
@@ -340,6 +410,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
+  ImportResult sse_decode_import_result(SseDeserializer deserializer);
 
   @protected
   JobDto sse_decode_job_dto(SseDeserializer deserializer);
@@ -362,6 +435,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<JobDto> sse_decode_list_job_dto(SseDeserializer deserializer);
 
   @protected
+  List<ParseIssueDto> sse_decode_list_parse_issue_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   Uint16List sse_decode_list_prim_u_16_strict(SseDeserializer deserializer);
 
   @protected
@@ -372,6 +450,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ProfileSummary> sse_decode_list_profile_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<SubItemDto> sse_decode_list_sub_item_dto(SseDeserializer deserializer);
+
+  @protected
+  List<SubUpdateEntryDto> sse_decode_list_sub_update_entry_dto(
     SseDeserializer deserializer,
   );
 
@@ -394,6 +480,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
+  JobDto? sse_decode_opt_box_autoadd_job_dto(SseDeserializer deserializer);
+
+  @protected
   ProfileDto? sse_decode_opt_box_autoadd_profile_dto(
     SseDeserializer deserializer,
   );
@@ -404,6 +493,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SubItemDto? sse_decode_opt_box_autoadd_sub_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  int? sse_decode_opt_box_autoadd_u_16(SseDeserializer deserializer);
+
+  @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
@@ -411,6 +508,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int? sse_decode_opt_box_autoadd_u_8(SseDeserializer deserializer);
+
+  @protected
+  ParseIssueDto sse_decode_parse_issue_dto(SseDeserializer deserializer);
 
   @protected
   ProfileDto sse_decode_profile_dto(SseDeserializer deserializer);
@@ -451,6 +551,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SecurityDto sse_decode_security_dto(SseDeserializer deserializer);
 
   @protected
+  ShareExportResult sse_decode_share_export_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SimpleResult sse_decode_simple_result(SseDeserializer deserializer);
 
   @protected
@@ -460,6 +565,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   StopRuntimeResult sse_decode_stop_runtime_result(
     SseDeserializer deserializer,
   );
+
+  @protected
+  SubItemDto sse_decode_sub_item_dto(SseDeserializer deserializer);
+
+  @protected
+  SubItemDtoResult sse_decode_sub_item_dto_result(SseDeserializer deserializer);
+
+  @protected
+  SubUpdateEntryDto sse_decode_sub_update_entry_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SubUpdateResult sse_decode_sub_update_result(SseDeserializer deserializer);
+
+  @protected
+  SubsPageDto sse_decode_subs_page_dto(SseDeserializer deserializer);
 
   @protected
   TransportExtraDto sse_decode_transport_extra_dto(
@@ -483,6 +605,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_decode_unit(SseDeserializer deserializer);
+
+  @protected
+  UriParseResult sse_decode_uri_parse_result(SseDeserializer deserializer);
 
   @protected
   void sse_encode_AnyhowException(
@@ -539,6 +664,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_job_dto(JobDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_profile_dto(
     ProfileDto self,
     SseSerializer serializer,
@@ -555,6 +683,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ProfileSummary self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_box_autoadd_sub_item_dto(
+    SubItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_u_16(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
@@ -593,6 +730,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_delete_subs_result(
+    DeleteSubsResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_error_dto(ErrorDto self, SseSerializer serializer);
 
   @protected
@@ -606,6 +749,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_import_result(ImportResult self, SseSerializer serializer);
 
   @protected
   void sse_encode_job_dto(JobDto self, SseSerializer serializer);
@@ -632,6 +778,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_job_dto(List<JobDto> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_parse_issue_dto(
+    List<ParseIssueDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_u_16_strict(
     Uint16List self,
     SseSerializer serializer,
@@ -652,6 +804,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_profile_summary(
     List<ProfileSummary> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_sub_item_dto(
+    List<SubItemDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_sub_update_entry_dto(
+    List<SubUpdateEntryDto> self,
     SseSerializer serializer,
   );
 
@@ -683,6 +847,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_job_dto(
+    JobDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_profile_dto(
     ProfileDto? self,
     SseSerializer serializer,
@@ -695,6 +865,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_sub_item_dto(
+    SubItemDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_u_16(int? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
 
   @protected
@@ -702,6 +881,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_u_8(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_parse_issue_dto(ParseIssueDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_profile_dto(ProfileDto self, SseSerializer serializer);
@@ -758,6 +940,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_security_dto(SecurityDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_share_export_result(
+    ShareExportResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_simple_result(SimpleResult self, SseSerializer serializer);
 
   @protected
@@ -768,6 +956,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     StopRuntimeResult self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_sub_item_dto(SubItemDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sub_item_dto_result(
+    SubItemDtoResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_sub_update_entry_dto(
+    SubUpdateEntryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_sub_update_result(
+    SubUpdateResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_subs_page_dto(SubsPageDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_transport_extra_dto(
@@ -792,6 +1004,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_uri_parse_result(
+    UriParseResult self,
+    SseSerializer serializer,
+  );
 }
 
 // Section: wire_class

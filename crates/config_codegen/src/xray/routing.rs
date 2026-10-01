@@ -6,7 +6,7 @@ use crate::input::{CodegenProfile, ConfigType};
 use crate::util::*;
 use crate::xray::outbound::{build_all_proxy_outbounds, gen_balancer, gen_observatory};
 use crate::xray::XrayState;
-use crate::CodegenError;
+use crate::{CodegenError, Diagnostic};
 
 /// `GenRouting`; mutates `state.config["routing"]` and may append outbounds.
 pub(crate) fn build_routing(state: &mut XrayState<'_>) -> Result<(), CodegenError> {
@@ -153,6 +153,9 @@ pub(crate) fn build_user_rule(
     base.insert("type".into(), json!("field"));
     put_opt_str(&mut base, "port", non_empty_opt(rule.port.as_deref()));
     put_opt_str(&mut base, "network", non_empty_opt(rule.network.as_deref()));
+    if let Some(protocol) = rule.protocol.as_ref().filter(|v| !v.is_empty()) {
+        base.insert("protocol".into(), json!(protocol));
+    }
     if let Some(inbound) = rule.inbound_tag.as_ref().filter(|v| !v.is_empty()) {
         base.insert("inboundTag".into(), json!(inbound));
     }
@@ -221,12 +224,21 @@ fn gen_user_rule_outbound(
         .find(|p| p.remarks == tag)
         .cloned();
     let Some(node) = node else {
+        warn_dangling(state, tag, "no profile matches the remarks");
         return Ok(PROXY_TAG.to_string());
     };
     if !xray_supported_type(node.config_type)
         && !node.config_type.is_group()
         && node.config_type != ConfigType::Outbound
     {
+        warn_dangling(
+            state,
+            tag,
+            &format!(
+                "config type {:?} is not in Global.XraySupportConfigType",
+                node.config_type
+            ),
+        );
         return Ok(PROXY_TAG.to_string());
     }
     let generated_tag = format!("{}-{PROXY_TAG}-{}", node.index_id, node.remarks);
@@ -264,6 +276,19 @@ fn xray_supported_type(config_type: ConfigType) -> bool {
             | ConfigType::Socks
             | ConfigType::Http
     )
+}
+
+/// Issue T06b/ISSUE-04: an unresolved routing reference still falls back to
+/// `Global.ProxyTag` (upstream behavior) but must not do so silently.
+fn warn_dangling(state: &mut XrayState<'_>, tag: &str, reason: &str) {
+    state.diagnostics.push(Diagnostic::warning(
+        "routing_dangling_reference",
+        format!(
+            "routing rule references outbound '{tag}' that cannot be resolved ({reason}); \
+             falling back to '{PROXY_TAG}'"
+        ),
+        Some("routing.ruleSet[].outboundTag"),
+    ));
 }
 
 /// `BuildFinalRule`.

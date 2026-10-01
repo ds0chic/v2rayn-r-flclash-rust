@@ -1,0 +1,290 @@
+[
+  {
+    "core": "xray",
+    "case": "xray-vless-raw-reality",
+    "file": "target/t06b/matrix\\xray--xray-vless-raw-reality.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-vmess-ws-tls",
+    "file": "target/t06b/matrix\\xray--xray-vmess-ws-tls.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-vless-raw-none",
+    "file": "target/t06b/matrix\\xray--xray-vless-raw-none.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-ss-uot",
+    "file": "target/t06b/matrix\\xray--xray-ss-uot.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-trojan-grpc-tls",
+    "file": "target/t06b/matrix\\xray--xray-trojan-grpc-tls.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-http-headers",
+    "file": "target/t06b/matrix\\xray--xray-http-headers.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-socks-userpass",
+    "file": "target/t06b/matrix\\xray--xray-socks-userpass.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-hysteria2",
+    "file": "target/t06b/matrix\\xray--xray-hysteria2.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-wireguard",
+    "file": "target/t06b/matrix\\xray--xray-wireguard.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-raw-http-header-tls",
+    "file": "target/t06b/matrix\\xray--xray-raw-http-header-tls.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-httpupgrade-tls",
+    "file": "target/t06b/matrix\\xray--xray-httpupgrade-tls.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-xhttp-tls",
+    "file": "target/t06b/matrix\\xray--xray-xhttp-tls.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-kcp",
+    "file": "target/t06b/matrix\\xray--xray-kcp.json",
+    "status": "FAIL",
+    "exit": 23,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [target/t06b/matrix\\xray--xray-kcp.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type mkcp-legacy > infra/conf: unknown config id: mkcp-legacy"
+  },
+  {
+    "core": "xray",
+    "case": "xray-grpc-reality",
+    "file": "target/t06b/matrix\\xray--xray-grpc-reality.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-policy-group",
+    "file": "target/t06b/matrix\\xray--xray-policy-group.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-proxy-chain",
+    "file": "target/t06b/matrix\\xray--xray-proxy-chain.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-global-dns-stat",
+    "file": "target/t06b/matrix\\xray--xray-global-dns-stat.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "core": "xray",
+    "case": "xray-global-tun-fragment",
+    "file": "target/t06b/matrix\\xray--xray-global-tun-fragment.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\n2026/10/01 18:24:40.825350 [Info] infra/conf/serial: Reading config: &{Name:target/t06b/matrix\\xray--xray-global-tun-fragment.json Format:json}\r\n2026/10/01 18:24:40.832502 Failed to find matching adapter name: 鎵句笉鍒板厓绱犮€?(Code 0x00000490)\r\n2026/10/01 18:24:40.920516 Using existing driver 0.14\r\n2026/10/01 18:24:40.930245 Creating adapter\r\nConfiguration OK."
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-vless-tls",
+    "file": "target/t06b/matrix\\singbox--singbox-vless-tls.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-vmess-ws-ed",
+    "file": "target/t06b/matrix\\singbox--singbox-vmess-ws-ed.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-ss-obfs",
+    "file": "target/t06b/matrix\\singbox--singbox-ss-obfs.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-ss-v2ray-plugin",
+    "file": "target/t06b/matrix\\singbox--singbox-ss-v2ray-plugin.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-trojan-grpc",
+    "file": "target/t06b/matrix\\singbox--singbox-trojan-grpc.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-http-auth",
+    "file": "target/t06b/matrix\\singbox--singbox-http-auth.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-socks-auth",
+    "file": "target/t06b/matrix\\singbox--singbox-socks-auth.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-hysteria2",
+    "file": "target/t06b/matrix\\singbox--singbox-hysteria2.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-tuic",
+    "file": "target/t06b/matrix\\singbox--singbox-tuic.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-anytls",
+    "file": "target/t06b/matrix\\singbox--singbox-anytls.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-naive",
+    "file": "target/t06b/matrix\\singbox--singbox-naive.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-wireguard",
+    "file": "target/t06b/matrix\\singbox--singbox-wireguard.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-httpupgrade",
+    "file": "target/t06b/matrix\\singbox--singbox-httpupgrade.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-reality-fragment",
+    "file": "target/t06b/matrix\\singbox--singbox-reality-fragment.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-policy-group",
+    "file": "target/t06b/matrix\\singbox--singbox-policy-group.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-proxy-chain",
+    "file": "target/t06b/matrix\\singbox--singbox-proxy-chain.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-global-dns-ruleset",
+    "file": "target/t06b/matrix\\singbox--singbox-global-dns-ruleset.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-global-tun-fragment",
+    "file": "target/t06b/matrix\\singbox--singbox-global-tun-fragment.json",
+    "status": "PASS",
+    "exit": 0,
+    "error": ""
+  }
+]

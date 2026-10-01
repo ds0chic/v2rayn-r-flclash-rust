@@ -1,0 +1,34 @@
+[
+  {
+    "core": "xray",
+    "label": "noauth",
+    "pid": 34312,
+    "ok": true,
+    "body": "T06B-SMOKE-OK",
+    "log": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\target\\t06b\\smoke\\xray--noauth.log"
+  },
+  {
+    "core": "singbox",
+    "label": "noauth",
+    "pid": 40808,
+    "ok": true,
+    "body": "T06B-SMOKE-OK",
+    "log": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\target\\t06b\\smoke\\singbox--noauth.log"
+  },
+  {
+    "core": "xray",
+    "label": "auth",
+    "pid": 34028,
+    "ok": true,
+    "body": "T06B-SMOKE-OK",
+    "log": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\target\\t06b\\smoke\\xray--auth.log"
+  },
+  {
+    "core": "singbox",
+    "label": "auth",
+    "pid": 38656,
+    "ok": true,
+    "body": "T06B-SMOKE-OK",
+    "log": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\target\\t06b\\smoke\\singbox--auth.log"
+  }
+]

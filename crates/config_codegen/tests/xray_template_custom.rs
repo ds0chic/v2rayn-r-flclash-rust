@@ -154,3 +154,19 @@ fn xray_custom_outbound_missing_content() {
     let err = generate_xray(&codegen_input(p)).expect_err("must fail");
     assert_eq!(err.code, "custom_outbound_missing");
 }
+
+#[test]
+fn xray_outbound_placeholder_is_neutral() {
+    // ISSUE-10: the placeholder for a not-yet-replaced custom outbound must not
+    // embed a real external domain/port.
+    let mut p = profile(ConfigType::Outbound, "custom-outbound-file.json", 1);
+    p.index_id = "custom-1".into();
+    let mut input = codegen_input(p);
+    input
+        .custom_outbound_content
+        .insert("custom-1".into(), r#"{"type": "socks"}"#.into());
+    let generated = generate_xray(&input).expect("custom outbound");
+    let text = generated.main.to_string();
+    assert!(!text.contains("v2ray.cool"), "{text}");
+    assert!(!text.contains("10086"), "{text}");
+}

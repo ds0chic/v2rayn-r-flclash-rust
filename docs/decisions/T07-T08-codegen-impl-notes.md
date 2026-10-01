@@ -42,11 +42,21 @@
 1. 生成顺序、覆盖规则、默认回退严格按契约与 `compat/codegen-map.*.yaml` 的 `precedence_rules`：
    模板骨架 → log → inbounds（重建）→ outbounds（前置插入）→ routing → dns → stat/experimental
    → fragment → final rule → Bind/SendThrough → CustomReplace → FullTemplate。
-2. 模板出站顺序在 Xray 按“生成在前、模板在后”；sing-box 按契约 §5“生成在前、模板在后”
-   （上游源码为“模板在前”，已在证据 §4 标注，待真实内核校验）。
+2. 模板出站顺序：Xray 按“生成在前、模板在后”（`V2rayConfigTemplateService.cs:177-220`）；sing-box
+   上游同样是“生成在前、模板在后”（`SingboxConfigTemplateService.cs:110-125`，模板 `outbounds`
+   数组先取出、逐个 `customOutboundsNode.Add(生成出站)`）。T06b 已按上游源码核实本实现方向正确，
+   契约 §5 表述即此语义。
 3. quic：Xray 显式拒绝（契约），sing-box 归一 raw（契约）。
-4. 引用悬空与缺失必填一律结构化报错，不静默丢弃（较上游更严格，符合 plan §12 要求）。
+4. 引用悬空：**与上游一致，保留回退 `Global.ProxyTag`**（Xray `V2rayRoutingService.cs:189-195`；
+   sing-box 同源），但 T06b 起补发结构化 `routing_dangling_reference` warning 诊断，不再静默；
+   组/链子项缺失、自定义出站内容缺失仍为硬错误（`dangling_reference` / `custom_outbound_missing`）。
+   （此前本文件“一律结构化报错”的表述过宽，已按上游语义更正。）
 5. 所有随机/时间/宿主相关内容改为输入字段或确定性默认，便于语义差分。
+6. 保留端口：`settings.inbound.localPort` / `statePort` / `statePort2` 为 10808 时一律拒绝
+   （`reserved_port`），防止生成器写出宿主在用的活代理端口。
+7. reality 校验放宽为“任何协议类型 + `stream_security==reality` + `publicKey` 空 → 报错”。
+8. sing-box 对无法承载的 transport（非 `raw` 的非 VMess/VLESS/Trojan/SS 协议；非 raw/ws 的 SS）
+   补发 `singbox_transport_ignored` warning；`endpoints` 仅在非空时写出。
 
 ## 4. 差分辅助
 

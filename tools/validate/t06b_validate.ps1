@@ -23,6 +23,12 @@ $matrixPath = Join-Path $RepoRoot $MatrixDir
 $manifestPath = Join-Path $matrixPath 'manifest.json'
 $logDir = Join-Path $matrixPath 'logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+# Xray resolves relative log file paths against its working directory; the
+# generated config uses `logs/...`, so make sure it exists. Remember whether we
+# created it so the run leaves the worktree clean.
+$repoLogs = Join-Path $RepoRoot 'logs'
+$createdRepoLogs = -not (Test-Path -LiteralPath $repoLogs)
+New-Item -ItemType Directory -Force -Path $repoLogs | Out-Null
 
 if (-not (Test-Path -LiteralPath $manifestPath)) {
     throw "manifest not found: $manifestPath (run 'cargo run --example gen_matrix')"
@@ -68,6 +74,7 @@ foreach ($entry in $manifest) {
 
 $resultsPath = Join-Path $matrixPath 'results.json'
 $results | ConvertTo-Json -Depth 6 | Out-File -LiteralPath $resultsPath -Encoding utf8
+if ($createdRepoLogs) { Remove-Item -Recurse -Force -LiteralPath $repoLogs -ErrorAction SilentlyContinue }
 Write-Host ""
 Write-Host ("T06b matrix: {0} pass, {1} fail  -> {2}" -f $pass, $fail, $resultsPath)
 if ($fail -gt 0) { exit 1 } else { exit 0 }

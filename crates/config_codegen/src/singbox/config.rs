@@ -4,11 +4,12 @@ use serde_json::{json, Map, Value};
 
 use crate::input::CodegenInput;
 use crate::singbox::outbound::{build_all_proxy_outbounds, outbound_detour};
-use crate::singbox::{dns, inbound, log, routing, ruleset, stat, SboxState};
+use crate::singbox::{dns, inbound, log, outbound, routing, ruleset, stat, SboxState};
 use crate::util::*;
 use crate::{CodegenError, GeneratedConfigs};
 
 pub(crate) fn build(input: &CodegenInput) -> Result<GeneratedConfigs, CodegenError> {
+    outbound::diagnostic_sink_reset();
     let mut state = SboxState {
         input,
         config: obj(),
@@ -51,7 +52,11 @@ pub(crate) fn build(input: &CodegenInput) -> Result<GeneratedConfigs, CodegenErr
 
     let mut main_map = state.config;
     main_map.insert("outbounds".into(), Value::Array(state.outbounds));
-    main_map.insert("endpoints".into(), Value::Array(state.endpoints));
+    // Issue T06b/M-013: `endpoints` is only emitted when non-empty (matches the
+    // upstream `SingboxConfig` null semantics for the empty case).
+    if !state.endpoints.is_empty() {
+        main_map.insert("endpoints".into(), Value::Array(state.endpoints));
+    }
     let mut main = Value::Object(main_map);
     let has_custom = !state.custom_tags.is_empty();
     apply_custom_outbound_replace(&mut main, input, &state.custom_tags)?;
@@ -70,6 +75,7 @@ pub(crate) fn build(input: &CodegenInput) -> Result<GeneratedConfigs, CodegenErr
     if let Some(template) = &input.template {
         full_config_template(&mut main, input, template)?;
     }
+    state.diagnostics.extend(outbound::diagnostic_sink_take());
     Ok(GeneratedConfigs::new(main, state.diagnostics))
 }
 

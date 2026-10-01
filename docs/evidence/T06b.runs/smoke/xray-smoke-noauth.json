@@ -1,0 +1,32 @@
+{
+  "outbounds": [
+    {
+      "tag": "smokedirect",
+      "protocol": "freedom"
+    }
+  ],
+  "inbounds": [
+    {
+      "port": 11808,
+      "listen": "127.0.0.1",
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ],
+        "routeOnly": false
+      },
+      "protocol": "mixed",
+      "tag": "socks",
+      "settings": {
+        "udp": true,
+        "allowTransparent": false,
+        "auth": "noauth"
+      }
+    }
+  ],
+  "log": {
+    "loglevel": "warning"
+  }
+}

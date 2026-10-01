@@ -1,4 +1,4 @@
-schema_version: 1
+﻿schema_version: 1
 source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
 section: entities
 source_version: v2rayN 7.25.4
@@ -2451,14 +2451,14 @@ items:
   classification: internal_state
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Id
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:7
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2214
   - v2rayN/ServiceLib/Manager/AppManager.cs:182
   - v2rayN/ServiceLib/Manager/GroupProfileManager.cs:116
-  status: identified
+  status: implemented
 - id: FLD-ENT-083
   entity: SubItem
   name: Remarks
@@ -2475,15 +2475,15 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Remarks
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:9
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1434
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2176
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2196
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:109
-  status: identified
+  status: implemented
 - id: FLD-ENT-084
   entity: SubItem
   name: Url
@@ -2500,14 +2500,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Url
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:11
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:121
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2197
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:109
-  status: identified
+  status: implemented
 - id: FLD-ENT-085
   entity: SubItem
   name: MoreUrl
@@ -2524,14 +2524,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.MoreUrl
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:13
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:121
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:169
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:132
-  status: identified
+  status: implemented
 - id: FLD-ENT-086
   entity: SubItem
   name: Enabled
@@ -2548,13 +2548,13 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Enabled
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:15
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:27
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2199
-  status: identified
+  status: implemented
 - id: FLD-ENT-087
   entity: SubItem
   name: UserAgent
@@ -2571,14 +2571,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.UserAgent
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:17
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:155
   - v2rayN/ServiceLib/Services/DownloadService.cs:281
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:220
-  status: identified
+  status: implemented
 - id: FLD-ENT-088
   entity: SubItem
   name: RequestHeaders
@@ -2595,14 +2595,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.RequestHeaders
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:19
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:85
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:80
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:238
-  status: identified
+  status: implemented
 - id: FLD-ENT-089
   entity: SubItem
   name: Sort
@@ -2619,14 +2619,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Sort
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:21
   - v2rayN/ServiceLib/Manager/AppManager.cs:177
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2218
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2226
-  status: identified
+  status: implemented
 - id: FLD-ENT-090
   entity: SubItem
   name: Filter
@@ -2643,14 +2643,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Filter
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:23
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1665
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2204
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:188
-  status: identified
+  status: implemented
 - id: FLD-ENT-091
   entity: SubItem
   name: AutoUpdateInterval
@@ -2667,14 +2667,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.AutoUpdateInterval
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:25
   - v2rayN/ServiceLib/Manager/TaskManager.cs:91
   - v2rayN/ServiceLib/Manager/TaskManager.cs:92
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:163
-  status: identified
+  status: implemented
 - id: FLD-ENT-092
   entity: SubItem
   name: UpdateTime
@@ -2691,14 +2691,14 @@ items:
   classification: internal_state
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.UpdateTime
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:27
   - v2rayN/ServiceLib/Manager/TaskManager.cs:92
   - v2rayN/ServiceLib/Manager/TaskManager.cs:112
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2205
-  status: identified
+  status: implemented
 - id: FLD-ENT-093
   entity: SubItem
   name: ConvertTarget
@@ -2715,14 +2715,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.ConvertTarget
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:29
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:135
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:145
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:205
-  status: identified
+  status: implemented
 - id: FLD-ENT-094
   entity: SubItem
   name: PrevProfile
@@ -2739,15 +2739,15 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.PrevProfile
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:31
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:277
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:279
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:32
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2207
-  status: identified
+  status: implemented
 - id: FLD-ENT-095
   entity: SubItem
   name: NextProfile
@@ -2764,15 +2764,15 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.NextProfile
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:33
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:285
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:287
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:40
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2208
-  status: identified
+  status: implemented
 - id: FLD-ENT-096
   entity: SubItem
   name: PreSocksPort
@@ -2789,14 +2789,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.PreSocksPort
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:35
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1778
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2209
   - v2rayN/v2rayN/Views/SubEditWindow.xaml.cs:28
-  status: identified
+  status: implemented
 - id: FLD-ENT-097
   entity: SubItem
   name: Memo
@@ -2813,13 +2813,13 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.Memo
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:37
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2210
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:361
-  status: identified
+  status: implemented
 - id: FLD-ENT-098
   entity: SubItem
   name: CustomCoreType
@@ -2836,14 +2836,14 @@ items:
   classification: active
   source_file: v2rayN/ServiceLib/Models/Entities/SubItem.cs
   source_symbol: SubItem.CustomCoreType
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/subs.rs (SubItem) + crates/application/src/store_repo.rs (SqliteSubRepository)
+  test_ids: ["subscription_pipeline.rs::subitem_crud_survives_reopen", "subs.rs::row_roundtrip_keeps_all_fields"]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/SubItem.cs:39
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1724
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1791
   - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:86
-  status: identified
+  status: implemented
 - id: FLD-ENT-099
   entity: ProfileGroupItem
   name: IndexId

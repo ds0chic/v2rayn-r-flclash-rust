@@ -13,6 +13,7 @@ domain.workspace = true
 application.workspace = true
 config_codegen.workspace = true
 runtime.workspace = true
+subscriptions.workspace = true
 flutter_rust_bridge.workspace = true
 serde_json.workspace = true
 

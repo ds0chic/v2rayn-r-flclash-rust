@@ -1,0 +1,30 @@
+{
+  "outbounds": [
+    {
+      "tag": "smokedirect",
+      "type": "direct"
+    }
+  ],
+  "inbounds": [
+    {
+      "tag": "socks",
+      "type": "mixed",
+      "users": [
+        {
+          "username": "smokeuser",
+          "password": "smokepass"
+        }
+      ],
+      "listen": "127.0.0.1",
+      "listen_port": 11808
+    }
+  ],
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "route": {
+    "final": "smokedirect",
+    "rules": []
+  }
+}

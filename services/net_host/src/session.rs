@@ -491,12 +491,14 @@ impl HostState {
             }
         }
 
-        // Stream stdout/stderr to the session log, with bounded memory.
+        // Stream stdout/stderr to the session log, with bounded memory, and
+        // forward each line as a `log_line` event (T15a minimal change) so the
+        // application log pipeline does not have to tail the file.
         if let Some(stdout) = child.stdout.take() {
-            spawn_log_reader(stdout, log_path.clone(), "stdout");
+            spawn_log_reader(stdout, log_path.clone(), "stdout", self.bus.clone());
         }
         if let Some(stderr) = child.stderr.take() {
-            spawn_log_reader(stderr, log_path.clone(), "stderr");
+            spawn_log_reader(stderr, log_path.clone(), "stderr", self.bus.clone());
         }
 
         let _ = journal::write_entry(
@@ -785,7 +787,7 @@ fn preflight_port(port: u16) -> Result<(), DomainError> {
     }
 }
 
-fn spawn_log_reader<S>(stream: S, path: PathBuf, label: &'static str)
+fn spawn_log_reader<S>(stream: S, path: PathBuf, label: &'static str, bus: EventBus)
 where
     S: tokio::io::AsyncRead + Unpin + Send + 'static,
 {
@@ -805,6 +807,12 @@ where
                 .write_all(format!("[{label}] {line}\n").as_bytes())
                 .await;
             let _ = file.flush().await;
+            // T15a: forward the raw line as a telemetry event. Never includes
+            // credentials beyond what the core itself printed.
+            bus.emit_named(
+                "log_line",
+                serde_json::json!({ "text": line, "stream": label }),
+            );
         }
     });
 }

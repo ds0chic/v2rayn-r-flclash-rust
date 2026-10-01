@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
 
@@ -75,6 +76,24 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       }
       _error = null;
     });
+  }
+
+  /// Persist `GuiItem.AutoRun` via the platform bridge and write/clear the Run
+  /// key. Returns true only when the write succeeded.
+  bool _applyAutostartWrite(bool enabled) {
+    try {
+      final bridge = ref.read(platformBridgeProvider);
+      final exe = Platform.resolvedExecutable;
+      final name = bridge.autostartValueName(exe);
+      return bridge.setAutostart(
+        name: name,
+        enabled: enabled,
+        exe: exe,
+        args: '',
+      );
+    } on Object {
+      return false;
+    }
   }
 
   Map<String, dynamic> _inboundListener() {
@@ -447,10 +466,34 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _bool(ui, 'EnableDragDropSort'),
             onChanged: (v) => _set('UiItem', 'EnableDragDropSort', v),
           ),
-          SettingsNote('开机自启 (AutoRun) 的平台写入由 T13 接线。'),
+          // F-DESKTOP-003: the toggle persists `GuiItem.AutoRun` and, on an
+          // explicit user action, writes/clears the real Run key. Never done
+          // from an automated/test path.
+          SettingsCheckbox(
+            key: const ValueKey('autorun-toggle'),
+            label: '开机自启 (AutoRun)',
+            value: _bool(gui, 'AutoRun'),
+            onChanged: (v) {
+              _set('GuiItem', 'AutoRun', v);
+              _applyAutostart(v);
+            },
+          ),
         ],
       ),
     ]);
+  }
+
+  /// Write the Run key for the current checkbox state and report the result
+  /// honestly (the real write only happens here, on a user action).
+  void _applyAutostart(bool enabled) {
+    final ok = _applyAutostartWrite(enabled);
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(ok ? '开机自启已更新' : '开机自启写入失败'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Widget _systemProxyTab() {

@@ -788,7 +788,12 @@ fn broadcast(env: &EventEnvelope) {
 /// Start forwarding net-host events into the FRB stream exactly once.
 fn ensure_runtime_subscription() {
     RUNTIME_SUBSCRIPTION.get_or_init(|| {
-        let sink: EventSink = Arc::new(|env: EventEnvelope| broadcast(&env));
+        let sink: EventSink = Arc::new(|env: EventEnvelope| {
+            // Feed the T15a log pipeline before the generic event fan-out so
+            // net-host `log_line` / `log_batch` events reach the log stream.
+            crate::api::monitor::ingest_runtime_event(&env);
+            broadcast(&env);
+        });
         engine().subscribe_runtime_events(sink);
     });
 }

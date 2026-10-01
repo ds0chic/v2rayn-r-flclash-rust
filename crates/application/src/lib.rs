@@ -16,7 +16,9 @@ pub mod engine;
 pub mod groups;
 pub mod jobs;
 pub mod mixin;
+pub mod monitor;
 pub mod net_host_client;
+pub mod platform_service;
 pub mod repository;
 pub mod routing;
 pub mod runtime_client;
@@ -35,7 +37,17 @@ pub use synthetic::{
 pub use dns::{new_dns_id, DnsRepository, InMemoryDnsRepository, RegionalPreset};
 pub use engine::{capability_table, empty_snapshot, AppEngine};
 pub use jobs::{JobManager, JobView};
+pub use monitor::{
+    epoch_day, BucketTotals, ClashApiService, InMemoryTrafficStore, LogEntry, LogPage, LogService,
+    StatsService, StatsUpdate, TrafficStore, DEFAULT_MAX_LOG_BYTES, DEFAULT_MAX_LOG_LINES,
+    DELAY_TEST_URL,
+};
 pub use net_host_client::NetHostClient;
+pub use platform_service::{
+    derived_local_port, mode_from_domain, mode_from_value, mode_value, Ownership, PacHandle,
+    PlatformService, ProxyApplyOutcome, ProxyApplyRequest, ProxyRestoreOutcome, ProxyStateView,
+    INBOUND_PROTOCOL_OFFSETS,
+};
 pub use repository::{
     new_index_id, InMemoryProfileRepository, InMemorySubRepository, PageRequest, ProfileFilter,
     ProfilePage, ProfileRepository, ProfileSort, RevisionStore, SubRepository,

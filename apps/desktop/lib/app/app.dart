@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/app/shell/main_shell.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 class V2rayNRApp extends ConsumerWidget {
@@ -49,12 +51,30 @@ class _RuntimeBootstrap extends ConsumerStatefulWidget {
 }
 
 class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
+  DesktopIntegration? _integration;
+
+  @override
+  void dispose() {
+    windowShutdown();
+    super.dispose();
+  }
+
+  void windowShutdown() {
+    _integration?.removeListener();
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final controller = ref.read(runtimeControllerProvider.notifier);
       await controller.start();
+      // Load settings first so proxy/close/hotkey wiring reads real values.
+      ref.read(settingsControllerProvider.notifier).load();
+      // T13 desktop integration (tray / hotkeys / close-to-tray / exit restore).
+      // Widget tests never construct V2rayNRApp, so no plugin call runs there.
+      _integration = DesktopIntegration(ref);
+      await _integration!.start();
       // Evidence-run hook: launch straight into the smoke session so the T03
       // screenshot can show a real Running state without a scripted click.
       // Debug-only: a release build must never auto-start a core from an

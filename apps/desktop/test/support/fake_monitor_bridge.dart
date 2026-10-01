@@ -1,0 +1,325 @@
+import 'dart:async';
+
+import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
+import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
+
+/// In-memory [MonitorBridge] for widget tests.
+///
+/// It never loads the native library or opens a socket. Streams are driven
+/// explicitly from the test (`emitTraffic`, `emitLogs`) and every mutation is
+/// recorded so a test can assert the UI reached the bridge.
+class FakeMonitorBridge implements MonitorBridge {
+  FakeMonitorBridge({
+    this.clashApiSupported = false,
+    this.clashMessage,
+    List<m.ClashProxyDto>? proxies,
+    List<m.ClashConnectionDto>? connections,
+    List<m.LogLineDto>? initialLogs,
+    this.proxyDelayValue = 42,
+  }) : proxies = proxies ?? <m.ClashProxyDto>[],
+       connections = connections ?? <m.ClashConnectionDto>[],
+       logs = List<m.LogLineDto>.of(initialLogs ?? const <m.LogLineDto>[]);
+
+  bool clashApiSupported;
+  String? clashMessage;
+  List<m.ClashProxyDto> proxies;
+  List<m.ClashConnectionDto> connections;
+  List<m.LogLineDto> logs;
+  int proxyDelayValue;
+
+  // Recorded calls.
+  final List<String> configured = <String>[];
+  final Map<String, bool> pageVisibility = <String, bool>{};
+  final List<String> selectedProxies = <String>[];
+  final List<String> testedProxies = <String>[];
+  final List<String> testedGroups = <String>[];
+  final List<String> closedConnections = <String>[];
+  int closeAllCount = 0;
+  int clearStatsCount = 0;
+  int clearLogsCount = 0;
+  int? lastMinLevel;
+  bool? lastCollectingPaused;
+  bool? lastScrollPaused;
+  String? activeNode;
+  bool pollingStarted = false;
+
+  // Synchronous broadcast so a test that `emit`s then pumps one frame sees the
+  // state update; asynchronous delivery would need an extra microtask drain.
+  final StreamController<m.TrafficBatchDto> _traffic =
+      StreamController<m.TrafficBatchDto>.broadcast(sync: true);
+  final StreamController<m.LogBatchDto> _logController =
+      StreamController<m.LogBatchDto>.broadcast(sync: true);
+
+  /// Push one traffic batch to subscribers.
+  void emitTraffic({
+    BigInt? proxyUp,
+    BigInt? proxyDown,
+    BigInt? directUp,
+    BigInt? directDown,
+    BigInt? proxyUpBps,
+    BigInt? proxyDownBps,
+    BigInt? directUpBps,
+    BigInt? directDownBps,
+  }) {
+    _traffic.add(
+      m.TrafficBatchDto(
+        epoch: BigInt.one,
+        seq: BigInt.one,
+        generation: BigInt.zero,
+        proxyUp: proxyUp ?? BigInt.zero,
+        proxyDown: proxyDown ?? BigInt.zero,
+        directUp: directUp ?? BigInt.zero,
+        directDown: directDown ?? BigInt.zero,
+        proxyUpBps: proxyUpBps ?? BigInt.zero,
+        proxyDownBps: proxyDownBps ?? BigInt.zero,
+        directUpBps: directUpBps ?? BigInt.zero,
+        directDownBps: directDownBps ?? BigInt.zero,
+        nodes: const <m.NodeTrafficDto>[],
+      ),
+    );
+  }
+
+  /// Push one log batch to subscribers.
+  void emitLogs(
+    List<m.LogLineDto> lines, {
+    BigInt? droppedLines,
+    BigInt? truncatedLines,
+  }) {
+    _logController.add(
+      m.LogBatchDto(
+        epoch: BigInt.one,
+        seq: BigInt.one,
+        lines: lines,
+        droppedLines: droppedLines ?? BigInt.zero,
+        droppedBytes: BigInt.zero,
+        truncatedLines:
+            truncatedLines ??
+            BigInt.from(lines.where((line) => line.truncated).length),
+        collectingPaused: false,
+        scrollPaused: false,
+      ),
+    );
+  }
+
+  @override
+  void configure({
+    required int core,
+    required int statePort,
+    required int statePort2,
+    String? secret,
+    required bool enableStatistics,
+    required bool displayRealTimeSpeed,
+    required int refreshIntervalMs,
+  }) {
+    configured.add('core=$core;$statePort;$statePort2');
+  }
+
+  @override
+  void setActiveNode(String? indexId) => activeNode = indexId;
+
+  @override
+  bool monitorEnabled() => true;
+
+  @override
+  m.StatsSnapshotDto statsSnapshot() => m.StatsSnapshotDto(
+    ok: true,
+    enabled: true,
+    displaySpeed: true,
+    generation: BigInt.zero,
+    proxyUp: BigInt.zero,
+    proxyDown: BigInt.zero,
+    directUp: BigInt.zero,
+    directDown: BigInt.zero,
+    nodes: const <m.NodeTrafficDto>[],
+  );
+
+  @override
+  bool clearStats() {
+    clearStatsCount++;
+    return true;
+  }
+
+  @override
+  Stream<m.TrafficBatchDto> subscribeTraffic() => _traffic.stream;
+
+  @override
+  m.LogPageDto getLogs(int offset, int limit) => m.LogPageDto(
+    ok: true,
+    lines: logs,
+    total: logs.length,
+    droppedLines: BigInt.zero,
+    droppedBytes: BigInt.zero,
+    truncatedLines: BigInt.zero,
+    collectingPaused: false,
+    scrollPaused: false,
+  );
+
+  @override
+  bool clearLogs() {
+    clearLogsCount++;
+    logs = <m.LogLineDto>[];
+    return true;
+  }
+
+  @override
+  void setLogFilter(int minLevel, List<String> include, List<String> exclude) =>
+      lastMinLevel = minLevel;
+
+  @override
+  void setLogPause({
+    required bool collectingPaused,
+    required bool scrollPaused,
+  }) {
+    lastCollectingPaused = collectingPaused;
+    lastScrollPaused = scrollPaused;
+  }
+
+  @override
+  Stream<m.LogBatchDto> subscribeLogs() => _logController.stream;
+
+  @override
+  m.PageVisibilityDto setPageVisible(String page, bool visible) {
+    pageVisibility[page] = visible;
+    return m.PageVisibilityDto(
+      visible: visible,
+      subscribed: visible,
+      refreshIntervalMs: 2000,
+    );
+  }
+
+  @override
+  bool clashSupported() => clashApiSupported;
+
+  @override
+  Future<m.ClashProxiesDto> clashProxies() async {
+    if (!clashApiSupported) {
+      return m.ClashProxiesDto(
+        ok: false,
+        supported: false,
+        message: clashMessage,
+        epoch: BigInt.zero,
+        seq: BigInt.zero,
+        items: const <m.ClashProxyDto>[],
+        error: null,
+      );
+    }
+    return m.ClashProxiesDto(
+      ok: true,
+      supported: true,
+      message: clashMessage,
+      epoch: BigInt.one,
+      seq: BigInt.one,
+      items: proxies,
+      error: null,
+    );
+  }
+
+  @override
+  Future<m.MonitorActionResult> selectClashProxy(
+    String group,
+    String name,
+  ) async {
+    selectedProxies.add('$group/$name');
+    final updated = proxies
+        .map(
+          (p) => p.name == group
+              ? m.ClashProxyDto(
+                  name: p.name,
+                  proxyType: p.proxyType,
+                  isGroup: p.isGroup,
+                  now: name,
+                  all: p.all,
+                  delay: p.delay,
+                  provider: p.provider,
+                )
+              : p,
+        )
+        .toList();
+    proxies = updated;
+    return _ok();
+  }
+
+  @override
+  Future<m.DelayResultDto> clashProxyDelay(String name) async {
+    testedProxies.add(name);
+    return m.DelayResultDto(name: name, delay: proxyDelayValue);
+  }
+
+  @override
+  Future<m.GroupDelayDto> clashGroupDelay(String group) async {
+    testedGroups.add(group);
+    final target = proxies.firstWhere(
+      (p) => p.name == group,
+      orElse: () => const m.ClashProxyDto(
+        name: '',
+        proxyType: '',
+        isGroup: false,
+        now: null,
+        all: <String>[],
+        delay: -1,
+      ),
+    );
+    return m.GroupDelayDto(
+      ok: true,
+      supported: true,
+      group: group,
+      items: target.all
+          .map((n) => m.DelayResultDto(name: n, delay: proxyDelayValue))
+          .toList(),
+      error: null,
+    );
+  }
+
+  @override
+  Future<m.ClashConnectionsDto> clashConnections() async {
+    if (!clashApiSupported) {
+      return m.ClashConnectionsDto(
+        ok: false,
+        supported: false,
+        message: clashMessage,
+        uploadTotal: BigInt.zero,
+        downloadTotal: BigInt.zero,
+        items: const <m.ClashConnectionDto>[],
+        error: null,
+      );
+    }
+    return m.ClashConnectionsDto(
+      ok: true,
+      supported: true,
+      message: null,
+      uploadTotal: BigInt.from(100),
+      downloadTotal: BigInt.from(200),
+      items: connections,
+      error: null,
+    );
+  }
+
+  @override
+  Future<m.MonitorActionResult> closeClashConnection(String id) async {
+    closedConnections.add(id);
+    connections = connections.where((c) => c.id != id).toList();
+    return _ok();
+  }
+
+  @override
+  Future<m.MonitorActionResult> closeAllClashConnections() async {
+    closeAllCount++;
+    connections = <m.ClashConnectionDto>[];
+    return _ok();
+  }
+
+  @override
+  void startPolling() => pollingStarted = true;
+
+  m.MonitorActionResult _ok() => m.MonitorActionResult(
+    ok: true,
+    supported: true,
+    message: null,
+    error: null,
+  );
+
+  void disposeStreams() {
+    _traffic.close();
+    _logController.close();
+  }
+}

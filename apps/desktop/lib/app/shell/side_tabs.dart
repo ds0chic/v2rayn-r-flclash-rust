@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/features/monitor/connections_view.dart';
+import 'package:v2rayn_desktop/features/monitor/logs_view.dart';
+import 'package:v2rayn_desktop/features/monitor/proxies_view.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
@@ -62,11 +65,11 @@ class SideTabs extends ConsumerWidget {
       case AppTab.profiles:
         return const ProfilesPage();
       case AppTab.info:
-        return const _InfoPlaceholder();
+        return const LogsView();
       case AppTab.proxies:
-        return const _ClashPlaceholder(title: '当前代理');
+        return const ProxiesView();
       case AppTab.connections:
-        return const _ClashPlaceholder(title: '当前连接');
+        return const ConnectionsView();
     }
   }
 }
@@ -157,60 +160,6 @@ class _TabButton extends StatelessWidget {
           ),
         ),
         child: content,
-      ),
-    );
-  }
-}
-
-class _InfoPlaceholder extends StatelessWidget {
-  const _InfoPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.all(6),
-          child: Row(
-            children: const <Widget>[
-              SizedBox(width: 24),
-              Icon(Icons.search, size: 14),
-              SizedBox(width: 6),
-              Text('过滤', style: TextStyle(fontSize: 12)),
-              Spacer(),
-              Text('自动刷新', style: TextStyle(fontSize: 12)),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        const Expanded(
-          child: Padding(
-            padding: EdgeInsets.all(12),
-            child: Text(
-              '信息：内核日志尚未接入（T05 占位，未运行）',
-              key: ValueKey<String>('info-placeholder-text'),
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ClashPlaceholder extends StatelessWidget {
-  const _ClashPlaceholder({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        '$title：未接入 Clash API',
-        key: const ValueKey<String>('clash-placeholder-text'),
-        style: const TextStyle(fontSize: 12),
       ),
     );
   }

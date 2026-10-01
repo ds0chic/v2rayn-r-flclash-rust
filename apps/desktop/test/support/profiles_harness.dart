@@ -4,8 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/app/shell/main_shell.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
+import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
+
+import 'fake_monitor_bridge.dart';
+import 'fake_platform_bridge.dart';
 
 /// Shared WidgetTester harness for the T01/T05 profiles table interaction
 /// tests. It now pumps the full [MainShell] so the tests exercise the real
@@ -21,6 +26,8 @@ ProviderContainer makeContainer({int rows = 2000}) {
       bridgePortProvider.overrideWithValue(SyntheticBridgePort()),
       uiStateStoreProvider.overrideWithValue(MemoryUiStateStore()),
       profileRowCountProvider.overrideWithValue(rows),
+      platformBridgeProvider.overrideWithValue(FakePlatformBridge()),
+      monitorBridgeProvider.overrideWithValue(FakeMonitorBridge()),
     ],
   );
 }
@@ -32,6 +39,7 @@ Future<ProviderContainer> pumpApp(
   double height = 900,
   bool setViewSize = true,
   MemoryUiStateStore? store,
+  FakeMonitorBridge? monitor,
 }) async {
   if (setViewSize) {
     tester.view.physicalSize = Size(width, height);
@@ -45,6 +53,8 @@ Future<ProviderContainer> pumpApp(
       bridgePortProvider.overrideWithValue(SyntheticBridgePort()),
       uiStateStoreProvider.overrideWithValue(store ?? MemoryUiStateStore()),
       profileRowCountProvider.overrideWithValue(rows),
+      platformBridgeProvider.overrideWithValue(FakePlatformBridge()),
+      monitorBridgeProvider.overrideWithValue(monitor ?? FakeMonitorBridge()),
     ],
   );
   addTearDown(container.dispose);

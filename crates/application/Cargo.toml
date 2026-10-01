@@ -12,6 +12,8 @@ persistence.workspace = true
 runtime.workspace = true
 subscriptions.workspace = true
 config_codegen.workspace = true
+platform.workspace = true
+core_adapters.workspace = true
 rusqlite = "0.32.1"
 regex = "1"
 serde.workspace = true
@@ -23,6 +25,8 @@ tokio = { version = "1.53", features = ["rt", "time", "sync"] }
 rustls-pemfile = "2"
 rustls-native-certs = "0.8"
 tempfile = "3.27.0"
+tiny_http = "0.12"
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread"] }
 
 [target.'cfg(windows)'.dev-dependencies]
 windows = { version = "0.58", features = [

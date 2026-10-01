@@ -40,6 +40,9 @@ dependencies:
   flutter_riverpod: ^3.4.3
   two_dimensional_scrollables: ^0.5.5
   qr_flutter: ^4.1.0
+  hotkey_manager: ^0.2.3
+  window_manager: ^0.5.2
+  system_tray: ^0.1.1
 
 dev_dependencies:
   flutter_test:

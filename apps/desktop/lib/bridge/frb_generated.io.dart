@@ -8,6 +8,8 @@ import 'api/dns.dart';
 import 'api/engine.dart';
 import 'api/groups.dart';
 import 'api/mirrors.dart';
+import 'api/monitor.dart';
+import 'api/platform.dart';
 import 'api/profiles.dart';
 import 'api/routing.dart';
 import 'api/settings.dart';
@@ -38,12 +40,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<LogBatchDto> dco_decode_StreamSink_log_batch_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
   RustStreamSink<ProgressEvent> dco_decode_StreamSink_progress_event_Sse(
     dynamic raw,
   );
 
   @protected
+  RustStreamSink<TrafficBatchDto> dco_decode_StreamSink_traffic_batch_dto_Sse(
+    dynamic raw,
+  );
+
+  @protected
   String dco_decode_String(dynamic raw);
+
+  @protected
+  AppliedChangeDto dco_decode_applied_change_dto(dynamic raw);
 
   @protected
   ApplyRuntimeResult dco_decode_apply_runtime_result(dynamic raw);
@@ -92,6 +107,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProfileSummary dco_decode_box_autoadd_profile_summary(dynamic raw);
 
   @protected
+  ProxyStateDto dco_decode_box_autoadd_proxy_state_dto(dynamic raw);
+
+  @protected
   RoutingProfileDto dco_decode_box_autoadd_routing_profile_dto(dynamic raw);
 
   @protected
@@ -128,6 +146,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CheckUpdateItemDto dco_decode_check_update_item_dto(dynamic raw);
 
   @protected
+  ClashConnectionDto dco_decode_clash_connection_dto(dynamic raw);
+
+  @protected
+  ClashConnectionsDto dco_decode_clash_connections_dto(dynamic raw);
+
+  @protected
+  ClashProxiesDto dco_decode_clash_proxies_dto(dynamic raw);
+
+  @protected
+  ClashProxyDto dco_decode_clash_proxy_dto(dynamic raw);
+
+  @protected
   ClashUiItemDto dco_decode_clash_ui_item_dto(dynamic raw);
 
   @protected
@@ -150,6 +180,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CoreTypeBindingDto dco_decode_core_type_binding_dto(dynamic raw);
+
+  @protected
+  DelayResultDto dco_decode_delay_result_dto(dynamic raw);
 
   @protected
   DeleteProfilesResult dco_decode_delete_profiles_result(dynamic raw);
@@ -182,6 +215,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GlobalHotkeyDto dco_decode_global_hotkey_dto(dynamic raw);
 
   @protected
+  GroupDelayDto dco_decode_group_delay_dto(dynamic raw);
+
+  @protected
   GroupGenResult dco_decode_group_gen_result(dynamic raw);
 
   @protected
@@ -194,6 +230,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   HappyEyeballs4RayItemDto dco_decode_happy_eyeballs_4_ray_item_dto(
     dynamic raw,
   );
+
+  @protected
+  HotkeyDto dco_decode_hotkey_dto(dynamic raw);
 
   @protected
   HysteriaItemDto dco_decode_hysteria_item_dto(dynamic raw);
@@ -223,7 +262,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
+  List<AppliedChangeDto> dco_decode_list_applied_change_dto(dynamic raw);
+
+  @protected
   List<CapabilityDto> dco_decode_list_capability_dto(dynamic raw);
+
+  @protected
+  List<ClashConnectionDto> dco_decode_list_clash_connection_dto(dynamic raw);
+
+  @protected
+  List<ClashProxyDto> dco_decode_list_clash_proxy_dto(dynamic raw);
 
   @protected
   List<ColumnItemDto> dco_decode_list_column_item_dto(dynamic raw);
@@ -233,6 +281,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CoreTypeBindingDto> dco_decode_list_core_type_binding_dto(dynamic raw);
+
+  @protected
+  List<DelayResultDto> dco_decode_list_delay_result_dto(dynamic raw);
 
   @protected
   List<DnsProfileDto> dco_decode_list_dns_profile_dto(dynamic raw);
@@ -246,10 +297,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<GlobalHotkeyDto> dco_decode_list_global_hotkey_dto(dynamic raw);
 
   @protected
+  List<HotkeyDto> dco_decode_list_hotkey_dto(dynamic raw);
+
+  @protected
   List<InboundListenerDto> dco_decode_list_inbound_listener_dto(dynamic raw);
 
   @protected
   List<JobDto> dco_decode_list_job_dto(dynamic raw);
+
+  @protected
+  List<LogLineDto> dco_decode_list_log_line_dto(dynamic raw);
+
+  @protected
+  List<NodeTrafficDto> dco_decode_list_node_traffic_dto(dynamic raw);
 
   @protected
   List<ParseIssueDto> dco_decode_list_parse_issue_dto(dynamic raw);
@@ -265,6 +325,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ProfileSummary> dco_decode_list_profile_summary(dynamic raw);
+
+  @protected
+  List<ProxyOwnershipDto> dco_decode_list_proxy_ownership_dto(dynamic raw);
+
+  @protected
+  List<RestoreActionDto> dco_decode_list_restore_action_dto(dynamic raw);
+
+  @protected
+  List<RestoreConflictDto> dco_decode_list_restore_conflict_dto(dynamic raw);
 
   @protected
   List<RoutingProfileDto> dco_decode_list_routing_profile_dto(dynamic raw);
@@ -288,6 +357,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<WindowSizeItemDto> dco_decode_list_window_size_item_dto(dynamic raw);
 
   @protected
+  LogBatchDto dco_decode_log_batch_dto(dynamic raw);
+
+  @protected
+  LogLineDto dco_decode_log_line_dto(dynamic raw);
+
+  @protected
+  LogPageDto dco_decode_log_page_dto(dynamic raw);
+
+  @protected
+  MonitorActionResult dco_decode_monitor_action_result(dynamic raw);
+
+  @protected
   MsgUiItemDto dco_decode_msg_ui_item_dto(dynamic raw);
 
   @protected
@@ -295,6 +376,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Mux4SboxItemDto dco_decode_mux_4_sbox_item_dto(dynamic raw);
+
+  @protected
+  NodeTrafficDto dco_decode_node_traffic_dto(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -337,6 +421,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProfileSummary? dco_decode_opt_box_autoadd_profile_summary(dynamic raw);
 
   @protected
+  ProxyStateDto? dco_decode_opt_box_autoadd_proxy_state_dto(dynamic raw);
+
+  @protected
   RoutingProfileDto? dco_decode_opt_box_autoadd_routing_profile_dto(
     dynamic raw,
   );
@@ -371,6 +458,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  PacHandleDto dco_decode_pac_handle_dto(dynamic raw);
+
+  @protected
+  PageVisibilityDto dco_decode_page_visibility_dto(dynamic raw);
+
+  @protected
   ParseIssueDto dco_decode_parse_issue_dto(dynamic raw);
 
   @protected
@@ -395,10 +488,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProtocolExtraDto dco_decode_protocol_extra_dto(dynamic raw);
 
   @protected
+  ProxyOwnershipDto dco_decode_proxy_ownership_dto(dynamic raw);
+
+  @protected
+  ProxyStateDto dco_decode_proxy_state_dto(dynamic raw);
+
+  @protected
   RecoveryDto dco_decode_recovery_dto(dynamic raw);
 
   @protected
   RegionalPresetResult dco_decode_regional_preset_result(dynamic raw);
+
+  @protected
+  RestoreActionDto dco_decode_restore_action_dto(dynamic raw);
+
+  @protected
+  RestoreConflictDto dco_decode_restore_conflict_dto(dynamic raw);
 
   @protected
   RevisionState dco_decode_revision_state(dynamic raw);
@@ -473,6 +578,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SpeedTestItemDto dco_decode_speed_test_item_dto(dynamic raw);
 
   @protected
+  StatsSnapshotDto dco_decode_stats_snapshot_dto(dynamic raw);
+
+  @protected
   StopRuntimeResult dco_decode_stop_runtime_result(dynamic raw);
 
   @protected
@@ -491,6 +599,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SubsPageDto dco_decode_subs_page_dto(dynamic raw);
 
   @protected
+  SysProxyApplyResult dco_decode_sys_proxy_apply_result(dynamic raw);
+
+  @protected
+  SysProxyRestoreResult dco_decode_sys_proxy_restore_result(dynamic raw);
+
+  @protected
   SystemProxyItemDto dco_decode_system_proxy_item_dto(dynamic raw);
 
   @protected
@@ -498,6 +612,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TemplatesPageDto dco_decode_templates_page_dto(dynamic raw);
+
+  @protected
+  TrafficBatchDto dco_decode_traffic_batch_dto(dynamic raw);
 
   @protected
   TransportExtraDto dco_decode_transport_extra_dto(dynamic raw);
@@ -544,12 +661,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<LogBatchDto> sse_decode_StreamSink_log_batch_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RustStreamSink<ProgressEvent> sse_decode_StreamSink_progress_event_Sse(
     SseDeserializer deserializer,
   );
 
   @protected
+  RustStreamSink<TrafficBatchDto> sse_decode_StreamSink_traffic_batch_dto_Sse(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  AppliedChangeDto sse_decode_applied_change_dto(SseDeserializer deserializer);
 
   @protected
   ApplyRuntimeResult sse_decode_apply_runtime_result(
@@ -606,6 +736,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ProxyStateDto sse_decode_box_autoadd_proxy_state_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RoutingProfileDto sse_decode_box_autoadd_routing_profile_dto(
     SseDeserializer deserializer,
   );
@@ -648,6 +783,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ClashConnectionDto sse_decode_clash_connection_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ClashConnectionsDto sse_decode_clash_connections_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ClashProxiesDto sse_decode_clash_proxies_dto(SseDeserializer deserializer);
+
+  @protected
+  ClashProxyDto sse_decode_clash_proxy_dto(SseDeserializer deserializer);
+
+  @protected
   ClashUiItemDto sse_decode_clash_ui_item_dto(SseDeserializer deserializer);
 
   @protected
@@ -674,6 +825,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreTypeBindingDto sse_decode_core_type_binding_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  DelayResultDto sse_decode_delay_result_dto(SseDeserializer deserializer);
 
   @protected
   DeleteProfilesResult sse_decode_delete_profiles_result(
@@ -712,6 +866,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GlobalHotkeyDto sse_decode_global_hotkey_dto(SseDeserializer deserializer);
 
   @protected
+  GroupDelayDto sse_decode_group_delay_dto(SseDeserializer deserializer);
+
+  @protected
   GroupGenResult sse_decode_group_gen_result(SseDeserializer deserializer);
 
   @protected
@@ -724,6 +881,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   HappyEyeballs4RayItemDto sse_decode_happy_eyeballs_4_ray_item_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  HotkeyDto sse_decode_hotkey_dto(SseDeserializer deserializer);
 
   @protected
   HysteriaItemDto sse_decode_hysteria_item_dto(SseDeserializer deserializer);
@@ -755,7 +915,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
+  List<AppliedChangeDto> sse_decode_list_applied_change_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<CapabilityDto> sse_decode_list_capability_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ClashConnectionDto> sse_decode_list_clash_connection_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ClashProxyDto> sse_decode_list_clash_proxy_dto(
     SseDeserializer deserializer,
   );
 
@@ -769,6 +944,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<CoreTypeBindingDto> sse_decode_list_core_type_binding_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<DelayResultDto> sse_decode_list_delay_result_dto(
     SseDeserializer deserializer,
   );
 
@@ -788,12 +968,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<HotkeyDto> sse_decode_list_hotkey_dto(SseDeserializer deserializer);
+
+  @protected
   List<InboundListenerDto> sse_decode_list_inbound_listener_dto(
     SseDeserializer deserializer,
   );
 
   @protected
   List<JobDto> sse_decode_list_job_dto(SseDeserializer deserializer);
+
+  @protected
+  List<LogLineDto> sse_decode_list_log_line_dto(SseDeserializer deserializer);
+
+  @protected
+  List<NodeTrafficDto> sse_decode_list_node_traffic_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<ParseIssueDto> sse_decode_list_parse_issue_dto(
@@ -811,6 +1002,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<ProfileSummary> sse_decode_list_profile_summary(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<ProxyOwnershipDto> sse_decode_list_proxy_ownership_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RestoreActionDto> sse_decode_list_restore_action_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<RestoreConflictDto> sse_decode_list_restore_conflict_dto(
     SseDeserializer deserializer,
   );
 
@@ -848,6 +1054,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  LogBatchDto sse_decode_log_batch_dto(SseDeserializer deserializer);
+
+  @protected
+  LogLineDto sse_decode_log_line_dto(SseDeserializer deserializer);
+
+  @protected
+  LogPageDto sse_decode_log_page_dto(SseDeserializer deserializer);
+
+  @protected
+  MonitorActionResult sse_decode_monitor_action_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   MsgUiItemDto sse_decode_msg_ui_item_dto(SseDeserializer deserializer);
 
   @protected
@@ -855,6 +1075,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Mux4SboxItemDto sse_decode_mux_4_sbox_item_dto(SseDeserializer deserializer);
+
+  @protected
+  NodeTrafficDto sse_decode_node_traffic_dto(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -903,6 +1126,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  ProxyStateDto? sse_decode_opt_box_autoadd_proxy_state_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RoutingProfileDto? sse_decode_opt_box_autoadd_routing_profile_dto(
     SseDeserializer deserializer,
   );
@@ -943,6 +1171,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  PacHandleDto sse_decode_pac_handle_dto(SseDeserializer deserializer);
+
+  @protected
+  PageVisibilityDto sse_decode_page_visibility_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ParseIssueDto sse_decode_parse_issue_dto(SseDeserializer deserializer);
 
   @protected
@@ -967,10 +1203,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProtocolExtraDto sse_decode_protocol_extra_dto(SseDeserializer deserializer);
 
   @protected
+  ProxyOwnershipDto sse_decode_proxy_ownership_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ProxyStateDto sse_decode_proxy_state_dto(SseDeserializer deserializer);
+
+  @protected
   RecoveryDto sse_decode_recovery_dto(SseDeserializer deserializer);
 
   @protected
   RegionalPresetResult sse_decode_regional_preset_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RestoreActionDto sse_decode_restore_action_dto(SseDeserializer deserializer);
+
+  @protected
+  RestoreConflictDto sse_decode_restore_conflict_dto(
     SseDeserializer deserializer,
   );
 
@@ -1067,6 +1319,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SpeedTestItemDto sse_decode_speed_test_item_dto(SseDeserializer deserializer);
 
   @protected
+  StatsSnapshotDto sse_decode_stats_snapshot_dto(SseDeserializer deserializer);
+
+  @protected
   StopRuntimeResult sse_decode_stop_runtime_result(
     SseDeserializer deserializer,
   );
@@ -1089,6 +1344,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SubsPageDto sse_decode_subs_page_dto(SseDeserializer deserializer);
 
   @protected
+  SysProxyApplyResult sse_decode_sys_proxy_apply_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SysProxyRestoreResult sse_decode_sys_proxy_restore_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SystemProxyItemDto sse_decode_system_proxy_item_dto(
     SseDeserializer deserializer,
   );
@@ -1100,6 +1365,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TemplatesPageDto sse_decode_templates_page_dto(SseDeserializer deserializer);
+
+  @protected
+  TrafficBatchDto sse_decode_traffic_batch_dto(SseDeserializer deserializer);
 
   @protected
   TransportExtraDto sse_decode_transport_extra_dto(
@@ -1154,13 +1422,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_log_batch_dto_Sse(
+    RustStreamSink<LogBatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_progress_event_Sse(
     RustStreamSink<ProgressEvent> self,
     SseSerializer serializer,
   );
 
   @protected
+  void sse_encode_StreamSink_traffic_batch_dto_Sse(
+    RustStreamSink<TrafficBatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_applied_change_dto(
+    AppliedChangeDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_apply_runtime_result(
@@ -1235,6 +1521,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_proxy_state_dto(
+    ProxyStateDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_routing_profile_dto(
     RoutingProfileDto self,
     SseSerializer serializer,
@@ -1286,6 +1578,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_clash_connection_dto(
+    ClashConnectionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_clash_connections_dto(
+    ClashConnectionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_clash_proxies_dto(
+    ClashProxiesDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_clash_proxy_dto(ClashProxyDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_clash_ui_item_dto(
     ClashUiItemDto self,
     SseSerializer serializer,
@@ -1318,6 +1631,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_core_type_binding_dto(
     CoreTypeBindingDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_delay_result_dto(
+    DelayResultDto self,
     SseSerializer serializer,
   );
 
@@ -1370,6 +1689,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_group_delay_dto(GroupDelayDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_group_gen_result(
     GroupGenResult self,
     SseSerializer serializer,
@@ -1386,6 +1708,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     HappyEyeballs4RayItemDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_hotkey_dto(HotkeyDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_hysteria_item_dto(
@@ -1421,8 +1746,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_applied_change_dto(
+    List<AppliedChangeDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_capability_dto(
     List<CapabilityDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_clash_connection_dto(
+    List<ClashConnectionDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_clash_proxy_dto(
+    List<ClashProxyDto> self,
     SseSerializer serializer,
   );
 
@@ -1445,6 +1788,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_delay_result_dto(
+    List<DelayResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_dns_profile_dto(
     List<DnsProfileDto> self,
     SseSerializer serializer,
@@ -1463,6 +1812,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_hotkey_dto(
+    List<HotkeyDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_inbound_listener_dto(
     List<InboundListenerDto> self,
     SseSerializer serializer,
@@ -1470,6 +1825,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_job_dto(List<JobDto> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_log_line_dto(
+    List<LogLineDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_node_traffic_dto(
+    List<NodeTrafficDto> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_parse_issue_dto(
@@ -1498,6 +1865,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_profile_summary(
     List<ProfileSummary> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_proxy_ownership_dto(
+    List<ProxyOwnershipDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_restore_action_dto(
+    List<RestoreActionDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_restore_conflict_dto(
+    List<RestoreConflictDto> self,
     SseSerializer serializer,
   );
 
@@ -1544,6 +1929,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_log_batch_dto(LogBatchDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_log_line_dto(LogLineDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_log_page_dto(LogPageDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_monitor_action_result(
+    MonitorActionResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_msg_ui_item_dto(MsgUiItemDto self, SseSerializer serializer);
 
   @protected
@@ -1555,6 +1955,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_mux_4_sbox_item_dto(
     Mux4SboxItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_node_traffic_dto(
+    NodeTrafficDto self,
     SseSerializer serializer,
   );
 
@@ -1622,6 +2028,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_proxy_state_dto(
+    ProxyStateDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_routing_profile_dto(
     RoutingProfileDto? self,
     SseSerializer serializer,
@@ -1667,6 +2079,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_pac_handle_dto(PacHandleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_page_visibility_dto(
+    PageVisibilityDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_parse_issue_dto(ParseIssueDto self, SseSerializer serializer);
 
   @protected
@@ -1706,11 +2127,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_proxy_ownership_dto(
+    ProxyOwnershipDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_proxy_state_dto(ProxyStateDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_recovery_dto(RecoveryDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_regional_preset_result(
     RegionalPresetResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_restore_action_dto(
+    RestoreActionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_restore_conflict_dto(
+    RestoreConflictDto self,
     SseSerializer serializer,
   );
 
@@ -1838,6 +2280,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_stats_snapshot_dto(
+    StatsSnapshotDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_stop_runtime_result(
     StopRuntimeResult self,
     SseSerializer serializer,
@@ -1868,6 +2316,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_subs_page_dto(SubsPageDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_sys_proxy_apply_result(
+    SysProxyApplyResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_sys_proxy_restore_result(
+    SysProxyRestoreResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_system_proxy_item_dto(
     SystemProxyItemDto self,
     SseSerializer serializer,
@@ -1882,6 +2342,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_templates_page_dto(
     TemplatesPageDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_traffic_batch_dto(
+    TrafficBatchDto self,
     SseSerializer serializer,
   );
 

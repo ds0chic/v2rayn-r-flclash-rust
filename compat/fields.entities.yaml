@@ -1,4 +1,4 @@
-﻿schema_version: 1
+schema_version: 1
 source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
 section: entities
 source_version: v2rayN 7.25.4
@@ -3122,13 +3122,13 @@ items:
   classification: internal_state
   source_file: v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs
   source_symbol: ServerStatItem.IndexId
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/store_repo.rs + crates/application/src/monitor.rs
+  test_ids: [today_rollover_resets_today_but_keeps_total]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs:7
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:107
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:143
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-111
@@ -3147,13 +3147,13 @@ items:
   classification: internal_state
   source_file: v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs
   source_symbol: ServerStatItem.TotalUp
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/store_repo.rs + crates/application/src/monitor.rs
+  test_ids: [today_rollover_resets_today_but_keeps_total]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs:9
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:117
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:145
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-112
@@ -3172,13 +3172,13 @@ items:
   classification: internal_state
   source_file: v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs
   source_symbol: ServerStatItem.TotalDown
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/store_repo.rs + crates/application/src/monitor.rs
+  test_ids: [today_rollover_resets_today_but_keeps_total]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs:11
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:118
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:146
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-113
@@ -3197,13 +3197,13 @@ items:
   classification: internal_state
   source_file: v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs
   source_symbol: ServerStatItem.TodayUp
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/store_repo.rs + crates/application/src/monitor.rs
+  test_ids: [today_rollover_resets_today_but_keeps_total]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs:13
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:115
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:95
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-114
@@ -3222,13 +3222,13 @@ items:
   classification: internal_state
   source_file: v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs
   source_symbol: ServerStatItem.TodayDown
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/store_repo.rs + crates/application/src/monitor.rs
+  test_ids: [today_rollover_resets_today_but_keeps_total]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs:15
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:116
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:95
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-115
@@ -3247,14 +3247,14 @@ items:
   classification: internal_state
   source_file: v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs
   source_symbol: ServerStatItem.DateNow
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/store_repo.rs + crates/application/src/monitor.rs
+  test_ids: [today_rollover_resets_today_but_keeps_total]
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ServerStatItem.cs:17
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:149
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:158
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:95
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-116

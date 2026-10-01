@@ -45,8 +45,10 @@ void setLocalProxyPort({int? port}) =>
 /// `update_subscriptions` — the F-SUB-003 pipeline.
 ///
 /// `sub_ids` empty means every subscription; `via_proxy` uses the recorded
-/// local session port (falling back per upstream when none is running). The
-/// returned `job_id` can be passed to `cancel_job`.
+/// local session port. When `via_proxy` is requested but no local proxy
+/// endpoint is known, a structured `E_PROXY_UNAVAILABLE` error is returned
+/// and no direct download is attempted. The returned `job_id` can be passed
+/// to `cancel_job`.
 Future<SubUpdateResult> updateSubscriptions({
   required List<String> subIds,
   required bool viaProxy,

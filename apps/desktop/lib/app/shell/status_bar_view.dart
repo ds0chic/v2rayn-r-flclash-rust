@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_format.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
+import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
+import 'package:v2rayn_desktop/features/settings/proxy_settings_view.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Bottom status bar (compat/layouts.yaml LAY-STATUSBAR-001).
@@ -22,6 +28,9 @@ class StatusBarView extends ConsumerWidget {
     final runtime = ref.watch(runtimeControllerProvider);
     final routing = ref.watch(routingControllerProvider);
     final routingController = ref.read(routingControllerProvider.notifier);
+    final platform = ref.watch(platformControllerProvider);
+    final platformController = ref.read(platformControllerProvider.notifier);
+    final monitor = ref.watch(monitorControllerProvider);
     final scheme = Theme.of(context).colorScheme;
     final muted = TextStyle(fontSize: 11.5, color: scheme.onSurfaceVariant);
 
@@ -53,22 +62,30 @@ class StatusBarView extends ConsumerWidget {
                 onChanged: shellController.setTunEnabled,
               ),
               const _Sep(),
-              PopupMenuButton<int>(
+              // F-SYSPROXY-001 / ACT-STAT-001: the four system-proxy modes,
+              // applied through the real platform bridge. State is read back
+              // from the backend, never fabricated from the click.
+              PopupMenuButton<SysProxyMode>(
                 key: const ValueKey('system-proxy-selector'),
-                tooltip: '系统代理 (T13 接入)',
-                onSelected: shellController.setSystemProxyIndex,
-                itemBuilder: (context) => <PopupMenuEntry<int>>[
-                  for (var i = 0; i < SystemProxyMode.modes.length; i++)
-                    PopupMenuItem<int>(
-                      value: i,
+                tooltip: '系统代理',
+                onSelected: (mode) =>
+                    _applyMode(context, ref, platformController, mode),
+                itemBuilder: (context) => <PopupMenuEntry<SysProxyMode>>[
+                  for (final mode in SysProxyMode.values)
+                    PopupMenuItem<SysProxyMode>(
+                      value: mode,
                       child: Text(
-                        SystemProxyMode.modes[i].label,
+                        platform.desiredMode == mode
+                            ? '✓ ${mode.label}'
+                            : mode.label,
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
                 ],
                 child: Text(
-                  '系统代理: ${SystemProxyMode.modes[shell.systemProxyIndex].label}',
+                  '系统代理: ${platform.desiredMode.label} '
+                  '(${platform.stateLabel})',
+                  key: const ValueKey('status-sysproxy'),
                   style: muted,
                 ),
               ),
@@ -158,18 +175,52 @@ class StatusBarView extends ConsumerWidget {
                 style: muted,
               ),
               const SizedBox(width: 8),
+              // F-MONITOR-006: real proxy/direct rates from the statistics
+              // pipeline; `--` until the first batch arrives.
               Text(
-                '代理 ↑${shell.proxySpeed.up} ↓${shell.proxySpeed.down}',
+                '代理 ↑${monitor.hasTraffic ? formatRate(monitor.proxyUpBps) : '--'} '
+                '↓${monitor.hasTraffic ? formatRate(monitor.proxyDownBps) : '--'}',
                 key: const ValueKey('status-proxy-speed'),
                 style: muted,
               ),
               const _Sep(),
               Text(
-                '直连 ↑${shell.directSpeed.up} ↓${shell.directSpeed.down}',
+                '直连 ↑${monitor.hasTraffic ? formatRate(monitor.directUpBps) : '--'} '
+                '↓${monitor.hasTraffic ? formatRate(monitor.directDownBps) : '--'}',
                 key: const ValueKey('status-direct-speed'),
                 style: muted,
               ),
-              if (shell.message != null) ...<Widget>[
+              const _Sep(),
+              Text(
+                '今日 ↑${monitor.hasTraffic ? formatTraffic(monitor.proxyUp) : '--'} '
+                '↓${monitor.hasTraffic ? formatTraffic(monitor.proxyDown) : '--'}',
+                key: const ValueKey('status-today-traffic'),
+                style: muted,
+              ),
+              if (platform.error != null) ...<Widget>[
+                const _Sep(),
+                Text(
+                  '系统代理错误 ${platform.error!.code}',
+                  key: const ValueKey('status-sysproxy-error'),
+                  style: TextStyle(fontSize: 11.5, color: scheme.error),
+                ),
+              ],
+              if (platform.conflicts.isNotEmpty) ...<Widget>[
+                const _Sep(),
+                Text(
+                  '系统代理冲突 ${platform.conflicts.map((c) => c.field).join(',')}',
+                  key: const ValueKey('status-sysproxy-conflict'),
+                  style: TextStyle(fontSize: 11.5, color: scheme.error),
+                ),
+              ],
+              if (platform.message != null) ...<Widget>[
+                const _Sep(),
+                Text(
+                  platform.message!,
+                  key: const ValueKey('status-message'),
+                  style: TextStyle(fontSize: 11.5, color: scheme.primary),
+                ),
+              ] else if (shell.message != null) ...<Widget>[
                 const _Sep(),
                 Text(
                   shell.message!,
@@ -190,6 +241,52 @@ String _activeSchemeLabel(RoutingState routing) {
     if (item.isActive) return item.remarks;
   }
   return routing.items.isEmpty ? '--' : routing.items.first.remarks;
+}
+
+/// Apply a system-proxy mode through the real bridge, computing the named
+/// proxy / PAC URL from the persisted settings and the running inbound port.
+void _applyMode(
+  BuildContext context,
+  WidgetRef ref,
+  PlatformController controller,
+  SysProxyMode mode,
+) {
+  // The settings document holds exceptions / advanced protocol / PAC path.
+  final settings = ref.read(settingsControllerProvider);
+  final config = ProxySettingsView.fromDocument(settings.document);
+  final basePort = _firstInboundPort(settings.document);
+  final server = buildProxyServer(
+    port: basePort,
+    advancedProtocol: config.advancedProtocol,
+  );
+  final bypass = buildProxyBypass(
+    exceptions: config.exceptions,
+    notProxyLocalAddress: config.notProxyLocalAddress,
+  );
+  switch (mode) {
+    case SysProxyMode.pac:
+      // PAC URL is only known once the PAC server is running; a real apply
+      // happens from the settings/exit wiring which owns the PAC lifecycle.
+      controller.setMessage('PAC 模式需要先启动 PAC 服务（设置/系统代理）');
+    case SysProxyMode.unchanged:
+      controller.apply(mode: mode);
+    case SysProxyMode.forcedClear:
+      controller.apply(mode: mode);
+    case SysProxyMode.forcedChange:
+      controller.apply(mode: mode, server: server, bypass: bypass);
+  }
+}
+
+/// The first inbound `LocalPort` from the settings document (the base port).
+int _firstInboundPort(Map<String, dynamic> document) {
+  final inbound = document['Inbound'];
+  if (inbound is List && inbound.isNotEmpty) {
+    final first = inbound.first;
+    if (first is Map<String, dynamic>) {
+      return (first['LocalPort'] as num?)?.toInt() ?? 10808;
+    }
+  }
+  return 10808;
 }
 
 class _Sep extends StatelessWidget {

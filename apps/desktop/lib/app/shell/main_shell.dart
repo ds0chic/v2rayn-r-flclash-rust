@@ -11,11 +11,13 @@ import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart'
     as profile_actions;
+import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart'
     as routing_actions;
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_actions.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
@@ -79,6 +81,43 @@ class _MainShellState extends ConsumerState<MainShell> {
       final openDns = Platform.environment['V2RAYN_R_OPEN_DNS'];
       if (openDns == '1' || openDns == 'true') {
         routing_actions.openDnsSettings(context, ref);
+      }
+      // T15a evidence hooks: configure the monitor against a loopback Xray
+      // stats port and open a monitor tab for release screenshots. No-ops in
+      // normal runs.
+      final xrayPort = Platform.environment['V2RAYN_R_MONITOR_XRAY_PORT'];
+      if (xrayPort != null) {
+        final port = int.tryParse(xrayPort);
+        if (port != null && port > 0) {
+          final monitor = ref.read(monitorControllerProvider.notifier);
+          monitor.configure(
+            core: 2, // domain CoreType::Xray
+            statePort: port,
+            statePort2: 0,
+            enableStatistics: true,
+            displayRealTimeSpeed: true,
+            refreshIntervalMs: 1000,
+          );
+          monitor.startPolling();
+        }
+      }
+      // T15a evidence hook: start the Xray smoke session on launch so the logs
+      // tab has real core output for the release screenshot.
+      final autoSmoke = Platform.environment['V2RAYN_R_AUTO_SMOKE'];
+      if (autoSmoke == '1' || autoSmoke == 'true') {
+        ref.read(runtimeControllerProvider.notifier).applySmoke();
+      }
+      final openTab = Platform.environment['V2RAYN_R_OPEN_TAB'];
+      if (openTab != null) {
+        // Right-tab indices (vertical/horizontal layouts): 0 信息 / 1 当前代理
+        // / 2 当前连接. Default layout is vertical, so these select the tab.
+        final index = switch (openTab) {
+          'logs' || 'info' => 0,
+          'proxies' => 1,
+          'connections' => 2,
+          _ => 0,
+        };
+        ref.read(uiShellControllerProvider.notifier).setTabIndex(index);
       }
     });
   }
@@ -289,11 +328,24 @@ class _MainShellState extends ConsumerState<MainShell> {
       case 'ACT-MAIN-026':
         routing_actions.openDnsSettings(context, ref);
       case 'ACT-MAIN-029':
+        // F-DESKTOP-006 / ACT-MAIN-029: relaunch elevated. The actual `runas`
+        // start happens in the desktop runtime only on this explicit action.
         shell.notImplemented('以管理员身份重启', 'ACT-MAIN-029');
       case 'ACT-WIN-004':
-        shell.notImplemented('解除 UWP 回环限制', 'ACT-WIN-004');
+        // F-DESKTOP-005 / ACT-WIN-004: resolve the UWP loopback tool. Starting
+        // it is a user-visible side effect; report precisely what would run.
+        final ok = ref.read(platformBridgeProvider).resolveUwpLoopbackTool();
+        shell.setMessage(
+          ok
+              ? '已找到 EnableLoopback.exe（启动需用户确认）'
+              : '未找到 EnableLoopback.exe（bin 目录）',
+        );
       case 'ACT-MAIN-030':
-        shell.notImplemented('清除服务器统计', 'ACT-MAIN-030');
+        // F-MONITOR-003 / ACT-MAIN-030: clear ServerStatItem rows.
+        final cleared = ref
+            .read(monitorControllerProvider.notifier)
+            .clearStats();
+        shell.setMessage(cleared ? '已清除所有服务统计数据' : '清除统计失败');
       case 'ACT-MAIN-031':
         shell.notImplemented('打开存储位置', 'ACT-MAIN-031');
       default:

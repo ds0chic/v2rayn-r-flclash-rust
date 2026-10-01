@@ -6,7 +6,8 @@
 //! only for migration are preserved in `Profile::extra` so a round-trip never
 //! drops them.
 
-use domain::{codes, ConfigType, CoreType, DomainError, Profile, SecurityParams};
+use domain::{codes, ConfigType, CoreType, DomainError, Profile, SecurityParams, TrafficStats};
+use persistence::mapping::map_traffic;
 use persistence::rows::RawRow;
 use persistence::{ProtocolExtraBlob, Store, TransportExtraBlob};
 use rusqlite::types::ToSql;
@@ -775,6 +776,60 @@ impl crate::dns::DnsRepository for DnsStore {
             DnsStore::Memory(repo) => repo.count(),
             DnsStore::Sqlite(repo) => repo.count(),
         }
+    }
+}
+
+/// SQLite-backed `ServerStatItem` store for the T15a statistics pipeline.
+pub struct SqliteTrafficStore {
+    store: Store,
+}
+
+impl SqliteTrafficStore {
+    pub fn from_store(store: Store) -> Self {
+        Self { store }
+    }
+
+    pub fn store(&self) -> &Store {
+        &self.store
+    }
+}
+
+impl crate::monitor::TrafficStore for SqliteTrafficStore {
+    fn load(&self) -> Result<Vec<TrafficStats>, DomainError> {
+        let rows = self
+            .store
+            .read_rows("ServerStatItem")
+            .map_err(storage_error)?;
+        Ok(rows.iter().map(map_traffic).collect())
+    }
+
+    fn upsert(&mut self, stat: &TrafficStats) -> Result<(), DomainError> {
+        let mut row = RawRow::new("ServerStatItem");
+        row.set("IndexId", json!(&stat.index_id));
+        row.set("TotalUp", json!(stat.total_up));
+        row.set("TotalDown", json!(stat.total_down));
+        row.set("TodayUp", json!(stat.today_up));
+        row.set("TodayDown", json!(stat.today_down));
+        row.set("DateNow", json!(stat.date_now));
+        let conn = self.store.connection();
+        self.store.upsert_row(conn, &row).map_err(storage_error)
+    }
+
+    fn remove(&mut self, index_id: &str) -> Result<(), DomainError> {
+        self.store
+            .execute(
+                "DELETE FROM \"ServerStatItem\" WHERE \"IndexId\" = ?1",
+                &[&index_id],
+            )
+            .map_err(storage_error)?;
+        Ok(())
+    }
+
+    fn clear(&mut self) -> Result<(), DomainError> {
+        self.store
+            .execute("DELETE FROM \"ServerStatItem\"", &[])
+            .map_err(storage_error)?;
+        Ok(())
     }
 }
 

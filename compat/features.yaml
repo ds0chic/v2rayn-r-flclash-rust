@@ -1,4 +1,4 @@
-﻿schema_version: 1
+schema_version: 1
 source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
 upstream_version: 7.25.4
 config_types:
@@ -3082,15 +3082,16 @@ features:
   cancel_behavior: 切到 Unchanged 不修改系统
   acceptance: 四态切换与退出恢复行为符合基线
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/platform_service.rs; crates/bridge_api/src/api/platform.rs; apps/desktop/lib/features/settings/platform_controller.dart; apps/desktop/lib/app/shell/status_bar_view.dart
+  test_ids: [t13_platform_matrix_forced_clear_then_change_then_restore, t13_platform_matrix_pac_sets_url_and_clears_named_proxy, t13_platform_matrix_unchanged_is_a_total_noop, bridge_sysproxy_four_modes_apply_and_restore_through_fake, t13_statusbar_four_modes_apply]
   evidence:
   - v2rayN/ServiceLib/Enums/ESysProxyType.cs:3
   - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:8
   - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:26
   - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:53
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:183
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-SYSPROXY-002
   name: 系统代理绕过项与高级协议
   family: system-proxy
@@ -3114,13 +3115,14 @@ features:
   cancel_behavior: 无
   acceptance: 设置生效于系统代理字符串
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/platform_service.rs; apps/desktop/lib/features/settings/proxy_settings_view.dart
+  test_ids: [t13_settings_view_builds_server_with_advanced_template, t13_settings_view_builds_bypass_adding_local]
   evidence:
   - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:86
   - v2rayN/ServiceLib/Global.cs:133
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:83
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-SYSPROXY-003
   name: PAC 本地服务
   family: system-proxy
@@ -3145,13 +3147,14 @@ features:
   cancel_behavior: 停止 PAC 服务
   acceptance: 浏览器通过 PAC 正常代理
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/platform/src/pac.rs; crates/application/src/platform_service.rs; crates/bridge_api/src/api/platform.rs
+  test_ids: [t13_pac_start_stop_and_idempotent_restart, t13_pac_serves_rendered_script_over_loopback, bridge_pac_lifecycle_through_bridge, t13_pac_rejects_port_below_reserved_base]
   evidence:
   - v2rayN/ServiceLib/Manager/PacManager.cs:11
   - v2rayN/ServiceLib/Manager/PacManager.cs:32
   - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:110
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-SYSPROXY-004
   name: 退出时恢复系统代理
   family: system-proxy
@@ -3175,12 +3178,13 @@ features:
   cancel_behavior: 无
   acceptance: 退出后系统代理被清除
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/platform_service.rs; crates/bridge_api/src/api/platform.rs; apps/desktop/lib/app/shell/desktop_integration.dart
+  test_ids: [t13_restore_returns_to_original_when_still_owned, t13_externally_modified_field_is_kept_and_reported, t13_exit_recovery_clears_owned_and_keeps_user_changes, t13_exit_recovery_is_idempotent_across_two_runs, bridge_restore_reports_conflicts]
   evidence:
   - v2rayN/ServiceLib/Manager/AppManager.cs:128
   - v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:12
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-TUN-001
   name: TUN 模式开关
   family: tun
@@ -3369,8 +3373,8 @@ features:
   cancel_behavior: 无
   acceptance: 日志随内核输出刷新
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/monitor.rs + services/net_host/src/session.rs + apps/desktop/lib/features/monitor/logs_view.dart
+  test_ids: [t15a_logs_streams_and_filters, log_ring_drops_oldest_and_counts_overflow, log_batch_envelope_ingests_entries]
   evidence:
   - v2rayN/ServiceLib/Common/Logging.cs
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:19
@@ -3379,7 +3383,8 @@ features:
   - v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:12
   - v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:20
   - v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:109
-  status: identified
+  - docs/evidence/T15a.md
+  status: implemented
   notes: 审计 A06/FND-004：日志过滤（MsgFilter/DoMsgFilter）与自动刷新（AutoRefresh）已实现；清空 ClearMsg 在冻结版本被注释（MsgViewModel.cs:109-112）。
 - id: F-MONITOR-002
   name: 流量统计
@@ -3406,13 +3411,14 @@ features:
   cancel_behavior: Close 停止采集
   acceptance: 流量累计到对应节点
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/monitor.rs + crates/bridge_api/src/api/monitor.rs
+  test_ids: [throttle_does_not_lose_cumulative_bytes, classifies_proxy_and_direct_buckets, t15a_test_injection_updates_snapshot]
   evidence:
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:18
   - v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs:10
   - v2rayN/ServiceLib/Services/Statistics/StatisticsSingboxService.cs:10
-  status: identified
+  - docs/evidence/T15a.md
+  status: implemented
 - id: F-MONITOR-003
   name: 历史统计与清零
   family: monitor
@@ -3436,13 +3442,14 @@ features:
   cancel_behavior: 无
   acceptance: 清空后统计为 0
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/monitor.rs + crates/application/src/store_repo.rs
+  test_ids: [today_rollover_resets_today_but_keeps_total, clear_all_empties_memory_and_store]
   evidence:
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:44
   - v2rayN/ServiceLib/Manager/StatisticsManager.cs:90
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:224
-  status: identified
+  - docs/evidence/T15a.md
+  status: implemented
 - id: F-MONITOR-004
   name: Clash 代理组视图
   family: monitor
@@ -3468,14 +3475,15 @@ features:
   cancel_behavior: 无
   acceptance: 代理组与节点状态正确显示并可切换
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/monitor.rs + crates/bridge_api/src/api/monitor.rs + apps/desktop/lib/features/monitor/proxies_view.dart
+  test_ids: [clash_api_service_reads_selects_and_closes, t15a_proxies_renders_groups_and_selects_member]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs:77
   - v2rayN/ServiceLib/Manager/ClashApiManager.cs:11
   - v2rayN/ServiceLib/Manager/ClashApiManager.cs:61
   - v2rayN/ServiceLib/Manager/ClashApiManager.cs:95
-  status: identified
+  - docs/evidence/T15a.md
+  status: implemented
 - id: F-MONITOR-005
   name: Clash 连接视图与断开
   family: monitor
@@ -3502,13 +3510,14 @@ features:
   cancel_behavior: 无
   acceptance: 连接列表与断开生效
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/monitor.rs + crates/bridge_api/src/api/monitor.rs + apps/desktop/lib/features/monitor/connections_view.dart
+  test_ids: [t15a_connections_renders_and_closes, clash_api_service_reads_selects_and_closes]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs:41
   - v2rayN/ServiceLib/Manager/ClashApiManager.cs:166
   - v2rayN/ServiceLib/Manager/ClashApiManager.cs:184
-  status: identified
+  - docs/evidence/T15a.md
+  status: implemented
 - id: F-MONITOR-006
   name: 实时速度显示
   family: monitor
@@ -3534,13 +3543,14 @@ features:
   cancel_behavior: 关闭即停止
   acceptance: 实时速度刷新且隐藏到托盘停止刷新
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/monitor.rs + apps/desktop/lib/app/shell/status_bar_view.dart
+  test_ids: [t15a_statusbar_shows_real_rates, configure_round_trips_and_flags]
   evidence:
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:509
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:389
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:304
-  status: identified
+  - docs/evidence/T15a.md
+  status: implemented
 - id: F-DESKTOP-001
   name: 托盘菜单与显示隐藏
   family: desktop
@@ -3565,8 +3575,8 @@ features:
   cancel_behavior: 无
   acceptance: 托盘可切换窗口与代理
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/app/shell/tray_menu_model.dart; apps/desktop/lib/app/shell/desktop_integration.dart
+  test_ids: [t13_tray_menu_model_order_and_active_mode, t13_tray_menu_pac_windows_only, t13_tray_node_submenu_limit]
   evidence:
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:36
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:59
@@ -3576,7 +3586,8 @@ features:
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:230
   - v2rayN/v2rayN.Desktop/App.axaml:43
   - v2rayN/v2rayN.Desktop/App.axaml:51
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-DESKTOP-002
   name: 全局热键
   family: desktop
@@ -3600,13 +3611,14 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 热键触发对应动作
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/settings/hotkeys.dart; apps/desktop/lib/app/shell/desktop_integration.dart; crates/bridge_api/src/api/platform.rs
+  test_ids: [t13_hotkey_binding_parse_and_label, t13_hotkey_register_reports_conflicts, t13_hotkey_save_rejects_when_persist_fails, bridge_hotkey_helpers_filter_and_map]
   evidence:
   - v2rayN/ServiceLib/ViewModels/GlobalHotkeySettingViewModel.cs:9
   - v2rayN/ServiceLib/Enums/EGlobalHotkey.cs:3
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:212
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-DESKTOP-003
   name: 开机自启
   family: desktop
@@ -3629,13 +3641,14 @@ features:
   cancel_behavior: 关闭即清除
   acceptance: 开启后系统登录自动启动
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/platform/src/autostart/mod.rs; crates/application/src/platform_service.rs; crates/bridge_api/src/api/platform.rs; apps/desktop/lib/features/settings/option_setting_window.dart
+  test_ids: [t13_autostart_toggle_writes_and_removes, t13_autostart_command_round_trips_through_service, bridge_autostart_round_trip_through_fake]
   evidence:
   - v2rayN/ServiceLib/Handler/AutoStartupHandler.cs:9
   - v2rayN/ServiceLib/Handler/AutoStartupHandler.cs:88
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:43
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-DESKTOP-004
   name: 关闭行为与启动隐藏
   family: desktop
@@ -3658,13 +3671,14 @@ features:
   cancel_behavior: 无
   acceptance: 行为与设置一致
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/features/settings/option_setting_window.dart
+  test_ids: [t13_close_behavior_parses_ui_flags]
   evidence:
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:48
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:49
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:356
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-DESKTOP-005
   name: Windows UWP 回环设置
   family: desktop
@@ -3686,13 +3700,14 @@ features:
   cancel_behavior: 无
   acceptance: 启动 UWP 回环工具
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/bridge_api/src/api/platform.rs; apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [bridge_resolve_uwp_tool_reports_missing]
   evidence:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:251
   - v2rayN/v2rayN/Views/MainWindow.xaml:211
   - v2rayN/ServiceLib/Resx/ResUI.Designer.cs:4713
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-DESKTOP-006
   name: 管理员重启
   family: desktop
@@ -3715,13 +3730,14 @@ features:
   cancel_behavior: 无
   acceptance: 重启后进程具备管理员权限
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
   test_ids: []
   evidence:
   - v2rayN/ServiceLib/Manager/AppManager.cs:155
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:220
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:58
-  status: identified
+  - docs/evidence/T13.md
+  status: implemented
 - id: F-DESKTOP-007
   name: 单实例运行
   family: desktop

@@ -4,6 +4,7 @@
 //! The epoch is bumped whenever a fresh runtime generation starts.
 
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 use domain::event::{EventEnvelope, EventEpoch, EventKind, EventSeq};
 use serde_json::Value;
@@ -11,10 +12,13 @@ use tokio::sync::broadcast;
 
 const CHANNEL_CAPACITY: usize = 1024;
 
+/// Cloneable so background log readers can emit onto the same bus. The
+/// counters are shared through `Arc<AtomicU64>`; cloning shares epoch/seq.
+#[derive(Clone)]
 pub struct EventBus {
     tx: broadcast::Sender<EventEnvelope>,
-    epoch: AtomicU64,
-    seq: AtomicU64,
+    epoch: Arc<AtomicU64>,
+    seq: Arc<AtomicU64>,
 }
 
 impl EventBus {
@@ -22,8 +26,8 @@ impl EventBus {
         let (tx, _rx) = broadcast::channel(CHANNEL_CAPACITY);
         Self {
             tx,
-            epoch: AtomicU64::new(1),
-            seq: AtomicU64::new(0),
+            epoch: Arc::new(AtomicU64::new(1)),
+            seq: Arc::new(AtomicU64::new(0)),
         }
     }
 

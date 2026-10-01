@@ -92,9 +92,11 @@ name = "application"
 version = "0.1.0"
 dependencies = [
  "config_codegen",
+ "core_adapters",
  "domain",
  "ipc_contract",
  "persistence",
+ "platform",
  "regex",
  "runtime",
  "rusqlite",
@@ -105,6 +107,7 @@ dependencies = [
  "serde_yaml",
  "subscriptions",
  "tempfile",
+ "tiny_http",
  "tokio",
  "windows",
 ]
@@ -190,8 +193,10 @@ version = "0.1.0"
 dependencies = [
  "application",
  "config_codegen",
+ "core_adapters",
  "domain",
  "flutter_rust_bridge",
+ "platform",
  "runtime",
  "serde_json",
  "subscriptions",

@@ -14,8 +14,11 @@ application.workspace = true
 config_codegen.workspace = true
 runtime.workspace = true
 subscriptions.workspace = true
+platform.workspace = true
+core_adapters.workspace = true
 flutter_rust_bridge.workspace = true
 serde_json.workspace = true
+tokio = { version = "1.53", features = ["rt", "time", "sync"] }
 
 [dev-dependencies]
 tokio = { version = "1.53", features = ["rt", "macros"] }

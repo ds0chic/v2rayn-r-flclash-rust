@@ -323,6 +323,31 @@ impl ClashApiClient {
             .await
     }
 
+    /// `PUT /proxies/{group}` selecting `name` (upstream
+    /// `ClashApiManager.SetActiveProxy`). Additive T15a method on the otherwise
+    /// read-only client; existing reads/tests are unchanged.
+    pub async fn select_proxy(&self, group: &str, name: &str) -> Result<(), ClashError> {
+        let body = serde_json::json!({ "name": name }).to_string();
+        let response = self
+            .request(
+                reqwest::Method::PUT,
+                &format!("/proxies/{}", urlencoding::encode(group)),
+            )
+            .header(reqwest::header::CONTENT_TYPE, "application/json")
+            .body(body)
+            .send()
+            .await
+            .map_err(|err| ClashError::Http(classify_reqwest(&err)))?;
+        let status = response.status();
+        if status == reqwest::StatusCode::UNAUTHORIZED {
+            return Err(ClashError::Http(HttpError::Unauthorized));
+        }
+        if !status.is_success() {
+            return Err(ClashError::Http(HttpError::Status(status.as_u16())));
+        }
+        Ok(())
+    }
+
     /// `GET /proxies/{name}/delay?timeout=&url=` returning `-1` on any failure.
     pub async fn get_proxy_delay(&self, name: &str, timeout_ms: u32, test_url: &str) -> i32 {
         self.try_get_proxy_delay(name, timeout_ms, test_url)

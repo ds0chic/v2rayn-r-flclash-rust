@@ -130,3 +130,48 @@ impl Default for RevisionPair {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::codes;
+
+    #[test]
+    fn empty_and_in_sync_states() {
+        let empty = RevisionPair::default();
+        assert_eq!(empty.state(), RevisionState::Empty);
+
+        let in_sync = RevisionPair::new(DesiredRevision::new(3), AppliedRevision::new(3));
+        assert_eq!(in_sync.state(), RevisionState::InSync);
+    }
+
+    #[test]
+    fn pending_when_desired_is_ahead_of_applied() {
+        let pending = RevisionPair::new(DesiredRevision::new(5), AppliedRevision::new(2));
+        assert_eq!(pending.state(), RevisionState::Pending);
+    }
+
+    #[test]
+    fn ahead_when_applied_is_ahead_of_desired() {
+        let ahead = RevisionPair::new(DesiredRevision::new(2), AppliedRevision::new(9));
+        assert_eq!(ahead.state(), RevisionState::Ahead);
+    }
+
+    #[test]
+    fn check_expected_accepts_matching_and_rejects_stale() {
+        let pair = RevisionPair::new(DesiredRevision::new(4), AppliedRevision::new(4));
+        assert!(pair.check_expected(DesiredRevision::new(4)).is_ok());
+
+        let error = pair
+            .check_expected(DesiredRevision::new(3))
+            .expect_err("stale expected revision must be rejected");
+        assert_eq!(error.code, codes::REVISION_STALE);
+        assert_eq!(error.message_key, "error.revision_stale");
+    }
+
+    #[test]
+    fn next_advances_desired_by_one() {
+        assert_eq!(DesiredRevision::new(7).next(), DesiredRevision::new(8));
+        assert_eq!(DesiredRevision::ZERO.next(), DesiredRevision::new(1));
+    }
+}

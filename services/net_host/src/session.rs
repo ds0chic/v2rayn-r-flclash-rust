@@ -120,6 +120,14 @@ fn next_operation_id() -> String {
     format!("op-{}-{}", journal::now_ms(), seq)
 }
 
+/// Structured error for a core that could not be bound into the ownership job.
+/// Non-retryable: the caller must not keep an unowned core alive.
+fn job_assign_failed(operation_id: &str, detail: impl Into<String>) -> DomainError {
+    DomainError::new(domain::codes::JOB_ASSIGN_FAILED, "error.job_assign_failed")
+        .with_operation(operation_id)
+        .with_detail(detail)
+}
+
 impl HostState {
     pub fn new(config: HostConfig) -> Self {
         let recovery = journal::recover_stale(&config.run_root);
@@ -230,6 +238,37 @@ impl HostState {
         );
     }
 
+    /// Abort a session whose freshly spawned core could not be bound into the
+    /// ownership job. Without the job the core could outlive net-host, so it is
+    /// killed now and the failure surfaced as a structured, fatal error.
+    async fn abort_job_assign(
+        &self,
+        operation_id: &str,
+        child: &mut tokio::process::Child,
+        journal_entry: &JournalEntry,
+        cause: std::io::Error,
+    ) -> Result<String, DomainError> {
+        let _ = child.start_kill();
+        let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
+        self.finalize_journal(journal_entry).await;
+        journal::remove_staged_artifacts(&self.config.run_root, &journal_entry.session_id);
+        let error = job_assign_failed(operation_id, cause.to_string());
+        self.fail_operation(operation_id, &error).await;
+        self.bus.emit_named(
+            "error_raised",
+            json!({
+                "code": error.code,
+                "message_key": error.message_key,
+                "detail": error.detail,
+            }),
+        );
+        eprintln!(
+            "[net_host] job assign failed, session aborted: {}",
+            error.code
+        );
+        Err(error)
+    }
+
     /// Apply an immutable plan: validate, stage, spawn, probe, commit.
     pub async fn apply_plan(&self, plan: RuntimePlan) -> Result<String, DomainError> {
         let operation_id = next_operation_id();
@@ -319,12 +358,20 @@ impl HostState {
             self.fail_operation(&operation_id, &error).await;
             return Err(error);
         }
+        // The staged config carries inline credentials: restrict the dir (and
+        // inheritable files) to the current user before writing the body.
+        if let Err(e) = crate::dacl::restrict_to_current_user(&dir, true) {
+            eprintln!("[net_host] staged dir ACL not applied: {e}");
+        }
         let config_path = dir.join("config.json");
         if let Err(e) = std::fs::write(&config_path, body.as_bytes()) {
             let error = DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
                 .with_detail(format!("write config failed: {e}"));
             self.fail_operation(&operation_id, &error).await;
             return Err(error);
+        }
+        if let Err(e) = crate::dacl::restrict_to_current_user(&config_path, false) {
+            eprintln!("[net_host] staged config ACL not applied: {e}");
         }
         let log_path = dir.join("core.log");
         let journal_entry = JournalEntry {
@@ -429,9 +476,18 @@ impl HostState {
         let created_at_ms = process_creation_time_ms(pid).unwrap_or(0);
         let identity = ProcessIdentity::new(pid, created_at_ms);
         #[cfg(windows)]
-        if let Some(handle) = child.raw_handle() {
-            if let Err(e) = job.assign(handle) {
-                eprintln!("[net_host] job assign failed: {e}");
+        {
+            // Binding the fresh core into the ownership job is mandatory: an
+            // unbound core would survive a net-host crash and leak a port. A
+            // failure therefore aborts the session and kills the child.
+            let assignment = match child.raw_handle() {
+                Some(handle) => job.assign(handle),
+                None => Err(std::io::Error::other("core process handle unavailable")),
+            };
+            if let Err(e) = assignment {
+                return self
+                    .abort_job_assign(&operation_id, &mut child, &journal_entry, e)
+                    .await;
             }
         }
 
@@ -582,6 +638,7 @@ impl HostState {
                 updated_at_ms: journal::now_ms(),
             },
         );
+        journal::remove_staged_artifacts(&self.config.run_root, session_id);
         {
             let mut inner = self.inner.lock().await;
             inner.detail.state = if killed {
@@ -645,6 +702,7 @@ impl HostState {
             updated_at_ms: journal::now_ms(),
         };
         let _ = journal::write_entry(&self.config.run_root, &final_stage);
+        journal::remove_staged_artifacts(&self.config.run_root, &session_id);
         inner.detail.state = RuntimeState::Stopped;
         inner.detail.pid = None;
         inner.detail.created_at_ms = None;
@@ -817,5 +875,15 @@ mod tests {
         let long_ago = Instant::now() - Duration::from_millis(7000);
         assert!(base(true, 0, Some(long_ago)));
         assert!(!base(true, 0, None));
+    }
+
+    #[test]
+    fn job_assign_failure_is_structured_and_non_retryable() {
+        let error = job_assign_failed("op-1", "Access is denied.");
+        assert_eq!(error.code, domain::codes::JOB_ASSIGN_FAILED);
+        assert_eq!(error.message_key, "error.job_assign_failed");
+        assert_eq!(error.operation_id.as_deref(), Some("op-1"));
+        assert_eq!(error.detail.as_deref(), Some("Access is denied."));
+        assert!(!error.retryable);
     }
 }

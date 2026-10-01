@@ -1,0 +1,10 @@
+# M-017 toolchain evidence: FRB codegen third leg
+# command: C:\Users\Colby\.cargo\bin\flutter_rust_bridge_codegen.exe --version
+# date: 2026-10-01  (HEAD 2fbe9f1 + T01-T08 remediation)
+
+flutter_rust_bridge_codegen 2.13.0
+
+# Cross-check (three legs):
+#   Dart  apps/desktop/pubspec.yaml             flutter_rust_bridge 2.13.0
+#   Rust  Cargo.lock                            flutter_rust_bridge 2.13.0
+#   Codegen binary                              flutter_rust_bridge_codegen 2.13.0

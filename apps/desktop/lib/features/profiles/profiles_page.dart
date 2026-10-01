@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
+import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_table.dart';
 
@@ -84,9 +86,12 @@ class _Toolbar extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            _toolbarButton('添加', () => controller.emitAction('add')),
-            _toolbarButton('编辑', () => controller.emitAction('edit')),
-            _toolbarButton('删除', () => controller.emitAction('delete')),
+            _AddButton(),
+            _toolbarButton('编辑', () => editSelectedProfile(context, ref)),
+            _toolbarButton('删除', () => deleteSelectedProfiles(context, ref)),
+            _toolbarButton('复制', () => copySelectedProfiles(ref)),
+            _toolbarButton('备注', () => renameSelectedProfile(context, ref)),
+            _toolbarButton('启用/停用', () => toggleActiveSelected(ref)),
             _toolbarButton('Tcping', controller.pingSelected),
             _toolbarButton('测试延迟', () => controller.runBlockingProbe(400)),
             _toolbarButton(
@@ -121,6 +126,51 @@ class _Toolbar extends ConsumerWidget {
         key: ValueKey('toolbar-$label'),
         onPressed: onPressed,
         child: Text(label, style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+}
+
+/// "添加" toolbar button with the 11 basic-protocol submenu.
+class _AddButton extends ConsumerWidget {
+  static const List<ConfigType> _types = <ConfigType>[
+    ConfigType.vmess,
+    ConfigType.vless,
+    ConfigType.shadowsocks,
+    ConfigType.socks,
+    ConfigType.http,
+    ConfigType.trojan,
+    ConfigType.hysteria2,
+    ConfigType.tuic,
+    ConfigType.wireGuard,
+    ConfigType.anytls,
+    ConfigType.naive,
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return PopupMenuButton<ConfigType>(
+      key: const ValueKey('toolbar-添加'),
+      tooltip: '添加节点',
+      onSelected: (type) => startAddProfile(context, ref, type),
+      itemBuilder: (context) => <PopupMenuEntry<ConfigType>>[
+        for (final type in _types)
+          PopupMenuItem<ConfigType>(
+            key: ValueKey('add-${type.name}'),
+            value: type,
+            child: Text(type.name, style: const TextStyle(fontSize: 12)),
+          ),
+      ],
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(Icons.add, size: 16),
+            SizedBox(width: 4),
+            Text('添加', style: TextStyle(fontSize: 12)),
+          ],
+        ),
       ),
     );
   }

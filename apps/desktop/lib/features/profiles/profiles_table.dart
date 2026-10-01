@@ -5,6 +5,7 @@ import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/context_menu.dart';
+import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
@@ -67,10 +68,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
       child: Focus(
         focusNode: _focusNode,
         autofocus: true,
-        onKeyEvent: (node, event) =>
-            ref.read(profilesControllerProvider.notifier).handleKeyEvent(event)
-            ? KeyEventResult.handled
-            : KeyEventResult.ignored,
+        onKeyEvent: _onKey,
         child: Listener(
           onPointerDown: (_) => _focusNode.requestFocus(),
           child: TableView.builder(
@@ -210,6 +208,57 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
 
   /// Stable sort that keeps the row currently at the top scroll position in
   /// place, so the viewport anchor survives the reorder (plan §08).
+  /// Keyboard scope: editor-level actions open dialogs; selection/navigation
+  /// fall through to the controller. Text fields keep their own scope (HKR-002).
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      final keyboard = HardwareKeyboard.instance;
+      final action = actionForKey(
+        key: event.logicalKey,
+        ctrl: keyboard.isControlPressed,
+        shift: keyboard.isShiftPressed,
+        alt: keyboard.isAltPressed,
+      );
+      final controller = ref.read(profilesControllerProvider.notifier);
+      switch (action) {
+        case ProfileAction.edit:
+          controller.logAction(action!, 'keyboard');
+          editSelectedProfile(context, ref);
+          return KeyEventResult.handled;
+        case ProfileAction.delete:
+          controller.logAction(action!, 'keyboard');
+          deleteSelectedProfiles(context, ref);
+          return KeyEventResult.handled;
+        case ProfileAction.copy:
+          controller.logAction(action!, 'keyboard');
+          copySelectedProfiles(ref);
+          return KeyEventResult.handled;
+        case ProfileAction.activate:
+          controller.logAction(action!, 'keyboard');
+          toggleActiveSelected(ref);
+          return KeyEventResult.handled;
+      }
+    }
+    return ref.read(profilesControllerProvider.notifier).handleKeyEvent(event)
+        ? KeyEventResult.handled
+        : KeyEventResult.ignored;
+  }
+
+  void _onDoubleTap(ProfileSummary row) {
+    final controller = ref.read(profilesControllerProvider.notifier);
+    final state = ref.read(profilesControllerProvider);
+    controller.selectRow(row.id);
+    final action = state.doubleClick2Activate
+        ? ProfileAction.activate
+        : ProfileAction.edit;
+    controller.logAction(action, row.id);
+    if (state.doubleClick2Activate) {
+      toggleActiveSelected(ref);
+    } else {
+      editSelectedProfile(context, ref);
+    }
+  }
+
   void _sortWithAnchor(String key, ProfilesState state) {
     final rows = state.visible;
     double offset = 0;
@@ -252,7 +301,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         ctrl: HardwareKeyboard.instance.isControlPressed,
         shift: HardwareKeyboard.instance.isShiftPressed,
       ),
-      onDoubleTap: () => controller.handleDoubleClick(row.id),
+      onDoubleTap: () => _onDoubleTap(row),
       onSecondaryTapDown: (details) =>
           _showContextMenu(details.globalPosition, row),
       child: Container(
@@ -390,6 +439,16 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         profiles.emitAction(ProfileAction.moveDown);
       case ContextActionKind.moveBottom:
         profiles.emitAction(ProfileAction.moveBottom);
+      case ContextActionKind.edit:
+        editSelectedProfile(context, ref);
+      case ContextActionKind.copy:
+        copySelectedProfiles(ref);
+      case ContextActionKind.delete:
+        deleteSelectedProfiles(context, ref);
+      case ContextActionKind.activate:
+        toggleActiveSelected(ref);
+      case ContextActionKind.remarks:
+        renameSelectedProfile(context, ref);
       case ContextActionKind.notImplemented:
         shell.notImplemented(entry.label, entry.actionId);
     }

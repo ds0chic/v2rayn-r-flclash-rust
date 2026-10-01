@@ -15,6 +15,7 @@ pub mod net_host_client;
 pub mod repository;
 pub mod runtime_client;
 pub mod snapshot;
+pub mod store_repo;
 pub mod synthetic;
 
 // T01 compatibility surface.
@@ -26,10 +27,11 @@ pub use engine::{capability_table, empty_snapshot, AppEngine};
 pub use jobs::{JobManager, JobView};
 pub use net_host_client::NetHostClient;
 pub use repository::{
-    InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage, ProfileRepository,
-    ProfileSort, RevisionStore,
+    new_index_id, InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage,
+    ProfileRepository, ProfileSort, RevisionStore,
 };
 pub use runtime_client::{
     ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
 };
 pub use snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
+pub use store_repo::{ProfileStore, SqliteProfileRepository};

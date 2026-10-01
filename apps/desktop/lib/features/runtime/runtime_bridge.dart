@@ -35,6 +35,9 @@ class RuntimeView {
     this.error,
     this.desiredRevision,
     this.appliedRevision,
+    this.epoch,
+    this.lastSeq,
+    this.sequenceWarning,
   });
 
   final String state;
@@ -47,6 +50,21 @@ class RuntimeView {
   final RuntimeErrorView? error;
   final BigInt? desiredRevision;
   final BigInt? appliedRevision;
+
+  /// Last event epoch observed by the controller (event stream only; the
+  /// snapshot does not carry it). Used to detect a reconnecting/restarted host.
+  final BigInt? epoch;
+
+  /// Last event sequence observed on [epoch].
+  final BigInt? lastSeq;
+
+  /// Set when an event arrived out of order or with a gap; the UI logs it and
+  /// never silently replays. A full reconnect/replay is a T09+ item.
+  final String? sequenceWarning;
+
+  /// `desired/applied` revision pair, rendered as `rev: d/a`.
+  String get revisionLabel =>
+      'rev: ${desiredRevision ?? '-'}/${appliedRevision ?? '-'}';
 
   bool get isRunning => state == 'Running';
   bool get isBusy =>
@@ -66,7 +84,13 @@ class RuntimeView {
     return '未运行';
   }
 
-  RuntimeView copyWith({RuntimeErrorView? error, bool clearError = false}) {
+  RuntimeView copyWith({
+    RuntimeErrorView? error,
+    bool clearError = false,
+    BigInt? epoch,
+    BigInt? lastSeq,
+    String? sequenceWarning,
+  }) {
     return RuntimeView(
       state: state,
       hostAlive: hostAlive,
@@ -78,6 +102,9 @@ class RuntimeView {
       error: clearError ? null : (error ?? this.error),
       desiredRevision: desiredRevision,
       appliedRevision: appliedRevision,
+      epoch: epoch ?? this.epoch,
+      lastSeq: lastSeq ?? this.lastSeq,
+      sequenceWarning: sequenceWarning ?? this.sequenceWarning,
     );
   }
 }
@@ -91,12 +118,21 @@ class RuntimeActionResult {
   final RuntimeErrorView? error;
 }
 
-/// A raw runtime event (kind + JSON payload).
+/// A raw runtime event (kind + JSON payload + stream position).
 class RuntimeEvent {
-  const RuntimeEvent({required this.kind, required this.payloadJson});
+  const RuntimeEvent({
+    required this.kind,
+    required this.payloadJson,
+    this.epoch,
+    this.seq,
+  });
 
   final String kind;
   final String payloadJson;
+
+  /// Stream position; `null` for synthetic test events that bypass the host.
+  final BigInt? epoch;
+  final BigInt? seq;
 }
 
 /// Thin, testable seam over the generated bridge so widget tests can avoid
@@ -143,7 +179,12 @@ class FrbRuntimeBridge implements RuntimeBridge {
 
   @override
   Stream<RuntimeEvent> events() => rust.subscribeEvents().map(
-    (e) => RuntimeEvent(kind: e.kind, payloadJson: e.payloadJson),
+    (e) => RuntimeEvent(
+      kind: e.kind,
+      payloadJson: e.payloadJson,
+      epoch: e.epoch,
+      seq: e.seq,
+    ),
   );
 
   /// Canonical state label matching the Rust `RuntimeState` variant names.
@@ -191,45 +232,6 @@ class FrbRuntimeBridge implements RuntimeBridge {
       detail: e.detail,
     );
   }
-}
-
-/// Deterministic, in-process bridge for widget tests. It never reports a
-/// running process unless a test explicitly drives it.
-class SyntheticRuntimeBridge implements RuntimeBridge {
-  SyntheticRuntimeBridge({RuntimeView? initial})
-    : _view = initial ?? const RuntimeView();
-
-  RuntimeView _view;
-  final StreamController<RuntimeEvent> _controller =
-      StreamController<RuntimeEvent>.broadcast();
-
-  @override
-  Future<RuntimeView> snapshot() async => _view;
-
-  @override
-  Future<RuntimeActionResult> applySmoke({
-    required BigInt expectedRevision,
-  }) async {
-    _view = RuntimeView(
-      state: 'Running',
-      hostAlive: true,
-      pid: 4242,
-      ports: const <int>[11808],
-      sessionId: 'synthetic',
-      desiredRevision: expectedRevision,
-      appliedRevision: expectedRevision,
-    );
-    return const RuntimeActionResult(ok: true, operationId: 'op-synthetic');
-  }
-
-  @override
-  Future<RuntimeActionResult> stop() async {
-    _view = const RuntimeView();
-    return const RuntimeActionResult(ok: true);
-  }
-
-  @override
-  Stream<RuntimeEvent> events() => _controller.stream;
 }
 
 final runtimeBridgeProvider = Provider<RuntimeBridge>(

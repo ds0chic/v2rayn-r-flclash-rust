@@ -1,0 +1,18 @@
+# M-017 toolchain evidence: FRB generated-artifact SHA256 manifest
+# date: 2026-10-01  (HEAD 2fbe9f1 + T01-T08 remediation)
+# algorithm: SHA256 (PowerShell Get-FileHash -Algorithm SHA256, lower-cased)
+# codegen: flutter_rust_bridge_codegen 2.13.0
+# config:  apps/desktop/flutter_rust_bridge.yaml (rust_input crate::api, dart_output lib/bridge)
+#
+# column 1 = sha256, column 2 = repo-relative path, [g] = FRB-generated, [h] = hand-written
+#
+5711e7f884e86af3329e87aad4901aea0fb00d78c0817e07ea813a4081c14008  crates/bridge_api/src/frb_generated.rs            [g]
+a275eff5e3230bfdbc29e5f813b61ebfb8176ce3782524ab3ef5a8bbb8c6e42f  crates/bridge_api/src/lib.rs                      [g] (rust_input root, codegen-augmented)
+eb6af2fbd3c1fbbb26362be75de521d5321573f82af6c902d63a7d2a28f86047  apps/desktop/lib/bridge/frb_generated.dart        [g]
+771a32fd49d902fecb5505b9272f77964d195f959d1b8ad50bdbc410d1716650  apps/desktop/lib/bridge/frb_generated.io.dart     [g]
+91472fca4db824ec29b39e747cb78147a49e057aa07c20c977db81d22258942c  apps/desktop/lib/bridge/frb_generated.web.dart    [g]
+592db4c792970b5dddcc536a872edce4a31fb51e67ebb2cf3d1b65d72dacc453  apps/desktop/lib/bridge/api/contract.dart         [g]
+2073cd0a9875c903cb8e76bea53516b6bdbea5043938921c18ff074a8126ac42  apps/desktop/lib/bridge/api/engine.dart           [g]
+d5e884f724febb1efe6ca0311d616aa4b41b731101ddd91d85f5cb2c2957b2af  apps/desktop/lib/bridge/api/mirrors.dart          [g]
+2c8901c3a6b1f26bb46665e32c38389ba9fc14fb78a11615e5667f3dc2e0c92b  apps/desktop/lib/bridge/api/profiles.dart         [g]
+a3de58c36251e4d460aca26b26d9efba6fbd7b366414b106587d321c49093fe0  apps/desktop/lib/bridge/bridge_port.dart          [h]

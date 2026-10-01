@@ -62,7 +62,6 @@ class UiShellState {
     this.systemProxyIndex = 2,
     this.routingLabel,
     this.tunEnabled = false,
-    this.runningNode,
     this.proxySpeed = const TrafficSpeed(),
     this.directSpeed = const TrafficSpeed(),
     this.inbound,
@@ -83,7 +82,6 @@ class UiShellState {
   final int systemProxyIndex;
   final String? routingLabel;
   final bool tunEnabled;
-  final String? runningNode;
   final TrafficSpeed proxySpeed;
   final TrafficSpeed directSpeed;
   final String? inbound;
@@ -102,7 +100,6 @@ class UiShellState {
     int? systemProxyIndex,
     String? routingLabel,
     bool? tunEnabled,
-    String? runningNode,
     TrafficSpeed? proxySpeed,
     TrafficSpeed? directSpeed,
     String? inbound,
@@ -119,7 +116,6 @@ class UiShellState {
       systemProxyIndex: systemProxyIndex ?? this.systemProxyIndex,
       routingLabel: routingLabel ?? this.routingLabel,
       tunEnabled: tunEnabled ?? this.tunEnabled,
-      runningNode: runningNode ?? this.runningNode,
       proxySpeed: proxySpeed ?? this.proxySpeed,
       directSpeed: directSpeed ?? this.directSpeed,
       inbound: inbound ?? this.inbound,

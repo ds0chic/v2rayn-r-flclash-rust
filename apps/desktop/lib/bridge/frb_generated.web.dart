@@ -58,6 +58,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ErrorDto dco_decode_box_autoadd_error_dto(dynamic raw);
 
   @protected
+  int dco_decode_box_autoadd_i_32(dynamic raw);
+
+  @protected
   PlatformInt64 dco_decode_box_autoadd_i_64(dynamic raw);
 
   @protected
@@ -91,7 +94,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConfigType dco_decode_config_type(dynamic raw);
 
   @protected
+  CopyProfilesResult dco_decode_copy_profiles_result(dynamic raw);
+
+  @protected
   CoreType dco_decode_core_type(dynamic raw);
+
+  @protected
+  DeleteProfilesResult dco_decode_delete_profiles_result(dynamic raw);
 
   @protected
   ErrorDto dco_decode_error_dto(dynamic raw);
@@ -110,6 +119,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   JobState dco_decode_job_state(dynamic raw);
+
+  @protected
+  List<String> dco_decode_list_String(dynamic raw);
 
   @protected
   List<CapabilityDto> dco_decode_list_capability_dto(dynamic raw);
@@ -143,6 +155,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto? dco_decode_opt_box_autoadd_error_dto(dynamic raw);
+
+  @protected
+  int? dco_decode_opt_box_autoadd_i_32(dynamic raw);
 
   @protected
   PlatformInt64? dco_decode_opt_box_autoadd_i_64(dynamic raw);
@@ -181,6 +196,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProgressEvent dco_decode_progress_event(dynamic raw);
 
   @protected
+  ProtocolExtraDto dco_decode_protocol_extra_dto(dynamic raw);
+
+  @protected
   RecoveryDto dco_decode_recovery_dto(dynamic raw);
 
   @protected
@@ -193,10 +211,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SaveProfileResult dco_decode_save_profile_result(dynamic raw);
 
   @protected
+  SecurityDto dco_decode_security_dto(dynamic raw);
+
+  @protected
+  SimpleResult dco_decode_simple_result(dynamic raw);
+
+  @protected
   SnapshotDto dco_decode_snapshot_dto(dynamic raw);
 
   @protected
   StopRuntimeResult dco_decode_stop_runtime_result(dynamic raw);
+
+  @protected
+  TransportExtraDto dco_decode_transport_extra_dto(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -250,6 +277,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ErrorDto sse_decode_box_autoadd_error_dto(SseDeserializer deserializer);
 
   @protected
+  int sse_decode_box_autoadd_i_32(SseDeserializer deserializer);
+
+  @protected
   PlatformInt64 sse_decode_box_autoadd_i_64(SseDeserializer deserializer);
 
   @protected
@@ -287,7 +317,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ConfigType sse_decode_config_type(SseDeserializer deserializer);
 
   @protected
+  CopyProfilesResult sse_decode_copy_profiles_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   CoreType sse_decode_core_type(SseDeserializer deserializer);
+
+  @protected
+  DeleteProfilesResult sse_decode_delete_profiles_result(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ErrorDto sse_decode_error_dto(SseDeserializer deserializer);
@@ -306,6 +346,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   JobState sse_decode_job_state(SseDeserializer deserializer);
+
+  @protected
+  List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
   List<CapabilityDto> sse_decode_list_capability_dto(
@@ -343,6 +386,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto? sse_decode_opt_box_autoadd_error_dto(SseDeserializer deserializer);
+
+  @protected
+  int? sse_decode_opt_box_autoadd_i_32(SseDeserializer deserializer);
 
   @protected
   PlatformInt64? sse_decode_opt_box_autoadd_i_64(SseDeserializer deserializer);
@@ -385,6 +431,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProgressEvent sse_decode_progress_event(SseDeserializer deserializer);
 
   @protected
+  ProtocolExtraDto sse_decode_protocol_extra_dto(SseDeserializer deserializer);
+
+  @protected
   RecoveryDto sse_decode_recovery_dto(SseDeserializer deserializer);
 
   @protected
@@ -399,10 +448,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SecurityDto sse_decode_security_dto(SseDeserializer deserializer);
+
+  @protected
+  SimpleResult sse_decode_simple_result(SseDeserializer deserializer);
+
+  @protected
   SnapshotDto sse_decode_snapshot_dto(SseDeserializer deserializer);
 
   @protected
   StopRuntimeResult sse_decode_stop_runtime_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  TransportExtraDto sse_decode_transport_extra_dto(
     SseDeserializer deserializer,
   );
 
@@ -470,6 +530,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_i_32(int self, SseSerializer serializer);
+
+  @protected
   void sse_encode_box_autoadd_i_64(
     PlatformInt64 self,
     SseSerializer serializer,
@@ -515,7 +578,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_config_type(ConfigType self, SseSerializer serializer);
 
   @protected
+  void sse_encode_copy_profiles_result(
+    CopyProfilesResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_core_type(CoreType self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_delete_profiles_result(
+    DeleteProfilesResult self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_error_dto(ErrorDto self, SseSerializer serializer);
@@ -537,6 +612,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_job_state(JobState self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_capability_dto(
@@ -596,6 +674,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_i_32(int? self, SseSerializer serializer);
+
+  @protected
   void sse_encode_opt_box_autoadd_i_64(
     PlatformInt64? self,
     SseSerializer serializer,
@@ -653,6 +734,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_progress_event(ProgressEvent self, SseSerializer serializer);
 
   @protected
+  void sse_encode_protocol_extra_dto(
+    ProtocolExtraDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_recovery_dto(RecoveryDto self, SseSerializer serializer);
 
   @protected
@@ -668,11 +755,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_security_dto(SecurityDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_simple_result(SimpleResult self, SseSerializer serializer);
+
+  @protected
   void sse_encode_snapshot_dto(SnapshotDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_stop_runtime_result(
     StopRuntimeResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_transport_extra_dto(
+    TransportExtraDto self,
     SseSerializer serializer,
   );
 

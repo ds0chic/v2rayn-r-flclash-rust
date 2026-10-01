@@ -5,12 +5,14 @@
 //! access: T03 replaces [`NullRuntimeClient`] with the net-host client and T04
 //! replaces [`InMemoryProfileRepository`] with SQLite.
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use domain::{
     AppliedRevision, CancelOutcome, ConfigType, CoreType, DesiredRevision, DomainError, JobId,
     Profile, RuntimePlan,
 };
+use serde_json::Value;
 
 use crate::jobs::{JobManager, JobView};
 use crate::net_host_client::NetHostClient;
@@ -22,12 +24,18 @@ use crate::runtime_client::{
     ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
 };
 use crate::snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
+use crate::store_repo::{storage_error, ProfileStore, SqliteProfileRepository};
+
+/// Application data directory override.
+pub const DATA_DIR_ENV: &str = "V2RAYN_R_DATA_DIR";
 
 /// Shared engine handle. Cloning shares all state.
 #[derive(Clone)]
 pub struct AppEngine {
-    repo: Arc<Mutex<InMemoryProfileRepository>>,
+    repo: Arc<Mutex<ProfileStore>>,
     revisions: Arc<Mutex<RevisionStore>>,
+    active: Arc<Mutex<Option<String>>>,
+    data_dir: Option<PathBuf>,
     jobs: JobManager,
     runtime: Arc<dyn RuntimeClient>,
 }
@@ -47,22 +55,112 @@ impl AppEngine {
 
     pub fn with_runtime(runtime: Arc<dyn RuntimeClient>) -> Self {
         Self {
-            repo: Arc::new(Mutex::new(InMemoryProfileRepository::new())),
+            repo: Arc::new(Mutex::new(ProfileStore::Memory(
+                InMemoryProfileRepository::new(),
+            ))),
             revisions: Arc::new(Mutex::new(RevisionStore::new())),
+            active: Arc::new(Mutex::new(None)),
+            data_dir: None,
             jobs: JobManager::new(),
             runtime,
         }
     }
 
+    /// Open a real SQLite-backed engine rooted at `data_dir` (creating
+    /// `guiNDB.db` / `guiNConfig.json` as needed). Runtime events go to the
+    /// real net-host client.
+    pub fn open(data_dir: impl AsRef<Path>) -> Result<Self, DomainError> {
+        Self::open_with_runtime(data_dir, Arc::new(NetHostClient::new()))
+    }
+
+    /// Open a real SQLite-backed engine with an injected runtime client.
+    pub fn open_with_runtime(
+        data_dir: impl AsRef<Path>,
+        runtime: Arc<dyn RuntimeClient>,
+    ) -> Result<Self, DomainError> {
+        let data_dir = data_dir.as_ref().to_path_buf();
+        std::fs::create_dir_all(&data_dir).map_err(storage_error)?;
+        let db_path = data_dir.join("guiNDB.db");
+        let sqlite = SqliteProfileRepository::open(&db_path)?;
+        let config = read_config(&data_dir)?;
+
+        let desired = config
+            .get("desired_revision")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let active = config
+            .get("active_index_id")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+
+        Ok(Self {
+            repo: Arc::new(Mutex::new(ProfileStore::Sqlite(sqlite))),
+            revisions: Arc::new(Mutex::new(RevisionStore::with_desired(
+                DesiredRevision::new(desired),
+            ))),
+            active: Arc::new(Mutex::new(active)),
+            data_dir: Some(data_dir),
+            jobs: JobManager::new(),
+            runtime,
+        })
+    }
+
+    /// Resolve the application data directory: `V2RAYN_R_DATA_DIR` when set,
+    /// otherwise `%LOCALAPPDATA%\v2rayn-r\data\` (or the platform equivalent).
+    pub fn default_data_dir() -> PathBuf {
+        if let Some(dir) = std::env::var_os(DATA_DIR_ENV) {
+            if !dir.is_empty() {
+                return PathBuf::from(dir);
+            }
+        }
+        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+            return PathBuf::from(local).join("v2rayn-r").join("data");
+        }
+        if let Some(home) = std::env::var_os("HOME") {
+            return PathBuf::from(home)
+                .join(".local")
+                .join("share")
+                .join("v2rayn-r")
+                .join("data");
+        }
+        PathBuf::from("v2rayn-r-data")
+    }
+
+    /// Open the default data directory with the real runtime client.
+    pub fn open_default() -> Result<Self, DomainError> {
+        Self::open(Self::default_data_dir())
+    }
+
+    /// True when this engine is backed by real SQLite storage.
+    pub fn is_persistent(&self) -> bool {
+        self.data_dir.is_some()
+    }
+
     /// Seed profiles (test/bootstrap helper).
     pub fn seed(&self, profiles: Vec<Profile>) {
         if let Ok(mut repo) = self.repo.lock() {
-            *repo = InMemoryProfileRepository::with_profiles(profiles);
+            *repo = ProfileStore::Memory(InMemoryProfileRepository::with_profiles(profiles));
         }
     }
 
     pub fn profile_count(&self) -> u64 {
         self.repo.lock().map(|r| r.count() as u64).unwrap_or(0)
+    }
+
+    /// Current desired revision without touching the runtime.
+    pub fn desired_revision(&self) -> u64 {
+        self.revisions
+            .lock()
+            .map(|r| r.desired().get())
+            .unwrap_or(0)
+    }
+
+    /// Fetch one profile by stable id.
+    pub fn profile_by_id(&self, index_id: &str) -> Result<Option<Profile>, DomainError> {
+        self.repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .get(index_id)
     }
 
     /// `query_profiles` use case.
@@ -100,7 +198,127 @@ impl AppEngine {
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         repo.upsert(draft.clone())?;
         let new_revision = revisions.bump();
+        self.persist_config(&revisions)?;
         Ok((draft, new_revision))
+    }
+
+    /// Delete a set of profiles. Returns how many rows were removed.
+    pub fn delete_profiles(&self, ids: &[String]) -> Result<u64, DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut removed = 0u64;
+        for id in ids {
+            if repo.remove(id)? {
+                removed += 1;
+            }
+        }
+        if removed > 0 {
+            revisions.bump();
+            self.persist_config(&revisions)?;
+        }
+        Ok(removed)
+    }
+
+    /// Copy a set of profiles, assigning fresh stable ids and a "(副本)" suffix.
+    pub fn copy_profiles(&self, ids: &[String]) -> Result<Vec<Profile>, DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut copies = Vec::new();
+        for id in ids {
+            if let Some(source) = repo.get(id)? {
+                let mut copy = source;
+                copy.index_id = crate::repository::new_index_id();
+                if !copy.remarks.is_empty() {
+                    copy.remarks = format!("{} (副本)", copy.remarks);
+                }
+                repo.upsert(copy.clone())?;
+                copies.push(copy);
+            }
+        }
+        if !copies.is_empty() {
+            revisions.bump();
+            self.persist_config(&revisions)?;
+        }
+        Ok(copies)
+    }
+
+    /// Update only the remarks of one profile.
+    pub fn set_remarks(&self, id: &str, remarks: String) -> Result<Profile, DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut profile = repo
+            .get(id)?
+            .ok_or_else(|| DomainError::not_found("profile", id))?;
+        if remarks.trim().is_empty() {
+            return Err(
+                DomainError::new(domain::codes::FIELD_REQUIRED, "error.remarks_required")
+                    .with_field("remarks"),
+            );
+        }
+        profile.remarks = remarks;
+        repo.upsert(profile.clone())?;
+        revisions.bump();
+        self.persist_config(&revisions)?;
+        Ok(profile)
+    }
+
+    /// Mark one profile as the active node (persisted across restarts).
+    pub fn set_active(&self, id: Option<String>) -> Result<(), DomainError> {
+        let revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        if let Some(target) = &id {
+            let repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            if repo.get(target)?.is_none() {
+                return Err(DomainError::not_found("profile", target));
+            }
+        }
+        *self
+            .active
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))? = id;
+        self.persist_config(&revisions)?;
+        Ok(())
+    }
+
+    /// Currently active profile id, if any.
+    pub fn active_profile(&self) -> Option<String> {
+        self.active.lock().ok().and_then(|guard| guard.clone())
+    }
+
+    fn persist_config(&self, revisions: &RevisionStore) -> Result<(), DomainError> {
+        let Some(dir) = &self.data_dir else {
+            return Ok(());
+        };
+        let active = self.active.lock().ok().and_then(|guard| guard.clone());
+        let value = serde_json::json!({
+            "desired_revision": revisions.desired().get(),
+            "active_index_id": active,
+        });
+        write_config(dir, &value)?;
+        Ok(())
     }
 
     /// `apply_runtime` use case.
@@ -200,6 +418,29 @@ impl Default for AppEngine {
     fn default() -> Self {
         Self::in_memory()
     }
+}
+
+/// Read `guiNConfig.json` from the data directory (empty object when absent).
+fn read_config(dir: &Path) -> Result<Value, DomainError> {
+    let path = dir.join("guiNConfig.json");
+    if !path.exists() {
+        return Ok(Value::Object(serde_json::Map::new()));
+    }
+    let text = std::fs::read_to_string(&path).map_err(storage_error)?;
+    if text.trim().is_empty() {
+        return Ok(Value::Object(serde_json::Map::new()));
+    }
+    serde_json::from_str(&text).map_err(storage_error)
+}
+
+/// Atomically write `guiNConfig.json` (write temp + rename).
+fn write_config(dir: &Path, value: &Value) -> Result<(), DomainError> {
+    let path = dir.join("guiNConfig.json");
+    let tmp = dir.join("guiNConfig.json.tmp");
+    let text = serde_json::to_string_pretty(value).map_err(storage_error)?;
+    std::fs::write(&tmp, text).map_err(storage_error)?;
+    std::fs::rename(&tmp, &path).map_err(storage_error)?;
+    Ok(())
 }
 
 /// Static capability table derived from `compat/features.yaml`.

@@ -5,7 +5,9 @@ import 'package:v2rayn_desktop/app/menu/main_menu.dart';
 import 'package:v2rayn_desktop/app/shell/side_tabs.dart';
 import 'package:v2rayn_desktop/app/shell/status_bar_view.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
+import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
+import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
@@ -159,6 +161,28 @@ class MainShell extends ConsumerWidget {
         profiles.toggleDoubleClick2Activate();
       case 'UI-THEME':
         shell.toggleTheme();
+      case 'ACT-MAIN-001':
+        startAddProfile(context, ref, ConfigType.vmess);
+      case 'ACT-MAIN-002':
+        startAddProfile(context, ref, ConfigType.vless);
+      case 'ACT-MAIN-003':
+        startAddProfile(context, ref, ConfigType.shadowsocks);
+      case 'ACT-MAIN-004':
+        startAddProfile(context, ref, ConfigType.socks);
+      case 'ACT-MAIN-005':
+        startAddProfile(context, ref, ConfigType.http);
+      case 'ACT-MAIN-006':
+        startAddProfile(context, ref, ConfigType.trojan);
+      case 'ACT-MAIN-007':
+        startAddProfile(context, ref, ConfigType.hysteria2);
+      case 'ACT-MAIN-008':
+        startAddProfile(context, ref, ConfigType.tuic);
+      case 'ACT-MAIN-009':
+        startAddProfile(context, ref, ConfigType.wireGuard);
+      case 'ACT-MAIN-010':
+        startAddProfile(context, ref, ConfigType.anytls);
+      case 'ACT-MAIN-011':
+        startAddProfile(context, ref, ConfigType.naive);
       default:
         shell.notImplemented(entry.label, entry.actionId);
     }

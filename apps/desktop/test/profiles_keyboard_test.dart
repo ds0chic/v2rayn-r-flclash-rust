@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
@@ -11,8 +12,15 @@ void main() {
     final container = await pumpApp(tester, rows: 20);
     final controller = container.read(profilesControllerProvider.notifier);
 
+    // Ctrl+D opens the editor (T06a); cancel and re-select for the next step.
+    await tapRow(tester, const ValueKey('cell-syn-000000-Remarks'));
     await pressWithCtrl(tester, LogicalKeyboardKey.keyD);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('profile-editor')), findsOneWidget);
     expect(readState(container).lastEvent?.action, 'edit');
+    await tester.tap(find.byKey(const ValueKey('editor-cancel')));
+    await tester.pumpAndSettle();
+    await tapRow(tester, const ValueKey('cell-syn-000000-Remarks'));
 
     await pressWithCtrl(tester, LogicalKeyboardKey.keyF);
     expect(readState(container).lastEvent?.action, 'share');
@@ -37,9 +45,18 @@ void main() {
 
     await pressPlain(tester, LogicalKeyboardKey.delete);
     expect(readState(container).lastEvent?.action, 'delete');
+    // Ctrl+Z is not mapped, but Delete opened a confirmation; cancel it.
+    if (find.byKey(const ValueKey('delete-confirm')).evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(const ValueKey('delete-cancel')));
+      await tester.pumpAndSettle();
+    }
 
     await pressPlain(tester, LogicalKeyboardKey.backspace);
     expect(readState(container).lastEvent?.action, 'delete');
+    if (find.byKey(const ValueKey('delete-confirm')).evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(const ValueKey('delete-cancel')));
+      await tester.pumpAndSettle();
+    }
 
     await pressPlain(tester, LogicalKeyboardKey.keyT);
     expect(readState(container).lastEvent?.action, 'move-top');

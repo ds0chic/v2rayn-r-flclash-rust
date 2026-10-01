@@ -140,6 +140,42 @@ impl Store {
         Ok(count as u64)
     }
 
+    /// Run an arbitrary `SELECT` and map every row by column name (same
+    /// semantics as [`Store::read_rows`]). Used by the application layer for
+    /// filtered/sorted/paged profile queries without exposing the connection.
+    pub fn query_rows(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> Result<Vec<RawRow>> {
+        let mut stmt = self.conn.prepare(sql)?;
+        let names: Vec<String> = stmt
+            .column_names()
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+        let mut rows = stmt.query(params)?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next()? {
+            let mut values = serde_json::Map::new();
+            for (index, name) in names.iter().enumerate() {
+                values.insert(name.clone(), rows::value_from_ref(row.get_ref(index)?));
+            }
+            out.push(RawRow {
+                table: "ProfileItem".to_string(),
+                values,
+            });
+        }
+        Ok(out)
+    }
+
+    /// Count the rows matched by `sql` (a `SELECT COUNT(*)` statement).
+    pub fn count_query(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> Result<u64> {
+        let count: i64 = self.conn.query_row(sql, params, |r| r.get(0))?;
+        Ok(count.max(0) as u64)
+    }
+
+    /// Execute a parameterized `DELETE`/`UPDATE`, returning affected rows.
+    pub fn execute(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> Result<usize> {
+        Ok(self.conn.execute(sql, params)?)
+    }
+
     // -- raw retention -----------------------------------------------------
 
     pub fn insert_raw_record(

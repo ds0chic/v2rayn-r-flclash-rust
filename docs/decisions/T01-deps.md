@@ -37,6 +37,14 @@ workspace 成员：`crates/domain`、`crates/application`、`crates/bridge_api`�
 
 FRB 三处版本一致性：Dart `flutter_rust_bridge 2.13.0` = Rust `Cargo.lock flutter_rust_bridge 2.13.0` = codegen `flutter_rust_bridge_codegen 2.13.0`。
 
+**修订注记（M-017，2026-10-01）**：第三腿（codegen 二进制）此前无可验证物。现补 `docs/evidence/toolchain/`：
+`frb-codegen-version.txt`（`flutter_rust_bridge_codegen --version` 实跑输出 `2.13.0`）与
+`generated-sha256.txt`（`frb_generated.rs` / `lib.rs` / 全部 `lib/bridge/**` dart 的 SHA256 清单）。
+
+**修订注记（M-018/M-019，2026-10-01）**：`docs/evidence/T01-T08-remediation.md` 记录本轮实际重跑的门禁
+输出摘要；`flutter_tester` 的 `0xC0000005` 为引擎/环境级问题，采用 `tools/flutter_test_retry.ps1` 包装重试，
+CI/多机复测仍为待办。
+
 ## 4. FRB wiring 布局决策
 
 - bridge crate 物理位于 `crates/bridge_api`（符合 AGENTS 目录约定），包名 `bridge_api`，`crate-type = ["cdylib","staticlib","lib"]`。

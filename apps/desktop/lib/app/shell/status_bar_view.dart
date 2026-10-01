@@ -96,6 +96,18 @@ class StatusBarView extends ConsumerWidget {
                 key: const ValueKey('runtime-info'),
                 style: muted,
               ),
+              const _Sep(),
+              Text(
+                runtime.revisionLabel,
+                key: const ValueKey('runtime-revision'),
+                style: muted,
+              ),
+              const _Sep(),
+              Text(
+                'epoch=${runtime.epoch ?? '--'} seq=${runtime.lastSeq ?? '--'}',
+                key: const ValueKey('runtime-stream-position'),
+                style: muted,
+              ),
               if (runtime.error != null) ...<Widget>[
                 const _Sep(),
                 Text(
@@ -112,12 +124,6 @@ class StatusBarView extends ConsumerWidget {
                 style: muted,
               ),
               const SizedBox(width: 8),
-              Text(
-                '运行信息: ${shell.runningNode == null ? '未运行' : '就绪'}',
-                key: const ValueKey('running-info'),
-                style: muted,
-              ),
-              const _Sep(),
               Text(
                 '代理 ↑${shell.proxySpeed.up} ↓${shell.proxySpeed.down}',
                 key: const ValueKey('status-proxy-speed'),

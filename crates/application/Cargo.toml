@@ -8,13 +8,16 @@ description = "Minimal T01 use cases: synthetic node generation and ping."
 [dependencies]
 domain.workspace = true
 ipc_contract.workspace = true
+persistence.workspace = true
 runtime.workspace = true
+rusqlite = "0.32.1"
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
 rustls-pemfile = "2"
 rustls-native-certs = "0.8"
+tempfile = "3.27.0"
 
 [target.'cfg(windows)'.dev-dependencies]
 windows = { version = "0.58", features = [

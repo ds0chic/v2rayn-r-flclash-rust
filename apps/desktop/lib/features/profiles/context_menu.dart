@@ -7,6 +7,11 @@ enum ContextActionKind {
   moveUp,
   moveDown,
   moveBottom,
+  edit,
+  copy,
+  delete,
+  activate,
+  remarks,
   notImplemented,
 }
 
@@ -31,13 +36,28 @@ class ContextMenuEntry {
 }
 
 const List<ContextMenuEntry> profilesContextMenu = <ContextMenuEntry>[
-  ContextMenuEntry(label: '设为活动', actionId: 'ACT-PROF-005', shortcut: 'Enter'),
-  ContextMenuEntry(label: '编辑', actionId: 'ACT-PROF-001', shortcut: 'Ctrl+D'),
-  ContextMenuEntry(label: '克隆所选', actionId: 'ACT-PROF-004'),
+  ContextMenuEntry(
+    label: '设为活动',
+    actionId: 'ACT-PROF-005',
+    shortcut: 'Enter',
+    kind: ContextActionKind.activate,
+  ),
+  ContextMenuEntry(
+    label: '编辑',
+    actionId: 'ACT-PROF-001',
+    shortcut: 'Ctrl+D',
+    kind: ContextActionKind.edit,
+  ),
+  ContextMenuEntry(
+    label: '克隆所选',
+    actionId: 'ACT-PROF-004',
+    kind: ContextActionKind.copy,
+  ),
   ContextMenuEntry(
     label: '移除所选 (多选)',
     actionId: 'ACT-PROF-002',
     shortcut: 'Backspace',
+    kind: ContextActionKind.delete,
   ),
   ContextMenuEntry(label: '移除重复', actionId: 'ACT-PROF-003'),
   ContextMenuEntry(label: '按测试结果移除无效', actionId: 'ACT-PROF-021'),

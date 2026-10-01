@@ -284,7 +284,7 @@ pub fn snapshot(source: &UpstreamSource, work_dir: &Path) -> Result<UpstreamSnap
         sha256_hex(b"")
     };
     let content_hash = sha256_hex(format!("{config_hash}:{db_hash}").as_bytes());
-    let source_id = source_identity(&source.path, source.kind);
+    let source_id = source_identity(source.kind, &content_hash);
 
     let (version, _) = if db_dest.is_file() {
         read_db_meta(&db_dest)?
@@ -313,10 +313,13 @@ pub fn snapshot(source: &UpstreamSource, work_dir: &Path) -> Result<UpstreamSnap
     })
 }
 
-fn source_identity(path: &Path, kind: SourceKind) -> String {
-    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let digest = sha256_hex(canonical.to_string_lossy().as_bytes());
-    format!("{}:{}", kind.as_str(), &digest[..16])
+/// Content-addressed source identity. The absolute source path is deliberately
+/// excluded: importing the same bytes from another directory (move, reinstall,
+/// USB drive) must resolve to the same identity and therefore be idempotent
+/// instead of appending every node again.
+fn source_identity(kind: SourceKind, content_hash: &str) -> String {
+    let len = content_hash.len().min(16);
+    format!("{}:{}", kind.as_str(), &content_hash[..len])
 }
 
 /// Copy a SQLite database through the backup API, including WAL content.

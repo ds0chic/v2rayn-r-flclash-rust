@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/main_shell.dart';
@@ -46,6 +47,9 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       await controller.start();
       // Evidence-run hook: launch straight into the smoke session so the T03
       // screenshot can show a real Running state without a scripted click.
+      // Debug-only: a release build must never auto-start a core from an
+      // environment variable (ISSUE-08).
+      if (!kDebugMode) return;
       final autostart = Platform.environment['V2RAYN_R_AUTOSTART'];
       stderr.writeln('[t03] bootstrap autostart=$autostart');
       if (autostart == '1' || autostart == 'true') {

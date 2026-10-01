@@ -9,7 +9,7 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ApplyRuntimeRequest`, `RevisionDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
 
 /// Result of `apply_runtime`.
 class ApplyRuntimeResult {
@@ -81,6 +81,56 @@ class CapabilityDto {
           configTypes == other.configTypes &&
           structuredGeneration == other.structuredGeneration &&
           updateSupported == other.updateSupported;
+}
+
+/// Result of a batch copy.
+class CopyProfilesResult {
+  final bool ok;
+  final List<ProfileDto> copies;
+  final ErrorDto? error;
+
+  const CopyProfilesResult({
+    required this.ok,
+    required this.copies,
+    this.error,
+  });
+
+  @override
+  int get hashCode => ok.hashCode ^ copies.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CopyProfilesResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          copies == other.copies &&
+          error == other.error;
+}
+
+/// Result of a batch delete.
+class DeleteProfilesResult {
+  final bool ok;
+  final BigInt removed;
+  final ErrorDto? error;
+
+  const DeleteProfilesResult({
+    required this.ok,
+    required this.removed,
+    this.error,
+  });
+
+  @override
+  int get hashCode => ok.hashCode ^ removed.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DeleteProfilesResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          removed == other.removed &&
+          error == other.error;
 }
 
 /// Error DTO carrying the stable contract fields.
@@ -209,20 +259,27 @@ class JobDto {
           errorMessageKey == other.errorMessageKey;
 }
 
-/// A profile row. `config_version` and `core_type` are optional because the
-/// summary row need not carry them.
+/// A profile row carrying every editable field.
 class ProfileDto {
   final String indexId;
   final ConfigType configType;
   final CoreType? coreType;
+  final int configVersion;
+  final String subid;
+  final bool isSub;
+  final int? preSocksPort;
+  final bool displayLog;
   final String remarks;
   final String address;
   final int port;
-  final String network;
-  final String? streamSecurity;
-  final String subid;
+  final String password;
   final String username;
+  final String network;
   final bool? muxEnabled;
+  final String? finalmask;
+  final SecurityDto security;
+  final ProtocolExtraDto protoExtra;
+  final TransportExtraDto transportExtra;
 
   /// Opaque unknown-extension JSON, preserved for round-trip.
   final String extraJson;
@@ -231,14 +288,22 @@ class ProfileDto {
     required this.indexId,
     required this.configType,
     this.coreType,
+    required this.configVersion,
+    required this.subid,
+    required this.isSub,
+    this.preSocksPort,
+    required this.displayLog,
     required this.remarks,
     required this.address,
     required this.port,
-    required this.network,
-    this.streamSecurity,
-    required this.subid,
+    required this.password,
     required this.username,
+    required this.network,
     this.muxEnabled,
+    this.finalmask,
+    required this.security,
+    required this.protoExtra,
+    required this.transportExtra,
     required this.extraJson,
   });
 
@@ -247,14 +312,22 @@ class ProfileDto {
       indexId.hashCode ^
       configType.hashCode ^
       coreType.hashCode ^
+      configVersion.hashCode ^
+      subid.hashCode ^
+      isSub.hashCode ^
+      preSocksPort.hashCode ^
+      displayLog.hashCode ^
       remarks.hashCode ^
       address.hashCode ^
       port.hashCode ^
-      network.hashCode ^
-      streamSecurity.hashCode ^
-      subid.hashCode ^
+      password.hashCode ^
       username.hashCode ^
+      network.hashCode ^
       muxEnabled.hashCode ^
+      finalmask.hashCode ^
+      security.hashCode ^
+      protoExtra.hashCode ^
+      transportExtra.hashCode ^
       extraJson.hashCode;
 
   @override
@@ -265,14 +338,22 @@ class ProfileDto {
           indexId == other.indexId &&
           configType == other.configType &&
           coreType == other.coreType &&
+          configVersion == other.configVersion &&
+          subid == other.subid &&
+          isSub == other.isSub &&
+          preSocksPort == other.preSocksPort &&
+          displayLog == other.displayLog &&
           remarks == other.remarks &&
           address == other.address &&
           port == other.port &&
-          network == other.network &&
-          streamSecurity == other.streamSecurity &&
-          subid == other.subid &&
+          password == other.password &&
           username == other.username &&
+          network == other.network &&
           muxEnabled == other.muxEnabled &&
+          finalmask == other.finalmask &&
+          security == other.security &&
+          protoExtra == other.protoExtra &&
+          transportExtra == other.transportExtra &&
           extraJson == other.extraJson;
 }
 
@@ -324,6 +405,153 @@ class ProfilePageDto {
 
 /// Sort key for `query_profiles`.
 enum ProfileSortDto { remarks, address, delay, indexId }
+
+/// `ProtocolExtraItem` (30 properties) exposed to the editor.
+class ProtocolExtraDto {
+  final bool? uot;
+  final String? congestionControl;
+  final String? httpHeaders;
+  final String? alterId;
+  final String? vmessSecurity;
+  final String? flow;
+  final String? vlessEncryption;
+  final String? ssMethod;
+  final String? wgPublicKey;
+  final String? wgPresharedKey;
+  final String? wgInterfaceAddress;
+  final String? wgReserved;
+  final int? wgMtu;
+  final String? wgDns;
+  final String? salamanderPass;
+  final int? upMbps;
+  final int? downMbps;
+  final String? ports;
+  final String? hopInterval;
+  final String? hy2RealmUrl;
+  final String? geckoMinPacketSize;
+  final String? geckoMaxPacketSize;
+  final int? insecureConcurrency;
+  final bool? naiveQuic;
+  final String? groupType;
+  final String? childItems;
+  final String? subChildItems;
+  final String? filter;
+
+  /// Numeric `EMultipleLoad` value.
+  final int? multipleLoad;
+  final bool? isSingboxEndpoint;
+
+  /// Opaque unknown-extension JSON, preserved for round-trip.
+  final String extraJson;
+
+  const ProtocolExtraDto({
+    this.uot,
+    this.congestionControl,
+    this.httpHeaders,
+    this.alterId,
+    this.vmessSecurity,
+    this.flow,
+    this.vlessEncryption,
+    this.ssMethod,
+    this.wgPublicKey,
+    this.wgPresharedKey,
+    this.wgInterfaceAddress,
+    this.wgReserved,
+    this.wgMtu,
+    this.wgDns,
+    this.salamanderPass,
+    this.upMbps,
+    this.downMbps,
+    this.ports,
+    this.hopInterval,
+    this.hy2RealmUrl,
+    this.geckoMinPacketSize,
+    this.geckoMaxPacketSize,
+    this.insecureConcurrency,
+    this.naiveQuic,
+    this.groupType,
+    this.childItems,
+    this.subChildItems,
+    this.filter,
+    this.multipleLoad,
+    this.isSingboxEndpoint,
+    required this.extraJson,
+  });
+
+  static Future<ProtocolExtraDto> default_() =>
+      RustLib.instance.api.crateApiContractProtocolExtraDtoDefault();
+
+  @override
+  int get hashCode =>
+      uot.hashCode ^
+      congestionControl.hashCode ^
+      httpHeaders.hashCode ^
+      alterId.hashCode ^
+      vmessSecurity.hashCode ^
+      flow.hashCode ^
+      vlessEncryption.hashCode ^
+      ssMethod.hashCode ^
+      wgPublicKey.hashCode ^
+      wgPresharedKey.hashCode ^
+      wgInterfaceAddress.hashCode ^
+      wgReserved.hashCode ^
+      wgMtu.hashCode ^
+      wgDns.hashCode ^
+      salamanderPass.hashCode ^
+      upMbps.hashCode ^
+      downMbps.hashCode ^
+      ports.hashCode ^
+      hopInterval.hashCode ^
+      hy2RealmUrl.hashCode ^
+      geckoMinPacketSize.hashCode ^
+      geckoMaxPacketSize.hashCode ^
+      insecureConcurrency.hashCode ^
+      naiveQuic.hashCode ^
+      groupType.hashCode ^
+      childItems.hashCode ^
+      subChildItems.hashCode ^
+      filter.hashCode ^
+      multipleLoad.hashCode ^
+      isSingboxEndpoint.hashCode ^
+      extraJson.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ProtocolExtraDto &&
+          runtimeType == other.runtimeType &&
+          uot == other.uot &&
+          congestionControl == other.congestionControl &&
+          httpHeaders == other.httpHeaders &&
+          alterId == other.alterId &&
+          vmessSecurity == other.vmessSecurity &&
+          flow == other.flow &&
+          vlessEncryption == other.vlessEncryption &&
+          ssMethod == other.ssMethod &&
+          wgPublicKey == other.wgPublicKey &&
+          wgPresharedKey == other.wgPresharedKey &&
+          wgInterfaceAddress == other.wgInterfaceAddress &&
+          wgReserved == other.wgReserved &&
+          wgMtu == other.wgMtu &&
+          wgDns == other.wgDns &&
+          salamanderPass == other.salamanderPass &&
+          upMbps == other.upMbps &&
+          downMbps == other.downMbps &&
+          ports == other.ports &&
+          hopInterval == other.hopInterval &&
+          hy2RealmUrl == other.hy2RealmUrl &&
+          geckoMinPacketSize == other.geckoMinPacketSize &&
+          geckoMaxPacketSize == other.geckoMaxPacketSize &&
+          insecureConcurrency == other.insecureConcurrency &&
+          naiveQuic == other.naiveQuic &&
+          groupType == other.groupType &&
+          childItems == other.childItems &&
+          subChildItems == other.subChildItems &&
+          filter == other.filter &&
+          multipleLoad == other.multipleLoad &&
+          isSingboxEndpoint == other.isSingboxEndpoint &&
+          extraJson == other.extraJson;
+}
 
 /// Startup recovery summary.
 class RecoveryDto {
@@ -383,6 +611,96 @@ class SaveProfileResult {
           ok == other.ok &&
           profile == other.profile &&
           newRevision == other.newRevision &&
+          error == other.error;
+}
+
+/// TLS/Reality fields carried directly on `ProfileItem`.
+class SecurityDto {
+  final String? streamSecurity;
+  final String? allowInsecure;
+  final String? sni;
+  final String? alpn;
+  final String? fingerprint;
+  final String? publicKey;
+  final String? shortId;
+  final String? spiderX;
+  final String? mldsa65Verify;
+  final String? cert;
+  final String? certSha;
+  final String? echConfigList;
+  final String? verifyPeerCertByName;
+
+  const SecurityDto({
+    this.streamSecurity,
+    this.allowInsecure,
+    this.sni,
+    this.alpn,
+    this.fingerprint,
+    this.publicKey,
+    this.shortId,
+    this.spiderX,
+    this.mldsa65Verify,
+    this.cert,
+    this.certSha,
+    this.echConfigList,
+    this.verifyPeerCertByName,
+  });
+
+  static Future<SecurityDto> default_() =>
+      RustLib.instance.api.crateApiContractSecurityDtoDefault();
+
+  @override
+  int get hashCode =>
+      streamSecurity.hashCode ^
+      allowInsecure.hashCode ^
+      sni.hashCode ^
+      alpn.hashCode ^
+      fingerprint.hashCode ^
+      publicKey.hashCode ^
+      shortId.hashCode ^
+      spiderX.hashCode ^
+      mldsa65Verify.hashCode ^
+      cert.hashCode ^
+      certSha.hashCode ^
+      echConfigList.hashCode ^
+      verifyPeerCertByName.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SecurityDto &&
+          runtimeType == other.runtimeType &&
+          streamSecurity == other.streamSecurity &&
+          allowInsecure == other.allowInsecure &&
+          sni == other.sni &&
+          alpn == other.alpn &&
+          fingerprint == other.fingerprint &&
+          publicKey == other.publicKey &&
+          shortId == other.shortId &&
+          spiderX == other.spiderX &&
+          mldsa65Verify == other.mldsa65Verify &&
+          cert == other.cert &&
+          certSha == other.certSha &&
+          echConfigList == other.echConfigList &&
+          verifyPeerCertByName == other.verifyPeerCertByName;
+}
+
+/// Result of a simple boolean mutation.
+class SimpleResult {
+  final bool ok;
+  final ErrorDto? error;
+
+  const SimpleResult({required this.ok, this.error});
+
+  @override
+  int get hashCode => ok.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SimpleResult &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
           error == other.error;
 }
 
@@ -487,4 +805,73 @@ class StopRuntimeResult {
           runtimeType == other.runtimeType &&
           ok == other.ok &&
           error == other.error;
+}
+
+/// `TransportExtraItem` (11 properties) exposed to the editor.
+class TransportExtraDto {
+  final String? rawHeaderType;
+  final String? host;
+  final String? path;
+  final String? xhttpMode;
+  final String? xhttpExtra;
+  final String? grpcAuthority;
+  final String? grpcServiceName;
+  final String? grpcMode;
+  final String? kcpHeaderType;
+  final String? kcpSeed;
+  final int? kcpMtu;
+
+  /// Opaque unknown-extension JSON, preserved for round-trip.
+  final String extraJson;
+
+  const TransportExtraDto({
+    this.rawHeaderType,
+    this.host,
+    this.path,
+    this.xhttpMode,
+    this.xhttpExtra,
+    this.grpcAuthority,
+    this.grpcServiceName,
+    this.grpcMode,
+    this.kcpHeaderType,
+    this.kcpSeed,
+    this.kcpMtu,
+    required this.extraJson,
+  });
+
+  static Future<TransportExtraDto> default_() =>
+      RustLib.instance.api.crateApiContractTransportExtraDtoDefault();
+
+  @override
+  int get hashCode =>
+      rawHeaderType.hashCode ^
+      host.hashCode ^
+      path.hashCode ^
+      xhttpMode.hashCode ^
+      xhttpExtra.hashCode ^
+      grpcAuthority.hashCode ^
+      grpcServiceName.hashCode ^
+      grpcMode.hashCode ^
+      kcpHeaderType.hashCode ^
+      kcpSeed.hashCode ^
+      kcpMtu.hashCode ^
+      extraJson.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TransportExtraDto &&
+          runtimeType == other.runtimeType &&
+          rawHeaderType == other.rawHeaderType &&
+          host == other.host &&
+          path == other.path &&
+          xhttpMode == other.xhttpMode &&
+          xhttpExtra == other.xhttpExtra &&
+          grpcAuthority == other.grpcAuthority &&
+          grpcServiceName == other.grpcServiceName &&
+          grpcMode == other.grpcMode &&
+          kcpHeaderType == other.kcpHeaderType &&
+          kcpSeed == other.kcpSeed &&
+          kcpMtu == other.kcpMtu &&
+          extraJson == other.extraJson;
 }

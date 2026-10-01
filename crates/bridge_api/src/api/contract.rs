@@ -116,23 +116,127 @@ pub enum ProfileSortDto {
     IndexId,
 }
 
-/// A profile row. `config_version` and `core_type` are optional because the
-/// summary row need not carry them.
+/// TLS/Reality fields carried directly on `ProfileItem`.
+#[derive(Clone, Default)]
+pub struct SecurityDto {
+    pub stream_security: Option<String>,
+    pub allow_insecure: Option<String>,
+    pub sni: Option<String>,
+    pub alpn: Option<String>,
+    pub fingerprint: Option<String>,
+    pub public_key: Option<String>,
+    pub short_id: Option<String>,
+    pub spider_x: Option<String>,
+    pub mldsa65_verify: Option<String>,
+    pub cert: Option<String>,
+    pub cert_sha: Option<String>,
+    pub ech_config_list: Option<String>,
+    pub verify_peer_cert_by_name: Option<String>,
+}
+
+/// `ProtocolExtraItem` (30 properties) exposed to the editor.
+#[derive(Clone, Default)]
+pub struct ProtocolExtraDto {
+    pub uot: Option<bool>,
+    pub congestion_control: Option<String>,
+    pub http_headers: Option<String>,
+    pub alter_id: Option<String>,
+    pub vmess_security: Option<String>,
+    pub flow: Option<String>,
+    pub vless_encryption: Option<String>,
+    pub ss_method: Option<String>,
+    pub wg_public_key: Option<String>,
+    pub wg_preshared_key: Option<String>,
+    pub wg_interface_address: Option<String>,
+    pub wg_reserved: Option<String>,
+    pub wg_mtu: Option<i32>,
+    pub wg_dns: Option<String>,
+    pub salamander_pass: Option<String>,
+    pub up_mbps: Option<i32>,
+    pub down_mbps: Option<i32>,
+    pub ports: Option<String>,
+    pub hop_interval: Option<String>,
+    pub hy2_realm_url: Option<String>,
+    pub gecko_min_packet_size: Option<String>,
+    pub gecko_max_packet_size: Option<String>,
+    pub insecure_concurrency: Option<i32>,
+    pub naive_quic: Option<bool>,
+    pub group_type: Option<String>,
+    pub child_items: Option<String>,
+    pub sub_child_items: Option<String>,
+    pub filter: Option<String>,
+    /// Numeric `EMultipleLoad` value.
+    pub multiple_load: Option<i32>,
+    pub is_singbox_endpoint: Option<bool>,
+    /// Opaque unknown-extension JSON, preserved for round-trip.
+    pub extra_json: String,
+}
+
+/// `TransportExtraItem` (11 properties) exposed to the editor.
+#[derive(Clone, Default)]
+pub struct TransportExtraDto {
+    pub raw_header_type: Option<String>,
+    pub host: Option<String>,
+    pub path: Option<String>,
+    pub xhttp_mode: Option<String>,
+    pub xhttp_extra: Option<String>,
+    pub grpc_authority: Option<String>,
+    pub grpc_service_name: Option<String>,
+    pub grpc_mode: Option<String>,
+    pub kcp_header_type: Option<String>,
+    pub kcp_seed: Option<String>,
+    pub kcp_mtu: Option<i32>,
+    /// Opaque unknown-extension JSON, preserved for round-trip.
+    pub extra_json: String,
+}
+
+/// A profile row carrying every editable field.
 #[derive(Clone)]
 pub struct ProfileDto {
     pub index_id: String,
     pub config_type: ConfigType,
     pub core_type: Option<CoreType>,
+    pub config_version: i32,
+    pub subid: String,
+    pub is_sub: bool,
+    pub pre_socks_port: Option<i32>,
+    pub display_log: bool,
     pub remarks: String,
     pub address: String,
     pub port: i32,
-    pub network: String,
-    pub stream_security: Option<String>,
-    pub subid: String,
+    pub password: String,
     pub username: String,
+    pub network: String,
     pub mux_enabled: Option<bool>,
+    pub finalmask: Option<String>,
+    pub security: SecurityDto,
+    pub proto_extra: ProtocolExtraDto,
+    pub transport_extra: TransportExtraDto,
     /// Opaque unknown-extension JSON, preserved for round-trip.
     pub extra_json: String,
+}
+
+/// Result of a batch delete.
+#[derive(Clone)]
+pub struct DeleteProfilesResult {
+    pub ok: bool,
+    pub removed: u64,
+    pub error: Option<ErrorDto>,
+}
+
+/// Result of a batch copy.
+#[derive(Clone)]
+pub struct CopyProfilesResult {
+    pub ok: bool,
+    pub copies: Vec<ProfileDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Result of a simple boolean mutation.
+#[derive(Clone)]
+pub struct SimpleResult {
+    pub ok: bool,
+    pub error: Option<ErrorDto>,
 }
 
 /// One page of profiles with a stable cursor.

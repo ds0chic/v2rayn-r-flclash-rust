@@ -156,6 +156,38 @@ fn same_fixture_import_is_idempotent() {
 }
 
 #[test]
+fn same_content_from_another_directory_is_idempotent() {
+    // The source fingerprint must be content-addressed, not path-addressed:
+    // moving/reinstalling the same guiNDB.db into a new directory must not
+    // duplicate every node on re-import.
+    fn copy_source(from: &std::path::Path, to: &std::path::Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for name in ["guiNConfig.json", "guiNDB.db"] {
+            std::fs::copy(from.join(name), to.join(name)).unwrap();
+        }
+    }
+
+    let (_keep, work, target) = common::temp_workspace();
+    let first = import_from_path(&common::upstream_v2(), &target, &work, &options()).unwrap();
+    assert_eq!(first.status, ImportStatus::Imported);
+
+    let moved_root = tempfile::tempdir().unwrap();
+    let moved = moved_root.path().join("relocated");
+    copy_source(&common::upstream_v2(), &moved);
+
+    let second = import_from_path(&moved, &target, &work, &options()).unwrap();
+    assert_eq!(
+        second.status,
+        ImportStatus::AlreadyImported,
+        "same bytes from another directory must be a no-op"
+    );
+    assert!(!second.committed);
+
+    let store = persistence::Store::open_readonly(&target).unwrap();
+    assert_eq!(store.count_rows("ProfileItem").unwrap(), 7);
+}
+
+#[test]
 fn corrupt_database_errors_without_panicking() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("guiNConfig.json"), r#"{"IndexId":"x"}"#).unwrap();

@@ -73,6 +73,17 @@ pub fn write_entry(run_root: &Path, entry: &JournalEntry) -> std::io::Result<()>
     Ok(())
 }
 
+/// Remove the plaintext staged config and core log for a finished session.
+///
+/// The staged `config.json` carries inline credentials, so it must not outlive
+/// the session that needed it. The finalized `journal.json` summary (ids, hash,
+/// port, pid — never the body) is kept as the recovery marker.
+pub fn remove_staged_artifacts(run_root: &Path, session_id: &str) {
+    let dir = session_dir(run_root, session_id);
+    let _ = std::fs::remove_file(dir.join("config.json"));
+    let _ = std::fs::remove_file(dir.join("core.log"));
+}
+
 /// Read all journals under a run root.
 pub fn read_all(run_root: &Path) -> Vec<JournalEntry> {
     let mut entries = Vec::new();
@@ -126,6 +137,8 @@ pub fn recover_stale(run_root: &Path) -> RecoveryReport {
             entry.stage = RecoveryStage::Finalized;
             entry.updated_at_ms = now_ms();
             let _ = write_entry(run_root, &entry);
+            // The recovered core is gone; do not leave its plaintext config.
+            remove_staged_artifacts(run_root, &entry.session_id);
         } else {
             report.pending += 1;
         }
@@ -169,6 +182,39 @@ mod tests {
         let report = recover_stale(&root);
         assert!(report.needed);
         assert_eq!(report.restored, 1);
+        assert_eq!(read_all(&root)[0].stage, RecoveryStage::Finalized);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn staged_artifacts_are_removed_but_journal_survives() {
+        let root = std::env::temp_dir().join(format!("v2rayn-t03-journal-{}", now_ms() + 2));
+        let dir = session_dir(&root, "s1");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("config.json"), b"{\"secret\":true}").unwrap();
+        std::fs::write(dir.join("core.log"), b"boot").unwrap();
+        write_entry(&root, &entry("s1", RecoveryStage::Applied)).unwrap();
+
+        remove_staged_artifacts(&root, "s1");
+
+        assert!(!dir.join("config.json").exists());
+        assert!(!dir.join("core.log").exists());
+        assert!(dir.join("journal.json").exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn recovery_deletes_staged_config_after_finalizing() {
+        let root = std::env::temp_dir().join(format!("v2rayn-t03-journal-{}", now_ms() + 3));
+        let dir = session_dir(&root, "stale");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("config.json"), b"{\"secret\":true}").unwrap();
+        write_entry(&root, &entry("stale", RecoveryStage::Applying)).unwrap();
+
+        let report = recover_stale(&root);
+
+        assert!(report.needed);
+        assert!(!dir.join("config.json").exists());
         assert_eq!(read_all(&root)[0].stage, RecoveryStage::Finalized);
         let _ = std::fs::remove_dir_all(&root);
     }

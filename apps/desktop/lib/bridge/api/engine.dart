@@ -9,8 +9,17 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `broadcast`, `build_plan`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `job_dto`, `next_event`, `profile_to_dto`, `seq_counter`, `smoke_body`, `smoke_plan`, `snapshot_to_dto`, `subscribers`
+// These functions are ignored because they are not marked as `pub`: `broadcast`, `build_plan`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `job_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `smoke_body`, `smoke_plan`, `snapshot_to_dto`, `subscribers`, `transport_from_dto`, `transport_to_dto`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `xray_smoke_config_json`
+
+/// Open the application engine against an explicit data directory (tests and
+/// portable installs). Must be called before any other API for it to take
+/// effect; later calls are a no-op once the engine is live.
+SimpleResult initEngine({String? dataDir}) =>
+    RustLib.instance.api.crateApiEngineInitEngine(dataDir: dataDir);
+
+/// The resolved data directory currently in use (diagnostics/tests).
+String dataDir() => RustLib.instance.api.crateApiEngineDataDir();
 
 /// `get_snapshot` — settings version, runtime snapshot, active jobs,
 /// capabilities and startup-recovery status.
@@ -43,6 +52,39 @@ SaveProfileResult saveProfile({
   draft: draft,
   expectedRevision: expectedRevision,
 );
+
+/// `delete_profiles` — delete a selection by stable id set.
+DeleteProfilesResult deleteProfiles({required List<String> ids}) =>
+    RustLib.instance.api.crateApiEngineDeleteProfiles(ids: ids);
+
+/// `copy_profiles` — clone a selection with fresh ids and a "(副本)" suffix.
+CopyProfilesResult copyProfiles({required List<String> ids}) =>
+    RustLib.instance.api.crateApiEngineCopyProfiles(ids: ids);
+
+/// `set_profile_remarks` — rename one profile in place.
+SaveProfileResult setProfileRemarks({
+  required String indexId,
+  required String remarks,
+}) => RustLib.instance.api.crateApiEngineSetProfileRemarks(
+  indexId: indexId,
+  remarks: remarks,
+);
+
+/// `set_active_profile` — persist the active node id (`None` clears it).
+SimpleResult setActiveProfile({String? indexId}) =>
+    RustLib.instance.api.crateApiEngineSetActiveProfile(indexId: indexId);
+
+/// `get_active_profile` — the persisted active node id, if any.
+String? getActiveProfile() =>
+    RustLib.instance.api.crateApiEngineGetActiveProfile();
+
+/// `get_profile` — full editable profile by stable id.
+ProfileDto? getProfile({required String indexId}) =>
+    RustLib.instance.api.crateApiEngineGetProfile(indexId: indexId);
+
+/// `profile_revision` — current desired revision for optimistic saves.
+BigInt profileRevision() =>
+    RustLib.instance.api.crateApiEngineProfileRevision();
 
 /// `apply_runtime` — target id + expected revision; returns an operation id.
 /// The result flows on the event stream.

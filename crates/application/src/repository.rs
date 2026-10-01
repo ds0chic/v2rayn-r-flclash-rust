@@ -6,8 +6,22 @@
 //! synchronous and cheap; the async boundary lives at the FRB layer.
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use domain::{DesiredRevision, DomainError, Profile};
+
+static INDEX_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Generate a fresh stable profile id (time + process-local counter). Never a
+/// row number, and unique across restarts for practical purposes.
+pub fn new_index_id() -> String {
+    let seq = INDEX_SEQ.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("p-{nanos:x}-{seq:x}")
+}
 
 /// Query filter for [`ProfileRepository::query`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -208,9 +222,12 @@ impl Default for RevisionStore {
 
 impl RevisionStore {
     pub fn new() -> Self {
-        Self {
-            desired: DesiredRevision::ZERO,
-        }
+        Self::with_desired(DesiredRevision::ZERO)
+    }
+
+    /// Start from a persisted revision (restart continuity).
+    pub fn with_desired(desired: DesiredRevision) -> Self {
+        Self { desired }
     }
 
     pub fn desired(&self) -> DesiredRevision {

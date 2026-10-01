@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 
@@ -15,6 +16,8 @@ class RuntimeController extends Notifier<RuntimeView> {
   StreamSubscription<RuntimeEvent>? _events;
   Timer? _debounce;
   bool _started = false;
+  BigInt? _lastEpoch;
+  BigInt? _lastSeq;
 
   @override
   RuntimeView build() {
@@ -36,6 +39,7 @@ class RuntimeController extends Notifier<RuntimeView> {
   }
 
   void _onEvent(RuntimeEvent event) {
+    _trackStreamPosition(event);
     const refreshKinds = <String>{
       'runtime_detail',
       'runtime_state_changed',
@@ -47,9 +51,44 @@ class RuntimeController extends Notifier<RuntimeView> {
     _debounce = Timer(const Duration(milliseconds: 120), refresh);
   }
 
+  /// Record the last `(epoch, seq)` and flag a gap/reorder. A reconnect or a
+  /// net-host restart bumps the epoch; within an epoch a sequence must be
+  /// contiguous. Full replay/reconnect is a T09+ item; here we only refuse to
+  /// pretend the stream was complete.
+  void _trackStreamPosition(RuntimeEvent event) {
+    final epoch = event.epoch;
+    final seq = event.seq;
+    if (epoch == null || seq == null) return;
+    final previousEpoch = _lastEpoch;
+    final previousSeq = _lastSeq;
+    String? warning;
+    if (previousEpoch != null && epoch == previousEpoch) {
+      if (previousSeq != null && seq <= previousSeq) {
+        warning = 'runtime event out of order: seq=$seq <= last=$previousSeq';
+      } else if (previousSeq != null && seq != previousSeq + BigInt.one) {
+        warning = 'runtime event gap: seq=$seq after $previousSeq';
+      }
+    } else if (previousEpoch != null && epoch != previousEpoch) {
+      debugPrint('[runtime] event epoch changed: $previousEpoch -> $epoch');
+    }
+    _lastEpoch = epoch;
+    _lastSeq = seq;
+    if (warning != null) {
+      debugPrint('[runtime] $warning');
+      state = state.copyWith(
+        epoch: epoch,
+        lastSeq: seq,
+        sequenceWarning: warning,
+      );
+    } else {
+      state = state.copyWith(epoch: epoch, lastSeq: seq);
+    }
+  }
+
   Future<void> refresh() async {
     try {
-      state = await _bridge.snapshot();
+      final snapshot = await _bridge.snapshot();
+      state = snapshot.copyWith(epoch: _lastEpoch, lastSeq: _lastSeq);
     } on Object catch (e) {
       state = state.copyWith(error: _bridgeError(e));
     }

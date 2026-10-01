@@ -1,7 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
+import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
+import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
@@ -40,6 +43,8 @@ class ProfilesState {
     required this.doubleClick2Activate,
     required this.rustCount,
     required this.columns,
+    this.profiles = const <c.ProfileDto>[],
+    this.activeId,
     this.lastAckSeq,
     this.lastAckRustCount,
     this.blockingBusy = false,
@@ -54,6 +59,12 @@ class ProfilesState {
   final List<TableEvent> events;
   final bool doubleClick2Activate;
   final int rustCount;
+
+  /// Full stored profiles (editor + batch actions). Loaded on demand.
+  final List<c.ProfileDto> profiles;
+
+  /// Persisted active node id, if any.
+  final String? activeId;
 
   /// Full column set in display order; hidden columns are retained so their
   /// position/width survives toggling (LAY-PROFILES-003).
@@ -80,6 +91,9 @@ class ProfilesState {
     bool? doubleClick2Activate,
     int? rustCount,
     List<ProfileColumn>? columns,
+    List<c.ProfileDto>? profiles,
+    String? activeId,
+    bool clearActive = false,
     int? lastAckSeq,
     int? lastAckRustCount,
     bool? blockingBusy,
@@ -95,6 +109,8 @@ class ProfilesState {
       doubleClick2Activate: doubleClick2Activate ?? this.doubleClick2Activate,
       rustCount: rustCount ?? this.rustCount,
       columns: columns ?? this.columns,
+      profiles: profiles ?? this.profiles,
+      activeId: clearActive ? null : (activeId ?? this.activeId),
       lastAckSeq: lastAckSeq ?? this.lastAckSeq,
       lastAckRustCount: lastAckRustCount ?? this.lastAckRustCount,
       blockingBusy: blockingBusy ?? this.blockingBusy,
@@ -114,7 +130,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   @override
   ProfilesState build() {
     final count = ref.read(profileRowCountProvider);
-    final rows = _bridge.generate(count);
+    final rows = _bridge.fetchSummaries(count);
     final columns = _applyStoredLayout(defaultProfileColumns());
     return ProfilesState(
       all: rows,
@@ -126,7 +142,95 @@ class ProfilesController extends Notifier<ProfilesState> {
       doubleClick2Activate: false,
       rustCount: _bridge.rustProfileCount(),
       columns: columns,
+      profiles: _bridge.queryAllProfiles(),
+      activeId: _bridge.getActiveProfile(),
     );
+  }
+
+  // -- T06a profile editor / repository actions ---------------------------
+
+  /// A fresh draft for a new node of [configType].
+  ProfileDraft newDraft(ConfigType configType) {
+    return ProfileDraft()
+      ..configType = configType
+      ..coreType = ProfileCapabilities.defaultCore(configType)
+      ..remarks = ''
+      ..address = ''
+      ..port = 443
+      ..network = 'raw';
+  }
+
+  c.ProfileDto? profileById(String id) {
+    for (final p in state.profiles) {
+      if (p.indexId == id) return p;
+    }
+    return _bridge.getProfile(id);
+  }
+
+  /// Reload stored profiles and the node table from the backend.
+  void reload() {
+    final count = ref.read(profileRowCountProvider);
+    final rows = _bridge.fetchSummaries(count);
+    final filtered = applyFilter(rows, state.filter);
+    final sorted = applySort(filtered, state.visibleColumns, state.sort);
+    state = state.copyWith(
+      all: rows,
+      visible: sorted,
+      profiles: _bridge.queryAllProfiles(),
+      activeId: _bridge.getActiveProfile(),
+      clearActive: _bridge.getActiveProfile() == null,
+    );
+    _log('reload', 'profiles=${state.profiles.length} rows=${rows.length}');
+  }
+
+  /// Persist a draft through the real bridge (optimistic revision).
+  c.SaveProfileResult saveDraft(c.ProfileDto draft) {
+    final result = _bridge.saveProfile(draft, _bridge.profileRevision());
+    if (result.ok) {
+      reload();
+      _log('save-profile', 'id=${result.profile?.indexId ?? draft.indexId}');
+    } else {
+      _log('save-profile-failed', result.error?.code ?? 'unknown');
+    }
+    return result;
+  }
+
+  c.DeleteProfilesResult deleteSelected() {
+    final result = _bridge.deleteProfiles(state.selected.toList());
+    if (result.ok) {
+      final removed = state.selected;
+      state = state.copyWith(selected: const <String>{});
+      reload();
+      _log('delete', 'removed=${result.removed} ids=${removed.length}');
+    }
+    return result;
+  }
+
+  c.CopyProfilesResult copySelected() {
+    final result = _bridge.copyProfiles(state.selected.toList());
+    if (result.ok) {
+      reload();
+      _log('copy', 'copies=${result.copies.length}');
+    }
+    return result;
+  }
+
+  c.SaveProfileResult renameProfile(String id, String remarks) {
+    final result = _bridge.setProfileRemarks(id, remarks);
+    if (result.ok) {
+      reload();
+      _log('remarks', 'id=$id');
+    }
+    return result;
+  }
+
+  c.SimpleResult setActive(String? id) {
+    final result = _bridge.setActiveProfile(id);
+    if (result.ok) {
+      state = state.copyWith(activeId: id, clearActive: id == null);
+      _log('set-active', 'id=${id ?? "(none)"}');
+    }
+    return result;
   }
 
   List<ProfileColumn> _applyStoredLayout(List<ProfileColumn> defaults) {
@@ -228,6 +332,12 @@ class ProfilesController extends Notifier<ProfilesState> {
         : ProfileAction.edit;
     selectRow(id);
     _log(action, 'double-click id=$id');
+    _echo(action);
+  }
+
+  /// Record a table action for the event log without changing selection.
+  void logAction(String action, String detail) {
+    _log(action, detail);
     _echo(action);
   }
 

@@ -397,7 +397,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:11
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:375
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1229
-  status: identified
+  status: implemented
 - id: FLD-ENT-002
   entity: ProfileItem
   name: ConfigType
@@ -423,7 +423,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:109
   - v2rayN/ServiceLib/Enums/EConfigType.cs:5
   notes: 枚举含 VMess=1..Naive=12, Outbound=13, PolicyGroup=101, ProxyChain=102
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-003
@@ -449,7 +449,7 @@ items:
   - v2rayN/ServiceLib/Manager/AppManager.cs:666
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:36
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:395
-  status: identified
+  status: implemented
 - id: FLD-ENT-004
   entity: ProfileItem
   name: ConfigVersion
@@ -474,7 +474,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1203
   - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:196
   notes: 迁移状态机键：<3 走 ProtocolExtra 迁移，=3 走 TransportExtra 迁移，=4 当前
-  status: identified
+  status: implemented
 - id: FLD-ENT-005
   entity: ProfileItem
   name: Subid
@@ -498,7 +498,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:14
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:263
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1672
-  status: identified
+  status: implemented
 - id: FLD-ENT-006
   entity: ProfileItem
   name: IsSub
@@ -522,7 +522,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1673
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1777
   notes: 标记是否来自订阅；内部导入导出时被移除（InnerFmt.cs:276）
-  status: identified
+  status: implemented
 - id: FLD-ENT-007
   entity: ProfileItem
   name: PreSocksPort
@@ -546,7 +546,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1573
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1582
   - v2rayN/v2rayN/Views/AddServer2Window.xaml.cs:24
-  status: identified
+  status: implemented
 - id: FLD-ENT-008
   entity: ProfileItem
   name: DisplayLog
@@ -570,7 +570,7 @@ items:
   - v2rayN/ServiceLib/Manager/CoreManager.cs:185
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:643
   - v2rayN/v2rayN/Views/AddServer2Window.xaml.cs:23
-  status: identified
+  status: implemented
 - id: FLD-ENT-009
   entity: ProfileItem
   name: Remarks
@@ -595,7 +595,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:636
   - v2rayN/ServiceLib/Manager/AppManager.cs:293
   - v2rayN/ServiceLib/Manager/GroupProfileManager.cs:122
-  status: identified
+  status: implemented
 - id: FLD-ENT-010
   entity: ProfileItem
   name: Address
@@ -620,7 +620,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:107
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:345
   notes: Outbound 类型时 NextProfile 等读取该路径对应外置文件内容
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-011
@@ -646,7 +646,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:16
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:78
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:108
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-012
@@ -673,7 +673,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:201
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:115
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:571
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-013
@@ -699,7 +699,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:116
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:190
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:311
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-014
@@ -727,7 +727,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:496
   - v2rayN/ServiceLib/Enums/ETransport.cs:3
   notes: '值域 ETransport: raw/kcp/ws/httpupgrade/xhttp/h2/http/quic/grpc'
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-015
@@ -754,7 +754,7 @@ items:
   - v2rayN/ServiceLib/Manager/AppManager.cs:415
   - v2rayN/ServiceLib/Manager/AppManager.cs:425
   - v2rayN/ServiceLib/Manager/AppManager.cs:432
-  status: identified
+  status: implemented
 - id: FLD-ENT-016
   entity: ProfileItem
   name: RequestHost
@@ -779,7 +779,7 @@ items:
   - v2rayN/ServiceLib/Manager/AppManager.cs:405
   - v2rayN/ServiceLib/Manager/AppManager.cs:413
   - v2rayN/ServiceLib/Manager/AppManager.cs:423
-  status: identified
+  status: implemented
 - id: FLD-ENT-017
   entity: ProfileItem
   name: Path
@@ -805,7 +805,7 @@ items:
   - v2rayN/ServiceLib/Manager/AppManager.cs:414
   - v2rayN/ServiceLib/Manager/AppManager.cs:424
   - v2rayN/ServiceLib/Manager/AppManager.cs:433
-  status: identified
+  status: implemented
 - id: FLD-ENT-018
   entity: ProfileItem
   name: StreamSecurity
@@ -829,7 +829,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:21
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:310
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:409
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-019
@@ -856,7 +856,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:149
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:439
   - v2rayN/ServiceLib/Handler/Builder/NodeValidator.cs:144
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-020
@@ -881,7 +881,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:184
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:306
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:418
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-021
@@ -907,7 +907,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:48
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:316
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:440
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-022
@@ -932,7 +932,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:186
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:317
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:447
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-023
@@ -958,7 +958,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:366
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:469
   - v2rayN/ServiceLib/Handler/Builder/NodeValidator.cs:152
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-024
@@ -983,7 +983,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:188
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:367
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:470
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-025
@@ -1010,7 +1010,7 @@ items:
   unresolved:
   - sing-box 出站生成未读取 SpiderX（仅 xray 读取）；是否由 sing-box realm 分支间接使用未核实
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
-  status: identified
+  status: implemented
 - id: FLD-ENT-026
   entity: ProfileItem
   name: Mldsa65Verify
@@ -1034,7 +1034,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:369
   - v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs:57
   - v2rayN/v2rayN/Views/AddServerWindow.xaml.cs:188
-  status: identified
+  status: implemented
 - id: FLD-ENT-027
   entity: ProfileItem
   name: Extra
@@ -1056,7 +1056,7 @@ items:
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:193
   - v2rayN/ServiceLib/Manager/AppManager.cs:416
-  status: identified
+  status: implemented
 - id: FLD-ENT-028
   entity: ProfileItem
   name: MuxEnabled
@@ -1080,7 +1080,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:71
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:386
   - v2rayN/ServiceLib/Handler/Builder/NodeValidator.cs:111
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-029
@@ -1105,7 +1105,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:196
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:334
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:457
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-030
@@ -1129,7 +1129,7 @@ items:
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:197
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:350
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-031
@@ -1155,7 +1155,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:318
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:474
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:384
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-032
@@ -1182,7 +1182,7 @@ items:
   - v2rayN/v2rayN/Views/AddServerWindow.xaml.cs:180
   unresolved:
   - sing-box 出站生成路径未见读取 VerifyPeerCertByName
-  status: identified
+  status: implemented
 - id: FLD-ENT-033
   entity: ProfileItem
   name: Finalmask
@@ -1206,7 +1206,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:611
   - v2rayN/ServiceLib/Handler/Builder/NodeValidator.cs:164
   - v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs:79
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-034
@@ -1232,7 +1232,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:202
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:127
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:132
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-035
@@ -1258,7 +1258,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:203
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:138
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:143
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-036
@@ -1283,7 +1283,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:206
   - v2rayN/ServiceLib/Manager/AppManager.cs:512
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:422
-  status: identified
+  status: implemented
 - id: FLD-ENT-037
   entity: ProfileItem
   name: AlterId
@@ -1306,7 +1306,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:209
   - v2rayN/ServiceLib/Manager/AppManager.cs:495
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:423
-  status: identified
+  status: implemented
 - id: FLD-ENT-038
   entity: ProfileItem
   name: Flow
@@ -1328,7 +1328,7 @@ items:
   evidence:
   - v2rayN/ServiceLib/Models/Entities/ProfileItem.cs:212
   - v2rayN/ServiceLib/Manager/AppManager.cs:503
-  status: identified
+  status: implemented
 - id: FLD-ENT-039
   entity: ProfileItem
   name: Id
@@ -1352,7 +1352,7 @@ items:
   - v2rayN/ServiceLib/Manager/AppManager.cs:521
   - v2rayN/ServiceLib/Manager/AppManager.cs:522
   - v2rayN/ServiceLib/Manager/AppManager.cs:544
-  status: identified
+  status: implemented
 - id: FLD-ENT-040
   entity: ProfileItem
   name: Security
@@ -1378,7 +1378,7 @@ items:
   - v2rayN/ServiceLib/Manager/AppManager.cs:504
   - v2rayN/ServiceLib/Manager/AppManager.cs:522
   - v2rayN/ServiceLib/Manager/AppManager.cs:528
-  status: identified
+  status: implemented
 - id: FLD-ENT-041
   entity: ProtocolExtraItem
   name: Uot
@@ -1403,7 +1403,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:101
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:135
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:439
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-042
@@ -1431,7 +1431,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:328
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:863
   - v2rayN/ServiceLib/Manager/AppManager.cs:520
-  status: identified
+  status: implemented
 - id: FLD-ENT-043
   entity: ProtocolExtraItem
   name: HttpHeaders
@@ -1455,7 +1455,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProtocolExtraItem.cs:9
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:130
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:432
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-044
@@ -1482,7 +1482,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:80
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:116
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:423
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-045
@@ -1509,7 +1509,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:82
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:117
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:321
-  status: identified
+  status: implemented
 - id: FLD-ENT-046
   entity: ProtocolExtraItem
   name: Flow
@@ -1534,7 +1534,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:155
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:211
   - v2rayN/ServiceLib/Handler/Builder/NodeValidator.cs:96
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-047
@@ -1560,7 +1560,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProtocolExtraItem.cs:17
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:153
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1133
-  status: identified
+  status: implemented
 - id: FLD-ENT-048
   entity: ProtocolExtraItem
   name: SsMethod
@@ -1585,7 +1585,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:99
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:132
   - v2rayN/ServiceLib/Handler/Fmt/ShadowsocksFmt.cs:44
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-049
@@ -1612,7 +1612,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:194
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:362
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:917
-  status: identified
+  status: implemented
 - id: FLD-ENT-050
   entity: ProtocolExtraItem
   name: WgPresharedKey
@@ -1637,7 +1637,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:196
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:363
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:918
-  status: identified
+  status: implemented
 - id: FLD-ENT-051
   entity: ProtocolExtraItem
   name: WgInterfaceAddress
@@ -1661,7 +1661,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProtocolExtraItem.cs:27
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:200
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:353
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-052
@@ -1688,7 +1688,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:202
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:364
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:897
-  status: identified
+  status: implemented
 - id: FLD-ENT-053
   entity: ProtocolExtraItem
   name: WgMtu
@@ -1714,7 +1714,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:370
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:921
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:437
-  status: identified
+  status: implemented
 - id: FLD-ENT-054
   entity: ProtocolExtraItem
   name: WgDns
@@ -1738,7 +1738,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProtocolExtraItem.cs:30
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:204
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:922
-  status: identified
+  status: implemented
 - id: FLD-ENT-055
   entity: ProtocolExtraItem
   name: SalamanderPass
@@ -1763,7 +1763,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:551
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:236
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:791
-  status: identified
+  status: implemented
 - id: FLD-ENT-056
   entity: ProtocolExtraItem
   name: UpMbps
@@ -1788,7 +1788,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:507
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:250
   - v2rayN/ServiceLib/Manager/AppManager.cs:513
-  status: identified
+  status: implemented
 - id: FLD-ENT-057
   entity: ProtocolExtraItem
   name: DownMbps
@@ -1813,7 +1813,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:510
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:253
   - v2rayN/ServiceLib/Manager/AppManager.cs:514
-  status: identified
+  status: implemented
 - id: FLD-ENT-058
   entity: ProtocolExtraItem
   name: Ports
@@ -1838,7 +1838,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:506
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:258
   - v2rayN/ServiceLib/Manager/AppManager.cs:512
-  status: identified
+  status: implemented
 - id: FLD-ENT-059
   entity: ProtocolExtraItem
   name: HopInterval
@@ -1863,7 +1863,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:513
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:274
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:792
-  status: identified
+  status: implemented
 - id: FLD-ENT-060
   entity: ProtocolExtraItem
   name: Hy2RealmUrl
@@ -1888,7 +1888,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:542
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:291
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:795
-  status: identified
+  status: implemented
 - id: FLD-ENT-061
   entity: ProtocolExtraItem
   name: GeckoMinPacketSize
@@ -1913,7 +1913,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:560
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:246
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:814
-  status: identified
+  status: implemented
 - id: FLD-ENT-062
   entity: ProtocolExtraItem
   name: GeckoMaxPacketSize
@@ -1938,7 +1938,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:560
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:247
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:814
-  status: identified
+  status: implemented
 - id: FLD-ENT-063
   entity: ProtocolExtraItem
   name: InsecureConcurrency
@@ -1962,7 +1962,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProtocolExtraItem.cs:46
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:330
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:441
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-064
@@ -1988,7 +1988,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProtocolExtraItem.cs:47
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:325
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:331
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-065
@@ -2015,7 +2015,7 @@ items:
   - v2rayN/ServiceLib/Manager/GroupProfileManager.cs:37
   - v2rayN/ServiceLib/Manager/AppManager.cs:599
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1450
-  status: identified
+  status: implemented
 - id: FLD-ENT-066
   entity: ProtocolExtraItem
   name: ChildItems
@@ -2041,7 +2041,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:625
   - v2rayN/ServiceLib/Manager/GroupProfileManager.cs:94
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:505
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-067
@@ -2068,7 +2068,7 @@ items:
   - v2rayN/ServiceLib/Manager/GroupProfileManager.cs:112
   - v2rayN/ServiceLib/Manager/GroupProfileManager.cs:116
   - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:214
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-068
@@ -2095,7 +2095,7 @@ items:
   - v2rayN/ServiceLib/Manager/GroupProfileManager.cs:122
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1452
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1528
-  status: identified
+  status: implemented
 - id: FLD-ENT-069
   entity: ProtocolExtraItem
   name: MultipleLoad
@@ -2120,7 +2120,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:11
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:595
   - v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:205
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-070
@@ -2146,7 +2146,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/ProtocolExtraItem.cs:57
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:68
   - v2rayN/ServiceLib/ViewModels/AddServer2ViewModel.cs:49
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-071
@@ -2173,7 +2173,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:273
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:499
   - v2rayN/ServiceLib/Manager/AppManager.cs:395
-  status: identified
+  status: implemented
 - id: FLD-ENT-072
   entity: TransportExtraItem
   name: Host
@@ -2198,7 +2198,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:271
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:545
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:401
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-073
@@ -2224,7 +2224,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs:8
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:272
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:516
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-074
@@ -2250,7 +2250,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs:9
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:295
   - v2rayN/ServiceLib/Manager/AppManager.cs:415
-  status: identified
+  status: implemented
 - id: FLD-ENT-075
   entity: TransportExtraItem
   name: XhttpExtra
@@ -2275,7 +2275,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:481
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:401
   - v2rayN/ServiceLib/Handler/Builder/NodeValidator.cs:156
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-076
@@ -2301,7 +2301,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs:12
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:300
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:430
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-077
@@ -2327,7 +2327,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs:13
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:301
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:573
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-078
@@ -2353,7 +2353,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs:14
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:302
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:494
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-079
@@ -2379,7 +2379,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs:16
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:278
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:391
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-080
@@ -2405,7 +2405,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs:17
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:277
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:415
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-081
@@ -2431,7 +2431,7 @@ items:
   - v2rayN/ServiceLib/Models/Entities/TransportExtraItem.cs:18
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:279
   - v2rayN/ServiceLib/ViewModels/AddServerViewModel.cs:417
-  status: identified
+  status: implemented
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-082
@@ -4341,3 +4341,43 @@ items:
   status: identified
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
+
+# --- 审计整改追加区（M-020/D12；仅追加，不改上方 T00 条目）---
+# T04 迁移实现与 REF-ENT-005 语义偏离的落地登记；状态 implemented（未 verified）。
+remediation_implementation_records:
+  migrations:
+  - id: MIG-ENT-002
+    implementation_location: crates/persistence/src/migrate.rs:64,229 (migrate_group_v2_to_v3 / run_migrations)
+    test_ids:
+    - crates/persistence/tests/upstream_import.rs::v2_fixture_migrates_groups_and_normal_nodes
+    evidence:
+    - docs/evidence/T04.md
+    status: implemented
+  - id: MIG-ENT-003
+    implementation_location: crates/persistence/src/migrate.rs:88,229 (migrate_profile_v2_to_v3 / run_migrations)
+    test_ids:
+    - crates/persistence/tests/upstream_import.rs::v2_fixture_migrates_groups_and_normal_nodes
+    - crates/application/tests/profiles_persist.rs (T06a 全字段重开往返)
+    evidence:
+    - docs/evidence/T04.md
+    status: implemented
+  - id: MIG-ENT-004
+    implementation_location: crates/persistence/src/migrate.rs:159,229 (migrate_transport_v3_to_v4 / run_migrations)
+    test_ids:
+    - crates/persistence/tests/upstream_import.rs::v3_fixture_migrates_transport
+    evidence:
+    - docs/evidence/T04.md
+    status: implemented
+  reference_deviations:
+  - id: REF-ENT-005
+    deviation: >-
+      上游 InnerFmt.Resolve 丢弃重映射失败的子 id 并删除空组；Rust 保留原文、仅告警
+      （candidate.rs:490-504 remap_id_list / remap_sub_ids，W_REF_CHILD）。
+    implementation_location: crates/persistence/src/candidate.rs:490-504
+    test_ids:
+    - crates/persistence/tests/upstream_import.rs::v2_fixture_migrates_groups_and_normal_nodes
+    evidence:
+    - docs/decisions/T04-storage.md
+    decision: docs/decisions/T04-storage.md §7.1 (T16 严格/保留模式开关待办)
+    status: implemented
+

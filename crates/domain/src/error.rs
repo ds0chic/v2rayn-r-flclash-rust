@@ -35,6 +35,10 @@ pub mod codes {
     pub const PERMISSION_DENIED: &str = "E_PERMISSION_DENIED";
     pub const UNAVAILABLE: &str = "E_UNAVAILABLE";
     pub const INTERNAL: &str = "E_INTERNAL";
+    /// The managed core could not be bound into the ownership Job Object. This
+    /// is fatal: without the job the core can outlive net-host, so the session
+    /// is aborted rather than left running unowned.
+    pub const JOB_ASSIGN_FAILED: &str = "E_JOB_ASSIGN_FAILED";
 }
 
 /// One structured error value.

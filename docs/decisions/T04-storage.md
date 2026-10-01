@@ -62,3 +62,36 @@
 - 传输迁移忠实复刻“先 V3 后 V4 同一轮”的上游语义：一轮结束后所有旧行到达 V4，
   因此 `transports_migrated` 会包含本轮刚升到 V3 的行。
 - `ProfileGroupItem` 结构保留但数据不作为活动数据导入（仅迁移源，行进入 `raw_records`）。
+
+---
+
+## 7. 修订注记（HEAD `2fbe9f1` 之后；M-009/M-010）
+
+### 7.1 REF-ENT-005 语义偏离（有意保留，需 T16 决策）
+
+- **上游语义**（`work/research-v2rayn/.../Handler/Fmt/InnerFmt.cs:54-94`）：内部导入 `Resolve` 时，
+  `ChildItems` 经 `indexIdMap` 重映射，**重映射失败的子 id 被丢弃**；重写后既无 `ChildItems` 也无
+  `SubChildItems` 的**空组被移除**。
+- **Rust 语义**（`crates/persistence/src/candidate.rs:490-504` `remap_id_list`）：失效子 id **原样保留**，
+  不删除子表达式、不删空组，仅以告警（`W_REF_CHILD`）暴露。
+- **判定**：这是**有意的、更保守的偏离**——保留原文可避免导入期静默丢失用户数据，符合本项目
+  "不静默丢弃"原则，且原式字符串（`ReferenceExpr.raw`）本就要求保留。它**不等价于上游兼容**。
+- **T16 待办**：导入 UI 需要暴露**严格/保留模式开关**：
+  - 严格模式（默认，贴近上游）：丢弃无法重映射的子 id、移除空组；
+  - 保留模式：保留原文并告警（当前行为）。
+  在开关落地前，台账 `REF-ENT-005` 不得标记为 `verified`。
+
+### 7.2 明文秘密载体（M-003 / M-010，本回合只做最小加固，不实现加密）
+
+未决项登记（T16 输入清单）：
+
+- `services/net_host/src/session.rs` staged `config.json`：**含内联节点凭据**。本回合最小加固：
+  会话结束/回滚时删除 staged 配置与 `core.log`（`journal::remove_staged_artifacts`）；staged 目录与
+  文件设置"仅当前用户" DACL（`net_host::dacl::restrict_to_current_user`，`D|P(A;OICI;GA;;;<sid>)`）。
+  **仍未做**：落盘加密、崩溃窗口内的强删、`%TEMP%`/页文件残留防护。
+- `crates/persistence/src/backup.rs` bundle 目录 / `.bak` / `raw_records`（含 `Password`/`Id`/
+  `Security`）：**全明文**，无加密、无权限收紧、无轮转。**未实现加密**；T16 必须决定：
+  备份目录 ACL/加密、`raw_records` 保留期与轮转、`.bak` 清理策略。
+- 本地 bundle ≠ 上游兼容库：T04 自产 bundle 仅供本应用，T16 若要与上游 `guiConfigs/` 互操作需另做差分。
+
+以上两项是**结构性安全未决项**，在 T16 收敛前相关能力不得标记 `verified`。

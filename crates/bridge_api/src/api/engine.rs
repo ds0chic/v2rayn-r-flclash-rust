@@ -16,13 +16,16 @@ use domain::runtime_plan::{
     ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, PortRequest, ProcessGraph,
     ProcessNode, RequiredPrivilege, RuntimePlan, RuntimeTarget,
 };
-use domain::{CoreType, DomainError, Profile};
+use domain::{
+    CoreType, DomainError, MultipleLoad, Profile, ProtocolExtra, SecurityParams, TransportExtra,
+};
 use serde_json::Value;
 
 use crate::api::contract::{
-    ApplyRuntimeResult, CancelResult, CapabilityDto, ErrorDto, EventEnvelopeDto, JobDto,
-    ProfileDto, ProfileFilterDto, ProfilePageDto, ProfileSortDto, RecoveryDto, SaveProfileResult,
-    SnapshotDto, StopRuntimeResult,
+    ApplyRuntimeResult, CancelResult, CapabilityDto, CopyProfilesResult, DeleteProfilesResult,
+    ErrorDto, EventEnvelopeDto, JobDto, ProfileDto, ProfileFilterDto, ProfilePageDto,
+    ProfileSortDto, ProtocolExtraDto, RecoveryDto, SaveProfileResult, SecurityDto, SimpleResult,
+    SnapshotDto, StopRuntimeResult, TransportExtraDto,
 };
 use crate::frb_generated::StreamSink;
 use flutter_rust_bridge::frb;
@@ -31,17 +34,68 @@ use flutter_rust_bridge::frb;
 pub const SMOKE_PORT: u16 = 11808;
 
 /// Global engine for the process. Tests use the in-memory engine; production
-/// builds use the real net-host client.
+/// builds open real SQLite storage under the resolved data directory.
 static ENGINE: OnceLock<AppEngine> = OnceLock::new();
+
+/// Optional data-directory override set by [`init_engine`] before first use.
+static ENGINE_DIR: OnceLock<Mutex<Option<std::path::PathBuf>>> = OnceLock::new();
+
+fn engine_dir() -> &'static Mutex<Option<std::path::PathBuf>> {
+    ENGINE_DIR.get_or_init(|| Mutex::new(None))
+}
 
 fn engine() -> &'static AppEngine {
     ENGINE.get_or_init(|| {
         if cfg!(test) {
-            AppEngine::in_memory()
-        } else {
-            AppEngine::production()
+            return AppEngine::in_memory();
+        }
+        let dir = engine_dir()
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone())
+            .unwrap_or_else(AppEngine::default_data_dir);
+        match AppEngine::open(&dir) {
+            Ok(engine) => engine,
+            Err(error) => {
+                eprintln!("v2rayn-r: failed to open storage at {dir:?}: {error}");
+                AppEngine::in_memory()
+            }
         }
     })
+}
+
+/// Open the application engine against an explicit data directory (tests and
+/// portable installs). Must be called before any other API for it to take
+/// effect; later calls are a no-op once the engine is live.
+#[frb(sync)]
+pub fn init_engine(data_dir: Option<String>) -> SimpleResult {
+    if ENGINE.get().is_some() {
+        return SimpleResult {
+            ok: true,
+            error: None,
+        };
+    }
+    if let Some(dir) = data_dir {
+        if let Ok(mut guard) = engine_dir().lock() {
+            *guard = Some(std::path::PathBuf::from(dir));
+        }
+    }
+    engine();
+    SimpleResult {
+        ok: true,
+        error: None,
+    }
+}
+
+/// The resolved data directory currently in use (diagnostics/tests).
+#[frb(sync)]
+pub fn data_dir() -> String {
+    engine_dir()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone())
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|| AppEngine::default_data_dir().to_string_lossy().into_owned())
 }
 
 /// Monotonic epoch for the in-process event stream.
@@ -61,43 +115,227 @@ fn error_dto(e: DomainError) -> ErrorDto {
     ErrorDto::from(e)
 }
 
+fn json_map(raw: &str) -> domain::ExtraMap {
+    serde_json::from_str(raw).unwrap_or_default()
+}
+
+fn security_to_dto(s: &SecurityParams) -> SecurityDto {
+    SecurityDto {
+        stream_security: s.stream_security.clone(),
+        allow_insecure: s.allow_insecure.clone(),
+        sni: s.sni.clone(),
+        alpn: s.alpn.clone(),
+        fingerprint: s.fingerprint.clone(),
+        public_key: s.public_key.clone(),
+        short_id: s.short_id.clone(),
+        spider_x: s.spider_x.clone(),
+        mldsa65_verify: s.mldsa65_verify.clone(),
+        cert: s.cert.clone(),
+        cert_sha: s.cert_sha.clone(),
+        ech_config_list: s.ech_config_list.clone(),
+        verify_peer_cert_by_name: s.verify_peer_cert_by_name.clone(),
+    }
+}
+
+fn security_from_dto(d: SecurityDto) -> SecurityParams {
+    SecurityParams {
+        stream_security: d.stream_security,
+        allow_insecure: d.allow_insecure,
+        sni: d.sni,
+        alpn: d.alpn,
+        fingerprint: d.fingerprint,
+        public_key: d.public_key,
+        short_id: d.short_id,
+        spider_x: d.spider_x,
+        mldsa65_verify: d.mldsa65_verify,
+        cert: d.cert,
+        cert_sha: d.cert_sha,
+        ech_config_list: d.ech_config_list,
+        verify_peer_cert_by_name: d.verify_peer_cert_by_name,
+    }
+}
+
+fn multiple_load_value(v: MultipleLoad) -> i32 {
+    match v {
+        MultipleLoad::LeastPing => 0,
+        MultipleLoad::Fallback => 1,
+        MultipleLoad::Random => 2,
+        MultipleLoad::RoundRobin => 3,
+        MultipleLoad::LeastLoad => 4,
+    }
+}
+
+fn multiple_load_from_value(v: i32) -> Option<MultipleLoad> {
+    Some(match v {
+        0 => MultipleLoad::LeastPing,
+        1 => MultipleLoad::Fallback,
+        2 => MultipleLoad::Random,
+        3 => MultipleLoad::RoundRobin,
+        4 => MultipleLoad::LeastLoad,
+        _ => return None,
+    })
+}
+
+fn proto_to_dto(p: &ProtocolExtra) -> ProtocolExtraDto {
+    ProtocolExtraDto {
+        uot: p.uot,
+        congestion_control: p.congestion_control.clone(),
+        http_headers: p.http_headers.clone(),
+        alter_id: p.alter_id.clone(),
+        vmess_security: p.vmess_security.clone(),
+        flow: p.flow.clone(),
+        vless_encryption: p.vless_encryption.clone(),
+        ss_method: p.ss_method.clone(),
+        wg_public_key: p.wg_public_key.clone(),
+        wg_preshared_key: p.wg_preshared_key.clone(),
+        wg_interface_address: p.wg_interface_address.clone(),
+        wg_reserved: p.wg_reserved.clone(),
+        wg_mtu: p.wg_mtu,
+        wg_dns: p.wg_dns.clone(),
+        salamander_pass: p.salamander_pass.clone(),
+        up_mbps: p.up_mbps,
+        down_mbps: p.down_mbps,
+        ports: p.ports.clone(),
+        hop_interval: p.hop_interval.clone(),
+        hy2_realm_url: p.hy2_realm_url.clone(),
+        gecko_min_packet_size: p.gecko_min_packet_size.clone(),
+        gecko_max_packet_size: p.gecko_max_packet_size.clone(),
+        insecure_concurrency: p.insecure_concurrency,
+        naive_quic: p.naive_quic,
+        group_type: p.group_type.clone(),
+        child_items: p.child_items.clone(),
+        sub_child_items: p.sub_child_items.clone(),
+        filter: p.filter.clone(),
+        multiple_load: p.multiple_load.map(multiple_load_value),
+        is_singbox_endpoint: p.is_singbox_endpoint,
+        extra_json: serde_json::to_string(&p.extra).unwrap_or_else(|_| "{}".to_string()),
+    }
+}
+
+fn proto_from_dto(d: ProtocolExtraDto) -> ProtocolExtra {
+    ProtocolExtra {
+        uot: d.uot,
+        congestion_control: d.congestion_control,
+        http_headers: d.http_headers,
+        alter_id: d.alter_id,
+        vmess_security: d.vmess_security,
+        flow: d.flow,
+        vless_encryption: d.vless_encryption,
+        ss_method: d.ss_method,
+        wg_public_key: d.wg_public_key,
+        wg_preshared_key: d.wg_preshared_key,
+        wg_interface_address: d.wg_interface_address,
+        wg_reserved: d.wg_reserved,
+        wg_mtu: d.wg_mtu,
+        wg_dns: d.wg_dns,
+        salamander_pass: d.salamander_pass,
+        up_mbps: d.up_mbps,
+        down_mbps: d.down_mbps,
+        ports: d.ports,
+        hop_interval: d.hop_interval,
+        hy2_realm_url: d.hy2_realm_url,
+        gecko_min_packet_size: d.gecko_min_packet_size,
+        gecko_max_packet_size: d.gecko_max_packet_size,
+        insecure_concurrency: d.insecure_concurrency,
+        naive_quic: d.naive_quic,
+        group_type: d.group_type,
+        child_items: d.child_items,
+        sub_child_items: d.sub_child_items,
+        filter: d.filter,
+        multiple_load: d.multiple_load.and_then(multiple_load_from_value),
+        is_singbox_endpoint: d.is_singbox_endpoint,
+        extra: json_map(&d.extra_json),
+    }
+}
+
+fn transport_to_dto(t: &TransportExtra) -> TransportExtraDto {
+    TransportExtraDto {
+        raw_header_type: t.raw_header_type.clone(),
+        host: t.host.clone(),
+        path: t.path.clone(),
+        xhttp_mode: t.xhttp_mode.clone(),
+        xhttp_extra: t.xhttp_extra.clone(),
+        grpc_authority: t.grpc_authority.clone(),
+        grpc_service_name: t.grpc_service_name.clone(),
+        grpc_mode: t.grpc_mode.clone(),
+        kcp_header_type: t.kcp_header_type.clone(),
+        kcp_seed: t.kcp_seed.clone(),
+        kcp_mtu: t.kcp_mtu,
+        extra_json: serde_json::to_string(&t.extra).unwrap_or_else(|_| "{}".to_string()),
+    }
+}
+
+fn transport_from_dto(d: TransportExtraDto) -> TransportExtra {
+    TransportExtra {
+        raw_header_type: d.raw_header_type,
+        host: d.host,
+        path: d.path,
+        xhttp_mode: d.xhttp_mode,
+        xhttp_extra: d.xhttp_extra,
+        grpc_authority: d.grpc_authority,
+        grpc_service_name: d.grpc_service_name,
+        grpc_mode: d.grpc_mode,
+        kcp_header_type: d.kcp_header_type,
+        kcp_seed: d.kcp_seed,
+        kcp_mtu: d.kcp_mtu,
+        extra: json_map(&d.extra_json),
+    }
+}
+
 fn profile_to_dto(p: Profile) -> ProfileDto {
     let extra_json = serde_json::to_string(&p.extra).unwrap_or_else(|_| "{}".to_string());
     ProfileDto {
         index_id: p.index_id,
         config_type: p.config_type,
         core_type: p.core_type,
+        config_version: p.config_version,
+        subid: p.subid,
+        is_sub: p.is_sub,
+        pre_socks_port: p.pre_socks_port,
+        display_log: p.display_log,
         remarks: p.remarks,
         address: p.address,
         port: p.port,
-        network: p.network,
-        stream_security: p.security.stream_security,
-        subid: p.subid,
+        password: p.password,
         username: p.username,
+        network: p.network,
         mux_enabled: p.mux_enabled,
+        finalmask: p.finalmask,
+        security: security_to_dto(&p.security),
+        proto_extra: proto_to_dto(&p.proto_extra),
+        transport_extra: transport_to_dto(&p.transport_extra),
         extra_json,
     }
 }
 
 fn dto_to_profile(d: ProfileDto) -> Profile {
-    let mut p = Profile {
+    Profile {
         index_id: d.index_id,
         config_type: d.config_type,
         core_type: d.core_type,
+        config_version: if d.config_version == 0 {
+            4
+        } else {
+            d.config_version
+        },
+        subid: d.subid,
+        is_sub: d.is_sub,
+        pre_socks_port: d.pre_socks_port,
+        display_log: d.display_log,
         remarks: d.remarks,
         address: d.address,
         port: d.port,
-        network: d.network,
-        subid: d.subid,
+        password: d.password,
         username: d.username,
+        network: d.network,
         mux_enabled: d.mux_enabled,
+        finalmask: d.finalmask,
+        security: security_from_dto(d.security),
+        proto_extra: proto_from_dto(d.proto_extra),
+        transport_extra: transport_from_dto(d.transport_extra),
+        extra: json_map(&d.extra_json),
         ..Default::default()
-    };
-    p.security.stream_security = d.stream_security;
-    if let Ok(extra) = serde_json::from_str::<domain::ExtraMap>(&d.extra_json) {
-        p.extra = extra;
     }
-    p
 }
 
 fn job_dto(j: application::JobView) -> JobDto {
@@ -226,7 +464,11 @@ pub fn query_profiles(
 /// `save_profile` — draft + expected revision; returns the saved entity and
 /// new revision or a field error.
 #[frb(sync)]
-pub fn save_profile(draft: ProfileDto, expected_revision: u64) -> SaveProfileResult {
+pub fn save_profile(mut draft: ProfileDto, expected_revision: u64) -> SaveProfileResult {
+    // New nodes arrive without an id; assign the stable identity here.
+    if draft.index_id.trim().is_empty() {
+        draft.index_id = application::new_index_id();
+    }
     let profile = dto_to_profile(draft);
     match engine().save_profile(profile, DesiredRevision::new(expected_revision)) {
         Ok((saved, new_revision)) => SaveProfileResult {
@@ -242,6 +484,96 @@ pub fn save_profile(draft: ProfileDto, expected_revision: u64) -> SaveProfileRes
             error: Some(error_dto(e)),
         },
     }
+}
+
+/// `delete_profiles` — delete a selection by stable id set.
+#[frb(sync)]
+pub fn delete_profiles(ids: Vec<String>) -> DeleteProfilesResult {
+    match engine().delete_profiles(&ids) {
+        Ok(removed) => DeleteProfilesResult {
+            ok: true,
+            removed,
+            error: None,
+        },
+        Err(e) => DeleteProfilesResult {
+            ok: false,
+            removed: 0,
+            error: Some(error_dto(e)),
+        },
+    }
+}
+
+/// `copy_profiles` — clone a selection with fresh ids and a "(副本)" suffix.
+#[frb(sync)]
+pub fn copy_profiles(ids: Vec<String>) -> CopyProfilesResult {
+    match engine().copy_profiles(&ids) {
+        Ok(copies) => CopyProfilesResult {
+            ok: true,
+            copies: copies.into_iter().map(profile_to_dto).collect(),
+            error: None,
+        },
+        Err(e) => CopyProfilesResult {
+            ok: false,
+            copies: Vec::new(),
+            error: Some(error_dto(e)),
+        },
+    }
+}
+
+/// `set_profile_remarks` — rename one profile in place.
+#[frb(sync)]
+pub fn set_profile_remarks(index_id: String, remarks: String) -> SaveProfileResult {
+    match engine().set_remarks(&index_id, remarks) {
+        Ok(saved) => SaveProfileResult {
+            ok: true,
+            profile: Some(profile_to_dto(saved)),
+            new_revision: None,
+            error: None,
+        },
+        Err(e) => SaveProfileResult {
+            ok: false,
+            profile: None,
+            new_revision: None,
+            error: Some(error_dto(e)),
+        },
+    }
+}
+
+/// `set_active_profile` — persist the active node id (`None` clears it).
+#[frb(sync)]
+pub fn set_active_profile(index_id: Option<String>) -> SimpleResult {
+    match engine().set_active(index_id) {
+        Ok(()) => SimpleResult {
+            ok: true,
+            error: None,
+        },
+        Err(e) => SimpleResult {
+            ok: false,
+            error: Some(error_dto(e)),
+        },
+    }
+}
+
+/// `get_active_profile` — the persisted active node id, if any.
+#[frb(sync)]
+pub fn get_active_profile() -> Option<String> {
+    engine().active_profile()
+}
+
+/// `get_profile` — full editable profile by stable id.
+#[frb(sync)]
+pub fn get_profile(index_id: String) -> Option<ProfileDto> {
+    engine()
+        .profile_by_id(&index_id)
+        .ok()
+        .flatten()
+        .map(profile_to_dto)
+}
+
+/// `profile_revision` — current desired revision for optimistic saves.
+#[frb(sync)]
+pub fn profile_revision() -> u64 {
+    engine().desired_revision()
 }
 
 /// Build the T03 Xray smoke plan through the real structured generator.
@@ -548,23 +880,38 @@ mod tests {
         })
     }
 
-    #[test]
-    fn save_profile_rejects_stale_revision_through_bridge() {
-        let engine = engine();
-        let draft = ProfileDto {
+    fn draft_dto() -> ProfileDto {
+        ProfileDto {
             index_id: "bridge-1".into(),
             config_type: domain::ConfigType::Vless,
             core_type: Some(domain::CoreType::Xray),
+            config_version: 4,
+            subid: String::new(),
+            is_sub: true,
+            pre_socks_port: None,
+            display_log: true,
             remarks: "bridge".into(),
             address: "192.0.2.55".into(),
             port: 443,
-            network: "raw".into(),
-            stream_security: Some("tls".into()),
-            subid: String::new(),
+            password: String::new(),
             username: String::new(),
+            network: "raw".into(),
             mux_enabled: None,
+            finalmask: None,
+            security: SecurityDto {
+                stream_security: Some("tls".into()),
+                ..Default::default()
+            },
+            proto_extra: ProtocolExtraDto::default(),
+            transport_extra: TransportExtraDto::default(),
             extra_json: "{}".into(),
-        };
+        }
+    }
+
+    #[test]
+    fn save_profile_rejects_stale_revision_through_bridge() {
+        let engine = engine();
+        let draft = draft_dto();
         let before = engine
             .snapshot()
             .map(|s| s.revisions.desired.get())

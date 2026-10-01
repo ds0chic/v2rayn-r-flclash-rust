@@ -730,13 +730,18 @@ features:
   cancel_behavior: 关闭窗口丢弃草稿
   acceptance: 对 11 类协议各新增一条，重开应用后节点仍在且字段一致
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/profiles/profile_editor_dialog.dart; profile_fields.dart; profile_actions.dart; crates/bridge_api/src/api/engine.rs (save_profile); crates/application/src/engine.rs
+  test_ids:
+  - profiles_persist.rs::save_reopen_round_trips_all_eleven_protocols
+  - t06a_controller_test.dart
+  - t06a_frb_bridge_test.dart
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:99
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:449
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:282
-  status: identified
+  - docs/evidence/T06a.md
+  status: implemented
+  notes: T06a 交付 UI 草稿→FRB→SQLite→重开闭环；11 协议表单按 fields.yaml/domain-map.yaml 逐字段渲染。真实字段生效（进入内核配置）归 T06b。
 - id: F-PROFILE-002
   name: 编辑节点
   family: profile
@@ -761,12 +766,17 @@ features:
   cancel_behavior: 关闭丢弃草稿
   acceptance: 修改备注/地址后重开仍一致
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/profiles/profile_actions.dart (editSelectedProfile); profile_editor_dialog.dart; crates/bridge_api/src/api/engine.rs (get_profile/save_profile)
+  test_ids:
+  - t06a_editor_save_test.dart
+  - t06a_editor_error_test.dart
+  - profiles_keyboard_test.dart (Ctrl+D)
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:50
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:464
-  status: identified
+  - docs/evidence/T06a.md
+  status: implemented
+  notes: Ctrl+D / 右键编辑 / 双击(非激活模式) 均打开同一编辑器；expected_revision 冲突返回 E_REVISION_STALE。
 - id: F-PROFILE-003
   name: 删除节点
   family: profile
@@ -790,12 +800,15 @@ features:
   cancel_behavior: 确认框取消则不删除
   acceptance: 删除后节点表与数据库均无该行
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/profiles/profile_actions.dart (deleteSelectedProfiles, 含确认框); crates/bridge_api/src/api/engine.rs (delete_profiles); crates/application/src/engine.rs
+  test_ids:
+  - profiles_persist.rs::delete_and_copy_act_on_sets_and_persist
+  - t06a_controller_test.dart
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:504
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:341
-  status: identified
+  - docs/evidence/T06a.md
+  status: implemented
 - id: F-PROFILE-004
   name: 复制节点
   family: profile
@@ -819,12 +832,16 @@ features:
   cancel_behavior: 无
   acceptance: 复制后新增一行且备注带 -clone
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/profiles/profile_actions.dart (copySelectedProfiles); crates/bridge_api/src/api/engine.rs (copy_profiles); crates/application/src/engine.rs (copy_profiles)
+  test_ids:
+  - profiles_persist.rs::delete_and_copy_act_on_sets_and_persist
+  - t06a_controller_test.dart
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:546
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:362
-  status: identified
+  - docs/evidence/T06a.md
+  status: implemented
+  notes: T06a 对普通 11 协议复制采用“(副本)”后缀（上游为 -clone）；差异登记待 T06b 对齐。
 - id: F-PROFILE-005
   name: 去重节点
   family: profile
@@ -878,12 +895,16 @@ features:
   cancel_behavior: 无
   acceptance: 重开后活动节点为所选
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/profiles/profile_actions.dart (toggleActiveSelected); crates/bridge_api/src/api/engine.rs (set_active_profile/get_active_profile); crates/application/src/engine.rs (set_active, 写 guiNConfig.json)
+  test_ids:
+  - profiles_persist.rs::set_remarks_and_active_persist
+  - t06a_controller_test.dart
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:560
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:406
-  status: identified
+  - docs/evidence/T06a.md
+  status: implemented
+  notes: 活动节点 IndexId 落 guiNConfig.json 的 active_index_id，重开 Engine 后恢复；真实内核应用归 T06b/T07。
 - id: F-PROFILE-007
   name: 节点移动与排序
   family: profile
@@ -4542,3 +4563,35 @@ enum_scan:
   - v2rayN/ServiceLib/Enums/ETransport.cs:3
   - v2rayN/ServiceLib/Global.cs:330
   status: identified
+
+# --- 审计整改追加区（M-020/D12；仅追加，不改上方 T00 条目）---
+# implementation_location / test_ids / evidence 以 HEAD 2fbe9f1 + 整改回合实测为准。
+remediation_implementation_records:
+  note: T03 运行时（F-CORE）与 T04 迁移/引用偏离的落地登记；状态用 implemented（未 verified）。
+  features:
+  - id: F-CORE-005
+    name: 内核启动/停止/重启
+    implementation_location: >-
+      services/net_host/src/session.rs (apply_plan / stop_managed / rollback / abort_job_assign);
+      crates/application/src/net_host_client.rs (NetHostClient);
+      crates/bridge_api/src/api/engine.rs (apply_runtime / stop_runtime / get_snapshot)
+    test_ids:
+    - services/net_host/tests/t03_faults.ps1 (cases a-e)
+    - docs/evidence/T03.runs/a-normal.json
+    - docs/evidence/T03.runs/b-port-conflict.json
+    - docs/evidence/T03.runs/c-client-kill.json
+    - docs/evidence/T03.runs/d-net-host-kill.json
+    - docs/evidence/T03.runs/e-core-quick-exit.json
+    evidence:
+    - docs/evidence/T03.md
+    status: implemented
+  - id: F-CORE-011
+    name: 内核可执行文件定位
+    implementation_location: >-
+      crates/runtime/src/adapter.rs (CoreLocator::from_env / with_roots / resolve)
+    test_ids:
+    - crates/runtime/src/adapter.rs (locator unit tests: version-priority/fixed/override/not-found)
+    evidence:
+    - docs/evidence/T03.md
+    status: implemented
+

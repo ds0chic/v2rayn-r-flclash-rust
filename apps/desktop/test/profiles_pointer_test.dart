@@ -15,6 +15,10 @@ void main() {
 
     await doubleTap(tester, cell);
     expect(readState(container).lastEvent?.action, 'edit');
+    // T06a: double click opens the editor dialog; cancel leaves no draft.
+    await tester.tap(find.byKey(const ValueKey('editor-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('profile-editor')), findsNothing);
 
     controller.toggleDoubleClick2Activate();
     await tester.pump();

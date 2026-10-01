@@ -252,16 +252,39 @@ pub struct CoreInstallation {
     pub is_active: bool,
 }
 
+fn default_true() -> bool {
+    true
+}
+
+fn default_dest_override() -> Option<Vec<String>> {
+    Some(vec!["http".to_string(), "tls".to_string()])
+}
+
+fn is_zero_i32(value: &i32) -> bool {
+    *value == 0
+}
+
+fn is_default_orientation(value: &crate::enums::GirdOrientation) -> bool {
+    *value == crate::enums::GirdOrientation::Vertical
+}
+
 /// Persisted window geometry / layout state (plan §11, FLD-CFG-156..158).
+///
+/// Upstream `WindowSizeItem` only carries `TypeName`/`Width`/`Height`; the
+/// layout extras are skipped while they hold their default so a generated
+/// `guiNConfig.json` keeps the upstream shape.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(default)]
+#[serde(rename_all = "PascalCase", default)]
 pub struct WindowState {
     /// Window type key (`MainWindow`, dialog names, ...).
     pub type_name: String,
     pub width: i32,
     pub height: i32,
+    #[serde(skip_serializing_if = "is_zero_i32")]
     pub main_grid_height1: i32,
+    #[serde(skip_serializing_if = "is_zero_i32")]
     pub main_grid_height2: i32,
+    #[serde(skip_serializing_if = "is_default_orientation")]
     pub orientation: crate::enums::GirdOrientation,
     #[serde(flatten)]
     pub extra: ExtraMap,
@@ -269,7 +292,7 @@ pub struct WindowState {
 
 /// A column definition (`ColumnItem`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(default)]
+#[serde(rename_all = "PascalCase", default)]
 pub struct ColumnDefinition {
     pub name: String,
     pub width: i32,
@@ -280,8 +303,9 @@ pub struct ColumnDefinition {
 
 /// A global hotkey binding (`KeyEventItem`; `EGlobalHotkey` kept as int).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(default)]
+#[serde(rename_all = "PascalCase", default)]
 pub struct GlobalHotkey {
+    #[serde(rename = "EGlobalHotkey")]
     pub action: i32,
     pub alt: bool,
     pub control: bool,
@@ -292,23 +316,40 @@ pub struct GlobalHotkey {
 }
 
 /// Per-config-type core selection (`CoreTypeItem`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "PascalCase", default)]
 pub struct CoreTypeBinding {
     pub config_type: ConfigType,
     pub core_type: CoreType,
+    #[serde(flatten)]
+    pub extra: ExtraMap,
+}
+
+impl CoreTypeBinding {
+    pub fn new(config_type: ConfigType, core_type: CoreType) -> Self {
+        Self {
+            config_type,
+            core_type,
+            extra: ExtraMap::new(),
+        }
+    }
 }
 
 /// An inbound listener row (`InItem`, 11 properties; stored in guiNConfig.json).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(default)]
+#[serde(rename_all = "PascalCase", default)]
 pub struct InboundListener {
     pub local_port: i32,
     pub protocol: InboundProtocol,
     pub udp_enabled: bool,
+    #[serde(default = "default_true")]
     pub sniffing_enabled: bool,
+    #[serde(default = "default_dest_override")]
     pub dest_override: Option<Vec<String>>,
     pub route_only: bool,
+    #[serde(rename = "AllowLANConn")]
     pub allow_lan_conn: bool,
+    #[serde(rename = "NewPort4LAN")]
     pub new_port4_lan: bool,
     pub user: String,
     pub pass: String,

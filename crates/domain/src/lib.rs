@@ -29,6 +29,7 @@ pub mod reference;
 pub mod revision;
 pub mod runtime_plan;
 pub mod settings;
+pub mod settings_timing;
 pub mod summary;
 
 // Re-export the most-used items at the crate root for ergonomics.
@@ -56,10 +57,11 @@ pub use runtime_plan::{
     RuntimePlan, RuntimeTarget,
 };
 pub use settings::{
-    AppSettings, CheckUpdateItem, ClashUiItem, ConstItem, CoreBasicItem, Fragment4RayItem,
-    GrpcItem, GuiItem, HappyEyeballs4RayItem, HysteriaItem, KcpItem, MsgUiItem, Mux4RayItem,
-    Mux4SboxItem, RoutingBasicItem, SimpleDnsItem, SpeedTestItem, SystemProxyItem, TunModeItem,
-    UiItem, WebDavItem,
+    is_settings_group, AppSettings, ApplyTiming, CheckUpdateItem, ClashUiItem, ConstItem,
+    CoreBasicItem, Fragment4RayItem, GrpcItem, GuiItem, HappyEyeballs4RayItem, HysteriaItem,
+    KcpItem, MsgUiItem, Mux4RayItem, Mux4SboxItem, RoutingBasicItem, SettingsChange, SimpleDnsItem,
+    SpeedTestItem, SystemProxyItem, TunModeItem, UiItem, WebDavItem, CORE_TYPE_CONTROLS,
+    SETTINGS_GROUPS,
 };
 pub use summary::ProfileSummary;
 

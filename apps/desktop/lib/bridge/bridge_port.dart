@@ -5,7 +5,9 @@ import 'package:v2rayn_desktop/bridge/api/engine.dart' as engine;
 import 'package:v2rayn_desktop/bridge/api/groups.dart' as groups;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/profiles.dart' as rust;
+import 'package:v2rayn_desktop/bridge/api/settings.dart' as settings;
 import 'package:v2rayn_desktop/bridge/api/subs.dart' as subs;
+import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 
 /// Thin, testable seam over the flutter_rust_bridge generated API.
 ///
@@ -117,6 +119,27 @@ abstract class BridgePort {
   c.SaveProfileResult genGroupAll(String subId);
 
   groups.GroupGenResult genGroupRegion(String subId);
+
+  // -- T12a settings surface ---------------------------------------------
+
+  /// The full normalised `guiNConfig.json` tree, its revision counters and the
+  /// canonical JSON the UI edits.
+  settings.SettingsLoadDto getSettings();
+
+  /// Whole-tree settings save (optimistic revision).
+  settings.SaveSettingsResult saveSettingsJson(
+    String settingsJson,
+    int expectedRevision,
+  );
+
+  /// Replace one top-level group by canonical JSON patch.
+  settings.SaveSettingsResult saveSettingsGroup(
+    String group,
+    String patchJson,
+    int expectedRevision,
+  );
+
+  int settingsRevision();
 }
 
 class FrbBridgePort implements BridgePort {
@@ -298,6 +321,32 @@ class FrbBridgePort implements BridgePort {
   @override
   groups.GroupGenResult genGroupRegion(String subId) =>
       groups.genGroupRegion(subId: subId);
+
+  @override
+  settings.SettingsLoadDto getSettings() => settings.getSettings();
+
+  @override
+  settings.SaveSettingsResult saveSettingsJson(
+    String settingsJson,
+    int expectedRevision,
+  ) => settings.saveSettingsJson(
+    settingsJson: settingsJson,
+    expectedRevision: BigInt.from(expectedRevision),
+  );
+
+  @override
+  settings.SaveSettingsResult saveSettingsGroup(
+    String group,
+    String patchJson,
+    int expectedRevision,
+  ) => settings.saveSettingsGroup(
+    group: group,
+    patchJson: patchJson,
+    expectedRevision: BigInt.from(expectedRevision),
+  );
+
+  @override
+  int settingsRevision() => settings.settingsRevision().toInt();
 }
 
 /// Map a stored profile DTO onto the node-table summary shape. Traffic/delay
@@ -1220,4 +1269,110 @@ class SyntheticBridgePort implements BridgePort {
       coreType: CoreType.values[h % CoreType.values.length],
     );
   }
+
+  // -- T12a settings (synthetic) -----------------------------------------
+
+  Map<String, dynamic> _settings = defaultSettingsJson();
+  int _settingsRevision = 0;
+  final Map<String, int> _groupRevisions = <String, int>{};
+
+  @override
+  settings.SettingsLoadDto getSettings() => settings.SettingsLoadDto(
+    ok: true,
+    revision: BigInt.from(_settingsRevision),
+    groupRevisionsJson: jsonEncode(_groupRevisions),
+    settings: null,
+    settingsJson: jsonEncode(_settings),
+    error: null,
+  );
+
+  @override
+  settings.SaveSettingsResult saveSettingsJson(
+    String settingsJson,
+    int expectedRevision,
+  ) {
+    if (expectedRevision != _settingsRevision) {
+      return _staleSettings(expectedRevision);
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(settingsJson);
+    } catch (_) {
+      return _formatSettings();
+    }
+    if (decoded is! Map<String, dynamic>) return _formatSettings();
+    _settings = decoded;
+    _settingsRevision += 1;
+    for (final group in defaultSettingsGroups) {
+      _groupRevisions[group] = (_groupRevisions[group] ?? 0) + 1;
+    }
+    return settings.SaveSettingsResult(
+      ok: true,
+      newRevision: BigInt.from(_settingsRevision),
+      changes: const [],
+      restartCoreFields: const [],
+      restartAppFields: const [],
+      nextLaunchFields: const [],
+    );
+  }
+
+  @override
+  settings.SaveSettingsResult saveSettingsGroup(
+    String group,
+    String patchJson,
+    int expectedRevision,
+  ) {
+    final current = _groupRevisions[group] ?? 0;
+    if (expectedRevision != current) {
+      return _staleSettings(expectedRevision);
+    }
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(patchJson);
+    } catch (_) {
+      return _formatSettings();
+    }
+    _settings[group] = decoded;
+    _settingsRevision += 1;
+    _groupRevisions[group] = current + 1;
+    return settings.SaveSettingsResult(
+      ok: true,
+      newRevision: BigInt.from(_settingsRevision),
+      changes: const [],
+      restartCoreFields: const [],
+      restartAppFields: const [],
+      nextLaunchFields: const [],
+    );
+  }
+
+  @override
+  int settingsRevision() => _settingsRevision;
+
+  settings.SaveSettingsResult _staleSettings(int expected) =>
+      settings.SaveSettingsResult(
+        ok: false,
+        changes: const [],
+        restartCoreFields: const [],
+        restartAppFields: const [],
+        nextLaunchFields: const [],
+        error: c.ErrorDto(
+          code: 'E_REVISION_STALE',
+          messageKey: 'error.revision_stale',
+          detail: 'expected=$expected actual=$_settingsRevision',
+          retryable: false,
+        ),
+      );
+
+  settings.SaveSettingsResult _formatSettings() => settings.SaveSettingsResult(
+    ok: false,
+    changes: const [],
+    restartCoreFields: const [],
+    restartAppFields: const [],
+    nextLaunchFields: const [],
+    error: const c.ErrorDto(
+      code: 'E_FIELD_FORMAT',
+      messageKey: 'error.settings_json',
+      retryable: false,
+    ),
+  );
 }

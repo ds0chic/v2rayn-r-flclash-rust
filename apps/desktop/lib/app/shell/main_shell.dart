@@ -14,6 +14,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart'
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_actions.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
@@ -52,6 +53,20 @@ class _MainShellState extends ConsumerState<MainShell> {
       final openTemplate = Platform.environment['V2RAYN_R_OPEN_TEMPLATE'];
       if (openTemplate == '1' || openTemplate == 'true') {
         profile_actions.openFullConfigTemplateWindow(context, ref);
+      }
+      // T12a evidence hooks: auto-open the settings/theme/hotkey windows for
+      // release screenshots. No-ops in normal runs.
+      final openSettings = Platform.environment['V2RAYN_R_OPEN_SETTINGS'];
+      if (openSettings == '1' || openSettings == 'true') {
+        openOptionSettingWindow(context, ref);
+      }
+      final openTheme = Platform.environment['V2RAYN_R_OPEN_THEME'];
+      if (openTheme == '1' || openTheme == 'true') {
+        openThemeSettingDialog(context, ref);
+      }
+      final openHotkey = Platform.environment['V2RAYN_R_OPEN_HOTKEY'];
+      if (openHotkey == '1' || openHotkey == 'true') {
+        openGlobalHotkeyWindow(context, ref);
       }
     });
   }
@@ -251,6 +266,24 @@ class _MainShellState extends ConsumerState<MainShell> {
         updateCurrentGroup(context, ref, viaProxy: true);
       case 'ACT-MAIN-027':
         profile_actions.openFullConfigTemplateWindow(context, ref);
+      case 'ACT-MAIN-024':
+        openOptionSettingWindow(context, ref);
+      case 'ACT-MAIN-028':
+        openGlobalHotkeyWindow(context, ref);
+      case 'UI-THEME-WINDOW':
+        openThemeSettingDialog(context, ref);
+      case 'ACT-MAIN-025':
+        shell.notImplemented('路由设置', 'ACT-MAIN-025');
+      case 'ACT-MAIN-026':
+        shell.notImplemented('DNS 设置', 'ACT-MAIN-026');
+      case 'ACT-MAIN-029':
+        shell.notImplemented('以管理员身份重启', 'ACT-MAIN-029');
+      case 'ACT-WIN-004':
+        shell.notImplemented('解除 UWP 回环限制', 'ACT-WIN-004');
+      case 'ACT-MAIN-030':
+        shell.notImplemented('清除服务器统计', 'ACT-MAIN-030');
+      case 'ACT-MAIN-031':
+        shell.notImplemented('打开存储位置', 'ACT-MAIN-031');
       default:
         shell.notImplemented(entry.label, entry.actionId);
     }

@@ -13,13 +13,23 @@ class V2rayNRApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(uiShellControllerProvider).themeMode;
+    final shell = ref.watch(uiShellControllerProvider);
     return MaterialApp(
       title: 'v2rayN-R (T05)',
       debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(Brightness.light),
-      darkTheme: buildAppTheme(Brightness.dark),
-      themeMode: themeMode,
+      theme: buildAppTheme(
+        Brightness.light,
+        accentName: shell.accentName,
+        fontFamily: shell.fontFamily,
+        fontSize: shell.fontSize,
+      ),
+      darkTheme: buildAppTheme(
+        Brightness.dark,
+        accentName: shell.accentName,
+        fontFamily: shell.fontFamily,
+        fontSize: shell.fontSize,
+      ),
+      themeMode: shell.themeMode,
       home: const _RuntimeBootstrap(child: MainShell()),
     );
   }

@@ -75,6 +75,7 @@ const _settingEntries = <AppMenuEntry>[
   AppMenuEntry(label: 'DNS 设置', actionId: 'ACT-MAIN-026'),
   AppMenuEntry(label: '完整配置模板设置', actionId: 'ACT-MAIN-027'),
   AppMenuEntry(label: '全局热键设置', actionId: 'ACT-MAIN-028'),
+  AppMenuEntry(label: '主题设置', actionId: 'UI-THEME-WINDOW'),
   AppMenuEntry(label: '以管理员身份重启', actionId: 'ACT-MAIN-029'),
   AppMenuEntry(label: '解除 Win10 UWP 应用回环代理限制', actionId: 'ACT-WIN-004'),
   AppMenuEntry(label: '清除所有服务统计数据', actionId: 'ACT-MAIN-030'),

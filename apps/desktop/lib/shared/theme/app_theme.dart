@@ -36,9 +36,42 @@ class AppTokens {
   static const Color darkGrid = Color(0x33FFFFFF);
 }
 
-ThemeData buildAppTheme(Brightness brightness) {
+/// Upstream `UIItem.ColorPrimaryName` values are Material swatch names. Map
+/// them onto concrete seeds; unknown names fall back to the default blue.
+const Map<String, Color> accentColors = <String, Color>{
+  'Red': Color(0xFFF44336),
+  'Pink': Color(0xFFE91E63),
+  'Purple': Color(0xFF9C27B0),
+  'DeepPurple': Color(0xFF673AB7),
+  'Indigo': Color(0xFF3F51B5),
+  'Blue': Color(0xFF2196F3),
+  'LightBlue': Color(0xFF03A9F4),
+  'Cyan': Color(0xFF00BCD4),
+  'Teal': Color(0xFF009688),
+  'Green': Color(0xFF4CAF50),
+  'LightGreen': Color(0xFF8BC34A),
+  'Lime': Color(0xFFCDDC39),
+  'Yellow': Color(0xFFFFEB3B),
+  'Amber': Color(0xFFFFC107),
+  'Orange': Color(0xFFFF9800),
+  'DeepOrange': Color(0xFFFF5722),
+  'Brown': Color(0xFF795548),
+  'Grey': Color(0xFF9E9E9E),
+  'BlueGrey': Color(0xFF607D8B),
+};
+
+const Color defaultAccent = Color(0xFF1565C0);
+
+Color accentColorFor(String? name) => accentColors[name] ?? defaultAccent;
+
+ThemeData buildAppTheme(
+  Brightness brightness, {
+  String? accentName,
+  String? fontFamily,
+  double? fontSize,
+}) {
   final isLight = brightness == Brightness.light;
-  final seed = const Color(0xFF1565C0);
+  final seed = accentColorFor(accentName);
   final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: brightness)
       .copyWith(
         surface: isLight ? AppTokens.lightSurface : AppTokens.darkSurface,
@@ -51,11 +84,17 @@ ThemeData buildAppTheme(Brightness brightness) {
         outline: isLight ? AppTokens.lightOutline : AppTokens.darkOutline,
       );
 
+  final baseSize = (fontSize != null && fontSize >= 8)
+      ? fontSize
+      : AppTokens.fontSize;
+  final family = (fontFamily != null && fontFamily.isNotEmpty)
+      ? fontFamily
+      : null;
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     visualDensity: VisualDensity.compact,
-    fontFamily: isLight ? null : null,
+    fontFamily: family,
     dividerTheme: DividerThemeData(
       space: 1,
       thickness: 1,
@@ -82,10 +121,10 @@ ThemeData buildAppTheme(Brightness brightness) {
         visualDensity: VisualDensity.compact,
       ),
     ),
-    textTheme: const TextTheme(
-      bodyMedium: TextStyle(fontSize: AppTokens.fontSize),
-      bodySmall: TextStyle(fontSize: AppTokens.fontSizeSmall),
-      labelLarge: TextStyle(fontSize: AppTokens.fontSize),
+    textTheme: TextTheme(
+      bodyMedium: TextStyle(fontSize: baseSize),
+      bodySmall: TextStyle(fontSize: baseSize - 1),
+      labelLarge: TextStyle(fontSize: baseSize),
     ),
   );
 }

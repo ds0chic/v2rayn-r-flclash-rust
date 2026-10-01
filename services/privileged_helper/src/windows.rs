@@ -156,7 +156,10 @@ pub struct ProcessInformation {
 }
 
 /// Retrieve the SID string of the process connected to a named pipe.
-pub fn client_sid(pipe_handle: *mut c_void) -> std::io::Result<String> {
+///
+/// # Safety
+/// `pipe_handle` must be a valid pipe handle owned by the caller for the duration of the call.
+pub unsafe fn client_sid(pipe_handle: *mut c_void) -> std::io::Result<String> {
     unsafe {
         let mut pid = 0u32;
         if GetNamedPipeClientProcessId(pipe_handle, &mut pid) == 0 {
@@ -473,7 +476,7 @@ fn quote_arg(arg: &str) -> String {
             backslashes += 1;
             quoted.push(ch);
         } else if ch == '"' {
-            quoted.extend(std::iter::repeat('\\').take(backslashes + 1));
+            quoted.extend(std::iter::repeat_n('\\', backslashes + 1));
             quoted.push('"');
             backslashes = 0;
         } else {
@@ -482,7 +485,7 @@ fn quote_arg(arg: &str) -> String {
         }
     }
     if backslashes > 0 {
-        quoted.extend(std::iter::repeat('\\').take(backslashes));
+        quoted.extend(std::iter::repeat_n('\\', backslashes));
     }
     quoted.push('"');
     quoted

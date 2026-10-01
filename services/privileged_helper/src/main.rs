@@ -79,7 +79,8 @@ async fn main() -> std::io::Result<()> {
         let peer_sid = if raw.is_null() {
             None
         } else {
-            client_sid(raw).ok()
+            // SAFETY: `raw` is a live handle obtained from `pipe` above.
+            unsafe { client_sid(raw) }.ok()
         };
         let session_id = format!("s{}", session_counter.fetch_add(1, Ordering::SeqCst));
         let server = server.clone();

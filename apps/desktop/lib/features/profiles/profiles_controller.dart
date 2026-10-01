@@ -405,6 +405,13 @@ class ProfilesController extends Notifier<ProfilesState> {
     );
   }
 
+  /// Apply the persisted `UIItem.DoubleClick2Activate` value.
+  void setDoubleClick2Activate(bool value) {
+    if (state.doubleClick2Activate == value) return;
+    state = state.copyWith(doubleClick2Activate: value);
+    _log('double-click', 'DoubleClick2Activate=$value');
+  }
+
   bool handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) return false;
     final keyboard = HardwareKeyboard.instance;

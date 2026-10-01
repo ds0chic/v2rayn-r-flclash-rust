@@ -8,9 +8,10 @@ use serde::{Deserialize, Serialize};
 
 /// `EConfigType` (15 values). Values 1..=13 are protocols/custom kinds,
 /// 101/102 are composite kinds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(try_from = "i32", into = "i32")]
 pub enum ConfigType {
+    #[default]
     Vmess,
     Custom,
     Shadowsocks,
@@ -385,9 +386,10 @@ pub enum MultipleLoad {
 }
 
 /// `ESysProxyType`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(try_from = "i32", into = "i32")]
 pub enum SysProxyType {
+    #[default]
     ForcedClear,
     ForcedChange,
     Unchanged,
@@ -431,13 +433,49 @@ impl TryFrom<i32> for SysProxyType {
     }
 }
 
-/// `EGirdOrientation`.
+/// `EGirdOrientation`. Persisted as an integer like every other upstream enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(try_from = "i32", into = "i32")]
 pub enum GirdOrientation {
     Horizontal,
     #[default]
     Vertical,
     Tab,
+}
+
+impl GirdOrientation {
+    pub const fn value(self) -> i32 {
+        match self {
+            GirdOrientation::Horizontal => 0,
+            GirdOrientation::Vertical => 1,
+            GirdOrientation::Tab => 2,
+        }
+    }
+
+    pub fn from_value(value: i32) -> Option<Self> {
+        Some(match value {
+            0 => GirdOrientation::Horizontal,
+            1 => GirdOrientation::Vertical,
+            2 => GirdOrientation::Tab,
+            _ => return None,
+        })
+    }
+}
+
+impl From<GirdOrientation> for i32 {
+    fn from(v: GirdOrientation) -> i32 {
+        v.value()
+    }
+}
+
+impl TryFrom<i32> for GirdOrientation {
+    type Error = crate::error::DomainError;
+
+    fn try_from(value: i32) -> Result<Self, Self::Error> {
+        GirdOrientation::from_value(value).ok_or_else(|| {
+            crate::error::DomainError::invalid_enum("GirdOrientation", value.to_string())
+        })
+    }
 }
 
 /// `ESpeedActionType`.

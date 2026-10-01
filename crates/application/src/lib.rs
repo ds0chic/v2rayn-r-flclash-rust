@@ -18,6 +18,7 @@ pub mod mixin;
 pub mod net_host_client;
 pub mod repository;
 pub mod runtime_client;
+pub mod settings;
 pub mod snapshot;
 pub mod store_repo;
 pub mod subs;
@@ -38,6 +39,10 @@ pub use repository::{
 };
 pub use runtime_client::{
     ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
+};
+pub use settings::{
+    apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,
+    SettingsState,
 };
 pub use snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
 pub use store_repo::{ProfileStore, SqliteProfileRepository, SqliteSubRepository, SubStore};

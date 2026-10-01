@@ -11,6 +11,7 @@ import 'api/engine.dart';
 import 'api/groups.dart';
 import 'api/mirrors.dart';
 import 'api/profiles.dart';
+import 'api/settings.dart';
 import 'api/subs.dart';
 
 import 'dart:async';
@@ -60,6 +61,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ErrorDto dco_decode_box_autoadd_error_dto(dynamic raw);
 
   @protected
+  Fragment4RayItemDto dco_decode_box_autoadd_fragment_4_ray_item_dto(
+    dynamic raw,
+  );
+
+  @protected
   FullConfigTemplateDto dco_decode_box_autoadd_full_config_template_dto(
     dynamic raw,
   );
@@ -81,6 +87,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ProfileSummary dco_decode_box_autoadd_profile_summary(dynamic raw);
+
+  @protected
+  SettingsDto dco_decode_box_autoadd_settings_dto(dynamic raw);
 
   @protected
   SubItemDto dco_decode_box_autoadd_sub_item_dto(dynamic raw);
@@ -107,13 +116,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CapabilityDto dco_decode_capability_dto(dynamic raw);
 
   @protected
+  CheckUpdateItemDto dco_decode_check_update_item_dto(dynamic raw);
+
+  @protected
+  ClashUiItemDto dco_decode_clash_ui_item_dto(dynamic raw);
+
+  @protected
+  ColumnItemDto dco_decode_column_item_dto(dynamic raw);
+
+  @protected
   ConfigType dco_decode_config_type(dynamic raw);
+
+  @protected
+  ConstItemDto dco_decode_const_item_dto(dynamic raw);
 
   @protected
   CopyProfilesResult dco_decode_copy_profiles_result(dynamic raw);
 
   @protected
+  CoreBasicItemDto dco_decode_core_basic_item_dto(dynamic raw);
+
+  @protected
   CoreType dco_decode_core_type(dynamic raw);
+
+  @protected
+  CoreTypeBindingDto dco_decode_core_type_binding_dto(dynamic raw);
 
   @protected
   DeleteProfilesResult dco_decode_delete_profiles_result(dynamic raw);
@@ -128,10 +155,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EventEnvelopeDto dco_decode_event_envelope_dto(dynamic raw);
 
   @protected
+  Fragment4RayItemDto dco_decode_fragment_4_ray_item_dto(dynamic raw);
+
+  @protected
   FullConfigTemplateDto dco_decode_full_config_template_dto(dynamic raw);
 
   @protected
+  GlobalHotkeyDto dco_decode_global_hotkey_dto(dynamic raw);
+
+  @protected
   GroupGenResult dco_decode_group_gen_result(dynamic raw);
+
+  @protected
+  GrpcItemDto dco_decode_grpc_item_dto(dynamic raw);
+
+  @protected
+  GuiItemDto dco_decode_gui_item_dto(dynamic raw);
+
+  @protected
+  HappyEyeballs4RayItemDto dco_decode_happy_eyeballs_4_ray_item_dto(
+    dynamic raw,
+  );
+
+  @protected
+  HysteriaItemDto dco_decode_hysteria_item_dto(dynamic raw);
 
   @protected
   int dco_decode_i_32(dynamic raw);
@@ -143,10 +190,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImportResult dco_decode_import_result(dynamic raw);
 
   @protected
+  InboundListenerDto dco_decode_inbound_listener_dto(dynamic raw);
+
+  @protected
   JobDto dco_decode_job_dto(dynamic raw);
 
   @protected
   JobState dco_decode_job_state(dynamic raw);
+
+  @protected
+  KcpItemDto dco_decode_kcp_item_dto(dynamic raw);
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
@@ -155,12 +208,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CapabilityDto> dco_decode_list_capability_dto(dynamic raw);
 
   @protected
+  List<ColumnItemDto> dco_decode_list_column_item_dto(dynamic raw);
+
+  @protected
   List<ConfigType> dco_decode_list_config_type(dynamic raw);
+
+  @protected
+  List<CoreTypeBindingDto> dco_decode_list_core_type_binding_dto(dynamic raw);
 
   @protected
   List<FullConfigTemplateDto> dco_decode_list_full_config_template_dto(
     dynamic raw,
   );
+
+  @protected
+  List<GlobalHotkeyDto> dco_decode_list_global_hotkey_dto(dynamic raw);
+
+  @protected
+  List<InboundListenerDto> dco_decode_list_inbound_listener_dto(dynamic raw);
 
   @protected
   List<JobDto> dco_decode_list_job_dto(dynamic raw);
@@ -181,10 +246,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ProfileSummary> dco_decode_list_profile_summary(dynamic raw);
 
   @protected
+  List<SettingsChangeDto> dco_decode_list_settings_change_dto(dynamic raw);
+
+  @protected
   List<SubItemDto> dco_decode_list_sub_item_dto(dynamic raw);
 
   @protected
   List<SubUpdateEntryDto> dco_decode_list_sub_update_entry_dto(dynamic raw);
+
+  @protected
+  List<WindowSizeItemDto> dco_decode_list_window_size_item_dto(dynamic raw);
+
+  @protected
+  MsgUiItemDto dco_decode_msg_ui_item_dto(dynamic raw);
+
+  @protected
+  Mux4RayItemDto dco_decode_mux_4_ray_item_dto(dynamic raw);
+
+  @protected
+  Mux4SboxItemDto dco_decode_mux_4_sbox_item_dto(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -197,6 +277,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto? dco_decode_opt_box_autoadd_error_dto(dynamic raw);
+
+  @protected
+  Fragment4RayItemDto? dco_decode_opt_box_autoadd_fragment_4_ray_item_dto(
+    dynamic raw,
+  );
 
   @protected
   FullConfigTemplateDto? dco_decode_opt_box_autoadd_full_config_template_dto(
@@ -219,6 +304,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProfileSummary? dco_decode_opt_box_autoadd_profile_summary(dynamic raw);
 
   @protected
+  SettingsDto? dco_decode_opt_box_autoadd_settings_dto(dynamic raw);
+
+  @protected
   SubItemDto? dco_decode_opt_box_autoadd_sub_item_dto(dynamic raw);
 
   @protected
@@ -232,6 +320,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int? dco_decode_opt_box_autoadd_u_8(dynamic raw);
+
+  @protected
+  List<String>? dco_decode_opt_list_String(dynamic raw);
+
+  @protected
+  List<CoreTypeBindingDto>? dco_decode_opt_list_core_type_binding_dto(
+    dynamic raw,
+  );
 
   @protected
   ParseIssueDto dco_decode_parse_issue_dto(dynamic raw);
@@ -264,22 +360,43 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RevisionState dco_decode_revision_state(dynamic raw);
 
   @protected
+  RoutingBasicItemDto dco_decode_routing_basic_item_dto(dynamic raw);
+
+  @protected
   RuntimeState dco_decode_runtime_state(dynamic raw);
 
   @protected
   SaveProfileResult dco_decode_save_profile_result(dynamic raw);
 
   @protected
+  SaveSettingsResult dco_decode_save_settings_result(dynamic raw);
+
+  @protected
   SecurityDto dco_decode_security_dto(dynamic raw);
 
   @protected
+  SettingsChangeDto dco_decode_settings_change_dto(dynamic raw);
+
+  @protected
+  SettingsDto dco_decode_settings_dto(dynamic raw);
+
+  @protected
+  SettingsLoadDto dco_decode_settings_load_dto(dynamic raw);
+
+  @protected
   ShareExportResult dco_decode_share_export_result(dynamic raw);
+
+  @protected
+  SimpleDnsItemDto dco_decode_simple_dns_item_dto(dynamic raw);
 
   @protected
   SimpleResult dco_decode_simple_result(dynamic raw);
 
   @protected
   SnapshotDto dco_decode_snapshot_dto(dynamic raw);
+
+  @protected
+  SpeedTestItemDto dco_decode_speed_test_item_dto(dynamic raw);
 
   @protected
   StopRuntimeResult dco_decode_stop_runtime_result(dynamic raw);
@@ -300,6 +417,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SubsPageDto dco_decode_subs_page_dto(dynamic raw);
 
   @protected
+  SystemProxyItemDto dco_decode_system_proxy_item_dto(dynamic raw);
+
+  @protected
   TemplateDtoResult dco_decode_template_dto_result(dynamic raw);
 
   @protected
@@ -307,6 +427,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   TransportExtraDto dco_decode_transport_extra_dto(dynamic raw);
+
+  @protected
+  TunModeItemDto dco_decode_tun_mode_item_dto(dynamic raw);
 
   @protected
   int dco_decode_u_16(dynamic raw);
@@ -324,10 +447,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiEventAck dco_decode_ui_event_ack(dynamic raw);
 
   @protected
+  UiItemDto dco_decode_ui_item_dto(dynamic raw);
+
+  @protected
   void dco_decode_unit(dynamic raw);
 
   @protected
   UriParseResult dco_decode_uri_parse_result(dynamic raw);
+
+  @protected
+  WebDavItemDto dco_decode_web_dav_item_dto(dynamic raw);
+
+  @protected
+  WindowSizeItemDto dco_decode_window_size_item_dto(dynamic raw);
 
   @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
@@ -363,6 +495,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ErrorDto sse_decode_box_autoadd_error_dto(SseDeserializer deserializer);
 
   @protected
+  Fragment4RayItemDto sse_decode_box_autoadd_fragment_4_ray_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   FullConfigTemplateDto sse_decode_box_autoadd_full_config_template_dto(
     SseDeserializer deserializer,
   );
@@ -390,6 +527,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SettingsDto sse_decode_box_autoadd_settings_dto(SseDeserializer deserializer);
+
+  @protected
   SubItemDto sse_decode_box_autoadd_sub_item_dto(SseDeserializer deserializer);
 
   @protected
@@ -414,7 +554,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CapabilityDto sse_decode_capability_dto(SseDeserializer deserializer);
 
   @protected
+  CheckUpdateItemDto sse_decode_check_update_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ClashUiItemDto sse_decode_clash_ui_item_dto(SseDeserializer deserializer);
+
+  @protected
+  ColumnItemDto sse_decode_column_item_dto(SseDeserializer deserializer);
+
+  @protected
   ConfigType sse_decode_config_type(SseDeserializer deserializer);
+
+  @protected
+  ConstItemDto sse_decode_const_item_dto(SseDeserializer deserializer);
 
   @protected
   CopyProfilesResult sse_decode_copy_profiles_result(
@@ -422,7 +576,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  CoreBasicItemDto sse_decode_core_basic_item_dto(SseDeserializer deserializer);
+
+  @protected
   CoreType sse_decode_core_type(SseDeserializer deserializer);
+
+  @protected
+  CoreTypeBindingDto sse_decode_core_type_binding_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   DeleteProfilesResult sse_decode_delete_profiles_result(
@@ -439,12 +601,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EventEnvelopeDto sse_decode_event_envelope_dto(SseDeserializer deserializer);
 
   @protected
+  Fragment4RayItemDto sse_decode_fragment_4_ray_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   FullConfigTemplateDto sse_decode_full_config_template_dto(
     SseDeserializer deserializer,
   );
 
   @protected
+  GlobalHotkeyDto sse_decode_global_hotkey_dto(SseDeserializer deserializer);
+
+  @protected
   GroupGenResult sse_decode_group_gen_result(SseDeserializer deserializer);
+
+  @protected
+  GrpcItemDto sse_decode_grpc_item_dto(SseDeserializer deserializer);
+
+  @protected
+  GuiItemDto sse_decode_gui_item_dto(SseDeserializer deserializer);
+
+  @protected
+  HappyEyeballs4RayItemDto sse_decode_happy_eyeballs_4_ray_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HysteriaItemDto sse_decode_hysteria_item_dto(SseDeserializer deserializer);
 
   @protected
   int sse_decode_i_32(SseDeserializer deserializer);
@@ -456,10 +640,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImportResult sse_decode_import_result(SseDeserializer deserializer);
 
   @protected
+  InboundListenerDto sse_decode_inbound_listener_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   JobDto sse_decode_job_dto(SseDeserializer deserializer);
 
   @protected
   JobState sse_decode_job_state(SseDeserializer deserializer);
+
+  @protected
+  KcpItemDto sse_decode_kcp_item_dto(SseDeserializer deserializer);
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
@@ -470,10 +662,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ColumnItemDto> sse_decode_list_column_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<ConfigType> sse_decode_list_config_type(SseDeserializer deserializer);
 
   @protected
+  List<CoreTypeBindingDto> sse_decode_list_core_type_binding_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<FullConfigTemplateDto> sse_decode_list_full_config_template_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<GlobalHotkeyDto> sse_decode_list_global_hotkey_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<InboundListenerDto> sse_decode_list_inbound_listener_dto(
     SseDeserializer deserializer,
   );
 
@@ -500,12 +712,31 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<SettingsChangeDto> sse_decode_list_settings_change_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<SubItemDto> sse_decode_list_sub_item_dto(SseDeserializer deserializer);
 
   @protected
   List<SubUpdateEntryDto> sse_decode_list_sub_update_entry_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  List<WindowSizeItemDto> sse_decode_list_window_size_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  MsgUiItemDto sse_decode_msg_ui_item_dto(SseDeserializer deserializer);
+
+  @protected
+  Mux4RayItemDto sse_decode_mux_4_ray_item_dto(SseDeserializer deserializer);
+
+  @protected
+  Mux4SboxItemDto sse_decode_mux_4_sbox_item_dto(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -518,6 +749,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto? sse_decode_opt_box_autoadd_error_dto(SseDeserializer deserializer);
+
+  @protected
+  Fragment4RayItemDto? sse_decode_opt_box_autoadd_fragment_4_ray_item_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   FullConfigTemplateDto? sse_decode_opt_box_autoadd_full_config_template_dto(
@@ -544,6 +780,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SettingsDto? sse_decode_opt_box_autoadd_settings_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SubItemDto? sse_decode_opt_box_autoadd_sub_item_dto(
     SseDeserializer deserializer,
   );
@@ -559,6 +800,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int? sse_decode_opt_box_autoadd_u_8(SseDeserializer deserializer);
+
+  @protected
+  List<String>? sse_decode_opt_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<CoreTypeBindingDto>? sse_decode_opt_list_core_type_binding_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ParseIssueDto sse_decode_parse_issue_dto(SseDeserializer deserializer);
@@ -591,6 +840,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RevisionState sse_decode_revision_state(SseDeserializer deserializer);
 
   @protected
+  RoutingBasicItemDto sse_decode_routing_basic_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   RuntimeState sse_decode_runtime_state(SseDeserializer deserializer);
 
   @protected
@@ -599,7 +853,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SaveSettingsResult sse_decode_save_settings_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SecurityDto sse_decode_security_dto(SseDeserializer deserializer);
+
+  @protected
+  SettingsChangeDto sse_decode_settings_change_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SettingsDto sse_decode_settings_dto(SseDeserializer deserializer);
+
+  @protected
+  SettingsLoadDto sse_decode_settings_load_dto(SseDeserializer deserializer);
 
   @protected
   ShareExportResult sse_decode_share_export_result(
@@ -607,10 +877,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SimpleDnsItemDto sse_decode_simple_dns_item_dto(SseDeserializer deserializer);
+
+  @protected
   SimpleResult sse_decode_simple_result(SseDeserializer deserializer);
 
   @protected
   SnapshotDto sse_decode_snapshot_dto(SseDeserializer deserializer);
+
+  @protected
+  SpeedTestItemDto sse_decode_speed_test_item_dto(SseDeserializer deserializer);
 
   @protected
   StopRuntimeResult sse_decode_stop_runtime_result(
@@ -635,6 +911,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SubsPageDto sse_decode_subs_page_dto(SseDeserializer deserializer);
 
   @protected
+  SystemProxyItemDto sse_decode_system_proxy_item_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   TemplateDtoResult sse_decode_template_dto_result(
     SseDeserializer deserializer,
   );
@@ -646,6 +927,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   TransportExtraDto sse_decode_transport_extra_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  TunModeItemDto sse_decode_tun_mode_item_dto(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_16(SseDeserializer deserializer);
@@ -663,10 +947,21 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   UiEventAck sse_decode_ui_event_ack(SseDeserializer deserializer);
 
   @protected
+  UiItemDto sse_decode_ui_item_dto(SseDeserializer deserializer);
+
+  @protected
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
   UriParseResult sse_decode_uri_parse_result(SseDeserializer deserializer);
+
+  @protected
+  WebDavItemDto sse_decode_web_dav_item_dto(SseDeserializer deserializer);
+
+  @protected
+  WindowSizeItemDto sse_decode_window_size_item_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   void sse_encode_AnyhowException(
@@ -714,6 +1009,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_fragment_4_ray_item_dto(
+    Fragment4RayItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_full_config_template_dto(
     FullConfigTemplateDto self,
     SseSerializer serializer,
@@ -750,6 +1051,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_settings_dto(
+    SettingsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_sub_item_dto(
     SubItemDto self,
     SseSerializer serializer,
@@ -777,7 +1084,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_capability_dto(CapabilityDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_check_update_item_dto(
+    CheckUpdateItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_clash_ui_item_dto(
+    ClashUiItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_column_item_dto(ColumnItemDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_config_type(ConfigType self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_const_item_dto(ConstItemDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_copy_profiles_result(
@@ -786,7 +1111,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_core_basic_item_dto(
+    CoreBasicItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_core_type(CoreType self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_core_type_binding_dto(
+    CoreTypeBindingDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_delete_profiles_result(
@@ -810,14 +1147,44 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_fragment_4_ray_item_dto(
+    Fragment4RayItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_full_config_template_dto(
     FullConfigTemplateDto self,
     SseSerializer serializer,
   );
 
   @protected
+  void sse_encode_global_hotkey_dto(
+    GlobalHotkeyDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_group_gen_result(
     GroupGenResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_grpc_item_dto(GrpcItemDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_gui_item_dto(GuiItemDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_happy_eyeballs_4_ray_item_dto(
+    HappyEyeballs4RayItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_hysteria_item_dto(
+    HysteriaItemDto self,
     SseSerializer serializer,
   );
 
@@ -831,10 +1198,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_import_result(ImportResult self, SseSerializer serializer);
 
   @protected
+  void sse_encode_inbound_listener_dto(
+    InboundListenerDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_job_dto(JobDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_job_state(JobState self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_kcp_item_dto(KcpItemDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
@@ -846,14 +1222,38 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_column_item_dto(
+    List<ColumnItemDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_config_type(
     List<ConfigType> self,
     SseSerializer serializer,
   );
 
   @protected
+  void sse_encode_list_core_type_binding_dto(
+    List<CoreTypeBindingDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_full_config_template_dto(
     List<FullConfigTemplateDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_global_hotkey_dto(
+    List<GlobalHotkeyDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_inbound_listener_dto(
+    List<InboundListenerDto> self,
     SseSerializer serializer,
   );
 
@@ -891,6 +1291,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_settings_change_dto(
+    List<SettingsChangeDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_sub_item_dto(
     List<SubItemDto> self,
     SseSerializer serializer,
@@ -899,6 +1305,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_sub_update_entry_dto(
     List<SubUpdateEntryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_window_size_item_dto(
+    List<WindowSizeItemDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_msg_ui_item_dto(MsgUiItemDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_mux_4_ray_item_dto(
+    Mux4RayItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_mux_4_sbox_item_dto(
+    Mux4SboxItemDto self,
     SseSerializer serializer,
   );
 
@@ -917,6 +1344,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_error_dto(
     ErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_fragment_4_ray_item_dto(
+    Fragment4RayItemDto? self,
     SseSerializer serializer,
   );
 
@@ -954,6 +1387,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_settings_dto(
+    SettingsDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_sub_item_dto(
     SubItemDto? self,
     SseSerializer serializer,
@@ -970,6 +1409,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_u_8(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_String(List<String>? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_list_core_type_binding_dto(
+    List<CoreTypeBindingDto>? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_parse_issue_dto(ParseIssueDto self, SseSerializer serializer);
@@ -1017,6 +1465,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_revision_state(RevisionState self, SseSerializer serializer);
 
   @protected
+  void sse_encode_routing_basic_item_dto(
+    RoutingBasicItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_runtime_state(RuntimeState self, SseSerializer serializer);
 
   @protected
@@ -1026,7 +1480,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_save_settings_result(
+    SaveSettingsResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_security_dto(SecurityDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_settings_change_dto(
+    SettingsChangeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_settings_dto(SettingsDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_settings_load_dto(
+    SettingsLoadDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_share_export_result(
@@ -1035,10 +1510,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_simple_dns_item_dto(
+    SimpleDnsItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_simple_result(SimpleResult self, SseSerializer serializer);
 
   @protected
   void sse_encode_snapshot_dto(SnapshotDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_speed_test_item_dto(
+    SpeedTestItemDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_stop_runtime_result(
@@ -1071,6 +1558,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_subs_page_dto(SubsPageDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_system_proxy_item_dto(
+    SystemProxyItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_template_dto_result(
     TemplateDtoResult self,
     SseSerializer serializer,
@@ -1085,6 +1578,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_transport_extra_dto(
     TransportExtraDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_tun_mode_item_dto(
+    TunModeItemDto self,
     SseSerializer serializer,
   );
 
@@ -1104,11 +1603,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_ui_event_ack(UiEventAck self, SseSerializer serializer);
 
   @protected
+  void sse_encode_ui_item_dto(UiItemDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_unit(void self, SseSerializer serializer);
 
   @protected
   void sse_encode_uri_parse_result(
     UriParseResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_item_dto(
+    WebDavItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_window_size_item_dto(
+    WindowSizeItemDto self,
     SseSerializer serializer,
   );
 }

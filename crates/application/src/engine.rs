@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use domain::{
-    AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType, DesiredRevision,
-    DomainError, FullConfigTemplate, JobId, Profile, RuntimePlan,
+    AppSettings, AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType,
+    DesiredRevision, DomainError, FullConfigTemplate, JobId, Profile, RuntimePlan,
 };
 use serde_json::Value;
 
@@ -22,6 +22,10 @@ use crate::repository::{
 };
 use crate::runtime_client::{
     ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
+};
+use crate::settings::{
+    apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,
+    SettingsState,
 };
 use crate::snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
 use persistence::Store;
@@ -45,6 +49,7 @@ pub struct AppEngine {
     revisions: Arc<Mutex<RevisionStore>>,
     active: Arc<Mutex<Option<String>>>,
     templates: Arc<Mutex<Vec<FullConfigTemplate>>>,
+    settings: Arc<Mutex<SettingsState>>,
     data_dir: Option<PathBuf>,
     jobs: JobManager,
     runtime: Arc<dyn RuntimeClient>,
@@ -75,6 +80,7 @@ impl AppEngine {
             revisions: Arc::new(Mutex::new(RevisionStore::new())),
             active: Arc::new(Mutex::new(None)),
             templates: Arc::new(Mutex::new(crate::templates::builtins())),
+            settings: Arc::new(Mutex::new(SettingsState::default())),
             data_dir: None,
             jobs: JobManager::new(),
             runtime,
@@ -121,6 +127,7 @@ impl AppEngine {
             ))),
             active: Arc::new(Mutex::new(active)),
             templates: Arc::new(Mutex::new(read_templates(&config))),
+            settings: Arc::new(Mutex::new(read_settings_state(&config))),
             data_dir: Some(data_dir),
             jobs: JobManager::new(),
             runtime,
@@ -346,6 +353,105 @@ impl AppEngine {
         self.active.lock().ok().and_then(|guard| guard.clone())
     }
 
+    // -- T12a settings use cases -------------------------------------------
+
+    /// Current whole-tree settings revision.
+    pub fn settings_revision(&self) -> u64 {
+        self.settings
+            .lock()
+            .map(|guard| guard.revision)
+            .unwrap_or(0)
+    }
+
+    /// `load_settings` — the normalised settings tree plus revision counters.
+    pub fn load_settings(&self) -> Result<LoadedSettings, DomainError> {
+        let guard = self
+            .settings
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        Ok(LoadedSettings {
+            settings: guard.settings.clone(),
+            revision: guard.revision,
+            group_revisions: guard.group_revisions.clone(),
+        })
+    }
+
+    /// `save_settings` — whole-tree optimistic save.
+    ///
+    /// A stale `expected_revision` is rejected and a validation failure leaves
+    /// the previous value untouched; on success the tree is persisted
+    /// atomically and the changed fields are classified by `apply_timing`.
+    pub fn save_settings(
+        &self,
+        settings: AppSettings,
+        expected_revision: u64,
+    ) -> Result<SaveSettingsOutcome, DomainError> {
+        let mut guard = self
+            .settings
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        if guard.revision != expected_revision {
+            return Err(DomainError::stale_revision(
+                expected_revision,
+                guard.revision,
+            ));
+        }
+        let next = normalize_for_save(settings);
+        validate_settings(&next)?;
+        let changes = guard.settings.classified_changes(&next);
+        guard.settings = next;
+        guard.revision += 1;
+        for group in domain::SETTINGS_GROUPS {
+            *guard
+                .group_revisions
+                .entry((*group).to_string())
+                .or_insert(0) += 1;
+        }
+        let new_revision = guard.revision;
+        drop(guard);
+        self.persist_config_standalone()?;
+        Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
+    }
+
+    /// `save_settings_group` — patch one top-level group, leaving the others
+    /// untouched. The expected revision is that group's own counter.
+    pub fn save_settings_group(
+        &self,
+        group: &str,
+        patch: Value,
+        expected_revision: u64,
+    ) -> Result<SaveSettingsOutcome, DomainError> {
+        let mut guard = self
+            .settings
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let current_group = guard.group_revision(group);
+        if current_group != expected_revision {
+            return Err(DomainError::stale_revision(
+                expected_revision,
+                current_group,
+            ));
+        }
+        let next = apply_group_patch(&guard.settings, group, patch)?;
+        validate_settings(&next)?;
+        let changes = guard.settings.classified_changes(&next);
+        guard.settings = next;
+        guard.revision += 1;
+        *guard.group_revisions.entry(group.to_string()).or_insert(0) += 1;
+        let new_revision = guard.revision;
+        drop(guard);
+        self.persist_config_standalone()?;
+        Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
+    }
+
+    fn persist_config_standalone(&self) -> Result<(), DomainError> {
+        let revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        self.persist_config(&revisions)
+    }
+
     fn persist_config(&self, revisions: &RevisionStore) -> Result<(), DomainError> {
         let Some(dir) = &self.data_dir else {
             return Ok(());
@@ -356,12 +462,39 @@ impl AppEngine {
             .lock()
             .map(|guard| guard.clone())
             .unwrap_or_default();
-        let value = serde_json::json!({
-            "desired_revision": revisions.desired().get(),
-            "active_index_id": active,
-            "full_config_templates": templates,
-        });
-        write_config(dir, &value)?;
+        let (settings, settings_revision, group_revisions) = self
+            .settings
+            .lock()
+            .map(|guard| {
+                (
+                    guard.settings.clone(),
+                    guard.revision,
+                    guard.group_revisions.clone(),
+                )
+            })
+            .unwrap_or((AppSettings::default(), 0, Default::default()));
+        let mut object = match serde_json::to_value(&settings).unwrap_or(Value::Null) {
+            Value::Object(map) => map,
+            _ => serde_json::Map::new(),
+        };
+        object.insert(
+            "desired_revision".to_string(),
+            serde_json::json!(revisions.desired().get()),
+        );
+        object.insert("active_index_id".to_string(), serde_json::json!(active));
+        object.insert(
+            "full_config_templates".to_string(),
+            serde_json::json!(templates),
+        );
+        object.insert(
+            "settings_revision".to_string(),
+            serde_json::json!(settings_revision),
+        );
+        object.insert(
+            "settings_group_revisions".to_string(),
+            serde_json::json!(group_revisions),
+        );
+        write_config(dir, &Value::Object(object))?;
         Ok(())
     }
 
@@ -1031,6 +1164,41 @@ fn read_config(dir: &Path) -> Result<Value, DomainError> {
     serde_json::from_str(&text).map_err(storage_error)
 }
 
+/// Engine-owned keys that live next to the upstream `Config` tree. They are
+/// stripped before parsing [`AppSettings`] so they never leak into `extra`.
+pub const SETTINGS_META_KEYS: &[&str] = &[
+    "desired_revision",
+    "active_index_id",
+    "full_config_templates",
+    "settings_revision",
+    "settings_group_revisions",
+];
+
+/// Parse the settings tree and its revision counters out of the raw config.
+fn read_settings_state(config: &Value) -> SettingsState {
+    let mut value = config.clone();
+    if let Some(object) = value.as_object_mut() {
+        for key in SETTINGS_META_KEYS {
+            object.remove(*key);
+        }
+    }
+    let mut settings: AppSettings = serde_json::from_value(value).unwrap_or_default();
+    settings.apply_load_defaults();
+    let revision = config
+        .get("settings_revision")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let group_revisions = config
+        .get("settings_group_revisions")
+        .and_then(|value| serde_json::from_value(value.clone()).ok())
+        .unwrap_or_default();
+    SettingsState {
+        settings,
+        revision,
+        group_revisions,
+    }
+}
+
 /// Atomically write `guiNConfig.json` (write temp + rename).
 fn write_config(dir: &Path, value: &Value) -> Result<(), DomainError> {
     let path = dir.join("guiNConfig.json");
@@ -1250,5 +1418,125 @@ mod tests {
         let snap = engine.snapshot().unwrap();
         assert_eq!(snap.revision_state, RevisionState::InSync);
         assert_eq!(snap.runtime_state, RuntimeState::Running);
+    }
+
+    #[test]
+    fn settings_round_trip_persists_and_reloads() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine =
+            AppEngine::open_with_runtime(dir.path(), Arc::new(NullRuntimeClient::new())).unwrap();
+        let loaded = engine.load_settings().unwrap();
+        assert_eq!(loaded.revision, 0);
+        let mut settings = loaded.settings;
+        settings.gui_item.enable_statistics = true;
+        settings.core_basic_item.loglevel = Some("debug".to_string());
+        let outcome = engine.save_settings(settings, 0).unwrap();
+        assert_eq!(outcome.new_revision, 1);
+        assert!(outcome
+            .restart_app_fields
+            .contains(&"GuiItem.EnableStatistics".to_string()));
+        assert!(outcome
+            .restart_core_fields
+            .contains(&"CoreBasicItem.Loglevel".to_string()));
+
+        let reopened =
+            AppEngine::open_with_runtime(dir.path(), Arc::new(NullRuntimeClient::new())).unwrap();
+        let loaded2 = reopened.load_settings().unwrap();
+        assert_eq!(loaded2.revision, 1);
+        assert!(loaded2.settings.gui_item.enable_statistics);
+        assert_eq!(
+            loaded2.settings.core_basic_item.loglevel.as_deref(),
+            Some("debug")
+        );
+    }
+
+    #[test]
+    fn settings_save_rejects_stale_and_keeps_old_value() {
+        let engine = AppEngine::in_memory();
+        let mut settings = engine.load_settings().unwrap().settings;
+        settings.ui_item.double_click2_activate = true;
+        engine.save_settings(settings.clone(), 0).unwrap();
+        let err = engine.save_settings(settings, 0).unwrap_err();
+        assert_eq!(err.code, domain::codes::REVISION_STALE);
+        assert_eq!(engine.settings_revision(), 1);
+        assert!(
+            engine
+                .load_settings()
+                .unwrap()
+                .settings
+                .ui_item
+                .double_click2_activate
+        );
+    }
+
+    #[test]
+    fn settings_invalid_port_does_not_change_old_value() {
+        let engine = AppEngine::in_memory();
+        let mut settings = engine.load_settings().unwrap().settings;
+        settings.inbound[0].local_port = 0;
+        let err = engine.save_settings(settings, 0).unwrap_err();
+        assert_eq!(err.code, domain::codes::FIELD_RANGE);
+        assert_eq!(engine.settings_revision(), 0);
+        assert_eq!(
+            engine.load_settings().unwrap().settings.inbound[0].local_port,
+            10808
+        );
+    }
+
+    #[test]
+    fn settings_group_save_is_scoped_and_revision_checked() {
+        let engine = AppEngine::in_memory();
+        let before = engine.load_settings().unwrap();
+        let group_rev = before.group_revisions.get("GuiItem").copied().unwrap_or(0);
+        let outcome = engine
+            .save_settings_group(
+                "GuiItem",
+                serde_json::json!({"EnableStatistics": true}),
+                group_rev,
+            )
+            .unwrap();
+        assert!(outcome
+            .restart_app_fields
+            .contains(&"GuiItem.EnableStatistics".to_string()));
+        let after = engine.load_settings().unwrap();
+        assert!(after.settings.gui_item.enable_statistics);
+        assert_eq!(
+            after.settings.core_basic_item,
+            before.settings.core_basic_item
+        );
+        assert_eq!(
+            after.group_revisions.get("GuiItem").copied().unwrap_or(0),
+            group_rev + 1
+        );
+
+        let stale = engine
+            .save_settings_group(
+                "GuiItem",
+                serde_json::json!({"EnableStatistics": false}),
+                group_rev,
+            )
+            .unwrap_err();
+        assert_eq!(stale.code, domain::codes::REVISION_STALE);
+        assert!(
+            engine
+                .load_settings()
+                .unwrap()
+                .settings
+                .gui_item
+                .enable_statistics
+        );
+    }
+
+    #[test]
+    fn settings_unlinked_actions_report_not_restart() {
+        // A UI-only change must not be reported as needing a restart.
+        let engine = AppEngine::in_memory();
+        let mut settings = engine.load_settings().unwrap().settings;
+        settings.ui_item.current_theme = Some("Dark".to_string());
+        settings.ui_item.double_click2_activate = true;
+        let outcome = engine.save_settings(settings, 0).unwrap();
+        assert!(outcome.restart_core_fields.is_empty());
+        assert!(outcome.restart_app_fields.is_empty());
+        assert!(outcome.next_launch_fields.is_empty());
     }
 }

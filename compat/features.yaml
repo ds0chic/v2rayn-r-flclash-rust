@@ -3776,13 +3776,13 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 各分组设置持久化并回读一致
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "apps/desktop/lib/features/settings/option_setting_window.dart; crates/domain/src/settings.rs; crates/application/src/settings.rs; crates/bridge_api/src/api/settings.rs"
+  test_ids: [T12A-settings]
   evidence:
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:291
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:400
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:196
-  status: identified
+  status: implemented
 - id: F-APP-002
   name: 主题
   family: app-mgmt
@@ -3805,13 +3805,13 @@ features:
   cancel_behavior: 无
   acceptance: 主题切换即时生效
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "apps/desktop/lib/features/settings/theme_setting_dialog.dart; apps/desktop/lib/shared/theme/app_theme.dart"
+  test_ids: [T12A-settings]
   evidence:
   - v2rayN/ServiceLib/Enums/ETheme.cs:3
   - v2rayN/v2rayN/Views/ThemeSettingView.xaml.cs:15
   - v2rayN/ServiceLib/Handler/SysProxy/ProxySettingWindows.cs
-  status: identified
+  status: implemented
 - id: F-APP-003
   name: 语言切换
   family: app-mgmt
@@ -3834,13 +3834,13 @@ features:
   cancel_behavior: 无
   acceptance: 切换语言后界面文案改变
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "apps/desktop/lib/features/settings/settings_controller.dart; apps/desktop/lib/app/shell/ui_shell_controller.dart"
+  test_ids: [T12A-settings]
   evidence:
   - v2rayN/ServiceLib/Global.cs:498
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:108
   - v2rayN/ServiceLib/Manager/AppManager.cs:77
-  status: identified
+  status: implemented
 - id: F-APP-004
   name: 打开程序目录
   family: app-mgmt

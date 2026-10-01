@@ -59,6 +59,14 @@ class UiShellState {
     this.verticalSplit = 0.5,
     this.tabIndex = 0,
     this.themeMode = ThemeMode.light,
+    this.accentName,
+    this.fontFamily,
+    this.fontSize,
+    this.language,
+    this.hideIpInfo = false,
+    this.showStatistics = false,
+    this.autoAdjustColWidth = false,
+    this.trayMenuServersLimit = 20,
     this.systemProxyIndex = 2,
     this.routingLabel,
     this.tunEnabled = false,
@@ -79,6 +87,17 @@ class UiShellState {
 
   final int tabIndex;
   final ThemeMode themeMode;
+
+  /// `UIItem.ColorPrimaryName` (Material swatch name), applied immediately.
+  final String? accentName;
+  final String? fontFamily;
+  final double? fontSize;
+  final String? language;
+  final bool hideIpInfo;
+  final bool showStatistics;
+  final bool autoAdjustColWidth;
+  final int trayMenuServersLimit;
+
   final int systemProxyIndex;
   final String? routingLabel;
   final bool tunEnabled;
@@ -97,6 +116,17 @@ class UiShellState {
     double? verticalSplit,
     int? tabIndex,
     ThemeMode? themeMode,
+    String? accentName,
+    bool clearAccent = false,
+    String? fontFamily,
+    bool clearFontFamily = false,
+    double? fontSize,
+    bool clearFontSize = false,
+    String? language,
+    bool? hideIpInfo,
+    bool? showStatistics,
+    bool? autoAdjustColWidth,
+    int? trayMenuServersLimit,
     int? systemProxyIndex,
     String? routingLabel,
     bool? tunEnabled,
@@ -113,6 +143,14 @@ class UiShellState {
       verticalSplit: verticalSplit ?? this.verticalSplit,
       tabIndex: tabIndex ?? this.tabIndex,
       themeMode: themeMode ?? this.themeMode,
+      accentName: clearAccent ? null : (accentName ?? this.accentName),
+      fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
+      fontSize: clearFontSize ? null : (fontSize ?? this.fontSize),
+      language: language ?? this.language,
+      hideIpInfo: hideIpInfo ?? this.hideIpInfo,
+      showStatistics: showStatistics ?? this.showStatistics,
+      autoAdjustColWidth: autoAdjustColWidth ?? this.autoAdjustColWidth,
+      trayMenuServersLimit: trayMenuServersLimit ?? this.trayMenuServersLimit,
       systemProxyIndex: systemProxyIndex ?? this.systemProxyIndex,
       routingLabel: routingLabel ?? this.routingLabel,
       tunEnabled: tunEnabled ?? this.tunEnabled,
@@ -144,11 +182,96 @@ class UiShellController extends Notifier<UiShellState> {
       layout: AppLayoutMode.fromId(layout['mode'] as String?),
       horizontalSplit: (layout['horizontal_split'] as num?)?.toDouble() ?? 0.5,
       verticalSplit: (layout['vertical_split'] as num?)?.toDouble() ?? 0.5,
-      themeMode: (theme['mode'] as String?) == 'dark'
-          ? ThemeMode.dark
-          : ThemeMode.light,
+      themeMode: _themeModeFrom(theme['mode'] as String?),
+      accentName: theme['accent'] as String?,
+      fontFamily: theme['font_family'] as String?,
+      fontSize: (theme['font_size'] as num?)?.toDouble(),
+      language: theme['language'] as String?,
       systemProxyIndex: (status['system_proxy'] as num?)?.toInt() ?? 2,
     );
+  }
+
+  static ThemeMode _themeModeFrom(String? name) {
+    switch (name) {
+      case 'dark':
+      case 'Dark':
+        return ThemeMode.dark;
+      case 'light':
+      case 'Light':
+        return ThemeMode.light;
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  /// Apply the persisted settings document to the live UI.
+  ///
+  /// Handles the `immediate` / UI-layer fields from `compat/fields.settings.yaml`
+  /// (theme, accent, font, language, layout, hide-IP, statistics). Fields that
+  /// need a kernel or app restart are left to T13 and only surfaced as a note.
+  void applySettingsDocument(Map<String, dynamic> document) {
+    final ui = document['UiItem'] as Map<String, dynamic>? ?? const {};
+    final gui = document['GuiItem'] as Map<String, dynamic>? ?? const {};
+    final orientation = (ui['MainGirdOrientation'] as num?)?.toInt();
+    final layout = switch (orientation) {
+      0 => AppLayoutMode.horizontal,
+      2 => AppLayoutMode.tab,
+      _ => AppLayoutMode.vertical,
+    };
+    final fontSize = (ui['CurrentFontSize'] as num?)?.toDouble();
+    final accentRaw = ui['ColorPrimaryName'] as String?;
+    final familyRaw = ui['CurrentFontFamily'] as String?;
+    state = state.copyWith(
+      layout: layout,
+      themeMode: _themeModeFrom(ui['CurrentTheme'] as String?),
+      accentName: (accentRaw == null || accentRaw.isEmpty) ? null : accentRaw,
+      clearAccent: accentRaw == null || accentRaw.isEmpty,
+      fontFamily: (familyRaw == null || familyRaw.isEmpty) ? null : familyRaw,
+      clearFontFamily: familyRaw == null || familyRaw.isEmpty,
+      fontSize: (fontSize != null && fontSize >= 8) ? fontSize : null,
+      clearFontSize: fontSize == null || fontSize < 8,
+      language: ui['CurrentLanguage'] as String?,
+      hideIpInfo: ui['HideColumnIpInfo'] == true,
+      showStatistics: gui['EnableStatistics'] == true,
+      autoAdjustColWidth: ui['EnableAutoAdjustMainLvColWidth'] == true,
+      trayMenuServersLimit:
+          (gui['TrayMenuServersLimit'] as num?)?.toInt() ??
+          state.trayMenuServersLimit,
+    );
+    _persistTheme();
+  }
+
+  /// Apply a theme-dialog selection immediately (before/as it is persisted).
+  void applyThemeSelection({
+    String? theme,
+    String? accent,
+    String? fontFamily,
+    int? fontSize,
+    String? language,
+  }) {
+    state = state.copyWith(
+      themeMode: theme == null ? null : _themeModeFrom(theme),
+      accentName: accent,
+      clearAccent: accent != null && accent.isEmpty,
+      fontFamily: fontFamily,
+      fontSize: fontSize?.toDouble(),
+      language: language,
+    );
+    _persistTheme();
+  }
+
+  void _persistTheme() {
+    _store.saveSection(themeSection, <String, dynamic>{
+      'mode': switch (state.themeMode) {
+        ThemeMode.dark => 'dark',
+        ThemeMode.light => 'light',
+        ThemeMode.system => 'system',
+      },
+      'accent': state.accentName,
+      'font_family': state.fontFamily,
+      'font_size': state.fontSize,
+      'language': state.language,
+    });
   }
 
   void setLayout(AppLayoutMode mode) {

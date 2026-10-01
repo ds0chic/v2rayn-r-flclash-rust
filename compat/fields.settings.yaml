@@ -157,7 +157,7 @@ items:
   unresolved:
   - 审计整改：CLR 缺省（无初始化器）；ConfigHandler 无 IndexId 初始化分支，默认值实为选中态回写（A03）。
   notes: 默认选中节点索引；SetDefaultServerIndex 写入，非用户直接编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-002
   name: SubIndexId
   display_key: null
@@ -190,7 +190,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2288
   unresolved: []
   notes: 默认订阅 id；删除订阅时回退到最后一个订阅。
-  status: identified
+  status: implemented
 - id: FLD-CFG-003
   name: CoreBasicItem
   display_key: null
@@ -223,7 +223,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:38
   unresolved: []
   notes: 容器属性；子字段见 FLD-CFG-026..034。
-  status: identified
+  status: implemented
 - id: FLD-CFG-004
   name: TunModeItem
   display_key: null
@@ -255,7 +255,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:90
   unresolved: []
   notes: 容器属性；子字段见 FLD-CFG-095..105。
-  status: identified
+  status: implemented
 - id: FLD-CFG-005
   name: KcpItem
   display_key: null
@@ -287,7 +287,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:72
   unresolved: []
   notes: 容器属性；对应 WPF 设置窗口 KCP 页已整段注释（OptionSettingWindow.xaml:619-737）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-006
   name: GrpcItem
   display_key: null
@@ -319,7 +319,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:83
   unresolved: []
   notes: 容器属性；无专门 UI 页，节点 grpc 传输生成时读取。
-  status: identified
+  status: implemented
 - id: FLD-CFG-007
   name: RoutingBasicItem
   display_key: null
@@ -351,7 +351,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:66
   unresolved: []
   notes: 容器属性；编辑入口在 RoutingSettingViewModel，不在 OptionSettingWindow。
-  status: identified
+  status: implemented
 - id: FLD-CFG-008
   name: GuiItem
   display_key: null
@@ -383,7 +383,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:97
   unresolved: []
   notes: 容器属性；注意字段名序列化为 GuiItem（C# 属性名）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-009
   name: MsgUIItem
   display_key: null
@@ -415,7 +415,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:102
   unresolved: []
   notes: 容器属性；由 MsgViewModel 读写。
-  status: identified
+  status: implemented
 - id: FLD-CFG-010
   name: UiItem
   display_key: null
@@ -447,7 +447,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:104
   unresolved: []
   notes: 容器属性；子字段见 FLD-CFG-067..083。
-  status: identified
+  status: implemented
 - id: FLD-CFG-011
   name: ConstItem
   display_key: null
@@ -479,7 +479,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:115
   unresolved: []
   notes: 容器属性；含订阅转换与 geo 源地址。
-  status: identified
+  status: implemented
 - id: FLD-CFG-012
   name: SpeedTestItem
   display_key: null
@@ -511,7 +511,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:126
   unresolved: []
   notes: 容器属性；子字段见 FLD-CFG-106..113。
-  status: identified
+  status: implemented
 - id: FLD-CFG-013
   name: Mux4RayItem
   display_key: null
@@ -543,7 +543,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:145
   unresolved: []
   notes: 容器属性；Xray mux。
-  status: identified
+  status: implemented
 - id: FLD-CFG-014
   name: Mux4SboxItem
   display_key: null
@@ -575,7 +575,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:152
   unresolved: []
   notes: 容器属性；sing-box mux。
-  status: identified
+  status: implemented
 - id: FLD-CFG-015
   name: HysteriaItem
   display_key: null
@@ -607,7 +607,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:158
   unresolved: []
   notes: 容器属性；全局 Hysteria2 带宽/跳变默认。
-  status: identified
+  status: implemented
 - id: FLD-CFG-016
   name: ClashUIItem
   display_key: null
@@ -639,7 +639,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:163
   unresolved: []
   notes: 容器属性；同时含 Clash 代理/连接视图刷新设置与写内核 ipv6/mixin。
-  status: identified
+  status: implemented
 - id: FLD-CFG-017
   name: SystemProxyItem
   display_key: null
@@ -671,7 +671,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:165
   unresolved: []
   notes: 容器属性；SysProxyType 由状态栏菜单写入，其余由设置窗口写入。
-  status: identified
+  status: implemented
 - id: FLD-CFG-018
   name: WebDavItem
   display_key: null
@@ -703,7 +703,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:166
   unresolved: []
   notes: 容器属性；在备份/恢复窗口编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-019
   name: CheckUpdateItem
   display_key: null
@@ -735,7 +735,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:167
   unresolved: []
   notes: 容器属性；在检查更新窗口编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-020
   name: Fragment4RayItem
   display_key: null
@@ -767,7 +767,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:168
   unresolved: []
   notes: 容器属性；可空引用类型。
-  status: identified
+  status: implemented
 - id: FLD-CFG-021
   name: Inbound
   display_key: null
@@ -799,7 +799,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:44
   unresolved: []
   notes: 列表容器；设置窗口只编辑首项，保存时移除多余项（OptionSettingViewModel.cs:326-329）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-022
   name: GlobalHotkeys
   display_key: null
@@ -831,7 +831,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:189
   unresolved: []
   notes: 列表容器；由 GlobalHotkey 设置窗口编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-023
   name: CoreTypeItem
   display_key: null
@@ -865,7 +865,7 @@ items:
   unresolved:
   - LoadConfig 未对 CoreTypeItem 列表补默认；缺失时由设置窗口初始化，非启动路径不会补齐。
   notes: 列表容器；AppManager.GetCoreType 读取决定节点默认内核。
-  status: identified
+  status: implemented
 - id: FLD-CFG-024
   name: SimpleDNSItem
   display_key: null
@@ -897,7 +897,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:117
   unresolved: []
   notes: 容器属性；编辑入口为 DNSSettingViewModel。
-  status: identified
+  status: implemented
 - id: FLD-CFG-025
   name: HappyEyeballs4RayItem
   display_key: null
@@ -929,7 +929,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:174
   unresolved: []
   notes: 容器属性；仅 Xray DNS Happy Eyeballs 使用。
-  status: identified
+  status: implemented
 - id: FLD-CFG-026
   name: LogEnabled
   display_key: ResUI.TbSettingsLogEnabledToFile
@@ -969,7 +969,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:75
   unresolved: []
   notes: 注意与 GuiItem.EnableLog 区分：LogEnabled 控制内核日志级别写出。
-  status: identified
+  status: implemented
 - id: FLD-CFG-027
   name: Loglevel
   display_key: ResUI.TbSettingsLogLevel
@@ -1016,7 +1016,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:76
   unresolved: []
   notes: 枚举来源 Global.LogLevels(Global.cs:527)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-028
   name: DefFingerprint
   display_key: ResUI.TbSettingsDefFingerprint
@@ -1064,7 +1064,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:77
   unresolved: []
   notes: 枚举来源 Global.Fingerprints(Global.cs:411)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-029
   name: DefUserAgent
   display_key: ResUI.TbSettingsDefUserAgent
@@ -1106,7 +1106,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:78
   unresolved: []
   notes: 枚举来源 Global.UserAgent(Global.cs:436)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-030
   name: SendThrough
   display_key: ResUI.TbSettingsSendThrough
@@ -1144,7 +1144,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:79
   unresolved: []
   notes: 可空引用类型。
-  status: identified
+  status: implemented
 - id: FLD-CFG-031
   name: BindInterface
   display_key: ResUI.TbSettingsBindInterface
@@ -1183,7 +1183,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:80
   unresolved: []
   notes: Tun 模式下亦写入 autoOutboundsInterface。
-  status: identified
+  status: implemented
 - id: FLD-CFG-032
   name: EnableFragment
   display_key: ResUI.TbSettingsEnableFragment
@@ -1222,7 +1222,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:88
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-033
   name: EnableFinalFragment
   display_key: ResUI.TbEnableFinalFragment
@@ -1260,7 +1260,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:89
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-034
   name: EnableCacheFile4Sbox
   display_key: ResUI.TbSettingsEnableCacheFile4Sbox
@@ -1295,7 +1295,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:85
   unresolved: []
   notes: 属性初始化即有效默认（LoadConfig 未覆盖）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-035
   name: LocalPort
   display_key: ResUI.TbSettingsSocksPort
@@ -1338,7 +1338,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:64
   unresolved: []
   notes: AppManager.GetLocalPort 缺省回退 10808。
-  status: identified
+  status: implemented
 - id: FLD-CFG-036
   name: Protocol
   display_key: null
@@ -1375,7 +1375,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:62
   unresolved: []
   notes: 仅用于定位 socks 入站；生成时协议被硬编码为 mixed。
-  status: identified
+  status: implemented
 - id: FLD-CFG-037
   name: UdpEnabled
   display_key: ResUI.TbSettingsUdpEnabled
@@ -1412,7 +1412,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:66
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-038
   name: SniffingEnabled
   display_key: ResUI.TbSettingsSniffingEnabled
@@ -1452,7 +1452,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:67
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-039
   name: DestOverride
   display_key: ResUI.TbSettingsDestOverride
@@ -1494,7 +1494,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:211
   unresolved: []
   notes: FakeIP 开启时生成器追加 fakedns（V2rayInboundService.cs:164-171）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-040
   name: RouteOnly
   display_key: ResUI.TbSettingsRouteOnly
@@ -1531,7 +1531,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:68
   unresolved: []
   notes: Tun 模式下被强制 routeOnly=true（V2rayInboundService.cs:91）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-041
   name: AllowLANConn
   display_key: ResUI.TbSettingsAllowLAN
@@ -1575,7 +1575,7 @@ items:
   unresolved:
   - 审计整改：CLR 缺省 false；ConfigHandler 新建 Inbound 未显式初始化该字段（A03）。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-042
   name: NewPort4LAN
   display_key: ResUI.TbSettingsNewPort4LAN
@@ -1616,7 +1616,7 @@ items:
   unresolved:
   - 审计整改：CLR 缺省 false；ConfigHandler 新建 Inbound 未显式初始化该字段（A03）。
   notes: 同时控制设置窗口 txtuser/txtpass 可用性（OptionSettingWindow.xaml.cs:71-72）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-043
   name: User
   display_key: ResUI.TbSettingsUser
@@ -1655,7 +1655,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:73
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-044
   name: Pass
   display_key: ResUI.TbSettingsPass
@@ -1695,7 +1695,7 @@ items:
   unresolved:
   - 审计整改：CLR 缺省 null；未见 LoadConfig/初始化追踪（A03）。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-045
   name: SecondLocalPortEnabled
   display_key: ResUI.TbSettingsSecondLocalPortEnabled
@@ -1733,7 +1733,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:65
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-046
   name: Mtu
   display_key: null
@@ -1770,7 +1770,7 @@ items:
   unresolved:
   - KCP 设置页在 WPF/Avalonia 均被整段注释，无绑定控件；字段是否仍对用户可见未确认。
   notes: 旧 KCP 传输参数，保留于配置。
-  status: identified
+  status: implemented
 - id: FLD-CFG-047
   name: Tti
   display_key: null
@@ -1806,7 +1806,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:383
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-048
   name: UplinkCapacity
   display_key: null
@@ -1842,7 +1842,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:384
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-049
   name: DownlinkCapacity
   display_key: null
@@ -1878,7 +1878,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:385
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-050
   name: CwndMultiplier
   display_key: null
@@ -1915,7 +1915,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:386
   unresolved: []
   notes: LoadConfig 有值校正逻辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-051
   name: MaxSendingWindow
   display_key: null
@@ -1952,7 +1952,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:387
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-052
   name: IdleTimeout
   display_key: null
@@ -1991,7 +1991,7 @@ items:
   unresolved:
   - 无设置窗口绑定；仅节点级 grpc 传输生成时读取全局默认。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-053
   name: HealthCheckTimeout
   display_key: null
@@ -2029,7 +2029,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:575
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-054
   name: PermitWithoutStream
   display_key: null
@@ -2067,7 +2067,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:576
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-055
   name: InitialWindowsSize
   display_key: null
@@ -2103,7 +2103,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:498
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-056
   name: AutoRun
   display_key: ResUI.TbSettingsStartBoot
@@ -2138,7 +2138,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:95
   unresolved: []
   notes: 保存时调用 AutoStartupHandler.UpdateTask（OptionSettingViewModel.cs:402）；默认值追踪行已按 FND-002 修正为 :43/:176/:351。
-  status: identified
+  status: implemented
 - id: FLD-CFG-057
   name: EnableStatistics
   display_key: ResUI.TbSettingsStatistics
@@ -2177,7 +2177,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:96
   unresolved: []
   notes: 在 needReboot 集合中，保存后提示 NeedRebootTips。
-  status: identified
+  status: implemented
 - id: FLD-CFG-058
   name: DisplayRealTimeSpeed
   display_key: ResUI.TbSettingsDisplayRealTimeSpeed
@@ -2214,7 +2214,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:97
   unresolved: []
   notes: 在 needReboot 集合中。
-  status: identified
+  status: implemented
 - id: FLD-CFG-059
   name: KeepOlderDedupl
   display_key: ResUI.TbSettingsKeepOlderDedupl
@@ -2246,7 +2246,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:98
   unresolved: []
   notes: 去重时保留旧节点还是新节点。
-  status: identified
+  status: implemented
 - id: FLD-CFG-060
   name: AutoUpdateInterval
   display_key: ResUI.TbSettingsAutoUpdateInterval
@@ -2278,7 +2278,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:103
   unresolved: []
   notes: 订阅自动更新周期（小时）；运行期直接读 config。
-  status: identified
+  status: implemented
 - id: FLD-CFG-061
   name: TrayMenuServersLimit
   display_key: ResUI.TbSettingsTrayMenuServersLimit
@@ -2310,7 +2310,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:104
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-062
   name: EnableHWA
   display_key: ResUI.TbSettingsEnableHWA
@@ -2344,7 +2344,7 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:153
   unresolved: []
   notes: 硬件加速；needReboot 集合内。消费点：MainWindow 构造按 !EnableHWA 设 RenderOptions.ProcessRenderMode=SoftwareOnly（审计 FND-004，原 unresolved 关闭）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-063
   name: EnableLog
   display_key: null
@@ -2376,7 +2376,7 @@ items:
   - v2rayN/ServiceLib/Manager/AppManager.cs:101
   unresolved: []
   notes: 控制应用日志；仅在启动 InitComponents 读取。与 CoreBasicItem.LogEnabled 不同。
-  status: identified
+  status: implemented
 - id: FLD-CFG-064
   name: RootCertProvider
   display_key: ResUI.TbRootCertificateProvider
@@ -2412,7 +2412,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:118
   unresolved: []
   notes: 枚举来源 Global.RootCertProviders(Global.cs:758)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-065
   name: MainMsgFilter
   display_key: null
@@ -2445,7 +2445,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:116
   unresolved: []
   notes: 消息窗口过滤文本，由 MsgViewModel 编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-066
   name: AutoRefresh
   display_key: null
@@ -2478,7 +2478,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:28
   unresolved: []
   notes: 消息窗口自动刷新。
-  status: identified
+  status: implemented
 - id: FLD-CFG-067
   name: EnableAutoAdjustMainLvColWidth
   display_key: ResUI.TbSettingsEnableAutoAdjustMainLvColWidth
@@ -2511,7 +2511,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:99
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-068
   name: MainGirdHeight1
   display_key: null
@@ -2545,7 +2545,7 @@ items:
   - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:374
   unresolved: []
   notes: 主窗口分割高度，运行时由 SaveMainGirdHeight 写回。
-  status: identified
+  status: implemented
 - id: FLD-CFG-069
   name: MainGirdHeight2
   display_key: null
@@ -2579,7 +2579,7 @@ items:
   - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:374
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-070
   name: MainGirdOrientation
   display_key: ResUI.TbSettingsMainGirdOrientation
@@ -2618,7 +2618,7 @@ items:
   unresolved:
   - ResUI 文案标注 requires restart（ResUI.Designer.cs:4558），但 needReboot 集合未包含该字段。
   notes: 枚举来源 EGirdOrientation.cs。
-  status: identified
+  status: implemented
 - id: FLD-CFG-071
   name: ColorPrimaryName
   display_key: null
@@ -2655,7 +2655,7 @@ items:
   unresolved:
   - 仅在 WPF ThemeSettingViewModel 定位到使用；Avalonia 主题设置窗口是否读写未逐一核对。
   notes: MaterialDesign Swatch 名，改变即保存并刷新主题。
-  status: identified
+  status: implemented
 - id: FLD-CFG-072
   name: CurrentTheme
   display_key: null
@@ -2692,7 +2692,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:147
   unresolved: []
   notes: 枚举 ETheme（FollowSystem/Dark/Light）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-073
   name: CurrentLanguage
   display_key: null
@@ -2734,7 +2734,7 @@ items:
   - v2rayN/v2rayN/ViewModels/ThemeSettingViewModel.cs:110
   unresolved: []
   notes: 枚举来源 Global.LanguageOptions(Global.cs:498)；切换后提示重启。
-  status: identified
+  status: implemented
 - id: FLD-CFG-074
   name: CurrentFontFamily
   display_key: ResUI.TbSettingsCurrentFontFamily
@@ -2767,7 +2767,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:105
   unresolved: []
   notes: 在 needReboot 集合中。
-  status: identified
+  status: implemented
 - id: FLD-CFG-075
   name: CurrentFontSize
   display_key: null
@@ -2800,7 +2800,7 @@ items:
   - v2rayN/v2rayN/ViewModels/ThemeSettingViewModel.cs:134
   unresolved: []
   notes: MinFontSize 见 Global.cs:86。
-  status: identified
+  status: implemented
 - id: FLD-CFG-076
   name: EnableDragDropSort
   display_key: ResUI.TbSettingsEnableDragDropSort
@@ -2833,7 +2833,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:101
   unresolved: []
   notes: 在 needReboot 集合中。
-  status: identified
+  status: implemented
 - id: FLD-CFG-077
   name: DoubleClick2Activate
   display_key: ResUI.TbSettingsDoubleClick2Activate
@@ -2865,7 +2865,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:102
   unresolved: []
   notes: 双击激活节点开关。
-  status: identified
+  status: implemented
 - id: FLD-CFG-078
   name: AutoHideStartup
   display_key: ResUI.TbSettingsAutoHideStartup
@@ -2897,7 +2897,7 @@ items:
   - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:365
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-079
   name: Hide2TrayWhenClose
   display_key: ResUI.TbSettingsHide2TrayWhenClose
@@ -2932,7 +2932,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 仅 Avalonia 视图绑定，且控件仅 Linux 可见（IsVisible=BlIsLinux）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-080
   name: MacOSShowInDock
   display_key: ResUI.TbSettingsMacOSShowInDock
@@ -2968,7 +2968,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 仅 macOS 可见；启动时读取决定 Dock 显示。
-  status: identified
+  status: implemented
 - id: FLD-CFG-081
   name: MainColumnItem
   display_key: null
@@ -3002,7 +3002,7 @@ items:
   - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml.cs:428
   unresolved: []
   notes: 节点表列顺序/宽度；元素为 ColumnItem。
-  status: identified
+  status: implemented
 - id: FLD-CFG-082
   name: WindowSizeItem
   display_key: null
@@ -3035,7 +3035,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2974
   unresolved: []
   notes: 各窗口尺寸；元素为 WindowSizeItem。
-  status: identified
+  status: implemented
 - id: FLD-CFG-083
   name: HideColumnIpInfo
   display_key: null
@@ -3069,7 +3069,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 控制 IP 信息列显示；无设置窗口控件。
-  status: identified
+  status: implemented
 - id: FLD-CFG-084
   name: SubConvertUrl
   display_key: ResUI.TbSettingsSubConvert
@@ -3101,7 +3101,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:112
   unresolved: []
   notes: 枚举来源 Global.SubConvertUrls(Global.cs:142)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-085
   name: GeoSourceUrl
   display_key: ResUI.TbSettingsGeoFilesSource
@@ -3135,7 +3135,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:114
   unresolved: []
   notes: 枚举来源 Global.GeoFilesSources(Global.cs:185)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-086
   name: SrsSourceUrl
   display_key: ResUI.TbSettingsSrsFilesSource
@@ -3173,7 +3173,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:115
   unresolved: []
   notes: 枚举来源 Global.SingboxRulesetSources(Global.cs:192)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-087
   name: RouteRulesTemplateSourceUrl
   display_key: ResUI.TbSettingsRoutingRulesSource
@@ -3208,7 +3208,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:116
   unresolved: []
   notes: 枚举来源 Global.RoutingRulesSources(Global.cs:199)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-088
   name: EGlobalHotkey
   display_key: null
@@ -3248,7 +3248,7 @@ items:
   unresolved:
   - 列表元素无独立 initializer；是否所有枚举值都必须存在由设置窗口保证。
   notes: 快捷键功能枚举。
-  status: identified
+  status: implemented
 - id: FLD-CFG-089
   name: Alt
   display_key: null
@@ -3283,7 +3283,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 修饰键位。
-  status: identified
+  status: implemented
 - id: FLD-CFG-090
   name: Control
   display_key: null
@@ -3318,7 +3318,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-091
   name: Shift
   display_key: null
@@ -3353,7 +3353,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-092
   name: KeyCode
   display_key: null
@@ -3390,7 +3390,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 保存 WPF Key 枚举整数值。
-  status: identified
+  status: implemented
 - id: FLD-CFG-093
   name: ConfigType
   display_key: null
@@ -3438,7 +3438,7 @@ items:
   - v2rayN/ServiceLib/Enums/EConfigType.cs:3
   unresolved: []
   notes: 键，用于把协议映射到内核。
-  status: identified
+  status: implemented
 - id: FLD-CFG-094
   name: CoreType
   display_key: null
@@ -3488,7 +3488,7 @@ items:
   unresolved:
   - ConfigType 到 UI 的映射仅覆盖枚举值 1-7、9（OptionSettingViewModel.cs:253-286），TUIC/Anytls/Naive 等无控件。
   notes: 决定节点协议默认使用哪个内核。
-  status: identified
+  status: implemented
 - id: FLD-CFG-095
   name: EnableTun
   display_key: null
@@ -3527,7 +3527,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:437
   unresolved: []
   notes: Tun 模式开关总体；由状态栏菜单控制，不在设置窗口绑定。
-  status: identified
+  status: implemented
 - id: FLD-CFG-096
   name: AutoRoute
   display_key: ResUI.TbSettingsTunAutoRoute
@@ -3563,7 +3563,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:125
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-097
   name: StrictRoute
   display_key: ResUI.TbSettingsTunStrictRoute
@@ -3600,7 +3600,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:126
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-098
   name: Stack
   display_key: ResUI.TbSettingsTunStack
@@ -3641,7 +3641,7 @@ items:
   - Stack 的“有效默认”由生成器运行时填充，LoadConfig 未写默认值。
   - 审计整改：有效值 gvisor 系生成器运行时回退（SingboxInboundService.cs:60-62），非持久默认（A02）。
   notes: 枚举来源 Global.TunStacks。
-  status: identified
+  status: implemented
   effective_fallback: gvisor（空值时 SingboxInboundService 取 TunStacks.First()）
 - id: FLD-CFG-099
   name: Mtu
@@ -3682,7 +3682,7 @@ items:
   unresolved:
   - 存在两条有效默认路径：LoadConfig 写 9000，生成器对 <=0 回退 1280。
   notes: 枚举来源 Global.TunMtus(Global.cs:575)。
-  status: identified
+  status: implemented
 - id: FLD-CFG-100
   name: EnableIPv6Address
   display_key: ResUI.TbSettingsEnableIPv6Address
@@ -3720,7 +3720,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:129
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-101
   name: IcmpRouting
   display_key: ResUI.TbIcmpRoutingPolicy
@@ -3762,7 +3762,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:130
   unresolved: []
   notes: 枚举来源 Global.TunIcmpRoutingPolicies。
-  status: identified
+  status: implemented
 - id: FLD-CFG-102
   name: EnableLegacyProtect
   display_key: ResUI.TbLegacyProtect
@@ -3799,7 +3799,7 @@ items:
   unresolved:
   - ResUI 文案描述为旧版保护（可能仅在 sing-box 前置代理选择时影响）；未直接进入内核配置。
   notes: 影响 TUN 下前置内核选择（ConfigHandler.GetPreSocksItem）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-103
   name: RouteExcludeAddress
   display_key: ResUI.TbRouteExcludeAddress
@@ -3837,7 +3837,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:132
   unresolved: []
   notes: 设置窗口以逗号/换行文本经 Utils.String2List 转换。
-  status: identified
+  status: implemented
 - id: FLD-CFG-104
   name: IPv4Address
   display_key: ResUI.TbIpv4Address
@@ -3877,7 +3877,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:133
   unresolved: []
   notes: 有效默认来自生成器回退列表首项。
-  status: identified
+  status: implemented
 - id: FLD-CFG-105
   name: IPv6Address
   display_key: ResUI.TbIpv6Address
@@ -3917,7 +3917,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:134
   unresolved: []
   notes: 有效默认来自生成器回退列表首项。
-  status: identified
+  status: implemented
 - id: FLD-CFG-106
   name: SpeedTestTimeout
   display_key: ResUI.TbSettingsSpeedTestTimeout
@@ -3951,7 +3951,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:106
   unresolved: []
   notes: 单位秒；运行期直接读 config。
-  status: identified
+  status: implemented
 - id: FLD-CFG-107
   name: SpeedTestUrl
   display_key: ResUI.TbSettingsSpeedTestUrl
@@ -3986,7 +3986,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:107
   unresolved: []
   notes: 枚举来源 Global.SpeedTestUrls。
-  status: identified
+  status: implemented
 - id: FLD-CFG-108
   name: SpeedPingTestUrl
   display_key: ResUI.TbSettingsSpeedPingTestUrl
@@ -4020,7 +4020,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:108
   unresolved: []
   notes: Xray balancer 探测 URL 也使用（V2rayBalancerService.cs:50,71）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-109
   name: MixedConcurrencyCount
   display_key: ResUI.TbSettingsMixedConcurrencyCount
@@ -4055,7 +4055,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:110
   unresolved: []
   notes: 最小值见 Global.SpeedTestConcurrencyCountMin。
-  status: identified
+  status: implemented
 - id: FLD-CFG-110
   name: IPAPIUrl
   display_key: ResUI.TbSettingsIPAPIUrl
@@ -4093,7 +4093,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:117
   unresolved: []
   notes: 枚举来源 Global.IPAPIUrls。
-  status: identified
+  status: implemented
 - id: FLD-CFG-111
   name: UdpTestTarget
   display_key: ResUI.TbSettingsUdpTestUrl
@@ -4127,7 +4127,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:109
   unresolved: []
   notes: 枚举来源 Global.UdpTestTargets；格式 类型:目标。
-  status: identified
+  status: implemented
 - id: FLD-CFG-112
   name: SpeedTestPageSize
   display_key: null
@@ -4161,7 +4161,7 @@ items:
   unresolved:
   - 审计整改：有效值 1000 系 SpeedtestService 运行时回退（SpeedtestService.cs:12），非持久默认（A02）。
   notes: 无设置窗口控件。
-  status: identified
+  status: implemented
   effective_fallback: 1000（null 时 SpeedtestService 回退 Global.SpeedTestPageSize）
 - id: FLD-CFG-113
   name: SpeedTestDelayInterval
@@ -4194,7 +4194,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 无设置窗口控件；单位秒。
-  status: identified
+  status: implemented
 - id: FLD-CFG-114
   name: DomainStrategy
   display_key: null
@@ -4236,7 +4236,7 @@ items:
   - v2rayN/ServiceLib/Global.cs:395
   unresolved: []
   notes: 编辑入口 RoutingSettingViewModel.cs:112。
-  status: identified
+  status: implemented
 - id: FLD-CFG-115
   name: DomainStrategy4Singbox
   display_key: null
@@ -4279,7 +4279,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 枚举来源 Global.DomainStrategies4Sbox。
-  status: identified
+  status: implemented
 - id: FLD-CFG-116
   name: RoutingIndexId
   display_key: null
@@ -4312,7 +4312,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2623
   unresolved: []
   notes: 指向 RoutingItem（guiNDB.db）的 id，非用户直接填写。
-  status: identified
+  status: implemented
 - id: FLD-CFG-117
   name: Name
   display_key: null
@@ -4346,7 +4346,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 列标识（节点表或 Clash 连接表）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-118
   name: Width
   display_key: null
@@ -4380,7 +4380,7 @@ items:
   unresolved:
   - 审计整改：CLR 缺省 0；未见初始化路径追踪（A03）。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-119
   name: Index
   display_key: null
@@ -4414,7 +4414,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 排序列位置。
-  status: identified
+  status: implemented
 - id: FLD-CFG-120
   name: Concurrency
   display_key: ResUI.TbSettingsMux4RayConcurrency
@@ -4451,7 +4451,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:81
   unresolved: []
   notes: 设置窗口对 <=0 转 null（OptionSettingViewModel.cs:336）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-121
   name: XudpConcurrency
   display_key: ResUI.TbSettingsMux4RayXudpConcurrency
@@ -4489,7 +4489,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:82
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-122
   name: XudpProxyUDP443
   display_key: ResUI.TbSettingsMux4RayXudpProxyUDP443
@@ -4528,7 +4528,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:83
   unresolved: []
   notes: 枚举硬编码 {reject, skip}（OptionSettingWindow.xaml.cs:29）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-123
   name: Protocol
   display_key: ResUI.TbSettingsMux4SboxProtocol
@@ -4571,7 +4571,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:84
   unresolved: []
   notes: 枚举来源 Global.SingboxMuxs。
-  status: identified
+  status: implemented
 - id: FLD-CFG-124
   name: MaxConnections
   display_key: null
@@ -4608,7 +4608,7 @@ items:
   unresolved:
   - 设置窗口仅绑定 Protocol，未绑定 MaxConnections。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-125
   name: Padding
   display_key: null
@@ -4645,7 +4645,7 @@ items:
   - 无设置窗口绑定。
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-126
   name: UpMbps
   display_key: ResUI.TbSettingsHysteriaBandwidth
@@ -4685,7 +4685,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:86
   unresolved: []
   notes: 节点级带宽 >0 时优先节点值。
-  status: identified
+  status: implemented
 - id: FLD-CFG-127
   name: DownMbps
   display_key: ResUI.TbSettingsHysteriaBandwidth
@@ -4725,7 +4725,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:87
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-128
   name: HopInterval
   display_key: null
@@ -4765,7 +4765,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 无设置窗口控件（Hysteria 全局，旧字段迁移默认）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-129
   name: EnableIPv6
   display_key: null
@@ -4803,7 +4803,7 @@ items:
   - 设置窗口（OptionSetting）无该字段控件，Clash 相关 UI 编辑入口未在本分册定位。
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 生成 Clash (mihomo) 配置时写 ipv6。
-  status: identified
+  status: implemented
 - id: FLD-CFG-130
   name: EnableMixinContent
   display_key: null
@@ -4841,7 +4841,7 @@ items:
   unresolved:
   - 审计整改：CLR 缺省 false；未见初始化路径追踪（A03）。
   notes: Mixin.yaml 为外部文件（external_files）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-131
   name: ProxiesSorting
   display_key: null
@@ -4876,7 +4876,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: Clash 代理列表排序方式。
-  status: identified
+  status: implemented
 - id: FLD-CFG-132
   name: ProxiesAutoRefresh
   display_key: null
@@ -4911,7 +4911,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-133
   name: ProxiesRefreshInterval
   display_key: null
@@ -4945,7 +4945,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 单位秒。
-  status: identified
+  status: implemented
 - id: FLD-CFG-134
   name: ConnectionsAutoRefresh
   display_key: null
@@ -4980,7 +4980,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-135
   name: ConnectionsRefreshInterval
   display_key: null
@@ -5014,7 +5014,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 单位秒。
-  status: identified
+  status: implemented
 - id: FLD-CFG-136
   name: ConnectionsColumnItem
   display_key: null
@@ -5046,7 +5046,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:164
   unresolved: []
   notes: Clash 连接表列布局。
-  status: identified
+  status: implemented
 - id: FLD-CFG-137
   name: SysProxyType
   display_key: null
@@ -5085,7 +5085,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 由状态栏菜单选择，改变即生效。
-  status: identified
+  status: implemented
 - id: FLD-CFG-138
   name: SystemProxyExceptions
   display_key: ResUI.TbSettingsExceptionTip
@@ -5121,7 +5121,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:122
   unresolved: []
   notes: 设置窗口在系统代理页单独区域。
-  status: identified
+  status: implemented
 - id: FLD-CFG-139
   name: NotProxyLocalAddress
   display_key: ResUI.TbSettingsNotProxyLocalAddress
@@ -5156,7 +5156,7 @@ items:
   - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:961
   unresolved: []
   notes: Avalonia 中仅 Windows 可见（IsVisible=BlIsWindows）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-140
   name: SystemProxyAdvancedProtocol
   display_key: ResUI.TbSettingsAdvancedProtocol
@@ -5192,7 +5192,7 @@ items:
   - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:959
   unresolved: []
   notes: 枚举来源 Global.IEProxyProtocols；Avalonia 仅 Windows 可见。
-  status: identified
+  status: implemented
 - id: FLD-CFG-141
   name: CustomSystemProxyPacPath
   display_key: ResUI.TbSettingsCustomSystemProxyPacPath
@@ -5227,7 +5227,7 @@ items:
   - v2rayN/v2rayN.Desktop/Views/OptionSettingWindow.axaml:961
   unresolved: []
   notes: Avalonia 仅 Windows 可见；PAC 模式下使用。
-  status: identified
+  status: implemented
 - id: FLD-CFG-142
   name: CustomSystemProxyScriptPath
   display_key: ResUI.TbSettingsCustomSystemProxyScriptPath
@@ -5266,7 +5266,7 @@ items:
   - WPF 设置窗口无该控件（仅 Avalonia，非 Windows 可见）。
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 自定义系统代理脚本路径。
-  status: identified
+  status: implemented
 - id: FLD-CFG-143
   name: Url
   display_key: null
@@ -5302,7 +5302,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 备份/恢复窗口编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-144
   name: UserName
   display_key: null
@@ -5337,7 +5337,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-145
   name: Password
   display_key: null
@@ -5372,7 +5372,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 明文保存在 guiNConfig.json 中。
-  status: identified
+  status: implemented
 - id: FLD-CFG-146
   name: DirName
   display_key: null
@@ -5406,7 +5406,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-147
   name: CheckPreReleaseUpdate
   display_key: null
@@ -5440,7 +5440,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:105
   unresolved: []
   notes: 检查更新窗口编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-148
   name: UpdateViaProxy
   display_key: null
@@ -5473,7 +5473,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:115
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-149
   name: SelectedCoreTypes
   display_key: null
@@ -5506,7 +5506,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:125
   unresolved: []
   notes: 选择要更新的内核类型。
-  status: identified
+  status: implemented
 - id: FLD-CFG-150
   name: Packets
   display_key: ResUI.TbSettingsFragmentPackets
@@ -5552,7 +5552,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:90
   unresolved: []
   notes: 枚举来源 Global.FragmentPacketsOptions。
-  status: identified
+  status: implemented
 - id: FLD-CFG-151
   name: Lengths
   display_key: ResUI.TbSettingsFragmentLength
@@ -5591,7 +5591,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:91
   unresolved: []
   notes: 设置窗口以逗号分隔文本编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-152
   name: Delays
   display_key: ResUI.TbSettingsFragmentInterval
@@ -5630,7 +5630,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:92
   unresolved: []
   notes: 设置窗口以逗号分隔文本编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-153
   name: MaxSplit
   display_key: ResUI.TbSettingsFragmentMaxSplit
@@ -5667,7 +5667,7 @@ items:
   - v2rayN/v2rayN/Views/OptionSettingWindow.xaml.cs:93
   unresolved: []
   notes: 保存时用 Utils.TryParseMaxSplit 校验 0..10000。
-  status: identified
+  status: implemented
 - id: FLD-CFG-154
   name: Length
   display_key: null
@@ -5699,7 +5699,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:183
   unresolved: []
   notes: 源码注释明确：For migration from old version, remove those properties in the future。
-  status: identified
+  status: implemented
 - id: FLD-CFG-155
   name: Interval
   display_key: null
@@ -5731,7 +5731,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:187
   unresolved: []
   notes: 源码注释明确迁移用旧字段。
-  status: identified
+  status: implemented
 - id: FLD-CFG-156
   name: TypeName
   display_key: null
@@ -5764,7 +5764,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2965
   unresolved: []
   notes: 窗口类型标识（窗口类名）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-157
   name: Width
   display_key: null
@@ -5798,7 +5798,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2983
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-158
   name: Height
   display_key: null
@@ -5832,7 +5832,7 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2984
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-159
   name: UseSystemHosts
   display_key: null
@@ -5871,7 +5871,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:67
   unresolved: []
   notes: 由 DNSSettingViewModel.cs:108 编辑。
-  status: identified
+  status: implemented
 - id: FLD-CFG-160
   name: AddCommonHosts
   display_key: null
@@ -5910,7 +5910,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:62
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-161
   name: FakeIP
   display_key: null
@@ -5950,7 +5950,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:123
   unresolved: []
   notes: FakeIP 开启时 xray 入站会追加 fakedns destOverride。
-  status: identified
+  status: implemented
 - id: FLD-CFG-162
   name: GlobalFakeIp
   display_key: null
@@ -5990,7 +5990,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:256
   unresolved: []
   notes: InitBuiltinSimpleDNS 也写 true。
-  status: identified
+  status: implemented
 - id: FLD-CFG-163
   name: FakeIPRange
   display_key: null
@@ -6031,7 +6031,7 @@ items:
   - v2rayN/ServiceLib/Global.cs:752
   unresolved: []
   notes: 枚举来源 Global.FakeIPRanges。
-  status: identified
+  status: implemented
 - id: FLD-CFG-164
   name: BlockBindingQuery
   display_key: null
@@ -6066,7 +6066,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:246
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-165
   name: BlockAAAAQuery
   display_key: null
@@ -6103,7 +6103,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:280
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-166
   name: DirectDNS
   display_key: null
@@ -6142,7 +6142,7 @@ items:
   - v2rayN/ServiceLib/Global.cs:464
   unresolved: []
   notes: 枚举来源 Global.DomainDirectDNSAddress。
-  status: identified
+  status: implemented
 - id: FLD-CFG-167
   name: RemoteDNS
   display_key: null
@@ -6181,7 +6181,7 @@ items:
   - v2rayN/ServiceLib/Global.cs:475
   unresolved: []
   notes: 枚举来源 Global.DomainRemoteDNSAddress。
-  status: identified
+  status: implemented
 - id: FLD-CFG-168
   name: BootstrapDNS
   display_key: null
@@ -6220,7 +6220,7 @@ items:
   - v2rayN/ServiceLib/Global.cs:491
   unresolved: []
   notes: 枚举来源 Global.DomainPureIPDNSAddress。
-  status: identified
+  status: implemented
 - id: FLD-CFG-169
   name: Strategy4Freedom
   display_key: null
@@ -6263,7 +6263,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 枚举来源 Global.DomainStrategies4Sbox。
-  status: identified
+  status: implemented
 - id: FLD-CFG-170
   name: Strategy4Proxy
   display_key: null
@@ -6306,7 +6306,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:60
   unresolved: []
   notes: Xray DNS outbound targetStrategy；审计 FND-004 关闭原 unresolved（此前未定位读取点的说法作废）。
-  status: identified
+  status: implemented
 - id: FLD-CFG-171
   name: Strategy4ProxyDial
   display_key: null
@@ -6348,7 +6348,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-172
   name: ServeStale
   display_key: null
@@ -6383,7 +6383,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:20
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-173
   name: ParallelQuery
   display_key: null
@@ -6418,7 +6418,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxDnsService.cs:505
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-174
   name: Hosts
   display_key: null
@@ -6458,7 +6458,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 文本格式，经 Utils.ParseHostsToDictionary 解析。
-  status: identified
+  status: implemented
 - id: FLD-CFG-175
   name: DirectExpectedIPs
   display_key: null
@@ -6500,7 +6500,7 @@ items:
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见 LoadConfig/初始化/界面初始化追踪。
   notes: 枚举参考 Global.ExpectedIPs；设置窗口以文本输入。
-  status: identified
+  status: implemented
 - id: FLD-CFG-176
   name: EnableHappyEyeballs
   display_key: null
@@ -6536,7 +6536,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:543
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-177
   name: TryDelayMs
   display_key: null
@@ -6574,7 +6574,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:547
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-178
   name: PrioritizeIPv6
   display_key: null
@@ -6610,7 +6610,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:547
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-179
   name: Interleave
   display_key: null
@@ -6646,7 +6646,7 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:547
   unresolved: []
   notes: null
-  status: identified
+  status: implemented
 - id: FLD-CFG-180
   name: MaxConcurrentTry
   display_key: null
@@ -6682,4 +6682,4 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayDnsService.cs:547
   unresolved: []
   notes: null
-  status: identified
+  status: implemented

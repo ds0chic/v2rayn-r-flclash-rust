@@ -24,10 +24,26 @@ pub struct CoreReleaseApi {
 impl CoreReleaseApi {
     /// Build with a total timeout and no environment proxy.
     pub fn new(timeout: Duration) -> Result<Self, UpdateError> {
-        let http = reqwest::Client::builder()
+        Self::new_with_proxy(timeout, None)
+    }
+
+    /// Build with a total timeout and an optional explicit proxy URL.
+    ///
+    /// The environment proxy is never read: `None` means direct, and a
+    /// `Some("http://127.0.0.1:PORT")` uses only that endpoint (the running
+    /// session's local mixed port, resolved by the caller).
+    pub fn new_with_proxy(timeout: Duration, proxy: Option<&str>) -> Result<Self, UpdateError> {
+        let mut builder = reqwest::Client::builder()
             .timeout(timeout)
-            .connect_timeout(Duration::from_secs(10))
-            .no_proxy()
+            .connect_timeout(Duration::from_secs(10));
+        builder = match proxy.map(str::trim).filter(|s| !s.is_empty()) {
+            Some(url) => builder.proxy(
+                reqwest::Proxy::all(url)
+                    .map_err(|e| UpdateError::Download(format!("proxy: {e}")))?,
+            ),
+            None => builder.no_proxy(),
+        };
+        let http = builder
             .build()
             .map_err(|e| UpdateError::Download(format!("client build: {e}")))?;
         Ok(Self {

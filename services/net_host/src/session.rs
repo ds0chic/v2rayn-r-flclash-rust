@@ -96,6 +96,29 @@ impl Session {
     }
 }
 
+/// A temporary test core. It is owned separately from the managed `Session`
+/// so a speedtest can never disturb the live runtime.
+pub struct TestSessionChild {
+    pub core: domain::CoreType,
+    pub port: u16,
+    pub child: tokio::process::Child,
+    pub identity: ProcessIdentity,
+    /// RAII ownership job: dropping it guarantees the temp core tree dies.
+    pub _job: JobGuard,
+}
+
+impl TestSessionChild {
+    async fn terminate_and_wait(&mut self, grace: Duration) {
+        let _ = self.child.start_kill();
+        match tokio::time::timeout(grace, self.child.wait()).await {
+            Ok(_) => {}
+            Err(_) => {
+                let _ = self.child.kill().await;
+            }
+        }
+    }
+}
+
 pub struct Inner {
     pub session: Option<Session>,
     pub detail: RuntimeDetail,
@@ -104,6 +127,9 @@ pub struct Inner {
     pub active_connections: usize,
     pub no_client_since: Option<Instant>,
     pub recovery: Option<RecoveryStatus>,
+    /// Isolated temporary cores for restricted test sessions (never the
+    /// managed runtime).
+    pub test_sessions: HashMap<String, TestSessionChild>,
 }
 
 pub struct HostState {
@@ -150,6 +176,7 @@ impl HostState {
                 active_connections: 0,
                 no_client_since: None,
                 recovery: recovery_status,
+                test_sessions: HashMap::new(),
             }),
             bus: EventBus::new(),
             config,
@@ -722,6 +749,244 @@ impl HostState {
             .unwrap_or(json!({})),
         );
         Some(session_id)
+    }
+
+    /// Open a restricted temporary test core, fully isolated from the managed
+    /// runtime. The caller passes an already-generated config and a bounded
+    /// duration; net-host never lets a test session outlive `max_duration_ms`.
+    pub async fn open_test_session(
+        self: &Arc<Self>,
+        plan: RuntimePlan,
+        max_duration_ms: u64,
+    ) -> Result<String, DomainError> {
+        plan.validate()?;
+        let core = plan.target.core_type;
+        let adapter = adapter_for(core).ok_or_else(|| {
+            DomainError::new(domain::codes::NOT_FOUND, "error.core_not_supported")
+                .with_detail(format!("no adapter for {}", core.as_str()))
+        })?;
+        let body = match &plan.target.config {
+            ConfigSource::Inline { body } => body.clone(),
+            ConfigSource::ControlledFile { .. } => {
+                return Err(DomainError::new(
+                    domain::codes::INVALID_ARGUMENT,
+                    "error.test_session_unsupported",
+                )
+                .with_detail("controlled-file test configs are not supported"));
+            }
+        };
+        let actual_hash = sha256_hex(body.as_bytes());
+        let declared = plan.target.config_sha256.as_str();
+        if !declared.is_empty() && declared != actual_hash {
+            return Err(DomainError::new(
+                domain::codes::INVALID_PLAN,
+                "error.config_hash_mismatch",
+            )
+            .with_field("config_sha256")
+            .with_detail(format!("declared {declared}, computed {actual_hash}")));
+        }
+        let port = plan
+            .ports
+            .iter()
+            .find(|p| p.port >= 11_808)
+            .map(|p| p.port)
+            .ok_or_else(|| {
+                DomainError::new(domain::codes::INVALID_ARGUMENT, "error.test_port_floor")
+                    .with_field("port")
+                    .with_detail("test session needs a port >= 11808")
+            })?;
+
+        let session_seq = SESSION_COUNTER.fetch_add(1, Ordering::AcqRel) + 1;
+        let session_id = format!("test-{}-{}", journal::now_ms(), session_seq);
+        let dir = journal::session_dir(&self.config.run_root, &session_id);
+        std::fs::create_dir_all(&dir).map_err(|e| {
+            DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
+                .with_detail(format!("create test session dir failed: {e}"))
+        })?;
+        if let Err(e) = crate::dacl::restrict_to_current_user(&dir, true) {
+            eprintln!("[net_host] test session dir ACL not applied: {e}");
+        }
+        let config_path = dir.join("config.json");
+        std::fs::write(&config_path, body.as_bytes()).map_err(|e| {
+            DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
+                .with_detail(format!("write test config failed: {e}"))
+        })?;
+        if let Err(e) = crate::dacl::restrict_to_current_user(&config_path, false) {
+            eprintln!("[net_host] test config ACL not applied: {e}");
+        }
+
+        preflight_port(port).inspect_err(|_| {
+            journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+        })?;
+
+        let locator = CoreLocator::from_env();
+        let exe = locator
+            .resolve(core, plan.target.version.as_deref())
+            .inspect_err(|_| {
+                journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+            })?;
+
+        let job = JobGuard::create_kill_on_close().map_err(|e| {
+            journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+            DomainError::new(domain::codes::UNAVAILABLE, "error.job_create_failed")
+                .with_detail(e.to_string())
+        })?;
+
+        let mut command = Command::new(&exe);
+        command
+            .args(adapter.run_args(&config_path))
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        #[cfg(windows)]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+        let mut child = command.spawn().map_err(|e| {
+            journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+            DomainError::new(domain::codes::UNAVAILABLE, "error.core_spawn_failed")
+                .with_detail(format!("{}: {e}", exe.display()))
+        })?;
+
+        let pid = child.id().unwrap_or(0);
+        let created_at_ms = process_creation_time_ms(pid).unwrap_or(0);
+        let identity = ProcessIdentity::new(pid, created_at_ms);
+        #[cfg(windows)]
+        {
+            let assignment = match child.raw_handle() {
+                Some(handle) => job.assign(handle),
+                None => Err(std::io::Error::other("core process handle unavailable")),
+            };
+            if let Err(e) = assignment {
+                let _ = child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
+                journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+                return Err(DomainError::new(
+                    domain::codes::JOB_ASSIGN_FAILED,
+                    "error.job_assign_failed",
+                )
+                .with_detail(e.to_string()));
+            }
+        }
+
+        let log_path = dir.join("core.log");
+        if let Some(stdout) = child.stdout.take() {
+            spawn_log_reader(stdout, log_path.clone(), "test-stdout", self.bus.clone());
+        }
+        if let Some(stderr) = child.stderr.take() {
+            spawn_log_reader(stderr, log_path.clone(), "test-stderr", self.bus.clone());
+        }
+        let _ = journal::write_entry(
+            &self.config.run_root,
+            &JournalEntry {
+                session_id: session_id.clone(),
+                plan_id: plan.plan_id.clone(),
+                desired_revision: 0,
+                config_sha256: actual_hash.clone(),
+                stage: RecoveryStage::Applying,
+                pid: Some(pid),
+                created_at_ms: Some(created_at_ms),
+                port,
+                updated_at_ms: journal::now_ms(),
+            },
+        );
+
+        let outcome = wait_ready(
+            &mut child,
+            port,
+            self.config.readiness_timeout,
+            self.config.readiness_interval,
+        )
+        .await;
+        match outcome {
+            ReadyOutcome::Ready => {}
+            ReadyOutcome::Exited(code) => {
+                let tail = tail_log(&log_path, 8);
+                journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+                return Err(
+                    DomainError::new(domain::codes::INTERNAL, "error.core_exited")
+                        .with_detail(format!("test core exited early (code {code:?}): {tail}")),
+                );
+            }
+            ReadyOutcome::Timeout => {
+                let _ = child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
+                journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+                return Err(
+                    DomainError::new(domain::codes::TIMEOUT, "error.readiness_timeout")
+                        .with_field("port")
+                        .with_detail(format!("test port {port} not ready")),
+                );
+            }
+        }
+
+        let child = TestSessionChild {
+            core,
+            port,
+            child,
+            identity,
+            _job: job,
+        };
+        {
+            let mut inner = self.inner.lock().await;
+            inner.test_sessions.insert(session_id.clone(), child);
+        }
+        eprintln!("[net_host] test session {session_id} RUNNING pid={pid} port={port}");
+
+        // Safety cap: never let a test core linger past the caller's bound.
+        let weak = Arc::downgrade(self);
+        let watchdog_id = session_id.clone();
+        let cap = max_duration_ms.clamp(1_000, 60_000);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(cap)).await;
+            if let Some(state) = weak.upgrade() {
+                let _ = state.close_test_session(&watchdog_id).await;
+            }
+        });
+        Ok(session_id)
+    }
+
+    /// Close one test session (idempotent).
+    pub async fn close_test_session(&self, session_id: &str) -> Result<(), DomainError> {
+        let mut child = {
+            let mut inner = self.inner.lock().await;
+            inner.test_sessions.remove(session_id)
+        };
+        let Some(child) = child.as_mut() else {
+            return Ok(());
+        };
+        child.terminate_and_wait(Duration::from_secs(5)).await;
+        let pid = child.identity.pid;
+        let port = child.port;
+        let core = child.core;
+        journal::remove_staged_artifacts(&self.config.run_root, session_id);
+        eprintln!(
+            "[net_host] test session {session_id} STOPPED pid={pid} core={core:?} port={port}"
+        );
+        Ok(())
+    }
+
+    /// Query a test session's liveness.
+    pub async fn test_session_status(&self, session_id: &str) -> Option<domain::JobState> {
+        let mut inner = self.inner.lock().await;
+        let child = inner.test_sessions.get_mut(session_id)?;
+        match child.child.try_wait() {
+            Ok(None) => Some(domain::JobState::Running),
+            Ok(Some(_)) => Some(domain::JobState::Done),
+            Err(_) => Some(domain::JobState::Failed),
+        }
+    }
+
+    /// Close every test session (shutdown / lease reclaim).
+    pub async fn stop_all_test_sessions(&self) {
+        let ids: Vec<String> = {
+            let inner = self.inner.lock().await;
+            inner.test_sessions.keys().cloned().collect()
+        };
+        for id in ids {
+            let _ = self.close_test_session(&id).await;
+        }
     }
 }
 

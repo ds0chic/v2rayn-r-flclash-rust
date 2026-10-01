@@ -9,7 +9,68 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ApplyRuntimeRequest`, `RevisionDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+
+/// One applied core update.
+class AppliedCoreDto {
+  final String core;
+  final String version;
+  final String? installedDir;
+  final String? keptPrevious;
+
+  const AppliedCoreDto({
+    required this.core,
+    required this.version,
+    this.installedDir,
+    this.keptPrevious,
+  });
+
+  @override
+  int get hashCode =>
+      core.hashCode ^
+      version.hashCode ^
+      installedDir.hashCode ^
+      keptPrevious.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppliedCoreDto &&
+          runtimeType == other.runtimeType &&
+          core == other.core &&
+          version == other.version &&
+          installedDir == other.installedDir &&
+          keptPrevious == other.keptPrevious;
+}
+
+/// Result of applying core updates.
+class ApplyCoreResultDto {
+  final bool ok;
+  final List<AppliedCoreDto> applied;
+  final List<String> skipped;
+  final ErrorDto? error;
+
+  const ApplyCoreResultDto({
+    required this.ok,
+    required this.applied,
+    required this.skipped,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^ applied.hashCode ^ skipped.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ApplyCoreResultDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          applied == other.applied &&
+          skipped == other.skipped &&
+          error == other.error;
+}
 
 /// Result of `apply_runtime`.
 class ApplyRuntimeResult {
@@ -29,6 +90,102 @@ class ApplyRuntimeResult {
           runtimeType == other.runtimeType &&
           ok == other.ok &&
           operationId == other.operationId &&
+          error == other.error;
+}
+
+/// Bundles discovered under a parent directory.
+class BackupListDto {
+  final List<BackupManifestDto> items;
+  final ErrorDto? error;
+
+  const BackupListDto({required this.items, this.error});
+
+  @override
+  int get hashCode => items.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BackupListDto &&
+          runtimeType == other.runtimeType &&
+          items == other.items &&
+          error == other.error;
+}
+
+/// Versioned backup manifest summary.
+class BackupManifestDto {
+  final int formatVersion;
+  final PlatformInt64 createdAt;
+  final String appSourceCommit;
+  final String dbSha256;
+  final String? configSha256;
+  final String? root;
+  final int resourceCount;
+  final List<EntityCountDto> entityCounts;
+
+  const BackupManifestDto({
+    required this.formatVersion,
+    required this.createdAt,
+    required this.appSourceCommit,
+    required this.dbSha256,
+    this.configSha256,
+    this.root,
+    required this.resourceCount,
+    required this.entityCounts,
+  });
+
+  @override
+  int get hashCode =>
+      formatVersion.hashCode ^
+      createdAt.hashCode ^
+      appSourceCommit.hashCode ^
+      dbSha256.hashCode ^
+      configSha256.hashCode ^
+      root.hashCode ^
+      resourceCount.hashCode ^
+      entityCounts.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BackupManifestDto &&
+          runtimeType == other.runtimeType &&
+          formatVersion == other.formatVersion &&
+          createdAt == other.createdAt &&
+          appSourceCommit == other.appSourceCommit &&
+          dbSha256 == other.dbSha256 &&
+          configSha256 == other.configSha256 &&
+          root == other.root &&
+          resourceCount == other.resourceCount &&
+          entityCounts == other.entityCounts;
+}
+
+/// Result of writing a local backup bundle.
+class BackupResultDto {
+  final bool ok;
+  final String? root;
+  final BackupManifestDto? manifest;
+  final ErrorDto? error;
+
+  const BackupResultDto({
+    required this.ok,
+    this.root,
+    this.manifest,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^ root.hashCode ^ manifest.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is BackupResultDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          root == other.root &&
+          manifest == other.manifest &&
           error == other.error;
 }
 
@@ -83,6 +240,42 @@ class CapabilityDto {
           updateSupported == other.updateSupported;
 }
 
+/// Log/temporary-file cleanup result.
+class CleanupResultDto {
+  final bool ok;
+  final int deleted;
+  final BigInt bytes;
+  final int skipped;
+  final ErrorDto? error;
+
+  const CleanupResultDto({
+    required this.ok,
+    required this.deleted,
+    required this.bytes,
+    required this.skipped,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      deleted.hashCode ^
+      bytes.hashCode ^
+      skipped.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CleanupResultDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          deleted == other.deleted &&
+          bytes == other.bytes &&
+          skipped == other.skipped &&
+          error == other.error;
+}
+
 /// Result of a batch copy.
 class CopyProfilesResult {
   final bool ok;
@@ -105,6 +298,81 @@ class CopyProfilesResult {
           runtimeType == other.runtimeType &&
           ok == other.ok &&
           copies == other.copies &&
+          error == other.error;
+}
+
+/// One target's check result.
+class CoreUpdateDto {
+  final String core;
+  final bool supported;
+  final String? note;
+  final String? installedVersion;
+  final String? remoteVersion;
+  final bool hasUpdate;
+  final String? assetName;
+  final String? downloadUrl;
+  final String? expectedSha256;
+  final String? dgstUrl;
+
+  const CoreUpdateDto({
+    required this.core,
+    required this.supported,
+    this.note,
+    this.installedVersion,
+    this.remoteVersion,
+    required this.hasUpdate,
+    this.assetName,
+    this.downloadUrl,
+    this.expectedSha256,
+    this.dgstUrl,
+  });
+
+  @override
+  int get hashCode =>
+      core.hashCode ^
+      supported.hashCode ^
+      note.hashCode ^
+      installedVersion.hashCode ^
+      remoteVersion.hashCode ^
+      hasUpdate.hashCode ^
+      assetName.hashCode ^
+      downloadUrl.hashCode ^
+      expectedSha256.hashCode ^
+      dgstUrl.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CoreUpdateDto &&
+          runtimeType == other.runtimeType &&
+          core == other.core &&
+          supported == other.supported &&
+          note == other.note &&
+          installedVersion == other.installedVersion &&
+          remoteVersion == other.remoteVersion &&
+          hasUpdate == other.hasUpdate &&
+          assetName == other.assetName &&
+          downloadUrl == other.downloadUrl &&
+          expectedSha256 == other.expectedSha256 &&
+          dgstUrl == other.dgstUrl;
+}
+
+/// Installed-core probe result.
+class CoreVersionsDto {
+  final List<InstalledCoreDto> items;
+  final ErrorDto? error;
+
+  const CoreVersionsDto({required this.items, this.error});
+
+  @override
+  int get hashCode => items.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CoreVersionsDto &&
+          runtimeType == other.runtimeType &&
+          items == other.items &&
           error == other.error;
 }
 
@@ -152,6 +420,42 @@ class DeleteSubsResult {
           ok == other.ok &&
           removed == other.removed &&
           error == other.error;
+}
+
+/// One per-table row count inside a backup manifest.
+class EntityCountDto {
+  final String table;
+  final BigInt sourceRows;
+  final BigInt importedRows;
+  final BigInt migratedRows;
+  final BigInt skippedRows;
+
+  const EntityCountDto({
+    required this.table,
+    required this.sourceRows,
+    required this.importedRows,
+    required this.migratedRows,
+    required this.skippedRows,
+  });
+
+  @override
+  int get hashCode =>
+      table.hashCode ^
+      sourceRows.hashCode ^
+      importedRows.hashCode ^
+      migratedRows.hashCode ^
+      skippedRows.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is EntityCountDto &&
+          runtimeType == other.runtimeType &&
+          table == other.table &&
+          sourceRows == other.sourceRows &&
+          importedRows == other.importedRows &&
+          migratedRows == other.migratedRows &&
+          skippedRows == other.skippedRows;
 }
 
 /// Error DTO carrying the stable contract fields.
@@ -234,6 +538,50 @@ class EventEnvelopeDto {
           payloadJson == other.payloadJson;
 }
 
+/// External-upgrade spec for the application itself (never executed here).
+class ExternalSpecDto {
+  final bool ok;
+  final String? helperExe;
+  final String? source;
+  final String? installRoot;
+  final int waitForPid;
+  final List<String> args;
+  final ErrorDto? error;
+
+  const ExternalSpecDto({
+    required this.ok,
+    this.helperExe,
+    this.source,
+    this.installRoot,
+    required this.waitForPid,
+    required this.args,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      helperExe.hashCode ^
+      source.hashCode ^
+      installRoot.hashCode ^
+      waitForPid.hashCode ^
+      args.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExternalSpecDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          helperExe == other.helperExe &&
+          source == other.source &&
+          installRoot == other.installRoot &&
+          waitForPid == other.waitForPid &&
+          args == other.args &&
+          error == other.error;
+}
+
 /// Result of importing from clipboard text.
 class ImportResult {
   final bool ok;
@@ -268,6 +616,83 @@ class ImportResult {
           profiles == other.profiles &&
           errors == other.errors &&
           error == other.error;
+}
+
+/// Condensed import report for the UI.
+class ImportSummaryDto {
+  final bool ok;
+  final String status;
+  final int sourceVersion;
+  final BigInt importedRows;
+  final int warnings;
+  final int errors;
+  final String message;
+  final ErrorDto? error;
+
+  const ImportSummaryDto({
+    required this.ok,
+    required this.status,
+    required this.sourceVersion,
+    required this.importedRows,
+    required this.warnings,
+    required this.errors,
+    required this.message,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      status.hashCode ^
+      sourceVersion.hashCode ^
+      importedRows.hashCode ^
+      warnings.hashCode ^
+      errors.hashCode ^
+      message.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ImportSummaryDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          status == other.status &&
+          sourceVersion == other.sourceVersion &&
+          importedRows == other.importedRows &&
+          warnings == other.warnings &&
+          errors == other.errors &&
+          message == other.message &&
+          error == other.error;
+}
+
+/// One installed core directory.
+class InstalledCoreDto {
+  final String core;
+  final String dir;
+  final String version;
+  final String? executable;
+
+  const InstalledCoreDto({
+    required this.core,
+    required this.dir,
+    required this.version,
+    this.executable,
+  });
+
+  @override
+  int get hashCode =>
+      core.hashCode ^ dir.hashCode ^ version.hashCode ^ executable.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InstalledCoreDto &&
+          runtimeType == other.runtimeType &&
+          core == other.core &&
+          dir == other.dir &&
+          version == other.version &&
+          executable == other.executable;
 }
 
 /// Active job summary.
@@ -642,6 +1067,46 @@ class ProtocolExtraDto {
           extraJson == other.extraJson;
 }
 
+/// Recognition result for a possible upstream archive.
+class RecognitionDto {
+  final bool isUpstream;
+  final bool hasConfig;
+  final bool hasDb;
+  final String layout;
+  final List<String> entries;
+  final ErrorDto? error;
+
+  const RecognitionDto({
+    required this.isUpstream,
+    required this.hasConfig,
+    required this.hasDb,
+    required this.layout,
+    required this.entries,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      isUpstream.hashCode ^
+      hasConfig.hashCode ^
+      hasDb.hashCode ^
+      layout.hashCode ^
+      entries.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RecognitionDto &&
+          runtimeType == other.runtimeType &&
+          isUpstream == other.isUpstream &&
+          hasConfig == other.hasConfig &&
+          hasDb == other.hasDb &&
+          layout == other.layout &&
+          entries == other.entries &&
+          error == other.error;
+}
+
 /// Startup recovery summary.
 class RecoveryDto {
   final bool recoveryNeeded;
@@ -672,6 +1137,42 @@ class RecoveryDto {
           stage == other.stage &&
           restored == other.restored &&
           pending == other.pending;
+}
+
+/// Result of restoring a bundle.
+class RestoreResultDto {
+  final bool ok;
+  final bool restored;
+  final String? targetBackup;
+  final String message;
+  final ErrorDto? error;
+
+  const RestoreResultDto({
+    required this.ok,
+    required this.restored,
+    this.targetBackup,
+    required this.message,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      restored.hashCode ^
+      targetBackup.hashCode ^
+      message.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RestoreResultDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          restored == other.restored &&
+          targetBackup == other.targetBackup &&
+          message == other.message &&
+          error == other.error;
 }
 
 /// Result of `save_profile`: either the saved profile or a field error.
@@ -1205,6 +1706,67 @@ class TransportExtraDto {
           extraJson == other.extraJson;
 }
 
+/// Result of checking every selected target.
+class UpdateReportDto {
+  final bool ok;
+  final List<CoreUpdateDto> checks;
+  final ErrorDto? error;
+
+  const UpdateReportDto({required this.ok, required this.checks, this.error});
+
+  @override
+  int get hashCode => ok.hashCode ^ checks.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UpdateReportDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          checks == other.checks &&
+          error == other.error;
+}
+
+/// One update target's static description.
+class UpdateTargetDto {
+  final String core;
+  final String repo;
+  final bool supported;
+  final bool prereleaseCapable;
+  final String? maxVersion;
+  final String? note;
+
+  const UpdateTargetDto({
+    required this.core,
+    required this.repo,
+    required this.supported,
+    required this.prereleaseCapable,
+    this.maxVersion,
+    this.note,
+  });
+
+  @override
+  int get hashCode =>
+      core.hashCode ^
+      repo.hashCode ^
+      supported.hashCode ^
+      prereleaseCapable.hashCode ^
+      maxVersion.hashCode ^
+      note.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is UpdateTargetDto &&
+          runtimeType == other.runtimeType &&
+          core == other.core &&
+          repo == other.repo &&
+          supported == other.supported &&
+          prereleaseCapable == other.prereleaseCapable &&
+          maxVersion == other.maxVersion &&
+          note == other.note;
+}
+
 /// Result of parsing a single share URI.
 class UriParseResult {
   final bool ok;
@@ -1223,5 +1785,203 @@ class UriParseResult {
           runtimeType == other.runtimeType &&
           ok == other.ok &&
           profile == other.profile &&
+          error == other.error;
+}
+
+/// Integrity verification result.
+class VerificationDto {
+  final bool ok;
+  final List<String> missing;
+  final List<String> mismatched;
+
+  const VerificationDto({
+    required this.ok,
+    required this.missing,
+    required this.mismatched,
+  });
+
+  @override
+  int get hashCode => ok.hashCode ^ missing.hashCode ^ mismatched.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VerificationDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          missing == other.missing &&
+          mismatched == other.mismatched;
+}
+
+/// Connection-check result.
+class WebDavCheckDto {
+  final bool ok;
+  final bool createdDir;
+  final int status;
+  final String message;
+  final ErrorDto? error;
+
+  const WebDavCheckDto({
+    required this.ok,
+    required this.createdDir,
+    required this.status,
+    required this.message,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      createdDir.hashCode ^
+      status.hashCode ^
+      message.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebDavCheckDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          createdDir == other.createdDir &&
+          status == other.status &&
+          message == other.message &&
+          error == other.error;
+}
+
+/// WebDAV endpoint configuration (mirrors `WebDavItem`; password is a secret).
+class WebDavConfigDto {
+  final String url;
+  final String userName;
+  final String password;
+  final String dirName;
+
+  const WebDavConfigDto({
+    required this.url,
+    required this.userName,
+    required this.password,
+    required this.dirName,
+  });
+
+  @override
+  int get hashCode =>
+      url.hashCode ^ userName.hashCode ^ password.hashCode ^ dirName.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebDavConfigDto &&
+          runtimeType == other.runtimeType &&
+          url == other.url &&
+          userName == other.userName &&
+          password == other.password &&
+          dirName == other.dirName;
+}
+
+/// Result of loading/saving the WebDAV configuration.
+class WebDavConfigResultDto {
+  final bool ok;
+  final WebDavConfigDto? config;
+  final BigInt revision;
+  final ErrorDto? error;
+
+  const WebDavConfigResultDto({
+    required this.ok,
+    this.config,
+    required this.revision,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^ config.hashCode ^ revision.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebDavConfigResultDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          config == other.config &&
+          revision == other.revision &&
+          error == other.error;
+}
+
+/// One remote WebDAV entry.
+class WebDavEntryDto {
+  final String href;
+  final bool isDir;
+  final BigInt size;
+  final String modified;
+
+  const WebDavEntryDto({
+    required this.href,
+    required this.isDir,
+    required this.size,
+    required this.modified,
+  });
+
+  @override
+  int get hashCode =>
+      href.hashCode ^ isDir.hashCode ^ size.hashCode ^ modified.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebDavEntryDto &&
+          runtimeType == other.runtimeType &&
+          href == other.href &&
+          isDir == other.isDir &&
+          size == other.size &&
+          modified == other.modified;
+}
+
+/// Remote listing result.
+class WebDavListDto {
+  final bool ok;
+  final List<WebDavEntryDto> items;
+  final ErrorDto? error;
+
+  const WebDavListDto({required this.ok, required this.items, this.error});
+
+  @override
+  int get hashCode => ok.hashCode ^ items.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebDavListDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          items == other.items &&
+          error == other.error;
+}
+
+/// Result of a remote backup upload / download.
+class WebDavOpDto {
+  final bool ok;
+  final BigInt bytes;
+  final String message;
+  final ErrorDto? error;
+
+  const WebDavOpDto({
+    required this.ok,
+    required this.bytes,
+    required this.message,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^ bytes.hashCode ^ message.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WebDavOpDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          bytes == other.bytes &&
+          message == other.message &&
           error == other.error;
 }

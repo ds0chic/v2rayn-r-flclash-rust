@@ -94,10 +94,11 @@ pub enum IpcOperation {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "test_op", rename_all = "snake_case")]
 pub enum TestSessionOperation {
-    /// Open a bounded test session on managed ports.
+    /// Open a bounded test session: a dedicated temporary core, isolated from
+    /// the managed runtime, on the plan's ports (all `>= 11808`).
     Open {
-        /// Ports the test core may bind (>= 11808, enforced by caller).
-        ports: Vec<u16>,
+        /// Already-generated config for the temporary core.
+        plan: Box<RuntimePlan>,
         /// Absolute wall-clock cap for the session.
         max_duration_ms: u64,
     },

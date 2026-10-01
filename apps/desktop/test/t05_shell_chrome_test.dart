@@ -43,12 +43,15 @@ void main() {
         expect(text.contains('已连接'), isFalse);
       }
 
-      // Backend menu entries report "尚未实现" rather than fake success.
+      // T16: 检查更新 now opens the real update window instead of reporting
+      // "尚未实现". Close it so the layout assertions below still run.
       await tester.tap(find.text('帮助'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('检查更新'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('尚未实现'), findsOneWidget);
+      expect(find.byKey(const ValueKey('update-window')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('update-close')));
+      await tester.pumpAndSettle();
 
       // Switch layout through the toolbar (UIItem.MainGirdOrientation).
       await tester.tap(find.byKey(const ValueKey('layout-selector')));

@@ -11,7 +11,9 @@ pub mod platform;
 pub mod profiles;
 pub mod routing;
 pub mod settings;
+pub mod speedtest;
 pub mod subs;
+pub mod t16;
 
 pub use contract::*;
 pub use dns::*;
@@ -23,4 +25,6 @@ pub use platform::*;
 pub use profiles::*;
 pub use routing::*;
 pub use settings::*;
+pub use speedtest::*;
 pub use subs::*;
+pub use t16::*;

@@ -404,3 +404,230 @@ pub struct ShareExportResult {
     pub count: u32,
     pub error: Option<ErrorDto>,
 }
+
+// -- T16 backup / WebDAV / update DTOs -------------------------------------
+
+/// One per-table row count inside a backup manifest.
+#[derive(Clone)]
+pub struct EntityCountDto {
+    pub table: String,
+    pub source_rows: u64,
+    pub imported_rows: u64,
+    pub migrated_rows: u64,
+    pub skipped_rows: u64,
+}
+
+/// Versioned backup manifest summary.
+#[derive(Clone)]
+pub struct BackupManifestDto {
+    pub format_version: u32,
+    pub created_at: i64,
+    pub app_source_commit: String,
+    pub db_sha256: String,
+    pub config_sha256: Option<String>,
+    pub root: Option<String>,
+    pub resource_count: u32,
+    pub entity_counts: Vec<EntityCountDto>,
+}
+
+/// Result of writing a local backup bundle.
+#[derive(Clone)]
+pub struct BackupResultDto {
+    pub ok: bool,
+    pub root: Option<String>,
+    pub manifest: Option<BackupManifestDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Bundles discovered under a parent directory.
+#[derive(Clone)]
+pub struct BackupListDto {
+    pub items: Vec<BackupManifestDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Integrity verification result.
+#[derive(Clone)]
+pub struct VerificationDto {
+    pub ok: bool,
+    pub missing: Vec<String>,
+    pub mismatched: Vec<String>,
+}
+
+/// Result of restoring a bundle.
+#[derive(Clone)]
+pub struct RestoreResultDto {
+    pub ok: bool,
+    pub restored: bool,
+    pub target_backup: Option<String>,
+    pub message: String,
+    pub error: Option<ErrorDto>,
+}
+
+/// Recognition result for a possible upstream archive.
+#[derive(Clone)]
+pub struct RecognitionDto {
+    pub is_upstream: bool,
+    pub has_config: bool,
+    pub has_db: bool,
+    pub layout: String,
+    pub entries: Vec<String>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Condensed import report for the UI.
+#[derive(Clone)]
+pub struct ImportSummaryDto {
+    pub ok: bool,
+    pub status: String,
+    pub source_version: i32,
+    pub imported_rows: u64,
+    pub warnings: u32,
+    pub errors: u32,
+    pub message: String,
+    pub error: Option<ErrorDto>,
+}
+
+/// WebDAV endpoint configuration (mirrors `WebDavItem`; password is a secret).
+#[derive(Clone)]
+pub struct WebDavConfigDto {
+    pub url: String,
+    pub user_name: String,
+    pub password: String,
+    pub dir_name: String,
+}
+
+/// Result of loading/saving the WebDAV configuration.
+#[derive(Clone)]
+pub struct WebDavConfigResultDto {
+    pub ok: bool,
+    pub config: Option<WebDavConfigDto>,
+    pub revision: u64,
+    pub error: Option<ErrorDto>,
+}
+
+/// Connection-check result.
+#[derive(Clone)]
+pub struct WebDavCheckDto {
+    pub ok: bool,
+    pub created_dir: bool,
+    pub status: u16,
+    pub message: String,
+    pub error: Option<ErrorDto>,
+}
+
+/// One remote WebDAV entry.
+#[derive(Clone)]
+pub struct WebDavEntryDto {
+    pub href: String,
+    pub is_dir: bool,
+    pub size: u64,
+    pub modified: String,
+}
+
+/// Remote listing result.
+#[derive(Clone)]
+pub struct WebDavListDto {
+    pub ok: bool,
+    pub items: Vec<WebDavEntryDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Result of a remote backup upload / download.
+#[derive(Clone)]
+pub struct WebDavOpDto {
+    pub ok: bool,
+    pub bytes: u64,
+    pub message: String,
+    pub error: Option<ErrorDto>,
+}
+
+/// One update target's static description.
+#[derive(Clone)]
+pub struct UpdateTargetDto {
+    pub core: String,
+    pub repo: String,
+    pub supported: bool,
+    pub prerelease_capable: bool,
+    pub max_version: Option<String>,
+    pub note: Option<String>,
+}
+
+/// One target's check result.
+#[derive(Clone)]
+pub struct CoreUpdateDto {
+    pub core: String,
+    pub supported: bool,
+    pub note: Option<String>,
+    pub installed_version: Option<String>,
+    pub remote_version: Option<String>,
+    pub has_update: bool,
+    pub asset_name: Option<String>,
+    pub download_url: Option<String>,
+    pub expected_sha256: Option<String>,
+    pub dgst_url: Option<String>,
+}
+
+/// Result of checking every selected target.
+#[derive(Clone)]
+pub struct UpdateReportDto {
+    pub ok: bool,
+    pub checks: Vec<CoreUpdateDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// One applied core update.
+#[derive(Clone)]
+pub struct AppliedCoreDto {
+    pub core: String,
+    pub version: String,
+    pub installed_dir: Option<String>,
+    pub kept_previous: Option<String>,
+}
+
+/// Result of applying core updates.
+#[derive(Clone)]
+pub struct ApplyCoreResultDto {
+    pub ok: bool,
+    pub applied: Vec<AppliedCoreDto>,
+    pub skipped: Vec<String>,
+    pub error: Option<ErrorDto>,
+}
+
+/// External-upgrade spec for the application itself (never executed here).
+#[derive(Clone)]
+pub struct ExternalSpecDto {
+    pub ok: bool,
+    pub helper_exe: Option<String>,
+    pub source: Option<String>,
+    pub install_root: Option<String>,
+    pub wait_for_pid: u32,
+    pub args: Vec<String>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Log/temporary-file cleanup result.
+#[derive(Clone)]
+pub struct CleanupResultDto {
+    pub ok: bool,
+    pub deleted: u32,
+    pub bytes: u64,
+    pub skipped: u32,
+    pub error: Option<ErrorDto>,
+}
+
+/// One installed core directory.
+#[derive(Clone)]
+pub struct InstalledCoreDto {
+    pub core: String,
+    pub dir: String,
+    pub version: String,
+    pub executable: Option<String>,
+}
+
+/// Installed-core probe result.
+#[derive(Clone)]
+pub struct CoreVersionsDto {
+    pub items: Vec<InstalledCoreDto>,
+    pub error: Option<ErrorDto>,
+}

@@ -116,6 +116,42 @@ impl NetHostClient {
     ) -> Result<(IpcResult, RuntimeDetail), DomainError> {
         do_request(&self.shared, operation, timeout)
     }
+
+    /// Open a restricted temporary test core, isolated from the managed
+    /// runtime. Returns the net-host test-session id.
+    pub fn open_test_session(
+        &self,
+        plan: &RuntimePlan,
+        max_duration_ms: u64,
+    ) -> Result<String, DomainError> {
+        let (result, _) = self.request(
+            IpcOperation::TestSession(ipc_contract::TestSessionOperation::Open {
+                plan: Box::new(plan.clone()),
+                max_duration_ms,
+            }),
+            Duration::from_millis(IPC_APPLY_TIMEOUT_MS),
+        )?;
+        match result {
+            IpcResult::TestSession { session_id, .. } => Ok(session_id),
+            IpcResult::Error(error) => Err(error),
+            other => Err(unexpected("test_session_open", &other)),
+        }
+    }
+
+    /// Close a restricted test session (idempotent).
+    pub fn close_test_session(&self, session_id: &str) -> Result<(), DomainError> {
+        let (result, _) = self.request(
+            IpcOperation::TestSession(ipc_contract::TestSessionOperation::Close {
+                session_id: session_id.to_string(),
+            }),
+            Duration::from_millis(IPC_REQUEST_TIMEOUT_MS),
+        )?;
+        match result {
+            IpcResult::TestSession { .. } => Ok(()),
+            IpcResult::Error(error) => Err(error),
+            other => Err(unexpected("test_session_close", &other)),
+        }
+    }
 }
 
 impl Drop for NetHostClient {

@@ -8,7 +8,9 @@ import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/profiles.dart' as rust;
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as routing;
 import 'package:v2rayn_desktop/bridge/api/settings.dart' as settings;
+import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
 import 'package:v2rayn_desktop/bridge/api/subs.dart' as subs;
+import 'package:v2rayn_desktop/bridge/api/t16.dart' as t16;
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 
 /// Thin, testable seam over the flutter_rust_bridge generated API.
@@ -199,6 +201,89 @@ abstract class BridgePort {
   dns.RegionalPresetResult applyRegionalPreset(String preset);
 
   String defaultDnsText(String kind);
+
+  // -- T15b speedtest surface --------------------------------------------
+
+  /// Which test actions the backend can really perform (UDP stays disabled).
+  speedtest.SpeedTestSupportDto speedTestSupport();
+
+  /// Apply the effective `SpeedTestItem` settings before starting a job.
+  c.SimpleResult configureSpeedTest({
+    required int pageSize,
+    required int mixedConcurrency,
+    required int timeoutSecs,
+    required String speedTestUrl,
+    required String speedPingTestUrl,
+    String? ipapiUrl,
+    String? udpTestTarget,
+    required int delayIntervalSecs,
+  });
+
+  /// Start a speedtest job over the selected ids (empty = all nodes).
+  speedtest.SpeedTestStartDto startSpeedTest(int kind, List<String> indexIds);
+
+  /// Idempotent cancel of a running job.
+  c.SimpleResult cancelSpeedTest(String jobId);
+
+  /// Current `ProfileExItem` result rows used to overlay Delay/Speed/IpInfo.
+  List<speedtest.SpeedTestResultDto> speedTestResults();
+
+  /// `RemoveInvalidServerResult`: delete rows whose delay failed.
+  int removeInvalidResults();
+
+  /// Number of speedtest jobs still running (drives live UI refresh).
+  int speedTestActiveJobs();
+
+  // -- T16 backup / WebDAV / update surface ------------------------------
+
+  c.BackupResultDto t16BackupLocal(String destRoot);
+
+  c.BackupListDto t16BackupList(String parent);
+
+  c.VerificationDto t16BackupVerify(String bundleDir);
+
+  c.RestoreResultDto t16BackupRestore(String bundleDir);
+
+  c.RecognitionDto t16BackupRecognize(String path);
+
+  c.ImportSummaryDto t16BackupImportUpstream(String path);
+
+  c.WebDavConfigResultDto t16WebdavConfigGet();
+
+  c.WebDavConfigResultDto t16WebdavConfigSave(
+    c.WebDavConfigDto cfg,
+    int expectedRevision,
+  );
+
+  Future<c.WebDavCheckDto> t16WebdavCheck(c.WebDavConfigDto cfg);
+
+  Future<c.WebDavListDto> t16WebdavList(c.WebDavConfigDto cfg);
+
+  Future<c.WebDavOpDto> t16WebdavBackup(c.WebDavConfigDto cfg);
+
+  Future<c.RestoreResultDto> t16WebdavRestore(c.WebDavConfigDto cfg);
+
+  List<c.UpdateTargetDto> t16UpdateTargets();
+
+  Future<c.UpdateReportDto> t16CheckUpdates(
+    List<String> cores,
+    bool prerelease,
+    bool viaProxy,
+  );
+
+  Future<c.ApplyCoreResultDto> t16ApplyCoreUpdate(
+    List<String> cores,
+    bool prerelease,
+    bool viaProxy,
+  );
+
+  Future<c.ExternalSpecDto> t16ApplyAppUpdateSpec();
+
+  c.CleanupResultDto t16CleanupLogsTmp();
+
+  c.SimpleResult t16OpenConfigDir();
+
+  c.CoreVersionsDto t16GetCoreVersions();
 }
 
 class FrbBridgePort implements BridgePort {
@@ -232,8 +317,10 @@ class FrbBridgePort implements BridgePort {
   }
 
   @override
-  List<ProfileSummary> fetchSummaries(int count) =>
-      queryAllProfiles().map(dtoToSummary).toList();
+  List<ProfileSummary> fetchSummaries(int count) => applySpeedTestOverlay(
+    queryAllProfiles().map(dtoToSummary).toList(),
+    speedTestResults(),
+  );
 
   @override
   List<c.ProfileDto> queryAllProfiles() {
@@ -497,6 +584,179 @@ class FrbBridgePort implements BridgePort {
 
   @override
   String defaultDnsText(String kind) => dns.defaultDnsText(kind: kind);
+
+  @override
+  speedtest.SpeedTestSupportDto speedTestSupport() =>
+      speedtest.speedtestSupported();
+
+  @override
+  c.SimpleResult configureSpeedTest({
+    required int pageSize,
+    required int mixedConcurrency,
+    required int timeoutSecs,
+    required String speedTestUrl,
+    required String speedPingTestUrl,
+    String? ipapiUrl,
+    String? udpTestTarget,
+    required int delayIntervalSecs,
+  }) => speedtest.speedtestConfigure(
+    pageSize: pageSize,
+    mixedConcurrency: mixedConcurrency,
+    timeoutSecs: timeoutSecs,
+    speedTestUrl: speedTestUrl,
+    speedPingTestUrl: speedPingTestUrl,
+    ipapiUrl: ipapiUrl,
+    udpTestTarget: udpTestTarget,
+    delayIntervalSecs: delayIntervalSecs,
+  );
+
+  @override
+  speedtest.SpeedTestStartDto startSpeedTest(int kind, List<String> indexIds) =>
+      speedtest.speedtestStart(kind: kind, indexIds: indexIds);
+
+  @override
+  c.SimpleResult cancelSpeedTest(String jobId) =>
+      speedtest.speedtestCancel(jobId: jobId);
+
+  @override
+  List<speedtest.SpeedTestResultDto> speedTestResults() =>
+      speedtest.speedtestResults();
+
+  @override
+  int removeInvalidResults() => speedtest.speedtestRemoveInvalid();
+
+  @override
+  int speedTestActiveJobs() => speedtest.speedtestActiveJobs();
+
+  // -- T16 backup / WebDAV / update (FRB) --------------------------------
+
+  @override
+  c.BackupResultDto t16BackupLocal(String destRoot) =>
+      t16.t16BackupLocal(destRoot: destRoot);
+
+  @override
+  c.BackupListDto t16BackupList(String parent) =>
+      t16.t16BackupList(parent: parent);
+
+  @override
+  c.VerificationDto t16BackupVerify(String bundleDir) =>
+      t16.t16BackupVerify(bundleDir: bundleDir);
+
+  @override
+  c.RestoreResultDto t16BackupRestore(String bundleDir) =>
+      t16.t16BackupRestore(bundleDir: bundleDir);
+
+  @override
+  c.RecognitionDto t16BackupRecognize(String path) =>
+      t16.t16BackupRecognize(path: path);
+
+  @override
+  c.ImportSummaryDto t16BackupImportUpstream(String path) =>
+      t16.t16BackupImportUpstream(path: path);
+
+  @override
+  c.WebDavConfigResultDto t16WebdavConfigGet() => t16.t16WebdavConfigGet();
+
+  @override
+  c.WebDavConfigResultDto t16WebdavConfigSave(
+    c.WebDavConfigDto cfg,
+    int expectedRevision,
+  ) => t16.t16WebdavConfigSave(
+    cfg: cfg,
+    expectedRevision: BigInt.from(expectedRevision),
+  );
+
+  @override
+  Future<c.WebDavCheckDto> t16WebdavCheck(c.WebDavConfigDto cfg) =>
+      t16.t16WebdavCheck(cfg: cfg);
+
+  @override
+  Future<c.WebDavListDto> t16WebdavList(c.WebDavConfigDto cfg) =>
+      t16.t16WebdavList(cfg: cfg);
+
+  @override
+  Future<c.WebDavOpDto> t16WebdavBackup(c.WebDavConfigDto cfg) =>
+      t16.t16WebdavBackup(cfg: cfg);
+
+  @override
+  Future<c.RestoreResultDto> t16WebdavRestore(c.WebDavConfigDto cfg) =>
+      t16.t16WebdavRestore(cfg: cfg);
+
+  @override
+  List<c.UpdateTargetDto> t16UpdateTargets() => t16.t16UpdateTargets();
+
+  @override
+  Future<c.UpdateReportDto> t16CheckUpdates(
+    List<String> cores,
+    bool prerelease,
+    bool viaProxy,
+  ) => t16.t16CheckUpdates(
+    cores: cores,
+    prerelease: prerelease,
+    viaProxy: viaProxy,
+  );
+
+  @override
+  Future<c.ApplyCoreResultDto> t16ApplyCoreUpdate(
+    List<String> cores,
+    bool prerelease,
+    bool viaProxy,
+  ) => t16.t16ApplyCoreUpdate(
+    cores: cores,
+    prerelease: prerelease,
+    viaProxy: viaProxy,
+  );
+
+  @override
+  Future<c.ExternalSpecDto> t16ApplyAppUpdateSpec() =>
+      t16.t16ApplyAppUpdateSpec();
+
+  @override
+  c.CleanupResultDto t16CleanupLogsTmp() => t16.t16CleanupLogsTmp();
+
+  @override
+  c.SimpleResult t16OpenConfigDir() => t16.t16OpenConfigDir();
+
+  @override
+  c.CoreVersionsDto t16GetCoreVersions() => t16.t16GetCoreVersions();
+}
+
+/// Overlay `ProfileExItem` results onto the node-table summaries. A missing
+/// row leaves the "unknown" defaults untouched (never a fake value).
+List<ProfileSummary> applySpeedTestOverlay(
+  List<ProfileSummary> rows,
+  List<speedtest.SpeedTestResultDto> results,
+) {
+  if (results.isEmpty || rows.isEmpty) return rows;
+  final byId = <String, speedtest.SpeedTestResultDto>{
+    for (final r in results) r.indexId: r,
+  };
+  return rows.map((row) {
+    final result = byId[row.id];
+    if (result == null) return row;
+    final hasDelay = result.delay != 0;
+    final speedText = result.speed > 0
+        ? '${result.speed.toStringAsFixed(1)} MB/s'
+        : row.speed;
+    return ProfileSummary(
+      id: row.id,
+      configType: row.configType,
+      remarks: row.remarks,
+      address: row.address,
+      port: row.port,
+      network: row.network,
+      streamSecurity: row.streamSecurity,
+      subRemarks: row.subRemarks,
+      delay: hasDelay ? result.delay : row.delay,
+      speed: speedText,
+      todayUp: row.todayUp,
+      ipInfo: result.ipInfo.isNotEmpty ? result.ipInfo : row.ipInfo,
+      todayDown: row.todayDown,
+      totalUp: row.totalUp,
+      totalDown: row.totalDown,
+      coreType: row.coreType,
+    );
+  }).toList();
 }
 
 /// Map a stored profile DTO onto the node-table summary shape. Traffic/delay
@@ -553,6 +813,31 @@ class SyntheticBridgePort implements BridgePort {
   int _revision = 0;
   String? _active;
   int _newId = 0;
+
+  /// T15b test seams: recorded calls and an in-memory result overlay.
+  final Map<String, speedtest.SpeedTestResultDto> _speedResults = {};
+  final List<Map<String, Object?>> speedTestCalls = [];
+  final List<String> cancelledTestJobs = [];
+  String? lastSpeedTestJobId;
+  String? lastSpeedTestConfig;
+  int removeInvalidCalls = 0;
+
+  /// Test helper: publish a result row without running a real job.
+  void seedSpeedResult(
+    String id,
+    int delay,
+    double speed, {
+    String message = '',
+    String ipInfo = '',
+  }) {
+    _speedResults[id] = speedtest.SpeedTestResultDto(
+      indexId: id,
+      delay: delay,
+      speed: speed,
+      message: message,
+      ipInfo: ipInfo,
+    );
+  }
 
   @override
   Future<void> init() async {}
@@ -635,7 +920,8 @@ class SyntheticBridgePort implements BridgePort {
   }
 
   @override
-  List<ProfileSummary> fetchSummaries(int count) => generate(count);
+  List<ProfileSummary> fetchSummaries(int count) =>
+      applySpeedTestOverlay(generate(count), _speedResults.values.toList());
 
   @override
   List<c.ProfileDto> queryAllProfiles() {
@@ -1915,6 +2201,70 @@ class SyntheticBridgePort implements BridgePort {
   @override
   String defaultDnsText(String kind) => '{"servers": []}';
 
+  @override
+  speedtest.SpeedTestSupportDto speedTestSupport() =>
+      const speedtest.SpeedTestSupportDto(
+        tcpPing: true,
+        realPing: true,
+        download: true,
+        mixed: true,
+        fastRealPing: true,
+        udp: false,
+      );
+
+  @override
+  c.SimpleResult configureSpeedTest({
+    required int pageSize,
+    required int mixedConcurrency,
+    required int timeoutSecs,
+    required String speedTestUrl,
+    required String speedPingTestUrl,
+    String? ipapiUrl,
+    String? udpTestTarget,
+    required int delayIntervalSecs,
+  }) {
+    lastSpeedTestConfig =
+        'page=$pageSize mixed=$mixedConcurrency timeout=$timeoutSecs '
+        'speed=$speedTestUrl ping=$speedPingTestUrl udp=${udpTestTarget ?? ""}';
+    return const c.SimpleResult(ok: true);
+  }
+
+  @override
+  speedtest.SpeedTestStartDto startSpeedTest(int kind, List<String> indexIds) {
+    lastSpeedTestJobId = 'syn-test-${speedTestCalls.length}';
+    speedTestCalls.add(<String, Object?>{
+      'kind': kind,
+      'ids': List<String>.of(indexIds),
+    });
+    return speedtest.SpeedTestStartDto(
+      ok: true,
+      jobId: lastSpeedTestJobId,
+      total: indexIds.isEmpty ? count : indexIds.length,
+    );
+  }
+
+  @override
+  c.SimpleResult cancelSpeedTest(String jobId) {
+    cancelledTestJobs.add(jobId);
+    return const c.SimpleResult(ok: true);
+  }
+
+  @override
+  List<speedtest.SpeedTestResultDto> speedTestResults() =>
+      _speedResults.values.toList();
+
+  @override
+  int removeInvalidResults() {
+    removeInvalidCalls += 1;
+    final before = _speedResults.length;
+    _speedResults.removeWhere((_, r) => r.delay == -1);
+    return before - _speedResults.length;
+  }
+
+  /// Tests report zero active jobs so the polling loop settles immediately.
+  @override
+  int speedTestActiveJobs() => 0;
+
   routing.RoutingProfileDto _withRoutingId(
     routing.RoutingProfileDto r,
     String id,
@@ -1952,4 +2302,351 @@ class SyntheticBridgePort implements BridgePort {
     sort: r.sort,
     isActive: active,
   );
+
+  // -- T16 backup / WebDAV / update (synthetic) --------------------------
+
+  /// Every T16 bridge call, in order, for widget-test assertions.
+  final List<String> t16Calls = <String>[];
+  final List<Map<String, Object?>> webdavUploads = <Map<String, Object?>>[];
+
+  c.WebDavConfigDto webdavConfig = const c.WebDavConfigDto(
+    url: '',
+    userName: '',
+    password: '',
+    dirName: 'v2rayN_backup',
+  );
+  int webdavRevision = 0;
+  bool webdavCheckOk = true;
+  bool proxyAvailable = false;
+  final List<String> installedCores = <String>['xray 26.3.27'];
+
+  c.BackupManifestDto _manifest(String root) => c.BackupManifestDto(
+    formatVersion: 1,
+    createdAt: 42,
+    appSourceCommit: '7d6a967',
+    dbSha256: 'deadbeef',
+    configSha256: 'feedface',
+    root: root,
+    resourceCount: 1,
+    entityCounts: const <c.EntityCountDto>[],
+  );
+
+  @override
+  c.BackupResultDto t16BackupLocal(String destRoot) {
+    t16Calls.add('backup_local:$destRoot');
+    return c.BackupResultDto(
+      ok: true,
+      root: '$destRoot/bundle',
+      manifest: _manifest('$destRoot/bundle'),
+    );
+  }
+
+  @override
+  c.BackupListDto t16BackupList(String parent) {
+    t16Calls.add('backup_list:$parent');
+    return c.BackupListDto(items: <c.BackupManifestDto>[_manifest(parent)]);
+  }
+
+  @override
+  c.VerificationDto t16BackupVerify(String bundleDir) {
+    t16Calls.add('backup_verify:$bundleDir');
+    final broken = bundleDir.contains('broken');
+    return c.VerificationDto(
+      ok: !broken,
+      missing: broken ? const <String>['guiNDB.db'] : const <String>[],
+      mismatched: const <String>[],
+    );
+  }
+
+  @override
+  c.RestoreResultDto t16BackupRestore(String bundleDir) {
+    t16Calls.add('backup_restore:$bundleDir');
+    if (bundleDir.contains('broken')) {
+      return const c.RestoreResultDto(
+        ok: false,
+        restored: false,
+        message: '',
+        error: c.ErrorDto(
+          code: 'E_FIELD_FORMAT',
+          messageKey: 'error.backup_invalid',
+          retryable: false,
+        ),
+      );
+    }
+    return const c.RestoreResultDto(
+      ok: true,
+      restored: true,
+      targetBackup: 'guiNDB.db.bak',
+      message: 'restore completed',
+    );
+  }
+
+  @override
+  c.RecognitionDto t16BackupRecognize(String path) {
+    t16Calls.add('backup_recognize:$path');
+    return const c.RecognitionDto(
+      isUpstream: true,
+      hasConfig: true,
+      hasDb: true,
+      layout: 'guiConfigs/',
+      entries: <String>['guiConfigs/guiNConfig.json'],
+    );
+  }
+
+  @override
+  c.ImportSummaryDto t16BackupImportUpstream(String path) {
+    t16Calls.add('backup_import:$path');
+    return c.ImportSummaryDto(
+      ok: true,
+      status: 'imported',
+      sourceVersion: 4,
+      importedRows: BigInt.from(12),
+      warnings: 0,
+      errors: 0,
+      message: '导入完成',
+    );
+  }
+
+  @override
+  c.WebDavConfigResultDto t16WebdavConfigGet() => c.WebDavConfigResultDto(
+    ok: true,
+    config: webdavConfig,
+    revision: BigInt.from(webdavRevision),
+  );
+
+  @override
+  c.WebDavConfigResultDto t16WebdavConfigSave(
+    c.WebDavConfigDto cfg,
+    int expectedRevision,
+  ) {
+    t16Calls.add('webdav_config_save');
+    if (expectedRevision != webdavRevision) {
+      return c.WebDavConfigResultDto(
+        ok: false,
+        revision: BigInt.from(webdavRevision),
+        error: const c.ErrorDto(
+          code: 'E_REVISION_STALE',
+          messageKey: 'error.revision_stale',
+          retryable: false,
+        ),
+      );
+    }
+    webdavConfig = cfg;
+    webdavRevision += 1;
+    return c.WebDavConfigResultDto(
+      ok: true,
+      config: webdavConfig,
+      revision: BigInt.from(webdavRevision),
+    );
+  }
+
+  @override
+  Future<c.WebDavCheckDto> t16WebdavCheck(c.WebDavConfigDto cfg) async {
+    t16Calls.add('webdav_check');
+    if (!webdavCheckOk) {
+      return const c.WebDavCheckDto(
+        ok: false,
+        createdDir: false,
+        status: 401,
+        message: '',
+        error: c.ErrorDto(
+          code: 'E_PERMISSION_DENIED',
+          messageKey: 'error.webdav_permission',
+          retryable: false,
+        ),
+      );
+    }
+    return const c.WebDavCheckDto(
+      ok: true,
+      createdDir: false,
+      status: 207,
+      message: 'error.webdav_ok',
+    );
+  }
+
+  @override
+  Future<c.WebDavListDto> t16WebdavList(c.WebDavConfigDto cfg) async {
+    t16Calls.add('webdav_list');
+    return c.WebDavListDto(
+      ok: true,
+      items: <c.WebDavEntryDto>[
+        c.WebDavEntryDto(
+          href: '/v2rayN_backup/backup.zip',
+          isDir: false,
+          size: BigInt.from(1024),
+          modified: '',
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<c.WebDavOpDto> t16WebdavBackup(c.WebDavConfigDto cfg) async {
+    t16Calls.add('webdav_backup');
+    webdavUploads.add(<String, Object?>{'url': cfg.url, 'dir': cfg.dirName});
+    return c.WebDavOpDto(
+      ok: true,
+      bytes: BigInt.from(1024),
+      message: 'uploaded',
+    );
+  }
+
+  @override
+  Future<c.RestoreResultDto> t16WebdavRestore(c.WebDavConfigDto cfg) async {
+    t16Calls.add('webdav_restore');
+    return const c.RestoreResultDto(
+      ok: true,
+      restored: true,
+      targetBackup: 'guiNDB.db.bak',
+      message: 'restore completed',
+    );
+  }
+
+  @override
+  List<c.UpdateTargetDto> t16UpdateTargets() => const <c.UpdateTargetDto>[
+    c.UpdateTargetDto(
+      core: 'v2rayN',
+      repo: '2dust/v2rayN',
+      supported: true,
+      prereleaseCapable: true,
+    ),
+    c.UpdateTargetDto(
+      core: 'xray',
+      repo: 'XTLS/Xray-core',
+      supported: true,
+      prereleaseCapable: true,
+    ),
+    c.UpdateTargetDto(
+      core: 'mihomo',
+      repo: 'MetaCubeX/mihomo',
+      supported: true,
+      prereleaseCapable: false,
+    ),
+    c.UpdateTargetDto(
+      core: 'sing_box',
+      repo: 'SagerNet/sing-box',
+      supported: true,
+      prereleaseCapable: false,
+      maxVersion: '1.14.4294967295',
+    ),
+    c.UpdateTargetDto(
+      core: 'tuic',
+      repo: '',
+      supported: false,
+      prereleaseCapable: false,
+      note: 'error.update_unsupported',
+    ),
+  ];
+
+  @override
+  Future<c.UpdateReportDto> t16CheckUpdates(
+    List<String> cores,
+    bool prerelease,
+    bool viaProxy,
+  ) async {
+    t16Calls.add('check_updates:${cores.join(",")}:$prerelease:$viaProxy');
+    if (viaProxy && !proxyAvailable) {
+      return const c.UpdateReportDto(
+        ok: false,
+        checks: <c.CoreUpdateDto>[],
+        error: c.ErrorDto(
+          code: 'E_PROXY_UNAVAILABLE',
+          messageKey: 'error.proxy_unavailable',
+          retryable: false,
+        ),
+      );
+    }
+    final checks = <c.CoreUpdateDto>[
+      for (final core in cores)
+        c.CoreUpdateDto(
+          core: core,
+          supported: true,
+          installedVersion: '26.3.27',
+          remoteVersion: '26.4.0',
+          hasUpdate: true,
+          assetName: '$core-windows-64.zip',
+          downloadUrl: 'https://example.invalid/$core.zip',
+        ),
+    ];
+    return c.UpdateReportDto(ok: true, checks: checks);
+  }
+
+  @override
+  Future<c.ApplyCoreResultDto> t16ApplyCoreUpdate(
+    List<String> cores,
+    bool prerelease,
+    bool viaProxy,
+  ) async {
+    t16Calls.add('apply_core:${cores.join(",")}:$prerelease:$viaProxy');
+    if (viaProxy && !proxyAvailable) {
+      return const c.ApplyCoreResultDto(
+        ok: false,
+        applied: <c.AppliedCoreDto>[],
+        skipped: <String>[],
+        error: c.ErrorDto(
+          code: 'E_PROXY_UNAVAILABLE',
+          messageKey: 'error.proxy_unavailable',
+          retryable: false,
+        ),
+      );
+    }
+    return c.ApplyCoreResultDto(
+      ok: true,
+      applied: <c.AppliedCoreDto>[
+        for (final core in cores)
+          c.AppliedCoreDto(
+            core: core,
+            version: '26.4.0',
+            installedDir: '/cores/$core',
+            keptPrevious: '/cores/$core.previous',
+          ),
+      ],
+      skipped: const <String>[],
+    );
+  }
+
+  @override
+  Future<c.ExternalSpecDto> t16ApplyAppUpdateSpec() async {
+    t16Calls.add('app_update_spec');
+    return const c.ExternalSpecDto(
+      ok: true,
+      helperExe: '/app/v2rayN-upgrade.exe',
+      source: '/app/.staging/v2rayN-7.99.0',
+      installRoot: '/app',
+      waitForPid: 4242,
+      args: <String>['/app/.staging/v2rayN-7.99.0'],
+    );
+  }
+
+  @override
+  c.CleanupResultDto t16CleanupLogsTmp() {
+    t16Calls.add('cleanup_logs_tmp');
+    return c.CleanupResultDto(
+      ok: true,
+      deleted: 3,
+      bytes: BigInt.from(2048),
+      skipped: 1,
+    );
+  }
+
+  @override
+  c.SimpleResult t16OpenConfigDir() {
+    t16Calls.add('open_config_dir');
+    return const c.SimpleResult(ok: true);
+  }
+
+  @override
+  c.CoreVersionsDto t16GetCoreVersions() {
+    t16Calls.add('get_core_versions');
+    return c.CoreVersionsDto(
+      items: <c.InstalledCoreDto>[
+        for (final entry in installedCores)
+          c.InstalledCoreDto(
+            core: entry.split(' ').first,
+            dir: entry.split(' ').first,
+            version: entry.contains(' ') ? entry.split(' ').last : '',
+          ),
+      ],
+    );
+  }
 }

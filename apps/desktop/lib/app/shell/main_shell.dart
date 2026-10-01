@@ -8,6 +8,9 @@ import 'package:v2rayn_desktop/app/shell/side_tabs.dart';
 import 'package:v2rayn_desktop/app/shell/status_bar_view.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/features/backup/backup_and_restore_view.dart';
+import 'package:v2rayn_desktop/features/backup/backup_controller.dart';
+import 'package:v2rayn_desktop/features/update/check_update_view.dart';
 import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart'
     as profile_actions;
@@ -81,6 +84,16 @@ class _MainShellState extends ConsumerState<MainShell> {
       final openDns = Platform.environment['V2RAYN_R_OPEN_DNS'];
       if (openDns == '1' || openDns == 'true') {
         routing_actions.openDnsSettings(context, ref);
+      }
+      // T16 evidence hooks: auto-open the backup / update windows for release
+      // screenshots. No-ops in normal runs.
+      final openBackup = Platform.environment['V2RAYN_R_OPEN_BACKUP'];
+      if (openBackup == '1' || openBackup == 'true') {
+        showBackupAndRestoreWindow(context, ref);
+      }
+      final openUpdate = Platform.environment['V2RAYN_R_OPEN_UPDATE'];
+      if (openUpdate == '1' || openUpdate == 'true') {
+        showCheckUpdateWindow(context, ref);
       }
       // T15a evidence hooks: configure the monitor against a loopback Xray
       // stats port and open a monitor tab for release screenshots. No-ops in
@@ -347,7 +360,13 @@ class _MainShellState extends ConsumerState<MainShell> {
             .clearStats();
         shell.setMessage(cleared ? '已清除所有服务统计数据' : '清除统计失败');
       case 'ACT-MAIN-031':
-        shell.notImplemented('打开存储位置', 'ACT-MAIN-031');
+        ref.read(backupControllerProvider.notifier).openConfigDir();
+      case 'ACT-WIN-005':
+        showCheckUpdateWindow(context, ref);
+      case 'ACT-WIN-007':
+        showBackupAndRestoreWindow(context, ref);
+      case 'UI-CLEANUP':
+        ref.read(backupControllerProvider.notifier).cleanupLogsTmp();
       default:
         shell.notImplemented(entry.label, entry.actionId);
     }

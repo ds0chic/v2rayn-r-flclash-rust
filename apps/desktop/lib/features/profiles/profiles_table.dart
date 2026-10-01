@@ -395,7 +395,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         widgets.add(
           MenuItemButton(
             key: ValueKey('ctx-${entry.label}'),
-            onPressed: () => _onContextAction(entry),
+            onPressed: entry.enabled ? () => _onContextAction(entry) : null,
             child: _menuLabel(entry),
           ),
         );
@@ -449,6 +449,21 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         toggleActiveSelected(ref);
       case ContextActionKind.remarks:
         renameSelectedProfile(context, ref);
+      case ContextActionKind.tcping:
+        profiles.emitAction(ProfileAction.tcping);
+      case ContextActionKind.realping:
+        profiles.emitAction(ProfileAction.realping);
+      case ContextActionKind.speedtest:
+        profiles.emitAction(ProfileAction.speedtest);
+      case ContextActionKind.mixedTest:
+        profiles.emitAction(ProfileAction.mixedTest);
+      case ContextActionKind.fastRealping:
+        profiles.emitAction(ProfileAction.fastRealping);
+      case ContextActionKind.udpTest:
+        // Disabled in the restricted scope; never faked.
+        profiles.emitAction(ProfileAction.udpTest);
+      case ContextActionKind.removeInvalid:
+        profiles.emitAction(ProfileAction.removeInvalid);
       case ContextActionKind.notImplemented:
         shell.notImplemented(entry.label, entry.actionId);
     }

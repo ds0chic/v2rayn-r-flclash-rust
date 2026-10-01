@@ -199,6 +199,11 @@ impl AppEngine {
         self.data_dir.is_some()
     }
 
+    /// The data directory this engine is rooted at, when persistent.
+    pub fn data_dir(&self) -> Option<&Path> {
+        self.data_dir.as_deref()
+    }
+
     /// Seed profiles (test/bootstrap helper).
     pub fn seed(&self, profiles: Vec<Profile>) {
         if let Ok(mut repo) = self.repo.lock() {

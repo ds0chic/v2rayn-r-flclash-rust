@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_table.dart';
+import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 
 /// Profiles panel: top toolbar (LAY-PROFILES-001) + virtualized node table.
 /// The bottom status bar and menu bar live in the shell, not here.
@@ -92,8 +93,40 @@ class _Toolbar extends ConsumerWidget {
             _toolbarButton('复制', () => copySelectedProfiles(ref)),
             _toolbarButton('备注', () => renameSelectedProfile(context, ref)),
             _toolbarButton('启用/停用', () => toggleActiveSelected(ref)),
-            _toolbarButton('Tcping', controller.pingSelected),
-            _toolbarButton('测试延迟', () => controller.runBlockingProbe(400)),
+            _toolbarButton(
+              'TCPing',
+              () => controller.emitAction(ProfileAction.tcping),
+            ),
+            _toolbarButton(
+              '真延迟',
+              () => controller.emitAction(ProfileAction.realping),
+            ),
+            _toolbarButton(
+              '测速',
+              () => controller.emitAction(ProfileAction.speedtest),
+            ),
+            _toolbarButton(
+              '混合',
+              () => controller.emitAction(ProfileAction.mixedTest),
+            ),
+            _toolbarButton(
+              '快速真延迟',
+              () => controller.emitAction(ProfileAction.fastRealping),
+            ),
+            _toolbarButton('停止测试', controller.cancelSpeedTest),
+            _toolbarButton(
+              '移除无效',
+              () => controller.emitAction(ProfileAction.removeInvalid),
+            ),
+            if (state.speedTestRunning)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  state.speedTestStage,
+                  key: const ValueKey('speedtest-stage'),
+                  style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+                ),
+              ),
             _toolbarButton(
               '自动列宽',
               () => controller.emitAction('autofit-columns'),

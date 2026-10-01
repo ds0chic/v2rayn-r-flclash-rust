@@ -162,28 +162,54 @@ async fn handle_connection(pipe: NamedPipeServer, state: Arc<HostState>) {
             }
             IpcOperation::Shutdown => {
                 let _ = state.stop_managed(None).await;
+                state.stop_all_test_sessions().await;
                 let _ = send_result(&tx, &request_id, IpcResult::Shutdown).await;
                 state.shutdown.notify_one();
             }
             IpcOperation::TestSession(test_op) => {
                 let result = match test_op {
-                    ipc_contract::TestSessionOperation::Open { ports, .. } => {
+                    ipc_contract::TestSessionOperation::Open {
+                        plan,
+                        max_duration_ms,
+                    } => {
+                        let ports: Vec<u16> = plan.ports.iter().map(|p| p.port).collect();
                         match check_test_ports(&ports) {
-                            Ok(()) => IpcResult::Error(DomainError::new(
-                                domain::codes::INVALID_ARGUMENT,
-                                "error.test_session_unsupported",
-                            )),
                             Err(IpcError::Malformed { detail }) => IpcResult::Error(
                                 DomainError::new(domain::codes::INVALID_ARGUMENT, "error.invalid")
                                     .with_detail(detail),
                             ),
                             Err(other) => IpcResult::Error(other.to_domain()),
+                            Ok(()) => {
+                                match HostState::open_test_session(&state, *plan, max_duration_ms)
+                                    .await
+                                {
+                                    Ok(session_id) => IpcResult::TestSession {
+                                        session_id,
+                                        state: domain::JobState::Running,
+                                    },
+                                    Err(error) => IpcResult::Error(error),
+                                }
+                            }
                         }
                     }
-                    _ => IpcResult::Error(DomainError::new(
-                        domain::codes::INVALID_ARGUMENT,
-                        "error.test_session_unsupported",
-                    )),
+                    ipc_contract::TestSessionOperation::Close { session_id } => {
+                        match state.close_test_session(&session_id).await {
+                            Ok(()) => IpcResult::TestSession {
+                                session_id,
+                                state: domain::JobState::Done,
+                            },
+                            Err(error) => IpcResult::Error(error),
+                        }
+                    }
+                    ipc_contract::TestSessionOperation::Status { session_id } => {
+                        match state.test_session_status(&session_id).await {
+                            Some(state) => IpcResult::TestSession { session_id, state },
+                            None => IpcResult::Error(DomainError::not_found(
+                                "test_session",
+                                &session_id,
+                            )),
+                        }
+                    }
                 };
                 let _ = send_result(&tx, &request_id, result).await;
             }
@@ -207,6 +233,7 @@ pub async fn watchdog(state: Arc<HostState>) {
         if state.should_reclaim().await {
             eprintln!("[net_host] lease reclaim triggered; stopping managed session");
             let _ = state.stop_managed(None).await;
+            state.stop_all_test_sessions().await;
             state
                 .bus
                 .emit_named("lease_reclaimed", json!({"reason": "client_lost"}));

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
@@ -50,6 +52,11 @@ class ProfilesState {
     this.lastAckRustCount,
     this.blockingBusy = false,
     this.lastBlockingMs,
+    this.speedTestJobId,
+    this.speedTestKind,
+    this.speedTestRunning = false,
+    this.speedTestStage = '',
+    this.speedTestMessage,
   });
 
   final List<ProfileSummary> all;
@@ -78,6 +85,15 @@ class ProfilesState {
   final bool blockingBusy;
   final int? lastBlockingMs;
 
+  /// Active speedtest job (T15b). `speedTestStage` carries the real stage key
+  /// (`Speedtesting` / `SpeedtestingCompleted` / `SpeedtestingStop`); no
+  /// synthetic percentage is ever produced.
+  final String? speedTestJobId;
+  final int? speedTestKind;
+  final bool speedTestRunning;
+  final String speedTestStage;
+  final String? speedTestMessage;
+
   int get selectedCount => selected.length;
   int get totalCount => all.length;
   TableEvent? get lastEvent => events.isEmpty ? null : events.last;
@@ -104,6 +120,12 @@ class ProfilesState {
     int? lastAckRustCount,
     bool? blockingBusy,
     int? lastBlockingMs,
+    String? speedTestJobId,
+    int? speedTestKind,
+    bool? speedTestRunning,
+    String? speedTestStage,
+    String? speedTestMessage,
+    bool clearSpeedTestJob = false,
   }) {
     return ProfilesState(
       all: all ?? this.all,
@@ -122,6 +144,13 @@ class ProfilesState {
       lastAckRustCount: lastAckRustCount ?? this.lastAckRustCount,
       blockingBusy: blockingBusy ?? this.blockingBusy,
       lastBlockingMs: lastBlockingMs ?? this.lastBlockingMs,
+      speedTestJobId: clearSpeedTestJob
+          ? null
+          : (speedTestJobId ?? this.speedTestJobId),
+      speedTestKind: speedTestKind ?? this.speedTestKind,
+      speedTestRunning: speedTestRunning ?? this.speedTestRunning,
+      speedTestStage: speedTestStage ?? this.speedTestStage,
+      speedTestMessage: speedTestMessage ?? this.speedTestMessage,
     );
   }
 }
@@ -133,12 +162,14 @@ class ProfilesController extends Notifier<ProfilesState> {
   UiStateStore get _store => ref.read(uiStateStoreProvider);
 
   int _seq = 0;
+  Timer? _testPoller;
 
   @override
   ProfilesState build() {
     final count = ref.read(profileRowCountProvider);
     final rows = _bridge.fetchSummaries(count);
     final columns = _applyStoredLayout(defaultProfileColumns());
+    ref.onDispose(() => _testPoller?.cancel());
     return ProfilesState(
       all: rows,
       visible: List<ProfileSummary>.of(rows),
@@ -152,6 +183,27 @@ class ProfilesController extends Notifier<ProfilesState> {
       profiles: _bridge.queryAllProfiles(),
       activeId: _bridge.getActiveProfile(),
     );
+  }
+
+  /// While a job runs, poll the Rust `ProfileExItem` store and refresh the
+  /// table. The Rust side still coalesces results into 50-100 ms batches; the
+  /// UI simply reads the closure at a bounded cadence and never fabricates a
+  /// percentage.
+  void _startTestPolling() {
+    _testPoller?.cancel();
+    _testPoller = Timer.periodic(const Duration(milliseconds: 150), (timer) {
+      reload();
+      if (_bridge.speedTestActiveJobs() == 0) {
+        timer.cancel();
+        _testPoller = null;
+        state = state.copyWith(
+          speedTestRunning: false,
+          speedTestStage: state.speedTestStage == 'SpeedtestingStop'
+              ? 'SpeedtestingStop'
+              : 'SpeedtestingCompleted',
+        );
+      }
+    });
   }
 
   // -- T06a profile editor / repository actions ---------------------------
@@ -449,7 +501,26 @@ class ProfilesController extends Notifier<ProfilesState> {
         selectAll();
         return;
       case ProfileAction.escape:
+        // ACT-PROF-038: Esc stops a running test first, then clears the
+        // selection (upstream `LstProfiles_PreviewKeyDown(Escape)`).
+        if (state.speedTestRunning) {
+          cancelSpeedTest();
+        }
         clearSelection();
+        return;
+      case ProfileAction.tcping:
+      case ProfileAction.realping:
+      case ProfileAction.speedtest:
+      case ProfileAction.mixedTest:
+      case ProfileAction.fastRealping:
+      case ProfileAction.udpTest:
+        startSpeedTest(action);
+        return;
+      case ProfileAction.removeInvalid:
+        removeInvalidResults();
+        return;
+      case ProfileAction.stopTest:
+        cancelSpeedTest();
         return;
       case ProfileAction.moveTop:
         moveSelected(toStart: true);
@@ -481,6 +552,89 @@ class ProfilesController extends Notifier<ProfilesState> {
     final id = state.selected.first;
     final delay = _bridge.pingProfile(id);
     _log(ProfileAction.tcping, 'id=$id delay=$delay');
+  }
+
+  // -- T15b speedtest actions -------------------------------------------
+
+  /// Map a UI action to `domain::SpeedTestAction` (0..5), or null.
+  static int? speedTestKindForAction(String action) {
+    switch (action) {
+      case ProfileAction.tcping:
+        return 0;
+      case ProfileAction.realping:
+        return 1;
+      case ProfileAction.udpTest:
+        return 2;
+      case ProfileAction.speedtest:
+        return 3;
+      case ProfileAction.mixedTest:
+        return 4;
+      case ProfileAction.fastRealping:
+        return 5;
+      default:
+        return null;
+    }
+  }
+
+  /// Start a speedtest job for [action]. Mixed/Fast use all visible nodes
+  /// (upstream `ServerSpeedtest`); the others use the current selection.
+  c.SimpleResult startSpeedTest(String action) {
+    final kind = speedTestKindForAction(action);
+    if (kind == null) return const c.SimpleResult(ok: true);
+    _bridge.configureSpeedTest(
+      pageSize: 1000,
+      mixedConcurrency: 10,
+      timeoutSecs: 10,
+      speedTestUrl: 'https://cachefly.cachefly.net/50mb.test',
+      speedPingTestUrl: 'https://www.gstatic.com/generate_204',
+      ipapiUrl: null,
+      udpTestTarget: null,
+      delayIntervalSecs: 1,
+    );
+    final useAll =
+        action == ProfileAction.mixedTest ||
+        action == ProfileAction.fastRealping;
+    final ids = useAll ? const <String>[] : state.selected.toList();
+    final result = _bridge.startSpeedTest(kind, ids);
+    if (!result.ok) {
+      _log('speedtest-start-failed', result.error?.code ?? 'unknown');
+      return c.SimpleResult(ok: false, error: result.error);
+    }
+    final started = result.jobId != null;
+    state = state.copyWith(
+      speedTestJobId: result.jobId,
+      speedTestKind: kind,
+      speedTestRunning: started,
+      speedTestStage: started ? 'Speedtesting' : 'SpeedtestingCompleted',
+      speedTestMessage: null,
+      clearSpeedTestJob: !started,
+    );
+    _log(action, 'kind=$kind ids=${ids.length} job=${result.jobId ?? "-"}');
+    _echo(action);
+    if (started) {
+      _startTestPolling();
+    }
+    return const c.SimpleResult(ok: true);
+  }
+
+  void cancelSpeedTest() {
+    final jobId = state.speedTestJobId;
+    if (jobId == null) return;
+    _bridge.cancelSpeedTest(jobId);
+    _testPoller?.cancel();
+    _testPoller = null;
+    state = state.copyWith(
+      speedTestRunning: false,
+      speedTestStage: 'SpeedtestingStop',
+    );
+    _log('speedtest-stop', 'job=$jobId');
+    _echo(ProfileAction.stopTest);
+  }
+
+  void removeInvalidResults() {
+    final removed = _bridge.removeInvalidResults();
+    reload();
+    _log(ProfileAction.removeInvalid, 'removed=$removed');
   }
 
   Future<void> runBlockingProbe(int ms) async {

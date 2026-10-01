@@ -12,6 +12,13 @@ enum ContextActionKind {
   delete,
   activate,
   remarks,
+  tcping,
+  realping,
+  speedtest,
+  mixedTest,
+  fastRealping,
+  udpTest,
+  removeInvalid,
   notImplemented,
 }
 
@@ -23,6 +30,7 @@ class ContextMenuEntry {
     this.kind = ContextActionKind.notImplemented,
     this.submenu = const <ContextMenuEntry>[],
     this.separatorAfter = false,
+    this.enabled = true,
   });
 
   final String label;
@@ -31,6 +39,9 @@ class ContextMenuEntry {
   final ContextActionKind kind;
   final List<ContextMenuEntry> submenu;
   final bool separatorAfter;
+
+  /// A disabled entry stays visible (layout parity) but never runs.
+  final bool enabled;
 
   bool get isSubmenu => submenu.isNotEmpty;
 }
@@ -60,23 +71,46 @@ const List<ContextMenuEntry> profilesContextMenu = <ContextMenuEntry>[
     kind: ContextActionKind.delete,
   ),
   ContextMenuEntry(label: '移除重复', actionId: 'ACT-PROF-003'),
-  ContextMenuEntry(label: '按测试结果移除无效', actionId: 'ACT-PROF-021'),
+  ContextMenuEntry(
+    label: '按测试结果移除无效',
+    actionId: 'ACT-PROF-021',
+    kind: ContextActionKind.removeInvalid,
+  ),
   ContextMenuEntry(
     label: '测试延迟 Tcping (多选)',
     actionId: 'ACT-PROF-016',
     shortcut: 'Ctrl+O',
+    kind: ContextActionKind.tcping,
     separatorAfter: false,
   ),
   ContextMenuEntry(
     label: '测试真连接延迟 (多选)',
     actionId: 'ACT-PROF-017',
     shortcut: 'Ctrl+R',
+    kind: ContextActionKind.realping,
   ),
-  ContextMenuEntry(label: '测试 UDP 延迟 (多选)', actionId: 'ACT-PROF-018'),
+  ContextMenuEntry(
+    label: '快速真延迟',
+    actionId: 'ACT-PROF-014',
+    kind: ContextActionKind.fastRealping,
+  ),
   ContextMenuEntry(
     label: '测试速度 (多选)',
     actionId: 'ACT-PROF-019',
     shortcut: 'Ctrl+T',
+    kind: ContextActionKind.speedtest,
+  ),
+  ContextMenuEntry(
+    label: '混合测试 (真连接+测速)',
+    actionId: 'ACT-PROF-015',
+    shortcut: 'Ctrl+E',
+    kind: ContextActionKind.mixedTest,
+  ),
+  ContextMenuEntry(
+    label: '测试 UDP 延迟 (多选, 受限范围未实现)',
+    actionId: 'ACT-PROF-018',
+    kind: ContextActionKind.udpTest,
+    enabled: false,
   ),
   ContextMenuEntry(label: '按测试结果排序', actionId: 'ACT-PROF-020'),
   ContextMenuEntry(

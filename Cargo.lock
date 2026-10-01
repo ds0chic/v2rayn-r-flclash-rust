@@ -94,10 +94,12 @@ dependencies = [
  "config_codegen",
  "core_adapters",
  "domain",
+ "hex",
  "ipc_contract",
  "persistence",
  "platform",
  "regex",
+ "reqwest",
  "runtime",
  "rusqlite",
  "rustls-native-certs",
@@ -105,11 +107,14 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sha2",
  "subscriptions",
  "tempfile",
  "tiny_http",
  "tokio",
+ "updater",
  "windows",
+ "zip",
 ]
 
 [[package]]

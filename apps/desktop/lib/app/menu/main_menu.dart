@@ -90,6 +90,7 @@ const _settingEntries = <AppMenuEntry>[
   ),
   AppMenuEntry(label: '备份和还原', actionId: 'ACT-WIN-007'),
   AppMenuEntry(label: '打开存储所在的位置', actionId: 'ACT-MAIN-031'),
+  AppMenuEntry(label: '清理日志与临时文件', actionId: 'UI-CLEANUP'),
   AppMenuEntry(label: '主界面 (占位)', actionId: 'UI-MAIN', submenu: _uiEntries),
 ];
 

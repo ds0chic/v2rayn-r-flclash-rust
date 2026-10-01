@@ -993,8 +993,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:228
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:639
   - docs/evidence/T13.md
-  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
-  test_ids: []
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/app/shell/main_shell.dart; crates/bridge_api/src/api/t16.rs (t16_open_config_dir); apps/desktop/lib/features/backup/backup_controller.dart"
+  test_ids: ["t16_backup_test.dart (cleanup and open-directory actions route through the bridge)"]
   status: implemented
 - id: ACT-MAIN-032
   name: 应用区域预设-默认
@@ -1243,9 +1244,10 @@ items:
   evidence:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:278
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:284
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/app/shell/main_shell.dart (ACT-WIN-005 -> showCheckUpdateWindow); apps/desktop/lib/features/update/check_update_view.dart"
+  test_ids: ["t05_shell_chrome_test.dart (帮助/检查更新 opens update-window)"]
+  status: implemented
 - id: ACT-WIN-006
   name: 按钮-新版本提示
   domain: main-menu
@@ -1297,9 +1299,10 @@ items:
   evidence:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:287
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:289
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/app/shell/main_shell.dart (ACT-WIN-007 -> showBackupAndRestoreWindow); apps/desktop/lib/features/backup/backup_and_restore_view.dart"
+  test_ids: ["t16_backup_test.dart"]
+  status: implemented
 - id: ACT-WIN-008
   name: 动态生成帮助菜单项
   domain: main-menu
@@ -2055,9 +2058,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:173
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:705
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:738
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T15b.md
+  implementation_location: apps/desktop/lib/features/profiles/context_menu.dart + apps/desktop/lib/features/profiles/profiles_controller.dart + apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t15b_speedtest_test.dart]
+  status: implemented
 - id: ACT-PROF-015
   name: 混合测试（真连接+测速）
   domain: testing
@@ -2083,9 +2087,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:177
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:254
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T15b.md
+  implementation_location: apps/desktop/lib/features/profiles/context_menu.dart + apps/desktop/lib/features/profiles/profiles_controller.dart + apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t15b_speedtest_test.dart]
+  status: implemented
 - id: ACT-PROF-016
   name: TCPing 延迟测试
   domain: testing
@@ -2112,9 +2117,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:181
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:242
   - v2rayN/v2rayN/Views/ProfilesView.xaml:151
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T15b.md
+  implementation_location: apps/desktop/lib/features/profiles/context_menu.dart + apps/desktop/lib/features/profiles/profiles_controller.dart + apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t15b_speedtest_test.dart, t15b_smoke_probe_test.dart]
+  status: implemented
 - id: ACT-PROF-017
   name: 真连接延迟测试
   domain: testing
@@ -2141,9 +2147,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:185
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:246
   - v2rayN/v2rayN/Views/ProfilesView.xaml:156
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T15b.md
+  implementation_location: apps/desktop/lib/features/profiles/context_menu.dart + apps/desktop/lib/features/profiles/profiles_controller.dart + apps/desktop/lib/features/profiles/profiles_table.dart + services/net_host/src/session.rs
+  test_ids: [t15b_speedtest_test.dart, t15b_speedtest_session::real_ping_and_download_through_real_xray]
+  status: implemented
 - id: ACT-PROF-018
   name: UDP 测试
   domain: testing
@@ -2168,9 +2175,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:189
   - v2rayN/v2rayN/Views/ProfilesView.xaml:161
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T15b.md
+  implementation_location: apps/desktop/lib/features/profiles/context_menu.dart (disabled) + crates/application/src/speedtest.rs (udp unsupported)
+  test_ids: [speedtest::tests::udp_without_support_is_explicitly_unavailable]
+  status: implemented
 - id: ACT-PROF-019
   name: 测速
   domain: testing
@@ -2197,9 +2205,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:193
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:250
   - v2rayN/v2rayN/Views/ProfilesView.xaml:165
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T15b.md
+  implementation_location: apps/desktop/lib/features/profiles/context_menu.dart + apps/desktop/lib/features/profiles/profiles_controller.dart + apps/desktop/lib/features/profiles/profiles_table.dart + crates/bridge_api/src/api/speedtest.rs
+  test_ids: [t15b_speedtest_test.dart]
+  status: implemented
 - id: ACT-PROF-020
   name: 按延迟排序节点
   domain: profiles
@@ -2731,9 +2740,10 @@ items:
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:289
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:738
   - v2rayN/ServiceLib/Services/SpeedtestService.cs:29
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T15b.md
+  implementation_location: apps/desktop/lib/features/profiles/profiles_controller.dart (cancelSpeedTest / Esc)
+  test_ids: [t15b_speedtest_test.dart]
+  status: implemented
   notes: 审计 A05：本条是测速任务的取消入口；被取消任务 cancellable=true，见 ACT-PROF-014~019。
 - id: ACT-PROF-039
   name: 节点选择窗口-确定
@@ -4586,9 +4596,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:22
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:138
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:293
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "crates/bridge_api/src/api/t16.rs (t16_apply_core_update); apps/desktop/lib/features/update/update_controller.dart"
+  test_ids: ["t16_update.rs (check_apply_and_rollback_in_temp_dir)", "t16_update_test.dart (check-update applies core updates and reports counts)"]
+  status: implemented
 - id: ACT-UPDATE-002
   name: 仅检查更新（不下载）
   domain: backup
@@ -4613,9 +4624,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:29
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:133
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "crates/bridge_api/src/api/t16.rs (t16_check_updates); apps/desktop/lib/features/update/update_controller.dart"
+  test_ids: ["t16_update_test.dart (prerelease toggle is forwarded to the bridge)"]
+  status: implemented
 - id: ACT-UPDATE-003
   name: 后台每日检查更新
   domain: backup
@@ -4667,9 +4679,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:39
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:103
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/features/update/check_update_view.dart (prerelease / via-proxy toggles); apps/desktop/lib/features/update/update_controller.dart"
+  test_ids: ["t16_update_test.dart (prerelease toggle / via-proxy check)"]
+  status: implemented
 - id: ACT-BACKUP-001
   name: 备份-本地备份
   domain: backup
@@ -4695,9 +4708,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:92
   - v2rayN/v2rayN/Views/BackupAndRestoreView.xaml.cs:27
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/features/backup/backup_and_restore_view.dart (backup-local-btn); crates/bridge_api/src/api/t16.rs (t16_backup_local)"
+  test_ids: ["t16_backup_test.dart (local backup calls the real bridge and reports the result)"]
+  status: implemented
 - id: ACT-BACKUP-002
   name: 备份-本地恢复
   domain: backup
@@ -4723,9 +4737,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:108
   - v2rayN/v2rayN/Views/BackupAndRestoreView.xaml.cs:36
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/features/backup/backup_and_restore_view.dart (backup-restore-btn); crates/bridge_api/src/api/t16.rs (t16_backup_restore)"
+  test_ids: ["t16_backup_test.dart (restore validates first and surfaces a structured error)"]
+  status: implemented
 - id: ACT-BACKUP-003
   name: 备份-WebDAV 检查连接
   domain: backup
@@ -4750,9 +4765,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:22
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:43
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/features/backup/backup_and_restore_view.dart (webdav-check-btn); crates/bridge_api/src/api/t16.rs (t16_webdav_check)"
+  test_ids: ["t16_webdav.rs (roundtrip / 401 / timeout)", "t16_backup_test.dart (WebDAV check failure)"]
+  status: implemented
 - id: ACT-BACKUP-004
   name: 备份-远程备份到 WebDAV
   domain: backup
@@ -4777,9 +4793,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:26
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:60
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/features/backup/backup_and_restore_view.dart (webdav-backup-btn); crates/bridge_api/src/api/t16.rs (t16_webdav_backup)"
+  test_ids: ["t16_backup_test.dart (WebDAV remote backup uploads through the bridge)"]
+  status: implemented
 - id: ACT-BACKUP-005
   name: 备份-从 WebDAV 恢复
   domain: backup
@@ -4804,9 +4821,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:30
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:78
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/T16.md
+  implementation_location: "apps/desktop/lib/features/backup/backup_and_restore_view.dart (webdav-restore-btn); crates/bridge_api/src/api/t16.rs (t16_webdav_restore)"
+  test_ids: ["t16_backup_test.dart (WebDAV remote backup uploads through the bridge covers the same window wire-up)"]
+  status: implemented
 - id: ACT-MSG-001
   name: 消息视图-自动刷新开关
   domain: settings

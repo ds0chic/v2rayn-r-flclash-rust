@@ -1916,13 +1916,14 @@ features:
   cancel_behavior: ServerSpeedtestStop
   acceptance: 延迟写入 Delay 列
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/speedtest.rs + apps/desktop/lib/features/profiles/profiles_controller.dart
+  test_ids: [speedtest::tests::tcping_measures_open_port_and_fails_closed_port, speedtest::tests::tcping_pool_runs_and_produces_stable_ids, t15b_speedtest_test.dart]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:71
   - v2rayN/ServiceLib/Enums/ESpeedActionType.cs:3
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:705
-  status: identified
+  - docs/evidence/T15b.md
+  status: implemented
 - id: F-TEST-002
   name: 真实延迟测试
   family: test
@@ -1948,13 +1949,14 @@ features:
   cancel_behavior: ServerSpeedtestStop
   acceptance: 结果写入 Delay/IpInfo
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/speedtest.rs + crates/bridge_api/src/api/speedtest.rs + services/net_host/src/session.rs
+  test_ids: [t15b_speedtest_session::real_ping_and_download_through_real_xray, t15b_smoke_probe_test.dart]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:72
   - v2rayN/ServiceLib/Handler/ConnectionHandler.cs:10
   - v2rayN/ServiceLib/Handler/ConnectionHandler.cs:69
-  status: identified
+  - docs/evidence/T15b.md
+  status: implemented
 - id: F-TEST-003
   name: UDP 测试
   family: test
@@ -1980,13 +1982,14 @@ features:
   cancel_behavior: ServerSpeedtestStop
   acceptance: UDP 结果反映到测试结果
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/speedtest.rs (UDP explicitly unsupported)
+  test_ids: [speedtest::tests::udp_without_support_is_explicitly_unavailable]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:73
   - v2rayN/ServiceLib/Global.cs:684
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:59
-  status: identified
+  - docs/evidence/T15b.md
+  status: implemented
 - id: F-TEST-004
   name: 下载速度测试
   family: test
@@ -2012,12 +2015,13 @@ features:
   cancel_behavior: ServerSpeedtestStop
   acceptance: 速度写入 Speed 列
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/speedtest.rs + crates/bridge_api/src/api/speedtest.rs (socks+HTTP download)
+  test_ids: [t15b_speedtest_session::real_ping_and_download_through_real_xray, speedtest::tests::mixed_test_reports_delay_and_speed]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:74
   - v2rayN/ServiceLib/Global.cs:164
-  status: identified
+  - docs/evidence/T15b.md
+  status: implemented
 - id: F-TEST-005
   name: 混合测试
   family: test
@@ -2044,13 +2048,14 @@ features:
   cancel_behavior: ServerSpeedtestStop
   acceptance: 延迟与速度同时更新
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/speedtest.rs (run_mixed)
+  test_ids: [speedtest::tests::mixed_test_reports_delay_and_speed, speedtest::tests::failed_delay_skips_download]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:69
   - v2rayN/ServiceLib/Enums/ESpeedActionType.cs:7
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:60
-  status: identified
+  - docs/evidence/T15b.md
+  status: implemented
 - id: F-TEST-006
   name: 快速真延迟
   family: test
@@ -2076,12 +2081,13 @@ features:
   cancel_behavior: ServerSpeedtestStop
   acceptance: 延迟更新
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/speedtest.rs (FastRealping aliases Realping)
+  test_ids: [speedtest::tests::fast_real_ping_aliases_real_ping]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:77
   - v2rayN/ServiceLib/Enums/ESpeedActionType.cs:8
-  status: identified
+  - docs/evidence/T15b.md
+  status: implemented
 - id: F-TEST-007
   name: 测试结果排序
   family: test
@@ -2106,12 +2112,13 @@ features:
   cancel_behavior: 无
   acceptance: 节点按结果重排
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: apps/desktop/lib/features/profiles/profiles_models.dart + apps/desktop/lib/bridge/bridge_port.dart
+  test_ids: [t15b_speedtest_test.dart]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:75
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1089
-  status: identified
+  - docs/evidence/T15b.md
+  status: implemented
 - id: F-TEST-008
   name: 停止测试
   family: test
@@ -2136,11 +2143,12 @@ features:
   cancel_behavior: 立即停止并保留已完成结果
   acceptance: 长测试可被中断
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/speedtest.rs (CancellationToken) + apps/desktop/lib/features/profiles/profiles_controller.dart
+  test_ids: [speedtest::tests::cancel_at_safe_point_stops_and_retains_completed, speedtest::tests::cancel_interrupts_real_ping_and_closes_every_session, t15b_speedtest_test.dart]
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:738
-  status: identified
+  - docs/evidence/T15b.md
+  status: implemented
 - id: F-ROUTING-001
   name: 基础路由模式
   family: routing
@@ -2679,14 +2687,15 @@ features:
   cancel_behavior: 无显式取消
   acceptance: 更新后内核二进制替换且版本刷新
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/update_service.rs (check_core/apply_core); crates/updater/src/**; crates/bridge_api/src/api/t16.rs (t16_check_updates/t16_apply_core_update); apps/desktop/lib/features/update/**"
+  test_ids: ["t16_update.rs (check_apply_and_rollback_in_temp_dir / digest_mismatch_leaves_no_install)", "t16_update_test.dart (check-update applies core updates and reports counts)"]
   evidence:
   - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:53
   - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75
   - v2rayN/ServiceLib/Services/UpdateService.cs:49
   - v2rayN/ServiceLib/Services/UpdateService.cs:261
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-CORE-003
   name: 应用自身更新
   family: core
@@ -2712,14 +2721,15 @@ features:
   cancel_behavior: 无
   acceptance: 非打包环境可升级
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/update_service.rs (app_update_spec -> ExternalUpgradeSpec); crates/updater/src/install.rs (UpgradeCoordinator, no spawn); crates/bridge_api/src/api/t16.rs (t16_apply_app_update_spec)"
+  test_ids: ["t16_update.rs (app_update_spec_never_spawns_helper)", "t16_update_test.dart (application update only produces an external spec)"]
   evidence:
   - v2rayN/ServiceLib/Services/UpdateService.cs:9
   - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:79
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:259
   - v2rayN/AmazTool/UpgradeApp.cs:24
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-CORE-004
   name: 仅检查更新（不下载）
   family: core
@@ -3883,12 +3893,13 @@ features:
   cancel_behavior: 无
   acceptance: 文件管理器打开目标目录
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/bridge_api/src/api/t16.rs (t16_open_config_dir); apps/desktop/lib/features/backup/backup_controller.dart; apps/desktop/lib/app/shell/main_shell.dart"
+  test_ids: ["t16_backup_test.dart (cleanup and open-directory actions route through the bridge)"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:639
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:60
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-APP-005
   name: 更新检查页面（含 prerelease 与经代理）
   family: app-mgmt
@@ -3917,14 +3928,15 @@ features:
   cancel_behavior: 无
   acceptance: 检查结果与开关持久化
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/bridge_api/src/api/t16.rs (t16_update_targets/t16_check_updates); apps/desktop/lib/features/update/check_update_view.dart; crates/application/src/update_service.rs"
+  test_ids: ["t16_update_test.dart (unsupported targets render disabled / via-proxy check without a local port is structured)"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:13
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:36
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:123
   - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:87
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-APP-006
   name: 日志与临时文件清理
   family: app-mgmt
@@ -3947,13 +3959,14 @@ features:
   cancel_behavior: 无
   acceptance: 过期文件被删除
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/update_service.rs (cleanup_logs_tmp); crates/bridge_api/src/api/t16.rs (t16_cleanup_logs_tmp); apps/desktop/lib/features/backup/backup_and_restore_view.dart"
+  test_ids: ["t16_backup_test.dart (cleanup and open-directory actions route through the bridge)", "t16_update.rs (manual trigger uses a temp root; scheduled loop not wired)"]
   evidence:
   - v2rayN/ServiceLib/Manager/TaskManager.cs:57
   - v2rayN/ServiceLib/Manager/TaskManager.cs:58
   - v2rayN/ServiceLib/Manager/TaskManager.cs:59
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-APP-007
   name: 经代理检查更新
   family: app-mgmt
@@ -3977,13 +3990,14 @@ features:
   cancel_behavior: 无
   acceptance: 开关控制是否经代理
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/update_service.rs (explicit proxy parameter); crates/updater/src/download.rs (DownloaderOptions.proxy); crates/updater/src/fetch.rs (new_with_proxy); crates/bridge_api/src/api/t16.rs; apps/desktop/lib/features/update/update_controller.dart"
+  test_ids: ["t16_update_test.dart (via-proxy check without a local port is structured)", "bridge_api::api::t16::tests::update_via_proxy_without_port_is_structured"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:16
   - v2rayN/ServiceLib/Services/UpdateService.cs:49
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:107
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-BACKUP-001
   name: 本地备份
   family: backup
@@ -4006,12 +4020,13 @@ features:
   cancel_behavior: 无
   acceptance: 生成 backup_*.zip
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/backup_service.rs (create_local/zip_bundle); crates/persistence/src/backup.rs (create_backup); crates/bridge_api/src/api/t16.rs (t16_backup_local); apps/desktop/lib/features/backup/backup_and_restore_view.dart"
+  test_ids: ["t16_backup.rs (local_backup_roundtrip_and_restore_is_clean)", "t16_backup_test.dart (local backup calls the real bridge and reports the result)"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:92
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:158
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-BACKUP-002
   name: 本地恢复
   family: backup
@@ -4036,13 +4051,14 @@ features:
   cancel_behavior: 无
   acceptance: 恢复后配置与备份一致
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/backup_service.rs (verify then restore); crates/persistence/src/backup.rs (verify_backup/restore_backup); crates/bridge_api/src/api/t16.rs (t16_backup_verify/t16_backup_restore)"
+  test_ids: ["t16_backup.rs (tampered_bundle_is_rejected_without_damaging_existing)", "t16_backup_test.dart (restore validates first and surfaces a structured error)"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:108
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:121
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:129
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-BACKUP-003
   name: WebDAV 远程备份/恢复
   family: backup
@@ -4067,15 +4083,16 @@ features:
   cancel_behavior: 无
   acceptance: 远程备份可下载恢复
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/webdav.rs (check/list/upload/download); crates/bridge_api/src/api/t16.rs (t16_webdav_*); apps/desktop/lib/features/backup/backup_and_restore_view.dart"
+  test_ids: ["t16_webdav.rs (roundtrip / 401 / timeout)", "t16_backup_test.dart (WebDAV check failure / remote backup)"]
   evidence:
   - v2rayN/ServiceLib/Manager/WebDavManager.cs:22
   - v2rayN/ServiceLib/Manager/WebDavManager.cs:98
   - v2rayN/ServiceLib/Manager/WebDavManager.cs:128
   - v2rayN/ServiceLib/Manager/WebDavManager.cs:154
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:43
-  status: identified
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-BACKUP-004
   name: 旧配置升级 V2→V3→V4
   family: backup
@@ -4099,14 +4116,16 @@ features:
   cancel_behavior: 无
   acceptance: 迁移后 ConfigVersion=4 且字段不丢
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/persistence/src/migrate.rs (run_migrations V2->V3->V4); crates/persistence/src/candidate.rs (import applies migrations)"
+  test_ids: ["t16_backup.rs (imports_upstream_fixture_via_candidate_flow)"]
   evidence:
   - v2rayN/ServiceLib/Manager/AppManager.cs:328
   - v2rayN/ServiceLib/Manager/AppManager.cs:337
   - v2rayN/ServiceLib/Manager/AppManager.cs:364
   - v2rayN/ServiceLib/Manager/AppManager.cs:575
-  status: identified
+  - docs/evidence/T04.md
+  - docs/evidence/T16.md
+  status: implemented
 - id: F-HELP-001
   name: 帮助菜单入口
   family: help

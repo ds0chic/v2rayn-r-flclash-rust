@@ -13,7 +13,9 @@ import 'api/platform.dart';
 import 'api/profiles.dart';
 import 'api/routing.dart';
 import 'api/settings.dart';
+import 'api/speedtest.dart';
 import 'api/subs.dart';
+import 'api/t16.dart';
 
 import 'dart:async';
 import 'dart:convert';
@@ -50,6 +52,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<SpeedTestBatchDto>
+  dco_decode_StreamSink_speed_test_batch_dto_Sse(dynamic raw);
+
+  @protected
   RustStreamSink<TrafficBatchDto> dco_decode_StreamSink_traffic_batch_dto_Sse(
     dynamic raw,
   );
@@ -61,10 +67,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppliedChangeDto dco_decode_applied_change_dto(dynamic raw);
 
   @protected
+  AppliedCoreDto dco_decode_applied_core_dto(dynamic raw);
+
+  @protected
+  ApplyCoreResultDto dco_decode_apply_core_result_dto(dynamic raw);
+
+  @protected
   ApplyRuntimeResult dco_decode_apply_runtime_result(dynamic raw);
 
   @protected
+  BackupListDto dco_decode_backup_list_dto(dynamic raw);
+
+  @protected
+  BackupManifestDto dco_decode_backup_manifest_dto(dynamic raw);
+
+  @protected
+  BackupResultDto dco_decode_backup_result_dto(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
+
+  @protected
+  BackupManifestDto dco_decode_box_autoadd_backup_manifest_dto(dynamic raw);
 
   @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
@@ -134,6 +158,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int dco_decode_box_autoadd_u_8(dynamic raw);
 
   @protected
+  WebDavConfigDto dco_decode_box_autoadd_web_dav_config_dto(dynamic raw);
+
+  @protected
   CancelOutcome dco_decode_cancel_outcome(dynamic raw);
 
   @protected
@@ -161,6 +188,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ClashUiItemDto dco_decode_clash_ui_item_dto(dynamic raw);
 
   @protected
+  CleanupResultDto dco_decode_cleanup_result_dto(dynamic raw);
+
+  @protected
   ColumnItemDto dco_decode_column_item_dto(dynamic raw);
 
   @protected
@@ -182,6 +212,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreTypeBindingDto dco_decode_core_type_binding_dto(dynamic raw);
 
   @protected
+  CoreUpdateDto dco_decode_core_update_dto(dynamic raw);
+
+  @protected
+  CoreVersionsDto dco_decode_core_versions_dto(dynamic raw);
+
+  @protected
   DelayResultDto dco_decode_delay_result_dto(dynamic raw);
 
   @protected
@@ -200,10 +236,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DnsProfileDto dco_decode_dns_profile_dto(dynamic raw);
 
   @protected
+  EntityCountDto dco_decode_entity_count_dto(dynamic raw);
+
+  @protected
   ErrorDto dco_decode_error_dto(dynamic raw);
 
   @protected
   EventEnvelopeDto dco_decode_event_envelope_dto(dynamic raw);
+
+  @protected
+  ExternalSpecDto dco_decode_external_spec_dto(dynamic raw);
+
+  @protected
+  double dco_decode_f_64(dynamic raw);
 
   @protected
   Fragment4RayItemDto dco_decode_fragment_4_ray_item_dto(dynamic raw);
@@ -247,7 +292,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImportResult dco_decode_import_result(dynamic raw);
 
   @protected
+  ImportSummaryDto dco_decode_import_summary_dto(dynamic raw);
+
+  @protected
   InboundListenerDto dco_decode_inbound_listener_dto(dynamic raw);
+
+  @protected
+  InstalledCoreDto dco_decode_installed_core_dto(dynamic raw);
 
   @protected
   JobDto dco_decode_job_dto(dynamic raw);
@@ -263,6 +314,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<AppliedChangeDto> dco_decode_list_applied_change_dto(dynamic raw);
+
+  @protected
+  List<AppliedCoreDto> dco_decode_list_applied_core_dto(dynamic raw);
+
+  @protected
+  List<BackupManifestDto> dco_decode_list_backup_manifest_dto(dynamic raw);
 
   @protected
   List<CapabilityDto> dco_decode_list_capability_dto(dynamic raw);
@@ -283,10 +340,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<CoreTypeBindingDto> dco_decode_list_core_type_binding_dto(dynamic raw);
 
   @protected
+  List<CoreUpdateDto> dco_decode_list_core_update_dto(dynamic raw);
+
+  @protected
   List<DelayResultDto> dco_decode_list_delay_result_dto(dynamic raw);
 
   @protected
   List<DnsProfileDto> dco_decode_list_dns_profile_dto(dynamic raw);
+
+  @protected
+  List<EntityCountDto> dco_decode_list_entity_count_dto(dynamic raw);
 
   @protected
   List<FullConfigTemplateDto> dco_decode_list_full_config_template_dto(
@@ -301,6 +364,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<InboundListenerDto> dco_decode_list_inbound_listener_dto(dynamic raw);
+
+  @protected
+  List<InstalledCoreDto> dco_decode_list_installed_core_dto(dynamic raw);
 
   @protected
   List<JobDto> dco_decode_list_job_dto(dynamic raw);
@@ -348,10 +414,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<SettingsChangeDto> dco_decode_list_settings_change_dto(dynamic raw);
 
   @protected
+  List<SpeedTestResultDto> dco_decode_list_speed_test_result_dto(dynamic raw);
+
+  @protected
   List<SubItemDto> dco_decode_list_sub_item_dto(dynamic raw);
 
   @protected
   List<SubUpdateEntryDto> dco_decode_list_sub_update_entry_dto(dynamic raw);
+
+  @protected
+  List<UpdateTargetDto> dco_decode_list_update_target_dto(dynamic raw);
+
+  @protected
+  List<WebDavEntryDto> dco_decode_list_web_dav_entry_dto(dynamic raw);
 
   @protected
   List<WindowSizeItemDto> dco_decode_list_window_size_item_dto(dynamic raw);
@@ -382,6 +457,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
+
+  @protected
+  BackupManifestDto? dco_decode_opt_box_autoadd_backup_manifest_dto(
+    dynamic raw,
+  );
 
   @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
@@ -450,6 +530,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int? dco_decode_opt_box_autoadd_u_8(dynamic raw);
 
   @protected
+  WebDavConfigDto? dco_decode_opt_box_autoadd_web_dav_config_dto(dynamic raw);
+
+  @protected
   List<String>? dco_decode_opt_list_String(dynamic raw);
 
   @protected
@@ -494,6 +577,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProxyStateDto dco_decode_proxy_state_dto(dynamic raw);
 
   @protected
+  RecognitionDto dco_decode_recognition_dto(dynamic raw);
+
+  @protected
   RecoveryDto dco_decode_recovery_dto(dynamic raw);
 
   @protected
@@ -504,6 +590,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RestoreConflictDto dco_decode_restore_conflict_dto(dynamic raw);
+
+  @protected
+  RestoreResultDto dco_decode_restore_result_dto(dynamic raw);
 
   @protected
   RevisionState dco_decode_revision_state(dynamic raw);
@@ -575,7 +664,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SnapshotDto dco_decode_snapshot_dto(dynamic raw);
 
   @protected
+  SpeedTestBatchDto dco_decode_speed_test_batch_dto(dynamic raw);
+
+  @protected
   SpeedTestItemDto dco_decode_speed_test_item_dto(dynamic raw);
+
+  @protected
+  SpeedTestResultDto dco_decode_speed_test_result_dto(dynamic raw);
+
+  @protected
+  SpeedTestStartDto dco_decode_speed_test_start_dto(dynamic raw);
+
+  @protected
+  SpeedTestSupportDto dco_decode_speed_test_support_dto(dynamic raw);
 
   @protected
   StatsSnapshotDto dco_decode_stats_snapshot_dto(dynamic raw);
@@ -644,10 +745,37 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  UpdateReportDto dco_decode_update_report_dto(dynamic raw);
+
+  @protected
+  UpdateTargetDto dco_decode_update_target_dto(dynamic raw);
+
+  @protected
   UriParseResult dco_decode_uri_parse_result(dynamic raw);
 
   @protected
+  VerificationDto dco_decode_verification_dto(dynamic raw);
+
+  @protected
+  WebDavCheckDto dco_decode_web_dav_check_dto(dynamic raw);
+
+  @protected
+  WebDavConfigDto dco_decode_web_dav_config_dto(dynamic raw);
+
+  @protected
+  WebDavConfigResultDto dco_decode_web_dav_config_result_dto(dynamic raw);
+
+  @protected
+  WebDavEntryDto dco_decode_web_dav_entry_dto(dynamic raw);
+
+  @protected
   WebDavItemDto dco_decode_web_dav_item_dto(dynamic raw);
+
+  @protected
+  WebDavListDto dco_decode_web_dav_list_dto(dynamic raw);
+
+  @protected
+  WebDavOpDto dco_decode_web_dav_op_dto(dynamic raw);
 
   @protected
   WindowSizeItemDto dco_decode_window_size_item_dto(dynamic raw);
@@ -671,6 +799,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RustStreamSink<SpeedTestBatchDto>
+  sse_decode_StreamSink_speed_test_batch_dto_Sse(SseDeserializer deserializer);
+
+  @protected
   RustStreamSink<TrafficBatchDto> sse_decode_StreamSink_traffic_batch_dto_Sse(
     SseDeserializer deserializer,
   );
@@ -682,12 +814,36 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   AppliedChangeDto sse_decode_applied_change_dto(SseDeserializer deserializer);
 
   @protected
+  AppliedCoreDto sse_decode_applied_core_dto(SseDeserializer deserializer);
+
+  @protected
+  ApplyCoreResultDto sse_decode_apply_core_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ApplyRuntimeResult sse_decode_apply_runtime_result(
     SseDeserializer deserializer,
   );
 
   @protected
+  BackupListDto sse_decode_backup_list_dto(SseDeserializer deserializer);
+
+  @protected
+  BackupManifestDto sse_decode_backup_manifest_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  BackupResultDto sse_decode_backup_result_dto(SseDeserializer deserializer);
+
+  @protected
   bool sse_decode_bool(SseDeserializer deserializer);
+
+  @protected
+  BackupManifestDto sse_decode_box_autoadd_backup_manifest_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
@@ -769,6 +925,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int sse_decode_box_autoadd_u_8(SseDeserializer deserializer);
 
   @protected
+  WebDavConfigDto sse_decode_box_autoadd_web_dav_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   CancelOutcome sse_decode_cancel_outcome(SseDeserializer deserializer);
 
   @protected
@@ -802,6 +963,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ClashUiItemDto sse_decode_clash_ui_item_dto(SseDeserializer deserializer);
 
   @protected
+  CleanupResultDto sse_decode_cleanup_result_dto(SseDeserializer deserializer);
+
+  @protected
   ColumnItemDto sse_decode_column_item_dto(SseDeserializer deserializer);
 
   @protected
@@ -827,6 +991,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  CoreUpdateDto sse_decode_core_update_dto(SseDeserializer deserializer);
+
+  @protected
+  CoreVersionsDto sse_decode_core_versions_dto(SseDeserializer deserializer);
+
+  @protected
   DelayResultDto sse_decode_delay_result_dto(SseDeserializer deserializer);
 
   @protected
@@ -847,10 +1017,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DnsProfileDto sse_decode_dns_profile_dto(SseDeserializer deserializer);
 
   @protected
+  EntityCountDto sse_decode_entity_count_dto(SseDeserializer deserializer);
+
+  @protected
   ErrorDto sse_decode_error_dto(SseDeserializer deserializer);
 
   @protected
   EventEnvelopeDto sse_decode_event_envelope_dto(SseDeserializer deserializer);
+
+  @protected
+  ExternalSpecDto sse_decode_external_spec_dto(SseDeserializer deserializer);
+
+  @protected
+  double sse_decode_f_64(SseDeserializer deserializer);
 
   @protected
   Fragment4RayItemDto sse_decode_fragment_4_ray_item_dto(
@@ -898,9 +1077,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ImportResult sse_decode_import_result(SseDeserializer deserializer);
 
   @protected
+  ImportSummaryDto sse_decode_import_summary_dto(SseDeserializer deserializer);
+
+  @protected
   InboundListenerDto sse_decode_inbound_listener_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  InstalledCoreDto sse_decode_installed_core_dto(SseDeserializer deserializer);
 
   @protected
   JobDto sse_decode_job_dto(SseDeserializer deserializer);
@@ -916,6 +1101,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<AppliedChangeDto> sse_decode_list_applied_change_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<AppliedCoreDto> sse_decode_list_applied_core_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BackupManifestDto> sse_decode_list_backup_manifest_dto(
     SseDeserializer deserializer,
   );
 
@@ -948,12 +1143,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<CoreUpdateDto> sse_decode_list_core_update_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<DelayResultDto> sse_decode_list_delay_result_dto(
     SseDeserializer deserializer,
   );
 
   @protected
   List<DnsProfileDto> sse_decode_list_dns_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<EntityCountDto> sse_decode_list_entity_count_dto(
     SseDeserializer deserializer,
   );
 
@@ -972,6 +1177,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<InboundListenerDto> sse_decode_list_inbound_listener_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<InstalledCoreDto> sse_decode_list_installed_core_dto(
     SseDeserializer deserializer,
   );
 
@@ -1041,10 +1251,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<SpeedTestResultDto> sse_decode_list_speed_test_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<SubItemDto> sse_decode_list_sub_item_dto(SseDeserializer deserializer);
 
   @protected
   List<SubUpdateEntryDto> sse_decode_list_sub_update_entry_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<UpdateTargetDto> sse_decode_list_update_target_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<WebDavEntryDto> sse_decode_list_web_dav_entry_dto(
     SseDeserializer deserializer,
   );
 
@@ -1081,6 +1306,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
+
+  @protected
+  BackupManifestDto? sse_decode_opt_box_autoadd_backup_manifest_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
@@ -1163,6 +1393,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   int? sse_decode_opt_box_autoadd_u_8(SseDeserializer deserializer);
 
   @protected
+  WebDavConfigDto? sse_decode_opt_box_autoadd_web_dav_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<String>? sse_decode_opt_list_String(SseDeserializer deserializer);
 
   @protected
@@ -1211,6 +1446,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ProxyStateDto sse_decode_proxy_state_dto(SseDeserializer deserializer);
 
   @protected
+  RecognitionDto sse_decode_recognition_dto(SseDeserializer deserializer);
+
+  @protected
   RecoveryDto sse_decode_recovery_dto(SseDeserializer deserializer);
 
   @protected
@@ -1225,6 +1463,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RestoreConflictDto sse_decode_restore_conflict_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  RestoreResultDto sse_decode_restore_result_dto(SseDeserializer deserializer);
 
   @protected
   RevisionState sse_decode_revision_state(SseDeserializer deserializer);
@@ -1316,7 +1557,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SnapshotDto sse_decode_snapshot_dto(SseDeserializer deserializer);
 
   @protected
+  SpeedTestBatchDto sse_decode_speed_test_batch_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SpeedTestItemDto sse_decode_speed_test_item_dto(SseDeserializer deserializer);
+
+  @protected
+  SpeedTestResultDto sse_decode_speed_test_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SpeedTestStartDto sse_decode_speed_test_start_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SpeedTestSupportDto sse_decode_speed_test_support_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   StatsSnapshotDto sse_decode_stats_snapshot_dto(SseDeserializer deserializer);
@@ -1399,10 +1660,39 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
+  UpdateReportDto sse_decode_update_report_dto(SseDeserializer deserializer);
+
+  @protected
+  UpdateTargetDto sse_decode_update_target_dto(SseDeserializer deserializer);
+
+  @protected
   UriParseResult sse_decode_uri_parse_result(SseDeserializer deserializer);
 
   @protected
+  VerificationDto sse_decode_verification_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavCheckDto sse_decode_web_dav_check_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavConfigDto sse_decode_web_dav_config_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavConfigResultDto sse_decode_web_dav_config_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  WebDavEntryDto sse_decode_web_dav_entry_dto(SseDeserializer deserializer);
+
+  @protected
   WebDavItemDto sse_decode_web_dav_item_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavListDto sse_decode_web_dav_list_dto(SseDeserializer deserializer);
+
+  @protected
+  WebDavOpDto sse_decode_web_dav_op_dto(SseDeserializer deserializer);
 
   @protected
   WindowSizeItemDto sse_decode_window_size_item_dto(
@@ -1434,6 +1724,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_StreamSink_speed_test_batch_dto_Sse(
+    RustStreamSink<SpeedTestBatchDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_StreamSink_traffic_batch_dto_Sse(
     RustStreamSink<TrafficBatchDto> self,
     SseSerializer serializer,
@@ -1449,13 +1745,46 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_applied_core_dto(
+    AppliedCoreDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_apply_core_result_dto(
+    ApplyCoreResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_apply_runtime_result(
     ApplyRuntimeResult self,
     SseSerializer serializer,
   );
 
   @protected
+  void sse_encode_backup_list_dto(BackupListDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_backup_manifest_dto(
+    BackupManifestDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_backup_result_dto(
+    BackupResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_backup_manifest_dto(
+    BackupManifestDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
@@ -1563,6 +1892,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_box_autoadd_u_8(int self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_web_dav_config_dto(
+    WebDavConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_cancel_outcome(CancelOutcome self, SseSerializer serializer);
 
   @protected
@@ -1605,6 +1940,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_cleanup_result_dto(
+    CleanupResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_column_item_dto(ColumnItemDto self, SseSerializer serializer);
 
   @protected
@@ -1631,6 +1972,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_core_type_binding_dto(
     CoreTypeBindingDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_core_update_dto(CoreUpdateDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_core_versions_dto(
+    CoreVersionsDto self,
     SseSerializer serializer,
   );
 
@@ -1662,6 +2012,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_dns_profile_dto(DnsProfileDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_entity_count_dto(
+    EntityCountDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_error_dto(ErrorDto self, SseSerializer serializer);
 
   @protected
@@ -1669,6 +2025,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     EventEnvelopeDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_external_spec_dto(
+    ExternalSpecDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_f_64(double self, SseSerializer serializer);
 
   @protected
   void sse_encode_fragment_4_ray_item_dto(
@@ -1728,8 +2093,20 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_import_result(ImportResult self, SseSerializer serializer);
 
   @protected
+  void sse_encode_import_summary_dto(
+    ImportSummaryDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_inbound_listener_dto(
     InboundListenerDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_installed_core_dto(
+    InstalledCoreDto self,
     SseSerializer serializer,
   );
 
@@ -1748,6 +2125,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_applied_change_dto(
     List<AppliedChangeDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_applied_core_dto(
+    List<AppliedCoreDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_backup_manifest_dto(
+    List<BackupManifestDto> self,
     SseSerializer serializer,
   );
 
@@ -1788,6 +2177,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_core_update_dto(
+    List<CoreUpdateDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_delay_result_dto(
     List<DelayResultDto> self,
     SseSerializer serializer,
@@ -1796,6 +2191,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_dns_profile_dto(
     List<DnsProfileDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_entity_count_dto(
+    List<EntityCountDto> self,
     SseSerializer serializer,
   );
 
@@ -1820,6 +2221,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_inbound_listener_dto(
     List<InboundListenerDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_installed_core_dto(
+    List<InstalledCoreDto> self,
     SseSerializer serializer,
   );
 
@@ -1911,6 +2318,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_speed_test_result_dto(
+    List<SpeedTestResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_sub_item_dto(
     List<SubItemDto> self,
     SseSerializer serializer,
@@ -1919,6 +2332,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_sub_update_entry_dto(
     List<SubUpdateEntryDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_update_target_dto(
+    List<UpdateTargetDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_web_dav_entry_dto(
+    List<WebDavEntryDto> self,
     SseSerializer serializer,
   );
 
@@ -1966,6 +2391,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_backup_manifest_dto(
+    BackupManifestDto? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
@@ -2070,6 +2501,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_box_autoadd_u_8(int? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_web_dav_config_dto(
+    WebDavConfigDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_list_String(List<String>? self, SseSerializer serializer);
 
   @protected
@@ -2136,6 +2573,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_proxy_state_dto(ProxyStateDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_recognition_dto(
+    RecognitionDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_recovery_dto(RecoveryDto self, SseSerializer serializer);
 
   @protected
@@ -2153,6 +2596,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_restore_conflict_dto(
     RestoreConflictDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_restore_result_dto(
+    RestoreResultDto self,
     SseSerializer serializer,
   );
 
@@ -2274,8 +2723,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_snapshot_dto(SnapshotDto self, SseSerializer serializer);
 
   @protected
+  void sse_encode_speed_test_batch_dto(
+    SpeedTestBatchDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_speed_test_item_dto(
     SpeedTestItemDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_speed_test_result_dto(
+    SpeedTestResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_speed_test_start_dto(
+    SpeedTestStartDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_speed_test_support_dto(
+    SpeedTestSupportDto self,
     SseSerializer serializer,
   );
 
@@ -2385,8 +2858,50 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_unit(void self, SseSerializer serializer);
 
   @protected
+  void sse_encode_update_report_dto(
+    UpdateReportDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_update_target_dto(
+    UpdateTargetDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_uri_parse_result(
     UriParseResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_verification_dto(
+    VerificationDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_check_dto(
+    WebDavCheckDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_config_dto(
+    WebDavConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_config_result_dto(
+    WebDavConfigResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_entry_dto(
+    WebDavEntryDto self,
     SseSerializer serializer,
   );
 
@@ -2395,6 +2910,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     WebDavItemDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_web_dav_list_dto(
+    WebDavListDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_web_dav_op_dto(WebDavOpDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_window_size_item_dto(

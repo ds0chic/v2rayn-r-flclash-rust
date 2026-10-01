@@ -12,6 +12,10 @@ class ProfileAction {
   static const realping = 'realping';
   static const speedtest = 'speedtest';
   static const mixedTest = 'mixed-test';
+  static const fastRealping = 'fast-realping';
+  static const udpTest = 'udp-test';
+  static const removeInvalid = 'remove-invalid';
+  static const stopTest = 'stop-test';
   static const activate = 'activate';
   static const delete = 'delete';
   static const moveTop = 'move-top';

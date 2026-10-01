@@ -30,6 +30,7 @@ pub mod store_repo;
 pub mod subs;
 pub mod synthetic;
 pub mod templates;
+pub mod tun_plan;
 pub mod update_service;
 pub mod webdav;
 
@@ -64,7 +65,7 @@ pub use repository::{
 };
 pub use routing::{new_routing_id, InMemoryRoutingRepository, RoutingRepository};
 pub use runtime_client::{
-    ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
+    ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot, TunStatus,
 };
 pub use settings::{
     apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,
@@ -85,6 +86,10 @@ pub use subs::{
     build_candidates, download_all, is_due, merge_options, new_sub_id, parse_request_headers,
     parse_subscription, report_to_json, sub_error_outcome, unix_now, SubItem, SubScheduler,
     SubUpdateEntry, SubUpdateOutcome, SubUpdateReport, SubUpdateRequest,
+};
+pub use tun_plan::{
+    attach_tun_to_plan, tun_spec_from_settings, TunPlanHints, DEFAULT_TUN_ADAPTER,
+    DEFAULT_TUN_IPV4_CIDR, DEFAULT_TUN_MTU_FALLBACK,
 };
 pub use update_service::{
     builtin_targets, cleanup_logs_tmp, parse_dgst_sha256, update_error, CleanupReport,

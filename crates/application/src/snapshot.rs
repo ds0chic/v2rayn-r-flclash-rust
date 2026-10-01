@@ -12,7 +12,7 @@ use domain::{
 };
 
 use crate::jobs::JobView;
-use crate::runtime_client::RuntimeSnapshot;
+use crate::runtime_client::{RuntimeSnapshot, TunStatus};
 
 /// Capability entry: which protocols a core supports (plan §12).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -62,6 +62,9 @@ pub struct Snapshot {
     pub runtime_operation_id: Option<String>,
     /// Last structured runtime error, when the runtime is not healthy.
     pub runtime_error: Option<DomainError>,
+    /// Active TUN lease facts from net-host, when the running plan requested
+    /// TUN. `None` renders as "not enabled" in the UI, never as an active TUN.
+    pub tun: Option<TunStatus>,
     /// Active (non-terminal) jobs.
     pub active_jobs: Vec<JobView>,
     /// Core capability table.
@@ -95,6 +98,7 @@ pub fn assemble(
         runtime_config_sha256: runtime.config_sha256.clone(),
         runtime_operation_id: runtime.operation_id.clone(),
         runtime_error: runtime.error.clone(),
+        tun: runtime.tun.clone(),
         active_jobs,
         capabilities,
         recovery,
@@ -154,5 +158,61 @@ mod tests {
             0,
         );
         assert_eq!(snap.revision_state, RevisionState::InSync);
+    }
+
+    #[test]
+    fn tun_status_flows_into_snapshot() {
+        let runtime = RuntimeSnapshot {
+            state: RuntimeState::Running,
+            applied_revision: AppliedRevision::new(4),
+            host_alive: true,
+            tun: Some(TunStatus {
+                adapter_name: "v2rayn-tun".into(),
+                interface_index: 9,
+                route_count: 1,
+                dry_run: false,
+            }),
+            ..RuntimeSnapshot::default()
+        };
+        let snap = assemble(
+            DesiredRevision::new(4),
+            &runtime,
+            vec![],
+            vec![],
+            StartupRecovery {
+                recovery_needed: false,
+                stage: None,
+                restored: 0,
+                pending: 0,
+            },
+            0,
+        );
+        let tun = snap.tun.expect("tun must flow into the snapshot");
+        assert_eq!(tun.adapter_name, "v2rayn-tun");
+        assert_eq!(tun.route_count, 1);
+    }
+
+    #[test]
+    fn snapshot_without_tun_stays_without_tun() {
+        let runtime = RuntimeSnapshot {
+            state: RuntimeState::Running,
+            applied_revision: AppliedRevision::new(4),
+            host_alive: true,
+            ..RuntimeSnapshot::default()
+        };
+        let snap = assemble(
+            DesiredRevision::new(4),
+            &runtime,
+            vec![],
+            vec![],
+            StartupRecovery {
+                recovery_needed: false,
+                stage: None,
+                restored: 0,
+                pending: 0,
+            },
+            0,
+        );
+        assert!(snap.tun.is_none());
     }
 }

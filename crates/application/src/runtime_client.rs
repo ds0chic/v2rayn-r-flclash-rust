@@ -9,9 +9,24 @@ use std::sync::Arc;
 use domain::{
     AppliedRevision, CancelOutcome, DomainError, EventEnvelope, JobId, RuntimePlan, RuntimeState,
 };
+use serde::{Deserialize, Serialize};
 
 /// Callback invoked for every unsolicited runtime event (control + telemetry).
 pub type EventSink = Arc<dyn Fn(EventEnvelope) + Send + Sync>;
+
+/// Redacted TUN lease facts reported by net-host (T14).
+///
+/// Adapter label, interface index, route count and the dry-run flag only:
+/// never addresses, next hops or tokens. `None` means no TUN lease is active
+/// (TUN not requested, backend unavailable, or runtime stopped) — the UI must
+/// render that as "not enabled", never as an active TUN.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TunStatus {
+    pub adapter_name: String,
+    pub interface_index: u32,
+    pub route_count: u32,
+    pub dry_run: bool,
+}
 
 /// A runtime snapshot as reported by net-host, decoupled from the ipc crate so
 /// `application` does not depend on the wire format.
@@ -31,6 +46,8 @@ pub struct RuntimeSnapshot {
     pub config_sha256: Option<String>,
     pub operation_id: Option<String>,
     pub error: Option<DomainError>,
+    /// Active TUN lease facts, when the running plan requested TUN.
+    pub tun: Option<TunStatus>,
 }
 
 impl Default for RuntimeSnapshot {
@@ -46,6 +63,7 @@ impl Default for RuntimeSnapshot {
             config_sha256: None,
             operation_id: None,
             error: None,
+            tun: None,
         }
     }
 }
@@ -162,5 +180,29 @@ mod tests {
         assert_eq!(snap.applied_revision, AppliedRevision::new(2));
         assert!(snap.host_alive);
         assert!(snap.pid.is_none());
+    }
+
+    #[test]
+    fn snapshot_carries_no_tun_lease_by_default() {
+        let snap = RuntimeSnapshot::default();
+        assert!(snap.tun.is_none());
+    }
+
+    #[test]
+    fn tun_status_roundtrips_and_compares() {
+        let status = TunStatus {
+            adapter_name: "v2rayn-tun".into(),
+            interface_index: 9,
+            route_count: 2,
+            dry_run: true,
+        };
+        let back: TunStatus =
+            serde_json::from_slice(&serde_json::to_vec(&status).unwrap()).unwrap();
+        assert_eq!(status, back);
+        let snap = RuntimeSnapshot {
+            tun: Some(status),
+            ..RuntimeSnapshot::default()
+        };
+        assert!(snap.tun.as_ref().unwrap().dry_run);
     }
 }

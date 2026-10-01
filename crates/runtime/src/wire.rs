@@ -49,6 +49,19 @@ pub struct RuntimeDetail {
     pub config_sha256: Option<String>,
     pub operation_id: Option<String>,
     pub error: Option<DomainError>,
+    /// Active TUN lease facts, when the running plan requested TUN. Redacted:
+    /// adapter label, interface index, route count and the dry-run flag only.
+    #[serde(default)]
+    pub tun: Option<RuntimeTunDetail>,
+}
+
+/// Redacted TUN facts carried alongside [`RuntimeDetail`] (T14).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeTunDetail {
+    pub adapter_name: String,
+    pub interface_index: u32,
+    pub route_count: u32,
+    pub dry_run: bool,
 }
 
 /// Encode a length-prefixed frame.
@@ -107,6 +120,7 @@ mod tests {
             config_sha256: Some("ab".into()),
             operation_id: Some("op1".into()),
             error: None,
+            tun: None,
         };
         let env = EventEnvelope::new(
             EventEpoch(1),

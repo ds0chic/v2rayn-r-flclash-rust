@@ -17,13 +17,17 @@ use tokio::net::TcpStream;
 use tokio::process::Command;
 use tokio::sync::{Mutex, Notify};
 
+use runtime::tun::tun_spec_from_plan;
 use runtime::{
     adapter_for, matches_identity, process_creation_time_ms, sha256_hex, CoreLocator, JobGuard,
-    ProcessIdentity, RuntimeDetail, ServerFrame, NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
+    ProcessIdentity, RuntimeDetail, RuntimeTunDetail, ServerFrame, NET_HOST_PIPE_NAME,
+    RUNTIME_DETAIL_EVENT,
 };
 
 use crate::events::EventBus;
+use crate::helper_client::{build_helper_link, HelperConfig, HelperLink, TunLease};
 use crate::journal::{self, JournalEntry};
+use crate::tun_lease;
 
 /// Runtime configuration, overridable from the environment for tests.
 #[derive(Debug, Clone)]
@@ -34,6 +38,7 @@ pub struct HostConfig {
     pub heartbeat_interval: Duration,
     pub readiness_timeout: Duration,
     pub readiness_interval: Duration,
+    pub helper: HelperConfig,
 }
 
 impl Default for HostConfig {
@@ -67,6 +72,7 @@ impl HostConfig {
             heartbeat_interval: env_ms("V2RAYN_R_HEARTBEAT_MS", 2_000),
             readiness_timeout: env_ms("V2RAYN_R_READY_TIMEOUT_MS", 20_000),
             readiness_interval: env_ms("V2RAYN_R_READY_INTERVAL_MS", 500),
+            helper: HelperConfig::from_env(),
         }
     }
 }
@@ -130,13 +136,29 @@ pub struct Inner {
     /// Isolated temporary cores for restricted test sessions (never the
     /// managed runtime).
     pub test_sessions: HashMap<String, TestSessionChild>,
+    /// Active TUN lease for the managed session, if the applied plan requested
+    /// TUN. The helper session lives exactly as long as this record.
+    pub tun_lease: Option<TunLease>,
+    /// Session id the TUN lease journal was written under. Kept separately so
+    /// a stop arriving before the core is spawned can still find the journal.
+    pub tun_session_id: Option<String>,
+    /// The helper connection that owns `tun_lease`. It is kept open for the
+    /// whole runtime session: dropping it lets the helper reclaim the lease
+    /// via its disconnect cleanup, so it must not be dropped early.
+    pub tun_link: Option<Box<dyn HelperLink>>,
 }
+
+/// Factory for helper links. Production builds a pipe (or dry-run) link from
+/// the host config; tests inject an in-memory fake. Never touches the OS.
+pub type HelperLinkFactory =
+    std::sync::Arc<dyn Fn(&HelperConfig) -> Box<dyn HelperLink> + Send + Sync>;
 
 pub struct HostState {
     pub inner: Mutex<Inner>,
     pub bus: EventBus,
     pub config: HostConfig,
     pub shutdown: Arc<Notify>,
+    helper_factory: std::sync::Mutex<Option<HelperLinkFactory>>,
 }
 
 static SESSION_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -167,7 +189,7 @@ impl HostState {
         } else {
             None
         };
-        Self {
+        let state = Self {
             inner: Mutex::new(Inner {
                 session: None,
                 detail: RuntimeDetail::default(),
@@ -177,10 +199,49 @@ impl HostState {
                 no_client_since: None,
                 recovery: recovery_status,
                 test_sessions: HashMap::new(),
+                tun_lease: None,
+                tun_session_id: None,
+                tun_link: None,
             }),
             bus: EventBus::new(),
             config,
             shutdown: Arc::new(Notify::new()),
+            helper_factory: std::sync::Mutex::new(None),
+        };
+        // Reconcile TUN leases from a previous process. Only session dirs that
+        // still carry a lease journal are touched; with no stale leases no
+        // helper connection is even attempted.
+        state.reconcile_tun_leases();
+        state
+    }
+
+    /// Test seam: replace helper-link construction (in-memory fake, no pipe).
+    #[cfg(test)]
+    pub fn set_helper_factory(&self, factory: HelperLinkFactory) {
+        if let Ok(mut slot) = self.helper_factory.lock() {
+            *slot = Some(factory);
+        }
+    }
+
+    fn make_helper_link(&self) -> Box<dyn HelperLink> {
+        if let Ok(slot) = self.helper_factory.lock() {
+            if let Some(factory) = slot.as_ref() {
+                return factory(&self.config.helper);
+            }
+        }
+        build_helper_link(&self.config.helper)
+    }
+
+    /// Reconcile stale TUN leases left by a previous net-host process.
+    /// Best-effort: never fails startup; counts are logged for the audit trail.
+    pub fn reconcile_tun_leases(&self) {
+        let mut link = self.make_helper_link();
+        let report = tun_lease::reconcile_stale_tun(&self.config.run_root, &mut *link);
+        if report.scanned > 0 {
+            eprintln!(
+                "[net_host] tun recovery: scanned={} cleaned={} pending={}",
+                report.scanned, report.cleaned, report.pending
+            );
         }
     }
 
@@ -265,6 +326,40 @@ impl HostState {
         );
     }
 
+    /// Release the active TUN lease in reverse order (helper resources, then
+    /// the journal), idempotently. Best-effort: a cleanup failure is logged,
+    /// never surfaced over the caller's root-cause error.
+    async fn release_tun_lease(&self) {
+        let (session_id, lease, link) = {
+            let mut inner = self.inner.lock().await;
+            inner.detail.tun = None;
+            (
+                inner.tun_session_id.take(),
+                inner.tun_lease.take(),
+                inner.tun_link.take(),
+            )
+        };
+        let (Some(session_id), Some(lease)) = (session_id, lease) else {
+            return;
+        };
+        let run_root = self.config.run_root.clone();
+        let outcome = tokio::task::spawn_blocking(move || {
+            if let Some(mut link) = link {
+                let _ = tun_lease::cleanup_tun_lease(&run_root, &session_id, &lease, &mut *link);
+            } else {
+                // Link lost without cleanup (should not happen): the helper
+                // owns disconnect cleanup for its own session, so drop the
+                // journal rather than report a phantom lease forever.
+                tun_lease::remove_tun_journal(&run_root, &session_id);
+                eprintln!("[net_host] tun link lost for {session_id}; journal dropped");
+            }
+        })
+        .await;
+        if let Err(join) = outcome {
+            eprintln!("[net_host] tun release task failed: {join}");
+        }
+    }
+
     /// Abort a session whose freshly spawned core could not be bound into the
     /// ownership job. Without the job the core could outlive net-host, so it is
     /// killed now and the failure surfaced as a structured, fatal error.
@@ -277,6 +372,9 @@ impl HostState {
     ) -> Result<String, DomainError> {
         let _ = child.start_kill();
         let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
+        // The core never became owned; its TUN lease (if any) is released in
+        // reverse before the journal is finalized.
+        self.release_tun_lease().await;
         self.finalize_journal(journal_entry).await;
         journal::remove_staged_artifacts(&self.config.run_root, &journal_entry.session_id);
         let error = job_assign_failed(operation_id, cause.to_string());
@@ -316,6 +414,7 @@ impl HostState {
             inner.detail.state = RuntimeState::Validating;
             inner.detail.error = None;
             inner.detail.operation_id = Some(operation_id.clone());
+            inner.detail.tun = None;
             inner.active_operation = Some(operation_id.clone());
             inner.operations.insert(
                 operation_id.clone(),
@@ -447,6 +546,104 @@ impl HostState {
             }
         };
 
+        // --- TUN: validated descriptor -> helper routes/adapter (T14) ---
+        //
+        // Order is prepare-config -> helper -> spawn-core -> ready -> Applied.
+        // The helper owns the elevated work; net-host only records the lease.
+        // Any helper failure is structural (`E_TUN_HELPER_UNAVAILABLE`): the
+        // plan fails here, before any core is spawned, and never degrades to
+        // a direct TUN path.
+        let tun_spec = match tun_spec_from_plan(&plan) {
+            Ok(spec) => spec,
+            Err(error) => {
+                let error = error.with_operation(&operation_id);
+                let _ = journal::write_entry(
+                    &self.config.run_root,
+                    &JournalEntry {
+                        stage: RecoveryStage::Finalized,
+                        ..journal_entry.clone()
+                    },
+                );
+                self.fail_operation(&operation_id, &error).await;
+                return Err(error);
+            }
+        };
+        if let Some(spec) = tun_spec {
+            let run_root = self.config.run_root.clone();
+            let lease_session = session_id.clone();
+            let mut link = self.make_helper_link();
+            // Blocking pipe I/O must not stall the async runtime.
+            let outcome = tokio::task::spawn_blocking(move || {
+                let result =
+                    tun_lease::apply_tun_lease(&run_root, &lease_session, &spec, &mut *link);
+                (link, result)
+            })
+            .await;
+            let (link, lease) = match outcome {
+                Ok((link, Ok(lease))) => (link, lease),
+                Ok((link, Err(error))) => {
+                    let error = error.with_operation(&operation_id);
+                    eprintln!(
+                        "[net_host] tun apply failed (dry_run={}): {:?}",
+                        link.dry_run(),
+                        link.audit()
+                    );
+                    let _ = journal::write_entry(
+                        &self.config.run_root,
+                        &JournalEntry {
+                            stage: RecoveryStage::Finalized,
+                            ..journal_entry.clone()
+                        },
+                    );
+                    journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+                    self.fail_operation(&operation_id, &error).await;
+                    self.bus.emit_named(
+                        "error_raised",
+                        json!({
+                            "code": error.code,
+                            "message_key": error.message_key,
+                            "detail": error.detail,
+                        }),
+                    );
+                    eprintln!(
+                        "[net_host] tun helper unavailable, rolled back before core start: {}",
+                        error.code
+                    );
+                    return Err(error);
+                }
+                Err(join) => {
+                    let error = DomainError::new(domain::codes::INTERNAL, "error.tun_apply_failed")
+                        .with_operation(&operation_id)
+                        .with_detail(format!("tun apply task failed: {join}"));
+                    let _ = journal::write_entry(
+                        &self.config.run_root,
+                        &JournalEntry {
+                            stage: RecoveryStage::Finalized,
+                            ..journal_entry.clone()
+                        },
+                    );
+                    journal::remove_staged_artifacts(&self.config.run_root, &session_id);
+                    self.fail_operation(&operation_id, &error).await;
+                    return Err(error);
+                }
+            };
+            eprintln!(
+                "[net_host] tun lease applied (dry_run={}): {}",
+                link.dry_run(),
+                lease.summary()
+            );
+            {
+                let mut inner = self.inner.lock().await;
+                inner.detail.tun = Some(tun_detail_from_lease(&lease));
+                inner.tun_lease = Some(lease);
+                inner.tun_session_id = Some(session_id.clone());
+                // Keep the helper connection open for the whole runtime
+                // session: dropping it lets the helper reclaim the lease via
+                // its disconnect cleanup.
+                inner.tun_link = Some(link);
+            }
+        }
+
         // --- Starting ---
         {
             let mut inner = self.inner.lock().await;
@@ -469,6 +666,7 @@ impl HostState {
                 let error = DomainError::new(domain::codes::UNAVAILABLE, "error.job_create_failed")
                     .with_operation(&operation_id)
                     .with_detail(e.to_string());
+                self.release_tun_lease().await;
                 self.finalize_journal(&journal_entry).await;
                 self.fail_operation(&operation_id, &error).await;
                 return Err(error);
@@ -493,6 +691,7 @@ impl HostState {
                 let error = DomainError::new(domain::codes::UNAVAILABLE, "error.core_spawn_failed")
                     .with_operation(&operation_id)
                     .with_detail(format!("{}: {e}", exe.display()));
+                self.release_tun_lease().await;
                 self.finalize_journal(&journal_entry).await;
                 self.fail_operation(&operation_id, &error).await;
                 return Err(error);
@@ -653,6 +852,8 @@ impl HostState {
         let killed = tokio::time::timeout(Duration::from_secs(5), child.wait())
             .await
             .is_ok();
+        // Reverse cleanup: the core is dead, so its TUN resources go next.
+        self.release_tun_lease().await;
         let _ = journal::write_entry(
             &self.config.run_root,
             &JournalEntry {
@@ -712,6 +913,10 @@ impl HostState {
             inner.detail.pid = None;
             inner.detail.created_at_ms = None;
             inner.detail.state = RuntimeState::Stopped;
+            drop(inner);
+            // No core, but a TUN lease may still be pending (stop arriving
+            // between helper-apply and core-spawn); always release.
+            self.release_tun_lease().await;
             return None;
         };
         let session_id = session.session_id.clone();
@@ -739,6 +944,8 @@ impl HostState {
         inner.active_operation = None;
         eprintln!("[net_host] session {session_id} STOPPED pid={pid}");
         drop(inner);
+        // Reverse cleanup after the core tree is gone.
+        self.release_tun_lease().await;
         self.bus.emit_named(
             "runtime_state_changed",
             serde_json::to_value(RuntimeStateChanged {
@@ -1097,6 +1304,17 @@ pub fn identity_alive(identity: &ProcessIdentity) -> bool {
     matches_identity(identity)
 }
 
+/// Redacted TUN facts for [`RuntimeDetail`]: adapter label, interface index,
+/// route count and the dry-run flag only. Never addresses, next hops or tokens.
+fn tun_detail_from_lease(lease: &TunLease) -> RuntimeTunDetail {
+    RuntimeTunDetail {
+        adapter_name: lease.adapter_name.clone(),
+        interface_index: lease.interface_index,
+        route_count: lease.route_count,
+        dry_run: lease.dry_run,
+    }
+}
+
 /// Pure lease-reclaim decision (unit-testable without a process or runtime).
 ///
 /// Client liveness on a local named pipe is the connection itself: a killed or
@@ -1158,5 +1376,122 @@ mod tests {
         assert_eq!(error.operation_id.as_deref(), Some("op-1"));
         assert_eq!(error.detail.as_deref(), Some("Access is denied."));
         assert!(!error.retryable);
+    }
+
+    #[test]
+    fn tun_detail_from_lease_is_redacted() {
+        use runtime::tun::{TunAddress, TunRoute, TunSpec, TUN_CONFIG_KIND};
+
+        let lease = TunLease::new(
+            "helper-session-1",
+            TunSpec {
+                kind: TUN_CONFIG_KIND.into(),
+                adapter_name: "v2rayn-tun".into(),
+                interface_index: 9,
+                addresses: vec![TunAddress {
+                    address: "198.18.0.1".into(),
+                    prefix_len: 16,
+                }],
+                mtu: Some(1400),
+                routes: vec![TunRoute {
+                    destination: "0.0.0.0/0".into(),
+                    next_hop: "198.18.0.1".into(),
+                    interface_index: 9,
+                    metric: 1,
+                }],
+                route_exclude: vec![],
+            },
+            false,
+        );
+        let detail = tun_detail_from_lease(&lease);
+        assert_eq!(detail.adapter_name, "v2rayn-tun");
+        assert_eq!(detail.interface_index, 9);
+        assert_eq!(detail.route_count, 1);
+        assert!(!detail.dry_run);
+    }
+
+    #[test]
+    fn helper_dry_run_flag_flows_from_env() {
+        let key = "V2RAYN_R_DRY_RUN_TUN";
+        let previous = std::env::var_os(key);
+        std::env::set_var(key, "1");
+        let config = HostConfig::from_env();
+        assert!(config.helper.dry_run);
+        match previous {
+            Some(value) => std::env::set_var(key, value),
+            None => std::env::remove_var(key),
+        }
+        assert!(!HostConfig::from_env().helper.dry_run);
+    }
+
+    #[test]
+    fn journal_entry_carries_pid_and_creation_time() {
+        use runtime::current_identity;
+
+        let identity = current_identity();
+        let entry = JournalEntry {
+            session_id: "s-tun".into(),
+            plan_id: "p".into(),
+            desired_revision: 1,
+            config_sha256: "ab".into(),
+            stage: ipc_contract::RecoveryStage::Applied,
+            pid: Some(identity.pid),
+            created_at_ms: Some(identity.created_at_ms),
+            port: 11808,
+            updated_at_ms: 0,
+        };
+        // The journaled identity round-trips and still matches the live
+        // process: recovery may only act on this exact (pid, created_at).
+        assert_eq!(entry.identity(), Some(identity));
+        assert!(runtime::matches_identity(&identity));
+    }
+
+    #[test]
+    fn bogus_identity_never_matches() {
+        let bogus = runtime::ProcessIdentity::new(0xFFFF_FFF0, 1);
+        assert!(!runtime::matches_identity(&bogus));
+    }
+
+    #[test]
+    fn helper_factory_seam_replaces_link_construction() {
+        use crate::helper_client::{DryRunHelperLink, FakeHelperLink, HelperLink};
+        use std::sync::Arc;
+
+        let root = std::env::temp_dir().join(format!(
+            "v2rayn-t14-factory-{}-{}",
+            std::process::id(),
+            crate::journal::now_ms()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let config = HostConfig {
+            pipe_name: r"\\.\pipe\v2rayn-r-test-nonexistent".into(),
+            run_root: root.clone(),
+            disconnect_grace: Duration::from_millis(1000),
+            heartbeat_interval: Duration::from_millis(1000),
+            readiness_timeout: Duration::from_millis(100),
+            readiness_interval: Duration::from_millis(10),
+            helper: HelperConfig {
+                pipe_name: r"\\.\pipe\v2rayn-r-test-nonexistent".into(),
+                token: String::new(),
+                bin: None,
+                auto_launch: false,
+                allowed_run_roots: Vec::new(),
+                dry_run: false,
+            },
+        };
+        // No stale leases: construction performs no helper I/O.
+        let state = HostState::new(config);
+        // Without a factory the config selects the dry-run/pipe transport.
+        state.set_helper_factory(Arc::new(|_| {
+            let link: Box<dyn HelperLink> = Box::new(FakeHelperLink::new());
+            link
+        }));
+        let link = state.make_helper_link();
+        assert_eq!(link.session_id(), "helper-session-1");
+        assert!(!link.dry_run());
+        // The dry-run transport is selected purely from configuration.
+        let dry: Box<dyn HelperLink> = Box::new(DryRunHelperLink::new());
+        assert!(dry.dry_run());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

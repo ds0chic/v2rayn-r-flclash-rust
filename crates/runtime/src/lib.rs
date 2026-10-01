@@ -20,6 +20,7 @@ pub mod graph;
 pub mod identity;
 pub mod job;
 pub mod sha256;
+pub mod tun;
 pub mod wire;
 
 pub use adapter::{adapter_for, core_dir, CoreAdapter, CoreLocator, SingBoxAdapter, XrayAdapter};
@@ -30,7 +31,11 @@ pub use identity::{
 };
 pub use job::JobGuard;
 pub use sha256::{sha256, sha256_hex};
+pub use tun::{
+    dry_run_from_env, dry_run_requested, route_digest, route_summary, tun_spec_from_plan, TunRoute,
+    TunSpec, TUN_CLI_DRY_RUN, TUN_CONFIG_KIND, TUN_ENV_DRY_RUN, TUN_PROCESS_ID,
+};
 pub use wire::{
-    decode_payload, encode_frame, frame_len, frame_len_ok, RuntimeDetail, ServerFrame,
-    LEN_PREFIX_BYTES, NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
+    decode_payload, encode_frame, frame_len, frame_len_ok, RuntimeDetail, RuntimeTunDetail,
+    ServerFrame, LEN_PREFIX_BYTES, NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
 };

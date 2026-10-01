@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_format.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
@@ -60,6 +61,17 @@ class StatusBarView extends ConsumerWidget {
                 key: const ValueKey('tun-toggle'),
                 value: shell.tunEnabled,
                 onChanged: shellController.setTunEnabled,
+              ),
+              // T14: TUN actual state is read from the runtime snapshot, never
+              // from the desired switch above. The bridge carries no per-lease
+              // TUN facts, so the bar distinguishes only what the snapshot
+              // proves: no live runtime (or switch off) reads 未启用; a helper
+              // failure reads 失败已回滚; a live runtime with TUN desired reads
+              // 已请求(未验证) — never a fabricated "TUN active".
+              Text(
+                '实际: ${_tunActualLabel(shell.tunEnabled, runtime)}',
+                key: const ValueKey('tun-actual'),
+                style: muted,
               ),
               const _Sep(),
               // F-SYSPROXY-001 / ACT-STAT-001: the four system-proxy modes,
@@ -234,6 +246,18 @@ class StatusBarView extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// T14 TUN actual-state label (see the `tun-actual` widget above).
+///
+/// `tunEnabled` is the *desired* switch from settings; `runtime` is the live
+/// snapshot. Only a live runtime proves anything: without one the answer is
+/// always 未启用, even when the switch is on.
+String _tunActualLabel(bool tunEnabled, RuntimeView runtime) {
+  if (!tunEnabled) return '未启用';
+  if (runtime.error?.code == 'E_TUN_HELPER_UNAVAILABLE') return '失败已回滚';
+  if (!runtime.isRunning) return '未启用';
+  return '已请求(未验证)';
 }
 
 String _activeSchemeLabel(RoutingState routing) {

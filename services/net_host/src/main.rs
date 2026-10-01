@@ -8,9 +8,11 @@
 
 mod dacl;
 mod events;
+mod helper_client;
 mod journal;
 mod server;
 mod session;
+mod tun_lease;
 
 use std::sync::Arc;
 

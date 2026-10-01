@@ -34,7 +34,7 @@ use runtime::{
     ServerFrame, LEN_PREFIX_BYTES, NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
 };
 
-use crate::runtime_client::{ApplyOutcome, EventSink, RuntimeClient, RuntimeSnapshot};
+use crate::runtime_client::{ApplyOutcome, EventSink, RuntimeClient, RuntimeSnapshot, TunStatus};
 
 /// How long to wait for a freshly launched net-host to accept a connection.
 const LAUNCH_WAIT: Duration = Duration::from_secs(10);
@@ -228,6 +228,14 @@ fn map_snapshot(snapshot: &IpcSnapshot, detail: &RuntimeDetail) -> RuntimeSnapsh
             .clone()
             .or_else(|| detail.operation_id.clone()),
         error: detail.error.clone(),
+        // Redacted TUN lease facts flow through untouched: `None` (no lease)
+        // must stay `None` so the UI renders "not enabled", never active.
+        tun: detail.tun.as_ref().map(|tun| TunStatus {
+            adapter_name: tun.adapter_name.clone(),
+            interface_index: tun.interface_index,
+            route_count: tun.route_count,
+            dry_run: tun.dry_run,
+        }),
     }
 }
 
@@ -507,4 +515,59 @@ fn unexpected(operation: &str, result: &IpcResult) -> DomainError {
     };
     DomainError::new(domain::codes::INTERNAL, "error.runtime_unexpected_reply")
         .with_detail(format!("{operation} received an unexpected `{kind}` reply"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use domain::event::EventEpoch;
+    use domain::RuntimeState;
+    use runtime::RuntimeTunDetail;
+
+    fn ipc_snapshot() -> IpcSnapshot {
+        IpcSnapshot {
+            state: RuntimeState::Running,
+            applied_revision: 7,
+            epoch: EventEpoch(1),
+            last_seq: 2,
+            active_operation: None,
+            recovery: None,
+            host_alive: true,
+        }
+    }
+
+    #[test]
+    fn tun_detail_maps_into_snapshot_status() {
+        let detail = RuntimeDetail {
+            state: RuntimeState::Running,
+            applied_revision: 7,
+            pid: Some(4242),
+            created_at_ms: Some(1_700_000_000_000),
+            ports: vec![11808],
+            session_id: Some("s1".into()),
+            config_sha256: Some("ab".into()),
+            operation_id: Some("op1".into()),
+            error: None,
+            tun: Some(RuntimeTunDetail {
+                adapter_name: "v2rayn-tun".into(),
+                interface_index: 9,
+                route_count: 2,
+                dry_run: true,
+            }),
+        };
+        let snap = map_snapshot(&ipc_snapshot(), &detail);
+        let tun = snap.tun.expect("tun lease must flow into the snapshot");
+        assert_eq!(tun.adapter_name, "v2rayn-tun");
+        assert_eq!(tun.interface_index, 9);
+        assert_eq!(tun.route_count, 2);
+        assert!(tun.dry_run);
+        assert_eq!(snap.pid, Some(4242));
+    }
+
+    #[test]
+    fn missing_tun_detail_stays_missing() {
+        let detail = RuntimeDetail::default();
+        let snap = map_snapshot(&ipc_snapshot(), &detail);
+        assert!(snap.tun.is_none(), "no lease must never become a fake TUN");
+    }
 }

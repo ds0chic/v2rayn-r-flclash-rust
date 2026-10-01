@@ -3222,13 +3222,20 @@ features:
   cancel_behavior: 关闭即回退
   acceptance: 开关触发配置 TUN 段与提权
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "services/net_host/src/session.rs (apply_plan TUN 阶段/helper 失败回滚/stop 释放/detail.tun); services/net_host/src/tun_lease.rs + helper_client.rs (租约/恢复/dry-run); crates/application/src/runtime_client.rs (TunStatus) + snapshot.rs; apps/desktop/lib/app/shell/status_bar_view.dart (tun-actual 四态指示)"
+  test_ids:
+  - "services/net_host/src/tun_lease.rs (14: apply/deny/timeout/disconnect/cleanup 幂等/重启恢复/dry-run)"
+  - "services/net_host/src/helper_client.rs (14: Fake 全流程/回滚/不可用)"
+  - "services/net_host/src/session.rs (5: detail 映射/dry-run 环境/PID 身份/factory 缝)"
+  - "crates/application/src/net_host_client.rs (2: tun 透传/缺失保持) + snapshot.rs (2)"
   evidence:
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:430
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:437
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:463
-  status: identified
+  - docs/evidence/T14-runtime.md
+  - docs/decisions/T14-runtime.md
+  status: implemented
+  notes: 受控执行与回滚已实现；真实提权/路由/适配器操作未执行（未验证）；UI 仅四态文字，未伪造成功。
 - id: F-TUN-002
   name: TUN 参数（栈/MTU/自动路由/严格路由/ICMP）
   family: tun
@@ -3255,14 +3262,18 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 参数进入 TUN 配置
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/tun_plan.rs (tun_spec_from_settings: EnableTun/MTU/CIDR/IPv6 开关映射与回退); crates/runtime/src/tun.rs (TunSpec 校验); core 段仍由 crates/application/src/codegen.rs 生成"
+  test_ids:
+  - "crates/application/src/tun_plan.rs (11: 开关/CIDR/缺省/MTU/IPv6/attach 回读幂等)"
+  - "crates/runtime/src/tun.rs (18: 描述符校验/digest/dry-run)"
   evidence:
   - v2rayN/ServiceLib/Global.cs:585
   - v2rayN/ServiceLib/Global.cs:575
   - v2rayN/ServiceLib/Global.cs:743
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:217
-  status: identified
+  - docs/evidence/T14-runtime.md
+  status: implemented
+  notes: helper 描述符侧参数已实现；栈/auto-route 等 core 段归 codegen；MTU<=0 回退 1280（上游首选）。
 - id: F-TUN-003
   name: TUN 地址与路由排除
   family: tun
@@ -3287,14 +3298,19 @@ features:
   cancel_behavior: 无
   acceptance: 地址进入配置且非法项被剔除
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/tun_plan.rs (IPv4/IPv6 CIDR + route_exclude 透传校验); crates/ipc_contract/src/helper.rs (parse_cidr/validate_tun_address，见 T14-helper); crates/runtime/src/tun.rs"
+  test_ids:
+  - "crates/application/src/tun_plan.rs (bare IP 拒绝/缺省/IPv6 三态/坏 exclude 拒绝)"
+  - "crates/runtime/src/tun.rs (地址/前缀/家族一致性)"
   evidence:
   - v2rayN/ServiceLib/Global.cs:765
   - v2rayN/ServiceLib/Global.cs:779
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:100
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:100
-  status: identified
+  - docs/evidence/T14-helper.md
+  - docs/evidence/T14-runtime.md
+  status: implemented
+  notes: 描述符侧地址/exclude 校验已实现；真实适配器配置未执行（未验证）。
 - id: F-TUN-004
   name: TUN DNS 与 FakeIP
   family: tun
@@ -3321,13 +3337,17 @@ features:
   cancel_behavior: 无
   acceptance: TUN DNS 生效
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "crates/application/src/dns.rs + codegen.rs (TunDNS 进 core 配置，T11 已有); crates/application/src/tun_plan.rs (route_exclude 进 helper 描述符)"
+  test_ids:
+  - "crates/application/src/tun_plan.rs (route_exclude 透传/非法拒绝)"
+  - "crates/application/src/dns.rs (既有 TunDNS 用例，见 T11)"
   evidence:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:29
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:140
   - v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs:50
-  status: identified
+  - docs/evidence/T14-runtime.md
+  status: implemented
+  notes: 本轮仅新增 route_exclude 描述符侧；TunDNS core 生成沿用 T11；真实 DNS 生效未验证。
 - id: F-TUN-005
   name: Windows TUN 设备清理
   family: tun
@@ -3353,12 +3373,17 @@ features:
   cancel_behavior: 无
   acceptance: 重复切换 TUN 不残留设备
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: "services/net_host/src/tun_lease.rs (cleanup_tun_lease 幂等 + reconcile_stale_tun 重启对账，只清本应用记录资源); services/privileged_helper/src/server.rs (断连 CleanOwned，见 T14-helper)"
+  test_ids:
+  - "services/net_host/src/tun_lease.rs (cleanup 幂等/失配仍清理/重启恢复/pending 保留)"
+  - "services/privileged_helper/tests/dispatch.rs + loopback.rs (租约清理，见 T14-helper)"
   evidence:
   - v2rayN/ServiceLib/Manager/CoreManager.cs:88
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:53
-  status: identified
+  - docs/evidence/T14-helper.md
+  - docs/evidence/T14-runtime.md
+  status: implemented
+  notes: 上游 RemoveTunDevice（删旧设备）对应物为租约范围清理；真实设备删除未执行（未验证）。
 - id: F-MONITOR-001
   name: 运行日志显示
   family: monitor

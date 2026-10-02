@@ -44,3 +44,6 @@ tools/cores/**/*.sha256
 dist/*.zip
 dist/v2rayN-R-*/
 
+
+dist/evidence-armed/
+

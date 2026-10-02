@@ -1,5 +1,0 @@
-v2rayN-R does not bundle third-party proxy cores (Xray-core, sing-box).
-They are downloaded at runtime by the in-app updater and pinned by
-tools/cores/cores.lock.json in the source repository. Point the app at an
-existing core directory with V2RAYN_R_CORES_ROOT / V2RAYN_R_XRAY_BIN when
-testing offline. Xray-core and sing-box remain under their own licenses.

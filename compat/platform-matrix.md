@@ -165,15 +165,15 @@
 
 **Windows ARM64（Rust 侧，只 `cargo check`，不运行）**：`rustup target add aarch64-pc-windows-msvc` 成功；`cargo check -p <pkg> --target aarch64-pc-windows-msvc --locked`：
 
-| 包 | 结果 | 阻塞原因 |
+| 包 | 结果 | 备注 |
 |---|---|---|
 | `domain` | ✅ exit 0 | — |
 | `config_codegen` | ✅ exit 0 | 纯 Rust |
 | `ipc_contract` | ✅ exit 0 | — |
-| `subscriptions` | ❌ exit 101 | 传递依赖 `ring 0.17.14`（`reqwest→rustls→ring`）build script `failed to find tool "clang"` |
-| `updater` | ❌ exit 101 | 同上（`reqwest→rustls→ring`） |
+| `subscriptions` | ✅ exit 0 | 安装 `LLVM.LLVM` 并设 `CC_aarch64_pc_windows_msvc=clang`、`AR_aarch64_pc_windows_msvc=llvm-ar` 后通过（ring 0.17.14 交叉编译） |
+| `updater` | ✅ exit 0 | 同上 |
 
-前置条件：安装 LLVM/clang（含 `aarch64-windows` 目标）或 VS 2022 组件 “MSVC v143 - VS 2022 C++ ARM64 build tools”，并设置 `CC_aarch64_pc_windows_msvc`/`AR_aarch64_pc_windows_msvc`（或 `cargo-xwin`）；随后重跑上述 check。
+**结果：Rust 侧 5/5 交叉 `check` 通过**（不链接、不运行；仅证明源码可对 ARM64 目标编译）。前置：`winget install LLVM.LLVM` + `CC/AR` 环境变量。Flutter Windows ARM64 仍 `blocked`（CLI 无 `--target-platform`，需 ARM64 主机与引擎）。
 
 **Linux / macOS（本机 blocked）**：
 

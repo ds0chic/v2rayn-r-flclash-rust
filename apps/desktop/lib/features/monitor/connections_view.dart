@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Clash connections tab (F-MONITOR-005, LAY-CLASHCN-001).
 ///
@@ -80,12 +81,10 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     final controller = ref.read(monitorControllerProvider.notifier);
 
     if (!state.clashSupported) {
-      return Center(
-        child: Text(
-          state.connectionsMessage ?? '当前内核不提供 Clash API',
-          key: const ValueKey('connections-unsupported'),
-          style: const TextStyle(fontSize: 12),
-        ),
+      return EmptyState(
+        message: state.connectionsMessage ?? '当前内核不提供 Clash API',
+        semanticIcon: 'connections',
+        messageKey: const ValueKey('connections-unsupported'),
       );
     }
 
@@ -167,12 +166,11 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
         const Divider(height: 1),
         Expanded(
           child: rows.isEmpty
-              ? const Center(
-                  child: Text(
-                    '当前无活动连接',
-                    key: ValueKey('connections-empty'),
-                    style: TextStyle(fontSize: 12),
-                  ),
+              ? const EmptyState(
+                  message: '当前无活动连接',
+                  semanticIcon: 'connections',
+                  detail: '连接产生后自动出现在此表',
+                  messageKey: ValueKey('connections-empty'),
                 )
               : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,

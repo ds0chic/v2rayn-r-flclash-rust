@@ -1925,3 +1925,45 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2974
   status: identified
   implementation_location: null
+
+# T17 视觉/交互精校：截图引用与实现位置（仅追加证据；不改变上面条目的
+# identified 状态，避免把"已实现"当成"已验证"）。三布局/浅深主题/设置/
+# 日志/备份/更新截图均来自 release 构建，见 docs/evidence/T17.md。
+t17_screenshot_evidence:
+  generated_at: 2026-10-02
+  build: build/windows/x64/runner/Release/v2rayn_desktop.exe
+  window: 1200x800
+  implementation_locations:
+  - apps/desktop/lib/shared/theme/app_theme.dart
+  - apps/desktop/lib/app/shell/main_shell.dart
+  - apps/desktop/lib/app/shell/status_bar_view.dart
+  - apps/desktop/lib/features/profiles/profiles_table.dart
+  - apps/desktop/lib/shared/widgets/empty_state.dart
+  screenshots:
+  - path: docs/evidence/screenshots/windows_flutter/t17_layout_horizontal.png
+    layout: LAY-MAIN-001
+    theme: dark
+  - path: docs/evidence/screenshots/windows_flutter/t17_layout_vertical.png
+    layout: LAY-MAIN-002
+    theme: dark
+  - path: docs/evidence/screenshots/windows_flutter/t17_layout_tab.png
+    layout: LAY-MAIN-003
+    theme: dark
+  - path: docs/evidence/screenshots/windows_flutter/t17_theme_light.png
+    layout: LAY-MAIN-002
+    theme: light
+  - path: docs/evidence/screenshots/windows_flutter/t17_theme_dark.png
+    layout: LAY-MAIN-002
+    theme: dark
+  - path: docs/evidence/screenshots/windows_flutter/t17_settings.png
+    layout: LAY-OPTSET-001
+    theme: light
+  - path: docs/evidence/screenshots/windows_flutter/t17_logs.png
+    layout: LAY-MSG-001
+    theme: light
+  - path: docs/evidence/screenshots/windows_flutter/t17_backup.png
+    layout: LAY-BACKUP-001
+    theme: light
+  - path: docs/evidence/screenshots/windows_flutter/t17_update.png
+    layout: LAY-CHECKUPDATE-001
+    theme: light

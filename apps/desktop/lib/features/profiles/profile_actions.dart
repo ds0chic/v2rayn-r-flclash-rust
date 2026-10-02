@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_editor_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/template_window.dart';
+import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
 
 /// Add a node of [configType] through the real editor + bridge.
 Future<void> startAddProfile(
@@ -57,25 +58,15 @@ Future<void> deleteSelectedProfiles(BuildContext context, WidgetRef ref) async {
     _toast(ref, '请先选择要删除的节点');
     return;
   }
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      key: const ValueKey('delete-confirm'),
-      title: const Text('删除节点', style: TextStyle(fontSize: 15)),
-      content: Text('确认删除选中的 ${state.selected.length} 个节点?'),
-      actions: <Widget>[
-        TextButton(
-          key: const ValueKey('delete-cancel'),
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          key: const ValueKey('delete-confirm-ok'),
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('删除'),
-        ),
-      ],
-    ),
+  final confirmed = await showAppConfirmDialog(
+    context,
+    title: '删除节点',
+    message: '确认删除选中的 ${state.selected.length} 个节点?',
+    confirmLabel: '删除',
+    destructive: true,
+    dialogKey: const ValueKey('delete-confirm'),
+    confirmKey: const ValueKey('delete-confirm-ok'),
+    cancelKey: const ValueKey('delete-cancel'),
   );
   if (confirmed != true) {
     _toast(ref, '已取消删除');

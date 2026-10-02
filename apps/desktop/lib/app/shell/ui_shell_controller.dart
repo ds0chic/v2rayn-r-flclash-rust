@@ -66,6 +66,7 @@ class UiShellState {
     this.hideIpInfo = false,
     this.showStatistics = false,
     this.autoAdjustColWidth = false,
+    this.zebraStriping = false,
     this.trayMenuServersLimit = 20,
     this.systemProxyIndex = 2,
     this.routingLabel,
@@ -96,6 +97,9 @@ class UiShellState {
   final bool hideIpInfo;
   final bool showStatistics;
   final bool autoAdjustColWidth;
+
+  /// Optional table zebra striping (LAY-PROFILES-002 density kept intact).
+  final bool zebraStriping;
   final int trayMenuServersLimit;
 
   final int systemProxyIndex;
@@ -126,6 +130,7 @@ class UiShellState {
     bool? hideIpInfo,
     bool? showStatistics,
     bool? autoAdjustColWidth,
+    bool? zebraStriping,
     int? trayMenuServersLimit,
     int? systemProxyIndex,
     String? routingLabel,
@@ -150,6 +155,7 @@ class UiShellState {
       hideIpInfo: hideIpInfo ?? this.hideIpInfo,
       showStatistics: showStatistics ?? this.showStatistics,
       autoAdjustColWidth: autoAdjustColWidth ?? this.autoAdjustColWidth,
+      zebraStriping: zebraStriping ?? this.zebraStriping,
       trayMenuServersLimit: trayMenuServersLimit ?? this.trayMenuServersLimit,
       systemProxyIndex: systemProxyIndex ?? this.systemProxyIndex,
       routingLabel: routingLabel ?? this.routingLabel,
@@ -184,6 +190,7 @@ class UiShellController extends Notifier<UiShellState> {
       verticalSplit: (layout['vertical_split'] as num?)?.toDouble() ?? 0.5,
       themeMode: _themeModeFrom(theme['mode'] as String?),
       accentName: theme['accent'] as String?,
+      zebraStriping: theme['zebra'] == true,
       fontFamily: theme['font_family'] as String?,
       fontSize: (theme['font_size'] as num?)?.toDouble(),
       language: theme['language'] as String?,
@@ -271,6 +278,7 @@ class UiShellController extends Notifier<UiShellState> {
       'font_family': state.fontFamily,
       'font_size': state.fontSize,
       'language': state.language,
+      'zebra': state.zebraStriping,
     });
   }
 
@@ -302,9 +310,19 @@ class UiShellController extends Notifier<UiShellState> {
         ? ThemeMode.dark
         : ThemeMode.light;
     state = state.copyWith(themeMode: next);
-    _store.saveSection(themeSection, <String, dynamic>{
-      'mode': next == ThemeMode.dark ? 'dark' : 'light',
-    });
+    _persistTheme();
+  }
+
+  /// Explicit theme mode (used by the theme dialog and evidence hooks so a
+  /// `system` value is not mistaken for a resolved light/dark).
+  void setThemeMode(ThemeMode mode) {
+    state = state.copyWith(themeMode: mode);
+    _persistTheme();
+  }
+
+  void toggleZebraStriping() {
+    state = state.copyWith(zebraStriping: !state.zebraStriping);
+    _persistTheme();
   }
 
   void setSystemProxyIndex(int index) {

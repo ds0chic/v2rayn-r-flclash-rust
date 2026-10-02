@@ -22,7 +22,7 @@ void main() {
       expect(find.byKey(const ValueKey('split-horizontal')), findsNothing);
 
       // Menu structure/text (LAY-MAIN-004).
-      for (final label in <String>['配置项', '订阅分组', '设置', '帮助', '重启服务']) {
+      for (final label in <String>['配置项', '订阅分组', '设置', '帮助', '重载']) {
         expect(find.text(label), findsWidgets, reason: 'missing menu $label');
       }
 

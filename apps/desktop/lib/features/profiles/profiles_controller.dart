@@ -436,6 +436,28 @@ class ProfilesController extends Notifier<ProfilesState> {
     _echo(ProfileAction.escape);
   }
 
+  /// Move the current row one step up/down with the arrow keys. When nothing
+  /// is selected the first (down) / last (up) row is selected, matching the
+  /// usual DataGrid navigation contract without touching move-up/down order.
+  void navigateSelection(int delta) {
+    if (delta == 0) return;
+    final rows = state.visible;
+    if (rows.isEmpty) return;
+    var index = state.selected.isEmpty
+        ? (delta > 0 ? -1 : rows.length)
+        : rows.indexWhere((r) => state.selected.contains(r.id));
+    if (index < 0 && state.selected.isNotEmpty) {
+      index = delta > 0 ? -1 : rows.length;
+    }
+    final target = (index + delta).clamp(0, rows.length - 1);
+    final id = rows[target].id;
+    state = state.copyWith(selected: selectSingle(id));
+    _log(
+      delta < 0 ? ProfileAction.navigateUp : ProfileAction.navigateDown,
+      'id=$id',
+    );
+  }
+
   void handleRightTap(String id) {
     if (!state.selected.contains(id)) {
       state = state.copyWith(selected: selectSingle(id));
@@ -537,6 +559,12 @@ class ProfilesController extends Notifier<ProfilesState> {
       case ProfileAction.moveDown:
         moveSelected(delta: 1);
         _log(action, 'selected=${state.selected.length}');
+        return;
+      case ProfileAction.navigateUp:
+        navigateSelection(-1);
+        return;
+      case ProfileAction.navigateDown:
+        navigateSelection(1);
         return;
       default:
         _log(action, 'selected=${state.selected.length}');

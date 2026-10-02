@@ -185,9 +185,9 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:99
   - v2rayN/v2rayN/Views/MainWindow.xaml:91
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-002
   name: 添加 VLESS 节点
   domain: main-menu
@@ -211,9 +211,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:103
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-003
   name: 添加 Shadowsocks 节点
   domain: main-menu
@@ -237,9 +237,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:107
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-004
   name: 添加 SOCKS 节点
   domain: main-menu
@@ -263,9 +263,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:111
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-005
   name: 添加 HTTP 节点
   domain: main-menu
@@ -289,9 +289,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:115
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-006
   name: 添加 Trojan 节点
   domain: main-menu
@@ -315,9 +315,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:119
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-007
   name: 添加 Hysteria2 节点
   domain: main-menu
@@ -341,9 +341,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:123
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-008
   name: 添加 TUIC 节点
   domain: main-menu
@@ -367,9 +367,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:127
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-009
   name: 添加 WireGuard 节点
   domain: main-menu
@@ -393,9 +393,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:131
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-010
   name: 添加 Anytls 节点
   domain: main-menu
@@ -419,9 +419,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:135
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-011
   name: 添加 Naive 节点
   domain: main-menu
@@ -445,9 +445,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:139
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-012
   name: 添加自定义配置（Custom）
   domain: main-menu
@@ -471,9 +471,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:143
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-013
   name: 添加自定义出站（Custom Outbound）
   domain: main-menu
@@ -497,9 +497,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:147
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-014
   name: 添加策略组（Policy Group）
   domain: main-menu
@@ -524,9 +524,9 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:151
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:464
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-015
   name: 添加链式代理（Proxy Chain）
   domain: main-menu
@@ -551,9 +551,9 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:155
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:464
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-016
   name: 从剪贴板批量导入服务器
   domain: main-menu
@@ -580,9 +580,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:159
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:217
   - v2rayN/v2rayN/Views/MainWindow.xaml:63
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-017
   name: 从屏幕二维码扫描导入
   domain: main-menu
@@ -611,7 +611,7 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:265
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-MAIN-018
   name: 从图片二维码导入
   domain: main-menu
@@ -639,7 +639,7 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:110
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-MAIN-019
   name: 打开订阅设置
   domain: main-menu
@@ -664,9 +664,9 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:173
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:565
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [t17_menu_structure_test]
+  status: implemented
 - id: ACT-MAIN-020
   name: 更新所有订阅（直连）
   domain: subscriptions
@@ -880,9 +880,9 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:208
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:623
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/template_window.dart
+  test_ids: [t, 1, 0, _, t, e, m, p, l, a, t, e, _, w, i, n, d, o, w, _, t, e, s, t]
+  status: implemented
 - id: ACT-MAIN-028
   name: 打开全局热键设置
   domain: hotkey
@@ -937,9 +937,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:220
   - v2rayN/ServiceLib/Manager/AppManager.cs:155
   - docs/evidence/T13.md
-  implementation_location: apps/desktop/lib/app/shell/main_shell.dart
+  implementation_location: null
   test_ids: []
-  status: implemented
+  status: preserved_only
 - id: ACT-MAIN-030
   name: 清除服务器统计
   domain: settings
@@ -1023,7 +1023,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:780
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-MAIN-033
   name: 应用区域预设-俄罗斯
   domain: settings
@@ -1049,7 +1049,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:243
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-MAIN-034
   name: 应用区域预设-伊朗
   domain: settings
@@ -1075,7 +1075,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:248
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-MAIN-035
   name: 重载内核
   domain: main-menu
@@ -1104,7 +1104,7 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:233
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-WIN-001
   name: 关闭按钮-最小化到托盘
   domain: main-menu
@@ -1191,7 +1191,7 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:248
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-WIN-004
   name: 菜单-Win 设置 UWP 回环
   domain: settings
@@ -1274,7 +1274,7 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:278
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-WIN-007
   name: 菜单-备份与恢复
   domain: backup
@@ -1329,7 +1329,7 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:448
   implementation_location: null
   test_ids: []
-  status: identified
+  status: preserved_only
 - id: ACT-WIN-009
   name: 系统会话结束处理
   domain: main-menu
@@ -1686,9 +1686,9 @@ items:
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:234
   - v2rayN/v2rayN/Views/ProfilesView.xaml:129
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:199
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_keyboard_test]
+  status: implemented
 - id: ACT-PROF-002
   name: 删除选中节点
   domain: profiles
@@ -1716,9 +1716,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:504
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:268
   - v2rayN/v2rayN/Views/ProfilesView.xaml:138
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_keyboard_test]
+  status: implemented
 - id: ACT-PROF-003
   name: 删除重复节点
   domain: profiles
@@ -1770,9 +1770,9 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:129
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:546
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_keyboard_test]
+  status: implemented
 - id: ACT-PROF-005
   name: 设为活动服务器
   domain: profiles
@@ -1800,9 +1800,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:560
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:196
   - v2rayN/v2rayN/Views/ProfilesView.xaml:124
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_keyboard_test]
+  status: implemented
 - id: ACT-PROF-006
   name: 分享选中节点二维码
   domain: profiles
@@ -1830,9 +1830,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:593
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:239
   - v2rayN/v2rayN/Views/ProfilesView.xaml:222
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t09_import_export_test]
+  status: implemented
 - id: ACT-PROF-007
   name: 生成聚合子节点-全部
   domain: profiles
@@ -1858,9 +1858,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:141
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:610
   - v2rayN/v2rayN/Views/ProfilesView.xaml:253
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t10_groups_panel_test]
+  status: implemented
 - id: ACT-PROF-008
   name: 生成聚合子节点-按区域
   domain: profiles
@@ -1886,9 +1886,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:145
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:622
   - v2rayN/v2rayN/Views/ProfilesView.xaml:257
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t10_groups_panel_test]
+  status: implemented
 - id: ACT-PROF-009
   name: 节点上移到顶部
   domain: profiles
@@ -1915,9 +1915,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:151
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:273
   - v2rayN/v2rayN/Views/ProfilesView.xaml:195
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [context_menu_model_test]
+  status: implemented
 - id: ACT-PROF-010
   name: 节点上移一位
   domain: profiles
@@ -1944,9 +1944,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:155
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:278
   - v2rayN/v2rayN/Views/ProfilesView.xaml:200
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [context_menu_model_test]
+  status: implemented
 - id: ACT-PROF-011
   name: 节点下移一位
   domain: profiles
@@ -1973,9 +1973,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:159
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:282
   - v2rayN/v2rayN/Views/ProfilesView.xaml:205
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [context_menu_model_test]
+  status: implemented
 - id: ACT-PROF-012
   name: 节点下移到底部
   domain: profiles
@@ -2002,9 +2002,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:163
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:286
   - v2rayN/v2rayN/Views/ProfilesView.xaml:210
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [context_menu_model_test]
+  status: implemented
 - id: ACT-PROF-013
   name: 移动节点到其他分组
   domain: profiles
@@ -2261,9 +2261,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:201
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:652
   - v2rayN/v2rayN/Views/ProfilesView.xaml:146
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t15b_speedtest_test]
+  status: implemented
 - id: ACT-PROF-022
   name: 导出客户端配置到文件
   domain: profiles
@@ -2512,9 +2512,9 @@ items:
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:194
   - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml.cs:201
   - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml.cs:209
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_pointer_test]
+  status: implemented
 - id: ACT-PROF-031
   name: 点击列头排序
   domain: profiles
@@ -2542,9 +2542,9 @@ items:
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:204
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:635
   - v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml.cs:160
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t05_profiles_ui_test]
+  status: implemented
 - id: ACT-PROF-032
   name: 全选节点
   domain: profiles
@@ -2570,9 +2570,9 @@ items:
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:215
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:226
   - v2rayN/v2rayN/Views/ProfilesView.xaml:216
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_selection_test]
+  status: implemented
 - id: ACT-PROF-033
   name: 拖动排序节点
   domain: profiles
@@ -2600,9 +2600,9 @@ items:
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:423
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:465
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:692
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_pointer_test]
+  status: implemented
 - id: ACT-PROF-034
   name: 右键保留已有多选
   domain: profiles
@@ -2627,9 +2627,9 @@ items:
   evidence:
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:179
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:183
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_pointer_test]
+  status: implemented
 - id: ACT-PROF-035
   name: 过滤器输入并回车
   domain: profiles
@@ -2654,9 +2654,9 @@ items:
   evidence:
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:316
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:320
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [profiles_filter_test]
+  status: implemented
 - id: ACT-PROF-036
   name: 自动调整列宽
   domain: profiles
@@ -2710,9 +2710,9 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:105
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:334
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
+  test_ids: [t10_groups_panel_test]
+  status: implemented
 - id: ACT-PROF-038
   name: 停止测速
   domain: testing
@@ -3331,9 +3331,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:139
   - v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:430
   - v2rayN/v2rayN/Views/StatusBarView.xaml:60
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/app/shell/status_bar_view.dart
+  test_ids: [t13_statusbar_test]
+  status: implemented
 - id: ACT-STAT-004
   name: 状态栏-双击运行信息测试可用性
   domain: statusbar

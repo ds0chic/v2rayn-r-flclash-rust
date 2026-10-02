@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Message/log tab (F-MONITOR-001, LAY-MSG-001).
 ///
@@ -141,12 +143,11 @@ class _LogsViewState extends ConsumerState<LogsView> {
         const Divider(height: 1),
         Expanded(
           child: visible.isEmpty
-              ? const Center(
-                  child: Text(
-                    '信息：暂无内核日志',
-                    key: ValueKey('logs-empty'),
-                    style: TextStyle(fontSize: 12),
-                  ),
+              ? const EmptyState(
+                  message: '暂无内核日志',
+                  semanticIcon: 'logs',
+                  detail: '内核运行时将在此显示真实输出',
+                  messageKey: ValueKey('logs-empty'),
                 )
               : ListView.builder(
                   key: const ValueKey('logs-list'),
@@ -184,7 +185,10 @@ class _LogRow extends StatelessWidget {
           Expanded(
             child: Text(
               line.text,
-              style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+              style: const TextStyle(
+                fontSize: AppTokens.monoFontSize,
+                fontFamily: AppTokens.monoFontFamily,
+              ),
             ),
           ),
           if (line.truncated)
@@ -208,10 +212,14 @@ String _levelLabel(int level) => switch (level) {
   _ => '----',
 };
 
-Color _levelColor(BuildContext context, int level) => switch (level) {
-  0 || 1 => Colors.grey,
-  2 => Theme.of(context).colorScheme.primary,
-  3 => Colors.orange,
-  4 || 5 => Theme.of(context).colorScheme.error,
-  _ => Colors.grey,
-};
+Color _levelColor(BuildContext context, int level) {
+  final scheme = Theme.of(context).colorScheme;
+  final semantics = context.semantics;
+  return switch (level) {
+    0 || 1 => scheme.onSurfaceVariant,
+    2 => semantics.info,
+    3 => semantics.warning,
+    4 || 5 => scheme.error,
+    _ => scheme.onSurfaceVariant,
+  };
+}

@@ -1,12 +1,18 @@
 /// Data model for the top menu. Each backend entry carries the `ACT-*` ledger
 /// id from `compat/actions.yaml`; UI-only entries carry a synthetic `UI-*`
 /// id. The wire-up in [MainShell] decides what actually runs.
+///
+/// T17: an entry that exists upstream but has no backend yet is marked
+/// [preservedOnly]. It stays in place (layout/text unchanged) but renders
+/// disabled with the tooltip 保留原版入口（未实现） — it must never be
+/// clickable and pretend to succeed.
 class AppMenuEntry {
   const AppMenuEntry({
     required this.label,
     this.actionId,
     this.shortcut,
     this.enabled = true,
+    this.preservedOnly = false,
     this.submenu = const <AppMenuEntry>[],
   });
 
@@ -14,9 +20,18 @@ class AppMenuEntry {
   final String? actionId;
   final String? shortcut;
   final bool enabled;
+
+  /// Entry kept for upstream parity but not implemented; rendered disabled.
+  final bool preservedOnly;
   final List<AppMenuEntry> submenu;
 
   bool get isSubmenu => submenu.isNotEmpty;
+
+  /// Whether the entry can actually be invoked (not disabled, has an action).
+  bool get isInvocable =>
+      enabled && !preservedOnly && (actionId != null || isSubmenu);
+
+  static const String preservedTooltip = '保留原版入口（未实现）';
 }
 
 /// ACT-MAIN-016 / 017 / 018 and 001..015 (menuServers, 18 entries).
@@ -67,6 +82,7 @@ const _uiEntries = <AppMenuEntry>[
   AppMenuEntry(label: '显示列设置', actionId: 'UI-COLUMNS'),
   AppMenuEntry(label: '切换双击激活', actionId: 'UI-DBLCLICK'),
   AppMenuEntry(label: '切换浅色/深色', actionId: 'UI-THEME'),
+  AppMenuEntry(label: '表格斑马纹', actionId: 'UI-ZEBRA'),
 ];
 
 const _settingEntries = <AppMenuEntry>[
@@ -76,16 +92,32 @@ const _settingEntries = <AppMenuEntry>[
   AppMenuEntry(label: '完整配置模板设置', actionId: 'ACT-MAIN-027'),
   AppMenuEntry(label: '全局热键设置', actionId: 'ACT-MAIN-028'),
   AppMenuEntry(label: '主题设置', actionId: 'UI-THEME-WINDOW'),
-  AppMenuEntry(label: '以管理员身份重启', actionId: 'ACT-MAIN-029'),
-  AppMenuEntry(label: '解除 Win10 UWP 应用回环代理限制', actionId: 'ACT-WIN-004'),
+  // ACT-MAIN-029 / ACT-WIN-004: relaunch-elevated and the UWP loopback helper
+  // entry are preserved for upstream parity. Neither backend is wired yet, so
+  // they stay disabled with the preserved tooltip.
+  AppMenuEntry(
+    label: '以管理员身份重启',
+    actionId: 'ACT-MAIN-029',
+    preservedOnly: true,
+  ),
+  AppMenuEntry(
+    label: '解除 Win10 UWP 应用回环代理限制',
+    actionId: 'ACT-WIN-004',
+    preservedOnly: true,
+  ),
   AppMenuEntry(label: '清除所有服务统计数据', actionId: 'ACT-MAIN-030'),
   AppMenuEntry(
     label: '区域预置设置',
     actionId: 'ACT-MAIN-032',
+    preservedOnly: true,
     submenu: <AppMenuEntry>[
-      AppMenuEntry(label: '默认区域', actionId: 'ACT-MAIN-032'),
-      AppMenuEntry(label: '俄罗斯', actionId: 'ACT-MAIN-033'),
-      AppMenuEntry(label: '伊朗', actionId: 'ACT-MAIN-034'),
+      AppMenuEntry(
+        label: '默认区域',
+        actionId: 'ACT-MAIN-032',
+        preservedOnly: true,
+      ),
+      AppMenuEntry(label: '俄罗斯', actionId: 'ACT-MAIN-033', preservedOnly: true),
+      AppMenuEntry(label: '伊朗', actionId: 'ACT-MAIN-034', preservedOnly: true),
     ],
   ),
   AppMenuEntry(label: '备份和还原', actionId: 'ACT-WIN-007'),
@@ -94,8 +126,16 @@ const _settingEntries = <AppMenuEntry>[
   AppMenuEntry(label: '主界面 (占位)', actionId: 'UI-MAIN', submenu: _uiEntries),
 ];
 
+/// 帮助 submenu. Upstream only has 检查更新 plus a separator that is filled at
+/// runtime with one `<core> 网站` entry per installed core (ACT-WIN-008); the
+/// dynamic website entries are preserved but disabled.
+const _helpEntries = <AppMenuEntry>[
+  AppMenuEntry(label: '检查更新', actionId: 'ACT-WIN-005'),
+  AppMenuEntry(label: '核心网站', actionId: 'ACT-WIN-008', preservedOnly: true),
+];
+
 /// Top-level menu groups in upstream order: 配置项 / 订阅分组 / 设置 / 帮助 /
-/// 重启服务 / 推广 / 关闭. `关闭` maps to upstream menuClose/menuExit.
+/// 重载 / 推广 / 关闭. `关闭` maps to upstream menuClose/menuExit.
 final List<AppMenuEntry> mainMenuModel = <AppMenuEntry>[
   AppMenuEntry(
     label: '配置项',
@@ -112,15 +152,31 @@ final List<AppMenuEntry> mainMenuModel = <AppMenuEntry>[
     actionId: 'UI-GROUP-SETTINGS',
     submenu: _settingEntries,
   ),
+  AppMenuEntry(label: '帮助', actionId: 'UI-GROUP-HELP', submenu: _helpEntries),
+  // ACT-MAIN-035: upstream `menuReload` (重载). Kept as a top-level action but
+  // the backend reload is not wired, so it is preserved-only.
   AppMenuEntry(
-    label: '帮助',
-    actionId: 'UI-GROUP-HELP',
-    submenu: <AppMenuEntry>[
-      AppMenuEntry(label: '检查更新', actionId: 'ACT-WIN-005'),
-      AppMenuEntry(label: '核心网站 (占位)', actionId: 'ACT-WIN-008'),
-    ],
+    label: '重载',
+    actionId: 'ACT-MAIN-035',
+    shortcut: 'F5',
+    preservedOnly: true,
   ),
-  AppMenuEntry(label: '重启服务', actionId: 'ACT-MAIN-035', shortcut: 'F5'),
-  AppMenuEntry(label: '推广', actionId: 'ACT-WIN-003'),
+  AppMenuEntry(label: '推广', actionId: 'ACT-WIN-003', preservedOnly: true),
   AppMenuEntry(label: '关闭', actionId: 'ACT-WIN-002', shortcut: 'Alt+F4'),
 ];
+
+/// Flat lookup of every entry in the tree (for tests/assertions).
+Iterable<AppMenuEntry> flattenMenu(
+  List<AppMenuEntry> entries, [
+  String prefix = '',
+]) sync* {
+  for (final entry in entries) {
+    yield entry;
+    if (entry.submenu.isNotEmpty) {
+      yield* flattenMenu(entry.submenu, '$prefix${entry.label}/');
+    }
+  }
+}
+
+/// True when [entry] is preserved-only and therefore must render disabled.
+bool isPreservedOnly(AppMenuEntry entry) => entry.preservedOnly;

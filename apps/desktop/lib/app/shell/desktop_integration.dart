@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
@@ -10,6 +10,7 @@ import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/proxy_settings_view.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Close-button semantics from `UiItem` (ACT-WIN-001 / F-DESKTOP-004).
 class CloseBehavior {
@@ -51,6 +52,17 @@ class DesktopIntegration with WindowListener {
     if (_started) return;
     _started = true;
     await windowManager.ensureInitialized();
+    // Title + minimum size follow the ledger (INV-WPF-002: title `v2rayN`,
+    // 1200x800 default, min width 800). The Win32 runner owns the persisted
+    // size, so only the title and floor are applied here.
+    try {
+      await windowManager.setTitle(AppWindowMetrics.title);
+      await windowManager.setMinimumSize(
+        const Size(AppWindowMetrics.minWidth, AppWindowMetrics.minHeight),
+      );
+    } on Object catch (e) {
+      debugPrint('[desktop] window metrics failed: $e');
+    }
     final settings = ref.read(settingsControllerProvider);
     final behavior = CloseBehavior.fromDocument(settings.document);
     // Close-to-tray: intercept the close button (ACT-WIN-001).
@@ -110,6 +122,12 @@ class DesktopIntegration with WindowListener {
       await windowManager.show();
       await windowManager.focus();
     }
+  }
+
+  /// ACT-WIN-002: the 关闭 menu entry hides the window to the tray (the same
+  /// semantics as the window close button when `Hide2TrayWhenClose` is on).
+  Future<void> hideToTray() async {
+    await windowManager.hide();
   }
 
   /// Rebuild the tray context menu from the ledger model. Dynamic submenus
@@ -229,4 +247,14 @@ class DesktopIntegration with WindowListener {
   }
 }
 
-final desktopIntegrationProvider = Provider<DesktopIntegration?>((ref) => null);
+/// Mutable holder for the live integration instance. It stays null in widget
+/// tests; the real app bootstrap overwrites [value]. Menu entries that need a
+/// real OS action read it and fall back to an honest status message when the
+/// holder is empty.
+class DesktopIntegrationHolder {
+  DesktopIntegration? value;
+}
+
+final desktopIntegrationProvider = Provider<DesktopIntegrationHolder>(
+  (ref) => DesktopIntegrationHolder(),
+);

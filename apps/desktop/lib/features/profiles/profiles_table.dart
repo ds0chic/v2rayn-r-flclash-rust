@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 import 'profiles_controller.dart';
 
@@ -30,7 +31,10 @@ class ProfilesTable extends ConsumerStatefulWidget {
 
 class _ProfilesTableState extends ConsumerState<ProfilesTable> {
   static const _headerHeight = AppTokens.tableHeaderHeight;
-  static const _rowHeight = AppTokens.tableRowHeight;
+
+  /// Row height follows the configured base font size (24/26/28) exposed on
+  /// the theme extension, keeping the desktop table compact.
+  double get _rowHeight => context.semantics.tableRowHeight;
 
   final FocusNode _focusNode = FocusNode(debugLabel: 'profiles-table');
   final MenuController _menuController = MenuController();
@@ -71,50 +75,78 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         onKeyEvent: _onKey,
         child: Listener(
           onPointerDown: (_) => _focusNode.requestFocus(),
-          child: TableView.builder(
-            verticalDetails: ScrollableDetails.vertical(controller: _vertical),
-            horizontalDetails: ScrollableDetails.horizontal(
-              controller: _horizontal,
-            ),
-            pinnedRowCount: 1,
-            pinnedColumnCount: 1,
-            columnCount: columns.length + 1,
-            rowCount: rows.length + 1,
-            columnBuilder: (index) => _buildColumnSpan(index, columns),
-            rowBuilder: (index) => _buildRowSpan(index, context),
-            cellBuilder: (context, vicinity) => TableViewCell(
-              child: _buildCell(context, vicinity, state, columns, rows),
-            ),
+          child: Stack(
+            children: <Widget>[
+              TableView.builder(
+                verticalDetails: ScrollableDetails.vertical(
+                  controller: _vertical,
+                ),
+                horizontalDetails: ScrollableDetails.horizontal(
+                  controller: _horizontal,
+                ),
+                pinnedRowCount: 1,
+                pinnedColumnCount: 1,
+                columnCount: columns.length + 1,
+                rowCount: rows.length + 1,
+                columnBuilder: (index) =>
+                    _buildColumnSpan(context, index, columns),
+                rowBuilder: (index) => _buildRowSpan(index, context),
+                cellBuilder: (context, vicinity) => TableViewCell(
+                  child: _buildCell(context, vicinity, state, columns, rows),
+                ),
+              ),
+              if (rows.isEmpty)
+                Positioned(
+                  top: _headerHeight,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: const IgnorePointer(
+                    child: EmptyState(
+                      message: '暂无节点',
+                      semanticIcon: 'empty',
+                      detail: '可从剪贴板导入或添加节点',
+                      messageKey: ValueKey('profiles-empty'),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  TableSpan _buildColumnSpan(int index, List<ProfileColumn> columns) {
+  TableSpan _buildColumnSpan(
+    BuildContext context,
+    int index,
+    List<ProfileColumn> columns,
+  ) {
     final width = index == 0
         ? AppTokens.tableHandleWidth
         : columns[index - 1].width;
+    final grid = context.semantics.gridLine;
     return TableSpan(
       extent: FixedTableSpanExtent(width),
       foregroundDecoration: TableSpanDecoration(
-        border: TableSpanBorder(
-          trailing: BorderSide(color: Colors.grey.shade400, width: 1),
-        ),
+        border: TableSpanBorder(trailing: BorderSide(color: grid, width: 1)),
       ),
     );
   }
 
   TableSpan _buildRowSpan(int index, BuildContext context) {
     final isHeader = index == 0;
+    final semantics = context.semantics;
+    // Optional zebra striping; data rows only (row 0 is the header).
+    final zebra = semantics.zebraEnabled && !isHeader && (index - 1).isOdd;
     return TableSpan(
       extent: FixedTableSpanExtent(isHeader ? _headerHeight : _rowHeight),
       backgroundDecoration: TableSpanDecoration(
         color: isHeader
             ? Theme.of(context).colorScheme.surfaceContainerHighest
-            : null,
+            : (zebra ? semantics.zebraStripe : null),
         border: TableSpanBorder(
-          trailing: BorderSide(color: AppTokens.lightGrid, width: 1),
+          trailing: BorderSide(color: semantics.gridLine, width: 1),
         ),
       ),
     );
@@ -293,6 +325,13 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
   ) {
     final selected = state.selected.contains(row.id);
     final controller = ref.read(profilesControllerProvider.notifier);
+    final value = column.display(row);
+    final label = Text(
+      value,
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
+      style: const TextStyle(fontSize: AppTokens.fontSize),
+    );
     return GestureDetector(
       key: ValueKey('cell-${row.id}-${column.key}'),
       behavior: HitTestBehavior.opaque,
@@ -305,17 +344,19 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
       onSecondaryTapDown: (details) =>
           _showContextMenu(details.globalPosition, row),
       child: Container(
-        color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
+        color: selected ? context.semantics.selectedRow : null,
         alignment: column.numeric
             ? Alignment.centerRight
             : Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 6),
-        child: Text(
-          column.display(row),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-          style: const TextStyle(fontSize: 12),
-        ),
+        // Only long cells carry a tooltip so hover stays quiet in dense tables.
+        child: value.length > 12
+            ? Tooltip(
+                message: value,
+                waitDuration: const Duration(milliseconds: 600),
+                child: label,
+              )
+            : label,
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_table.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
+import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Profiles panel: top toolbar (LAY-PROFILES-001) + virtualized node table.
 /// The bottom status bar and menu bar live in the shell, not here.
@@ -121,10 +122,9 @@ class _Toolbar extends ConsumerWidget {
             if (state.speedTestRunning)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text(
-                  state.speedTestStage,
+                child: StageIndicator(
                   key: const ValueKey('speedtest-stage'),
-                  style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+                  stage: state.speedTestStage,
                 ),
               ),
             _toolbarButton(
@@ -256,6 +256,15 @@ class GroupsPanel extends ConsumerWidget {
                         '${sub.remarks.isEmpty ? sub.id : sub.remarks} (${counts[sub.id] ?? 0})',
                     selected: selected == sub.id,
                     onTap: () => controller.setGroupSubId(sub.id),
+                  ),
+                if (subs.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    child: Text(
+                      '暂无订阅分组',
+                      key: ValueKey('groups-empty'),
+                      style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                    ),
                   ),
               ],
             ),

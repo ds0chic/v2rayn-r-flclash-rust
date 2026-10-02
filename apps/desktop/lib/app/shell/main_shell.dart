@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/menu/main_menu.dart';
+import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/app/shell/side_tabs.dart';
 import 'package:v2rayn_desktop/app/shell/status_bar_view.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
@@ -145,7 +146,9 @@ class _MainShellState extends ConsumerState<MainShell> {
         bindings: <ShortcutActivator, VoidCallback>{
           const SingleActivator(LogicalKeyboardKey.f5): () => ref
               .read(uiShellControllerProvider.notifier)
-              .notImplemented('重启服务', 'ACT-MAIN-035'),
+              .setMessage(
+                '${AppMenuEntry.preservedTooltip}: 重载 (ACT-MAIN-035)',
+              ),
           const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
               _guarded(ref, () => shareProfilesQr(context, ref)),
           const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
@@ -270,6 +273,8 @@ class _MainShellState extends ConsumerState<MainShell> {
         profiles.toggleDoubleClick2Activate();
       case 'UI-THEME':
         shell.toggleTheme();
+      case 'UI-ZEBRA':
+        shell.toggleZebraStriping();
       case 'ACT-MAIN-001':
         profile_actions.startAddProfile(context, ref, ConfigType.vmess);
       case 'ACT-MAIN-002':
@@ -367,8 +372,22 @@ class _MainShellState extends ConsumerState<MainShell> {
         showBackupAndRestoreWindow(context, ref);
       case 'UI-CLEANUP':
         ref.read(backupControllerProvider.notifier).cleanupLogsTmp();
+      case 'ACT-WIN-002':
+        // Upstream menuClose minimizes to the tray (ACT-WIN-002). Falls back
+        // to an honest status message when no desktop integration is present
+        // (widget tests) so the entry never pretends to have run.
+        final integration = ref.read(desktopIntegrationProvider).value;
+        if (integration != null) {
+          integration.hideToTray();
+        } else {
+          shell.setMessage('已请求最小化到托盘 (ACT-WIN-002)');
+        }
       default:
-        shell.notImplemented(entry.label, entry.actionId);
+        if (entry.preservedOnly) {
+          shell.setMessage('${AppMenuEntry.preservedTooltip}: ${entry.label}');
+        } else {
+          shell.notImplemented(entry.label, entry.actionId);
+        }
     }
   }
 }
@@ -392,7 +411,7 @@ class _MenuToolbarBar extends ConsumerWidget {
               scrollDirection: Axis.horizontal,
               child: MenuBar(
                 children: <Widget>[
-                  for (final group in mainMenuModel) _submenu(group),
+                  for (final group in mainMenuModel) _topLevel(group),
                 ],
               ),
             ),
@@ -462,6 +481,38 @@ class _MenuToolbarBar extends ConsumerWidget {
     );
   }
 
+  Widget _topLevel(AppMenuEntry entry) {
+    if (entry.isSubmenu) return _submenu(entry);
+    return _tooltip(
+      entry,
+      MenuItemButton(
+        key: ValueKey('menu-${entry.label}'),
+        onPressed: entry.isInvocable ? () => onAction(entry) : null,
+        // A top-level MenuBar item lays out in an unbounded row, so it must
+        // not use an Expanded label; keep the shortcut as a trailing chip.
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                entry.label,
+                style: const TextStyle(fontSize: AppTokens.fontSize),
+              ),
+              if (entry.shortcut != null) ...<Widget>[
+                const SizedBox(width: 6),
+                Text(
+                  entry.shortcut!,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _submenu(AppMenuEntry entry) {
     return SubmenuButton(
       key: ValueKey('menu-${entry.label}'),
@@ -486,15 +537,28 @@ class _MenuToolbarBar extends ConsumerWidget {
         );
       } else {
         widgets.add(
-          MenuItemButton(
-            key: ValueKey('menu-item-${entry.label}'),
-            onPressed: entry.enabled ? () => onAction(entry) : null,
-            child: _menuItemLabel(entry),
+          _tooltip(
+            entry,
+            MenuItemButton(
+              key: ValueKey('menu-item-${entry.label}'),
+              onPressed: entry.isInvocable ? () => onAction(entry) : null,
+              child: _menuItemLabel(entry),
+            ),
           ),
         );
       }
     }
     return widgets;
+  }
+
+  /// Preserved-only entries carry the "保留原版入口（未实现）" tooltip; a normal
+  /// entry simply advertises its shortcut so the keyboard path is discoverable.
+  Widget _tooltip(AppMenuEntry entry, Widget child) {
+    final message = entry.preservedOnly
+        ? AppMenuEntry.preservedTooltip
+        : (entry.shortcut ?? '');
+    if (message.isEmpty) return child;
+    return Tooltip(message: message, child: child);
   }
 
   Widget _menuItemLabel(AppMenuEntry entry) {
@@ -532,16 +596,22 @@ class _RuntimeToolbar extends ConsumerWidget {
           style: const TextStyle(fontSize: 12),
         ),
         const SizedBox(width: 8),
-        FilledButton.tonal(
-          key: const ValueKey('runtime-start'),
-          onPressed: runtime.isBusy ? null : controller.applySmoke,
-          child: const Text('启动测试会话', style: TextStyle(fontSize: 12)),
+        Tooltip(
+          message: '启动真实内核测试会话并等待就绪状态',
+          child: FilledButton.tonal(
+            key: const ValueKey('runtime-start'),
+            onPressed: runtime.isBusy ? null : controller.applySmoke,
+            child: const Text('启动测试会话', style: TextStyle(fontSize: 12)),
+          ),
         ),
         const SizedBox(width: 6),
-        OutlinedButton(
-          key: const ValueKey('runtime-stop'),
-          onPressed: controller.stop,
-          child: const Text('停止', style: TextStyle(fontSize: 12)),
+        Tooltip(
+          message: '停止由本应用启动的内核会话',
+          child: OutlinedButton(
+            key: const ValueKey('runtime-stop'),
+            onPressed: controller.stop,
+            child: const Text('停止', style: TextStyle(fontSize: 12)),
+          ),
         ),
         const SizedBox(width: 8),
       ],

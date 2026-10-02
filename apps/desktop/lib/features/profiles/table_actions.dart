@@ -22,6 +22,8 @@ class ProfileAction {
   static const moveUp = 'move-up';
   static const moveDown = 'move-down';
   static const moveBottom = 'move-bottom';
+  static const navigateUp = 'navigate-up';
+  static const navigateDown = 'navigate-down';
   static const escape = 'escape';
   static const dragStart = 'drag-start';
   static const drop = 'drop';
@@ -60,6 +62,8 @@ String? actionForKey({
     LogicalKeyboardKey.keyU: ProfileAction.moveUp,
     LogicalKeyboardKey.keyD: ProfileAction.moveDown,
     LogicalKeyboardKey.keyB: ProfileAction.moveBottom,
+    LogicalKeyboardKey.arrowUp: ProfileAction.navigateUp,
+    LogicalKeyboardKey.arrowDown: ProfileAction.navigateDown,
     LogicalKeyboardKey.escape: ProfileAction.escape,
   };
   return mapping[key];

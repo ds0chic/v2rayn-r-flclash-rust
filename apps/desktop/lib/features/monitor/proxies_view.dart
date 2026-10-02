@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Clash proxies tab (F-MONITOR-004, LAY-CLASHPROXY-001).
 ///
@@ -59,12 +60,10 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     final controller = ref.read(monitorControllerProvider.notifier);
 
     if (!state.clashSupported) {
-      return Center(
-        child: Text(
-          state.proxiesMessage ?? '当前内核不提供 Clash API',
-          key: const ValueKey('proxies-unsupported'),
-          style: const TextStyle(fontSize: 12),
-        ),
+      return EmptyState(
+        message: state.proxiesMessage ?? '当前内核不提供 Clash API',
+        semanticIcon: 'proxies',
+        messageKey: const ValueKey('proxies-unsupported'),
       );
     }
 
@@ -132,12 +131,11 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
         const Divider(height: 1),
         Expanded(
           child: state.proxies.isEmpty
-              ? const Center(
-                  child: Text(
-                    '暂无代理数据',
-                    key: ValueKey('proxies-empty'),
-                    style: TextStyle(fontSize: 12),
-                  ),
+              ? const EmptyState(
+                  message: '暂无代理数据',
+                  semanticIcon: 'proxies',
+                  detail: '内核提供 Clash API 后自动加载',
+                  messageKey: ValueKey('proxies-empty'),
                 )
               : ListView(
                   key: const ValueKey('proxies-list'),

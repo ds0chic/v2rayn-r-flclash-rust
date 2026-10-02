@@ -17,19 +17,21 @@ class V2rayNRApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shell = ref.watch(uiShellControllerProvider);
     return MaterialApp(
-      title: 'v2rayN-R (T05)',
+      title: AppWindowMetrics.title,
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(
         Brightness.light,
         accentName: shell.accentName,
         fontFamily: shell.fontFamily,
         fontSize: shell.fontSize,
+        zebraEnabled: shell.zebraStriping,
       ),
       darkTheme: buildAppTheme(
         Brightness.dark,
         accentName: shell.accentName,
         fontFamily: shell.fontFamily,
         fontSize: shell.fontSize,
+        zebraEnabled: shell.zebraStriping,
       ),
       themeMode: shell.themeMode,
       home: const _RuntimeBootstrap(child: MainShell()),
@@ -71,10 +73,15 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       await controller.start();
       // Load settings first so proxy/close/hotkey wiring reads real values.
       ref.read(settingsControllerProvider.notifier).load();
+      // T17 evidence hooks: force layout / theme *after* the persisted document
+      // is applied so the release screenshot matrix covers three layouts x
+      // light/dark deterministically. No-ops in normal runs.
+      _applyEvidenceLayoutAndTheme(ref);
       // T13 desktop integration (tray / hotkeys / close-to-tray / exit restore).
       // Widget tests never construct V2rayNRApp, so no plugin call runs there.
       _integration = DesktopIntegration(ref);
       await _integration!.start();
+      ref.read(desktopIntegrationProvider).value = _integration;
       // Evidence-run hook: launch straight into the smoke session so the T03
       // screenshot can show a real Running state without a scripted click.
       // Debug-only: a release build must never auto-start a core from an
@@ -91,6 +98,27 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
         );
       }
     });
+  }
+
+  /// Evidence-only: `V2RAYN_R_LAYOUT` / `V2RAYN_R_THEME` override the persisted
+  /// UI state after it has loaded. `V2RAYN_R_THEME` is applied by writing the
+  /// mode without toggling twice; layout is set through the controller so the
+  /// split values remain consistent.
+  static void _applyEvidenceLayoutAndTheme(WidgetRef ref) {
+    final layoutEnv = Platform.environment['V2RAYN_R_LAYOUT'];
+    if (layoutEnv != null) {
+      ref
+          .read(uiShellControllerProvider.notifier)
+          .setLayout(AppLayoutMode.fromId(layoutEnv));
+    }
+    final themeEnv = Platform.environment['V2RAYN_R_THEME'];
+    if (themeEnv != null) {
+      ref
+          .read(uiShellControllerProvider.notifier)
+          .setThemeMode(
+            themeEnv.toLowerCase() == 'dark' ? ThemeMode.dark : ThemeMode.light,
+          );
+    }
   }
 
   @override

@@ -1,0 +1,54 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/context_menu_review_test.dart
+Building Windows application...                                    13.6s
+√ Built build\windows\x64\runner\Debug\v2rayn_desktop.exe
+00:00 +0: context-menu lifetime and desktop spacing in the real window
+[desktop] tray init failed: PlatformException(Bad Arguments, Unable to init system tray, false, null)
+[runtime] runtime event gap: seq=3134 after 0
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+'package:flutter/src/rendering/mouse_tracker.dart': Failed assertion: line 220 pos 12: '(event is
+PointerAddedEvent) == (lastEvent is PointerRemovedEvent)': is not true.
+
+Either the assertion indicates an error in the framework itself, or we should provide substantially
+more information in this error message to help you determine and fix the underlying cause.
+In either case, please report this assertion by filing a bug on GitHub:
+  https://github.com/flutter/flutter/issues/new?template=02_bug.yml
+
+When the exception was thrown, this was the stack:
+#2      MouseTracker._shouldMarkStateDirty (package:flutter/src/rendering/mouse_tracker.dart:220:12)
+#3      MouseTracker.updateWithEvent (package:flutter/src/rendering/mouse_tracker.dart:314:10)
+#4      RendererBinding.dispatchEvent (package:flutter/src/rendering/binding.dart:466:20)
+#5      LiveTestWidgetsFlutterBinding.dispatchEvent (package:flutter_test/src/binding.dart:2980:15)
+#6      GestureBinding._handlePointerEventImmediately (package:flutter/src/gestures/binding.dart:447:7)
+#7      GestureBinding.handlePointerEvent (package:flutter/src/gestures/binding.dart:404:5)
+#8      LiveTestWidgetsFlutterBinding.handlePointerEvent (package:flutter_test/src/binding.dart:2952:15)
+#9      TestWidgetsFlutterBinding.handlePointerEventForSource.<anonymous closure> (package:flutter_test/src/binding.dart:1571:42)
+#10     TestWidgetsFlutterBinding.withPointerEventSource (package:flutter_test/src/binding.dart:1581:11)
+#11     TestWidgetsFlutterBinding.handlePointerEventForSource (package:flutter_test/src/binding.dart:1571:5)
+#12     WidgetTester.sendEventToBinding.<anonymous closure> (package:flutter_test/src/widget_tester.dart:869:15)
+#15     TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#16     WidgetTester.sendEventToBinding (package:flutter_test/src/widget_tester.dart:868:27)
+#17     TestGesture.addPointer.<anonymous closure> (package:flutter_test/src/test_pointer.dart:517:25)
+#20     TestAsyncUtils.guard (package:flutter_test/src/test_async_utils.dart:74:41)
+#21     TestGesture.addPointer (package:flutter_test/src/test_pointer.dart:516:27)
+#22     main.<anonymous closure> (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/context_menu_review_test.dart:289:19)
+<asynchronous suspension>
+#23     testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#24     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 7 frames from class _AssertionError, dart:async, and package:stack_trace)
+
+The test description was:
+  context-menu lifetime and desktop spacing in the real window
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:06 +0 -1: context-menu lifetime and desktop spacing in the real window [E]
+  Test failed. See exception logs above.
+  The test description was: context-menu lifetime and desktop spacing in the real window
+  
+00:06 +0 -1: (tearDownAll)
+00:06 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/context_menu_review_test.dart: context-menu lifetime and desktop spacing in the real window

@@ -1,0 +1,128 @@
+{
+  "failures": [
+    "menu-position-and-density",
+    "left-click-another-row-dismisses-menu",
+    "escape-closes-menu-without-clearing-selection"
+  ],
+  "records": [
+    {
+      "step": "bridge-initialized",
+      "facts": {}
+    },
+    {
+      "step": "app-started",
+      "facts": {}
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": false
+      }
+    },
+    {
+      "step": "synthetic-nodes-imported",
+      "facts": {
+        "count": 32
+      }
+    },
+    {
+      "step": "right-button-down",
+      "facts": {
+        "menuOpenBeforeRelease": true
+      }
+    },
+    {
+      "step": "menu-position-and-density",
+      "facts": {
+        "clickX": 359.0,
+        "clickY": 168.0,
+        "tableX": 171.0,
+        "tableY": 125.0,
+        "firstItem": {
+          "x": 530.0,
+          "y": 24.0,
+          "width": 222.41722106933594,
+          "height": 40.0
+        },
+        "rootWindow": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1184.0,
+          "height": 761.0
+        },
+        "toolbar": {
+          "x": 38.134178161621094,
+          "y": 41.0,
+          "width": 1107.7316436767578,
+          "height": 84.0
+        },
+        "tableRow": {
+          "x": 299.0,
+          "y": 155.0,
+          "width": 120.0,
+          "height": 26.0
+        },
+        "itemLabelFont": 12.0,
+        "rootContextItemCount": 19
+      },
+      "passed": false
+    },
+    {
+      "step": "pointer-leaves-menu",
+      "facts": {
+        "menuOpen": true
+      }
+    },
+    {
+      "step": "left-click-another-row-dismisses-menu",
+      "facts": {
+        "menuOpen": true,
+        "selected": [
+          "p-18dad4d982b3c710-1"
+        ]
+      },
+      "passed": false
+    },
+    {
+      "step": "escape-closes-menu-without-clearing-selection",
+      "facts": {
+        "menuOpen": true,
+        "selectedBefore": [
+          "p-18dad4d982b3c710-1"
+        ],
+        "selectedAfter": []
+      },
+      "passed": false
+    },
+    {
+      "step": "right-click-selected-multi-row",
+      "facts": {
+        "selectionBefore": [
+          "p-18dad4d982b3baf4-0",
+          "p-18dad4d982b3c710-1"
+        ],
+        "selectionAfter": [
+          "p-18dad4d982b3baf4-0",
+          "p-18dad4d982b3c710-1"
+        ],
+        "menuOpen": true
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-different-row-while-menu-open",
+      "facts": {
+        "selected": [
+          "p-18dad4d982b3c904-2"
+        ],
+        "menuOpen": true,
+        "firstItem": {
+          "x": 530.0,
+          "y": 24.0,
+          "width": 222.41722106933594,
+          "height": 40.0
+        }
+      }
+    }
+  ]
+}

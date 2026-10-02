@@ -1,0 +1,32 @@
+[
+  {
+    "source": "Windows Application event 1000",
+    "time": "2026-10-03T00:37:35.5447207+08:00",
+    "recordId": 26279,
+    "app": "v2rayn_desktop.exe",
+    "module": "flutter_windows.dll",
+    "exceptionCode": "c0000005",
+    "faultingOffset": "0000000000927160",
+    "appPath": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop\\build\\windows\\x64\\runner\\Debug\\v2rayn_desktop.exe"
+  },
+  {
+    "source": "Windows Application event 1000",
+    "time": "2026-10-03T00:30:41.0578273+08:00",
+    "recordId": 26278,
+    "app": "v2rayn_desktop.exe",
+    "module": "flutter_windows.dll",
+    "exceptionCode": "c0000005",
+    "faultingOffset": "0000000000927160",
+    "appPath": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop\\build\\windows\\x64\\runner\\Debug\\v2rayn_desktop.exe"
+  },
+  {
+    "source": "Windows Application event 1000",
+    "time": "2026-10-03T00:26:40.4376288+08:00",
+    "recordId": 26274,
+    "app": "v2rayn_desktop.exe",
+    "module": "flutter_windows.dll",
+    "exceptionCode": "c0000005",
+    "faultingOffset": "0000000000927160",
+    "appPath": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop\\build\\windows\\x64\\runner\\Debug\\v2rayn_desktop.exe"
+  }
+]

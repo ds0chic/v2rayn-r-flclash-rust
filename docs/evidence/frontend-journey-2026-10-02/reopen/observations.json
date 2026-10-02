@@ -1,0 +1,34 @@
+{
+  "failures": [],
+  "observations": [
+    {
+      "step": "reopen-data",
+      "passed": true,
+      "actual": {
+        "rows": 4,
+        "activeId": "p-18dac1e67192e944-2",
+        "subscriptions": 2,
+        "inbound": [
+          {
+            "LocalPort": 11850,
+            "Protocol": 0,
+            "UdpEnabled": true,
+            "SniffingEnabled": true,
+            "DestOverride": [
+              "http",
+              "tls"
+            ],
+            "RouteOnly": false,
+            "AllowLANConn": false,
+            "NewPort4LAN": false,
+            "User": "",
+            "Pass": "",
+            "SecondLocalPortEnabled": false
+          }
+        ],
+        "doubleClick2Activate": false
+      }
+    }
+  ],
+  "recordingComplete": false
+}

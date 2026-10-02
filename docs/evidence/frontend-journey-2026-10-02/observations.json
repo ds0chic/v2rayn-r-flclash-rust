@@ -1,0 +1,14 @@
+{
+  "failures": [],
+  "observations": [
+    {
+      "step": "first-launch",
+      "actual": {
+        "rows": 0,
+        "applyEnabled": true,
+        "editEnabledWithoutSelection": true,
+        "runtime": "Stopped"
+      }
+    }
+  ]
+}

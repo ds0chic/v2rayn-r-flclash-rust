@@ -1,0 +1,172 @@
+{
+  "failures": [
+    "saved-subscription-visible-in-main-window",
+    "update-current-visible-group",
+    "repeat-set-default-keeps-node",
+    "testing-keeps-current-group",
+    "editing-keeps-current-group",
+    "switch-group-has-no-hidden-action-targets",
+    "copy-share-does-not-clone",
+    "opening-settings-preserves-double-click-choice",
+    "apply-submits-latest-draft"
+  ],
+  "observations": [
+    {
+      "step": "first-launch",
+      "actual": {
+        "rows": 0,
+        "applyEnabled": true,
+        "editEnabledWithoutSelection": true,
+        "runtime": "Stopped"
+      }
+    },
+    {
+      "step": "import-subscription",
+      "passed": true,
+      "actual": {
+        "rows": 2,
+        "feedback": {
+          "exists": true,
+          "text": "订阅已添加并更新：新增 2 个节点",
+          "left": 1658.947998046875,
+          "right": 1836.697509765625,
+          "viewWidth": 1184.0,
+          "intersectsViewport": false
+        }
+      }
+    },
+    {
+      "step": "saved-subscription-visible-in-main-window",
+      "passed": false,
+      "actual": {}
+    },
+    {
+      "step": "update-current-visible-group",
+      "passed": false,
+      "actual": {
+        "selectedMainGroup": "s-18dac1e614865998-1",
+        "selectedSettingsSubscription": null,
+        "requestedPaths": [],
+        "message": "请先在订阅设置中选择一个订阅",
+        "feedback": {
+          "exists": true,
+          "text": "请先在订阅设置中选择一个订阅",
+          "left": 1678.295654296875,
+          "right": 1842.795654296875,
+          "viewWidth": 1184.0,
+          "intersectsViewport": false
+        }
+      }
+    },
+    {
+      "step": "choose-default-node",
+      "actual": {
+        "activeId": "p-18dac1e67192e944-2",
+        "runtime": "Stopped",
+        "feedback": {
+          "exists": true,
+          "text": "已启用为活动节点",
+          "left": 1678.295654296875,
+          "right": 1772.295654296875,
+          "viewWidth": 1184.0,
+          "intersectsViewport": false
+        }
+      }
+    },
+    {
+      "step": "repeat-set-default-keeps-node",
+      "passed": false,
+      "actual": {
+        "activeId": null,
+        "message": "已停用活动节点"
+      }
+    },
+    {
+      "step": "testing-keeps-current-group",
+      "passed": false,
+      "actual": {
+        "visibleRows": [
+          "A1",
+          "A2",
+          "B1"
+        ],
+        "delays": {
+          "A1": 1,
+          "A2": -1,
+          "B1": -1
+        },
+        "stage": "SpeedtestingCompleted"
+      }
+    },
+    {
+      "step": "editing-keeps-current-group",
+      "passed": false,
+      "actual": {
+        "visibleRows": [
+          "A1-renamed",
+          "A2",
+          "B1"
+        ],
+        "groupId": "s-18dac1e578b1d344-0"
+      }
+    },
+    {
+      "step": "switch-group-has-no-hidden-action-targets",
+      "passed": false,
+      "actual": {
+        "visibleRows": [
+          "B1"
+        ],
+        "selectedIds": [
+          "p-18dac1e67192e944-2"
+        ]
+      }
+    },
+    {
+      "step": "edit-after-switching-group",
+      "actual": {
+        "editorOpened": true,
+        "selectedIds": [
+          "p-18dac1e67192e944-2"
+        ]
+      }
+    },
+    {
+      "step": "copy-share-does-not-clone",
+      "passed": false,
+      "actual": {
+        "beforeRows": 3,
+        "afterRows": 4,
+        "clipboardChanged": false
+      }
+    },
+    {
+      "step": "opening-settings-preserves-double-click-choice",
+      "passed": false,
+      "actual": {
+        "beforeSettings": true,
+        "afterOpeningSettings": false
+      }
+    },
+    {
+      "step": "apply-submits-latest-draft",
+      "passed": false,
+      "actual": {
+        "savedPort": 11850,
+        "latestEditedPort": 11851,
+        "runtimeError": "E_REVISION_STALE (error.revision_stale): expected revision 0, current 9",
+        "dialogStillOpen": false
+      }
+    },
+    {
+      "step": "final-state",
+      "actual": {
+        "rows": 4,
+        "message": "已复制 1 个节点",
+        "subscriptionStatus": "更新完成：成功 2",
+        "runtimeError": "E_REVISION_STALE (error.revision_stale): expected revision 0, current 9"
+      }
+    }
+  ],
+  "recordingComplete": true
+}

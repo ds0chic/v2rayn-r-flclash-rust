@@ -1,0 +1,188 @@
+{
+  "source": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ProfilesView.xaml",
+  "rootMenuItemCount": 17,
+  "separatorCount": 4,
+  "rows": [
+    {
+      "type": "MenuItem",
+      "name": "menuSetDefaultServer",
+      "header": "{x:Static resx:ResUI.menuSetDefaultServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuSetDefaultServer",
+      "localizedHeader": "设为活动"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuEditServer",
+      "header": "{x:Static resx:ResUI.menuEditServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuEditServer",
+      "localizedHeader": "编辑"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuCopyServer",
+      "header": "{x:Static resx:ResUI.menuCopyServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuCopyServer",
+      "localizedHeader": "克隆所选"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuRemoveServer",
+      "header": "{x:Static resx:ResUI.menuRemoveServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuRemoveServer",
+      "localizedHeader": "移除所选 (多选)"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuRemoveDuplicateServer",
+      "header": "{x:Static resx:ResUI.menuRemoveDuplicateServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuRemoveDuplicateServer",
+      "localizedHeader": "移除重复"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuRemoveInvalidServerResult",
+      "header": "{x:Static resx:ResUI.menuRemoveInvalidServerResult}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuRemoveInvalidServerResult",
+      "localizedHeader": "按测试结果移除无效"
+    },
+    {
+      "type": "Separator",
+      "name": "",
+      "header": "",
+      "height": "",
+      "childItems": 0
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuTcpingServer",
+      "header": "{x:Static resx:ResUI.menuTcpingServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuTcpingServer",
+      "localizedHeader": "测试延迟 Tcping (多选)"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuRealPingServer",
+      "header": "{x:Static resx:ResUI.menuRealPingServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuRealPingServer",
+      "localizedHeader": "测试真连接延迟 (多选)"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuUdpTestServer",
+      "header": "{x:Static resx:ResUI.menuUdpTestServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuUdpTestServer",
+      "localizedHeader": "测试 UDP 延迟 (多选)"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuSpeedServer",
+      "header": "{x:Static resx:ResUI.menuSpeedServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuSpeedServer",
+      "localizedHeader": "测试速度 (多选)"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuSortServerResult",
+      "header": "{x:Static resx:ResUI.menuSortServerResult}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuSortServerResult",
+      "localizedHeader": "按测试结果排序"
+    },
+    {
+      "type": "Separator",
+      "name": "",
+      "header": "",
+      "height": "",
+      "childItems": 0
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuMoveToGroup",
+      "header": "{x:Static resx:ResUI.menuMoveToGroup}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 1,
+      "headerResource": "menuMoveToGroup",
+      "localizedHeader": "移至订阅分组"
+    },
+    {
+      "type": "MenuItem",
+      "name": "",
+      "header": "{x:Static resx:ResUI.menuMoveTo}",
+      "height": "",
+      "childItems": 4,
+      "headerResource": "menuMoveTo",
+      "localizedHeader": "移至上下"
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuSelectAll",
+      "header": "{x:Static resx:ResUI.menuSelectAll}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuSelectAll",
+      "localizedHeader": "全选"
+    },
+    {
+      "type": "Separator",
+      "name": "",
+      "header": "",
+      "height": "",
+      "childItems": 0
+    },
+    {
+      "type": "MenuItem",
+      "name": "menuShareServer",
+      "header": "{x:Static resx:ResUI.menuShareServer}",
+      "height": "{StaticResource MenuItemHeight}",
+      "childItems": 0,
+      "headerResource": "menuShareServer",
+      "localizedHeader": "分享"
+    },
+    {
+      "type": "MenuItem",
+      "name": "",
+      "header": "{x:Static resx:ResUI.menuExportConfig}",
+      "height": "",
+      "childItems": 5,
+      "headerResource": "menuExportConfig",
+      "localizedHeader": "导出"
+    },
+    {
+      "type": "Separator",
+      "name": "",
+      "header": "",
+      "height": "",
+      "childItems": 0
+    },
+    {
+      "type": "MenuItem",
+      "name": "",
+      "header": "{x:Static resx:ResUI.menuGenGroupServer}",
+      "height": "",
+      "childItems": 2,
+      "headerResource": "menuGenGroupServer",
+      "localizedHeader": "一键生成策略组"
+    }
+  ]
+}

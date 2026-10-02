@@ -1,0 +1,33 @@
+{
+  "failures": [],
+  "records": [
+    {
+      "step": "bridge-initialized",
+      "facts": {}
+    },
+    {
+      "step": "app-started",
+      "facts": {}
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": false
+      }
+    },
+    {
+      "step": "synthetic-nodes-imported",
+      "facts": {
+        "count": 32
+      }
+    },
+    {
+      "step": "wheel-over-table-while-menu-open",
+      "facts": {
+        "menuOpen": true,
+        "scrollBefore": 0.0,
+        "scrollAfter": 120.0
+      }
+    }
+  ]
+}

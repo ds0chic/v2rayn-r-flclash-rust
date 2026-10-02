@@ -1,0 +1,29 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/context_menu_review_test.dart
+Building Windows application...                                    14.7s
+√ Built build\windows\x64\runner\Debug\v2rayn_desktop.exe
+00:00 +0: context-menu lifetime and desktop spacing in the real window
+[runtime] runtime event gap: seq=12747 after 0
+[desktop] tray init failed: PlatformException(Bad Arguments, Unable to init system tray, false, null)
+00:09 +0: context-menu lifetime and desktop spacing in the real window - did not complete [E]
+00:09 +0: (tearDownAll) - did not complete [E]
+00:09 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/context_menu_review_test.dart: (tearDownAll) (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/context_menu_review_test.dart: context-menu lifetime and desktop spacing in the real window (did not complete)
+No tests were found.
+unhandled error during finalization of test:
+C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/context_menu_review_test.dart
+PathNotFoundException: Deletion failed, path = 'C:\Users\Colby\AppData\Local\Temp\flutter_tools.a599d504\flutter_test_listener.7a38b47f' (OS Error: 系统找不到指定的路径。, errno = 3)
+#0      _Directory._deleteSync (dart:io/directory_impl.dart:216:7)
+#1      FileSystemEntity.deleteSync (dart:io/file_system_entity.dart:425:7)
+#2      ForwardingFileSystemEntity.deleteSync (package:file/src/forwarding/forwarding_file_system_entity.dart:70:16)
+#3      ErrorHandlingDirectory.deleteSync.<anonymous closure> (package:flutter_tools/src/base/error_handling_io.dart:717:22)
+#4      _runSync (package:flutter_tools/src/base/error_handling_io.dart:1118:16)
+#5      ErrorHandlingDirectory.deleteSync (package:flutter_tools/src/base/error_handling_io.dart:716:12)
+#6      FlutterPlatform._createListenerDart.<anonymous closure> (package:flutter_tools/src/test/flutter_platform.dart:786:15)
+#7      FlutterPlatform._startTest.finalize (package:flutter_tools/src/test/flutter_platform.dart:591:26)
+<asynchronous suspension>
+#8      FlutterPlatform._startTest (package:flutter_tools/src/test/flutter_platform.dart:762:7)
+<asynchronous suspension>
+

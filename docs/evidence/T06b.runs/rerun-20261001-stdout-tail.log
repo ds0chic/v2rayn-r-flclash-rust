@@ -1,0 +1,54 @@
+# T06b real-core validator rerun (T09-T16 remediation, group A)
+# command   : pwsh -NoProfile -ExecutionPolicy Bypass -File tools/validate/t06b_validate.ps1
+# timestamp : 2026-10-01T23:21:10+08:00
+# duration  : 2.59s
+# result    : 35 pass, 1 fail -> target/t06b/matrix/results.json (copied to docs/evidence/T06b.runs/results.json)
+# cores     : tools/cores/xray/v26.3.27/xray.exe, tools/cores/singbox/v1.14.2/sing-box.exe
+# ports     : validator runs `xray run -test` / `sing-box check` only; no listener, no 10808
+#
+# fail      : xray xray-kcp exit 23. xray 26.3.27 rejects stream type `mkcp-legacy`:
+#             "failed to build mask with type mkcp-legacy > infra/conf: unknown config id: mkcp-legacy"
+#             (upstream-drift in the fixture's legacy KCP case, not a codegen defect).
+# note      : sing-box `check` prints nothing on success, so its 18 per-case logs are
+#             0 bytes BY DESIGN; PASS = exit code 0. xray logs carry the version string and,
+#             on failure, the decisive reason. This run refreshed docs/evidence/T06b.runs/matrix-logs/*.log.
+#
+# stdout (validator tail):
+[PASS] xray xray-vless-raw-reality (exit 0)
+[PASS] xray xray-vmess-ws-tls (exit 0)
+[PASS] xray xray-vless-raw-none (exit 0)
+[PASS] xray xray-ss-uot (exit 0)
+[PASS] xray xray-trojan-grpc-tls (exit 0)
+[PASS] xray xray-http-headers (exit 0)
+[PASS] xray xray-socks-userpass (exit 0)
+[PASS] xray xray-hysteria2 (exit 0)
+[PASS] xray xray-wireguard (exit 0)
+[PASS] xray xray-raw-http-header-tls (exit 0)
+[PASS] xray xray-httpupgrade-tls (exit 0)
+[PASS] xray xray-xhttp-tls (exit 0)
+[FAIL] xray xray-kcp (exit 23)
+[PASS] xray xray-grpc-reality (exit 0)
+[PASS] xray xray-policy-group (exit 0)
+[PASS] xray xray-proxy-chain (exit 0)
+[PASS] xray xray-global-dns-stat (exit 0)
+[PASS] xray xray-global-tun-fragment (exit 0)
+[PASS] singbox singbox-vless-tls (exit 0)
+[PASS] singbox singbox-vmess-ws-ed (exit 0)
+[PASS] singbox singbox-ss-obfs (exit 0)
+[PASS] singbox singbox-ss-v2ray-plugin (exit 0)
+[PASS] singbox singbox-trojan-grpc (exit 0)
+[PASS] singbox singbox-http-auth (exit 0)
+[PASS] singbox singbox-socks-auth (exit 0)
+[PASS] singbox singbox-hysteria2 (exit 0)
+[PASS] singbox singbox-tuic (exit 0)
+[PASS] singbox singbox-anytls (exit 0)
+[PASS] singbox singbox-naive (exit 0)
+[PASS] singbox singbox-wireguard (exit 0)
+[PASS] singbox singbox-httpupgrade (exit 0)
+[PASS] singbox singbox-reality-fragment (exit 0)
+[PASS] singbox singbox-policy-group (exit 0)
+[PASS] singbox singbox-proxy-chain (exit 0)
+[PASS] singbox singbox-global-dns-ruleset (exit 0)
+[PASS] singbox singbox-global-tun-fragment (exit 0)
+
+T06b matrix: 35 pass, 1 fail  -> target/t06b/matrix/results.json

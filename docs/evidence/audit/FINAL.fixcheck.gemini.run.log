@@ -1,0 +1,38 @@
+
+> build 路 gemini-3.8-flash-high
+
+鈫?Read docs/evidence/audit/FINAL.audit.muse.md [limit=120, offset=1]
+鈫?Read docs/evidence/audit/FINAL.audit.gemini.md [limit=120, offset=1]
+
+$ git status && git log -n 5 --oneline
+On branch main
+nothing to commit, working tree clean
+6e00512 chore: stop tracking armed evidence build directory
+0600a5e RC remediation: clean-HEAD rebuild (F-01), live applied journal+core.log evidence (F-02/F-03), unarmed negative test PASS (F-04); T20/ADR updated
+6091dd1 Final audit remediation: compile-time arming for smoke/bench hooks (ISSUE-08), README/RC notes, ledger+doc precision fixes (F-01/F-04/F-05/F-07/F-08/F-10 + matrix semantics)
+5c33fa5 T20 release candidate: portable package, clean-env smoke with real apply, README/NOTICE/LICENSE, platform matrix
+54fcebe T18b runtime plan wiring verified (plan 11/11, e2e 7/7 real traffic, workspace green); evidence + ledger
+
+鈫?Read dist/build-info.json
+鈫?Read dist/SHA256SUMS
+
+$ Get-FileHash dist/v2rayN-R-1.0.0+1-windows-x64.zip -Algorithm SHA256
+Algorithm       Hash                                                                   Path
+---------       ----                                                                   ----
+SHA256          8E01647B29CDE0F26AD598498A7E4360AE5941A6F2D3918E482520B4D6046EC3       C:\Users\Colby\Documents\Codex\锟斤拷
+
+鈫?Read docs/evidence/T20.md [limit=150, offset=1]
+鈫?Read docs/evidence/T20.md [limit=200, offset=250]
+鉁?Glob "*" in docs/evidence/T20.runs/rc-apply 路 13 matches
+鈫?Read docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_journal.json
+鈫?Read docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_core.log
+鈫?Read docs/evidence/T20.runs/rc-apply/negative-unarmed.json
+鈫?Read README.md [limit=60, offset=1]
+
+鈫?Write docs/evidence/audit/FINAL.fixcheck.gemini.md
+Wrote file successfully.
+
+宸插畬鎴愬彧璇诲鏍稿苟鐢熸垚绠€鎶ヨ嚦 `docs/evidence/audit/FINAL.fixcheck.gemini.md`銆?
+### 鏍搁獙鎽樿
+1. **鎶芥煡楠岃瘉**: `dist/build-info.json` 涓?`git_commit=6091dd1`銆乣git_dirty=false`锛沗dist/SHA256SUMS` 涓?`dist/v2rayN-R-1.0.0+1-windows-x64.zip` 鐨勫疄娴?SHA-256锛坄8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3`锛夊畬鍏ㄥ尮閰嶃€?2. **F-01**: **resolved**锛堣瘉鎹細`build-info.json`銆乣build_official_rc.log`銆乣T20.md 搂9.1`锛夈€?3. **F-02 / F-03**: **resolved**锛堣瘉鎹細`docs/evidence/T20.runs/rc-apply/live/` 涓?`s-1790909660878-2_journal.json`锛坄stage=applied, pid=40404`锛夈€乣s-1790909660878-2_core.log`銆乣config.json` 涓?`finalized/` 瀵圭収缁勶級銆?4. **F-04**: **resolved**锛堣瘉鎹細`negative-unarmed.json` 35s 杩愯 `core_descendant=false, port11808=false, journal=[]`锛宍negative_unarmed.log`锛夈€?5. **F-05**: **resolved**锛堣瘉鎹細`README.md:24-26`銆乣T20.md 搂9.4`锛夈€?
+鏈慨鏀逛换浣曞叾浠栧伐绋嬫枃浠躲€?

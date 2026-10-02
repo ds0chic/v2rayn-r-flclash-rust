@@ -1,0 +1,17 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running tests\xray_smoke.rs (target\debug\deps\xray_smoke-946fbbe096abfe02.exe)
+
+running 1 test
+xray pid=Some(2840) command=<repo>/crates/core_adapters/..\..\tools/cores/xray/v26.3.27/xray.exe run -c <tempdir>\xray-config.json
+Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)
+A unified platform for anti-censorship.
+2026/10/01 23:19:41.713874 [Info] infra/conf/serial: Reading config: &{Name:<tempdir>\xray-config.json Format:json}
+2026/10/01 23:19:41.715407 [Warning] core: Xray 26.3.27 started
+2026/10/01 23:19:42.214881 from tcp:127.0.0.1:18003 accepted tcp:127.0.0.1:11809 [socks >> proxy]
+2026/10/01 23:19:43.216501 from tcp:127.0.0.1:18007 accepted tcp:127.0.0.1:11809 [socks >> proxy]
+2026/10/01 23:19:44.217890 from tcp:127.0.0.1:18009 accepted tcp:127.0.0.1:11809 [socks >> proxy]
+smoke samples: [CounterSample { tag: "direct", up: 0, down: 0 }, CounterSample { tag: "proxy", up: 210, down: 13372 }]
+xray pid=Some(2840) stopped
+test real_xray_stats_smoke ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.54s

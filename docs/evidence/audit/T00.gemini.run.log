@@ -1,0 +1,655 @@
+
+> build 路 gemini-3.8-flash-high
+
+鈫?Read docs/evidence/audit/T00.audit.prompt.md
+
+$ Get-FileHash -Algorithm SHA256 (Get-Content docs\evidence\T00.sha256 | ForEach-Object { if ($_ -match '^[0-9a-fA-F]{64}\s+\*?(.*)$') { $matches[1].Trim() } }) | Format-Table -AutoSize
+Algorithm Hash                                                             Path
+--------- ----                                                             ----
+SHA256    21E575EE321CB461BC7D0D3DFEB7B4F2B5E289D3DE775B4A83F9C54E00392336 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    96AF8461F5FB76CE1736FC9A5DD455B621185535FD3EDAAD4A315C10453ED4F5 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    F1343A2292FC2A16D34683E37CD212BEF3F5DF048F91756B41521D4D70612BD0 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    A0E45225E8E37A15281FF1698E0C8D4F57BB539B190D2954C10BBBCB8AEF3AED C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    CAC18B2C49ACF8EA07A0CC43FD8EC2AE2DB963B0A858EB0A412A65FE6E8EC3BA C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    A51F34C6809BA7EA7F73376F0D47CB6CC039BF5B9D03393BCE77780646DE6068 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    471154F5232FF16B51117C44D49B4A497CAED803528B858E0B2549F337AFC2F8 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    A06294447C0D8C4F0309675B28FE4A81FFFCF0A8755AE0A03E6E5EFB98C7D59D C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    3CF5C7D50E52A2C7B0966086C5C4E13542664A44A71E4D8666E433BD6C60A195 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    4D0D983C1A1876DEE780004760BFAC5ECC6A8293B68B5F0A0252E33214BCAFAD C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    E570DEF0BA98AC3118E277AC0AED3B27FCEBD0FB9E098F4E2EF79FC05453B025 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    48D7E2B1C09F32986A8F504ACAE2F16581CE3D6F1898929AA43C45792628BBA3 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    4C6FF9EFD4E2FBFF24E3A7C007B982642A07BB34C46EB515FBDB56BDF57F5CB0 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    0C38ED180B3F35E7A71EB520630399DC51A7A784235CD5FB4D9982E284AECE9B C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    86B36D44C6DBCB07F08F4E1A9D0ABCD701A5DCD8A6957CB354A3E3D10A70DBCA C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    8BF5E140FE8CC934FEA8E4C17D583293DDA705BD583041C72A5CBF6D4462EF3B C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    0F0AB69004E59F6F046AE6C599F4DB303121587A7AC28B4DBC45B8ECF4EBBCC3 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+SHA256    ABA92B9D203F7BB63D1688F5FF01B2406828C41E8C27A69049E0694844556369 C:\Users\Colby\Documents\Codex\2026-10-01\v锟斤拷
+
+$ Get-Content docs\evidence\T00.sha256 | ForEach-Object {
+    $parts = $_ -split '\s+'
+    if ($parts.Length -ge 2) {
+        $expected = $parts[0].Trim().ToLower()
+        $file = $parts[1].Trim()
+        $actual = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLower()
+        if ($expected -eq $actual) {
+            Write-Host "MATCH: $file"
+        } else {
+            Write-Host "MISMATCH: $file expected $expected got $actual"
+        }
+    }
+}
+MATCH: compat/upstream-lock.json
+MATCH: compat/SCHEMA.md
+MATCH: compat/features.yaml
+MATCH: compat/fields.yaml
+MATCH: compat/fields.settings.yaml
+MATCH: compat/fields.entities.yaml
+MATCH: compat/actions.yaml
+MATCH: compat/layouts.yaml
+MATCH: compat/platform-matrix.md
+MATCH: docs/tasks/T01.md
+MATCH: docs/evidence/T00.md
+MATCH: docs/evidence/T00.settings-fields.md
+MATCH: docs/evidence/T00.entity-fields.md
+MATCH: docs/evidence/T00.actions.md
+MATCH: docs/evidence/T00.layouts-platforms.md
+MATCH: docs/evidence/T00.features.md
+MATCH: fixtures/source/README.md
+MATCH: fixtures/source/SHA256SUMS
+
+鈫?Read docs/evidence/T00.md
+鉁?Grep "T00" in outputs 路 14 matches
+鈫?Read outputs/EXECUTOR_PROMPT.md [limit=70, offset=65]
+
+$ python -c "
+import yaml, os
+
+def count_yaml(fpath):
+    with open(fpath, 'r', encoding='utf-8') as f:
+        return yaml.safe_load(f)
+
+fields_settings = count_yaml('compat/fields.settings.yaml')
+fields_entities = count_yaml('compat/fields.entities.yaml')
+fields = count_yaml('compat/fields.yaml')
+features = count_yaml('compat/features.yaml')
+actions = count_yaml('compat/actions.yaml')
+layouts = count_yaml('compat/layouts.yaml')
+
+print('fields.settings items:', len(fields_settings.get('items', [])))
+print('fields.entities items:', len(fields_entities.get('items', [])))
+print('fields merged items:', len(fields.get('settings', {}).get('items', [])), len(fields.get('entities', {}).get('items', [])))
+print('features categories:')
+for k, v in features.items():
+    if isinstance(v, list):
+        print(f'  {k}: {len(v)}')
+    elif isinstance(v, dict):
+        print(f'  {k}: dict with {len(v)} keys')
+
+print('actions:')
+for k, v in actions.items():
+    if isinstance(v, list):
+        print(f'  {k}: {len(v)}')
+
+print('layouts:')
+for k, v in layouts.items():
+    if isinstance(v, list):
+        print(f'  {k}: {len(v)}')
+"
+(no output)
+
+$ python -c "print('hello from python')"
+hello from python
+
+$ python -c "
+import yaml
+
+with open('compat/features.yaml', 'r', encoding='utf-8') as f:
+    d = yaml.safe_load(f)
+print('features keys:', list(d.keys()))
+for k in d:
+    if isinstance(d[k], list):
+        print(k, len(d[k]))
+"
+(no output)
+
+$ python -c "import yaml; print(yaml.__file__)"
+C:\Users\Colby\AppData\Local\Programs\Python\Python313\Lib\site-packages\yaml\__init__.py
+
+$ python -c "
+import sys, yaml
+try:
+    with open('compat/upstream-lock.json', 'r', encoding='utf-8') as f:
+        print('lock read ok')
+    with open('compat/features.yaml', 'r', encoding='utf-8') as f:
+        data = yaml.safe_load(f)
+        print('features read ok, keys:', list(data.keys()))
+except Exception as e:
+    print('err:', e, file=sys.stderr)
+"
+(no output)
+
+$ python -c "import sys; print('test', file=sys.stdout)"
+test
+
+$ python -X utf8 -c "import yaml; print(open('compat/features.yaml', encoding='utf-8').readline())"
+# features.yaml - T00 鍔熻兘鏃忎笌鍐呮牳鏀寔娣卞害鍙拌处
+
+$ python -X utf8 -c "
+import yaml
+d = yaml.safe_load(open('compat/features.yaml', encoding='utf-8'))
+print('Keys in features:', list(d.keys()))
+for k, v in d.items():
+    if isinstance(v, list):
+        print(k, len(v))
+"
+(no output)
+
+$ python -X utf8 -c "
+with open('compat/upstream-lock.json', encoding='utf-8') as f:
+    print('upstream-lock len:', len(f.read()))
+"
+(no output)
+
+$ powershell -Command "Get-Content compat\upstream-lock.json | Measure-Object -Line"
+Lines Words Characters Property
+----- ----- ---------- --------
+  106
+
+$ Get-Command python
+CommandType     Name                                               Version    Source
+-----------     ----                                               -------    ------
+Application     python.cmd                                         0.0.0.0    C:\Users\Colby\cc-switch-isolated\worksp锟斤拷
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "print('direct python')"
+direct python
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import yaml
+
+def check(fpath):
+    with open(fpath, 'r', encoding='utf-8') as f:
+        d = yaml.safe_load(f)
+    print(fpath, 'loaded successfully')
+    for k, v in d.items():
+        if isinstance(v, list):
+            print(f'  {k}: {len(v)}')
+        elif isinstance(v, dict):
+            print(f'  {k}: dict with {len(v)} keys')
+
+check('compat/features.yaml')
+check('compat/fields.settings.yaml')
+check('compat/fields.entities.yaml')
+check('compat/fields.yaml')
+check('compat/actions.yaml')
+check('compat/layouts.yaml')
+"
+compat/features.yaml loaded successfully
+  config_types: 15
+  core_capability_matrix: 15
+  fmt_formats: 17
+  features: 110
+  scheduled_and_background: 6
+  existing_tests: 14
+  enum_scan: 15
+compat/fields.settings.yaml loaded successfully
+  storage_topology: dict with 3 keys
+  coverage: 26
+  items: 180
+compat/fields.entities.yaml loaded successfully
+  storage_tables: 8
+  migration_paths: 8
+  reference_semantics: 6
+  coverage: 12
+  items: 158
+compat/fields.yaml loaded successfully
+  merged_from: 2
+  settings: dict with 3 keys
+  entities: dict with 5 keys
+compat/actions.yaml loaded successfully
+  hotkey_scope_rules: 8
+  scheduled_tasks: 7
+  items: 184
+compat/layouts.yaml loaded successfully
+  source_roots: dict with 2 keys
+  main_layouts: 3
+  window_inventory: 53
+  items: 36
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import yaml
+
+files = [
+    'compat/features.yaml',
+    'compat/fields.settings.yaml',
+    'compat/fields.entities.yaml',
+    'compat/actions.yaml',
+    'compat/layouts.yaml'
+]
+
+for fpath in files:
+    with open(fpath, 'r', encoding='utf-8') as f:
+        d = yaml.safe_load(f)
+    print('Checking', fpath)
+    # search all dicts in data
+    def walk(obj, path=''):
+        if isinstance(obj, dict):
+            if 'status' in obj and obj['status'] == 'verified':
+                print(f'  FOUND verified at {path}: id={obj.get(\"id\")}')
+            if obj.get('classification') == 'not_applicable' and not obj.get('evidence'):
+                print(f'  FOUND not_applicable without evidence at {path}: id={obj.get(\"id\")}')
+            if obj.get('default_verified') is True and not obj.get('evidence'):
+                print(f'  FOUND default_verified without evidence at {path}: id={obj.get(\"id\")}')
+            for k, v in obj.items():
+                walk(v, f'{path}.{k}')
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                walk(item, f'{path}[{i}]')
+    walk(d)
+print('Done scanning for verified/not_applicable/default_verified')
+"
+File "<string>", line 20
+    print(f'  FOUND verified at {path}: id={obj.get(\
+                                                   ^
+SyntaxError: '(' was never closed
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import yaml
+
+files = [
+    'compat/features.yaml',
+    'compat/fields.settings.yaml',
+    'compat/fields.entities.yaml',
+    'compat/actions.yaml',
+    'compat/layouts.yaml'
+]
+
+verified_count = 0
+na_no_evidence = []
+default_verified_no_evidence = []
+
+for fpath in files:
+    with open(fpath, 'r', encoding='utf-8') as f:
+        d = yaml.safe_load(f)
+    def walk(obj, path=''):
+        global verified_count
+        if isinstance(obj, dict):
+            if obj.get('status') == 'verified':
+                verified_count += 1
+                print('VERIFIED FOUND:', path, obj.get('id'))
+            if obj.get('classification') == 'not_applicable' and not obj.get('evidence'):
+                na_no_evidence.append((path, obj.get('id')))
+            if obj.get('default_verified') is True and not obj.get('evidence'):
+                default_verified_no_evidence.append((path, obj.get('id')))
+            for k, v in obj.items():
+                walk(v, f'{path}.{k}')
+        elif isinstance(obj, list):
+            for i, item in enumerate(obj):
+                walk(item, f'{path}[{i}]')
+    walk(d)
+
+print('Total verified items:', verified_count)
+print('Total NA without evidence:', len(na_no_evidence))
+print('Total default_verified without evidence:', len(default_verified_no_evidence))
+"
+Total verified items: 0
+Total NA without evidence: 0
+Total default_verified without evidence: 0
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import yaml
+
+files = [
+    'compat/features.yaml',
+    'compat/fields.settings.yaml',
+    'compat/fields.entities.yaml',
+    'compat/actions.yaml',
+    'compat/layouts.yaml'
+]
+
+statuses = set()
+classifications = set()
+
+for fpath in files:
+    with open(fpath, 'r', encoding='utf-8') as f:
+        d = yaml.safe_load(f)
+    def walk(obj):
+        if isinstance(obj, dict):
+            if 'status' in obj:
+                statuses.add(str(obj['status']))
+            if 'classification' in obj:
+                classifications.add(str(obj['classification']))
+            for v in obj.values():
+                walk(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                walk(item)
+    walk(d)
+
+print('Statuses found:', statuses)
+print('Classifications found:', classifications)
+"
+Statuses found: {'identified'}
+Classifications found: {'internal_state', 'user_setting', 'active', 'legacy_migration', 'obsolete_candidate', 'real_functional', 'real_functional_ui', 'ui_pref'}
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import yaml
+
+fs = yaml.safe_load(open('compat/fields.settings.yaml', encoding='utf-8'))
+fe = yaml.safe_load(open('compat/fields.entities.yaml', encoding='utf-8'))
+fm = yaml.safe_load(open('compat/fields.yaml', encoding='utf-8'))
+
+# check lossless merge
+assert fm['settings'] == fs, 'settings mismatch'
+assert fm['entities'] == fe, 'entities mismatch'
+print('fields.yaml is exact lossless merge of settings and entities!')
+
+# check tabs in yaml files
+files = ['compat/features.yaml', 'compat/fields.settings.yaml', 'compat/fields.entities.yaml', 'compat/fields.yaml', 'compat/actions.yaml', 'compat/layouts.yaml']
+for f in files:
+    with open(f, 'rb') as fp:
+        content = fp.read()
+        if b'\t' in content:
+            print(f'TAB FOUND in {f}')
+        else:
+            print(f'No tab in {f}')
+
+# check duplicate IDs
+for f in files:
+    with open(f, 'r', encoding='utf-8') as fp:
+        d = yaml.safe_load(fp)
+    ids = []
+    def collect_ids(obj):
+        if isinstance(obj, dict):
+            if 'id' in obj:
+                ids.append(obj['id'])
+            for v in obj.values():
+                collect_ids(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                collect_ids(v)
+    collect_ids(d)
+    duplicates = [x for x in ids if ids.count(x) > 1]
+    if duplicates:
+        print(f'Duplicate IDs in {f}: {set(duplicates)}')
+    else:
+        print(f'All {len(ids)} IDs unique in {f}')
+"
+Traceback (most recent call last):
+  File "<string>", line 9, in <module>
+    assert fm['settings'] == fs, 'settings mismatch'
+           ^^^^^^^^^^^^^^^^^^^^
+AssertionError: settings mismatch
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import yaml
+
+fs = yaml.safe_load(open('compat/fields.settings.yaml', encoding='utf-8'))
+fe = yaml.safe_load(open('compat/fields.entities.yaml', encoding='utf-8'))
+fm = yaml.safe_load(open('compat/fields.yaml', encoding='utf-8'))
+
+print('fs keys:', list(fs.keys()))
+print('fm[\"settings\"] keys:', list(fm['settings'].keys()))
+for k in fs:
+    if k not in fm['settings']:
+        print(f'Missing key {k} in fm[\"settings\"]')
+    elif fs[k] != fm['settings'][k]:
+        print(f'Value mismatch for key {k}')
+        if k == 'items':
+            print('len fs:', len(fs['items']), 'len fm:', len(fm['settings']['items']))
+            for idx, (a, b) in enumerate(zip(fs['items'], fm['settings']['items'])):
+                if a != b:
+                    print(f'Diff at item {idx}: {a.get(\"id\")} vs {b.get(\"id\")}')
+                    break
+
+for k in fm['settings']:
+    if k not in fs:
+        print(f'Extra key in fm[\"settings\"]: {k}')
+"
+File "<string>", line 9
+    print('fm[\
+          ^
+SyntaxError: unterminated string literal (detected at line 9)
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import yaml
+
+fs = yaml.safe_load(open('compat/fields.settings.yaml', encoding='utf-8'))
+fe = yaml.safe_load(open('compat/fields.entities.yaml', encoding='utf-8'))
+fm = yaml.safe_load(open('compat/fields.yaml', encoding='utf-8'))
+
+for k in fs:
+    if k not in fm['settings']:
+        print('Missing key in fm settings:', k)
+    elif fs[k] != fm['settings'][k]:
+        print('Mismatch key in fm settings:', k)
+
+for k in fe:
+    if k not in fm['entities']:
+        print('Missing key in fm entities:', k)
+    elif fe[k] != fm['entities'][k]:
+        print('Mismatch key in fm entities:', k)
+"
+Missing key in fm settings: schema_version
+Missing key in fm settings: source_commit
+Missing key in fm settings: section
+Missing key in fm entities: schema_version
+Missing key in fm entities: source_commit
+Missing key in fm entities: section
+Missing key in fm entities: source_version
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import yaml
+
+fs = yaml.safe_load(open('compat/fields.settings.yaml', encoding='utf-8'))
+fe = yaml.safe_load(open('compat/fields.entities.yaml', encoding='utf-8'))
+fm = yaml.safe_load(open('compat/fields.yaml', encoding='utf-8'))
+
+print('items match in settings:', fs['items'] == fm['settings']['items'])
+print('items match in entities:', fe['items'] == fm['entities']['items'])
+print('storage_topology match:', fs['storage_topology'] == fm['settings']['storage_topology'])
+print('storage_tables match:', fe['storage_tables'] == fm['entities']['storage_tables'])
+print('migration_paths match:', fe['migration_paths'] == fm['entities']['migration_paths'])
+print('reference_semantics match:', fe['reference_semantics'] == fm['entities']['reference_semantics'])
+print('coverage match settings:', fs['coverage'] == fm['settings']['coverage'])
+print('coverage match entities:', fe['coverage'] == fm['entities']['coverage'])
+"
+items match in settings: True
+items match in entities: True
+storage_topology match: True
+storage_tables match: True
+migration_paths match: True
+reference_semantics match: True
+coverage match settings: True
+coverage match entities: True
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import os, hashlib
+
+with open('fixtures/source/SHA256SUMS', 'r', encoding='utf-8') as f:
+    lines = f.readlines()
+
+total = 0
+matches = 0
+for line in lines:
+    line = line.strip()
+    if not line or line.startswith('#'):
+        continue
+    parts = line.split(maxsplit=1)
+    if len(parts) == 2:
+        total += 1
+        expected_hash, relpath = parts[0].lower(), parts[1].strip()
+        fpath = os.path.join('fixtures/source', relpath)
+        if os.path.exists(fpath):
+            with open(fpath, 'rb') as fp:
+                h = hashlib.sha256(fp.read()).hexdigest().lower()
+            if h == expected_hash:
+                matches += 1
+            else:
+                print('MISMATCH:', relpath, expected_hash, h)
+        else:
+            print('FILE NOT FOUND:', fpath)
+
+print(f'Fixtures checksum verified: {matches}/{total} match')
+"
+FILE NOT FOUND: fixtures/source\resx/ResUI.resx
+FILE NOT FOUND: fixtures/source\resx/ResUI.zh-Hans.resx
+FILE NOT FOUND: fixtures/source\resx/ResUI.zh-Hant.resx
+FILE NOT FOUND: fixtures/source\sample/chrome_roots_pem
+FILE NOT FOUND: fixtures/source\sample/clash_mixin_yaml
+FILE NOT FOUND: fixtures/source\sample/clash_tun_yaml
+FILE NOT FOUND: fixtures/source\sample/custom_routing_black
+FILE NOT FOUND: fixtures/source\sample/custom_routing_global
+FILE NOT FOUND: fixtures/source\sample/custom_routing_white
+FILE NOT FOUND: fixtures/source\sample/dns_singbox_normal
+FILE NOT FOUND: fixtures/source\sample/dns_v2ray_normal
+FILE NOT FOUND: fixtures/source\sample/kill_as_sudo_linux_sh
+FILE NOT FOUND: fixtures/source\sample/kill_as_sudo_osx_sh
+FILE NOT FOUND: fixtures/source\sample/linux_autostart_config
+FILE NOT FOUND: fixtures/source\sample/mozilla_roots_pem
+FILE NOT FOUND: fixtures/source\sample/pac
+FILE NOT FOUND: fixtures/source\sample/proxy_set_linux_sh
+FILE NOT FOUND: fixtures/source\sample/proxy_set_osx_sh
+FILE NOT FOUND: fixtures/source\sample/SampleClientConfig
+FILE NOT FOUND: fixtures/source\sample/SampleHttpRequest
+FILE NOT FOUND: fixtures/source\sample/SampleHttpResponse
+FILE NOT FOUND: fixtures/source\sample/SampleInbound
+FILE NOT FOUND: fixtures/source\sample/SampleOutbound
+FILE NOT FOUND: fixtures/source\sample/SampleTunInbound
+FILE NOT FOUND: fixtures/source\sample/SampleTunRules
+FILE NOT FOUND: fixtures/source\sample/singbox_fakeip_filter
+FILE NOT FOUND: fixtures/source\sample/SingboxSampleClientConfig
+FILE NOT FOUND: fixtures/source\sample/SingboxSampleOutbound
+FILE NOT FOUND: fixtures/source\sample/tun_singbox_dns
+FILE NOT FOUND: fixtures/source\sample/tun_singbox_inbound
+FILE NOT FOUND: fixtures/source\sample/tun_singbox_rules
+Fixtures checksum verified: 0/31 match
+
+$ Get-ChildItem -Recurse fixtures
+Directory: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\fixtures
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           2026/10/1     3:24                source
+
+    Directory: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\fixtures\source
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           2026/10/1     3:24                upstream
+-a---           2026/10/1     3:24           1646 README.md
+-a---           2026/10/1     3:24           2850 SHA256SUMS
+
+    Directory: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\fixtures\source\upstream
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+d----           2026/10/1     3:24                resx
+d----           2026/10/1     3:24                sample
+
+    Directory: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\fixtures\source\upstream\resx
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           2026/9/29    23:38          74814 ResUI.resx
+-a---           2026/9/29    23:38          73044 ResUI.zh-Hans.resx
+-a---           2026/9/29    23:38          73771 ResUI.zh-Hant.resx
+
+    Directory: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\fixtures\source\upstream\sample
+
+Mode                 LastWriteTime         Length Name
+----                 -------------         ------ ----
+-a---           2026/9/29    23:38         157728 chrome_roots_pem
+-a---           2026/9/29    23:38           1248 clash_mixin_yaml
+-a---           2026/9/29    23:38            114 clash_tun_yaml
+-a---           2026/9/29    23:38           2983 custom_routing_black
+-a---           2026/9/29    23:38            395 custom_routing_global
+-a---           2026/9/29    23:38           1822 custom_routing_white
+-a---           2026/9/29    23:38            459 dns_singbox_normal
+-a---           2026/9/29    23:38            460 dns_v2ray_normal
+-a---           2026/9/29    23:38           2165 kill_as_sudo_linux_sh
+-a---           2026/9/29    23:38           2198 kill_as_sudo_osx_sh
+-a---           2026/9/29    23:38            177 linux_autostart_config
+-a---           2026/9/29    23:38         181722 mozilla_roots_pem
+-a---           2026/9/29    23:38         192429 pac
+-a---           2026/9/29    23:38           5538 proxy_set_linux_sh
+-a---           2026/9/29    23:38           2351 proxy_set_osx_sh
+-a---           2026/9/29    23:38            305 SampleClientConfig
+-a---           2026/9/29    23:38            211 SampleHttpRequest
+-a---           2026/9/29    23:38            198 SampleHttpResponse
+-a---           2026/9/29    23:38            248 SampleInbound
+-a---           2026/9/29    23:38            183 SampleOutbound
+-a---           2026/9/29    23:38            544 SampleTunInbound
+-a---           2026/9/29    23:38            185 SampleTunRules
+-a---           2026/9/29    23:38           2013 singbox_fakeip_filter
+-a---           2026/9/29    23:38            171 SingboxSampleClientConfig
+-a---           2026/9/29    23:38             76 SingboxSampleOutbound
+-a---           2026/9/29    23:38            459 tun_singbox_dns
+-a---           2026/9/29    23:38            239 tun_singbox_inbound
+-a---           2026/9/29    23:38            240 tun_singbox_rules
+
+鈫?Read fixtures/source/SHA256SUMS [limit=20]
+
+$ & "C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe" -c "
+import os, hashlib
+
+with open('fixtures/source/SHA256SUMS', 'r', encoding='utf-8') as f:
+    lines = f.readlines()
+
+total = 0
+matches = 0
+for line in lines:
+    line = line.strip()
+    if not line or line.startswith('#'):
+        continue
+    parts = line.split(maxsplit=1)
+    if len(parts) == 2:
+        total += 1
+        expected_hash, relpath = parts[0].lower(), parts[1].strip()
+        fpath = os.path.join('fixtures/source/upstream', relpath)
+        if os.path.exists(fpath):
+            with open(fpath, 'rb') as fp:
+                h = hashlib.sha256(fp.read()).hexdigest().lower()
+            if h == expected_hash:
+                matches += 1
+            else:
+                print('MISMATCH:', relpath, expected_hash, h)
+        else:
+            print('FILE NOT FOUND in upstream:', fpath)
+
+print(f'Fixtures checksum with upstream/ prefix: {matches}/{total} match')
+"
+Fixtures checksum with upstream/ prefix: 31/31 match
+
+鈫?Read fixtures/source/README.md
+鈥?Sample 40 fields and verify against source Muse-1.3 Agent
+鈥?Sample 25 actions and verify against source Muse-1.3 Agent
+鈥?Sample 10 features, 5 cores, and enum check Muse-1.3 Agent
+鈥?Sample 10 layouts, check 53 xamls and omissions Muse-1.3 Agent
+鉁?Sample 10 layouts, check 53 xamls and omissions Muse-1.3 Agent
+鉁?Sample 25 actions and verify against source Muse-1.3 Agent
+鉁?Sample 10 features, 5 cores, and enum check Muse-1.3 Agent
+鉁?Sample 40 fields and verify against source Muse-1.3 Agent
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/MainWindow.xaml.cs [limit=35, offset=325]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Handler/ConfigHandler.cs [limit=30, offset=45]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ProfilesView.xaml.cs [limit=35, offset=225]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ProfilesView.xaml.cs [limit=40, offset=260]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ProfilesView.xaml.cs [limit=25, offset=190]
+鉁?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Common/Global.cs failed [limit=40, offset=355]
+Error: File not found: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\work\research-v2rayn\source-latest\2dust-v2rayN-7d6a967\v2rayN\ServiceLib\Common\Global.cs
+鉁?Glob "**/Global.cs" in work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967 路 1 match
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Global.cs [limit=40, offset=350]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Manager/CoreInfoManager.cs [limit=35, offset=220]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Manager/CoreInfoManager.cs [limit=40, offset=50]
+鉁?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Handler/AppManager.cs failed [limit=40, offset=90]
+Error: File not found: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\work\research-v2rayn\source-latest\2dust-v2rayN-7d6a967\v2rayN\ServiceLib\Handler\AppManager.cs
+鉁?Glob "**/AppManager.cs" in work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967 路 1 match
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Manager/AppManager.cs [limit=30, offset=90]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Manager/AppManager.cs [limit=50, offset=320]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Manager/AppManager.cs [limit=50, offset=370]
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Manager/HotkeyManager.cs [limit=40, offset=70]
+
+鈫?Write docs/evidence/T00.audit.gemini.md
+Wrote file successfully.
+
+宸插畬鎴愬 `docs/evidence/audit/T00.audit.prompt.md` 鎻愮ず璇嶇殑鍏ㄩ潰鎵ц涓庡鎶楁€т氦鍙夊璁°€?
+- **鍝堝笇娓呭崟楠岃瘉**锛氶鍏堥獙璇佷簡 `docs/evidence/T00.sha256`锛?8 涓氦浠樼墿锛変笌 `fixtures/source/SHA256SUMS`锛?1 涓師鐗堝す鍏凤級锛孲HA-256 鍖归厤鐜囧潎涓?**100%**銆?- **鍙瀹堝垯**锛氫粎鍐欏叆浜嗗璁℃姤鍛婃枃浠?`docs/evidence/T00.audit.gemini.md`锛屾湭淇敼浠讳綍鍙拌处銆佷唬鐮佹垨宸叉湁璇佹嵁銆?- **鎶芥牱涓庡鏍?*锛氶€氳繃涓€灞?Muse 1.3 瀛愪唬鐞嗘寜 fields / actions / features / layouts 澶氱淮搴︽娊鏍凤紝涓诲璁℃ā鍨嬩翰鑷鐓у喕缁撴簮鐮侊紙`2dust-v2rayN-7d6a967`锛夋娊鏌ュ鏍镐簡 8 椤逛互涓婂叧閿牱鏈苟瀵?9 澶ч珮椋庨櫓鍛介锛圡ainGirdHeight 瀹介珮璇箟銆両nbound 棣栭」鍥哄畾 socks銆丆trl+F 鍒嗕韩鏄犲皠銆乀UIC/AnyTLS/Naive 涓撳睘 sing-box銆乻ing-box 1.14 鐗堟湰閿併€? 涓?Obsolete 鍒椾笌 ProfileGroupItem 娓呯悊娉ㄩ噴銆乂2/V3/V4 杩佺Щ鏉′欢銆丒sc 鍙栨秷娴嬮€熶笌璁㈤槄涓嶅彲鍙栨秷銆佸叏灞€鐑敭鏃犻粯璁ら敭锛夐€愯鏍告煡纭銆?- **鏈€缁堟姤鍛?*锛氬凡鍐欏叆 `docs/evidence/T00.audit.gemini.md`锛岀粨璁轰负 **閫氳繃**锛屽苟鍒楀嚭浜?6 椤?P2 绾х粏鑺備慨姝ｄ笌鍙彁鍓嶈В闄ょ殑 unresolved 椤广€?

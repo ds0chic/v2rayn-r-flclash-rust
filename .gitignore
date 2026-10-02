@@ -47,3 +47,7 @@ dist/v2rayN-R-*/
 
 dist/evidence-armed/
 
+
+# keep evidence logs tracked (small, reviewable)
+!docs/evidence/**/*.log
+

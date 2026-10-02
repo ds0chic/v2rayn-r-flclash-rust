@@ -1,0 +1,34 @@
+
+> build 路 gemini-3.8-flash-high
+
+鈫?Read docs/evidence/audit/T09-T16.audit.prompt.md [limit=2000, offset=1]
+
+$ git status -s && git rev-parse HEAD
+?? docs/evidence/audit/T09-T16.audit.prompt.md
+29221bf67b74952c6bfc3200211e46065ecd75c2
+
+鈥?Audit host safety and sanitization (A1-A3, B6-B7) Muse-1.3 Agent
+鈥?Audit T10 core verification and T15/T16 tests (B4, B6, B7) Muse-1.3 Agent
+鈥?Audit T12a settings 180 fields and compat ledgers (B5, C9, C10) Muse-1.3 Agent
+鈥?Audit T09 wiring, Flutter fake states, engine concurrency, T17-T20 risks (B8, D11-D13) Muse-1.3 Agent
+鉁?Audit T09 wiring, Flutter fake states, engine concurrency, T17-T20 risks (B8, D11-D13) Muse-1.3 Agent
+鉁?Audit T10 core verification and T15/T16 tests (B4, B6, B7) Muse-1.3 Agent
+鉁?Audit T12a settings 180 fields and compat ledgers (B5, C9, C10) Muse-1.3 Agent
+鉁?Audit host safety and sanitization (A1-A3, B6-B7) Muse-1.3 Agent
+鈫?Read crates/application/src/engine.rs [limit=30, offset=805]
+鈫?Read crates/config_codegen/src/util.rs [limit=35, offset=250]
+鈫?Read apps/desktop/lib/features/subs/subs_controller.dart [limit=25, offset=175]
+鈫?Read apps/desktop/lib/bridge/bridge_port.dart [limit=25, offset=85]
+鈫?Read crates/bridge_api/src/api/engine.rs [limit=30, offset=925]
+鈫?Read crates/domain/src/entities.rs [limit=25, offset=345]
+鈫?Read crates/domain/src/settings.rs [limit=35, offset=1015]
+鈫?Read crates/application/src/subs.rs [limit=25, offset=370]
+鈫?Read docs/evidence/T09.md [limit=20, offset=1]
+
+鈫?Write docs/evidence/audit/T09-T16.audit.gemini.md
+Wrote file successfully.
+
+鎴戝凡缁忎弗鏍兼寜鐓?`docs/evidence/audit/T09-T16.audit.prompt.md` 鐨勮姹傚畬鎴愪簡瀵?T09鈥揟16 浜や粯鎴愭灉鐨勫鎶楁€ц繃绋嬪璁°€?
+### 鎵ц鎽樿
+1. **鍙绾︽潫**锛氶櫎鏈€缁堝啓鍏ョ殑鎶ュ憡鏂囦欢澶栵紝鏈慨鏀逛换浣曚粨搴撴枃浠讹紝鏈繍琛?`flutter build/test`锛屾湭鎵ц鍏ㄩ噺 `cargo test`銆?2. **瀛愪唬鐞嗗垎宸?*锛氶€氳繃 `task` 娲惧彂浜?4 涓瓙浠诲姟锛屽瀹夸富瀹夊叏銆佸唴鏍告牎楠屻€佸瓧娈靛瓨鍌ㄥ彴璐︿互鍙婃帴绾垮苟鍙戠瓑妯″潡杩涜浜嗗叏闈唬鐮佺骇涓庢枃妗ｇ骇妫€绱€?3. **浜茶嚜澶嶆牳**锛氶拡瀵?HEAD锛坄29221bf`锛夋簮鐮佷翰鑷牳瀹炲苟鎶芥煡浜?8 椤瑰叧閿簨瀹烇紝鍖呮嫭 10808 绔彛鎷︽埅銆丗lutter 鍙栨秷璁㈤槄閾捐矾鏂銆佽闃呮浛鎹㈡棤浜嬪姟鏀寔銆乀12a 瀛楁 null 璇箟涓㈠け銆佸叏灞€鍗曚緥娴嬭瘯绔炰簤绛夈€?4. **瀹¤鎶ュ憡杈撳嚭**锛氬畬鏁存姤鍛婂凡鍐欏叆 `docs/evidence/audit/T09-T16.audit.gemini.md`銆?
+瀹¤缁撹涓?*鏈夋潯浠堕€氳繃**锛屽叾涓噸鐐规寚鍑轰簡 2 椤?P1 绾х己闄凤紙Flutter 鍙栨秷璁㈤槄浼€犮€佽闃呮洿鏂伴潪浜嬪姟鍘熷瓙鎬э級鍜?4 椤?P2 绾ч棶棰橈紝骞剁粰鍑轰簡鏈€灏忎慨澶嶅缓璁€?

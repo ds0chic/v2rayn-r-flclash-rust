@@ -1,0 +1,445 @@
+
+> build 路 muse-spark-1.3-contributor
+
+涓ュ T00 浜や粯 鈥?鍏堣瀹¤浠诲姟骞堕獙鍐荤粨娓呭崟銆?
+鈫?Read docs/evidence/audit/T00.audit.prompt.md
+
+# Todos
+[鈥 楠岃瘉 SHA256 manifest 骞惰鍙栧璁″璞?[ ] 娲惧彂涓€灞傚瓙浠ｇ悊骞惰鎶芥牱 (fields/actions/features/layouts)
+[ ] 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇骞跺仛涓撻」鍙嶅够瑙夐獙璇?[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒?docs/evidence/T00.audit.muse.md
+
+鈫?Read docs/evidence/T00.md
+鈫?Read docs/evidence/T00.sha256
+鈫?Read compat/upstream-lock.json
+鈫?Read compat/SCHEMA.md
+
+$ cd "C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn" && Get-FileHash -Algorithm SHA256 compat/upstream-lock.json, compat/SCHEMA.md, compat/features.yaml, compat/fields.yaml, compat/fields.settings.yaml, compat/fields.entities.yaml, compat/actions.yaml, compat/layouts.yaml, compat/platform-matrix.md, docs/tasks/T01.md, docs/evidence/T00.md, docs/evidence/T00.settings-fields.md, docs/evidence/T00.entity-fields.md, docs/evidence/T00.actions.md, docs/evidence/T00.layouts-platforms.md, docs/evidence/T00.features.md, fixtures/source/README.md, fixtures/source/SHA256SUMS | Format-Table -AutoSize Path, Hash | Out-String -Width 300
+Path                                                                                                        Hash
+----                                                                                                        ----
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\upstream-lock.json              21E575EE321CB461BC7D0D3DFEB7B4F2B5E289D3DE775B4A83F9C54E00392336
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\SCHEMA.md                       96AF8461F5FB76CE1736FC9A5DD455B621185535FD3EDAAD4A315C10453ED4F5
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\features.yaml                   F1343A2292FC2A16D34683E37CD212BEF3F5DF048F91756B41521D4D70612BD0
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\fields.yaml                     A0E45225E8E37A15281FF1698E0C8D4F57BB539B190D2954C10BBBCB8AEF3AED
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\fields.settings.yaml            CAC18B2C49ACF8EA07A0CC43FD8EC2AE2DB963B0A858EB0A412A65FE6E8EC3BA
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\fields.entities.yaml            A51F34C6809BA7EA7F73376F0D47CB6CC039BF5B9D03393BCE77780646DE6068
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\actions.yaml                    471154F5232FF16B51117C44D49B4A497CAED803528B858E0B2549F337AFC2F8
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\layouts.yaml                    A06294447C0D8C4F0309675B28FE4A81FFFCF0A8755AE0A03E6E5EFB98C7D59D
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\compat\platform-matrix.md              3CF5C7D50E52A2C7B0966086C5C4E13542664A44A71E4D8666E433BD6C60A195
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\tasks\T01.md                      4D0D983C1A1876DEE780004760BFAC5ECC6A8293B68B5F0A0252E33214BCAFAD
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T00.md                   E570DEF0BA98AC3118E277AC0AED3B27FCEBD0FB9E098F4E2EF79FC05453B025
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T00.settings-fields.md   48D7E2B1C09F32986A8F504ACAE2F16581CE3D6F1898929AA43C45792628BBA3
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T00.entity-fields.md     4C6FF9EFD4E2FBFF24E3A7C007B982642A07BB34C46EB515FBDB56BDF57F5CB0
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T00.actions.md           0C38ED180B3F35E7A71EB520630399DC51A7A784235CD5FB4D9982E284AECE9B
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T00.layouts-platforms.md 86B36D44C6DBCB07F08F4E1A9D0ABCD701A5DCD8A6957CB354A3E3D10A70DBCA
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T00.features.md          8BF5E140FE8CC934FEA8E4C17D583293DDA705BD583041C72A5CBF6D4462EF3B
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\fixtures\source\README.md              0F0AB69004E59F6F046AE6C599F4DB303121587A7AC28B4DBC45B8ECF4EBBCC3
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\fixtures\source\SHA256SUMS             ABA92B9D203F7BB63D1688F5FF01B2406828C41E8C27A69049E0694844556369
+
+鍝堝笇娓呭崟 18 椤瑰叏閫氳繃 鈥?鐜板睍寮€鍏ㄩ噺鍙拌处鏍搁獙銆?
+$ python -c "
+import yaml, collections
+for f in ['compat/features.yaml','compat/fields.yaml','compat/fields.settings.yaml','compat/fields.entities.yaml','compat/actions.yaml','compat/layouts.yaml']:
+    d=yaml.safe_load(open(f,encoding='utf-8'))
+    print('===',f,' keys:',list(d.keys()) if isinstance(d,dict) else type(d))
+    import json
+    def walk(o, depth=0):
+        pass
+    if f=='compat/features.yaml':
+        print(' config_types',len(d.get('config_types',[])),' core_matrix',len(d.get('core_capability_matrix',[])),' fmt',len(d.get('fmt_formats',[])),' features',len(d.get('features',[])),' sched',len(d.get('scheduled_and_background',[])),' tests',len(d.get('existing_tests',[])),' enum_scan',len(d.get('enum_scan',[])))
+        sts=collections.Counter(x.get('status') for x in d.get('features',[]))
+        print(' features status:',dict(sts))
+    if f=='compat/fields.yaml':
+        print(' settings items',len(d['settings']['items']),' entities items',len(d['entities']['items']),' tables',len(d['entities'].get('storage_tables',[])),' migr',len(d['entities'].get('migration_paths',[])),' refsem',len(d['entities'].get('reference_semantics',[])))
+        sts=collections.Counter(x.get('status') for x in d['settings']['items']); print(' settings status:',dict(sts))
+        sts2=collections.Counter(x.get('status') for x in d['entities']['items']); print(' entities status:',dict(sts2))
+        dvf=sum(1 for x in d['settings']['items']+d['entities']['items'] if x.get('default_verified')==True)
+        dvff=sum(1 for x in d['settings']['items']+d['entities']['items'] if x.get('default_verified')==False)
+        print(' default_verified true:',dvf,' false:',dvff)
+        ver=sum(1 for x in d['settings']['items']+d['entities']['items'] if x.get('status')=='verified')
+        print(' verified:',ver)
+    if f=='compat/actions.yaml':
+        items=d.get('items',d.get('actions',[]))
+        print(' actions len',len(items))
+        print(' status:',dict(collections.Counter(x.get('status') for x in items)))
+        print(' top keys:',list(d.keys()))
+    if f=='compat/layouts.yaml':
+        print(' main_layouts',len(d.get('main_layouts',[])),' window_inventory',len(d.get('window_inventory',[])),' items',len(d.get('items',[])))
+        print(' layouts status items:',dict(collections.Counter(x.get('status') for x in d.get('items',[]))))
+    if 'fields.settings' in f:
+        print(' items',len(d.get('items',d.get('settings',{}))))
+        dd=d.get('settings',d)
+        if isinstance(dd,dict) and 'items' in dd:
+            print(' settings items',len(dd['items']))
+    if 'fields.entities' in f:
+        dd=d.get('entities',d)
+        if isinstance(dd,dict):
+            print(' entities keys:',list(dd.keys()))
+            print(' items',len(dd.get('items',[])))
+"
+
+(no output)
+
+$ python -c "import yaml; print('ok')"
+ok
+
+$ python counts.py
+C:\Users\Colby\AppData\Local\Programs\Python\Python313\python.exe: can't open file 'C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\counts.py': [Errno 2] No such file or directory
+
+$ Get-ChildItem -LiteralPath compat | Select-Object Name, Length
+Name                 Length
+----                 ------
+actions.yaml         157421
+features.yaml        146286
+fields.entities.yaml 154134
+fields.settings.yaml 216950
+fields.yaml          390319
+layouts.yaml          64352
+platform-matrix.md    12846
+SCHEMA.md              6151
+upstream-lock.json     4907
+
+$ python --version; pip show pyyaml 2>&1 | Select-Object -First 5
+Python 3.13.13
+Name: PyYAML
+Version: 6.0.3
+Summary: YAML parser and emitter for Python
+Home-page: https://pyyaml.org/
+Author: Kirill Simonov
+
+璁℃暟鑴氭湰鎹㈠崟寮曞彿鍐欐硶閲嶈瘯銆?
+$ python -c 'import yaml; d=yaml.safe_load(open(\"compat/features.yaml\",encoding=\"utf-8\")); print(list(d.keys()))'
+['schema_version', 'source_commit', 'upstream_version', 'config_types', 'core_capability_matrix', 'fmt_formats', 'features', 'scheduled_and_background', 'existing_tests', 'enum_scan']
+
+$ python -c 'import yaml; d=yaml.safe_load(open(\"compat/features.yaml\",encoding=\"utf-8\")); print(len(d[\"config_types\"]), len(d[\"core_capability_matrix\"]), len(d[\"fmt_formats\"]), len(d[\"features\"]), len(d[\"scheduled_and_background\"]), len(d[\"existing_tests\"]), len(d[\"enum_scan\"]))'
+15 15 17 110 6 14 15
+
+$ python -c 'import yaml,collections; d=yaml.safe_load(open(\"compat/fields.yaml\",encoding=\"utf-8\")); print(list(d.keys())); print(len(d[\"settings\"][\"items\"]), len(d[\"entities\"][\"items\"])); print(len(d[\"entities\"][\"storage_tables\"]), len(d[\"entities\"][\"migration_paths\"]), len(d[\"entities\"][\"reference_semantics\"])); print(collections.Counter(x.get(\"status\") for x in d[\"settings\"][\"items\"])); print(collections.Counter(x.get(\"status\") for x in d[\"entities\"][\"items\"]))'
+['schema_version', 'source_commit', 'merged_from', 'settings', 'entities']
+180 158
+8 8 6
+Counter({'identified': 180})
+Counter({'identified': 158})
+
+$ python -c 'import yaml,collections; d=yaml.safe_load(open(\"compat/actions.yaml\",encoding=\"utf-8\")); print(list(d.keys())); print(len(d[\"items\"])); print(collections.Counter(x.get(\"status\") for x in d[\"items\"]))'
+['schema_version', 'source_commit', 'hotkey_scope_rules', 'scheduled_tasks', 'items']
+184
+Counter({'identified': 184})
+
+$ python -c 'import yaml,collections; d=yaml.safe_load(open(\"compat/layouts.yaml\",encoding=\"utf-8\")); print(list(d.keys())); print(len(d[\"main_layouts\"]), len(d[\"window_inventory\"]), len(d[\"items\"])); print(collections.Counter(x.get(\"status\") for x in d[\"items\"]))'
+['schema_version', 'source_commit', 'note', 'source_roots', 'main_layouts', 'window_inventory', 'items']
+3 53 36
+Counter({'identified': 36})
+
+$ python -c 'import yaml; d=yaml.safe_load(open(\"compat/actions.yaml\",encoding=\"utf-8\")); print(len(d[\"hotkey_scope_rules\"]), len(d[\"scheduled_tasks\"]))'
+8 7
+
+璁℃暟涓庤嚜杩颁竴鑷?鈥?鐜伴€氳鏂规鍘熶欢涓庡垎鍐岃瘉鎹€?
+鈫?Read outputs/EXECUTOR_PROMPT.md
+鈫?Read compat/platform-matrix.md
+鈫?Read docs/tasks/T01.md
+鈫?Read fixtures/source/SHA256SUMS
+鈫?Read fixtures/source/README.md
+
+$ python -c 'import re; t=open(\"outputs/V2RAYN_FLUTTER_RUST_PLAN.md\",encoding=\"utf-8\").read(); print(len(t.splitlines())); idx=[i for i,l in enumerate(t.splitlines(),1) if \"T00\" in l][:30]; print(idx)'
+547
+[29, 380, 447, 448, 471, 495, 543]
+
+鈫?Read outputs/V2RAYN_FLUTTER_RUST_PLAN.md [limit=80, offset=370]
+
+$ python -c 'import yaml; d=yaml.safe_load(open(\"compat/fields.settings.yaml\",encoding=\"utf-8\")); print(list(d.keys()))'
+['schema_version', 'source_commit', 'section', 'storage_topology', 'coverage', 'items']
+
+# Todos
+[鉁揮 楠岃瘉 SHA256 manifest 骞惰鍙栧璁″璞?[鈥 娲惧彂涓€灞傚瓙浠ｇ悊骞惰鎶芥牱 (fields/actions/features/layouts)
+[ ] 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇骞跺仛涓撻」鍙嶅够瑙夐獙璇?[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒?docs/evidence/T00.audit.muse.md
+
+宸叉淳鍥涚粍瀛愪唬鐞嗗苟琛屾娊鏍?鈥?绛夊緟鍥炰紶鍚庝翰鑷鏍搞€?
+鈥?fields鎶芥牱瀹¤ Muse-1.3 Agent
+鈥?actions鎶芥牱瀹¤ Muse-1.3 Agent
+鈥?features甯冨眬鎶芥牱瀹¤ Muse-1.3 Agent
+鈥?鏍煎紡瀹屾暣鎬у璁?[90m Muse-1.3 Agent
+鉁?actions鎶芥牱瀹¤ Muse-1.3 Agent
+鉁?features甯冨眬鎶芥牱瀹¤ Muse-1.3 Agent
+鉁?鏍煎紡瀹屾暣鎬у璁?[90m Muse-1.3 Agent
+鉁?fields鎶芥牱瀹¤ Muse-1.3 Agent
+
+# Todos
+[鉁揮 楠岃瘉 SHA256 manifest 骞惰鍙栧璁″璞?[鉁揮 娲惧彂涓€灞傚瓙浠ｇ悊骞惰鎶芥牱 (fields/actions/features/layouts)
+[鈥 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇骞跺仛涓撻」鍙嶅够瑙夐獙璇?[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒?docs/evidence/T00.audit.muse.md
+
+瀛愪唬鐞嗙粨璁哄凡鍥炰紶 鈥?鐜颁翰鑷娊鏌?10 椤瑰叧閿彂鐜般€?
+$ rg -n "SpeedTestPageSize" "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Models/Configs/ConfigItems.cs"; rg -n "SpeedTestPageSize" "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib" | Select-Object -First 10
+rg: The term 'rg' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+rg: The term 'rg' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Models/Configs/ConfigItems.cs" -Pattern "SpeedTestPageSize|Stack|Mtu" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        44     public int Mtu { get; set; }
+       146     public string Stack { get; set; }
+       147     public int Mtu { get; set; }
+       165     public int? SpeedTestPageSize { get; set; }
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Global.cs" -Pattern "SpeedTestPageSize|TunStacks" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Services/SpeedtestService.cs" -Pattern "SpeedTestPageSize" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxInboundService.cs" -Pattern "Stack" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        94     public const int SpeedTestPageSize = 1000;
+       585     public static readonly List<string> TunStacks =
+
+
+
+LineNumber Line
+---------- ----
+        12     private readonly int _speedTestPageSize = config.SpeedTestItem.SpeedTestPageSize ?? Global.SpeedTestPageSize;
+       204         var pageSize = Math.Min(selecteds.Count, _speedTestPageSize);
+       246             pageSize = Math.Min(lstSelected.Count, _speedTestPageSize);
+       345             pageSize = Math.Min(lstSelected.Count, _speedTestPageSize);
+
+
+
+LineNumber Line
+---------- ----
+        60                 if (_config.TunModeItem.Stack.IsNullOrEmpty())
+        62                     _config.TunModeItem.Stack = Global.TunStacks.First();
+        70                 tunInbound.stack = _config.TunModeItem.Stack;
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/App.xaml.cs" -Pattern "EventWaitHandle|Mutex|Single" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN.Desktop/Program.cs" -Pattern "EventWaitHandle|Mutex|v2rayN" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+Select-String: Cannot find path 'C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\work\research-v2rayn\source-latest\2dust-v2rayN-7d6a967\v2rayN\App.xaml.cs' because it does not exist.
+Select-String: Cannot find path 'C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\work\research-v2rayn\source-latest\2dust-v2rayN-7d6a967\v2rayN.Desktop\Program.cs' because it does not exist.
+
+$ Get-ChildItem -LiteralPath "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967" | Select-Object Name; Get-ChildItem -LiteralPath "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN" -Filter "App*" | Select-Object FullName
+Name
+----
+.github
+v2rayN
+.editorconfig
+.gitattributes
+.gitignore
+.gitmodules
+global.json
+LICENSE
+package-debian-loong.sh
+package-debian-riscv.sh
+package-debian.sh
+package-osx.sh
+package-rhel-loong.sh
+package-rhel-riscv.sh
+package-rhel.sh
+README.md
+
+$ Get-ChildItem -LiteralPath "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN" | Select-Object Name
+Name
+----
+AmazTool
+GlobalHotKeys
+ServiceLib
+ServiceLib.Tests
+ServiceLib.UdpTest
+v2rayN
+v2rayN.Desktop
+Directory.Build.props
+Directory.Packages.props
+v2rayN.sln
+v2rayN.slnx
+
+璺緞鍓嶇紑淇鍚庣户缁牳楠屽崟瀹炰緥涓庢墭鐩樼瓑鏂█銆?
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/App.xaml.cs" -Pattern "EventWaitHandle|Mutex" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN.Desktop/Program.cs" -Pattern "EventWaitHandle|Mutex" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        11     public static EventWaitHandle ProgramStarted;
+        29         ProgramStarted = new EventWaitHandle(false, EventResetMode.AutoReset, exePathKey, out var bCreatedNew);
+
+
+
+LineNumber Line
+---------- ----
+         8     public static EventWaitHandle ProgramStarted;
+        32             ProgramStarted = new EventWaitHandle(false, EventResetMode.AutoReset, exePathKey, out var bCreatedNew);
+        41             _ = new Mutex(true, "v2rayN", out var bOnlyOneInstance);
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/MsgViewModel.cs" -Pattern "MsgFilter|AutoRefresh|NumMaxMsg|ClearMsg|DoMsgFilter" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+         8     private volatile bool _lastMsgFilterNotAvailable;
+         9     public int NumMaxMsg => 500;
+        12     public partial string MsgFilter { get; set; }
+        15     public partial bool AutoRefresh { get; set; }
+        20         MsgFilter = _config.MsgUIItem.MainMsgFilter ?? string.Empty;
+        21         AutoRefresh = _config.MsgUIItem.AutoRefresh ?? true;
+        24                 x => x.MsgFilter)
+        25             .Subscribe(c => DoMsgFilter());
+        27         this.WhenAnyValue(x => x.AutoRefresh)
+        28             .Subscribe(_ => _config.MsgUIItem.AutoRefresh = AutoRefresh);
+        37                 .Where(_ => AutoRefresh && AppManager.Instance.ShowInTaskbar)
+        46         if (!AutoRefresh || _queueMsg.IsEmpty)
+        76         if (MsgFilter.IsNotEmpty() && !_lastMsgFilterNotAvailable)
+        80                 if (!Utils.IsRegexMatch(msg, MsgFilter))
+        88                 _lastMsgFilterNotAvailable = true;
+       103         while (_queueMsg.Count > NumMaxMsg)
+       109     //public void ClearMsg()
+       114     private void DoMsgFilter()
+       116         _config.MsgUIItem.MainMsgFilter = MsgFilter;
+       117         _lastMsgFilterNotAvailable = false;
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml.cs" -Pattern "DoubleClick|RoutingAdvancedEdit|LstRoutings" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/StatusBarView.xaml.cs" -Pattern "PreviewMouseDown|DoubleClick|TestServerAvailability" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        12         lstRules.MouseDoubleClick += LstRules_MouseDoubleClick;
+       141     private void LstRules_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+
+
+
+LineNumber Line
+---------- ----
+        15         txtRunningServerDisplay.PreviewMouseDown += txtRunningInfoDisplay_MouseDoubleClick;
+        16         txtRunningInfoDisplay.PreviewMouseDown += txtRunningInfoDisplay_MouseDoubleClick;
+        94     private void txtRunningInfoDisplay_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        96         ViewModel?.TestServerAvailability();
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml.cs" -Pattern "Enter|KeyDown|SetDefault|DefaultRouting" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        10         PreviewKeyDown += RoutingRuleSettingWindow_PreviewKeyDown;
+        87     private void RoutingRuleSettingWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        94         if (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))
+
+鈫?Read work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml.cs [limit=70, offset=85]
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/RoutingSettingWindow.xaml.cs" -Pattern "DoubleClick|Enter|Default|AdvancedEdit" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Manager/CoreInfoManager.cs" -Pattern "LockedMaxVersion|SemanticVersion" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        12         lstRoutings.MouseDoubleClick += LstRoutings_MouseDoubleClick;
+        29             this.BindCommand(ViewModel, vm => vm.RoutingAdvancedSetDefaultCmd, v => v.menuRoutingAdvancedSetDefault).DisposeWith(disposables);
+        67                 case Key.Enter:
+        69                     ViewModel?.RoutingAdvancedSetDefault();
+        93     private void LstRoutings_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        95         ViewModel?.RoutingAdvancedEditAsync(false);
+
+
+
+LineNumber Line
+---------- ----
+       232                     LockedMaxVersion = new SemanticVersion(1, 14, int.MaxValue),
+
+宸茬‘璁?6 椤?鈥?缁х画鏍搁獙鍓╀綑楂橀闄╁０鏄庝笌鏍煎紡杩濊銆?
+$ python -c 'import yaml; d=yaml.safe_load(open(\"compat/layouts.yaml\",encoding=\"utf-8\")); inv=d[\"window_inventory\"]; print(len(inv)); print(inv[0].keys()); print(sum(1 for x in inv if \"status\" not in x or x.get(\"status\") is None))'
+53
+dict_keys(['id', 'name', 'kind', 'platform', 'file', 'is_dialog', 'evidence'])
+53
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ProfilesView.xaml.cs" -Pattern "Key.F|ShareServer|Key.Enter|SetDefaultServer|DoubleClick2Activate" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Handler/ConfigHandler.cs" -Pattern "GlobalHotkeys|First\(\).Protocol|MainGirdHeight" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        54             this.BindCommand(ViewModel, vm => vm.SetDefaultServerCmd, v => v.menuSetDefaultServer).DisposeWith(disposables);
+        55             this.BindCommand(ViewModel, vm => vm.ShareServerCmd, v => v.menuShareServer).DisposeWith(disposables);
+       123             ViewModel.ShareServerInteraction.RegisterHandler(async interaction =>
+       131                 await ShareServer(url);
+       159     public async Task ShareServer(string url)
+       194         if (_config.UiItem.DoubleClick2Activate)
+       196             ViewModel?.SetDefaultServer();
+       238                 case Key.F:
+       239                     ViewModel?.ShareServerAsync();
+       263                 case Key.Enter:
+       265                     ViewModel?.SetDefaultServer();
+       318         if (e.Key is Key.Enter or Key.Return)
+
+
+
+LineNumber Line
+---------- ----
+        62                 config.Inbound.First().Protocol = nameof(EInboundProtocol.socks);
+       189         config.GlobalHotkeys ??= [];
+      2989     public static int SaveMainGirdHeight(Config config, double height1, double height2)
+      2993         uiItem.MainGirdHeight1 = (int)(height1 + 0.1);
+      2994         uiItem.MainGirdHeight2 = (int)(height2 + 0.1);
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/MainWindow.xaml.cs" -Pattern "MainGirdHeight|GridLength|Star|ActualWidth|ActualHeight" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Handler/AppManager.cs" -Pattern "ConfigVersion<3|ConfigVersion==3|ConfigVersion = 3|ConfigVersion = 4|MigrateProfile|ClearAll|ProfileGroupItem" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        21         ThreadPool.RegisterWaitForSingleObject(App.ProgramStarted, OnProgramStarted, null, -1, false);
+       146         if (_config.UiItem.AutoHideStartup)
+       162     private void OnProgramStarted(object state, bool timeout)
+       248         ProcUtils.ProcessStart($"{Utils.Base64Decode(Global.PromotionUrl)}?t={DateTime.Now.Ticks}");
+       253         ProcUtils.ProcessStart(Utils.GetBinPath("EnableLoopback.exe"));
+       321         if (_config.UiItem.AutoHideStartup)
+       330         if (_config.UiItem.MainGirdHeight1 > 0 && _config.UiItem.MainGirdHeight2 > 0)
+       334                 gridMain.ColumnDefinitions[0].Width = new GridLength(_config.UiItem.MainGirdHeight1, GridUnitType.Star);
+       335                 gridMain.ColumnDefinitions[2].Width = new GridLength(_config.UiItem.MainGirdHeight2, GridUnitType.Star);
+       339                 gridMain1.RowDefinitions[0].Height = new GridLength(_config.UiItem.MainGirdHeight1, GridUnitType.Star);
+       340                 gridMain1.RowDefinitions[2].Height = new GridLength(_config.UiItem.MainGirdHeight2, GridUnitType.Star);
+       351             ConfigHandler.SaveMainGirdHeight(_config, gridMain.ColumnDefinitions[0].ActualWidth, gridMain.ColumnDefinitions[2].ActualWidth);
+       355             ConfigHandler.SaveMainGirdHeight(_config, gridMain1.RowDefinitions[0].ActualHeight, gridMain1.RowDefinitions[2].ActualHeight);
+       452             ProcUtils.ProcessStart(item.Tag.ToString());
+
+
+Select-String: Cannot find path 'C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\work\research-v2rayn\source-latest\2dust-v2rayN-7d6a967\v2rayN\ServiceLib\Handler\AppManager.cs' because it does not exist.
+
+$ Get-ChildItem -LiteralPath "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Handler" | Select-Object Name; Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Models/Entities/ProfileItem.cs" -Pattern "Obsolete" | Measure-Object | Select-Object Count
+Name
+----
+Builder
+Fmt
+SysProxy
+AutoStartupHandler.cs
+ConfigHandler.cs
+ConnectionHandler.cs
+CoreConfigHandler.cs
+SubscriptionHandler.cs
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Models/Entities/ProfileItem.cs" -Pattern "Obsolete" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300; Get-ChildItem -Recurse -LiteralPath "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib" -Filter "AppManager.cs" | Select-Object FullName
+LineNumber Line
+---------- ----
+       173     [Obsolete("Use TransportExtra.RawHeaderType/XhttpMode/GrpcMode/KcpHeaderType instead.")]
+       176     [Obsolete("Use TransportExtra.Host/GrpcAuthority instead.")]
+       179     [Obsolete("Use TransportExtra.Path/GrpcServiceName/KcpSeed instead.")]
+       192     [Obsolete("Use TransportExtra.XhttpExtra instead.")]
+       205     [Obsolete("Use ProtocolExtraItem.Ports instead.")]
+       208     [Obsolete("Use ProtocolExtraItem.AlterId instead.")]
+       211     [Obsolete("Use ProtocolExtraItem.Flow instead.")]
+       214     [Obsolete("Use ProfileItem.Password instead.")]
+       217     [Obsolete("Use ProtocolExtraItem.xxx instead.")]
+
+
+
+FullName
+--------
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\work\research-v2rayn\source-latest\2dust-v2rayN-7锟斤拷
+
+$ Get-ChildItem -Recurse -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib" -Filter "App*.cs" | Select-Object Name, Directory | Format-Table -AutoSize | Out-String -Width 300
+Name          Directory
+----          ---------
+AppEvents.cs  C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\work\research-v2rayn\source-latest\2dust-v2rayN-7d6a967\v2rayN\ServiceLib\Events
+AppManager.cs C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\work\research-v2rayn\source-latest\2dust-v2rayN-7d6a967\v2rayN\ServiceLib\Manager
+
+$ Select-String -Path "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Manager/AppManager.cs" -Pattern "ConfigVersion|ClearAll|ProfileGroup" | Select-Object LineNumber, Line | Format-Table -AutoSize | Out-String -Width 300
+LineNumber Line
+---------- ----
+        93         SQLiteHelper.Instance.CreateTable<ProfileGroupItem>();
+       345                 $"WHERE ConfigVersion < 3 " +
+       357             // Successfully updated items are automatically excluded from future queries due to ConfigVersion = 3
+       361         //await ProfileGroupItemManager.Instance.ClearAll();
+       371             var sql = $"SELECT * FROM ProfileItem WHERE ConfigVersion = 3 LIMIT {pageSize} OFFSET {offset}";
+       448                     item.ConfigVersion = 4;
+       546                 item.ConfigVersion = 3;
+       577         var list = await SQLiteHelper.Instance.TableAsync<ProfileGroupItem>().ToListAsync();
+       578         var groupItems = new ConcurrentDictionary<string, ProfileGroupItem>(list.Where(t => !string.IsNullOrEmpty(t.IndexId)).ToDictionary(t => t.IndexId!));
+       580         var sql = $"SELECT * FROM ProfileItem WHERE ConfigVersion < 3 AND ConfigType IN ({(int)EConfigType.PolicyGroup}, {(int)EConfigType.ProxyChain})";
+       614                 item.ConfigVersion = 3;
+       640         //await ProfileGroupItemManager.Instance.ClearAll();
+
+10 椤逛翰鑷娊鏌ュ叏閮ㄥ畬鎴?鈥?鐜版挵鍐欐寮忓璁℃姤鍛娿€?
+# Todos
+[鉁揮 楠岃瘉 SHA256 manifest 骞惰鍙栧璁″璞?[鉁揮 娲惧彂涓€灞傚瓙浠ｇ悊骞惰鎶芥牱 (fields/actions/features/layouts)
+[鉁揮 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇骞跺仛涓撻」鍙嶅够瑙夐獙璇?[鈥 鎾板啓涓枃瀹¤鎶ュ憡鍒?docs/evidence/T00.audit.muse.md
+
+鈫?Write docs/evidence/T00.audit.muse.md
+Wrote file successfully.
+
+# Todos
+[鉁揮 楠岃瘉 SHA256 manifest 骞惰鍙栧璁″璞?[鉁揮 娲惧彂涓€灞傚瓙浠ｇ悊骞惰鎶芥牱 (fields/actions/features/layouts)
+[鉁揮 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇骞跺仛涓撻」鍙嶅够瑙夐獙璇?[鉁揮 鎾板啓涓枃瀹¤鎶ュ憡鍒?docs/evidence/T00.audit.muse.md
+
+瀹¤瀹屾垚锛屾姤鍛婂凡鍐欏叆 `docs/evidence/T00.audit.muse.md`銆?
+- 鍝堝笇娓呭崟锛?8/18 閫氳繃锛屾棤涓嶅尮閰嶏紱fixtures 鎶芥煡 5/5 閫氳繃銆?- 骞惰鎶芥牱锛? 缁勪竴灞傚瓙浠ｇ悊锛屽叡 105 鏍锋湰锛坒ields 40+11銆乤ctions 25銆乫eatures/layouts 20銆佹牸寮忓鏍?9锛夛紱鏈汉浜茶嚜鎶芥煡 10 椤瑰叏閮ㄥ鍐荤粨婧愮爜澶嶆牳銆?- 楂橀闄╁０鏄庯紙Ctrl+F=鍒嗕韩銆丒nter=婵€娲汇€佸弻鍑诲紑鍏炽€佽闃呮棤 token銆丒sc 鍏ㄥ彇娑堛€佹棤榛樿鐑敭銆丼tar 璇箟銆乻ocks 棣栭」銆?.14 涓婇檺銆?脳Obsolete銆乂2鈫扸4銆丳rofileGroupItem锛夊叏閮ㄦ垚绔嬶紱Enums/VM/53 xaml 鏃犳暣绫婚仐婕忋€?- 鎬讳綋缁撹锛?*鏈夋潯浠堕€氳繃**銆傚繀鏀癸細A01 layouts inventory 53 鏉＄己 `status`锛圥0锛夈€丄02 Stack/SpeedTestPageSize 杩愯鏃跺洖閫€鍐掑厖榛樿锛圥0锛夛紱寮哄缓璁細A03 `default_verified:true` 娉涙互闄嶇骇銆丄04 涓ゅ鍔ㄤ綔鎺緸锛汚05鈥揂07 闈為樆鏂€傛湭鏀逛换浣?ledger锛屼繚鎸佸彧璇汇€?

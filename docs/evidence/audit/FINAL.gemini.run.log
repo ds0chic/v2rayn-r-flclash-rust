@@ -1,0 +1,313 @@
+
+> build 路 gemini-3.8-flash-high
+
+鈫?Read docs/evidence/audit/FINAL.audit.prompt.md
+
+$ git rev-parse HEAD && git status --short
+5c33fa5f08bc063e938c0c339d2a96bf01662313
+?? docs/evidence/audit/FINAL.audit.prompt.md
+
+鉁?Glob "*" in dist 路 28 matches
+鈫?Read dist/SHA256SUMS
+鈫?Read dist/build-info.json
+
+$ Get-FileHash -Path "dist\v2rayN-R-1.0.0+1-windows-x64.zip" -Algorithm SHA256 | Select-Object -ExpandProperty Hash
+4853F06D66791ADD9C68234C91FF5CA3C4AC9DC5CC6E97E2A159FFDC5A208255
+
+$ python -c "
+import zipfile
+with zipfile.ZipFile('dist/v2rayN-R-1.0.0+1-windows-x64.zip', 'r') as z:
+    for name in sorted(z.namelist()):
+        print(name)
+"
+(no output)
+
+$ powershell -Command "[System.IO.Compression.ZipFile]::OpenRead('dist/v2rayN-R-1.0.0+1-windows-x64.zip').Entries | ForEach-Object { $_.FullName }"
+鎵句笉鍒扮被鍨?[System.IO.Compression.ZipFile]銆?
+鎵€鍦ㄤ綅缃?琛?1 瀛楃: 1
++ [System.IO.Compression.ZipFile]::OpenRead('dist/v2rayN-R-1.0.0+1-wind ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (System.IO.Compression.ZipFile:TypeName) []锛孯untimeException
+    + FullyQualifiedErrorId : TypeNotFound
+
+$ Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::OpenRead('dist/v2rayN-R-1.0.0+1-windows-x64.zip').Entries | ForEach-Object { $_.FullName }
+v2rayN-R-1.0.0+1-windows-x64/bridge_api.dll
+v2rayN-R-1.0.0+1-windows-x64/build-info.json
+v2rayN-R-1.0.0+1-windows-x64/CORE-NOTES.txt
+v2rayN-R-1.0.0+1-windows-x64/flutter_windows.dll
+v2rayN-R-1.0.0+1-windows-x64/hotkey_manager_windows_plugin.dll
+v2rayN-R-1.0.0+1-windows-x64/LICENSE
+v2rayN-R-1.0.0+1-windows-x64/native_assets.json
+v2rayN-R-1.0.0+1-windows-x64/net_host.exe
+v2rayN-R-1.0.0+1-windows-x64/NOTICE.md
+v2rayN-R-1.0.0+1-windows-x64/privileged_helper.exe
+v2rayN-R-1.0.0+1-windows-x64/README.md
+v2rayN-R-1.0.0+1-windows-x64/screen_retriever_windows_plugin.dll
+v2rayN-R-1.0.0+1-windows-x64/system_tray_plugin.dll
+v2rayN-R-1.0.0+1-windows-x64/v2rayn_desktop.exe
+v2rayN-R-1.0.0+1-windows-x64/window_manager_plugin.dll
+v2rayN-R-1.0.0+1-windows-x64/data/app.so
+v2rayN-R-1.0.0+1-windows-x64/data/icudtl.dat
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/packages/
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/AssetManifest.bin
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/FontManifest.json
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/NativeAssetsManifest.json
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/NOTICES.Z
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/fonts/MaterialIcons-Regular.otf
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/packages/cupertino_icons/
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/shaders/ink_sparkle.frag
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/shaders/stretch_effect.frag
+
+鈫?Read dist/v2rayN-R-1.0.0+1-windows-x64/CORE-NOTES.txt
+鈫?Read dist/v2rayN-R-1.0.0+1-windows-x64/NOTICE.md
+鈫?Read dist/v2rayN-R-1.0.0+1-windows-x64/README.md
+鉁?Glob "*" in docs/evidence/audit 路 17 matches
+鈫?Read apps/desktop/lib/main.dart [limit=150, offset=1]
+鈫?Read crates/bridge_api/src/api/engine.rs [limit=150, offset=1]
+鉁?Grep "apply" in crates/bridge_api/src/api/engine.rs 路 28 matches
+鈫?Read crates/bridge_api/src/api/engine.rs [limit=100, offset=675]
+鈫?Read apps/desktop/lib/app/app.dart [limit=100, offset=1]
+鈫?Read apps/desktop/lib/app/app.dart [limit=40, offset=95]
+鉁?Grep "ISSUE-08" in docs/evidence 路 5 matches
+鈫?Read docs/evidence/T20.md [limit=120, offset=200]
+
+$ git log -n 5 --oneline
+5c33fa5 T20 release candidate: portable package, clean-env smoke with real apply, README/NOTICE/LICENSE, platform matrix
+54fcebe T18b runtime plan wiring verified (plan 11/11, e2e 7/7 real traffic, workspace green); evidence + ledger
+b16e2ff T18 perf/stability measurements + T12b 30-field chain audit; fixes F01 settings rollback, F02 process identity; found F03 runtime plan not wired
+42b0f6b T17 visual tokens + interaction polish + honest menu entries (preserved_only), screenshots
+204265a T14 TUN runtime + privileged helper lease (muse temp; 973 tests; dry-run evidence)
+
+鉁?Glob "*" in docs/evidence/T20.screenshots 路 8 matches
+鈫?Read docs/evidence/T20.screenshots/T20-applied-artifacts/s-1790907963960-2_journal.json
+鈫?Read docs/evidence/T20.screenshots/T20-smoke-summary.json
+鈫?Read docs/evidence/T20.screenshots/T20-smoke-log.txt [limit=100, offset=1]
+鈫?Read docs/evidence/T20.md [limit=150, offset=50]
+鉁?Glob "*" in docs/evidence/T20.runs 路 10 matches
+鈫?Read docs/evidence/T20.runs/apply_evidence.log
+鈫?Read tools/release/capture_apply_evidence.ps1
+鉁?Grep "stage.*finalized" in crates 路 0 matches
+鉁?Grep "finalized" in crates 路 0 matches
+鉁?Grep "finalized" in services 路 7 matches
+鈫?Read services/net_host/src/session.rs [limit=80, offset=340]
+鉁?Grep "stage" in services/net_host/src 路 58 matches
+鈫?Read services/net_host/src/session.rs [limit=50, offset=765]
+鈫?Read services/net_host/src/session.rs [limit=50, offset=920]
+鈫?Read tools/release/capture_apply_evidence.ps1 [limit=40, offset=105]
+鈥?Spot check ledgers, security and compliance Explore Agent
+鉁?Spot check ledgers, security and compliance Explore Agent
+鈫?Read docs/evidence/T20.screenshots/T20-applied-artifacts/s-1790907963960-2_config.json [limit=80, offset=1]
+
+$ git show 5c33fa5 --stat
+commit 5c33fa5f08bc063e938c0c339d2a96bf01662313
+Author: v2rayn-r builder <builder@v2rayn-r.local>
+Date:   Fri Oct 2 10:31:28 2026 +0800
+
+    T20 release candidate: portable package, clean-env smoke with real apply, README/NOTICE/LICENSE, platform matrix
+
+ .gitignore                                         |   12 +
+ LICENSE                                            |  674 +++++++++
+ NOTICE.md                                          |   57 +
+ README.md                                          |  195 +++
+ apps/desktop/lib/app/app.dart                      |   26 +-
+ apps/desktop/lib/main.dart                         |   15 +
+ compat/platform-matrix.md                          |   46 +-
+ crates/bridge_api/examples/t18b_seed.rs            |   12 +-
+ crates/bridge_api/src/api/engine.rs                |    2 +-
+ dist/SHA256SUMS                                    |    1 +
+ dist/build-info.json                               |   24 +
+ docs/decisions/T20-packaging-and-smoke.md          |   58 +
+ docs/evidence/T20.md                               |  295 ++++
+ docs/evidence/T20.runs/apply_evidence.log          |    4 +
+ docs/evidence/T20.runs/build_windows_first.log     |   24 +
+ docs/evidence/T20.runs/build_windows_rebuild.log   |   22 +
+ docs/evidence/T20.runs/cargo_build_release.log     |  207 +++
+ docs/evidence/T20.runs/cargo_clippy.log            |    3 +
+ docs/evidence/T20.runs/cargo_test.log              | 1524 ++++++++++++++++++++
+ docs/evidence/T20.runs/flutter_analyze.log         |   14 +
+ docs/evidence/T20.runs/flutter_test.log            | 1425 ++++++++++++++++++
+ docs/evidence/T20.runs/smoke_first.log             |   44 +
+ docs/evidence/T20.runs/smoke_second.log            |   24 +
+ .../s-1790907963960-2_config.json                  |    1 +
+ .../s-1790907963960-2_journal.json                 |   11 +
+ .../T20.screenshots/T20-smoke-applied-running.png  |  Bin 0 -> 74569 bytes
+ .../T20.screenshots/T20-smoke-backup-window.png    |  Bin 0 -> 87952 bytes
+ docs/evidence/T20.screenshots/T20-smoke-log.txt    |   20 +
+ .../T20.screenshots/T20-smoke-seed-apply.png       |  Bin 0 -> 90088 bytes
+ .../T20.screenshots/T20-smoke-summary.json         |   84 ++
+ .../T20.screenshots/T20-smoke-update-window.png    |  Bin 0 -> 81167 bytes
+ tools/release/README-platforms.md                  |   80 +
+ tools/release/build_windows.ps1                    |  197 +++
+ tools/release/capture_apply_evidence.ps1           |  122 ++
+ tools/release/smoke_windows.ps1                    |  341 +++++
+ 35 files changed, 5543 insertions(+), 21 deletions(-)
+
+$ git diff 5c33fa5..HEAD
+(no output)
+
+鈫?Read docs/decisions/T20-packaging-and-smoke.md
+鈫?Read tools/release/smoke_windows.ps1 [limit=60, offset=1]
+鉁?Grep "V2RAYN_R_" in apps/desktop/lib 路 30 matches
+鈫?Read crates/bridge_api/examples/t18b_seed.rs [limit=50, offset=1]
+
+$ git log -n 1 --stat 54fcebea0af4792556e393a7fb69020624bdf492
+commit 54fcebea0af4792556e393a7fb69020624bdf492
+Author: v2rayn-r builder <builder@v2rayn-r.local>
+Date:   Fri Oct 2 10:00:45 2026 +0800
+
+    T18b runtime plan wiring verified (plan 11/11, e2e 7/7 real traffic, workspace green); evidence + ledger
+
+ apps/desktop/lib/app/app.dart                      |    4 +-
+ apps/desktop/lib/app/shell/main_shell.dart         |   20 +-
+ apps/desktop/lib/app/shell/status_bar_view.dart    |    4 +-
+ apps/desktop/lib/bridge/api/engine.dart            |   11 +-
+ .../lib/features/routing/dns_controller.dart       |    4 +-
+ apps/desktop/lib/features/routing/dns_window.dart  |    9 +
+ .../lib/features/routing/routing_controller.dart   |    8 +-
+ .../lib/features/routing/routing_windows.dart      |    9 +
+ .../lib/features/runtime/runtime_bridge.dart       |   19 +-
+ .../lib/features/runtime/runtime_controller.dart   |    7 +-
+ .../features/settings/option_setting_window.dart   |   19 +
+ apps/desktop/test/runtime_controller_test.dart     |    2 +-
+ .../test/support/synthetic_runtime_bridge.dart     |    2 +-
+ apps/desktop/test/t18b_runtime_ui_test.dart        |  143 ++
+ compat/features.yaml                               |   18 +-
+ crates/application/src/codegen.rs                  |   20 +
+ crates/application/src/engine.rs                   |  267 +++-
+ crates/application/src/lib.rs                      |    2 +-
+ crates/application/tests/t18_stability.rs          |    5 +-
+ crates/application/tests/t18b_runtime_e2e.rs       |  647 +++++++++
+ crates/application/tests/t18b_runtime_plan.rs      |  415 ++++++
+ crates/bridge_api/examples/t03_smoke_config.rs     |    6 +-
+ crates/bridge_api/examples/t18b_seed.rs            |   49 +
+ crates/bridge_api/src/api/engine.rs                |   88 +-
+ crates/config_codegen/src/input.rs                 |   11 +
+ crates/config_codegen/src/singbox/inbound.rs       |   11 +-
+ crates/config_codegen/src/xray/inbound.rs          |   11 +-
+ docs/decisions/T18b-runtime-plan.md                |    8 +
+ docs/evidence/T18b.md                              |   48 +
+ docs/evidence/T18b.runs/e2e-tests.out              |   12 +
+ docs/evidence/T18b.runs/plan-tests.out             |   16 +
+ docs/evidence/T18b.runs/ui-test.out                |   17 +
+ docs/evidence/T18b.runs/workspace-tests.out        | 1435 ++++++++++++++++++++
+ 33 files changed, 3272 insertions(+), 75 deletions(-)
+
+鈫?Read apps/desktop/pubspec.yaml [limit=50, offset=1]
+鈫?Read Cargo.toml [limit=50, offset=1]
+
+$ cargo test -p domain
+cargo: The term 'cargo' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+$ & "C:\Users\Colby\.cargo\bin\cargo.exe" test -p domain
+Compiling domain v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\domain)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.54s
+     Running unittests src\lib.rs (target\debug\deps\domain-f9615621b840cd57.exe)
+
+running 46 tests
+test event::tests::control_and_telemetry_channels ... ok
+test event::tests::seq_contiguity ... ok
+test event::tests::known_kind_roundtrips ... ok
+test event::tests::unknown_kind_roundtrips ... ok
+test job::tests::check_fails_after_cancel ... ok
+test job::tests::cancel_is_idempotent ... ok
+test job::tests::clones_share_state ... ok
+test reference::tests::detects_self_sentinel ... ok
+test entities::tests::inbound_user_pass_accept_explicit_null_as_empty ... ok
+test reference::tests::parses_index_ids ... ok
+test profile::tests::network_normalization_uses_raw_default ... ok
+test profile::tests::validate_requires_address_and_port ... ok
+test reference::tests::subscription_filter_kept ... ok
+test revision::tests::ahead_when_applied_is_ahead_of_desired ... ok
+test profile::tests::unknown_proto_extra_key_is_preserved ... ok
+test revision::tests::check_expected_accepts_matching_and_rejects_stale ... ok
+test revision::tests::empty_and_in_sync_states ... ok
+test revision::tests::next_advances_desired_by_one ... ok
+test revision::tests::pending_when_desired_is_ahead_of_applied ... ok
+test profile::tests::unknown_top_level_key_is_preserved ... ok
+test runtime_plan::tests::dangling_edge_is_detected ... ok
+test runtime_plan::tests::duplicate_tag_is_detected ... ok
+test runtime_plan::tests::outbound_cycle_is_detected ... ok
+test runtime_plan::tests::port_conflict_is_detected ... ok
+test runtime_plan::tests::process_cycle_is_detected ... ok
+test runtime_plan::tests::process_topological_order_and_reverse ... ok
+test settings::tests::apply_load_defaults_fills_object_level_defaults ... ok
+test settings::tests::core_type_helpers ... ok
+test settings::tests::defaults_match_upstream_initializers ... ok
+test settings::tests::group_keys_are_recognised ... ok
+test settings::tests::empty_string_and_null_are_distinct ... ok
+test settings::tests::explicit_null_group_becomes_load_default ... ok
+test settings::tests::all_groups_round_trip_with_unknown_keys ... ok
+test settings::tests::legacy_fragment_lengths_become_delays_fallback ... ok
+test settings::tests::null_loglevel_stays_none_but_missing_object_gets_warning ... ok
+test settings::tests::classify_whole_group_add_remove ... ok
+test settings::tests::parses_pascal_case_and_preserves_unknown ... ok
+test settings::tests::present_object_missing_field_stays_type_default ... ok
+test settings::tests::enums_round_trip_as_integers ... ok
+test settings::tests::timing_groups_are_known ... ok
+test settings::tests::classify_restart_core_and_restart_app ... ok
+test settings::tests::classify_list_and_hotkey_groups ... ok
+test settings::tests::timing_table_covers_all_ledger_entries ... ok
+test settings::tests::hotkey_edits_are_next_launch ... ok
+test settings::tests::round_trip_is_field_equivalent_including_unknown ... ok
+test settings::tests::core_type_binding_field_timings_differ ... ok
+
+test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests domain
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ & "C:\Users\Colby\.cargo\bin\cargo.exe" test -p ipc_contract
+Compiling ipc_contract v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\ipc_contract)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.10s
+     Running unittests src\lib.rs (target\debug\deps\ipc_contract-b9fe5dc2a4228ede.exe)
+
+running 28 tests
+   Doc-tests ipc_contract
+test helper::tests::allowed_core_names_are_closed ... ok
+test helper::tests::elevated_core_rejects_arbitrary_executable ... ok
+test helper::tests::elevated_core_rejects_mismatched_executable ... ok
+test helper::tests::elevated_core_rejects_exe_outside_run_dir ... ok
+test helper::tests::elevated_core_rejects_traversal_and_out_of_root ... ok
+test helper::tests::elevated_core_uses_long_timeout ... ok
+test helper::tests::elevated_core_accepts_allowlisted_path ... ok
+test helper::tests::helper_empty_token_is_rejected ... ok
+test helper::tests::elevated_core_rejects_bad_args ... ok
+test helper::tests::helper_error_maps_to_stable_codes ... ok
+test helper::tests::helper_frame_size_is_enforced ... ok
+test helper::tests::helper_version_mismatch_is_rejected ... ok
+test helper::tests::job_assign_failed_maps_to_stable_code ... ok
+test helper::tests::path_normalization_rejects_relative_and_traversal ... ok
+test helper::tests::helper_response_carries_structured_error ... ok
+test helper::tests::helper_request_roundtrips_through_json ... ok
+test helper::tests::route_entries_reject_empty_and_oversized ... ok
+test helper::tests::route_entries_validate_families ... ok
+test helper::tests::tun_address_validates_bounds ... ok
+test tests::apply_plan_uses_longer_timeout ... ok
+test tests::empty_token_is_rejected ... ok
+test tests::frame_size_is_enforced ... ok
+test tests::operation_status_carries_cancel_outcome ... ok
+test tests::test_ports_floor_is_enforced ... ok
+test tests::request_roundtrips_through_json ... ok
+test tests::version_mismatch_is_rejected ... ok
+test helper::tests::canonical_recheck_accepts_real_layout ... ok
+test helper::tests::canonical_recheck_rejects_symlink_escape ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+鈫?Write docs/evidence/audit/FINAL.audit.gemini.md
+Wrote file successfully.
+
+缁堝瀹¤宸叉墽琛屽畬姣曪紝鎶ュ憡宸叉寜瑕佹眰鍐欏叆 `docs/evidence/audit/FINAL.audit.gemini.md`銆?
+### 瀹¤姒傝
+- **瀹氳**锛?*鏈夋潯浠跺彲鍙戝竷锛圵indows x64 Release Candidate锛?*
+- **鍙戝竷鍖呮磥鍑€搴︿笌鐪熷疄鎬?*锛歚dist/v2rayN-R-1.0.0+1-windows-x64.zip` 鐨?SHA-256锛坄4853F06D...`锛夊疄娴嬩笌 `dist/SHA256SUMS` 瀹屽叏鑷唇锛涙牳蹇冧簩杩涘埗锛圶ray/sing-box锛夋湭琚崋缁戯紱GPL-3.0 褰掑睘澹版槑锛坄NOTICE.md`銆乣LICENSE`銆乣CORE-NOTES.txt`锛夊畬澶囥€?- **瀹夊叏涓庨殧绂?*锛氬叏浠?`10808` 妫€绱㈢‘璁や粎瀛樺湪闃插尽鎬х鍙ｅ畧鍗父閲忎笌璐熷悜鏂█娴嬭瘯锛屾棤浠讳綍绔彛缁戝畾锛涚郴缁熶唬鐞嗘祴璇曞叏璧?Fake 鍚庣锛涜繘绋嬫竻鐞嗕弗鏍煎熀浜庡惎鍔?PID 鏍戯紝鏈牬鍧忓涓荤姸鎬併€?- **鍏抽敭椋庨櫓涓庨樆鏂」**锛氬彂鐜?`apps/desktop/lib/main.dart` 涓殑 `V2RAYN_R_AUTO_SMOKE` 鍦?Release 鏋勫缓涓嬪彲琚閮ㄧ幆澧冨彉閲忕洿鎺ヨЕ鍙?`applyActive()`锛堣交閲忓洖褰?ISSUE-08锛夛紝宸叉彁鍑?P1 绾ф渶灏忔敹绱у缓璁€?

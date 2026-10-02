@@ -1,0 +1,9 @@
+   zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\evidence-armed\v2rayN-R-1.0.0+1-windows-x64.zip
+   package=C:\Users\Colby\AppData\Local\Temp\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e\extract\v2rayN-R-1.0.0+1-windows-x64 armed=True
+   seeding data dir via bridge_api t18b_seed
+   seed> seeded dir=C:\Users\Colby\AppData\Local\Temp\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e\data active=t18b-node desired=2
+   app pid=40840
+   applied session=s-1790909660878-2 port11808=true
+
+RC_APPLY_RESULT PASS: live applied journal + core.log captured; finalized journal after stop
+RC_APPLY_PROBE  C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\rc-apply-probe.json

@@ -1,0 +1,4 @@
+[stdout] Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)
+[stdout] A unified platform for anti-censorship.
+[stdout] 2026/10/02 10:54:20.918465 [Info] infra/conf/serial: Reading config: &{Name:C:\Users\Colby\AppData\Local\Temp\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e\run\s-1790909660878-2\config.json Format:json}
+[stdout] 2026/10/02 10:54:20.922589 [Warning] core: Xray 26.3.27 started

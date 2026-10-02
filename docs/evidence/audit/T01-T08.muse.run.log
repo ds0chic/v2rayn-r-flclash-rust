@@ -1,0 +1,575 @@
+
+> build 路 muse-spark-1.3-contributor
+
+姝ｅ湪瀹ｈ T01-T08 瀵规姉瀹¤浠诲姟锛岄殢鍚庡苟琛岄摵寮€鍏潯宸ヤ綔绾垮交鏌ャ€?
+鈫?Read docs/evidence/audit/T01-T08.audit.prompt.md
+
+# Todos
+[鈥 纭HEAD=2fbe9f1涓庡彧璇昏竟鐣岋紝鎽告煡瀹¤瀵硅薄娓呭崟
+[ ] 娲惧彂6璺瓙浠ｇ悊骞惰瀹¤T01/T02/T03/T04/T05/T07-T08
+[ ] 浜茶嚜鎶芥煡鈮?鏉″瓙浠ｇ悊鍙戠幇骞跺仛杞婚噺楠岃瘉
+[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒癟01-T08.audit.muse.md
+
+$ git rev-parse HEAD && git log --oneline -5 && git status --short | head -n 50; echo "---STAT---"; git show --stat HEAD --oneline | head -n 100
+2fbe9f17437e0c25560de36fa68c37e29785e5e2
+2fbe9f1 T03 real runtime loop (real Xray, 5 fault tests, all gates); T02 docs; T04 persistence; add T09 crate skeleton
+1bc45e5 T02 domain models + ipc contract (code green) + T05 UI shell + T07/T08 codegen (71 tests); add T03/T04 crate skeletons
+0330f68 T00 baseline+ledgers+audit; T01 feasibility harness (all gates green); T07/T08 codegen contracts
+head: The term 'head' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+---STAT---
+head: The term 'head' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+$ git rev-parse HEAD; git log --oneline -5; git status --short | Select-Object -First 50; git show --stat HEAD --oneline | Select-Object -First 100
+2fbe9f17437e0c25560de36fa68c37e29785e5e2
+2fbe9f1 T03 real runtime loop (real Xray, 5 fault tests, all gates); T02 docs; T04 persistence; add T09 crate skeleton
+1bc45e5 T02 domain models + ipc contract (code green) + T05 UI shell + T07/T08 codegen (71 tests); add T03/T04 crate skeletons
+0330f68 T00 baseline+ledgers+audit; T01 feasibility harness (all gates green); T07/T08 codegen contracts
+?? docs/evidence/audit/T01-T08.audit.prompt.md
+2fbe9f1 T03 real runtime loop (real Xray, 5 fault tests, all gates); T02 docs; T04 persistence; add T09 crate skeleton
+ Cargo.lock                                         |   365 +
+ Cargo.toml                                         |     2 +
+ apps/desktop/lib/app/app.dart                      |    44 +-
+ apps/desktop/lib/app/shell/main_shell.dart         |    35 +
+ apps/desktop/lib/app/shell/status_bar_view.dart    |    21 +-
+ apps/desktop/lib/bridge/api/contract.dart          |    57 +-
+ apps/desktop/lib/bridge/api/engine.dart            |    16 +-
+ apps/desktop/lib/bridge/frb_generated.dart         |   282 +-
+ apps/desktop/lib/bridge/frb_generated.io.dart      |    77 +
+ apps/desktop/lib/bridge/frb_generated.web.dart     |    77 +
+ .../lib/features/runtime/runtime_bridge.dart       |   237 +
+ .../lib/features/runtime/runtime_controller.dart   |    96 +
+ compat/domain-map.yaml                             |    24 +-
+ crates/application/Cargo.toml                      |     3 +-
+ crates/application/examples/t03_probe.rs           |    19 +
+ crates/application/src/engine.rs                   |    37 +-
+ crates/application/src/lib.rs                      |     6 +-
+ crates/application/src/net_host_client.rs          |   474 +
+ crates/application/src/runtime_client.rs           |    53 +-
+ crates/application/src/snapshot.rs                 |    30 +-
+ crates/bridge_api/Cargo.toml                       |     3 +-
+ crates/bridge_api/examples/t03_smoke_config.rs     |    14 +
+ crates/bridge_api/src/api/contract.rs              |    19 +
+ crates/bridge_api/src/api/engine.rs                |   309 +-
+ crates/bridge_api/src/frb_generated.rs             |   239 +-
+ crates/bridge_api/src/lib.rs                       |     3 +
+ crates/domain/Cargo.toml                           |     1 -
+ crates/persistence/Cargo.toml                      |    12 +
+ crates/persistence/examples/make_fixtures.rs       |   152 +
+ crates/persistence/src/backup.rs                   |   390 +
+ crates/persistence/src/batch.rs                    |    56 +
+ crates/persistence/src/blobs.rs                    |   339 +
+ crates/persistence/src/candidate.rs                |   995 +
+ crates/persistence/src/error.rs                    |   135 +
+ crates/persistence/src/hash.rs                     |    72 +
+ crates/persistence/src/lib.rs                      |    67 +-
+ crates/persistence/src/mapping.rs                  |   456 +
+ crates/persistence/src/migrate.rs                  |   534 +
+ crates/persistence/src/references.rs               |   295 +
+ crates/persistence/src/report.rs                   |   211 +
+ crates/persistence/src/rows.rs                     |   201 +
+ crates/persistence/src/schema.rs                   |   313 +
+ crates/persistence/src/store.rs                    |   482 +
+ crates/persistence/src/upstream_config.rs          |   368 +
+ crates/persistence/src/upstream_db.rs              |   442 +
+ crates/persistence/src/validate.rs                 |   522 +
+ crates/persistence/tests/common/mod.rs             |    29 +
+ crates/persistence/tests/edge_cases.rs             |   184 +
+ crates/persistence/tests/upstream_import.rs        |   252 +
+ crates/runtime/Cargo.toml                          |    14 +
+ crates/runtime/src/adapter.rs                      |   317 +
+ crates/runtime/src/graph.rs                        |   160 +
+ crates/runtime/src/identity.rs                     |   119 +
+ crates/runtime/src/job.rs                          |   124 +
+ crates/runtime/src/lib.rs                          |    37 +-
+ crates/runtime/src/sha256.rs                       |   127 +
+ crates/runtime/src/wire.rs                         |   134 +
+ crates/subscriptions/Cargo.toml                    |     9 +
+ crates/subscriptions/src/lib.rs                    |     1 +
+ docs/decisions/T02-contracts.md                    |   362 +
+ docs/decisions/T02-revisions.md                    |   175 +
+ docs/decisions/T03-runtime.md                      |    77 +
+ docs/decisions/T04-storage.md                      |    64 +
+ docs/evidence/T02.md                               |   205 +
+ docs/evidence/T03.md                               |   215 +
+ docs/evidence/T03.runs/a-normal.json               |    48 +
+ docs/evidence/T03.runs/a-normal.md                 |    49 +
+ docs/evidence/T03.runs/b-port-conflict.json        |    25 +
+ docs/evidence/T03.runs/b-port-conflict.md          |    26 +
+ docs/evidence/T03.runs/c-client-kill.json          |    30 +
+ docs/evidence/T03.runs/c-client-kill.md            |    31 +
+ docs/evidence/T03.runs/d-net-host-kill.json        |    54 +
+ docs/evidence/T03.runs/d-net-host-kill.md          |    55 +
+ docs/evidence/T03.runs/e-core-quick-exit.json      |    24 +
+ docs/evidence/T03.runs/e-core-quick-exit.md        |    25 +
+ docs/evidence/T03.runs/run-20261001-163258.json    |    42 +
+ docs/evidence/T03.runs/smoke-config.json           |    90 +
+ docs/evidence/T03.runs/smoke-config.md             |    91 +
+ docs/evidence/T04.md                               |   104 +
+ .../screenshots/windows_flutter/t03_running.png    |   Bin 0 -> 70218 bytes
+ .../windows_flutter/t03_running_screen.png         |   Bin 0 -> 96233 bytes
+ fixtures/synthetic/README.md                       |    29 +
+ fixtures/synthetic/upstream-v2/guiNConfig.json     |    22 +
+ fixtures/synthetic/upstream-v2/guiNDB.db           |   Bin 0 -> 69632 bytes
+ fixtures/synthetic/upstream-v3/guiNConfig.json     |     6 +
+ fixtures/synthetic/upstream-v3/guiNDB.db           |   Bin 0 -> 69632 bytes
+ services/net_host/Cargo.toml                       |    29 +
+ services/net_host/src/bin/t03_client.rs            |   287 +
+ services/net_host/src/dacl.rs                      |   154 +
+ services/net_host/src/events.rs                    |    70 +
+ services/net_host/src/journal.rs                   |   175 +
+ services/net_host/src/main.rs                      |    39 +-
+ services/net_host/src/server.rs                    |   257 +
+ services/net_host/src/session.rs                   |   821 +
+ services/net_host/tests/t03_faults.ps1             |   482 +
+ tools/cores/cores.lock.json                        |    26 +
+ tools/cores/xray/v26.3.27/LICENSE                  |   373 +
+ tools/cores/xray/v26.3.27/LICENSE-wintun.txt       |    84 +
+ tools/cores/xray/v26.3.27/README.md                |   214 +
+
+鈫?Read docs/evidence
+鈫?Read docs/decisions
+鈫?Read crates
+HEAD 宸插榻愶紝瀹¤闈㈠凡鎽告竻鈥斺€旂幇姝ｅ苟琛屾淳鍙戝叚璺繁鎸栥€?
+
+# Todos
+[鉁揮 纭HEAD=2fbe9f1涓庡彧璇昏竟鐣岋紝鎽告煡瀹¤瀵硅薄娓呭崟
+[鈥 娲惧彂6璺瓙浠ｇ悊骞惰瀹¤T01/T02/T03/T04/T05/T07-T08
+[ ] 浜茶嚜鎶芥煡鈮?鏉″瓙浠ｇ悊鍙戠幇骞跺仛杞婚噺楠岃瘉
+[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒癟01-T08.audit.muse.md
+
+鈥?瀹¤T01鍙鎬ч棬绂?[90m General Agent
+鈥?瀹¤T02鍩熷绾?[90m General Agent
+鈥?瀹¤T03鐪熷疄杩愯 General Agent
+鈥?瀹¤T04鎸佷箙鍖栬縼绉?[90m General Agent
+鈥?瀹¤T05 UI鐘舵€?[90m General Agent
+鈥?瀹¤T07-T08浠ｇ爜鐢熸垚 General Agent
+鉁?瀹¤T03鐪熷疄杩愯 General Agent
+鉁?瀹¤T02鍩熷绾?[90m General Agent
+鉁?瀹¤T04鎸佷箙鍖栬縼绉?[90m General Agent
+鉁?瀹¤T05 UI鐘舵€?[90m General Agent
+鉁?瀹¤T01鍙鎬ч棬绂?[90m General Agent
+鉁?瀹¤T07-T08浠ｇ爜鐢熸垚 General Agent
+鍏矾瀹¤宸插洖浼犫€斺€旂幇姝ｉ€愭潯澶嶆牳鍘熷璇佹嵁锛屽墧闄よ鎶ュ悗鍐嶅畾绋裤€?
+
+# Todos
+[鉁揮 纭HEAD=2fbe9f1涓庡彧璇昏竟鐣岋紝鎽告煡瀹¤瀵硅薄娓呭崟
+[鉁揮 娲惧彂6璺瓙浠ｇ悊骞惰瀹¤T01/T02/T03/T04/T05/T07-T08
+[鈥 浜茶嚜鎶芥煡鈮?鏉″瓙浠ｇ悊鍙戠幇骞跺仛杞婚噺楠岃瘉
+[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒癟01-T08.audit.muse.md
+
+$ git rev-parse HEAD; echo "===S1 test files==="; git ls-tree -r HEAD --name-only | Select-String "apps/desktop/test"; echo "===S2 main.cpp==="; git ls-tree HEAD apps/desktop/windows/runner/main.cpp; git show HEAD:apps/desktop/windows/runner/main.cpp | Select-Object -First 20; echo "===S3 FRB==="; git show HEAD:apps/desktop/pubspec.yaml | Select-String "flutter_rust_bridge"; git show HEAD:apps/desktop/flutter_rust_bridge.yaml; git show HEAD:Cargo.lock | Select-String "flutter_rust_bridge" | Select-Object -First 10
+2fbe9f17437e0c25560de36fa68c37e29785e5e2
+===S1 test files===
+
+apps/desktop/test/context_menu_model_test.dart
+apps/desktop/test/profiles_filter_test.dart
+apps/desktop/test/profiles_keyboard_test.dart
+apps/desktop/test/profiles_models_test.dart
+apps/desktop/test/profiles_pointer_test.dart
+apps/desktop/test/profiles_render_test.dart
+apps/desktop/test/profiles_selection_test.dart
+apps/desktop/test/support/profiles_harness.dart
+apps/desktop/test/t05_profiles_ui_test.dart
+apps/desktop/test/t05_shell_chrome_test.dart
+apps/desktop/test/t05_sort_stable_test.dart
+apps/desktop/test/table_actions_test.dart
+===S2 main.cpp===
+100644 blob de9d2bb01401d66c6c0ceba36ef346b2f4ccea43	apps/desktop/windows/runner/main.cpp
+#include <flutter/dart_project.h>
+#include <flutter/flutter_view_controller.h>
+#include <windows.h>
+
+#include <string>
+
+#include "flutter_window.h"
+#include "utils.h"
+
+namespace {
+
+const wchar_t kWindowTitle[] = L"v2rayN-R (T01)";
+const wchar_t kStateFileName[] = L"v2raynr_window_state.ini";
+constexpr UINT kDefaultWidth = 1200;
+constexpr UINT kDefaultHeight = 800;
+
+// Draft T01 window-size persistence next to the executable; the final
+// AppSettings/WindowSizeItem contract is a later task (FLD-CFG-156..158).
+std::wstring StateFilePath() {
+  wchar_t path[MAX_PATH];
+===S3 FRB===
+  flutter_rust_bridge: 2.13.0
+rust_input: crate::api
+rust_root: ../../crates/bridge_api/
+dart_output: lib/bridge
+ "flutter_rust_bridge",
+name = "flutter_rust_bridge"
+ "flutter_rust_bridge_macros",
+name = "flutter_rust_bridge_macros"
+
+$ git show HEAD:Cargo.lock | Select-String -Pattern 'name = "flutter_rust_bridge' -Context 2; echo "===S4 T03 PID==="; git show HEAD:docs/evidence/T03.runs/a-normal.json; echo "===T03md115==="; git show HEAD:docs/evidence/T03.md | Select-Object -First 140 | Select-Object -Last 40
+[[package]]
+> name = "flutter_rust_bridge"
+  version = "2.13.0"
+  source = "registry+https://github.com/rust-lang/crates.io-index"
+  
+  [[package]]
+> name = "flutter_rust_bridge_macros"
+  version = "2.13.0"
+  source = "registry+https://github.com/rust-lang/crates.io-index"
+===S4 T03 PID===
+{
+  "case": "a-normal",
+  "status": "passed",
+  "timeline": [
+    "16:32:58.977 assert port 11808 free",
+    "16:32:59.857 net_host pid=39116 started ready=True",
+    "16:33:00.192 t03_client apply exit=0 completed=True",
+    "16:33:00.871 port 11808 listening owner=24264 xray_pid=24264",
+    "16:33:00.899 t03_client stop exit=0",
+    "16:33:01.233 snapshot after stop: snapshot/stopped",
+    "16:33:01.233 PASS",
+    "16:33:01.239 cleanup net_host pid=39116"
+  ],
+  "extra": {
+    "detail": {
+      "state": "running",
+      "applied_revision": 1,
+      "pid": 24264,
+      "created_at_ms": 1790843579880,
+      "ports": [
+        11808
+      ],
+      "session_id": "s-1790843579876-2",
+      "config_sha256": "9da10a2ece14b0a5b55363557d05e97fb1c755fce9e29d86f10e847640c776b3",
+      "operation_id": "op-1790843579876-1",
+      "error": null
+    },
+    "result": {
+      "kind": "accepted",
+      "operation_id": "op-1790843579876-1"
+    },
+    "port_owner_pid": 24264,
+    "apply_exit": 0,
+    "snapshot_result": {
+      "kind": "snapshot",
+      "state": "stopped",
+      "applied_revision": 1,
+      "epoch": 2,
+      "last_seq": 7,
+      "active_operation": null,
+      "recovery": null,
+      "host_alive": true
+    },
+    "xray_created_at_ms": 1790843579880,
+    "xray_pid": 24264,
+    "stop_exit": 0
+  }
+}
+===T03md115===
+**d net-host 寮烘潃 + 閲嶅惎鎭㈠**
+```
+net_host pid=40740 ready=True
+apply-hold client pid=35600 (xray pid=29052, journal applied)
+TerminateProcess net_host pid=40740
+xray pid=29052 died with net_host (KILL_ON_JOB_CLOSE)
+net_host restarted pid=29364 ready=True
+journal after recovery stage=finalized -> PASS
+```
+
+**e core 绉掗€€**
+```
+apply-bad exit=3 result code=E_INTERNAL key=error.core_exited (Xray code 23)
+snapshot state=stopped -> PASS
+```
+
+---
+
+## 5. 鎭㈠鏃ュ織鏍蜂緥
+
+net-host 閲嶅惎鏃跺娈嬬暀 journal 鐨勬仮澶嶈緭鍑猴紙鐢ㄤ緥 d锛夛細
+
+```
+[net_host] starting version=0.1.0 pipe=\\.\pipe\v2rayn-r-t03-d-20261001-163258 \
+  run_root=...\v2rayn-t03-d-net-host-kill-20261001-163258
+[net_host] recovery session=s-1790843585805-2 stage=Applied pid=Some(29052) cleaned=true
+```
+
+journal 鍙樺寲锟?```json
+// before
+{ "stage": "applied", "pid": 29052, "created_at_ms": 1790843585809, "port": 11808 }
+// after
+{ "stage": "finalized", "pid": 29052, "created_at_ms": 1790843585809, "port": 11808 }
+```
+
+---
+
+## 6. 鐪熸満杩愯鎴浘
+
+`docs/evidence/screenshots/windows_flutter/t03_running.png`锛堝彟锟?`t03_running_screen.png`锛夛拷?
+
+$ git show HEAD:docs/evidence/T03.md | Select-String -Pattern "pid=36988|pid=39520|pid=39116|pid=24264" | Select-Object -First 20; echo "===cores.lock==="; git show HEAD:tools/cores/cores.lock.json; echo "===10808 grep==="; git grep -n "10808" HEAD -- | Select-Object -First 20
+| a | 姝ｅ父闂幆 apply鈫掔洃鍚啋Running(PID)鈫抯top鈫掗€€鍑衡啋Stopped | passed | xray pid=36988锛宍127.0.0.1:11808` 
+owner=36988锛泂top 鍚庣鍙ｉ噴鏀俱€乻napshot=stopped |
+net_host pid=39520 ready=True
+port 11808 listening owner=36988 xray_pid=36988
+===cores.lock===
+{
+  "schema": 1,
+  "note": "Downloaded core binaries are git-ignored (tools/cores/**/*.exe, *.zip). This lock file pins the exact release and hashes for reproducibility.",
+  "cores": [
+    {
+      "core": "xray",
+      "release_tag": "v26.3.27",
+      "core_version": "26.3.27",
+      "asset": "Xray-windows-64.zip",
+      "asset_size_bytes": 20913304,
+      "source": "https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-windows-64.zip",
+      "sha256": "d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
+      "dgst_asset": "Xray-windows-64.zip.dgst",
+      "dgst": {
+        "MD5": "402f65a8cccdf123a6c0d5c176ef5252",
+        "SHA1": "42e5e9a66b970b5499c34e99d8da6c986c67c2cc",
+        "SHA2-256": "d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
+        "SHA2-512": "5b1356f07a91cbd4fb538fd7eccc494967ea045e770fb60887a9bec0412f0b3bce6148a6514ce7c661824daefe83929b7ffa8b059c22abfc1f1299d9d228712c"
+      },
+      "sha256_verified": true,
+      "extracted_to": "tools/cores/xray/v26.3.27/",
+      "executable": "tools/cores/xray/v26.3.27/xray.exe",
+      "platform": "windows-amd64"
+    }
+  ]
+}
+===10808 grep===
+HEAD:AGENTS.md:22:1. **绂佹鍗犵敤/淇敼 127.0.0.1:10808**锛氳繖鏄敤鎴锋鍦ㄨ繍琛岀殑浠ｇ悊绔彛銆傛墍鏈夋祴璇曘€佸唴鏍稿惎鍔ㄣ€佸叆绔欑洃鍚€佺郴缁熶唬鐞嗘搷浣滃繀椤婚伩寮€瀹冿紱娴嬭瘯绔彛涓€锟?锟?11808锛屼笖娴嬭瘯鍓嶅厛鎺㈡祴绔彛鍙敤锟?HEAD:compat/fields.settings.yaml:1305:  default_value: 10808
+HEAD:compat/fields.settings.yaml:1307:  null_handling: Inbound 缂哄け锟?LoadConfig 锟?10808锛涗繚瀛樻牎锟?1..65535
+HEAD:compat/fields.settings.yaml:1340:  notes: AppManager.GetLocalPort 缂虹渷鍥為€€ 10808锟?HEAD:compat/fields.yaml:1313:    default_value: 10808
+HEAD:compat/fields.yaml:1315:    null_handling: Inbound 缂哄け锟?LoadConfig 锟?10808锛涗繚瀛樻牎锟?1..65535
+HEAD:compat/fields.yaml:1348:    notes: AppManager.GetLocalPort 缂虹渷鍥為€€ 10808锟?HEAD:crates/bridge_api/src/api/engine.rs:30:/// Reserved smoke-session port. Never 10808 (the user's live proxy).
+HEAD:crates/bridge_api/src/api/engine.rs:253:/// test. Port 10808 is never emitted.
+HEAD:crates/bridge_api/src/api/engine.rs:508:        assert!(!body.contains("10808"));
+HEAD:crates/config_codegen/src/input.rs:344:            // The upstream default is 10808; tests must always override this with
+HEAD:crates/config_codegen/tests/common/mod.rs:11:/// >= 11808 (the machine's live proxy on 10808 must never be referenced).
+HEAD:crates/config_codegen/tests/common/mod.rs:77:        !text.contains("10808"),
+HEAD:crates/config_codegen/tests/common/mod.rs:78:        "generated config must not reference port 10808: {text}"
+HEAD:docs/decisions/T02-contracts.md:11:- 绾﹀畾锛氭湰鍥炲悎涓嶈繍琛屼笂娓稿唴鏍搞€佷笉涓嬭浇鍐呮牳銆佷笉瑙︾ `127.0.0.1:10808`锛涗笉淇敼浠讳綍浠ｇ爜/鍙拌处锟?HEAD:docs/decisions/T02-revisions.md:123:  FRB 锟?`stub_plan()` `ports` 涓虹┖锛屽洜锟?*姘歌繙涓嶄細瑙︾ 10808**锛坄bridge_api/src/api/engine.rs:210-237`锛夛拷?HEAD:docs/decisions/T03-runtime.md:58:娴嬭瘯/鍐掔儫鍏ョ珯绔彛涓€锟?锟?11808锟?*涓ョ 10808**锛堢敤鎴锋鍦ㄨ繍琛岀殑浠ｇ悊锛夛拷?HEAD:docs/decisions/T07-xray-codegen-contract.md:131:**Inbound 绔彛鍋忕Щ**锛歚port = Inbound[0].LocalPort(default 10808) + (int)protocol`锛沗socks=0,socks2=1,socks3=2`锛坄AppManager.cs:165-169`锛沗EInboundProtocol.cs`锛沗V2rayInboundService.cs:157`锛夈€侺AN 锟?`socks3` 鐩戝惉 `0.0.0.0` 骞跺彲锟?`settings.auth="password"` + `accounts`锛坄:26-53`锛夛拷?HEAD:docs/decisions/T07-xray-codegen-contract.md:151:- TUN/绔彛 `< 11808` 绾︽潫锛氭寜椤圭洰 AGENTS.md锛屾祴璇曚笉寰椾娇锟?10808锟?HEAD:docs/evidence/T00.audit.gemini.md:37:| FLD-CFG-035 | settings | 姝ｇ‘ | `ConfigItems.cs:28`, `ConfigHandler.cs:50` | `InItem.LocalPort` 榛樿 10808锛孖nbound[0] |
+HEAD:docs/evidence/T00.settings-fields.md:66:- `Inbound` 缂哄け鏃堕粯锟?socks 鍏ョ珯锛宍LocalPort=10808`銆乣UdpEnabled=true`锟?44-57锛夛紱宸叉湁鍒楄〃鏃跺己锟?`First().Protocol=socks`锟?62锟?HEAD:docs/evidence/T00.settings-fields.md:93:- `GetLocalPort` 缂虹渷鍥為€€ 10808锛圓ppManager.cs:167锛夛紱`GetCoreType` 缂虹渷鍥為€€ `ECoreType.Xray`锛圓ppManager.cs:673-674锟?HEAD:docs/evidence/T02.md:6:- 绾﹀畾锛氭湰鍥炲悎鏈繍琛屼笂娓稿唴鏍搞€佹湭涓嬭浇鍐呮牳銆佹湭瑙︾ `127.0.0.1:10808`锛涙湭鏀逛换浣曚唬锟?閰嶇疆/鍙拌处锛涙湭 commit锟?HEAD:docs/evidence/T02.md:132:涓嶈Е锟?10808锛坅pplication 闆嗘垚娴嬭瘯鍙璇佷功澶瑰叿涓庡懡鍚嶄簰鏂ヤ綋鎺㈤拡锛夛拷?HEAD:docs/evidence/T02.md:204:- 鏈慨锟?`crates/**`銆乣compat/**`銆乣apps/**`銆乣Cargo.*` 鎴栦换浣曢厤缃紱锟?commit锛涙湭瑙︾ 10808锟?HEAD:docs/evidence/T03.md:64:  锛坢ixed/socks 鍏ョ珯 `127.0.0.1:11808` + `freedom` 鍑虹珯锟?*涓ョ 10808**锛夛拷?HEAD:docs/evidence/T03.md:107:10808 涓庡涓荤郴缁熶唬鐞嗭拷?HEAD:docs/evidence/T04.md:9:`docs/decisions/T04-storage.md`锛涙湭 commit锛涙湭瑙︾ 10808銆佺郴缁熶唬鐞嗘垨浠讳綍鐢ㄦ埛杩涚▼锟?HEAD:docs/evidence/T05.md:90:鍦ㄩ殧锟?build 鐩綍鍚庡彴鍚姩 `Release\v2rayn_desktop.exe`锛堥粯璁ゆ棤 `ui_state.json` 锟?Vertical锛夛紝鐢ㄧ湡瀹為紶鏍囩偣鍑诲伐鍏锋爮甯冨眬涓嬫媺鍒囨崲涓夊竷灞€锛岄€愪竴鎶撶獥锛堜粎鍏抽棴鑷繁鍚姩锟?PID锛屾湭瑙︾ 10808锛屾湭鏀圭郴缁熶唬鐞嗭級锟?HEAD:docs/evidence/T07-T08-codegen.md:7:- 绾﹀畾锛氭湰鍥炲悎涓嶈繍琛屼笂娓稿唴鏍搞€佷笉涓嬭浇鍐呮牳銆佷笉瑙︾ 10808锛涙祴璇曟暟鎹叏閮ㄤ负鍚堟垚鏁版嵁锛圧FC5737 / example.com / 鍚堟垚瀵嗛挜锛夛拷?HEAD:fixtures/source/upstream/sample/SampleInbound:3:	"port": 10808,
+HEAD:services/net_host/tests/t03_faults.ps1:4:# dedicated pipe/run-root/port (>= 11808; never 10808). Every external process
+HEAD:services/net_host/tests/t03_faults.ps1:432:    if ($text -match '10808') { throw "generated config contains forbidden port 10808" }
+HEAD:tools/cores/xray/v26.3.27/geosite.dat:41491:tr.np6.com
+	tr.np6.frtrack.promptfile.comtr.nutri-healthy.comtrack.privacyatclearbit.comtrack.prime-hair.detr.oferta-firmy.pltr.ofertas-companeo.estrack.pricespider.comtr.offerta-companeo.comtrack.price.rutr.offre-btob.frtr.offre-companeo.com!tr.offres-professionnelles.frtrack.pplnk.com!track.powerwoolinsulation.comtrack.postkodlotteriet.setrack.portalsaludable.sitetrack.popsww.comtrack.ploclicktrack.comtr.oralia.frtr.orange-lease.frtr.orcamento-online.pttr.orcamentos-companeo.pttr.ostermann.eutr.panels-mediametrie.frtr.parcel2go.comtrack.pingstart.comtrack.pimpbangkok.comtrack.physiohealth-line.detrack.philippnvlang.comtrack.peavoidud.comtr.paysanbreton.comtr.pepex.funtr.philipp-bolender.comtrack.parentmood.com
+	tr.pmu.frtrack.parcelabc.comtr.pole-emploi-services.comtr.pole-emploi.infotr.policyexpert.infotr.politicoevents.eutr.politicolive.eutr.politicomarketing.eutrack.pairietales.comtrack.outlettrends.comtrack.otsogroup.comtr.presupuesto-b2b.estrack.ostad.apptrack.oskingsmen.comtr.pro-renov.betrack.orisee.rotrack.opentable.comtrack.onef.pro"tr.programme-voyageur-sncf.comtrack.omgpl.comtrack.oleificiovieste.comtrack.oldgravytrain.comtr.prosfores-companeo.grtr.prosfores-etairias.grtr.psaparts.comtrack.ogrowthlabs.comtrack.ogrogotioman.comtrack.ofloraxil.comtr.quotes.digitaltr.quotes4business.comtr.quotes4business.infotr.quotesforbusiness.cltrack.nzz.chtr.quotesforbusiness.mxtrack.noz.detrack.nopaperforms.comtr.rebeccazung.comtr.recht-leer.detrack.ning.comtrack.nikibrah.comtrack.nifty.comtrack.nextgtrack.com#track.newyorkcitynewsletter.comtrack.newwaytotrade.comtrack.netzero.nettr.relation-mediametrie.frtrack.netogo.tvtr.renowizze.betr.republicains-info.orgtrack.nclisc.comtrack.nbastore.mntr.route-solutiondata.frtr.roxx-online.shoptr.safrancom-esp.nettr.samoresim.rutrack.nbastore.latrack.nbastore.jptrack.naymish.comtr.seat-fs-email.frtrack.nationalgunrights.orgtrack.naloxanon.catrack.myspookyhalloween.comtrack.myplayerathlete.com
+track.myli.iotrack.mycustomplannow.comtrack.myclipstone.comtrack.mycliplister.comtrack.mybioherb.comtrack.muslimi.comtrack.muellerinc.comtrack.mueen-mkh.comtrack.mubea-umobility.comtrack.muaystore.sktrack.muaystore.sitrack.muaystore.pltrack.muaystore.ittrack.muaystore.hutrack.muaystore.hrtrack.muaystore.estrack.muaystore.detrack.muaystore.cztrack.mtraq132uae3.comtrack.mp4.centertrack.moromete.nettr.ship-ohoi.comtr.silvera-contact.frtr.simmple-us.comtr.singhfit.comtr.slvrbullet.com
+track.mopo.detr.snapchat.comtr.solendi.comtrack.moontower.aitrack.momoxxiosi.comtrack.mlbshopeurope.comtrack.mituo.cntr.staff-start.comtr.standardadmin.org
+
+$ echo "===S5 synthetic bridge==="; git show HEAD:apps/desktop/lib/features/runtime/runtime_bridge.dart | Select-String -Pattern "4242|SyntheticRuntimeBridge|FrbRuntimeBridge" | Select-Object -First 10; echo "===S6 shell state==="; git show HEAD:apps/desktop/lib/app/shell/status_bar_view.dart | Select-Object -First 135 | Select-Object -Last 55; echo "===S7 revision tests==="; git show HEAD:crates/domain/src/revision.rs | Select-String "#\[test\]"; git grep -n "Ahead" HEAD -- crates/domain/src/revision.rs | Select-Object -First 10
+===S5 synthetic bridge===
+
+class FrbRuntimeBridge implements RuntimeBridge {
+  const FrbRuntimeBridge();
+class SyntheticRuntimeBridge implements RuntimeBridge {
+  SyntheticRuntimeBridge({RuntimeView? initial})
+      pid: 4242,
+  (ref) => const FrbRuntimeBridge(),
+===S6 shell state===
+                ],
+                child: Text('璺敱: ${shell.routingLabel ?? '--'}', style: muted),
+              ),
+              const _Sep(),
+              Text(
+                '鑺傜偣: ${runtime.statusLabel}',
+                key: const ValueKey('running-node'),
+                style: muted,
+              ),
+              const _Sep(),
+              Text(
+                '杩愯锟? ${runtime.state} '
+                'host=${runtime.hostAlive ? 'alive' : 'down'} '
+                'PID=${runtime.pid ?? '--'} '
+                '绔彛=${runtime.ports.isEmpty ? '--' : runtime.ports.join(',')}',
+                key: const ValueKey('runtime-info'),
+                style: muted,
+              ),
+              if (runtime.error != null) ...<Widget>[
+                const _Sep(),
+                Text(
+                  '閿欒 ${runtime.error!.code}: ${runtime.error!.messageKey}',
+                  key: const ValueKey('runtime-error'),
+                  style: TextStyle(fontSize: 11.5, color: scheme.error),
+                ),
+              ],
+              const _Sep(),
+              Text(
+                'total=${profiles.totalCount} visible=${profiles.visible.length} '
+                'selected=${profiles.selectedCount}',
+                key: const ValueKey('status-counts'),
+                style: muted,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '杩愯淇℃伅: ${shell.runningNode == null ? '鏈繍锟? : '灏辩华'}',
+                key: const ValueKey('running-info'),
+                style: muted,
+              ),
+              const _Sep(),
+              Text(
+                '浠ｇ悊 锟?{shell.proxySpeed.up} 锟?{shell.proxySpeed.down}',
+                key: const ValueKey('status-proxy-speed'),
+                style: muted,
+              ),
+              const _Sep(),
+              Text(
+                '鐩磋繛 锟?{shell.directSpeed.up} 锟?{shell.directSpeed.down}',
+                key: const ValueKey('status-direct-speed'),
+                style: muted,
+              ),
+              if (shell.message != null) ...<Widget>[
+                const _Sep(),
+                Text(
+                  shell.message!,
+===S7 revision tests===
+HEAD:crates/domain/src/revision.rs:80:    Ahead,
+HEAD:crates/domain/src/revision.rs:99:            RevisionState::Ahead
+
+$ echo "===S8 persistence self-gen==="; git show HEAD:crates/persistence/examples/make_fixtures.rs | Select-Object -First 30; echo "---upstream_import head---"; git show HEAD:crates/persistence/tests/upstream_import.rs | Select-Object -First 45; echo "===S9 staged config==="; git show HEAD:services/net_host/src/session.rs | Select-String -Pattern "fs::write\(config_path|config_path|body" | Select-Object -First 12; echo "===S10 endpoints/v2ray.cool==="; git show HEAD:crates/config_codegen/src/singbox/config.rs | Select-String -Pattern "endpoints" | Select-Object -First 8; git show HEAD:crates/config_codegen/src/xray/outbound.rs | Select-String -Pattern "v2ray.cool" | Select-Object -First 5
+===S8 persistence self-gen===
+//! Generates the synthetic upstream fixtures under `fixtures/synthetic/`.
+//!
+//! Run with `cargo run -p persistence --example make_fixtures`. The generated
+//! databases contain only synthetic data (RFC 5737 documentation addresses and
+//! `.invalid` hosts); no real credentials or subscription URLs are included.
+
+use std::path::PathBuf;
+
+use persistence::schema::UPSTREAM_TABLES;
+use rusqlite::Connection;
+
+fn target(name: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../fixtures/synthetic")
+        .join(name)
+}
+
+fn create_tables(conn: &Connection) {
+    for table in UPSTREAM_TABLES {
+        conn.execute_batch(&table.create_sql()).unwrap();
+    }
+}
+
+fn main() {
+    build_v2();
+    build_v3();
+    println!("synthetic fixtures written under fixtures/synthetic/");
+}
+
+fn build_v2() {
+---upstream_import head---
+//! End-to-end import tests against the synthetic upstream fixtures.
+
+mod common;
+
+use persistence::{
+    import_from_path, ImportFault, ImportOptions, ImportStatus, ProtocolExtraBlob,
+    TransportExtraBlob, UPSTREAM_VERSION,
+};
+use rusqlite::Connection;
+
+fn options() -> ImportOptions {
+    ImportOptions {
+        now: 1_900_000_000,
+        fault: ImportFault::None,
+    }
+}
+
+#[test]
+fn v2_fixture_migrates_groups_and_normal_nodes() {
+    let (_keep, work, target) = common::temp_workspace();
+    let report = import_from_path(&common::upstream_v2(), &target, &work, &options()).unwrap();
+
+    assert_eq!(report.status, ImportStatus::Imported);
+    assert!(report.committed);
+    let migration_ids: Vec<&str> = report
+        .migrations
+        .iter()
+        .map(|m| m.migration_id.as_str())
+        .collect();
+    assert!(migration_ids.contains(&"MIG-ENT-002"));
+    assert!(migration_ids.contains(&"MIG-ENT-003"));
+    assert!(migration_ids.contains(&"MIG-ENT-004"));
+
+    // Group rows are a migration source only; ProfileItem keeps every source row.
+    assert_eq!(report.source_version, 2);
+
+    let store = persistence::Store::open_readonly(&target).unwrap();
+    let profiles = store.read_rows("ProfileItem").unwrap();
+    assert_eq!(profiles.len(), 7);
+    assert_eq!(store.read_rows("ProfileGroupItem").unwrap().len(), 0);
+
+    // Duplicate Remarks are kept as separate rows (never merged by name).
+    let dup = profiles
+        .iter()
+        .filter(|r| r.string("Remarks") == "棣欐腐鑺傜偣 馃殌")
+===S9 staged config===
+
+        let body = match &plan.target.config {
+            ConfigSource::Inline { body } => body.clone(),
+        let actual_hash = sha256_hex(body.as_bytes());
+        let config_path = dir.join("config.json");
+        if let Err(e) = std::fs::write(&config_path, body.as_bytes()) {
+            .args(adapter.run_args(&config_path))
+===S10 endpoints/v2ray.cool===
+        endpoints: Vec::new(),
+    state.endpoints = built.endpoints;
+    main_map.insert("endpoints".into(), Value::Array(state.endpoints));
+        let endpoints_empty = main
+            .get("endpoints")
+        if endpoints_empty {
+                map.remove("endpoints");
+    replace_in_array(main, "endpoints", input, custom_tags)?;
+            json!({"address": "v2ray.cool", "port": 10086}),
+
+$ echo "===S11 app tests==="; git grep -c "#\[test\]" HEAD -- crates/application/src | Select-Object -First 10; git show HEAD:crates/application/src/runtime_client.rs | Select-String -Pattern "null_client_records_plan" | Select-Object -First 3; echo "===S12 compat verified==="; git grep -n "status: verified" HEAD -- compat/ | Select-Object -First 5; echo "(empty=pass)"; git grep -n "status: identified" HEAD -- compat/ | Measure-Object -Line | Select-Object -ExpandProperty Lines; echo "===S13 engine smoke==="; git show HEAD:crates/bridge_api/src/api/engine.rs | Select-String -Pattern "SMOKE_PORT|stub_plan|smoke_plan" | Select-Object -First 8; echo "===S14 locks==="; git ls-tree HEAD Cargo.lock apps/desktop/pubspec.lock --name-only
+===S11 app tests===
+HEAD:crates/application/src/engine.rs:8
+HEAD:crates/application/src/jobs.rs:5
+HEAD:crates/application/src/repository.rs:5
+HEAD:crates/application/src/runtime_client.rs:1
+HEAD:crates/application/src/snapshot.rs:2
+HEAD:crates/application/src/synthetic.rs:5
+
+    fn null_client_records_plan_and_marks_running() {
+===S12 compat verified===
+(empty=pass)
+1184
+===S13 engine smoke===
+pub const SMOKE_PORT: u16 = 11808;
+    input.settings.inbound.local_port = SMOKE_PORT as i32;
+fn smoke_plan(target_id: &str, desired_revision: u64) -> Result<RuntimePlan, DomainError> {
+        ports: vec![PortRequest::tcp(SMOKE_PORT, "inbound-socks")],
+        ports: vec![PortRequest::tcp(SMOKE_PORT, "inbound-socks")],
+    let plan = match smoke_plan(&target_id, expected_revision) {
+    fn smoke_plan_has_socks_inbound_and_freedom_outbound() {
+        let plan = smoke_plan("smoke", 0).expect("generate smoke plan");
+===S14 locks===
+Cargo.lock
+apps/desktop/pubspec.lock
+
+鍗佸洓椤瑰師濮嬫娊鏌ュ叏閮ㄥ懡涓€斺€旂幇姝ｆ挵鍐欎腑鏂囧璁″畾绋裤€?
+# Todos
+[鉁揮 纭HEAD=2fbe9f1涓庡彧璇昏竟鐣岋紝鎽告煡瀹¤瀵硅薄娓呭崟
+[鉁揮 娲惧彂6璺瓙浠ｇ悊骞惰瀹¤T01/T02/T03/T04/T05/T07-T08
+[鉁揮 浜茶嚜鎶芥煡鈮?鏉″瓙浠ｇ悊鍙戠幇骞跺仛杞婚噺楠岃瘉
+[鈥 鎾板啓涓枃瀹¤鎶ュ憡鍒癟01-T08.audit.muse.md
+
+鈫?Write docs/evidence/audit/T01-T08.audit.muse.md
+Wrote file successfully.
+
+# Todos
+[鉁揮 纭HEAD=2fbe9f1涓庡彧璇昏竟鐣岋紝鎽告煡瀹¤瀵硅薄娓呭崟
+[鉁揮 娲惧彂6璺瓙浠ｇ悊骞惰瀹¤T01/T02/T03/T04/T05/T07-T08
+[鉁揮 浜茶嚜鎶芥煡鈮?鏉″瓙浠ｇ悊鍙戠幇骞跺仛杞婚噺楠岃瘉
+[鉁揮 鎾板啓涓枃瀹¤鎶ュ憡鍒癟01-T08.audit.muse.md
+
+瀹¤瀹屾垚锛屾姤鍛婂凡鍐欏叆 `docs/evidence/audit/T01-T08.audit.muse.md`銆?
+- 缁撹锛?*鏈夋潯浠堕€氳繃**锛圥0脳2銆丳1脳14 蹇呮敼鍚庢柟鍙浆 verified锛?- 6 璺瓙浠ｇ悊鍏ㄩ儴澶嶆牳锛屼釜浜哄 HEAD=`2fbe9f1` 浜茶嚜鎶芥煡 **14 椤癸紙S1鈥揝14锛?*锛岄噰绾?24 鏉″彂鐜般€佸悎骞?3 鏉￠噸鍙?- P0锛歍03 鐢ㄤ緥 a 鐨?PID 涓?`a-normal.json` 鐭涚浘锛?6988/39520 vs 39116/24264锛夛紱T04 绔埌绔緭鍏ュ叏閮ㄨ嚜浜у悎鎴愬簱銆乣涓婃父鍏煎`璇佹槑涓嶆垚绔?- 鏍稿績鎴愮珛椤癸細鐪熷疄 Xray 杩涚▼閾俱€佸搱甯岃嚜娲姐€佺鍙ｉ殧绂伙紙浠?11808锛夈€佹棤鍋?Running銆佹棤 mock 闂幆銆侀浂 `verified` 璇爣銆佸弻閿佹枃浠?FRB 涓よ吙 2.13.0
+- 鍏ㄧ▼鍙锛堥櫎鎶ュ憡澶栭浂鍐欏叆锛夛紝鏈窇 flutter/cargo 鏋勫缓涓庢祴璇曪紝鏈 10808

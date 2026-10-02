@@ -1,0 +1,3 @@
+Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)
+A unified platform for anti-censorship.
+Failed to start: main: failed to load config files: [target/t06b/matrix\xray--xray-kcp.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type mkcp-legacy > infra/conf: unknown config id: mkcp-legacy

@@ -1,0 +1,24 @@
+==> cargo build --workspace --release --locked
+    Finished `release` profile [optimized] target(s) in 0.29s
+==> flutter build windows --release
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Building Windows application...                                    24.0s
+鉁?Built build\windows\x64\runner\Release\v2rayn_desktop.exe
+
+PACKAGE  v2rayN-R-1.0.0+1-windows-x64
+STAGE    C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64
+ZIP      C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip
+SHA256   8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3
+ELAPSED  28.1s
+T20_BUILD_OK version=1.0.0+1 zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip sha256=8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3

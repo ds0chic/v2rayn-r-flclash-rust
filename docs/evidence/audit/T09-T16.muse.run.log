@@ -1,0 +1,423 @@
+
+> build 路 muse-spark-1.3-contributor
+
+涓ヨ嫑瀵规姉瀹¤鍚姩 鈥?鍏堣瀹屾暣瀹¤鎻愮ず璇嶅苟閿佸畾鍩虹嚎銆?
+鈫?Read docs/evidence/audit/T09-T16.audit.prompt.md
+
+# Todos
+[鈥 纭HEAD/宸ヤ綔鍖哄熀绾夸笌瀹¤瀵硅薄鏂囦欢娓呭崟
+[ ] 娲惧彂涓€灞傚瓙浠ｇ悊鍒嗗伐瀹¤T09/T10/T12a/T13-T16/T04b-T06b
+[ ] 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇
+[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒版寚瀹氭枃浠?
+
+$ git rev-parse HEAD; git log --oneline -5; git status --short | head -n 100
+29221bf67b74952c6bfc3200211e46065ecd75c2
+29221bf T12a settings storage+UI full (180 fields); T14 helper docs+clippy; gates green
+f0bdba6 T10 groups/chains/templates (muse, 741 tests, 16/16 real-core matrix); T16 updater crate (135 tests); T14 helper WIP
+1f0b1eb T04b real-config compatibility validation + sanitized fixtures (84 tests); add updater/privileged_helper skeletons
+b80c258 T13 platform crate (51 tests); T15 core_adapters crate (66 tests + real xray stats smoke)
+4e2d056 add platform and core_adapters crate skeletons for T13/T15
+head: The term 'head' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+$ git rev-parse HEAD; git log --oneline -5; git status --short
+29221bf67b74952c6bfc3200211e46065ecd75c2
+29221bf T12a settings storage+UI full (180 fields); T14 helper docs+clippy; gates green
+f0bdba6 T10 groups/chains/templates (muse, 741 tests, 16/16 real-core matrix); T16 updater crate (135 tests); T14 helper WIP
+1f0b1eb T04b real-config compatibility validation + sanitized fixtures (84 tests); add updater/privileged_helper skeletons
+b80c258 T13 platform crate (51 tests); T15 core_adapters crate (66 tests + real xray stats smoke)
+4e2d056 add platform and core_adapters crate skeletons for T13/T15
+?? docs/evidence/audit/T09-T16.audit.prompt.md
+
+鈫?Read docs/evidence
+鍩虹嚎骞插噣锛孒EAD 涓庡伐浣滃尯涓€鑷?鈥?姝ｅ苟琛屾淳鍙戝垎宸ュ璁°€?
+
+# Todos
+[鉁揮 纭HEAD/宸ヤ綔鍖哄熀绾夸笌瀹¤瀵硅薄鏂囦欢娓呭崟
+[鈥 娲惧彂涓€灞傚瓙浠ｇ悊鍒嗗伐瀹¤T09/T10/T12a/T13-T16/T04b-T06b
+[ ] 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇
+[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒版寚瀹氭枃浠?
+
+鈥?瀹¤T09璁㈤槄鎺ョ嚎 Muse-1.3 Agent
+鈥?瀹¤T10鍒嗙粍閾?[90m Muse-1.3 Agent
+鈥?瀹¤T12a璁剧疆 Muse-1.3 Agent
+鈥?瀹¤T13骞冲彴瀹夊叏 Muse-1.3 Agent
+鈥?瀹¤T15鍐呮牳閫傞厤 Muse-1.3 Agent
+鈥?瀹¤T04b鑴辨晱澶瑰叿 Muse-1.3 Agent
+鉁?瀹¤T13骞冲彴瀹夊叏 Muse-1.3 Agent
+鉁?瀹¤T15鍐呮牳閫傞厤 Muse-1.3 Agent
+鉁?瀹¤T12a璁剧疆 Muse-1.3 Agent
+鉁?瀹¤T10鍒嗙粍閾?[90m Muse-1.3 Agent
+鉁?瀹¤T04b鑴辨晱澶瑰叿 Muse-1.3 Agent
+鉁?瀹¤T09璁㈤槄鎺ョ嚎 Muse-1.3 Agent
+鍏矾鍒嗗伐瀹¤宸插洖榻?鈥?姝ｅ湪閫愭潯澶嶆牳鍏抽敭鍙戠幇銆?
+
+# Todos
+[鉁揮 纭HEAD/宸ヤ綔鍖哄熀绾夸笌瀹¤瀵硅薄鏂囦欢娓呭崟
+[鉁揮 娲惧彂涓€灞傚瓙浠ｇ悊鍒嗗伐瀹¤T09/T10/T12a/T13-T16/T04b-T06b
+[鈥 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇
+[ ] 鎾板啓涓枃瀹¤鎶ュ憡鍒版寚瀹氭枃浠?
+
+$ git show HEAD:apps/desktop/lib/features/subs/subs_controller.dart | Select-String -Pattern "cancel|jobView|cancelJob" -Context 3; echo "---SETLOCALPROXY---"; git grep -n "setLocalProxyPort\|cancelJob" HEAD -- apps/desktop/lib/features apps/desktop/lib/app | Select-Object -First 20
+state = state.copyWith(status: status);
+    }
+  
+>   /// The F-SUB-003 update pipeline via an explicit run (job + cancellation).
+    Future<c.SubUpdateResult> update({
+      List<String> subIds = const <String>[],
+      bool viaProxy = false,
+      return result;
+    }
+  
+>   /// Cancel the in-flight update job (idempotent).
+>   void cancel() {
+      final jobId = state.lastJobId;
+      if (jobId == null) return;
+>     ref.read(bridgePortProvider).jobView(jobId);
+      state = state.copyWith(
+        status: const SubStatus(kind: 'info', message: '宸茶姹傚彇锟?),
+      );
+    }
+  
+    String _summarize(c.SubUpdateResult result) {
+>     if (result.cancelled) return '鏇存柊宸插彇锟?;
+      if (result.entries.isEmpty) return '娌℃湁鍙洿鏂扮殑璁㈤槄';
+      final updated = result.entries.where((e) => e.status == 'updated').length;
+      final preserved = result.entries
+---SETLOCALPROXY---
+
+$ git show HEAD:crates/bridge_api/src/api/subs.rs | Select-String -Pattern "SUB_JOBS|cancel_job|sub_jobs" | Select-Object -First 20; echo "---ENGINE CANCEL---"; git show HEAD:crates/application/src/engine.rs | Select-String -Pattern "is_cancelled|cancellation" | Select-Object -First 10
+/// Registry of live update jobs, so `cancel_job` can reach their token.
+static SUB_JOBS: OnceLock<Mutex<Vec<JobId>>> = OnceLock::new();
+fn sub_jobs() -> &'static Mutex<Vec<JobId>> {
+    SUB_JOBS.get_or_init(|| Mutex::new(Vec::new()))
+    if let Ok(mut jobs) = sub_jobs().lock() {
+    if let Ok(mut jobs) = sub_jobs().lock() {
+/// returned `job_id` can be passed to `cancel_job`.
+---ENGINE CANCEL---
+    AppSettings, AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType,
+        cancellation: &CancellationToken,
+            if cancellation.is_cancelled() {
+                self.refresh_one(&item, &request, cancellation, max_items)
+        cancellation: &CancellationToken,
+        if cancellation.is_cancelled() {
+            cancellation,
+
+$ git show HEAD:apps/desktop/lib/features/profiles/profiles_controller.dart | Select-String -Pattern "subRemarks|groupSubId|setGroupSubId" | Select-Object -First 20; echo "---BRIDGE ENGINE SINGLETON---"; git show HEAD:crates/bridge_api/src/api/engine.rs | Select-String -Pattern "OnceLock|attempts|stale" | Select-Object -First 15
+this.groupSubId,
+  final String? groupSubId;
+    String? groupSubId,
+      groupSubId: clearGroup ? null : (groupSubId ?? this.groupSubId),
+    final grouped = base.groupSubId == null
+        : filtered.where((r) => r.subRemarks == base.groupSubId).toList();
+  void setGroupSubId(String? subId) {
+      state.copyWith(groupSubId: subId, clearGroup: subId == null),
+---BRIDGE ENGINE SINGLETON---
+use std::sync::{Arc, Mutex, OnceLock};
+static ENGINE: OnceLock<AppEngine> = OnceLock::new();
+static ENGINE_DIR: OnceLock<Mutex<Option<std::path::PathBuf>>> = OnceLock::new();
+static EVENT_EPOCH: OnceLock<AtomicU64> = OnceLock::new();
+static EVENT_SEQ: OnceLock<AtomicU64> = OnceLock::new();
+static SUBSCRIBERS: OnceLock<Mutex<Vec<Sink>>> = OnceLock::new();
+static RUNTIME_SUBSCRIPTION: OnceLock<()> = OnceLock::new();
+    fn save_profile_rejects_stale_revision_through_bridge() {
+        // concurrently; re-read until the save lands so the stale-rejection
+        let mut attempts = 0;
+            attempts += 1;
+            if ok.ok || attempts >= 10 {
+        // Reuse the now-stale revision.
+        let stale = save_profile(draft, before);
+        assert!(!stale.ok);
+
+$ git show HEAD:docs/evidence/T12a.md | Select-String -Pattern "绔嬪嵆鐢熸晥|CurrentLanguage|RestartApp" | Select-Object -First 20; echo "---TIMING---"; git show HEAD:crates/domain/src/settings_timing.rs | Select-String -Pattern "CurrentLanguage|CurrentFontFamily|MainGirdOrientation|RestartApp" | Select-Object -First 20
+涓婚 `CurrentTheme`銆佸己璋冭壊 `ColorPrimaryName`銆佸瓧浣撴棌 `CurrentFontFamily`銆佸瓧锟?`CurrentFontSize`銆佽瑷€ `
+CurrentLanguage`锛堥噸寮€淇濇寔锛夈€佷富甯冨眬鏂瑰悜 `MainGirdOrientation`銆侀殣锟?IP `HideColumnIpInfo`銆佸弻鍑绘縺锟?
+`DoubleClick2Activate`銆佺粺璁℃樉锟?`EnableStatistics`銆佸垪瀹借嚜閫傚簲 `EnableAutoAdjustMainLvColWidth`銆佹墭鐩樿妭锟?[0m
+锟戒笂锟?`TrayMenuServersLimit`锛堝瓨锟?UI 璇诲彇锛夛拷?鍏朵綑锟?`apply_timing` 鍦ㄤ繚瀛樼粨鏋滀腑杩斿洖骞跺湪 UI 鎻愮ず锟?[0m
+锟介渶閲嶅惎鍐呮牳/搴旂敤/涓嬫鍚姩鈥濓紱绯荤粺浠ｇ悊銆乀un銆佽嚜鍚€乁AC銆乁WP銆佺儹閿敞鍐屻€佹棩蹇楃骇鍒繍琛屾椂 rel
+oad 鍧囨爣娉ㄧ暀 T13锛屼笉鍋囪鎴愬姛锟?
+---TIMING---
+    ("GuiItem", "DisplayRealTimeSpeed", ApplyTiming::RestartApp), // FLD-CFG-058
+    ("GuiItem", "EnableHWA", ApplyTiming::RestartApp),           // FLD-CFG-062
+    ("GuiItem", "EnableLog", ApplyTiming::RestartApp),           // FLD-CFG-063
+    ("GuiItem", "EnableStatistics", ApplyTiming::RestartApp),    // FLD-CFG-057
+    ("UiItem", "CurrentFontFamily", ApplyTiming::RestartApp),    // FLD-CFG-074
+    ("UiItem", "CurrentLanguage", ApplyTiming::RestartApp),      // FLD-CFG-073
+    ("UiItem", "EnableDragDropSort", ApplyTiming::RestartApp),   // FLD-CFG-076
+    ("UiItem", "MacOSShowInDock", ApplyTiming::RestartApp),      // FLD-CFG-080
+    ("UiItem", "MainGirdOrientation", ApplyTiming::RestartApp),  // FLD-CFG-070
+        ApplyTiming::RestartApp => 4,
+
+$ git show HEAD:apps/desktop/lib/features/settings/option_setting_window.dart | Select-String -Pattern "鍙灞曠ず|KcpItem|CwndMultiplier" | Select-Object -First 10; echo "---PAC---"; git show HEAD:crates/platform/src/pac.rs | Select-String -Pattern "10808|11808|DEFAULT_PAC" | Select-Object -First 10; echo "---INSTALL---"; git show HEAD:crates/updater/src/install.rs | Select-String -Pattern "starts_with|is_absolute|external_upgrade" | Select-Object -First 15
+final kcp = _group('KcpItem');
+        onChanged: (v) => _set('KcpItem', 'Mtu', v),
+        onChanged: (v) => _set('KcpItem', 'Tti', v),
+        onChanged: (v) => _set('KcpItem', 'UplinkCapacity', v),
+        onChanged: (v) => _set('KcpItem', 'DownlinkCapacity', v),
+---PAC---
+//! [`DEFAULT_PAC_PORT_BASE`] (11808). Port 10808 is deliberately out of scope:
+/// Lowest port the auto-selector will try. Never 10808.
+pub const DEFAULT_PAC_PORT_BASE: u16 = 11808;
+pub const DEFAULT_PAC_PATH: &str = "/pac";
+    /// Port; `0` selects the first free port >= [`DEFAULT_PAC_PORT_BASE`].
+            path: DEFAULT_PAC_PATH.to_string(),
+            for port in DEFAULT_PAC_PORT_BASE..=u16::MAX {
+                Some(e) => format!("no free PAC port at or above {DEFAULT_PAC_PORT_BASE}: {e}"),
+---INSTALL---
+            if !path.starts_with(&self.root) {
+    pub fn external_upgrade_spec(
+        if !source.starts_with(&self.install_root) && !source.is_absolute() {
+pub fn external_upgrade_spec(
+    coordinator.external_upgrade_spec(source, wait_for_pid)
+            .external_upgrade_spec("/root/stage/new.zip", 4242)
+
+$ git show HEAD:crates/updater/src/install.rs | Select-String -Pattern "external_upgrade_spec" -Context 8 | Select-Object -First 30; echo "---SMOKE---"; git show HEAD:crates/core_adapters/tests/xray_smoke.rs | Select-String -Pattern "ignore|pinned|tempdir|pick_port" | Select-Object -First 12; echo "---T15RUNS---"; git ls-tree -r HEAD --name-only | Select-String -Pattern "T15.*runs|T15.*json|T15.*log" | Select-Object -First 10; echo "(empty means no runs artifact)"
+pub fn new(helper_exe: impl Into<PathBuf>, install_root: impl Into<PathBuf>) -> Self {
+          Self {
+              helper_exe: helper_exe.into(),
+              install_root: install_root.into(),
+          }
+      }
+  
+      /// Build the spec for the external helper. No process is started.
+>     pub fn external_upgrade_spec(
+          &self,
+          source: impl Into<PathBuf>,
+          wait_for_pid: u32,
+      ) -> Result<ExternalUpgradeSpec, UpdateError> {
+          let source = source.into();
+          if !source.starts_with(&self.install_root) && !source.is_absolute() {
+              return Err(UpdateError::UnsafeTarget(source.display().to_string()));
+          }
+              source,
+              install_root: self.install_root.clone(),
+              wait_for_pid,
+          })
+      }
+  }
+  
+  /// Free function form used by the public API.
+> pub fn external_upgrade_spec(
+      coordinator: &UpgradeCoordinator,
+      source: impl Into<PathBuf>,
+      wait_for_pid: u32,
+  ) -> Result<ExternalUpgradeSpec, UpdateError> {
+>     coordinator.external_upgrade_spec(source, wait_for_pid)
+  }
+  
+  #[cfg(test)]
+  mod tests {
+      use super::*;
+  
+      #[test]
+      fn plan_rejects_paths_outside_root() {
+          let plan = InstallPlan::new("/root", "/root/current", "/root/staged", "../x", "1.0.0");
+          assert!(matches!(plan.validate(), Err(UpdateError::UnsafeTarget(_))));
+      }
+  
+      #[test]
+      fn external_spec_does_not_start_process() {
+          let coordinator = UpgradeCoordinator::new("/root/helper.exe", "/root");
+          let spec = coordinator
+>             .external_upgrade_spec("/root/stage/new.zip", 4242)
+              .unwrap();
+          assert_eq!(spec.wait_for_pid, 4242);
+          assert_eq!(spec.args, vec!["/root/stage/new.zip".to_string()]);
+          assert!(!spec.source.is_dir());
+      }
+  }
+---SMOKE---
+//! Optional real-kernel smoke test (ignored by default).
+//! `cargo test -p core_adapters --test xray_smoke -- --ignored --nocapture`
+//! It starts the pinned Xray binary, generates loopback traffic through a
+use common::pick_port;
+#[ignore = "starts the real pinned Xray binary; run manually"]
+                eprintln!("SKIP: pinned xray.exe not found");
+            let socks_port = pick_port();
+            let metrics_port = pick_port();
+            let temp = tempfile::tempdir().expect("tempdir");
+---T15RUNS---
+(empty means no runs artifact)
+
+$ git show HEAD:services/privileged_helper/src/windows.rs | Select-String -Pattern "TerminateProcess|known.contains|KILL_ON_JOB_CLOSE|SetInformationJobObject" | Select-Object -First 12; echo "---FIXTURES---"; git ls-tree -r HEAD --name-only | Select-String -Pattern "upstream-real-shape" | Select-Object -First 10
+fn TerminateProcess(process: *mut c_void, exit_code: u32) -> i32;
+                TerminateProcess(record.process as *mut c_void, 1);
+---FIXTURES---
+fixtures/synthetic/upstream-real-shape/README.md
+fixtures/synthetic/upstream-real-shape/guiNConfig.json
+fixtures/synthetic/upstream-real-shape/guiNDB.db
+fixtures/synthetic/upstream-real-shape/upstream-bak.db
+fixtures/synthetic/upstream-real-shape/upstream-old-v1.db
+fixtures/synthetic/upstream-real-shape/upstream-old-v2.db
+
+$ git show HEAD:fixtures/synthetic/upstream-real-shape/guiNConfig.json | python -c "import sys,json,re; t=sys.stdin.read(); print('len',len(t)); pats=[r'https?://',r'vmess://',r'vless://',r'trojan://',r'ss://',r'\d+\.\d+\.\d+\.\d+']; import re; [print(p, len(re.findall(p,t))) for p in pats]"
+len 9000
+https?:// 0
+vmess:// 0
+vless:// 0
+trojan:// 0
+ss:// 0
+\d+\.\d+\.\d+\.\d+ 0
+
+$ git grep -n "status: verified" HEAD -- compat | Select-Object -First 10; echo "---count done---"; git show HEAD:compat/features.yaml | Select-String -Pattern "F-SUB-007|F-IMPORT-008" -Context 2 | Select-Object -First 20
+---count done---
+
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:169
+    status: implemented
+> - id: F-SUB-007
+    name: 璁㈤槄杞崲 ConvertTarget
+    family: subscription
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:516
+    status: identified
+> - id: F-IMPORT-008
+    name: 瀵煎嚭瀹㈡埛绔厤锟?  family: import-export
+    summary: 灏嗚妭鐐瑰鍑轰负瀹㈡埛绔厤缃枃浠讹紙鎴栧鍒跺埌鍓创鏉匡級
+
+鎶芥煡宸茶鐩栧叧閿摼璺?鈥?姝ｅ湪鏍稿鍙拌处鐘舵€佸悗鎾板啓鎶ュ憡銆?
+$ git show HEAD:compat/features.yaml | Select-String -Pattern "id: F-SUB-007" -Context 10 | Select-Object -First 20; echo "==="; git show HEAD:compat/features.yaml | Select-String -Pattern "id: F-IMPORT-008" -Context 10 | Select-Object -First 20
+normal_behavior: 閫楀彿鍒嗛殧 MoreUrl 閫愪釜涓嬭浇锛涗富缁撴灉锟?base64 鍏堣В鐮佸悗鎷兼帴
+    failure_behavior: 绌鸿璺宠繃
+    cancel_behavior: 锟?  acceptance: 闄勫姞璁㈤槄鑺傜偣琚悎骞跺锟?  source_commit: 7d6a967c18c697f28dc6917122ed3a499
+3fcf336
+    implementation_location: crates/application/src/subs.rs (download_all more_url)
+    test_ids: ["subs_pipeline.rs::more_url_merges_in_order"]
+    evidence:
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:121
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:158
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:169
+    status: implemented
+> - id: F-SUB-007
+    name: 璁㈤槄杞崲 ConvertTarget
+    family: subscription
+    summary: 閫氳繃杞崲鏈嶅姟鎶婅闃呰浆锟?mixed/v2ray/clash/ss
+    platforms:
+    - windows
+    - macos
+    - linux
+    upstream_entry:
+      window: SubEditWindow
+      menu_path: 璁㈤槄璁剧疆/杞崲鐩爣
+===
+    preconditions: []
+    normal_behavior: ScanScreenInteraction 杩斿洖瀛楄妭锟?ParseBarcode
+    failure_behavior: 鏃犳湁鏁堜簩缁寸爜鎻愮ず
+    cancel_behavior: 鍙栨秷鎴浘鏃犳搷锟?  acceptance: 灞忓箷浜岀淮鐮佸鍏ユ垚锟?  source_commit: 7d6a967c18c697f28dc69
+17122ed3a4993fcf336
+    implementation_location: null
+    test_ids: []
+    evidence:
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:510
+    - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:516
+    status: identified
+> - id: F-IMPORT-008
+    name: 瀵煎嚭瀹㈡埛绔厤锟?  family: import-export
+    summary: 灏嗚妭鐐瑰鍑轰负瀹㈡埛绔厤缃枃浠讹紙鎴栧鍒跺埌鍓创鏉匡級
+    platforms:
+    - windows
+    - macos
+    - linux
+    upstream_entry:
+      window: MainWindow
+      menu_path: 鑺傜偣鍙抽敭/瀵煎嚭瀹㈡埛绔厤锟?    symbol: ProfilesViewModel.Export2ClientConfigAsync
+      files:
+
+$ git show HEAD:compat/features.yaml | python -c "import sys; t=sys.stdin.read(); i=t.find('id: F-SUB-007'); print(t[i:i+2500])"
+id: F-SUB-007
+  name: 璁㈤槄杞崲 ConvertTarget
+  family: subscription
+  summary: 閫氳繃杞崲鏈嶅姟鎶婅闃呰浆涓?mixed/v2ray/clash/ss
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 璁㈤槄璁剧疆/杞崲鐩爣
+    symbol: SubscriptionHandler.DownloadMainSubscription
+    files:
+    - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs
+  depends_on_cores: []
+  depends_on_features:
+  - F-SUB-003
+  preconditions:
+  - 璁剧疆 ConvertTarget
+  normal_behavior: 鎸?Global.SubConvertUrls / ConstItem.SubConvertUrl 鎷兼帴 target 涓?config
+  failure_behavior: 杞崲澶辫触鎸夌┖缁撴灉澶勭悊
+  cancel_behavior: 鏃?
+  acceptance: 鎸囧畾鐩爣鍚庤姹傝浆鎹㈡湇鍔″苟鎴愬姛瀵煎叆
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: crates/application/src/subs.rs (build_candidates custom_core_type hint)
+  test_ids: ["subs.rs::validate_rejects_bad_url_and_headers"]
+  evidence:
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:129
+  - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:137
+  - v2rayN/ServiceLib/Global.cs:142
+  - v2rayN/ServiceLib/Global.cs:155
+  status: implemented
+- id: F-SUB-008
+  name: 璁㈤槄鍓嶅悗缃妭鐐?
+  family: subscription
+  summary: 涓鸿闃呴厤缃墠缃?鍚庣疆鑺傜偣锛屾瀯鎴愯櫄鎷熶唬鐞嗛摼
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 璁㈤槄璁剧疆/鍓嶇疆鑺傜偣銆佸悗缃妭鐐?
+    symbol: SubEditViewModel.PrevProfile / NextProfile
+    files:
+    - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs
+  depends_on_cores:
+  - Xray
+  - sing_box
+  depends_on_features:
+  - F-SUB-002
+  preconditions: []
+  normal_behavior: 杩愯鏃舵寜 remarks 瑙ｆ瀽 prev/next 骞剁敓鎴?ProxyChain 鑺傜偣
+  failure_behavior: 鑺傜偣鏈壘鍒板垯璀﹀憡骞朵娇鐢ㄥ師鑺傜偣
+  cancel_behavior: 娓呴櫎閫夋嫨鍒欎笉鐢熸垚閾?
+  acceptance: 閰嶇疆鍓嶅悗缃悗鐢熸垚閾惧紡鍑虹珯
+  source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
+  implementation_location: crates/application/src/engine.rs (SubItem prev/next persisted)
+  test_ids: ["subitem_crud_survives_reopen"]
+  evidence:
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:14
+  - v2rayN/ServiceLib/ViewModels/SubEditViewModel.cs:87
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:258
+  - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:279
+  status: implemented
+- id: F-SUB-009
+  name: 璁㈤槄杩囨护涓庤嚜瀹氫箟鍐呮牳
+  family: subscription
+  summary: 璁㈤槄绾?Filter 姝ｅ垯杩囨护鑺傜偣锛孋ustomCoreType 鎸囧畾鍐呮牳
+  platforms:
+  - windows
+  - macos
+  - linux
+  upstream_entry:
+    window: SubEditWindow
+    menu_path: 璁㈤槄璁剧疆/杩囨护銆佸唴鏍?
+    symbol: SubEditViewModel.CustomCoreType
+    files:
+    - v2ray
+
+鈫?Read docs/evidence/audit
+
+# Todos
+[鉁揮 纭HEAD/宸ヤ綔鍖哄熀绾夸笌瀹¤瀵硅薄鏂囦欢娓呭崟
+[鉁揮 娲惧彂涓€灞傚瓙浠ｇ悊鍒嗗伐瀹¤T09/T10/T12a/T13-T16/T04b-T06b
+[鉁揮 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇
+[鈥 鎾板啓涓枃瀹¤鎶ュ憡鍒版寚瀹氭枃浠?
+
+鈫?Write docs/evidence/audit/T09-T16.audit.muse.md
+Wrote file successfully.
+
+# Todos
+[鉁揮 纭HEAD/宸ヤ綔鍖哄熀绾夸笌瀹¤瀵硅薄鏂囦欢娓呭崟
+[鉁揮 娲惧彂涓€灞傚瓙浠ｇ悊鍒嗗伐瀹¤T09/T10/T12a/T13-T16/T04b-T06b
+[鉁揮 浜茶嚜鎶芥煡鑷冲皯8鏉″瓙浠ｇ悊鍙戠幇
+[鉁揮 鎾板啓涓枃瀹¤鎶ュ憡鍒版寚瀹氭枃浠?
+
+瀹¤瀹屾垚锛屾湁鏉′欢閫氳繃銆傛姤鍛婂凡鍐欏叆 `docs/evidence/audit/T09-T16.audit.muse.md`銆?
+- 鍩虹嚎 `29221bf`锛屽伐浣滃尯骞插噣锛屽叏绋?`git show HEAD:` 涓哄噯锛涘彧璇伙紝鏈窇閲嶅瀷鏋勫缓銆?- 6 涓竴灞傚瓙浠ｇ悊鍏ㄥ洖榻愶紝浜茶嚜鎶芥煡 11 鏉″叏閮ㄥ鏍搁€氳繃銆?- P0脳2锛歍09 Flutter `cancel()` 鍋囧彇娑堬紙浠?`jobView`锛夛紱T16 `external_upgrade_spec` 缁濆璺緞閫冮€搞€?- P1脳9+锛歚via_proxy` 闈欓粯鐩磋繛銆乣SUB_JOBS` 姝荤姸鎬併€丗-SUB-007/008 鍙拌处澶稿ぇ銆乀12a 鏂囨。涓?timing 鐭涚浘銆並CP 娉ㄩ噴铏氬亣銆乀15 鏃犳満鍣ㄤ骇鐗┿€乀10 鐭╅樀涓嶅湪 HEAD銆佸紩鎿庡崟渚嬫祴璇曠珵浜夈€乭elper 璺緞/Job/绉熺害/鍙ユ焺椋庨櫓銆?- 瀹夸富瀹夊叏閫氳繃锛堟棤 10808 鎵ц銆佹棤鐪熷疄绯荤粺浠ｇ悊/娉ㄥ唽琛?璺敱鎻愭潈鎵ц銆佹棤鎸夊悕鏉€杩涚▼銆佸す鍏锋棤绉樺瘑锛夛紝浣嗕笁澶勭湡瀹炲啓鍏ヨ兘鍔涘凡缂栬瘧锛屾帴绾垮繀椤婚殧绂婚楠屻€?

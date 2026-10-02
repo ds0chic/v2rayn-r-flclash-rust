@@ -1,0 +1,310 @@
+
+> build 路 muse-spark-1.3-contributor
+
+鏍告煡淇璇佹嵁涓€斺€旀鍦ㄥ鐓у璁℃姤鍛婁笌 T20 鍙拌处銆?
+鈫?Read docs/evidence/T20.md
+鈫?Read docs/evidence/audit/FINAL.audit.muse.md
+鈫?Read docs/evidence/audit/FINAL.audit.gemini.md
+
+$ git rev-parse HEAD; git log --oneline -10; echo "---STATUS---"; git status --short; echo "---DIST---"; Get-Content dist/build-info.json; echo "---SUMS---"; Get-Content dist/SHA256SUMS; echo "---HASH---"; Get-FileHash dist/v2rayN-R-1.0.0+1-windows-x64.zip -Algorithm SHA256 | Select-Object -ExpandProperty Hash
+6e00512f640fa708d0d57598be82245633db582a
+6e00512 chore: stop tracking armed evidence build directory
+0600a5e RC remediation: clean-HEAD rebuild (F-01), live applied journal+core.log evidence (F-02/F-03), unarmed negative test PASS (F-04); T20/ADR updated
+6091dd1 Final audit remediation: compile-time arming for smoke/bench hooks (ISSUE-08), README/RC notes, ledger+doc precision fixes (F-01/F-04/F-05/F-07/F-08/F-10 + matrix semantics)
+5c33fa5 T20 release candidate: portable package, clean-env smoke with real apply, README/NOTICE/LICENSE, platform matrix
+54fcebe T18b runtime plan wiring verified (plan 11/11, e2e 7/7 real traffic, workspace green); evidence + ledger
+b16e2ff T18 perf/stability measurements + T12b 30-field chain audit; fixes F01 settings rollback, F02 process identity; found F03 runtime plan not wired
+42b0f6b T17 visual tokens + interaction polish + honest menu entries (preserved_only), screenshots
+204265a T14 TUN runtime + privileged helper lease (muse temp; 973 tests; dry-run evidence)
+cedb9eb T15b speed tests (892 tests, real local smoke); T16 backup/WebDAV/update windows; gates green
+cbab5fb T15a monitoring: stats/logs/Clash pages, statusbar traffic, net-host log events (loopback+real Xray smoke)
+---STATUS---
+---DIST---
+{
+  "schema": 1,
+  "product": "v2rayN-R",
+  "kind": "derived-refactor",
+  "version": "1.0.0",
+  "build_number": "1",
+  "pubspec_version": "1.0.0+1",
+  "rust_version": "0.1.0",
+  "git_commit": "6091dd1112f0ac53fa7ecdf227bd730d0f4a1331",
+  "git_commit_short": "6091dd1",
+  "git_branch": "main",
+  "git_dirty": false,
+  "target_platform": "windows-x64",
+  "target_triple": "x86_64-pc-windows-msvc",
+  "build_time_utc": "2026-10-02T02:51:44Z",
+  "toolchain": {
+    "flutter": "3.47.5",
+    "dart": "Dart SDK version: 3.13.4 (stable) (Tue Sep 15 01:01:15 2026 -0700) on \"windows_x64\"",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+    "frb": "2.13.0"
+  },
+  "cores_policy": "not_bundled; downloaded at runtime, pinned by tools/cores/cores.lock.json"
+}
+---SUMS---
+8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3  v2rayN-R-1.0.0+1-windows-x64.zip
+---HASH---
+8E01647B29CDE0F26AD598498A7E4360AE5941A6F2D3918E482520B4D6046EC3
+
+$ git show --stat HEAD; echo "===SHOW 0600a5e==="; git show --stat 0600a5e; echo "===DIFF 6091dd1..HEAD --name-only==="; git diff 6091dd1..HEAD --name-only; echo "===RC-APPLY LIST==="; Get-ChildItem -Recurse docs/evidence/T20.runs/rc-apply | Select-Object FullName,Length | Format-Table -AutoSize | Out-String -Width 300
+commit 6e00512f640fa708d0d57598be82245633db582a
+Author: v2rayn-r builder <builder@v2rayn-r.local>
+Date:   Fri Oct 2 10:59:07 2026 +0800
+
+    chore: stop tracking armed evidence build directory
+
+ .gitignore                                         |   3 +
+ dist/evidence-armed/SHA256SUMS                     |   1 -
+ dist/evidence-armed/build-info.json                |  25 -
+ .../v2rayN-R-1.0.0+1-windows-x64.zip               | Bin 21011750 -> 0 bytes
+ .../v2rayN-R-1.0.0+1-windows-x64/CORE-NOTES.txt    |   5 -
+ .../v2rayN-R-1.0.0+1-windows-x64/LICENSE           | 674 ---------------------
+ .../v2rayN-R-1.0.0+1-windows-x64/NOTICE.md         |  57 --
+ .../v2rayN-R-1.0.0+1-windows-x64/README.md         | 211 -------
+ .../v2rayN-R-1.0.0+1-windows-x64/bridge_api.dll    | Bin 16605696 -> 0 bytes
+ .../v2rayN-R-1.0.0+1-windows-x64/build-info.json   |  25 -
+ .../v2rayN-R-1.0.0+1-windows-x64/data/app.so       | Bin 7947144 -> 0 bytes
+ .../data/flutter_assets/AssetManifest.bin          |   1 -
+ .../data/flutter_assets/FontManifest.json          |   1 -
+ .../data/flutter_assets/NOTICES.Z                  | Bin 99697 -> 0 bytes
+ .../data/flutter_assets/NativeAssetsManifest.json  |   1 -
+ .../flutter_assets/fonts/MaterialIcons-Regular.otf | Bin 7312 -> 0 bytes
+ .../cupertino_icons/assets/CupertinoIcons.ttf      | Bin 257628 -> 0 bytes
+ .../data/flutter_assets/shaders/ink_sparkle.frag   | Bin 21856 -> 0 bytes
+ .../flutter_assets/shaders/stretch_effect.frag     | Bin 17616 -> 0 bytes
+ .../v2rayN-R-1.0.0+1-windows-x64/data/icudtl.dat   | Bin 864880 -> 0 bytes
+ .../flutter_windows.dll                            | Bin 21274112 -> 0 bytes
+ .../hotkey_manager_windows_plugin.dll              | Bin 106496 -> 0 bytes
+ .../native_assets.json                             |   1 -
+ .../v2rayN-R-1.0.0+1-windows-x64/net_host.exe      | Bin 2110976 -> 0 bytes
+ .../privileged_helper.exe                          | Bin 872448 -> 0 bytes
+ .../screen_retriever_windows_plugin.dll            | Bin 119296 -> 0 bytes
+ .../system_tray_plugin.dll                         | Bin 111616 -> 0 bytes
+ .../v2rayn_desktop.exe                             | Bin 97280 -> 0 bytes
+ .../window_manager_plugin.dll                      | Bin 130048 -> 0 bytes
+ 29 files changed, 3 insertions(+), 1002 deletions(-)
+===SHOW 0600a5e===
+commit 0600a5e80e35990e2ef6f2271a819230385f0d31
+Author: v2rayn-r builder <builder@v2rayn-r.local>
+Date:   Fri Oct 2 10:58:58 2026 +0800
+
+    RC remediation: clean-HEAD rebuild (F-01), live applied journal+core.log evidence (F-02/F-03), unarmed negative test PASS (F-04); T20/ADR updated
+
+ dist/SHA256SUMS                                    |   2 +-
+ dist/build-info.json                               |   8 +-
+ dist/evidence-armed/SHA256SUMS                     |   1 +
+ dist/evidence-armed/build-info.json                |  25 +
+ .../v2rayN-R-1.0.0+1-windows-x64.zip               | Bin 0 -> 21011750 bytes
+ .../v2rayN-R-1.0.0+1-windows-x64/CORE-NOTES.txt    |   5 +
+ .../v2rayN-R-1.0.0+1-windows-x64/LICENSE           | 674 +++++++++++++++++++++
+ .../v2rayN-R-1.0.0+1-windows-x64/NOTICE.md         |  57 ++
+ .../v2rayN-R-1.0.0+1-windows-x64/README.md         | 211 +++++++
+ .../v2rayN-R-1.0.0+1-windows-x64/bridge_api.dll    | Bin 0 -> 16605696 bytes
+ .../v2rayN-R-1.0.0+1-windows-x64/build-info.json   |  25 +
+ .../v2rayN-R-1.0.0+1-windows-x64/data/app.so       | Bin 0 -> 7947144 bytes
+ .../data/flutter_assets/AssetManifest.bin          |   1 +
+ .../data/flutter_assets/FontManifest.json          |   1 +
+ .../data/flutter_assets/NOTICES.Z                  | Bin 0 -> 99697 bytes
+ .../data/flutter_assets/NativeAssetsManifest.json  |   1 +
+ .../flutter_assets/fonts/MaterialIcons-Regular.otf | Bin 0 -> 7312 bytes
+ .../cupertino_icons/assets/CupertinoIcons.ttf      | Bin 0 -> 257628 bytes
+ .../data/flutter_assets/shaders/ink_sparkle.frag   | Bin 0 -> 21856 bytes
+ .../flutter_assets/shaders/stretch_effect.frag     | Bin 0 -> 17616 bytes
+ .../v2rayN-R-1.0.0+1-windows-x64/data/icudtl.dat   | Bin 0 -> 864880 bytes
+ .../flutter_windows.dll                            | Bin 0 -> 21274112 bytes
+ .../hotkey_manager_windows_plugin.dll              | Bin 0 -> 106496 bytes
+ .../native_assets.json                             |   1 +
+ .../v2rayN-R-1.0.0+1-windows-x64/net_host.exe      | Bin 0 -> 2110976 bytes
+ .../privileged_helper.exe                          | Bin 0 -> 872448 bytes
+ .../screen_retriever_windows_plugin.dll            | Bin 0 -> 119296 bytes
+ .../system_tray_plugin.dll                         | Bin 0 -> 111616 bytes
+ .../v2rayn_desktop.exe                             | Bin 0 -> 97280 bytes
+ .../window_manager_plugin.dll                      | Bin 0 -> 130048 bytes
+ docs/decisions/T20-rc-arming-and-capture.md        |  50 ++
+ docs/evidence/T20.md                               | 245 ++++++--
+ .../finalized/s-1790909660878-2_journal.json       |  11 +
+ .../rc-apply/live/s-1790909660878-2_config.json    |   1 +
+ .../rc-apply/live/s-1790909660878-2_journal.json   |  11 +
+ .../T20.runs/rc-apply/negative-unarmed.json        |  53 ++
+ .../T20.runs/rc-apply/official-build-verify.json   |  17 +
+ .../T20.runs/rc-apply/rc-apply-applied-running.png | Bin 0 -> 84647 bytes
+ .../evidence/T20.runs/rc-apply/rc-apply-probe.json | 115 ++++
+ tools/release/build_windows.ps1                    |  30 +-
+ tools/release/capture_rc_apply.ps1                 | 334 ++++++++++
+ tools/release/negative_unarmed.ps1                 | 181 ++++++
+ 42 files changed, 1995 insertions(+), 65 deletions(-)
+===DIFF 6091dd1..HEAD --name-only===
+.gitignore
+dist/SHA256SUMS
+dist/build-info.json
+docs/decisions/T20-rc-arming-and-capture.md
+docs/evidence/T20.md
+docs/evidence/T20.runs/rc-apply/finalized/s-1790909660878-2_journal.json
+docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_config.json
+docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_journal.json
+docs/evidence/T20.runs/rc-apply/negative-unarmed.json
+docs/evidence/T20.runs/rc-apply/official-build-verify.json
+docs/evidence/T20.runs/rc-apply/rc-apply-applied-running.png
+docs/evidence/T20.runs/rc-apply/rc-apply-probe.json
+tools/release/build_windows.ps1
+tools/release/capture_rc_apply.ps1
+tools/release/negative_unarmed.ps1
+===RC-APPLY LIST===
+
+FullName                                                                                                                                      Length
+--------                                                                                                                                      ------
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\finalized                                
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\live                                     
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\build_armed.log                          1443
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\build_official_rc.log                    1332
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\capture_rc_apply.log                     752
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\flutter_analyze_rc.log                   570
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\negative_unarmed.log                     284
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\negative-unarmed.json                    2244
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\official-build-verify.json               858
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\rc-apply-applied-running.png             84647
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\rc-apply-probe.json                      4512
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\finalized\s-1790909660878-2_journal.json 312
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\live\s-1790909660878-2_config.json       878
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\live\s-1790909660878-2_core.log          419
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\live\s-1790909660878-2_journal.json      310
+
+宸茬‘璁ゅ綋鍓嶆瀯寤哄熀绾垮瓨鍦ㄧ増鏈樊鈥斺€旀鍦ㄦ牳楠屽悇淇宸ヤ欢鐨勬湁鏁堟€с€?
+鈫?Read docs/evidence/T20.runs/rc-apply/negative-unarmed.json
+鈫?Read docs/evidence/T20.runs/rc-apply/rc-apply-probe.json
+鈫?Read docs/evidence/T20.runs/rc-apply/official-build-verify.json
+鈫?Read docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_journal.json
+鈫?Read docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_core.log
+鈫?Read docs/evidence/T20.runs/rc-apply/finalized/s-1790909660878-2_journal.json
+
+$ echo "===GITIGNORE==="; Get-Content .gitignore; echo "===DIFF-SOURCE==="; git diff 6091dd1..HEAD -- apps crates services; echo "===DIFF-END==="; echo "===CONFIG==="; Get-Content docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_config.json; echo "===README-CHECK==="; Select-String -Path README.md -Pattern "涓嶅惈鍐呮牳|tools/cores|Check updates|RC" | Select-Object LineNumber,Line | Format-Table -AutoSize | Out-String -Width 300; echo "===GIT-STATUS-IGNORED==="; git status --short --ignored docs/evidence/T20.runs/rc-apply/ | Out-String -Width 300; echo "===TRACKED-CHECK core.log==="; git ls-files docs/evidence/T20.runs/rc-apply/
+===GITIGNORE===
+# Rust
+target/
+**/target/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+**/build/
+*.iml
+.idea/
+.vscode/
+
+# T00 frozen inputs (large, externally pinned)
+work/
+
+
+# local evidence scratch
+*.log
+docs/evidence/audit/*.run.log
+
+# T20 release artifacts: keep the scripts/manifest, ignore large binaries
+dist/*.zip
+dist/v2rayN-R-*/
+# Keep T20 run logs as evidence (override the *.log rule for this dir)
+!docs/evidence/T20.runs/
+!docs/evidence/T20.runs/*.log
+
+# toolchains / local
+.tool-versions
+*.tmp
+*.bak
+Thumbs.db
+desktop.ini
+
+# downloaded cores/toolchains
+tools/cores/**/*.exe
+tools/cores/**/*.zip
+tools/cores/**/*.sha256
+
+
+# release artifacts (keep scripts + manifests, ignore big binaries)
+dist/*.zip
+dist/v2rayN-R-*/
+
+
+dist/evidence-armed/
+
+===DIFF-SOURCE===
+===DIFF-END===
+===CONFIG===
+{"log":{"loglevel":"warning"},"inbounds":[{"tag":"socks","port":11808,"protocol":"mixed","listen":"127.0.0.1","settings":{"auth":"noauth","udp":true,"allowTransparent":false},"sniffing":{"enabled":true,"destOverride":["http","tls"],"routeOnly":false}}],"routing":{"domainStrategy":"AsIs","rules":[{"type":"field","inboundTag":["dns-module"],"outboundTag":"proxy"}]},"dns":{"servers":[{"address":"119.29.29.29","domains":["full:cloudflare-dns.com"],"skipFallback":true},"https://cloudflare-dns.com/dns-query"],"serveStale":false,"tag":"dns-module"},"outbounds":[{"tag":"proxy","protocol":"vless","settings":{"address":"192.0.2.10","port":443,"id":"11111111-2222-3333-4444-555555555555","email":"t@t.tt","encryption":"none"},"streamSettings":{"network":"raw"},"mux":{"enabled":false,"concurrency":-1}},{"protocol":"freedom","tag":"direct"},{"protocol":"blackhole","tag":"block"}]}
+===README-CHECK===
+
+LineNumber Line
+---------- ----
+        22 ### Release notes (RC)
+        25   used a developer-local `tools/cores/xray` binary; end users obtain cores at
+        26   runtime via *Check updates* (see `dist/CORE-NOTES.txt`).
+        38 ## Architecture
+        48 fixtures/            锟叫具ｏ拷source/ 锟斤拷锟斤拷模锟藉；锟斤拷锟斤拷为锟较成诧拷锟斤拷锟斤拷锟捷ｏ拷
+        67   generators kept as independent chains (no forced Mihomo-YAML conversion).
+       112 runtime and pinned by [`tools/cores/cores.lock.json`](tools/cores/cores.lock.json).
+
+
+===GIT-STATUS-IGNORED===
+!! docs/evidence/T20.runs/rc-apply/build_armed.log
+!! docs/evidence/T20.runs/rc-apply/build_official_rc.log
+!! docs/evidence/T20.runs/rc-apply/capture_rc_apply.log
+!! docs/evidence/T20.runs/rc-apply/flutter_analyze_rc.log
+!! docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_core.log
+!! docs/evidence/T20.runs/rc-apply/negative_unarmed.log
+
+===TRACKED-CHECK core.log===
+docs/evidence/T20.runs/rc-apply/finalized/s-1790909660878-2_journal.json
+docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_config.json
+docs/evidence/T20.runs/rc-apply/live/s-1790909660878-2_journal.json
+docs/evidence/T20.runs/rc-apply/negative-unarmed.json
+docs/evidence/T20.runs/rc-apply/official-build-verify.json
+docs/evidence/T20.runs/rc-apply/rc-apply-applied-running.png
+docs/evidence/T20.runs/rc-apply/rc-apply-probe.json
+
+鈫?Read README.md [limit=40, offset=20]
+
+$ Test-Path docs/evidence/audit/FINAL.fixcheck.muse.md; git log --oneline -3 -- docs/evidence/audit/FINAL.fixcheck.muse.md; Get-Content docs/evidence/T20.runs/rc-apply/build_official_rc.log; echo "---NEG-LOG---"; Get-Content docs/evidence/T20.runs/rc-apply/negative_unarmed.log
+False
+==> cargo build --workspace --release --locked
+    Finished `release` profile [optimized] target(s) in 0.29s
+==> flutter build windows --release
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Building Windows application...                                    24.0s
+锟?Built build\windows\x64\runner\Release\v2rayn_desktop.exe
+
+PACKAGE  v2rayN-R-1.0.0+1-windows-x64
+STAGE    C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64
+ZIP      C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip
+SHA256   8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3
+ELAPSED  28.1s
+T20_BUILD_OK version=1.0.0+1 zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip sha256=8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3
+---NEG-LOG---
+
+NEGATIVE_RESULT PASS: official package ignored all automation env vars (no core, no 11808, no applied journal, no core.log, no bench output)
+NEGATIVE_JSON   C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.runs\rc-apply\negative-unarmed.json
+
+鍚勯」璇佹嵁宸叉牳瀵瑰畬姣曗€斺€旀鍦ㄧ敓鎴愪慨澶嶆牳鏌ユ姤鍛娿€?
+鈫?Write docs/evidence/audit/FINAL.fixcheck.muse.md
+Wrote file successfully.
+
+$ (Get-Content docs/evidence/audit/FINAL.fixcheck.muse.md | Measure-Object -Line).Lines; git status --short
+12
+?? docs/evidence/audit/FINAL.fixcheck.muse.md
+
+澶嶆牳瀹屾垚锛堝彧璇伙紝浠呮柊澧炴姤鍛婃枃浠讹級锛?
+- `docs/evidence/audit/FINAL.fixcheck.muse.md` 宸插啓鍏ワ紙12 琛岋紝涓枃锛夈€?- 缁撹锛欶-02/F-04/F-05 resolved锛汧-01/F-03 partially銆?  - F-01锛歚build-info.json` commit=`6091dd1` dirty=`false`锛孲HA锛坄8e01647b鈥锛変笌 zip 澶嶇畻涓€鑷达紝浣?HEAD=`6e00512` 宸茶秴鍓?2 鎻愪氦锛沗6091dd1..HEAD` 鏃?`apps/crates/services` 鏀瑰姩銆?  - F-03锛歚live/*_core.log`锛?19B锛孹ray started锛夊湪纾佺洏瀛樺湪锛宲robe 鏈夊搱甯岋紝浣嗚 `*.log` 蹇界暐銆佹湭 `git` 璺熻釜锛沗build/capture/negative` 鏃ュ織鍚岀悊銆?- 鏈慨鏀瑰叾浠栦换浣曟枃浠讹紙`git status` 浠呮柊澧炶鎶ュ憡锛夈€?

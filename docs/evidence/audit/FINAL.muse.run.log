@@ -1,0 +1,536 @@
+
+> build 路 muse-spark-1.3-contributor
+
+姝ｅ湪璇诲彇瀹¤鎸囦护锛屽噯澶囨渶缁堝彂甯冨氨缁牳鏌ャ€?
+鈫?Read docs/evidence/audit/FINAL.audit.prompt.md
+
+# Todos
+[鈥 纭HEAD/鑴忔敼鍔ㄤ笌瀹¤瀵硅薄娓呭崟
+[ ] A1 鍙戝竷鐪熷疄鎬т笌娲佸噣搴︽牳鏌?[ ] A2/A3 T20鍐掔儫涓巄uild-info鏍告煡 + gating鍥炲綊椋庨櫓
+[ ] B 鍏ㄤ骇鍝佸弽閫犲亣鎶芥煡鈮?0椤?[ ] C 瀹夸富瀹夊叏 + D 绉樺瘑鍚堣
+[ ] E 鍙拌处缁堟€佺粺璁′笌鍙戝竷闃绘柇椤?[ ] 浜茶嚜spot-check 8椤?+ 鍐橣INAL.audit.muse.md
+
+鈫?Read dist
+鈫?Read docs/evidence/audit
+
+$ git rev-parse HEAD && git log --oneline -3 && git status --porcelain | head -50
+5c33fa5f08bc063e938c0c339d2a96bf01662313
+5c33fa5 T20 release candidate: portable package, clean-env smoke with real apply, README/NOTICE/LICENSE, platform matrix
+54fcebe T18b runtime plan wiring verified (plan 11/11, e2e 7/7 real traffic, workspace green); evidence + ledger
+b16e2ff T18 perf/stability measurements + T12b 30-field chain audit; fixes F01 settings rollback, F02 process identity; found F03 runtime plan not wired
+head: The term 'head' is not recognized as a name of a cmdlet, function, script file, or executable program.
+Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+
+鈫?Read dist/build-info.json
+鈫?Read dist/SHA256SUMS
+
+$ git status --porcelain; git rev-parse HEAD
+?? docs/evidence/audit/FINAL.audit.prompt.md
+5c33fa5f08bc063e938c0c339d2a96bf01662313
+
+HEAD 涓庢瀯寤轰俊鎭瓨鍦ㄥ樊寮傦紝宸茶褰曘€傜幇鍦ㄥ苟琛屾淳鍙戝瓙浠ｇ悊瑕嗙洊鍚勫璁￠潰銆?
+鈥?Audit A1 dist cleanliness Muse-1.3 Agent
+鈥?Audit A2 T20 smoke chain Muse-1.3 Agent
+鈥?Audit B anti-fake sample Muse-1.3 Agent
+鈥?Audit C+D security secrets Muse-1.3 Agent
+鈥?Audit E ledger final state Muse-1.3 Agent
+鉁?Audit A1 dist cleanliness Muse-1.3 Agent
+鉁?Audit B anti-fake sample Muse-1.3 Agent
+鉁?Audit E ledger final state Muse-1.3 Agent
+鉁?Audit A2 T20 smoke chain Muse-1.3 Agent
+鉁?Audit C+D security secrets Muse-1.3 Agent
+浜旇矾瀛愪唬鐞嗗凡鍥為綈銆傜幇鍦ㄦ垜浜茶嚜鎶芥煡楠岃瘉鍏抽敭鍙戠幇銆?
+
+# Todos
+[鉁揮 纭HEAD/鑴忔敼鍔ㄤ笌瀹¤瀵硅薄娓呭崟
+[鉁揮 A1 鍙戝竷鐪熷疄鎬т笌娲佸噣搴︽牳鏌?[鉁揮 A2/A3 T20鍐掔儫涓巄uild-info鏍告煡 + gating鍥炲綊椋庨櫓
+[鉁揮 B 鍏ㄤ骇鍝佸弽閫犲亣鎶芥煡鈮?0椤?[鉁揮 C 瀹夸富瀹夊叏 + D 绉樺瘑鍚堣
+[鉁揮 E 鍙拌处缁堟€佺粺璁′笌鍙戝竷闃绘柇椤?[鈥 浜茶嚜spot-check 8椤?+ 鍐橣INAL.audit.muse.md
+
+$ Get-FileHash -Algorithm SHA256 dist/v2rayN-R-1.0.0+1-windows-x64.zip | Select-Object Hash, Path
+Hash                                                             Path
+----                                                             ----
+4853F06D66791ADD9C68234C91FF5CA3C4AC9DC5CC6E97E2A159FFDC5A208255 C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flcl锟斤拷
+
+$ git show HEAD --stat | Select-Object -First 30; git log --oneline -2; git diff HEAD --stat; git diff 54fcebe..5c33fa5 --name-only | Select-Object -First 40
+commit 5c33fa5f08bc063e938c0c339d2a96bf01662313
+Author: v2rayn-r builder <builder@v2rayn-r.local>
+Date:   Fri Oct 2 10:31:28 2026 +0800
+
+    T20 release candidate: portable package, clean-env smoke with real apply, README/NOTICE/LICENSE, platform matrix
+
+ .gitignore                                         |   12 +
+ LICENSE                                            |  674 +++++++++
+ NOTICE.md                                          |   57 +
+ README.md                                          |  195 +++
+ apps/desktop/lib/app/app.dart                      |   26 +-
+ apps/desktop/lib/main.dart                         |   15 +
+ compat/platform-matrix.md                          |   46 +-
+ crates/bridge_api/examples/t18b_seed.rs            |   12 +-
+ crates/bridge_api/src/api/engine.rs                |    2 +-
+ dist/SHA256SUMS                                    |    1 +
+ dist/build-info.json                               |   24 +
+ docs/decisions/T20-packaging-and-smoke.md          |   58 +
+ docs/evidence/T20.md                               |  295 ++++
+ docs/evidence/T20.runs/apply_evidence.log          |    4 +
+ docs/evidence/T20.runs/build_windows_first.log     |   24 +
+ docs/evidence/T20.runs/build_windows_rebuild.log   |   22 +
+ docs/evidence/T20.runs/cargo_build_release.log     |  207 +++
+ docs/evidence/T20.runs/cargo_clippy.log            |    3 +
+ docs/evidence/T20.runs/cargo_test.log              | 1524 ++++++++++++++++++++
+ docs/evidence/T20.runs/flutter_analyze.log         |   14 +
+ docs/evidence/T20.runs/flutter_test.log            | 1425 ++++++++++++++++++
+ docs/evidence/T20.runs/smoke_first.log             |   44 +
+ docs/evidence/T20.runs/smoke_second.log            |   24 +
+ .../s-1790907963960-2_config.json                  |    1 +
+5c33fa5 T20 release candidate: portable package, clean-env smoke with real apply, README/NOTICE/LICENSE, platform matrix
+54fcebe T18b runtime plan wiring verified (plan 11/11, e2e 7/7 real traffic, workspace green); evidence + ledger
+.gitignore
+LICENSE
+NOTICE.md
+README.md
+apps/desktop/lib/app/app.dart
+apps/desktop/lib/main.dart
+compat/platform-matrix.md
+crates/bridge_api/examples/t18b_seed.rs
+crates/bridge_api/src/api/engine.rs
+dist/SHA256SUMS
+dist/build-info.json
+docs/decisions/T20-packaging-and-smoke.md
+docs/evidence/T20.md
+docs/evidence/T20.runs/apply_evidence.log
+docs/evidence/T20.runs/build_windows_first.log
+docs/evidence/T20.runs/build_windows_rebuild.log
+docs/evidence/T20.runs/cargo_build_release.log
+docs/evidence/T20.runs/cargo_clippy.log
+docs/evidence/T20.runs/cargo_test.log
+docs/evidence/T20.runs/flutter_analyze.log
+docs/evidence/T20.runs/flutter_test.log
+docs/evidence/T20.runs/smoke_first.log
+docs/evidence/T20.runs/smoke_second.log
+docs/evidence/T20.screenshots/T20-applied-artifacts/s-1790907963960-2_config.json
+docs/evidence/T20.screenshots/T20-applied-artifacts/s-1790907963960-2_journal.json
+docs/evidence/T20.screenshots/T20-smoke-applied-running.png
+docs/evidence/T20.screenshots/T20-smoke-backup-window.png
+docs/evidence/T20.screenshots/T20-smoke-log.txt
+docs/evidence/T20.screenshots/T20-smoke-seed-apply.png
+docs/evidence/T20.screenshots/T20-smoke-summary.json
+docs/evidence/T20.screenshots/T20-smoke-update-window.png
+tools/release/README-platforms.md
+tools/release/build_windows.ps1
+tools/release/capture_apply_evidence.ps1
+tools/release/smoke_windows.ps1
+
+鈫?Read apps/desktop/lib/main.dart
+鉁?Grep "V2RAYN_R_AUTO_SMOKE|applyPlanOnLaunch|kDebugMode" in apps/desktop/lib 路 10 matches
+鈫?Read apps/desktop/lib/app/app.dart [offset=85, limit=55]
+鈫?Read apps/desktop/lib/app/shell/main_shell.dart [offset=75, limit=65]
+
+$ Get-Content docs/evidence/T20.screenshots/T20-applied-artifacts/s-1790907963960-2_journal.json; echo "---apply_evidence---"; Get-Content docs/evidence/T20.runs/apply_evidence.log; echo "---summary---"; Get-Content docs/evidence/T20.screenshots/T20-smoke-summary.json
+{
+  "session_id": "s-1790907963960-2",
+  "plan_id": "rt-Xray-t18b-node-2",
+  "desired_revision": 2,
+  "config_sha256": "3c168c4db2fa943570d1a8051bb7fed8b07c8dcf4a2a356973285daeeccd8674",
+  "stage": "finalized",
+  "pid": null,
+  "created_at_ms": null,
+  "port": 11808,
+  "updated_at_ms": 1790907963961
+}
+---apply_evidence---
+seeded dir=C:\Users\Colby\AppData\Local\Temp\t20_apply_e362386f2f73400686bfebc7b6ea8b9b\data active=t18b-node desired=2
+pid=42868
+screenshot=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-applied-running.png
+state=running compressed=True
+---summary---
+{
+  "zip": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64.zip",
+  "package": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\extract\\v2rayN-R-1.0.0+1-windows-x64",
+  "main_exe": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\extract\\v2rayN-R-1.0.0+1-windows-x64\\v2rayn_desktop.exe",
+  "work_root": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a",
+  "runs": [
+    {
+      "name": "update",
+      "env": {
+        "V2RAYN_R_DATA_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\data_update",
+        "V2RAYN_R_OPEN_UPDATE": "1"
+      },
+      "started_pid": 31644,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T20.screenshots\\T20-smoke-update-window.png",
+      "data_files": {
+        "guiNConfig.json": false,
+        "guiNNDB.db": false
+      },
+      "exited_on_close": true,
+      "forced_kill": false,
+      "applied": false,
+      "notes": [
+        "cleaned remaining descendants: 39540"
+      ],
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\data_update",
+      "self_alive_after": false
+    },
+    {
+      "name": "backup",
+      "env": {
+        "V2RAYN_R_OPEN_BACKUP": "1",
+        "V2RAYN_R_DATA_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\data_backup"
+      },
+      "started_pid": 27796,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T20.screenshots\\T20-smoke-backup-window.png",
+      "data_files": {
+        "guiNConfig.json": false,
+        "guiNNDB.db": false
+      },
+      "exited_on_close": true,
+      "forced_kill": false,
+      "applied": false,
+      "notes": [
+        "cleaned remaining descendants: 40352,21880"
+      ],
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\data_backup",
+      "self_alive_after": false
+    },
+    {
+      "name": "seed_apply",
+      "env": {
+        "V2RAYN_R_XRAY_BIN": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\cores\\xray\\v26.3.27\\xray.exe",
+        "V2RAYN_R_PIPE": "\\\\.\\pipe\\t20smoke13ef4b8303474f76a4a8b9dc3d106304",
+        "V2RAYN_R_DATA_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\data_seed_app",
+        "V2RAYN_R_RUN_ROOT": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\run",
+        "V2RAYN_R_NET_HOST": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\extract\\v2rayN-R-1.0.0+1-windows-x64\\net_host.exe",
+        "V2RAYN_R_AUTO_SMOKE": "1"
+      },
+      "started_pid": 40884,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T20.screenshots\\T20-smoke-seed-apply.png",
+      "data_files": {
+        "guiNConfig.json": true,
+        "guiNNDB.db": false
+      },
+      "exited_on_close": true,
+      "forced_kill": false,
+      "applied": false,
+      "notes": [
+        "cleaned remaining descendants: 42420,26892"
+      ],
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\\data_seed_app",
+      "has_core_descendant": false,
+      "port_11808_listening": false,
+      "self_alive_after": false
+    }
+  ],
+  "dev_path_dependency": "not_proven (no Process Monitor); GUI has no default file log",
+  "limitations": [
+    "packaged apply is only verified if run seed_apply reports applied=true; GUI click-through is not automated"
+  ]
+}
+
+$ git show HEAD:crates/bridge_api/src/api/engine.rs | Select-String -Pattern "SMOKE_PORT|10808|RESERVED|reserved" | Select-Object -First 15; echo "---t18b_seed---"; git show HEAD:crates/bridge_api/examples/t18b_seed.rs | Select-Object -First 40
+/// Reserved test-only smoke-session port. Never 10808 (the user's live
+pub const TEST_SMOKE_PORT: u16 = 11808;
+        wg_reserved: p.wg_reserved.clone(),
+        wg_reserved: d.wg_reserved,
+/// `127.0.0.1:11808` inbound. Port 10808 is never emitted.
+    input.settings.inbound.local_port = TEST_SMOKE_PORT as i32;
+        ports: vec![PortRequest::tcp(TEST_SMOKE_PORT, "inbound-socks")],
+        ports: vec![PortRequest::tcp(TEST_SMOKE_PORT, "inbound-socks")],
+        assert_eq!(inbound["port"], TEST_SMOKE_PORT);
+        assert!(!body.contains("10808"));
+        assert_eq!(plan.ports[0].port, TEST_SMOKE_PORT);
+---t18b_seed---
+//! Temporary T18b evidence seeder (deleted after the screenshot run).
+//!
+//! Seeds a data directory with one Xray node, marks it active and moves the
+//! inbound base port to 11808 (never 10808), so the debug app's
+//! `V2RAYN_R_AUTOSTART` hook applies the real persisted plan on launch.
+
+use std::sync::Arc;
+
+use application::{AppEngine, NetHostClient};
+use domain::{ConfigType, CoreType, DesiredRevision, Profile};
+
+fn main() {
+    let dir = std::env::args()
+        .nth(1)
+        .expect("usage: t18b_seed <data_dir>");
+    let engine =
+        AppEngine::open_with_runtime(std::path::Path::new(&dir), Arc::new(NetHostClient::new()))
+            .expect("open engine");
+    let mut node = Profile {
+        index_id: "t18b-node".into(),
+        config_type: ConfigType::Vless,
+        core_type: Some(CoreType::Xray),
+        remarks: "t18b-applied".into(),
+        address: "192.0.2.10".into(),
+        port: 443,
+        password: "11111111-2222-3333-4444-555555555555".into(),
+        ..Default::default()
+    };
+    node.proto_extra.vless_encryption = Some("none".into());
+    let revision = engine.desired_revision();
+    engine
+        .save_profile(node, DesiredRevision::new(revision))
+        .expect("save profile");
+    engine
+        .set_active(Some("t18b-node".into()))
+        .expect("set active");
+    let loaded = engine.load_settings().expect("load settings");
+    let mut settings = loaded.settings;
+    if let Some(first) = settings.inbound.first_mut() {
+        first.local_port = 11808;
+
+$ Add-Type -AssemblyName System.IO.Compression.FileSystem; $z=[IO.Compression.ZipFile]::OpenRead((Join-Path (Get-Location) 'dist/v2rayN-R-1.0.0+1-windows-x64.zip')); $z.Entries.FullName; $z.Dispose()
+v2rayN-R-1.0.0+1-windows-x64/bridge_api.dll
+v2rayN-R-1.0.0+1-windows-x64/build-info.json
+v2rayN-R-1.0.0+1-windows-x64/CORE-NOTES.txt
+v2rayN-R-1.0.0+1-windows-x64/flutter_windows.dll
+v2rayN-R-1.0.0+1-windows-x64/hotkey_manager_windows_plugin.dll
+v2rayN-R-1.0.0+1-windows-x64/LICENSE
+v2rayN-R-1.0.0+1-windows-x64/native_assets.json
+v2rayN-R-1.0.0+1-windows-x64/net_host.exe
+v2rayN-R-1.0.0+1-windows-x64/NOTICE.md
+v2rayN-R-1.0.0+1-windows-x64/privileged_helper.exe
+v2rayN-R-1.0.0+1-windows-x64/README.md
+v2rayN-R-1.0.0+1-windows-x64/screen_retriever_windows_plugin.dll
+v2rayN-R-1.0.0+1-windows-x64/system_tray_plugin.dll
+v2rayN-R-1.0.0+1-windows-x64/v2rayn_desktop.exe
+v2rayN-R-1.0.0+1-windows-x64/window_manager_plugin.dll
+v2rayN-R-1.0.0+1-windows-x64/data/app.so
+v2rayN-R-1.0.0+1-windows-x64/data/icudtl.dat
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/packages/
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/AssetManifest.bin
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/FontManifest.json
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/NativeAssetsManifest.json
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/NOTICES.Z
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/fonts/MaterialIcons-Regular.otf
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/packages/cupertino_icons/
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/packages/cupertino_icons/assets/CupertinoIcons.ttf
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/shaders/ink_sparkle.frag
+v2rayN-R-1.0.0+1-windows-x64/data/flutter_assets/shaders/stretch_effect.frag
+
+$ Get-ChildItem docs/evidence/T20.screenshots/ | Select-Object Name, Length; echo "---applied-artifacts---"; Get-ChildItem docs/evidence/T20.screenshots/T20-applied-artifacts/ | Select-Object Name, Length
+Name                           Length
+----                           ------
+T20-applied-artifacts          
+T20-smoke-applied-running.png  74569
+T20-smoke-backup-window.png    87952
+T20-smoke-log.txt              1954
+T20-smoke-seed-apply.png       90088
+T20-smoke-summary.json         3958
+T20-smoke-update-window.png    81167
+---applied-artifacts---
+s-1790907963960-2_config.json  878
+s-1790907963960-2_journal.json 302
+
+鈫?Read docs/evidence/T20.md [limit=120]
+
+$ git grep -n "status: verified" -- compat/ | Measure-Object; git grep -c "status: implemented" -- compat/ ; git grep -n "10808" -- apps/desktop/lib crates/services 2>$null | Select-String -Pattern "TcpListener|listen|bind|connect" | Select-Object -First 10; echo "BIND-CHECK-DONE"
+Count             : 0
+Average           : 
+Sum               : 
+Maximum           : 
+Minimum           : 
+StandardDeviation : 
+Property          : 
+
+compat/actions.yaml:90
+compat/features.yaml:105
+compat/fields.entities.yaml:152
+compat/fields.settings.yaml:180
+compat/fields.yaml:81
+BIND-CHECK-DONE
+
+鈫?Read docs/evidence/T20.md [offset=120, limit=175]
+
+$ Get-ChildItem docs/evidence/T20.runs/ | Select-Object Name, Length; echo "---config---"; Get-Content docs/evidence/T20.screenshots/T20-applied-artifacts/s-1790907963960-2_config.json; echo "---smokelog---"; Get-Content docs/evidence/T20.screenshots/T20-smoke-log.txt
+Name                      Length
+----                      ------
+apply_evidence.log           304
+build_windows_first.log     1332
+build_windows_rebuild.log   1221
+cargo_build_release.log     7975
+cargo_clippy.log             317
+cargo_test.log             74052
+flutter_analyze.log          570
+flutter_test.log           70312
+smoke_first.log             3579
+smoke_second.log            2165
+---config---
+{"log":{"loglevel":"warning"},"inbounds":[{"tag":"socks","port":11808,"protocol":"mixed","listen":"127.0.0.1","settings":{"auth":"noauth","udp":true,"allowTransparent":false},"sniffing":{"enabled":true,"destOverride":["http","tls"],"routeOnly":false}}],"routing":{"domainStrategy":"AsIs","rules":[{"type":"field","inboundTag":["dns-module"],"outboundTag":"proxy"}]},"dns":{"servers":[{"address":"119.29.29.29","domains":["full:cloudflare-dns.com"],"skipFallback":true},"https://cloudflare-dns.com/dns-query"],"serveStale":false,"tag":"dns-module"},"outbounds":[{"tag":"proxy","protocol":"vless","settings":{"address":"192.0.2.10","port":443,"id":"11111111-2222-3333-4444-555555555555","email":"t@t.tt","encryption":"none"},"streamSettings":{"network":"raw"},"mux":{"enabled":false,"concurrency":-1}},{"protocol":"freedom","tag":"direct"},{"protocol":"blackhole","tag":"block"}]}
+---smokelog---
+[10:20:24] zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip
+[10:20:24] package=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\extract\v2rayN-R-1.0.0+1-windows-x64
+[10:20:24] mainExe=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\extract\v2rayN-R-1.0.0+1-windows-x64\v2rayn_desktop.exe
+[10:20:24] update: started pid=31644
+[10:20:27] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-update-window.png (1200x800)
+[10:21:27] update: window=True guiNConfig=False guiNNDB=False
+[10:21:28] update: exited on CloseMainWindow
+[10:21:38] backup: started pid=27796
+[10:21:40] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-backup-window.png (1200x800)
+[10:22:41] backup: window=True guiNConfig=False guiNNDB=False
+[10:22:42] backup: exited on CloseMainWindow
+[10:22:52] seeding C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app via bridge_api example t18b_seed
+[10:22:53]    seed>     Finished `release` profile [optimized] target(s) in 0.35s
+[10:22:53]    seed>      Running `target\release\examples\t18b_seed.exe C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app`
+[10:22:53]    seed> seeded dir=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app active=t18b-node desired=2
+[10:22:53] seed_apply: started pid=40884
+[10:22:55] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-seed-apply.png (1200x800)
+[10:23:56] seed_apply: window=True guiNConfig=True guiNNDB=False
+[10:24:42] seed_apply: applied=False port11808=False coreChild=False
+[10:24:42] seed_apply: exited on CloseMainWindow
+
+$ git show HEAD:crates/updater/src/signature.rs | Select-Object -First 45; echo "===NOTICE==="; git show HEAD:NOTICE.md | Select-Object -First 51
+//! Signature-verification hook.
+//!
+//! The plan (搂15) requires a signature capability, but the project has not yet
+//! fixed a scheme or a trusted public key. This module therefore defines the
+//! trait and ships an explicit [`UnsupportedSignatureVerifier`] that fails
+//! loudly instead of silently pretending the artifact is verified. Wiring a
+//! real GPG/minisign backend is tracked as an open item in
+//! `docs/evidence/T16-updater.md`.
+
+use crate::error::UpdateError;
+
+/// Verify a detached signature over an artifact.
+///
+/// `artifact` is the downloaded file's bytes, `signature` the detached
+/// signature bytes (e.g. a `.sig` asset). Implementations must return
+/// [`UpdateError::SignatureInvalid`] for a wrong signature and
+/// [`UpdateError::SignatureUnsupported`] when the scheme is unavailable.
+pub trait SignatureVerifier: Send + Sync {
+    /// Human-readable scheme name for diagnostics.
+    fn scheme(&self) -> &'static str;
+
+    /// Verify; `Ok(())` means the artifact is authentic under this scheme.
+    fn verify(&self, artifact: &[u8], signature: &[u8]) -> Result<(), UpdateError>;
+
+    /// Whether this verifier can actually perform a check. Callers use this to
+    /// decide between "verified" and "signature pending".
+    fn is_available(&self) -> bool {
+        true
+    }
+}
+
+/// Default verifier: no trusted key configured yet, so verification is
+/// explicitly `Unsupported` and never reported as success.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct UnsupportedSignatureVerifier;
+
+impl SignatureVerifier for UnsupportedSignatureVerifier {
+    fn scheme(&self) -> &'static str {
+        "unsupported"
+    }
+
+    fn verify(&self, _artifact: &[u8], _signature: &[u8]) -> Result<(), UpdateError> {
+        Err(UpdateError::SignatureUnsupported(
+            "no trusted public key configured for signature verification".into(),
+        ))
+===NOTICE===
+# NOTICE
+
+## v2rayN-R is a derived work
+
+`v2rayN-R` is an independent, unofficial reimplementation of
+[2dust/v2rayN](https://github.com/2dust/v2rayN) using Flutter (UI) and Rust
+(application backend). It is **not** an official v2rayN release and is not
+affiliated with or endorsed by the upstream project or its authors.
+
+## Upstream attribution
+
+- Upstream project: **2dust / v2rayN**
+- Upstream version this refactor targets: **7.25.4**
+- Upstream commit: `7d6a967c18c697f28dc6917122ed3a4993fcf336`
+- Upstream license: **GNU General Public License v3.0 (GPL-3.0)**
+
+The frozen upstream source used as the specification baseline is kept outside
+the distributed package under `work/` (see `compat/upstream-lock.json` and
+`outputs/UPSTREAM_INVENTORY.md`). Portions of behavior, settings schemas, and UI
+structure are derived from that source. Per GPL-3.0, the full source of this
+derived work is available from this repository; the upstream attribution and
+license notices are preserved.
+
+The `LICENSE` file in this repository is the verbatim GPL-3.0 text obtained from
+the frozen upstream tree
+(`work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/LICENSE`,
+SHA-256 `C93D1D90B1111EAE8BBC9824405D60186E0CC5F3E643D9FEB3FA66E7629E7F17`).
+
+## What is NOT bundled
+
+This release candidate does **not** bundle any third-party proxy core binary.
+In particular:
+
+- **Xray-core** (XTLS/Xray-core) is not included.
+- **sing-box** (SagerNet/sing-box) is not included.
+
+Cores are downloaded at runtime by the in-app updater and are pinned by
+`tools/cores/cores.lock.json` in the source repository. Each core remains under
+its own license and copyright; their releases and licenses are the
+responsibility of their respective upstream projects.
+
+The Flutter engine and Dart packages bundled with the app retain their own
+licenses; see `data/flutter_assets/NOTICES.Z` inside the package for the
+Flutter/Dart third-party notices.
+
+## Trademarks
+
+"v2rayN", "Xray", "sing-box", and all other names are the property of their
+respective owners. They are used here only to describe compatibility and origin.
+This project uses the distinct name **v2rayN-R** and does not present itself as
+an official upstream distribution.
+
+$ git grep -n "vless://\|vmess://\|trojan://\|ss://[A-Za-z0-9]" -- ':!*test*' ':!fixtures/*' ':!work/*' ':!*.lock' | Select-Object -First 10; echo "SECRET-CHECK-DONE"; git show HEAD:dist/build-info.json | Select-Object -First 15
+apps/desktop/lib/bridge/bridge_port.dart:1236:      if (uri.startsWith('vmess://') ||
+apps/desktop/lib/bridge/bridge_port.dart:1237:          uri.startsWith('vless://') ||
+apps/desktop/lib/bridge/bridge_port.dart:1239:          uri.startsWith('trojan://') ||
+apps/desktop/lib/bridge/bridge_port.dart:1338:          (p) => 'vless://syn-${p.indexId}@${p.address}:${p.port}#${p.remarks}',
+crates/bridge_api/src/api/subs.rs:605:            "vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none#one";
+crates/bridge_api/src/api/subs.rs:644:            "vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none#one";
+crates/bridge_api/src/api/subs.rs:648:        assert!(share.starts_with("vless://"));
+crates/bridge_api/src/api/subs.rs:651:        assert!(decoded.contains("vless://"));
+crates/subscriptions/src/fmt/base.rs:26:pub const VMESS: &str = "vmess://";
+crates/subscriptions/src/fmt/base.rs:29:pub const VLESS: &str = "vless://";
+SECRET-CHECK-DONE
+{
+  "schema": 1,
+  "product": "v2rayN-R",
+  "kind": "derived-refactor",
+  "version": "1.0.0",
+  "build_number": "1",
+  "pubspec_version": "1.0.0+1",
+  "rust_version": "0.1.0",
+  "git_commit": "54fcebea0af4792556e393a7fb69020624bdf492",
+  "git_commit_short": "54fcebe",
+  "git_branch": "main",
+  "git_dirty": true,
+  "target_platform": "windows-x64",
+  "target_triple": "x86_64-pc-windows-msvc",
+  "build_time_utc": "2026-10-02T02:29:52Z",
+
+鍏ㄩ儴浜茶嚜鎶芥煡瀹屾垚锛?2椤癸級銆傜幇鍦ㄦ挵鍐欑粓瀹℃姤鍛娿€?
+鈫?Write docs/evidence/audit/FINAL.audit.muse.md
+Wrote file successfully.
+
+$ git status --porcelain; Get-ChildItem docs/evidence/audit/FINAL.audit.muse.md | Select-Object Name, Length
+?? docs/evidence/audit/FINAL.audit.gemini.md
+?? docs/evidence/audit/FINAL.audit.muse.md
+?? docs/evidence/audit/FINAL.audit.prompt.md
+
+Name                Length
+----                ------
+FINAL.audit.muse.md  13397
+
+# Todos
+[鉁揮 纭HEAD/鑴忔敼鍔ㄤ笌瀹¤瀵硅薄娓呭崟
+[鉁揮 A1 鍙戝竷鐪熷疄鎬т笌娲佸噣搴︽牳鏌?[鉁揮 A2/A3 T20鍐掔儫涓巄uild-info鏍告煡 + gating鍥炲綊椋庨櫓
+[鉁揮 B 鍏ㄤ骇鍝佸弽閫犲亣鎶芥煡鈮?0椤?[鉁揮 C 瀹夸富瀹夊叏 + D 绉樺瘑鍚堣
+[鉁揮 E 鍙拌处缁堟€佺粺璁′笌鍙戝竷闃绘柇椤?[鉁揮 浜茶嚜spot-check 8椤?+ 鍐橣INAL.audit.muse.md
+
+缁堝瀹屾垚锛屾姤鍛婂凡鍐欏叆 `docs/evidence/audit/FINAL.audit.muse.md`锛?3.4KB锛夈€傚叏绋嬪彧璇伙紙闄ゆ姤鍛婂闆跺啓鍏ワ級锛屾湭杩愯浠讳綍鏋勫缓/娴嬭瘯銆?
+**缁撹锛氭湁鏉′欢鍙彂甯冿紙浠?Windows x64 portable RC 鍙ｅ緞锛涙寮忓澶栧彂甯冧笉鍙級銆?*
+
+鎵ц鎽樿锛?- 5 璺竴灞傚瓙浠ｇ悊锛圓1/A2-B/B 鍙嶉€犲亣/C+D/E 鍙拌处锛夛紝鎴戜翰鑷?12 椤规娊鏌ュ鏍革紙HEAD=`5c33fa5`锛屽伐浣滃尯骞插噣锛夈€?- 閫氳繃椤癸細zip 27 鎴愬憳榻愬叏鏃犲唴鏍搞€丼HA256 澶嶇畻涓€鑷淬€佹棤 10808 缁戝畾銆佹棤绉樺瘑娉勬紡銆丯OTICE/GPL 涓€鑷淬€佸彴璐?`verified`=0 鍙ｅ緞骞插噣銆佸弽閫犲亣 12 椤逛腑 8 鍙俊 4 璇佹嵁寮?0 閫犲亣銆?- 涓変釜 RC 闂?P0 蹇呮敼锛欶-01 `build-info.json` 鏄?`54fcebe` 鑴忔爲鏋勫缓鈮燞EAD锛汧-04 `V2RAYN_R_AUTO_SMOKE` 涓ゆ潯鏃犻棬璺緞锛坄main.dart`+`main_shell.dart:120-123`锛夋瀯鎴?ISSUE-08 鍚屾ā寮忓洖褰掞紙楂橈級锛汧-02/F-03 journal `finalized/null` 涓?summary `applied=false` 鍚屾鏂?`applied pid=41560` 鐭涚浘涓?`core.log` 鏈綊妗ｃ€?- 姝ｅ紡鍙戝竷 P0锛氭洿鏂扮鍚嶇己澶便€佽嚜鏇挎崲/瀹夎鍣ㄦ湭瀹炶窇锛汸1锛氳繙绔?TLS銆佺郴缁熶唬鐞?TUN 鐪熷啓銆乄indows-only 绛夊潎涓鸿瘹瀹炵櫥璁版湭鍐炽€?
+娉ㄦ剰锛氬苟琛屽璁＄殑 `FINAL.audit.gemini.md` 宸插嚭鐜板湪鐩綍涓紝鎴戞湭瑙︾銆?

@@ -125,7 +125,7 @@ class RoutingController extends Notifier<RoutingState> {
     final result = ref.read(bridgePortProvider).saveRouting(draft);
     if (result.ok) {
       reload();
-      state = state.copyWith(status: '路由方案已保存');
+      state = state.copyWith(status: '路由方案已保存（未应用，点“应用”生效）');
     } else {
       state = state.copyWith(status: result.error?.messageKey ?? '保存失败');
     }
@@ -147,7 +147,7 @@ class RoutingController extends Notifier<RoutingState> {
     final result = ref.read(bridgePortProvider).setDefaultRouting(id);
     if (result.ok) {
       reload();
-      state = state.copyWith(status: '已切换默认路由');
+      state = state.copyWith(status: '已切换默认路由（未应用，点“应用”生效）');
     } else {
       state = state.copyWith(status: result.error?.messageKey ?? '切换失败');
     }
@@ -172,7 +172,7 @@ class RoutingController extends Notifier<RoutingState> {
         .saveRoutingRules(routingId, rules);
     if (result.ok) {
       reloadRules(routingId);
-      state = state.copyWith(status: '规则已保存');
+      state = state.copyWith(status: '规则已保存（未应用，点“应用”生效）');
     } else {
       state = state.copyWith(status: result.error?.messageKey ?? '保存失败');
     }
@@ -202,7 +202,7 @@ class RoutingController extends Notifier<RoutingState> {
   c.SimpleResult setRuleMode(String mode) {
     final result = ref.read(bridgePortProvider).setRuleMode(mode);
     if (result.ok) {
-      state = state.copyWith(ruleMode: mode, status: '路由模式：$mode');
+      state = state.copyWith(ruleMode: mode, status: '路由模式：$mode（未应用，点“应用”生效）');
     } else {
       state = state.copyWith(status: result.error?.messageKey ?? '切换失败');
     }

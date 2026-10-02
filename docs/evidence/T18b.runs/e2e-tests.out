@@ -1,0 +1,12 @@
+
+running 7 tests
+test dns_switch_is_reflected_in_generated_body ... ok
+test routing_domain_rule_direct_vs_block_differs ... ok
+test settings_port_change_and_auth_apply_to_listener ... ok
+test singbox_plan_serves_local_http ... ok
+test stop_releases_listener_port ... ok
+test xray_plan_serves_local_http_through_mixed_inbound ... ok
+test xray_socks_and_http_outbounds_reach_local_service ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 19.96s
+

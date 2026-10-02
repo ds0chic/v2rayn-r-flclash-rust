@@ -17,7 +17,7 @@ class SyntheticRuntimeBridge implements RuntimeBridge {
   Future<RuntimeView> snapshot() async => _view;
 
   @override
-  Future<RuntimeActionResult> applySmoke({
+  Future<RuntimeActionResult> applyActive({
     required BigInt expectedRevision,
   }) async {
     _view = RuntimeView(

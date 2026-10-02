@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 
 /// Upstream `DomainStrategy` candidates (Xray).
 const domainStrategyOptions = <String>[
@@ -162,6 +163,14 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
               ? null
               : () => controller.setDefault(state.selectedId!),
           child: const Text('设为默认'),
+        ),
+        TextButton(
+          key: const ValueKey('routing-apply'),
+          onPressed: () {
+            Navigator.pop(context);
+            ref.read(runtimeControllerProvider.notifier).applyActive();
+          },
+          child: const Text('应用'),
         ),
         TextButton(
           key: const ValueKey('routing-close'),

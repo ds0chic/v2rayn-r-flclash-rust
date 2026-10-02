@@ -10,10 +10,15 @@ const SOCKS: i32 = 0;
 const SOCKS2: i32 = 1;
 const SOCKS3: i32 = 2;
 
-fn build_inbound(input: &CodegenInput, protocol: &str, offset: i32) -> Value {
+fn build_inbound(input: &CodegenInput, tag: &str, offset: i32) -> Value {
     let inbound = &input.settings.inbound;
     let core_basic = &input.settings.core_basic;
     let _ = core_basic;
+    let kernel_protocol = if inbound.protocol.trim().is_empty() {
+        "mixed"
+    } else {
+        inbound.protocol.trim()
+    };
     let mut sniffing = obj();
     sniffing.insert("enabled".into(), json!(inbound.sniffing_enabled));
     if !inbound.dest_override.is_empty() {
@@ -40,9 +45,9 @@ fn build_inbound(input: &CodegenInput, protocol: &str, offset: i32) -> Value {
     settings.insert("allowTransparent".into(), json!(false));
 
     let mut value = obj();
-    value.insert("tag".into(), json!(protocol));
+    value.insert("tag".into(), json!(tag));
     value.insert("port".into(), json!(inbound.local_port + offset));
-    value.insert("protocol".into(), json!("mixed"));
+    value.insert("protocol".into(), json!(kernel_protocol));
     value.insert("listen".into(), json!(LOOPBACK));
     value.insert("settings".into(), Value::Object(settings));
     value.insert("sniffing".into(), Value::Object(sniffing));

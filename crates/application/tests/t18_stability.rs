@@ -160,8 +160,11 @@ fn app_reopen_ten_times_has_no_drift() {
             port: 443,
             ..Default::default()
         };
+        // T18b: a settings save invalidates the applied runtime, so the
+        // desired revision is no longer zero here; save against current.
+        let current = engine.desired_revision();
         engine
-            .save_profile(profile, DesiredRevision::ZERO)
+            .save_profile(profile, DesiredRevision::new(current))
             .expect("save profile");
         drop(engine);
         seed_hash = sha256_hex(&std::fs::read(&config_path).expect("config exists"));

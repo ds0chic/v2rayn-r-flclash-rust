@@ -94,11 +94,14 @@ class RuntimeController extends Notifier<RuntimeView> {
     }
   }
 
-  Future<void> applySmoke() async {
+  /// Apply the real persisted plan for the active node. The revision is
+  /// read from the last snapshot; a stale revision is rejected by the
+  /// engine with `E_REVISION_STALE` and surfaced as a structured error.
+  Future<void> applyActive() async {
     final revision = state.desiredRevision ?? BigInt.zero;
     state = state.copyWith(clearError: true);
     try {
-      final result = await _bridge.applySmoke(expectedRevision: revision);
+      final result = await _bridge.applyActive(expectedRevision: revision);
       if (!result.ok) {
         // Keep the structured error; do not let the follow-up snapshot (which
         // reports Stopped) erase the reason apply failed.

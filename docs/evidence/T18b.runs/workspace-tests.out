@@ -1,0 +1,1435 @@
+
+running 141 tests
+test custom::tests::requires_remarks_and_address ... ok
+test custom::tests::accepts_json_object_text ... ok
+test custom::tests::rejects_bad_pre_socks_port ... ok
+test custom::tests::rejects_scalar_text ... ok
+test dns::tests::dns_row_round_trip ... ok
+test dns::tests::singbox_dns_rejects_typeless_servers ... ok
+test engine::tests::capability_table_matches_upstream_sets ... ok
+test custom::tests::accepts_yaml_mapping_text ... ok
+test codegen::tests::engine_input_generates_xray_balancer ... ok
+test codegen::tests::engine_input_generates_singbox_selector ... ok
+test engine::tests::apply_runtime_rejects_stale_revision ... ok
+test engine::tests::cancel_job_is_idempotent ... ok
+test engine::tests::runtime_marking_reconciles_snapshot ... ok
+test engine::tests::apply_runtime_submits_plan_and_returns_operation ... ok
+test engine::tests::delete_sub_items_removes_orphan_nodes ... ok
+test engine::tests::replace_sub_profiles_failure_keeps_old_nodes ... ok
+test engine::tests::save_profile_rejects_stale_revision ... ok
+test engine::tests::save_profile_validates_field ... ok
+test engine::tests::settings_group_save_is_scoped_and_revision_checked ... ok
+test engine::tests::settings_invalid_port_does_not_change_old_value ... ok
+test engine::tests::settings_save_rejects_stale_and_keeps_old_value ... ok
+test engine::tests::settings_unlinked_actions_report_not_restart ... ok
+test engine::tests::snapshot_reports_saved_not_applied ... ok
+test groups::tests::builtin_all_filter_compiles_and_excludes ... ok
+test groups::tests::normalizes_child_order_and_group_type ... ok
+test groups::tests::rejects_cycle ... ok
+test groups::tests::rejects_invalid_filter_regex ... ok
+test groups::tests::rejects_missing_child ... ok
+test groups::tests::sub_children_filter_and_order ... ok
+test jobs::tests::active_excludes_terminal_jobs ... ok
+test jobs::tests::cancel_is_idempotent_from_manager ... ok
+test jobs::tests::finished_job_reports_already_finished ... ok
+test jobs::tests::past_safe_point_is_not_cancellable ... ok
+test jobs::tests::token_is_shared_with_body ... ok
+test mixin::tests::mixin_overwrites_and_merges_lists ... ok
+test mixin::tests::none_log_level_becomes_silent ... ok
+test mixin::tests::rejects_non_mapping_base ... ok
+test mixin::tests::removed_directive_drops_matching_prefix ... ok
+test mixin::tests::rewrites_runtime_keys ... ok
+test mixin::tests::tun_section_merges_only_when_enabled ... ok
+test monitor::tests::clash_support_is_mihomo_singbox_only ... ok
+test monitor::tests::classifies_proxy_and_direct_buckets ... ok
+test monitor::tests::clear_all_empties_memory_and_store ... ok
+test monitor::tests::control_events_survive_log_flood ... ok
+test monitor::tests::disabled_service_ignores_samples ... ok
+test monitor::tests::epoch_day_buckets ... ok
+test monitor::tests::generation_change_resets_session_but_keeps_nodes ... ok
+test monitor::tests::log_batch_envelope_ingests_entries ... ok
+test monitor::tests::log_filter_and_pause ... ok
+test monitor::tests::log_ring_drops_oldest_and_counts_overflow ... ok
+test monitor::tests::ring_buffer_type_is_public ... ok
+test monitor::tests::throttle_does_not_lose_cumulative_bytes ... ok
+test monitor::tests::today_rollover_resets_today_but_keeps_total ... ok
+test net_host_client::tests::missing_tun_detail_stays_missing ... ok
+test net_host_client::tests::tun_detail_maps_into_snapshot_status ... ok
+test platform_service::tests::autostart_toggle_writes_and_removes ... ok
+test platform_service::tests::derived_ports_match_upstream_offsets ... ok
+test platform_service::tests::exit_restore_force_clears_non_unchanged_mode ... ok
+test platform_service::tests::exit_restore_from_unchanged_is_safe ... ok
+test platform_service::tests::externally_modified_field_is_kept_and_reported ... ok
+test platform_service::tests::forced_change_sets_enabled_server_bypass ... ok
+test platform_service::tests::forced_clear_clears_everything ... ok
+test platform_service::tests::mode_helpers_round_trip ... ok
+test platform_service::tests::pac_rejects_port_below_reserved_base ... ok
+test platform_service::tests::pac_requires_url_and_sets_autoconfig ... ok
+test platform_service::tests::repeated_apply_keeps_only_current_write_set ... ok
+test platform_service::tests::restore_is_idempotent ... ok
+test platform_service::tests::restore_returns_to_original_when_still_owned ... ok
+test platform_service::tests::unchanged_writes_nothing_and_records_no_ownership ... ok
+test repository::tests::filter_by_text_and_type ... ok
+test repository::tests::query_pages_with_cursor ... ok
+test repository::tests::revision_store_bumps_and_checks ... ok
+test repository::tests::upsert_and_get_roundtrip ... ok
+test repository::tests::upsert_requires_index_id ... ok
+test routing::tests::merge_import_append_and_replace ... ok
+test routing::tests::row_round_trip_preserves_all_fields ... ok
+test runtime_client::tests::null_client_records_plan_and_marks_running ... ok
+test runtime_client::tests::snapshot_carries_no_tun_lease_by_default ... ok
+test runtime_client::tests::tun_status_roundtrips_and_compares ... ok
+test settings::tests::group_patch_rejects_unknown_group ... ok
+test settings::tests::group_patch_preserves_unknown_keys ... ok
+test settings::tests::group_patch_replaces_only_target_group ... ok
+test settings::tests::normalize_is_idempotent ... ok
+test settings::tests::outcome_reports_next_launch_and_core ... ok
+test settings::tests::outcome_splits_timings ... ok
+test settings::tests::validate_rejects_non_numeric_max_split ... ok
+test settings::tests::validate_rejects_out_of_range_port ... ok
+test snapshot::tests::snapshot_in_sync_when_equal ... ok
+test snapshot::tests::snapshot_reports_pending_when_desired_ahead ... ok
+test engine::tests::settings_round_trip_persists_and_reloads ... ok
+test snapshot::tests::snapshot_without_tun_stays_without_tun ... ok
+test snapshot::tests::tun_status_flows_into_snapshot ... ok
+test speedtest::tests::clear_statistics_does_not_touch_test_results ... ok
+test speedtest::tests::parse_http_url_handles_ports_and_paths ... ok
+test speedtest::tests::profile_ex_closure_applies_and_removes_invalid ... ok
+test speedtest::tests::settings_normalize_matches_domain_contract ... ok
+test speedtest::tests::snapshot_records_source_revision_and_frozen_nodes ... ok
+test speedtest::tests::test_port_floor_is_enforced ... ok
+test subs::tests::build_candidates_honors_custom_core_hint ... ok
+test subs::tests::is_due_respects_interval_and_enabled ... ok
+test subs::tests::more_urls_split_and_trim ... ok
+test subs::tests::request_headers_must_be_string_object ... ok
+test store_repo::tests::round_trips_all_extras_through_sqlite ... ok
+test subs::tests::row_roundtrip_keeps_all_fields ... ok
+test subs::tests::validate_rejects_bad_url_and_headers ... ok
+test store_repo::tests::sqlite_replace_for_sub_rolls_back_on_injected_failure ... ok
+test subs::tests::via_proxy_without_endpoint_returns_proxy_unavailable ... ok
+test synthetic::tests::paging_matches_full_generation ... ok
+test synthetic::tests::synthetic_full_profile_is_valid ... ok
+test templates::tests::accepts_valid_json ... ok
+test templates::tests::builtins_cover_both_cores ... ok
+test templates::tests::empty_template_is_valid ... ok
+test templates::tests::normalize_fills_id_and_remarks ... ok
+test templates::tests::rejects_invalid_json ... ok
+test templates::tests::rejects_non_object_json ... ok
+test synthetic::tests::synthetic_data_uses_reserved_ranges_only ... ok
+test tun_plan::tests::attach_rejects_invalid_spec ... ok
+test tun_plan::tests::attach_round_trips_through_plan_and_is_idempotent ... ok
+test tun_plan::tests::bad_route_exclude_is_rejected ... ok
+test tun_plan::tests::bare_ip_is_rejected_with_field ... ok
+test tun_plan::tests::disabled_tun_builds_nothing ... ok
+test tun_plan::tests::explicit_ipv4_cidr_is_used ... ok
+test tun_plan::tests::ipv6_included_only_when_enabled_with_address ... ok
+test tun_plan::tests::missing_ipv4_falls_back_to_upstream_default ... ok
+test tun_plan::tests::nonpositive_mtu_falls_back_to_1280 ... ok
+test subs::tests::via_proxy_with_endpoint_is_not_reported_unavailable ... ok
+test tun_plan::tests::out_of_range_mtu_is_rejected ... ok
+test tun_plan::tests::zero_interface_index_is_rejected ... ok
+test synthetic::tests::generates_requested_count ... ok
+test synthetic::tests::blocking_probe_measures_elapsed ... ok
+test speedtest::tests::cancel_at_safe_point_stops_and_retains_completed ... ok
+test speedtest::tests::cancel_interrupts_real_ping_and_closes_every_session ... ok
+test speedtest::tests::failed_delay_skips_download ... ok
+test speedtest::tests::fast_real_ping_aliases_real_ping ... ok
+test speedtest::tests::mixed_test_reports_delay_and_speed ... ok
+test speedtest::tests::open_failure_is_reported_not_faked ... ok
+test speedtest::tests::real_ping_opens_and_closes_one_session_per_node ... ok
+test speedtest::tests::udp_without_support_is_explicitly_unavailable ... ok
+test speedtest::tests::per_node_sessions_never_exceed_mixed_concurrency ... ok
+test speedtest::tests::tcping_measures_open_port_and_fails_closed_port ... ok
+test speedtest::tests::tcping_pool_runs_and_produces_stable_ids ... ok
+
+test result: ok. 141 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.18s
+
+
+running 2 tests
+test probes_native_cert_store ... ok
+test loads_browser_root_bundles ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 5 tests
+test expected_revision_conflict_is_structured ... ok
+test set_remarks_and_active_persist ... ok
+test delete_and_copy_act_on_sets_and_persist ... ok
+test save_reopen_round_trips_all_eleven_protocols ... ok
+test query_filters_sorts_and_pages_against_sqlite ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.57s
+
+
+running 1 test
+test named_mutex_detects_second_instance ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test http_failure_preserves_existing_nodes ... ok
+test successful_update_replaces_old_nodes_by_subid ... ok
+test request_headers_are_sent ... ok
+test successful_update_replaces_subid_nodes ... ok
+test filter_drops_non_matching_nodes ... ok
+test empty_result_preserves_existing_nodes ... ok
+test more_url_merges_in_order ... ok
+test subitem_crud_survives_reopen ... ok
+test cancellation_marks_entry_cancelled ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+
+running 2 tests
+test t10_mihomo_mixin_file_round_trip ... ok
+test t10_real_core_matrix ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.03s
+
+
+running 10 tests
+test self_cycle_is_rejected ... ok
+test cycle_is_rejected_on_update ... ok
+test missing_child_and_bad_filter_rejected ... ok
+test custom_outbound_validation ... ok
+test sub_children_with_self_sentinel_and_filter ... ok
+test all_five_multiple_load_modes_validate ... ok
+test gen_group_all_and_region ... ok
+test template_crud_survives_reopen ... ok
+test proxy_chain_save_reopen ... ok
+test group_save_reopen_keeps_child_order ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+
+running 1 test
+test t11_real_core_matrix ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.48s
+
+
+running 11 tests
+test dns_hosts_merge_semantics ... ok
+test builtin_routing_templates_parse ... ok
+test routing_default_switch_and_delete_promotes ... ok
+test routing_dangling_reference_warns ... ok
+test regional_presets_default_and_offline ... ok
+test routing_import_export_round_trip ... ok
+test routing_rule_order_and_move ... ok
+test routing_url_import_from_loopback ... ok
+test rule_mode_switch_persists ... ok
+test dns_crud_and_validation ... ok
+test routing_crud_survives_reopen ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+
+running 15 tests
+test autostart_command_round_trips_through_service ... ok
+test conflict_every_text_field_changed_reports_all_and_writes_nothing ... ok
+test conflict_user_changes_one_field_others_still_restored ... ok
+test custom_script_validation_unset_is_ok ... ok
+test custom_script_validation_missing_path_errors ... ok
+test exit_recovery_clears_owned_and_keeps_user_changes ... ok
+test exit_recovery_is_idempotent_across_two_runs ... ok
+test matrix_pac_sets_url_and_clears_named_proxy ... ok
+test matrix_unchanged_is_a_total_noop ... ok
+test mode_helpers_and_domain_conversion ... ok
+test matrix_forced_clear_then_change_then_restore ... ok
+test ownership_classifies_ours_and_externally_modified ... ok
+test state_view_reports_conflicts_and_pac ... ok
+test pac_start_stop_and_idempotent_restart ... ok
+test pac_serves_rendered_script_over_loopback ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 2 tests
+test mock_port_is_never_the_live_proxy ... ok
+test clash_api_service_reads_selects_and_closes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 3 tests
+test cancel_slow_server_is_prompt_and_closes_session ... ok
+test real_ping_and_download_through_real_xray ... ok
+test test_ports_are_isolated ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.15s
+
+
+running 4 tests
+test recognizes_upstream_gui_configs_zip ... ok
+test local_backup_roundtrip_and_restore_is_clean ... ok
+test imports_upstream_fixture_via_candidate_flow ... ok
+test tampered_bundle_is_rejected_without_damaging_existing ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.06s
+
+
+running 3 tests
+test digest_mismatch_leaves_no_install ... ok
+test app_update_spec_never_spawns_helper ... ok
+test check_apply_and_rollback_in_temp_dir ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 3 tests
+test unauthorized_is_classified_without_credentials ... ok
+test check_list_upload_download_roundtrip ... ok
+test slow_server_times_out ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+
+running 2 tests
+test settings_reach_generated_config ... ok
+test inbound_protocol_is_persisted_but_generator_always_emits_mixed ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+
+running 5 tests
+test engine_open_failure_on_bad_path_is_reported ... ok
+test log_ring_throughput_100k_is_bounded ... ok
+test settings_write_failure_is_reported_and_old_value_kept ... ok
+test app_reopen_ten_times_has_no_drift ... ok
+test log_ring_bounds_bytes_for_large_lines ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+
+running 7 tests
+test dns_switch_is_reflected_in_generated_body ... ok
+test singbox_plan_serves_local_http ... ok
+test xray_plan_serves_local_http_through_mixed_inbound ... ok
+test stop_releases_listener_port ... ok
+test xray_socks_and_http_outbounds_reach_local_service ... ok
+test settings_port_change_and_auth_apply_to_listener ... ok
+test routing_domain_rule_direct_vs_block_differs ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.55s
+
+
+running 11 tests
+test missing_target_is_a_structured_error_not_a_fallback ... ok
+test settings_save_bumps_desired_so_ui_sees_unapplied ... ok
+test inbound_protocol_drives_base_port_and_mixed_token ... ok
+test legacy_protect_decision_matches_upstream ... ok
+test stale_revision_is_rejected_by_apply ... ok
+test group_target_expands_children_in_plan ... ok
+test freedom_plan_has_mixed_inbound_and_freedom_outbound ... ok
+test settings_loglevel_port_and_auth_reach_plan ... ok
+test singbox_plan_uses_singbox_shape ... ok
+test socks_and_http_nodes_generate_matching_outbounds ... ok
+test routing_domain_rule_and_dns_switch_reach_plan ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 37 tests
+test api::engine::tests::event_kind_str_is_stable ... ok
+test api::monitor::tests::configure_round_trips_and_flags ... ok
+test api::platform::tests::hotkey_helpers_filter_and_map ... ok
+test api::monitor::tests::injected_log_batch_reaches_service ... ok
+test api::monitor::tests::log_pipeline_filters_and_pages ... ok
+test api::monitor::tests::page_visibility_uses_refresh_interval ... ok
+test api::monitor::tests::test_injection_updates_snapshot ... ok
+test api::monitor::tests::unsupported_core_reports_clash_not_available ... ok
+test api::engine::tests::test_only_smoke_plan_has_socks_inbound_and_freedom_outbound ... ok
+test api::platform::tests::mode_and_port_helpers ... ok
+test api::engine::tests::global_engine_tests_are_serialized_not_concurrent ... ok
+test api::engine::tests::save_profile_rejects_stale_revision_through_bridge ... ok
+test api::platform::tests::resolve_uwp_tool_reports_missing ... ok
+test api::engine::tests::snapshot_dto_serializes_with_contract_fields ... ok
+test api::groups::tests::group_children_empty_for_unknown_group ... ok
+test api::groups::tests::template_round_trip_through_bridge ... ok
+test api::platform::tests::autostart_round_trip_through_fake ... ok
+test api::platform::tests::custom_script_validation_missing_file ... ok
+test api::platform::tests::invalid_mode_value_is_rejected ... ok
+test api::settings::tests::dto_round_trip_all_groups_with_extras ... ok
+test api::settings::tests::dto_round_trip_preserves_tree_and_extras ... ok
+test api::platform::tests::pac_lifecycle_through_bridge ... ok
+test api::platform::tests::sysproxy_four_modes_apply_and_restore_through_fake ... ok
+test api::platform::tests::unchanged_is_noop_and_pac_requires_url ... ok
+test api::settings::tests::save_settings_group_rejects_unknown_group ... ok
+test api::speedtest::tests::action_mapping_round_trips ... ok
+test api::speedtest::tests::configure_clamps_timeout_and_concurrency ... ok
+test api::speedtest::tests::result_overlay_and_invalid_cleanup ... ok
+test api::speedtest::tests::unsupported_udp_is_reported ... ok
+test api::settings::tests::save_settings_group_returns_timing ... ok
+test api::subs::tests::export_share_and_base64_agree ... ok
+test api::subs::tests::import_rejects_free_text ... ok
+test api::subs::tests::import_share_uri_assigns_ids_and_subid ... ok
+test api::subs::tests::update_via_proxy_without_endpoint_returns_proxy_unavailable ... ok
+test api::t16::tests::dgst_parse_reads_sha256_line ... ok
+test api::t16::tests::update_targets_list_builtins_with_caps ... ok
+test api::t16::tests::update_via_proxy_without_port_is_structured ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 8 tests
+test array_length_difference_is_reported ... ok
+test exact_value_replacements_apply ... ok
+test array_order_is_preserved ... ok
+test identical_documents_are_semantically_equal ... ok
+test missing_and_unexpected_members_are_reported ... ok
+test normalizer_keeps_semantic_differences ... ok
+test object_key_order_is_irrelevant ... ok
+test normalizer_replaces_paths_and_keys ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test singbox_raw_dns_from_fixture ... ok
+test xray_raw_dns_from_fixture ... ok
+test xray_tun_rules_from_fixture ... ok
+test singbox_fakeip_filter_from_fixture ... ok
+test singbox_tun_matches_fixture_shape ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 11 tests
+test singbox_missing_required_fields ... ok
+test singbox_dangling_child_reference ... ok
+test singbox_unsupported_config_type ... ok
+test singbox_rejects_reserved_live_port ... ok
+test singbox_rejects_kcp_and_xhttp ... ok
+test singbox_reality_requires_public_key_for_all_protocols ... ok
+test singbox_wireguard_requires_address ... ok
+test singbox_omits_empty_endpoints ... ok
+test singbox_reports_ignored_transport ... ok
+test singbox_reports_dangling_reference ... ok
+test singbox_deterministic_output ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test singbox_dns_and_routing_rule_types ... ok
+test singbox_log_and_inbound_ports ... ok
+test singbox_dns_and_experimental ... ok
+test singbox_tun_inbound_and_rules ... ok
+test singbox_bind_interface_and_final_fragment ... ok
+test singbox_rule_set_conversion ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test singbox_proxy_chain_detour ... ok
+test singbox_policy_group_selector ... ok
+test singbox_rule_targets_group_tag ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test singbox_hysteria2_ports_and_obfs ... ok
+test singbox_wireguard_endpoint ... ok
+test singbox_tuic_anytls_naive ... ok
+test singbox_socks_http_trojan ... ok
+test singbox_vmess_vless_ss ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test singbox_custom_passthrough ... ok
+test singbox_custom_outbound_replacement ... ok
+test singbox_custom_endpoint_marker ... ok
+test singbox_template_injection ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test singbox_ws_early_data ... ok
+test singbox_tls_reality_fragment_ech ... ok
+test singbox_shadowsocks_plugin ... ok
+test singbox_raw_http_httpupgrade_grpc ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test xray_group_empty_child_items ... ok
+test xray_reality_requires_public_key ... ok
+test xray_missing_required_fields ... ok
+test xray_rejects_unsupported_config_types ... ok
+test xray_reality_requires_public_key_for_all_protocols ... ok
+test xray_rejects_quic_network ... ok
+test xray_rejects_reserved_live_port ... ok
+test xray_group_dangling_child_reference ... ok
+test generated_structure_is_deterministic ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test xray_bind_interface_and_send_through ... ok
+test xray_inbound_ports_lan_log_stat ... ok
+test xray_fragment_passes ... ok
+test xray_tun_inbound_and_rules ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test xray_wireguard ... ok
+test xray_vless_reality_raw ... ok
+test xray_trojan_and_hysteria2 ... ok
+test xray_vmess_ws_tls ... ok
+test xray_shadowsocks_socks_http ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test xray_routing_protocol_condition_is_written ... ok
+test xray_routing_remark_resolution_and_fallback ... ok
+test xray_routing_dangling_reference_warns ... ok
+test xray_proxy_chain_and_happy_eyeballs ... ok
+test xray_simple_dns_fakeip_and_rule_types ... ok
+test xray_policy_group_balancer ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test xray_custom_config_passthrough ... ok
+test xray_custom_outbound_missing_content ... ok
+test xray_custom_outbound_placeholders ... ok
+test xray_outbound_placeholder_is_neutral ... ok
+test xray_template_balancer_rewrite ... ok
+test xray_full_template_injection_from_fixture ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test xray_kcp_header_and_seed_order ... ok
+test xray_grpc_reality ... ok
+test xray_raw_http_header ... ok
+test xray_tls_certificates_and_ech ... ok
+test xray_httpupgrade_ws_xhttp ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 17 tests
+test closes_one_connection ... ok
+test malformed_json_is_decode_error ... ok
+test proxy_delay_returns_minus_one_on_non_number ... ok
+test proxy_delay_parses_number ... ok
+test get_config_returns_raw_json ... ok
+test fully_unreachable_proxies_surface_the_error ... ok
+test get_proxy_encodes_path_segment ... ok
+test provider_delay_hits_healthcheck ... ok
+test closes_all_connections ... ok
+test secret_is_sent_as_bearer_token ... ok
+test missing_secret_is_unauthorized ... ok
+test parses_connections ... ok
+test merges_proxies_and_providers ... ok
+test tolerates_provider_endpoint_failure ... ok
+test timeout_is_classified ... ok
+test proxy_delay_returns_minus_one_on_transport_error ... ok
+test connection_refused_is_classified ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.05s
+
+
+running 17 tests
+test control_queue_overflow_is_counted ... ok
+test control_events_survive_log_flood ... ok
+test detects_bracketed_level ... ok
+test detects_structured_level ... ok
+test filter_exclude_keywords_take_priority ... ok
+test filter_include_keywords ... ok
+test filter_keeps_unknown_levels ... ok
+test ring_enforces_line_limit_and_counts_drops ... ok
+test ring_drops_single_line_larger_than_budget ... ok
+test ring_enforces_byte_limit ... ok
+test filter_min_level_drops_lower_severity ... ok
+test exact_max_length_is_not_truncated ... ok
+test empty_stream_yields_none ... ok
+test splits_on_lf_and_crlf ... ok
+test truncates_over_long_line_and_recovers ... ok
+test trailing_crlf_does_not_emit_blank_line ... ok
+test unknown_level_when_no_token ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 8 tests
+test first_snapshot_has_zero_rate ... ok
+test generation_change_resets_and_always_applies ... ok
+test per_tag_rates_are_independent ... ok
+test throttle_does_not_lose_accumulated_bytes ... ok
+test tag_disappearance_keeps_last_stat ... ok
+test second_snapshot_computes_rate ... ok
+test wide_u64_counters_do_not_overflow ... ok
+test throttles_within_interval ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 11 tests
+test accepts_upstream_capitalised_fields ... ok
+test parses_delta_message ... ok
+test ignores_non_traffic_json ... ok
+test default_config_targets_state_port2 ... ok
+test rejects_non_websocket_url ... ok
+test cancel_stops_a_pending_connect ... ok
+test accumulates_streaming_deltas ... ok
+test tolerates_malformed_frames ... ok
+test drop_stops_the_source ... ok
+test cancel_stops_a_live_stream ... ok
+test reconnects_with_backoff_and_keeps_accumulating ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+
+running 13 tests
+test display_units_divide_by_1024 ... ok
+test negative_counters_are_clamped ... ok
+test malformed_json_is_decode_error ... ok
+test missing_stats_is_empty_snapshot ... ok
+test parses_outbound_counters ... ok
+test ignores_non_outbound_sections ... ok
+test tag_classification_matches_upstream ... ok
+test polls_mock_debug_vars ... ok
+test counter_rebase_bumps_generation ... ok
+test server_error_is_classified ... ok
+test unauthorized_is_classified ... ok
+test request_timeout_is_classified ... ok
+test connection_refused_is_classified ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.03s
+
+
+running 1 test
+test real_xray_stats_smoke ... ignored, starts the real pinned Xray binary; run manually
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 46 tests
+test event::tests::control_and_telemetry_channels ... ok
+test event::tests::known_kind_roundtrips ... ok
+test event::tests::seq_contiguity ... ok
+test entities::tests::inbound_user_pass_accept_explicit_null_as_empty ... ok
+test event::tests::unknown_kind_roundtrips ... ok
+test job::tests::check_fails_after_cancel ... ok
+test job::tests::clones_share_state ... ok
+test reference::tests::detects_self_sentinel ... ok
+test profile::tests::validate_requires_address_and_port ... ok
+test profile::tests::unknown_proto_extra_key_is_preserved ... ok
+test job::tests::cancel_is_idempotent ... ok
+test reference::tests::parses_index_ids ... ok
+test reference::tests::subscription_filter_kept ... ok
+test profile::tests::network_normalization_uses_raw_default ... ok
+test revision::tests::ahead_when_applied_is_ahead_of_desired ... ok
+test profile::tests::unknown_top_level_key_is_preserved ... ok
+test revision::tests::check_expected_accepts_matching_and_rejects_stale ... ok
+test revision::tests::empty_and_in_sync_states ... ok
+test revision::tests::next_advances_desired_by_one ... ok
+test revision::tests::pending_when_desired_is_ahead_of_applied ... ok
+test runtime_plan::tests::dangling_edge_is_detected ... ok
+test runtime_plan::tests::duplicate_tag_is_detected ... ok
+test runtime_plan::tests::outbound_cycle_is_detected ... ok
+test runtime_plan::tests::port_conflict_is_detected ... ok
+test runtime_plan::tests::process_cycle_is_detected ... ok
+test runtime_plan::tests::process_topological_order_and_reverse ... ok
+test settings::tests::apply_load_defaults_fills_object_level_defaults ... ok
+test settings::tests::all_groups_round_trip_with_unknown_keys ... ok
+test settings::tests::classify_list_and_hotkey_groups ... ok
+test settings::tests::classify_restart_core_and_restart_app ... ok
+test settings::tests::classify_whole_group_add_remove ... ok
+test settings::tests::core_type_helpers ... ok
+test settings::tests::defaults_match_upstream_initializers ... ok
+test settings::tests::empty_string_and_null_are_distinct ... ok
+test settings::tests::core_type_binding_field_timings_differ ... ok
+test settings::tests::enums_round_trip_as_integers ... ok
+test settings::tests::explicit_null_group_becomes_load_default ... ok
+test settings::tests::group_keys_are_recognised ... ok
+test settings::tests::legacy_fragment_lengths_become_delays_fallback ... ok
+test settings::tests::hotkey_edits_are_next_launch ... ok
+test settings::tests::null_loglevel_stays_none_but_missing_object_gets_warning ... ok
+test settings::tests::parses_pascal_case_and_preserves_unknown ... ok
+test settings::tests::present_object_missing_field_stays_type_default ... ok
+test settings::tests::timing_groups_are_known ... ok
+test settings::tests::round_trip_is_field_equivalent_including_unknown ... ok
+test settings::tests::timing_table_covers_all_ledger_entries ... ok
+
+test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 28 tests
+test helper::tests::allowed_core_names_are_closed ... ok
+test helper::tests::elevated_core_rejects_mismatched_executable ... ok
+test helper::tests::elevated_core_accepts_allowlisted_path ... ok
+test helper::tests::elevated_core_rejects_exe_outside_run_dir ... ok
+test helper::tests::elevated_core_rejects_bad_args ... ok
+test helper::tests::elevated_core_rejects_arbitrary_executable ... ok
+test helper::tests::elevated_core_rejects_traversal_and_out_of_root ... ok
+test helper::tests::elevated_core_uses_long_timeout ... ok
+test helper::tests::helper_frame_size_is_enforced ... ok
+test helper::tests::helper_error_maps_to_stable_codes ... ok
+test helper::tests::helper_version_mismatch_is_rejected ... ok
+test helper::tests::helper_response_carries_structured_error ... ok
+test helper::tests::helper_empty_token_is_rejected ... ok
+test helper::tests::helper_request_roundtrips_through_json ... ok
+test helper::tests::job_assign_failed_maps_to_stable_code ... ok
+test helper::tests::path_normalization_rejects_relative_and_traversal ... ok
+test helper::tests::canonical_recheck_accepts_real_layout ... ok
+test helper::tests::route_entries_reject_empty_and_oversized ... ok
+test helper::tests::route_entries_validate_families ... ok
+test helper::tests::tun_address_validates_bounds ... ok
+test helper::tests::canonical_recheck_rejects_symlink_escape ... ok
+test tests::apply_plan_uses_longer_timeout ... ok
+test tests::empty_token_is_rejected ... ok
+test tests::frame_size_is_enforced ... ok
+test tests::operation_status_carries_cancel_outcome ... ok
+test tests::request_roundtrips_through_json ... ok
+test tests::test_ports_floor_is_enforced ... ok
+test tests::version_mismatch_is_rejected ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 44 tests
+test dacl::tests::non_windows_placeholder_builds ... ok
+test helper_client::tests::dry_run_link_records_but_touches_nothing ... ok
+test helper_client::tests::fake_cleanup_is_idempotent ... ok
+test helper_client::tests::fake_disconnect_cleanup_is_idempotent ... ok
+test helper_client::tests::fake_denied_maps_to_tun_helper_unavailable ... ok
+test helper_client::tests::fake_apply_records_routes_and_adapter ... ok
+test helper_client::tests::route_entries_from_lease_keep_family ... ok
+test helper_client::tests::fake_timeout_maps_to_retryable_unavailable ... ok
+test helper_client::tests::fake_apply_without_routes_skips_add_routes ... ok
+test helper_client::tests::lease_roundtrips_through_json ... ok
+test helper_client::tests::fake_disconnect_fails_apply_then_cleanup_is_idempotent ... ok
+test helper_client::tests::lease_summary_is_redacted ... ok
+test helper_client::tests::fake_partial_tun_rolls_back_routes ... ok
+test helper_client::tests::helper_error_mapping_is_stable ... ok
+test dacl::tests::current_user_descriptor_is_built_and_freed ... ok
+test helper_client::tests::unavailable_link_reports_structured_error ... ok
+test session::tests::bogus_identity_never_matches ... ok
+test dacl::tests::restrict_to_current_user_applies_to_file_and_dir ... ok
+test session::tests::connected_client_never_reclaims ... ok
+test journal::tests::finalized_sessions_are_not_recovered ... ok
+test session::tests::disconnected_client_reclaims_only_after_grace ... ok
+test session::tests::helper_dry_run_flag_flows_from_env ... ok
+test session::tests::job_assign_failure_is_structured_and_non_retryable ... ok
+test journal::tests::staged_artifacts_are_removed_but_journal_survives ... ok
+test session::tests::journal_entry_carries_pid_and_creation_time ... ok
+test session::tests::helper_factory_seam_replaces_link_construction ... ok
+test journal::tests::stale_session_without_pid_is_finalized ... ok
+test journal::tests::recovery_deletes_staged_config_after_finalizing ... ok
+test session::tests::no_session_never_reclaims ... ok
+test session::tests::tun_detail_from_lease_is_redacted ... ok
+test tun_lease::tests::apply_denied_leaves_no_journal_with_stable_code ... ok
+test tun_lease::tests::apply_disconnect_is_unavailable ... ok
+test tun_lease::tests::apply_rejects_invalid_spec_before_touching_helper ... ok
+test tun_lease::tests::apply_timeout_is_retryable_unavailable ... ok
+test tun_lease::tests::cleanup_without_journal_is_ok ... ok
+test tun_lease::tests::apply_writes_journal_and_returns_lease ... ok
+test tun_lease::tests::cleanup_is_idempotent ... ok
+test tun_lease::tests::journal_entry_roundtrips_through_json ... ok
+test tun_lease::tests::cleanup_releases_helper_state_and_drops_journal ... ok
+test tun_lease::tests::cleanup_with_mismatched_lease_still_cleans ... ok
+test tun_lease::tests::reconcile_empty_run_root_is_zero ... ok
+test tun_lease::tests::dry_run_lease_journals_dry_run_flag ... ok
+test tun_lease::tests::reconcile_cleans_stale_after_restart ... ok
+test tun_lease::tests::reconcile_unavailable_keeps_pending_and_journal ... ok
+
+test result: ok. 44 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 63 tests
+test blobs::tests::multiple_load_maps_both_ways ... ok
+test batch::tests::fingerprint_is_stable_and_source_sensitive ... ok
+test blobs::tests::empty_or_null_blob_is_default ... ok
+test blobs::tests::protocol_extra_uses_pascal_case_and_skips_none ... ok
+test blobs::tests::unknown_keys_are_preserved ... ok
+test blobs::tests::transport_extra_roundtrips ... ok
+test hash::tests::derived_id_is_stable_and_namespaced ... ok
+test hash::tests::sha256_matches_known_vector ... ok
+test mapping::tests::profile_unknown_columns_are_kept_in_extra ... ok
+test mapping::tests::rules_roundtrip_order_and_reference_fields ... ok
+test mapping::tests::subscription_maps_all_seventeen_columns ... ok
+test mapping::tests::unknown_config_type_is_an_error_not_a_panic ... ok
+test migrate::tests::group_v2_to_v3_copies_group_table ... ok
+test migrate::tests::group_without_children_keeps_group_type_only ... ok
+test migrate::tests::hysteria2_pulls_global_values_and_tuic_rewrites_credentials ... ok
+test migrate::tests::run_migrations_is_idempotent ... ok
+test migrate::tests::shadowsocks_security_moves_to_ss_method ... ok
+test migrate::tests::transport_v3_to_v4_branches_per_network ... ok
+test migrate::tests::vmess_and_vless_field_mapping ... ok
+test migrate::tests::wireguard_mtu_parses_or_defaults ... ok
+test references::tests::child_items_preserve_order_and_dedupe ... ok
+test references::tests::invalid_regex_degrades_without_panicking ... ok
+test references::tests::missing_subscription_is_reported_not_fatal ... ok
+test references::tests::remarks_resolution_finds_and_reports_missing ... ok
+test references::tests::self_reference_uses_owner_subscription_and_flags_missing ... ok
+test references::tests::self_sentinel_is_detected_and_not_treated_as_id ... ok
+test backup::tests::recognizes_upstream_gui_configs_archive ... ok
+test report::tests::report_roundtrips_and_renders ... ok
+test references::tests::sub_child_items_match_regex_and_skip_children_groups ... ok
+test rows::tests::missing_table_is_empty_not_error ... ok
+test rows::tests::reads_rows_by_name_and_keeps_unknown_column ... ok
+test schema::tests::create_sql_quotes_names_and_marks_pk ... ok
+test schema::tests::profile_item_has_forty_one_columns ... ok
+test rows::tests::upstream_tables_create_and_roundtrip ... ok
+test store::tests::batch_roundtrip_and_lookup ... ok
+test store::tests::id_map_resolves_within_batch ... ok
+test upstream_config::tests::canonical_ui_item_key_is_read ... ok
+test upstream_config::tests::field_state_distinguishes_missing_null_empty ... ok
+test store::tests::insert_and_read_row_roundtrip ... ok
+test upstream_config::tests::non_object_root_is_rejected ... ok
+test store::tests::migration_and_meta_records ... ok
+test store::tests::upsert_replaces_on_primary_key ... ok
+test upstream_config::tests::storage_flatten_preserves_unknown_items ... ok
+test upstream_config::tests::window_and_column_state_map_to_domain ... ok
+test validate::tests::absolute_resource_path_is_warned ... ok
+test upstream_db::tests::missing_sources_are_rejected ... ok
+test upstream_db::tests::corrupt_database_is_an_error_not_a_panic ... ok
+test validate::tests::count_mismatch_is_fatal ... ok
+test validate::tests::dangling_outbound_reference_is_only_a_warning ... ok
+test validate::tests::duplicate_id_is_fatal ... ok
+test validate::tests::group_cycle_is_flagged_as_warning ... ok
+test upstream_db::tests::archive_roundtrip_from_gui_configs_layout ... ok
+test upstream_db::tests::identify_directory_reports_version_and_tables ... ok
+test upstream_db::tests::snapshot_reads_committed_wal_content ... ok
+test backup::tests::path_traversal_resource_is_rejected ... ok
+test backup::tests::create_verify_and_restore_roundtrip ... ok
+test candidate::tests::unknown_columns_are_retained_in_raw_records ... ok
+test backup::tests::tampered_bundle_is_rejected_before_writing ... ok
+test candidate::tests::failed_validation_leaves_target_untouched ... ok
+test candidate::tests::legacy_group_row_is_migrated_not_imported ... ok
+test candidate::tests::import_v2_source_migrates_and_reports ... ok
+test candidate::tests::second_import_of_same_source_is_already_imported ... ok
+test candidate::tests::unrelated_second_source_appends_without_overwriting ... ok
+
+test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+
+running 5 tests
+test null_absent_and_empty_are_preserved_distinctly ... ok
+test all_fields_config_is_stored ... ok
+test empty_source_imports_zero_rows ... ok
+test zero_port_is_a_warning_not_a_commit_blocker ... ok
+test failed_candidate_never_touches_an_existing_target ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+
+running 8 tests
+test truncated_real_shape_db_errors_without_panicking ... ok
+test real_old_v2_migrates_and_current_shape_is_additive ... ok
+test real_current_ech_force_query_value_is_preserved ... ok
+test real_old_v1_migrates_v2_to_v4_and_keeps_unicode ... ok
+test real_current_shape_imports_and_reads_canonical_ui_item ... ok
+test real_shape_source_with_wal_imports_committed_content ... ok
+test real_shape_content_from_another_directory_is_idempotent ... ok
+test real_bak_v4_imports_anytls_and_shadowsocks_types ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+
+running 8 tests
+test source_commit_matches_upstream_baseline ... ok
+test missing_source_is_rejected_politely ... ok
+test corrupt_database_errors_without_panicking ... ok
+test v2_fixture_migrates_groups_and_normal_nodes ... ok
+test v3_fixture_migrates_transport ... ok
+test same_content_from_another_directory_is_idempotent ... ok
+test same_fixture_import_is_idempotent ... ok
+test archive_source_imports_via_gui_configs_layout ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+
+running 8 tests
+test hash::tests::rfc1321_vectors ... ok
+test script::tests::missing_path_is_not_found ... ok
+test sysproxy::tests::already_restored_field_is_silent_on_repeat ... ok
+test sysproxy::tests::empty_text_normalizes_to_absent ... ok
+test sysproxy::tests::bool_tokens_are_canonical ... ok
+test script::tests::unset_paths_are_valid ... ok
+test sysproxy::tests::externally_changed_field_is_reported_not_restored ... ok
+test sysproxy::tests::restore_owned_field_schedules_write_back ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test decode_tolerates_bare_command ... ok
+test empty_value_is_not_enabled ... ok
+test disable_is_idempotent ... ok
+test enable_query_disable_roundtrip ... ok
+test encode_decode_roundtrip_with_args ... ok
+test set_overwrites_previous_command ... ok
+test entry_carries_name_and_command ... ok
+test run_value_name_matches_upstream_scheme ... ok
+test encode_decode_roundtrip_without_args ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 8 tests
+test applied_change_roundtrips_with_field ... ok
+test field_name_constants_match_ledger ... ok
+test mode_serializes_with_upstream_names ... ok
+test missing_script_path_is_not_found ... ok
+test proxy_state_roundtrips ... ok
+test settings_carrier_roundtrips ... ok
+test directory_is_rejected_as_not_a_file ... ok
+test existing_regular_file_validates ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 10 tests
+test non_loopback_host_is_rejected ... ok
+test missing_file_source_is_not_found ... ok
+test port_in_use_is_reported ... ok
+test auto_port_is_at_least_the_base ... ok
+test query_string_is_ignored_for_routing ... ok
+test stop_then_restart_rebinds ... ok
+test serves_pac_on_loopback ... ok
+test repeated_start_is_idempotent ... ok
+test returns_404_for_unknown_path ... ok
+test file_source_with_placeholder_substitution ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 3 tests
+test empty_name_is_invalid ... ok
+test distinct_names_coexist ... ok
+test second_acquire_is_rejected_then_allowed_after_drop ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 13 tests
+test apply_records_before_values_for_restore ... ok
+test forced_change_records_only_fields_that_differ ... ok
+test forced_change_is_a_noop_when_already_equal ... ok
+test pac_mode_sets_autoconfig_and_disables_named_proxy ... ok
+test pac_mode_requires_url ... ok
+test pure_restore_matrix_handles_absent_fields ... ok
+test repeated_restore_is_idempotent ... ok
+test restore_all_owned_fields_returns_to_original ... ok
+test restore_keeps_user_change_and_reports_conflict ... ok
+test restore_only_touches_fields_we_changed ... ok
+test restore_reports_conflict_when_owned_field_is_removed ... ok
+test forced_clear_records_clearing ... ok
+test unchanged_mode_makes_no_change_and_no_notification ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 9 tests
+test audit::tests::records_are_appended_and_bounded ... ok
+test server::tests::disconnect_cleanup_success_audits_ok ... ok
+test server::tests::disconnect_cleanup_failure_is_surfaced_and_audited ... ok
+test windows::tests::process_identity_binds_pid_and_creation_time ... ok
+test windows::tests::forward_row_uses_prefix_from_cidr ... ok
+test windows::tests::job_object_arms_kill_on_close ... ok
+test windows::tests::command_line_quotes_arguments ... ok
+test windows::tests::sockaddr_families_match_address_kind ... ok
+test windows::tests::assign_to_invalid_job_fails_structured ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 28 tests
+test audit_records_success_fields ... ok
+test audit_marks_rejection ... ok
+test add_routes_records_and_counts ... ok
+test backend_failure_propagates ... ok
+test call_order_is_preserved ... ok
+test elevation_status_reports_session_count ... ok
+test empty_token_rejected ... ok
+test audit_summary_excludes_args_and_paths ... ok
+test lease_cleanup_stops_cores ... ok
+test lease_cleanup_resets_tun ... ok
+test lease_policy_stop_cores_only_leaves_routes ... ok
+test reject_arbitrary_executable ... ok
+test lease_cleanup_removes_routes ... ok
+test ping_reports_elevation ... ok
+test lease_cleanup_is_idempotent ... ok
+test lease_policy_leave_running_skips_cleanup ... ok
+test reject_bad_args ... ok
+test reject_invalid_routes_before_backend ... ok
+test reject_path_out_of_bounds ... ok
+test remove_routes_records ... ok
+test run_core_returns_handle_and_records ... ok
+test sessions_are_isolated ... ok
+test set_tun_records ... ok
+test shutdown_sets_flag ... ok
+test sid_comparison_is_case_insensitive_and_strict ... ok
+test stop_core_is_idempotent ... ok
+test stop_unknown_handle_is_not_found ... ok
+test version_mismatch_response ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 7 tests
+test shutdown_closes_session ... ok
+test sid_mismatch_rejected_before_request ... ok
+test oversized_frame_is_rejected ... ok
+test ping_over_loopback ... ok
+test sid_match_allows_request ... ok
+test malformed_json_returns_malformed ... ok
+test idle_connection_times_out ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+
+running 37 tests
+test adapter::tests::core_dir_is_lowercase ... ok
+test adapter::tests::unknown_core_has_no_adapter ... ok
+test adapter::tests::xray_command_shape ... ok
+test identity::tests::a_bogus_identity_does_not_match ... ok
+test graph::tests::port_conflict_is_rejected ... ok
+test graph::tests::cycle_is_rejected ... ok
+test graph::tests::empty_topology_is_allowed ... ok
+test graph::tests::start_order_is_dependency_ordered ... ok
+test graph::tests::rollback_reverses_only_started_prefix ... ok
+test identity::tests::current_process_has_an_identity ... ok
+test sha256::tests::matches_fips_vectors ... ok
+test tun::tests::converts_to_helper_payloads ... ok
+test tun::tests::disabled_plan_has_no_tun_work ... ok
+test adapter::tests::resolve_override_wins_and_missing_is_not_found ... ok
+test tun::tests::dry_run_detection_reads_arg_and_env ... ok
+test tun::tests::enabled_plan_parses_a_valid_descriptor ... ok
+test tun::tests::enabled_plan_requires_a_tun_node ... ok
+test tun::tests::rejects_bad_adapter_name ... ok
+test tun::tests::rejects_bad_address_and_prefix ... ok
+test adapter::tests::resolve_prefers_highest_version_then_pinned ... ok
+test tun::tests::rejects_bad_route_exclude ... ok
+test tun::tests::rejects_empty_addresses_and_bad_mtu ... ok
+test tun::tests::rejects_route_family_mismatch_and_zero_interface ... ok
+test tun::tests::rejects_too_many_routes ... ok
+test tun::tests::rejects_wrong_kind ... ok
+test tun::tests::rejects_zero_interface_index ... ok
+test tun::tests::route_digest_is_stable_and_order_insensitive ... ok
+test tun::tests::route_summary_is_counts_only ... ok
+test tun::tests::tun_node_rejects_controlled_file_config ... ok
+test tun::tests::tun_node_requires_the_tun_privilege ... ok
+test tun::tests::tun_node_without_flag_is_rejected ... ok
+test wire::tests::event_frame_carries_runtime_detail ... ok
+test wire::tests::response_frame_roundtrips ... ok
+test wire::tests::size_cap_is_enforced ... ok
+test identity::tests::an_exited_process_is_not_a_live_identity ... ok
+test job::tests::kill_on_job_close_terminates_assigned_members ... ok
+test sha256::tests::long_input_is_stable ... ok
+
+test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+
+running 61 tests
+test download::tests::invalid_header_is_rejected ... ok
+test download::tests::control_char_in_value_is_rejected ... ok
+test fmt::base::tests::network_normalizes_unknown_and_empty_to_raw ... ok
+test download::tests::origin_comparison_detects_scheme_host_port_changes ... ok
+test fmt::base::tests::raw_uses_tcp_alias_and_none_header ... ok
+test download::tests::non_http_proxy_is_rejected ... ok
+test fmt::base::tests::build_uri_encodes_user_info_and_brackets_ipv6 ... ok
+test fmt::batch::tests::html_and_clash_detection_require_all_markers ... ok
+test fmt::hysteria2::tests::escaped_query_decodes_exactly_once ... ok
+test fmt::anytls::tests::roundtrip_basic_fields ... ok
+test fmt::batch::tests::bare_outbounds_are_extracted ... ok
+test fmt::batch::tests::full_xray_config_becomes_a_custom_profile ... ok
+test fmt::batch::tests::singbox_full_and_outbound_detection ... ok
+test fmt::base::tests::resolve_then_emit_query_roundtrips_transport ... ok
+test fmt::hysteria2::tests::hyrealm_parse_and_server_url ... ok
+test fmt::hysteria2::tests::obfs_and_port_range_roundtrip ... ok
+test fmt::hysteria2::tests::port_defaults_to_443_and_explicit_zero_is_kept ... ok
+test fmt::hysteria2::tests::realm_roundtrip ... ok
+test fmt::inner::tests::empty_group_is_dropped_and_custom_skipped ... ok
+test fmt::inner::tests::non_inner_lines_are_ignored ... ok
+test fmt::inner::tests::group_references_are_remapped_and_self_becomes_subid ... ok
+test fmt::naive::tests::https_roundtrip_credentials_and_concurrency ... ok
+test fmt::naive::tests::quic_scheme_roundtrip ... ok
+test fmt::socks::tests::legacy_base64_socks_is_parsed ... ok
+test fmt::socks::tests::roundtrip_userinfo ... ok
+test fmt::tests::group_and_http_have_no_share_uri ... ok
+test fmt::tests::kind_detection_covers_prefixes ... ok
+test fmt::tests::unsupported_line_is_rejected ... ok
+test fmt::trojan::tests::roundtrip_writes_both_insecure_spellings ... ok
+test fmt::shadowsocks::tests::legacy_and_sip002_roundtrip ... ok
+test fmt::shadowsocks::tests::missing_required_fields_are_rejected ... ok
+test fmt::shadowsocks::tests::noncanonical_plugin_with_literal_equals_configures_obfs ... ok
+test fmt::shadowsocks::tests::legacy_base64_form_is_parsed ... ok
+test fmt::trojan::tests::special_characters_in_password_roundtrip ... ok
+test fmt::tuic::tests::roundtrip_userinfo_and_congestion_control ... ok
+test fmt::vless::tests::reality_parameters_roundtrip ... ok
+test fmt::vless::tests::roundtrip_basic_fields_and_encryption_default ... ok
+test fmt::vmess::tests::invalid_json_base64_is_rejected ... ok
+test fmt::vmess::tests::json_roundtrip_preserves_core_fields ... ok
+test fmt::vmess::tests::std_uri_with_at_is_parsed_as_standard_form ... ok
+test fmt::wireguard::tests::conf_parses_peers_and_strips_inline_comments ... ok
+test fmt::wireguard::tests::conf_without_private_key_is_rejected ... ok
+test fmt::wireguard::tests::uri_roundtrip_with_ipv6_and_escaped_keys ... ok
+test merge::tests::complex_nodes_are_never_deduplicated ... ok
+test merge::tests::empty_incoming_preserves_existing ... ok
+test merge::tests::filter_drops_non_matching_remarks ... ok
+test merge::tests::identical_nodes_collapse_keeping_older ... ok
+test merge::tests::parse_error_preserves_existing ... ok
+test parse::tests::base64_list_is_detected ... ok
+test parse::tests::content_limit_is_enforced ... ok
+test parse::tests::item_limit_truncates_with_warning ... ok
+test parse::tests::plain_list_partial_success_locates_bad_lines ... ok
+test parse::tests::unknown_content_reports_error ... ok
+test util::tests::base64_roundtrip_tolerates_urlsafe_and_padding ... ok
+test util::tests::decode_body_bytes_honours_gbk_charset ... ok
+test util::tests::ipv6_bracketting_is_idempotent ... ok
+test util::tests::pem_helpers_extract_and_hash ... ok
+test util::tests::query_decodes_exactly_once ... ok
+test util::tests::query_splits_on_first_equals_and_keeps_stun_occurrences ... ok
+test util::tests::regex_guard_fails_open_on_invalid_and_oversized_patterns ... ok
+test util::tests::url_encode_matches_rfc3986_unreserved ... ok
+
+test result: ok. 61 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 11 tests
+test proxy_scheme_validation_is_local ... ok
+test downloads_body_successfully ... ok
+test custom_header_and_user_agent_are_sent ... ok
+test missing_required_header_is_rejected_by_server ... ok
+test gbk_charset_is_decoded ... ok
+test oversized_body_is_rejected ... ok
+test non_success_status_is_an_error ... ok
+test cross_origin_redirect_drops_authorization ... ok
+test same_origin_redirect_is_followed ... ok
+test cancellation_stops_a_slow_download ... ok
+test slow_response_times_out ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+
+running 23 tests
+test fmt_kind_matrix ... ok
+test group_profile_has_no_share_uri ... ok
+test anytls_roundtrip ... ok
+test hysteria2_percent_value_survives_roundtrip ... ok
+test hysteria2_roundtrip_obfs_and_port_range ... ok
+test hysteria2_port_defaults_to_443 ... ok
+test hysteria2_realm_roundtrip ... ok
+test unsupported_and_empty_inputs_error ... ok
+test naive_https_and_quic_roundtrip ... ok
+test unicode_and_emoji_remarks_survive ... ok
+test vless_kcp_and_grpc_transport_roundtrip ... ok
+test socks_roundtrip_and_legacy ... ok
+test tuic_roundtrip ... ok
+test trojan_roundtrip_writes_both_insecure_spellings ... ok
+test vless_roundtrip_reality ... ok
+test vless_xhttp_transport_roundtrip ... ok
+test vmess_aid_written_as_string_still_parses ... ok
+test vmess_json_roundtrip ... ok
+test vmess_standard_uri_is_parsed ... ok
+test wireguard_conf_parses_two_peers ... ok
+test wireguard_roundtrip_brackets_ipv6 ... ok
+test shadowsocks_sip002_roundtrip ... ok
+test shadowsocks_legacy_and_obfs_plugin ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 13 tests
+test auto_partial_list_keeps_good_nodes_and_reports_bad ... ok
+test auto_detects_base64_list ... ok
+test pre_cancelled_token_stops_the_pipeline ... ok
+test content_and_item_limits_are_enforced ... ok
+test clash_detection_requires_all_markers ... ok
+test singbox_outbound_is_detected ... ok
+test html_page_is_flagged_not_imported ... ok
+test plain_list_partial_success_locates_bad_lines ... ok
+test sip008_json_is_parsed ... ok
+test wireguard_conf_is_parsed ... ok
+test xray_full_config_is_detected ... ok
+test auto_mixes_standard_and_inner_uris ... ok
+test inner_self_sentinel_uses_option_subid ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 47 tests
+test arch::tests::macho_machines ... ok
+test arch::tests::elf_machines ... ok
+test arch::tests::implied_target_roundtrip ... ok
+test arch::tests::mismatched_arch_compares_correctly ... ok
+test arch::tests::pe_machines ... ok
+test arch::tests::triple_parsing ... ok
+test channel::tests::download_templates_use_expected_assets ... ok
+test arch::tests::truncated_pe_is_rejected ... ok
+test channel::tests::cores_without_cap_accept_anything ... ok
+test arch::tests::unknown_format_is_rejected ... ok
+test channel::tests::singbox_cap_is_one_fourteen ... ok
+test channel::tests::core_specs_carry_locked_max ... ok
+test channel::tests::prerelease_only_for_v2rayn_and_xray ... ok
+test channel::tests::supported_targets_and_packaging ... ok
+test channel::tests::url_slugs_match_upstream_coreurls ... ok
+test channel::tests::reads_expected_sha256_from_lock ... ok
+test download::tests::sha256_helper_matches ... ok
+test install::tests::external_spec_does_not_start_process ... ok
+test install::tests::external_spec_rejects_absolute_path_outside_root ... ok
+test install::tests::plan_rejects_keep_name_with_separator ... ok
+test install::tests::plan_rejects_paths_outside_root ... ok
+test metadata::tests::locked_max_falls_back_to_highest_allowed ... ok
+test metadata::tests::locked_max_with_no_allowed_release_errors ... ok
+test metadata::tests::missing_asset_reports_fragments ... ok
+test metadata::tests::missing_stable_only_prerelease_errors ... ok
+test metadata::tests::parses_release_model ... ok
+test metadata::tests::picks_stable_vs_prerelease ... ok
+test metadata::tests::prerelease_channel_takes_newest_first ... ok
+test metadata::tests::releases_url_joins_base ... ok
+test metadata::tests::selects_assets_per_target ... ok
+test semver::tests::build_metadata_is_ignored_for_ordering ... ok
+test semver::tests::malformed_becomes_zero ... ok
+test semver::tests::parses_prefixed_and_bare ... ok
+test semver::tests::parses_two_segment_and_four_segment ... ok
+test semver::tests::prerelease_alpha_greater_than_numeric ... ok
+test semver::tests::prerelease_is_lower_than_stable ... ok
+test semver::tests::prerelease_numeric_ordering ... ok
+test download::tests::rejects_non_http_scheme ... ok
+test semver::tests::prerelease_segment_count_ordering ... ok
+test semver::tests::standard_string_roundtrip ... ok
+test semver::tests::version_range_helpers ... ok
+test signature::tests::default_verifier_is_unsupported_not_success ... ok
+test signature::tests::prefix_verifier_accepts_matching_marker ... ok
+test signature::tests::prefix_verifier_rejects_tampered_artifact ... ok
+test unpack::tests::safe_join_allows_normal_paths ... ok
+test unpack::tests::safe_join_normalizes_backslashes ... ok
+test unpack::tests::safe_join_rejects_escaping_paths ... ok
+
+test result: ok. 47 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 9 tests
+test big_endian_elf_not_mapped ... ok
+test binary_matches_target ... ok
+test parses_elf64_x64_and_arm64 ... ok
+test parses_macho_x64_and_arm64 ... ok
+test truncated_pe_rejected ... ok
+test parses_pe_x86_and_arm64 ... ok
+test parses_pe_x64 ... ok
+test unknown_format_rejected ... ok
+test unknown_pe_machine_null_arch ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 11 tests
+test builtin_targets_supported ... ok
+test core_spec_fields ... ok
+test core_url_slugs ... ok
+test download_templates_match_assets ... ok
+test non_builtin_targets_unsupported ... ok
+test singbox_max_is_1_14 ... ok
+test prerelease_policy_matches_upstream ... ok
+test uncapped_cores_accept_any_version ... ok
+test singbox_version_range_boundaries ... ok
+test v2rayn_blocked_for_packaged_install ... ok
+test reads_sha256_from_core_lock ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 10 tests
+test non_http_scheme_rejected ... ok
+test wrong_size_vs_expected_is_incomplete ... ok
+test http_error_status_is_reported ... ok
+test rejects_oversized_content_length ... ok
+test rejects_oversized_streamed_body ... ok
+test zero_byte_response_is_incomplete ... ok
+test streams_file_and_computes_sha256 ... ok
+test cancellation_aborts_before_completion ... ok
+test connect_timeout_is_classified ... ok
+test slow_server_hits_whole_timeout ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+
+
+running 14 tests
+test external_upgrade_spec_is_returned_not_executed ... ok
+test commit_rename_failure_without_previous_is_clean ... ok
+test missing_staged_dir_is_conflict_without_touching_current ... ok
+test planner_rejects_outside_root ... ok
+test planner_rejects_keep_name_with_separator ... ok
+test manifest_scan_detects_tampering ... ok
+test atomic_swap_without_previous_installs_cleanly ... ok
+test commit_rename_failure_rolls_back ... ok
+test stage_rename_failure_leaves_current_untouched ... ok
+test staged_file_is_rejected_without_touching_current ... ok
+test existing_keep_dir_is_rejected_before_swap ... ok
+test atomic_swap_keeps_previous_version ... ok
+test discard_previous_removes_backup ... ok
+test atomic_swap_records_manifest_hashes ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 14 tests
+test invalid_json_is_rejected ... ok
+test locked_max_falls_back_to_highest_allowed ... ok
+test locked_max_selects_older_stable_when_head_exceeds ... ok
+test locked_max_with_nothing_allowed_errors ... ok
+test missing_asset_reports_needles ... ok
+test model_fields_parse ... ok
+test parses_missing_optional_fields ... ok
+test picks_prerelease_head_when_requested ... ok
+test releases_url_from_repo_and_base ... ok
+test only_prerelease_and_stable_requested_errors ... ok
+test select_linux_and_macos_assets ... ok
+test select_windows_x64_asset ... ok
+test singbox_asset_needles ... ok
+test picks_stable_head ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test sha256_mismatch_would_be_detected ... ok
+test channel_cap_blocks_over_cap_release_before_download ... ok
+test full_pipeline_against_mock_github_api ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 10 tests
+test build_metadata_ignored_in_ordering ... ok
+test malformed_falls_back_to_zero ... ok
+test major_minor_patch_ordering ... ok
+test parse_two_and_four_segments ... ok
+test parse_v_prefix_and_case ... ok
+test prerelease_lower_than_release ... ok
+test prerelease_numeric_and_alnum_ordering ... ok
+test prerelease_numeric_lower_than_alphanumeric ... ok
+test singbox_cap_boundaries ... ok
+test standard_string_roundtrip ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 5 tests
+test default_verifier_reports_unsupported ... ok
+test prefix_verifier_rejects_tampered_artifact ... ok
+test prefix_verifier_accepts_correct_signature ... ok
+test prefix_verifier_rejects_tampered_signature ... ok
+test unsupported_verifier_never_reports_success ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 13 tests
+test safe_join_allows_normal_and_normalizes_separators ... ok
+test safe_join_rejects_traversal_and_absolute ... ok
+test targz_entry_bomb_is_rejected ... ok
+test targz_symlink_entry_is_rejected ... ok
+test targz_traversal_entry_is_rejected ... ok
+test zip_symlink_entry_is_rejected ... ok
+test zip_single_entry_bomb_is_rejected ... ok
+test zip_absolute_path_is_rejected ... ok
+test zip_traversal_entry_is_rejected ... ok
+test targz_extracts_valid_archive ... ok
+test zip_total_bomb_is_rejected ... ok
+test zip_too_many_entries_is_rejected ... ok
+test zip_extracts_valid_archive ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

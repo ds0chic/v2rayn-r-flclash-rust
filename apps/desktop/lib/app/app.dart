@@ -90,10 +90,10 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       final autostart = Platform.environment['V2RAYN_R_AUTOSTART'];
       stderr.writeln('[t03] bootstrap autostart=$autostart');
       if (autostart == '1' || autostart == 'true') {
-        await controller.applySmoke();
+        await controller.applyActive();
         final view = ref.read(runtimeControllerProvider);
         stderr.writeln(
-          '[t03] applySmoke state=${view.state} pid=${view.pid} '
+          '[t18b] applyActive state=${view.state} pid=${view.pid} '
           'ports=${view.ports} error=${view.error}',
         );
       }

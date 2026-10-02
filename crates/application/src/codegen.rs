@@ -321,6 +321,7 @@ pub fn settings_from_app(settings: &domain::AppSettings, opts: &CodegenOptions) 
         base.inbound.sniffing_enabled = first.sniffing_enabled;
         base.inbound.dest_override = first.dest_override.clone().unwrap_or_default();
         base.inbound.route_only = first.route_only;
+        base.inbound.protocol = inbound_protocol_token(first.protocol).to_string();
     }
     let tun = &settings.tun_mode_item;
     base.tun.enabled = tun.enable_tun;
@@ -347,6 +348,25 @@ pub fn settings_from_app(settings: &domain::AppSettings, opts: &CodegenOptions) 
         base.fragment4_ray.max_split = fragment.max_split.clone();
     }
     base
+}
+
+/// Kernel inbound protocol token for a stored `Inbound.Protocol` (FLD-CFG-036).
+///
+/// Upstream `V2rayInboundService.BuildInbound` marks the user inbound as
+/// `mixed` for the `socks`/`socks2`/`socks3` identities (a mixed listener
+/// serves SOCKS and HTTP on one port; the identity only picks the port
+/// offset). The token is still *derived* here rather than hardcoded in the
+/// generator so an explicit non-socks identity is honored instead of being
+/// silently ignored.
+pub fn inbound_protocol_token(protocol: domain::InboundProtocol) -> &'static str {
+    use domain::InboundProtocol as P;
+    match protocol {
+        // SOCKS-family listeners are generated as `mixed` (upstream parity).
+        P::Socks | P::Socks2 | P::Socks3 | P::Mixed => "mixed",
+        // PAC/API/speedtest are internal endpoints; `GenInbounds` never emits
+        // them as user listeners, so they fall back to the mixed listener.
+        P::Pac | P::Api | P::Api2 | P::Speedtest => "mixed",
+    }
 }
 
 /// Map a stored routing profile onto the generator model (T11).

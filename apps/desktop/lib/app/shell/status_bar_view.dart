@@ -161,7 +161,9 @@ class StatusBarView extends ConsumerWidget {
               ),
               const _Sep(),
               Text(
-                runtime.revisionLabel,
+                runtime.hasUnappliedChanges
+                    ? '${runtime.revisionLabel} (未应用)'
+                    : runtime.revisionLabel,
                 key: const ValueKey('runtime-revision'),
                 style: muted,
               ),

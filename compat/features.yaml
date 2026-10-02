@@ -2791,14 +2791,17 @@ features:
   cancel_behavior: 无
   acceptance: 切换节点后仅新节点进程存活
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/application/src/engine.rs (build_runtime_plan/apply_runtime); services/net_host (session lifecycle)
+  test_ids:
+  - t18b_runtime_plan
+  - t18b_runtime_e2e
   evidence:
   - v2rayN/ServiceLib/Manager/CoreManager.cs:65
   - v2rayN/ServiceLib/Manager/CoreManager.cs:147
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:664
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:662
-  status: identified
+  - docs/evidence/T18b.md
+  status: implemented
 - id: F-CORE-006
   name: 预 SOCKS 端口
   family: core
@@ -2998,12 +3001,15 @@ features:
   cancel_behavior: 无
   acceptance: 缺失内核时明确提示
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: null
-  test_ids: []
+  implementation_location: crates/runtime/src/adapter.rs (CoreLocator roots/pinned/custom override)
+  test_ids:
+  - adapter::resolve_prefers_highest_version_then_pinned
+  - adapter::resolve_override_wins_and_missing_is_not_found
   evidence:
   - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:32
   - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:38
-  status: identified
+  - docs/evidence/T18b.md
+  status: implemented
 - id: F-CORE-012
   name: Linux/macOS TUN 提权运行
   family: core

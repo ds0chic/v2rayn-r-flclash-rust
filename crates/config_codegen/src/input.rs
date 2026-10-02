@@ -322,6 +322,10 @@ pub struct Gui {
     pub display_real_time_speed: bool,
 }
 
+fn default_mixed_protocol() -> String {
+    "mixed".into()
+}
+
 /// `Inbound[0]` (`InItem`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -336,6 +340,12 @@ pub struct InboundSettings {
     pub sniffing_enabled: bool,
     pub dest_override: Vec<String>,
     pub route_only: bool,
+    /// Kernel inbound protocol token. Upstream `InItem.Protocol` is a string;
+    /// `V2rayInboundService.BuildInbound` emits `mixed` for the socks-family
+    /// listeners, but the token is data-driven here (FLD-CFG-036) so an
+    /// explicit stored value (e.g. `socks` / `http`) is no longer hardcoded.
+    #[serde(default = "default_mixed_protocol")]
+    pub protocol: String,
 }
 
 impl Default for InboundSettings {
@@ -354,6 +364,7 @@ impl Default for InboundSettings {
             sniffing_enabled: true,
             dest_override: vec!["http".into(), "tls".into()],
             route_only: false,
+            protocol: default_mixed_protocol(),
         }
     }
 }

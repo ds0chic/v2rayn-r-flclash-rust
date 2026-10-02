@@ -66,6 +66,14 @@ class RuntimeView {
   String get revisionLabel =>
       'rev: ${desiredRevision ?? '-'}/${appliedRevision ?? '-'}';
 
+  /// True when stored state changed after the last apply (T18b): the UI
+  /// shows "未应用" and offers an apply entry point instead of pretending
+  /// the running core picked the change up.
+  bool get hasUnappliedChanges =>
+      desiredRevision != null &&
+      appliedRevision != null &&
+      desiredRevision != appliedRevision;
+
   bool get isRunning => state == 'Running';
   bool get isBusy =>
       state == 'Validating' ||
@@ -140,7 +148,9 @@ class RuntimeEvent {
 abstract class RuntimeBridge {
   Future<RuntimeView> snapshot();
 
-  Future<RuntimeActionResult> applySmoke({required BigInt expectedRevision});
+  /// Apply the real persisted plan (active node + settings + routing +
+  /// DNS + rule mode) through `apply_runtime` with an empty target id.
+  Future<RuntimeActionResult> applyActive({required BigInt expectedRevision});
 
   Future<RuntimeActionResult> stop();
 
@@ -157,11 +167,14 @@ class FrbRuntimeBridge implements RuntimeBridge {
   }
 
   @override
-  Future<RuntimeActionResult> applySmoke({
+  Future<RuntimeActionResult> applyActive({
     required BigInt expectedRevision,
   }) async {
+    // Empty target id resolves to the persisted active node on the Rust
+    // side; a missing node or generator failure returns a structured error
+    // (never a hardcoded smoke config).
     final result = await rust.applyRuntime(
-      targetId: 'smoke',
+      targetId: '',
       expectedRevision: expectedRevision,
     );
     return RuntimeActionResult(

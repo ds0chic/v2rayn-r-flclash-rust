@@ -12,13 +12,14 @@ use application::{AppEngine, EventSink, PageRequest, ProfileFilter, ProfileSort}
 use domain::event::{EventEnvelope, EventEpoch, EventKind, EventSeq};
 use domain::job::JobId;
 use domain::revision::DesiredRevision;
+#[cfg(test)]
 use domain::runtime_plan::{
     ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, PortRequest, ProcessGraph,
     ProcessNode, RequiredPrivilege, RuntimePlan, RuntimeTarget,
 };
-use domain::{
-    CoreType, DomainError, MultipleLoad, Profile, ProtocolExtra, SecurityParams, TransportExtra,
-};
+use domain::{DomainError, MultipleLoad, Profile, ProtocolExtra, SecurityParams, TransportExtra};
+#[cfg(test)]
+use domain::CoreType;
 use serde_json::Value;
 
 use crate::api::contract::{
@@ -31,8 +32,10 @@ use crate::api::contract::{
 use crate::frb_generated::StreamSink;
 use flutter_rust_bridge::frb;
 
-/// Reserved smoke-session port. Never 10808 (the user's live proxy).
-pub const SMOKE_PORT: u16 = 11808;
+/// Reserved test-only smoke-session port. Never 10808 (the user's live
+/// proxy). The production `apply_runtime` path does not use this; it derives
+/// the inbound port from the persisted settings.
+pub const TEST_SMOKE_PORT: u16 = 11808;
 
 /// Global engine for the process. Tests use the in-memory engine; production
 /// builds open real SQLite storage under the resolved data directory.
@@ -593,14 +596,14 @@ pub fn profile_revision() -> u64 {
     engine().desired_revision()
 }
 
-/// Build the T03 Xray smoke plan through the real structured generator.
+/// Build the test-only T03 Xray smoke plan through the real structured
+/// generator.
 ///
-/// The generated config is a v2rayN client config: a `mixed` (SOCKS+HTTP)
-/// inbound on `127.0.0.1:11808` tagged `socks`, and a `freedom` outbound
-/// tagged `direct` so the core can serve. The profile outbound itself points
-/// at a documentation address (RFC5737) and is never exercised by the smoke
-/// test. Port 10808 is never emitted.
-fn smoke_body() -> Result<String, DomainError> {
+/// This is NOT the product path (the product path is `AppEngine::
+/// build_runtime_plan`). It exists only so the T03 fault harness and the
+/// generator smoke tests can exercise the structured generator with a fixed
+/// `127.0.0.1:11808` inbound. Port 10808 is never emitted.
+fn test_only_smoke_body() -> Result<String, DomainError> {
     use config_codegen::input::CodegenInput;
 
     let mut input = CodegenInput::default();
@@ -608,7 +611,7 @@ fn smoke_body() -> Result<String, DomainError> {
     input.profile.address = "192.0.2.10".into();
     input.profile.port = 1080;
     input.profile.network = "tcp".into();
-    input.settings.inbound.local_port = SMOKE_PORT as i32;
+    input.settings.inbound.local_port = TEST_SMOKE_PORT as i32;
     input.settings.inbound.udp_enabled = true;
     input.settings.inbound.sniffing_enabled = true;
 
@@ -622,29 +625,36 @@ fn smoke_body() -> Result<String, DomainError> {
     })
 }
 
-/// Pretty-printed Xray smoke config (evidence tool). Marked `frb(ignore)` so it
-/// is not part of the Dart API surface.
+/// Pretty-printed Xray smoke config (test-only evidence tool). Marked
+/// `frb(ignore)` so it is not part of the Dart API surface.
 #[frb(ignore)]
-pub fn xray_smoke_config_json() -> Result<String, DomainError> {
-    let body = smoke_body()?;
+pub fn t18b_test_only_smoke_config_json() -> Result<String, DomainError> {
+    let body = test_only_smoke_body()?;
     let value: Value = serde_json::from_str(&body).unwrap_or(Value::Null);
     Ok(serde_json::to_string_pretty(&value).unwrap_or(body))
 }
 
-fn smoke_plan(target_id: &str, desired_revision: u64) -> Result<RuntimePlan, DomainError> {
-    let body = smoke_body()?;
+/// Test-only plan builder around [`test_only_smoke_body`]. Not the product
+/// path.
+#[cfg(test)]
+fn test_only_smoke_plan(
+    target_id: &str,
+    desired_revision: u64,
+) -> Result<RuntimePlan, DomainError> {
+    let body = test_only_smoke_body()?;
     let plan_id = format!("t03-smoke-{target_id}-{desired_revision}");
-    Ok(build_plan(&body, &plan_id, desired_revision))
+    Ok(build_test_plan(&body, &plan_id, desired_revision))
 }
 
-fn build_plan(body: &str, plan_id: &str, desired_revision: u64) -> RuntimePlan {
+#[cfg(test)]
+fn build_test_plan(body: &str, plan_id: &str, desired_revision: u64) -> RuntimePlan {
     let node = ProcessNode {
         id: "xray".into(),
         core_type: CoreType::Xray,
         config: ConfigSource::Inline {
             body: body.to_string(),
         },
-        ports: vec![PortRequest::tcp(SMOKE_PORT, "inbound-socks")],
+        ports: vec![PortRequest::tcp(TEST_SMOKE_PORT, "inbound-socks")],
         privileges: vec![RequiredPrivilege::None],
     };
     let mut graph = ProcessGraph::default();
@@ -662,7 +672,7 @@ fn build_plan(body: &str, plan_id: &str, desired_revision: u64) -> RuntimePlan {
         },
         process_graph: graph,
         outbound_graph: OutboundGraph::default(),
-        ports: vec![PortRequest::tcp(SMOKE_PORT, "inbound-socks")],
+        ports: vec![PortRequest::tcp(TEST_SMOKE_PORT, "inbound-socks")],
         privileges: vec![RequiredPrivilege::None],
         network_policy: NetworkPolicy::default(),
         resources: vec![],
@@ -670,9 +680,29 @@ fn build_plan(body: &str, plan_id: &str, desired_revision: u64) -> RuntimePlan {
 }
 
 /// `apply_runtime` — target id + expected revision; returns an operation id.
-/// The result flows on the event stream.
+///
+/// Builds the real plan from persisted state (active node / expanded policy
+/// group + settings + routing + DNS + rule mode) through
+/// `AppEngine::build_runtime_plan`. An empty `target_id` resolves to the
+/// persisted active node; a missing target or a generator failure returns a
+/// structured error instead of falling back to a hardcoded config.
 pub fn apply_runtime(target_id: String, expected_revision: u64) -> ApplyRuntimeResult {
-    let plan = match smoke_plan(&target_id, expected_revision) {
+    let resolved = if target_id.trim().is_empty() {
+        engine().active_profile()
+    } else {
+        Some(target_id)
+    };
+    let Some(target) = resolved else {
+        return ApplyRuntimeResult {
+            ok: false,
+            operation_id: None,
+            error: Some(error_dto(
+                DomainError::new(domain::codes::FIELD_REQUIRED, "error.no_active_profile")
+                    .with_field("target_id"),
+            )),
+        };
+    };
+    let plan = match engine().build_runtime_plan(&target, expected_revision) {
         Ok(plan) => plan,
         Err(error) => {
             return ApplyRuntimeResult {
@@ -857,8 +887,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn smoke_plan_has_socks_inbound_and_freedom_outbound() {
-        let plan = smoke_plan("smoke", 0).expect("generate smoke plan");
+    fn test_only_smoke_plan_has_socks_inbound_and_freedom_outbound() {
+        let plan = test_only_smoke_plan("smoke", 0).expect("generate smoke plan");
         let body = match &plan.target.config {
             ConfigSource::Inline { body } => body,
             other => panic!("expected inline config, got {other:?}"),
@@ -866,7 +896,7 @@ mod tests {
         let value: Value = serde_json::from_str(body).unwrap();
         let inbound = &value["inbounds"][0];
         assert_eq!(inbound["listen"], "127.0.0.1");
-        assert_eq!(inbound["port"], SMOKE_PORT);
+        assert_eq!(inbound["port"], TEST_SMOKE_PORT);
         assert_eq!(inbound["tag"], "socks");
         let outbounds = value["outbounds"].as_array().unwrap();
         assert!(outbounds.iter().any(|o| o["protocol"] == "freedom"));
@@ -876,7 +906,7 @@ mod tests {
             plan.target.config_sha256.as_str(),
             runtime::sha256_hex(body.as_bytes())
         );
-        assert_eq!(plan.ports[0].port, SMOKE_PORT);
+        assert_eq!(plan.ports[0].port, TEST_SMOKE_PORT);
     }
 
     #[test]

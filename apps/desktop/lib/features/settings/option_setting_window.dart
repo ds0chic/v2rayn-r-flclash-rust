@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
@@ -200,6 +201,17 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
+        // T18b: a saved core-affecting change invalidates the running plan
+        // until re-applied; the button applies the real plan immediately.
+        if (state.needsCoreRestart)
+          FilledButton.tonal(
+            key: const ValueKey('settings-apply'),
+            onPressed: () {
+              Navigator.of(context).pop();
+              ref.read(runtimeControllerProvider.notifier).applyActive();
+            },
+            child: const Text('应用'),
+          ),
         FilledButton(onPressed: _save, child: const Text('保存')),
       ],
     );
@@ -210,6 +222,13 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         .read(settingsControllerProvider.notifier)
         .saveDocument(_draft);
     if (result.ok) {
+      // Core-affecting fields stay dormant until the plan is re-applied:
+      // keep the dialog open so the 未应用 hint + 应用 entry are visible.
+      if (result.restartCoreFields.isNotEmpty) {
+        setState(() {});
+        return;
+      }
+      if (!mounted) return;
       Navigator.of(context).pop();
     } else {
       setState(() => _error = result.error?.messageKey ?? 'error.save_failed');

@@ -9,8 +9,8 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `broadcast`, `build_plan`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `profile_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `smoke_body`, `smoke_plan`, `snapshot_to_dto`, `subscribers`, `transport_from_dto`, `transport_to_dto`
-// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `xray_smoke_config_json`
+// These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `profile_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `snapshot_to_dto`, `subscribers`, `test_only_smoke_body`, `transport_from_dto`, `transport_to_dto`
+// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `t18b_test_only_smoke_config_json`
 
 /// Open the application engine against an explicit data directory (tests and
 /// portable installs). Must be called before any other API for it to take
@@ -87,7 +87,12 @@ BigInt profileRevision() =>
     RustLib.instance.api.crateApiEngineProfileRevision();
 
 /// `apply_runtime` — target id + expected revision; returns an operation id.
-/// The result flows on the event stream.
+///
+/// Builds the real plan from persisted state (active node / expanded policy
+/// group + settings + routing + DNS + rule mode) through
+/// `AppEngine::build_runtime_plan`. An empty `target_id` resolves to the
+/// persisted active node; a missing target or a generator failure returns a
+/// structured error instead of falling back to a hardcoded config.
 Future<ApplyRuntimeResult> applyRuntime({
   required String targetId,
   required BigInt expectedRevision,

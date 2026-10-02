@@ -9,11 +9,16 @@ const SOCKS: i32 = 0;
 const SOCKS2: i32 = 1;
 const SOCKS3: i32 = 2;
 
-fn build_inbound(input: &CodegenInput, protocol: &str, offset: i32) -> Value {
+fn build_inbound(input: &CodegenInput, tag: &str, offset: i32) -> Value {
     let inbound = &input.settings.inbound;
+    let kernel_protocol = if inbound.protocol.trim().is_empty() {
+        "mixed"
+    } else {
+        inbound.protocol.trim()
+    };
     json!({
-        "type": "mixed",
-        "tag": protocol,
+        "type": kernel_protocol,
+        "tag": tag,
         "listen": LOOPBACK,
         "listen_port": inbound.local_port + offset
     })

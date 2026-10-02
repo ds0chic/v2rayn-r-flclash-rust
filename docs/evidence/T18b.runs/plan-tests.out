@@ -1,0 +1,16 @@
+
+running 11 tests
+test missing_target_is_a_structured_error_not_a_fallback ... ok
+test settings_save_bumps_desired_so_ui_sees_unapplied ... ok
+test legacy_protect_decision_matches_upstream ... ok
+test inbound_protocol_drives_base_port_and_mixed_token ... ok
+test stale_revision_is_rejected_by_apply ... ok
+test settings_loglevel_port_and_auth_reach_plan ... ok
+test singbox_plan_uses_singbox_shape ... ok
+test group_target_expands_children_in_plan ... ok
+test freedom_plan_has_mixed_inbound_and_freedom_outbound ... ok
+test routing_domain_rule_and_dns_switch_reach_plan ... ok
+test socks_and_http_nodes_generate_matching_outbounds ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+

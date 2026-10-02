@@ -44,7 +44,7 @@ pub use backup_service::{
 };
 pub use dns::{new_dns_id, DnsRepository, InMemoryDnsRepository, RegionalPreset};
 pub use domain::CancellationToken;
-pub use engine::{capability_table, empty_snapshot, AppEngine};
+pub use engine::{capability_table, empty_snapshot, AppEngine, PreSocksDecision};
 pub use jobs::{JobManager, JobView};
 pub use monitor::{
     epoch_day, BucketTotals, ClashApiService, InMemoryTrafficStore, LogEntry, LogPage, LogService,

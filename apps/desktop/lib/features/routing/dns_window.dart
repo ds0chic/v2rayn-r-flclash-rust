@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/dns.dart' as d;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/routing/dns_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 
 /// The DNS settings window (upstream `DNSSettingWindow`, LAY-DNSSET-001,
 /// F-DNS-001/002). Four tabs: basic / advanced / custom Xray / custom
@@ -258,6 +259,14 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
           key: const ValueKey('dns-cancel'),
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
+        ),
+        TextButton(
+          key: const ValueKey('dns-apply'),
+          onPressed: () {
+            Navigator.pop(context);
+            ref.read(runtimeControllerProvider.notifier).applyActive();
+          },
+          child: const Text('应用'),
         ),
         FilledButton(
           key: const ValueKey('dns-save'),

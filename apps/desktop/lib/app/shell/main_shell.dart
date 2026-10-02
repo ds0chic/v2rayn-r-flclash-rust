@@ -115,11 +115,11 @@ class _MainShellState extends ConsumerState<MainShell> {
           monitor.startPolling();
         }
       }
-      // T15a evidence hook: start the Xray smoke session on launch so the logs
-      // tab has real core output for the release screenshot.
+      // T15a evidence hook: apply the real persisted plan on launch so the
+      // logs tab has real core output for the release screenshot.
       final autoSmoke = Platform.environment['V2RAYN_R_AUTO_SMOKE'];
       if (autoSmoke == '1' || autoSmoke == 'true') {
-        ref.read(runtimeControllerProvider.notifier).applySmoke();
+        ref.read(runtimeControllerProvider.notifier).applyActive();
       }
       final openTab = Platform.environment['V2RAYN_R_OPEN_TAB'];
       if (openTab != null) {
@@ -580,7 +580,9 @@ class _MenuToolbarBar extends ConsumerWidget {
   }
 }
 
-/// Minimal runtime controls (T03): start the Xray smoke session and stop it.
+/// Runtime controls (T18b): apply the real persisted plan for the active
+/// node, or stop the managed core. Errors surface verbatim; a
+/// desired/applied revision mismatch renders as 未应用.
 class _RuntimeToolbar extends ConsumerWidget {
   const _RuntimeToolbar();
 
@@ -591,17 +593,19 @@ class _RuntimeToolbar extends ConsumerWidget {
     return Row(
       children: <Widget>[
         Text(
-          '运行时: ${runtime.state}',
+          runtime.hasUnappliedChanges
+              ? '运行时: ${runtime.state} (未应用)'
+              : '运行时: ${runtime.state}',
           key: const ValueKey('runtime-state-chip'),
           style: const TextStyle(fontSize: 12),
         ),
         const SizedBox(width: 8),
         Tooltip(
-          message: '启动真实内核测试会话并等待就绪状态',
+          message: '应用当前节点与设置/路由/DNS 的真实内核配置',
           child: FilledButton.tonal(
             key: const ValueKey('runtime-start'),
-            onPressed: runtime.isBusy ? null : controller.applySmoke,
-            child: const Text('启动测试会话', style: TextStyle(fontSize: 12)),
+            onPressed: runtime.isBusy ? null : controller.applyActive,
+            child: const Text('应用', style: TextStyle(fontSize: 12)),
           ),
         ),
         const SizedBox(width: 6),

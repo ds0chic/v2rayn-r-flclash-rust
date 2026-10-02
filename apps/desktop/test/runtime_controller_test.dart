@@ -16,7 +16,7 @@ class _FakeBridge implements RuntimeBridge {
   Future<RuntimeView> snapshot() async => const RuntimeView();
 
   @override
-  Future<RuntimeActionResult> applySmoke({
+  Future<RuntimeActionResult> applyActive({
     required BigInt expectedRevision,
   }) async => const RuntimeActionResult(ok: true);
 

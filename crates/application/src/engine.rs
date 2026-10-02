@@ -8,10 +8,14 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
+use domain::runtime_plan::{
+    ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, PortRequest, ProcessGraph,
+    ProcessNode, RequiredPrivilege, RuntimePlan, RuntimeTarget,
+};
 use domain::{
     AppSettings, AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType,
     DesiredRevision, DnsProfile, DomainError, FullConfigTemplate, JobId, Profile, RoutingProfile,
-    RuleMode, RuntimePlan,
+    RuleMode,
 };
 use serde_json::Value;
 
@@ -44,6 +48,14 @@ use crate::subs::{
 
 /// Application data directory override.
 pub const DATA_DIR_ENV: &str = "V2RAYN_R_DATA_DIR";
+
+/// Pre-SOCKS sidecar decision (`ConfigHandler.GetPreSocksItem` parity).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreSocksDecision {
+    pub core: CoreType,
+    pub address: String,
+    pub port: u16,
+}
 
 /// Shared engine handle. Cloning shares all state.
 #[derive(Clone)]
@@ -800,7 +812,7 @@ impl AppEngine {
 
     /// Switch the routing mode (persisted in `guiNConfig.json`).
     pub fn set_rule_mode(&self, mode: RuleMode) -> Result<(), DomainError> {
-        let revisions = self
+        let mut revisions = self
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
@@ -808,6 +820,7 @@ impl AppEngine {
             .rule_mode
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))? = mode;
+        revisions.bump();
         self.persist_config(&revisions)?;
         Ok(())
     }
@@ -881,6 +894,8 @@ impl AppEngine {
             }
             return Err(error);
         }
+        // A settings change invalidates the planted runtime until re-applied.
+        self.bump_desired_for_change()?;
         Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
     }
 
@@ -922,7 +937,22 @@ impl AppEngine {
             }
             return Err(error);
         }
+        // A settings change invalidates the applied runtime until re-applied.
+        self.bump_desired_for_change()?;
         Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
+    }
+
+    /// Record a stored change that requires a runtime apply: bump the global
+    /// desired revision and persist it. Node/routing/DNS saves already bump
+    /// `desired`; settings and rule-mode go through here so the UI can show
+    /// "saved, not applied" and offer an apply entry point.
+    fn bump_desired_for_change(&self) -> Result<(), DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        revisions.bump();
+        self.persist_config(&revisions)
     }
 
     fn persist_config_standalone(&self) -> Result<(), DomainError> {
@@ -1611,6 +1641,239 @@ impl AppEngine {
             dns,
             rule_mode,
         ))
+    }
+
+    /// Base local port for the runtime codegen context.
+    ///
+    /// Upstream parity (`AppManager.GetLocalPort`): the base port is the
+    /// `LocalPort` of the inbound row whose `Protocol` is `socks`
+    /// (`FirstOrDefault(t => t.Protocol == "socks")`), falling back to the
+    /// first row and then to `11808` (never the live `10808`).
+    pub fn runtime_base_port(&self) -> i32 {
+        let settings = self
+            .settings
+            .lock()
+            .map(|guard| guard.settings.clone())
+            .unwrap_or_default();
+        Self::base_port_of(&settings)
+    }
+
+    fn base_port_of(settings: &AppSettings) -> i32 {
+        settings
+            .inbound
+            .iter()
+            .find(|item| item.protocol == domain::InboundProtocol::Socks)
+            .or_else(|| settings.inbound.first())
+            .map(|item| item.local_port)
+            .unwrap_or(11808)
+    }
+
+    /// The runtime codegen context derived from the persisted settings
+    /// (`AppManager.GetLocalPort` + state-port offsets). No free-port probing
+    /// here: the state ports are only emitted when the matching feature is on.
+    pub fn runtime_codegen_options(&self) -> crate::codegen::CodegenOptions {
+        let settings = self
+            .settings
+            .lock()
+            .map(|guard| guard.settings.clone())
+            .unwrap_or_default();
+        let local_port = Self::base_port_of(&settings);
+        let mut opts = crate::codegen::CodegenOptions {
+            local_port,
+            state_port: local_port + 4,
+            state_port2: local_port + 5,
+            speed_ping_test_url: settings.speed_test_item.speed_ping_test_url.clone(),
+            ..Default::default()
+        };
+        if let Some(dir) = &self.data_dir {
+            // The generated sing-box `cache.db` / Xray log paths resolve under
+            // these directories; the core would fail to start when they are
+            // missing (observed: `open bin/cache.db: ... cannot find the path`).
+            let logs = dir.join("logs");
+            let bin = dir.join("bin");
+            let _ = std::fs::create_dir_all(&logs);
+            let _ = std::fs::create_dir_all(&bin);
+            opts.log_directory = logs.to_string_lossy().into_owned();
+            opts.bin_directory = bin.to_string_lossy().into_owned();
+        }
+        opts
+    }
+
+    /// Resolve the core for a target profile (upstream `AppManager.GetCoreType`):
+    /// explicit node core first, then the per-config-type `CoreTypeItem`
+    /// binding, then a policy-group's first eligible child, else Xray.
+    pub fn resolve_target_core(&self, profile: &Profile) -> Result<CoreType, DomainError> {
+        if let Some(core) = profile.core_type {
+            return Ok(core);
+        }
+        let settings = self
+            .settings
+            .lock()
+            .map(|guard| guard.settings.clone())
+            .unwrap_or_default();
+        if let Some(bindings) = &settings.core_type_item {
+            if let Some(binding) = bindings
+                .iter()
+                .find(|binding| binding.config_type == profile.config_type)
+            {
+                return Ok(binding.core_type);
+            }
+        }
+        if crate::groups::is_group(profile.config_type) {
+            let all = self.all_profiles_map_locked()?;
+            if let Some(child) = crate::groups::resolve_children(profile, &all)
+                .into_iter()
+                .next()
+            {
+                if let Some(core) = child.core_type {
+                    return Ok(core);
+                }
+            }
+        }
+        Ok(CoreType::Xray)
+    }
+
+    /// Pre-SOCKS sidecar decision mirroring upstream
+    /// `ConfigHandler.GetPreSocksItem` (FLD-CFG-102 `EnableLegacyProtect`).
+    ///
+    /// - A non-`Custom` node on a non-sing-box core with TUN on and legacy
+    ///   protect on needs a sing-box SOCKS sidecar on the runtime base port.
+    /// - A `Custom` node with a valid `PreSocksPort` needs a SOCKS sidecar on
+    ///   that port; its core is sing-box when legacy protect and TUN are both
+    ///   on, otherwise the node's own resolved core.
+    /// - Otherwise no sidecar is required (`None`).
+    ///
+    /// The single-process net-host session does not orchestrate this second
+    /// core yet (see T18b evidence); the decision is exposed so callers and
+    /// tests observe the same condition upstream would act on.
+    pub fn pre_socks_decision(&self, node: &Profile, core: CoreType) -> Option<PreSocksDecision> {
+        let settings = self
+            .settings
+            .lock()
+            .map(|guard| guard.settings.clone())
+            .unwrap_or_default();
+        Self::pre_socks_of(&settings, node, core)
+    }
+
+    fn pre_socks_of(
+        settings: &AppSettings,
+        node: &Profile,
+        core: CoreType,
+    ) -> Option<PreSocksDecision> {
+        let tun = &settings.tun_mode_item;
+        let legacy = tun.enable_legacy_protect;
+        if node.config_type != ConfigType::Custom
+            && core != CoreType::SingBox
+            && tun.enable_tun
+            && legacy
+        {
+            let port = Self::base_port_of(settings);
+            if (1..=65535).contains(&port) {
+                return Some(PreSocksDecision {
+                    core: CoreType::SingBox,
+                    address: "127.0.0.1".to_string(),
+                    port: port as u16,
+                });
+            }
+            return None;
+        }
+        if node.config_type == ConfigType::Custom {
+            if let Some(port) = node.pre_socks_port {
+                if (1..=65535).contains(&port) {
+                    let sidecar_core = if legacy && tun.enable_tun {
+                        CoreType::SingBox
+                    } else {
+                        node.core_type.unwrap_or(CoreType::Xray)
+                    };
+                    return Some(PreSocksDecision {
+                        core: sidecar_core,
+                        address: "127.0.0.1".to_string(),
+                        port: port as u16,
+                    });
+                }
+            }
+        }
+        None
+    }
+
+    /// Build the real immutable [`RuntimePlan`] for `target_id` from persisted
+    /// state (T18-F03): the active node / expanded policy group, `AppSettings`,
+    /// the active routing profile, the DNS row and the rule mode all flow into
+    /// the pure generator. A missing target or a generator failure returns a
+    /// structured error and never falls back to a hardcoded smoke config.
+    pub fn build_runtime_plan(
+        &self,
+        target_id: &str,
+        desired_revision: u64,
+    ) -> Result<RuntimePlan, DomainError> {
+        let target = self
+            .profile_by_id(target_id)?
+            .ok_or_else(|| DomainError::not_found("profile", target_id))?;
+        let core = self.resolve_target_core(&target)?;
+        let opts = self.runtime_codegen_options();
+        let input = self.build_codegen_input(target_id, core, &opts)?;
+        let generated = crate::codegen::generate(core, &input).map_err(|error| {
+            DomainError::new(domain::codes::INVALID_PLAN, "error.codegen_failed")
+                .with_detail(error.to_string())
+        })?;
+        let body = serde_json::to_string(&generated.main).map_err(|error| {
+            DomainError::new(domain::codes::INTERNAL, "error.config_serialize_failed")
+                .with_detail(error.to_string())
+        })?;
+
+        let settings = self
+            .settings
+            .lock()
+            .map(|guard| guard.settings.clone())
+            .unwrap_or_default();
+        let local_port = opts.local_port;
+        if !(1..=65535).contains(&local_port) {
+            return Err(
+                DomainError::new(domain::codes::FIELD_RANGE, "error.local_port_range")
+                    .with_field("Inbound.LocalPort"),
+            );
+        }
+        let port = local_port as u16;
+        let config = ConfigSource::Inline { body: body.clone() };
+        let config_sha256 = ContentHash::new(runtime::sha256_hex(body.as_bytes()));
+        let mut ports = vec![PortRequest::tcp(port, "inbound")];
+        let inbound = settings.inbound.first();
+        if inbound.map(|item| item.udp_enabled).unwrap_or(true) {
+            ports.push(PortRequest::udp(port, "inbound"));
+        }
+        let privileges = if settings.tun_mode_item.enable_tun {
+            vec![RequiredPrivilege::Tun]
+        } else {
+            vec![RequiredPrivilege::None]
+        };
+        let mut graph = ProcessGraph::default();
+        graph.add_process(ProcessNode {
+            id: core.as_str().to_string(),
+            core_type: core,
+            config: config.clone(),
+            ports: ports.clone(),
+            privileges: privileges.clone(),
+        });
+        Ok(RuntimePlan {
+            plan_id: format!("rt-{}-{}-{}", core.as_str(), target_id, desired_revision),
+            desired_revision,
+            target: RuntimeTarget {
+                core_type: core,
+                version: None,
+                config,
+                config_sha256,
+            },
+            process_graph: graph,
+            outbound_graph: OutboundGraph::default(),
+            ports,
+            privileges,
+            network_policy: NetworkPolicy {
+                system_proxy: None,
+                tun_enabled: settings.tun_mode_item.enable_tun,
+                bypass: Vec::new(),
+            },
+            resources: Vec::new(),
+        })
     }
 
     /// The JSON event payload for a refresh report.

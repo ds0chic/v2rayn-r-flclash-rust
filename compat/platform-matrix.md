@@ -184,3 +184,18 @@
 | Flutter Windows ARM64 | `blocked`（维持 §6） | `flutter build windows` CLI 无 `--target-platform`（仅 Android/iOS 支持），本地 x64 引擎不含 ARM64 目标，需 ARM64 主机与引擎 |
 
 结论：Windows ARM64 的 `domain`/`config_codegen`/`ipc_contract` 已可在 x64 主机交叉 `check` 通过；`subscriptions`/`updater` 因 `ring` 的 C 工具链阻塞。Linux/macOS 与 Flutter ARM64 仍 `blocked`，解除前置已在上表列明。
+
+### 6.2 T21-D 真机系统集成验证（2026-10-02，Windows x64 当前用户，管理员会话）
+
+完整证据：`docs/evidence/T21-real-os.md` 与 `docs/evidence/T21-real-os.runs/`。
+
+| 项目 | 结果 | 范围/边界 |
+|---|---|---|
+| 系统代理写-读-复原 | **verified（当前用户）** | 注册表为权威层；`apply(ForcedChange)` → 读回 `enabled=true server=127.0.0.1:11808` → 复原为直连；发现并修复 snapshot/写入层不一致缺陷；WinINET per-connection 推送在本机失败（注册表持久化仍生效，已登记） |
+| 自启动 Run 键写-读-删 | **verified（当前用户）** | `HKCU\...\Run\v2rayNAutoRun_<md5>` 写入→读回→删除，无残留 |
+| 提权 helper 路由增删 | **verified（管理员会话）** | `198.51.100.0/24` 经 loopback 真实增删（IP Helper API），默认路由未动 |
+| TUN 适配器创建/销毁 | **verified（安全范围）** | sing-box 1.14.2 `auto_route=false` 创建 `v2rayn-r-test-tun`（Up），默认路由保持不变，停止后适配器移除 |
+| 生产 TUN 自动路由/全局接管 | **未验证** | 会改变用户网络路径；需隔离环境授权后首验 |
+| 系统代理对运行中应用的即时生效 | **未验证** | WinINET per-connection 推送失败原因未深究，未逐应用验证 |
+
+用户环境说明：首轮代理测试的注册表回退曾改写用户 `ProxyServer` 镜像值；已归一为与有效 WinINET 状态一致的直连（`ProxyEnable=0`），用户可在 v2rayN 内一键恢复系统代理。

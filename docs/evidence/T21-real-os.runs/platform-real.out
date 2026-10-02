@@ -1,0 +1,12 @@
+
+running 2 tests
+test real_autostart_write_read_remove_roundtrip ... run value: Some("\"C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-autostart-probe.exe\" --autostart-probe")
+ok
+test real_sysproxy_apply_restore_roundtrip ... before: ProxyState { enabled: false, server: None, bypass: None, auto_config_url: None, auto_detect: false }
+applied: [AppliedChange { field: Enabled, before: Some("0"), after: Some("1") }, AppliedChange { field: Server, before: None, after: Some("127.0.0.1:11808") }]
+during : ProxyState { enabled: true, server: Some("127.0.0.1:11808"), bypass: None, auto_config_url: None, auto_detect: false }
+after  : ProxyState { enabled: false, server: None, bypass: None, auto_config_url: None, auto_detect: false }
+ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+

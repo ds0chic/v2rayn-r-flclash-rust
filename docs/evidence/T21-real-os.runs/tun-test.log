@@ -1,0 +1,4 @@
++0800 2026-10-02 13:40:47 INFO inbound/tun[tun-in]: started at v2rayn-r-test-tun
++0800 2026-10-02 13:40:47 INFO network: updated default interface 以乙网, index 14
++0800 2026-10-02 13:40:47 INFO network: updated network environment: gateway [192.168.1.1 fe80::1], gateway_mac [8c:83:e8:59:2d:05 8c:83:e8:59:2d:05]
++0800 2026-10-02 13:40:47 INFO sing-box started (0.54s)

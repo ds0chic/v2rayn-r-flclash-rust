@@ -31,9 +31,17 @@ verified**. See [`compat/platform-matrix.md`](compat/platform-matrix.md) and
   Evidence/benchmark drivers must build with
   `--dart-define=V2RAYN_R_SMOKE_ARMED=true`; unarmed builds ignore
   `V2RAYN_R_AUTO_SMOKE`/`V2RAYN_R_T18_BENCH` (ISSUE-08 guard).
-- Not verified and not suitable for public distribution yet: update signature
-  verification, self-replace/installer, real remote servers/TLS handshakes,
-  real system-proxy/registry writes, real TUN sessions, non-Windows platforms.
+- Real-machine verification status (Windows x64, see
+  [`docs/evidence/T21-real-os.md`](docs/evidence/T21-real-os.md)):
+  - **verified**: system-proxy write/read/restore (current user; registry
+    authoritative), autostart Run-key roundtrip, privileged route add/remove
+    (elevated), TUN adapter create/destroy (safe scope, default route
+    untouched), PGP v5 release-asset signature verification, `.dgst` digests,
+    Inno Setup install/uninstall, external self-update replace/rollback.
+  - **not verified**: public distribution requires code signing; self-update
+    assets are verified but unsigned; real remote servers/TLS handshakes;
+    production TUN with automatic routes/global takeover (would alter the
+    live network); non-Windows platforms.
 
 ## Architecture
 

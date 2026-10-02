@@ -118,7 +118,9 @@ impl WindowsSystemProxyBackend {
 
 impl SystemProxyBackend for WindowsSystemProxyBackend {
     fn snapshot(&self) -> Result<ProxyState> {
-        query_wininet().or_else(|_| read_registry())
+        // Registry is the authoritative layer for this backend; the WinINET
+        // per-connection blob is pushed best-effort by `write_state`.
+        read_registry().or_else(|_| query_wininet())
     }
 
     fn set_field(&self, field: ProxyField, value: Option<&str>) -> Result<()> {
@@ -226,6 +228,16 @@ fn query_wininet() -> Result<ProxyState> {
 }
 
 fn write_state(state: &ProxyState) -> Result<()> {
+    // Persist to the registry first (authoritative and always consistent with
+    // `snapshot`), then push to the WinINET per-connection blob so running
+    // applications refresh immediately. Environments that reject the
+    // per-connection set still get the registry value plus `notify_changed`.
+    write_registry(state)?;
+    let _ = write_wininet(state);
+    Ok(())
+}
+
+fn write_wininet(state: &ProxyState) -> Result<()> {
     let mut flags = PROXY_TYPE_DIRECT;
     if state.enabled {
         flags |= PROXY_TYPE_PROXY;
@@ -283,7 +295,9 @@ fn write_state(state: &ProxyState) -> Result<()> {
         )
     };
     if ok == 0 {
-        return write_registry(state);
+        return Err(PlatformError::Backend(
+            "InternetSetOptionW(PER_CONNECTION_OPTION) failed".to_string(),
+        ));
     }
     Ok(())
 }

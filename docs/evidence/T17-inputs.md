@@ -3,33 +3,28 @@
 - 来源：`docs/evidence/audit/T09-T16.audit.muse.md`、`T09-T16.audit.gemini.md` 与各任务证据 §未决。
 - 用途：T17–T20 联调前必须闭环的输入项；本文件只登记，不声称已验证。
 
-## 1. 系统级真实写入首验（需隔离环境 + 用户明确授权）
+## 1. 系统级真实写入首验（T21-D 已执行，范围见 T21-real-os.md）
 
-以下路径在 T13/T14 中**仅编译存在、单测全走 Fake/Loopback**，未对宿主 OS 执行。首验必须在隔离环境
-（专用测试机/快照/非生产用户会话）并在用户明确授权下进行，禁止在用户日常环境直接调用：
+**2026-10-02 更新：本机（Windows x64，当前用户，管理员会话）已执行真机首验**，证据 `docs/evidence/T21-real-os.md`：
 
-- **WinINET**：`WindowsSystemProxyBackend` 的 `InternetQueryOptionW`/`InternetSetOptionW`(per-conn 75)、
-  `SETTINGS_CHANGED(39)`/`REFRESH(37)`；RAS/多连接（PPPoE）枚举（上游 `EnumerateRasEntries`）未复现。
-- **HKCU 注册表**：`HKCU\...\Internet Settings` 的 `ProxyEnable/ProxyServer/ProxyOverride/AutoConfigURL/AutoDetect`；
-  自启动 `HKCU\...\Run` 的 `RegSetValueExW`/`RegDeleteValueW`。当前自启仅 `FakeRegistry` 验证。
-- **路由/TUN**：`CreateIpForwardEntry2`/`DeleteIpForwardEntry2`、`CreateUnicastIpAddressEntry`/
-  `DeleteUnicastIpAddressEntry`；`reset_tun_address` 依赖本地 registry 记忆，跨进程重启后无法回滚未登记项。
-- **提权管道**：假装 daemon `--serve` 生命周期、真实命名管道/DACL、SID 拒绝取值、Job Object
-  （`JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` 未设置、`AssignProcessToJobObject` 失败码被忽略）、
-  `CreateProcessW` 提权启动内核、`TerminateProcess` 真实回收均未执行。
-- **硬约束**：全程不得占用/修改 `127.0.0.1:10808`；不得改动用户真实系统代理与注册表；不得按名杀进程。
+- **系统代理**：注册表权威层写-读-复原 **verified**（`apply → enabled=true server=127.0.0.1:11808 → 复原`）；修复了 snapshot 与写入层不一致缺陷。WinINET per-connection 推送在本机失败（注册表持久化生效）；RAS/多连接枚举仍未复现；对运行中应用的即时生效未逐应用验证。
+- **HKCU 自启动**：`HKCU\...\Run\v2rayNAutoRun_<md5>` 写→读→删 **verified**，无残留。
+- **路由**：`AddRoutes/RemoveRoutes` 经 IP Helper API 真实增删 `198.51.100.0/24`（loopback）**verified**；默认路由未动。
+- **TUN 适配器**：sing-box 1.14.2 `auto_route=false` 创建/销毁 `v2rayn-r-test-tun` **verified（安全范围）**；默认路由保持不变。
+- **仍未执行**：生产 TUN 自动路由/全局接管（隔离环境首验）；提权 daemon `--serve` 全生命周期与真实命名管道/SID/Job 拒绝路径的真机执行；`CreateProcessW` 提权启动内核与 `TerminateProcess` 真机回收；`reset_tun_address` 跨进程回滚。
+- **硬约束**：全程未占用/修改 `127.0.0.1:10808`；未按名杀进程。用户代理镜像已归一为与有效状态一致的直连（见 T21-real-os.md §1）。
 
 路径/句柄风险：**已整改**（见 docs/evidence/T09-T16-remediation.rust.md 与 T14-runtime.md）：
 helper 路径经 `ipc_contract::validate_elevated_core_canonical` 规范化复验；Job 对象设 `KILL_ON_JOB_CLOSE` 且
 Assign 失败即终止；租约清理失败外显并写审计；内核句柄绑定 PID+创建时间（`crates/runtime/src/identity.rs`）。
 仍待补：完整 TOCTOU 竞态窗口收窄、租约恢复日志归属 net-host 的联调、真实提权上下文首验（隔离环境）。
 
-## 2. 更新发布不可发布（未签名）
+## 2. 更新发布（T21-B/C 已实做，仍缺代码签名）
 
-- `crates/updater` 默认 `UnsupportedSignatureVerifier`（`is_available()==false`），不验证任何签名。
-- `.dgst` 资产解析未接入；`sha256` 仅取 GitHub `digest` 或 `tools/cores/cores.lock.json`（sing-box `sha256_verified:false`）。
-- 外部 updater 自替换（对齐上游 `AmazTool`「等待退出后替换」）未实跑；跨卷 rename 未实现。
-- 结论：**未选定签名方案 + 内置可信公钥 + 外部实跑通过前，禁止对外发布/自动更新。**
+- **已实现并真实验证**（`docs/evidence/T21-signature.md`）：内置 2dust 公钥（OpenPGP v5）验签真实通过（GnuPG CLI 后端，指纹 `76945E9F…3AE0`）；篡改拒绝；`.dgst` 正反例；`verify_app_release_asset` 接线点。
+- **已实跑**（`docs/evidence/T21-install-update.md`）：Inno Setup 安装/静默卸载（无残留）；外部 `upgrade_runner` 自替换成功/失败回滚（loopback 合成 release）。
+- **仍未完成**：安装器与主程序**无代码签名**；真实 GitHub 端点端到端自动更新未跑（仅 loopback）；跨卷替换；无 GnuPG 机器上 v5 验签 fail-closed（需自实现或声明依赖）。
+- 结论：可作受控 RC 分发；**对外公开发布仍需代码签名 + 真实端点实跑**。
 
 ## 3. helper 与 net-host 租约联调待接线
 

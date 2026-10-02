@@ -1,0 +1,27 @@
+{
+  "captured_at_utc": "2026-10-02T05:41:00Z",
+  "sysproxy": {
+    "before": "enabled=false server=None",
+    "during": "enabled=true server=127.0.0.1:11808",
+    "after": "enabled=false server=None",
+    "result": "PASS",
+    "bug_found": "snapshot preferred WinINET per-connection while write fell back to registry, so read-back was inconsistent; fixed: registry is authoritative + best-effort WinINET push"
+  },
+  "autostart": {
+    "value": "HKCU Run v2rayNAutoRun_<md5(path)>",
+    "result": "PASS (write/read/remove)",
+    "residue": "none"
+  },
+  "helper_route": {
+    "route": "198.51.100.0/24 via loopback ifindex 1",
+    "result": "PASS (add -> present -> remove -> absent)"
+  },
+  "tun_adapter": {
+    "core": "sing-box 1.14.2",
+    "adapter": "v2rayn-r-test-tun ifIndex=77",
+    "auto_route": false,
+    "default_route": "unchanged (192.168.1.1 metric 10)",
+    "after_stop": "adapter removed"
+  },
+  "registry_normalization": "user legacy proxy mirror normalized to coherent direct state (ProxyEnable=0, server empty) matching the effective WinINET blob; documented in T21-real-os.md"
+}

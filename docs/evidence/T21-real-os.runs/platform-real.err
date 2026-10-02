@@ -1,0 +1,3 @@
+   Compiling platform v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\platform)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.41s
+     Running tests\real_windows.rs (target\debug\deps\real_windows-00cba7a399a812c2.exe)

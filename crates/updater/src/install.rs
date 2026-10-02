@@ -88,7 +88,10 @@ fn collect_files(
 }
 
 /// A plan describing a single atomic replacement.
-#[derive(Debug, Clone)]
+///
+/// Serialised as JSON so an out-of-process helper (the `upgrade_runner`
+/// service) can load exactly the same plan the coordinator produced.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstallPlan {
     /// Managed root; every path in the plan must live inside it.
     pub root: PathBuf,
@@ -235,6 +238,26 @@ fn apply_atomic_inner(plan: &InstallPlan, fail_at: FailPoint) -> Result<ApplyOut
         kept_previous: had_current.then_some(keep_dir),
         manifest,
     })
+}
+
+/// Ensure `current_dir` exists after a failed/partial swap. When the current
+/// directory is missing but the kept previous version is present, rename it
+/// back into place. Returns whether a restore happened.
+///
+/// This is the external runner's safety net: [`apply_atomic`] already rolls
+/// back its own rename failures, but a helper that crashes between steps can
+/// still leave only the kept version, which this recovers.
+pub fn restore_previous(plan: &InstallPlan) -> Result<bool, UpdateError> {
+    if plan.current_dir.exists() {
+        return Ok(false);
+    }
+    let keep_dir = plan.root.join(&plan.keep_name);
+    if !keep_dir.is_dir() {
+        return Ok(false);
+    }
+    std::fs::rename(&keep_dir, &plan.current_dir)
+        .map_err(|e| UpdateError::Io(format!("restore previous: {e}")))?;
+    Ok(true)
 }
 
 /// Verify a manifest against the on-disk tree it describes.

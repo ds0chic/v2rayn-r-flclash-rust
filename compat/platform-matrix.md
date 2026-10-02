@@ -158,3 +158,29 @@
   非鼠标点击自动化；
 - 未使用 Process Monitor 级路径追踪，未证明“无开发路径依赖”，方法学限制见
   `docs/evidence/T20.md`。
+
+### 6.1 T21 跨目标侦察回填（2026-10-02）
+
+本节为 T21-A 追加，不删除或降低任何既有分母；完整证据见 `docs/evidence/T21-kcp-cross.md`。
+
+**Windows ARM64（Rust 侧，只 `cargo check`，不运行）**：`rustup target add aarch64-pc-windows-msvc` 成功；`cargo check -p <pkg> --target aarch64-pc-windows-msvc --locked`：
+
+| 包 | 结果 | 阻塞原因 |
+|---|---|---|
+| `domain` | ✅ exit 0 | — |
+| `config_codegen` | ✅ exit 0 | 纯 Rust |
+| `ipc_contract` | ✅ exit 0 | — |
+| `subscriptions` | ❌ exit 101 | 传递依赖 `ring 0.17.14`（`reqwest→rustls→ring`）build script `failed to find tool "clang"` |
+| `updater` | ❌ exit 101 | 同上（`reqwest→rustls→ring`） |
+
+前置条件：安装 LLVM/clang（含 `aarch64-windows` 目标）或 VS 2022 组件 “MSVC v143 - VS 2022 C++ ARM64 build tools”，并设置 `CC_aarch64_pc_windows_msvc`/`AR_aarch64_pc_windows_msvc`（或 `cargo-xwin`）；随后重跑上述 check。
+
+**Linux / macOS（本机 blocked）**：
+
+| 目标 | 状态 | 前置条件 |
+|---|---|---|
+| Linux x64/ARM64 | `blocked` | `wsl --status` 报告未安装 WSL 分发；`docker`、`gpg` 命令均不存在。启用：`wsl --install`（管理员+重启）或 Docker Desktop；发行版内装 `build-essential`/`pkg-config` 与对应 `rustup target`；交叉 ARM64 另需 `gcc-aarch64-linux-gnu` 或 ARM64 主机 |
+| macOS x64/ARM64 | `blocked` | 需 Apple 硬件 + Xcode/SDK（`xcode-select --install`），Windows 无法产出 macOS 产物；或使用 macOS CI runner |
+| Flutter Windows ARM64 | `blocked`（维持 §6） | `flutter build windows` CLI 无 `--target-platform`（仅 Android/iOS 支持），本地 x64 引擎不含 ARM64 目标，需 ARM64 主机与引擎 |
+
+结论：Windows ARM64 的 `domain`/`config_codegen`/`ipc_contract` 已可在 x64 主机交叉 `check` 通过；`subscriptions`/`updater` 因 `ring` 的 C 工具链阻塞。Linux/macOS 与 Flutter ARM64 仍 `blocked`，解除前置已在上表列明。

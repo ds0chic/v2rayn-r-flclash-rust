@@ -1,0 +1,6 @@
+asset           : tools\cores\xray\v26.3.27\Xray-windows-64.zip
+asset bytes     : 20913304
+asset sha256    : d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad
+dgst parsed     : d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad
+dgst tampered   : 0004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad
+RESULT: FAIL (tampered digest rejected; expected 0004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad, actual d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad)

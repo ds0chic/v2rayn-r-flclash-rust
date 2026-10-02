@@ -1,0 +1,72 @@
+[
+  {
+    "variant": "A-current-legacy",
+    "exit": 23,
+    "tail": "\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe\\A-current-legacy.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type mkcp-legacy > infra/conf: unknown config id: mkcp-legacy"
+  },
+  {
+    "variant": "B-aes128gcm-header-value",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "C-aes128gcm-header-only",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "D-aes128gcm-value-only",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "E-aes128gcm-no-settings",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "F-original-header-value",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "G-original-header-only",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "H-original-value-only",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "I-original-no-settings",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "J-bare-mkcp",
+    "exit": 23,
+    "tail": "26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe\\J-bare-mkcp.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type mkcp > infra/conf: unknown config id: mkcp"
+  },
+  {
+    "variant": "K-empty-udp",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "L-omit-finalmask",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "M-aes128gcm-value0",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "N-aes128gcm-value-num",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  }
+]

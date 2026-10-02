@@ -1,0 +1,52 @@
+[
+  {
+    "variant": "Q1-aes-password",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q2-aes-value",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q3-aes-bogus",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q4-header-bogus-settings",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q5-original-bogus",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q6-header-dns",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q7-header-dns-domain",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q8-full-translation",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q9-full-dns-translation",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "Q10-original+header",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  }
+]

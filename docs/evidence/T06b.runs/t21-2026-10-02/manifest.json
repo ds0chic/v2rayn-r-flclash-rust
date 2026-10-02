@@ -1,0 +1,254 @@
+[
+  {
+    "core": "xray",
+    "case": "xray-vless-raw-reality",
+    "file": "target/t06b/matrix\\xray--xray-vless-raw-reality.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-vmess-ws-tls",
+    "file": "target/t06b/matrix\\xray--xray-vmess-ws-tls.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-vless-raw-none",
+    "file": "target/t06b/matrix\\xray--xray-vless-raw-none.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-ss-uot",
+    "file": "target/t06b/matrix\\xray--xray-ss-uot.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-trojan-grpc-tls",
+    "file": "target/t06b/matrix\\xray--xray-trojan-grpc-tls.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-http-headers",
+    "file": "target/t06b/matrix\\xray--xray-http-headers.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-socks-userpass",
+    "file": "target/t06b/matrix\\xray--xray-socks-userpass.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-hysteria2",
+    "file": "target/t06b/matrix\\xray--xray-hysteria2.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-wireguard",
+    "file": "target/t06b/matrix\\xray--xray-wireguard.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-raw-http-header-tls",
+    "file": "target/t06b/matrix\\xray--xray-raw-http-header-tls.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-httpupgrade-tls",
+    "file": "target/t06b/matrix\\xray--xray-httpupgrade-tls.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-xhttp-tls",
+    "file": "target/t06b/matrix\\xray--xray-xhttp-tls.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-kcp",
+    "file": "target/t06b/matrix\\xray--xray-kcp.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-grpc-reality",
+    "file": "target/t06b/matrix\\xray--xray-grpc-reality.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-policy-group",
+    "file": "target/t06b/matrix\\xray--xray-policy-group.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-proxy-chain",
+    "file": "target/t06b/matrix\\xray--xray-proxy-chain.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-global-dns-stat",
+    "file": "target/t06b/matrix\\xray--xray-global-dns-stat.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "xray",
+    "case": "xray-global-tun-fragment",
+    "file": "target/t06b/matrix\\xray--xray-global-tun-fragment.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-vless-tls",
+    "file": "target/t06b/matrix\\singbox--singbox-vless-tls.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-vmess-ws-ed",
+    "file": "target/t06b/matrix\\singbox--singbox-vmess-ws-ed.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-ss-obfs",
+    "file": "target/t06b/matrix\\singbox--singbox-ss-obfs.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-ss-v2ray-plugin",
+    "file": "target/t06b/matrix\\singbox--singbox-ss-v2ray-plugin.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-trojan-grpc",
+    "file": "target/t06b/matrix\\singbox--singbox-trojan-grpc.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-http-auth",
+    "file": "target/t06b/matrix\\singbox--singbox-http-auth.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-socks-auth",
+    "file": "target/t06b/matrix\\singbox--singbox-socks-auth.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-hysteria2",
+    "file": "target/t06b/matrix\\singbox--singbox-hysteria2.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-tuic",
+    "file": "target/t06b/matrix\\singbox--singbox-tuic.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-anytls",
+    "file": "target/t06b/matrix\\singbox--singbox-anytls.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-naive",
+    "file": "target/t06b/matrix\\singbox--singbox-naive.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-wireguard",
+    "file": "target/t06b/matrix\\singbox--singbox-wireguard.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-httpupgrade",
+    "file": "target/t06b/matrix\\singbox--singbox-httpupgrade.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-reality-fragment",
+    "file": "target/t06b/matrix\\singbox--singbox-reality-fragment.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-policy-group",
+    "file": "target/t06b/matrix\\singbox--singbox-policy-group.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-proxy-chain",
+    "file": "target/t06b/matrix\\singbox--singbox-proxy-chain.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-global-dns-ruleset",
+    "file": "target/t06b/matrix\\singbox--singbox-global-dns-ruleset.json",
+    "generated": true,
+    "error": null
+  },
+  {
+    "core": "singbox",
+    "case": "singbox-global-tun-fragment",
+    "file": "target/t06b/matrix\\singbox--singbox-global-tun-fragment.json",
+    "generated": true,
+    "error": null
+  }
+]

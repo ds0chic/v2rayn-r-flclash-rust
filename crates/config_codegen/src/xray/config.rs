@@ -5,7 +5,8 @@ use serde_json::{json, Map, Value};
 use crate::input::{CodegenInput, CodegenSettings, MultipleLoad};
 use crate::util::*;
 use crate::xray::outbound::{
-    build_all_proxy_outbounds, gen_balancer, gen_observatory, outbound_dialer_proxy,
+    build_all_proxy_outbounds, diagnostic_sink_reset, diagnostic_sink_take, gen_balancer,
+    gen_observatory, outbound_dialer_proxy,
 };
 use crate::xray::{dns, inbound, log, routing, stat, XrayState};
 use crate::{CodegenError, GeneratedConfigs};
@@ -19,6 +20,7 @@ pub(crate) fn build(input: &CodegenInput) -> Result<GeneratedConfigs, CodegenErr
         diagnostics: Vec::new(),
     };
     state.config = obj();
+    diagnostic_sink_reset();
 
     // Base skeleton (SampleClientConfig + GenLog/GenInbounds).
     state.config.insert("log".into(), log::build_log(input));
@@ -44,6 +46,7 @@ pub(crate) fn build(input: &CodegenInput) -> Result<GeneratedConfigs, CodegenErr
     let built = build_all_proxy_outbounds(input, &input.profile, PROXY_TAG)?;
     state.custom_tags = built.custom_tags;
     state.outbounds = built.outbounds;
+    state.diagnostics.extend(diagnostic_sink_take());
     let proxy_count = state
         .outbounds
         .iter()

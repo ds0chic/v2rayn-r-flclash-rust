@@ -1,0 +1,72 @@
+[
+  {
+    "variant": "P1-type-wechat",
+    "exit": 23,
+    "tail": "dows/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P1-type-wechat.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type wechat > infra/conf: unknown config id: wechat"
+  },
+  {
+    "variant": "P2-type-srtp",
+    "exit": 23,
+    "tail": ".1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P2-type-srtp.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type srtp > infra/conf: unknown config id: srtp"
+  },
+  {
+    "variant": "P3-type-utp",
+    "exit": 23,
+    "tail": ".26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P3-type-utp.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type utp > infra/conf: unknown config id: utp"
+  },
+  {
+    "variant": "P4-type-dtls",
+    "exit": 23,
+    "tail": ".1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P4-type-dtls.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type dtls > infra/conf: unknown config id: dtls"
+  },
+  {
+    "variant": "P5-type-wireguard",
+    "exit": 23,
+    "tail": "4)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P5-type-wireguard.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type wireguard > infra/conf: unknown config id: wireguard"
+  },
+  {
+    "variant": "P6-type-dns",
+    "exit": 23,
+    "tail": ".26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P6-type-dns.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type dns > infra/conf: unknown config id: dns"
+  },
+  {
+    "variant": "P7-header-wechat",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "P8-header-srtp",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  },
+  {
+    "variant": "P9-original+wechat",
+    "exit": 23,
+    "tail": "/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P9-original+wechat.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type wechat > infra/conf: unknown config id: wechat"
+  },
+  {
+    "variant": "P10-original+wechat+value",
+    "exit": 23,
+    "tail": "\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P10-original+wechat+value.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type wechat > infra/conf: unknown config id: wechat"
+  },
+  {
+    "variant": "P11-wechat+value",
+    "exit": 23,
+    "tail": "ws/amd64)\r\nA unified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P11-wechat+value.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type wechat > infra/conf: unknown config id: wechat"
+  },
+  {
+    "variant": "P12-header-original",
+    "exit": 23,
+    "tail": "platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P12-header-original.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type header-original > infra/conf: unknown config id: header-original"
+  },
+  {
+    "variant": "P13-mkcp-legacy-empty",
+    "exit": 23,
+    "tail": "ified platform for anti-censorship.\r\nFailed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\opencode\\kcp-probe2\\P13-mkcp-legacy-empty.json] > infra/conf: failed to build outbound config with tag proxy > infra/conf: failed to build stream settings for outbound detour > infra/conf: failed to build mask with type mkcp-legacy > infra/conf: unknown config id: mkcp-legacy"
+  },
+  {
+    "variant": "P14-mkcp-original-header",
+    "exit": 0,
+    "tail": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\r\nA unified platform for anti-censorship.\r\nConfiguration OK."
+  }
+]

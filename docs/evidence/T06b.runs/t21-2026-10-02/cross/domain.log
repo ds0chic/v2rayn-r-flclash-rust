@@ -1,0 +1,17 @@
+    Blocking waiting for file lock on build directory
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.26
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde v1.0.229
+   Compiling serde_json v1.0.151
+    Checking equivalent v1.0.2
+    Checking hashbrown v0.17.1
+    Checking itoa v1.0.18
+    Checking memchr v2.8.3
+    Checking indexmap v2.14.2
+   Compiling syn v3.0.6
+   Compiling serde_derive v1.0.229
+    Checking domain v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\domain)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 20.90s

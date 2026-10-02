@@ -1,0 +1,88 @@
+{
+  "schema": 1,
+  "task": "T21-install-update",
+  "kind": "installer",
+  "timestamp_utc": "20261002T044946Z",
+  "setup_exe": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64-setup.exe",
+  "setup_sha256": "da87ac4c2d73d75df479f1a234a816be6f1da4f7a246c0f47a7a67fcff87e51f",
+  "compile": {
+    "attempted": true,
+    "iscc": "C:\\Users\\Colby\\AppData\\Local\\Programs\\Inno Setup 6\\ISCC.exe",
+    "exit": 0,
+    "output": "Inno Setup 6 Command-Line Compiler\r\nCopyright (C) 1997-2026 Jordan Russell. All rights reserved.\r\nPortions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.\r\nPortions Copyright (C) 2001-2004 Alex Yackimoff. All rights reserved.\r\nhttps://www.innosetup.com\r\n\r\nCompiler engine version: Inno Setup 6.7.3\r\nNon-commercial use only\r\n\r\nPreprocessing\r\n   Reading file: C:\\Users\\Colby\\AppData\\Local\\Programs\\Inno Setup 6\\ISPPBuiltins.iss\r\nParsing [Setup] section, line 23\r\nParsing [Setup] section, line 24\r\nParsing [Setup] section, line 25\r\nParsing [Setup] section, line 26\r\nParsing [Setup] section, line 27\r\nParsing [Setup] section, line 28\r\nParsing [Setup] section, line 29\r\nParsing [Setup] section, line 30\r\nParsing [Setup] section, line 31\r\nParsing [Setup] section, line 32\r\nParsing [Setup] section, line 33\r\nParsing [Setup] section, line 34\r\nParsing [Setup] section, line 35\r\nParsing [Setup] section, line 36\r\nParsing [Setup] section, line 37\r\nParsing [Setup] section, line 38\r\nParsing [Setup] section, line 39\r\nParsing [Setup] section, line 40\r\nParsing [Setup] section, line 41\r\nParsing [Setup] section, line 42\r\nParsing [Setup] section, line 43\r\nParsing [Setup] section, line 44\r\nParsing [Setup] section, line 45\r\nParsing [Setup] section, line 46\r\nParsing [Setup] section, line 47\r\nParsing [Setup] section, line 48\r\nParsing [Setup] section, line 49\r\nParsing [Setup] section, line 50\r\nParsing [Setup] section, line 51\r\nParsing [Setup] section, line 52\r\nReading file (LicenseFile)\r\nReading file (InfoBeforeFile)\r\nReading file (WizardImageFile)\r\nReading file (WizardSmallImageFile)\r\nPreparing Setup program executable\r\n   Verification successful\r\n   Updating icons (Setup.e32)\r\n   Updating version info (Setup.e32)\r\nDetermining language code pages\r\nParsing [Languages] section, line 55\r\n   Reading file: C:\\Users\\Colby\\AppData\\Local\\Programs\\Inno Setup 6\\Default.isl\r\n   Messages in script file\r\nReading default messages from Default.isl\r\nParsing [Languages] section, line 55\r\n   Reading file: C:\\Users\\Colby\\AppData\\Local\\Programs\\Inno Setup 6\\Default.isl\r\nParsing [LangOptions], [Messages], and [CustomMessages] sections\r\n   Messages in script file\r\nReading [Code] section\r\nParsing [Tasks] section, line 58\r\nParsing [Tasks] section, line 59\r\nParsing [Icons] section, line 65\r\nParsing [Icons] section, line 66\r\nParsing [UninstallDelete] section, line 73\r\nParsing [Run] section, line 69\r\nParsing [Files] section, line 62\r\nDeleting v2rayN-R-1.0.0+1-windows-x64-setup.exe from output directory\r\nCreating setup files\r\n   Verification successful\r\n   Updating icons (Setup.exe)\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\bridge_api.dll\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\build-info.json\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\CORE-NOTES.txt\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\flutter_windows.dll\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\hotkey_manager_windows_plugin.dll\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\LICENSE\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\native_assets.json\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\net_host.exe\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\NOTICE.md\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\privileged_helper.exe\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\README.md\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\screen_retriever_windows_plugin.dll\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\system_tray_plugin.dll\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\v2rayn_desktop.exe\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\window_manager_plugin.dll\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\app.so\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\icudtl.dat\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\flutter_assets\\AssetManifest.bin\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\flutter_assets\\FontManifest.json\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\flutter_assets\\NativeAssetsManifest.json\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\flutter_assets\\NOTICES.Z\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\flutter_assets\\fonts\\MaterialIcons-Regular.otf\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\flutter_assets\\packages\\cupertino_icons\\assets\\CupertinoIcons.ttf\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\flutter_assets\\shaders\\ink_sparkle.frag\r\n   Compressing: C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\release\\..\\..\\dist\\v2rayN-R-1.0.0+1-windows-x64\\data\\flutter_assets\\shaders\\stretch_effect.frag\r\n   Compressing Setup program executable\r\n   Updating version info (Setup.exe)\r\n   Updating manifest (Setup.exe)\r\n\r\n\r\nSuccessful compile (6.875 sec). Resulting Setup program filename is:\r\nC:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64-setup.exe\r\n"
+  },
+  "install_dir": "",
+  "data_dir": "",
+  "install": {
+    "exit": 0,
+    "duration_ms": 2120
+  },
+  "layout": {
+    "expected": [
+      "v2rayn_desktop.exe",
+      "bridge_api.dll",
+      "flutter_windows.dll",
+      "net_host.exe",
+      "privileged_helper.exe",
+      "LICENSE",
+      "NOTICE.md",
+      "README.md",
+      "build-info.json",
+      "native_assets.json",
+      "CORE-NOTES.txt",
+      "data\\app.so",
+      "data\\icudtl.dat",
+      "data\\flutter_assets\\AssetManifest.bin"
+    ],
+    "present": [
+      "v2rayn_desktop.exe",
+      "bridge_api.dll",
+      "flutter_windows.dll",
+      "net_host.exe",
+      "privileged_helper.exe",
+      "LICENSE",
+      "NOTICE.md",
+      "README.md",
+      "build-info.json",
+      "native_assets.json",
+      "CORE-NOTES.txt",
+      "data\\app.so",
+      "data\\icudtl.dat",
+      "data\\flutter_assets\\AssetManifest.bin"
+    ],
+    "missing": [],
+    "extra": [],
+    "ok": true
+  },
+  "shortcuts": {
+    "start_menu": "C:\\Users\\Colby\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\v2rayN-R\\v2rayN-R.lnk",
+    "desktop": "C:\\Users\\Colby\\Desktop\\v2rayN-R.lnk",
+    "start_menu_ok": true,
+    "desktop_ok": true
+  },
+  "registry_before": {
+    "path": "Microsoft.PowerShell.Core\\Registry::HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{7A1E4C2D-9B3F-4E6A-8D2C-5F0B7A9E1C34}_is1",
+    "display": "v2rayN-R 1.0.0+1",
+    "version": "1.0.0+1",
+    "uninstall": "\"C:\\Users\\Colby\\AppData\\Local\\Temp\\t21_install_ee580db319a143dab2d3ac2e0020a2c5\\app\\unins000.exe\""
+  },
+  "app": {
+    "started_pid": 42264,
+    "window": true,
+    "data_files": {
+      "guiNConfig.json": false,
+      "guiNNDB.db": false
+    },
+    "note": ""
+  },
+  "uninstall": {
+    "exit": null,
+    "duration_ms": 33,
+    "dir_removed": true,
+    "shortcuts_removed": true,
+    "registry_removed": true,
+    "residue": []
+  },
+  "ok": false,
+  "limitations": []
+}

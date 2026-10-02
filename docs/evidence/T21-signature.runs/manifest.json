@@ -1,0 +1,22 @@
+{
+  "release": "7.25.4",
+  "asset": "v2rayN-linux-loong64.deb",
+  "asset_bytes": 73729064,
+  "asset_sha256": "f0a4fa0690aff1a80ba4ec5a876b796ac00ef9ce89ff155c32818f8f1804d532",
+  "sig": "v2rayN-linux-loong64.deb.sig",
+  "sig_bytes": 297,
+  "sig_sha256": "c15b9c538b47e447765cbf5bb27b189980c3634e3dc2661241fdcf2ed0692992",
+  "key": "fixtures/keys/v2rayn-public-key.asc",
+  "key_bytes": 547,
+  "key_sha256": "e61a5be0450ee99e18df7d84f3cf5adb775cf437e0717e3cb39c80ed317cd922",
+  "gpg": "2.5.24",
+  "fingerprint": "76945E9F3E9A168F8070F195805D661C134DFAF68903C199463C31E5AE903AE0",
+  "results": {
+    "groundtruth": "GOODSIG",
+    "tamper": "REJECTED",
+    "dgst_tamper": "REJECTED",
+    "our_verifier": "PASS",
+    "dgst_xray": "PASS"
+  },
+  "captured_at_utc": "2026-10-02T05:32:24Z"
+}

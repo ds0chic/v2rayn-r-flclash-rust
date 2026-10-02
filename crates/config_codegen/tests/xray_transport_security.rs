@@ -172,20 +172,76 @@ fn xray_kcp_header_and_seed_order() {
         json_at(main, "/outbounds/0/streamSettings/kcpSettings/tti"),
         json!(20)
     );
-    // finalmask.udp is reversed: seed mask first, header mask second.
+    // finalmask.udp is reversed: seed mask first, header mask second. The
+    // frozen upstream `mkcp-legacy` id is not registered in Xray 26.3.27, so
+    // the equivalent legacy masks are emitted (T21).
     assert_eq!(
-        string_at(
-            main,
-            "/outbounds/0/streamSettings/finalmask/udp/0/settings/value"
-        ),
-        "seed"
+        string_at(main, "/outbounds/0/streamSettings/finalmask/udp/0/type"),
+        "mkcp-aes128gcm"
     );
     assert_eq!(
         string_at(
             main,
-            "/outbounds/0/streamSettings/finalmask/udp/1/settings/header"
+            "/outbounds/0/streamSettings/finalmask/udp/0/settings/password"
         ),
-        "wechat"
+        "seed"
+    );
+    assert_eq!(
+        string_at(main, "/outbounds/0/streamSettings/finalmask/udp/1/type"),
+        "header-wechat"
+    );
+    // The compatibility translation must be surfaced as a structured warning.
+    assert!(
+        generated.diagnostics.iter().any(|d| {
+            d.code == "xray_kcp_finalmask_translated"
+                && d.level == config_codegen::DiagnosticLevel::Warning
+        }),
+        "expected xray_kcp_finalmask_translated warning, got {:?}",
+        generated.diagnostics
+    );
+}
+
+#[test]
+fn xray_kcp_finalmask_legacy_translation() {
+    // Header only -> original KCP mask + header mask.
+    let mut p = vless_with_network("kcp");
+    p.transport_extra.kcp_header_type = Some("srtp".into());
+    let generated = generate_xray(&codegen_input(p)).expect("kcp header only");
+    assert_eq!(
+        json_at(&generated.main, "/outbounds/0/streamSettings/finalmask/udp"),
+        json!([{"type": "mkcp-original"}, {"type": "header-srtp"}])
+    );
+
+    // Seed only -> aes128gcm mask carrying the password.
+    let mut p = vless_with_network("kcp");
+    p.transport_extra.kcp_seed = Some("pw".into());
+    let generated = generate_xray(&codegen_input(p)).expect("kcp seed only");
+    assert_eq!(
+        json_at(&generated.main, "/outbounds/0/streamSettings/finalmask/udp"),
+        json!([{"type": "mkcp-aes128gcm", "settings": {"password": "pw"}}])
+    );
+
+    // Neither -> plain original mask.
+    let p = vless_with_network("kcp");
+    let generated = generate_xray(&codegen_input(p)).expect("kcp bare");
+    assert_eq!(
+        json_at(&generated.main, "/outbounds/0/streamSettings/finalmask/udp"),
+        json!([{"type": "mkcp-original"}])
+    );
+}
+
+#[test]
+fn xray_kcp_dns_header_maps_to_header_dns() {
+    let mut p = vless_with_network("kcp");
+    p.transport_extra.kcp_header_type = Some("dns".into());
+    p.transport_extra.kcp_seed = Some("seed".into());
+    let generated = generate_xray(&codegen_input(p)).expect("kcp dns");
+    assert_eq!(
+        json_at(&generated.main, "/outbounds/0/streamSettings/finalmask/udp"),
+        json!([
+            {"type": "mkcp-aes128gcm", "settings": {"password": "seed"}},
+            {"type": "header-dns"}
+        ])
     );
 }
 

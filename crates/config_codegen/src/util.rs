@@ -92,13 +92,22 @@ pub const SS_SECURITIES_IN_SINGBOX: [&str; 19] = [
 ];
 pub const XHTTP_MODES: [&str; 4] = ["auto", "packet-up", "stream-up", "stream-one"];
 pub const KCP_HEADER_TYPES: [&str; 6] = ["srtp", "utp", "wechat-video", "dtls", "wireguard", "dns"];
-pub const KCP_HEADER_MASK_MAP: [(&str, &str); 6] = [
-    ("srtp", "srtp"),
-    ("utp", "utp"),
-    ("wechat-video", "wechat"),
-    ("dtls", "dtls"),
-    ("wireguard", "wireguard"),
-    ("dns", "dns"),
+/// v2rayN `KcpHeaderType` -> Xray 26.3.27 legacy finalmask id.
+///
+/// Frozen upstream v2rayN 7.25.4 writes `finalmask.udp[].type = "mkcp-legacy"`
+/// (`V2rayOutboundService.cs:391-420`). That id is only registered after Xray
+/// commit `aba22722` (2026-05-29); the locked core 26.3.27 predates it and
+/// rejects it. `MkcpLegacy.Build` maps `header` to the `header-*` family, so
+/// emit those ids directly. `dns` has no extra setting (the kernel defaults
+/// `domain` to `www.baidu.com`, matching upstream, which never sets a value on
+/// the header mask).
+pub const KCP_HEADER_FINALMASK_MAP: [(&str, &str); 6] = [
+    ("srtp", "header-srtp"),
+    ("utp", "header-utp"),
+    ("wechat-video", "header-wechat"),
+    ("dtls", "header-dtls"),
+    ("wireguard", "header-wireguard"),
+    ("dns", "header-dns"),
 ];
 pub const RAW_HTTP_USER_AGENT_TEXTS: [(&str, &str); 7] = [
     ("chrome", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36"),

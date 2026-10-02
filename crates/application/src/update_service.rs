@@ -32,6 +32,33 @@ pub const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
 /// Version bookkeeping written next to a managed install.
 pub const INSTALL_MANIFEST_NAME: &str = "install-manifest.json";
 
+/// Production releases API base (GitHub).
+pub const GITHUB_API_BASE: &str = "https://api.github.com/repos";
+
+/// Test-only environment variable that overrides [`GITHUB_API_BASE`]. Only
+/// honoured in debug builds; see [`test_api_base_override`].
+pub const API_BASE_ENV: &str = "V2RAYN_R_UPDATE_API_BASE";
+
+/// Test-only API base override for the releases endpoint.
+///
+/// This is compiled out of release builds (`debug_assertions` off) so a shipped
+/// binary can never be redirected by an environment variable. Only `http`/
+/// `https` URLs are accepted and the production GitHub base remains the
+/// default. Digest/signature checks are unaffected.
+pub fn test_api_base_override() -> Option<String> {
+    #[cfg(debug_assertions)]
+    {
+        std::env::var(API_BASE_ENV)
+            .ok()
+            .map(|value| value.trim().trim_end_matches('/').to_string())
+            .filter(|value| value.starts_with("http://") || value.starts_with("https://"))
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        None
+    }
+}
+
 /// Built-in update targets, in upstream order (`GetCheckUpdateCoreTypes`).
 pub const BUILTIN_TARGETS: &[&str] = &["v2rayN", "xray", "mihomo", "sing_box"];
 
@@ -186,13 +213,19 @@ impl UpdateService {
             .map(Path::to_path_buf)
             .unwrap_or_else(|| cores_root.clone());
         Self {
-            api_base: "https://api.github.com/repos".to_string(),
+            api_base: test_api_base_override().unwrap_or_else(|| GITHUB_API_BASE.to_string()),
             target: detect_target().unwrap_or_else(default_target),
             cores_root,
             install_root,
             packaged: false,
             timeout: UPDATE_TIMEOUT,
         }
+    }
+
+    /// Explicit releases API base override (loopback mocks in tests).
+    pub fn with_api_base(mut self, base: impl Into<String>) -> Self {
+        self.api_base = base.into();
+        self
     }
 
     /// The directory name a core is stored under (`tools/cores/<dir>/`).
@@ -689,4 +722,36 @@ fn modified_epoch(path: &Path) -> Option<i64> {
         .duration_since(UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs() as i64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_with_api_base_wins() {
+        let service =
+            UpdateService::new(std::env::temp_dir()).with_api_base("http://127.0.0.1:11808/repos");
+        assert_eq!(service.api_base, "http://127.0.0.1:11808/repos");
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    fn override_is_honoured_and_validated_in_debug() {
+        // Held so no other test reads the env var while it is mutated.
+        static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let previous = std::env::var(API_BASE_ENV).ok();
+        std::env::set_var(API_BASE_ENV, "http://127.0.0.1:19999/repos/");
+        assert_eq!(
+            test_api_base_override().as_deref(),
+            Some("http://127.0.0.1:19999/repos")
+        );
+        std::env::set_var(API_BASE_ENV, "file:///etc/passwd");
+        assert_eq!(test_api_base_override(), None);
+        match previous {
+            Some(value) => std::env::set_var(API_BASE_ENV, value),
+            None => std::env::remove_var(API_BASE_ENV),
+        }
+    }
 }

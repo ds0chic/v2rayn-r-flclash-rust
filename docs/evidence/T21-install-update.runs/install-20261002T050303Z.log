@@ -1,0 +1,13 @@
+[13:03:03] ISCC: C:\Users\Colby\AppData\Local\Programs\Inno Setup 6\ISCC.exe
+[13:03:10] compile exit=0
+[13:03:10] setup=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64-setup.exe sha256=da87ac4c2d73d75df479f1a234a816be6f1da4f7a246c0f47a7a67fcff87e51f
+[13:03:10] installing -> C:\Users\Colby\AppData\Local\Temp\t21_install_6c12c66eb100475b955069050fd525cd\app
+[13:03:12] install exit=0 in 2085ms
+[13:03:12] layout ok=True present=14/14
+[13:03:12] shortcuts startmenu=True desktop=True
+[13:03:12] registry: Microsoft.PowerShell.Core\Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Uninstall\{7A1E4C2D-9B3F-4E6A-8D2C-5F0B7A9E1C34}_is1 ver=1.0.0+1
+[13:03:12] app started pid=42832
+[13:03:14] app window=True db=True config=False
+[13:03:14] stopped own pids: 43632,42832,33188
+[13:03:17] uninstaller launched pid=42632 exit=; polling cleanup
+[13:03:19] uninstall dir_removed=True shortcuts_removed=True registry_removed=True residue=0

@@ -51,3 +51,12 @@ dist/evidence-armed/
 # keep evidence logs tracked (small, reviewable)
 !docs/evidence/**/*.log
 
+# T21 installer binaries (large, rebuilt by tools/release/install_test.ps1)
+dist/*-setup.exe
+dist/*-setup-*.exe
+# T21 run artifacts: JSON + logs are tracked as evidence
+!docs/evidence/T21-install-update.runs/
+!docs/evidence/T21-install-update.runs/*.json
+!docs/evidence/T21-install-update.runs/*.log
+
+

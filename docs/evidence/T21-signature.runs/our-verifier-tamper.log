@@ -1,0 +1,7 @@
+scheme          : openpgp-v5-gpg-cli
+asset           : C:\Users\Colby\AppData\Local\Temp\opencode\t21sig\v2rayN-linux-loong64.deb
+asset bytes     : 73729064
+asset sha256    : f0a4fa0690aff1a80ba4ec5a876b796ac00ef9ce89ff155c32818f8f1804d532
+sig bytes       : 297
+sig armor       : true
+RESULT: FAIL (tampered asset rejected as expected)

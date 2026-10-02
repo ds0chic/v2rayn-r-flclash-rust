@@ -18,6 +18,7 @@
 
 pub mod arch;
 pub mod channel;
+pub mod dgst;
 pub mod download;
 pub mod error;
 pub mod fetch;
@@ -36,18 +37,22 @@ pub use channel::{
     max_allowed_version, read_lock_expected_sha256, spec_version_in_range, CoreSpec, CORE_URLS,
     LOCKED_MAX_SING_BOX,
 };
+pub use dgst::{parse_dgst_sha256, sha256_file_sync, verify_dgst_file};
 pub use download::{
     sha256_file, sha256_of, DownloadRequest, DownloadedFile, DownloaderOptions, FileDownloader,
 };
 pub use error::UpdateError;
 pub use fetch::{CoreReleaseApi, ReleaseSource};
 pub use install::{
-    apply_atomic, external_upgrade_spec, verify_manifest, ApplyOutcome, FailPoint, InstallManifest,
-    InstallPlan, InstalledEntry, UpgradeCoordinator,
+    apply_atomic, external_upgrade_spec, restore_previous, verify_manifest, ApplyOutcome,
+    FailPoint, InstallManifest, InstallPlan, InstalledEntry, UpgradeCoordinator,
 };
 pub use metadata::{parse_releases, ReleaseAsset, ReleaseInfo, ReleasesClient};
 pub use semver::Semver;
-pub use signature::{PrefixHashVerifier, SignatureVerifier, UnsupportedSignatureVerifier};
+pub use signature::{
+    v2rayn_app_verifier, verify_app_release_asset, GpgCliVerifier, PgpDetachedVerifier,
+    PrefixHashVerifier, SignatureVerifier, UnsupportedSignatureVerifier, V2RAYN_PUBLIC_KEY_ASC,
+};
 pub use unpack::{safe_join, safe_unpack_targz, safe_unpack_zip, UnpackLimits, Unpacked};
 
 /// Re-exported for callers and tests that drive cancellable downloads.

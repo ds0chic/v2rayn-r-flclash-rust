@@ -32,6 +32,10 @@ tokio = { version = "1.53", features = [
     "io-util",
 ] }
 futures-util = "0.3"
+# rpgp (pure Rust OpenPGP). Pinned so the verification semantics cannot drift
+# without an explicit dependency bump; `default-features = false` drops the
+# bzip2 C dependency, which detached-signature verification never needs.
+pgp = { version = "=0.16.0", default-features = false }
 
 [dev-dependencies]
 tokio = { version = "1.53", features = ["full"] }
@@ -41,6 +45,7 @@ zip = { version = "4.6.1", default-features = false, features = ["deflate"] }
 flate2 = "1.1"
 sha2 = "0.10.9"
 hex = "0.4.3"
+rand = "0.8"
 
 [lints]
 workspace = true

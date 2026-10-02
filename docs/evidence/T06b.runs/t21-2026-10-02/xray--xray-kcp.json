@@ -1,0 +1,101 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "socks",
+      "port": 11808,
+      "protocol": "mixed",
+      "listen": "127.0.0.1",
+      "settings": {
+        "auth": "noauth",
+        "udp": true,
+        "allowTransparent": false
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": [
+          "http",
+          "tls"
+        ],
+        "routeOnly": false
+      }
+    }
+  ],
+  "routing": {
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+      {
+        "type": "field",
+        "inboundTag": [
+          "dns-module"
+        ],
+        "outboundTag": "proxy"
+      }
+    ]
+  },
+  "dns": {
+    "servers": [
+      {
+        "address": "119.29.29.29",
+        "domains": [
+          "full:cloudflare-dns.com"
+        ],
+        "skipFallback": true
+      },
+      "https://cloudflare-dns.com/dns-query"
+    ],
+    "serveStale": false,
+    "tag": "dns-module"
+  },
+  "outbounds": [
+    {
+      "tag": "proxy",
+      "protocol": "vless",
+      "settings": {
+        "address": "192.0.2.10",
+        "port": 443,
+        "id": "11111111-2222-3333-4444-555555555555",
+        "email": "t@t.tt",
+        "encryption": "none"
+      },
+      "streamSettings": {
+        "network": "kcp",
+        "kcpSettings": {
+          "mtu": 1350,
+          "tti": 20,
+          "uplinkCapacity": 5,
+          "downlinkCapacity": 20,
+          "cwndMultiplier": 1,
+          "maxSendingWindow": 0
+        },
+        "finalmask": {
+          "udp": [
+            {
+              "type": "mkcp-aes128gcm",
+              "settings": {
+                "password": "seed"
+              }
+            },
+            {
+              "type": "header-wechat"
+            }
+          ]
+        }
+      },
+      "mux": {
+        "enabled": false,
+        "concurrency": -1
+      }
+    },
+    {
+      "protocol": "freedom",
+      "tag": "direct"
+    },
+    {
+      "protocol": "blackhole",
+      "tag": "block"
+    }
+  ]
+}

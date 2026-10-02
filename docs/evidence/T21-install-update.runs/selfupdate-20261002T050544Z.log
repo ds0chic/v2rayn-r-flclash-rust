@@ -1,0 +1,14 @@
+   Compiling application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+   Compiling upgrade_runner v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\upgrade_runner)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.68s
+     Running tests\self_update.rs (target\debug\deps\self_update-416aea83a0ad87e0.exe)
+
+running 4 tests
+test crash_between_renames_is_recovered ... ok
+test commit_rename_failure_leaves_install_usable ... ok
+test digest_mismatch_aborts_without_touching_install ... ok
+错误: 不支持输入重新定向，立即退出此进程。
+test self_update_replaces_and_backs_up_then_restarts ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+

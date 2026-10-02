@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "task": "T21-install-update",
+  "kind": "selfupdate",
+  "timestamp_utc": "20261002T045936Z",
+  "exit": 0,
+  "passed": true,
+  "started_utc": "2026-10-02T04:59:36.3027833Z",
+  "finished_utc": "2026-10-02T04:59:37.4524125Z",
+  "duration_ms": 1150,
+  "cases": [
+    {
+      "name": "self_update_replaces_and_backs_up_then_restarts",
+      "steps": [
+        "check_core(app_update_spec) -> stage/verify -> plan JSON",
+        "spawn upgrade_runner --pid <fake app>",
+        "apply_atomic swap (backup v2rayN-R.previous)",
+        "restart stub writes marker",
+        "assert NEW-VERSION.txt, version.txt=1.0.1, backup=1.0.0, result.ok"
+      ],
+      "verified": true
+    },
+    {
+      "name": "digest_mismatch_aborts_without_touching_install",
+      "steps": [
+        "metadata declares sha256 of a different valid zip",
+        "served bytes hash differently -> DigestMismatch (E_CONFLICT)",
+        "old install byte-for-byte unchanged; no backup dir; no staging leak"
+      ],
+      "verified": true
+    }
+  ],
+  "log": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T21-install-update.runs\\selfupdate-20261002T045936Z.log",
+  "limitations": [
+    "restart target is a marker-writing stub, not the GUI (keeps the test headless)",
+    "mock asserts on-binary replacement + restart, not a TLS handshake with real GitHub"
+  ]
+}

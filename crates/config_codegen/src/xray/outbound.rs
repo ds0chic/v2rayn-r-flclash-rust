@@ -1,16 +1,37 @@
 //! Xray outbound, transport and TLS generation (`V2rayOutboundService`).
 
+use std::cell::RefCell;
+
 use serde_json::{json, Map, Value};
 
 use crate::input::{CodegenInput, CodegenProfile, ConfigType, MultipleLoad, ProtocolExtra};
 use crate::util::*;
 use crate::xray::XrayState;
-use crate::CodegenError;
+use crate::{CodegenError, Diagnostic};
 
 /// Generated proxy outbounds plus the custom-outbound tag map.
 pub(crate) struct BuiltOutbounds {
     pub outbounds: Vec<Value>,
     pub custom_tags: Vec<(String, String)>,
+}
+
+// Diagnostics emitted by the pure transport builders are collected through a
+// thread-local sink (mirrors the sing-box generator) and drained by
+// `xray::config::build` into `XrayState::diagnostics`.
+thread_local! {
+    static DIAGNOSTIC_SINK: RefCell<Vec<Diagnostic>> = const { RefCell::new(Vec::new()) };
+}
+
+pub(crate) fn diagnostic_sink_reset() {
+    DIAGNOSTIC_SINK.with(|sink| sink.borrow_mut().clear());
+}
+
+pub(crate) fn diagnostic_sink_take() -> Vec<Diagnostic> {
+    DIAGNOSTIC_SINK.with(|sink| std::mem::take(&mut *sink.borrow_mut()))
+}
+
+fn push_diagnostic(diagnostic: Diagnostic) {
+    DIAGNOSTIC_SINK.with(|sink| sink.borrow_mut().push(diagnostic));
 }
 
 pub(crate) fn child_items(node: &CodegenProfile) -> Option<Vec<String>> {
@@ -713,20 +734,28 @@ pub(crate) fn fill_bound_stream_settings(
             stream.insert("kcpSettings".into(), Value::Object(kcp));
 
             let mut udp: Vec<Value> = Vec::new();
-            if let Some(header) = KCP_HEADER_MASK_MAP
+            if let Some(finalmask_type) = KCP_HEADER_FINALMASK_MAP
                 .iter()
                 .find(|(k, _)| *k == header_type)
                 .map(|(_, v)| *v)
             {
-                udp.push(json!({"type": "mkcp-legacy", "settings": {"header": header}}));
+                udp.push(json!({"type": finalmask_type}));
             }
             if kcp_seed.is_empty() {
-                udp.push(json!({"type": "mkcp-legacy"}));
+                udp.push(json!({"type": "mkcp-original"}));
             } else {
-                udp.push(json!({"type": "mkcp-legacy", "settings": {"value": kcp_seed}}));
+                udp.push(json!({"type": "mkcp-aes128gcm", "settings": {"password": kcp_seed}}));
             }
             udp.reverse();
             stream.insert("finalmask".into(), json!({"udp": udp}));
+            push_diagnostic(Diagnostic::warning(
+                "xray_kcp_finalmask_translated",
+                "locked Xray 26.3.27 does not register the frozen upstream KCP finalmask id \
+                 `mkcp-legacy`; emitted the semantically equivalent legacy masks \
+                 (`mkcp-original` / `mkcp-aes128gcm` / `header-*`) per Xray MkcpLegacy.Build \
+                 (commit aba22722)",
+                Some("streamSettings.finalmask.udp"),
+            ));
         }
         "ws" => {
             let mut ws = obj();

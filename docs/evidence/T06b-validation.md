@@ -161,3 +161,23 @@ failed to build mask with type mkcp-legacy > unknown config id: mkcp-legacy
 - `docs/evidence/T06b-validation.md`（本文件）+ `docs/evidence/T06b.runs/**`
 
 未改：`apps/desktop`、`services/net_host`、`application`、`persistence`、`subscriptions`、`compat/fields*|features` 状态；未 commit。
+
+---
+
+## 9. T21 补测 — KCP finalmask 兼容修复（2026-10-02）
+
+- 承办：T21-A 子代理（deepseek-v4.1-flash）；详见 `docs/evidence/T21-kcp-cross.md`。
+- 内核：Xray `26.3.27`（go1.26.1, d2758a0）；sing-box `1.14.2`。
+- 事实核查：上游 7.25.4 `V2rayOutboundService.cs:391-420` **无条件**写 `mkcp-legacy`（无版本判断）；本机 `xray.exe` 二进制不含 `mkcp-legacy`，`xray run -test` 对 `mkcp-legacy` / 裸 `mkcp` / 裸 `header-*` 名 均 `exit 23`（`unknown config id`），对 `mkcp-original`、`mkcp-aes128gcm`、`header-<srtp|utp|wechat|dtls|wireguard|dns>` 均 `exit 0`。`mkcp-legacy` 由 Xray commit `aba22722`（PR #6201, 2026-05-29）引入，晚于锁定内核。
+- 修复：KCP 分支按 Xray `MkcpLegacy.Build` 精确映射无损翻译——无 header/无 seed→`mkcp-original`；无 header/有 seed→`mkcp-aes128gcm(password=seed)`；有 header→`header-<name>`。每次生成发结构化 Warning `xray_kcp_finalmask_translated`，不静默降级。改动 `crates/config_codegen/{src/util.rs,src/xray/outbound.rs,src/xray/config.rs,tests/xray_transport_security.rs}`。
+- 命令与结果：
+
+```
+cargo run -p config_codegen --example gen_matrix --locked -- target/t06b/matrix
+pwsh -NoProfile -ExecutionPolicy Bypass -File tools/validate/t06b_validate.ps1
+```
+
+  **T06b matrix: 36 pass, 0 fail**（`xray xray-kcp` exit 23 → exit 0）。本文件 §3/§6/§7 的 35/36 与“不改”结论**被本节取代**，历史行保留不删。
+- 证据追加：`docs/evidence/T06b.runs/t21-2026-10-02/`（`results.json`、`manifest.json`、`logs/`、`xray--xray-kcp.json`、`probe/`、`cross/`）。
+- 门禁：`cargo clippy -p config_codegen --all-targets --locked -- -D warnings` ✅；`cargo test -p config_codegen --locked` ✅ **83 passed / 0 failed**（基线 81）；`cargo fmt -p config_codegen -- --check` ✅（`cargo fmt --all` 因并行代理未提交文件失败，见 T21 文档 §6）。
+- 待办：`docs/decisions/T07-xray-codegen-contract.md` D5 与 `compat/codegen-map.xray.yaml`/`compat/fields*.yaml` 仍写 `mkcp-legacy`，不在本轮允许写清单内，待文档负责人同步。

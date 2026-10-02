@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/shared/widgets/context_menu_session.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 import 'profiles_controller.dart';
@@ -38,6 +40,14 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
 
   final FocusNode _focusNode = FocusNode(debugLabel: 'profiles-table');
   final MenuController _menuController = MenuController();
+
+  /// The anchor's render box, used to convert the global pointer position to
+  /// the MenuAnchor-local coordinates its `open(position:)` requires.
+  final GlobalKey _anchorBoxKey = GlobalKey(debugLabel: 'profiles-menu-anchor');
+
+  /// Command target snapshot for the currently open menu, or null when closed.
+  ContextMenuSession? _menuSession;
+
   late final ScrollController _vertical =
       widget.verticalController ?? ScrollController();
   late final ScrollController _horizontal =
@@ -68,13 +78,20 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
 
     return MenuAnchor(
       controller: _menuController,
-      menuChildren: _buildContextMenu(context, profilesContextMenu),
+      menuChildren: _buildContextMenu(
+        context,
+        profilesContextMenu,
+        _menuSession,
+      ),
+      onClose: _onMenuClosed,
       child: Focus(
         focusNode: _focusNode,
         autofocus: true,
         onKeyEvent: _onKey,
         child: Listener(
-          onPointerDown: (_) => _focusNode.requestFocus(),
+          key: _anchorBoxKey,
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: _onPointerDown,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final widths = fittedColumnWidths(
@@ -256,6 +273,19 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
   /// Keyboard scope: editor-level actions open dialogs; selection/navigation
   /// fall through to the controller. Text fields keep their own scope (HKR-002).
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (_menuController.isOpen) {
+      // The menu owns the keyboard while it is open. Esc closes the menu and
+      // restores table focus without leaking into the table shortcuts (which
+      // would clear the selection / stop a running test). Other keys are left
+      // to the menu's own focus scope; the table never handles them here.
+      if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
+          event.logicalKey == LogicalKeyboardKey.escape) {
+        _menuController.close();
+        _focusNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       final keyboard = HardwareKeyboard.instance;
       final action = actionForKey(
@@ -354,8 +384,6 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         shift: HardwareKeyboard.instance.isShiftPressed,
       ),
       onDoubleTap: () => _onDoubleTap(row),
-      onSecondaryTapDown: (details) =>
-          _showContextMenu(details.globalPosition, row),
       child: Container(
         color: selected ? context.semantics.selectedRow : null,
         alignment: column.numeric
@@ -426,30 +454,129 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     );
   }
 
-  void _showContextMenu(Offset globalPosition, ProfileSummary row) {
-    ref.read(profilesControllerProvider.notifier).handleRightTap(row.id);
-    _menuController.open(position: globalPosition);
+  /// Pointer-down at the table level. The table sits inside the menu's
+  /// [TapRegion] group, so Flutter's default outside-tap never fires for it;
+  /// this explicitly closes the whole menu chain, then lets the same pointer
+  /// down continue as a normal interaction (select another row, open the menu
+  /// on a new target, focus the table, ...).
+  void _onPointerDown(PointerDownEvent event) {
+    if ((event.buttons & kSecondaryButton) != 0) {
+      _openContextMenu(event);
+      return;
+    }
+    if (_menuController.isOpen) {
+      // Close the whole menu chain for a table click, but defer the rebuild to
+      // the next frame so the in-flight tap gesture still completes and selects
+      // the clicked row (close + normal handling).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _menuController.isOpen) {
+          _menuController.close();
+        }
+      });
+    }
+    _focusNode.requestFocus();
+  }
+
+  /// Open the single context menu for the row (or the current selection when
+  /// the trigger lands on a header or empty area) under the pointer.
+  void _openContextMenu(PointerDownEvent event) {
+    final controller = ref.read(profilesControllerProvider.notifier);
+    final state = ref.read(profilesControllerProvider);
+
+    // Convert the global pointer position into the MenuAnchor's local space.
+    // MenuController.open(position:) expects anchor-local coordinates; passing
+    // the global position double-counts the table origin and shifts the menu.
+    final box = _anchorBoxKey.currentContext?.findRenderObject() as RenderBox?;
+    final local = box?.globalToLocal(event.position) ?? event.localPosition;
+
+    final rows = state.visible;
+    final offset = _vertical.hasClients ? _vertical.offset : 0.0;
+    String? rowId;
+    ContextMenuRegion region;
+    if (local.dy < _headerHeight) {
+      region = ContextMenuRegion.columnHeader;
+    } else {
+      final contentY = local.dy - _headerHeight + offset;
+      final index = contentY < 0 ? -1 : contentY ~/ _rowHeight;
+      if (index >= 0 && index < rows.length) {
+        rowId = rows[index].id;
+        region = ContextMenuRegion.data;
+      } else {
+        region = ContextMenuRegion.empty;
+      }
+    }
+
+    // The upstream DataGrid.ContextMenu covers the whole grid; a right-click on
+    // a row makes that row the target while preserving an existing
+    // multi-selection, whereas header/empty keep the current selection.
+    if (rowId != null) {
+      controller.handleRightTap(rowId);
+    }
+    final snapshot = ref.read(profilesControllerProvider);
+    final session = ContextMenuSession(
+      targetIds: snapshot.selected.toList(),
+      primaryId:
+          rowId ??
+          (snapshot.selected.length == 1 ? snapshot.selected.first : null),
+      groupSubId: snapshot.groupSubId,
+      position: local,
+      region: region,
+      focusRestore: _focusNode,
+    );
+    setState(() => _menuSession = session);
+    _menuController.open(position: local);
+    // Keep the table as the focus owner so Esc reaches [_onKey]; the menu's own
+    // focus scope is still reachable by hover/click.
+    _focusNode.requestFocus();
+  }
+
+  void _onMenuClosed() {
+    if (!mounted) return;
+    setState(() => _menuSession = null);
+  }
+
+  /// Whether an entry needs a live command target. Entries that operate on the
+  /// whole view (select all, remove invalid, mixed/fast test, dev stubs) stay
+  /// enabled without a selection; the rest are disabled like the upstream menu.
+  static bool _requiresTarget(ContextActionKind kind) {
+    switch (kind) {
+      case ContextActionKind.selectAll:
+      case ContextActionKind.removeInvalid:
+      case ContextActionKind.mixedTest:
+      case ContextActionKind.fastRealping:
+      case ContextActionKind.notImplemented:
+        return false;
+      default:
+        return true;
+    }
   }
 
   List<Widget> _buildContextMenu(
     BuildContext context,
     List<ContextMenuEntry> entries,
+    ContextMenuSession? session,
   ) {
+    final hasTargets = session?.hasTargets ?? false;
     final widgets = <Widget>[];
     for (final entry in entries) {
       if (entry.isSubmenu) {
         widgets.add(
           SubmenuButton(
             key: ValueKey('ctx-${entry.label}'),
-            menuChildren: _buildContextMenu(context, entry.submenu),
+            menuChildren: _buildContextMenu(context, entry.submenu, session),
             child: _menuLabel(entry),
           ),
         );
       } else {
+        final enabled =
+            entry.enabled && (!_requiresTarget(entry.kind) || hasTargets);
+        // Bind the session snapshot captured when the menu opened. The table's
+        // MenuItemButton closes the menu (firing onClose) before running
+        // onPressed, so reading live `_menuSession` there would already be null.
         widgets.add(
           MenuItemButton(
             key: ValueKey('ctx-${entry.label}'),
-            onPressed: entry.enabled ? () => _onContextAction(entry) : null,
+            onPressed: enabled ? () => _onContextAction(entry, session) : null,
             child: _menuLabel(entry),
           ),
         );
@@ -479,9 +606,28 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     );
   }
 
-  void _onContextAction(ContextMenuEntry entry) {
+  void _onContextAction(ContextMenuEntry entry, ContextMenuSession? session) {
     final profiles = ref.read(profilesControllerProvider.notifier);
     final shell = ref.read(uiShellControllerProvider.notifier);
+
+    // Commands run against the target captured when the menu opened. If the
+    // group/view changed or the target row vanished (refresh/delete/filter),
+    // close the menu and keep an explainable selection instead of falling back
+    // to the first visible row.
+    if (_requiresTarget(entry.kind)) {
+      final current = ref.read(profilesControllerProvider);
+      final restored =
+          session != null &&
+          session.groupSubId == current.groupSubId &&
+          profiles.restoreContextTargets(session.targetIds);
+      if (!restored) {
+        _menuController.close();
+        shell.setMessage('操作目标已失效，请重新选择节点');
+        return;
+      }
+    }
+    _menuController.close();
+
     switch (entry.kind) {
       case ContextActionKind.selectAll:
         profiles.emitAction(ProfileAction.selectAll);

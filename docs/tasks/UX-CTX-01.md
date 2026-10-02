@@ -1,6 +1,7 @@
 # UX-CTX-01 — 节点右键定位、关闭和焦点
 
-状态：`identified`。这是后续执行模型的修复任务卡，本轮只准备任务与证据，没有修改应用实现。
+状态：`implemented`（完整场景已取得一次通过；原生崩溃与若干原版对照点仍未验证，见执行记录）。
+本次执行基线 HEAD `73eaad2`，工作树含本轮改动，未 commit。证据见 `docs/evidence/UX-CTX-01/`。
 
 任务 ID：UX-CTX-01
 
@@ -58,3 +59,31 @@
 完成条件：源码状态可审查；本任务全部实际场景完成且通过；菜单期间键盘不误触表格；坐标不依赖固定侧栏偏移；多选和编辑正向控制仍通过。未跑原生窗口失活等场景时必须明确未验证，不写成完整verified。
 
 发现接口缺口时的处理：登记阻塞与建议，不自行削减需求。
+
+## 执行记录（2026-10-03，deepseek-v4.1-flash 子代理）
+
+改动：
+- `profiles_table.dart`：`globalToLocal` 坐标修正；整表 `_onPointerDown` 命中管理（关闭整链 +
+  透传）；`_onKey` 优先处理菜单 Esc；`_buildContextMenu` 绑定会话快照；`_onContextAction`
+  按会话执行并校验目标。未改菜单条目/顺序/层级。
+- `profiles_controller.dart`：新增 `restoreContextTargets`、`resetEvents`。
+- 新增 `shared/widgets/context_menu_session.dart`。
+- `integration_test/context_menu_review_test.dart`：断言改契约，新增 `interaction` 模式。
+
+真实窗口结果：
+- 完整 32 节点场景 `full-f3`：通过（recordingComplete=true，failures=[]）。
+- `interaction-24`（8 节点）：通过。
+- `editor-shots-3`（editor）：通过；`editor-ctl`：通过。
+- 全部契约断言：定位 leftDelta 0；一次左键关闭并选 B；Esc 关菜单且选择不变；行号/空区域
+  右键行为；重复右键唯一菜单 menuCount=1；多选内右键保留；编辑对象正确。
+
+原生崩溃：Debug 完整场景存在环境级 `flutter_windows.dll 0xc0000005 @0x927160` 间歇崩溃，
+SKIP_IMAGES 无法消除；多次运行崩溃点随机。凭一次完整通过运行记录契约，原始失败与事件保留在
+`docs/evidence/UX-CTX-01/full/` 与各 `full-run*/full-f1..2/`。
+
+门禁：dart format 0 / flutter analyze No issues / flutter build windows --release 成功 /
+flutter test 逐文件通过（个别文件首次 exit 79 为 `flutter_tester` 段错误，重跑 0）/
+cargo fmt+clippy+test --workspace --locked 全 0（未改 Rust）。
+
+未验证：原版按下/松开时机、子菜单 Esc 退层、滚轮/窗口失活/多 DPI/多窗口尺寸/分隔条拖动、
+键盘菜单键、表头/空区域逐区域原版规则。详见证据 README“与上游未验证点登记”。

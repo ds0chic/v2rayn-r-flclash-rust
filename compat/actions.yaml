@@ -1692,6 +1692,9 @@ items:
   implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
   test_ids: [profiles_keyboard_test]
   status: implemented
+  notes: UX-CTX-01：右键→编辑→取消在真实窗口复验（docs/evidence/UX-CTX-01/editor，
+    full-f3）。菜单打开时快照目标 ID，命令执行前经 restoreContextTargets 重新绑定，
+    目标失效则关闭菜单不取其他行。未改菜单条目/顺序，未改本动作语义。
 - id: ACT-PROF-002
   name: 删除选中节点
   domain: profiles
@@ -2748,6 +2751,8 @@ items:
   test_ids: [t15b_speedtest_test.dart]
   status: implemented
   notes: 审计 A05：本条是测速任务的取消入口；被取消任务 cancellable=true，见 ACT-PROF-014~019。
+    UX-CTX-01：菜单打开时 Esc 由菜单优先消费（关闭菜单且不清空选择），菜单关闭时表格
+    Esc 语义保留；实测 docs/evidence/UX-CTX-01/full-f3 与 interaction-24。
 - id: ACT-PROF-039
   name: 节点选择窗口-确定
   domain: profiles

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
@@ -465,6 +466,25 @@ class ProfilesController extends Notifier<ProfilesState> {
     _log(ProfileAction.contextMenu, 'kept=${state.selected.length}');
   }
 
+  /// Re-bind the selection to the target ids captured when the context menu
+  /// opened, so an open menu always commands the rows it was opened on even if
+  /// the selection drifted meanwhile.
+  ///
+  /// Returns false without touching the selection when the snapshot is empty or
+  /// any target id no longer exists (refresh/delete/filter); the caller then
+  /// closes the stale menu instead of acting on a hidden/other row.
+  bool restoreContextTargets(List<String> ids) {
+    if (ids.isEmpty) return false;
+    final known = state.all.map((r) => r.id).toSet();
+    if (!ids.every(known.contains)) return false;
+    final target = ids.toSet();
+    if (!setEquals(state.selected, target)) {
+      state = state.copyWith(selected: target);
+      _log(ProfileAction.contextMenu, 'restore=${ids.length}');
+    }
+    return true;
+  }
+
   void handleDoubleClick(String id) {
     final action = state.doubleClick2Activate
         ? ProfileAction.activate
@@ -478,6 +498,12 @@ class ProfilesController extends Notifier<ProfilesState> {
   void logAction(String action, String detail) {
     _log(action, detail);
     _echo(action);
+  }
+
+  /// Drop the accumulated event log. Used by integration evidence so a later
+  /// command's `restore=`/action events are unambiguous; no product meaning.
+  void resetEvents() {
+    state = state.copyWith(events: const <TableEvent>[]);
   }
 
   void handleDragStart(String id) {

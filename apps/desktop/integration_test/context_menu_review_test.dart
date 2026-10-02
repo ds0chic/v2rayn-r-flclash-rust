@@ -76,7 +76,7 @@ void main() {
     final dataDir = Platform.environment['V2RAYN_R_DATA_DIR'];
     final evidenceDir = Platform.environment['V2RAYN_R_CONTEXT_EVIDENCE_DIR'];
     final mode = Platform.environment['V2RAYN_R_CONTEXT_MODE'] ?? 'full';
-    final sampleCount = mode == 'editor' ? 4 : 32;
+    final sampleCount = mode == 'editor' ? 4 : (mode == 'interaction' ? 8 : 32);
     expect(dataDir, isNotNull);
     expect(evidenceDir, isNotNull);
     await Directory(evidenceDir!).create(recursive: true);
@@ -137,10 +137,35 @@ void main() {
     record('app-started', {});
 
     try {
+      Future<void> closeByOutside() async {
+        await tester.tap(find.byKey(const ValueKey('group-filter-all')));
+        await _settle(tester);
+        // Clear the event log so the next menu command's restore can be seen.
+        container.read(profilesControllerProvider.notifier).resetEvents();
+      }
+
       final emptyRect = tester.getRect(find.byType(ProfilesTable));
       await _right(tester, emptyRect.center);
-      record('right-click-empty-table', {'menuOpen': _menuOpen(tester)});
+      final emptyEdit = tester.widget<MenuItemButton>(
+        find.byKey(const ValueKey('ctx-编辑')),
+      );
+      record(
+        'right-click-empty-table',
+        {
+          'menuOpen': _menuOpen(tester),
+          'editEnabled': emptyEdit.onPressed != null,
+          'selected': container
+              .read(profilesControllerProvider)
+              .selected
+              .toList(),
+        },
+        // Upstream DataGrid.ContextMenu covers the whole grid, so the empty
+        // table must open it; with no target the selection-dependent entries
+        // stay disabled instead of inventing a row.
+        passed: _menuOpen(tester) && emptyEdit.onPressed == null,
+      );
       await _shot(tester, evidenceDir, '00-empty-right-click');
+      await closeByOutside();
       final links = List.generate(
         sampleCount,
         (i) =>
@@ -166,40 +191,68 @@ void main() {
       final rows = container.read(profilesControllerProvider).visible;
       Finder cell(int index) =>
           find.byKey(ValueKey('cell-${rows[index].id}-Remarks'));
-      Future<void> closeByOutside() async {
-        await tester.tap(find.byKey(const ValueKey('group-filter-all')));
-        await _settle(tester);
-      }
 
       if (mode == 'editor') {
         for (var index = 0; index < 2; index++) {
-          await _right(tester, tester.getCenter(cell(index)));
-          record('editor-right-click-$index', {
-            'menuOpen': _menuOpen(tester),
-            'selected': container
-                .read(profilesControllerProvider)
-                .selected
-                .toList(),
-          });
+          final clickPoint = tester.getCenter(cell(index));
+          await _right(tester, clickPoint);
+          final editorItem = _rect(
+            tester,
+            find.byKey(const ValueKey('ctx-设为活动')),
+          );
+          final editButton = tester.widget<MenuItemButton>(
+            find.byKey(const ValueKey('ctx-编辑')),
+          );
+          record(
+            'editor-right-click-$index',
+            {
+              'menuOpen': _menuOpen(tester),
+              'editEnabled': editButton.onPressed != null,
+              'selected': container
+                  .read(profilesControllerProvider)
+                  .selected
+                  .toList(),
+              'firstItem': editorItem,
+              'leftDelta': (editorItem['x']! - clickPoint.dx).abs(),
+            },
+            passed:
+                _menuOpen(tester) &&
+                editButton.onPressed != null &&
+                (editorItem['x']! - clickPoint.dx).abs() <= 8,
+          );
           await tester.tap(find.byKey(const ValueKey('ctx-编辑')));
           await _settle(tester);
-          final actualRemarks = tester
-              .widget<TextFormField>(
-                find.byKey(const ValueKey('field-remarks')),
-              )
-              .initialValue;
+          final restores = container
+              .read(profilesControllerProvider)
+              .events
+              .where((e) => e.detail.startsWith('restore='))
+              .map((e) => e.detail)
+              .toList();
+          final editorField = find.byKey(const ValueKey('field-remarks'));
+          final actualRemarks = editorField.evaluate().isEmpty
+              ? null
+              : tester.widget<TextFormField>(editorField).initialValue;
           record(
             'editor-command-$index',
             {
               'menuOpen': _menuOpen(tester),
               'expectedRemarks': rows[index].remarks,
               'actualRemarks': actualRemarks,
-              'remarksField': _rect(
-                tester,
-                find.byKey(const ValueKey('field-remarks')),
-              ),
+              'restoreEvents': restores,
+              'editorVisible': editorField.evaluate().isNotEmpty,
+              'selectedAfter': container
+                  .read(profilesControllerProvider)
+                  .selected
+                  .toList(),
             },
-            passed: !_menuOpen(tester) && actualRemarks == rows[index].remarks,
+            // The editor opens the node the menu was opened on, and the menu is
+            // closed. `restoreEvents` is empty when the right-click already set
+            // the selection to the target; it is non-empty only when the
+            // selection had drifted, and is recorded for evidence.
+            passed:
+                !_menuOpen(tester) &&
+                editorField.evaluate().isNotEmpty &&
+                actualRemarks == rows[index].remarks,
           );
           await _shot(tester, evidenceDir, 'editor-$index');
           await tester.tap(find.byKey(const ValueKey('editor-cancel')));
@@ -228,11 +281,192 @@ void main() {
         return;
       }
 
+      if (mode == 'interaction') {
+        final pointA = tester.getCenter(cell(0));
+        final item = find.byKey(const ValueKey('ctx-设为活动'));
+        final windowRect = _rect(tester, find.byKey(_frame));
+        final tableRect = tester.getRect(find.byType(ProfilesTable));
+        // The corrected menu now opens at the click point and covers the
+        // nearby cells, so "click another row" must target a row region the
+        // panel does not overlap: the far-right edge of the table.
+        Offset rowRight(int index) =>
+            Offset(tableRect.right - 20, tester.getCenter(cell(index)).dy);
+        final pointB = rowRight(1);
+
+        // 1. Open on row 0 and verify anchor-local positioning.
+        await _right(tester, pointA);
+        final itemRect = _rect(tester, item);
+        record('menu-position-and-density', {
+          'firstItem': itemRect,
+          'clickX': pointA.dx,
+          'rootWindow': windowRect,
+        }, passed: (itemRect['x']! - pointA.dx).abs() <= 8);
+        await _shot(tester, evidenceDir, '01-right-menu');
+
+        // 2. Left-click row 1: close + select B in one click.
+        await tester.tapAt(pointB, kind: PointerDeviceKind.mouse);
+        await _settle(tester);
+        record(
+          'left-click-another-row-dismisses-menu',
+          {
+            'menuOpen': _menuOpen(tester),
+            'selected': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+          },
+          passed:
+              !_menuOpen(tester) &&
+              setEquals(container.read(profilesControllerProvider).selected, {
+                rows[1].id,
+              }),
+        );
+        await _shot(tester, evidenceDir, '02-click-other-row');
+
+        // 3. Esc closes the menu without clearing the selection.
+        await _right(tester, pointA);
+        final selBefore = Set<String>.of(
+          container.read(profilesControllerProvider).selected,
+        );
+        final openBefore = _menuOpen(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await _settle(tester);
+        record(
+          'escape-closes-menu-without-clearing-selection',
+          {
+            'menuOpenBeforeEscape': openBefore,
+            'menuOpen': _menuOpen(tester),
+            'selectedBefore': selBefore.toList(),
+            'selectedAfter': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+          },
+          passed:
+              openBefore &&
+              !_menuOpen(tester) &&
+              setEquals(
+                selBefore,
+                container.read(profilesControllerProvider).selected,
+              ),
+        );
+        await _shot(tester, evidenceDir, '03-escape');
+
+        // 4. Multi-select, then right-click one of the selected rows.
+        await tester.tap(cell(0));
+        await _settle(tester);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.tap(cell(1));
+        await _settle(tester);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        final multi = Set<String>.of(
+          container.read(profilesControllerProvider).selected,
+        );
+        await _right(tester, pointB);
+        record(
+          'right-click-selected-multi-row',
+          {
+            'selectionBefore': multi.toList(),
+            'selectionAfter': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+          },
+          passed: setEquals(
+            multi,
+            container.read(profilesControllerProvider).selected,
+          ),
+        );
+
+        // 5. Re-invoke on another row while the menu is open. The corrected
+        // menu sits at the click point and its tall panel covers the data
+        // cells, so the second target is that row's row-handle (left gutter,
+        // outside the panel) - still a row target.
+        final pointC = tester.getCenter(
+          find.byKey(ValueKey('handle-${rows[2].id}')),
+        );
+        await _right(tester, pointC);
+        final cItem = _rect(tester, item);
+        record(
+          'right-click-different-row-while-menu-open',
+          {
+            'selected': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+            'menuOpen': _menuOpen(tester),
+            'menuCount': find
+                .byType(MenuAnchor)
+                .evaluate()
+                .where((e) => (e.widget as MenuAnchor).controller!.isOpen)
+                .length,
+            'leftDelta': (cItem['x']! - pointC.dx).abs(),
+          },
+          passed:
+              _menuOpen(tester) &&
+              setEquals(container.read(profilesControllerProvider).selected, {
+                rows[2].id,
+              }) &&
+              (cItem['x']! - pointC.dx).abs() <= 8,
+        );
+        await closeByOutside();
+
+        // 6. Row-header right-click targets that row.
+        final handle = tester.getCenter(
+          find.byKey(ValueKey('handle-${rows[4].id}')),
+        );
+        await _right(tester, handle);
+        record(
+          'right-click-row-header',
+          {
+            'menuOpen': _menuOpen(tester),
+            'selected': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+          },
+          passed:
+              _menuOpen(tester) &&
+              setEquals(container.read(profilesControllerProvider).selected, {
+                rows[4].id,
+              }),
+        );
+        await closeByOutside();
+
+        // 7. Empty area right-click opens the grid menu with disabled
+        // target-dependent entries and keeps the selection.
+        await tester.tap(find.byKey(const ValueKey('group-filter-all')));
+        await _settle(tester);
+        container.read(profilesControllerProvider.notifier).clearSelection();
+        await _settle(tester);
+        final emptyPoint = Offset(tableRect.right - 20, tableRect.bottom - 12);
+        await _right(tester, emptyPoint);
+        final emptyEdit = tester.widget<MenuItemButton>(
+          find.byKey(const ValueKey('ctx-编辑')),
+        );
+        record('right-click-empty-table', {
+          'menuOpen': _menuOpen(tester),
+          'editEnabled': emptyEdit.onPressed != null,
+          'selected': container
+              .read(profilesControllerProvider)
+              .selected
+              .toList(),
+        }, passed: _menuOpen(tester) && emptyEdit.onPressed == null);
+        await _shot(tester, evidenceDir, '04-empty-right-click');
+        complete();
+        return;
+      }
+
       await tester.tap(cell(0));
       await _settle(tester);
       final pointA = tester.getCenter(cell(0));
-      final pointB = tester.getCenter(cell(1));
       final tableRect = tester.getRect(find.byType(ProfilesTable));
+      // The corrected menu sits at the click point and its tall panel covers
+      // the nearby data cells, so other-row targets use the far-right edge of
+      // the table (outside the panel).
+      Offset rowRight(int index) =>
+          Offset(tableRect.right - 20, tester.getCenter(cell(index)).dy);
+      final pointB = rowRight(1);
       final item = find.byKey(const ValueKey('ctx-设为活动'));
       if (mode != 'late') {
         final mouse = await tester.startGesture(
@@ -246,24 +480,43 @@ void main() {
         });
         await mouse.up();
         await _settle(tester);
-        final itemRect = tester.getRect(item);
-        record('menu-position-and-density', {
-          'clickX': pointA.dx,
-          'clickY': pointA.dy,
-          'tableX': tableRect.left,
-          'tableY': tableRect.top,
-          'firstItem': _rect(tester, item),
-          'rootWindow': _rect(tester, find.byKey(_frame)),
-          'toolbar': _rect(tester, find.byType(AdaptiveToolbar).first),
-          'tableRow': _rect(tester, cell(0)),
-          'itemLabelFont': tester
-              .widget<Text>(
-                find.descendant(of: item, matching: find.text('设为活动')),
-              )
-              .style
-              ?.fontSize,
-          'rootContextItemCount': find.byType(MenuItemButton).evaluate().length,
-        }, passed: (itemRect.left - pointA.dx).abs() < 32);
+        final itemRect = _rect(tester, item);
+        final windowRect = _rect(tester, find.byKey(_frame));
+        record(
+          'menu-position-and-density',
+          {
+            'clickX': pointA.dx,
+            'clickY': pointA.dy,
+            'tableX': tableRect.left,
+            'tableY': tableRect.top,
+            'firstItem': itemRect,
+            'rootWindow': windowRect,
+            'toolbar': _rect(tester, find.byType(AdaptiveToolbar).first),
+            'tableRow': _rect(tester, cell(0)),
+            'leftDelta': (itemRect['x']! - pointA.dx).abs(),
+            'itemLabelFont': tester
+                .widget<Text>(
+                  find.descendant(of: item, matching: find.text('设为活动')),
+                )
+                .style
+                ?.fontSize,
+            'rootContextItemCount': find
+                .byType(MenuItemButton)
+                .evaluate()
+                .length,
+          },
+          // MenuAnchor.open(position:) takes anchor-local coordinates; the menu
+          // left edge must track the click point (<=8 lp tolerance for panel
+          // padding/density) and stay horizontally inside the window. Vertical
+          // overflow is deferred to UX-SPACE-02 (19 items * 40 lp > window) and
+          // is only required not to be clipped off the top.
+          passed:
+              (itemRect['x']! - pointA.dx).abs() <= 8 &&
+              itemRect['x']! >= windowRect['x']! - 0.5 &&
+              itemRect['x']! + itemRect['width']! <=
+                  windowRect['x']! + windowRect['width']! + 0.5 &&
+              itemRect['y']! >= windowRect['y']! - 0.5,
+        );
         await _shot(tester, evidenceDir, '01-right-menu');
 
         await mouse.moveTo(const Offset(80, 190));
@@ -271,18 +524,33 @@ void main() {
         record('pointer-leaves-menu', {'menuOpen': _menuOpen(tester)});
         await tester.tapAt(pointB, kind: PointerDeviceKind.mouse);
         await _settle(tester);
-        record('left-click-another-row-dismisses-menu', {
-          'menuOpen': _menuOpen(tester),
-          'selected': container
-              .read(profilesControllerProvider)
-              .selected
-              .toList(),
-        }, passed: !_menuOpen(tester));
+        record(
+          'left-click-another-row-dismisses-menu',
+          {
+            'menuOpen': _menuOpen(tester),
+            'selected': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+          },
+          // Clicking a table row while the menu is open closes the menu and the
+          // same click selects that row (close + normal handling).
+          passed:
+              !_menuOpen(tester) &&
+              setEquals(container.read(profilesControllerProvider).selected, {
+                rows[1].id,
+              }),
+        );
         await _shot(tester, evidenceDir, '02-click-other-row');
 
+        await closeByOutside();
+        // Re-open the menu, then verify Esc closes it without leaking the
+        // table's Esc semantics (which would clear the selection).
+        await _right(tester, pointA);
         final selectionBeforeEscape = Set<String>.of(
           container.read(profilesControllerProvider).selected,
         );
+        final menuOpenBeforeEscape = _menuOpen(tester);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await _settle(tester);
         final selectionAfterEscape = container
@@ -291,12 +559,15 @@ void main() {
         record(
           'escape-closes-menu-without-clearing-selection',
           {
+            'menuOpenBeforeEscape': menuOpenBeforeEscape,
             'menuOpen': _menuOpen(tester),
             'selectedBefore': selectionBeforeEscape.toList(),
             'selectedAfter': selectionAfterEscape.toList(),
           },
           passed:
+              menuOpenBeforeEscape &&
               !_menuOpen(tester) &&
+              selectionBeforeEscape.isNotEmpty &&
               setEquals(selectionBeforeEscape, selectionAfterEscape),
         );
         await _shot(tester, evidenceDir, '03-escape');
@@ -327,24 +598,60 @@ void main() {
             container.read(profilesControllerProvider).selected,
           ),
         );
-        await _right(tester, tester.getCenter(cell(2)));
-        record('right-click-different-row-while-menu-open', {
-          'selected': container
-              .read(profilesControllerProvider)
-              .selected
-              .toList(),
-          'menuOpen': _menuOpen(tester),
-          'firstItem': _rect(tester, item),
-        });
+        final pointC = tester.getCenter(
+          find.byKey(ValueKey('handle-${rows[2].id}')),
+        );
+        await _right(tester, pointC);
+        final cMenuItem = _rect(tester, item);
+        record(
+          'right-click-different-row-while-menu-open',
+          {
+            'selected': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+            'menuOpen': _menuOpen(tester),
+            // Re-invoking on another row rebuilds exactly one menu, retargets
+            // the selection to that row and repositions under the new click.
+            'menuCount': find.byType(MenuAnchor).evaluate().where((e) {
+              final w = e.widget as MenuAnchor;
+              return w.controller?.isOpen ?? false;
+            }).length,
+            'firstItem': cMenuItem,
+            'leftDelta': (cMenuItem['x']! - pointC.dx).abs(),
+          },
+          passed:
+              _menuOpen(tester) &&
+              setEquals(container.read(profilesControllerProvider).selected, {
+                rows[2].id,
+              }) &&
+              (cMenuItem['x']! - pointC.dx).abs() <= 8,
+        );
         await closeByOutside();
+        container.read(profilesControllerProvider.notifier).clearSelection();
+        await _settle(tester);
 
         await _right(
           tester,
           tester.getCenter(find.byKey(ValueKey('handle-${rows[0].id}'))),
         );
-        record('right-click-row-header', {
-          'menuOpen': _menuOpen(tester),
-        }, passed: _menuOpen(tester));
+        record(
+          'right-click-row-header',
+          {
+            'menuOpen': _menuOpen(tester),
+            'selected': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+          },
+          // Upstream DataGrid.ContextMenu triggers on the row header too, and
+          // the header targets that row.
+          passed:
+              _menuOpen(tester) &&
+              setEquals(container.read(profilesControllerProvider).selected, {
+                rows[0].id,
+              }),
+        );
         await closeByOutside();
       }
 

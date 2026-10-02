@@ -1,0 +1,190 @@
+{
+  "recordingComplete": true,
+  "mode": "full",
+  "imagesSkipped": true,
+  "failures": [
+    "left-click-another-row-dismisses-menu",
+    "right-click-different-row-while-menu-open",
+    "right-click-row-header"
+  ],
+  "records": [
+    {
+      "step": "bridge-initialized",
+      "facts": {}
+    },
+    {
+      "step": "app-started",
+      "facts": {}
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": true,
+        "editEnabled": false,
+        "selected": []
+      },
+      "passed": true
+    },
+    {
+      "step": "synthetic-nodes-imported",
+      "facts": {
+        "count": 32
+      }
+    },
+    {
+      "step": "right-button-down",
+      "facts": {
+        "menuOpenBeforeRelease": true
+      }
+    },
+    {
+      "step": "menu-position-and-density",
+      "facts": {
+        "clickX": 359.0,
+        "clickY": 168.0,
+        "tableX": 171.0,
+        "tableY": 125.0,
+        "firstItem": {
+          "x": 359.0,
+          "y": 24.0,
+          "width": 222.41722106933594,
+          "height": 40.0
+        },
+        "rootWindow": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1184.0,
+          "height": 761.0
+        },
+        "toolbar": {
+          "x": 38.134178161621094,
+          "y": 41.0,
+          "width": 1107.7316436767578,
+          "height": 84.0
+        },
+        "tableRow": {
+          "x": 299.0,
+          "y": 155.0,
+          "width": 120.0,
+          "height": 26.0
+        },
+        "leftDelta": 0.0,
+        "itemLabelFont": 12.0,
+        "rootContextItemCount": 19
+      },
+      "passed": true
+    },
+    {
+      "step": "pointer-leaves-menu",
+      "facts": {
+        "menuOpen": true
+      }
+    },
+    {
+      "step": "left-click-another-row-dismisses-menu",
+      "facts": {
+        "menuOpen": false,
+        "selected": [
+          "p-18dada0a79cb329c-0"
+        ]
+      },
+      "passed": false
+    },
+    {
+      "step": "escape-closes-menu-without-clearing-selection",
+      "facts": {
+        "menuOpenBeforeEscape": true,
+        "menuOpen": false,
+        "selectedBefore": [
+          "p-18dada0a79cb329c-0"
+        ],
+        "selectedAfter": [
+          "p-18dada0a79cb329c-0"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-selected-multi-row",
+      "facts": {
+        "selectionBefore": [
+          "p-18dada0a79cb329c-0",
+          "p-18dada0a79cb3eb8-1"
+        ],
+        "selectionAfter": [
+          "p-18dada0a79cb329c-0",
+          "p-18dada0a79cb3eb8-1"
+        ],
+        "menuOpen": true
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-different-row-while-menu-open",
+      "facts": {
+        "selected": [
+          "p-18dada0a79cb329c-0",
+          "p-18dada0a79cb3eb8-1"
+        ],
+        "menuOpen": true,
+        "menuCount": 1,
+        "firstItem": {
+          "x": 359.0,
+          "y": 24.0,
+          "width": 222.41722106933594,
+          "height": 40.0
+        },
+        "leftDelta": 0.0
+      },
+      "passed": false
+    },
+    {
+      "step": "right-click-row-header",
+      "facts": {
+        "menuOpen": true,
+        "selected": [
+          "p-18dada0a79cb329c-0",
+          "p-18dada0a79cb3eb8-1"
+        ]
+      },
+      "passed": false
+    },
+    {
+      "step": "wheel-over-table-while-menu-open",
+      "facts": {
+        "menuOpen": true,
+        "scrollBefore": 0.0,
+        "scrollAfter": 0.0
+      }
+    },
+    {
+      "step": "submenu-hover",
+      "facts": {
+        "rootOpen": true,
+        "shareExportItems": 1
+      }
+    },
+    {
+      "step": "edit-command-closes-menu-and-opens-dialog",
+      "facts": {
+        "menuOpen": false,
+        "editorVisible": true,
+        "remarksField": {
+          "x": 282.0,
+          "y": 159.5,
+          "width": 620.0,
+          "height": 22.0
+        },
+        "expectedRemarks": "节点06",
+        "actualRemarks": "节点06"
+      },
+      "passed": true
+    },
+    {
+      "step": "cancel-editor-returns-to-table",
+      "facts": {
+        "menuOpen": false
+      }
+    }
+  ]
+}

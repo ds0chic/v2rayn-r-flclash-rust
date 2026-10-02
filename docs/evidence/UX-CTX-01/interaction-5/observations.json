@@ -1,0 +1,126 @@
+{
+  "recordingComplete": true,
+  "mode": "interaction",
+  "imagesSkipped": true,
+  "failures": [
+    "left-click-another-row-dismisses-menu",
+    "right-click-different-row-while-menu-open",
+    "right-click-empty-table"
+  ],
+  "records": [
+    {
+      "step": "bridge-initialized",
+      "facts": {}
+    },
+    {
+      "step": "app-started",
+      "facts": {}
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": true,
+        "editEnabled": false,
+        "selected": []
+      },
+      "passed": true
+    },
+    {
+      "step": "synthetic-nodes-imported",
+      "facts": {
+        "count": 8
+      }
+    },
+    {
+      "step": "menu-position-and-density",
+      "facts": {
+        "firstItem": {
+          "x": 359.0,
+          "y": 24.0,
+          "width": 222.41722106933594,
+          "height": 40.0
+        },
+        "clickX": 359.0,
+        "rootWindow": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1184.0,
+          "height": 761.0
+        }
+      },
+      "passed": true
+    },
+    {
+      "step": "left-click-another-row-dismisses-menu",
+      "facts": {
+        "menuOpen": false,
+        "selected": [
+          "p-18dad99e4ffc0ca0-0"
+        ]
+      },
+      "passed": false
+    },
+    {
+      "step": "escape-closes-menu-without-clearing-selection",
+      "facts": {
+        "menuOpenBeforeEscape": true,
+        "menuOpen": false,
+        "selectedBefore": [
+          "p-18dad99e4ffc0ca0-0"
+        ],
+        "selectedAfter": [
+          "p-18dad99e4ffc0ca0-0"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-selected-multi-row",
+      "facts": {
+        "selectionBefore": [
+          "p-18dad99e4ffc0ca0-0",
+          "p-18dad99e4ffc1920-1"
+        ],
+        "selectionAfter": [
+          "p-18dad99e4ffc0ca0-0",
+          "p-18dad99e4ffc1920-1"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-different-row-while-menu-open",
+      "facts": {
+        "selected": [
+          "p-18dad99e4ffc0ca0-0",
+          "p-18dad99e4ffc1920-1"
+        ],
+        "menuOpen": true,
+        "menuCount": 1,
+        "leftDelta": 0.0
+      },
+      "passed": false
+    },
+    {
+      "step": "right-click-row-header",
+      "facts": {
+        "menuOpen": true,
+        "selected": [
+          "p-18dad99e4ffc1d08-4"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": true,
+        "editEnabled": true,
+        "selected": [
+          "p-18dad99e4ffc2028-7"
+        ]
+      },
+      "passed": false
+    }
+  ]
+}

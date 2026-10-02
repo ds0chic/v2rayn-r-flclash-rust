@@ -38,6 +38,10 @@ config_types:
   - mihomo
   source_file: v2rayN/ServiceLib/Enums/EConfigType.cs
   source_symbol: EConfigType.Custom
+  implementation_location: crates/application/src/custom.rs; apps/desktop/lib/features/profiles/custom_editor_dialog.dart
+  test_ids:
+  - application::custom tests
+  - t10_custom_editor_test
   evidence:
   - v2rayN/ServiceLib/Enums/EConfigType.cs:6
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:550

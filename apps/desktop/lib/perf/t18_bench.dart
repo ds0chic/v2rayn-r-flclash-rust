@@ -17,7 +17,9 @@ class T18Bench {
 
   static String _env(String key) => Platform.environment[key] ?? '';
 
-  static bool get enabled => _env('V2RAYN_R_T18_BENCH') == '1';
+  static bool get enabled =>
+      const bool.fromEnvironment('V2RAYN_R_SMOKE_ARMED', defaultValue: false) &&
+      _env('V2RAYN_R_T18_BENCH') == '1';
 
   static String get scenario => _env('V2RAYN_R_T18_SCENARIO');
 

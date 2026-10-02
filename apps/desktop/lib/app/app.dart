@@ -89,10 +89,11 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       ref.read(desktopIntegrationProvider).value = _integration;
       // Evidence-run hooks that apply the persisted plan on launch:
       //  * kDebugMode + V2RAYN_R_AUTOSTART (historical T03/T18b screenshots);
-      //  * the applyPlanOnLaunch override, set by main() only when the
-      //    T20 packaged-smoke driver exports V2RAYN_R_AUTO_SMOKE. The default
-      //    override is false, so a normal release run never auto-starts a core
-      //    from an environment variable (ISSUE-08).
+      //  * the applyPlanOnLaunch override, set by main() only in builds armed
+      //    with --dart-define=V2RAYN_R_SMOKE_ARMED=true and the
+      //    V2RAYN_R_AUTO_SMOKE environment variable (T20 packaged smoke).
+      //    Default release builds ignore every state-changing automation env
+      //    variable (ISSUE-08).
       var shouldApply = ref.read(applyPlanOnLaunchProvider);
       if (kDebugMode) {
         final autostart = Platform.environment['V2RAYN_R_AUTOSTART'];

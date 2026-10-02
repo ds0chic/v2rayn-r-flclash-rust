@@ -1,3 +1,6 @@
+# NOTE: field-level source partition. Merged view (including implementation
+# locations/test IDs used by audits) is compat/fields.yaml; this partition keeps
+# upstream-source evidence only, per T00 policy.
 schema_version: 1
 source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
 section: settings

@@ -19,8 +19,10 @@
   `CreateProcessW` 提权启动内核、`TerminateProcess` 真实回收均未执行。
 - **硬约束**：全程不得占用/修改 `127.0.0.1:10808`；不得改动用户真实系统代理与注册表；不得按名杀进程。
 
-路径/句柄风险（接线前修）：helper 路径校验为**词法而非规范化**（无 symlink/重解析点/8.3/硬链接/TOCTOU 防护）；
-内核句柄仅 `u64`，未绑定 PID+创建时间；租约清理为 best-effort 且无持久恢复日志。
+路径/句柄风险：**已整改**（见 docs/evidence/T09-T16-remediation.rust.md 与 T14-runtime.md）：
+helper 路径经 `ipc_contract::validate_elevated_core_canonical` 规范化复验；Job 对象设 `KILL_ON_JOB_CLOSE` 且
+Assign 失败即终止；租约清理失败外显并写审计；内核句柄绑定 PID+创建时间（`crates/runtime/src/identity.rs`）。
+仍待补：完整 TOCTOU 竞态窗口收窄、租约恢复日志归属 net-host 的联调、真实提权上下文首验（隔离环境）。
 
 ## 2. 更新发布不可发布（未签名）
 

@@ -3,6 +3,8 @@
 上游冻结源码根：`work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967`。
 约定：`unverified` = 本 T00 阶段无法运行 GUI / 无法构建发行物，需在 T01 用引擎移植验证后回填。所有结论均来自冻结源码读到的事实，未读到的写 `unresolved`，不做“默认应该如此”。
 
+口径说明：本表中的 `verified`（Windows x64）仅指 T20 打包冒烟范围（启动/数据目录/窗口/真实 apply），**不是** `compat/*.yaml` 台账的条目级 `verified`（全仓条目级 verified=0）；两者语义分离，详见 `docs/evidence/T20.md`。
+
 ## 1. 六交付单元表
 
 | 交付单元 | 上游界面基准 | 上游发行物（workflow 证据） | 上游 RID | Flutter 目标状态 (T01 前) |

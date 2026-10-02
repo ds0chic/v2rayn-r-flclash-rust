@@ -115,10 +115,15 @@ class _MainShellState extends ConsumerState<MainShell> {
           monitor.startPolling();
         }
       }
-      // T15a evidence hook: apply the real persisted plan on launch so the
-      // logs tab has real core output for the release screenshot.
+      // T15a/T20 evidence hook (only in smoke-armed builds, see main.dart):
+      // apply the real persisted plan on launch so the logs tab has real core
+      // output for release screenshots.
+      const bool smokeArmed = bool.fromEnvironment(
+        'V2RAYN_R_SMOKE_ARMED',
+        defaultValue: false,
+      );
       final autoSmoke = Platform.environment['V2RAYN_R_AUTO_SMOKE'];
-      if (autoSmoke == '1' || autoSmoke == 'true') {
+      if (smokeArmed && (autoSmoke == '1' || autoSmoke == 'true')) {
         ref.read(runtimeControllerProvider.notifier).applyActive();
       }
       final openTab = Platform.environment['V2RAYN_R_OPEN_TAB'];

@@ -19,6 +19,22 @@ real UI → Rust → net-host → core apply). Other platforms are **not built o
 verified**. See [`compat/platform-matrix.md`](compat/platform-matrix.md) and
 [`docs/evidence/T20.md`](docs/evidence/T20.md).
 
+### Release notes (RC)
+
+- The portable package **bundles no proxy core**. The packaged smoke evidence
+  used a developer-local `tools/cores/xray` binary; end users obtain cores at
+  runtime via *Check updates* (see `dist/CORE-NOTES.txt`).
+- Runtime target: **Windows 10/11 x64**. A clean machine may require the
+  Microsoft Visual C++ Redistributable; dependency closure was not proven with
+  Process Monitor (registered in `docs/evidence/T20.md`).
+- Automation environment hooks are **compiled out of default release builds**.
+  Evidence/benchmark drivers must build with
+  `--dart-define=V2RAYN_R_SMOKE_ARMED=true`; unarmed builds ignore
+  `V2RAYN_R_AUTO_SMOKE`/`V2RAYN_R_T18_BENCH` (ISSUE-08 guard).
+- Not verified and not suitable for public distribution yet: update signature
+  verification, self-replace/installer, real remote servers/TLS handshakes,
+  real system-proxy/registry writes, real TUN sessions, non-Windows platforms.
+
 ## Architecture
 
 ```

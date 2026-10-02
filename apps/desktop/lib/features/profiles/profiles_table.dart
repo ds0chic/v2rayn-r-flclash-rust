@@ -75,42 +75,57 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         onKeyEvent: _onKey,
         child: Listener(
           onPointerDown: (_) => _focusNode.requestFocus(),
-          child: Stack(
-            children: <Widget>[
-              TableView.builder(
-                verticalDetails: ScrollableDetails.vertical(
-                  controller: _vertical,
-                ),
-                horizontalDetails: ScrollableDetails.horizontal(
-                  controller: _horizontal,
-                ),
-                pinnedRowCount: 1,
-                pinnedColumnCount: 1,
-                columnCount: columns.length + 1,
-                rowCount: rows.length + 1,
-                columnBuilder: (index) =>
-                    _buildColumnSpan(context, index, columns),
-                rowBuilder: (index) => _buildRowSpan(index, context),
-                cellBuilder: (context, vicinity) => TableViewCell(
-                  child: _buildCell(context, vicinity, state, columns, rows),
-                ),
-              ),
-              if (rows.isEmpty)
-                Positioned(
-                  top: _headerHeight,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: const IgnorePointer(
-                    child: EmptyState(
-                      message: '暂无节点',
-                      semanticIcon: 'empty',
-                      detail: '可从剪贴板导入或添加节点',
-                      messageKey: ValueKey('profiles-empty'),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final widths = fittedColumnWidths(
+                columns,
+                constraints.maxWidth,
+                fixedChrome: AppTokens.tableHandleWidth,
+              );
+              return Stack(
+                children: <Widget>[
+                  TableView.builder(
+                    verticalDetails: ScrollableDetails.vertical(
+                      controller: _vertical,
+                    ),
+                    horizontalDetails: ScrollableDetails.horizontal(
+                      controller: _horizontal,
+                    ),
+                    pinnedRowCount: 1,
+                    pinnedColumnCount: 1,
+                    columnCount: columns.length + 1,
+                    rowCount: rows.length + 1,
+                    columnBuilder: (index) =>
+                        _buildColumnSpan(context, index, widths),
+                    rowBuilder: (index) => _buildRowSpan(index, context),
+                    cellBuilder: (context, vicinity) => TableViewCell(
+                      child: _buildCell(
+                        context,
+                        vicinity,
+                        state,
+                        columns,
+                        rows,
+                      ),
                     ),
                   ),
-                ),
-            ],
+                  if (rows.isEmpty)
+                    Positioned(
+                      top: _headerHeight,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: const IgnorePointer(
+                        child: EmptyState(
+                          message: '暂无节点',
+                          semanticIcon: 'empty',
+                          detail: '可从剪贴板导入或添加节点',
+                          messageKey: ValueKey('profiles-empty'),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -120,11 +135,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
   TableSpan _buildColumnSpan(
     BuildContext context,
     int index,
-    List<ProfileColumn> columns,
+    List<double> widths,
   ) {
-    final width = index == 0
-        ? AppTokens.tableHandleWidth
-        : columns[index - 1].width;
+    final width = index == 0 ? AppTokens.tableHandleWidth : widths[index - 1];
     final grid = context.semantics.gridLine;
     return TableSpan(
       extent: FixedTableSpanExtent(width),

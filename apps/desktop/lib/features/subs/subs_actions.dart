@@ -5,11 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
+import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/subs/import_persistence.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/features/subs/sub_setting_window.dart';
 
 /// ACT-MAIN-016: import share links from the clipboard (F-IMPORT-001/002/005).
+///
+/// The real bridge parses but does not persist a `subid`-less import (see
+/// [persistImportedProfiles]); when the payload is a subscription URL instead
+/// of a share link the user is offered the real subscription add/update path.
 Future<void> importFromClipboard(BuildContext context, WidgetRef ref) async {
   final data = await Clipboard.getData(Clipboard.kTextPlain);
   final text = data?.text ?? '';
@@ -19,15 +25,19 @@ Future<void> importFromClipboard(BuildContext context, WidgetRef ref) async {
   }
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.importFromText(text, deduplicate: true);
-  if (result.ok) {
+  if (result.ok && result.profiles.isNotEmpty) {
+    final persisted = persistImportedProfiles(bridge, result.profiles);
     ref.read(profilesControllerProvider.notifier).reload();
-    _toast(ref, '已从剪贴板导入 ${result.imported} 个节点');
-  } else {
-    final detail = result.errors.isNotEmpty
-        ? '；首个错误：第 ${(result.errors.first.itemIndex ?? 0) + 1} 项'
-        : '';
-    _toast(ref, '导入失败$detail');
+    _toast(ref, _importSuccessToast(persisted, result));
+    return;
   }
+  final urls = extractSubscriptionUrls(text);
+  if (urls.isNotEmpty) {
+    if (!context.mounted) return;
+    await _offerAddSubscription(context, ref, urls);
+    return;
+  }
+  _toast(ref, describeImportFailure(result));
 }
 
 /// ACT-MAIN-016 fallback: import from a pasted multi-line text dialog.
@@ -70,12 +80,132 @@ Future<void> importFromTextDialog(BuildContext context, WidgetRef ref) async {
   if (!context.mounted) return;
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.importFromText(text, deduplicate: true);
-  if (result.ok) {
+  if (result.ok && result.profiles.isNotEmpty) {
+    final persisted = persistImportedProfiles(bridge, result.profiles);
     ref.read(profilesControllerProvider.notifier).reload();
-    _toast(ref, '已导入 ${result.imported} 个节点');
-  } else {
-    _toast(ref, '导入失败：未找到有效分享链接');
+    _toast(ref, _importSuccessToast(persisted, result));
+    return;
   }
+  final urls = extractSubscriptionUrls(text);
+  if (urls.isNotEmpty) {
+    if (!context.mounted) return;
+    await _offerAddSubscription(context, ref, urls);
+    return;
+  }
+  _toast(ref, describeImportFailure(result));
+}
+
+String _importSuccessToast(
+  PersistImportedResult persisted,
+  c.ImportResult result,
+) {
+  final parts = <String>['已从剪贴板导入 ${persisted.saved} 个节点'];
+  if (persisted.hasFailures) {
+    parts.add('${persisted.failed} 个保存失败（${persisted.firstErrorCode ?? "未知"}）');
+  }
+  if (result.errors.isNotEmpty) {
+    parts.add('${result.errors.length} 行未识别');
+  }
+  return parts.join('，');
+}
+
+/// Clipboard payload is a subscription URL: explain the mismatch and, on
+/// confirmation, add it through the existing subscription add/update bridge so
+/// the subscription list and node table reflect real downloaded nodes.
+Future<void> _offerAddSubscription(
+  BuildContext context,
+  WidgetRef ref,
+  List<String> urls,
+) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      key: const ValueKey('sub-url-import-dialog'),
+      title: const Text('检测到订阅链接', style: TextStyle(fontSize: 15)),
+      content: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text('剪贴板内容看起来是订阅链接，而不是分享链接。'),
+            const SizedBox(height: 8),
+            for (final url in urls.take(5))
+              Text(
+                url,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            if (urls.length > 5)
+              Text('…共 ${urls.length} 条', style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 12),
+            const Text('是否将其作为订阅添加并立即更新？'),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const ValueKey('sub-url-import-cancel'),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const ValueKey('sub-url-import-add'),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('作为订阅添加'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true) {
+    _toast(ref, '已取消：未添加订阅');
+    return;
+  }
+  final subs = ref.read(subsControllerProvider.notifier);
+  var added = 0;
+  for (final url in urls) {
+    final saved = subs.save(
+      c.SubItemDto(
+        id: '',
+        remarks: _subRemarksFor(url),
+        url: url,
+        moreUrl: '',
+        enabled: true,
+        userAgent: '',
+        sort: 0,
+        autoUpdateInterval: 0,
+        updateTime: 0,
+      ),
+    );
+    if (saved.ok) added++;
+  }
+  if (added == 0) {
+    _toast(ref, '订阅添加失败：未能保存任何订阅');
+    return;
+  }
+  _toast(ref, '已添加 $added 个订阅，正在更新…');
+  final update = await subs.update();
+  ref.read(profilesControllerProvider.notifier).reload();
+  if (update.ok) {
+    final nodes = update.entries.fold<int>(
+      0,
+      (sum, entry) => sum + (entry.added ?? 0),
+    );
+    _toast(ref, '订阅已添加并更新：新增 $nodes 个节点');
+  } else {
+    final detail =
+        update.error?.code ??
+        (update.entries.isNotEmpty
+            ? update.entries.first.message ?? update.entries.first.code
+            : null);
+    _toast(ref, '订阅已添加，但更新失败${detail == null ? '' : '（$detail）'}');
+  }
+}
+
+String _subRemarksFor(String url) {
+  final host = Uri.tryParse(url)?.host ?? '';
+  return host.isEmpty ? '订阅 URL' : '订阅 $host';
 }
 
 /// F-IMPORT-009: export the selection to a share list / base64 clipboard text.

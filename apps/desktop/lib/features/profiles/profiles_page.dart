@@ -10,6 +10,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_table.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/perf/perf_harness.dart';
 import 'package:v2rayn_desktop/perf/t18_bench.dart';
+import 'package:v2rayn_desktop/shared/widgets/adaptive_toolbar.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Profiles panel: top toolbar (LAY-PROFILES-001) + virtualized node table.
@@ -91,91 +92,88 @@ class _Toolbar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(profilesControllerProvider.notifier);
     final state = ref.watch(profilesControllerProvider);
-    // Horizontally scrollable so the toolbar never overflows at narrow widths.
+    // Wraps onto extra lines at narrow widths so no toolbar control is ever
+    // clipped; renders as a single compact line when the width allows.
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainer,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        child: Row(
-          children: <Widget>[
-            SizedBox(
-              width: 260,
-              height: 30,
-              child: TextField(
-                key: const ValueKey('filter-field'),
-                controller: filterController,
-                decoration: const InputDecoration(
-                  isDense: true,
-                  hintText: '过滤 (Enter 刷新)',
-                  prefixIcon: Icon(Icons.search, size: 18),
-                  border: OutlineInputBorder(),
-                ),
-                onChanged: controller.setFilter,
-                onSubmitted: (_) => controller.submitFilter(),
+      child: AdaptiveToolbar(
+        children: <Widget>[
+          SizedBox(
+            width: 260,
+            height: 30,
+            child: TextField(
+              key: const ValueKey('filter-field'),
+              controller: filterController,
+              decoration: const InputDecoration(
+                isDense: true,
+                hintText: '过滤 (Enter 刷新)',
+                prefixIcon: Icon(Icons.search, size: 18),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: controller.setFilter,
+              onSubmitted: (_) => controller.submitFilter(),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _AddButton(),
+          _toolbarButton('编辑', () => editSelectedProfile(context, ref)),
+          _toolbarButton('删除', () => deleteSelectedProfiles(context, ref)),
+          _toolbarButton('复制', () => copySelectedProfiles(ref)),
+          _toolbarButton('备注', () => renameSelectedProfile(context, ref)),
+          _toolbarButton('启用/停用', () => toggleActiveSelected(ref)),
+          _toolbarButton(
+            'TCPing',
+            () => controller.emitAction(ProfileAction.tcping),
+          ),
+          _toolbarButton(
+            '真延迟',
+            () => controller.emitAction(ProfileAction.realping),
+          ),
+          _toolbarButton(
+            '测速',
+            () => controller.emitAction(ProfileAction.speedtest),
+          ),
+          _toolbarButton(
+            '混合',
+            () => controller.emitAction(ProfileAction.mixedTest),
+          ),
+          _toolbarButton(
+            '快速真延迟',
+            () => controller.emitAction(ProfileAction.fastRealping),
+          ),
+          _toolbarButton('停止测试', controller.cancelSpeedTest),
+          _toolbarButton(
+            '移除无效',
+            () => controller.emitAction(ProfileAction.removeInvalid),
+          ),
+          if (state.speedTestRunning)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: StageIndicator(
+                key: const ValueKey('speedtest-stage'),
+                stage: state.speedTestStage,
               ),
             ),
-            const SizedBox(width: 8),
-            _AddButton(),
-            _toolbarButton('编辑', () => editSelectedProfile(context, ref)),
-            _toolbarButton('删除', () => deleteSelectedProfiles(context, ref)),
-            _toolbarButton('复制', () => copySelectedProfiles(ref)),
-            _toolbarButton('备注', () => renameSelectedProfile(context, ref)),
-            _toolbarButton('启用/停用', () => toggleActiveSelected(ref)),
-            _toolbarButton(
-              'TCPing',
-              () => controller.emitAction(ProfileAction.tcping),
-            ),
-            _toolbarButton(
-              '真延迟',
-              () => controller.emitAction(ProfileAction.realping),
-            ),
-            _toolbarButton(
-              '测速',
-              () => controller.emitAction(ProfileAction.speedtest),
-            ),
-            _toolbarButton(
-              '混合',
-              () => controller.emitAction(ProfileAction.mixedTest),
-            ),
-            _toolbarButton(
-              '快速真延迟',
-              () => controller.emitAction(ProfileAction.fastRealping),
-            ),
-            _toolbarButton('停止测试', controller.cancelSpeedTest),
-            _toolbarButton(
-              '移除无效',
-              () => controller.emitAction(ProfileAction.removeInvalid),
-            ),
-            if (state.speedTestRunning)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: StageIndicator(
-                  key: const ValueKey('speedtest-stage'),
-                  stage: state.speedTestStage,
-                ),
-              ),
-            _toolbarButton(
-              '自动列宽',
-              () => controller.emitAction('autofit-columns'),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              key: const ValueKey('column-settings-button'),
-              tooltip: '显示列设置',
-              iconSize: 18,
-              onPressed: () => showColumnSettingsDialog(context, ref),
-              icon: const Icon(Icons.view_column_outlined),
-            ),
-            const SizedBox(width: 8),
-            const Text('双击激活', style: TextStyle(fontSize: 12)),
-            Switch(
-              key: const ValueKey('double-click-switch'),
-              value: state.doubleClick2Activate,
-              onChanged: (_) => controller.toggleDoubleClick2Activate(),
-            ),
-          ],
-        ),
+          _toolbarButton(
+            '自动列宽',
+            () => controller.emitAction('autofit-columns'),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            key: const ValueKey('column-settings-button'),
+            tooltip: '显示列设置',
+            iconSize: 18,
+            onPressed: () => showColumnSettingsDialog(context, ref),
+            icon: const Icon(Icons.view_column_outlined),
+          ),
+          const SizedBox(width: 8),
+          const Text('双击激活', style: TextStyle(fontSize: 12)),
+          Switch(
+            key: const ValueKey('double-click-switch'),
+            value: state.doubleClick2Activate,
+            onChanged: (_) => controller.toggleDoubleClick2Activate(),
+          ),
+        ],
       ),
     );
   }

@@ -580,6 +580,9 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:159
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:217
   - v2rayN/v2rayN/Views/MainWindow.xaml:63
+  - docs/evidence/T21-E.md
+  - apps/desktop/integration_test/t21e_import_test.dart
+  - apps/desktop/test/t21e_import_ux_test.dart
   implementation_location: apps/desktop/lib/app/shell/main_shell.dart
   test_ids: [t17_menu_structure_test]
   status: implemented

@@ -25,6 +25,7 @@ import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_actions.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/shared/widgets/horizontal_toolbar.dart';
 
 /// Main window shell: top menu/toolbar, three grid layouts, bottom status bar.
 /// Mirrors compat/layouts.yaml LAY-MAIN-001/002/003 and LAY-MAIN-004.
@@ -412,8 +413,7 @@ class _MenuToolbarBar extends ConsumerWidget {
       child: Row(
         children: <Widget>[
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+            child: HorizontalToolbar(
               child: MenuBar(
                 children: <Widget>[
                   for (final group in mainMenuModel) _topLevel(group),

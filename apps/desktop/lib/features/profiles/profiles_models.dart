@@ -10,7 +10,9 @@ class ProfileColumn {
     required this.numeric,
     required this.display,
     this.visible = true,
-  });
+    this.flexible = false,
+    double? minWidth,
+  }) : minWidth = minWidth ?? width;
 
   final String key;
   final String title;
@@ -21,6 +23,13 @@ class ProfileColumn {
   /// Column visibility, persisted through `ui_state.json` (LAY-PROFILES-003).
   final bool visible;
 
+  /// Key columns absorb the remaining viewport width before the table starts
+  /// scrolling horizontally; non-flexible columns keep their fixed width.
+  final bool flexible;
+
+  /// Lower bound used when the viewport cannot fit every column.
+  final double minWidth;
+
   ProfileColumn copyWith({
     String? key,
     String? title,
@@ -28,6 +37,8 @@ class ProfileColumn {
     bool? numeric,
     String Function(ProfileSummary row)? display,
     bool? visible,
+    bool? flexible,
+    double? minWidth,
   }) {
     return ProfileColumn(
       key: key ?? this.key,
@@ -36,8 +47,48 @@ class ProfileColumn {
       numeric: numeric ?? this.numeric,
       display: display ?? this.display,
       visible: visible ?? this.visible,
+      flexible: flexible ?? this.flexible,
+      minWidth: minWidth ?? this.minWidth,
     );
   }
+}
+
+/// Final column widths for [available] logical pixels of table viewport
+/// (including the row-handle gutter is the caller's `fixedChrome`).
+///
+/// Key (flexible) columns grow to absorb spare width and shrink toward their
+/// `minWidth`; when even the minimums cannot fit, the returned total exceeds
+/// `available` and the table scrolls horizontally instead of clipping.
+List<double> fittedColumnWidths(
+  List<ProfileColumn> columns,
+  double available, {
+  double fixedChrome = 0,
+}) {
+  if (columns.isEmpty) return const <double>[];
+  final flexCount = columns.where((c) => c.flexible).length;
+  final availableForColumns = available - fixedChrome;
+  final baseTotal = columns.fold<double>(0, (sum, c) => sum + c.width);
+  if (flexCount == 0) {
+    return <double>[for (final c in columns) c.width];
+  }
+  final minTotal = columns.fold<double>(
+    0,
+    (sum, c) => sum + (c.flexible ? c.minWidth : c.width),
+  );
+  if (availableForColumns <= minTotal || baseTotal <= minTotal) {
+    return <double>[for (final c in columns) c.flexible ? c.minWidth : c.width];
+  }
+  if (availableForColumns >= baseTotal) {
+    final per = (availableForColumns - baseTotal) / flexCount;
+    return <double>[
+      for (final c in columns) c.flexible ? c.width + per : c.width,
+    ];
+  }
+  final ratio = (availableForColumns - minTotal) / (baseTotal - minTotal);
+  return <double>[
+    for (final c in columns)
+      c.flexible ? c.minWidth + (c.width - c.minWidth) * ratio : c.width,
+  ];
 }
 
 /// Default column set and widths from LAY-PROFILES-002.
@@ -55,6 +106,8 @@ List<ProfileColumn> defaultProfileColumns() => const <ProfileColumn>[
     width: 150,
     numeric: false,
     display: _remarksLabel,
+    flexible: true,
+    minWidth: 120,
   ),
   ProfileColumn(
     key: 'Address',
@@ -62,6 +115,8 @@ List<ProfileColumn> defaultProfileColumns() => const <ProfileColumn>[
     width: 120,
     numeric: false,
     display: _addressLabel,
+    flexible: true,
+    minWidth: 100,
   ),
   ProfileColumn(
     key: 'Port',
@@ -90,6 +145,8 @@ List<ProfileColumn> defaultProfileColumns() => const <ProfileColumn>[
     width: 100,
     numeric: false,
     display: _subRemarksLabel,
+    flexible: true,
+    minWidth: 90,
   ),
   ProfileColumn(
     key: 'DelayVal',

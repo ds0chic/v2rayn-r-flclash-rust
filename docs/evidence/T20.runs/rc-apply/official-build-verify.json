@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "checked_at_utc": "2026-10-02T02:58:01.9018703Z",
+  "zip": "v2rayN-R-1.0.0+1-windows-x64.zip",
+  "build_info_git_commit": "6091dd1112f0ac53fa7ecdf227bd730d0f4a1331",
+  "build_info_git_commit_short": "6091dd1",
+  "build_info_git_dirty": false,
+  "build_info_smoke_armed": null,
+  "sha256sums_declared": "8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3",
+  "sha256sums_file": "8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3  v2rayN-R-1.0.0+1-windows-x64.zip",
+  "recomputed_sha256": "8e01647b29cde0f26ad598498a7e4360ae5941a6f2d3918e482520b4d6046ec3",
+  "match": true,
+  "expected_head": "6091dd1112f0ac53fa7ecdf227bd730d0f4a1331",
+  "head_match": true,
+  "member_manifest_sha256": "2d63ff9ad3775ca004fc2546c9267a6618d85f6185690e886315c9753029cd96",
+  "build_info_has_smoke_armed": false
+}

@@ -15,6 +15,12 @@
 
   Re-runnable: the destination directory and zip are removed and rebuilt.
 
+  -SmokeArmed builds the evidence-only variant used by the T20/F-02/F-03
+  packaged smoke: `flutter build windows --release --dart-define=
+  V2RAYN_R_SMOKE_ARMED=true`. The default (no switch) is the official release
+  package and never sets the arming define. Armed artifacts go to
+  dist/evidence-armed/ and are never mixed with the official dist/ package.
+
 .NOTES
   Do not touch 127.0.0.1:10808 or the host system proxy. This script only
   builds and copies files.
@@ -24,6 +30,7 @@ param(
   [string]$Version = '',
   [switch]$SkipBuild,
   [switch]$SkipFlutter,
+  [switch]$SmokeArmed,
   [switch]$KeepStage
 )
 
@@ -34,6 +41,9 @@ $AppDir = Join-Path $RepoRoot 'apps\desktop'
 $ReleaseDir = Join-Path $AppDir 'build\windows\x64\runner\Release'
 $TargetRelease = Join-Path $RepoRoot 'target\release'
 $DistDir = Join-Path $RepoRoot 'dist'
+# Armed evidence builds are isolated so they can never overwrite the official
+# release package, build-info.json or SHA256SUMS under dist/.
+$OutRoot = if ($SmokeArmed) { Join-Path $DistDir 'evidence-armed' } else { $DistDir }
 
 function Invoke-Step {
   param([string]$Label, [scriptblock]$Body)
@@ -84,8 +94,8 @@ if ($Version -match '^(.+)\+(.+)$') {
 }
 
 $pkgName = "v2rayN-R-$Version-windows-x64"
-$stageDir = Join-Path $DistDir $pkgName
-$zipPath = Join-Path $DistDir "$pkgName.zip"
+$stageDir = Join-Path $OutRoot $pkgName
+$zipPath = Join-Path $OutRoot "$pkgName.zip"
 
 Push-Location $RepoRoot
 $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -96,9 +106,11 @@ try {
     }
   }
   if (-not $SkipFlutter) {
-    Invoke-Step 'flutter build windows --release' {
+    $flutterArgs = @('build', 'windows', '--release')
+    if ($SmokeArmed) { $flutterArgs += '--dart-define=V2RAYN_R_SMOKE_ARMED=true' }
+    Invoke-Step "flutter $($flutterArgs -join ' ')" {
       Push-Location $AppDir
-      try { & flutter build windows --release } finally { Pop-Location }
+      try { & flutter @flutterArgs } finally { Pop-Location }
     }
   }
 
@@ -154,6 +166,7 @@ try {
     target_platform = 'windows-x64'
     target_triple  = 'x86_64-pc-windows-msvc'
     build_time_utc = $buildTime
+    smoke_armed    = [bool]$SmokeArmed
     toolchain      = [ordered]@{
       flutter   = (Get-Content (Join-Path $AppDir '.dart_tool\version') -ErrorAction SilentlyContinue)
       dart      = Get-ToolVersion 'dart' @('--version') -Pattern 'Dart'
@@ -164,8 +177,8 @@ try {
     cores_policy   = 'not_bundled; downloaded at runtime, pinned by tools/cores/cores.lock.json'
   }
   $buildInfoJson = $buildInfo | ConvertTo-Json -Depth 5
-  if (-not (Test-Path -LiteralPath $DistDir)) { New-Item -ItemType Directory -Path $DistDir -Force | Out-Null }
-  Set-Content -LiteralPath (Join-Path $DistDir 'build-info.json') -Value $buildInfoJson -Encoding UTF8
+  if (-not (Test-Path -LiteralPath $OutRoot)) { New-Item -ItemType Directory -Path $OutRoot -Force | Out-Null }
+  Set-Content -LiteralPath (Join-Path $OutRoot 'build-info.json') -Value $buildInfoJson -Encoding UTF8
   Set-Content -LiteralPath (Join-Path $stageDir 'build-info.json') -Value $buildInfoJson -Encoding UTF8
 
   $coreNote = @"
@@ -181,7 +194,7 @@ testing offline. Xray-core and sing-box remain under their own licenses.
   Compress-Archive -LiteralPath $stageDir -DestinationPath $zipPath -CompressionLevel Optimal -Force
 
   $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-  Set-Content -LiteralPath (Join-Path $DistDir 'SHA256SUMS') -Value "$hash  $(Split-Path -Leaf $zipPath)" -Encoding ASCII
+  Set-Content -LiteralPath (Join-Path $OutRoot 'SHA256SUMS') -Value "$hash  $(Split-Path -Leaf $zipPath)" -Encoding ASCII
 
   $sw.Stop()
   Write-Host ""
@@ -189,8 +202,9 @@ testing offline. Xray-core and sing-box remain under their own licenses.
   Write-Host "STAGE    $stageDir"
   Write-Host "ZIP      $zipPath"
   Write-Host "SHA256   $hash"
+  Write-Host "ARMED    $([bool]$SmokeArmed)"
   Write-Host "ELAPSED  $([math]::Round($sw.Elapsed.TotalSeconds,1))s"
-  Write-Host "T20_BUILD_OK version=$Version zip=$zipPath sha256=$hash"
+  Write-Host "T20_BUILD_OK version=$Version armed=$([bool]$SmokeArmed) zip=$zipPath sha256=$hash"
 }
 finally {
   Pop-Location

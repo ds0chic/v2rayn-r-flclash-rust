@@ -1,0 +1,115 @@
+{
+  "schema": 1,
+  "method": "tools/release/capture_rc_apply.ps1",
+  "zip": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\evidence-armed\\v2rayN-R-1.0.0+1-windows-x64.zip",
+  "armed": true,
+  "core": {
+    "source": "developer-local tools/cores (not bundled in package)",
+    "xray_bin": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\cores\\xray\\v26.3.27\\xray.exe",
+    "xray_sha256": "15c2d007954ac53ba69b80ec91242786b3c0b71d52649165b4ca1d5cc96ef8f1"
+  },
+  "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e\\data",
+  "run_root": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e\\run",
+  "port": 11808,
+  "app": {
+    "pid": 40840,
+    "name": "v2rayn_desktop",
+    "start_time_utc": "2026-10-02T02:54:19.4226102Z"
+  },
+  "live": {
+    "observed_at_utc": "2026-10-02T02:54:25.5652720Z",
+    "session_id": "s-1790909660878-2",
+    "port_11808_listening": true,
+    "journal": {
+      "session_id": "s-1790909660878-2",
+      "plan_id": "rt-Xray-t18b-node-2",
+      "desired_revision": 2,
+      "config_sha256": "3c168c4db2fa943570d1a8051bb7fed8b07c8dcf4a2a356973285daeeccd8674",
+      "stage": "applied",
+      "pid": 40404,
+      "created_at_ms": 1790909660883,
+      "port": 11808,
+      "updated_at_ms": 1790909661407
+    },
+    "descendants": [
+      {
+        "pid": 41296,
+        "name": "net_host",
+        "start_time_utc": "2026-10-02T02:54:20.7320367Z"
+      },
+      {
+        "pid": 40788,
+        "name": "conhost",
+        "start_time_utc": "2026-10-02T02:54:20.7478872Z"
+      },
+      {
+        "pid": 40404,
+        "name": "xray",
+        "start_time_utc": "2026-10-02T02:54:20.8839493Z"
+      },
+      {
+        "pid": 41084,
+        "name": "conhost",
+        "start_time_utc": "2026-10-02T02:54:20.8972181Z"
+      }
+    ],
+    "core_descendant": true,
+    "net_host_descendant": true
+  },
+  "finalized": {
+    "session_id": "s-1790909660878-2",
+    "journal": {
+      "session_id": "s-1790909660878-2",
+      "plan_id": "rt-Xray-t18b-node-2",
+      "desired_revision": 2,
+      "config_sha256": "3c168c4db2fa943570d1a8051bb7fed8b07c8dcf4a2a356973285daeeccd8674",
+      "stage": "finalized",
+      "pid": 40404,
+      "created_at_ms": 1790909660883,
+      "port": 11808,
+      "updated_at_ms": 1790909672832
+    },
+    "config_still_present": false,
+    "core_log_still_present": false
+  },
+  "files": {
+    "live_journal": {
+      "file": "s-1790909660878-2_journal.json",
+      "bytes": 310,
+      "sha256": "b943c74728bf8c4372b77d28612f1f7dfa5c6c4ef75632b599a5861e2db65799"
+    },
+    "live_config": {
+      "file": "s-1790909660878-2_config.json",
+      "bytes": 878,
+      "sha256": "3c168c4db2fa943570d1a8051bb7fed8b07c8dcf4a2a356973285daeeccd8674"
+    },
+    "live_core_log": {
+      "file": "s-1790909660878-2_core.log",
+      "bytes": 419,
+      "sha256": "816706d15d8359f038dde336db80ff40638832dda5900d8041e3be340d684a7a"
+    },
+    "live_net_host_client_stdout": null,
+    "finalized_journal": {
+      "file": "s-1790909660878-2_journal.json",
+      "bytes": 312,
+      "sha256": "abc3729dbfdd9c54f03452a7b9e567d039ff5816de1fcbe6f091397b0d408596"
+    }
+  },
+  "notes": [],
+  "result": "PASS: live applied journal + core.log captured; finalized journal after stop",
+  "cleanup": {
+    "stopped": 41296,
+    "self_alive_after": false
+  },
+  "env": {
+    "V2RAYN_R_XRAY_BIN": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\cores\\xray\\v26.3.27\\xray.exe",
+    "V2RAYN_R_DATA_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e\\data",
+    "V2RAYN_R_PIPE": "\\\\.\\pipe\\t20rcapply2f1363c435634248bd026584e3ecba2f",
+    "V2RAYN_R_RUN_ROOT": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e\\run",
+    "V2RAYN_R_NET_HOST": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e\\extract\\v2rayN-R-1.0.0+1-windows-x64\\net_host.exe",
+    "V2RAYN_R_AUTO_SMOKE": "1"
+  },
+  "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T20.runs\\rc-apply\\rc-apply-applied-running.png",
+  "port_11808_after": false,
+  "work_root": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_rcapply_d68f1de906174a3cb60ed2ecb93d616e"
+}

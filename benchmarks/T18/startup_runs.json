@@ -1,0 +1,72 @@
+{
+  "iterations": 10,
+  "rows": 1000,
+  "method": "process launch -> first_frame marker file and in-process main()->first_frame",
+  "samples_ok": 10,
+  "launch_p50_ms": 1202.01,
+  "launch_p95_ms": 1272.42,
+  "internal_p50_ms": 74.572,
+  "internal_p95_ms": 111.841,
+  "runs": [
+    {
+      "iteration": 1,
+      "marker": true,
+      "launch_to_marker_ms": 1272.42,
+      "main_to_first_frame_ms": 111.841
+    },
+    {
+      "iteration": 2,
+      "marker": true,
+      "launch_to_marker_ms": 1205.42,
+      "main_to_first_frame_ms": 73.03
+    },
+    {
+      "iteration": 3,
+      "marker": true,
+      "launch_to_marker_ms": 1213.22,
+      "main_to_first_frame_ms": 74.604
+    },
+    {
+      "iteration": 4,
+      "marker": true,
+      "launch_to_marker_ms": 1202.01,
+      "main_to_first_frame_ms": 76.666
+    },
+    {
+      "iteration": 5,
+      "marker": true,
+      "launch_to_marker_ms": 1197.26,
+      "main_to_first_frame_ms": 71.216
+    },
+    {
+      "iteration": 6,
+      "marker": true,
+      "launch_to_marker_ms": 1207.86,
+      "main_to_first_frame_ms": 74.572
+    },
+    {
+      "iteration": 7,
+      "marker": true,
+      "launch_to_marker_ms": 1200.58,
+      "main_to_first_frame_ms": 81.631
+    },
+    {
+      "iteration": 8,
+      "marker": true,
+      "launch_to_marker_ms": 1192.73,
+      "main_to_first_frame_ms": 72.86
+    },
+    {
+      "iteration": 9,
+      "marker": true,
+      "launch_to_marker_ms": 1205.93,
+      "main_to_first_frame_ms": 74.675
+    },
+    {
+      "iteration": 10,
+      "marker": true,
+      "launch_to_marker_ms": 1197.05,
+      "main_to_first_frame_ms": 71.674
+    }
+  ]
+}

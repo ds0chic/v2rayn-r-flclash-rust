@@ -46,6 +46,13 @@ pub fn process_creation_time_ms(pid: u32) -> Option<i64> {
         let result = GetProcessTimes(handle, &mut creation, &mut exit, &mut kernel, &mut user);
         let _ = CloseHandle(handle);
         result.ok()?;
+        // A process that has already exited still reports its creation time
+        // while any handle/Job keeps the kernel object alive. Treat it as gone:
+        // otherwise recovery races a process that is mid-exit and leaves the
+        // journal at `applied` forever.
+        if exit.dwLowDateTime != 0 || exit.dwHighDateTime != 0 {
+            return None;
+        }
         Some(filetime_to_unix_ms(&creation))
     }
 }
@@ -115,5 +122,32 @@ mod tests {
     fn a_bogus_identity_does_not_match() {
         let bogus = ProcessIdentity::new(0xFFFF_FFF0, 1);
         assert!(!matches_identity(&bogus));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn an_exited_process_is_not_a_live_identity() {
+        // `spawn` keeps the child handle open until the `Child` is dropped, so
+        // after `wait` the kernel object (and its creation time) still exists.
+        // It must nevertheless read as "gone" for recovery purposes.
+        let mut child = std::process::Command::new("cmd")
+            .args(["/c", "exit", "0"])
+            .spawn()
+            .expect("spawn child");
+        let pid = child.id();
+        let created = process_creation_time_ms(pid);
+        child.wait().expect("wait child");
+        assert!(
+            created.is_some(),
+            "running child should expose a creation time"
+        );
+        assert!(
+            process_creation_time_ms(pid).is_none(),
+            "exited child must not read as alive"
+        );
+        assert!(!matches_identity(&ProcessIdentity::new(
+            pid,
+            created.unwrap()
+        )));
     }
 }

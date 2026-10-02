@@ -6683,3 +6683,10 @@ items:
   unresolved: []
   notes: null
   status: implemented
+
+# --- T18 append (2026-10-02): 设置生效链精简核对（不修改上方条目） ---
+# 证据: docs/evidence/T18.md §5；决策: docs/decisions/T18-findings.md
+# codegen_verified (9): FLD-CFG-037/027/095/098/099/114/120/123 + Inbound.UdpEnabled 断言
+# unwired: FLD-CFG-036 (Inbound.Protocol 恒 mixed), FLD-CFG-102 (EnableLegacyProtect 无映射)
+# 全局未决 T18-F03: 生产 apply_runtime 硬编码冒烟配置，所有 codegen 字段“运行时消费”未接线
+

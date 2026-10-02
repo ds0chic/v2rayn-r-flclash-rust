@@ -2,29 +2,30 @@
   "case": "c-client-kill",
   "status": "passed",
   "timeline": [
-    "01:20:18.665 net_host pid=39136 ready=True grace=3000ms",
-    "01:20:18.989 apply-exit exit=0 completed=True",
-    "01:20:22.750 xray pid=39304 gone after client disconnect (lease reclaim)",
-    "01:20:22.773 snapshot state=stopped",
-    "01:20:22.773 PASS",
-    "01:20:22.774 cleanup net_host pid=39136"
+    "08:24:57.490 net_host pid=7216 ready=True grace=3000ms",
+    "08:24:57.818 apply-exit exit=0 completed=True",
+    "08:25:01.454 xray pid=34480 gone after client disconnect (lease reclaim)",
+    "08:25:01.473 snapshot state=stopped",
+    "08:25:01.473 PASS",
+    "08:25:01.474 cleanup net_host pid=7216"
   ],
   "extra": {
     "xray_exit_seen": true,
+    "snapshot_state": "stopped",
+    "xray_pid": 34480,
     "detail": {
       "state": "running",
       "applied_revision": 1,
-      "pid": 39304,
-      "created_at_ms": 1790875218683,
+      "pid": 34480,
+      "created_at_ms": 1790900697507,
       "ports": [
         11808
       ],
-      "session_id": "s-1790875218679-2",
+      "session_id": "s-1790900697502-2",
       "config_sha256": "9da10a2ece14b0a5b55363557d05e97fb1c755fce9e29d86f10e847640c776b3",
-      "operation_id": "op-1790875218679-1",
-      "error": null
-    },
-    "xray_pid": 39304,
-    "snapshot_state": "stopped"
+      "operation_id": "op-1790900697502-1",
+      "error": null,
+      "tun": null
+    }
   }
 }

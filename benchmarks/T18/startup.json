@@ -1,0 +1,9 @@
+{
+  "marker": "first_frame",
+  "scenario": "startup",
+  "rows": 1000,
+  "pid": 35268,
+  "main_epoch_us": 1790900262715469,
+  "first_frame_epoch_us": 1790900262787143,
+  "main_to_first_frame_ms": 71.674
+}

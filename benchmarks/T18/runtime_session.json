@@ -1,0 +1,11 @@
+{
+  "status": "ok",
+  "net_host_pid": 28280,
+  "xray_pid": 10772,
+  "sample_seconds": 15,
+  "net_host_rss_mb": 10.87,
+  "xray_rss_mb": 21.9,
+  "combined_cpu_seconds": 0.0,
+  "core_gone_after_stop": true,
+  "port_free_after": true
+}

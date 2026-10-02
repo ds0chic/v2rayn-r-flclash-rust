@@ -22,6 +22,9 @@ class PerfHarness {
     required ScrollController vertical,
     required int rowCount,
     int scrollSteps = 600,
+    String? outputFile,
+    double budgetMs = 16.7,
+    String label = 'S1',
   }) async {
     final samples = <Map<String, int>>[];
     void callback(List<FrameTiming> timings) {
@@ -50,13 +53,19 @@ class PerfHarness {
 
     final build = samples.map((s) => s['build_us']!).toList()..sort();
     final raster = samples.map((s) => s['raster_us']!).toList()..sort();
+    final total = samples.map((s) => s['build_us']! + s['raster_us']!).toList()
+      ..sort();
+    final budgetUs = (budgetMs * 1000).round();
+    final dropped = total.where((us) => us > budgetUs).length;
     final payload = <String, dynamic>{
+      'label': label,
       'method': 'SchedulerBinding.addTimingsCallback',
       'build_mode': kReleaseMode
           ? 'release'
           : (kProfileMode ? 'profile' : 'debug'),
       'row_count': rowCount,
       'scroll_steps': scrollSteps,
+      'budget_ms': budgetMs,
       'samples': samples,
       'summary': <String, dynamic>{
         'sample_count': samples.length,
@@ -64,18 +73,27 @@ class PerfHarness {
         'build_p95_us': _percentile(build, 95),
         'raster_p50_us': _percentile(raster, 50),
         'raster_p95_us': _percentile(raster, 95),
+        'total_p50_us': _percentile(total, 50),
+        'total_p95_us': _percentile(total, 95),
+        'dropped_frames': dropped,
+        'dropped_rate': samples.isEmpty ? 0.0 : dropped / samples.length,
       },
     };
 
+    final path = outputFile ?? _defaultPath(rowCount);
+    final file = File(path);
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(payload));
+    debugPrint(
+      'perf harness wrote $path samples=${samples.length} dropped=$dropped',
+    );
+  }
+
+  static String _defaultPath(int rowCount) {
     final dir = outputDir.isEmpty
         ? 'benchmarks${Platform.pathSeparator}T01'
         : outputDir;
-    Directory(dir).createSync(recursive: true);
-    File('$dir${Platform.pathSeparator}frame_times.json')
-        .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(payload));
-    debugPrint(
-      'T01 perf harness wrote frame_times.json samples=${samples.length}',
-    );
+    return '$dir${Platform.pathSeparator}frame_times.json';
   }
 
   static int _percentile(List<int> sorted, int percentile) {

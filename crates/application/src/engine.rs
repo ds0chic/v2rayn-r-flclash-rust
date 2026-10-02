@@ -858,6 +858,9 @@ impl AppEngine {
         let next = normalize_for_save(settings);
         validate_settings(&next)?;
         let changes = guard.settings.classified_changes(&next);
+        let previous_settings = guard.settings.clone();
+        let previous_revision = guard.revision;
+        let previous_groups = guard.group_revisions.clone();
         guard.settings = next;
         guard.revision += 1;
         for group in domain::SETTINGS_GROUPS {
@@ -868,7 +871,16 @@ impl AppEngine {
         }
         let new_revision = guard.revision;
         drop(guard);
-        self.persist_config_standalone()?;
+        // A persist failure must not leave the in-memory tree ahead of disk:
+        // roll back to the previous value so `load_settings` matches the file.
+        if let Err(error) = self.persist_config_standalone() {
+            if let Ok(mut guard) = self.settings.lock() {
+                guard.settings = previous_settings;
+                guard.revision = previous_revision;
+                guard.group_revisions = previous_groups;
+            }
+            return Err(error);
+        }
         Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
     }
 
@@ -894,12 +906,22 @@ impl AppEngine {
         let next = apply_group_patch(&guard.settings, group, patch)?;
         validate_settings(&next)?;
         let changes = guard.settings.classified_changes(&next);
+        let previous_settings = guard.settings.clone();
+        let previous_revision = guard.revision;
+        let previous_groups = guard.group_revisions.clone();
         guard.settings = next;
         guard.revision += 1;
         *guard.group_revisions.entry(group.to_string()).or_insert(0) += 1;
         let new_revision = guard.revision;
         drop(guard);
-        self.persist_config_standalone()?;
+        if let Err(error) = self.persist_config_standalone() {
+            if let Ok(mut guard) = self.settings.lock() {
+                guard.settings = previous_settings;
+                guard.revision = previous_revision;
+                guard.group_revisions = previous_groups;
+            }
+            return Err(error);
+        }
         Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
     }
 

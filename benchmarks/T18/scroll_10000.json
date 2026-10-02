@@ -1,0 +1,2417 @@
+{
+  "label": "T18",
+  "method": "SchedulerBinding.addTimingsCallback",
+  "build_mode": "release",
+  "row_count": 10000,
+  "scroll_steps": 600,
+  "budget_ms": 16.7,
+  "samples": [
+    {
+      "build_us": 14291,
+      "raster_us": 2603
+    },
+    {
+      "build_us": 11388,
+      "raster_us": 2103
+    },
+    {
+      "build_us": 16094,
+      "raster_us": 2032
+    },
+    {
+      "build_us": 9225,
+      "raster_us": 2048
+    },
+    {
+      "build_us": 11814,
+      "raster_us": 1907
+    },
+    {
+      "build_us": 11173,
+      "raster_us": 1984
+    },
+    {
+      "build_us": 11499,
+      "raster_us": 2055
+    },
+    {
+      "build_us": 12817,
+      "raster_us": 2009
+    },
+    {
+      "build_us": 8391,
+      "raster_us": 2161
+    },
+    {
+      "build_us": 10053,
+      "raster_us": 2056
+    },
+    {
+      "build_us": 13565,
+      "raster_us": 1944
+    },
+    {
+      "build_us": 13237,
+      "raster_us": 2144
+    },
+    {
+      "build_us": 16370,
+      "raster_us": 2065
+    },
+    {
+      "build_us": 11304,
+      "raster_us": 1967
+    },
+    {
+      "build_us": 9004,
+      "raster_us": 2064
+    },
+    {
+      "build_us": 14249,
+      "raster_us": 1996
+    },
+    {
+      "build_us": 11826,
+      "raster_us": 1982
+    },
+    {
+      "build_us": 17008,
+      "raster_us": 2120
+    },
+    {
+      "build_us": 11428,
+      "raster_us": 1917
+    },
+    {
+      "build_us": 13066,
+      "raster_us": 1912
+    },
+    {
+      "build_us": 13157,
+      "raster_us": 2110
+    },
+    {
+      "build_us": 13187,
+      "raster_us": 2578
+    },
+    {
+      "build_us": 9568,
+      "raster_us": 2058
+    },
+    {
+      "build_us": 8357,
+      "raster_us": 1973
+    },
+    {
+      "build_us": 12218,
+      "raster_us": 2074
+    },
+    {
+      "build_us": 13524,
+      "raster_us": 2287
+    },
+    {
+      "build_us": 13806,
+      "raster_us": 2583
+    },
+    {
+      "build_us": 11115,
+      "raster_us": 1961
+    },
+    {
+      "build_us": 8803,
+      "raster_us": 2021
+    },
+    {
+      "build_us": 13691,
+      "raster_us": 2266
+    },
+    {
+      "build_us": 11724,
+      "raster_us": 1925
+    },
+    {
+      "build_us": 11774,
+      "raster_us": 2327
+    },
+    {
+      "build_us": 11927,
+      "raster_us": 2112
+    },
+    {
+      "build_us": 10688,
+      "raster_us": 1875
+    },
+    {
+      "build_us": 17126,
+      "raster_us": 2084
+    },
+    {
+      "build_us": 12800,
+      "raster_us": 2044
+    },
+    {
+      "build_us": 8172,
+      "raster_us": 1961
+    },
+    {
+      "build_us": 9975,
+      "raster_us": 1968
+    },
+    {
+      "build_us": 11444,
+      "raster_us": 1949
+    },
+    {
+      "build_us": 14910,
+      "raster_us": 2070
+    },
+    {
+      "build_us": 22857,
+      "raster_us": 2164
+    },
+    {
+      "build_us": 11909,
+      "raster_us": 2049
+    },
+    {
+      "build_us": 14557,
+      "raster_us": 2072
+    },
+    {
+      "build_us": 15636,
+      "raster_us": 2402
+    },
+    {
+      "build_us": 20097,
+      "raster_us": 3207
+    },
+    {
+      "build_us": 22510,
+      "raster_us": 3225
+    },
+    {
+      "build_us": 18360,
+      "raster_us": 2931
+    },
+    {
+      "build_us": 20153,
+      "raster_us": 2814
+    },
+    {
+      "build_us": 17752,
+      "raster_us": 3578
+    },
+    {
+      "build_us": 19059,
+      "raster_us": 3018
+    },
+    {
+      "build_us": 21376,
+      "raster_us": 2764
+    },
+    {
+      "build_us": 15349,
+      "raster_us": 2994
+    },
+    {
+      "build_us": 12920,
+      "raster_us": 3067
+    },
+    {
+      "build_us": 9096,
+      "raster_us": 2916
+    },
+    {
+      "build_us": 15886,
+      "raster_us": 3203
+    },
+    {
+      "build_us": 9549,
+      "raster_us": 2818
+    },
+    {
+      "build_us": 14941,
+      "raster_us": 3219
+    },
+    {
+      "build_us": 14891,
+      "raster_us": 2171
+    },
+    {
+      "build_us": 18289,
+      "raster_us": 3010
+    },
+    {
+      "build_us": 21347,
+      "raster_us": 3113
+    },
+    {
+      "build_us": 13871,
+      "raster_us": 2926
+    },
+    {
+      "build_us": 18430,
+      "raster_us": 2926
+    },
+    {
+      "build_us": 14007,
+      "raster_us": 2846
+    },
+    {
+      "build_us": 20812,
+      "raster_us": 3123
+    },
+    {
+      "build_us": 15027,
+      "raster_us": 3091
+    },
+    {
+      "build_us": 14594,
+      "raster_us": 2951
+    },
+    {
+      "build_us": 14990,
+      "raster_us": 3034
+    },
+    {
+      "build_us": 8838,
+      "raster_us": 2588
+    },
+    {
+      "build_us": 17385,
+      "raster_us": 3071
+    },
+    {
+      "build_us": 10654,
+      "raster_us": 2815
+    },
+    {
+      "build_us": 17709,
+      "raster_us": 2965
+    },
+    {
+      "build_us": 14638,
+      "raster_us": 3049
+    },
+    {
+      "build_us": 18864,
+      "raster_us": 2875
+    },
+    {
+      "build_us": 11980,
+      "raster_us": 2871
+    },
+    {
+      "build_us": 10716,
+      "raster_us": 2842
+    },
+    {
+      "build_us": 15858,
+      "raster_us": 2131
+    },
+    {
+      "build_us": 16898,
+      "raster_us": 3123
+    },
+    {
+      "build_us": 21862,
+      "raster_us": 2732
+    },
+    {
+      "build_us": 15766,
+      "raster_us": 3038
+    },
+    {
+      "build_us": 13802,
+      "raster_us": 3007
+    },
+    {
+      "build_us": 14779,
+      "raster_us": 2812
+    },
+    {
+      "build_us": 18610,
+      "raster_us": 2987
+    },
+    {
+      "build_us": 13092,
+      "raster_us": 2943
+    },
+    {
+      "build_us": 14221,
+      "raster_us": 2573
+    },
+    {
+      "build_us": 13317,
+      "raster_us": 2963
+    },
+    {
+      "build_us": 18903,
+      "raster_us": 3144
+    },
+    {
+      "build_us": 21326,
+      "raster_us": 2151
+    },
+    {
+      "build_us": 13506,
+      "raster_us": 2951
+    },
+    {
+      "build_us": 12360,
+      "raster_us": 2966
+    },
+    {
+      "build_us": 20060,
+      "raster_us": 3024
+    },
+    {
+      "build_us": 12059,
+      "raster_us": 2858
+    },
+    {
+      "build_us": 12487,
+      "raster_us": 3243
+    },
+    {
+      "build_us": 12397,
+      "raster_us": 2226
+    },
+    {
+      "build_us": 21659,
+      "raster_us": 3486
+    },
+    {
+      "build_us": 14320,
+      "raster_us": 2973
+    },
+    {
+      "build_us": 9370,
+      "raster_us": 2601
+    },
+    {
+      "build_us": 10141,
+      "raster_us": 2987
+    },
+    {
+      "build_us": 18197,
+      "raster_us": 2341
+    },
+    {
+      "build_us": 13437,
+      "raster_us": 2830
+    },
+    {
+      "build_us": 14506,
+      "raster_us": 2264
+    },
+    {
+      "build_us": 18714,
+      "raster_us": 2093
+    },
+    {
+      "build_us": 14817,
+      "raster_us": 3059
+    },
+    {
+      "build_us": 9406,
+      "raster_us": 2716
+    },
+    {
+      "build_us": 17824,
+      "raster_us": 2908
+    },
+    {
+      "build_us": 11977,
+      "raster_us": 2912
+    },
+    {
+      "build_us": 22576,
+      "raster_us": 2936
+    },
+    {
+      "build_us": 13869,
+      "raster_us": 2538
+    },
+    {
+      "build_us": 15837,
+      "raster_us": 3147
+    },
+    {
+      "build_us": 19518,
+      "raster_us": 2638
+    },
+    {
+      "build_us": 13188,
+      "raster_us": 2978
+    },
+    {
+      "build_us": 12010,
+      "raster_us": 3568
+    },
+    {
+      "build_us": 11633,
+      "raster_us": 2849
+    },
+    {
+      "build_us": 14011,
+      "raster_us": 2000
+    },
+    {
+      "build_us": 10566,
+      "raster_us": 2740
+    },
+    {
+      "build_us": 13508,
+      "raster_us": 2754
+    },
+    {
+      "build_us": 9397,
+      "raster_us": 2835
+    },
+    {
+      "build_us": 8745,
+      "raster_us": 2901
+    },
+    {
+      "build_us": 15462,
+      "raster_us": 2889
+    },
+    {
+      "build_us": 15774,
+      "raster_us": 2571
+    },
+    {
+      "build_us": 17587,
+      "raster_us": 2155
+    },
+    {
+      "build_us": 12203,
+      "raster_us": 2685
+    },
+    {
+      "build_us": 9169,
+      "raster_us": 2744
+    },
+    {
+      "build_us": 18492,
+      "raster_us": 2456
+    },
+    {
+      "build_us": 13862,
+      "raster_us": 2950
+    },
+    {
+      "build_us": 19650,
+      "raster_us": 2306
+    },
+    {
+      "build_us": 11426,
+      "raster_us": 2535
+    },
+    {
+      "build_us": 12146,
+      "raster_us": 3043
+    },
+    {
+      "build_us": 21109,
+      "raster_us": 3308
+    },
+    {
+      "build_us": 22035,
+      "raster_us": 2688
+    },
+    {
+      "build_us": 14084,
+      "raster_us": 3124
+    },
+    {
+      "build_us": 18768,
+      "raster_us": 2949
+    },
+    {
+      "build_us": 15011,
+      "raster_us": 2646
+    },
+    {
+      "build_us": 11997,
+      "raster_us": 2809
+    },
+    {
+      "build_us": 19612,
+      "raster_us": 2295
+    },
+    {
+      "build_us": 16426,
+      "raster_us": 3241
+    },
+    {
+      "build_us": 16388,
+      "raster_us": 2596
+    },
+    {
+      "build_us": 20031,
+      "raster_us": 2883
+    },
+    {
+      "build_us": 21160,
+      "raster_us": 2108
+    },
+    {
+      "build_us": 19031,
+      "raster_us": 3008
+    },
+    {
+      "build_us": 13371,
+      "raster_us": 2530
+    },
+    {
+      "build_us": 11042,
+      "raster_us": 2426
+    },
+    {
+      "build_us": 12325,
+      "raster_us": 3079
+    },
+    {
+      "build_us": 13987,
+      "raster_us": 2207
+    },
+    {
+      "build_us": 14865,
+      "raster_us": 2040
+    },
+    {
+      "build_us": 18707,
+      "raster_us": 2523
+    },
+    {
+      "build_us": 11726,
+      "raster_us": 3049
+    },
+    {
+      "build_us": 14230,
+      "raster_us": 2908
+    },
+    {
+      "build_us": 20635,
+      "raster_us": 2455
+    },
+    {
+      "build_us": 9982,
+      "raster_us": 2914
+    },
+    {
+      "build_us": 21597,
+      "raster_us": 3050
+    },
+    {
+      "build_us": 13669,
+      "raster_us": 3180
+    },
+    {
+      "build_us": 16371,
+      "raster_us": 3333
+    },
+    {
+      "build_us": 16226,
+      "raster_us": 2876
+    },
+    {
+      "build_us": 11266,
+      "raster_us": 2120
+    },
+    {
+      "build_us": 9772,
+      "raster_us": 2405
+    },
+    {
+      "build_us": 13500,
+      "raster_us": 3672
+    },
+    {
+      "build_us": 17382,
+      "raster_us": 2832
+    },
+    {
+      "build_us": 13818,
+      "raster_us": 2897
+    },
+    {
+      "build_us": 11216,
+      "raster_us": 2477
+    },
+    {
+      "build_us": 16070,
+      "raster_us": 3131
+    },
+    {
+      "build_us": 14000,
+      "raster_us": 2345
+    },
+    {
+      "build_us": 20716,
+      "raster_us": 3166
+    },
+    {
+      "build_us": 14432,
+      "raster_us": 2838
+    },
+    {
+      "build_us": 13341,
+      "raster_us": 3192
+    },
+    {
+      "build_us": 20400,
+      "raster_us": 3008
+    },
+    {
+      "build_us": 13610,
+      "raster_us": 2958
+    },
+    {
+      "build_us": 12987,
+      "raster_us": 2652
+    },
+    {
+      "build_us": 12726,
+      "raster_us": 2862
+    },
+    {
+      "build_us": 14704,
+      "raster_us": 3065
+    },
+    {
+      "build_us": 19253,
+      "raster_us": 2969
+    },
+    {
+      "build_us": 13335,
+      "raster_us": 2464
+    },
+    {
+      "build_us": 9405,
+      "raster_us": 3033
+    },
+    {
+      "build_us": 9497,
+      "raster_us": 2964
+    },
+    {
+      "build_us": 12457,
+      "raster_us": 2709
+    },
+    {
+      "build_us": 14569,
+      "raster_us": 3453
+    },
+    {
+      "build_us": 16325,
+      "raster_us": 2900
+    },
+    {
+      "build_us": 15131,
+      "raster_us": 2987
+    },
+    {
+      "build_us": 9752,
+      "raster_us": 2687
+    },
+    {
+      "build_us": 15881,
+      "raster_us": 2824
+    },
+    {
+      "build_us": 13274,
+      "raster_us": 2951
+    },
+    {
+      "build_us": 20915,
+      "raster_us": 3276
+    },
+    {
+      "build_us": 11703,
+      "raster_us": 2900
+    },
+    {
+      "build_us": 12557,
+      "raster_us": 3270
+    },
+    {
+      "build_us": 19304,
+      "raster_us": 3291
+    },
+    {
+      "build_us": 13248,
+      "raster_us": 3015
+    },
+    {
+      "build_us": 17301,
+      "raster_us": 2981
+    },
+    {
+      "build_us": 15019,
+      "raster_us": 2746
+    },
+    {
+      "build_us": 12784,
+      "raster_us": 3207
+    },
+    {
+      "build_us": 12333,
+      "raster_us": 2535
+    },
+    {
+      "build_us": 9292,
+      "raster_us": 3032
+    },
+    {
+      "build_us": 11435,
+      "raster_us": 3068
+    },
+    {
+      "build_us": 13564,
+      "raster_us": 3046
+    },
+    {
+      "build_us": 23505,
+      "raster_us": 3469
+    },
+    {
+      "build_us": 22264,
+      "raster_us": 2242
+    },
+    {
+      "build_us": 21402,
+      "raster_us": 2571
+    },
+    {
+      "build_us": 13568,
+      "raster_us": 3085
+    },
+    {
+      "build_us": 9622,
+      "raster_us": 2372
+    },
+    {
+      "build_us": 12761,
+      "raster_us": 2773
+    },
+    {
+      "build_us": 12529,
+      "raster_us": 2940
+    },
+    {
+      "build_us": 12215,
+      "raster_us": 2824
+    },
+    {
+      "build_us": 12436,
+      "raster_us": 2950
+    },
+    {
+      "build_us": 12214,
+      "raster_us": 2768
+    },
+    {
+      "build_us": 13229,
+      "raster_us": 2289
+    },
+    {
+      "build_us": 12182,
+      "raster_us": 2842
+    },
+    {
+      "build_us": 13645,
+      "raster_us": 2665
+    },
+    {
+      "build_us": 15945,
+      "raster_us": 2531
+    },
+    {
+      "build_us": 20966,
+      "raster_us": 3165
+    },
+    {
+      "build_us": 14265,
+      "raster_us": 2909
+    },
+    {
+      "build_us": 14608,
+      "raster_us": 2818
+    },
+    {
+      "build_us": 13733,
+      "raster_us": 2370
+    },
+    {
+      "build_us": 9162,
+      "raster_us": 2790
+    },
+    {
+      "build_us": 15546,
+      "raster_us": 2795
+    },
+    {
+      "build_us": 12656,
+      "raster_us": 3043
+    },
+    {
+      "build_us": 25245,
+      "raster_us": 3429
+    },
+    {
+      "build_us": 14069,
+      "raster_us": 2927
+    },
+    {
+      "build_us": 21122,
+      "raster_us": 3038
+    },
+    {
+      "build_us": 13907,
+      "raster_us": 3149
+    },
+    {
+      "build_us": 19951,
+      "raster_us": 3110
+    },
+    {
+      "build_us": 20557,
+      "raster_us": 3024
+    },
+    {
+      "build_us": 15964,
+      "raster_us": 3055
+    },
+    {
+      "build_us": 16908,
+      "raster_us": 2923
+    },
+    {
+      "build_us": 24025,
+      "raster_us": 3089
+    },
+    {
+      "build_us": 14266,
+      "raster_us": 2489
+    },
+    {
+      "build_us": 18595,
+      "raster_us": 2553
+    },
+    {
+      "build_us": 21199,
+      "raster_us": 2377
+    },
+    {
+      "build_us": 21783,
+      "raster_us": 3100
+    },
+    {
+      "build_us": 20956,
+      "raster_us": 2275
+    },
+    {
+      "build_us": 18766,
+      "raster_us": 2454
+    },
+    {
+      "build_us": 16344,
+      "raster_us": 2165
+    },
+    {
+      "build_us": 12352,
+      "raster_us": 2611
+    },
+    {
+      "build_us": 14993,
+      "raster_us": 2059
+    },
+    {
+      "build_us": 14233,
+      "raster_us": 2721
+    },
+    {
+      "build_us": 14655,
+      "raster_us": 2911
+    },
+    {
+      "build_us": 13586,
+      "raster_us": 2082
+    },
+    {
+      "build_us": 11970,
+      "raster_us": 2947
+    },
+    {
+      "build_us": 21105,
+      "raster_us": 2949
+    },
+    {
+      "build_us": 14515,
+      "raster_us": 2956
+    },
+    {
+      "build_us": 9927,
+      "raster_us": 3000
+    },
+    {
+      "build_us": 12883,
+      "raster_us": 3195
+    },
+    {
+      "build_us": 12464,
+      "raster_us": 2957
+    },
+    {
+      "build_us": 11643,
+      "raster_us": 2559
+    },
+    {
+      "build_us": 9859,
+      "raster_us": 2063
+    },
+    {
+      "build_us": 9726,
+      "raster_us": 2938
+    },
+    {
+      "build_us": 12713,
+      "raster_us": 2584
+    },
+    {
+      "build_us": 13407,
+      "raster_us": 2424
+    },
+    {
+      "build_us": 18536,
+      "raster_us": 3275
+    },
+    {
+      "build_us": 20628,
+      "raster_us": 2811
+    },
+    {
+      "build_us": 15383,
+      "raster_us": 2677
+    },
+    {
+      "build_us": 18199,
+      "raster_us": 2988
+    },
+    {
+      "build_us": 12428,
+      "raster_us": 2779
+    },
+    {
+      "build_us": 19486,
+      "raster_us": 2819
+    },
+    {
+      "build_us": 19718,
+      "raster_us": 2483
+    },
+    {
+      "build_us": 12268,
+      "raster_us": 2835
+    },
+    {
+      "build_us": 12879,
+      "raster_us": 2976
+    },
+    {
+      "build_us": 15796,
+      "raster_us": 3073
+    },
+    {
+      "build_us": 12054,
+      "raster_us": 3198
+    },
+    {
+      "build_us": 12097,
+      "raster_us": 3160
+    },
+    {
+      "build_us": 14207,
+      "raster_us": 3111
+    },
+    {
+      "build_us": 16758,
+      "raster_us": 3203
+    },
+    {
+      "build_us": 10278,
+      "raster_us": 3059
+    },
+    {
+      "build_us": 18292,
+      "raster_us": 4293
+    },
+    {
+      "build_us": 10345,
+      "raster_us": 3006
+    },
+    {
+      "build_us": 17401,
+      "raster_us": 2247
+    },
+    {
+      "build_us": 12859,
+      "raster_us": 2002
+    },
+    {
+      "build_us": 17210,
+      "raster_us": 2628
+    },
+    {
+      "build_us": 18495,
+      "raster_us": 2966
+    },
+    {
+      "build_us": 17786,
+      "raster_us": 2262
+    },
+    {
+      "build_us": 9818,
+      "raster_us": 2711
+    },
+    {
+      "build_us": 17518,
+      "raster_us": 3025
+    },
+    {
+      "build_us": 12670,
+      "raster_us": 3099
+    },
+    {
+      "build_us": 20858,
+      "raster_us": 3094
+    },
+    {
+      "build_us": 12828,
+      "raster_us": 2496
+    },
+    {
+      "build_us": 13055,
+      "raster_us": 2044
+    },
+    {
+      "build_us": 18513,
+      "raster_us": 2822
+    },
+    {
+      "build_us": 15440,
+      "raster_us": 2901
+    },
+    {
+      "build_us": 12938,
+      "raster_us": 2913
+    },
+    {
+      "build_us": 13704,
+      "raster_us": 2113
+    },
+    {
+      "build_us": 12701,
+      "raster_us": 3020
+    },
+    {
+      "build_us": 10363,
+      "raster_us": 3210
+    },
+    {
+      "build_us": 13894,
+      "raster_us": 2967
+    },
+    {
+      "build_us": 10246,
+      "raster_us": 2925
+    },
+    {
+      "build_us": 9044,
+      "raster_us": 2871
+    },
+    {
+      "build_us": 11052,
+      "raster_us": 2695
+    },
+    {
+      "build_us": 12340,
+      "raster_us": 3083
+    },
+    {
+      "build_us": 17497,
+      "raster_us": 3020
+    },
+    {
+      "build_us": 12634,
+      "raster_us": 2940
+    },
+    {
+      "build_us": 8928,
+      "raster_us": 2620
+    },
+    {
+      "build_us": 16716,
+      "raster_us": 2765
+    },
+    {
+      "build_us": 13328,
+      "raster_us": 3038
+    },
+    {
+      "build_us": 20110,
+      "raster_us": 3023
+    },
+    {
+      "build_us": 12311,
+      "raster_us": 2887
+    },
+    {
+      "build_us": 13280,
+      "raster_us": 2925
+    },
+    {
+      "build_us": 19540,
+      "raster_us": 2795
+    },
+    {
+      "build_us": 12996,
+      "raster_us": 2982
+    },
+    {
+      "build_us": 10459,
+      "raster_us": 2946
+    },
+    {
+      "build_us": 13865,
+      "raster_us": 3315
+    },
+    {
+      "build_us": 11965,
+      "raster_us": 3002
+    },
+    {
+      "build_us": 14462,
+      "raster_us": 2276
+    },
+    {
+      "build_us": 14661,
+      "raster_us": 2736
+    },
+    {
+      "build_us": 8424,
+      "raster_us": 2540
+    },
+    {
+      "build_us": 15379,
+      "raster_us": 3118
+    },
+    {
+      "build_us": 12817,
+      "raster_us": 3161
+    },
+    {
+      "build_us": 20554,
+      "raster_us": 2907
+    },
+    {
+      "build_us": 23499,
+      "raster_us": 3040
+    },
+    {
+      "build_us": 15574,
+      "raster_us": 3386
+    },
+    {
+      "build_us": 14117,
+      "raster_us": 2387
+    },
+    {
+      "build_us": 13949,
+      "raster_us": 2991
+    },
+    {
+      "build_us": 20040,
+      "raster_us": 2427
+    },
+    {
+      "build_us": 19568,
+      "raster_us": 3168
+    },
+    {
+      "build_us": 15534,
+      "raster_us": 2832
+    },
+    {
+      "build_us": 18075,
+      "raster_us": 3125
+    },
+    {
+      "build_us": 21219,
+      "raster_us": 2583
+    },
+    {
+      "build_us": 19981,
+      "raster_us": 3074
+    },
+    {
+      "build_us": 12910,
+      "raster_us": 3114
+    },
+    {
+      "build_us": 12848,
+      "raster_us": 2536
+    },
+    {
+      "build_us": 15136,
+      "raster_us": 1904
+    },
+    {
+      "build_us": 15687,
+      "raster_us": 3760
+    },
+    {
+      "build_us": 27410,
+      "raster_us": 3055
+    },
+    {
+      "build_us": 11356,
+      "raster_us": 2785
+    },
+    {
+      "build_us": 9949,
+      "raster_us": 2861
+    },
+    {
+      "build_us": 18724,
+      "raster_us": 2227
+    },
+    {
+      "build_us": 20031,
+      "raster_us": 2657
+    },
+    {
+      "build_us": 13747,
+      "raster_us": 2305
+    },
+    {
+      "build_us": 14399,
+      "raster_us": 2689
+    },
+    {
+      "build_us": 14871,
+      "raster_us": 3095
+    },
+    {
+      "build_us": 15559,
+      "raster_us": 2909
+    },
+    {
+      "build_us": 20026,
+      "raster_us": 3124
+    },
+    {
+      "build_us": 13936,
+      "raster_us": 2136
+    },
+    {
+      "build_us": 13778,
+      "raster_us": 2894
+    },
+    {
+      "build_us": 17775,
+      "raster_us": 2432
+    },
+    {
+      "build_us": 12717,
+      "raster_us": 2815
+    },
+    {
+      "build_us": 10674,
+      "raster_us": 2780
+    },
+    {
+      "build_us": 12320,
+      "raster_us": 2839
+    },
+    {
+      "build_us": 15508,
+      "raster_us": 2655
+    },
+    {
+      "build_us": 10089,
+      "raster_us": 2949
+    },
+    {
+      "build_us": 13365,
+      "raster_us": 2809
+    },
+    {
+      "build_us": 9063,
+      "raster_us": 2855
+    },
+    {
+      "build_us": 10777,
+      "raster_us": 2136
+    },
+    {
+      "build_us": 12656,
+      "raster_us": 2595
+    },
+    {
+      "build_us": 17133,
+      "raster_us": 3068
+    },
+    {
+      "build_us": 18185,
+      "raster_us": 2065
+    },
+    {
+      "build_us": 13556,
+      "raster_us": 2438
+    },
+    {
+      "build_us": 9117,
+      "raster_us": 2366
+    },
+    {
+      "build_us": 14719,
+      "raster_us": 2659
+    },
+    {
+      "build_us": 13906,
+      "raster_us": 2998
+    },
+    {
+      "build_us": 21881,
+      "raster_us": 3372
+    },
+    {
+      "build_us": 13517,
+      "raster_us": 2284
+    },
+    {
+      "build_us": 13386,
+      "raster_us": 3055
+    },
+    {
+      "build_us": 18152,
+      "raster_us": 2923
+    },
+    {
+      "build_us": 12155,
+      "raster_us": 2854
+    },
+    {
+      "build_us": 10211,
+      "raster_us": 2958
+    },
+    {
+      "build_us": 11591,
+      "raster_us": 2475
+    },
+    {
+      "build_us": 15289,
+      "raster_us": 2921
+    },
+    {
+      "build_us": 11550,
+      "raster_us": 3140
+    },
+    {
+      "build_us": 14673,
+      "raster_us": 2797
+    },
+    {
+      "build_us": 10685,
+      "raster_us": 2534
+    },
+    {
+      "build_us": 10047,
+      "raster_us": 2111
+    },
+    {
+      "build_us": 11536,
+      "raster_us": 3258
+    },
+    {
+      "build_us": 16729,
+      "raster_us": 3040
+    },
+    {
+      "build_us": 27004,
+      "raster_us": 2222
+    },
+    {
+      "build_us": 15950,
+      "raster_us": 2960
+    },
+    {
+      "build_us": 14495,
+      "raster_us": 2590
+    },
+    {
+      "build_us": 14975,
+      "raster_us": 2959
+    },
+    {
+      "build_us": 16270,
+      "raster_us": 2947
+    },
+    {
+      "build_us": 20169,
+      "raster_us": 3116
+    },
+    {
+      "build_us": 12546,
+      "raster_us": 2172
+    },
+    {
+      "build_us": 19754,
+      "raster_us": 3040
+    },
+    {
+      "build_us": 14796,
+      "raster_us": 2146
+    },
+    {
+      "build_us": 21532,
+      "raster_us": 2936
+    },
+    {
+      "build_us": 10750,
+      "raster_us": 3065
+    },
+    {
+      "build_us": 14271,
+      "raster_us": 2099
+    },
+    {
+      "build_us": 12556,
+      "raster_us": 3264
+    },
+    {
+      "build_us": 12054,
+      "raster_us": 3283
+    },
+    {
+      "build_us": 19803,
+      "raster_us": 2884
+    },
+    {
+      "build_us": 12256,
+      "raster_us": 2974
+    },
+    {
+      "build_us": 11465,
+      "raster_us": 2937
+    },
+    {
+      "build_us": 13643,
+      "raster_us": 2875
+    },
+    {
+      "build_us": 14648,
+      "raster_us": 3079
+    },
+    {
+      "build_us": 18804,
+      "raster_us": 2341
+    },
+    {
+      "build_us": 13989,
+      "raster_us": 2861
+    },
+    {
+      "build_us": 9442,
+      "raster_us": 2180
+    },
+    {
+      "build_us": 17578,
+      "raster_us": 2135
+    },
+    {
+      "build_us": 13280,
+      "raster_us": 2748
+    },
+    {
+      "build_us": 21007,
+      "raster_us": 2609
+    },
+    {
+      "build_us": 13952,
+      "raster_us": 2174
+    },
+    {
+      "build_us": 13973,
+      "raster_us": 2945
+    },
+    {
+      "build_us": 17754,
+      "raster_us": 2934
+    },
+    {
+      "build_us": 12355,
+      "raster_us": 2489
+    },
+    {
+      "build_us": 10068,
+      "raster_us": 2970
+    },
+    {
+      "build_us": 12266,
+      "raster_us": 2038
+    },
+    {
+      "build_us": 14835,
+      "raster_us": 2646
+    },
+    {
+      "build_us": 12600,
+      "raster_us": 2914
+    },
+    {
+      "build_us": 16603,
+      "raster_us": 2572
+    },
+    {
+      "build_us": 11760,
+      "raster_us": 2456
+    },
+    {
+      "build_us": 9629,
+      "raster_us": 2861
+    },
+    {
+      "build_us": 15339,
+      "raster_us": 2857
+    },
+    {
+      "build_us": 12381,
+      "raster_us": 3213
+    },
+    {
+      "build_us": 18686,
+      "raster_us": 2594
+    },
+    {
+      "build_us": 12721,
+      "raster_us": 2943
+    },
+    {
+      "build_us": 14728,
+      "raster_us": 1936
+    },
+    {
+      "build_us": 22725,
+      "raster_us": 2469
+    },
+    {
+      "build_us": 20522,
+      "raster_us": 2768
+    },
+    {
+      "build_us": 14893,
+      "raster_us": 2090
+    },
+    {
+      "build_us": 19806,
+      "raster_us": 2147
+    },
+    {
+      "build_us": 13894,
+      "raster_us": 2971
+    },
+    {
+      "build_us": 21478,
+      "raster_us": 2571
+    },
+    {
+      "build_us": 20730,
+      "raster_us": 2504
+    },
+    {
+      "build_us": 17657,
+      "raster_us": 3041
+    },
+    {
+      "build_us": 17935,
+      "raster_us": 2966
+    },
+    {
+      "build_us": 17662,
+      "raster_us": 3089
+    },
+    {
+      "build_us": 23621,
+      "raster_us": 2703
+    },
+    {
+      "build_us": 22413,
+      "raster_us": 2977
+    },
+    {
+      "build_us": 17521,
+      "raster_us": 2147
+    },
+    {
+      "build_us": 22396,
+      "raster_us": 2940
+    },
+    {
+      "build_us": 15184,
+      "raster_us": 2253
+    },
+    {
+      "build_us": 21047,
+      "raster_us": 2940
+    },
+    {
+      "build_us": 15372,
+      "raster_us": 3161
+    },
+    {
+      "build_us": 14004,
+      "raster_us": 3019
+    },
+    {
+      "build_us": 15796,
+      "raster_us": 2852
+    },
+    {
+      "build_us": 11326,
+      "raster_us": 2883
+    },
+    {
+      "build_us": 15900,
+      "raster_us": 2963
+    },
+    {
+      "build_us": 10417,
+      "raster_us": 2826
+    },
+    {
+      "build_us": 15419,
+      "raster_us": 3109
+    },
+    {
+      "build_us": 13734,
+      "raster_us": 2916
+    },
+    {
+      "build_us": 17760,
+      "raster_us": 2388
+    },
+    {
+      "build_us": 22832,
+      "raster_us": 3719
+    },
+    {
+      "build_us": 14873,
+      "raster_us": 3374
+    },
+    {
+      "build_us": 15904,
+      "raster_us": 2801
+    },
+    {
+      "build_us": 14003,
+      "raster_us": 2971
+    },
+    {
+      "build_us": 22094,
+      "raster_us": 2226
+    },
+    {
+      "build_us": 22547,
+      "raster_us": 2101
+    },
+    {
+      "build_us": 12993,
+      "raster_us": 2878
+    },
+    {
+      "build_us": 19675,
+      "raster_us": 3369
+    },
+    {
+      "build_us": 13844,
+      "raster_us": 3027
+    },
+    {
+      "build_us": 22714,
+      "raster_us": 3094
+    },
+    {
+      "build_us": 9468,
+      "raster_us": 3176
+    },
+    {
+      "build_us": 14030,
+      "raster_us": 2988
+    },
+    {
+      "build_us": 14030,
+      "raster_us": 2892
+    },
+    {
+      "build_us": 9265,
+      "raster_us": 2165
+    },
+    {
+      "build_us": 14572,
+      "raster_us": 2875
+    },
+    {
+      "build_us": 11195,
+      "raster_us": 3147
+    },
+    {
+      "build_us": 16455,
+      "raster_us": 3138
+    },
+    {
+      "build_us": 13013,
+      "raster_us": 2953
+    },
+    {
+      "build_us": 15637,
+      "raster_us": 2271
+    },
+    {
+      "build_us": 19966,
+      "raster_us": 3028
+    },
+    {
+      "build_us": 11804,
+      "raster_us": 2881
+    },
+    {
+      "build_us": 15824,
+      "raster_us": 2753
+    },
+    {
+      "build_us": 13595,
+      "raster_us": 2605
+    },
+    {
+      "build_us": 20583,
+      "raster_us": 3079
+    },
+    {
+      "build_us": 22297,
+      "raster_us": 2073
+    },
+    {
+      "build_us": 13466,
+      "raster_us": 2848
+    },
+    {
+      "build_us": 12599,
+      "raster_us": 2472
+    },
+    {
+      "build_us": 21905,
+      "raster_us": 2872
+    },
+    {
+      "build_us": 14126,
+      "raster_us": 2547
+    },
+    {
+      "build_us": 10659,
+      "raster_us": 3073
+    },
+    {
+      "build_us": 9631,
+      "raster_us": 2034
+    },
+    {
+      "build_us": 13806,
+      "raster_us": 2921
+    },
+    {
+      "build_us": 10169,
+      "raster_us": 2900
+    },
+    {
+      "build_us": 18484,
+      "raster_us": 3121
+    },
+    {
+      "build_us": 9762,
+      "raster_us": 2674
+    },
+    {
+      "build_us": 17785,
+      "raster_us": 3028
+    },
+    {
+      "build_us": 13086,
+      "raster_us": 2891
+    },
+    {
+      "build_us": 17104,
+      "raster_us": 2652
+    },
+    {
+      "build_us": 20538,
+      "raster_us": 3142
+    },
+    {
+      "build_us": 11588,
+      "raster_us": 2852
+    },
+    {
+      "build_us": 15561,
+      "raster_us": 3061
+    },
+    {
+      "build_us": 17236,
+      "raster_us": 2301
+    },
+    {
+      "build_us": 15389,
+      "raster_us": 2953
+    },
+    {
+      "build_us": 20796,
+      "raster_us": 3087
+    },
+    {
+      "build_us": 12918,
+      "raster_us": 2859
+    },
+    {
+      "build_us": 13578,
+      "raster_us": 2928
+    },
+    {
+      "build_us": 18189,
+      "raster_us": 3002
+    },
+    {
+      "build_us": 14828,
+      "raster_us": 2636
+    },
+    {
+      "build_us": 10437,
+      "raster_us": 3003
+    },
+    {
+      "build_us": 13049,
+      "raster_us": 3362
+    },
+    {
+      "build_us": 12756,
+      "raster_us": 2969
+    },
+    {
+      "build_us": 10046,
+      "raster_us": 3040
+    },
+    {
+      "build_us": 16758,
+      "raster_us": 2579
+    },
+    {
+      "build_us": 14028,
+      "raster_us": 3087
+    },
+    {
+      "build_us": 9076,
+      "raster_us": 3124
+    },
+    {
+      "build_us": 16568,
+      "raster_us": 2767
+    },
+    {
+      "build_us": 12546,
+      "raster_us": 2864
+    },
+    {
+      "build_us": 20911,
+      "raster_us": 2443
+    },
+    {
+      "build_us": 11527,
+      "raster_us": 2749
+    },
+    {
+      "build_us": 12060,
+      "raster_us": 2939
+    },
+    {
+      "build_us": 17416,
+      "raster_us": 2808
+    },
+    {
+      "build_us": 13762,
+      "raster_us": 3208
+    },
+    {
+      "build_us": 21606,
+      "raster_us": 2382
+    },
+    {
+      "build_us": 16332,
+      "raster_us": 2431
+    },
+    {
+      "build_us": 13393,
+      "raster_us": 2882
+    },
+    {
+      "build_us": 20509,
+      "raster_us": 3055
+    },
+    {
+      "build_us": 14009,
+      "raster_us": 3008
+    },
+    {
+      "build_us": 11886,
+      "raster_us": 2285
+    },
+    {
+      "build_us": 15294,
+      "raster_us": 3376
+    },
+    {
+      "build_us": 13839,
+      "raster_us": 3091
+    },
+    {
+      "build_us": 22406,
+      "raster_us": 3224
+    },
+    {
+      "build_us": 21783,
+      "raster_us": 2987
+    },
+    {
+      "build_us": 15598,
+      "raster_us": 3189
+    },
+    {
+      "build_us": 17126,
+      "raster_us": 2699
+    },
+    {
+      "build_us": 21332,
+      "raster_us": 2562
+    },
+    {
+      "build_us": 24009,
+      "raster_us": 3205
+    },
+    {
+      "build_us": 20665,
+      "raster_us": 3874
+    },
+    {
+      "build_us": 13517,
+      "raster_us": 2900
+    },
+    {
+      "build_us": 14841,
+      "raster_us": 3014
+    },
+    {
+      "build_us": 18646,
+      "raster_us": 3320
+    },
+    {
+      "build_us": 14461,
+      "raster_us": 2911
+    },
+    {
+      "build_us": 16508,
+      "raster_us": 3021
+    },
+    {
+      "build_us": 14536,
+      "raster_us": 2856
+    },
+    {
+      "build_us": 13882,
+      "raster_us": 2825
+    },
+    {
+      "build_us": 11254,
+      "raster_us": 3028
+    },
+    {
+      "build_us": 15322,
+      "raster_us": 2853
+    },
+    {
+      "build_us": 10436,
+      "raster_us": 2828
+    },
+    {
+      "build_us": 9377,
+      "raster_us": 3202
+    },
+    {
+      "build_us": 16777,
+      "raster_us": 2937
+    },
+    {
+      "build_us": 17679,
+      "raster_us": 2889
+    },
+    {
+      "build_us": 15879,
+      "raster_us": 2963
+    },
+    {
+      "build_us": 10110,
+      "raster_us": 2833
+    },
+    {
+      "build_us": 15672,
+      "raster_us": 3280
+    },
+    {
+      "build_us": 13177,
+      "raster_us": 2977
+    },
+    {
+      "build_us": 21553,
+      "raster_us": 2992
+    },
+    {
+      "build_us": 12524,
+      "raster_us": 3029
+    },
+    {
+      "build_us": 13428,
+      "raster_us": 2973
+    },
+    {
+      "build_us": 19438,
+      "raster_us": 3078
+    },
+    {
+      "build_us": 13723,
+      "raster_us": 2962
+    },
+    {
+      "build_us": 19756,
+      "raster_us": 2032
+    },
+    {
+      "build_us": 13718,
+      "raster_us": 3236
+    },
+    {
+      "build_us": 13093,
+      "raster_us": 3093
+    },
+    {
+      "build_us": 19657,
+      "raster_us": 2549
+    },
+    {
+      "build_us": 9514,
+      "raster_us": 2981
+    },
+    {
+      "build_us": 12467,
+      "raster_us": 3091
+    },
+    {
+      "build_us": 8985,
+      "raster_us": 2837
+    },
+    {
+      "build_us": 11989,
+      "raster_us": 2749
+    },
+    {
+      "build_us": 12889,
+      "raster_us": 3046
+    },
+    {
+      "build_us": 15072,
+      "raster_us": 2796
+    },
+    {
+      "build_us": 14765,
+      "raster_us": 2606
+    },
+    {
+      "build_us": 8761,
+      "raster_us": 2878
+    },
+    {
+      "build_us": 15185,
+      "raster_us": 2734
+    },
+    {
+      "build_us": 13825,
+      "raster_us": 3014
+    },
+    {
+      "build_us": 18057,
+      "raster_us": 2703
+    },
+    {
+      "build_us": 13543,
+      "raster_us": 2517
+    },
+    {
+      "build_us": 16101,
+      "raster_us": 3088
+    },
+    {
+      "build_us": 19227,
+      "raster_us": 3032
+    },
+    {
+      "build_us": 13748,
+      "raster_us": 2903
+    },
+    {
+      "build_us": 19665,
+      "raster_us": 3114
+    },
+    {
+      "build_us": 13511,
+      "raster_us": 2808
+    },
+    {
+      "build_us": 12374,
+      "raster_us": 2905
+    },
+    {
+      "build_us": 18999,
+      "raster_us": 3368
+    },
+    {
+      "build_us": 8751,
+      "raster_us": 2917
+    },
+    {
+      "build_us": 9404,
+      "raster_us": 3045
+    },
+    {
+      "build_us": 9399,
+      "raster_us": 2861
+    },
+    {
+      "build_us": 13772,
+      "raster_us": 2981
+    },
+    {
+      "build_us": 9113,
+      "raster_us": 3221
+    },
+    {
+      "build_us": 17063,
+      "raster_us": 3038
+    },
+    {
+      "build_us": 12973,
+      "raster_us": 3375
+    },
+    {
+      "build_us": 8726,
+      "raster_us": 2880
+    },
+    {
+      "build_us": 14797,
+      "raster_us": 2774
+    },
+    {
+      "build_us": 14254,
+      "raster_us": 2488
+    },
+    {
+      "build_us": 27034,
+      "raster_us": 3950
+    },
+    {
+      "build_us": 14259,
+      "raster_us": 3359
+    },
+    {
+      "build_us": 28373,
+      "raster_us": 2355
+    },
+    {
+      "build_us": 14692,
+      "raster_us": 2967
+    },
+    {
+      "build_us": 18005,
+      "raster_us": 3010
+    },
+    {
+      "build_us": 14936,
+      "raster_us": 2477
+    },
+    {
+      "build_us": 14526,
+      "raster_us": 3096
+    },
+    {
+      "build_us": 10760,
+      "raster_us": 2182
+    },
+    {
+      "build_us": 14710,
+      "raster_us": 2819
+    },
+    {
+      "build_us": 17830,
+      "raster_us": 3347
+    },
+    {
+      "build_us": 12932,
+      "raster_us": 2383
+    },
+    {
+      "build_us": 15670,
+      "raster_us": 2684
+    },
+    {
+      "build_us": 12474,
+      "raster_us": 2939
+    },
+    {
+      "build_us": 17265,
+      "raster_us": 2702
+    },
+    {
+      "build_us": 20671,
+      "raster_us": 3278
+    },
+    {
+      "build_us": 14196,
+      "raster_us": 2894
+    },
+    {
+      "build_us": 19555,
+      "raster_us": 2109
+    },
+    {
+      "build_us": 13851,
+      "raster_us": 3225
+    },
+    {
+      "build_us": 20016,
+      "raster_us": 2666
+    },
+    {
+      "build_us": 11600,
+      "raster_us": 2767
+    },
+    {
+      "build_us": 14968,
+      "raster_us": 3051
+    },
+    {
+      "build_us": 15165,
+      "raster_us": 3023
+    },
+    {
+      "build_us": 10109,
+      "raster_us": 3213
+    },
+    {
+      "build_us": 20566,
+      "raster_us": 3033
+    },
+    {
+      "build_us": 12329,
+      "raster_us": 2885
+    },
+    {
+      "build_us": 9997,
+      "raster_us": 2879
+    },
+    {
+      "build_us": 17682,
+      "raster_us": 3000
+    },
+    {
+      "build_us": 16043,
+      "raster_us": 2245
+    },
+    {
+      "build_us": 22311,
+      "raster_us": 2836
+    },
+    {
+      "build_us": 14888,
+      "raster_us": 2443
+    },
+    {
+      "build_us": 23127,
+      "raster_us": 2526
+    },
+    {
+      "build_us": 18687,
+      "raster_us": 3151
+    },
+    {
+      "build_us": 20545,
+      "raster_us": 2975
+    },
+    {
+      "build_us": 21455,
+      "raster_us": 3171
+    },
+    {
+      "build_us": 12994,
+      "raster_us": 2902
+    },
+    {
+      "build_us": 13358,
+      "raster_us": 2906
+    },
+    {
+      "build_us": 19584,
+      "raster_us": 3198
+    },
+    {
+      "build_us": 9770,
+      "raster_us": 2641
+    },
+    {
+      "build_us": 16415,
+      "raster_us": 2434
+    },
+    {
+      "build_us": 15186,
+      "raster_us": 2587
+    },
+    {
+      "build_us": 14883,
+      "raster_us": 2728
+    },
+    {
+      "build_us": 5245,
+      "raster_us": 3030
+    }
+  ],
+  "summary": {
+    "sample_count": 599,
+    "build_p50_us": 14249,
+    "build_p95_us": 21783,
+    "raster_p50_us": 2883,
+    "raster_p95_us": 3276,
+    "total_p50_us": 16996,
+    "total_p95_us": 24594,
+    "dropped_frames": 333,
+    "dropped_rate": 0.5559265442404007
+  }
+}

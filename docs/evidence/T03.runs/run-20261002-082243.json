@@ -1,0 +1,42 @@
+{
+  "stamp": "20261002-082243",
+  "port": 11808,
+  "net_host": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\target\\debug\\net_host.exe",
+  "client": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\target\\debug\\t03_client.exe",
+  "xray": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\cores\\xray\\v26.3.27\\xray.exe",
+  "xray_sha256": "15c2d007954ac53ba69b80ec91242786b3c0b71d52649165b4ca1d5cc96ef8f1",
+  "started_at": "2026-10-02T08:22:43.0083508+08:00",
+  "cases": [
+    {
+      "case": "smoke-config",
+      "status": "passed",
+      "json": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T03.runs\\smoke-config.json"
+    },
+    {
+      "case": "a-normal",
+      "status": "passed",
+      "json": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T03.runs\\a-normal.json"
+    },
+    {
+      "case": "b-port-conflict",
+      "status": "passed",
+      "json": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T03.runs\\b-port-conflict.json"
+    },
+    {
+      "case": "c-client-kill",
+      "status": "passed",
+      "json": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T03.runs\\c-client-kill.json"
+    },
+    {
+      "case": "d-net-host-kill",
+      "status": "failed",
+      "json": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T03.runs\\d-net-host-kill.json"
+    },
+    {
+      "case": "e-core-quick-exit",
+      "status": "passed",
+      "json": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T03.runs\\e-core-quick-exit.json"
+    }
+  ],
+  "finished_at": "2026-10-02T08:22:51.7433084+08:00"
+}

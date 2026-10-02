@@ -1,0 +1,265 @@
+{
+  "generated_at": "2026-10-02T08:25:03.9493944+08:00",
+  "port": 11808,
+  "session_loop": {
+    "iterations": 20,
+    "ok": 20,
+    "residual_owned": 0,
+    "port_busy": false,
+    "entries": [
+      {
+        "iteration": 1,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1370.1,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 2,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1474.8,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 3,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1417.3,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 4,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1304.0,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 5,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1374.8,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 6,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1579.1,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 7,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1449.1,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 8,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1425.9,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 9,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1307.9,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 10,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1630.5,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 11,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1431.6,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 12,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1448.3,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 13,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1318.8,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 14,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1304.2,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 15,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1381.4,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 16,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1480.0,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 17,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1386.7,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 18,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1331.2,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 19,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1327.4,
+        "net_host_gone": true
+      },
+      {
+        "iteration": 20,
+        "apply": true,
+        "stop": true,
+        "residual_xray": 0,
+        "port_free_after": true,
+        "elapsed_ms": 1454.7,
+        "net_host_gone": true
+      }
+    ]
+  },
+  "runtime_session": {
+    "status": "ok",
+    "net_host_pid": 28280,
+    "xray_pid": 10772,
+    "sample_seconds": 15,
+    "net_host_rss_mb": 10.87,
+    "xray_rss_mb": 21.9,
+    "combined_cpu_seconds": 0.0,
+    "core_gone_after_stop": true,
+    "port_free_after": true
+  },
+  "reopen_drift": {
+    "iterations": 10,
+    "config_sha256": "e9b2b7cb09e75279abd8a61c30cdf6cd70380f50b715571c4e6d06d170c31191",
+    "settings_revision": 1,
+    "profiles": 1,
+    "drift": 0
+  },
+  "io_error_paths": [
+    {
+      "code": "E_INTERNAL"
+    },
+    {
+      "phase": "settings_save",
+      "code": "E_INTERNAL",
+      "old_value_kept": true
+    }
+  ],
+  "fault_matrix": {
+    "cases": [
+      {
+        "case": "smoke-config",
+        "status": "passed"
+      },
+      {
+        "case": "a-normal",
+        "status": "passed"
+      },
+      {
+        "case": "b-port-conflict",
+        "status": "passed"
+      },
+      {
+        "case": "c-client-kill",
+        "status": "passed"
+      },
+      {
+        "case": "d-net-host-kill",
+        "status": "passed"
+      },
+      {
+        "case": "e-core-quick-exit",
+        "status": "passed"
+      }
+    ],
+    "raw_tail": [
+      "SUMMARY C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\T03.runs\\run-20261002-082455.json\r",
+      "RESULT smoke-config passed\r",
+      "RESULT a-normal passed\r",
+      "RESULT b-port-conflict passed\r",
+      "RESULT c-client-kill passed\r",
+      "RESULT d-net-host-kill passed\r",
+      "RESULT e-core-quick-exit passed\r",
+      ""
+    ]
+  },
+  "limitations": [
+    "Session loop uses the T03 smoke plan (socks inbound on 127.0.0.1:11808), not a real user config.",
+    "Runtime CPU/RSS sampled for ~15s inside a 30s hold, not a 24h soak.",
+    "Reopen drift is measured by the Rust engine (10x open over one data dir), not by launching the GUI 10 times.",
+    "Fault matrix is the existing T03 script rerun; it covers client kill, net-host kill, port conflict and core quick-exit.",
+    "Disk read-only is approximated by an IO write-failure path in the Rust test, not a real read-only volume."
+  ]
+}

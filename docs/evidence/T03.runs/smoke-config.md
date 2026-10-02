@@ -1,14 +1,13 @@
 # T03 case smoke-config - passed
 
 ## Timeline
-- 01:20:16.296 generated codegen Xray smoke config (1360 bytes)
-- 01:20:16.334 xray run -test -c smoke.json exit=0
-- 01:20:16.334 PASS
+- 08:24:55.170 generated codegen Xray smoke config (1360 bytes)
+- 08:24:55.207 xray run -test -c smoke.json exit=0
+- 08:24:55.207 PASS
 
 ## Detail
 ```json
 {
-  "xray_test_output": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.\n",
   "config": {
     "log": {
       "loglevel": "warning"
@@ -86,6 +85,7 @@
       }
     ]
   },
-  "xray_test_exit": 0
+  "xray_test_exit": 0,
+  "xray_test_output": "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)\nA unified platform for anti-censorship.\nConfiguration OK.\n"
 }
 ```

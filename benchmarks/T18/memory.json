@@ -1,0 +1,16 @@
+[
+  {
+    "rows": 0,
+    "status": "ok",
+    "sample_count": 23,
+    "working_set_p50_mb": 146.49,
+    "working_set_max_mb": 158.2
+  },
+  {
+    "rows": 10000,
+    "status": "ok",
+    "sample_count": 23,
+    "working_set_p50_mb": 178.76,
+    "working_set_max_mb": 190.75
+  }
+]

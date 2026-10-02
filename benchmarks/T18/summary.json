@@ -1,0 +1,143 @@
+{
+  "generated_at": "2026-10-02T08:18:44.7453350+08:00",
+  "exe": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop\\build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe",
+  "startup": {
+    "iterations": 10,
+    "rows": 1000,
+    "method": "process launch -> first_frame marker file and in-process main()->first_frame",
+    "samples_ok": 10,
+    "launch_p50_ms": 1202.01,
+    "launch_p95_ms": 1272.42,
+    "internal_p50_ms": 74.572,
+    "internal_p95_ms": 111.841,
+    "runs": [
+      {
+        "iteration": 1,
+        "marker": true,
+        "launch_to_marker_ms": 1272.42,
+        "main_to_first_frame_ms": 111.841
+      },
+      {
+        "iteration": 2,
+        "marker": true,
+        "launch_to_marker_ms": 1205.42,
+        "main_to_first_frame_ms": 73.03
+      },
+      {
+        "iteration": 3,
+        "marker": true,
+        "launch_to_marker_ms": 1213.22,
+        "main_to_first_frame_ms": 74.604
+      },
+      {
+        "iteration": 4,
+        "marker": true,
+        "launch_to_marker_ms": 1202.01,
+        "main_to_first_frame_ms": 76.666
+      },
+      {
+        "iteration": 5,
+        "marker": true,
+        "launch_to_marker_ms": 1197.26,
+        "main_to_first_frame_ms": 71.216
+      },
+      {
+        "iteration": 6,
+        "marker": true,
+        "launch_to_marker_ms": 1207.86,
+        "main_to_first_frame_ms": 74.572
+      },
+      {
+        "iteration": 7,
+        "marker": true,
+        "launch_to_marker_ms": 1200.58,
+        "main_to_first_frame_ms": 81.631
+      },
+      {
+        "iteration": 8,
+        "marker": true,
+        "launch_to_marker_ms": 1192.73,
+        "main_to_first_frame_ms": 72.86
+      },
+      {
+        "iteration": 9,
+        "marker": true,
+        "launch_to_marker_ms": 1205.93,
+        "main_to_first_frame_ms": 74.675
+      },
+      {
+        "iteration": 10,
+        "marker": true,
+        "launch_to_marker_ms": 1197.05,
+        "main_to_first_frame_ms": 71.674
+      }
+    ]
+  },
+  "scroll": [
+    {
+      "rows": 10000,
+      "status": "ok",
+      "sample_count": 599,
+      "build_p50_us": 14249,
+      "build_p95_us": 21783,
+      "raster_p50_us": 2883,
+      "raster_p95_us": 3276,
+      "total_p50_us": 16996,
+      "total_p95_us": 24594,
+      "dropped_frames": 333,
+      "dropped_rate": 0.5559265442404007,
+      "file": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\benchmarks\\T18\\scroll_10000.json"
+    },
+    {
+      "rows": 50000,
+      "status": "ok",
+      "sample_count": 599,
+      "build_p50_us": 25884,
+      "build_p95_us": 36924,
+      "raster_p50_us": 2995,
+      "raster_p95_us": 3403,
+      "total_p50_us": 28704,
+      "total_p95_us": 39900,
+      "dropped_frames": 599,
+      "dropped_rate": 1.0,
+      "file": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\benchmarks\\T18\\scroll_50000.json"
+    }
+  ],
+  "memory": [
+    {
+      "rows": 0,
+      "status": "ok",
+      "sample_count": 23,
+      "working_set_p50_mb": 146.49,
+      "working_set_max_mb": 158.2
+    },
+    {
+      "rows": 10000,
+      "status": "ok",
+      "sample_count": 23,
+      "working_set_p50_mb": 178.76,
+      "working_set_max_mb": 190.75
+    }
+  ],
+  "log_throughput": {
+    "injected": 100000,
+    "retained": 10000,
+    "dropped": 90000,
+    "max_lines": 10000,
+    "max_bytes": 10485760,
+    "elapsed_ms": 11.541,
+    "per_line_us": 0.115
+  },
+  "log_bytes": {
+    "retained": 159,
+    "dropped_bytes": 120659871,
+    "max_bytes": 10485760
+  },
+  "limitations": [
+    "Cold start measured from process launch to a first-frame marker file (release); OS file cache is warm after iteration 1.",
+    "Scroll uses scripted jumpTo (full-table rebuild), matching the T01 S1 skeleton; it is an upper-bound probe, not a real drag gesture.",
+    "50k rows is a stress probe; synthetic rows come from the Rust generator via FRB.",
+    "Memory is the app process WorkingSet64 while idle (hold scenario); no core process is involved.",
+    "No 24h soak; this is a short sampled stability run."
+  ]
+}

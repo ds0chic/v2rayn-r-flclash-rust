@@ -1,0 +1,16 @@
+{
+  "throughput": {
+    "injected": 100000,
+    "retained": 10000,
+    "dropped": 90000,
+    "max_lines": 10000,
+    "max_bytes": 10485760,
+    "elapsed_ms": 11.541,
+    "per_line_us": 0.115
+  },
+  "bytes": {
+    "retained": 159,
+    "dropped_bytes": 120659871,
+    "max_bytes": 10485760
+  }
+}

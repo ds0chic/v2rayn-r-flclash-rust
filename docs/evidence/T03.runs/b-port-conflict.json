@@ -2,24 +2,24 @@
   "case": "b-port-conflict",
   "status": "passed",
   "timeline": [
-    "01:20:18.357 occupied 127.0.0.1:11808 with a local TcpListener",
-    "01:20:18.492 net_host pid=1376 ready=True",
-    "01:20:18.514 apply exit=3 result kind=error code=E_PORT_CONFLICT",
-    "01:20:18.532 snapshot state=stopped",
-    "01:20:18.533 PASS",
-    "01:20:18.534 cleanup listener + net_host"
+    "08:24:57.192 occupied 127.0.0.1:11808 with a local TcpListener",
+    "08:24:57.318 net_host pid=37464 ready=True",
+    "08:24:57.339 apply exit=3 result kind=error code=E_PORT_CONFLICT",
+    "08:24:57.356 snapshot state=stopped",
+    "08:24:57.356 PASS",
+    "08:24:57.357 cleanup listener + net_host"
   ],
   "extra": {
     "snapshot_state": "stopped",
-    "apply_exit": 3,
     "result": {
       "kind": "error",
       "code": "E_PORT_CONFLICT",
       "message_key": "error.port_conflict",
       "field_path": "port",
       "retryable": false,
-      "operation_id": "op-1790875218505-1",
+      "operation_id": "op-1790900697330-1",
       "detail": "127.0.0.1:11808 unavailable: 通常每个套接字地址(协议/网络地址/端口)只允许使用一次。 (os error 10048)"
-    }
+    },
+    "apply_exit": 3
   }
 }

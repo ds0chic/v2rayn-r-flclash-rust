@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -6,6 +8,8 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_table.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
+import 'package:v2rayn_desktop/perf/perf_harness.dart';
+import 'package:v2rayn_desktop/perf/t18_bench.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Profiles panel: top toolbar (LAY-PROFILES-001) + virtualized node table.
@@ -21,6 +25,30 @@ class _ProfilesPageState extends ConsumerState<ProfilesPage> {
   final TextEditingController _filterController = TextEditingController();
   final ScrollController _vertical = ScrollController();
   final ScrollController _horizontal = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (T18Bench.enabled && T18Bench.scenario == 'scroll') {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _runT18Scroll());
+    }
+  }
+
+  Future<void> _runT18Scroll() async {
+    // Let the first frame settle so the table has a real maxScrollExtent.
+    await Future<void>.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
+    await PerfHarness.run(
+      vertical: _vertical,
+      rowCount: T18Bench.rows,
+      scrollSteps: T18Bench.scrollSteps,
+      outputFile:
+          '${T18Bench.dir}${Platform.pathSeparator}scroll_${T18Bench.rows}'
+          '${T18Bench.tag.isEmpty ? '' : '_${T18Bench.tag}'}.json',
+      label: 'T18',
+    );
+    exit(0);
+  }
 
   @override
   void dispose() {

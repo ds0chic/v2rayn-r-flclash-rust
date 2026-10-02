@@ -7,12 +7,12 @@
 
 | 交付单元 | 上游界面基准 | 上游发行物（workflow 证据） | 上游 RID | Flutter 目标状态 (T01 前) |
 |---|---|---|---|---|
-| Windows x64 | WPF (`v2rayN/v2rayN/v2rayN.csproj`, `net10.0-windows10.0.19041.0`) 与 Avalonia (`v2rayN.Desktop`) 双实现 | `v2rayN-windows-64.zip`（WPF）；`v2rayN-windows-64-desktop.zip`（Avalonia） | `win-x64` | unverified |
-| Windows ARM64 | 同上双实现 | `v2rayN-windows-arm64.zip`；`v2rayN-windows-arm64-desktop.zip` | `win-arm64` | unverified |
-| macOS x64 | 仅 Avalonia（build.yml 默认 project = `v2rayN.Desktop.csproj`） | `v2rayN-macos-64.zip` / `v2rayN-macos-64.dmg` | `osx-x64` | unverified |
-| macOS ARM64 | 仅 Avalonia | `v2rayN-macos-arm64.zip` / `v2rayN-macos-arm64.dmg` | `osx-arm64` | unverified |
-| Linux x64 | 仅 Avalonia | `v2rayN-linux-64.deb`、`v2rayN-linux-rhel-64.rpm` | `linux-x64` | unverified |
-| Linux ARM64 | 仅 Avalonia | `v2rayN-linux-arm64.deb`、`v2rayN-linux-rhel-arm64.rpm` | `linux-arm64` | unverified |
+| Windows x64 | WPF (`v2rayN/v2rayN/v2rayN.csproj`, `net10.0-windows10.0.19041.0`) 与 Avalonia (`v2rayN.Desktop`) 双实现 | `v2rayN-windows-64.zip`（WPF）；`v2rayN-windows-64-desktop.zip`（Avalonia） | `win-x64` | verified（构建+打包产物冒烟；范围见 §6，T20 回填） |
+| Windows ARM64 | 同上双实现 | `v2rayN-windows-arm64.zip`；`v2rayN-windows-arm64-desktop.zip` | `win-arm64` | blocked（Flutter CLI 无 `--target-platform`；见 §6，T20 回填） |
+| macOS x64 | 仅 Avalonia（build.yml 默认 project = `v2rayN.Desktop.csproj`） | `v2rayN-macos-64.zip` / `v2rayN-macos-64.dmg` | `osx-x64` | unverified（T20：未构建/未验证） |
+| macOS ARM64 | 仅 Avalonia | `v2rayN-macos-arm64.zip` / `v2rayN-macos-arm64.dmg` | `osx-arm64` | unverified（T20：未构建/未验证） |
+| Linux x64 | 仅 Avalonia | `v2rayN-linux-64.deb`、`v2rayN-linux-rhel-64.rpm` | `linux-x64` | unverified（T20：未构建/未验证） |
+| Linux ARM64 | 仅 Avalonia | `v2rayN-linux-arm64.deb`、`v2rayN-linux-rhel-arm64.rpm` | `linux-arm64` | unverified（T20：未构建/未验证） |
 
 证据：
 - `.github/workflows/build.yml:17-19`（matrix `[x64, arm64]`）、`:31-38`（RID 规则 `win-*`/`osx-*`/`linux-*`）、`:12`（默认 project `./v2rayN.Desktop/v2rayN.Desktop.csproj`）。
@@ -122,3 +122,37 @@
 - 上游发行包（zip/deb/rpm/dmg）的最终内容与我方 Flutter 打包等价性。
 - 各窗口尺寸持久化的实际写入/读取（含多屏 DPI；Avalonia WindowBase 已按 `screen.Scaling` 换算，见 `WindowBase.cs:32-48`）。
 - WPF 与 Avalonia 在同一 Windows 机器上默认尺寸不一致（表 3.5）是否影响“像素对齐”验收口径。
+
+## 6. T20 发布候选平台状态回填（Windows x64 构建与冒烟）
+
+本节为 T20 追加，不删除或降低任何 T00 分母。证据：
+`docs/evidence/T20.md`、`docs/evidence/T20.runs/`、`docs/evidence/T20.screenshots/`。
+
+| 平台 | 构建 | 打包产物冒烟 | 状态标记 | 范围与限制 |
+|---|---|---|---|---|
+| Windows x64 | ✅ `cargo build --workspace --release --locked` + `flutter build windows --release` 均 exit 0 | ✅ 真实执行 | `verified`（仅限“打包产物启动 / 数据目录 / 窗口 / 真实 apply”） | 见下方“verified 范围”；签名、安装器、自动更新实跑、ARM64、非 Windows 未做 |
+| Windows ARM64 | ❌ | ❌ | `blocked` | `flutter build windows --release --target-platform=windows-arm64` 报 `Could not find an option named "--target-platform"`（exit 64）；pinned Flutter CLI 无该选项，需 ARM64 主机/引擎支持 |
+| macOS x64 / ARM64 | ❌ 未构建 | ❌ 未验证 | `unverified` | 步骤见 `tools/release/README-platforms.md`；不声称支持 |
+| Linux x64 / ARM64 | ❌ 未构建 | ❌ 未验证 | `unverified` | 同上 |
+| Windows x86 / Linux riscv64 / loong64 | ❌ | ❌ | `unverified` | 同 §2，本 T20 未涉及 |
+
+**T20 `verified` 的确切范围**（Windows x64，packaged zip）：
+
+1. 干净临时目录解压后，以 `V2RAYN_R_DATA_DIR=<temp>` 后台启动 exe 成功；
+2. 主窗口出现（`T20-smoke-update-window.png`、`T20-smoke-backup-window.png`，
+   含 `V2RAYN_R_OPEN_UPDATE` / `V2RAYN_R_OPEN_BACKUP` 既有钩子打开的真实窗口）；
+3. 首次运行生成 `guiNConfig.json`（惰性）与 `guiNNDB.db`；
+4. 退出（CloseMainWindow）后进程清理，端口释放；
+5. 真实 apply 链：种子节点 + `V2RAYN_R_AUTO_SMOKE=1` → net_host 写
+   `config.json` → 打包的 Xray 读取并启动 → 就绪探测通过 → 11808 监听 →
+   journal `stage=applied`（`pid` / `config_sha256` / `rev=2`）
+   （`T20-smoke-applied-running.png`、`T20-applied-artifacts/`、`T20.runs/`）。
+
+**不在此 `verified` 范围内**（明确登记）：
+- macOS / Linux / Windows ARM64 / x86 / riscv64 / loong64：未构建未验证；
+- 代码签名、安装器、自动更新真实执行、升级/卸载：未做；
+- TUN / 提权 helper 真实会话：未在 T20 触发（沿用 T14 结论）；
+- 通过 GUI 点击驱动的 apply 时序：由 `V2RAYN_R_AUTO_SMOKE` 驱动等价路径完成，
+  非鼠标点击自动化；
+- 未使用 Process Monitor 级路径追踪，未证明“无开发路径依赖”，方法学限制见
+  `docs/evidence/T20.md`。

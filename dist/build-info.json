@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "product": "v2rayN-R",
+  "kind": "derived-refactor",
+  "version": "1.0.0",
+  "build_number": "1",
+  "pubspec_version": "1.0.0+1",
+  "rust_version": "0.1.0",
+  "git_commit": "54fcebea0af4792556e393a7fb69020624bdf492",
+  "git_commit_short": "54fcebe",
+  "git_branch": "main",
+  "git_dirty": true,
+  "target_platform": "windows-x64",
+  "target_triple": "x86_64-pc-windows-msvc",
+  "build_time_utc": "2026-10-02T02:29:52Z",
+  "toolchain": {
+    "flutter": "3.47.5",
+    "dart": "Dart SDK version: 3.13.4 (stable) (Tue Sep 15 01:01:15 2026 -0700) on \"windows_x64\"",
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "cargo": "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+    "frb": "2.13.0"
+  },
+  "cores_policy": "not_bundled; downloaded at runtime, pinned by tools/cores/cores.lock.json"
+}

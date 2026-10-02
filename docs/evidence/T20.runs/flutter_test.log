@@ -1,0 +1,1425 @@
+== flutter test context_menu_model_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/context_menu_model_test.dart
+00:00 +0: context menu entries match LAY-PROFILES-004 / ACT-PROF-*
+00:00 +1: All tests passed!
+PASS context_menu_model_test.dart (attempt 1)
+== flutter test profiles_filter_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_filter_test.dart
+00:00 +0: filter is instant, Enter refreshes, filter keeps focus scope
+00:01 +1: All tests passed!
+PASS profiles_filter_test.dart (attempt 1)
+== flutter test profiles_keyboard_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart
+00:00 +0: ctrl and plain keyboard actions map to distinct events
+00:02 +0: ctrl and plain keyboard actions map to distinct events - did not complete [E]
+00:02 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart: ctrl and plain keyboard actions map to distinct events (did not complete)
+[31;1mNo tests were found.[0m
+attempt 1 failed for profiles_keyboard_test.dart (exit 79)
+== flutter test profiles_keyboard_test.dart attempt 2/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart
+00:00 +0: ctrl and plain keyboard actions map to distinct events
+00:00 +0: ctrl and plain keyboard actions map to distinct events - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart: ctrl and plain keyboard actions map to distinct events (did not complete)
+[31;1mNo tests were found.[0m
+attempt 2 failed for profiles_keyboard_test.dart (exit 79)
+== flutter test profiles_keyboard_test.dart attempt 3/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart
+00:00 +0: ctrl and plain keyboard actions map to distinct events
+00:00 +0: ctrl and plain keyboard actions map to distinct events - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart: ctrl and plain keyboard actions map to distinct events (did not complete)
+[31;1mNo tests were found.[0m
+attempt 3 failed for profiles_keyboard_test.dart (exit 79)
+== flutter test profiles_keyboard_test.dart attempt 4/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart
+00:00 +0: ctrl and plain keyboard actions map to distinct events
+00:00 +0: ctrl and plain keyboard actions map to distinct events - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart: ctrl and plain keyboard actions map to distinct events (did not complete)
+[31;1mNo tests were found.[0m
+attempt 4 failed for profiles_keyboard_test.dart (exit 79)
+== flutter test profiles_keyboard_test.dart attempt 5/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart
+00:00 +0: ctrl and plain keyboard actions map to distinct events
+00:02 +0: ctrl and plain keyboard actions map to distinct events - did not complete [E]
+00:02 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart: ctrl and plain keyboard actions map to distinct events (did not complete)
+[31;1mNo tests were found.[0m
+attempt 5 failed for profiles_keyboard_test.dart (exit 79)
+== flutter test profiles_keyboard_test.dart attempt 6/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_keyboard_test.dart
+00:00 +0: ctrl and plain keyboard actions map to distinct events
+00:02 +1: All tests passed!
+PASS profiles_keyboard_test.dart (attempt 6)
+== flutter test profiles_models_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_models_test.dart
+00:00 +0: default column set matches LAY-PROFILES-002
+00:00 +1: filter is instant and matches remarks/address
+00:00 +2: filter with empty query returns all rows
+00:00 +3: sort by delay ascending then descending
+00:00 +4: SortSpec cycles asc -> desc -> none
+00:00 +5: formatBytes renders human readable units
+00:00 +6: synthetic source yields 10k rows with reserved ranges
+00:00 +7: All tests passed!
+PASS profiles_models_test.dart (attempt 1)
+== flutter test profiles_pointer_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_pointer_test.dart
+00:00 +0: double click, right click, drag/drop and header sort
+00:01 +0: double click, right click, drag/drop and header sort - did not complete [E]
+00:01 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_pointer_test.dart: double click, right click, drag/drop and header sort (did not complete)
+[31;1mNo tests were found.[0m
+attempt 1 failed for profiles_pointer_test.dart (exit 79)
+== flutter test profiles_pointer_test.dart attempt 2/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_pointer_test.dart
+00:00 +0: double click, right click, drag/drop and header sort
+00:02 +0: double click, right click, drag/drop and header sort - did not complete [E]
+00:02 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_pointer_test.dart: double click, right click, drag/drop and header sort (did not complete)
+[31;1mNo tests were found.[0m
+attempt 2 failed for profiles_pointer_test.dart (exit 79)
+== flutter test profiles_pointer_test.dart attempt 3/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_pointer_test.dart
+00:00 +0: double click, right click, drag/drop and header sort
+00:02 +1: All tests passed!
+PASS profiles_pointer_test.dart (attempt 3)
+== flutter test profiles_render_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_render_test.dart
+00:00 +0: renders 10k rows in a real virtualized table
+00:01 +1: All tests passed!
+PASS profiles_render_test.dart (attempt 1)
+== flutter test profiles_selection_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_selection_test.dart
+00:00 +0: single, ctrl, shift and select-all selection
+00:00 +0: single, ctrl, shift and select-all selection - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_selection_test.dart: single, ctrl, shift and select-all selection (did not complete)
+[31;1mNo tests were found.[0m
+attempt 1 failed for profiles_selection_test.dart (exit 79)
+== flutter test profiles_selection_test.dart attempt 2/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_selection_test.dart
+00:00 +0: single, ctrl, shift and select-all selection
+00:00 +0: single, ctrl, shift and select-all selection - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_selection_test.dart: single, ctrl, shift and select-all selection (did not complete)
+[31;1mNo tests were found.[0m
+attempt 2 failed for profiles_selection_test.dart (exit 79)
+== flutter test profiles_selection_test.dart attempt 3/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_selection_test.dart
+00:00 +0: single, ctrl, shift and select-all selection
+00:01 +0: single, ctrl, shift and select-all selection - did not complete [E]
+00:01 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_selection_test.dart: single, ctrl, shift and select-all selection (did not complete)
+[31;1mNo tests were found.[0m
+attempt 3 failed for profiles_selection_test.dart (exit 79)
+== flutter test profiles_selection_test.dart attempt 4/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_selection_test.dart
+00:00 +0: single, ctrl, shift and select-all selection
+00:01 +1: All tests passed!
+PASS profiles_selection_test.dart (attempt 4)
+== flutter test runtime_controller_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart
+00:00 +0: revision label renders desired/applied without fabricating values
+00:00 +1: controller records epoch/seq and flags out-of-order events
+[runtime] runtime event out of order: seq=4 <= last=5
+00:00 +2: All tests passed!
+PASS runtime_controller_test.dart (attempt 1)
+== flutter test t05_profiles_ui_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_profiles_ui_test.dart
+00:00 +0: profiles columns, sort selection, context menu, keyboard scope
+00:02 +1: All tests passed!
+PASS t05_profiles_ui_test.dart (attempt 1)
+== flutter test t05_shell_chrome_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart
+00:00 +0: shell chrome: status bar, menu, three layouts, split persistence
+00:00 +0: shell chrome: status bar, menu, three layouts, split persistence - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart: shell chrome: status bar, menu, three layouts, split persistence (did not complete)
+[31;1mNo tests were found.[0m
+attempt 1 failed for t05_shell_chrome_test.dart (exit 79)
+== flutter test t05_shell_chrome_test.dart attempt 2/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart
+00:00 +0: shell chrome: status bar, menu, three layouts, split persistence
+00:01 +0: shell chrome: status bar, menu, three layouts, split persistence - did not complete [E]
+00:01 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart: shell chrome: status bar, menu, three layouts, split persistence (did not complete)
+[31;1mNo tests were found.[0m
+attempt 2 failed for t05_shell_chrome_test.dart (exit 79)
+== flutter test t05_shell_chrome_test.dart attempt 3/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart
+00:00 +0: shell chrome: status bar, menu, three layouts, split persistence
+00:00 +0: shell chrome: status bar, menu, three layouts, split persistence - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart: shell chrome: status bar, menu, three layouts, split persistence (did not complete)
+[31;1mNo tests were found.[0m
+attempt 3 failed for t05_shell_chrome_test.dart (exit 79)
+== flutter test t05_shell_chrome_test.dart attempt 4/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart
+00:00 +0: shell chrome: status bar, menu, three layouts, split persistence
+00:01 +0: shell chrome: status bar, menu, three layouts, split persistence - did not complete [E]
+00:01 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart: shell chrome: status bar, menu, three layouts, split persistence (did not complete)
+[31;1mNo tests were found.[0m
+attempt 4 failed for t05_shell_chrome_test.dart (exit 79)
+== flutter test t05_shell_chrome_test.dart attempt 5/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_shell_chrome_test.dart
+00:00 +0: shell chrome: status bar, menu, three layouts, split persistence
+00:01 +1: All tests passed!
+PASS t05_shell_chrome_test.dart (attempt 5)
+== flutter test t05_sort_stable_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t05_sort_stable_test.dart
+00:00 +0: applySort is stable for equal keys (selection/anchor safety)
+00:00 +1: All tests passed!
+PASS t05_sort_stable_test.dart (attempt 1)
+== flutter test t06a_controller_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t06a_controller_test.dart
+00:00 +0: save, copy, delete and revision conflict via the bridge
+00:00 +1: remarks and empty-remarks validation
+00:00 +2: All tests passed!
+PASS t06a_controller_test.dart (attempt 1)
+== flutter test t06a_editor_cancel_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t06a_editor_cancel_test.dart
+00:00 +0: editor cancel does not invoke save
+00:00 +1: All tests passed!
+PASS t06a_editor_cancel_test.dart (attempt 1)
+== flutter test t06a_editor_error_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t06a_editor_error_test.dart
+00:00 +0: rejected save preserves input and shows field error
+00:00 +1: All tests passed!
+PASS t06a_editor_error_test.dart (attempt 1)
+== flutter test t06a_editor_form_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t06a_editor_form_test.dart
+00:00 +0: 11-protocol editor renders protocol fields and validates
+00:01 +1: All tests passed!
+PASS t06a_editor_form_test.dart (attempt 1)
+== flutter test t06a_editor_save_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t06a_editor_save_test.dart
+00:00 +0: editor save forwards the edited draft
+00:00 +1: All tests passed!
+PASS t06a_editor_save_test.dart (attempt 1)
+== flutter test t06a_frb_bridge_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t06a_frb_bridge_test.dart
+00:00 +0: real FRB save/read round-trip persists to SQLite
+00:00 +1: All tests passed!
+PASS t06a_frb_bridge_test.dart (attempt 1)
+== flutter test t09_import_export_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t09_import_export_test.dart
+00:00 +0: clipboard import reads injected content and imports nodes
+00:00 +1: export writes share text to the injected clipboard
+00:00 +2: share dialog renders a QR view
+00:00 +3: synthetic file writes return a structured not-wired result
+00:00 +4: All tests passed!
+PASS t09_import_export_test.dart (attempt 1)
+== flutter test t09_sub_edit_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t09_sub_edit_test.dart
+00:00 +0: editor renders all 17 fields
+00:00 +1: editor shows an error for an empty remarks
+00:00 +2: editor validates the URL scheme
+00:00 +3: cancel does not persist
+00:01 +4: save returns the draft and persists through the controller
+00:01 +5: All tests passed!
+PASS t09_sub_edit_test.dart (attempt 1)
+== flutter test t09_sub_setting_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t09_sub_setting_test.dart
+00:00 +0: sub setting window renders the seeded list
+00:00 +1: delete removes the selected subscription
+00:00 +2: toggling enabled persists through the bridge
+00:00 +3: cancel forwards to the bridge cancelJob
+00:00 +4: update reports a structured success status
+00:00 +4: update reports a structured success status - did not complete [E]
+00:00 +4: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t09_sub_setting_test.dart: update reports a structured success status (did not complete)
+attempt 1 failed for t09_sub_setting_test.dart (exit 1)
+== flutter test t09_sub_setting_test.dart attempt 2/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t09_sub_setting_test.dart
+00:00 +0: sub setting window renders the seeded list
+00:00 +1: delete removes the selected subscription
+00:00 +2: toggling enabled persists through the bridge
+00:00 +3: cancel forwards to the bridge cancelJob
+00:00 +4: update reports a structured success status
+00:00 +5: All tests passed!
+PASS t09_sub_setting_test.dart (attempt 2)
+== flutter test t10_custom_editor_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_custom_editor_test.dart
+00:00 +0: custom editor renders all fields
+00:00 +1: custom editor rejects invalid json text
+00:00 +2: custom editor rejects out-of-range pre-socks port
+00:00 +3: custom editor cancel persists nothing
+00:00 +3: custom editor cancel persists nothing - did not complete [E]
+00:00 +3: custom editor saves json + flags through - did not complete [E]
+00:00 +3: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_custom_editor_test.dart: custom editor cancel persists nothing (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_custom_editor_test.dart: custom editor saves json + flags through (did not complete)
+attempt 1 failed for t10_custom_editor_test.dart (exit 1)
+== flutter test t10_custom_editor_test.dart attempt 2/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_custom_editor_test.dart
+00:00 +0: custom editor renders all fields
+00:00 +1: custom editor rejects invalid json text
+00:00 +2: custom editor rejects out-of-range pre-socks port
+00:00 +3: custom editor cancel persists nothing
+00:01 +4: custom editor saves json + flags through
+00:01 +5: All tests passed!
+PASS t10_custom_editor_test.dart (attempt 2)
+== flutter test t10_group_editor_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_group_editor_test.dart
+00:00 +0: group editor renders all sections
+00:00 +1: group editor requires remarks and children
+00:00 +2: group editor cancel persists nothing
+00:00 +3: group editor add/move/remove child then save
+00:01 +4: group editor keeps sub-child source and filter
+00:01 +5: All tests passed!
+PASS t10_group_editor_test.dart (attempt 1)
+== flutter test t10_groups_panel_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_groups_panel_test.dart
+00:00 +0: groups panel filters by subscription
+00:01 +1: group filter compares sub ids, not display remarks
+00:01 +2: All tests passed!
+PASS t10_groups_panel_test.dart (attempt 1)
+== flutter test t10_menu_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_menu_test.dart
+00:00 +0: menu model carries the T10 entries
+00:00 +1: menu opens the custom editor
+00:00 +1: menu opens the custom editor - did not complete [E]
+00:00 +1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_menu_test.dart: menu opens the custom editor (did not complete)
+attempt 1 failed for t10_menu_test.dart (exit 1)
+== flutter test t10_menu_test.dart attempt 2/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_menu_test.dart
+00:00 +0: menu model carries the T10 entries
+00:00 +1: menu opens the custom editor
+00:01 +2: All tests passed!
+PASS t10_menu_test.dart (attempt 2)
+== flutter test t10_template_window_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_template_window_test.dart
+00:00 +0: template window renders both core tabs
+00:00 +1: template window rejects invalid json
+00:00 +2: template window cancel saves nothing
+00:00 +3: template window saves both rows with flags
+00:00 +4: All tests passed!
+PASS t10_template_window_test.dart (attempt 1)
+== flutter test t11_dns_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_dns_test.dart
+00:00 +0: dns controller seeds one row per core
+00:00 +1: dns save rejects empty remarks
+00:00 +2: dns import-default fills the embedded template text
+00:00 +3: dns simple round-trips and presets report pending offline
+00:00 +4: dns window renders four tabs and cancel discards
+00:00 +5: All tests passed!
+PASS t11_dns_test.dart (attempt 1)
+== flutter test t11_menu_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart
+00:00 +0: menu model carries the routing and DNS entries
+00:00 +1: menu opens the routing window; status bar shows the switch
+00:01 +2: All tests passed!
+PASS t11_menu_test.dart (attempt 1)
+== flutter test t11_routing_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart
+00:00 +0: routing controller seeds one active builtin scheme
+00:00 +1: routing save rejects empty remarks
+00:00 +2: routing rules move preserves order (T/U/D/B)
+00:00 +3: routing import/export round-trips through the bridge
+00:00 +4: routing mode switches Rule/Global/Direct
+00:00 +5: routing settings window renders list and closes
+00:00 +6: All tests passed!
+PASS t11_routing_test.dart (attempt 1)
+== flutter test t12a_hotkey_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_hotkey_test.dart
+00:00 +0: hotkey window records a combo and persists it
+00:00 +1: All tests passed!
+PASS t12a_hotkey_test.dart (attempt 1)
+== flutter test t12a_menu_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_menu_test.dart
+00:00 +0: settings menu carries the T12a actions
+00:00 +1: All tests passed!
+PASS t12a_menu_test.dart (attempt 1)
+== flutter test t12a_option_window_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_option_window_test.dart
+00:00 +0: option window: tabs, LAN auth link, FakeIP link, cancel
+00:00 +0: option window: tabs, LAN auth link, FakeIP link, cancel - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_option_window_test.dart: option window: tabs, LAN auth link, FakeIP link, cancel (did not complete)
+[31;1mNo tests were found.[0m
+attempt 1 failed for t12a_option_window_test.dart (exit 79)
+== flutter test t12a_option_window_test.dart attempt 2/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_option_window_test.dart
+00:00 +0: option window: tabs, LAN auth link, FakeIP link, cancel
+00:01 +1: All tests passed!
+PASS t12a_option_window_test.dart (attempt 2)
+== flutter test t12a_settings_storage_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_settings_storage_test.dart
+00:00 +0: whole-tree save, revision conflict and reopen
+00:00 +1: group save only replaces the target group
+00:00 +2: unknown keys and null/empty distinctions round trip
+00:00 +3: All tests passed!
+PASS t12a_settings_storage_test.dart (attempt 1)
+== flutter test t12a_theme_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_theme_test.dart
+00:00 +0: theme dialog applies immediately and persists
+00:00 +1: theme dialog keeps the old theme when saving fails
+00:00 +2: All tests passed!
+PASS t12a_theme_test.dart (attempt 1)
+== flutter test t13_hotkey_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart
+00:00 +0: hotkey binding model unbound correspondence and label
+00:00 +1: hotkey binding model parses and serializes the KeyEventItem shape
+00:00 +2: hotkey controller registerAll accepts valid bindings and reports conflicts
+00:00 +3: hotkey controller conflict is surfaced, not swallowed
+00:00 +4: hotkey controller save rejects when persist fails
+00:00 +5: close behavior parses UiItem close flags
+00:00 +6: All tests passed!
+PASS t13_hotkey_test.dart (attempt 1)
+== flutter test t13_platform_models_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart
+00:00 +0: tray menu model follows the upstream ContextMenu order and marks the active mode
+00:00 +1: tray menu model PAC entry is Windows-only
+00:00 +2: tray menu model node submenu hides above TrayMenuServersLimit
+00:00 +3: proxy settings view parses SystemProxyItem into a typed view
+00:00 +4: proxy settings view builds server with and without the advanced template
+00:00 +5: proxy settings view builds bypass adding <local>
+00:00 +6: platform controller apply records the mode and reads state back from the bridge
+00:00 +7: platform controller failed apply keeps the error and does not fake success
+00:00 +8: platform controller restore reports user conflicts without pretending a clean restore
+00:00 +9: platform controller desired mode is read from the settings document
+00:00 +10: All tests passed!
+PASS t13_platform_models_test.dart (attempt 1)
+== flutter test t13_statusbar_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_statusbar_test.dart
+00:00 +0: status bar shows the four system-proxy modes and applies one
+00:00 +1: status bar renders the current proxy state label
+00:00 +2: All tests passed!
+PASS t13_statusbar_test.dart (attempt 1)
+== flutter test t15a_connections_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_connections_test.dart
+00:00 +0: non-clash core shows the unsupported message
+00:00 +1: renders connection rows and filters by host
+00:00 +2: close selected and close all reach the bridge
+00:00 +3: All tests passed!
+PASS t15a_connections_test.dart (attempt 1)
+== flutter test t15a_logs_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_logs_test.dart
+00:00 +0: logs view subscribes and renders streamed lines
+00:00 +1: logs view shows the empty placeholder with no data
+00:00 +2: level filter hides lower-severity lines
+00:00 +3: pause-collect button toggles the bridge pause flag
+00:00 +4: clear button is disabled per upstream FND-004
+00:00 +5: All tests passed!
+PASS t15a_logs_test.dart (attempt 1)
+== flutter test t15a_models_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_models_test.dart
+00:00 +0: byte and rate formatting scales and shows placeholders
+00:00 +1: visibleLogs applies level and keyword filters
+00:00 +2: traffic batch updates state and marks hasTraffic
+00:00 +3: clearStats goes through the bridge
+00:00 +4: log pauses are forwarded independently
+00:00 +5: All tests passed!
+PASS t15a_models_test.dart (attempt 1)
+== flutter test t15a_proxies_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_proxies_test.dart
+00:00 +0: non-clash core shows the unsupported message
+00:00 +1: renders groups/nodes and selects a group member
+00:00 +2: single-node and group delay probes hit the bridge
+00:00 +3: All tests passed!
+PASS t15a_proxies_test.dart (attempt 1)
+== flutter test t15a_statusbar_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_statusbar_test.dart
+00:00 +0: status bar shows placeholders with no statistics data
+00:00 +1: status bar shows real proxy/direct rates from the stream
+00:01 +2: All tests passed!
+PASS t15a_statusbar_test.dart (attempt 1)
+== flutter test t15b_smoke_probe_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15b_smoke_probe_test.dart
+00:00 +0: bridge TCPing writes a real ProfileExItem delay
+  probe disabled
+00:00 +0 ~1: All tests skipped.
+PASS t15b_smoke_probe_test.dart (attempt 1)
+== flutter test t15b_smoke_seed_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15b_smoke_seed_test.dart
+00:00 +0: seed local smoke profiles
+  seed disabled
+00:00 +0 ~1: All tests skipped.
+PASS t15b_smoke_seed_test.dart (attempt 1)
+== flutter test t15b_speedtest_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15b_speedtest_test.dart
+00:00 +0: selection tests use the selection and Mixed uses all nodes
+00:00 +1: Escape cancels the running test (ACT-PROF-038)
+00:00 +2: ProfileEx overlay updates Delay/Speed and preserves order
+00:00 +3: RemoveInvalidServerResult reaches the bridge
+00:00 +4: All tests passed!
+PASS t15b_speedtest_test.dart (attempt 1)
+== flutter test t16_backup_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_backup_test.dart
+00:00 +0: local backup calls the real bridge and reports the result
+00:00 +1: restore validates first and surfaces a structured error
+00:00 +2: import upstream ZIP reports the candidate-flow summary
+00:00 +3: WebDAV check failure is shown without credentials
+00:00 +4: WebDAV remote backup uploads through the bridge
+00:01 +5: cleanup and open-directory actions route through the bridge
+00:01 +6: All tests passed!
+PASS t16_backup_test.dart (attempt 1)
+== flutter test t16_update_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart
+00:00 +0: unsupported targets render disabled
+00:00 +1: via-proxy check without a local port is structured
+00:00 +2: prerelease toggle is forwarded to the bridge
+00:00 +3: check-update applies core updates and reports counts
+00:00 +4: application update only produces an external spec
+00:00 +5: rendering the window performs no update call
+00:00 +6: All tests passed!
+PASS t16_update_test.dart (attempt 1)
+== flutter test t17_disabled_entry_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_disabled_entry_test.dart
+00:00 +0: preserved-only settings entry is disabled with a tooltip
+00:00 +1: All tests passed!
+PASS t17_disabled_entry_test.dart (attempt 1)
+== flutter test t17_empty_state_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_empty_state_test.dart
+00:00 +0: empty profile table shows the shared empty state
+00:00 +1: All tests passed!
+PASS t17_empty_state_test.dart (attempt 1)
+== flutter test t17_keyboard_dialog_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_keyboard_dialog_test.dart
+00:00 +0: shared confirm dialog honours Enter=confirm and Esc=cancel
+00:00 +1: All tests passed!
+PASS t17_keyboard_dialog_test.dart (attempt 1)
+== flutter test t17_menu_structure_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_menu_structure_test.dart
+00:00 +0: top-level menu order matches the upstream layout
+00:00 +1: 30 main-menu action ids are reachable from the model
+00:00 +2: help submenu keeps 妫€鏌ユ洿鏂?and the dynamic core-website entry
+00:00 +3: preserved-only entries are never invocable
+00:00 +4: implemented entries stay invocable
+00:00 +5: All tests passed!
+PASS t17_menu_structure_test.dart (attempt 1)
+== flutter test t17_table_keyboard_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_table_keyboard_test.dart
+00:00 +0: arrow keys navigate the profile table selection
+00:01 +1: All tests passed!
+PASS t17_table_keyboard_test.dart (attempt 1)
+== flutter test t17_theme_tokens_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_theme_tokens_test.dart
+00:00 +0: row height follows the configured font size within 24..28
+00:00 +1: light and dark themes carry distinct semantic tokens
+00:00 +2: font size and zebra flag reach the theme extension
+00:00 +3: accent mapping falls back and the icon family is stable
+00:00 +4: window metrics match the ledger minimums
+00:00 +5: All tests passed!
+PASS t17_theme_tokens_test.dart (attempt 1)
+== flutter test t18b_runtime_ui_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t18b_runtime_ui_test.dart
+00:00 +0: apply button drives the real plan; rev mismatch shows 鏈簲鐢?00:00 +1: failed apply keeps the structured error on screen
+00:01 +2: hasUnappliedChanges is true only on a real mismatch
+00:01 +3: All tests passed!
+PASS t18b_runtime_ui_test.dart (attempt 1)
+== flutter test table_actions_test.dart attempt 1/10 ==
+Resolving dependencies...
+Downloading packages...
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+7 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/table_actions_test.dart
+00:00 +0: shortcut mapping ctrl shortcuts
+00:00 +1: shortcut mapping plain keys
+00:00 +2: shortcut mapping unmapped and modifier-only combos are ignored
+00:00 +3: selection helpers single selection replaces the set
+00:00 +4: selection helpers ctrl toggle adds then removes
+00:00 +5: selection helpers shift range is inclusive and based on last anchor
+00:00 +6: All tests passed!
+PASS table_actions_test.dart (attempt 1)
+PER-FILE PASS: all test files green

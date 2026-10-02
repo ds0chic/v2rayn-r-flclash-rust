@@ -1,0 +1,24 @@
+   zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip
+   package=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\extract\v2rayN-R-1.0.0+1-windows-x64
+   mainExe=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\extract\v2rayN-R-1.0.0+1-windows-x64\v2rayn_desktop.exe
+   update: started pid=31644
+   screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-update-window.png (1200x800)
+   update: window=True guiNConfig=False guiNNDB=False
+   update: exited on CloseMainWindow
+   backup: started pid=27796
+   screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-backup-window.png (1200x800)
+   backup: window=True guiNConfig=False guiNNDB=False
+   backup: exited on CloseMainWindow
+   seeding C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app via bridge_api example t18b_seed
+      seed>     Finished `release` profile [optimized] target(s) in 0.35s
+      seed>      Running `target\release\examples\t18b_seed.exe C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app`
+      seed> seeded dir=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app active=t18b-node desired=2
+   seed_apply: started pid=40884
+   screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-seed-apply.png (1200x800)
+   seed_apply: window=True guiNConfig=True guiNNDB=False
+   seed_apply: applied=False port11808=False coreChild=False
+   seed_apply: exited on CloseMainWindow
+
+SMOKE SUMMARY  C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-summary.json
+SMOKE LOG      C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-log.txt
+T20_SMOKE_DONE work=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a

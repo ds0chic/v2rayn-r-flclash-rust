@@ -17,9 +17,9 @@ use domain::runtime_plan::{
     ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, PortRequest, ProcessGraph,
     ProcessNode, RequiredPrivilege, RuntimePlan, RuntimeTarget,
 };
-use domain::{DomainError, MultipleLoad, Profile, ProtocolExtra, SecurityParams, TransportExtra};
 #[cfg(test)]
 use domain::CoreType;
+use domain::{DomainError, MultipleLoad, Profile, ProtocolExtra, SecurityParams, TransportExtra};
 use serde_json::Value;
 
 use crate::api::contract::{

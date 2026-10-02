@@ -1,0 +1,11 @@
+{
+  "session_id": "s-1790907963960-2",
+  "plan_id": "rt-Xray-t18b-node-2",
+  "desired_revision": 2,
+  "config_sha256": "3c168c4db2fa943570d1a8051bb7fed8b07c8dcf4a2a356973285daeeccd8674",
+  "stage": "finalized",
+  "pid": null,
+  "created_at_ms": null,
+  "port": 11808,
+  "updated_at_ms": 1790907963961
+}

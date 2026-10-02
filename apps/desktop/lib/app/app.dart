@@ -10,6 +10,11 @@ import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
+/// When overridden to `true`, the bootstrap applies the persisted runtime plan
+/// once after settings load. Defaults to `false`, so normal runs never
+/// auto-start a core from the environment.
+final applyPlanOnLaunchProvider = Provider<bool>((_) => false);
+
 class V2rayNRApp extends ConsumerWidget {
   const V2rayNRApp({super.key});
 
@@ -82,14 +87,19 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       _integration = DesktopIntegration(ref);
       await _integration!.start();
       ref.read(desktopIntegrationProvider).value = _integration;
-      // Evidence-run hook: launch straight into the smoke session so the T03
-      // screenshot can show a real Running state without a scripted click.
-      // Debug-only: a release build must never auto-start a core from an
-      // environment variable (ISSUE-08).
-      if (!kDebugMode) return;
-      final autostart = Platform.environment['V2RAYN_R_AUTOSTART'];
-      stderr.writeln('[t03] bootstrap autostart=$autostart');
-      if (autostart == '1' || autostart == 'true') {
+      // Evidence-run hooks that apply the persisted plan on launch:
+      //  * kDebugMode + V2RAYN_R_AUTOSTART (historical T03/T18b screenshots);
+      //  * the applyPlanOnLaunch override, set by main() only when the
+      //    T20 packaged-smoke driver exports V2RAYN_R_AUTO_SMOKE. The default
+      //    override is false, so a normal release run never auto-starts a core
+      //    from an environment variable (ISSUE-08).
+      var shouldApply = ref.read(applyPlanOnLaunchProvider);
+      if (kDebugMode) {
+        final autostart = Platform.environment['V2RAYN_R_AUTOSTART'];
+        stderr.writeln('[t03] bootstrap autostart=$autostart');
+        if (autostart == '1' || autostart == 'true') shouldApply = true;
+      }
+      if (shouldApply) {
         await controller.applyActive();
         final view = ref.read(runtimeControllerProvider);
         stderr.writeln(

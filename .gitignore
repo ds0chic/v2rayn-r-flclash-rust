@@ -20,6 +20,13 @@ work/
 *.log
 docs/evidence/audit/*.run.log
 
+# T20 release artifacts: keep the scripts/manifest, ignore large binaries
+dist/*.zip
+dist/v2rayN-R-*/
+# Keep T20 run logs as evidence (override the *.log rule for this dir)
+!docs/evidence/T20.runs/
+!docs/evidence/T20.runs/*.log
+
 # toolchains / local
 .tool-versions
 *.tmp
@@ -31,4 +38,9 @@ desktop.ini
 tools/cores/**/*.exe
 tools/cores/**/*.zip
 tools/cores/**/*.sha256
+
+
+# release artifacts (keep scripts + manifests, ignore big binaries)
+dist/*.zip
+dist/v2rayN-R-*/
 

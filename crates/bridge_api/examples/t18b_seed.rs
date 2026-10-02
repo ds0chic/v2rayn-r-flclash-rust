@@ -10,12 +10,12 @@ use application::{AppEngine, NetHostClient};
 use domain::{ConfigType, CoreType, DesiredRevision, Profile};
 
 fn main() {
-    let dir = std::env::args().nth(1).expect("usage: t18b_seed <data_dir>");
-    let engine = AppEngine::open_with_runtime(
-        std::path::Path::new(&dir),
-        Arc::new(NetHostClient::new()),
-    )
-    .expect("open engine");
+    let dir = std::env::args()
+        .nth(1)
+        .expect("usage: t18b_seed <data_dir>");
+    let engine =
+        AppEngine::open_with_runtime(std::path::Path::new(&dir), Arc::new(NetHostClient::new()))
+            .expect("open engine");
     let mut node = Profile {
         index_id: "t18b-node".into(),
         config_type: ConfigType::Vless,

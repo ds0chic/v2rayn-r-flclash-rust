@@ -1,0 +1,20 @@
+[10:20:24] zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip
+[10:20:24] package=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\extract\v2rayN-R-1.0.0+1-windows-x64
+[10:20:24] mainExe=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\extract\v2rayN-R-1.0.0+1-windows-x64\v2rayn_desktop.exe
+[10:20:24] update: started pid=31644
+[10:20:27] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-update-window.png (1200x800)
+[10:21:27] update: window=True guiNConfig=False guiNNDB=False
+[10:21:28] update: exited on CloseMainWindow
+[10:21:38] backup: started pid=27796
+[10:21:40] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-backup-window.png (1200x800)
+[10:22:41] backup: window=True guiNConfig=False guiNNDB=False
+[10:22:42] backup: exited on CloseMainWindow
+[10:22:52] seeding C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app via bridge_api example t18b_seed
+[10:22:53]    seed>     Finished `release` profile [optimized] target(s) in 0.35s
+[10:22:53]    seed>      Running `target\release\examples\t18b_seed.exe C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app`
+[10:22:53]    seed> seeded dir=C:\Users\Colby\AppData\Local\Temp\t20_smoke_93d61af292ff46b687fd4c11bb43b34a\data_seed_app active=t18b-node desired=2
+[10:22:53] seed_apply: started pid=40884
+[10:22:55] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\T20.screenshots\T20-smoke-seed-apply.png (1200x800)
+[10:23:56] seed_apply: window=True guiNConfig=True guiNNDB=False
+[10:24:42] seed_apply: applied=False port11808=False coreChild=False
+[10:24:42] seed_apply: exited on CloseMainWindow

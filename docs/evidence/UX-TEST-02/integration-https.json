@@ -1,0 +1,48 @@
+{
+  "dataDir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\ux-test02-run\\data",
+  "observations": [
+    {
+      "step": "servers",
+      "actual": {
+        "httpsPort": 6040,
+        "socksPort": 11808
+      }
+    },
+    {
+      "step": "seed",
+      "actual": {
+        "imported": 1,
+        "rows": 1,
+        "saved": true
+      }
+    },
+    {
+      "step": "https-realping",
+      "actual": {
+        "elapsedMs": 1087,
+        "cancelled": false,
+        "stage": "SpeedtestingCompleted",
+        "message": "测速完成：成功 1",
+        "delaySentinel": 1,
+        "speed": "-",
+        "resultDelay": 1,
+        "resultSpeed": 0.0,
+        "resultMessage": "Speedtesting"
+      }
+    },
+    {
+      "step": "https-download",
+      "actual": {
+        "elapsedMs": 2041,
+        "cancelled": false,
+        "stage": "SpeedtestingCompleted",
+        "message": "测速完成：成功 1",
+        "delaySentinel": 1,
+        "speed": "0.5 MB/s",
+        "resultDelay": 1,
+        "resultSpeed": 0.49234190326476257,
+        "resultMessage": "0.5"
+      }
+    }
+  ]
+}

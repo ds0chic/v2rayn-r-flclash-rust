@@ -85,8 +85,28 @@ void main() {
     final message = container.read(profilesControllerProvider).speedTestMessage;
     expect(message, contains('测速完成'));
     expect(message, contains('失败 1'));
-    expect(message, contains('error.port_conflict'));
+    // UX-TEST-02 maps the stable error key to a human reason for the summary.
+    expect(message, contains('测试端口冲突'));
   });
+
+  test(
+    'structured TLS failure keys are summarized as a human reason',
+    () async {
+      final bridge = SyntheticBridgePort(count: 10);
+      final container = _container(bridge);
+      final controller = container.read(profilesControllerProvider.notifier);
+      const id = 'syn-000003';
+      controller.selectRow(id);
+      bridge.seedSpeedResult(id, -1, 0, message: 'speedtest.tls_failed');
+      controller.startSpeedTest(ProfileAction.realping);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      final message = container
+          .read(profilesControllerProvider)
+          .speedTestMessage;
+      expect(message, contains('测速完成'));
+      expect(message, contains('TLS 证书校验失败'));
+    },
+  );
 
   test('successful run summarizes success', () async {
     final bridge = SyntheticBridgePort(count: 10);

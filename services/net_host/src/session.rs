@@ -1167,6 +1167,10 @@ impl HostState {
         let pid = child.identity.pid;
         let port = child.port;
         let core = child.core;
+        // Release-before-reuse: the listen socket is gone, but accepted
+        // connections can linger in `TIME_WAIT` and block the next bind on
+        // Windows. Confirm (bounded) before the caller may reserve it again.
+        wait_port_released(port, Duration::from_millis(1500)).await;
         journal::remove_staged_artifacts(&self.config.run_root, session_id);
         eprintln!(
             "[net_host] test session {session_id} STOPPED pid={pid} core={core:?} port={port}"
@@ -1256,6 +1260,25 @@ fn preflight_port(port: u16) -> Result<(), DomainError> {
                 .with_field("port")
                 .with_detail(format!("127.0.0.1:{port} unavailable: {e}")),
         ),
+    }
+}
+
+/// Best-effort bounded wait for a test port to become bindable again, so a
+/// stopped test session does not leave a `TIME_WAIT` port behind for reuse.
+async fn wait_port_released(port: u16, timeout: Duration) {
+    if port == 0 {
+        return;
+    }
+    let deadline = Instant::now() + timeout;
+    loop {
+        if preflight_port(port).is_ok() {
+            return;
+        }
+        if Instant::now() >= deadline {
+            eprintln!("[net_host] test port {port} still not bindable after release");
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 

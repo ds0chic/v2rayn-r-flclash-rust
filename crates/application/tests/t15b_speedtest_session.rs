@@ -20,8 +20,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use application::speedtest::{
-    http_get_via_socks, DownloadOutcome, SpeedTestRunner, SpeedTestSession, SpeedTestSettings,
-    TestNode, TestSession,
+    http_get_via_socks, DownloadOutcome, ProbeError, ProbeFailureKind, SpeedTestRunner,
+    SpeedTestSession, SpeedTestSettings, TestNode, TestSession, TlsTrust,
 };
 use domain::{CancellationToken, DomainError, SpeedTestAction};
 
@@ -170,14 +170,15 @@ impl SpeedTestSession for XraySocksSession {
         session: &TestSession,
         url: &str,
         timeout: Duration,
+        trust: &TlsTrust,
         ct: &CancellationToken,
-    ) -> i32 {
+    ) -> Result<i32, ProbeError> {
         let mut best: Option<i32> = None;
         for _ in 0..2 {
             if ct.is_cancelled() {
-                return -1;
+                return Err(ProbeError::new(ProbeFailureKind::Cancelled, "cancelled"));
             }
-            if let Ok(probe) = http_get_via_socks(session.port, url, timeout, 0, ct) {
+            if let Ok(probe) = http_get_via_socks(session.port, url, trust, timeout, 0, ct) {
                 if probe.success {
                     // A loopback RTT can be sub-millisecond; report at least
                     // 1 ms so a positive delay is observable (upstream filters
@@ -188,7 +189,7 @@ impl SpeedTestSession for XraySocksSession {
             }
             std::thread::sleep(Duration::from_millis(50));
         }
-        best.unwrap_or(-1)
+        best.ok_or_else(|| ProbeError::new(ProbeFailureKind::Connect, "no sample"))
     }
 
     fn download(
@@ -197,23 +198,16 @@ impl SpeedTestSession for XraySocksSession {
         url: &str,
         timeout: Duration,
         max_bytes: u64,
+        trust: &TlsTrust,
         ct: &CancellationToken,
-    ) -> DownloadOutcome {
-        match http_get_via_socks(session.port, url, timeout, max_bytes, ct) {
-            Ok(probe) if probe.success => {
-                let secs = probe.total.as_secs_f64().max(0.001);
-                DownloadOutcome {
-                    mb_s: probe.body_bytes as f64 / 1_000_000.0 / secs,
-                    bytes: probe.body_bytes,
-                    elapsed: probe.total,
-                }
-            }
-            _ => DownloadOutcome {
-                mb_s: 0.0,
-                bytes: 0,
-                elapsed: Duration::ZERO,
-            },
-        }
+    ) -> Result<DownloadOutcome, ProbeError> {
+        let probe = http_get_via_socks(session.port, url, trust, timeout, max_bytes, ct)?;
+        let secs = probe.total.as_secs_f64().max(0.001);
+        Ok(DownloadOutcome {
+            mb_s: probe.body_bytes as f64 / 1_000_000.0 / secs,
+            bytes: probe.body_bytes,
+            elapsed: probe.total,
+        })
     }
 
     fn close(&self, session: TestSession) {

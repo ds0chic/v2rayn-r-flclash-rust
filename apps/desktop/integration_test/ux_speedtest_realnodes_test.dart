@@ -114,7 +114,13 @@ void main() {
     final simple = state.all
         .where((r) => !complexTypes.contains(r.configType))
         .toList();
-    final target = (simple.isNotEmpty ? simple : state.all).first;
+    final pool = simple.isNotEmpty ? simple : state.all;
+    // Optional desensitized node-index selector (0-based) so a single action can
+    // be compared across nodes without ever recording addresses or credentials.
+    final nodeIndex = int.tryParse(
+      Platform.environment['V2RAYN_UX_TEST01_NODE_INDEX'] ?? '',
+    );
+    final target = pool[(nodeIndex ?? 0).clamp(0, pool.length - 1)];
     controller.selectRow(target.id);
 
     Future<Map<String, Object?>> runAction(String action, int seconds) async {

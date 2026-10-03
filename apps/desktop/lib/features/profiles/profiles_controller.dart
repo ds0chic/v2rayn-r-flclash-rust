@@ -280,10 +280,25 @@ class ProfilesController extends Notifier<ProfilesState> {
 
   /// The runner reuses the `Speedtesting` progress text as a placeholder when a
   /// real ping times out without an error code; never surface that as a reason.
+  /// Structured probe failures arrive as stable `speedtest.*` keys (HTTPS/TLS
+  /// classification, UX-TEST-02) and are mapped to a human reason here.
   String _failureReason(String message) {
     final trimmed = message.trim();
     if (trimmed.isEmpty || trimmed == 'Speedtesting') return '连接失败';
-    return trimmed;
+    const reasons = <String, String>{
+      'speedtest.resolve_failed': '域名解析失败',
+      'speedtest.connect_failed': '连接失败',
+      'speedtest.timeout': '请求超时',
+      'speedtest.tls_failed': 'TLS 证书校验失败',
+      'speedtest.http_status': 'HTTP 状态错误',
+      'speedtest.protocol_error': '协议错误',
+      'speedtest.cancelled': '已取消',
+      'error.speedtest_url': '测速地址无效',
+      'error.test_session_unreachable': '测试内核不可用',
+      'error.port_conflict': '测试端口冲突',
+    };
+    return reasons[trimmed] ??
+        (trimmed.startsWith('speedtest.') ? '连接失败' : trimmed);
   }
 
   /// Read the persisted `SpeedTestItem` from the engine, falling back to the

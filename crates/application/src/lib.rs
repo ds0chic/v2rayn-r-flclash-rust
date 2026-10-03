@@ -73,11 +73,12 @@ pub use settings::{
 };
 pub use snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
 pub use speedtest::{
-    find_free_test_port, http_get_via_socks, tcping, DownloadOutcome, ProfileExItem,
+    find_free_test_port, http_get_via_socks, release_test_port, reserve_free_test_port,
+    reserved_test_port_count, tcping, DownloadOutcome, ProbeError, ProbeFailureKind, ProfileExItem,
     ProfileExStore, SpeedTestJobs, SpeedTestOutcome, SpeedTestResult, SpeedTestRunner,
     SpeedTestSession, SpeedTestSettings, SpeedTestSnapshot, StopReason, TestNode, TestSession,
-    UnsupportedSession, BATCH_FLUSH_MS, MIN_MIXED_CONCURRENCY, MIN_SPEEDTEST_TIMEOUT_SECS,
-    TEST_PORT_FLOOR,
+    TlsTrust, UnsupportedSession, BATCH_FLUSH_MS, MIN_MIXED_CONCURRENCY,
+    MIN_SPEEDTEST_TIMEOUT_SECS, TEST_PORT_FLOOR,
 };
 pub use store_repo::{
     DnsStore, ProfileStore, RoutingStore, SqliteProfileRepository, SqliteSubRepository, SubStore,

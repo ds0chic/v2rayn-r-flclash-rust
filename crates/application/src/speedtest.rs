@@ -19,14 +19,16 @@
 //! temporary session is closed in a `finally`-equivalent (RAII guard), so a
 //! cancelled or failed item never leaks a test core.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use domain::{CancellationToken, DomainError, SpeedTestAction};
+use rustls::pki_types::ServerName;
+use rustls::{ClientConnection, RootCertStore, StreamOwned};
 use serde::{Deserialize, Serialize};
 
 /// Test-port floor: the reserved live proxy port `10808` can never be used.
@@ -297,6 +299,125 @@ impl ProfileExStore {
 }
 
 // ---------------------------------------------------------------------------
+// TLS trust + structured probe failures
+// ---------------------------------------------------------------------------
+
+/// Extra CA bundle path used by the real-window integration test to trust a
+/// local synthetic CA. Verification stays enabled: this only *adds* a root.
+const EXTRA_CA_ENV: &str = "V2RAYN_SPEEDTEST_EXTRA_CA";
+
+/// Root trust for the HTTPS probe. Production uses the OS store plus an
+/// optional test-only extra CA; deterministic tests inject a synthetic CA
+/// directly and never touch the OS store.
+#[derive(Clone)]
+pub enum TlsTrust {
+    /// Production: OS native roots (and `V2RAYN_SPEEDTEST_EXTRA_CA`, if set).
+    Native,
+    /// Test seam: exactly these roots, no OS trust.
+    Custom(Arc<RootCertStore>),
+}
+
+impl std::fmt::Debug for TlsTrust {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TlsTrust::Native => f.write_str("TlsTrust::Native"),
+            TlsTrust::Custom(store) => write!(f, "TlsTrust::Custom({} roots)", store.len()),
+        }
+    }
+}
+
+impl TlsTrust {
+    /// Test seam: trust exactly the provided store (e.g. a synthetic CA).
+    pub fn custom(store: RootCertStore) -> Self {
+        TlsTrust::Custom(Arc::new(store))
+    }
+
+    /// Resolve the effective root store.
+    pub fn store(&self) -> Arc<RootCertStore> {
+        match self {
+            TlsTrust::Custom(store) => store.clone(),
+            TlsTrust::Native => native_root_store(),
+        }
+    }
+}
+
+/// Cached native root store. Loading is done once; a malformed extra CA is
+/// best-effort and never panics.
+fn native_root_store() -> Arc<RootCertStore> {
+    static NATIVE: OnceLock<Arc<RootCertStore>> = OnceLock::new();
+    NATIVE
+        .get_or_init(|| {
+            let mut store = RootCertStore::empty();
+            let loaded = rustls_native_certs::load_native_certs();
+            for cert in loaded.certs {
+                let _ = store.add(cert);
+            }
+            if let Ok(path) = std::env::var(EXTRA_CA_ENV) {
+                if let Ok(pem) = std::fs::read(path) {
+                    let mut cursor = std::io::Cursor::new(pem);
+                    for cert in rustls_pemfile::certs(&mut cursor).flatten() {
+                        let _ = store.add(cert);
+                    }
+                }
+            }
+            Arc::new(store)
+        })
+        .clone()
+}
+
+/// Coarse failure taxonomy for a probe. `message_key` is stable and safe to
+/// surface to the UI (no addresses, no credentials, no URLs).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProbeFailureKind {
+    /// URL could not be parsed.
+    Url,
+    /// DNS resolution failed.
+    Resolve,
+    /// SOCKS negotiation or TCP connect to the target failed.
+    Connect,
+    /// Deadline elapsed before a response completed.
+    Timeout,
+    /// TLS handshake or certificate verification failed.
+    Tls,
+    /// A complete HTTP response carried a 4xx/5xx status.
+    HttpStatus(u16),
+    /// The peer spoke something that was not a valid HTTP response.
+    Protocol,
+    /// The caller cancelled the probe.
+    Cancelled,
+}
+
+/// A structured probe failure (never a bare `-1`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProbeError {
+    pub kind: ProbeFailureKind,
+    pub detail: String,
+}
+
+impl ProbeError {
+    pub fn new(kind: ProbeFailureKind, detail: impl Into<String>) -> Self {
+        Self {
+            kind,
+            detail: detail.into(),
+        }
+    }
+
+    /// Stable i18n key the UI maps to a human reason.
+    pub fn message_key(&self) -> &'static str {
+        match self.kind {
+            ProbeFailureKind::Url => "error.speedtest_url",
+            ProbeFailureKind::Resolve => "speedtest.resolve_failed",
+            ProbeFailureKind::Connect => "speedtest.connect_failed",
+            ProbeFailureKind::Timeout => "speedtest.timeout",
+            ProbeFailureKind::Tls => "speedtest.tls_failed",
+            ProbeFailureKind::HttpStatus(_) => "speedtest.http_status",
+            ProbeFailureKind::Protocol => "speedtest.protocol_error",
+            ProbeFailureKind::Cancelled => "speedtest.cancelled",
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Test session boundary
 // ---------------------------------------------------------------------------
 
@@ -336,15 +457,17 @@ pub trait SpeedTestSession: Send + Sync {
     /// session handle. The core must be isolated from the managed runtime.
     fn open(&self, node: &TestNode) -> Result<TestSession, DomainError>;
 
-    /// RealPing: request `url` through the session's socks proxy and return the
-    /// minimum of two round trips in ms, or `-1` on failure.
+    /// RealPing: request `url` through the session's SOCKS proxy and return the
+    /// minimum of two round trips in ms. A non-positive round trip never
+    /// succeeds: failures are structured [`ProbeError`]s.
     fn real_ping(
         &self,
         session: &TestSession,
         url: &str,
         timeout: Duration,
+        trust: &TlsTrust,
         ct: &CancellationToken,
-    ) -> i32;
+    ) -> Result<i32, ProbeError>;
 
     /// Download `url` through the session and return the observed speed.
     fn download(
@@ -353,8 +476,9 @@ pub trait SpeedTestSession: Send + Sync {
         url: &str,
         timeout: Duration,
         max_bytes: u64,
+        trust: &TlsTrust,
         ct: &CancellationToken,
-    ) -> DownloadOutcome;
+    ) -> Result<DownloadOutcome, ProbeError>;
 
     /// UDP test (ntp/dns/stun/mcbe). Default: not supported. A `None` result is
     /// surfaced as an explicit unsupported failure, never a fake delay.
@@ -401,9 +525,13 @@ impl SpeedTestSession for UnsupportedSession {
         _session: &TestSession,
         _url: &str,
         _timeout: Duration,
+        _trust: &TlsTrust,
         _ct: &CancellationToken,
-    ) -> i32 {
-        -1
+    ) -> Result<i32, ProbeError> {
+        Err(ProbeError::new(
+            ProbeFailureKind::Connect,
+            "test session unsupported",
+        ))
     }
 
     fn download(
@@ -412,13 +540,13 @@ impl SpeedTestSession for UnsupportedSession {
         _url: &str,
         _timeout: Duration,
         _max_bytes: u64,
+        _trust: &TlsTrust,
         _ct: &CancellationToken,
-    ) -> DownloadOutcome {
-        DownloadOutcome {
-            mb_s: 0.0,
-            bytes: 0,
-            elapsed: Duration::ZERO,
-        }
+    ) -> Result<DownloadOutcome, ProbeError> {
+        Err(ProbeError::new(
+            ProbeFailureKind::Connect,
+            "test session unsupported",
+        ))
     }
 
     fn close(&self, _session: TestSession) {}
@@ -543,15 +671,51 @@ impl SpeedTestOutcome {
 pub struct SpeedTestRunner {
     settings: SpeedTestSettings,
     session: Arc<dyn SpeedTestSession>,
+    trust: TlsTrust,
 }
 
 impl SpeedTestRunner {
+    /// Production: verify HTTPS against the OS root store.
     pub fn new(settings: SpeedTestSettings, session: Arc<dyn SpeedTestSession>) -> Self {
-        Self { settings, session }
+        Self {
+            settings,
+            session,
+            trust: TlsTrust::Native,
+        }
+    }
+
+    /// Test seam: verify HTTPS against exactly `roots` (e.g. a synthetic CA).
+    pub fn with_roots(
+        settings: SpeedTestSettings,
+        session: Arc<dyn SpeedTestSession>,
+        roots: RootCertStore,
+    ) -> Self {
+        Self {
+            settings,
+            session,
+            trust: TlsTrust::custom(roots),
+        }
+    }
+
+    /// Test seam: inject a full [`TlsTrust`].
+    pub fn with_trust(
+        settings: SpeedTestSettings,
+        session: Arc<dyn SpeedTestSession>,
+        trust: TlsTrust,
+    ) -> Self {
+        Self {
+            settings,
+            session,
+            trust,
+        }
     }
 
     pub fn settings(&self) -> &SpeedTestSettings {
         &self.settings
+    }
+
+    pub fn trust(&self) -> &TlsTrust {
+        &self.trust
     }
 
     /// Run synchronously. `on_batch` receives result batches every
@@ -740,24 +904,33 @@ impl SpeedTestRunner {
     fn real_ping_one(&self, node: &TestNode, ct: &CancellationToken) -> SpeedTestResult {
         match SessionGuard::open(self.session.as_ref(), node) {
             Ok(guard) => {
-                let delay = self.session.real_ping(
+                match self.session.real_ping(
                     guard.get(),
                     &self.settings.speed_ping_test_url,
                     self.settings.timeout.min(LOCAL_FETCH_TIMEOUT),
+                    &self.trust,
                     ct,
-                );
-                let mut result = SpeedTestResult::delay(node.index_id.clone(), delay);
-                if delay > 0 {
-                    if let Some(url) = &self.settings.ipapi_url {
-                        if let Some(ip) =
-                            self.session
-                                .ip_info(guard.get(), url, self.settings.timeout, ct)
-                        {
-                            result.ip_info = Some(ip);
+                ) {
+                    Ok(delay) => {
+                        let mut result = SpeedTestResult::delay(node.index_id.clone(), delay);
+                        if delay > 0 {
+                            if let Some(url) = &self.settings.ipapi_url {
+                                if let Some(ip) = self.session.ip_info(
+                                    guard.get(),
+                                    url,
+                                    self.settings.timeout,
+                                    ct,
+                                ) {
+                                    result.ip_info = Some(ip);
+                                }
+                            }
                         }
+                        result
+                    }
+                    Err(error) => {
+                        SpeedTestResult::failed(node.index_id.clone(), error.message_key())
                     }
                 }
-                result
             }
             Err(error) => SpeedTestResult::failed(node.index_id.clone(), error.message_key.clone()),
         }
@@ -766,36 +939,52 @@ impl SpeedTestRunner {
     fn mixed_one(&self, node: &TestNode, ct: &CancellationToken) -> SpeedTestResult {
         match SessionGuard::open(self.session.as_ref(), node) {
             Ok(guard) => {
-                let delay = self.session.real_ping(
+                let delay = match self.session.real_ping(
                     guard.get(),
                     &self.settings.speed_ping_test_url,
                     self.settings.timeout.min(LOCAL_FETCH_TIMEOUT),
+                    &self.trust,
                     ct,
-                );
+                ) {
+                    Ok(delay) => delay,
+                    Err(error) => {
+                        return SpeedTestResult::failed(node.index_id.clone(), error.message_key())
+                    }
+                };
                 if delay <= 0 {
                     return SpeedTestResult::failed(node.index_id.clone(), "SpeedtestingSkip");
                 }
                 if ct.is_cancelled() {
                     return SpeedTestResult::failed(node.index_id.clone(), "cancelled");
                 }
-                let outcome = self.session.download(
+                match self.session.download(
                     guard.get(),
                     &self.settings.speed_test_url,
                     self.settings.timeout,
                     0,
+                    &self.trust,
                     ct,
-                );
-                SpeedTestResult {
-                    index_id: node.index_id.clone(),
-                    delay: Some(delay),
-                    speed: Some(outcome.mb_s),
-                    message: if outcome.mb_s > 0.0 {
-                        Some(format!("{:.1}", outcome.mb_s))
-                    } else {
-                        Some("SpeedtestingFailed".to_string())
+                ) {
+                    Ok(outcome) => SpeedTestResult {
+                        index_id: node.index_id.clone(),
+                        delay: Some(delay),
+                        speed: Some(outcome.mb_s),
+                        message: if outcome.mb_s > 0.0 {
+                            Some(format!("{:.1}", outcome.mb_s))
+                        } else {
+                            Some("SpeedtestingFailed".to_string())
+                        },
+                        ip_info: None,
+                        failed: false,
                     },
-                    ip_info: None,
-                    failed: false,
+                    Err(error) => SpeedTestResult {
+                        index_id: node.index_id.clone(),
+                        delay: Some(delay),
+                        speed: Some(0.0),
+                        message: Some(error.message_key().to_string()),
+                        ip_info: None,
+                        failed: true,
+                    },
                 }
             }
             Err(error) => SpeedTestResult::failed(node.index_id.clone(), error.message_key.clone()),
@@ -886,10 +1075,16 @@ pub fn tcping(address: &str, port: i32, timeout: Duration, ct: &CancellationToke
     }
 }
 
+/// Test-port ceiling for the allocation scan (exclusive).
+const TEST_PORT_CEIL: u16 = 59_000;
+/// Number of consecutive ports reserved per test session: the SOCKS inbound
+/// plus the two state ports the codegen derives from it.
+const TEST_PORT_BLOCK: u16 = 3;
+
 /// Pick a free TCP port at/above `base`, skipping the reserved live proxy port.
 /// Returns `None` when the scan is exhausted.
 pub fn find_free_test_port(mut base: u16) -> Option<u16> {
-    while base < 60_000 {
+    while base < TEST_PORT_CEIL {
         if base != 10_808 && std::net::TcpListener::bind(("127.0.0.1", base)).is_ok() {
             return Some(base);
         }
@@ -898,8 +1093,68 @@ pub fn find_free_test_port(mut base: u16) -> Option<u16> {
     None
 }
 
+static TEST_PORT_CURSOR: AtomicU16 = AtomicU16::new(TEST_PORT_FLOOR);
+static RESERVED_TEST_PORTS: OnceLock<Mutex<HashSet<u16>>> = OnceLock::new();
+
+fn reserved_ports() -> &'static Mutex<HashSet<u16>> {
+    RESERVED_TEST_PORTS.get_or_init(|| Mutex::new(HashSet::new()))
+}
+
+fn port_block_free(start: u16) -> bool {
+    (0..TEST_PORT_BLOCK).all(|offset| {
+        let port = start.saturating_add(offset);
+        port >= TEST_PORT_FLOOR
+            && port != 10_808
+            && std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
+    })
+}
+
+/// Reserve a contiguous test-port block, racing safely with other in-process
+/// callers. `find_free_test_port` alone only *probes* a port: with a
+/// concurrency pool every worker could observe the same free port and then
+/// collide at core spawn (`error.port_conflict`). The reservation set makes
+/// concurrent opens pick disjoint ports, and a rotating cursor avoids
+/// immediately reusing a just-closed port (Windows `TIME_WAIT`).
+pub fn reserve_free_test_port() -> Option<u16> {
+    let reserved = reserved_ports();
+    let mut guard = reserved.lock().unwrap_or_else(|p| p.into_inner());
+    let start = TEST_PORT_CURSOR
+        .load(Ordering::Acquire)
+        .max(TEST_PORT_FLOOR);
+    let mut port = start;
+    for _ in 0..(TEST_PORT_CEIL - TEST_PORT_FLOOR) {
+        if port.saturating_add(TEST_PORT_BLOCK) >= TEST_PORT_CEIL {
+            port = TEST_PORT_FLOOR;
+        }
+        let block_conflicts =
+            (0..TEST_PORT_BLOCK).any(|offset| guard.contains(&port.saturating_add(offset)));
+        if !block_conflicts && port_block_free(port) {
+            for offset in 0..TEST_PORT_BLOCK {
+                guard.insert(port.saturating_add(offset));
+            }
+            TEST_PORT_CURSOR.store(port.saturating_add(TEST_PORT_BLOCK), Ordering::Release);
+            return Some(port);
+        }
+        port = port.saturating_add(1);
+    }
+    None
+}
+
+/// Release a block previously reserved by [`reserve_free_test_port`].
+pub fn release_test_port(port: u16) {
+    let mut guard = reserved_ports().lock().unwrap_or_else(|p| p.into_inner());
+    for offset in 0..TEST_PORT_BLOCK {
+        guard.remove(&port.saturating_add(offset));
+    }
+}
+
+/// Number of currently reserved test ports (diagnostics/tests).
+pub fn reserved_test_port_count() -> usize {
+    reserved_ports().lock().map(|g| g.len()).unwrap_or_default()
+}
+
 // ---------------------------------------------------------------------------
-// SOCKS5 + HTTP probe helper (real, no TLS)
+// SOCKS5 + HTTP(S) probe helper (real TLS via rustls)
 // ---------------------------------------------------------------------------
 
 /// Outcome of one HTTP request through a SOCKS5 proxy.
@@ -909,38 +1164,44 @@ pub struct HttpProbe {
     pub body_bytes: u64,
     pub total: Duration,
     pub success: bool,
+    /// Parsed HTTP status code, when a response line was read.
+    pub status: Option<u16>,
 }
 
 /// Perform `GET url` through the SOCKS5 proxy at `127.0.0.1:port`.
 ///
-/// Only `http://` URLs are supported by this helper; an `https://` URL returns
-/// `success=false` (TLS is out of scope for the local test session; remote TLS
-/// measurement is tracked as unresolved).
+/// Both `http://` and `https://` are supported. HTTPS is verified against
+/// `trust` (OS roots in production, an injected CA in deterministic tests);
+/// insecure mode is deliberately not exposed. Failures are classified by
+/// [`ProbeFailureKind`] so the UI can display a concrete reason.
 pub fn http_get_via_socks(
     socks_port: u16,
     url: &str,
+    trust: &TlsTrust,
     timeout: Duration,
     max_bytes: u64,
     ct: &CancellationToken,
-) -> Result<HttpProbe, DomainError> {
-    let parsed = parse_http_url(url).ok_or_else(|| {
-        DomainError::new(domain::codes::INVALID_ARGUMENT, "error.speedtest_url")
-            .with_field("url")
-            .with_detail(url)
-    })?;
+) -> Result<HttpProbe, ProbeError> {
+    let parsed = parse_url(url)
+        .ok_or_else(|| ProbeError::new(ProbeFailureKind::Url, format!("invalid url: {url}")))?;
     let deadline = Instant::now() + timeout;
 
-    let mut stream = TcpStream::connect(("127.0.0.1", socks_port)).map_err(|e| {
-        DomainError::new(domain::codes::UNAVAILABLE, "error.test_session_unreachable")
-            .with_detail(e.to_string())
-    })?;
-    // Poll with a short read timeout so cancellation is prompt even while a
-    // slow server is holding the connection open.
+    let mut tcp = TcpStream::connect_timeout(
+        &("127.0.0.1", socks_port)
+            .to_socket_addrs()
+            .map_err(|e| ProbeError::new(ProbeFailureKind::Resolve, e.to_string()))?
+            .next()
+            .ok_or_else(|| ProbeError::new(ProbeFailureKind::Resolve, "no socks address"))?,
+        timeout.min(Duration::from_secs(5)),
+    )
+    .map_err(|e| ProbeError::new(ProbeFailureKind::Connect, e.to_string()))?;
+    // Poll with a short timeout so cancellation is prompt even while a slow
+    // server holds the connection open.
     let poll = timeout.min(Duration::from_millis(250));
-    let _ = stream.set_read_timeout(Some(poll));
-    let _ = stream.set_write_timeout(Some(poll));
+    let _ = tcp.set_read_timeout(Some(poll));
+    let _ = tcp.set_write_timeout(Some(poll));
 
-    socks5_connect(&mut stream, &parsed.host, parsed.port, ct)?;
+    socks5_connect(&mut tcp, &parsed.host, parsed.port, ct)?;
 
     let path = if parsed.path.is_empty() {
         "/".to_string()
@@ -951,53 +1212,28 @@ pub fn http_get_via_socks(
         "GET {path} HTTP/1.0\r\nHost: {}\r\nUser-Agent: v2rayN-rs/0.1\r\nAccept: */*\r\nConnection: close\r\n\r\n",
         parsed.host_header()
     );
-    let start = Instant::now();
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|e| unavailable(e.to_string()))?;
 
-    let mut buf = [0u8; 16 * 1024];
-    let mut header_ms = 0u128;
-    let mut header_done = false;
-    let mut body_bytes: u64 = 0;
-    loop {
-        if ct.is_cancelled() {
-            return Err(ct.check().unwrap_err());
+    match parsed.scheme {
+        Scheme::Http => {
+            write_request(&mut tcp, request.as_bytes(), deadline, ct)?;
+            read_response(&mut tcp, false, deadline, max_bytes, ct)
         }
-        if Instant::now() >= deadline {
-            break;
-        }
-        let n = match stream.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => n,
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => continue,
-            Err(e) if e.kind() == std::io::ErrorKind::TimedOut => continue,
-            Err(e) => return Err(unavailable(e.to_string())),
-        };
-        if !header_done {
-            header_ms = start.elapsed().as_millis();
-            if let Some(pos) = find_header_end(&buf[..n]) {
-                header_done = true;
-                let body = &buf[pos..n];
-                body_bytes = body_bytes.saturating_add(body.len() as u64);
-            }
-        } else {
-            body_bytes = body_bytes.saturating_add(n as u64);
-        }
-        if max_bytes > 0 && body_bytes >= max_bytes {
-            break;
+        Scheme::Https => {
+            let mut tls = tls_handshake(tcp, &parsed.host, trust, deadline, ct)?;
+            write_request(&mut tls, request.as_bytes(), deadline, ct)?;
+            read_response(&mut tls, true, deadline, max_bytes, ct)
         }
     }
-    let total = start.elapsed();
-    Ok(HttpProbe {
-        header_ms,
-        body_bytes,
-        total,
-        success: header_done,
-    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Scheme {
+    Http,
+    Https,
 }
 
 struct ParsedUrl {
+    scheme: Scheme,
     host: String,
     port: u16,
     path: String,
@@ -1014,8 +1250,13 @@ impl ParsedUrl {
     }
 }
 
-fn parse_http_url(url: &str) -> Option<ParsedUrl> {
-    let rest = url.strip_prefix("http://")?;
+fn parse_url(url: &str) -> Option<ParsedUrl> {
+    let (scheme, rest, default_port) = if let Some(rest) = url.strip_prefix("https://") {
+        (Scheme::Https, rest, 443u16)
+    } else {
+        let rest = url.strip_prefix("http://")?;
+        (Scheme::Http, rest, 80u16)
+    };
     let (authority, path) = match rest.find('/') {
         Some(idx) => (&rest[..idx], &rest[idx..]),
         None => (rest, ""),
@@ -1024,17 +1265,222 @@ fn parse_http_url(url: &str) -> Option<ParsedUrl> {
         Some((host, port)) if port.chars().all(|c| c.is_ascii_digit()) && !port.is_empty() => {
             (host.to_string(), port.parse::<u16>().ok()?)
         }
-        _ => (authority.to_string(), 80u16),
+        _ => (authority.to_string(), default_port),
     };
     if host.is_empty() {
         return None;
     }
     Some(ParsedUrl {
+        scheme,
         host,
         port,
         path: path.to_string(),
-        is_default_port: port == 80,
+        is_default_port: port == default_port,
     })
+}
+
+/// Drive the rustls handshake to completion so certificate/verification
+/// failures are classified as TLS rather than a generic read error.
+fn tls_handshake(
+    tcp: TcpStream,
+    host: &str,
+    trust: &TlsTrust,
+    deadline: Instant,
+    ct: &CancellationToken,
+) -> Result<StreamOwned<ClientConnection, TcpStream>, ProbeError> {
+    let provider = Arc::new(rustls::crypto::ring::default_provider());
+    let config = rustls::ClientConfig::builder_with_provider(provider)
+        .with_safe_default_protocol_versions()
+        .map_err(|e| ProbeError::new(ProbeFailureKind::Tls, e.to_string()))?
+        .with_root_certificates(trust.store())
+        .with_no_client_auth();
+    let server_name = ServerName::try_from(host.to_string())
+        .map_err(|e| ProbeError::new(ProbeFailureKind::Protocol, e.to_string()))?;
+    let conn = ClientConnection::new(Arc::new(config), server_name)
+        .map_err(|e| ProbeError::new(ProbeFailureKind::Tls, e.to_string()))?;
+    let mut tls = StreamOwned::new(conn, tcp);
+    while tls.conn.is_handshaking() {
+        if ct.is_cancelled() {
+            return Err(ProbeError::new(ProbeFailureKind::Cancelled, "cancelled"));
+        }
+        if Instant::now() >= deadline {
+            return Err(ProbeError::new(
+                ProbeFailureKind::Timeout,
+                "tls handshake timeout",
+            ));
+        }
+        match tls.conn.complete_io(&mut tls.sock) {
+            Ok((rd, wr)) => {
+                if rd == 0 && wr == 0 {
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+            }
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.kind() == std::io::ErrorKind::TimedOut => {}
+            Err(e) => return Err(ProbeError::new(ProbeFailureKind::Tls, e.to_string())),
+        }
+    }
+    Ok(tls)
+}
+
+fn write_request<S: Write>(
+    stream: &mut S,
+    data: &[u8],
+    deadline: Instant,
+    ct: &CancellationToken,
+) -> Result<(), ProbeError> {
+    let mut written = 0usize;
+    while written < data.len() {
+        if ct.is_cancelled() {
+            return Err(ProbeError::new(ProbeFailureKind::Cancelled, "cancelled"));
+        }
+        if Instant::now() >= deadline {
+            return Err(ProbeError::new(ProbeFailureKind::Timeout, "write timeout"));
+        }
+        match stream.write(&data[written..]) {
+            Ok(0) => {
+                return Err(ProbeError::new(
+                    ProbeFailureKind::Connect,
+                    "write returned 0",
+                ))
+            }
+            Ok(n) => written += n,
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.kind() == std::io::ErrorKind::TimedOut =>
+            {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            Err(e) => return Err(ProbeError::new(ProbeFailureKind::Connect, e.to_string())),
+        }
+    }
+    let _ = stream.flush();
+    Ok(())
+}
+
+fn read_response<S: Read>(
+    stream: &mut S,
+    tls: bool,
+    deadline: Instant,
+    max_bytes: u64,
+    ct: &CancellationToken,
+) -> Result<HttpProbe, ProbeError> {
+    let start = Instant::now();
+    let mut buf = [0u8; 16 * 1024];
+    let mut header_buf: Vec<u8> = Vec::new();
+    let mut header_ms = 0u128;
+    let mut header_done = false;
+    let mut body_bytes: u64 = 0;
+    let mut status: Option<u16> = None;
+    let mut content_length: Option<u64> = None;
+    loop {
+        if ct.is_cancelled() {
+            return Err(ProbeError::new(ProbeFailureKind::Cancelled, "cancelled"));
+        }
+        let past_deadline = Instant::now() >= deadline;
+        if past_deadline && !header_done {
+            return Err(ProbeError::new(ProbeFailureKind::Timeout, "read timeout"));
+        }
+        if past_deadline {
+            // Header complete: return the bytes measured so far rather than
+            // discarding a valid response.
+            break;
+        }
+        if header_done {
+            let body_complete = content_length.is_some_and(|len| body_bytes >= len);
+            if body_complete || (max_bytes > 0 && body_bytes >= max_bytes) {
+                break;
+            }
+        }
+        match stream.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => {
+                if !header_done {
+                    header_ms = start.elapsed().as_millis();
+                    header_buf.extend_from_slice(&buf[..n]);
+                    if let Some(pos) = find_header_end(&header_buf) {
+                        header_done = true;
+                        status = parse_status(&header_buf[..pos]);
+                        content_length = parse_content_length(&header_buf[..pos]);
+                        body_bytes = body_bytes.saturating_add((header_buf.len() - pos) as u64);
+                    }
+                } else {
+                    body_bytes = body_bytes.saturating_add(n as u64);
+                }
+            }
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    || e.kind() == std::io::ErrorKind::TimedOut => {}
+            Err(e) => {
+                if header_done {
+                    // A real server (or a relay) may close the stream without a
+                    // TLS `close_notify`; a completed header still yields a
+                    // valid measurement, so treat the truncation as EOF.
+                    break;
+                }
+                return Err(classify_io(&e, tls));
+            }
+        }
+    }
+    if !header_done {
+        return Err(ProbeError::new(
+            ProbeFailureKind::Timeout,
+            "no http response before timeout",
+        ));
+    }
+    match status {
+        Some(code) if code < 400 => Ok(HttpProbe {
+            header_ms,
+            body_bytes,
+            total: start.elapsed(),
+            success: true,
+            status,
+        }),
+        Some(code) => Err(ProbeError::new(
+            ProbeFailureKind::HttpStatus(code),
+            format!("http status {code}"),
+        )),
+        None => Err(ProbeError::new(
+            ProbeFailureKind::Protocol,
+            "malformed http status line",
+        )),
+    }
+}
+
+fn classify_io(error: &std::io::Error, tls: bool) -> ProbeError {
+    if tls && error.kind() == std::io::ErrorKind::InvalidData {
+        ProbeError::new(ProbeFailureKind::Tls, error.to_string())
+    } else if error.kind() == std::io::ErrorKind::InvalidData {
+        ProbeError::new(ProbeFailureKind::Protocol, error.to_string())
+    } else {
+        ProbeError::new(ProbeFailureKind::Connect, error.to_string())
+    }
+}
+
+/// Parse `HTTP/1.x 204 ...` into `204`.
+fn parse_status(header: &[u8]) -> Option<u16> {
+    let line_end = header.windows(2).position(|w| w == b"\r\n")?;
+    let line = std::str::from_utf8(&header[..line_end]).ok()?;
+    let mut parts = line.split_whitespace();
+    let version = parts.next()?;
+    if !version.starts_with("HTTP/") {
+        return None;
+    }
+    parts.next()?.parse::<u16>().ok()
+}
+
+/// Parse a case-insensitive `Content-Length` header, when present.
+fn parse_content_length(header: &[u8]) -> Option<u64> {
+    let text = String::from_utf8_lossy(header);
+    for line in text.lines() {
+        if let Some((name, value)) = line.split_once(':') {
+            if name.trim().eq_ignore_ascii_case("content-length") {
+                return value.trim().parse::<u64>().ok();
+            }
+        }
+    }
+    None
 }
 
 fn socks5_connect(
@@ -1042,39 +1488,40 @@ fn socks5_connect(
     host: &str,
     port: u16,
     ct: &CancellationToken,
-) -> Result<(), DomainError> {
+) -> Result<(), ProbeError> {
+    let io = |e: std::io::Error| ProbeError::new(ProbeFailureKind::Connect, e.to_string());
     if ct.is_cancelled() {
-        return Err(ct.check().unwrap_err());
+        return Err(ProbeError::new(ProbeFailureKind::Cancelled, "cancelled"));
     }
     // Greeting: no-auth.
-    stream
-        .write_all(&[0x05, 0x01, 0x00])
-        .map_err(|e| unavailable(e.to_string()))?;
+    stream.write_all(&[0x05, 0x01, 0x00]).map_err(io)?;
     let mut resp = [0u8; 2];
-    stream
-        .read_exact(&mut resp)
-        .map_err(|e| unavailable(e.to_string()))?;
+    stream.read_exact(&mut resp).map_err(io)?;
     if resp != [0x05, 0x00] {
-        return Err(unavailable("socks5 auth negotiation failed"));
+        return Err(ProbeError::new(
+            ProbeFailureKind::Connect,
+            "socks5 auth negotiation failed",
+        ));
     }
     // CONNECT request (domain address type).
-    let mut request = vec![0x05, 0x01, 0x00, 0x03];
     let host_bytes = host.as_bytes();
     if host_bytes.len() > 255 {
-        return Err(unavailable("socks5 host too long"));
+        return Err(ProbeError::new(
+            ProbeFailureKind::Connect,
+            "socks5 host too long",
+        ));
     }
-    request.push(host_bytes.len() as u8);
+    let mut request = vec![0x05, 0x01, 0x00, 0x03, host_bytes.len() as u8];
     request.extend_from_slice(host_bytes);
     request.extend_from_slice(&port.to_be_bytes());
-    stream
-        .write_all(&request)
-        .map_err(|e| unavailable(e.to_string()))?;
+    stream.write_all(&request).map_err(io)?;
     let mut head = [0u8; 4];
-    stream
-        .read_exact(&mut head)
-        .map_err(|e| unavailable(e.to_string()))?;
+    stream.read_exact(&mut head).map_err(io)?;
     if head[1] != 0x00 {
-        return Err(unavailable(format!("socks5 connect reply {:#x}", head[1])));
+        return Err(ProbeError::new(
+            ProbeFailureKind::Connect,
+            format!("socks5 connect reply {:#x}", head[1]),
+        ));
     }
     // Consume the bound address.
     let addr_len = match head[3] {
@@ -1082,27 +1529,23 @@ fn socks5_connect(
         0x04 => 16,
         0x03 => {
             let mut len = [0u8; 1];
-            stream
-                .read_exact(&mut len)
-                .map_err(|e| unavailable(e.to_string()))?;
+            stream.read_exact(&mut len).map_err(io)?;
             len[0] as usize
         }
-        _ => return Err(unavailable("socks5 bad atyp")),
+        _ => {
+            return Err(ProbeError::new(
+                ProbeFailureKind::Protocol,
+                "socks5 bad atyp",
+            ))
+        }
     };
     let mut discard = vec![0u8; addr_len + 2];
-    stream
-        .read_exact(&mut discard)
-        .map_err(|e| unavailable(e.to_string()))?;
+    stream.read_exact(&mut discard).map_err(io)?;
     Ok(())
 }
 
 fn find_header_end(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == b"\r\n\r\n").map(|p| p + 4)
-}
-
-fn unavailable(detail: impl Into<String>) -> DomainError {
-    DomainError::new(domain::codes::UNAVAILABLE, "error.speedtest_failed")
-        .with_detail(detail.into())
 }
 
 // ---------------------------------------------------------------------------
@@ -1172,15 +1615,21 @@ mod tests {
             session: &TestSession,
             _url: &str,
             _timeout: Duration,
+            _trust: &TlsTrust,
             ct: &CancellationToken,
-        ) -> i32 {
+        ) -> Result<i32, ProbeError> {
             if let Some(block) = self.block {
                 sleep_cancellable(block, ct);
                 if ct.is_cancelled() {
-                    return -1;
+                    return Err(ProbeError::new(ProbeFailureKind::Cancelled, "cancelled"));
                 }
             }
-            *self.delay_ms.get(&session.node.index_id).unwrap_or(&10)
+            let delay = *self.delay_ms.get(&session.node.index_id).unwrap_or(&10);
+            if delay <= 0 {
+                Err(ProbeError::new(ProbeFailureKind::Connect, "fake failure"))
+            } else {
+                Ok(delay)
+            }
         }
 
         fn download(
@@ -1189,20 +1638,20 @@ mod tests {
             _url: &str,
             _timeout: Duration,
             _max_bytes: u64,
+            _trust: &TlsTrust,
             ct: &CancellationToken,
-        ) -> DownloadOutcome {
+        ) -> Result<DownloadOutcome, ProbeError> {
             if let Some(block) = self.block {
                 sleep_cancellable(block, ct);
             }
-            DownloadOutcome {
-                mb_s: if ct.is_cancelled() {
-                    0.0
-                } else {
-                    self.download_mb_s
-                },
+            if ct.is_cancelled() {
+                return Err(ProbeError::new(ProbeFailureKind::Cancelled, "cancelled"));
+            }
+            Ok(DownloadOutcome {
+                mb_s: self.download_mb_s,
                 bytes: 1_000_000,
                 elapsed: Duration::from_secs(1),
-            }
+            })
         }
 
         fn close(&self, _session: TestSession) {
@@ -1536,15 +1985,21 @@ mod tests {
     }
 
     #[test]
-    fn parse_http_url_handles_ports_and_paths() {
-        let p = parse_http_url("http://127.0.0.1:11809/large.file").unwrap();
+    fn parse_url_handles_schemes_ports_and_paths() {
+        let p = parse_url("http://127.0.0.1:11809/large.file").unwrap();
+        assert_eq!(p.scheme, Scheme::Http);
         assert_eq!(p.host, "127.0.0.1");
         assert_eq!(p.port, 11809);
         assert_eq!(p.path, "/large.file");
         assert!(!p.is_default_port);
-        let p = parse_http_url("http://example.com").unwrap();
+        let p = parse_url("http://example.com").unwrap();
         assert_eq!(p.port, 80);
         assert!(p.is_default_port);
-        assert!(parse_http_url("https://example.com").is_none());
+        let p = parse_url("https://example.com/generate_204").unwrap();
+        assert_eq!(p.scheme, Scheme::Https);
+        assert_eq!(p.port, 443);
+        assert!(p.is_default_port);
+        assert_eq!(p.path, "/generate_204");
+        assert!(parse_url("ftp://example.com").is_none());
     }
 }

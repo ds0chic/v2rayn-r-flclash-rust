@@ -1,0 +1,30 @@
+{
+  "dataDir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\ux-test02-realnode\\data",
+  "observations": [
+    {
+      "step": "inventory",
+      "actual": {
+        "total": 39,
+        "visible": 39,
+        "configTypes": {
+          "vless": 26,
+          "hysteria2": 13
+        }
+      }
+    },
+    {
+      "step": "download",
+      "actual": {
+        "configType": "vless",
+        "elapsedMs": 6860,
+        "cancelled": false,
+        "stage": "SpeedtestingCompleted",
+        "message": "测速完成：成功 1",
+        "delaySentinel": 183,
+        "speed": "29.6 MB/s",
+        "resultCode": "29.6",
+        "resultDelay": 183
+      }
+    }
+  ]
+}

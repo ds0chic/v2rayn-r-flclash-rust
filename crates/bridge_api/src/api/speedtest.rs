@@ -16,9 +16,9 @@ use std::time::Duration;
 use application::codegen::{build_input, generate, CodegenOptions};
 use application::net_host_client::NetHostClient;
 use application::speedtest::{
-    find_free_test_port, http_get_via_socks, DownloadOutcome, ProfileExStore, SpeedTestJobs,
-    SpeedTestResult, SpeedTestRunner, SpeedTestSession, SpeedTestSettings, SpeedTestSnapshot,
-    TestNode, TestSession,
+    http_get_via_socks, release_test_port, reserve_free_test_port, DownloadOutcome, ProbeError,
+    ProfileExStore, SpeedTestJobs, SpeedTestResult, SpeedTestRunner, SpeedTestSession,
+    SpeedTestSettings, SpeedTestSnapshot, TestNode, TestSession, TlsTrust,
 };
 use domain::{
     ConfigSource, ContentHash, CoreType, DomainError, NetworkPolicy, OutboundGraph, PortRequest,
@@ -118,12 +118,83 @@ impl NetHostTestSession {
 
 impl SpeedTestSession for NetHostTestSession {
     fn open(&self, node: &TestNode) -> Result<TestSession, DomainError> {
+        // Reserve a port block up front so concurrent per-node sessions never
+        // race for the same ephemeral port (`error.port_conflict`). Every error
+        // path releases the reservation; `close` releases the successful one.
+        let port = reserve_free_test_port()
+            .ok_or_else(|| DomainError::new(domain::codes::UNAVAILABLE, "error.no_free_port"))?;
+        match self.open_reserved(node, port) {
+            Ok(session) => Ok(session),
+            Err(error) => {
+                release_test_port(port);
+                Err(error)
+            }
+        }
+    }
+
+    fn real_ping(
+        &self,
+        session: &TestSession,
+        url: &str,
+        timeout: Duration,
+        trust: &TlsTrust,
+        ct: &domain::CancellationToken,
+    ) -> Result<i32, ProbeError> {
+        let mut best: Option<i32> = None;
+        for _ in 0..2 {
+            if ct.is_cancelled() {
+                return Err(ProbeError::new(
+                    application::speedtest::ProbeFailureKind::Cancelled,
+                    "cancelled",
+                ));
+            }
+            if let Ok(probe) = http_get_via_socks(session.port, url, trust, timeout, 0, ct) {
+                if probe.success {
+                    let ms = (probe.header_ms as i32).max(1);
+                    best = Some(best.map_or(ms, |b| b.min(ms)));
+                }
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        best.ok_or_else(|| {
+            ProbeError::new(
+                application::speedtest::ProbeFailureKind::Connect,
+                "no sample",
+            )
+        })
+    }
+
+    fn download(
+        &self,
+        session: &TestSession,
+        url: &str,
+        timeout: Duration,
+        max_bytes: u64,
+        trust: &TlsTrust,
+        ct: &domain::CancellationToken,
+    ) -> Result<DownloadOutcome, ProbeError> {
+        let probe = http_get_via_socks(session.port, url, trust, timeout, max_bytes, ct)?;
+        let secs = probe.total.as_secs_f64().max(0.001);
+        Ok(DownloadOutcome {
+            mb_s: probe.body_bytes as f64 / 1_000_000.0 / secs,
+            bytes: probe.body_bytes,
+            elapsed: probe.total,
+        })
+    }
+
+    fn close(&self, session: TestSession) {
+        let _ = self.client.close_test_session(&session.handle_id);
+        release_test_port(session.port);
+    }
+}
+
+impl NetHostTestSession {
+    /// Codegen + net-host open for an already-reserved port.
+    fn open_reserved(&self, node: &TestNode, port: u16) -> Result<TestSession, DomainError> {
         let profile = engine()
             .profile_by_id(&node.index_id)?
             .ok_or_else(|| DomainError::not_found("profile", &node.index_id))?;
         let core = profile.core_type.unwrap_or_else(default_core);
-        let port = find_free_test_port(application::speedtest::TEST_PORT_FLOOR)
-            .ok_or_else(|| DomainError::new(domain::codes::UNAVAILABLE, "error.no_free_port"))?;
         let opts = CodegenOptions {
             local_port: port as i32,
             state_port: port.saturating_add(1) as i32,
@@ -169,58 +240,6 @@ impl SpeedTestSession for NetHostTestSession {
             port,
             handle_id: session_id,
         })
-    }
-
-    fn real_ping(
-        &self,
-        session: &TestSession,
-        url: &str,
-        timeout: Duration,
-        ct: &domain::CancellationToken,
-    ) -> i32 {
-        let mut best: Option<i32> = None;
-        for _ in 0..2 {
-            if ct.is_cancelled() {
-                return -1;
-            }
-            if let Ok(probe) = http_get_via_socks(session.port, url, timeout, 0, ct) {
-                if probe.success {
-                    let ms = (probe.header_ms as i32).max(1);
-                    best = Some(best.map_or(ms, |b| b.min(ms)));
-                }
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-        best.unwrap_or(-1)
-    }
-
-    fn download(
-        &self,
-        session: &TestSession,
-        url: &str,
-        timeout: Duration,
-        max_bytes: u64,
-        ct: &domain::CancellationToken,
-    ) -> DownloadOutcome {
-        match http_get_via_socks(session.port, url, timeout, max_bytes, ct) {
-            Ok(probe) if probe.success => {
-                let secs = probe.total.as_secs_f64().max(0.001);
-                DownloadOutcome {
-                    mb_s: probe.body_bytes as f64 / 1_000_000.0 / secs,
-                    bytes: probe.body_bytes,
-                    elapsed: probe.total,
-                }
-            }
-            _ => DownloadOutcome {
-                mb_s: 0.0,
-                bytes: 0,
-                elapsed: Duration::ZERO,
-            },
-        }
-    }
-
-    fn close(&self, session: TestSession) {
-        let _ = self.client.close_test_session(&session.handle_id);
     }
 }
 

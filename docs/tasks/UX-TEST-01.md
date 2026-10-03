@@ -36,3 +36,18 @@
 
 - 远端 HTTPS 测速未实现（沿用 T15b §5）。
 - 临时内核会话偶发 `error.port_conflict`（Rust/net-host 侧，超出本回合范围）。
+
+## UX-TEST-02 收口（2026-10-03，追加）
+
+两个遗留缺口已在本回合修复（详见 `docs/evidence/UX-TEST-02/README.md`）：
+
+- **远端 HTTPS 测速**：探针经临时会话 SOCKS 叠加 rustls（`ring`），产线走 OS
+  根校验、测试注入合成 CA，无 insecure 模式；结构化失败分类。真实节点默认
+  `https://cachefly.cachefly.net/50mb.test` 下载测得 **29.6 MB/s**、HTTPS 真延迟
+  129 ms；本地合成 TLS 目标集成用例通过。
+- **`error.port_conflict`**：定位为“探测不占用 + 释放后 TIME_WAIT”竞态；改为
+  进程内预留块 + 轮转游标 + net-host 释放确认。回归：40 次 start/stop 不立即
+  复用、两 job 并发端口互斥，确定性用例 `ux_test02_https_probe`（15）全绿。
+- 门禁（Rust + Flutter）全 exit 0，见 UX-TEST-02 证据 §6。
+
+状态：Rust 侧 TLS/端口缺口由 `implemented` → 已实测（真实节点 + 确定性用例）。

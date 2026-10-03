@@ -27,10 +27,19 @@ reqwest = { version = "0.12", default-features = false, features = [
     "http2",
 ] }
 tokio = { version = "1.53", features = ["rt", "time", "sync"] }
+# HTTPS speedtest probe (UX-TEST-02). `ring` is the provider already selected by
+# reqwest's rustls stack, so this adds no new crypto backend. Root trust is the
+# OS store by default; tests inject a synthetic CA through `TlsTrust`.
+rustls = { version = "0.23", default-features = false, features = [
+    "ring",
+    "std",
+    "tls12",
+    "logging",
+] }
+rustls-native-certs = "0.8"
+rustls-pemfile = "2"
 
 [dev-dependencies]
-rustls-pemfile = "2"
-rustls-native-certs = "0.8"
 tempfile = "3.27.0"
 tiny_http = "0.12"
 sha2 = "0.10.9"

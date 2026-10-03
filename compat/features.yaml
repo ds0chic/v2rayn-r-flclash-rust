@@ -4863,3 +4863,31 @@ remediation_implementation_records:
     - docs/evidence/UX-TEST-01/observations-after.json
     status: implemented
     note: 成功/失败/空集合/启动失败均有可见状态栏与工具栏文案；“测试失败”与“未测试”在延迟列区分（失败/-）。真实节点对照：明文 http 探针可用，远端 https 测速 URL 仍未验证。
+
+  - id: F-TEST-010
+    name: HTTPS 测速探针（经临时会话 SOCKS + rustls）
+    implementation_location: crates/application/src/speedtest.rs (http_get_via_socks/TlsTrust/ProbeFailureKind) + crates/application/Cargo.toml (rustls/rustls-native-certs/rustls-pemfile)
+    test_ids:
+    - crates/application/tests/ux_test02_https_probe.rs (15)
+    - apps/desktop/integration_test/ux_test02_https_speedtest_test.dart (真窗口合成 TLS)
+    - apps/desktop/integration_test/ux_speedtest_realnodes_test.dart (真实节点对照)
+    evidence:
+    - docs/evidence/UX-TEST-02/README.md
+    - docs/evidence/UX-TEST-02/integration-https.json
+    - docs/evidence/UX-TEST-02/real-nodes-realping.json
+    - docs/evidence/UX-TEST-02/real-nodes-download.json
+    status: implemented
+    note: 产线证书校验走 OS 根存储，仅测试可注入合成 CA，无 insecure 模式；失败分类为 Url/Resolve/Connect/Timeout/Tls/HttpStatus/Protocol/Cancelled。真实节点默认 HTTPS URL 下载 29.6 MB/s、真延迟 129 ms；本地合成 TLS 目标真延迟/下载均出真实数值。
+
+  - id: F-TEST-011
+    name: 临时测试会话端口分配（port_conflict 修复）
+    implementation_location: crates/application/src/speedtest.rs (reserve_free_test_port/release_test_port/reserved_test_port_count) + services/net_host/src/session.rs (close_test_session wait_port_released)
+    test_ids:
+    - crates/application/tests/ux_test02_https_probe.rs::reserved_test_ports_are_unique_under_concurrency
+    - crates/application/tests/ux_test02_https_probe.rs::rapid_reserve_release_cycles_do_not_conflict
+    - crates/application/tests/ux_test02_https_probe.rs::session_start_stop_cycles_never_reuse_immediately
+    - crates/application/tests/ux_test02_https_probe.rs::concurrent_jobs_hold_disjoint_test_ports
+    evidence:
+    - docs/evidence/UX-TEST-02/README.md
+    status: implemented
+    note: 进程内预留连续端口块（SOCKS + 两个 state 端口）+ 轮转游标规避 TIME_WAIT；net-host 停会话后有界确认端口可再 bind。连续 start/stop ≥40 与两 job 并发均无冲突。

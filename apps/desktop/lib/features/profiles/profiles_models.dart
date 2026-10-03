@@ -209,7 +209,14 @@ String _portLabel(ProfileSummary r) => r.port.toString();
 String _networkLabel(ProfileSummary r) => r.network;
 String _securityLabel(ProfileSummary r) => r.streamSecurity;
 String _subRemarksLabel(ProfileSummary r) => r.subRemarks;
-String _delayLabel(ProfileSummary r) => r.delay < 0 ? '-' : '${r.delay} ms';
+String _delayLabel(ProfileSummary r) {
+  // `-2` is the overlay's "tested and failed" sentinel (see
+  // `applySpeedTestOverlay`/`profileDelayTestFailed`); `-1` stays "never tested".
+  if (r.delay == -2) return '失败';
+  if (r.delay < 0) return '-';
+  return '${r.delay} ms';
+}
+
 String _speedLabel(ProfileSummary r) => r.speed;
 String _todayUpLabel(ProfileSummary r) => formatBytes(r.todayUp);
 String _ipInfoLabel(ProfileSummary r) => r.ipInfo;

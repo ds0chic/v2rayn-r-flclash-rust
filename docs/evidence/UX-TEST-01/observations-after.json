@@ -1,0 +1,182 @@
+{
+  "dataDir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\ux-test01-run3\\data",
+  "observations": [
+    {
+      "step": "seed",
+      "actual": {
+        "ok": true,
+        "imported": 3,
+        "errors": 0,
+        "rows": 3,
+        "tcpPort": 11808,
+        "httpPort": 11809
+      }
+    },
+    {
+      "step": "A-start",
+      "actual": {
+        "kind": 0,
+        "selected": [
+          "p-18dae60ea163d8a8-0"
+        ],
+        "activeJobs": 1,
+        "stage": "Speedtesting"
+      }
+    },
+    {
+      "step": "A-result",
+      "actual": {
+        "running": false,
+        "stage": "SpeedtestingCompleted",
+        "message": "测速完成：成功 1",
+        "delays": {
+          "UX-1": 1,
+          "UX-2": -1,
+          "UX-3": -1
+        },
+        "activeJobs": 0,
+        "results": [
+          {
+            "id": "p-18dae60ea163d8a8-0",
+            "delay": 1,
+            "message": "Speedtesting"
+          }
+        ]
+      }
+    },
+    {
+      "step": "B-settings",
+      "actual": {
+        "saved": true,
+        "speedTestUrl": "http://127.0.0.1:11809/speed",
+        "speedPingTestUrl": "http://127.0.0.1:11809/ping"
+      }
+    },
+    {
+      "step": "B-realping",
+      "actual": {
+        "startedStage": "Speedtesting",
+        "resolved": true,
+        "stage": "SpeedtestingCompleted",
+        "message": "测速完成：失败 1（连接失败）",
+        "delaySentinels": {
+          "UX-1": -2,
+          "UX-2": -1,
+          "UX-3": -1
+        },
+        "results": [
+          {
+            "id": "p-18dae60ea163d8a8-0",
+            "delay": -1,
+            "speed": 0.0,
+            "message": "Speedtesting"
+          }
+        ]
+      }
+    },
+    {
+      "step": "B-speedtest",
+      "actual": {
+        "startedStage": "Speedtesting",
+        "resolved": true,
+        "stage": "SpeedtestingCompleted",
+        "message": "测速完成：失败 1（SpeedtestingSkip）",
+        "delaySentinels": {
+          "UX-1": -2,
+          "UX-2": -1,
+          "UX-3": -1
+        },
+        "results": [
+          {
+            "id": "p-18dae60ea163d8a8-0",
+            "delay": -1,
+            "speed": 0.0,
+            "message": "SpeedtestingSkip"
+          }
+        ]
+      }
+    },
+    {
+      "step": "B-mixed",
+      "actual": {
+        "startedStage": "Speedtesting",
+        "resolved": true,
+        "stage": "SpeedtestingCompleted",
+        "message": "测速完成：失败 3（SpeedtestingSkip）",
+        "delaySentinels": {
+          "UX-1": -2,
+          "UX-2": -2,
+          "UX-3": -2
+        },
+        "results": [
+          {
+            "id": "p-18dae60ea163d8a8-0",
+            "delay": -1,
+            "speed": 0.0,
+            "message": "SpeedtestingSkip"
+          },
+          {
+            "id": "p-18dae60ea163e334-1",
+            "delay": -1,
+            "speed": 0.0,
+            "message": "error.port_conflict"
+          },
+          {
+            "id": "p-18dae60ea163e528-2",
+            "delay": -1,
+            "speed": 0.0,
+            "message": "error.port_conflict"
+          }
+        ]
+      }
+    },
+    {
+      "step": "B-fastrealping",
+      "actual": {
+        "startedStage": "Speedtesting",
+        "resolved": true,
+        "stage": "SpeedtestingCompleted",
+        "message": "测速完成：失败 3（连接失败）",
+        "delaySentinels": {
+          "UX-1": -2,
+          "UX-2": -2,
+          "UX-3": -2
+        },
+        "results": [
+          {
+            "id": "p-18dae60ea163d8a8-0",
+            "delay": -1,
+            "speed": 0.0,
+            "message": "Speedtesting"
+          },
+          {
+            "id": "p-18dae60ea163e334-1",
+            "delay": -1,
+            "speed": 0.0,
+            "message": "error.port_conflict"
+          },
+          {
+            "id": "p-18dae60ea163e528-2",
+            "delay": -1,
+            "speed": 0.0,
+            "message": "error.port_conflict"
+          }
+        ]
+      }
+    },
+    {
+      "step": "C-empty-selection",
+      "actual": {
+        "selected": 0,
+        "running": false,
+        "message": "测速完成：失败 3（连接失败）"
+      }
+    },
+    {
+      "step": "D-note",
+      "actual": {
+        "note": "zero-node / start-failure feedback covered by widget tests"
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "dataDir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\ux-test01-realnode\\data",
+  "observations": [
+    {
+      "step": "inventory",
+      "actual": {
+        "total": 39,
+        "visible": 39,
+        "configTypes": {
+          "vless": 26,
+          "hysteria2": 13
+        }
+      }
+    },
+    {
+      "step": "mixed",
+      "actual": {
+        "configType": "vless",
+        "ok": true,
+        "elapsedMs": 744,
+        "cancelled": false,
+        "resultCode": "SpeedtestingSkip",
+        "resultDelay": -1,
+        "resultSpeed": 0.0
+      }
+    }
+  ]
+}

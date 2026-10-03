@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
@@ -33,6 +35,33 @@ class TableEvent {
   final int seq;
   final String action;
   final String detail;
+}
+
+/// Effective configuration for one speedtest run.
+///
+/// Values are read from the persisted `SpeedTestItem` at start time (so a
+/// user-configured URL/timeout is really used, ISSUE T15b-URL) and fall back to
+/// the upstream defaults when settings are unavailable (pure widget tests).
+class SpeedTestConfig {
+  const SpeedTestConfig({
+    this.pageSize = 1000,
+    this.mixedConcurrency = 10,
+    this.timeoutSecs = 10,
+    this.speedTestUrl = 'https://cachefly.cachefly.net/50mb.test',
+    this.speedPingTestUrl = 'https://www.gstatic.com/generate_204',
+    this.ipapiUrl,
+    this.udpTestTarget,
+    this.delayIntervalSecs = 1,
+  });
+
+  final int pageSize;
+  final int mixedConcurrency;
+  final int timeoutSecs;
+  final String speedTestUrl;
+  final String speedPingTestUrl;
+  final String? ipapiUrl;
+  final String? udpTestTarget;
+  final int delayIntervalSecs;
 }
 
 class ProfilesState {
@@ -165,6 +194,10 @@ class ProfilesController extends Notifier<ProfilesState> {
   int _seq = 0;
   Timer? _testPoller;
 
+  /// Node ids covered by the last started speedtest job; used to summarize the
+  /// run when it settles (progress rows alone are not a completion verdict).
+  List<String> _speedTestTargets = const <String>[];
+
   @override
   ProfilesState build() {
     final count = ref.read(profileRowCountProvider);
@@ -197,14 +230,101 @@ class ProfilesController extends Notifier<ProfilesState> {
       if (_bridge.speedTestActiveJobs() == 0) {
         timer.cancel();
         _testPoller = null;
+        final cancelled = state.speedTestStage == 'SpeedtestingStop';
         state = state.copyWith(
           speedTestRunning: false,
-          speedTestStage: state.speedTestStage == 'SpeedtestingStop'
+          speedTestStage: cancelled
               ? 'SpeedtestingStop'
               : 'SpeedtestingCompleted',
+          speedTestMessage: cancelled
+              ? '已停止测速'
+              : _summarizeSpeedTest(_speedTestTargets),
         );
       }
     });
+  }
+
+  /// Build a user-facing verdict for a settled run: how many nodes succeeded,
+  /// failed (with the first real reason) or never produced a result.
+  String _summarizeSpeedTest(List<String> targets) {
+    if (targets.isEmpty) return '测速完成：没有可测试节点';
+    final byId = <String, speedtest.SpeedTestResultDto>{
+      for (final r in _bridge.speedTestResults()) r.indexId: r,
+    };
+    var success = 0;
+    var failed = 0;
+    var unknown = 0;
+    String? firstFailure;
+    for (final id in targets) {
+      final result = byId[id];
+      if (result == null || result.delay == 0) {
+        unknown++;
+      } else if (result.delay > 0) {
+        success++;
+      } else {
+        failed++;
+        firstFailure ??= _failureReason(result.message);
+      }
+    }
+    final parts = <String>[
+      if (success > 0) '成功 $success',
+      if (failed > 0) '失败 $failed',
+      if (unknown > 0) '未完成 $unknown',
+    ];
+    final base = parts.isEmpty ? '无结果' : parts.join('，');
+    if (failed > 0 && success == 0 && firstFailure != null) {
+      return '测速完成：$base（$firstFailure）';
+    }
+    return '测速完成：$base';
+  }
+
+  /// The runner reuses the `Speedtesting` progress text as a placeholder when a
+  /// real ping times out without an error code; never surface that as a reason.
+  String _failureReason(String message) {
+    final trimmed = message.trim();
+    if (trimmed.isEmpty || trimmed == 'Speedtesting') return '连接失败';
+    return trimmed;
+  }
+
+  /// Read the persisted `SpeedTestItem` from the engine, falling back to the
+  /// upstream defaults. Reading directly (instead of via the settings feature)
+  /// keeps this oriented around the bridge and avoids an import cycle.
+  SpeedTestConfig _resolveSpeedTestConfig() {
+    var config = const SpeedTestConfig();
+    try {
+      final load = _bridge.getSettings();
+      if (load.ok && load.settingsJson.isNotEmpty) {
+        final decoded = jsonDecode(load.settingsJson);
+        if (decoded is Map<String, dynamic>) {
+          final item = decoded['SpeedTestItem'];
+          if (item is Map<String, dynamic>) {
+            int? asInt(String key) => (item[key] as num?)?.toInt();
+            String? asText(String key) {
+              final value = item[key] as String?;
+              final trimmed = value?.trim();
+              return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+            }
+
+            config = SpeedTestConfig(
+              pageSize: asInt('SpeedTestPageSize') ?? config.pageSize,
+              mixedConcurrency:
+                  asInt('MixedConcurrencyCount') ?? config.mixedConcurrency,
+              timeoutSecs: asInt('SpeedTestTimeout') ?? config.timeoutSecs,
+              speedTestUrl: asText('SpeedTestUrl') ?? config.speedTestUrl,
+              speedPingTestUrl:
+                  asText('SpeedPingTestUrl') ?? config.speedPingTestUrl,
+              ipapiUrl: asText('IPAPIUrl') ?? config.ipapiUrl,
+              udpTestTarget: asText('UdpTestTarget') ?? config.udpTestTarget,
+              delayIntervalSecs:
+                  asInt('SpeedTestDelayInterval') ?? config.delayIntervalSecs,
+            );
+          }
+        }
+      }
+    } catch (_) {
+      // No native library (pure widget tests) or malformed settings.
+    }
+    return config;
   }
 
   // -- T06a profile editor / repository actions ---------------------------
@@ -706,35 +826,78 @@ class ProfilesController extends Notifier<ProfilesState> {
   c.SimpleResult startSpeedTest(String action) {
     final kind = speedTestKindForAction(action);
     if (kind == null) return const c.SimpleResult(ok: true);
+
+    final config = _resolveSpeedTestConfig();
     _bridge.configureSpeedTest(
-      pageSize: 1000,
-      mixedConcurrency: 10,
-      timeoutSecs: 10,
-      speedTestUrl: 'https://cachefly.cachefly.net/50mb.test',
-      speedPingTestUrl: 'https://www.gstatic.com/generate_204',
-      ipapiUrl: null,
-      udpTestTarget: null,
-      delayIntervalSecs: 1,
+      pageSize: config.pageSize,
+      mixedConcurrency: config.mixedConcurrency,
+      timeoutSecs: config.timeoutSecs,
+      speedTestUrl: config.speedTestUrl,
+      speedPingTestUrl: config.speedPingTestUrl,
+      ipapiUrl: config.ipapiUrl,
+      udpTestTarget: config.udpTestTarget,
+      delayIntervalSecs: config.delayIntervalSecs,
     );
+
     final useAll =
         action == ProfileAction.mixedTest ||
         action == ProfileAction.fastRealping;
     final ids = useAll ? const <String>[] : state.selected.toList();
+    // An empty id list makes Rust test every stored node; summarize against the
+    // same scope so the completion verdict matches what really ran.
+    final scopeIds = ids.isEmpty
+        ? state.all.map((r) => r.id).toList()
+        : List<String>.of(ids);
+
+    if (scopeIds.isEmpty) {
+      state = state.copyWith(
+        speedTestRunning: false,
+        speedTestStage: 'SpeedtestingCompleted',
+        speedTestMessage: '没有可测试节点',
+        clearSpeedTestJob: true,
+      );
+      _log(action, 'no-nodes');
+      _echo(action);
+      return const c.SimpleResult(ok: true);
+    }
+
     final result = _bridge.startSpeedTest(kind, ids);
     if (!result.ok) {
-      _log('speedtest-start-failed', result.error?.code ?? 'unknown');
+      final code = result.error?.code ?? 'unknown';
+      final detail = result.error?.messageKey;
+      final message = (detail == null || detail.isEmpty)
+          ? '测速启动失败：$code'
+          : '测速启动失败：$code（$detail）';
+      state = state.copyWith(
+        speedTestRunning: false,
+        speedTestStage: 'SpeedtestingFailed',
+        speedTestMessage: message,
+        clearSpeedTestJob: true,
+      );
+      _log('speedtest-start-failed', code);
+      _echo(action);
       return c.SimpleResult(ok: false, error: result.error);
     }
+
     final started = result.jobId != null;
+    _speedTestTargets = started ? scopeIds : const <String>[];
     state = state.copyWith(
       speedTestJobId: result.jobId,
       speedTestKind: kind,
       speedTestRunning: started,
       speedTestStage: started ? 'Speedtesting' : 'SpeedtestingCompleted',
-      speedTestMessage: null,
+      speedTestMessage: started
+          ? (ids.isEmpty
+                ? '未选择节点，正在测试全部 ${scopeIds.length} 个节点'
+                : '正在测试 ${scopeIds.length} 个节点')
+          : '没有可测试节点',
       clearSpeedTestJob: !started,
     );
-    _log(action, 'kind=$kind ids=${ids.length} job=${result.jobId ?? "-"}');
+    _log(
+      action,
+      'kind=$kind ids=${ids.length} scope=${scopeIds.length} '
+      'job=${result.jobId ?? "-"}',
+    );
     _echo(action);
     if (started) {
       _startTestPolling();
@@ -751,6 +914,7 @@ class ProfilesController extends Notifier<ProfilesState> {
     state = state.copyWith(
       speedTestRunning: false,
       speedTestStage: 'SpeedtestingStop',
+      speedTestMessage: '已停止测速',
     );
     _log('speedtest-stop', 'job=$jobId');
     _echo(ProfileAction.stopTest);

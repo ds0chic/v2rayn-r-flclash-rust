@@ -4850,3 +4850,16 @@ remediation_implementation_records:
     evidence:
     - docs/evidence/T16-updater.md
     status: implemented
+
+  - id: F-TEST-009
+    name: 测速结果可见反馈（UX-TEST-01）
+    implementation_location: apps/desktop/lib/features/profiles/profiles_controller.dart (SpeedTestConfig/_summarizeSpeedTest/startSpeedTest) + profiles_page.dart (speedtest-message) + bridge/bridge_port.dart (profileDelayTestFailed 叠加)
+    test_ids:
+    - apps/desktop/test/ux_test01_speedtest_feedback_test.dart (5)
+    - apps/desktop/test/ux_test01_speedtest_message_ui_test.dart (1)
+    - apps/desktop/integration_test/ux_speedtest_diag_test.dart (真窗口)
+    evidence:
+    - docs/evidence/UX-TEST-01/README.md
+    - docs/evidence/UX-TEST-01/observations-after.json
+    status: implemented
+    note: 成功/失败/空集合/启动失败均有可见状态栏与工具栏文案；“测试失败”与“未测试”在延迟列区分（失败/-）。真实节点对照：明文 http 探针可用，远端 https 测速 URL 仍未验证。

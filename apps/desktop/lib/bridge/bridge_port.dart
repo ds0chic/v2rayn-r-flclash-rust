@@ -723,6 +723,10 @@ class FrbBridgePort implements BridgePort {
 
 /// Overlay `ProfileExItem` results onto the node-table summaries. A missing
 /// row leaves the "unknown" defaults untouched (never a fake value).
+///
+/// A result row with `delay < 0` means the node was really tested and failed;
+/// it is mapped to [profileDelayTestFailed] so the table can tell "tested and
+/// failed" apart from "never tested" (both use `delay < 0` on the wire).
 List<ProfileSummary> applySpeedTestOverlay(
   List<ProfileSummary> rows,
   List<speedtest.SpeedTestResultDto> results,
@@ -735,6 +739,9 @@ List<ProfileSummary> applySpeedTestOverlay(
     final result = byId[row.id];
     if (result == null) return row;
     final hasDelay = result.delay != 0;
+    final displayDelay = result.delay < 0
+        ? profileDelayTestFailed
+        : result.delay;
     final speedText = result.speed > 0
         ? '${result.speed.toStringAsFixed(1)} MB/s'
         : row.speed;
@@ -747,7 +754,7 @@ List<ProfileSummary> applySpeedTestOverlay(
       network: row.network,
       streamSecurity: row.streamSecurity,
       subRemarks: row.subRemarks,
-      delay: hasDelay ? result.delay : row.delay,
+      delay: hasDelay ? displayDelay : row.delay,
       speed: speedText,
       todayUp: row.todayUp,
       ipInfo: result.ipInfo.isNotEmpty ? result.ipInfo : row.ipInfo,
@@ -758,6 +765,10 @@ List<ProfileSummary> applySpeedTestOverlay(
     );
   }).toList();
 }
+
+/// UI-only delay sentinel: the node was tested and the test failed. Distinct
+/// from the wire `-1` (which also means "unknown" for an untested row).
+const int profileDelayTestFailed = -2;
 
 /// Map a stored profile DTO onto the node-table summary shape. Traffic/delay
 /// fields stay at their "unknown" defaults (never fabricated).

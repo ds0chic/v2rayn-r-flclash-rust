@@ -1,0 +1,98 @@
+{
+  "note": "UX-TEST-01 BEFORE fix: reproduced at HEAD 461ab53 with integration_test/ux_speedtest_diag_test.dart. Same-day loopback servers; synthetic 3-node import. Captured before profiles_controller/bridge/UI fix.",
+  "dataDir": "%TEMP%\\ux-test01-run1\\data",
+  "observations": [
+    {
+      "step": "seed",
+      "actual": {
+        "ok": true,
+        "imported": 3,
+        "errors": 0,
+        "rows": 3,
+        "tcpPort": 11808,
+        "httpPort": 11809
+      }
+    },
+    {
+      "step": "A-start",
+      "actual": {
+        "kind": 0,
+        "selected": ["p-18dae5a2fc1f0dc4-0"],
+        "activeJobs": 1,
+        "stage": "Speedtesting"
+      }
+    },
+    {
+      "step": "A-result",
+      "actual": {
+        "running": false,
+        "stage": "SpeedtestingCompleted",
+        "message": null,
+        "delays": { "UX-1": 1, "UX-2": -1, "UX-3": -1 },
+        "activeJobs": 0,
+        "results": [
+          { "id": "p-18dae5a2fc1f0dc4-0", "delay": 1, "message": "Speedtesting" }
+        ]
+      }
+    },
+    {
+      "step": "B-realping-result",
+      "actual": {
+        "activeJobs": 0,
+        "results": [
+          { "id": "p-18dae5a2fc1f0dc4-0", "delay": -1, "speed": 0.0, "message": "Speedtesting" },
+          { "id": "p-18dae5a2fc1f1a44-1", "delay": -1, "speed": 0.0, "message": "error.port_conflict" },
+          { "id": "p-18dae5a2fc1f1c38-2", "delay": -1, "speed": 0.0, "message": "Speedtesting" }
+        ],
+        "resolved": true
+      }
+    },
+    {
+      "step": "B-speedtest-result",
+      "actual": {
+        "activeJobs": 0,
+        "results": [
+          { "id": "p-18dae5a2fc1f0dc4-0", "delay": -1, "speed": 0.0, "message": "SpeedtestingSkip" },
+          { "id": "p-18dae5a2fc1f1a44-1", "delay": -1, "speed": 0.0, "message": "SpeedtestingSkip" },
+          { "id": "p-18dae5a2fc1f1c38-2", "delay": -1, "speed": 0.0, "message": "SpeedtestingSkip" }
+        ],
+        "resolved": true
+      }
+    },
+    {
+      "step": "B-mixed-result",
+      "actual": {
+        "activeJobs": 0,
+        "results": [
+          { "id": "p-18dae5a2fc1f0dc4-0", "delay": -1, "speed": 0.0, "message": "SpeedtestingSkip" },
+          { "id": "p-18dae5a2fc1f1a44-1", "delay": -1, "speed": 0.0, "message": "error.port_conflict" },
+          { "id": "p-18dae5a2fc1f1c38-2", "delay": -1, "speed": 0.0, "message": "SpeedtestingSkip" }
+        ],
+        "resolved": true
+      }
+    },
+    {
+      "step": "B-fastrealping-result",
+      "actual": {
+        "activeJobs": 0,
+        "results": [
+          { "id": "p-18dae5a2fc1f0dc4-0", "delay": -1, "speed": 0.0, "message": "Speedtesting" },
+          { "id": "p-18dae5a2fc1f1a44-1", "delay": -1, "speed": 0.0, "message": "error.port_conflict" },
+          { "id": "p-18dae5a2fc1f1c38-2", "delay": -1, "speed": 0.0, "message": "Speedtesting" }
+        ],
+        "resolved": true
+      }
+    },
+    {
+      "step": "C-empty",
+      "actual": { "selected": 0, "running": true, "message": null }
+    }
+  ],
+  "conclusion_before": [
+    "TCPing 成功写回 delay=1（直连 TCP 可用），但 speedTestMessage=null：完成/失败没有任何用户可见文案。",
+    "真延迟/测速/混合/快速真延迟结果 delay=-1（失败），表格与'从未测试'一样显示 '-'；无汇总、无失败原因。",
+    "startSpeedTest 硬编码 HTTPS SpeedTestUrl/SpeedPingTestUrl，忽略用户在 SpeedTestItem 配置的 URL；探针仅支持明文 http://。",
+    "空选择时 realping/tcping 静默扩到全部节点；start 失败仅 _log，无 setMessage。",
+    "UI 无 speedTestMessage 渲染点，失败被吞。"
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "applicationCommit": "1251cbc",
+  "recordingComplete": true,
+  "failures": [],
+  "records": [
+    {
+      "step": "isolated-first-launch",
+      "passed": true,
+      "actual": {
+        "nodeCount": 0,
+        "subscriptionCount": 0
+      }
+    },
+    {
+      "step": "import-complete-xray-config",
+      "passed": true,
+      "actual": {
+        "nodeCount": 1,
+        "message": "已从剪贴板导入 1 个节点，1 行未识别"
+      }
+    },
+    {
+      "step": "tuic-distinct-uuid-and-password-inputs",
+      "passed": true,
+      "actual": {
+        "usernameFieldCount": 1,
+        "passwordFieldCount": 1,
+        "uuidLabelCount": 0
+      }
+    },
+    {
+      "step": "create-group-without-subscription-url",
+      "passed": true,
+      "actual": {
+        "subscriptionCount": 1,
+        "editorStillOpen": false,
+        "urlRequiredError": false
+      }
+    },
+    {
+      "step": "screen-qr-scan-is-import",
+      "passed": true,
+      "actual": {
+        "openedShareDialog": false,
+        "message": "扫描完成，未发现有效二维码（请让二维码清晰完整地显示在屏幕上后重试）"
+      }
+    },
+    {
+      "step": "image-qr-scan-is-image-input",
+      "passed": true,
+      "actual": {
+        "openedTextImport": false
+      }
+    },
+    {
+      "step": "synthetic-group-fixture",
+      "fixtureSetup": true,
+      "actual": {
+        "currentGroupId": "s-18db1b3a9edb3cb4-0",
+        "nodeGroupId": "s-18db1b3a9edb3cb4-0"
+      }
+    },
+    {
+      "step": "context-generate-group-keeps-menu-target",
+      "passed": true,
+      "actual": {
+        "nodeCountBefore": 2,
+        "nodeCountAfter": 3,
+        "openedGroupEditor": false,
+        "message": "已生成全部配置项策略组"
+      }
+    }
+  ]
+}

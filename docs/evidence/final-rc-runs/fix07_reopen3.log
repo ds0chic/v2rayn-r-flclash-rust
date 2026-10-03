@@ -1,0 +1,9 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/ux_parity_fix07_active_test.dart
+Building Windows application...                                    16.0s
+✓ Built build\windows\x64\runner\Debug\v2rayn_desktop.exe
+00:00 +0: FIX-07 set active persists and restores on reopen
+[desktop] tray init failed: PlatformException(Bad Arguments, Unable to init system tray, false, null)
+[runtime] event epoch changed: 1 -> 7
+[runtime] event epoch changed: 7 -> 1
+00:01 +1: (tearDownAll)
+00:01 +1: All tests passed!

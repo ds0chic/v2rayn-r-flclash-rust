@@ -1,0 +1,14 @@
+{
+  "mode": "hidden",
+  "recordingComplete": true,
+  "failures": [],
+  "checks": [
+    {
+      "step": "startup-window-hidden",
+      "passed": true,
+      "actual": {
+        "visible": false
+      }
+    }
+  ]
+}

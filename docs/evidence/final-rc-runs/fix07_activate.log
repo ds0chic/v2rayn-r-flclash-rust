@@ -1,0 +1,525 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/ux_parity_fix07_active_test.dart
+Building Windows application...                                    15.4s
+✓ Built build\windows\x64\runner\Debug\v2rayn_desktop.exe
+00:00 +0: FIX-07 set active persists and restores on reopen
+══╡ EXCEPTION CAUGHT BY WIDGETS ╞═══════════════════════════════════════════════════════════════════
+The following message was thrown:
+Warning: This application's locale, zh_Hans, is not supported by all of its localization delegates.
+
+• A MaterialLocalizations delegate that supports the zh_Hans locale was not found.
+• A CupertinoLocalizations delegate that supports the zh_Hans locale was not found.
+
+The declared supported locales for this app are: zh_Hans, zh_Hant, en, fa, fr, ru, hu, id, az
+
+See https://flutter.dev/to/internationalization/ for more information about configuring an app's
+locale, supportedLocales, and localizationsDelegates parameters.
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following assertion was thrown building
+PopupMenuButton<AppLayoutMode>-[<'layout-selector'>](dirty, dependencies: [IconTheme,
+InheritedCupertinoTheme, _InheritedTheme, _LocalizationsScope-[GlobalKey#c8bb6]], state:
+PopupMenuButtonState<AppLayoutMode>#3593d):
+No MaterialLocalizations found.
+PopupMenuButton<AppLayoutMode> widgets require MaterialLocalizations to be provided by a
+Localizations widget ancestor.
+The material library uses Localizations to generate messages, labels, and abbreviations.
+To introduce a MaterialLocalizations, either use a MaterialApp at the root of your application to
+include them automatically, or add a Localization widget with a MaterialLocalizations delegate.
+The specific widget that could not find a MaterialLocalizations ancestor was:
+  PopupMenuButton<AppLayoutMode>-[<'layout-selector'>]
+The ancestors of this widget were:
+  ...
+  Row
+  DefaultTextStyle
+  AnimatedDefaultTextStyle
+  _InkFeatures-[GlobalKey#f077a ink renderer]
+  NotificationListener<LayoutChangedNotification>
+  ...
+
+The relevant error-causing widget was:
+  PopupMenuButton<AppLayoutMode>-[<'layout-selector'>]
+  PopupMenuButton:file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/app/shell/main_shell.dart:457:11
+
+When the exception was thrown, this was the stack:
+#0      debugCheckHasMaterialLocalizations.<anonymous closure> (package:flutter/src/material/debug.dart:97:7)
+#1      debugCheckHasMaterialLocalizations (package:flutter/src/material/debug.dart:117:4)
+#2      PopupMenuButtonState.build (package:flutter/src/material/popup_menu.dart:1748:12)
+#3      StatefulElement.build (package:flutter/src/widgets/framework.dart:5944:27)
+#4      ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5830:15)
+#5      StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#6      Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#7      ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5812:5)
+#8      StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5986:11)
+#9      ComponentElement.mount (package:flutter/src/widgets/framework.dart:5806:5)
+#10     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#11     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#12     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (51 frames)
+#63     ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+#64     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#65     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#66     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (48 frames)
+#114    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#115    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#116    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (111 frames)
+#227    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (9 frames)
+#236    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (234 frames)
+#470    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#471    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#472    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (458 frames)
+#930    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (26 frames)
+#956    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#957    Element.updateChild (package:flutter/src/widgets/framework.dart:4066:20)
+#958    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#959    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#960    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#961    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#962    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#963    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#964    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#965    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#966    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#967    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#968    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#969    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#970    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#971    _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#972    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#973    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#974    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#975    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#976    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#977    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#978    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#979    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#980    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#981    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#982    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#983    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#984    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#985    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#986    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#987    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#988    StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#989    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#990    StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#991    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#992    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#993    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#994    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#995    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#996    ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#997    Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#998    ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#999    Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1000   _RawViewElement._updateChild (package:flutter/src/widgets/view.dart:488:16)
+#1001   _RawViewElement.update (package:flutter/src/widgets/view.dart:575:5)
+#1002   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1003   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1004   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1005   StatelessElement.update (package:flutter/src/widgets/framework.dart:5908:5)
+#1006   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1007   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1008   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1009   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1010   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1011   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1012   RootElement._rebuild (package:flutter/src/widgets/binding.dart:2091:16)
+#1013   RootElement.update (package:flutter/src/widgets/binding.dart:2069:5)
+#1014   RootElement.performRebuild (package:flutter/src/widgets/binding.dart:2083:7)
+#1015   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1016   BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2763:15)
+#1017   BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2820:11)
+#1018   BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3124:18)
+#1019   WidgetsBinding.drawFrame (package:flutter/src/widgets/binding.dart:1571:21)
+#1020   RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:558:5)
+#1021   SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#1022   SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#1023   LiveTestWidgetsFlutterBinding.handleDrawFrame (package:flutter_test/src/binding.dart:2812:13)
+#1024   SchedulerBinding._handleDrawFrame (package:flutter/src/scheduler/binding.dart:1198:5)
+#1028   _invoke (dart:ui/hooks.dart:443:10)
+#1029   PlatformDispatcher._drawFrame (dart:ui/platform_dispatcher.dart:450:5)
+#1030   _drawFrame (dart:ui/hooks.dart:413:31)
+(elided 3 frames from dart:async)
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following assertion was thrown building
+PopupMenuButton<SysProxyMode>-[<'system-proxy-selector'>](dirty, dependencies: [IconTheme,
+InheritedCupertinoTheme, _InheritedTheme, _LocalizationsScope-[GlobalKey#c8bb6]], state:
+PopupMenuButtonState<SysProxyMode>#94948):
+No MaterialLocalizations found.
+PopupMenuButton<SysProxyMode> widgets require MaterialLocalizations to be provided by a
+Localizations widget ancestor.
+The material library uses Localizations to generate messages, labels, and abbreviations.
+To introduce a MaterialLocalizations, either use a MaterialApp at the root of your application to
+include them automatically, or add a Localization widget with a MaterialLocalizations delegate.
+The specific widget that could not find a MaterialLocalizations ancestor was:
+  PopupMenuButton<SysProxyMode>-[<'system-proxy-selector'>]
+The ancestors of this widget were:
+  ...
+  Row
+  Padding
+  _SingleChildViewport
+  IgnorePointer-[GlobalKey#b16ca]
+  Semantics
+  ...
+
+The relevant error-causing widget was:
+  PopupMenuButton<SysProxyMode>-[<'system-proxy-selector'>]
+  PopupMenuButton:file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/app/shell/status_bar_view.dart:80:15
+
+When the exception was thrown, this was the stack:
+#0      debugCheckHasMaterialLocalizations.<anonymous closure> (package:flutter/src/material/debug.dart:97:7)
+#1      debugCheckHasMaterialLocalizations (package:flutter/src/material/debug.dart:117:4)
+#2      PopupMenuButtonState.build (package:flutter/src/material/popup_menu.dart:1748:12)
+#3      StatefulElement.build (package:flutter/src/widgets/framework.dart:5944:27)
+#4      ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5830:15)
+#5      StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#6      Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#7      ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5812:5)
+#8      StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5986:11)
+#9      ComponentElement.mount (package:flutter/src/widgets/framework.dart:5806:5)
+#10     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#11     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#12     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (112 frames)
+#124    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+#125    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#126    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#127    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (48 frames)
+#175    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#176    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#177    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (111 frames)
+#288    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (9 frames)
+#297    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (234 frames)
+#531    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#532    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#533    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (458 frames)
+#991    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (26 frames)
+#1017   Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#1018   Element.updateChild (package:flutter/src/widgets/framework.dart:4066:20)
+#1019   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1020   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1021   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1022   _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#1023   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1024   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1025   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1026   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1027   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1028   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1029   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1030   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1031   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1032   _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#1033   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1034   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1035   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1036   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1037   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1038   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1039   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1040   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1041   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1042   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1043   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1044   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1045   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1046   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1047   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1048   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1049   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1050   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1051   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1052   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1053   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1054   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1055   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1056   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1057   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1058   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1059   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1060   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1061   _RawViewElement._updateChild (package:flutter/src/widgets/view.dart:488:16)
+#1062   _RawViewElement.update (package:flutter/src/widgets/view.dart:575:5)
+#1063   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1064   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1065   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1066   StatelessElement.update (package:flutter/src/widgets/framework.dart:5908:5)
+#1067   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1068   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1069   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1070   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1071   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1072   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1073   RootElement._rebuild (package:flutter/src/widgets/binding.dart:2091:16)
+#1074   RootElement.update (package:flutter/src/widgets/binding.dart:2069:5)
+#1075   RootElement.performRebuild (package:flutter/src/widgets/binding.dart:2083:7)
+#1076   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1077   BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2763:15)
+#1078   BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2820:11)
+#1079   BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3124:18)
+#1080   WidgetsBinding.drawFrame (package:flutter/src/widgets/binding.dart:1571:21)
+#1081   RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:558:5)
+#1082   SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#1083   SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#1084   LiveTestWidgetsFlutterBinding.handleDrawFrame (package:flutter_test/src/binding.dart:2812:13)
+#1085   SchedulerBinding._handleDrawFrame (package:flutter/src/scheduler/binding.dart:1198:5)
+#1089   _invoke (dart:ui/hooks.dart:443:10)
+#1090   PlatformDispatcher._drawFrame (dart:ui/platform_dispatcher.dart:450:5)
+#1091   _drawFrame (dart:ui/hooks.dart:413:31)
+(elided 3 frames from dart:async)
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following assertion was thrown building
+PopupMenuButton<String>-[<'routing-mode-selector'>](dirty, dependencies: [IconTheme,
+InheritedCupertinoTheme, _InheritedTheme, _LocalizationsScope-[GlobalKey#c8bb6]], state:
+PopupMenuButtonState<String>#183ce):
+No MaterialLocalizations found.
+PopupMenuButton<String> widgets require MaterialLocalizations to be provided by a Localizations
+widget ancestor.
+The material library uses Localizations to generate messages, labels, and abbreviations.
+To introduce a MaterialLocalizations, either use a MaterialApp at the root of your application to
+include them automatically, or add a Localization widget with a MaterialLocalizations delegate.
+The specific widget that could not find a MaterialLocalizations ancestor was:
+  PopupMenuButton<String>-[<'routing-mode-selector'>]
+The ancestors of this widget were:
+  ...
+  Row
+  Padding
+  _SingleChildViewport
+  IgnorePointer-[GlobalKey#b16ca]
+  Semantics
+  ...
+
+The relevant error-causing widget was:
+  PopupMenuButton<String>-[<'routing-mode-selector'>]
+  PopupMenuButton:file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/app/shell/status_bar_view.dart:107:15
+
+When the exception was thrown, this was the stack:
+#0      debugCheckHasMaterialLocalizations.<anonymous closure> (package:flutter/src/material/debug.dart:97:7)
+#1      debugCheckHasMaterialLocalizations (package:flutter/src/material/debug.dart:117:4)
+#2      PopupMenuButtonState.build (package:flutter/src/material/popup_menu.dart:1748:12)
+#3      StatefulElement.build (package:flutter/src/widgets/framework.dart:5944:27)
+#4      ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5830:15)
+#5      StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#6      Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#7      ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5812:5)
+#8      StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5986:11)
+#9      ComponentElement.mount (package:flutter/src/widgets/framework.dart:5806:5)
+#10     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#11     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#12     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (112 frames)
+#124    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+#125    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#126    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#127    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (48 frames)
+#175    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#176    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#177    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (111 frames)
+#288    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (9 frames)
+#297    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (234 frames)
+#531    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+00:03 +0 -1: FIX-07 set active persists and restores on reopen [E]
+  Test failed. See exception logs above.
+  The test description was: FIX-07 set active persists and restores on reopen
+  
+00:03 +0 -1: (tearDownAll)
+00:03 +0 -1: FIX-07 set active persists and restores on reopen
+#532    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#533    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (458 frames)
+#991    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (26 frames)
+#1017   Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#1018   Element.updateChild (package:flutter/src/widgets/framework.dart:4066:20)
+#1019   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1020   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1021   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1022   _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#1023   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1024   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1025   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1026   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1027   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1028   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1029   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1030   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1031   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1032   _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#1033   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1034   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1035   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1036   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1037   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1038   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1039   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1040   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1041   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1042   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1043   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1044   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1045   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1046   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1047   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1048   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1049   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1050   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1051   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1052   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1053   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1054   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1055   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1056   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1057   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1058   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1059   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1060   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1061   _RawViewElement._updateChild (package:flutter/src/widgets/view.dart:488:16)
+#1062   _RawViewElement.update (package:flutter/src/widgets/view.dart:575:5)
+#1063   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1064   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1065   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1066   StatelessElement.update (package:flutter/src/widgets/framework.dart:5908:5)
+#1067   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1068   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1069   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1070   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1071   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1072   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1073   RootElement._rebuild (package:flutter/src/widgets/binding.dart:2091:16)
+#1074   RootElement.update (package:flutter/src/widgets/binding.dart:2069:5)
+#1075   RootElement.performRebuild (package:flutter/src/widgets/binding.dart:2083:7)
+#1076   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1077   BuildScope._tryRebuild (package:flutter/src/widgets/framework.dart:2763:15)
+#1078   BuildScope._flushDirtyElements (package:flutter/src/widgets/framework.dart:2820:11)
+#1079   BuildOwner.buildScope (package:flutter/src/widgets/framework.dart:3124:18)
+#1080   WidgetsBinding.drawFrame (package:flutter/src/widgets/binding.dart:1571:21)
+#1081   RendererBinding._handlePersistentFrameCallback (package:flutter/src/rendering/binding.dart:558:5)
+#1082   SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1430:15)
+#1083   SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1345:9)
+#1084   LiveTestWidgetsFlutterBinding.handleDrawFrame (package:flutter_test/src/binding.dart:2812:13)
+#1085   SchedulerBinding._handleDrawFrame (package:flutter/src/scheduler/binding.dart:1198:5)
+#1089   _invoke (dart:ui/hooks.dart:443:10)
+#1090   PlatformDispatcher._drawFrame (dart:ui/platform_dispatcher.dart:450:5)
+#1091   _drawFrame (dart:ui/hooks.dart:413:31)
+(elided 3 frames from dart:async)
+
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════
+The following assertion was thrown building PopupMenuButton<String>-[<'routing-selector'>](dirty,
+dependencies: [IconTheme, InheritedCupertinoTheme, _InheritedTheme,
+_LocalizationsScope-[GlobalKey#c8bb6]], state: PopupMenuButtonState<String>#00d1e):
+No MaterialLocalizations found.
+PopupMenuButton<String> widgets require MaterialLocalizations to be provided by a Localizations
+widget ancestor.
+The material library uses Localizations to generate messages, labels, and abbreviations.
+To introduce a MaterialLocalizations, either use a MaterialApp at the root of your application to
+include them automatically, or add a Localization widget with a MaterialLocalizations delegate.
+The specific widget that could not find a MaterialLocalizations ancestor was:
+  PopupMenuButton<String>-[<'routing-selector'>]
+The ancestors of this widget were:
+  ...
+  Row
+  Padding
+  _SingleChildViewport
+  IgnorePointer-[GlobalKey#b16ca]
+  Semantics
+  ...
+
+The relevant error-causing widget was:
+  PopupMenuButton<String>-[<'routing-selector'>]
+  PopupMenuButton:file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/app/shell/status_bar_view.dart:125:15
+
+When the exception was thrown, this was the stack:
+#0      debugCheckHasMaterialLocalizations.<anonymous closure> (package:flutter/src/material/debug.dart:97:7)
+#1      debugCheckHasMaterialLocalizations (package:flutter/src/material/debug.dart:117:4)
+#2      PopupMenuButtonState.build (package:flutter/src/material/popup_menu.dart:1748:12)
+#3      StatefulElement.build (package:flutter/src/widgets/framework.dart:5944:27)
+#4      ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5830:15)
+#5      StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#6      Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#7      ComponentElement._firstBuild (package:flutter/src/widgets/framework.dart:5812:5)
+#8      StatefulElement._firstBuild (package:flutter/src/widgets/framework.dart:5986:11)
+#9      ComponentElement.mount (package:flutter/src/widgets/framework.dart:5806:5)
+#10     Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#11     MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#12     MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (112 frames)
+#124    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+#125    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#126    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#127    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (48 frames)
+#175    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#176    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#177    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (111 frames)
+#288    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (9 frames)
+#297    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (234 frames)
+#531    Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#532    MultiChildRenderObjectElement.inflateWidget (package:flutter/src/widgets/framework.dart:7277:36)
+#533    MultiChildRenderObjectElement.mount (package:flutter/src/widgets/framework.dart:7292:32)
+...     Normal element mounting (458 frames)
+#991    ConsumerStatefulElement.mount (package:flutter_riverpod/src/core/consumer.dart:389:11)
+...     Normal element mounting (26 frames)
+#1017   Element.inflateWidget (package:flutter/src/widgets/framework.dart:4600:20)
+#1018   Element.updateChild (package:flutter/src/widgets/framework.dart:4066:20)
+#1019   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1020   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1021   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1022   _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#1023   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1024   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1025   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1026   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1027   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1028   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1029   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1030   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1031   ProxyElement.update (package:flutter/src/widgets/framework.dart:6162:5)
+#1032   _InheritedNotifierElement.update (package:flutter/src/widgets/inherited_notifier.dart:108:11)
+#1033   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+#1034   ComponentElement.performRebuild (package:flutter/src/widgets/framework.dart:5854:16)
+#1035   StatefulElement.performRebuild (package:flutter/src/widgets/framework.dart:5995:11)
+#1036   Element.rebuild (package:flutter/src/widgets/framework.dart:5542:7)
+#1037   StatefulElement.update (package:flutter/src/widgets/framework.dart:6020:5)
+#1038   Element.updateChild (package:flutter/src/widgets/framework.dart:4050:15)
+00:03 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/ux_parity_fix07_active_test.dart: FIX-07 set active persists and restores on reopen

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/locale_config.dart';
 import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
@@ -43,6 +44,7 @@ class V2rayNRApp extends ConsumerWidget {
       themeMode: shell.themeMode,
       locale: localeForLanguage(shell.language),
       supportedLocales: kSupportedLanguages,
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       home: const _RuntimeBootstrap(child: MainShell()),
     );
   }
@@ -64,6 +66,10 @@ class _RuntimeBootstrap extends ConsumerStatefulWidget {
 class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
   DesktopIntegration? _integration;
 
+  /// Saved notifier reference: `ref` is unsafe once the widget is disposing,
+  /// so shutdown must not read providers from `dispose()`.
+  SubsController? _subs;
+
   @override
   void dispose() {
     windowShutdown();
@@ -72,7 +78,7 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
 
   void windowShutdown() {
     _integration?.removeListener();
-    ref.read(subsControllerProvider.notifier).stopScheduler();
+    _subs?.stopScheduler();
   }
 
   @override
@@ -98,7 +104,8 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       await controller.restoreActiveOnLaunch();
       // Subscription auto-update scheduler (upstream `TaskManager`): a normal
       // launch starts it; due downloads run in the background.
-      ref.read(subsControllerProvider.notifier).startScheduler();
+      _subs = ref.read(subsControllerProvider.notifier);
+      _subs!.startScheduler();
       // Evidence-run hooks that force an apply even without a persisted active
       // node:
       //  * kDebugMode + V2RAYN_R_AUTOSTART (historical T03/T18b screenshots);

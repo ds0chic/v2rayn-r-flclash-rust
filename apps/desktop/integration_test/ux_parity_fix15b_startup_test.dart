@@ -67,6 +67,7 @@ void main() {
     RustBridgeInit.configure(RustLib.init);
     await RustBridgeInit.init();
     runApp(const ProviderScope(child: V2rayNRApp()));
+    await tester.pump();
     final container = ProviderScope.containerOf(
       tester.element(find.byType(V2rayNRApp)),
     );

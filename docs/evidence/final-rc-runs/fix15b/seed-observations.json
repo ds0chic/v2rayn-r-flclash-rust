@@ -1,0 +1,15 @@
+{
+  "mode": "seed",
+  "recordingComplete": true,
+  "failures": [],
+  "checks": [
+    {
+      "step": "persist-auto-hide-startup",
+      "passed": true,
+      "actual": {
+        "ok": true,
+        "revision": 1
+      }
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 
 /// In-memory [PlatformBridge] for widget tests.
@@ -33,6 +35,12 @@ class FakePlatformBridge implements PlatformBridge {
   String? pacText;
   int pacStartCount = 0;
   int pacStopCount = 0;
+
+  /// Paths passed to [pacStartFromFile], in order.
+  final List<String> pacFilePaths = <String>[];
+
+  /// Raw text read from the file passed to the last [pacStartFromFile] call.
+  String? lastPacFileText;
 
   /// Whether the next PAC start should fail (fault injection).
   bool failNextPac = false;
@@ -155,7 +163,15 @@ class FakePlatformBridge implements PlatformBridge {
     required String pacPath,
     String? proxyRule,
     int port = 0,
-  }) => pacStart(pacText: 'file:$pacPath', proxyRule: proxyRule, port: port);
+  }) {
+    pacFilePaths.add(pacPath);
+    try {
+      lastPacFileText = File(pacPath).readAsStringSync();
+    } on FileSystemException {
+      lastPacFileText = null;
+    }
+    return pacStart(pacText: 'file:$pacPath', proxyRule: proxyRule, port: port);
+  }
 
   @override
   bool pacStop() {

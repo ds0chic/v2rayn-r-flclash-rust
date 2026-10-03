@@ -1,0 +1,73 @@
+{
+  "task": "FIX-15C",
+  "source": "docs/tasks/FIX-15.md (repair-queue.md:40)",
+  "head": "a940c21",
+  "scope": "自启提交时机 + PAC data/pac.txt/自定义脚本数据源；隔离写读复原",
+  "status": "implemented",
+  "steps": [
+    {
+      "id": "autostart-commit-timing",
+      "case": "enabling/disabling AutoRun via settings save",
+      "upstream": "OptionSettingViewModel:400-402 SaveConfig 成功后 AutoStartupHandler.UpdateTask；先清除再按 GuiItem.AutoRun 设置",
+      "expected": "toggle/cancel 不写 Run 项；保存成功且值变化才写；禁用清除",
+      "actual": "fix15c_autostart_timing_test.dart 3/3：toggle 不写；保存写 true；重开保存写 false"
+    },
+    {
+      "id": "autostart-real-run-key",
+      "case": "real HKCU Run write/read/remove",
+      "expected": "写入后查询存在，删除后无残留",
+      "actual": "real_autostart_write_read_remove_roundtrip ok；RESIDUAL_RUN_VALUES=[]"
+    },
+    {
+      "id": "pac-resolve-rust",
+      "case": "custom PAC / config_dir/pac.txt / 缺失播种 / fallback",
+      "upstream": "PacManager.InitText:34-49",
+      "expected": "自定义存在则用之，否则 pac.txt；缺失写入内嵌默认并读全文",
+      "actual": "platform pac::tests 5/5；bridge pac_resolve_script_seeds_and_reads_default 1/1"
+    },
+    {
+      "id": "pac-resolve-dart",
+      "case": "selectPacFile / startPacFromConfig",
+      "expected": "选择规则与上游一致；缺失播种最小模板；读错误结构化返回",
+      "actual": "fix15c_pac_resolve_test.dart 8/8"
+    },
+    {
+      "id": "sysproxy-real-forcedchange",
+      "case": "real WinINET/registry apply + restore",
+      "expected": "应用后 server=127.0.0.1:11808；恢复后与前置一致",
+      "actual": "real_sysproxy_apply_restore_roundtrip ok；pre/post 逐字段一致，无残留"
+    },
+    {
+      "id": "mode-commit-boundary",
+      "case": "PAC mode write preserves sibling fields",
+      "expected": "systemProxyItemWithMode 只改 SysProxyType",
+      "actual": "fix15c_pac_resolve_test.dart mode persistence 1/1"
+    }
+  ],
+  "real_state": {
+    "pre": "docs/evidence/UX-PARITY-FIX-15C/real-pre-state.json",
+    "post": "docs/evidence/UX-PARITY-FIX-15C/real-post-state.json",
+    "restored": true,
+    "run_values_residual": []
+  },
+  "commands": {
+    "cargo test -p platform -p bridge_api --locked": "pass",
+    "cargo clippy -p platform -p bridge_api --all-targets --locked -- -D warnings": "pass",
+    "cargo fmt -p platform -p bridge_api -- --check": "pass",
+    "flutter analyze lib test": "No issues found",
+    "flutter test test/fix15c_pac_resolve_test.dart": "8/8 pass",
+    "flutter test test/fix15c_autostart_timing_test.dart": "3/3 pass",
+    "cargo test -p platform --test real_windows -- --ignored --nocapture": "2/2 pass, host restored"
+  },
+  "not_run": [
+    "flutter build windows --release",
+    "full flutter test",
+    "full Rust workspace gate"
+  ],
+  "blocked": [
+    "pac_resolve_script 未暴露给 Dart（frb_generated 禁改，未重生成）；App 走 Dart 侧解析",
+    "desktop_integration/status_bar_view PAC 调用点不在本卡允许清单内，未接 startPacFromConfig",
+    "提权计划任务自启路径未实现",
+    "真机未逐一验证 ForcedClear/Unchanged/Pac"
+  ]
+}

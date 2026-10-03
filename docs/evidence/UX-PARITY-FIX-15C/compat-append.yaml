@@ -1,0 +1,14 @@
+
+  - id: F-FIX-15C
+    name: 自启提交时机与 PAC data/pac.txt 解析
+    implementation_location: crates/platform/src/pac.rs (resolve_pac_script/resolve_pac_path/DEFAULT_PAC_TEMPLATE) + crates/bridge_api/src/api/platform.rs (pac_resolve_script) + apps/desktop/lib/features/settings/proxy_settings_view.dart (selectPacFile) + apps/desktop/lib/features/settings/platform_controller.dart (startPacFromConfig)
+    test_ids:
+    - crates/platform/src/pac.rs::tests::resolve_seeds_default_when_pac_missing
+    - crates/platform/src/pac.rs::tests::missing_custom_falls_back_to_config_pac
+    - crates/bridge_api/src/api/platform.rs::tests::pac_resolve_script_seeds_and_reads_default
+    - apps/desktop/test/fix15c_pac_resolve_test.dart
+    - apps/desktop/test/fix15c_autostart_timing_test.dart
+    evidence:
+    - docs/evidence/UX-PARITY-FIX-15C/README.md
+    status: implemented
+    note: 自启只在设置保存成功后且值变化时写 Run 项（对照 AutoStartupHandler.UpdateTask），真实 HKCU Run 写读删已复原且无残留。PAC 解析对照 PacManager.InitText，自定义 PAC 存在则用之，否则 config_dir/pac.txt，缺失时写入内置默认模板。Rust 桥函数 pac_resolve_script 因未重生成 frb_generated 暂不可被 Dart 调用，App 走 Dart 侧 selectPacFile/startPacFromConfig 复用既有 pacStartFromFile。系统代理真机仅对 ForcedChange 做写读复原，四模式状态机由内存 backend 覆盖。

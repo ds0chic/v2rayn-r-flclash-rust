@@ -25,7 +25,10 @@ pub use autostart::{
     decode_run_command, encode_run_command, run_value_name, AutoStartBackend, AutoStartEntry,
     FakeRegistry, AUTO_RUN_NAME,
 };
-pub use pac::{render_pac, PacConfig, PacServer, PacSource, DEFAULT_PAC_PORT_BASE};
+pub use pac::{
+    render_pac, resolve_pac_path, resolve_pac_script, PacConfig, PacServer, PacSource, ResolvedPac,
+    DEFAULT_PAC_FILE_NAME, DEFAULT_PAC_PORT_BASE, DEFAULT_PAC_TEMPLATE,
+};
 pub use script::{CustomSystemProxySetting, CUSTOM_PAC_FIELD, CUSTOM_SCRIPT_FIELD};
 pub use single_instance::SingleInstanceGuard;
 pub use sysproxy::{

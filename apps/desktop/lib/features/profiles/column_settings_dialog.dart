@@ -25,7 +25,7 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                   const Padding(
                     padding: EdgeInsets.only(bottom: 6),
                     child: Text(
-                      '顺序与显隐会保存到 ui_state.json',
+                      '顺序 / 显隐 / 宽度会保存到 ui_state.json（与 Clash 连接列同一状态源，迁移与备份不丢）',
                       style: TextStyle(fontSize: 11),
                     ),
                   ),
@@ -46,7 +46,45 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                               child: Text(
                                 column.title,
                                 style: const TextStyle(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
                               ),
+                            ),
+                            IconButton(
+                              key: ValueKey<String>(
+                                'colwidthdec-${column.key}',
+                              ),
+                              tooltip: '减小列宽',
+                              iconSize: 14,
+                              visualDensity: VisualDensity.compact,
+                              onPressed: column.width <= 40
+                                  ? null
+                                  : () => controller.resizeColumn(
+                                      column.key,
+                                      -10,
+                                    ),
+                              icon: const Icon(Icons.remove),
+                            ),
+                            SizedBox(
+                              width: 40,
+                              child: Text(
+                                '${column.width.round()}',
+                                key: ValueKey<String>('colwidth-${column.key}'),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 11),
+                              ),
+                            ),
+                            IconButton(
+                              key: ValueKey<String>(
+                                'colwidthinc-${column.key}',
+                              ),
+                              tooltip: '增大列宽',
+                              iconSize: 14,
+                              visualDensity: VisualDensity.compact,
+                              onPressed: column.width >= 600
+                                  ? null
+                                  : () =>
+                                        controller.resizeColumn(column.key, 10),
+                              icon: const Icon(Icons.add),
                             ),
                             IconButton(
                               key: ValueKey<String>('colup-${column.key}'),

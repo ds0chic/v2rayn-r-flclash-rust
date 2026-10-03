@@ -96,7 +96,7 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 | ClashUIItem.EnableIPv6/EnableMixinContent | Clash 历史段 | checkbox | false | ClashUIItem | restart_core | preserved_only（上游窗口无控件；Rust 侧 `grep` 无消费者，config_codegen 未接，登记后续） |
 | ClashUIItem.ProxiesSorting/ProxiesAutoRefresh/ProxiesRefreshInterval | Clash 历史段 | dropdown/checkbox/number | 0/false/2 | 同上 | immediate | **verified**（FIX-16C：`proxies_view` 读 `clashUiConfigProvider`；排序/自动刷新 widget 测试） |
 | ClashUIItem.ConnectionsAutoRefresh/ConnectionsRefreshInterval | Clash 历史段 | checkbox/number | false/2 | 同上 | immediate | **verified**（FIX-16C：`connections_view` 读同一 provider；自动刷新 widget 测试） |
-| ClashUIItem.ConnectionsColumnItem | Clash 历史段（无控件） | list | [] | 同上 | save | registered（连接表列仍硬编码，未按 Index 恢复；登记后续） |
+| ClashUIItem.ConnectionsColumnItem | Clash 历史段（无控件） | list | [] | 同上 | save | registered（列状态源已统一：`ColumnLayout`→`ui_state.json` 的 `clash_connections_column_layout`；`connections_view` 消费者未接线，FIX-16D→FIX-16C-2） |
 
 ## 系统代理
 
@@ -130,6 +130,23 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 |---|---|---|---|---|---|
 | CoreTypeItem.ConfigType 1/2/3/4/5/6/7/9 → CoreType | 8 个下拉 | dropdown | Xray(2) | restart_core | consumed |
 
+## 窗口尺寸 / 列宽状态源（FIX-16D，非本窗口控件）
+
+本窗口不暴露以下字段的控件；FIX-16D 将它们统一到一个按窗口 `TypeName`、按表名键入的可迁移状态源（`ui_state.json`），并由 Rust `application::settings` 提供 `guiNConfig` 树权威 upsert。
+
+| 字段 | 层 | 状态源（本仓） | apply_timing | 状态 |
+|---|---|---|---|---|
+| UiItem.WindowSizeItem（FLD-CFG-082） | 窗口几何列表 | `window_geometry`（按 `TypeName`） | immediate | implemented（状态源）；窗口绑定 registered（FIX-16D-2） |
+| WindowSizeItem.TypeName/Width/Height（FLD-CFG-156/157/158） | 窗口几何行 | `WindowGeometry{typeName,width,height}` + `application::settings::{get,save}_window_size` | immediate | verified（单元/widget 保存重开） |
+| UiItem.MainGirdHeight1/2（FLD-CFG-068/069） | 主布局星值 | `WindowGeometry.mainGridHeight1/2` + `save_main_grid_height` | immediate | verified（单元/widget） |
+| UiItem.MainColumnItem（FLD-CFG-080，LAY-PROFILES-003） | 节点表列 | `ColumnLayout`→`column_layout`（稳定键，不用本地化标题） | immediate | verified（列宽编辑器保存重开） |
+| ClashUIItem.ConnectionsColumnItem（FLD-CFG-136，LAY-CLASHCN-002） | 连接表列 | `ColumnLayout`→`clash_connections_column_layout` | immediate | implemented（状态源）；消费者 registered（FIX-16C-2） |
+| 旧扁平键 `window` / `column_widths` | 迁移源 | `migrateLegacyUiState()` 幂等折叠，键保留不丢 | — | verified（迁移测试） |
+
+迁移/备份：`loadDocument()` 即备份文档，`saveDocument()` 可恢复；`meta.schema_version=2` 记录口径。
+
+窗口「位置」（Left/Top）：上游 `WindowBase` 不持久化位置，恢复时按工作区居中（`WindowBase.cs:23-24`），故 `not_applicable`；本状态源同样只存/还 `Width/Height`。
+
 ## 统计
 
 - 可见控件：103（核心 36 / 显示 42 / 系统代理 6 / Tun 11 / 内核类型 8；FIX-16C 在显示页 Clash 历史段新增 Connections 自动刷新/间隔 2 项）。
@@ -139,3 +156,4 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 - `blocked`（平台/网络，本环境不执行）：17（系统代理 6 + Tun 11）。
 - `preserved_only`（上游本窗口不暴露）：9（DNS 见上；EnableIPv6/EnableMixinContent 保留但 Rust `grep` 无消费者，登记后续；KCP 6 项入口保留但主状态计 consumed）。
 - 未伪造缺口：KCP 页（上游注释）、FakeIP/HappyEyeballs（上游 DNS 窗口）、ClashUIItem（上游无控件）、WPF 四个额外主题（`ThemeSettingView` 未暴露）均如实登记，不造控件。
+- FIX-16D（不计入上述可见控件分母，为设置窗口外的窗口/表格状态源）：`WindowSizeItem`/`MainGirdHeight1/2`（4 行）与列状态（`MainColumnItem`/`ConnectionsColumnItem`，2 行）统一到 `ui_state.json`，新增 `verified` 4 项（TypeName 行、星值、节点列宽、旧键迁移）、`implemented` 2 项（WindowSizeItem 列表状态源、连接表列状态源）；消费者绑定登记 FIX-16D-2 / FIX-16C-2。

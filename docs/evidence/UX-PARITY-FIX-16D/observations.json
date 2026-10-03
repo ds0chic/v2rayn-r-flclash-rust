@@ -1,0 +1,64 @@
+{
+  "task": "FIX-16D",
+  "title": "窗口尺寸/列宽统一状态源（按 TypeName 恢复）",
+  "source": "docs/evidence/parity-review-2026-10-03/repair-queue.md:41,43",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "implemented",
+  "changed_files": [
+    "apps/desktop/lib/features/profiles/ui_state_store.dart",
+    "apps/desktop/lib/features/profiles/column_settings_dialog.dart",
+    "apps/desktop/test/fix16d_ui_state_store_test.dart",
+    "apps/desktop/test/fix16d_column_dialog_test.dart",
+    "apps/desktop/test/fix16d_layout_reachability_test.dart",
+    "crates/application/src/settings.rs",
+    "docs/evidence/UX-PARITY-FIX-16D/README.md",
+    "docs/evidence/UX-PARITY-FIX-16D/observations.json",
+    "docs/evidence/UX-PARITY-FIX-16/field-matrix.md",
+    "docs/tasks/FIX-16D.md",
+    "compat/layouts.yaml"
+  ],
+  "commands": [
+    { "cmd": "dart format <5 files>", "result": "5 changed" },
+    { "cmd": "flutter analyze <5 files>", "result": "No issues found" },
+    { "cmd": "flutter test test/fix16d_ui_state_store_test.dart", "result": "9 passed" },
+    { "cmd": "flutter test test/fix16d_column_dialog_test.dart", "result": "1 passed" },
+    { "cmd": "flutter test test/fix16d_layout_reachability_test.dart", "result": "1 passed" },
+    { "cmd": "flutter test <regression: ux_space01_column_persistence, t21e_dialogs_responsive, fix16c_clash_ui_config, fix16_settings_field, t05_profiles_ui>", "result": "4 files passed; t05_profiles_ui 'did not complete' in the combined run, passed alone (known flutter_tester flake, not a regression)" },
+    { "cmd": "cargo fmt -p application -- --check", "result": "exit 0" },
+    { "cmd": "cargo test -p application settings --locked", "result": "20 passed / 0 failed" }
+  ],
+  "state_source": {
+    "window_geometry_section": "window_geometry (keyed by upstream GetType().Name)",
+    "profiles_column_section": "column_layout",
+    "clash_connections_column_section": "clash_connections_column_layout",
+    "meta_section": "meta (schema_version=2)",
+    "legacy_ingested": ["window", "column_widths"],
+    "legacy_keys_preserved": true,
+    "migration_idempotent": true
+  },
+  "upstream_parity": {
+    "WindowSizeItem": "crates/domain WindowState + bridge_api WindowSizeItemDto",
+    "GetWindowSizeItem": "application::settings::get_window_size",
+    "SaveWindowSizeItem": "application::settings::save_window_size",
+    "SaveMainGirdHeight": "application::settings::save_main_grid_height",
+    "WindowBase TypeName": "WindowTypeNames registry (14 windows)"
+  },
+  "gaps": [
+    "FIX-16D-2: window_manager Loaded/Closed binding per TypeName (features/settings|main_shell|runner, out of ownership)",
+    "FIX-16C-2: connections_view.dart consumer of clash_connections_column_layout (features/monitor/** forbidden this card)",
+    "FRB: read/write UiItem.WindowSizeItem / MainColumnItem in guiNConfig.json (generated files untouched)",
+    "FIX-16F: real Windows window integration run"
+  ],
+  "constraints": {
+    "port_10808": "untouched; no listener started",
+    "test_ports": "none used (pure widget/unit tests)",
+    "host_system_proxy": "untouched",
+    "registry_routing_tun": "untouched",
+    "processes": "none started or stopped",
+    "credentials": "none read or written",
+    "work_outputs": "read-only",
+    "full_workspace_test": "not run",
+    "flutter_build_windows": "not run",
+    "generated_files": "not modified"
+  }
+}

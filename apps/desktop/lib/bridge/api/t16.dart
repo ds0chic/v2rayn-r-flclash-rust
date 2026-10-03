@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
+// These functions are ignored because they are not marked as `pub`: `app_install_root`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
 
 /// `backup_local` — write a versioned bundle under `dest_root`.
 BackupResultDto t16BackupLocal({required String destRoot}) =>

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 
 /// Pure helpers that translate the persisted `SystemProxyItem` settings fields
@@ -95,4 +97,41 @@ Map<String, dynamic> systemProxyItemWithMode(
       : <String, dynamic>{};
   map['SysProxyType'] = mode.value;
   return map;
+}
+
+/// Bundled fallback PAC script. Only written when neither a custom PAC path nor
+/// an existing `<configDir>/pac.txt` is present (upstream seeds the embedded
+/// `pac` sample on first use; the Rust backend carries the full sample).
+const String defaultPacScriptTemplate =
+    'function FindProxyForURL(url, host) { return "__PROXY__"; }';
+
+/// The PAC file the `Pac` mode should serve and whether it was user-configured.
+class PacFileSelection {
+  const PacFileSelection({required this.path, required this.isCustom});
+
+  final String path;
+  final bool isCustom;
+}
+
+/// Choose the PAC file to serve, mirroring upstream `PacManager.InitText`: the
+/// configured custom path when set, otherwise `<configDir>/pac.txt`.
+PacFileSelection selectPacFile({
+  String? customPacPath,
+  required String configDir,
+}) {
+  final custom = (customPacPath ?? '').trim();
+  if (custom.isNotEmpty) {
+    return PacFileSelection(path: custom, isCustom: true);
+  }
+  return PacFileSelection(
+    path: _joinPath(configDir, 'pac.txt'),
+    isCustom: false,
+  );
+}
+
+String _joinPath(String dir, String name) {
+  if (dir.isEmpty) return name;
+  final last = dir[dir.length - 1];
+  if (last == '/' || last == r'\') return '$dir$name';
+  return '$dir${Platform.pathSeparator}$name';
 }

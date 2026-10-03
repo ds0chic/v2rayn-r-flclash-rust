@@ -1,0 +1,12 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running tests\real_windows.rs (target\debug\deps\real_windows-00cba7a399a812c2.exe)
+
+running 1 test
+before: ProxyState { enabled: true, server: Some("127.0.0.1:20808"), bypass: Some("<local>;localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*"), auto_config_url: None, auto_detect: false }
+applied: [AppliedChange { field: Server, before: Some("127.0.0.1:20808"), after: Some("127.0.0.1:11808") }]
+during : ProxyState { enabled: true, server: Some("127.0.0.1:11808"), bypass: Some("<local>;localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*"), auto_config_url: None, auto_detect: false }
+after  : ProxyState { enabled: true, server: Some("127.0.0.1:20808"), bypass: Some("<local>;localhost;127.*;10.*;172.16.*;172.17.*;172.18.*;172.19.*;172.20.*;172.21.*;172.22.*;172.23.*;172.24.*;172.25.*;172.26.*;172.27.*;172.28.*;172.29.*;172.30.*;172.31.*;192.168.*"), auto_config_url: None, auto_detect: false }
+test real_sysproxy_apply_restore_roundtrip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.03s
+

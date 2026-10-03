@@ -1,0 +1,18 @@
+$ cargo test -p application --lib codegen --locked
+   Compiling subscriptions v0.1.0 (crates/subscriptions)
+   Compiling application v0.1.0 (crates/application)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 06s
+     Running unittests src\lib.rs (target\debug\deps\application-*.exe)
+
+running 6 tests
+test codegen::tests::active_file_type_custom_consumes_outbound_contents ... ok
+test codegen::tests::engine_input_generates_singbox_selector ... ok
+test codegen::tests::engine_input_generates_singbox_detour_chain ... ok
+test codegen::tests::engine_input_generates_xray_balancer ... ok
+test codegen::tests::engine_input_generates_xray_dialer_proxy_chain ... ok
+test engine::tests::build_codegen_input_uses_settings_srs_source ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 179 filtered out; finished in 0.01s
+
+$ cargo fmt -p application -- --check
+(no output; clean)

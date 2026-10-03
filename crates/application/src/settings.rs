@@ -7,7 +7,7 @@
 
 use std::collections::BTreeMap;
 
-use domain::{codes, AppSettings, ApplyTiming, DomainError, SettingsChange};
+use domain::{codes, AppSettings, ApplyTiming, DomainError, SettingsChange, WindowState};
 use serde_json::Value;
 
 /// In-memory settings state plus its optimistic-concurrency counters.
@@ -139,6 +139,45 @@ pub fn normalize_for_save(mut settings: AppSettings) -> AppSettings {
     settings
 }
 
+/// Upstream `ConfigHandler.GetWindowSizeItem`: look up a window geometry row by
+/// its `TypeName`. Degenerate rows (non-positive size) are treated as absent so
+/// the caller falls back to the default window size.
+pub fn get_window_size<'a>(settings: &'a AppSettings, type_name: &str) -> Option<&'a WindowState> {
+    settings
+        .ui_item
+        .window_size_item
+        .iter()
+        .find(|item| item.type_name == type_name && item.width > 0 && item.height > 0)
+}
+
+/// Upstream `ConfigHandler.SaveWindowSizeItem`: upsert a geometry row by
+/// `TypeName`, leaving `MainGirdHeight*`/orientation untouched.
+pub fn save_window_size(settings: &mut AppSettings, type_name: &str, width: i32, height: i32) {
+    if let Some(item) = settings
+        .ui_item
+        .window_size_item
+        .iter_mut()
+        .find(|item| item.type_name == type_name)
+    {
+        item.width = width;
+        item.height = height;
+    } else {
+        settings.ui_item.window_size_item.push(WindowState {
+            type_name: type_name.to_string(),
+            width,
+            height,
+            ..WindowState::default()
+        });
+    }
+}
+
+/// Upstream `ConfigHandler.SaveMainGirdHeight`: persist the two star sizes used
+/// by the horizontal/vertical main layouts (`UiItem.MainGirdHeight1/2`).
+pub fn save_main_grid_height(settings: &mut AppSettings, height1: i32, height2: i32) {
+    settings.ui_item.main_gird_height1 = height1;
+    settings.ui_item.main_gird_height2 = height2;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -252,5 +291,37 @@ mod tests {
         let once = normalize_for_save(settings.clone());
         let twice = normalize_for_save(once.clone());
         assert_eq!(once, twice);
+    }
+
+    #[test]
+    fn window_size_upserts_and_reads_by_type_name() {
+        let mut settings = AppSettings::default();
+        save_window_size(&mut settings, "MainWindow", 1200, 800);
+        save_window_size(&mut settings, "OptionSettingWindow", 900, 600);
+
+        let main = get_window_size(&settings, "MainWindow").unwrap();
+        assert_eq!((main.width, main.height), (1200, 800));
+
+        // Second save updates in place instead of appending a duplicate row.
+        save_window_size(&mut settings, "MainWindow", 1440, 900);
+        assert_eq!(settings.ui_item.window_size_item.len(), 2);
+        let main = get_window_size(&settings, "MainWindow").unwrap();
+        assert_eq!((main.width, main.height), (1440, 900));
+    }
+
+    #[test]
+    fn degenerate_window_size_is_treated_as_absent() {
+        let mut settings = AppSettings::default();
+        save_window_size(&mut settings, "MainWindow", 0, 0);
+        assert!(get_window_size(&settings, "MainWindow").is_none());
+        assert!(get_window_size(&settings, "UnknownWindow").is_none());
+    }
+
+    #[test]
+    fn main_grid_height_round_trips() {
+        let mut settings = AppSettings::default();
+        save_main_grid_height(&mut settings, 320, 480);
+        assert_eq!(settings.ui_item.main_gird_height1, 320);
+        assert_eq!(settings.ui_item.main_gird_height2, 480);
     }
 }

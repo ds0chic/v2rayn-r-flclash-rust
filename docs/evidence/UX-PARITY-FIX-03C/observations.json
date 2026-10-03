@@ -1,0 +1,61 @@
+{
+  "card": "FIX-03C",
+  "scope": "ProxyChain chain node editor + chain generation semantics (hand-created/edited chain nodes)",
+  "start_head": "a940c21",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "upstream_refs": [
+    "ServiceLib/ViewModels/ProfilesViewModel.cs:479/484 (IsGroupType -> AddGroupServerViewModel)",
+    "ServiceLib/ViewModels/AddGroupServerViewModel.cs:44/81/106/114/199/224",
+    "ServiceLib/Handler/GroupProfileManager.cs:72/78/110",
+    "ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:656 (BuildChainOutboundsList reverse + dialerProxy)",
+    "ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs (detour)",
+    "ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:258/440",
+    "ServiceLib/Common/Extension.cs:89"
+  ],
+  "rust_assertions": [
+    {
+      "id": "xray-dialer-proxy-chain",
+      "test": "crates/application/src/codegen.rs::tests::engine_input_generates_xray_dialer_proxy_chain",
+      "chain": "childItems=c1,c2,c3",
+      "expected": "outbounds[0]=proxy(c3) dials chain-proxy-1-c2; outbounds[1]=chain-proxy-1-c2 dials chain-proxy-2-c1; outbounds[2]=chain-proxy-2-c1 leaf; no observatory/burstObservatory/balancers",
+      "result": "pass"
+    },
+    {
+      "id": "singbox-detour-chain",
+      "test": "crates/application/src/codegen.rs::tests::engine_input_generates_singbox_detour_chain",
+      "chip": "childItems=c1,c2,c3",
+      "expected": "outbounds[0]=proxy(c3) detour chain-proxy-1-c2; outbounds[1] detour chain-proxy-2-c1; outbounds[2] leaf",
+      "result": "pass"
+    }
+  ],
+  "widget_assertions": {
+    "file": "apps/desktop/test/fix03c_proxy_chain_editor_test.dart",
+    "passed": 7,
+    "failed": 0,
+    "tests": [
+      "chain reopen keeps type/group/order/mode/refs on save",
+      "new chain defaults to ProxyChain group type and saves mode",
+      "chain editor exposes all five multiple-load modes",
+      "chain editor add/move/remove child then save",
+      "chain picker offers nested groups/chain but not custom",
+      "chain cancel calls onSave zero times",
+      "chain save then reopen keeps children order and mode"
+    ],
+    "flake": "first run: 4 tests did-not-complete (known flutter_tester engine flake); retry 7/7 green"
+  },
+  "commands": {
+    "cargo_test": "cargo test -p application --lib codegen --locked -> 6 passed; 0 failed",
+    "cargo_fmt": "cargo fmt -p application -- --check -> clean",
+    "dart_format": "dart format --output=none --set-exit-if-changed test/fix03c_proxy_chain_editor_test.dart -> 0 changed",
+    "dart_analyze_mine": "dart analyze test/fix03c_proxy_chain_editor_test.dart -> No issues found",
+    "flutter_analyze_repo": "3 issues, all in files concurrently modified by other agents (ui_state_store.dart x2, fake_platform_bridge.dart x1); not touched by FIX-03C"
+  },
+  "hard_constraints": {
+    "used_10808": false,
+    "system_proxy_touched": false,
+    "kernel_started": false,
+    "listened_ports": false,
+    "credentials_read": false
+  },
+  "failures": []
+}

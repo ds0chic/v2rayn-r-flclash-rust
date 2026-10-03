@@ -7,7 +7,7 @@
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::thread::{self, JoinHandle};
@@ -55,6 +55,57 @@ impl PacSource {
 /// Replace the `__PROXY__` placeholder, mirroring upstream `PacManager`.
 pub fn render_pac(template: &str, proxy_rule: &str) -> String {
     template.replace(PAC_PROXY_PLACEHOLDER, proxy_rule)
+}
+
+/// Bundled default PAC template (upstream `ServiceLib/Sample/pac`, embedded as
+/// the `pac` resource and written to `pac.txt` on first use).
+pub const DEFAULT_PAC_TEMPLATE: &str = include_str!("assets/pac.txt");
+
+/// The file name upstream uses inside the config directory.
+pub const DEFAULT_PAC_FILE_NAME: &str = "pac.txt";
+
+/// A resolved PAC script: the file that will be served plus its raw text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResolvedPac {
+    pub path: PathBuf,
+    pub text: String,
+    /// True when `path` did not exist and was seeded from
+    /// [`DEFAULT_PAC_TEMPLATE`].
+    pub seeded_default: bool,
+}
+
+/// Choose the PAC file to serve, mirroring upstream `PacManager.InitText`:
+/// the configured custom path when it names an existing file, otherwise
+/// `<config_dir>/pac.txt`.
+pub fn resolve_pac_path(custom_pac_path: Option<&str>, config_dir: &Path) -> PathBuf {
+    if let Some(custom) = custom_pac_path.map(str::trim).filter(|p| !p.is_empty()) {
+        let candidate = PathBuf::from(custom);
+        if candidate.is_file() {
+            return candidate;
+        }
+    }
+    config_dir.join(DEFAULT_PAC_FILE_NAME)
+}
+
+/// Resolve and read the PAC script, seeding [`DEFAULT_PAC_TEMPLATE`] when the
+/// chosen file does not exist (upstream behavior). The script is only read,
+/// never executed. `__PROXY__` substitution still happens at serve time.
+pub fn resolve_pac_script(custom_pac_path: Option<&str>, config_dir: &Path) -> Result<ResolvedPac> {
+    let path = resolve_pac_path(custom_pac_path, config_dir);
+    let mut seeded_default = false;
+    if !path.is_file() {
+        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&path, DEFAULT_PAC_TEMPLATE)?;
+        seeded_default = true;
+    }
+    let text = std::fs::read_to_string(&path)?;
+    Ok(ResolvedPac {
+        path,
+        text,
+        seeded_default,
+    })
 }
 
 /// PAC server configuration.
@@ -274,4 +325,69 @@ fn serve(mut stream: TcpStream, path: &str, content: &RwLock<Vec<u8>>) -> std::i
         stream.write_all(&body)?;
     }
     stream.flush()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    fn unique_dir(tag: &str) -> PathBuf {
+        let n = COUNTER.fetch_add(1, Ordering::SeqCst);
+        let dir =
+            std::env::temp_dir().join(format!("v2rayn-r-pac-{tag}-{}-{n}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    #[test]
+    fn default_template_has_proxy_placeholder() {
+        assert!(DEFAULT_PAC_TEMPLATE.contains(PAC_PROXY_PLACEHOLDER));
+    }
+
+    #[test]
+    fn custom_existing_file_is_used() {
+        let dir = unique_dir("custom");
+        let custom = dir.join("my.pac");
+        std::fs::write(&custom, "var proxy = '__PROXY__';").expect("write custom");
+        let path = resolve_pac_path(Some(custom.to_string_lossy().as_ref()), &dir);
+        assert_eq!(path, custom);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn missing_custom_falls_back_to_config_pac() {
+        let dir = unique_dir("fallback");
+        let path = resolve_pac_path(Some("Z:\\nope\\missing.pac"), &dir);
+        assert_eq!(path, dir.join(DEFAULT_PAC_FILE_NAME));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_seeds_default_when_pac_missing() {
+        let dir = unique_dir("seed");
+        let resolved = resolve_pac_script(None, &dir).expect("resolve");
+        assert!(resolved.seeded_default);
+        assert_eq!(resolved.path, dir.join(DEFAULT_PAC_FILE_NAME));
+        assert_eq!(resolved.text, DEFAULT_PAC_TEMPLATE);
+        assert!(resolved.path.is_file(), "default pac.txt written");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_reads_existing_pac_without_seeding() {
+        let dir = unique_dir("read");
+        let pac = dir.join(DEFAULT_PAC_FILE_NAME);
+        std::fs::write(&pac, "function FindProxyForURL(){return '__PROXY__';}").expect("write pac");
+        let resolved = resolve_pac_script(None, &dir).expect("resolve");
+        assert!(!resolved.seeded_default);
+        assert_eq!(
+            resolved.text,
+            "function FindProxyForURL(){return '__PROXY__';}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

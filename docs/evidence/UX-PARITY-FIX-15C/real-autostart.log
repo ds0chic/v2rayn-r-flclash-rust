@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running tests\real_windows.rs (target\debug\deps\real_windows-00cba7a399a812c2.exe)
+
+running 1 test
+run value: Some("\"C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-autostart-probe.exe\" --autostart-probe")
+test real_autostart_write_read_remove_roundtrip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+

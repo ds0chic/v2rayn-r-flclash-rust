@@ -125,6 +125,18 @@ pub struct PacHandleDto {
     pub error: Option<ErrorDto>,
 }
 
+/// A resolved PAC script file (path + raw text). `text` still contains
+/// `__PROXY__`; substitution happens at serve time.
+#[derive(Clone)]
+pub struct PacScriptDto {
+    pub ok: bool,
+    pub path: Option<String>,
+    pub text: Option<String>,
+    /// True when the file was created from the bundled default template.
+    pub seeded_default: bool,
+    pub error: Option<ErrorDto>,
+}
+
 /// One `KeyEventItem` binding exposed to the hotkey window.
 #[derive(Clone)]
 pub struct HotkeyDto {
@@ -542,6 +554,33 @@ pub fn pac_state() -> PacHandleDto {
     }
 }
 
+/// Resolve the PAC script file the `Pac` mode should serve, mirroring upstream
+/// `PacManager.InitText`: use `custom_pac_path` when it names an existing file,
+/// otherwise `<config_dir>/pac.txt`, seeding the bundled default template when
+/// that file is missing. Returns the raw text (still containing `__PROXY__`).
+#[frb(sync)]
+pub fn pac_resolve_script(custom_pac_path: Option<String>, config_dir: String) -> PacScriptDto {
+    match platform::pac::resolve_pac_script(
+        custom_pac_path.as_deref(),
+        std::path::Path::new(&config_dir),
+    ) {
+        Ok(resolved) => PacScriptDto {
+            ok: true,
+            path: Some(resolved.path.display().to_string()),
+            text: Some(resolved.text),
+            seeded_default: resolved.seeded_default,
+            error: None,
+        },
+        Err(e) => PacScriptDto {
+            ok: false,
+            path: None,
+            text: None,
+            seeded_default: false,
+            error: Some(platform_error(e)),
+        },
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Autostart
 // ---------------------------------------------------------------------------
@@ -796,6 +835,18 @@ mod tests {
         assert!(get_autostart(name.clone()));
         assert!(set_autostart(name.clone(), false, String::new(), String::new()).ok);
         assert!(!get_autostart(name));
+    }
+
+    #[test]
+    fn pac_resolve_script_seeds_and_reads_default() {
+        let dir = std::env::temp_dir().join(format!("v2rayn-r-pac-bridge-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let dto = pac_resolve_script(None, dir.display().to_string());
+        assert!(dto.ok, "{:?}", dto.error.map(|e| e.code));
+        assert!(dto.seeded_default);
+        assert!(dto.text.as_deref().is_some_and(|t| t.contains("__PROXY__")));
+        assert!(dto.path.as_deref().is_some_and(|p| p.ends_with("pac.txt")));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

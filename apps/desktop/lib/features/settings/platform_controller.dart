@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
+import 'package:v2rayn_desktop/features/settings/proxy_settings_view.dart';
 
 /// Riverpod controller for the T13 system-proxy / PAC / autostart surface.
 ///
@@ -87,6 +90,50 @@ class PlatformController extends Notifier<PlatformView> {
   }) {
     final handle = _bridge.pacStartFromFile(
       pacPath: pacPath,
+      proxyRule: proxyRule,
+      port: port,
+    );
+    _applyPac(handle);
+    return handle;
+  }
+
+  /// Start the PAC server from the persisted configuration, mirroring upstream
+  /// `PacManager.InitText`: use the custom PAC path when set, otherwise
+  /// `<configDir>/pac.txt`, seeding the bundled default template when the file
+  /// is missing. The backend reads and serves the file; only the path is
+  /// resolved here.
+  PacHandleView startPacFromConfig({
+    required String configDir,
+    String? customPacPath,
+    String? proxyRule,
+    int port = 0,
+  }) {
+    final selection = selectPacFile(
+      customPacPath: customPacPath,
+      configDir: configDir,
+    );
+    try {
+      final file = File(selection.path);
+      if (!file.existsSync()) {
+        if (!file.parent.existsSync()) {
+          file.parent.createSync(recursive: true);
+        }
+        file.writeAsStringSync(defaultPacScriptTemplate);
+      }
+    } on FileSystemException catch (e) {
+      final handle = PacHandleView(
+        ok: false,
+        error: PlatformErrorView(
+          code: 'E_IO',
+          messageKey: 'error.pac_file_read',
+          detail: e.message,
+        ),
+      );
+      _applyPac(handle);
+      return handle;
+    }
+    final handle = _bridge.pacStartFromFile(
+      pacPath: selection.path,
       proxyRule: proxyRule,
       port: port,
     );

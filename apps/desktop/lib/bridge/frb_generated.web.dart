@@ -552,6 +552,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PacHandleDto dco_decode_pac_handle_dto(dynamic raw);
 
   @protected
+  PacScriptDto dco_decode_pac_script_dto(dynamic raw);
+
+  @protected
   PageVisibilityDto dco_decode_page_visibility_dto(dynamic raw);
 
   @protected
@@ -1421,6 +1424,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   PacHandleDto sse_decode_pac_handle_dto(SseDeserializer deserializer);
+
+  @protected
+  PacScriptDto sse_decode_pac_script_dto(SseDeserializer deserializer);
 
   @protected
   PageVisibilityDto sse_decode_page_visibility_dto(
@@ -2540,6 +2546,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_pac_handle_dto(PacHandleDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_pac_script_dto(PacScriptDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_page_visibility_dto(

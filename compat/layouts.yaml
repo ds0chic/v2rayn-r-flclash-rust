@@ -1967,3 +1967,15 @@ t17_screenshot_evidence:
   - path: docs/evidence/screenshots/windows_flutter/t17_update.png
     layout: LAY-CHECKUPDATE-001
     theme: light
+# --- FIX-16D append (2026-10, implementation status; original rows above unchanged) ---
+# LAY-MAIN-007 / LAY-PROFILES-003 / LAY-CLASHCN-002 implementations:
+#   state_source: apps/desktop/lib/features/profiles/ui_state_store.dart
+#     ui_state.json sections: window_geometry (by TypeName), column_layout (profiles),
+#     clash_connections_column_layout (connections), meta.schema_version=2
+#   rust_helpers: crates/application/src/settings.rs
+#     get_window_size / save_window_size / save_main_grid_height (mirror ConfigHandler)
+#   verified (widget/unit): WindowGeometry save+reopen, ColumnLayout save+reopen,
+#     legacy window/column_widths migration, 1.5x desktop text-scale reachability
+#   registered (wiring pending): window_manager Loaded/Closed binding (FIX-16D-2),
+#     connections_view consumer (FIX-16C-2), guiNConfig WindowSizeItem/MainColumnItem FRB bridge
+# evidence: docs/evidence/UX-PARITY-FIX-16D/README.md, observations.json

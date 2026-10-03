@@ -619,4 +619,94 @@ mod tests {
         assert!(outbounds.iter().any(|o| o["type"] == "selector"));
         assert!(outbounds.iter().any(|o| o["type"] == "urltest"));
     }
+
+    fn chain() -> Profile {
+        let mut profile = Profile {
+            index_id: "chain-1".into(),
+            config_type: ConfigType::ProxyChain,
+            is_sub: false,
+            remarks: "chain".into(),
+            ..Default::default()
+        };
+        profile.proto_extra.child_items = Some("c1,c2,c3".into());
+        profile
+    }
+
+    fn chain_graph() -> (Profile, Vec<Profile>) {
+        let active = chain();
+        let all = vec![
+            active.clone(),
+            leaf("c1", "192.0.2.11"),
+            leaf("c2", "192.0.2.12"),
+            leaf("c3", "192.0.2.13"),
+        ];
+        (active, all)
+    }
+
+    #[test]
+    fn engine_input_generates_xray_dialer_proxy_chain() {
+        let (active, all) = chain_graph();
+        let input = build_input(
+            &active,
+            &all,
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        let generated = generate(CoreType::Xray, &input).unwrap();
+        let outbounds = generated.main["outbounds"].as_array().unwrap();
+        // Upstream `BuildChainOutboundsList` reverses `ChildItems`: the entry
+        // (`proxy`) is the last child and dials the next hop on the wire.
+        assert_eq!(outbounds[0]["tag"], serde_json::json!("proxy"));
+        assert_eq!(
+            outbounds[0]["settings"]["address"],
+            serde_json::json!("192.0.2.13")
+        );
+        assert_eq!(
+            outbounds[0]["streamSettings"]["sockopt"]["dialerProxy"],
+            serde_json::json!("chain-proxy-1-c2")
+        );
+        assert_eq!(outbounds[1]["tag"], serde_json::json!("chain-proxy-1-c2"));
+        assert_eq!(
+            outbounds[1]["streamSettings"]["sockopt"]["dialerProxy"],
+            serde_json::json!("chain-proxy-2-c1")
+        );
+        assert_eq!(outbounds[2]["tag"], serde_json::json!("chain-proxy-2-c1"));
+        assert!(outbounds[2]["streamSettings"]["sockopt"]
+            .get("dialerProxy")
+            .is_none());
+        // A chain is sequential, not balanced: no observatory/balancer.
+        assert!(generated.main.get("observatory").is_none());
+        assert!(generated.main.get("burstObservatory").is_none());
+        assert!(generated.main["routing"].get("balancers").is_none());
+    }
+
+    #[test]
+    fn engine_input_generates_singbox_detour_chain() {
+        let (active, all) = chain_graph();
+        let input = build_input(
+            &active,
+            &all,
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        let generated = generate(CoreType::SingBox, &input).unwrap();
+        let outbounds = generated.main["outbounds"].as_array().unwrap();
+        assert_eq!(outbounds[0]["tag"], serde_json::json!("proxy"));
+        assert_eq!(outbounds[0]["server"], serde_json::json!("192.0.2.13"));
+        assert_eq!(
+            outbounds[0]["detour"],
+            serde_json::json!("chain-proxy-1-c2")
+        );
+        assert_eq!(outbounds[1]["tag"], serde_json::json!("chain-proxy-1-c2"));
+        assert_eq!(
+            outbounds[1]["detour"],
+            serde_json::json!("chain-proxy-2-c1")
+        );
+        assert_eq!(outbounds[2]["tag"], serde_json::json!("chain-proxy-2-c1"));
+        assert!(outbounds[2].get("detour").is_none());
+    }
 }

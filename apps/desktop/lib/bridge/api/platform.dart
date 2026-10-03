@@ -10,7 +10,7 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `applied_dto`, `fake_service`, `mode_symbol`, `platform_error`, `proxy_state_dto`, `restore_result`, `service`, `slot`, `windows_service`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `HotkeyRegisterResult`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
 
 /// Explicit opt-in to the real Windows backend for the process.
 ///
@@ -87,6 +87,18 @@ SimpleResult pacStop() => RustLib.instance.api.crateApiPlatformPacStop();
 
 /// Current PAC server handle.
 PacHandleDto pacState() => RustLib.instance.api.crateApiPlatformPacState();
+
+/// Resolve the PAC script file the `Pac` mode should serve, mirroring upstream
+/// `PacManager.InitText`: use `custom_pac_path` when it names an existing file,
+/// otherwise `<config_dir>/pac.txt`, seeding the bundled default template when
+/// that file is missing. Returns the raw text (still containing `__PROXY__`).
+PacScriptDto pacResolveScript({
+  String? customPacPath,
+  required String configDir,
+}) => RustLib.instance.api.crateApiPlatformPacResolveScript(
+  customPacPath: customPacPath,
+  configDir: configDir,
+);
 
 /// Whether the Run value `name` exists (non-empty).
 bool getAutostart({required String name}) =>
@@ -246,6 +258,45 @@ class PacHandleDto {
           running == other.running &&
           url == other.url &&
           port == other.port &&
+          error == other.error;
+}
+
+/// A resolved PAC script file (path + raw text). `text` still contains
+/// `__PROXY__`; substitution happens at serve time.
+class PacScriptDto {
+  final bool ok;
+  final String? path;
+  final String? text;
+
+  /// True when the file was created from the bundled default template.
+  final bool seededDefault;
+  final ErrorDto? error;
+
+  const PacScriptDto({
+    required this.ok,
+    this.path,
+    this.text,
+    required this.seededDefault,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      path.hashCode ^
+      text.hashCode ^
+      seededDefault.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PacScriptDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          path == other.path &&
+          text == other.text &&
+          seededDefault == other.seededDefault &&
           error == other.error;
 }
 

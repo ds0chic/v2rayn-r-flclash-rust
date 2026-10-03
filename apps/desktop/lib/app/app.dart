@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/locale_config.dart';
 import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/app/shell/main_shell.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
@@ -39,6 +40,8 @@ class V2rayNRApp extends ConsumerWidget {
         zebraEnabled: shell.zebraStriping,
       ),
       themeMode: shell.themeMode,
+      locale: localeForLanguage(shell.language),
+      supportedLocales: kSupportedLanguages,
       home: const _RuntimeBootstrap(child: MainShell()),
     );
   }

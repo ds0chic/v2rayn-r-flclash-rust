@@ -178,6 +178,21 @@ Future<void> renameSelectedProfile(BuildContext context, WidgetRef ref) async {
   _toast(ref, result.ok ? '备注已更新' : '备注更新失败');
 }
 
+/// Activate one node by stable id and reload the managed core.
+///
+/// Shared by the table command and the tray node submenu (RT-11) so both run
+/// the same use case. Re-selecting the active node is a no-op, mirroring
+/// upstream `SetDefaultServer`.
+Future<bool> activateProfileById(WidgetRef ref, String id) async {
+  final controller = ref.read(profilesControllerProvider.notifier);
+  if (ref.read(profilesControllerProvider).activeId == id) return true;
+  final result = controller.setActive(id);
+  if (!result.ok) return false;
+  controller.logAction(ProfileAction.activate, 'id=$id');
+  await ref.read(runtimeControllerProvider.notifier).applyActive();
+  return true;
+}
+
 /// Set the selected node as the active node and reload the managed core.
 ///
 /// Upstream `ProfilesViewModel.SetDefaultServer`: selecting the node that is
@@ -185,7 +200,6 @@ Future<void> renameSelectedProfile(BuildContext context, WidgetRef ref) async {
 /// `MainWindowViewModel.Reload()` which loads the core with the new default
 /// server. There is no "deactivate" path through this command.
 Future<void> setActiveSelected(WidgetRef ref) async {
-  final controller = ref.read(profilesControllerProvider.notifier);
   final state = ref.read(profilesControllerProvider);
   if (state.selected.length != 1) {
     _toast(ref, '请选择单个节点后设为活动');
@@ -196,14 +210,8 @@ Future<void> setActiveSelected(WidgetRef ref) async {
     _toast(ref, '该节点已是活动节点');
     return;
   }
-  final result = controller.setActive(id);
-  if (!result.ok) {
-    _toast(ref, '操作失败');
-    return;
-  }
-  controller.logAction(ProfileAction.activate, 'id=$id');
-  _toast(ref, '已设为活动节点');
-  await ref.read(runtimeControllerProvider.notifier).applyActive();
+  final ok = await activateProfileById(ref, id);
+  _toast(ref, ok ? '已设为活动节点' : '操作失败');
 }
 
 /// Add a PolicyGroup / ProxyChain node through the group editor + bridge.

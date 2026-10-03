@@ -117,6 +117,8 @@ class PlatformView {
     bool clearServer = false,
     bool clearBypass = false,
     bool clearAutoConfigUrl = false,
+    bool clearPacUrl = false,
+    bool clearPacPort = false,
   }) {
     return PlatformView(
       loaded: loaded ?? this.loaded,
@@ -130,8 +132,8 @@ class PlatformView {
       autoDetect: autoDetect ?? this.autoDetect,
       hasOwnership: hasOwnership ?? this.hasOwnership,
       pacRunning: pacRunning ?? this.pacRunning,
-      pacUrl: pacUrl ?? this.pacUrl,
-      pacPort: pacPort ?? this.pacPort,
+      pacUrl: clearPacUrl ? null : (pacUrl ?? this.pacUrl),
+      pacPort: clearPacPort ? null : (pacPort ?? this.pacPort),
       conflicts: conflicts ?? this.conflicts,
       ownership: ownership ?? this.ownership,
       error: clearError ? null : (error ?? this.error),
@@ -152,6 +154,23 @@ class PlatformView {
     }
     return '未启用';
   }
+}
+
+/// PAC server lifecycle handle (upstream `PacHandler`).
+class PacHandleView {
+  const PacHandleView({
+    required this.ok,
+    this.running = false,
+    this.url,
+    this.port,
+    this.error,
+  });
+
+  final bool ok;
+  final bool running;
+  final String? url;
+  final int? port;
+  final PlatformErrorView? error;
 }
 
 /// Outcome of a proxy apply/restore command.
@@ -199,6 +218,26 @@ abstract class PlatformBridge {
   bool validateCustomProxyScript({String? pacPath, String? scriptPath});
 
   bool resolveUwpLoopbackTool({String? binDir});
+
+  /// Start (or refresh) the loopback PAC server from raw script text.
+  PacHandleView pacStart({
+    required String pacText,
+    String? proxyRule,
+    int port = 0,
+  });
+
+  /// Start (or refresh) the loopback PAC server from a custom file path.
+  PacHandleView pacStartFromFile({
+    required String pacPath,
+    String? proxyRule,
+    int port = 0,
+  });
+
+  /// Stop the PAC server. Idempotent.
+  bool pacStop();
+
+  /// Current PAC handle (read-only).
+  PacHandleView pacState();
 
   /// Optional real-backend opt-in; a no-op for the synthetic bridge.
   void initBackend(String backend);
@@ -277,6 +316,36 @@ class FrbPlatformBridge implements PlatformBridge {
     final result = rust.resolveUwpLoopbackTool(binDir: binDir);
     return result.ok;
   }
+
+  @override
+  PacHandleView pacStart({
+    required String pacText,
+    String? proxyRule,
+    int port = 0,
+  }) => _pac(rust.pacStart(pacText: pacText, proxyRule: proxyRule, port: port));
+
+  @override
+  PacHandleView pacStartFromFile({
+    required String pacPath,
+    String? proxyRule,
+    int port = 0,
+  }) => _pac(
+    rust.pacStartFromFile(pacPath: pacPath, proxyRule: proxyRule, port: port),
+  );
+
+  @override
+  bool pacStop() => rust.pacStop().ok;
+
+  @override
+  PacHandleView pacState() => _pac(rust.pacState());
+
+  PacHandleView _pac(rust.PacHandleDto dto) => PacHandleView(
+    ok: dto.ok,
+    running: dto.running,
+    url: dto.url,
+    port: dto.port,
+    error: _error(dto.error),
+  );
 
   @override
   void initBackend(String backend) =>

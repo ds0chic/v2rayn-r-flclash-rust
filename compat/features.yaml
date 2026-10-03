@@ -1139,7 +1139,7 @@ features:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:539
   - v2rayN/ServiceLib/Common/QRCodeUtils.cs
   status: identified
-  notes: FIX-05 只完成图片扫码半边（F-IMPORT-006，见其 notes）。屏幕扫码半边（ACT-MAIN-017，上游 MainWindow.xaml.cs:226 Ctrl+S→ScanScreenTaskAsync 隐藏→截图→恢复）登记 FIX-05B，本卡未实现、未标完成。
+  notes: FIX-05 只完成图片扫码半边（F-IMPORT-006，见其 notes）。屏幕扫码半边（ACT-MAIN-017，上游 MainWindow.xaml.cs:226 Ctrl+S→ScanScreenTaskAsync 隐藏→截图→恢复）登记 FIX-05B，本卡未实现、未标完成。FIX-05B 已实现屏幕扫码命令函数 apps/desktop/lib/features/subs/scan_screen_qr.dart（Win32 GDI BitBlt 截图→decodeQrImage→finally 恢复→importShareText，widget 成功/取消/无码/异常四分支 4/4），main_shell 的 ACT-MAIN-017 菜单与 Ctrl+S 接线待根代理执行。
 - id: F-PROFILE-014
   name: 节点过滤与搜索
   family: profile

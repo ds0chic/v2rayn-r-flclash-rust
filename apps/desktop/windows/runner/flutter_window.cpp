@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "runner_messages.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -62,6 +63,11 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case kShowWindowMessage:
+      // Second instance asked to restore the window (ROOT-06 / ACT-WIN-012).
+      ShowWindow(GetHandle(), SW_RESTORE);
+      SetForegroundWindow(GetHandle());
+      return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

@@ -7,6 +7,7 @@ import 'package:v2rayn_desktop/app/menu/main_menu.dart';
 import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/app/shell/side_tabs.dart';
 import 'package:v2rayn_desktop/app/shell/status_bar_view.dart';
+import 'package:v2rayn_desktop/app/shell/tray_menu_model.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/backup/backup_and_restore_view.dart';
@@ -20,10 +21,12 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart'
     as routing_actions;
+import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_actions.dart';
 import 'package:v2rayn_desktop/features/subs/scan_image_qr.dart';
+import 'package:v2rayn_desktop/features/subs/scan_screen_qr.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/shared/widgets/horizontal_toolbar.dart';
@@ -46,6 +49,13 @@ class _MainShellState extends ConsumerState<MainShell> {
     // menu clicks. It is a no-op in normal runs.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // RT-11: the tray runs the identical use cases as the main window.
+      ref.read(trayCommandDelegateProvider).value = TrayCommandDelegate(
+        onSharedCommand: (command) => _onMenuActionId(context, ref, command),
+        onSelectNode: (id) => profile_actions.activateProfileById(ref, id),
+        onSelectRouting: (id) =>
+            ref.read(routingControllerProvider.notifier).select(id),
+      );
       final open = Platform.environment['V2RAYN_R_OPEN_SUBS'];
       if (open == '1' || open == 'true') {
         openSubSettings(context, ref);
@@ -157,7 +167,7 @@ class _MainShellState extends ConsumerState<MainShell> {
                 '${AppMenuEntry.preservedTooltip}: 重载 (ACT-MAIN-035)',
               ),
           const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
-              _guarded(ref, () => shareProfilesQr(context, ref)),
+              _guarded(ref, () => scanScreenQr(context, ref)),
           const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
               _guarded(ref, () => importFromClipboard(context, ref)),
           const SingleActivator(LogicalKeyboardKey.keyC, control: true): () =>
@@ -264,10 +274,29 @@ class _MainShellState extends ConsumerState<MainShell> {
     action();
   }
 
-  void _onMenuAction(BuildContext context, WidgetRef ref, AppMenuEntry entry) {
+  void _onMenuAction(BuildContext context, WidgetRef ref, AppMenuEntry entry) =>
+      _onMenuActionId(context, ref, entry.actionId ?? '');
+
+  /// Finds a menu entry by action id for the string-based dispatch fallback.
+  static AppMenuEntry? _findMenuEntry(String actionId) {
+    AppMenuEntry? walk(List<AppMenuEntry> entries) {
+      for (final entry in entries) {
+        if (entry.actionId == actionId) return entry;
+        final nested = walk(entry.submenu);
+        if (nested != null) return nested;
+      }
+      return null;
+    }
+
+    return walk(mainMenuModel);
+  }
+
+  /// String-based dispatch shared by the main menu and the tray delegate so a
+  /// tray click runs the identical `ACT-MAIN-*` use case (RT-11).
+  void _onMenuActionId(BuildContext context, WidgetRef ref, String actionId) {
     final shell = ref.read(uiShellControllerProvider.notifier);
     final profiles = ref.read(profilesControllerProvider.notifier);
-    switch (entry.actionId) {
+    switch (actionId) {
       case 'UI-LAYOUT-H':
         shell.setLayout(AppLayoutMode.horizontal);
       case 'UI-LAYOUT-V':
@@ -327,7 +356,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       case 'ACT-MAIN-016':
         importFromClipboard(context, ref);
       case 'ACT-MAIN-017':
-        shareProfilesQr(context, ref);
+        scanScreenQr(context, ref);
       case 'ACT-MAIN-018':
         scanImageQr(context, ref);
       case 'ACT-MAIN-019':
@@ -390,10 +419,11 @@ class _MainShellState extends ConsumerState<MainShell> {
           shell.setMessage('已请求最小化到托盘 (ACT-WIN-002)');
         }
       default:
-        if (entry.preservedOnly) {
+        final entry = _findMenuEntry(actionId);
+        if (entry != null && entry.preservedOnly) {
           shell.setMessage('${AppMenuEntry.preservedTooltip}: ${entry.label}');
         } else {
-          shell.notImplemented(entry.label, entry.actionId);
+          shell.notImplemented(entry?.label ?? actionId, actionId);
         }
     }
   }

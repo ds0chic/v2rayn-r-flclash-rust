@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/features/settings/hotkey_keycodec.dart';
+import 'package:v2rayn_desktop/features/settings/hotkeys.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
 
 /// Global hotkey window (LAY-HOTKEY-001).
 ///
 /// The five `EGlobalHotkey` rows (显示窗口 / 清除系统代理 / 设置系统代理 /
-/// 不改变系统代理 / PAC) are edited and persisted to `GlobalHotkeys`.
-/// Registration with the OS (`HotkeyManager`) stays with T13: this window only
-/// stores bindings and never reports a successful registration.
+/// 不改变系统代理 / PAC) are recorded as WPF `Key` values, persisted to
+/// `GlobalHotkeys`, and re-registered through the shared `HotkeyController`
+/// (SET-15): saving reloads the OS binding and reports real conflicts.
 class GlobalHotkeyWindow extends ConsumerStatefulWidget {
   const GlobalHotkeyWindow({super.key});
 
@@ -32,9 +34,10 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
         (action: 4, label: 'PAC 模式'),
       ];
 
+  static const HotkeyKeyCodec _codec = HotkeyKeyCodec();
+
   List<Map<String, dynamic>> _hotkeys = <Map<String, dynamic>>[];
   final Map<int, String> _labels = <int, String>{};
-  final Map<int, String> _keyLabels = <int, String>{};
   bool _draftInit = false;
   int? _recording;
   String? _status;
@@ -83,15 +86,7 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
   }
 
   String _labelFor(Map<String, dynamic> entry) {
-    final parts = <String>[];
-    if (entry['Control'] == true) parts.add('Ctrl');
-    if (entry['Alt'] == true) parts.add('Alt');
-    if (entry['Shift'] == true) parts.add('Shift');
-    final keyCode = (entry['KeyCode'] as num?)?.toInt();
-    if (keyCode != null && keyCode != 0) {
-      parts.add(_keyLabels[keyCode] ?? 'Key#$keyCode');
-    }
-    return parts.isEmpty ? '（未设置）' : parts.join(' + ');
+    return HotkeyBinding.fromSettings(entry).formatLabel(_codec);
   }
 
   KeyEventResult _onKey(int action, KeyEvent event) {
@@ -99,14 +94,29 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
     if (event is! KeyDownEvent) return KeyEventResult.handled;
     final keyboard = HardwareKeyboard.instance;
     final entry = _entry(action);
-    final keyCode = event.logicalKey.keyId;
+    // Modifier state is captured on every keydown but a bare modifier must not
+    // terminate recording or be stored as the key (upstream
+    // `TxtGlobalHotkey_PreviewKeyDown` sets `Key.None` for modifiers and keeps
+    // the box focused). SET-15 regression: previously the first modifier ended
+    // recording with the modifier's own key id.
     entry['Control'] = keyboard.isControlPressed;
     entry['Alt'] = keyboard.isAltPressed;
     entry['Shift'] = keyboard.isShiftPressed;
-    entry['KeyCode'] = keyCode;
-    _keyLabels[keyCode] = event.logicalKey.keyLabel.isEmpty
-        ? 'Key#$keyCode'
-        : event.logicalKey.keyLabel;
+    if (HotkeyKeyCodec.isModifierKey(event.logicalKey)) {
+      if (mounted) setState(() => _labels[action] = _labelFor(entry));
+      return KeyEventResult.handled;
+    }
+    final wpfKey = _codec.wpfKeyForEvent(event);
+    if (wpfKey == HotkeyKeyCodec.wpfNone) {
+      if (mounted) {
+        setState(() {
+          _labels[action] = '不支持的按键';
+          _recording = null;
+        });
+      }
+      return KeyEventResult.handled;
+    }
+    entry['KeyCode'] = wpfKey;
     if (mounted) {
       setState(() {
         _labels[action] = _labelFor(entry);
@@ -125,21 +135,33 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     // Ensure all five rows exist (upstream GetKeyEventItem semantics).
     for (final action in _actions) {
       _entry(action.action);
     }
+    final bindings = <HotkeyBinding>[
+      for (final entry in _hotkeys) HotkeyBinding.fromSettings(entry),
+    ];
     final result = ref
         .read(settingsControllerProvider.notifier)
         .saveGroup('GlobalHotkeys', _hotkeys);
+    // Save then re-register through the shared controller so the OS binding is
+    // reloaded and dispatched (SET-15 / RT-12); a failed persist keeps the
+    // window open with the draft intact.
+    final ok = await ref
+        .read(hotkeyControllerProvider.notifier)
+        .save(bindings, () => result.ok);
     if (!mounted) return;
+    final state = ref.read(hotkeyControllerProvider);
     setState(() {
-      _status = result.ok
-          ? '已保存（OS 全局注册留待 T13）'
-          : (result.error?.messageKey ?? '保存失败');
+      _status = !result.ok
+          ? (result.error?.messageKey ?? '保存失败')
+          : (state.conflicts.isEmpty
+                ? '已保存并重新注册 ${state.registered.length} 项'
+                : '已保存；${state.conflicts.length} 项注册冲突');
     });
-    if (result.ok) {
+    if (ok) {
       Navigator.of(context).pop();
     }
   }
@@ -166,7 +188,7 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const SettingsNote('OS 全局热键注册属于 T13；此窗口仅录制与保存绑定。'),
+              const SettingsNote('录制 WPF Key 编码；保存后立即重注册并经共享入口分发。'),
               for (final action in _actions)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 3),

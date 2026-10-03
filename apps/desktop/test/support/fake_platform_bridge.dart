@@ -29,6 +29,14 @@ class FakePlatformBridge implements PlatformBridge {
   /// Whether restore should report a user conflict.
   bool restoreConflict = false;
 
+  /// PAC server state driven by [pacStart]/[pacStop].
+  String? pacText;
+  int pacStartCount = 0;
+  int pacStopCount = 0;
+
+  /// Whether the next PAC start should fail (fault injection).
+  bool failNextPac = false;
+
   @override
   PlatformView getSystemProxyState(int desiredMode) {
     final mode = SysProxyMode.fromValue(desiredMode);
@@ -114,6 +122,55 @@ class FakePlatformBridge implements PlatformBridge {
 
   @override
   bool resolveUwpLoopbackTool({String? binDir}) => uwpToolAvailable;
+
+  @override
+  PacHandleView pacStart({
+    required String pacText,
+    String? proxyRule,
+    int port = 0,
+  }) {
+    if (failNextPac) {
+      failNextPac = false;
+      return const PacHandleView(
+        ok: false,
+        error: PlatformErrorView(
+          code: 'E_PAC_START',
+          messageKey: 'error.pac_start',
+        ),
+      );
+    }
+    pacStartCount++;
+    this.pacText = pacText;
+    pacRunning = true;
+    return const PacHandleView(
+      ok: true,
+      running: true,
+      url: 'http://127.0.0.1:11808/pac',
+      port: 11808,
+    );
+  }
+
+  @override
+  PacHandleView pacStartFromFile({
+    required String pacPath,
+    String? proxyRule,
+    int port = 0,
+  }) => pacStart(pacText: 'file:$pacPath', proxyRule: proxyRule, port: port);
+
+  @override
+  bool pacStop() {
+    pacStopCount++;
+    pacRunning = false;
+    return true;
+  }
+
+  @override
+  PacHandleView pacState() => PacHandleView(
+    ok: true,
+    running: pacRunning,
+    url: pacRunning ? 'http://127.0.0.1:11808/pac' : null,
+    port: pacRunning ? 11808 : null,
+  );
 
   @override
   void initBackend(String backend) {

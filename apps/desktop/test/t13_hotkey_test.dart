@@ -4,6 +4,7 @@ import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
+import 'package:v2rayn_desktop/features/settings/hotkey_keycodec.dart';
 import 'package:v2rayn_desktop/features/settings/hotkeys.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 
@@ -13,13 +14,20 @@ class FakeHotkeyRegistrar implements HotkeyRegistrar {
 
   final Set<GlobalHotkeyAction> conflicting;
   final List<List<HotkeyBinding>> registrations = <List<HotkeyBinding>>[];
+
+  /// The dispatcher passed on the most recent registration, so dispatch tests
+  /// can simulate an OS key press.
+  HotkeyTriggerHandler? lastTrigger;
   int unregisterAllCount = 0;
 
   @override
   Future<(Set<GlobalHotkeyAction>, List<String>)> register(
-    List<HotkeyBinding> bindings,
-  ) async {
+    List<HotkeyBinding> bindings, {
+    HotkeyTriggerHandler? onTriggered,
+    HotkeyKeyCodec codec = const HotkeyKeyCodec(),
+  }) async {
     registrations.add(bindings);
+    lastTrigger = onTriggered;
     final accepted = <GlobalHotkeyAction>{};
     final failures = <String>[];
     for (final b in bindings) {

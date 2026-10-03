@@ -1,0 +1,77 @@
+{
+  "task": "FIX-15",
+  "startCommit": "066d8d385fb1052388a2b295e3500eca3ce4543a",
+  "recordingComplete": true,
+  "scope": "点X→托盘恢复；单实例判定与唤回；热键编码/录制/重注册/dispatch；托盘动态同步；四模式/PAC 与模式保存",
+  "checks": [
+    {
+      "step": "hotkey-codec-wpf-vk",
+      "passed": true,
+      "actual": {
+        "A": {"wpf": 44, "vk": "0x41"},
+        "F1": {"wpf": 90, "vk": "0x70"},
+        "OemMinus": {"wpf": 143, "vk": "0xBD"},
+        "source": "System.Windows.Input.KeyInterop (windows powershell, .NET Framework)"
+      }
+    },
+    {
+      "step": "recording-modifier-does-not-terminate",
+      "passed": true,
+      "actual": "widget test: controlLeft keeps recording, keyA sets KeyCode=54 (WPF K), label 'Ctrl + K'"
+    },
+    {
+      "step": "save-re-register-dispatch",
+      "passed": true,
+      "actual": "controller.save -> registrar.onTriggered -> hotkeyDispatchProvider.handler invoked"
+    },
+    {
+      "step": "tray-shared-command-map",
+      "passed": true,
+      "actual": "ACT-TRAY-008/009/010/011 -> ACT-MAIN-016/017/020/021"
+    },
+    {
+      "step": "tray-dynamic-children-limit",
+      "passed": true,
+      "actual": "routing/nodes children synced; empty above TrayMenuServersLimit"
+    },
+    {
+      "step": "proxy-mode-persistence",
+      "passed": true,
+      "actual": "systemProxyItemWithMode preserves exceptions/advanced/custom pac path, sets SysProxyType"
+    },
+    {
+      "step": "pac-lifecycle",
+      "passed": true,
+      "actual": "startPac/stopPac update handle; failure surfaces E_PAC_START; port 11808 (never 10808)"
+    },
+    {
+      "step": "close-platform-split",
+      "passed": true,
+      "actual": "desktop_integration: Windows setPreventClose(true)+hide; others follow Hide2TrayWhenClose"
+    },
+    {
+      "step": "single-instance-wake",
+      "passed": false,
+      "actual": "runner implemented (named mutex + kShowWindowMessage); NOT run with two real processes"
+    },
+    {
+      "step": "real-window-integration",
+      "passed": false,
+      "actual": "integration_test written but not run (flutter test -d windows not executed)"
+    }
+  ],
+  "testsRun": {
+    "flutter analyze lib test": "No issues found",
+    "dart format --set-exit-if-changed": "0 changed",
+    "test/fix15_hotkey_test.dart": "8/8 pass",
+    "test/fix15_tray_pac_test.dart": "8/8 pass",
+    "t13_hotkey+t13_platform_models+t12a_hotkey+t13_statusbar": "19/19 pass"
+  },
+  "notRun": [
+    "flutter build windows --release",
+    "flutter test (full suite)",
+    "flutter test integration_test/ux_parity_fix15_hotkey_tray_test.dart -d windows",
+    "Rust workspace gate"
+  ],
+  "failures": []
+}

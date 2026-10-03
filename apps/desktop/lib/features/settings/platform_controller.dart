@@ -62,6 +62,55 @@ class PlatformController extends Notifier<PlatformView> {
     return result;
   }
 
+  /// Start (or refresh) the loopback PAC server. The real port is chosen by the
+  /// backend at or above 11808; the forbidden 10808 is never used
+  /// (`pac_port_base`). Returns the honest handle.
+  PacHandleView startPac({
+    required String pacText,
+    String? proxyRule,
+    int port = 0,
+  }) {
+    final handle = _bridge.pacStart(
+      pacText: pacText,
+      proxyRule: proxyRule,
+      port: port,
+    );
+    _applyPac(handle);
+    return handle;
+  }
+
+  /// Start the PAC server from a custom PAC file path.
+  PacHandleView startPacFromFile({
+    required String pacPath,
+    String? proxyRule,
+    int port = 0,
+  }) {
+    final handle = _bridge.pacStartFromFile(
+      pacPath: pacPath,
+      proxyRule: proxyRule,
+      port: port,
+    );
+    _applyPac(handle);
+    return handle;
+  }
+
+  /// Stop the PAC server (idempotent).
+  void stopPac() {
+    _bridge.pacStop();
+    _applyPac(_bridge.pacState());
+  }
+
+  void _applyPac(PacHandleView handle) {
+    state = state.copyWith(
+      pacRunning: handle.running,
+      pacUrl: handle.url,
+      pacPort: handle.port,
+      clearPacUrl: handle.url == null,
+      clearPacPort: handle.port == null,
+      error: handle.error,
+    );
+  }
+
   /// Restore only the fields this process still owns.
   PlatformActionResult restore() {
     final result = _bridge.restoreSystemProxy();

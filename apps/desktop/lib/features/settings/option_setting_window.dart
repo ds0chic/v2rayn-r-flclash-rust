@@ -9,12 +9,19 @@ import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
 
 /// Option settings window (LAY-OPTSET-001/002).
 ///
-/// Mirrors the upstream tab structure (核心 / 显示 / 系统代理 / Tun 模式 /
-/// 内核类型) and adds the remaining field groups from
-/// `compat/fields.settings.yaml`. Every control edits the canonical settings
-/// document; Save persists it through the Rust engine. Actions that belong to
-/// the platform layer (kernel restart, system proxy, TUN, autostart) are
-/// labelled 未接线 here and are never reported as having run.
+/// Tab structure mirrors the frozen upstream `OptionSettingWindow.xaml`
+/// (`TbSettingsCore` / `TbSettingsN` / `TbSettingsSystemproxy` /
+/// `TbSettingsTunMode` / `TbSettingsCoreType`). Grouping and field placement
+/// follow that file; the audit matrix is
+/// `docs/evidence/UX-PARITY-FIX-16/field-matrix.md`.
+///
+/// Fields the frozen Window does not expose (KCP page is commented out
+/// upstream; FakeIP/HappyEyeballs live in the DNS window; ClashUIItem has no
+/// Window control) are kept in clearly labelled "历史保留" sections so the
+/// underlying config stays editable without pretending upstream had a control.
+/// Every control edits the canonical settings document; Save persists it
+/// through the Rust engine. Platform-layer actions (kernel restart, system
+/// proxy, TUN) are labelled 未接线 here and are never reported as having run.
 class OptionSettingWindow extends ConsumerStatefulWidget {
   const OptionSettingWindow({super.key});
 
@@ -31,8 +38,9 @@ class OptionSettingWindow extends ConsumerStatefulWidget {
 
 class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 12, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this);
   Map<String, dynamic> _draft = <String, dynamic>{};
+  bool _draftInit = false;
   String? _error;
 
   @override
@@ -124,8 +132,13 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(settingsControllerProvider);
-    if (_draft.isEmpty && state.loaded) {
+    // Seed the editable draft exactly once, from the persisted document, after
+    // the first successful load. The old `_draft.isEmpty` guard failed whenever
+    // a tab built (and created a group map) before load finished, which silently
+    // replaced the stored values with defaults on reopen.
+    if (!_draftInit && state.loaded) {
       _draft = ref.read(settingsControllerProvider.notifier).draft();
+      _draftInit = true;
     }
     return AlertDialog(
       title: const Text('参数设置', style: TextStyle(fontSize: 15)),
@@ -146,13 +159,6 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 Tab(text: '系统代理'),
                 Tab(text: 'Tun 模式'),
                 Tab(text: '内核类型'),
-                Tab(text: '测速'),
-                Tab(text: 'Fragment'),
-                Tab(text: '多路复用'),
-                Tab(text: 'KCP'),
-                Tab(text: 'HappyEyeballs'),
-                Tab(text: 'TUN 高级'),
-                Tab(text: 'Clash UI'),
               ],
             ),
             if (_error != null)
@@ -183,13 +189,6 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                   _systemProxyTab(),
                   _tunTab(),
                   _coreTypeTab(),
-                  _speedTestTab(),
-                  _fragmentTab(),
-                  _muxTab(),
-                  _kcpTab(),
-                  _happyEyeballsTab(),
-                  _tunAdvancedTab(),
-                  _clashTab(),
                 ],
               ),
             ),
@@ -219,14 +218,49 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
   }
 
   /// Upstream `OptionSettingViewModel.SaveSettingAsync` rejects a non-numeric
-  /// or out-of-range local port before touching storage.
+  /// or out-of-range local port and malformed fragment ranges before touching
+  /// storage.
   String? _validateDraft() {
     final inbound = _inboundListener();
     final port = (inbound['LocalPort'] as num?)?.toInt();
     if (port == null || port <= 0 || port >= 65536) {
       return '请填写本地监听端口';
     }
+    final fragment = _group('Fragment4RayItem');
+    for (final key in <String>['Lengths', 'Delays']) {
+      for (final range in _list(fragment, key)) {
+        if (!_isValidRange(range)) return '请填写正确的分片参数';
+      }
+    }
+    final maxSplit = _str(fragment, 'MaxSplit');
+    if (maxSplit != null && maxSplit.isNotEmpty) {
+      final value = int.tryParse(maxSplit);
+      if (value == null || value < 0 || value > 10000) {
+        return '请填写正确的分片参数';
+      }
+    }
     return null;
+  }
+
+  /// Upstream `Utils.TryParseRange`: a single positive integer or `a-b`.
+  static bool _isValidRange(String raw) {
+    final text = raw.trim();
+    if (text.isEmpty) return false;
+    final parts = text.split('-');
+    if (parts.length == 1) {
+      final value = int.tryParse(parts[0]);
+      return value != null && value >= 0;
+    }
+    if (parts.length == 2) {
+      final start = int.tryParse(parts[0]);
+      final end = int.tryParse(parts[1]);
+      return start != null &&
+          end != null &&
+          start >= 0 &&
+          end >= 0 &&
+          start <= end;
+    }
+    return false;
   }
 
   void _save({bool applyAfter = false}) {
@@ -311,6 +345,82 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     final inbound = _inboundListener();
     return _scroll(<Widget>[
       SettingsSection(
+        title: '本地监听',
+        child: <Widget>[
+          SettingsNumberField(
+            key: const ValueKey('settings-local-port'),
+            label: '本地端口 (LocalPort)',
+            value: _int(inbound, 'LocalPort'),
+            onChanged: (v) => _set('Inbound', 'LocalPort', v),
+          ),
+          SettingsCheckbox(
+            label: '第二本地端口',
+            value: _bool(inbound, 'SecondLocalPortEnabled'),
+            onChanged: (v) => _set('Inbound', 'SecondLocalPortEnabled', v),
+          ),
+          SettingsCheckbox(
+            label: 'UDP 转发',
+            value: _bool(inbound, 'UdpEnabled'),
+            onChanged: (v) => _set('Inbound', 'UdpEnabled', v),
+          ),
+          SettingsCheckbox(
+            label: '嗅探 (SniffingEnabled)',
+            value: _bool(inbound, 'SniffingEnabled'),
+            onChanged: (v) => _set('Inbound', 'SniffingEnabled', v),
+          ),
+          if (_bool(inbound, 'SniffingEnabled')) ...<Widget>[
+            Wrap(
+              spacing: 8,
+              children: <Widget>[
+                for (final option in <String>['http', 'tls', 'quic'])
+                  FilterChip(
+                    label: Text(option, style: const TextStyle(fontSize: 11)),
+                    selected: _list(inbound, 'DestOverride').contains(option),
+                    onSelected: (on) {
+                      final next = _list(inbound, 'DestOverride');
+                      if (on) {
+                        next.add(option);
+                      } else {
+                        next.remove(option);
+                      }
+                      _set('Inbound', 'DestOverride', next);
+                    },
+                  ),
+              ],
+            ),
+            SettingsCheckbox(
+              label: '仅路由 (RouteOnly)',
+              value: _bool(inbound, 'RouteOnly'),
+              onChanged: (v) => _set('Inbound', 'RouteOnly', v),
+            ),
+          ],
+          SettingsCheckbox(
+            label: '允许来自局域网的连接',
+            value: _bool(inbound, 'AllowLANConn'),
+            onChanged: (v) => _set('Inbound', 'AllowLANConn', v),
+          ),
+          if (_bool(inbound, 'AllowLANConn'))
+            SettingsCheckbox(
+              label: '为局域网使用新端口',
+              value: _bool(inbound, 'NewPort4LAN'),
+              onChanged: (v) => _set('Inbound', 'NewPort4LAN', v),
+            ),
+          if (_bool(inbound, 'AllowLANConn') &&
+              _bool(inbound, 'NewPort4LAN')) ...[
+            SettingsTextField(
+              label: '用户名 (User)',
+              value: _str(inbound, 'User'),
+              onChanged: (v) => _set('Inbound', 'User', v),
+            ),
+            SettingsTextField(
+              label: '密码 (Pass)',
+              value: _str(inbound, 'Pass'),
+              onChanged: (v) => _set('Inbound', 'Pass', v),
+            ),
+          ],
+        ],
+      ),
+      SettingsSection(
         title: '日志与指纹',
         child: <Widget>[
           SettingsCheckbox(
@@ -358,79 +468,151 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         ],
       ),
       SettingsSection(
-        title: '入站 (LAN)',
+        title: '多路复用 (Mux)',
         child: <Widget>[
           SettingsNumberField(
-            key: const ValueKey('settings-local-port'),
-            label: '本地端口 (LocalPort)',
-            value: _int(inbound, 'LocalPort'),
-            onChanged: (v) => _set('Inbound', 'LocalPort', v),
+            label: 'Ray 并发 (Concurrency)',
+            value: _int(_group('Mux4RayItem'), 'Concurrency'),
+            onChanged: (v) => _set('Mux4RayItem', 'Concurrency', v),
+          ),
+          SettingsNumberField(
+            label: 'Ray XUDP 并发',
+            value: _int(_group('Mux4RayItem'), 'XudpConcurrency'),
+            onChanged: (v) => _set('Mux4RayItem', 'XudpConcurrency', v),
+          ),
+          SettingsDropdown<String>(
+            label: 'Ray XUDP 443 代理',
+            value: _str(_group('Mux4RayItem'), 'XudpProxyUDP443'),
+            items: _items(<(String, String)>[
+              ('reject', 'reject'),
+              ('skip', 'skip'),
+            ]),
+            onChanged: (v) => _set('Mux4RayItem', 'XudpProxyUDP443', v),
+          ),
+          SettingsDropdown<String>(
+            label: 'sing-box 协议 (Mux4SboxProtocol)',
+            value: _str(_group('Mux4SboxItem'), 'Protocol'),
+            items: _items(<(String, String)>[
+              ('h2mux', 'h2mux'),
+              ('smux', 'smux'),
+              ('yamux', 'yamux'),
+              ('（不启用）', ''),
+            ]),
+            onChanged: (v) => _set('Mux4SboxItem', 'Protocol', v),
           ),
           SettingsCheckbox(
-            label: '第二本地端口',
-            value: _bool(inbound, 'SecondLocalPortEnabled'),
-            onChanged: (v) => _set('Inbound', 'SecondLocalPortEnabled', v),
+            label: 'sing-box 缓存文件 (EnableCacheFile4Sbox)',
+            value: _bool(core, 'EnableCacheFile4Sbox'),
+            onChanged: (v) => _set('CoreBasicItem', 'EnableCacheFile4Sbox', v),
+          ),
+        ],
+      ),
+      SettingsSection(
+        title: 'Hysteria2',
+        child: <Widget>[
+          SettingsNumberField(
+            label: '上行 Mbps',
+            value: _int(_group('HysteriaItem'), 'UpMbps'),
+            onChanged: (v) => _set('HysteriaItem', 'UpMbps', v),
+          ),
+          SettingsNumberField(
+            label: '下行 Mbps',
+            value: _int(_group('HysteriaItem'), 'DownMbps'),
+            onChanged: (v) => _set('HysteriaItem', 'DownMbps', v),
+          ),
+          SettingsNumberField(
+            label: 'Hop 间隔 (HopInterval)',
+            value: _int(_group('HysteriaItem'), 'HopInterval'),
+            onChanged: (v) => _set('HysteriaItem', 'HopInterval', v),
+          ),
+        ],
+      ),
+      SettingsSection(
+        title: '分片 (Fragment)',
+        child: <Widget>[
+          SettingsCheckbox(
+            label: '启用分片 (EnableFragment)',
+            value: _bool(core, 'EnableFragment'),
+            onChanged: (v) => _set('CoreBasicItem', 'EnableFragment', v),
+          ),
+          SettingsDropdown<String>(
+            label: '分片包 (Packets)',
+            value: _str(_group('Fragment4RayItem'), 'Packets'),
+            items: _items(<(String, String)>[
+              ('tlshello', 'tlshello'),
+              ('1-1', '1-1'),
+              ('1-2', '1-2'),
+              ('1-3', '1-3'),
+              ('1-4', '1-4'),
+              ('1-5', '1-5'),
+            ]),
+            onChanged: (v) => _set('Fragment4RayItem', 'Packets', v),
+          ),
+          SettingsTextField(
+            label: '长度 (Lengths，逗号分隔)',
+            value: _list(_group('Fragment4RayItem'), 'Lengths').join(','),
+            width: 320,
+            onChanged: (v) => _set(
+              'Fragment4RayItem',
+              'Lengths',
+              v == null ? <String>[] : v.split(','),
+            ),
+          ),
+          SettingsTextField(
+            label: '延迟 (Delays，逗号分隔)',
+            value: _list(_group('Fragment4RayItem'), 'Delays').join(','),
+            width: 320,
+            onChanged: (v) => _set(
+              'Fragment4RayItem',
+              'Delays',
+              v == null ? <String>[] : v.split(','),
+            ),
+          ),
+          SettingsTextField(
+            label: 'MaxSplit',
+            value: _str(_group('Fragment4RayItem'), 'MaxSplit'),
+            onChanged: (v) => _set('Fragment4RayItem', 'MaxSplit', v),
           ),
           SettingsCheckbox(
-            label: 'UDP 转发',
-            value: _bool(inbound, 'UdpEnabled'),
-            onChanged: (v) => _set('Inbound', 'UdpEnabled', v),
+            label: '最终分片 (EnableFinalFragment)',
+            value: _bool(core, 'EnableFinalFragment'),
+            onChanged: (v) => _set('CoreBasicItem', 'EnableFinalFragment', v),
           ),
-          SettingsCheckbox(
-            label: '允许来自局域网的连接',
-            value: _bool(inbound, 'AllowLANConn'),
-            onChanged: (v) => _set('Inbound', 'AllowLANConn', v),
+        ],
+      ),
+      SettingsSection(
+        title: '历史保留（原版 KCP 页在 OptionSettingWindow.xaml 中为注释）',
+        child: <Widget>[
+          SettingsNumberField(
+            label: 'KCP MTU',
+            value: _int(_group('KcpItem'), 'Mtu'),
+            onChanged: (v) => _set('KcpItem', 'Mtu', v),
           ),
-          if (_bool(inbound, 'AllowLANConn'))
-            SettingsCheckbox(
-              label: '为局域网使用新端口',
-              value: _bool(inbound, 'NewPort4LAN'),
-              onChanged: (v) => _set('Inbound', 'NewPort4LAN', v),
-            ),
-          if (_bool(inbound, 'AllowLANConn') &&
-              _bool(inbound, 'NewPort4LAN')) ...[
-            SettingsTextField(
-              label: '用户名 (User)',
-              value: _str(inbound, 'User'),
-              onChanged: (v) => _set('Inbound', 'User', v),
-            ),
-            SettingsTextField(
-              label: '密码 (Pass)',
-              value: _str(inbound, 'Pass'),
-              onChanged: (v) => _set('Inbound', 'Pass', v),
-            ),
-          ],
-          SettingsCheckbox(
-            label: '嗅探 (SniffingEnabled)',
-            value: _bool(inbound, 'SniffingEnabled'),
-            onChanged: (v) => _set('Inbound', 'SniffingEnabled', v),
+          SettingsNumberField(
+            label: 'KCP TTI',
+            value: _int(_group('KcpItem'), 'Tti'),
+            onChanged: (v) => _set('KcpItem', 'Tti', v),
           ),
-          if (_bool(inbound, 'SniffingEnabled')) ...<Widget>[
-            Wrap(
-              spacing: 8,
-              children: <Widget>[
-                for (final option in <String>['http', 'tls', 'quic'])
-                  FilterChip(
-                    label: Text(option, style: const TextStyle(fontSize: 11)),
-                    selected: _list(inbound, 'DestOverride').contains(option),
-                    onSelected: (on) {
-                      final next = _list(inbound, 'DestOverride');
-                      if (on) {
-                        next.add(option);
-                      } else {
-                        next.remove(option);
-                      }
-                      _set('Inbound', 'DestOverride', next);
-                    },
-                  ),
-              ],
-            ),
-            SettingsCheckbox(
-              label: '仅路由 (RouteOnly)',
-              value: _bool(inbound, 'RouteOnly'),
-              onChanged: (v) => _set('Inbound', 'RouteOnly', v),
-            ),
-          ],
+          SettingsNumberField(
+            label: 'KCP 上行容量',
+            value: _int(_group('KcpItem'), 'UplinkCapacity'),
+            onChanged: (v) => _set('KcpItem', 'UplinkCapacity', v),
+          ),
+          SettingsNumberField(
+            label: 'KCP 下行容量',
+            value: _int(_group('KcpItem'), 'DownlinkCapacity'),
+            onChanged: (v) => _set('KcpItem', 'DownlinkCapacity', v),
+          ),
+          SettingsNumberField(
+            label: '拥塞窗口倍数 (CwndMultiplier)',
+            value: _int(_group('KcpItem'), 'CwndMultiplier'),
+            onChanged: (v) => _set('KcpItem', 'CwndMultiplier', v),
+          ),
+          SettingsNumberField(
+            label: '最大发送窗口 (MaxSendingWindow)',
+            value: _int(_group('KcpItem'), 'MaxSendingWindow'),
+            onChanged: (v) => _set('KcpItem', 'MaxSendingWindow', v),
+          ),
         ],
       ),
     ]);
@@ -452,6 +634,11 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             label: '显示实时速率 (DisplayRealTimeSpeed，需重启应用)',
             value: _bool(gui, 'DisplayRealTimeSpeed'),
             onChanged: (v) => _set('GuiItem', 'DisplayRealTimeSpeed', v),
+          ),
+          SettingsCheckbox(
+            label: '保留旧的重组结果 (KeepOlderDedupl)',
+            value: _bool(gui, 'KeepOlderDedupl'),
+            onChanged: (v) => _set('GuiItem', 'KeepOlderDedupl', v),
           ),
           SettingsCheckbox(
             label: '自动调整列宽 (EnableAutoAdjustMainLvColWidth)',
@@ -485,41 +672,11 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               int.tryParse(v ?? '') ?? 1,
             ),
           ),
-          SettingsTextField(
-            label: '字体族 (CurrentFontFamily)',
-            value: _str(ui, 'CurrentFontFamily'),
-            onChanged: (v) => _set('UiItem', 'CurrentFontFamily', v),
-          ),
-          SettingsNumberField(
-            label: '字号 (CurrentFontSize)',
-            value: _int(ui, 'CurrentFontSize'),
-            onChanged: (v) => _set('UiItem', 'CurrentFontSize', v),
-          ),
-          SettingsTextField(
-            label: '主题 (CurrentTheme)',
-            value: _str(ui, 'CurrentTheme'),
-            onChanged: (v) => _set('UiItem', 'CurrentTheme', v),
-          ),
-          SettingsTextField(
-            label: '强调色 (ColorPrimaryName)',
-            value: _str(ui, 'ColorPrimaryName'),
-            onChanged: (v) => _set('UiItem', 'ColorPrimaryName', v),
-          ),
         ],
       ),
       SettingsSection(
-        title: '托盘与窗口',
+        title: '窗口与托盘',
         child: <Widget>[
-          SettingsNumberField(
-            label: '托盘节点数上限 (TrayMenuServersLimit)',
-            value: _int(gui, 'TrayMenuServersLimit'),
-            onChanged: (v) => _set('GuiItem', 'TrayMenuServersLimit', v),
-          ),
-          SettingsNumberField(
-            label: '自动更新间隔 (AutoUpdateInterval)',
-            value: _int(gui, 'AutoUpdateInterval'),
-            onChanged: (v) => _set('GuiItem', 'AutoUpdateInterval', v),
-          ),
           SettingsCheckbox(
             label: '关闭时隐藏到托盘 (Hide2TrayWhenClose)',
             value: _bool(ui, 'Hide2TrayWhenClose'),
@@ -530,10 +687,27 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _bool(ui, 'AutoHideStartup'),
             onChanged: (v) => _set('UiItem', 'AutoHideStartup', v),
           ),
+          // Upstream binds this row to IsMacOS visibility; keep the same gate.
+          if (Platform.isMacOS)
+            SettingsCheckbox(
+              label: '在 Dock 中显示 (MacOSShowInDock)',
+              value: _bool(ui, 'MacOSShowInDock'),
+              onChanged: (v) => _set('UiItem', 'MacOSShowInDock', v),
+            ),
           SettingsCheckbox(
             label: '拖放排序 (EnableDragDropSort，需重启应用)',
             value: _bool(ui, 'EnableDragDropSort'),
             onChanged: (v) => _set('UiItem', 'EnableDragDropSort', v),
+          ),
+          SettingsNumberField(
+            label: '托盘节点数上限 (TrayMenuServersLimit)',
+            value: _int(gui, 'TrayMenuServersLimit'),
+            onChanged: (v) => _set('GuiItem', 'TrayMenuServersLimit', v),
+          ),
+          SettingsNumberField(
+            label: '自动更新间隔 (AutoUpdateInterval)',
+            value: _int(gui, 'AutoUpdateInterval'),
+            onChanged: (v) => _set('GuiItem', 'AutoUpdateInterval', v),
           ),
           // F-DESKTOP-003: the toggle only edits the draft. The real Run key
           // is written after a successful save (upstream `SaveSettingAsync`
@@ -544,6 +718,202 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             label: '开机自启 (AutoRun)',
             value: _bool(gui, 'AutoRun'),
             onChanged: (v) => _set('GuiItem', 'AutoRun', v),
+          ),
+        ],
+      ),
+      SettingsSection(
+        title: '字体与语言',
+        child: <Widget>[
+          SettingsTextField(
+            label: '字体族 (CurrentFontFamily)',
+            value: _str(ui, 'CurrentFontFamily'),
+            onChanged: (v) => _set('UiItem', 'CurrentFontFamily', v),
+          ),
+          SettingsNumberField(
+            label: '字号 (CurrentFontSize)',
+            value: _int(ui, 'CurrentFontSize'),
+            onChanged: (v) => _set('UiItem', 'CurrentFontSize', v),
+          ),
+          SettingsDropdown<String>(
+            key: const ValueKey('settings-language'),
+            label: '语言 (CurrentLanguage，需重启应用)',
+            value: _str(ui, 'CurrentLanguage') ?? 'zh-Hans',
+            items: _items(<(String, String)>[
+              ('中文简体', 'zh-Hans'),
+              ('中文繁體', 'zh-Hant'),
+              ('English', 'en'),
+              ('فارسی', 'fa'),
+              ('Français', 'fr'),
+              ('Русский', 'ru'),
+              ('Magyar', 'hu'),
+              ('Bahasa Indonesia', 'id'),
+              ('Azərbaycan', 'az'),
+            ]),
+            onChanged: (v) => _set('UiItem', 'CurrentLanguage', v),
+          ),
+        ],
+      ),
+      SettingsSection(
+        title: '测速',
+        child: <Widget>[
+          SettingsNumberField(
+            label: '测速超时 (SpeedTestTimeout)',
+            value: _int(_group('SpeedTestItem'), 'SpeedTestTimeout'),
+            onChanged: (v) => _set('SpeedTestItem', 'SpeedTestTimeout', v),
+          ),
+          SettingsNumberField(
+            label: '并发数 (MixedConcurrencyCount)',
+            value: _int(_group('SpeedTestItem'), 'MixedConcurrencyCount'),
+            onChanged: (v) => _set('SpeedTestItem', 'MixedConcurrencyCount', v),
+          ),
+          SettingsTextField(
+            label: '测速 URL',
+            value: _str(_group('SpeedTestItem'), 'SpeedTestUrl'),
+            width: 360,
+            onChanged: (v) => _set('SpeedTestItem', 'SpeedTestUrl', v),
+          ),
+          SettingsTextField(
+            label: 'Ping URL',
+            value: _str(_group('SpeedTestItem'), 'SpeedPingTestUrl'),
+            width: 360,
+            onChanged: (v) => _set('SpeedTestItem', 'SpeedPingTestUrl', v),
+          ),
+          SettingsTextField(
+            label: 'UDP 测试目标 (UdpTestTarget)',
+            value: _str(_group('SpeedTestItem'), 'UdpTestTarget'),
+            width: 320,
+            onChanged: (v) => _set('SpeedTestItem', 'UdpTestTarget', v),
+          ),
+          SettingsTextField(
+            label: 'IP API URL',
+            value: _str(_group('SpeedTestItem'), 'IPAPIUrl'),
+            width: 320,
+            onChanged: (v) => _set('SpeedTestItem', 'IPAPIUrl', v),
+          ),
+        ],
+      ),
+      SettingsSection(
+        title: '资源与证书',
+        child: <Widget>[
+          SettingsTextField(
+            label: '订阅转换 (SubConvertUrl)',
+            value: _str(_group('ConstItem'), 'SubConvertUrl'),
+            width: 360,
+            onChanged: (v) => _set('ConstItem', 'SubConvertUrl', v),
+          ),
+          SettingsTextField(
+            label: 'Geo 文件来源 (GeoSourceUrl)',
+            value: _str(_group('ConstItem'), 'GeoSourceUrl'),
+            width: 360,
+            onChanged: (v) => _set('ConstItem', 'GeoSourceUrl', v),
+          ),
+          SettingsTextField(
+            label: 'SRS 文件来源 (SrsSourceUrl)',
+            value: _str(_group('ConstItem'), 'SrsSourceUrl'),
+            width: 360,
+            onChanged: (v) => _set('ConstItem', 'SrsSourceUrl', v),
+          ),
+          SettingsTextField(
+            label: '路由规则来源 (RouteRulesTemplateSourceUrl)',
+            value: _str(_group('ConstItem'), 'RouteRulesTemplateSourceUrl'),
+            width: 360,
+            onChanged: (v) =>
+                _set('ConstItem', 'RouteRulesTemplateSourceUrl', v),
+          ),
+          SettingsCheckbox(
+            key: const ValueKey('settings-enable-hwa'),
+            label: '硬件加速 (EnableHWA，需重启应用)',
+            value: _bool(gui, 'EnableHWA'),
+            onChanged: (v) => _set('GuiItem', 'EnableHWA', v),
+          ),
+          SettingsDropdown<String>(
+            key: const ValueKey('settings-root-cert'),
+            label: '根证书来源 (RootCertProvider)',
+            value: _str(gui, 'RootCertProvider') ?? 'system',
+            items: _items(<(String, String)>[
+              ('系统 (system)', 'system'),
+              ('Mozilla', 'mozilla'),
+              ('Chrome', 'chrome'),
+            ]),
+            onChanged: (v) => _set('GuiItem', 'RootCertProvider', v),
+          ),
+        ],
+      ),
+      // Upstream keeps DNS FakeIP / Happy Eyeballs in DNSSettingWindow, not the
+      // option window; retained here so the config stays editable until FIX-16B
+      // adds the DNS window. Not counted as an upstream Window field.
+      SettingsSection(
+        title: '历史保留（原版为独立 DNS 设置窗口）',
+        child: <Widget>[
+          SettingsCheckbox(
+            label: '启用 FakeIP',
+            value: _bool(_group('SimpleDNSItem'), 'FakeIP'),
+            onChanged: (v) => _set('SimpleDNSItem', 'FakeIP', v),
+          ),
+          if (_bool(_group('SimpleDNSItem'), 'FakeIP'))
+            SettingsCheckbox(
+              label: '全局 FakeIP (GlobalFakeIp)',
+              value: _bool(_group('SimpleDNSItem'), 'GlobalFakeIp'),
+              onChanged: (v) => _set('SimpleDNSItem', 'GlobalFakeIp', v),
+            ),
+          SettingsCheckbox(
+            label: '启用 Happy Eyeballs (EnableHappyEyeballs)',
+            value: _bool(_group('SimpleDNSItem'), 'EnableHappyEyeballs'),
+            onChanged: (v) => _set('SimpleDNSItem', 'EnableHappyEyeballs', v),
+          ),
+          SettingsNumberField(
+            label: '尝试延迟 (TryDelayMs)',
+            value: _int(_group('HappyEyeballs4RayItem'), 'TryDelayMs'),
+            onChanged: (v) => _set('HappyEyeballs4RayItem', 'TryDelayMs', v),
+          ),
+          SettingsCheckbox(
+            label: '优先 IPv6 (PrioritizeIPv6)',
+            value: _bool(_group('HappyEyeballs4RayItem'), 'PrioritizeIPv6'),
+            onChanged: (v) =>
+                _set('HappyEyeballs4RayItem', 'PrioritizeIPv6', v),
+          ),
+          SettingsNumberField(
+            label: '交错 (Interleave)',
+            value: _int(_group('HappyEyeballs4RayItem'), 'Interleave'),
+            onChanged: (v) => _set('HappyEyeballs4RayItem', 'Interleave', v),
+          ),
+          SettingsNumberField(
+            label: '最大并发尝试 (MaxConcurrentTry)',
+            value: _int(_group('HappyEyeballs4RayItem'), 'MaxConcurrentTry'),
+            onChanged: (v) =>
+                _set('HappyEyeballs4RayItem', 'MaxConcurrentTry', v),
+          ),
+        ],
+      ),
+      // ClashUIItem has no OptionSettingWindow control upstream; retained so the
+      // config stays editable until FIX-16C wires the Clash UI consumers.
+      SettingsSection(
+        title: '历史保留（原版 Clash UI 设置）',
+        child: <Widget>[
+          SettingsCheckbox(
+            label: '启用 IPv6 (ClashUIItem.EnableIPv6)',
+            value: _bool(_group('ClashUIItem'), 'EnableIPv6'),
+            onChanged: (v) => _set('ClashUIItem', 'EnableIPv6', v),
+          ),
+          SettingsCheckbox(
+            label: '合并 Mixin (EnableMixinContent)',
+            value: _bool(_group('ClashUIItem'), 'EnableMixinContent'),
+            onChanged: (v) => _set('ClashUIItem', 'EnableMixinContent', v),
+          ),
+          SettingsNumberField(
+            label: '代理排序 (ProxiesSorting)',
+            value: _int(_group('ClashUIItem'), 'ProxiesSorting'),
+            onChanged: (v) => _set('ClashUIItem', 'ProxiesSorting', v),
+          ),
+          SettingsCheckbox(
+            label: '代理自动刷新',
+            value: _bool(_group('ClashUIItem'), 'ProxiesAutoRefresh'),
+            onChanged: (v) => _set('ClashUIItem', 'ProxiesAutoRefresh', v),
+          ),
+          SettingsNumberField(
+            label: '代理刷新间隔',
+            value: _int(_group('ClashUIItem'), 'ProxiesRefreshInterval'),
+            onChanged: (v) => _set('ClashUIItem', 'ProxiesRefreshInterval', v),
           ),
         ],
       ),
@@ -589,6 +959,13 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         onChanged: (v) =>
             _set('SystemProxyItem', 'CustomSystemProxyPacPath', v),
       ),
+      SettingsTextField(
+        label: 'PAC 脚本路径 (CustomSystemProxyScriptPath)',
+        value: _str(proxy, 'CustomSystemProxyScriptPath'),
+        width: 320,
+        onChanged: (v) =>
+            _set('SystemProxyItem', 'CustomSystemProxyScriptPath', v),
+      ),
     ]);
   }
 
@@ -597,7 +974,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     return _scroll(<Widget>[
       SettingsNote('TUN 模式的实际启用 (虚拟网卡/路由) 属于 T13；本页仅保存配置。'),
       SettingsCheckbox(
-        label: '启用 Tun (EnableTun)',
+        label: '启用 Tun (EnableTun，需重启内核)',
         value: _bool(tun, 'EnableTun'),
         onChanged: (v) => _set('TunModeItem', 'EnableTun', v),
       ),
@@ -648,6 +1025,26 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         value: _bool(tun, 'EnableLegacyProtect'),
         onChanged: (v) => _set('TunModeItem', 'EnableLegacyProtect', v),
       ),
+      SettingsTextField(
+        label: '路由排除地址 (逗号分隔)',
+        value: _list(tun, 'RouteExcludeAddress').join(','),
+        width: 320,
+        onChanged: (v) => _set(
+          'TunModeItem',
+          'RouteExcludeAddress',
+          v == null ? <String>[] : v.split(','),
+        ),
+      ),
+      SettingsTextField(
+        label: 'IPv4 地址 (IPv4Address)',
+        value: _str(tun, 'IPv4Address'),
+        onChanged: (v) => _set('TunModeItem', 'IPv4Address', v),
+      ),
+      SettingsTextField(
+        label: 'IPv6 地址 (IPv6Address)',
+        value: _str(tun, 'IPv6Address'),
+        onChanged: (v) => _set('TunModeItem', 'IPv6Address', v),
+      ),
     ]);
   }
 
@@ -664,328 +1061,6 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             _setCoreType(items, entry.configType, v ?? 2);
           }),
         ),
-    ]);
-  }
-
-  Widget _speedTestTab() {
-    final speed = _group('SpeedTestItem');
-    return _scroll(<Widget>[
-      SettingsNumberField(
-        label: '超时秒数 (SpeedTestTimeout)',
-        value: _int(speed, 'SpeedTestTimeout'),
-        onChanged: (v) => _set('SpeedTestItem', 'SpeedTestTimeout', v),
-      ),
-      SettingsTextField(
-        label: '测速 URL',
-        value: _str(speed, 'SpeedTestUrl'),
-        width: 360,
-        onChanged: (v) => _set('SpeedTestItem', 'SpeedTestUrl', v),
-      ),
-      SettingsTextField(
-        label: 'Ping URL',
-        value: _str(speed, 'SpeedPingTestUrl'),
-        width: 360,
-        onChanged: (v) => _set('SpeedTestItem', 'SpeedPingTestUrl', v),
-      ),
-      SettingsNumberField(
-        label: '并发数 (MixedConcurrencyCount)',
-        value: _int(speed, 'MixedConcurrencyCount'),
-        onChanged: (v) => _set('SpeedTestItem', 'MixedConcurrencyCount', v),
-      ),
-      SettingsTextField(
-        label: 'IP API URL',
-        value: _str(speed, 'IPAPIUrl'),
-        width: 320,
-        onChanged: (v) => _set('SpeedTestItem', 'IPAPIUrl', v),
-      ),
-      SettingsTextField(
-        label: 'UDP 测试目标',
-        value: _str(speed, 'UdpTestTarget'),
-        width: 320,
-        onChanged: (v) => _set('SpeedTestItem', 'UdpTestTarget', v),
-      ),
-    ]);
-  }
-
-  Widget _fragmentTab() {
-    final fragment = _group('Fragment4RayItem');
-    return _scroll(<Widget>[
-      SettingsDropdown<String>(
-        label: '分片包 (Packets)',
-        value: _str(fragment, 'Packets'),
-        items: _items(<(String, String)>[
-          ('tlshello', 'tlshello'),
-          ('1-1', '1-1'),
-          ('1-2', '1-2'),
-          ('1-3', '1-3'),
-          ('1-4', '1-4'),
-          ('1-5', '1-5'),
-        ]),
-        onChanged: (v) => _set('Fragment4RayItem', 'Packets', v),
-      ),
-      SettingsTextField(
-        label: '长度 (Lengths，逗号分隔)',
-        value: _list(fragment, 'Lengths').join(','),
-        width: 320,
-        onChanged: (v) => _set(
-          'Fragment4RayItem',
-          'Lengths',
-          v == null ? <String>[] : v.split(','),
-        ),
-      ),
-      SettingsTextField(
-        label: '延迟 (Delays，逗号分隔)',
-        value: _list(fragment, 'Delays').join(','),
-        width: 320,
-        onChanged: (v) => _set(
-          'Fragment4RayItem',
-          'Delays',
-          v == null ? <String>[] : v.split(','),
-        ),
-      ),
-      SettingsTextField(
-        label: 'MaxSplit',
-        value: _str(fragment, 'MaxSplit'),
-        onChanged: (v) => _set('Fragment4RayItem', 'MaxSplit', v),
-      ),
-      SettingsCheckbox(
-        label: '启用分片 (EnableFragment)',
-        value: _bool(_group('CoreBasicItem'), 'EnableFragment'),
-        onChanged: (v) => _set('CoreBasicItem', 'EnableFragment', v),
-      ),
-      SettingsCheckbox(
-        label: '最终分片 (EnableFinalFragment)',
-        value: _bool(_group('CoreBasicItem'), 'EnableFinalFragment'),
-        onChanged: (v) => _set('CoreBasicItem', 'EnableFinalFragment', v),
-      ),
-    ]);
-  }
-
-  Widget _muxTab() {
-    final ray = _group('Mux4RayItem');
-    final sbox = _group('Mux4SboxItem');
-    final hysteria = _group('HysteriaItem');
-    return _scroll(<Widget>[
-      SettingsSection(
-        title: 'Ray 多路复用',
-        child: <Widget>[
-          SettingsNumberField(
-            label: '并发 (Concurrency)',
-            value: _int(ray, 'Concurrency'),
-            onChanged: (v) => _set('Mux4RayItem', 'Concurrency', v),
-          ),
-          SettingsNumberField(
-            label: 'XUDP 并发',
-            value: _int(ray, 'XudpConcurrency'),
-            onChanged: (v) => _set('Mux4RayItem', 'XudpConcurrency', v),
-          ),
-          SettingsDropdown<String>(
-            label: 'XUDP 443 代理',
-            value: _str(ray, 'XudpProxyUDP443'),
-            items: _items(<(String, String)>[
-              ('reject', 'reject'),
-              ('skip', 'skip'),
-            ]),
-            onChanged: (v) => _set('Mux4RayItem', 'XudpProxyUDP443', v),
-          ),
-        ],
-      ),
-      SettingsSection(
-        title: 'sing-box 多路复用',
-        child: <Widget>[
-          SettingsDropdown<String>(
-            label: '协议 (Protocol)',
-            value: _str(sbox, 'Protocol'),
-            items: _items(<(String, String)>[
-              ('h2mux', 'h2mux'),
-              ('smux', 'smux'),
-              ('yamux', 'yamux'),
-              ('（不启用）', ''),
-            ]),
-            onChanged: (v) => _set('Mux4SboxItem', 'Protocol', v),
-          ),
-          SettingsNumberField(
-            label: '最大连接 (MaxConnections)',
-            value: _int(sbox, 'MaxConnections'),
-            onChanged: (v) => _set('Mux4SboxItem', 'MaxConnections', v),
-          ),
-        ],
-      ),
-      SettingsSection(
-        title: 'Hysteria2',
-        child: <Widget>[
-          SettingsNumberField(
-            label: '上行 Mbps',
-            value: _int(hysteria, 'UpMbps'),
-            onChanged: (v) => _set('HysteriaItem', 'UpMbps', v),
-          ),
-          SettingsNumberField(
-            label: '下行 Mbps',
-            value: _int(hysteria, 'DownMbps'),
-            onChanged: (v) => _set('HysteriaItem', 'DownMbps', v),
-          ),
-          SettingsNumberField(
-            label: 'Hop 间隔',
-            value: _int(hysteria, 'HopInterval'),
-            onChanged: (v) => _set('HysteriaItem', 'HopInterval', v),
-          ),
-        ],
-      ),
-    ]);
-  }
-
-  Widget _kcpTab() {
-    final kcp = _group('KcpItem');
-    return _scroll(<Widget>[
-      const SettingsNote('KCP 参数可编辑，共 6 项，与上游 KcpItem 对齐。'),
-      SettingsNumberField(
-        label: 'MTU',
-        value: _int(kcp, 'Mtu'),
-        onChanged: (v) => _set('KcpItem', 'Mtu', v),
-      ),
-      SettingsNumberField(
-        label: 'TTI',
-        value: _int(kcp, 'Tti'),
-        onChanged: (v) => _set('KcpItem', 'Tti', v),
-      ),
-      SettingsNumberField(
-        label: '上行容量',
-        value: _int(kcp, 'UplinkCapacity'),
-        onChanged: (v) => _set('KcpItem', 'UplinkCapacity', v),
-      ),
-      SettingsNumberField(
-        label: '下行容量',
-        value: _int(kcp, 'DownlinkCapacity'),
-        onChanged: (v) => _set('KcpItem', 'DownlinkCapacity', v),
-      ),
-      SettingsNumberField(
-        label: '拥塞窗口倍数 (CwndMultiplier)',
-        value: _int(kcp, 'CwndMultiplier'),
-        onChanged: (v) => _set('KcpItem', 'CwndMultiplier', v),
-      ),
-      SettingsNumberField(
-        label: '最大发送窗口 (MaxSendingWindow)',
-        value: _int(kcp, 'MaxSendingWindow'),
-        onChanged: (v) => _set('KcpItem', 'MaxSendingWindow', v),
-      ),
-    ]);
-  }
-
-  Widget _happyEyeballsTab() {
-    final dns = _group('SimpleDNSItem');
-    final he = _group('HappyEyeballs4RayItem');
-    return _scroll(<Widget>[
-      SettingsSection(
-        title: 'DNS (FakeIP)',
-        child: <Widget>[
-          SettingsCheckbox(
-            label: '启用 FakeIP',
-            value: _bool(dns, 'FakeIP'),
-            onChanged: (v) => _set('SimpleDNSItem', 'FakeIP', v),
-          ),
-          if (_bool(dns, 'FakeIP')) ...<Widget>[
-            SettingsCheckbox(
-              label: '全局 FakeIP (GlobalFakeIp)',
-              value: _bool(dns, 'GlobalFakeIp'),
-              onChanged: (v) => _set('SimpleDNSItem', 'GlobalFakeIp', v),
-            ),
-            SettingsTextField(
-              label: 'FakeIP 范围 (FakeIPRange)',
-              value: _str(dns, 'FakeIPRange'),
-              onChanged: (v) => _set('SimpleDNSItem', 'FakeIPRange', v),
-            ),
-          ],
-        ],
-      ),
-      SettingsSection(
-        title: 'Happy Eyeballs',
-        child: <Widget>[
-          SettingsCheckbox(
-            label: '启用 Happy Eyeballs (EnableHappyEyeballs)',
-            value: _bool(dns, 'EnableHappyEyeballs'),
-            onChanged: (v) => _set('SimpleDNSItem', 'EnableHappyEyeballs', v),
-          ),
-          SettingsNumberField(
-            label: '尝试延迟 (TryDelayMs)',
-            value: _int(he, 'TryDelayMs'),
-            onChanged: (v) => _set('HappyEyeballs4RayItem', 'TryDelayMs', v),
-          ),
-          SettingsCheckbox(
-            label: '优先 IPv6 (PrioritizeIPv6)',
-            value: _bool(he, 'PrioritizeIPv6'),
-            onChanged: (v) =>
-                _set('HappyEyeballs4RayItem', 'PrioritizeIPv6', v),
-          ),
-          SettingsNumberField(
-            label: '交错 (Interleave)',
-            value: _int(he, 'Interleave'),
-            onChanged: (v) => _set('HappyEyeballs4RayItem', 'Interleave', v),
-          ),
-          SettingsNumberField(
-            label: '最大并发尝试 (MaxConcurrentTry)',
-            value: _int(he, 'MaxConcurrentTry'),
-            onChanged: (v) =>
-                _set('HappyEyeballs4RayItem', 'MaxConcurrentTry', v),
-          ),
-        ],
-      ),
-    ]);
-  }
-
-  Widget _tunAdvancedTab() {
-    final tun = _group('TunModeItem');
-    return _scroll(<Widget>[
-      SettingsTextField(
-        label: 'IPv4 地址 (IPv4Address)',
-        value: _str(tun, 'IPv4Address'),
-        onChanged: (v) => _set('TunModeItem', 'IPv4Address', v),
-      ),
-      SettingsTextField(
-        label: 'IPv6 地址 (IPv6Address)',
-        value: _str(tun, 'IPv6Address'),
-        onChanged: (v) => _set('TunModeItem', 'IPv6Address', v),
-      ),
-      SettingsTextField(
-        label: '路由排除地址 (逗号分隔)',
-        value: _list(tun, 'RouteExcludeAddress').join(','),
-        width: 320,
-        onChanged: (v) => _set(
-          'TunModeItem',
-          'RouteExcludeAddress',
-          v == null ? <String>[] : v.split(','),
-        ),
-      ),
-    ]);
-  }
-
-  Widget _clashTab() {
-    final clash = _group('ClashUIItem');
-    return _scroll(<Widget>[
-      SettingsCheckbox(
-        label: '启用 IPv6 (EnableIPv6)',
-        value: _bool(clash, 'EnableIPv6'),
-        onChanged: (v) => _set('ClashUIItem', 'EnableIPv6', v),
-      ),
-      SettingsCheckbox(
-        label: '合并 Mixin (EnableMixinContent)',
-        value: _bool(clash, 'EnableMixinContent'),
-        onChanged: (v) => _set('ClashUIItem', 'EnableMixinContent', v),
-      ),
-      SettingsNumberField(
-        label: '代理排序 (ProxiesSorting)',
-        value: _int(clash, 'ProxiesSorting'),
-        onChanged: (v) => _set('ClashUIItem', 'ProxiesSorting', v),
-      ),
-      SettingsCheckbox(
-        label: '代理自动刷新',
-        value: _bool(clash, 'ProxiesAutoRefresh'),
-        onChanged: (v) => _set('ClashUIItem', 'ProxiesAutoRefresh', v),
-      ),
-      SettingsNumberField(
-        label: '代理刷新间隔',
-        value: _int(clash, 'ProxiesRefreshInterval'),
-        onChanged: (v) => _set('ClashUIItem', 'ProxiesRefreshInterval', v),
-      ),
     ]);
   }
 

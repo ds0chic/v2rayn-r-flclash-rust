@@ -24,7 +24,7 @@ Future<void> openThemeSettingDialog(BuildContext context, WidgetRef ref) async {
   await ThemeSettingDialog.show(context);
 }
 
-/// Open the global hotkey window (record + persist; OS registration is T13).
+/// Open the global hotkey window (record as WPF Key, persist, re-register).
 Future<void> openGlobalHotkeyWindow(BuildContext context, WidgetRef ref) async {
   try {
     ref.read(settingsControllerProvider.notifier).load();

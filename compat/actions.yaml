@@ -617,6 +617,7 @@ items:
   implementation_location: null
   test_ids: []
   status: preserved_only
+  notes: FIX-05B（docs/tasks/FIX-05B.md）：屏幕扫码命令函数 apps/desktop/lib/features/subs/scan_screen_qr.dart 实现（隐藏→Win32 GDI BitBlt 截图→复用 decodeQrImage→finally 恢复窗口→importShareText），widget 成功/取消/无码/异常四分支 4/4 并有真实窗口集成测试待根代理跑。main_shell 接线（ACT-MAIN-017 菜单与 Ctrl+S 由 shareProfilesQr 改为 scanScreenQr）由根代理按任务卡补丁执行，接线前入口不可达，故 status 暂留 preserved_only；本卡未加 Rust bridge、无 FRB 重生成、未动分享窗口语义。
 - id: ACT-MAIN-018
   name: 从图片二维码导入
   domain: main-menu

@@ -80,3 +80,19 @@ String buildProxyBypass({
 /// Build the PAC URL from a running PAC server handle.
 String? pacUrlFromHandle({required String? url}) =>
     (url == null || url.isEmpty) ? null : url;
+
+/// Return the `SystemProxyItem` map with `SysProxyType` set to [mode], keeping
+/// every other field so a mode toggle persists without dropping the user's
+/// exceptions / advanced protocol / custom PAC path (RT-14: a new mode must
+/// survive a reopen instead of reverting).
+Map<String, dynamic> systemProxyItemWithMode(
+  Map<String, dynamic> document,
+  SysProxyMode mode,
+) {
+  final item = document['SystemProxyItem'];
+  final map = item is Map<String, dynamic>
+      ? Map<String, dynamic>.from(item)
+      : <String, dynamic>{};
+  map['SysProxyType'] = mode.value;
+  return map;
+}

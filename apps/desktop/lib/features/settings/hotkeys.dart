@@ -1,6 +1,6 @@
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:v2rayn_desktop/features/settings/hotkey_keycodec.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 
 /// The five `EGlobalHotkey` actions (upstream `EGlobalHotkey`).
@@ -38,19 +38,25 @@ class HotkeyBinding {
   final bool control;
   final bool shift;
 
-  /// `KeyCode` (Windows virtual-key value upstream); `null`/0 means unbound.
+  /// Persisted Windows WPF `System.Windows.Input.Key` enum value (upstream
+  /// `KeyEventItem.KeyCode`); `null`/0 means unbound. See [HotkeyKeyCodec] for
+  /// the WPF Key <-> Win32 VK <-> Flutter conversion.
   final int? keyCode;
+
+  static const HotkeyKeyCodec _codec = HotkeyKeyCodec();
 
   bool get isBound => keyCode != null && keyCode != 0;
 
   /// Human label, e.g. `Ctrl + Alt + K`.
-  String get label {
+  String get label => formatLabel(_codec);
+
+  String formatLabel(HotkeyKeyCodec codec) {
     if (!isBound) return '（未设置）';
     final parts = <String>[];
     if (control) parts.add('Ctrl');
     if (alt) parts.add('Alt');
     if (shift) parts.add('Shift');
-    parts.add('Key#${keyCode!}');
+    parts.add(codec.labelForWpf(keyCode) ?? 'Key#${keyCode!}');
     return parts.join(' + ');
   }
 
@@ -115,13 +121,32 @@ class HotkeyState {
   }
 }
 
+/// Called when the OS reports a registered hotkey was pressed.
+typedef HotkeyTriggerHandler = void Function(GlobalHotkeyAction action);
+
+/// Mutable holder for the live dispatcher. The shell installs the real handler
+/// (window toggle / system-proxy action) at bootstrap; widget tests may leave it
+/// null, in which case a trigger is dropped rather than faked.
+class HotkeyDispatch {
+  HotkeyTriggerHandler? handler;
+}
+
+final hotkeyDispatchProvider = Provider<HotkeyDispatch>(
+  (ref) => HotkeyDispatch(),
+);
+
 /// The testable seam over the OS hotkey registration.
 abstract class HotkeyRegistrar {
   /// Register the given bindings; returns the actions the OS accepted plus any
   /// conflict/failure notes. Must never fake success.
+  ///
+  /// [onTriggered] is invoked when the OS reports a bound hotkey, keyed by the
+  /// action — this is the missing dispatch link from SET-15/RT-12.
   Future<(Set<GlobalHotkeyAction>, List<String>)> register(
-    List<HotkeyBinding> bindings,
-  );
+    List<HotkeyBinding> bindings, {
+    HotkeyTriggerHandler? onTriggered,
+    HotkeyKeyCodec codec = const HotkeyKeyCodec(),
+  });
 
   Future<void> unregisterAll();
 }
@@ -132,16 +157,23 @@ class PluginHotkeyRegistrar implements HotkeyRegistrar {
 
   @override
   Future<(Set<GlobalHotkeyAction>, List<String>)> register(
-    List<HotkeyBinding> bindings,
-  ) async {
+    List<HotkeyBinding> bindings, {
+    HotkeyTriggerHandler? onTriggered,
+    HotkeyKeyCodec codec = const HotkeyKeyCodec(),
+  }) async {
     final accepted = <GlobalHotkeyAction>{};
     final failures = <String>[];
     final manager = HotKeyManager.instance;
     // Reload semantics (upstream `HotkeyManager.ReLoad`).
-    await manager.unregisterAll();
+    try {
+      await manager.unregisterAll();
+    } on Object catch (e) {
+      failures.add('热键重载失败: $e');
+    }
     for (final binding in bindings) {
       if (!binding.isBound) continue;
-      final key = _physicalKeyFor(binding.keyCode!);
+      // Persisted value is the WPF Key enum; resolve via WPF -> VK -> Flutter.
+      final key = codec.physicalFromWpf(binding.keyCode);
       if (key == null) {
         failures.add('${binding.action.label}: 不支持的按键 #${binding.keyCode}');
         continue;
@@ -150,14 +182,21 @@ class PluginHotkeyRegistrar implements HotkeyRegistrar {
       if (binding.control) modifiers.add(HotKeyModifier.control);
       if (binding.alt) modifiers.add(HotKeyModifier.alt);
       if (binding.shift) modifiers.add(HotKeyModifier.shift);
+      final identifier = hotkeyIdentifier(binding.action);
       try {
         await manager.register(
           HotKey(
-            identifier: 'v2rayn-${binding.action.value}',
+            identifier: identifier,
             key: key,
             modifiers: modifiers.isEmpty ? null : modifiers,
             scope: HotKeyScope.system,
           ),
+          keyDownHandler: onTriggered == null
+              ? null
+              : (hotKey) {
+                  final action = hotkeyActionFromIdentifier(hotKey.identifier);
+                  if (action != null) onTriggered(action);
+                },
         );
         accepted.add(binding.action);
       } on Object catch (e) {
@@ -169,64 +208,21 @@ class PluginHotkeyRegistrar implements HotkeyRegistrar {
 
   @override
   Future<void> unregisterAll() => HotKeyManager.instance.unregisterAll();
+}
 
-  /// Map a Windows virtual-key code to a Flutter key. Covers the common
-  /// bindings; an unmapped code is reported as a conflict rather than guessed.
-  /// Kept deliberately conservative so we never register the wrong key.
-  static KeyboardKey? _physicalKeyFor(int virtualKey) {
-    // Virtual-key codes that map cleanly to physical keys.
-    const map = <int, PhysicalKeyboardKey>{
-      0x41: PhysicalKeyboardKey.keyA,
-      0x42: PhysicalKeyboardKey.keyB,
-      0x43: PhysicalKeyboardKey.keyC,
-      0x44: PhysicalKeyboardKey.keyD,
-      0x45: PhysicalKeyboardKey.keyE,
-      0x46: PhysicalKeyboardKey.keyF,
-      0x47: PhysicalKeyboardKey.keyG,
-      0x48: PhysicalKeyboardKey.keyH,
-      0x49: PhysicalKeyboardKey.keyI,
-      0x4A: PhysicalKeyboardKey.keyJ,
-      0x4B: PhysicalKeyboardKey.keyK,
-      0x4C: PhysicalKeyboardKey.keyL,
-      0x4D: PhysicalKeyboardKey.keyM,
-      0x4E: PhysicalKeyboardKey.keyN,
-      0x4F: PhysicalKeyboardKey.keyO,
-      0x50: PhysicalKeyboardKey.keyP,
-      0x51: PhysicalKeyboardKey.keyQ,
-      0x52: PhysicalKeyboardKey.keyR,
-      0x53: PhysicalKeyboardKey.keyS,
-      0x54: PhysicalKeyboardKey.keyT,
-      0x55: PhysicalKeyboardKey.keyU,
-      0x56: PhysicalKeyboardKey.keyV,
-      0x57: PhysicalKeyboardKey.keyW,
-      0x58: PhysicalKeyboardKey.keyX,
-      0x59: PhysicalKeyboardKey.keyY,
-      0x5A: PhysicalKeyboardKey.keyZ,
-      0x30: PhysicalKeyboardKey.digit0,
-      0x31: PhysicalKeyboardKey.digit1,
-      0x32: PhysicalKeyboardKey.digit2,
-      0x33: PhysicalKeyboardKey.digit3,
-      0x34: PhysicalKeyboardKey.digit4,
-      0x35: PhysicalKeyboardKey.digit5,
-      0x36: PhysicalKeyboardKey.digit6,
-      0x37: PhysicalKeyboardKey.digit7,
-      0x38: PhysicalKeyboardKey.digit8,
-      0x39: PhysicalKeyboardKey.digit9,
-      0x70: PhysicalKeyboardKey.f1,
-      0x71: PhysicalKeyboardKey.f2,
-      0x72: PhysicalKeyboardKey.f3,
-      0x73: PhysicalKeyboardKey.f4,
-      0x74: PhysicalKeyboardKey.f5,
-      0x75: PhysicalKeyboardKey.f6,
-      0x76: PhysicalKeyboardKey.f7,
-      0x77: PhysicalKeyboardKey.f8,
-      0x78: PhysicalKeyboardKey.f9,
-      0x79: PhysicalKeyboardKey.f10,
-      0x7A: PhysicalKeyboardKey.f11,
-      0x7B: PhysicalKeyboardKey.f12,
-    };
-    return map[virtualKey];
+/// Stable registration identifier, encoding the action value.
+String hotkeyIdentifier(GlobalHotkeyAction action) => 'v2rayn-${action.value}';
+
+/// Parse a registration identifier back to its action (null when unknown).
+GlobalHotkeyAction? hotkeyActionFromIdentifier(String identifier) {
+  final index = identifier.lastIndexOf('-');
+  if (index < 0) return null;
+  final value = int.tryParse(identifier.substring(index + 1));
+  if (value == null) return null;
+  for (final a in GlobalHotkeyAction.values) {
+    if (a.value == value) return a;
   }
+  return null;
 }
 
 final hotkeyRegistrarProvider = Provider<HotkeyRegistrar>(
@@ -257,9 +253,22 @@ class HotkeyController extends Notifier<HotkeyState> {
   }
 
   /// (Re)register all bound hotkeys. Reports conflicts instead of pretending
-  /// success.
+  /// success. Uses the shell-installed dispatcher so a real key press reaches
+  /// the same window/proxy entry points as the menus (RT-12).
   Future<HotkeyState> registerAll() async {
-    final (accepted, failures) = await _registrar.register(state.bindings);
+    final handler = ref.read(hotkeyDispatchProvider).handler;
+    Set<GlobalHotkeyAction> accepted;
+    List<String> failures;
+    try {
+      (accepted, failures) = await _registrar.register(
+        state.bindings,
+        onTriggered: handler,
+      );
+    } on Object catch (e) {
+      // No native plugin (widget tests) or registrar crash: report honestly.
+      accepted = const <GlobalHotkeyAction>{};
+      failures = <String>['热键注册失败: $e'];
+    }
     state = state.copyWith(
       registered: accepted,
       conflicts: failures,
@@ -270,7 +279,13 @@ class HotkeyController extends Notifier<HotkeyState> {
     return state;
   }
 
-  Future<void> unregisterAll() => _registrar.unregisterAll();
+  Future<void> unregisterAll() async {
+    try {
+      await _registrar.unregisterAll();
+    } on Object catch (_) {
+      // Best-effort on teardown.
+    }
+  }
 
   /// Save edited bindings back to the settings document and re-register.
   ///

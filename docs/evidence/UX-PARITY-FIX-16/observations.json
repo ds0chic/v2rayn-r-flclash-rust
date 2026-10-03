@@ -1,0 +1,58 @@
+{
+  "task": "FIX-16",
+  "audit_base": "1251cbc6821276e35d082f7739b8b9c15b6f93dd",
+  "worktree_head_at_start": "066d8d3",
+  "scope": "OptionSettingWindow field matrix + frozen 5-page grouping, first batch",
+  "deliverables": {
+    "field_matrix": "docs/evidence/UX-PARITY-FIX-16/field-matrix.md",
+    "task_card": "docs/tasks/FIX-16.md",
+    "visible_controls": 101,
+    "status_counts": {
+      "verified": 3,
+      "consumed": 68,
+      "registered": 7,
+      "blocked": 17,
+      "preserved_only": 9
+    }
+  },
+  "upstream": {
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "wpf_tabs": ["TbSettingsCore", "TbSettingsCoreKcp(commented)", "TbSettingsN", "TbSettingsSystemproxy", "TbSettingsTunMode", "TbSettingsCoreType"],
+    "avalonia_tabs": ["TbSettingsCore", "TbSettingsN", "TbSettingsSystemproxy", "TbSettingsTunMode", "TbSettingsCoreType"],
+    "conclusion": "5 active pages; KCP commented, FakeIP/HappyEyeballs in DNSSettingWindow, ClashUIItem has no window control"
+  },
+  "files_changed": [
+    "apps/desktop/lib/features/settings/option_setting_window.dart",
+    "apps/desktop/lib/app/locale_config.dart (new)",
+    "apps/desktop/lib/app/app.dart",
+    "apps/desktop/test/fix16_settings_field_test.dart (new)",
+    "apps/desktop/test/t12a_option_window_test.dart",
+    "docs/tasks/FIX-16.md (new)",
+    "docs/evidence/UX-PARITY-FIX-16/field-matrix.md (new)",
+    "docs/evidence/UX-PARITY-FIX-16/observations.json (new)",
+    "docs/evidence/UX-PARITY-FIX-16/README.md (new)"
+  ],
+  "bug_fixed": "Draft was seeded from defaults before settings load finished (the `_draft.isEmpty` guard failed once a tab built); reopen silently lost stored values. Replaced with a one-shot `_draftInit` seed from the persisted document.",
+  "commands": [
+    {"cmd": "dart format lib/features/settings/option_setting_window.dart lib/app/app.dart lib/app/locale_config.dart test/...", "result": "0 changed (formatted)"},
+    {"cmd": "flutter test test/fix16_settings_field_test.dart test/t12a_option_window_test.dart", "result": "4/4 pass"},
+    {"cmd": "flutter test test/fix08_option_apply_test.dart", "result": "pass (standalone; combined run flaky -> retry)"},
+    {"cmd": "flutter test test/fix08_option_cancel_test.dart test/fix08_option_error_test.dart test/t12a_settings_storage_test.dart", "result": "5/5 pass"},
+    {"cmd": "flutter analyze", "result": "1 issue, external: lib/app/shell/desktop_integration.dart:90 undefined _onHotkey (another subagent's file, not owned)"}
+  ],
+  "blockers": {
+    "FIX-16B": "Geo/SRS/RouteRules/SubConvert download chain + flutter_localizations/ARB (ownership: crates/subscriptions, pubspec.yaml)",
+    "FIX-16C": "ClashUIItem refresh/sort consumers (ownership: monitor/clash UI)",
+    "FIX-16D": "UiItem.WindowSizeItem TypeName window-size restore (ownership: desktop_integration/runner)",
+    "FIX-16E": "RootCertProvider platform cert install (T13/CertPemManager)",
+    "FIX-16F": "real Windows window integration test (environment jitter; root agent to run)"
+  },
+  "environment": {
+    "port_10808_touched": false,
+    "system_proxy_touched": false,
+    "registry_route_tun_touched": false,
+    "credentials_read": false
+  },
+  "recordingComplete": true,
+  "failures": []
+}

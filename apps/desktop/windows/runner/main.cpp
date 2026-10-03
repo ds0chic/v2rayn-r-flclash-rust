@@ -2,9 +2,11 @@
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
+#include <cstdio>
 #include <string>
 
 #include "flutter_window.h"
+#include "runner_messages.h"
 #include "utils.h"
 
 namespace {
@@ -13,6 +15,32 @@ const wchar_t kWindowTitle[] = L"v2rayN-R (T01)";
 const wchar_t kStateFileName[] = L"v2raynr_window_state.ini";
 constexpr UINT kDefaultWidth = 1200;
 constexpr UINT kDefaultHeight = 800;
+
+// Per-executable instance mutex name. Anchoring on the executable path keeps
+// separate installs / isolated test data dirs independent, matching the
+// upstream single-instance lock which is scoped to the running app.
+std::wstring InstanceMutexName() {
+  wchar_t path[MAX_PATH];
+  const DWORD length = ::GetModuleFileNameW(nullptr, path, MAX_PATH);
+  const std::wstring full(path, length);
+  unsigned long long hash = 1469598103934665603ULL;
+  for (const wchar_t c : full) {
+    hash ^= static_cast<unsigned long long>(c);
+    hash *= 1099511628211ULL;
+  }
+  wchar_t buffer[64];
+  ::swprintf(buffer, 64, L"Global\\v2rayN-R-SingleInstance-%llX", hash);
+  return std::wstring(buffer);
+}
+
+// Wake the first instance: locate its window by class and post the show
+// message (ROOT-06 / ACT-WIN-012).
+void ActivateExistingInstance() {
+  HWND existing = ::FindWindowW(kFlutterWindowClassName, nullptr);
+  if (existing != nullptr) {
+    ::PostMessageW(existing, kShowWindowMessage, 0, 0);
+  }
+}
 
 // Draft T01 window-size persistence next to the executable; the final
 // AppSettings/WindowSizeItem contract is a later task (FLD-CFG-156..158).
@@ -66,6 +94,17 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
+  // Single instance (ROOT-06): a second launch wakes the running window and
+  // exits; the lock is held for the process lifetime.
+  HANDLE instance_mutex =
+      ::CreateMutexW(nullptr, FALSE, InstanceMutexName().c_str());
+  if (instance_mutex != nullptr && ::GetLastError() == ERROR_ALREADY_EXISTS) {
+    ActivateExistingInstance();
+    ::CloseHandle(instance_mutex);
+    ::CoUninitialize();
+    return EXIT_SUCCESS;
+  }
+
   flutter::DartProject project(L"data");
 
   std::vector<std::string> command_line_arguments =
@@ -88,6 +127,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   SaveWindowSize(window.GetHandle());
+  if (instance_mutex != nullptr) {
+    ::ReleaseMutex(instance_mutex);
+    ::CloseHandle(instance_mutex);
+  }
   ::CoUninitialize();
   return EXIT_SUCCESS;
 }

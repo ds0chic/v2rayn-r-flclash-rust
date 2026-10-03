@@ -4,6 +4,10 @@
 //! Custom/Outbound profiles keep their raw payload under
 //! `extra["RawConfig"]` (see `docs/decisions/T09-fmt.md`); the upstream build
 //! writes it to a temp file instead, which the pure parser deliberately avoids.
+//! The bridge import pipeline consumes it with [`take_raw_config`] and
+//! materializes the RT-08 file-type form (FIX-04B): `Address` points at
+//! `<data>/config/<name>`, so codegen reads it back through
+//! `AppEngine::custom_file_text`.
 
 use domain::{ConfigType, CoreType, Profile};
 use serde_json::{Map, Value};
@@ -12,6 +16,55 @@ use crate::util::url_encode;
 
 /// Key under `Profile.extra` that carries a structured config's raw text.
 pub const RAW_CONFIG_KEY: &str = "RawConfig";
+
+/// Take (and remove) the structured config text a batch decoder stored under
+/// [`RAW_CONFIG_KEY`].
+///
+/// The pure parser deliberately avoids IO, so the raw payload is parked here;
+/// the bridge import pipeline consumes it and materializes the RT-08 file-type
+/// form (`Address` -> `<data>/config/<name>`), after which codegen reads it
+/// through `AppEngine::custom_file_text`.
+pub fn take_raw_config(profile: &mut Profile) -> Option<String> {
+    match profile.extra.remove(RAW_CONFIG_KEY) {
+        Some(Value::String(text)) if !text.trim().is_empty() => Some(text),
+        _ => None,
+    }
+}
+
+/// `SaveCustomRawFileServer.DetectFileExtension`: `.json` for a JSON document,
+/// `.yaml` for a `---` header or a top-level `key:` line, otherwise an empty
+/// extension. Kept here so the bridge import path can name materialized files
+/// exactly like the frozen source.
+pub fn detect_config_extension(data: &str) -> &'static str {
+    let trimmed = data.trim_start();
+    if trimmed.is_empty() {
+        return "";
+    }
+    if trimmed.starts_with('{') || trimmed.starts_with('[') {
+        return ".json";
+    }
+    if trimmed.starts_with("---") {
+        return ".yaml";
+    }
+    for line in trimmed.lines() {
+        let line = line.trim_start();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        if let Some(colon) = line.find(':') {
+            if colon > 0 {
+                let key = &line[..colon];
+                if !key.contains(' ') && !key.contains('\t') {
+                    let after = line[colon + 1..].chars().next();
+                    if after.is_none() || matches!(after, Some(' ' | '\t' | '\r')) {
+                        return ".yaml";
+                    }
+                }
+            }
+        }
+    }
+    ""
+}
 
 /// `HtmlPageFmt.IsHtmlPage` (all three markers must be present).
 pub fn is_html_page(data: &str) -> bool {
@@ -404,5 +457,25 @@ mod tests {
         assert!(!is_html_page("<html><head></head>"));
         assert!(is_clash_full("rules:\n-port\nproxies:"));
         assert!(!is_clash_full("proxies: []"));
+    }
+
+    #[test]
+    fn take_raw_config_removes_the_local_marker() {
+        let mut profile = custom_profile(CoreType::Mihomo, "clash", "proxies:\n  - a\n");
+        assert!(profile.extra.contains_key(RAW_CONFIG_KEY));
+        let raw = take_raw_config(&mut profile).expect("raw text");
+        assert!(raw.contains("proxies"));
+        assert!(!profile.extra.contains_key(RAW_CONFIG_KEY));
+        assert!(take_raw_config(&mut profile).is_none());
+    }
+
+    #[test]
+    fn detect_config_extension_matches_upstream() {
+        assert_eq!(detect_config_extension(r#"{"inbounds":[]}"#), ".json");
+        assert_eq!(detect_config_extension("[1,2]"), ".json");
+        assert_eq!(detect_config_extension("---\nproxies: []"), ".yaml");
+        assert_eq!(detect_config_extension("proxies:\n  - a"), ".yaml");
+        assert_eq!(detect_config_extension("# c\nmixed-port: 7890"), ".yaml");
+        assert_eq!(detect_config_extension("plain text without colon"), "");
     }
 }

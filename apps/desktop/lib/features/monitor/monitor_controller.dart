@@ -27,6 +27,7 @@ class MonitorState {
     BigInt? truncatedLines,
     this.collectingPaused = false,
     this.scrollPaused = false,
+    this.autoRefresh = true,
     this.minLevel = 0,
     this.keyword = '',
     this.clashSupported = false,
@@ -73,6 +74,7 @@ class MonitorState {
   final BigInt truncatedLines;
   final bool collectingPaused;
   final bool scrollPaused;
+  final bool autoRefresh;
   final int minLevel;
   final String keyword;
   final bool clashSupported;
@@ -94,14 +96,20 @@ class MonitorState {
   final String? error;
 
   /// Logs that pass the current level + keyword filter.
+  ///
+  /// Filtering is presentation-only: it never pauses collection and never
+  /// changes the Rust buffer. The keyword follows upstream `MsgFilter` (regex);
+  /// an invalid pattern falls back to a case-insensitive substring match.
   List<m.LogLineDto> get visibleLogs {
-    final needle = keyword.trim().toLowerCase();
+    final pattern = keyword.trim();
+    if (pattern.isEmpty) {
+      return logs.where((line) => line.level >= minLevel).toList();
+    }
+    final regex = _compileKeyword(pattern);
     return logs.where((line) {
       if (line.level < minLevel) return false;
-      if (needle.isNotEmpty && !line.text.toLowerCase().contains(needle)) {
-        return false;
-      }
-      return true;
+      if (regex != null) return regex.hasMatch(line.text);
+      return line.text.toLowerCase().contains(pattern.toLowerCase());
     }).toList();
   }
 
@@ -123,6 +131,7 @@ class MonitorState {
     BigInt? truncatedLines,
     bool? collectingPaused,
     bool? scrollPaused,
+    bool? autoRefresh,
     int? minLevel,
     String? keyword,
     bool? clashSupported,
@@ -162,6 +171,7 @@ class MonitorState {
       truncatedLines: truncatedLines ?? this.truncatedLines,
       collectingPaused: collectingPaused ?? this.collectingPaused,
       scrollPaused: scrollPaused ?? this.scrollPaused,
+      autoRefresh: autoRefresh ?? this.autoRefresh,
       minLevel: minLevel ?? this.minLevel,
       keyword: keyword ?? this.keyword,
       clashSupported: clashSupported ?? this.clashSupported,
@@ -189,6 +199,14 @@ class MonitorState {
 /// authoritative buffer; this only bounds widget memory.
 const int maxDisplayedLogs = 2000;
 
+RegExp? _compileKeyword(String pattern) {
+  try {
+    return RegExp(pattern);
+  } on FormatException {
+    return null;
+  }
+}
+
 final monitorControllerProvider =
     NotifierProvider<MonitorController, MonitorState>(MonitorController.new);
 
@@ -196,6 +214,7 @@ class MonitorController extends Notifier<MonitorState> {
   StreamSubscription<m.TrafficBatchDto>? _trafficSub;
   StreamSubscription<m.LogBatchDto>? _logSub;
   final Set<String> _visiblePages = <String>{};
+  bool _logsPageVisible = false;
 
   MonitorBridge get _bridge => ref.read(monitorBridgeProvider);
 
@@ -281,12 +300,16 @@ class MonitorController extends Notifier<MonitorState> {
   }
 
   void _onLogs(m.LogBatchDto batch) {
-    final merged = <m.LogLineDto>[...state.logs, ...batch.lines];
-    final trimmed = merged.length > maxDisplayedLogs
-        ? merged.sublist(merged.length - maxDisplayedLogs)
-        : merged;
+    // A paused collection must not surface the raw lines the Rust fan-out may
+    // still carry (RT-19): the read model only appends when collection is live.
+    // Hidden pages and a manual auto-refresh pause also freeze the view while
+    // the Rust ring keeps accumulating, so a later reload shows the tail.
+    final append =
+        !batch.collectingPaused && _logsPageVisible && state.autoRefresh;
     state = state.copyWith(
-      logs: trimmed,
+      logs: append
+          ? _trimLogs(<m.LogLineDto>[...state.logs, ...batch.lines])
+          : state.logs,
       droppedLines: batch.droppedLines,
       truncatedLines: batch.truncatedLines,
       collectingPaused: batch.collectingPaused,
@@ -294,15 +317,42 @@ class MonitorController extends Notifier<MonitorState> {
     );
   }
 
-  /// Toggle a page's visibility; streams stay subscribed only while visible.
+  static List<m.LogLineDto> _trimLogs(List<m.LogLineDto> merged) =>
+      merged.length > maxDisplayedLogs
+      ? merged.sublist(merged.length - maxDisplayedLogs)
+      : merged;
+
+  /// Reload the newest retained lines from the Rust ring (called when the page
+  /// or auto-refresh resumes; the subscription stays idle until then).
+  void _reloadLogs() {
+    final probe = _bridge.getLogs(0, 0);
+    final offset = probe.total > maxDisplayedLogs
+        ? probe.total - maxDisplayedLogs
+        : 0;
+    final page = _bridge.getLogs(offset, maxDisplayedLogs);
+    state = state.copyWith(
+      logs: page.lines,
+      logTotal: page.total,
+      droppedLines: page.droppedLines,
+      truncatedLines: page.truncatedLines,
+      collectingPaused: page.collectingPaused,
+      scrollPaused: page.scrollPaused,
+    );
+  }
+
+  /// Toggle a page's visibility; the Rust side keeps collecting while hidden,
+  /// only the page-local UI refresh is frozen.
   void setPageVisible(String page, bool visible) {
     if (visible) {
       _visiblePages.add(page);
     } else {
       _visiblePages.remove(page);
     }
+    if (page == 'logs') _logsPageVisible = visible;
     _bridge.setPageVisible(page, visible);
-    if (visible) _ensureStreams();
+    if (!visible) return;
+    _ensureStreams();
+    if (page == 'logs') _reloadLogs();
   }
 
   Future<void> refreshProxies() async {
@@ -408,12 +458,18 @@ class MonitorController extends Notifier<MonitorState> {
     return result.ok;
   }
 
-  void setMinLevel(int level) {
-    state = state.copyWith(minLevel: level);
-    _bridge.setLogFilter(level, const <String>[], const <String>[]);
-  }
+  /// Level filtering is presentation-only; the Rust buffer keeps every line so
+  /// lowering the level again reveals the retained history unchanged.
+  void setMinLevel(int level) => state = state.copyWith(minLevel: level);
 
   void setKeyword(String keyword) => state = state.copyWith(keyword: keyword);
+
+  /// Toggle the presentation auto-refresh. When resumed, the frozen view is
+  /// resynced from the Rust tail; collection is never affected.
+  void setAutoRefresh(bool enabled) {
+    state = state.copyWith(autoRefresh: enabled);
+    if (enabled && _logsPageVisible) _reloadLogs();
+  }
 
   void setCollectingPaused(bool paused) {
     _bridge.setLogPause(
@@ -431,9 +487,19 @@ class MonitorController extends Notifier<MonitorState> {
     state = state.copyWith(scrollPaused: paused);
   }
 
+  /// `ClearMsg`: clear the Rust ring and show the upstream clear marker line.
   void clearLogs() {
     _bridge.clearLogs();
-    state = state.copyWith(logs: const <m.LogLineDto>[], logTotal: 0);
+    state = state.copyWith(
+      logs: const <m.LogLineDto>[
+        m.LogLineDto(
+          text: '----- Message cleared -----',
+          level: 2,
+          truncated: false,
+        ),
+      ],
+      logTotal: 0,
+    );
   }
 
   bool clearStats() {

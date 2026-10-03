@@ -232,11 +232,18 @@ pub fn build_input(
             to_codegen_profile(profile, custom),
         );
     }
+    // RT-08: a file-type Custom/Outbound active node has no inline
+    // `customConfigText`; its verbatim payload is resolved from `Address` by
+    // the engine and arrives here through `outbound_contents`. Consult that
+    // map before falling back so the active node generates from the same
+    // content as the rest of the graph.
     let active_custom = if matches!(
         active.config_type,
         ConfigType::Custom | ConfigType::Outbound
     ) {
-        custom_config.or_else(|| custom_config_text(active))
+        custom_config
+            .or_else(|| outbound_contents.get(&active.index_id).cloned())
+            .or_else(|| custom_config_text(active))
     } else {
         None
     };
@@ -560,6 +567,35 @@ mod tests {
             generated.main["routing"]["balancers"][0]["tag"],
             serde_json::json!("proxy-balancer")
         );
+    }
+
+    #[test]
+    fn active_file_type_custom_consumes_outbound_contents() {
+        // FIX-04B: a Custom/Outbound active node whose payload is file-backed
+        // has no inline `customConfigText`; the engine feeds the file text via
+        // `outbound_contents`, which must reach `input.profile.custom_config`.
+        let active = Profile {
+            index_id: "custom-file".into(),
+            config_type: ConfigType::Custom,
+            core_type: Some(CoreType::Xray),
+            remarks: "custom".into(),
+            ..Default::default()
+        };
+        let raw = r#"{"log":{"loglevel":"warning"},"inbounds":[],"outbounds":[{"protocol":"freedom","tag":"direct"}],"fix04b_marker":true}"#;
+        let mut contents = BTreeMap::new();
+        contents.insert("custom-file".to_string(), raw.to_string());
+        let input = build_input(
+            &active,
+            std::slice::from_ref(&active),
+            None,
+            contents,
+            None,
+            &CodegenOptions::default(),
+        );
+        assert_eq!(input.profile.custom_config.as_deref(), Some(raw));
+        let generated = generate(CoreType::Xray, &input).unwrap();
+        let text = serde_json::to_string(&generated.main).unwrap();
+        assert!(text.contains("fix04b_marker"), "{text}");
     }
 
     #[test]

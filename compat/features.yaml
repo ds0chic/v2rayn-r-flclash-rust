@@ -1725,7 +1725,7 @@ features:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1977
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:832
   status: implemented
-  notes: FIX-04（docs/tasks/FIX-04.md）：冻结 wire DTO（crates/subscriptions/src/fmt/wire.rs）承接 PascalCase/ProtoExtraObj/TransportExtraObj/CustomOutboundObj 与未知键；parity_original_inner 9/9（含原 2 项去 ignore）、subscriptions 全包 117 通过；真桥链路 test/ux_parity_fix04_inner_test.dart 导入→落库→导出→再导入→重开通过。空备注/地址节点经新增 Engine::save_imported_profile 落库（剪贴板 saveProfile 直写仍需新桥接函数，登记缺口未动）。
+  notes: FIX-04（docs/tasks/FIX-04.md）：冻结 wire DTO（crates/subscriptions/src/fmt/wire.rs）承接 PascalCase/ProtoExtraObj/TransportExtraObj/CustomOutboundObj 与未知键；parity_original_inner 9/9（含原 2 项去 ignore）、subscriptions 全包 117 通过；真桥链路 test/ux_parity_fix04_inner_test.dart 导入→落库→导出→再导入→重开通过。空备注/地址节点经新增 Engine::save_imported_profile 落库（剪贴板 saveProfile 直写仍需新桥接函数，登记缺口未动）。 FIX-04B（docs/tasks/FIX-04B.md）：完整 v2ray/sing-box JSON 与 Clash YAML 经同一导入入口落为文件型 Custom（Address→<data>/config/<id><ext>，未知键随原文逐字保留），codegen 组装时经 custom_file_text 取内容、active 节点从 outbound_contents 实际消费；bridge api::subs 4 项单测 + 真桥 Flutter 链路通过，FIX-04 inner 语义未改。
 - id: F-IMPORT-006
   name: 图片二维码导入
   family: import-export
@@ -4163,6 +4163,7 @@ features:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:43
   - docs/evidence/T16.md
   status: implemented
+  notes: FIX-14C (2026-10-04 append) - remote `backup.zip` now carries the upstream `guiConfigs/` layout (zip_upstream_layout packs the consistent T16 bundle snapshot and drops manifest.json), and the upload ensures the collection exists (PROPFIND then MKCOL) before the PUT, so an upstream v2rayN client can restore it. Remote restore GETs the fixed `backup.zip`, recognises an upstream archive and routes it through the FIX-14 candidate+activation flow (quiesce -> import -> reopen); a project manifest bundle keeps the manifest path (quiesce -> swap -> reopen). WebDAV 401/403/404/timeout/unreachable branches are surfaced explicitly and credentials never reach errors/logs. Loopback mock tests verify PUT/GET/PROPFIND/MKCOL, Basic auth, layout recognition and 401/404/500/timeout errors on probed ports >=11808. Real TLS endpoints remain untested (blocked); stays implemented.
 - id: F-BACKUP-004
   name: 旧配置升级 V2→V3→V4
   family: backup

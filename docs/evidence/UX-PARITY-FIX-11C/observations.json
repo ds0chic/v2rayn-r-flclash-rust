@@ -1,0 +1,61 @@
+{
+  "task": "FIX-11C",
+  "status": "implemented",
+  "head": "a93949a",
+  "user_flow": "kernel running -> logs page: collect -> refresh/scroll -> filter -> copy",
+  "acceptance": [
+    {
+      "id": "1-collect",
+      "result": "pass",
+      "evidence": "engine event sink -> bridge_api::monitor::ingest_runtime_event -> LogService bounded ring (10000 lines / 10MiB); paused collection drops incoming batch (rust test paused_collection_drops_incoming_batch); hidden page only freezes page-local view (dart test 'hidden page keeps collecting but freezes UI, then resyncs')"
+    },
+    {
+      "id": "2-refresh-scroll-clear",
+      "result": "pass",
+      "evidence": "autoRefresh + scrollPaused + collectingPaused separated; clear empties ring and shows '----- Message cleared -----'; dart tests 'auto-refresh toggle freezes and resyncs the view', 'auto-scroll toggle drives the Rust scroll-pause flag', 'clear empties the ring and shows the upstream marker', 'display buffer is bounded under a large burst'"
+    },
+    {
+      "id": "3-filter",
+      "result": "pass",
+      "evidence": "keyword regex-first with substring fallback, level filter presentation-only; no bridge setLogFilter call; dart tests 'keyword/level filtering is presentation-only'"
+    },
+    {
+      "id": "4-copy",
+      "result": "pass",
+      "evidence": "formatLogsForCopy matches upstream txtMsg.Text (newline-joined, trailing newline); copy-all button + SelectionArea native select/Ctrl+C; dart test 'formatLogsForCopy matches upstream newline-joined text'"
+    },
+    {
+      "id": "5-no-fix11-11b-regression",
+      "result": "pass",
+      "evidence": "fix11_monitor_session_test, fix11b_clash_panel_test, t15a_statusbar/proxies/connections, runtime_controller, t18b_runtime_ui all pass (26)"
+    }
+  ],
+  "commands": {
+    "flutter_analyze": "No issues found",
+    "flutter_test_fix11c_logs": "18 passed (fix11c 8 + t15a_logs 5 + t15a_models 5)",
+    "flutter_test_regression": "26 passed / 0 failed (concurrency=1)",
+    "cargo_check_bridge_api": "exit 0",
+    "cargo_clippy_bridge_api": "exit 0 (-D warnings)",
+    "cargo_test_bridge_api_monitor": "7 passed / 0 failed",
+    "cargo_test_application_monitor": "18 passed / 0 failed",
+    "cargo_fmt_bridge_api_check": "changed files clean"
+  },
+  "upstream": {
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "files": [
+      "v2rayN/ServiceLib/ViewModels/MsgViewModel.cs",
+      "v2rayN/v2rayN/Views/MsgView.xaml",
+      "v2rayN/v2rayN/Views/MsgView.xaml.cs",
+      "v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayLogService.cs",
+      "v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxLogService.cs"
+    ],
+    "note": "frozen tree uses MsgView/MsgViewModel, not LogsView/LogsViewModel as written in the task card"
+  },
+  "gaps": [
+    "no end-to-end real-core + net-host + Flutter same-screen run",
+    "MsgUIItem.AutoRefresh / MainMsgFilter persistence requires features/settings (not allowed here); session-only now",
+    "invalid-regex prompt and a dedicated 'copy selected' button not implemented (regex fallback + native SelectionArea copy)",
+    "queue caps: upstream 500, current display 2000, Rust ring 10000 lines / 10MiB (all bounded)"
+  ],
+  "compat_ledger": "compat/actions.yaml ACT-MSG-001/002/003 left untouched (append-only ledger rule); root agent should flip status/implementation_location/test_ids"
+}

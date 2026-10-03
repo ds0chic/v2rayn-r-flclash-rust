@@ -1,3 +1,19 @@
+import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
+
+/// Clipboard text for the message list.
+///
+/// Matches upstream `MsgView` copy-all: the raw message text of each line, with
+/// a newline appended when the line does not already end with one (the upstream
+/// text box appends `msg + NewLine`).
+String formatLogsForCopy(Iterable<m.LogLineDto> lines) {
+  final buffer = StringBuffer();
+  for (final line in lines) {
+    buffer.write(line.text);
+    if (!line.text.endsWith('\n')) buffer.write('\n');
+  }
+  return buffer.toString();
+}
+
 /// Byte/rate formatting shared by the monitor views and status bar.
 ///
 /// Upstream shows raw byte counters scaled to B/KB/MB/GB/TB (1024-based) and

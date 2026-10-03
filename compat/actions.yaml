@@ -587,7 +587,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/main_shell.dart
   test_ids: [t17_menu_structure_test]
   status: implemented
-  notes: FIX-04（docs/tasks/FIX-04.md）：v2rayn:// 内部 URI 经同一剪贴板/文本导入入口解析（subs_actions 提示含 v2rayn://；importFromText→parse inner），真桥测试 ux_parity_fix04_inner_test.dart 以 PascalCase 合成 URI 验证导入→落库→重开。空备注/地址的剪贴板直写仍需新增持久化桥接函数（缺口见任务卡）。
+  notes: FIX-04（docs/tasks/FIX-04.md）：v2rayn:// 内部 URI 经同一剪贴板/文本导入入口解析（subs_actions 提示含 v2rayn://；importFromText→parse inner），真桥测试 ux_parity_fix04_inner_test.dart 以 PascalCase 合成 URI 验证导入→落库→重开。空备注/地址的剪贴板直写仍需新增持久化桥接函数（缺口见任务卡）。 FIX-04B（docs/tasks/FIX-04B.md）：同一剪贴板/文本入口导入完整 v2ray/sing-box JSON、Clash YAML 为文件型 Custom 节点并落盘（Address→<data>/config），重开与生成实际消费原文已验证；失败/取消沿用既有对话框语义。
 - id: ACT-MAIN-017
   name: 从屏幕二维码扫描导入
   domain: main-menu

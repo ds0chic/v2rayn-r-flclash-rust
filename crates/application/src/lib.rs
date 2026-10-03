@@ -40,7 +40,8 @@ pub use synthetic::{
 };
 
 pub use backup_service::{
-    extract_bundle_zip, persist_error, zip_bundle, BackupService, LocalBackup, APP_SOURCE_COMMIT,
+    extract_bundle_zip, persist_error, zip_bundle, zip_upstream_layout, BackupService, LocalBackup,
+    APP_SOURCE_COMMIT, UPSTREAM_GUI_CONFIGS,
 };
 pub use dns::{new_dns_id, DnsRepository, InMemoryDnsRepository, RegionalPreset};
 pub use domain::CancellationToken;

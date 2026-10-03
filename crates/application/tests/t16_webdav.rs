@@ -1,10 +1,12 @@
-//! T16 WebDAV loopback tests. The mock server binds 127.0.0.1 on a port in
-//! `11808..13000` and is reached directly (no environment proxy).
+//! T16 WebDAV loopback tests. Mock servers bind a probed 127.0.0.1 port in
+//! `11808..11900` (never 10808) and are reached directly (no environment
+//! proxy). Credentials are synthetic and must never leak into errors.
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use application::webdav::{WebDavClient, WebDavConfig};
+use application::{zip_upstream_layout, BackupService};
 use tiny_http::{Response, Server};
 
 const PROPFIND_XML: &str = r#"<?xml version="1.0" encoding="utf-8"?>
@@ -19,7 +21,18 @@ const PROPFIND_XML: &str = r#"<?xml version="1.0" encoding="utf-8"?>
   </D:response>
 </D:multistatus>"#;
 
-/// The OS-assigned port (always in the ephemeral range, never 10808).
+/// Bind the first free loopback port at or above 11808 so no test ever touches
+/// the user's 10808 proxy port.
+fn bind_loopback() -> Server {
+    for port in 11808u16..11900 {
+        if let Ok(server) = Server::http(("127.0.0.1", port)) {
+            return server;
+        }
+    }
+    panic!("no free loopback test port in 11808..11900");
+}
+
+/// The OS-assigned port chosen by [`bind_loopback`].
 fn bound_port(server: &Server) -> u16 {
     server
         .server_addr()
@@ -28,17 +41,38 @@ fn bound_port(server: &Server) -> u16 {
         .port()
 }
 
-fn spawn_mock(require_auth: bool, delay: Duration) -> (u16, Arc<Mutex<Vec<u8>>>) {
-    let server = Server::http("127.0.0.1:0").expect("bind mock");
+#[derive(Clone)]
+struct MockOptions {
+    require_auth: bool,
+    dir_exists: bool,
+    put_status: u16,
+    get_status: u16,
+    delay: Duration,
+}
+
+impl Default for MockOptions {
+    fn default() -> Self {
+        Self {
+            require_auth: false,
+            dir_exists: true,
+            put_status: 201,
+            get_status: 200,
+            delay: Duration::ZERO,
+        }
+    }
+}
+
+fn spawn_mock(opts: MockOptions) -> (u16, Arc<Mutex<Vec<u8>>>) {
+    let server = bind_loopback();
     let port = bound_port(&server);
     let stored = Arc::new(Mutex::new(Vec::<u8>::new()));
     let stored_thread = Arc::clone(&stored);
     std::thread::spawn(move || {
         for mut request in server.incoming_requests() {
-            if !delay.is_zero() {
-                std::thread::sleep(delay);
+            if !opts.delay.is_zero() {
+                std::thread::sleep(opts.delay);
             }
-            if require_auth {
+            if opts.require_auth {
                 let authorized = request.headers().iter().any(|header| {
                     header.field.equiv("Authorization")
                         && header.value.as_str().starts_with("Basic ")
@@ -52,8 +86,12 @@ fn spawn_mock(require_auth: bool, delay: Duration) -> (u16, Arc<Mutex<Vec<u8>>>)
             let url = request.url().to_string();
             match method.as_str() {
                 "PROPFIND" => {
-                    let _ =
-                        request.respond(Response::from_string(PROPFIND_XML).with_status_code(207));
+                    if opts.dir_exists {
+                        let _ = request
+                            .respond(Response::from_string(PROPFIND_XML).with_status_code(207));
+                    } else {
+                        let _ = request.respond(Response::empty(404));
+                    }
                 }
                 "MKCOL" => {
                     let _ = request.respond(Response::empty(201));
@@ -61,13 +99,21 @@ fn spawn_mock(require_auth: bool, delay: Duration) -> (u16, Arc<Mutex<Vec<u8>>>)
                 "PUT" => {
                     let mut body = Vec::new();
                     {
-                        let mut reader = request.as_reader();
-                        let _ = std::io::Read::read_to_end(&mut reader, &mut body);
+                        let reader = request.as_reader();
+                        let _ = reader.read_to_end(&mut body);
+                    }
+                    if opts.put_status >= 400 {
+                        let _ = request.respond(Response::empty(opts.put_status));
+                        continue;
                     }
                     *stored_thread.lock().expect("lock") = body;
-                    let _ = request.respond(Response::empty(201));
+                    let _ = request.respond(Response::empty(opts.put_status));
                 }
                 "GET" => {
+                    if opts.get_status >= 400 {
+                        let _ = request.respond(Response::empty(opts.get_status));
+                        continue;
+                    }
                     let data = stored_thread.lock().expect("lock").clone();
                     if url.ends_with("backup.zip") && !data.is_empty() {
                         let _ = request.respond(Response::from_data(data).with_status_code(200));
@@ -102,7 +148,7 @@ fn runtime() -> tokio::runtime::Runtime {
 
 #[test]
 fn check_list_upload_download_roundtrip() {
-    let (port, _stored) = spawn_mock(false, Duration::ZERO);
+    let (port, _stored) = spawn_mock(MockOptions::default());
     let client = WebDavClient::new(config(port), Duration::from_secs(5), None).expect("client");
     let rt = runtime();
     rt.block_on(async {
@@ -123,8 +169,26 @@ fn check_list_upload_download_roundtrip() {
 }
 
 #[test]
+fn check_creates_directory_when_propfind_misses() {
+    let opts = MockOptions {
+        dir_exists: false,
+        ..MockOptions::default()
+    };
+    let (port, _stored) = spawn_mock(opts);
+    let client = WebDavClient::new(config(port), Duration::from_secs(5), None).expect("client");
+    let rt = runtime();
+    let check = rt.block_on(client.check()).expect("mkcol");
+    assert!(check.created_dir);
+    assert_eq!(check.status, 201);
+}
+
+#[test]
 fn unauthorized_is_classified_without_credentials() {
-    let (port, _stored) = spawn_mock(true, Duration::ZERO);
+    let opts = MockOptions {
+        require_auth: true,
+        ..MockOptions::default()
+    };
+    let (port, _stored) = spawn_mock(opts);
     let anonymous = WebDavConfig::new(format!("http://127.0.0.1:{port}"), "", "", "v2rayN_backup");
     let client = WebDavClient::new(anonymous, Duration::from_secs(5), None).expect("client");
     let rt = runtime();
@@ -134,10 +198,87 @@ fn unauthorized_is_classified_without_credentials() {
 }
 
 #[test]
+fn download_missing_file_is_not_found() {
+    let opts = MockOptions {
+        get_status: 404,
+        ..MockOptions::default()
+    };
+    let (port, _stored) = spawn_mock(opts);
+    let client = WebDavClient::new(config(port), Duration::from_secs(5), None).expect("client");
+    let rt = runtime();
+    let error = rt.block_on(client.download()).expect_err("404");
+    assert_eq!(error.code, "E_NOT_FOUND");
+}
+
+#[test]
+fn upload_remote_failure_is_retryable() {
+    let opts = MockOptions {
+        put_status: 500,
+        ..MockOptions::default()
+    };
+    let (port, _stored) = spawn_mock(opts);
+    let client = WebDavClient::new(config(port), Duration::from_secs(5), None).expect("client");
+    let rt = runtime();
+    let error = rt
+        .block_on(client.upload(b"payload".to_vec()))
+        .expect_err("500");
+    assert_eq!(error.code, "E_UNAVAILABLE");
+    assert!(error.retryable);
+}
+
+#[test]
 fn slow_server_times_out() {
-    let (port, _stored) = spawn_mock(false, Duration::from_secs(3));
+    let opts = MockOptions {
+        delay: Duration::from_secs(3),
+        ..MockOptions::default()
+    };
+    let (port, _stored) = spawn_mock(opts);
     let client = WebDavClient::new(config(port), Duration::from_millis(400), None).expect("client");
     let rt = runtime();
     let error = rt.block_on(client.check()).expect_err("timeout");
     assert_eq!(error.code, "E_TIMEOUT");
+}
+
+/// The remote `backup.zip` must be an upstream-interoperable `guiConfigs/`
+/// layout (not the project manifest bundle): it is uploaded, GET back and
+/// recognised as an upstream archive, with nested resources and the database
+/// preserved and the project manifest dropped.
+#[test]
+fn upstream_layout_upload_download_and_recognize() {
+    let src = tempfile::tempdir().expect("tempdir");
+    let bundle = src.path();
+    std::fs::write(bundle.join("guiNConfig.json"), b"{\"IndexId\":\"x\"}").unwrap();
+    std::fs::write(bundle.join("guiNDB.db"), b"SQLite format 3\0snapshot").unwrap();
+    std::fs::write(bundle.join("manifest.json"), b"{\"format_version\":1}").unwrap();
+    std::fs::create_dir_all(bundle.join("custom/sub")).unwrap();
+    std::fs::write(bundle.join("custom/sub/node.json"), b"node").unwrap();
+    std::fs::create_dir_all(bundle.join(".work")).unwrap();
+    std::fs::write(bundle.join(".work/scratch"), b"transient").unwrap();
+
+    let bytes = zip_upstream_layout(bundle).expect("zip upstream layout");
+
+    let (port, _stored) = spawn_mock(MockOptions::default());
+    let client = WebDavClient::new(config(port), Duration::from_secs(5), None).expect("client");
+    let rt = runtime();
+    let downloaded = rt.block_on(async {
+        client.check().await.expect("check");
+        client.upload(bytes).await.expect("upload");
+        client.download().await.expect("download")
+    });
+
+    let out = tempfile::tempdir().expect("tempdir");
+    let zip_path = out.path().join("remote-backup.zip");
+    std::fs::write(&zip_path, &downloaded).unwrap();
+
+    let service = BackupService::new(out.path().join("data"));
+    let recognition = service.recognize(&zip_path).expect("recognize");
+    assert!(
+        recognition.is_upstream,
+        "guiConfigs layout must be upstream"
+    );
+    assert!(
+        recognition.entries.iter().any(|e| e.contains("guiConfigs")),
+        "recognition must see the guiConfigs wrapper: {:?}",
+        recognition.entries
+    );
 }

@@ -475,7 +475,9 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
             }
         }
     };
-    let bytes = match application::zip_bundle(&backup.root) {
+    // The remote file must be an upstream-interoperable `guiConfigs/` ZIP, not
+    // this project's manifest bundle, so a v2rayN client can restore it.
+    let bytes = match application::zip_upstream_layout(&backup.root) {
         Ok(bytes) => bytes,
         Err(error) => {
             return WebDavOpDto {
@@ -498,6 +500,15 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
             }
         }
     };
+    // Upstream ensures the collection exists (MKCOL when missing) before PUT.
+    if let Err(error) = client.check().await {
+        return WebDavOpDto {
+            ok: false,
+            bytes: 0,
+            message: String::new(),
+            error: Some(error_dto(error)),
+        };
+    }
     match client.upload(bytes).await {
         Ok(bytes) => WebDavOpDto {
             ok: true,
@@ -581,6 +592,39 @@ pub async fn t16_webdav_restore(cfg: WebDavConfigDto) -> RestoreResultDto {
             }),
         };
     }
+    // An upstream `guiConfigs/` archive (the layout this project now uploads)
+    // goes through the same candidate + activation flow as a local FIX-14
+    // import: quiesce -> swap/activate -> reopen. A project manifest bundle
+    // keeps the project restore path. Both reclose the live handles.
+    let upstream = service
+        .recognize(&zip_path)
+        .map(|recognition| recognition.is_upstream)
+        .unwrap_or(false);
+    if upstream {
+        let _ = engine().quiesce();
+        let outcome = service.import_upstream(&zip_path, &work, now_epoch());
+        let _ = engine().reopen();
+        return match outcome {
+            Ok(report) => {
+                let changed = report.status.changed_target()
+                    || report.status == ImportStatus::AlreadyImported;
+                RestoreResultDto {
+                    ok: changed,
+                    restored: changed,
+                    target_backup: None,
+                    message: report.user_summary,
+                    error: None,
+                }
+            }
+            Err(error) => RestoreResultDto {
+                ok: false,
+                restored: false,
+                target_backup: None,
+                message: String::new(),
+                error: Some(error_dto(error)),
+            },
+        };
+    }
     let unpacked = work.join("unpacked");
     if let Err(error) = application::extract_bundle_zip(&zip_path, &unpacked) {
         return RestoreResultDto {
@@ -591,7 +635,10 @@ pub async fn t16_webdav_restore(cfg: WebDavConfigDto) -> RestoreResultDto {
             error: Some(error_dto(error)),
         };
     }
-    match service.restore(&unpacked, &work) {
+    let _ = engine().quiesce();
+    let outcome = service.restore(&unpacked, &work);
+    let _ = engine().reopen();
+    match outcome {
         Ok(report) => RestoreResultDto {
             ok: report.restored,
             restored: report.restored,

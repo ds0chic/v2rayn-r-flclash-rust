@@ -49,6 +49,7 @@ class FakeMonitorBridge implements MonitorBridge {
   int clashProxiesCount = 0;
   int clashConnectionsCount = 0;
   int? lastMinLevel;
+  int setLogFilterCalls = 0;
   bool? lastCollectingPaused;
   bool? lastScrollPaused;
   String? activeNode;
@@ -96,6 +97,8 @@ class FakeMonitorBridge implements MonitorBridge {
     List<m.LogLineDto> lines, {
     BigInt? droppedLines,
     BigInt? truncatedLines,
+    bool collectingPaused = false,
+    bool scrollPaused = false,
   }) {
     _logController.add(
       m.LogBatchDto(
@@ -107,8 +110,8 @@ class FakeMonitorBridge implements MonitorBridge {
         truncatedLines:
             truncatedLines ??
             BigInt.from(lines.where((line) => line.truncated).length),
-        collectingPaused: false,
-        scrollPaused: false,
+        collectingPaused: collectingPaused,
+        scrollPaused: scrollPaused,
       ),
     );
   }
@@ -174,8 +177,10 @@ class FakeMonitorBridge implements MonitorBridge {
   }
 
   @override
-  void setLogFilter(int minLevel, List<String> include, List<String> exclude) =>
-      lastMinLevel = minLevel;
+  void setLogFilter(int minLevel, List<String> include, List<String> exclude) {
+    setLogFilterCalls++;
+    lastMinLevel = minLevel;
+  }
 
   @override
   void setLogPause({

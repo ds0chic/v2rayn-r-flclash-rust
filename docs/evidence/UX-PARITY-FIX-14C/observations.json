@@ -1,0 +1,50 @@
+{
+  "task": "FIX-14C",
+  "base_head": "a93949a",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "flow": "WebDAV remote backup upload/restore: upload -> remote backup.zip appears -> restore -> reopen",
+  "contract": {
+    "remote_layout": "upstream guiConfigs/ zip, fixed remote name backup.zip",
+    "upload_success_only_on_2xx_put": true,
+    "restore_quiesce_swap_reopen": true,
+    "credentials_never_logged": true,
+    "local_fix14_fix14b_semantics_unchanged": true
+  },
+  "upstream_reference": [
+    "v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:6,60,63,67,78,82,85,158",
+    "v2rayN/ServiceLib/Manager/WebDavManager.cs:13,14,98,128,154"
+  ],
+  "commands": [
+    { "cmd": "cargo fmt -p application -p bridge_api", "result": "ok" },
+    { "cmd": "cargo fmt -p application -p bridge_api -- --check", "result": "0 diff" },
+    { "cmd": "cargo test -p application --test t16_webdav --locked", "result": "7 passed / 0 failed" },
+    { "cmd": "cargo test -p application --lib --locked", "result": "182 passed / 0 failed" },
+    { "cmd": "cargo test -p application --test t16_backup --locked", "result": "9 passed / 0 failed" },
+    { "cmd": "cargo test -p bridge_api --locked", "result": "43 passed / 0 failed" },
+    { "cmd": "cargo clippy -p application -p bridge_api --locked --lib", "result": "0 new warning (pre-existing subs.rs unused import only)" },
+    { "cmd": "cargo clippy -p application --locked --test t16_webdav", "result": "0 warning" },
+    { "cmd": "dart format --output=none --set-exit-if-changed lib/features/backup test/fix14c_webdav_backup_test.dart", "result": "0 changed" },
+    { "cmd": "flutter analyze", "result": "No issues found" },
+    { "cmd": "flutter test test/fix14c_webdav_backup_test.dart", "result": "4 passed" },
+    { "cmd": "flutter test test/t16_backup_test.dart", "result": "6 passed" },
+    { "cmd": "flutter test test/fix14b_backup_restore_test.dart", "result": "5 passed" },
+    { "cmd": "flutter test test/fix14_backup_activate_test.dart", "result": "3 passed on retry (first run aborted, did not complete)" }
+  ],
+  "mock_coverage": [
+    "PUT /v2rayN_backup/backup.zip stores bytes; GET returns them",
+    "PROPFIND 207 list; 404 -> MKCOL 201 creates directory",
+    "Basic Authorization header required on 401 mock",
+    "PUT 500 -> E_UNAVAILABLE retryable",
+    "GET 404 -> E_NOT_FOUND",
+    "slow server -> E_TIMEOUT",
+    "upstream layout zip uploaded, downloaded and recognised as guiConfigs upstream archive",
+    "mock ports probed/bound in 11808..11900, never 10808"
+  ],
+  "blocked": [
+    "real TLS WebDAV endpoint untested: no authorized endpoint and user credentials must not be read/sent; suggest isolated retest with synthetic account"
+  ],
+  "identified": [
+    "parse_propfind only handles D:/unprefixed multistatus namespaces",
+    "upstream CheckConnection PUT/DELETE readme_test write probe not replicated (PUT itself proves write)"
+  ]
+}

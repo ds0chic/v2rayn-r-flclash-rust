@@ -588,7 +588,9 @@ pub(crate) fn ingest_runtime_event(event: &EventEnvelope) {
     let lines = lines_from_envelope(event);
     with_hub(|h| {
         h.logs.ingest_envelope(event);
-        if lines.is_empty() || h.log_subscribers.is_empty() {
+        // A paused collection drops lines from the ring; do not leak the raw
+        // envelope lines to subscribers either (RT-19: collection vs view).
+        if lines.is_empty() || h.logs.is_collecting_paused() || h.log_subscribers.is_empty() {
             return;
         }
         let epoch = h.epoch;
@@ -1511,6 +1513,19 @@ mod tests {
         let page = get_logs(0, 10);
         assert_eq!(page.lines.len(), 2);
         assert_eq!(page.truncated_lines, 1);
+    }
+
+    #[test]
+    fn paused_collection_drops_incoming_batch() {
+        let _guard = lock();
+        setup();
+        assert!(set_log_pause(true, false).ok);
+        inject_log_batch_for_test(vec![("dropped while paused".to_string(), false)]);
+        assert_eq!(log_total(), 0);
+
+        assert!(set_log_pause(false, false).ok);
+        inject_log_batch_for_test(vec![("kept after resume".to_string(), false)]);
+        assert_eq!(log_total(), 1);
     }
 
     #[test]

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_format.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Message/log tab (F-MONITOR-001, LAY-MSG-001).
 ///
-/// Shows the real core output forwarded by net-host. Level/keyword filters,
-/// auto-refresh (scroll) and collect-pause are honoured; overflow is surfaced
-/// (FND-004: the upstream ClearMsg handler is commented out, so the clear
-/// control is disabled with an explanation instead of faking a clear).
+/// Shows the real core output forwarded by net-host. Collection (Rust ring),
+/// presentation (auto-refresh + level/keyword filter), scrolling and clipboard
+/// copy are kept separate, matching upstream `MsgViewModel`/`MsgView`. Hiding
+/// the tab freezes only the page-local view; the Rust ring keeps collecting.
 class LogsView extends ConsumerStatefulWidget {
   const LogsView({super.key});
 
@@ -21,20 +23,24 @@ class LogsView extends ConsumerStatefulWidget {
 class _LogsViewState extends ConsumerState<LogsView> {
   final ScrollController _scroll = ScrollController();
   final TextEditingController _keyword = TextEditingController();
+  late final MonitorController _controller;
   bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
+    // Captured once: `ref` is unsafe in dispose(), the notifier is not.
+    _controller = ref.read(monitorControllerProvider.notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _initialized) return;
       _initialized = true;
-      ref.read(monitorControllerProvider.notifier).setPageVisible('logs', true);
+      _controller.setPageVisible('logs', true);
     });
   }
 
   @override
   void dispose() {
+    _controller.setPageVisible('logs', false);
     _scroll.dispose();
     _keyword.dispose();
     super.dispose();
@@ -94,17 +100,30 @@ class _LogsViewState extends ConsumerState<LogsView> {
                   ],
                 ),
                 const SizedBox(width: 8),
-                // AutoRefresh: while on, the view follows new lines.
+                // Presentation refresh: when off the view freezes but the Rust
+                // ring keeps collecting; resuming resyncs the tail.
                 Row(
                   children: <Widget>[
                     const Text('自动刷新', style: TextStyle(fontSize: 12)),
                     Switch(
                       key: const ValueKey('logs-autorefresh'),
+                      value: state.autoRefresh,
+                      onChanged: controller.setAutoRefresh,
+                    ),
+                  ],
+                ),
+                // Scroll-to-end, independent of refresh/collection.
+                Row(
+                  children: <Widget>[
+                    const Text('自动滚动', style: TextStyle(fontSize: 12)),
+                    Switch(
+                      key: const ValueKey('logs-autoscroll'),
                       value: !state.scrollPaused,
                       onChanged: (value) => controller.setScrollPaused(!value),
                     ),
                   ],
                 ),
+                // Collection pause: real lines stop entering the Rust ring.
                 OutlinedButton(
                   key: const ValueKey('logs-pause-collect'),
                   onPressed: () =>
@@ -115,15 +134,22 @@ class _LogsViewState extends ConsumerState<LogsView> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                // Upstream MsgViewModel.ClearMsg is commented out; a real clear
-                // could silently diverge from the reference, so it stays disabled.
-                Tooltip(
-                  message: '上游 ClearMsg 处理已注释（FND-004），不提供清空',
-                  child: TextButton(
-                    key: const ValueKey('logs-clear'),
-                    onPressed: null,
-                    child: const Text('清空', style: TextStyle(fontSize: 12)),
-                  ),
+                OutlinedButton.icon(
+                  key: const ValueKey('logs-copy-all'),
+                  onPressed: visible.isEmpty
+                      ? null
+                      : () => Clipboard.setData(
+                          ClipboardData(text: formatLogsForCopy(visible)),
+                        ),
+                  icon: const Icon(Icons.content_copy, size: 14),
+                  label: const Text('复制全部', style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(width: 6),
+                // Upstream MsgView.ClearMsg clears the box and inserts a marker.
+                OutlinedButton(
+                  key: const ValueKey('logs-clear'),
+                  onPressed: controller.clearLogs,
+                  child: const Text('清空', style: TextStyle(fontSize: 12)),
                 ),
                 const SizedBox(width: 16),
                 if (state.droppedLines > BigInt.zero ||
@@ -149,12 +175,15 @@ class _LogsViewState extends ConsumerState<LogsView> {
                   detail: '内核运行时将在此显示真实输出',
                   messageKey: ValueKey('logs-empty'),
                 )
-              : ListView.builder(
-                  key: const ValueKey('logs-list'),
-                  controller: _scroll,
-                  itemCount: visible.length,
-                  itemBuilder: (context, index) =>
-                      _LogRow(line: visible[index]),
+              : SelectionArea(
+                  key: const ValueKey('logs-selection'),
+                  child: ListView.builder(
+                    key: const ValueKey('logs-list'),
+                    controller: _scroll,
+                    itemCount: visible.length,
+                    itemBuilder: (context, index) =>
+                        _LogRow(line: visible[index]),
+                  ),
                 ),
         ),
       ],

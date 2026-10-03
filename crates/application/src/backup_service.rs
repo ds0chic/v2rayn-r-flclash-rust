@@ -407,6 +407,63 @@ pub fn zip_bundle(root: &Path) -> Result<Vec<u8>, DomainError> {
     Ok(cursor.into_inner())
 }
 
+/// Upstream wraps the whole config directory in this top-level member before
+/// zipping it (`BackupAndRestoreViewModel._guiConfigs`).
+pub const UPSTREAM_GUI_CONFIGS: &str = "guiConfigs";
+
+/// Pack a bundle directory into an upstream-interoperable ZIP: database,
+/// config and every nested resource are placed under a single `guiConfigs/`
+/// root, exactly like `BackupAndRestoreViewModel.CreateZipFileFromDirectory`.
+/// The project's own `manifest.json` is not part of the upstream layout and is
+/// dropped, so the remote `backup.zip` a `v2rayN` client GETs restores as-is.
+pub fn zip_upstream_layout(bundle_root: &Path) -> Result<Vec<u8>, DomainError> {
+    use std::io::Write;
+
+    if !bundle_root.is_dir() {
+        return Err(DomainError::new(codes::NOT_FOUND, "error.backup_not_found")
+            .with_detail(bundle_root.display().to_string()));
+    }
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+    let mut stack = vec![bundle_root.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        let entries = std::fs::read_dir(&current).map_err(|e| internal(e.to_string()))?;
+        for entry in entries {
+            let entry = entry.map_err(|e| internal(e.to_string()))?;
+            let path = entry.path();
+            let file_type = entry.file_type().map_err(|e| internal(e.to_string()))?;
+            if file_type.is_dir() {
+                if entry.file_name() == ".work" {
+                    continue;
+                }
+                stack.push(path);
+                continue;
+            }
+            if !file_type.is_file() {
+                continue;
+            }
+            if path.file_name().and_then(|n| n.to_str()) == Some(MANIFEST_NAME) {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(bundle_root)
+                .map_err(|_| internal("bundle path escaped root"))?
+                .to_string_lossy()
+                .replace('\\', "/");
+            writer
+                .start_file(format!("{UPSTREAM_GUI_CONFIGS}/{relative}"), options)
+                .map_err(|e| internal(e.to_string()))?;
+            let bytes = std::fs::read(&path).map_err(|e| internal(e.to_string()))?;
+            writer
+                .write_all(&bytes)
+                .map_err(|e| internal(e.to_string()))?;
+        }
+    }
+    let cursor = writer.finish().map_err(|e| internal(e.to_string()))?;
+    Ok(cursor.into_inner())
+}
+
 fn copy_atomic(src: &Path, dest: &Path) -> Result<(), DomainError> {
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent).map_err(|e| internal(e.to_string()))?;

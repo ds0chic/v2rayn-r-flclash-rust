@@ -1,0 +1,19 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.41s
+     Running unittests src\lib.rs (target\debug\deps\bridge_api-0b2c693ee414d458.exe)
+
+running 12 tests
+test api::subs::tests::import_rejects_free_text ... ok
+test api::subs::tests::export_share_and_base64_agree ... ok
+test api::subs::tests::import_inner_uri_parses_frozen_pascal_case_shape ... ok
+test api::subs::tests::file_type_and_inline_type_do_not_impersonate ... ok
+test api::subs::tests::clash_yaml_imports_as_file_type_yaml ... ok
+test api::subs::tests::inner_export_serves_inline_and_file_outbound ... ok
+test api::subs::tests::full_singbox_config_imports_as_file_type ... ok
+test api::subs::tests::full_v2ray_config_imports_as_file_type_and_generates ... ok
+test api::subs::tests::save_empty_url_plain_group_round_trips ... ok
+test api::subs::tests::import_share_uri_assigns_ids_and_subid ... ok
+test api::subs::tests::save_nonempty_invalid_url_is_rejected ... ok
+test api::subs::tests::update_via_proxy_without_endpoint_returns_proxy_unavailable ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 36 filtered out; finished in 0.01s
+

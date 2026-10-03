@@ -90,6 +90,25 @@ class BackupController extends Notifier<BackupState> {
         : '${error.code} / ${error.messageKey}: ${error.detail}';
   }
 
+  /// WebDAV failures are mapped to a concrete branch (401/403, 404, timeout,
+  /// unreachable). The code is kept so the branch stays diagnosable; remote
+  /// status text never carries credentials.
+  String _webdavDetail(c.ErrorDto? error) {
+    if (error == null) return 'unknown';
+    final branch = switch (error.code) {
+      'E_PERMISSION_DENIED' => '认证失败（401/403），请检查用户名/密码',
+      'E_NOT_FOUND' => '远端路径不存在（404）',
+      'E_TIMEOUT' => '连接超时',
+      'E_UNAVAILABLE' => '无法连接远端（网络或代理不可达）',
+      _ => null,
+    };
+    final base = '${error.code} / ${error.messageKey}';
+    if (branch == null) {
+      return error.detail == null ? base : '$base: ${error.detail}';
+    }
+    return '$base: $branch';
+  }
+
   void reloadBundles(String parent) {
     final result = ref.read(bridgePortProvider).t16BackupList(parent);
     if (result.error != null) {
@@ -255,7 +274,7 @@ class BackupController extends Notifier<BackupState> {
     final result = await ref.read(bridgePortProvider).t16WebdavCheck(config);
     state = state.copyWith(busy: false);
     if (!result.ok) {
-      _status('error', 'WebDAV 连接失败', detail: _detail(result.error));
+      _status('error', 'WebDAV 连接失败', detail: _webdavDetail(result.error));
       return;
     }
     _status('success', result.createdDir ? 'WebDAV 已连接（已创建目录）' : 'WebDAV 连接正常');
@@ -266,7 +285,7 @@ class BackupController extends Notifier<BackupState> {
     final result = await ref.read(bridgePortProvider).t16WebdavList(config);
     state = state.copyWith(busy: false);
     if (!result.ok) {
-      _status('error', '列出远程目录失败', detail: _detail(result.error));
+      _status('error', '列出远程目录失败', detail: _webdavDetail(result.error));
       return;
     }
     state = state.copyWith(remotes: result.items);
@@ -275,12 +294,18 @@ class BackupController extends Notifier<BackupState> {
 
   Future<void> webdavBackup(c.WebDavConfigDto config) async {
     state = state.copyWith(busy: true);
-    final result = await ref.read(bridgePortProvider).t16WebdavBackup(config);
-    state = state.copyWith(busy: false);
+    final bridge = ref.read(bridgePortProvider);
+    final result = await bridge.t16WebdavBackup(config);
     if (!result.ok) {
-      _status('error', '远程备份失败', detail: _detail(result.error));
+      state = state.copyWith(busy: false);
+      _status('error', '远程备份失败', detail: _webdavDetail(result.error));
       return;
     }
+    // The upload only succeeds when the PUT was accepted; surface the file that
+    // is now actually on the remote so "上传 -> 远端出现" is visible.
+    final remote = await bridge.t16WebdavList(config);
+    final entries = remote.ok ? remote.items : state.remotes;
+    state = state.copyWith(busy: false, remotes: entries);
     _status('success', '远程备份完成：${result.bytes} 字节');
   }
 
@@ -289,10 +314,11 @@ class BackupController extends Notifier<BackupState> {
     final result = await ref.read(bridgePortProvider).t16WebdavRestore(config);
     state = state.copyWith(busy: false);
     if (!result.ok) {
-      _status('error', '远程恢复失败（已保留现有配置）', detail: _detail(result.error));
+      _status('error', '远程恢复失败（已保留现有配置）', detail: _webdavDetail(result.error));
       return;
     }
-    _status('success', '远程恢复完成：${result.message}');
+    _refreshAfterRestore();
+    _status('success', '远程恢复完成（配置与资源已重载，请重开窗口查看）：${result.message}');
   }
 
   void openConfigDir() {

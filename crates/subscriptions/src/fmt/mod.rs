@@ -19,6 +19,7 @@ use domain::ConfigType;
 
 use crate::error::SubError;
 
+pub use batch::{detect_config_extension, take_raw_config};
 pub use hysteria2::HyRealm;
 
 /// The upstream `fmt_formats` families covered by this crate.

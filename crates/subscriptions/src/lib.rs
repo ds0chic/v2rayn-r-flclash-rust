@@ -25,7 +25,8 @@ pub use download::{
 };
 pub use error::{ParseIssue, SubError};
 pub use fmt::{
-    fmt_kind_of, resolve_uri, to_inner_uri, to_inner_uri_with_outbound_loader, to_uri, FmtKind,
+    detect_config_extension, fmt_kind_of, resolve_uri, take_raw_config, to_inner_uri,
+    to_inner_uri_with_outbound_loader, to_uri, FmtKind,
 };
 pub use merge::{
     compare_profile, deduplicate, filter_by_regex, refresh, MergeOptions, MergeResult,

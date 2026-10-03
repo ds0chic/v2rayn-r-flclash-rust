@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use application::{SubItem, SubUpdateReport, SubUpdateRequest};
 use domain::job::JobId;
-use domain::{CancellationToken, DomainError, Profile};
+use domain::{CancellationToken, ConfigType, DomainError, Profile};
 use flutter_rust_bridge::frb;
 
 use crate::api::contract::{
@@ -374,6 +374,66 @@ pub fn job_view(job_id: String) -> Option<JobDto> {
 
 // -- node import -----------------------------------------------------------
 
+/// FIX-04B: materialize complete-config imports (v2ray/sing-box JSON, Clash
+/// YAML) into the RT-08 file-type form.
+///
+/// The parser parks the verbatim payload under `extra["RawConfig"]`; here it is
+/// written under `<data>/config/<index_id><ext>` and `Address` is pointed at
+/// the stored file name, exactly like upstream `WriteAllText` +
+/// `Address = fileName`. Inline payloads (`customConfigText`, FIX-04 inner
+/// `CustomOutboundObj`) are left untouched, so the file-type and inline-type
+/// forms never impersonate each other.
+///
+/// With no data directory (in-memory test engine) the payload is written to the
+/// system temp dir and the absolute path is stored instead of the bare name.
+fn materialize_custom_configs(profiles: &mut [Profile]) {
+    let data_dir = engine().data_dir().map(|dir| dir.to_path_buf());
+    for profile in profiles.iter_mut() {
+        if !matches!(
+            profile.config_type,
+            ConfigType::Custom | ConfigType::Outbound
+        ) {
+            continue;
+        }
+        let Some(raw) = subscriptions::take_raw_config(profile) else {
+            continue;
+        };
+        let ext = subscriptions::detect_config_extension(&raw);
+        let name = format!("{}{}", sanitize_index_id(&profile.index_id), ext);
+        let (dir, stored) = match &data_dir {
+            Some(base) => (base.join("config"), name.clone()),
+            None => {
+                let dir = std::env::temp_dir();
+                let absolute = dir.join(&name).to_string_lossy().into_owned();
+                (dir, absolute)
+            }
+        };
+        let written =
+            std::fs::create_dir_all(&dir).is_ok() && std::fs::write(dir.join(&name), &raw).is_ok();
+        if written {
+            profile.address = stored;
+        } else {
+            // Never drop the payload silently; keep it for a later retry.
+            profile.extra.insert(
+                subscriptions::fmt::batch::RAW_CONFIG_KEY.to_string(),
+                serde_json::Value::String(raw),
+            );
+        }
+    }
+}
+
+fn sanitize_index_id(index_id: &str) -> String {
+    let cleaned: String = index_id
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
+        .collect();
+    if cleaned.is_empty() {
+        application::new_index_id()
+    } else {
+        cleaned
+    }
+}
+
 /// `import_from_text` — parse share URIs / base64 / inner URIs from text.
 ///
 /// `subid` non-empty attaches the imported nodes to that subscription;
@@ -430,6 +490,7 @@ pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) 
         }
         profile.is_sub = true;
     }
+    materialize_custom_configs(&mut profiles);
     let count = profiles.len() as u32;
     if let Some(sub) = subid.filter(|s| !s.is_empty()) {
         if let Err(error) = engine().replace_sub_profiles(&sub, profiles.clone(), false) {
@@ -619,6 +680,7 @@ pub fn write_export_file(path: String, text: String) -> SimpleResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use domain::CoreType;
 
     #[test]
     fn import_share_uri_assigns_ids_and_subid() {
@@ -801,5 +863,154 @@ mod tests {
             ..Default::default()
         };
         assert!(render_export(&[missing], "inner").is_err());
+    }
+
+    fn synthetic_full_v2ray() -> String {
+        r#"{"inbounds":[{"port":11888,"protocol":"socks","settings":{"udp":true}}],"outbounds":[{"protocol":"vmess","tag":"fix04b-marker","settings":{"vnext":[{"address":"node.example.invalid","port":11980,"users":[{"id":"11111111-2222-3333-4444-555555555555"}]}]},"streamSettings":{"network":"tcp"}}],"x-future":[1,2,3]}"#.to_string()
+    }
+
+    fn synthetic_full_singbox() -> String {
+        r#"{"inbounds":[],"outbounds":[{"type":"vless","tag":"fix04b-sbox","server":"node.example.invalid","server_port":11981,"uuid":"11111111-2222-3333-4444-555555555555"}],"x-future":"kept"}"#.to_string()
+    }
+
+    fn materialized_path(dto: &crate::api::contract::ProfileDto) -> std::path::PathBuf {
+        if std::path::Path::new(&dto.address).is_absolute() {
+            std::path::PathBuf::from(&dto.address)
+        } else {
+            engine()
+                .data_dir()
+                .expect("data dir")
+                .join("config")
+                .join(&dto.address)
+        }
+    }
+
+    #[test]
+    fn full_v2ray_config_imports_as_file_type_and_generates() {
+        let _guard = crate::api::engine::engine_test_lock();
+        let result = import_from_text(synthetic_full_v2ray(), None, false);
+        assert!(
+            result.ok,
+            "{:?}",
+            result.error.as_ref().map(|e| e.code.clone())
+        );
+        assert_eq!(result.imported, 1);
+        let dto = result.profiles.into_iter().next().expect("one profile");
+        assert_eq!(dto.config_type, ConfigType::Custom);
+        assert_eq!(dto.core_type, Some(CoreType::Xray));
+        assert!(
+            !dto.address.trim().is_empty(),
+            "file-type Address must be set"
+        );
+        assert!(!dto.proto_extra.extra_json.contains("customConfigText"));
+        assert!(!dto.extra_json.contains("RawConfig"));
+
+        let text = std::fs::read_to_string(materialized_path(&dto)).expect("materialized file");
+        assert!(text.contains("fix04b-marker"));
+        assert!(text.contains("x-future"), "unknown keys must survive");
+
+        let saved = crate::api::engine::save_imported_profile(
+            dto.clone(),
+            crate::api::engine::profile_revision(),
+        );
+        assert!(
+            saved.ok,
+            "{:?}",
+            saved.error.as_ref().map(|e| e.code.clone())
+        );
+        let saved = saved.profile.expect("saved profile");
+        let read_back = crate::api::engine::get_profile(saved.index_id.clone()).expect("read back");
+        assert_eq!(
+            read_back.address, dto.address,
+            "reopen keeps the file Address"
+        );
+
+        let input = engine()
+            .build_codegen_input(
+                &saved.index_id,
+                CoreType::Xray,
+                &application::codegen::CodegenOptions::default(),
+            )
+            .expect("codegen input");
+        let generated = application::codegen::generate(CoreType::Xray, &input).expect("generate");
+        let out = serde_json::to_string(&generated.main).unwrap();
+        assert!(out.contains("fix04b-marker"), "{out}");
+        assert!(out.contains("x-future"), "{out}");
+    }
+
+    #[test]
+    fn full_singbox_config_imports_as_file_type() {
+        let _guard = crate::api::engine::engine_test_lock();
+        let result = import_from_text(synthetic_full_singbox(), None, false);
+        assert!(
+            result.ok,
+            "{:?}",
+            result.error.as_ref().map(|e| e.code.clone())
+        );
+        let dto = result.profiles.into_iter().next().expect("one profile");
+        assert_eq!(dto.config_type, ConfigType::Custom);
+        assert_eq!(dto.core_type, Some(CoreType::SingBox));
+        let text = std::fs::read_to_string(materialized_path(&dto)).expect("file");
+        assert!(text.contains("fix04b-sbox"));
+        assert!(text.contains("x-future"));
+    }
+
+    #[test]
+    fn clash_yaml_imports_as_file_type_yaml() {
+        let _guard = crate::api::engine::engine_test_lock();
+        let yaml = "proxies:\n  - name: fix04b-clash\n    type: ss\n    server: node.example.invalid\n    port: 11982\nrules:\n  - MATCH,DIRECT\nmixed-port: 7890\nx-future: kept\n";
+        let result = import_from_text(yaml.to_string(), None, false);
+        assert!(
+            result.ok,
+            "{:?}",
+            result.error.as_ref().map(|e| e.code.clone())
+        );
+        let dto = result.profiles.into_iter().next().expect("one profile");
+        assert_eq!(dto.config_type, ConfigType::Custom);
+        assert_eq!(dto.core_type, Some(CoreType::Mihomo));
+        assert!(dto.address.ends_with(".yaml"), "{}", dto.address);
+        let text = std::fs::read_to_string(materialized_path(&dto)).expect("file");
+        assert!(text.contains("x-future: kept"));
+    }
+
+    #[test]
+    fn file_type_and_inline_type_do_not_impersonate() {
+        let file_result = import_from_text(synthetic_full_v2ray(), None, false);
+        let file_dto = file_result.profiles.into_iter().next().expect("file node");
+        assert!(!file_dto.address.is_empty());
+        assert!(!file_dto.proto_extra.extra_json.contains("customConfigText"));
+
+        let payload = serde_json::json!({
+            "IndexId": "fix04b-inline",
+            "ConfigType": ConfigType::Outbound.value(),
+            "CoreType": CoreType::Xray.value(),
+            "ConfigVersion": 4,
+            "Remarks": "内联出站",
+            "CustomOutboundObj": {"protocol": "freedom", "tag": "inline"}
+        });
+        let uri = format!(
+            "v2rayn://outbound/{}",
+            subscriptions::util::base64_urlsafe_nopad(payload.to_string().as_bytes())
+        );
+        let inline_result = import_from_text(uri, None, false);
+        assert!(
+            inline_result.ok,
+            "{:?}",
+            inline_result.error.as_ref().map(|e| e.code.clone())
+        );
+        let inline_dto = inline_result
+            .profiles
+            .into_iter()
+            .next()
+            .expect("inline node");
+        assert_eq!(inline_dto.config_type, ConfigType::Outbound);
+        assert!(
+            inline_dto.address.is_empty(),
+            "inline form keeps Address empty"
+        );
+        assert!(inline_dto
+            .proto_extra
+            .extra_json
+            .contains("customConfigText"));
     }
 }

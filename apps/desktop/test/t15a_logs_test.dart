@@ -69,7 +69,8 @@ void main() {
 
     expect(find.textContaining('error two'), findsOneWidget);
     expect(find.textContaining('info one'), findsNothing);
-    expect(fake.lastMinLevel, 4);
+    // Level filtering is presentation-only: the Rust ring is untouched.
+    expect(fake.setLogFilterCalls, 0);
   });
 
   testWidgets('pause-collect button toggles the bridge pause flag', (
@@ -82,11 +83,18 @@ void main() {
     expect(find.text('继续采集'), findsOneWidget);
   });
 
-  testWidgets('clear button is disabled per upstream FND-004', (tester) async {
-    await pumpLogs(tester);
-    final clear = tester.widget<TextButton>(
-      find.byKey(const ValueKey('logs-clear')),
-    );
-    expect(clear.onPressed, isNull);
+  testWidgets('clear button clears the ring and shows the upstream marker', (
+    tester,
+  ) async {
+    final fake = await pumpLogs(tester);
+    fake.logs = const <m.LogLineDto>[
+      m.LogLineDto(text: 'keep me', level: 2, truncated: false),
+    ];
+    await tester.ensureVisible(find.byKey(const ValueKey('logs-clear')));
+    await tester.tap(find.byKey(const ValueKey('logs-clear')));
+    await tester.pump();
+    expect(fake.clearLogsCount, 1);
+    expect(find.textContaining('Message cleared'), findsOneWidget);
+    expect(find.textContaining('keep me'), findsNothing);
   });
 }

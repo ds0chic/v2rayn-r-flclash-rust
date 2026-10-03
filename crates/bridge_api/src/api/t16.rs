@@ -623,8 +623,27 @@ fn cores_root() -> PathBuf {
     }
 }
 
+/// Explicit application install root: the directory holding the running
+/// executable (override with `V2RAYN_R_APP_ROOT` for tests). This is what the
+/// application-upgrade coordinator is allowed to touch; it is never derived
+/// from `cores_root.parent()`.
+fn app_install_root() -> Option<PathBuf> {
+    if let Ok(dir) = std::env::var("V2RAYN_R_APP_ROOT") {
+        if !dir.trim().is_empty() {
+            return Some(PathBuf::from(dir));
+        }
+    }
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+}
+
 fn update_service() -> application::UpdateService {
-    application::UpdateService::new(cores_root())
+    let mut service = application::UpdateService::new(cores_root());
+    if let Some(root) = app_install_root() {
+        service = service.with_app_install_root(root);
+    }
+    service
 }
 
 fn update_target_dto(target: application::UpdateTargetInfo) -> UpdateTargetDto {
@@ -826,7 +845,7 @@ pub async fn t16_apply_core_update(
 /// external-upgrade spec. No process is started.
 pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
     let service = update_service();
-    let check = match service.check_core("v2rayN", true, None).await {
+    let check = match service.check_app_update(true, None).await {
         Ok(check) => check,
         Err(error) => {
             return ExternalSpecDto {
@@ -887,7 +906,7 @@ pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
         dgst_url: check.dgst_url,
         proxy: None,
     };
-    let helper = service.install_root.join("v2rayN-upgrade.exe");
+    let helper = service.app_layout().runner_exe();
     let token = CancellationToken::new();
     match service
         .app_update_spec_verified(

@@ -597,6 +597,54 @@ impl AppEngine {
         self.profile_ex_flush(&store.all())
     }
 
+    /// `AddCustomServer`/`AddCustomOutboundServer` browse step: copy a
+    /// user-selected config file into `<data>/config/` under a fresh name and
+    /// return that stored name for `Profile.address`. Existing destination
+    /// files are never overwritten.
+    pub fn import_custom_file(&self, source: &std::path::Path) -> Result<String, DomainError> {
+        if !source.is_file() {
+            return Err(DomainError::not_found(
+                "custom_file",
+                &source.display().to_string(),
+            ));
+        }
+        let data_dir = self.data_dir().ok_or_else(|| {
+            DomainError::new(domain::codes::INTERNAL, "error.custom_file_no_data_dir")
+        })?;
+        let ext = source
+            .extension()
+            .and_then(|e| e.to_str())
+            .filter(|e| !e.is_empty());
+        let new_name = match ext {
+            Some(ext) => format!("{}.{ext}", crate::repository::new_index_id()),
+            None => crate::repository::new_index_id(),
+        };
+        let dir = data_dir.join("config");
+        std::fs::create_dir_all(&dir)
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.custom_file_copy"))?;
+        let dest = dir.join(&new_name);
+        std::fs::copy(source, &dest)
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.custom_file_copy"))?;
+        Ok(new_name)
+    }
+
+    /// Resolve a custom/outbound profile's config text for codegen (RT-08):
+    /// inline `customConfigText` first, then a file referenced by `address`
+    /// (absolute path, or a stored name under `<data>/config/`).
+    fn custom_file_text(&self, profile: &Profile) -> Option<String> {
+        let address = profile.address.trim();
+        if address.is_empty() {
+            return None;
+        }
+        let path = std::path::Path::new(address);
+        let resolved = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            self.data_dir()?.join("config").join(path)
+        };
+        std::fs::read_to_string(resolved).ok()
+    }
+
     /// Copy a set of profiles, assigning fresh stable ids and a "(副本)" suffix.
     pub fn copy_profiles(&self, ids: &[String]) -> Result<Vec<Profile>, DomainError> {
         let mut revisions = self
@@ -1991,7 +2039,9 @@ impl AppEngine {
                 profile.config_type,
                 ConfigType::Custom | ConfigType::Outbound
             ) {
-                if let Some(text) = crate::codegen::custom_config_text(profile) {
+                let text = crate::codegen::custom_config_text(profile)
+                    .or_else(|| self.custom_file_text(profile));
+                if let Some(text) = text {
                     outbound_contents.insert(profile.index_id.clone(), text);
                 }
             }

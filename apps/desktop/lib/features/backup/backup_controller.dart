@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
+import 'package:v2rayn_desktop/features/backup/backup_picker.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
 final backupControllerProvider =
@@ -116,19 +117,86 @@ class BackupController extends Notifier<BackupState> {
     _status('success', '本地备份完成：${result.root ?? destRoot}');
   }
 
+  /// Re-read engine-owned settings so the window never keeps serving stale
+  /// state after a restore swapped the on-disk config (`quiesce`/`reopen`).
+  void _refreshAfterRestore() {
+    final bridge = ref.read(bridgePortProvider);
+    final config = bridge.t16WebdavConfigGet();
+    final cores = bridge.t16GetCoreVersions();
+    state = state.copyWith(
+      webdav: config.config ?? state.webdav,
+      webdavRevision: config.revision.toInt(),
+      coreVersions: cores.items,
+    );
+  }
+
+  bool _restoreBundlePath(String bundleDir) {
+    final result = ref.read(bridgePortProvider).t16BackupRestore(bundleDir);
+    if (!result.ok) {
+      _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
+      return false;
+    }
+    _refreshAfterRestore();
+    _status('success', '本地恢复完成（配置与资源已重载，请重开窗口查看）：${result.message}');
+    return true;
+  }
+
   void restoreBundle(String bundleDir) {
     if (bundleDir.trim().isEmpty) {
-      _status('error', '请输入备份包目录');
+      _status('error', '请选择备份包目录');
       return;
     }
-    final result = ref
-        .read(bridgePortProvider)
-        .t16BackupRestore(bundleDir.trim());
+    _restoreBundlePath(bundleDir.trim());
+  }
+
+  /// Pick a local `backup_*.zip` with the native dialog and restore it. A
+  /// cancelled picker is a no-op. An upstream ZIP is imported through the
+  /// candidate + activation flow (`quiesce` -> activate -> `reopen`), so the
+  /// restored settings/active node take effect on the next load.
+  Future<void> restoreFromArchive() async {
+    final path = await ref.read(backupPickerProvider).pickArchive();
+    if (path == null || path.trim().isEmpty) return;
+    _restoreArchivePath(path.trim());
+  }
+
+  void _restoreArchivePath(String path) {
+    final bridge = ref.read(bridgePortProvider);
+    final recognition = bridge.t16BackupRecognize(path);
+    if (recognition.error != null) {
+      _status('error', '无法读取备份文件（现有配置未修改）', detail: _detail(recognition.error));
+      return;
+    }
+    if (!recognition.isUpstream) {
+      _status('error', '不是可恢复的备份文件（缺少配置或数据库，现有配置未修改）');
+      return;
+    }
+    final result = bridge.t16BackupImportUpstream(path);
     if (!result.ok) {
       _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
       return;
     }
-    _status('success', '本地恢复完成（配置与资源已重载，请重开窗口查看）：${result.message}');
+    _refreshAfterRestore();
+    _status('success', '本地恢复完成（配置与资源已重载，请重开窗口查看）：${result.status}');
+  }
+
+  /// Pick a project bundle directory with the native dialog and restore it via
+  /// the same quiesce -> swap -> reopen path as FIX-14.
+  Future<void> restoreFromDirectory() async {
+    final path = await ref.read(backupPickerProvider).pickDirectory();
+    if (path == null || path.trim().isEmpty) return;
+    restoreBundle(path.trim());
+  }
+
+  /// Restore one bundle from the discovered list. Real `backup_list` items may
+  /// not carry their root path yet; those are surfaced as an error instead of
+  /// guessing a directory.
+  void restoreListed(c.BackupManifestDto manifest) {
+    final root = manifest.root;
+    if (root == null || root.trim().isEmpty) {
+      _status('error', '该备份未提供路径，无法直接恢复');
+      return;
+    }
+    restoreBundle(root);
   }
 
   void recognize(String path) {

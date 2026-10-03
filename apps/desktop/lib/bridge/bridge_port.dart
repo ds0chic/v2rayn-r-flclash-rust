@@ -69,6 +69,16 @@ abstract class BridgePort {
   /// once the engine is live.
   c.SimpleResult initEngine(String? dataDir);
 
+  /// Copy a user-selected custom/outbound config file into the data
+  /// directory's `config/` folder and return the stored file name for
+  /// `Profile.address` (upstream `AddCustomServer` /
+  /// `AddCustomOutboundServer` browse step, FIX-03B).
+  c.CustomFileResult customImportFile(String sourcePath);
+
+  /// The resolved data directory currently in use (FIX-03B, for resolving a
+  /// stored config file name back to its full path).
+  String dataDir();
+
   // -- T09 subscription + import/export surface --------------------------
 
   c.SubsPageDto listSubItems();
@@ -393,6 +403,13 @@ class FrbBridgePort implements BridgePort {
   @override
   c.SimpleResult initEngine(String? dataDir) =>
       engine.initEngine(dataDir: dataDir);
+
+  @override
+  c.CustomFileResult customImportFile(String sourcePath) =>
+      engine.customImportFile(sourcePath: sourcePath);
+
+  @override
+  String dataDir() => engine.dataDir();
 
   @override
   c.SubsPageDto listSubItems() => subs.listSubItems();
@@ -1124,6 +1141,41 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   c.SimpleResult initEngine(String? dataDir) => const c.SimpleResult(ok: true);
+
+  // -- FIX-03B custom file import (synthetic) ----------------------------
+
+  /// Source paths passed through [customImportFile], in call order. UI-only
+  /// evidence of the browse seam; the production bridge does the real copy.
+  final List<String> importedCustomFiles = <String>[];
+
+  /// Test helper: force [customImportFile] to report a structured failure.
+  bool failCustomImport = false;
+
+  @override
+  c.CustomFileResult customImportFile(String sourcePath) {
+    importedCustomFiles.add(sourcePath);
+    if (failCustomImport || sourcePath.trim().isEmpty) {
+      return const c.CustomFileResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_NOT_FOUND',
+          messageKey: 'error.custom_file_not_found',
+          retryable: false,
+        ),
+      );
+    }
+    final dot = sourcePath.lastIndexOf('.');
+    final ext = dot > -1 && dot < sourcePath.length - 1
+        ? sourcePath.substring(dot)
+        : '';
+    return c.CustomFileResult(
+      ok: true,
+      fileName: 'syn-custom-${importedCustomFiles.length}$ext',
+    );
+  }
+
+  @override
+  String dataDir() => 'C:/synthetic-data';
 
   // -- T09 subscription + import/export (synthetic) ----------------------
 

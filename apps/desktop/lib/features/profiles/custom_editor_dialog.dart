@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -7,6 +9,75 @@ import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 
 /// Storage key of the pass-through text inside `proto_extra.extra`.
 const String kCustomConfigKey = 'customConfigText';
+
+/// Browse seam: copy a picked file into the config dir, return its stored name.
+typedef CustomImportFile = c.CustomFileResult Function(String sourcePath);
+
+/// Resolve the current data directory (for the external-edit full path).
+typedef DataDirLookup = String Function();
+
+/// Pick a source config file; null on cancel.
+typedef CustomFilePicker = Future<String?> Function();
+
+/// Open a full path with the OS handler; false when missing/unopenable.
+typedef CustomFileOpener = Future<bool> Function(String fullPath);
+
+/// Pick a JSON/YAML custom config file (mirrors the upstream file picker).
+Future<String?> pickCustomConfigFile() async {
+  const group = XTypeGroup(
+    label: '自定义配置',
+    extensions: <String>['json', 'yaml', 'yml', 'txt'],
+  );
+  final file = await openFile(acceptedTypeGroups: <XTypeGroup>[group]);
+  return file?.path;
+}
+
+/// Open [fullPath] with the OS default handler (upstream
+/// `ProcUtils.ProcessStart`). Returns false when the file does not exist.
+Future<bool> openConfigFileExternally(String fullPath) async {
+  if (fullPath.trim().isEmpty || !File(fullPath).existsSync()) return false;
+  if (Platform.isWindows) {
+    await Process.run('cmd', <String>['/c', 'start', '', fullPath]);
+    return true;
+  }
+  return false;
+}
+
+/// Absolute path used as-is; a bare file name joins
+/// `<dataDir>/config/<name>` (upstream `Utils.GetConfigPath`).
+String resolveCustomConfigPath({
+  required String address,
+  required String dataDir,
+}) {
+  final trimmed = address.trim();
+  if (trimmed.isEmpty) return '';
+  final absolute =
+      RegExp(r'^[A-Za-z]:[\\/]').hasMatch(trimmed) ||
+      trimmed.startsWith(r'\\') ||
+      trimmed.startsWith('/');
+  if (absolute) return trimmed;
+  final sep = Platform.pathSeparator;
+  final base = dataDir.endsWith('/') || dataDir.endsWith(r'\')
+      ? dataDir.substring(0, dataDir.length - 1)
+      : dataDir;
+  return '$base${sep}config$sep$trimmed';
+}
+
+/// Default remarks upstream fills on browse when the field is empty
+/// (`import custom@yyyy/MM/dd HH:mm:ss`, outbound adds ` outbound`).
+String defaultCustomRemarks(ConfigType type, DateTime now) {
+  final prefix = type == ConfigType.outbound
+      ? 'import custom outbound'
+      : 'import custom';
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '$prefix@${now.year}/${two(now.month)}/${two(now.day)} '
+      '${two(now.hour)}:${two(now.minute)}:${two(now.second)}';
+}
+
+c.CustomFileResult _unwiredCustomImport(String _) =>
+    throw StateError('customImportFile is not wired');
+
+String _unwiredDataDir() => '';
 
 /// Modal editor for Custom (2) / Outbound (13) nodes.
 ///
@@ -19,10 +90,18 @@ class CustomEditorDialog extends StatefulWidget {
     super.key,
     required this.initial,
     required this.onSave,
+    required this.customImportFile,
+    required this.dataDir,
+    required this.pickFile,
+    required this.openFile,
   });
 
   final ProfileDraft initial;
   final c.SaveProfileResult Function(c.ProfileDto draft) onSave;
+  final CustomImportFile customImportFile;
+  final DataDirLookup dataDir;
+  final CustomFilePicker pickFile;
+  final CustomFileOpener openFile;
 
   @override
   State<CustomEditorDialog> createState() => _CustomEditorDialogState();
@@ -32,9 +111,13 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late ProfileDraft _draft;
   late TextEditingController _configText;
+  late TextEditingController _remarks;
+  late TextEditingController _address;
   c.ErrorDto? _serverError;
   String? _configError;
+  String? _fileError;
   bool _submitting = false;
+  bool _busy = false;
 
   @override
   void initState() {
@@ -44,11 +127,15 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
       _draft.configType = ConfigType.custom;
     }
     _configText = TextEditingController(text: _readCustomText(_draft));
+    _remarks = TextEditingController(text: _draft.remarks);
+    _address = TextEditingController(text: _draft.address);
   }
 
   @override
   void dispose() {
     _configText.dispose();
+    _remarks.dispose();
+    _address.dispose();
     super.dispose();
   }
 
@@ -104,6 +191,71 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
       map[kCustomConfigKey] = text;
     }
     _draft.protoExtraJson = jsonEncode(map);
+  }
+
+  /// Browse a source file, copy it into the config dir, then rewrite Address
+  /// and (when empty) Remarks, mirroring `AddServer2ViewModel.BrowseServer`.
+  /// A cancelled picker touches nothing.
+  Future<void> _browse() async {
+    String? source;
+    try {
+      source = await widget.pickFile();
+    } catch (_) {
+      source = null;
+    }
+    if (!mounted || source == null || source.trim().isEmpty) return;
+    setState(() {
+      _fileError = null;
+      _busy = true;
+    });
+    final result = widget.customImportFile(source);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (!result.ok || result.fileName == null) {
+        _fileError =
+            '导入失败: ${result.error?.messageKey ?? 'error.import_custom_failed'}';
+        return;
+      }
+      _draft.address = result.fileName!;
+      _address.text = result.fileName!;
+      if (_draft.remarks.trim().isEmpty) {
+        _draft.remarks = defaultCustomRemarks(
+          _draft.configType,
+          DateTime.now(),
+        );
+        _remarks.text = _draft.remarks;
+      }
+    });
+  }
+
+  /// Open the stored config file with the OS handler, mirroring
+  /// `AddServer2ViewModel.EditServer`.
+  Future<void> _edit() async {
+    final address = _address.text.trim();
+    if (address.isEmpty) {
+      setState(() => _fileError = '请先填写配置文件路径');
+      return;
+    }
+    setState(() {
+      _fileError = null;
+      _busy = true;
+    });
+    final fullPath = resolveCustomConfigPath(
+      address: address,
+      dataDir: widget.dataDir(),
+    );
+    bool opened;
+    try {
+      opened = await widget.openFile(fullPath);
+    } catch (_) {
+      opened = false;
+    }
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (!opened) _fileError = '文件不存在或无法打开: $fullPath';
+    });
   }
 
   @override
@@ -203,7 +355,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                 ),
                 TextFormField(
                   key: const ValueKey('custom-remarks'),
-                  initialValue: _draft.remarks,
+                  controller: _remarks,
                   style: const TextStyle(fontSize: 12),
                   decoration: const InputDecoration(
                     labelText: '备注',
@@ -216,7 +368,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                 const SizedBox(height: 8),
                 TextFormField(
                   key: const ValueKey('custom-address'),
-                  initialValue: _draft.address,
+                  controller: _address,
                   style: const TextStyle(fontSize: 12),
                   decoration: const InputDecoration(
                     labelText: '配置文件路径 (Address)',
@@ -226,6 +378,36 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   onChanged: (v) => _draft.address = v,
                   validator: (v) => (v ?? '').trim().isEmpty ? '必填' : null,
                 ),
+                const SizedBox(height: 4),
+                Row(
+                  children: <Widget>[
+                    OutlinedButton.icon(
+                      key: const ValueKey('custom-browse'),
+                      onPressed: _busy ? null : _browse,
+                      icon: const Icon(Icons.folder_open, size: 16),
+                      label: const Text('浏览', style: TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      key: const ValueKey('custom-edit'),
+                      onPressed: _busy ? null : _edit,
+                      icon: const Icon(Icons.edit, size: 16),
+                      label: const Text('编辑', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+                if (_fileError != null)
+                  Padding(
+                    key: const ValueKey('custom-file-error'),
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _fileError!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 TextFormField(
                   key: const ValueKey('custom-config-text'),
@@ -340,9 +522,20 @@ Future<c.ProfileDto?> showCustomEditor(
   BuildContext context, {
   required ProfileDraft initial,
   required c.SaveProfileResult Function(c.ProfileDto draft) onSave,
+  CustomImportFile? customImportFile,
+  DataDirLookup? dataDir,
+  CustomFilePicker? pickFile,
+  CustomFileOpener? openFile,
 }) {
   return showDialog<c.ProfileDto>(
     context: context,
-    builder: (context) => CustomEditorDialog(initial: initial, onSave: onSave),
+    builder: (context) => CustomEditorDialog(
+      initial: initial,
+      onSave: onSave,
+      customImportFile: customImportFile ?? _unwiredCustomImport,
+      dataDir: dataDir ?? _unwiredDataDir,
+      pickFile: pickFile ?? pickCustomConfigFile,
+      openFile: openFile ?? openConfigFileExternally,
+    ),
   );
 }

@@ -2749,10 +2749,14 @@ features:
   cancel_behavior: 无
   acceptance: 非打包环境可升级
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: "crates/application/src/update_service.rs (app_update_spec -> ExternalUpgradeSpec); crates/updater/src/install.rs (UpgradeCoordinator, no spawn); crates/bridge_api/src/api/t16.rs (t16_apply_app_update_spec)"
-  test_ids: ["t16_update.rs (app_update_spec_never_spawns_helper)", "t16_update_test.dart (application update only produces an external spec)"]
+  implementation_location: "crates/application/src/update_service.rs (app_update_spec -> ExternalUpgradeSpec; check_app_update; explicit install_root); crates/updater/src/install.rs (UpgradeCoordinator, no spawn); crates/updater/src/app_upgrade.rs (AppInstallLayout, apply_app_upgrade, rollback_app_upgrade, AppRestartCommand; FIX-12B); crates/bridge_api/src/api/t16.rs (t16_apply_app_update_spec)"
+  test_ids: ["t16_update.rs (app_update_spec_never_spawns_helper)", "t16_update_test.dart (application update only produces an external spec)", "updater/tests/app_upgrade.rs (synthetic zip stage->replace->rollback->restart; WPF reject)", "t16_update.rs (app_update_stage_replace_rollback_restart_isolated; app_update_requires_configured_source; app_update_rejects_wpf_payload_for_flutter_binary)"]
   evidence:
   - v2rayN/ServiceLib/Services/UpdateService.cs:9
+  - v2rayN/AmazTool/UpgradeApp.cs
+  - v2rayN/AmazTool/Utils.cs:29
+  - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:332
+  - docs/evidence/UX-PARITY-FIX-12B/README.md
   - v2rayN/ServiceLib/Manager/CoreInfoManager.cs:79
   - v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:259
   - v2rayN/AmazTool/UpgradeApp.cs:24
@@ -4121,8 +4125,10 @@ features:
   - crates/application/src/backup_service.rs:restore (recursive resource copy-back + rollback)
   - crates/application/src/backup_service.rs:import_upstream (upstream config activation)
   - crates/application/src/engine.rs:quiesce/reopen (close + reload SQLite/config)
+  - docs/evidence/UX-PARITY-FIX-14B/README.md
+  - apps/desktop/lib/features/backup/backup_picker.dart (file_selector ZIP/dir restore picker)
   status: implemented
-  notes: FIX-14 (2026-10-03 append) - restore now quiesces live SQLite handles, swaps DB+config+recursive resources with rollback, then reopens settings/active/revisions. Upstream CPU timeline AppExit(false)+DisposeDbConnectionAsync()+extract+Shutdown(true) is replaced by in-process quiesce+reopen+resource rollback. Upstream import now writes upstream_config into the live guiNConfig.json with IndexId/SubIndexId/active_index_id remapped. Not validated against a real upstream window; stays implemented.
+  notes: FIX-14 (2026-10-03 append) - restore now quiesces live SQLite handles, swaps DB+config+recursive resources with rollback, then reopens settings/active/revisions. Upstream CPU timeline AppExit(false)+DisposeDbConnectionAsync()+extract+Shutdown(true) is replaced by in-process quiesce+reopen+resource rollback. Upstream import now writes upstream_config into the live guiNConfig.json with IndexId/SubIndexId/active_index_id remapped. Not validated against a real upstream window; stays implemented. FIX-14B (2026-10-04 append) - the local-restore UI now opens a native file_selector dialog (OpenFileDialog-equivalent for backup_*.zip and a directory picker for project bundles); a cancelled picker is a no-op. A picked ZIP is recognised then imported/activated (quiesce->activate->reopen); a picked bundle directory calls t16_backup_restore (quiesce->swap->reopen). The window re-reads engine-owned settings after restore. Gaps registered - create_local/list still operate on bundle directories, not backup_*.zip files, and backup_list items carry no root path or byte size. Not validated against a real upstream window; stays implemented.
 - id: F-BACKUP-003
   name: WebDAV 远程备份/恢复
   family: backup

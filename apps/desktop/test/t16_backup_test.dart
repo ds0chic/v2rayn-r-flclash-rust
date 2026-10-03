@@ -3,12 +3,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/backup/backup_and_restore_view.dart';
+import 'package:v2rayn_desktop/features/backup/backup_picker.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
-ProviderContainer makeContainer(SyntheticBridgePort bridge) =>
-    ProviderContainer(
-      overrides: [bridgePortProvider.overrideWithValue(bridge)],
-    );
+class _FakePicker implements BackupPicker {
+  const _FakePicker({this.directory});
+
+  final String? directory;
+
+  @override
+  Future<String?> pickArchive() async => null;
+
+  @override
+  Future<String?> pickDirectory() async => directory;
+}
+
+ProviderContainer makeContainer(
+  SyntheticBridgePort bridge, {
+  BackupPicker? picker,
+}) => ProviderContainer(
+  overrides: [
+    bridgePortProvider.overrideWithValue(bridge),
+    if (picker != null) backupPickerProvider.overrideWithValue(picker),
+  ],
+);
 
 Future<void> pumpBackup(
   WidgetTester tester,
@@ -61,16 +79,15 @@ void main() {
     tester,
   ) async {
     final bridge = SyntheticBridgePort();
-    final container = makeContainer(bridge);
+    final container = makeContainer(
+      bridge,
+      picker: const _FakePicker(directory: '/tmp/broken'),
+    );
     addTearDown(container.dispose);
     await pumpBackup(tester, container);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('backup-bundle-field')),
-      '/tmp/broken',
-    );
-    await pressKey(tester, 'backup-restore-btn');
-    await tester.pump();
+    await pressKey(tester, 'backup-restore-dir-btn');
+    await tester.pumpAndSettle();
 
     expect(bridge.t16Calls, contains('backup_restore:/tmp/broken'));
     expect(find.textContaining('本地恢复失败'), findsOneWidget);

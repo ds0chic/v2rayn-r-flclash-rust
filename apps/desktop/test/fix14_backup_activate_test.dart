@@ -3,16 +3,34 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/backup/backup_and_restore_view.dart';
+import 'package:v2rayn_desktop/features/backup/backup_picker.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
 // FIX-14 targeted UI tests: the backup window reports that an upstream import
 // activates the restored settings/active node and that a local restore reloads
 // the config + resources, while keeping the existing error path intact.
 
-ProviderContainer makeContainer(SyntheticBridgePort bridge) =>
-    ProviderContainer(
-      overrides: [bridgePortProvider.overrideWithValue(bridge)],
-    );
+class _FakePicker implements BackupPicker {
+  const _FakePicker({this.directory});
+
+  final String? directory;
+
+  @override
+  Future<String?> pickArchive() async => null;
+
+  @override
+  Future<String?> pickDirectory() async => directory;
+}
+
+ProviderContainer makeContainer(
+  SyntheticBridgePort bridge, {
+  BackupPicker? picker,
+}) => ProviderContainer(
+  overrides: [
+    bridgePortProvider.overrideWithValue(bridge),
+    if (picker != null) backupPickerProvider.overrideWithValue(picker),
+  ],
+);
 
 Future<void> pumpBackup(
   WidgetTester tester,
@@ -43,15 +61,15 @@ void main() {
     tester,
   ) async {
     final bridge = SyntheticBridgePort();
-    final container = makeContainer(bridge);
+    final container = makeContainer(
+      bridge,
+      picker: const _FakePicker(directory: '/tmp/good-bundle'),
+    );
     addTearDown(container.dispose);
     await pumpBackup(tester, container);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('backup-bundle-field')),
-      '/tmp/good-bundle',
-    );
-    await pressKey(tester, 'backup-restore-btn');
+    await pressKey(tester, 'backup-restore-dir-btn');
+    await tester.pumpAndSettle();
 
     expect(bridge.t16Calls, contains('backup_restore:/tmp/good-bundle'));
     expect(find.textContaining('已重载'), findsOneWidget);
@@ -78,15 +96,15 @@ void main() {
 
   testWidgets('broken bundle keeps the structured error path', (tester) async {
     final bridge = SyntheticBridgePort();
-    final container = makeContainer(bridge);
+    final container = makeContainer(
+      bridge,
+      picker: const _FakePicker(directory: '/tmp/broken'),
+    );
     addTearDown(container.dispose);
     await pumpBackup(tester, container);
 
-    await tester.enterText(
-      find.byKey(const ValueKey('backup-bundle-field')),
-      '/tmp/broken',
-    );
-    await pressKey(tester, 'backup-restore-btn');
+    await pressKey(tester, 'backup-restore-dir-btn');
+    await tester.pumpAndSettle();
 
     expect(find.textContaining('本地恢复失败'), findsOneWidget);
     expect(find.textContaining('E_FIELD_FORMAT'), findsOneWidget);

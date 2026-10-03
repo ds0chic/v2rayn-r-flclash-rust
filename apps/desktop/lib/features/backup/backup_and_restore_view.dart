@@ -22,7 +22,6 @@ class BackupAndRestoreView extends ConsumerStatefulWidget {
 
 class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
   final _destDir = TextEditingController();
-  final _bundleDir = TextEditingController();
   final _archivePath = TextEditingController();
   final _bundleParent = TextEditingController();
   final _url = TextEditingController();
@@ -43,7 +42,6 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
   @override
   void dispose() {
     _destDir.dispose();
-    _bundleDir.dispose();
     _archivePath.dispose();
     _bundleParent.dispose();
     _url.dispose();
@@ -85,13 +83,37 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                 buttonLabel: '本地备份',
                 onPressed: () => controller.localBackup(_destDir.text),
               ),
-              _pathRow(
-                label: '备份包目录',
-                fieldKey: 'backup-bundle-field',
-                controller: _bundleDir,
-                buttonKey: 'backup-restore-btn',
-                buttonLabel: '本地恢复',
-                onPressed: () => controller.restoreBundle(_bundleDir.text),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: <Widget>[
+                    const SizedBox(
+                      width: 96,
+                      child: Text('本地恢复', style: TextStyle(fontSize: 12)),
+                    ),
+                    OutlinedButton(
+                      key: const ValueKey('backup-restore-zip-btn'),
+                      onPressed: state.busy
+                          ? null
+                          : () => controller.restoreFromArchive(),
+                      child: const Text(
+                        '选择备份 ZIP 恢复',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      key: const ValueKey('backup-restore-dir-btn'),
+                      onPressed: state.busy
+                          ? null
+                          : () => controller.restoreFromDirectory(),
+                      child: const Text(
+                        '选择备份包目录恢复',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 6),
               _pathRow(
@@ -128,9 +150,38 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
               if (state.bundles.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    '已发现 ${state.bundles.length} 个备份包',
-                    style: const TextStyle(fontSize: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      Text(
+                        '已发现 ${state.bundles.length} 个备份包',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      for (var i = 0; i < state.bundles.length; i++)
+                        Row(
+                          key: ValueKey('backup-list-item-$i'),
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                _bundleLabel(state.bundles[i]),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            OutlinedButton(
+                              key: ValueKey('backup-list-restore-$i'),
+                              onPressed: state.busy
+                                  ? null
+                                  : () => controller.restoreListed(
+                                      state.bundles[i],
+                                    ),
+                              child: const Text(
+                                '恢复',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
               const Divider(height: 24),
@@ -234,6 +285,31 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
         ),
       ],
     );
+  }
+
+  String _bundleLabel(c.BackupManifestDto manifest) {
+    final time = _formatEpoch(manifest.createdAt);
+    final where = manifest.root ?? '(未提供路径)';
+    return '$time · ${manifest.resourceCount} 项资源 · $where';
+  }
+
+  String _formatEpoch(Object? value) {
+    final int seconds;
+    if (value is BigInt) {
+      seconds = value.toInt();
+    } else if (value is num) {
+      seconds = value.toInt();
+    } else {
+      return '未知时间';
+    }
+    if (seconds <= 0) return '未知时间';
+    final local = DateTime.fromMillisecondsSinceEpoch(
+      seconds * 1000,
+      isUtc: true,
+    ).toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
   }
 
   Widget _section(String title) => Padding(

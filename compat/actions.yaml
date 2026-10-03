@@ -5082,9 +5082,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/AddServer2ViewModel.cs:27
   - v2rayN/ServiceLib/ViewModels/AddServer2ViewModel.cs:109
   - v2rayN/v2rayN/Views/AddServer2Window.xaml.cs:27
-  implementation_location: null
-  test_ids: []
-  status: identified
+  implementation_location: apps/desktop/lib/features/profiles/custom_editor_dialog.dart + profile_actions.dart; apps/desktop/lib/bridge/bridge_port.dart
+  test_ids: [fix03b_custom_browse_test, t10_custom_editor_test, fix03_special_editors_test]
+  status: implemented
+  notes: 'FIX-03B（docs/tasks/FIX-03B.md）：编辑器「浏览」用 file_selector 选 json/yaml 并调用 bridge.customImportFile(sourcePath) 拷贝到 <dataDir>/config，Address 改写为返回文件名，空备注默认 import custom[@]@yyyy/MM/dd HH:mm:ss（Outbound 加 outbound）；「编辑」按 Utils.GetConfigPath 语义解析 fullPath（绝对原样，否则 dataDir/config/address）后 cmd /c start 外部打开，缺失明确提示。SyntheticBridgePort 记录调用、可注入失败。上游 AddServer2ViewModel.cs:79/109、ConfigHandler.cs:550/587/631、Utils.cs:1191。真实窗口+file_selector 端到端、非 Windows 分支、文件型 config codegen（Rust）留后续。'
 - id: ACT-GROUP-001
   name: 策略组-添加子节点
   domain: profiles

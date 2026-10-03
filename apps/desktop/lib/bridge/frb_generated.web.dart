@@ -223,6 +223,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CoreVersionsDto dco_decode_core_versions_dto(dynamic raw);
 
   @protected
+  CustomFileResult dco_decode_custom_file_result(dynamic raw);
+
+  @protected
   DelayResultDto dco_decode_delay_result_dto(dynamic raw);
 
   @protected
@@ -1003,6 +1006,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CoreVersionsDto sse_decode_core_versions_dto(SseDeserializer deserializer);
+
+  @protected
+  CustomFileResult sse_decode_custom_file_result(SseDeserializer deserializer);
 
   @protected
   DelayResultDto sse_decode_delay_result_dto(SseDeserializer deserializer);
@@ -1992,6 +1998,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_core_versions_dto(
     CoreVersionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_custom_file_result(
+    CustomFileResult self,
     SseSerializer serializer,
   );
 

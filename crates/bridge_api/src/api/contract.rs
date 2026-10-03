@@ -256,6 +256,14 @@ pub struct SaveProfileResult {
     pub error: Option<ErrorDto>,
 }
 
+/// Result of `custom_import_file`: the stored config file name on success.
+#[derive(Clone)]
+pub struct CustomFileResult {
+    pub ok: bool,
+    pub file_name: Option<String>,
+    pub error: Option<ErrorDto>,
+}
+
 /// Result of `apply_runtime`.
 #[derive(Clone)]
 pub struct ApplyRuntimeResult {

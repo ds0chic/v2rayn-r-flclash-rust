@@ -69,12 +69,15 @@ Future<void> editSelectedProfile(BuildContext context, WidgetRef ref) async {
     _toast(ref, '未找到节点 $id');
     return;
   }
+  final bridge = ref.read(bridgePortProvider);
   switch (resolveEditorKind(dto.configType)) {
     case SpecialEditorKind.custom:
       final saved = await showCustomEditor(
         context,
         initial: ProfileDraft.fromDto(dto),
         onSave: controller.saveDraft,
+        customImportFile: bridge.customImportFile,
+        dataDir: bridge.dataDir,
       );
       _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
     case SpecialEditorKind.group:
@@ -277,6 +280,7 @@ Future<void> startAddCustomProfile(
 ) async {
   assert(configType == ConfigType.custom || configType == ConfigType.outbound);
   final controller = ref.read(profilesControllerProvider.notifier);
+  final bridge = ref.read(bridgePortProvider);
   final draft = controller.newDraft(configType)
     ..port = 0
     ..address = '';
@@ -284,6 +288,8 @@ Future<void> startAddCustomProfile(
     context,
     initial: draft,
     onSave: controller.saveDraft,
+    customImportFile: bridge.customImportFile,
+    dataDir: bridge.dataDir,
   );
   _toast(ref, saved == null ? '已取消添加' : '已保存 ${saved.remarks}');
 }
@@ -306,10 +312,13 @@ Future<void> editSelectedCustom(BuildContext context, WidgetRef ref) async {
     _toast(ref, '所选不是自定义配置/出站节点');
     return;
   }
+  final bridge = ref.read(bridgePortProvider);
   final saved = await showCustomEditor(
     context,
     initial: ProfileDraft.fromDto(dto),
     onSave: controller.saveDraft,
+    customImportFile: bridge.customImportFile,
+    dataDir: bridge.dataDir,
   );
   _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
 }

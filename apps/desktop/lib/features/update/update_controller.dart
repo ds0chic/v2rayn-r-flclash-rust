@@ -207,10 +207,17 @@ class UpdateController extends Notifier<UpdateState> {
       clearStage: true,
       lastSpec: spec,
       status: spec.ok
-          ? const UpdateStatus(kind: 'info', message: '应用更新需要外部进程执行（本程序不执行替换）')
+          ? const UpdateStatus(
+              kind: 'info',
+              message: '应用更新已暂存，退出后由外部 runner 执行替换并重启',
+            )
           : UpdateStatus(
               kind: 'error',
-              message: '应用更新不可用',
+              message:
+                  spec.error?.messageKey ==
+                      'error.update_app_source_unconfigured'
+                  ? '应用自身发行源未配置'
+                  : '应用更新不可用',
               detail: _detail(spec.error),
             ),
     );

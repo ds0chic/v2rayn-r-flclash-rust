@@ -12,6 +12,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use domain::{codes, CancellationToken, DomainError};
 use runtime::CoreInstallLayout;
+use updater::app_upgrade::{
+    apply_app_upgrade, rollback_app_upgrade, AppInstallLayout, AppRestartCommand, AppUpgradeOutcome,
+};
 use updater::arch::{binary_matches, detect_target, HostTarget};
 use updater::channel::{self, CoreSpec};
 use updater::download::{DownloadRequest, DownloaderOptions, FileDownloader};
@@ -45,6 +48,13 @@ pub const GITHUB_API_BASE: &str = "https://api.github.com/repos";
 /// honoured in debug builds; see [`test_api_base_override`].
 pub const API_BASE_ENV: &str = "V2RAYN_R_UPDATE_API_BASE";
 
+/// Test-only environment variable that configures the application's own release
+/// repository slug (`owner/name`). Unset by default: the Flutter rebuild has no
+/// real published release source yet, so a real application update reports
+/// `error.update_app_source_unconfigured` instead of pretending to work. Only
+/// honoured in debug builds; see [`test_app_repo_override`].
+pub const APP_REPO_ENV: &str = "V2RAYN_R_APP_REPO";
+
 /// Test-only API base override for the releases endpoint.
 ///
 /// This is compiled out of release builds (`debug_assertions` off) so a shipped
@@ -63,6 +73,41 @@ pub fn test_api_base_override() -> Option<String> {
     {
         None
     }
+}
+
+/// Test-only application release source override (`owner/name`).
+///
+/// Compiled out of release builds so a shipped binary cannot be redirected by
+/// an environment variable. Returns `None` when unset, which is the shipped
+/// default (no fabricated endpoint).
+pub fn test_app_repo_override() -> Option<String> {
+    #[cfg(debug_assertions)]
+    {
+        std::env::var(APP_REPO_ENV)
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        None
+    }
+}
+
+fn default_app_exe_name() -> String {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| {
+            if cfg!(windows) {
+                "v2rayN.exe".to_string()
+            } else {
+                "v2rayN".to_string()
+            }
+        })
 }
 
 /// Built-in update targets, in upstream order (`GetCheckUpdateCoreTypes`).
@@ -207,8 +252,16 @@ pub struct UpdateService {
     pub api_base: String,
     pub target: HostTarget,
     pub cores_root: PathBuf,
-    /// Root the external-upgrade coordinator is allowed to touch.
+    /// Explicit application install root the external-upgrade coordinator is
+    /// allowed to touch (not `cores_root.parent()`; set by the bridge).
     pub install_root: PathBuf,
+    /// Application release repository slug (`owner/name`); `None` means the
+    /// Flutter rebuild has no published release source (real updates blocked).
+    pub app_repo: Option<String>,
+    /// File name of the running application executable.
+    pub app_exe_name: String,
+    /// File name of the external upgrade runner.
+    pub runner_name: String,
     pub packaged: bool,
     pub timeout: Duration,
 }
@@ -226,6 +279,9 @@ impl UpdateService {
             target: detect_target().unwrap_or_else(default_target),
             cores_root,
             install_root,
+            app_repo: test_app_repo_override(),
+            app_exe_name: default_app_exe_name(),
+            runner_name: updater::DEFAULT_RUNNER_NAME.to_string(),
             packaged: false,
             timeout: UPDATE_TIMEOUT,
         }
@@ -234,6 +290,25 @@ impl UpdateService {
     /// Explicit releases API base override (loopback mocks in tests).
     pub fn with_api_base(mut self, base: impl Into<String>) -> Self {
         self.api_base = base.into();
+        self
+    }
+
+    /// Explicit application install root (the directory holding the running
+    /// executable); the bridge passes the current process directory.
+    pub fn with_app_install_root(mut self, root: impl Into<PathBuf>) -> Self {
+        self.install_root = root.into();
+        self
+    }
+
+    /// Override the expected application executable name.
+    pub fn with_app_exe_name(mut self, name: impl Into<String>) -> Self {
+        self.app_exe_name = name.into();
+        self
+    }
+
+    /// Configure the application release repository (`owner/name`).
+    pub fn with_app_repo(mut self, repo: impl Into<String>) -> Self {
+        self.app_repo = Some(repo.into());
         self
     }
 
@@ -327,6 +402,36 @@ impl UpdateService {
         prerelease_requested: bool,
         proxy: Option<&str>,
     ) -> Result<CoreUpdateCheck, DomainError> {
+        self.check_core_inner(core, None, prerelease_requested, proxy)
+            .await
+    }
+
+    /// Check the application's own update against its configured release
+    /// source.
+    ///
+    /// The Flutter rebuild has no real published release source yet; when none
+    /// is configured this fails closed with `error.update_app_source_unconfigured`
+    /// rather than reaching a fabricated endpoint.
+    pub async fn check_app_update(
+        &self,
+        prerelease_requested: bool,
+        proxy: Option<&str>,
+    ) -> Result<CoreUpdateCheck, DomainError> {
+        let repo = self.app_repo.clone().ok_or_else(|| {
+            DomainError::new(codes::UNAVAILABLE, "error.update_app_source_unconfigured")
+                .with_detail("no application release source is configured for this build")
+        })?;
+        self.check_core_inner("v2rayN", Some(&repo), prerelease_requested, proxy)
+            .await
+    }
+
+    async fn check_core_inner(
+        &self,
+        core: &str,
+        repo_override: Option<&str>,
+        prerelease_requested: bool,
+        proxy: Option<&str>,
+    ) -> Result<CoreUpdateCheck, DomainError> {
         let installed = self.installed_version(core);
         let spec = match channel::core_spec(core) {
             Some(spec) => spec,
@@ -362,7 +467,8 @@ impl UpdateService {
             });
         }
         let prerelease = channel::check_pre_release(core, prerelease_requested);
-        let client = ReleasesClient::new(spec.repo).with_api_base(self.api_base.clone());
+        let client = ReleasesClient::new(repo_override.unwrap_or(spec.repo))
+            .with_api_base(self.api_base.clone());
         let api = CoreReleaseApi::new_with_proxy(self.timeout, proxy).map_err(update_error)?;
         let releases = api.fetch(&client).await.map_err(update_error)?;
         let release = match spec.locked_max_version {
@@ -541,10 +647,9 @@ impl UpdateService {
         wait_for_pid: u32,
         cancellation: &CancellationToken,
     ) -> Result<ExternalUpgradeSpec, DomainError> {
-        let staging = self
-            .cores_root
-            .join(".staging")
-            .join(format!("app-{}", request.version));
+        // The staged payload must live inside the application install root so
+        // the external runner's atomic swap can happen on the same volume.
+        let staging = self.app_layout().staging_dir(&request.version);
         reset_dir(&staging)?;
         let staged = self.stage_artifact(request, &staging, cancellation).await?;
 
@@ -562,6 +667,41 @@ impl UpdateService {
         coordinator
             .external_upgrade_spec(staged, wait_for_pid)
             .map_err(update_error)
+    }
+
+    /// Frozen application install layout (explicit install root + runner).
+    pub fn app_layout(&self) -> AppInstallLayout {
+        AppInstallLayout::new(&self.install_root, &self.app_exe_name)
+            .with_runner_name(&self.runner_name)
+    }
+
+    /// Atomically install a staged application payload into the isolated
+    /// install root, keeping `app.previous`. This is what the external runner
+    /// (`v2rayN-upgrade.exe`) performs after the application exits; no process
+    /// is spawned here.
+    pub fn apply_app_upgrade(
+        &self,
+        spec: &ExternalUpgradeSpec,
+        version: &str,
+    ) -> Result<AppUpgradeOutcome, DomainError> {
+        if spec.install_root != self.install_root {
+            return Err(
+                DomainError::new(codes::CONFLICT, "error.update_app_install_root").with_detail(
+                    "external spec install root does not match the application layout",
+                ),
+            );
+        }
+        apply_app_upgrade(&self.app_layout(), version, &spec.source).map_err(update_error)
+    }
+
+    /// Restore the `app.previous` payload kept by the last replacement.
+    pub fn rollback_app_upgrade(&self) -> Result<PathBuf, DomainError> {
+        rollback_app_upgrade(&self.app_layout()).map_err(update_error)
+    }
+
+    /// The relaunch command the external runner builds after the swap.
+    pub fn app_restart_command(&self) -> AppRestartCommand {
+        self.app_layout().restart_command()
     }
 
     /// Restore the `<core>.previous` version kept by a prior install.

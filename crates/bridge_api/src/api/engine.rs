@@ -23,10 +23,10 @@ use domain::{DomainError, MultipleLoad, Profile, ProtocolExtra, SecurityParams, 
 use serde_json::Value;
 
 use crate::api::contract::{
-    ApplyRuntimeResult, CancelResult, CapabilityDto, CopyProfilesResult, DeleteProfilesResult,
-    ErrorDto, EventEnvelopeDto, JobDto, ProfileDto, ProfileFilterDto, ProfilePageDto,
-    ProfileSortDto, ProtocolExtraDto, RecoveryDto, SaveProfileResult, SecurityDto, SimpleResult,
-    SnapshotDto, StopRuntimeResult, TransportExtraDto,
+    ApplyRuntimeResult, CancelResult, CapabilityDto, CopyProfilesResult, CustomFileResult,
+    DeleteProfilesResult, ErrorDto, EventEnvelopeDto, JobDto, ProfileDto, ProfileFilterDto,
+    ProfilePageDto, ProfileSortDto, ProtocolExtraDto, RecoveryDto, SaveProfileResult, SecurityDto,
+    SimpleResult, SnapshotDto, StopRuntimeResult, TransportExtraDto,
 };
 
 use crate::frb_generated::StreamSink;
@@ -526,6 +526,26 @@ pub fn save_imported_profile(mut draft: ProfileDto, expected_revision: u64) -> S
             ok: false,
             profile: None,
             new_revision: None,
+            error: Some(error_dto(e)),
+        },
+    }
+}
+
+/// `custom_import_file` — copy a user-selected custom/outbound config file
+/// into the data directory's `config/` folder (upstream `AddCustomServer` /
+/// `AddCustomOutboundServer` browse step) and return the stored file name for
+/// `Profile.address`.
+#[frb(sync)]
+pub fn custom_import_file(source_path: String) -> CustomFileResult {
+    match engine().import_custom_file(std::path::Path::new(&source_path)) {
+        Ok(file_name) => CustomFileResult {
+            ok: true,
+            file_name: Some(file_name),
+            error: None,
+        },
+        Err(e) => CustomFileResult {
+            ok: false,
+            file_name: None,
             error: Some(error_dto(e)),
         },
     }

@@ -65,7 +65,10 @@ struct Mock {
 fn build_mock() -> Mock {
     let xray_zip = make_zip(&[("xray.exe", pe_x64())]);
     let xray_zip_sha = sha256_hex(&xray_zip);
-    let v2rayn_zip = make_zip(&[("v2rayN.exe", b"app".to_vec())]);
+    let v2rayn_zip = make_zip(&[
+        ("v2rayn_desktop.exe", b"app".to_vec()),
+        ("data/seed.txt", b"seed".to_vec()),
+    ]);
 
     // The port is needed inside the JSON URLs, so bind the server first.
     let server = Server::http("127.0.0.1:0").expect("bind mock");
@@ -122,6 +125,11 @@ fn service(cores_root: &Path, port: u16) -> UpdateService {
     service.api_base = format!("http://127.0.0.1:{port}/repos");
     service.target = HostTarget::new(Os::Windows, PlatformArch::X64);
     service.timeout = Duration::from_secs(5);
+    // Keep the application install root inside the temp tree so the app
+    // self-update staging/replace flow never touches the real installation.
+    service.install_root = cores_root.to_path_buf();
+    service.app_repo = Some("2dust/v2rayN".to_string());
+    service.app_exe_name = "v2rayn_desktop.exe".to_string();
     service
 }
 
@@ -241,5 +249,87 @@ fn app_update_spec_never_spawns_helper() {
         assert!(spec.source.is_dir());
         assert_eq!(spec.helper_exe, helper);
         assert!(!helper.exists(), "helper must not be executed/created");
+    });
+}
+
+#[test]
+fn app_update_requires_configured_source() {
+    let mock = build_mock();
+    let cores = tempfile::tempdir().expect("cores");
+    let mut service = service(cores.path(), mock.port);
+    service.app_repo = None;
+    let rt = runtime();
+    rt.block_on(async {
+        let error = service.check_app_update(true, None).await.unwrap_err();
+        assert_eq!(error.message_key, "error.update_app_source_unconfigured");
+        assert_eq!(error.code, "E_UNAVAILABLE");
+    });
+}
+
+#[test]
+fn app_update_stage_replace_rollback_restart_isolated() {
+    let mock = build_mock();
+    let app_root = tempfile::tempdir().expect("app root");
+    let mut service = service(&app_root.path().join("cores"), mock.port);
+    service.install_root = app_root.path().to_path_buf();
+    // Seed an active payload (so the swap keeps a rollback copy) and a runner
+    // stub that must never be executed.
+    let layout = service.app_layout();
+    std::fs::create_dir_all(layout.payload_dir()).expect("payload");
+    std::fs::write(layout.payload_dir().join("old.txt"), b"old").expect("old");
+    std::fs::write(layout.runner_exe(), b"stub").expect("runner stub");
+
+    let rt = runtime();
+    rt.block_on(async {
+        let check = service.check_app_update(true, None).await.expect("check");
+        assert_eq!(check.remote_version.as_deref(), Some("7.99.0"));
+        let token = application::CancellationToken::new();
+        let spec = service
+            .app_update_spec(&request_from(&check), layout.runner_exe(), 4242, &token)
+            .await
+            .expect("spec");
+        assert!(spec.source.is_dir());
+        assert_eq!(spec.install_root.as_path(), app_root.path());
+        assert_eq!(spec.helper_exe, layout.runner_exe());
+        assert_eq!(std::fs::read(layout.runner_exe()).expect("stub"), b"stub");
+
+        let version = check.remote_version.clone().expect("version");
+        let outcome = service.apply_app_upgrade(&spec, &version).expect("apply");
+        assert!(outcome.app_exe.is_file());
+        assert!(layout.previous_dir().is_dir());
+        assert_eq!(outcome.restart.program, layout.app_exe());
+        assert_eq!(outcome.restart.working_dir, layout.payload_dir());
+
+        let restored = service.rollback_app_upgrade().expect("rollback");
+        assert_eq!(restored, layout.payload_dir());
+        assert!(layout.payload_dir().join("old.txt").is_file());
+    });
+}
+
+#[test]
+fn app_update_rejects_wpf_payload_for_flutter_binary() {
+    let mock = build_mock();
+    let app_root = tempfile::tempdir().expect("app root");
+    let mut service = service(&app_root.path().join("cores"), mock.port);
+    service.install_root = app_root.path().to_path_buf();
+    // The downloaded app asset contains `v2rayn_desktop.exe`; expecting the WPF
+    // binary name must fail closed so the WPF package cannot land here.
+    service.app_exe_name = "v2rayN.exe".to_string();
+    let layout = service.app_layout();
+
+    let rt = runtime();
+    rt.block_on(async {
+        let check = service.check_app_update(true, None).await.expect("check");
+        let token = application::CancellationToken::new();
+        let spec = service
+            .app_update_spec(&request_from(&check), layout.runner_exe(), 1, &token)
+            .await
+            .expect("spec");
+        let version = check.remote_version.clone().expect("version");
+        let error = service
+            .apply_app_upgrade(&spec, &version)
+            .expect_err("mismatched package");
+        assert_eq!(error.code, "E_CONFLICT");
+        assert!(!layout.payload_dir().exists());
     });
 }

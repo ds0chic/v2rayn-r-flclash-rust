@@ -1,0 +1,92 @@
+{
+  "task": "FIX-12B",
+  "flow": "应用自身升级：检查→下载→验签→退出替换→重启",
+  "base_head": "da7df0d",
+  "status": "implemented",
+  "real_restart_performed": false,
+  "port_10808_touched": false,
+  "system_proxy_touched": false,
+  "tun_touched": false,
+  "upstream_frozen_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "upstream_symbols": [
+    "v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:332 UpgradeN",
+    "v2rayN/AmazTool/UpgradeApp.cs:9 Upgrade",
+    "v2rayN/AmazTool/Utils.cs:29 StartV2RayN",
+    "v2rayN/ServiceLib/Common/ProcUtils.cs:12 ProcessStart",
+    "v2rayN/ServiceLib/Common/Utils.cs:890 UpgradeAppExists"
+  ],
+  "changed_files": [
+    "crates/updater/src/app_upgrade.rs (new)",
+    "crates/updater/src/lib.rs",
+    "crates/application/src/update_service.rs",
+    "crates/bridge_api/src/api/t16.rs",
+    "apps/desktop/lib/features/update/update_controller.dart",
+    "apps/desktop/test/t16_update_test.dart",
+    "crates/updater/tests/app_upgrade.rs (new)",
+    "crates/application/tests/t16_update.rs",
+    "compat/features.yaml (F-CORE-003 evidence/test_ids append)"
+  ],
+  "acceptance": [
+    {
+      "id": 1,
+      "name": "发行来源/安装根/runner 一致",
+      "status": "implemented",
+      "evidence": [
+        "update_service::UpdateService.with_app_install_root",
+        "updater::AppInstallLayout::{payload_dir,previous_dir,runner_exe,coordinator}",
+        "t16.rs::app_install_root",
+        "updater/tests/app_upgrade.rs::synthetic_wpf_zip_is_rejected",
+        "application/tests/t16_update.rs::app_update_rejects_wpf_payload_for_flutter_binary"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "退出替换重启（隔离目录+合成zip+stub runner）",
+      "status": "implemented",
+      "evidence": [
+        "updater/tests/app_upgrade.rs::synthetic_zip_stage_replace_rollback_restart",
+        "application/tests/t16_update.rs::app_update_stage_replace_rollback_restart_isolated"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "真实远端发行源",
+      "status": "blocked",
+      "reason": "本 build 无自己的发布仓库/签名资产，app_repo 默认 None；未伪造 GitHub 端点",
+      "evidence": [
+        "application/tests/t16_update.rs::app_update_requires_configured_source",
+        "t16_update_test.dart::unconfigured application source is reported as blocked"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "不改 FRB 生成文件",
+      "status": "preserved_only",
+      "evidence": ["no edits under frb_generated / contract.rs"]
+    },
+    {
+      "id": 5,
+      "name": "不改 FIX-12 内核布局/验签语义",
+      "status": "preserved_only",
+      "evidence": [
+        "CoreInstallLayout untouched",
+        "enforce_detached_signature untouched",
+        "check_core refactor only added repo_override"
+      ]
+    }
+  ],
+  "commands": [
+    "cargo fmt -p updater -p application -p bridge_api -- --check  => clean",
+    "cargo clippy -p updater -p application -p bridge_api --all-targets --locked -- -D warnings => clean",
+    "cargo test -p updater --test app_upgrade --locked => 2 passed",
+    "cargo test -p application --lib update_service --locked => 5 passed",
+    "cargo test -p application --test t16_update --locked => 6 passed",
+    "dart format --output=none --set-exit-if-changed lib/features/update test/t16_update_test.dart => 0 changed, exit 0",
+    "flutter test test/t16_update_test.dart => 7 passed"
+  ],
+  "blocked": [
+    "真实远端应用发行源端到端（下载真实发布包→验签→替换→真实重启）未验证：无真实发布仓库/签名资产",
+    "ExternalSpecDto 未携带重启命令；Dart 端发起 runner 需新增 FRB 函数与 DTO（登记，待生成文件重生成）",
+    "SET-20 CheckUpdateItem 持久化与后台每日检查点亮按钮（FIX-12 已登记，未变）"
+  ]
+}

@@ -1,0 +1,26 @@
+=== dart format --output=none --set-exit-if-changed lib/features/update test/t16_update_test.dart ===
+Formatted 3 files (0 changed) in 0.01 seconds.
+format_exit=0
+=== flutter test test/t16_update_test.dart ===
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart
+00:00 +0: unsupported targets render disabled
+00:00 +1: via-proxy check without a local port is structured
+00:00 +2: prerelease toggle is forwarded to the bridge
+00:00 +3: check-update applies core updates and reports counts
+00:00 +4: application update only produces an external spec
+00:00 +5: unconfigured application source is reported as blocked
+00:00 +6: rendering the window performs no update call
+00:00 +7: All tests passed!

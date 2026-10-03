@@ -64,6 +64,13 @@ SaveProfileResult saveImportedProfile({
   expectedRevision: expectedRevision,
 );
 
+/// `custom_import_file` — copy a user-selected custom/outbound config file
+/// into the data directory's `config/` folder (upstream `AddCustomServer` /
+/// `AddCustomOutboundServer` browse step) and return the stored file name for
+/// `Profile.address`.
+CustomFileResult customImportFile({required String sourcePath}) =>
+    RustLib.instance.api.crateApiEngineCustomImportFile(sourcePath: sourcePath);
+
 /// `delete_profiles` — delete a selection by stable id set.
 DeleteProfilesResult deleteProfiles({required List<String> ids}) =>
     RustLib.instance.api.crateApiEngineDeleteProfiles(ids: ids);

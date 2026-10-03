@@ -1,0 +1,40 @@
+=== cargo fmt -p updater -p application -p bridge_api -- --check ===
+=== cargo clippy ... -D warnings ===
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.55s
+=== cargo test -p updater --test app_upgrade ===
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests\app_upgrade.rs (target\debug\deps\app_upgrade-2654360d01309c42.exe)
+
+running 2 tests
+test synthetic_wpf_zip_is_rejected ... ok
+test synthetic_zip_stage_replace_rollback_restart ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+=== cargo test -p application --lib update_service ===
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.37s
+     Running unittests src\lib.rs (target\debug\deps\application-7735c105c4c3edff.exe)
+
+running 5 tests
+test update_service::tests::explicit_with_api_base_wins ... ok
+test update_service::tests::detached_signature_enforcement_rejects_wrong_and_missing ... ok
+test update_service::tests::override_is_honoured_and_validated_in_debug ... ok
+test update_service::tests::apply_core_refuses_application_target ... ok
+test update_service::tests::install_layout_is_resolved_by_runtime_locator ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 173 filtered out; finished in 0.01s
+
+=== cargo test -p application --test t16_update ===
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests\t16_update.rs (target\debug\deps\t16_update-eef97a6b5d9c8011.exe)
+
+running 6 tests
+test app_update_requires_configured_source ... ok
+test digest_mismatch_leaves_no_install ... ok
+test app_update_spec_never_spawns_helper ... ok
+test app_update_rejects_wpf_payload_for_flutter_binary ... ok
+test app_update_stage_replace_rollback_restart_isolated ... ok
+test check_apply_and_rollback_in_temp_dir ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+

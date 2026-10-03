@@ -1,9 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/update/check_update_view.dart';
+
+/// Application self-update with no configured release source (blocked).
+class _UnconfiguredAppBridge extends SyntheticBridgePort {
+  @override
+  Future<c.ExternalSpecDto> t16ApplyAppUpdateSpec() async {
+    t16Calls.add('app_update_spec');
+    return const c.ExternalSpecDto(
+      ok: false,
+      helperExe: null,
+      source: null,
+      installRoot: null,
+      waitForPid: 0,
+      args: <String>[],
+      error: c.ErrorDto(
+        code: 'E_UNAVAILABLE',
+        messageKey: 'error.update_app_source_unconfigured',
+        retryable: false,
+      ),
+    );
+  }
+}
 
 ProviderContainer makeContainer(SyntheticBridgePort bridge) =>
     ProviderContainer(
@@ -113,7 +135,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(bridge.t16Calls, contains('app_update_spec'));
-    expect(find.textContaining('需要外部进程执行'), findsOneWidget);
+    expect(find.textContaining('外部 runner 执行替换并重启'), findsOneWidget);
+  });
+
+  testWidgets('unconfigured application source is reported as blocked', (
+    tester,
+  ) async {
+    final bridge = _UnconfiguredAppBridge();
+    final container = makeContainer(bridge);
+    addTearDown(container.dispose);
+    await pumpUpdate(tester, container);
+
+    await tester.tap(find.byKey(const ValueKey('update-app-spec-btn')));
+    await tester.pumpAndSettle();
+
+    expect(bridge.t16Calls, contains('app_update_spec'));
+    expect(find.textContaining('应用自身发行源未配置'), findsOneWidget);
+    expect(find.textContaining('E_UNAVAILABLE'), findsOneWidget);
   });
 
   testWidgets('rendering the window performs no update call', (tester) async {

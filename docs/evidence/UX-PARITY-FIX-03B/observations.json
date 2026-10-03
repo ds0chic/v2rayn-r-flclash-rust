@@ -1,0 +1,38 @@
+{
+  "task": "FIX-03B",
+  "title": "Custom/Outbound 编辑器浏览导入 + 外部编辑",
+  "status": "implemented",
+  "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "platform": "windows",
+  "real_window": false,
+  "test_file": "apps/desktop/test/fix03b_custom_browse_test.dart",
+  "totals": { "passed": 14, "failed": 0, "attempts": 3, "flake_retries": 2 },
+  "checks": [
+    { "id": "browse-success", "desc": "pick -> customImportFile(source) -> address=stored name -> save keeps it", "pass": true },
+    { "id": "browse-outbound-remarks", "desc": "empty remarks -> 'import custom outbound@...'", "pass": true },
+    { "id": "browse-cancel", "desc": "cancelled picker calls no import, keeps address empty", "pass": true },
+    { "id": "browse-failure", "desc": "failed import keeps address and shows custom-file-error", "pass": true },
+    { "id": "remarks-not-overwritten", "desc": "non-empty remarks untouched on browse", "pass": true },
+    { "id": "edit-relative", "desc": "relative address -> <dataDir>\\config\\<name>", "pass": true },
+    { "id": "edit-absolute", "desc": "absolute address opened as-is", "pass": true },
+    { "id": "edit-missing", "desc": "missing file -> explicit custom-file-error", "pass": true },
+    { "id": "edit-empty-address", "desc": "empty address rejected before opening", "pass": true },
+    { "id": "synthetic-seam-ok", "desc": "SyntheticBridgePort records source, returns name+ext, dataDir()", "pass": true },
+    { "id": "synthetic-seam-fail", "desc": "SyntheticBridgePort forced failure returns error.custom_file_not_found", "pass": true },
+    { "id": "default-remarks-format", "desc": "yyyy/MM/dd HH:mm:ss custom/outbound prefixes", "pass": true }
+  ],
+  "regressions": [
+    { "file": "test/t10_custom_editor_test.dart", "passed": 5, "failed": 0 },
+    { "file": "test/fix03_special_editors_test.dart", "passed": 7, "failed": 0 }
+  ],
+  "gates": {
+    "dart_format_set_exit_if_changed": "0 changed",
+    "flutter_analyze": "No issues found (whole app)",
+    "flutter_analyze_transient": "an intermediate run showed 3 issues in test/fix14*/t16_backup_test.dart, from another subagent's in-flight backup edits; clean on the final run"
+  },
+  "not_run": ["real window integration_test", "flutter build windows", "rust gates"],
+  "interface_gaps": [
+    "real file_selector + real Windows window end-to-end not exercised in this card",
+    "non-Windows external-open branch not implemented (returns false prompt)"
+  ]
+}

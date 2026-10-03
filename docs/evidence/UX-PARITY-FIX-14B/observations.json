@@ -1,0 +1,65 @@
+{
+  "task": "FIX-14B",
+  "flow": "current backup restore: pick local zip -> restore -> reopen",
+  "head_at_start": "da7df0d",
+  "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "changed_files": [
+    "apps/desktop/lib/features/backup/backup_picker.dart",
+    "apps/desktop/lib/features/backup/backup_controller.dart",
+    "apps/desktop/lib/features/backup/backup_and_restore_view.dart",
+    "apps/desktop/test/fix14b_backup_restore_test.dart",
+    "apps/desktop/test/fix14_backup_activate_test.dart",
+    "apps/desktop/test/t16_backup_test.dart",
+    "compat/features.yaml",
+    "docs/tasks/FIX-14B.md",
+    "docs/evidence/UX-PARITY-FIX-14B/README.md",
+    "docs/evidence/UX-PARITY-FIX-14B/observations.json"
+  ],
+  "not_changed": [
+    "main_shell.dart",
+    "app.dart",
+    "lib/bridge/frb_generated*.dart",
+    "crates/bridge_api/src/frb_generated.rs",
+    "lib/bridge/api/**",
+    "crates/**",
+    "features/settings/**",
+    "features/profiles/**",
+    "features/subs/**",
+    "features/runtime/**",
+    "features/monitor/**",
+    "features/update/**",
+    "features/routing/**"
+  ],
+  "commands": [
+    {
+      "cmd": "dart format lib/features/backup test/fix14b_backup_restore_test.dart test/t16_backup_test.dart test/fix14_backup_activate_test.dart",
+      "result": "6 files checked, 1 changed (backup_controller.dart)"
+    },
+    {
+      "cmd": "flutter analyze lib/features/backup test/fix14b_backup_restore_test.dart test/t16_backup_test.dart test/fix14_backup_activate_test.dart",
+      "result": "No issues found"
+    },
+    {
+      "cmd": "flutter test test/fix14b_backup_restore_test.dart test/fix14_backup_activate_test.dart test/t16_backup_test.dart",
+      "result": "14 passed / 0 failed"
+    }
+  ],
+  "ui_behavior": {
+    "archive_picker": "file_selector openFile XTypeGroup(zip); null => no-op",
+    "directory_picker": "file_selector getDirectoryPath",
+    "zip_restore": "t16_backup_recognize -> t16_backup_import_upstream (quiesce -> activate -> reopen)",
+    "bundle_restore": "t16_backup_restore (quiesce -> swap -> reopen)",
+    "after_restore_refresh": "re-read t16_webdav_config_get + t16_get_core_versions; hint reopen window",
+    "list": "t16_backup_list; rows show createdAt + resourceCount + root; per-item restore via t16_backup_restore"
+  },
+  "interface_gaps": [
+    "F-BACKUP-001 local backup still writes a bundle directory, no backup_*.zip export FRB",
+    "t16_backup_list DTO lacks bundle root path and byte size",
+    "project bundle zip local restore lacks an extraction entry (zip currently goes through recognize+import_upstream)",
+    "post-restore profiles/settings refresh is root-owned RestoreLifecycle",
+    "WebDAV remote is FIX-14C, not implemented here"
+  ],
+  "status": "implemented",
+  "verified": false,
+  "verified_reason": "no real upstream window event-by-event comparison and registered interface gaps"
+}

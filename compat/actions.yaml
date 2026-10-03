@@ -1754,10 +1754,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:125
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:530
-  implementation_location: null
-  test_ids: []
-  status: identified
-  notes: UX-SPACE-02（2026-10-03）：右键菜单已恢复「移除重复」根条目（上游顺序第 5），因桥接无去重结果比对 API，当前禁用并附诚实 tooltip，未接假实现。证据 docs/evidence/UX-SPACE-02/README.md。
+  implementation_location: apps/desktop/lib/features/profiles/profile_dedup.dart; apps/desktop/lib/features/profiles/profiles_controller.dart (removeDuplicateProfiles); apps/desktop/lib/features/profiles/profiles_table.dart (_removeDuplicate)
+  test_ids: [fix10_dedup_test, fix10_speedtest_result]
+  status: implemented
+  notes: UX-SPACE-02（2026-10-03）：右键菜单已恢复「移除重复」根条目（上游顺序第 5），因桥接无去重结果比对 API，当前禁用并附诚实 tooltip，未接假实现。证据 docs/evidence/UX-SPACE-02/README.md。FIX-10（2026-10-03）：入口恢复 enabled，确认后由 Dart 侧忠实移植 ConfigHandler.CompareProfileItem/DedupServerList（profile_dedup.dart）计算重复 ID，再经既有 deleteProfiles 落库删除并重开保持；Rust 侧同源实现已有单测（fix10_speedtest_result）。门禁后仍为 implemented（未做原版实机双窗口逐事件对照）。证据 docs/evidence/UX-PARITY-FIX-10/README.md。
 - id: ACT-PROF-004
   name: 复制选中节点
   domain: profiles
@@ -1815,6 +1815,7 @@ items:
   implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
   test_ids: [profiles_keyboard_test]
   status: implemented
+  notes: FIX-07 实证：受管运行端点发布/撤回（AppliedSession + net_host 停核清端口）与正常启动恢复已实现；击活入口"重复选同节点置空/不触发 apply"幂等一跳的 features/profiles 最小补丁见 docs/tasks/FIX-07.md。保存活动节点、切路由、F5 为另卡。
 - id: ACT-PROF-006
   name: 分享选中节点二维码
   domain: profiles
@@ -2259,7 +2260,7 @@ items:
   implementation_location: apps/desktop/lib/features/profiles/profiles_controller.dart (sortByResult) + apps/desktop/lib/features/profiles/profiles_table.dart
   test_ids: []
   status: implemented
-  notes: UX-SPACE-02（2026-10-03）：右键菜单恢复「按测试结果排序」根条目（上游顺序第 11）；sortByResult 按真实 ProfileSummary.delay 升序（未知/-1 置尾），无合成排序。证据 docs/evidence/UX-SPACE-02/README.md。
+  notes: UX-SPACE-02（2026-10-03）：右键菜单恢复「按测试结果排序」根条目（上游顺序第 11）；sortByResult 按真实 ProfileSummary.delay 升序（未知/-1 置尾），无合成排序。证据 docs/evidence/UX-SPACE-02/README.md。FIX-10（2026-10-03）：结果排序当前仅改内存行序；上游 SortServerResultCmd→SortServer→SortServers 写 ProfileExItem.Sort 并重开保持，本仓库已有 engine.set_profile_sort 用例与 ProfileExItem.Sort 落库单测（fix10_speedtest_result），但桥接缺暴露「排序写 Sort」的 FRB 函数（ProfileDto 无 Sort 字段、无 speedtest_sort 类函数），登记接口缺口后再接 UI，排序重开持久化未完成、未伪造。
 - id: ACT-PROF-021
   name: 移除无效测试结果节点
   domain: profiles
@@ -2285,9 +2286,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:201
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:652
   - v2rayN/v2rayN/Views/ProfilesView.xaml:146
-  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
-  test_ids: [t15b_speedtest_test]
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart; apps/desktop/lib/features/profiles/profiles_controller.dart (removeInvalidResults); crates/application/src/engine.rs (remove_invalid_profiles)
+  test_ids: [t15b_speedtest_test, fix10_speedtest_result, ux_parity_fix10_speedtest_result_test]
   status: implemented
+  notes: FIX-10（2026-10-03）：修复「按测试结果移除无效只清测试记录」的差异（PR-11）。现在按当前组内 ProfileEx Delay==-1 的 ProfileItem（排除复杂节点）经既有 deleteProfiles 真实删除并落库，同时清理结果行；真实 Windows 窗口验证选中测速→结果→移除无效→重开，失败节点删除后重开不再出现（docs/evidence/UX-PARITY-FIX-10/reopen-observations.json）。Rust 删除范围单测 fix10_speedtest_result。未做原版实机对照，保持 implemented。
 - id: ACT-PROF-022
   name: 导出客户端配置到文件
   domain: profiles

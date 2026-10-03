@@ -17,6 +17,9 @@ class SyntheticRuntimeBridge implements RuntimeBridge {
   Future<RuntimeView> snapshot() async => _view;
 
   @override
+  String? activeProfileId() => 'synthetic-active';
+
+  @override
   Future<RuntimeActionResult> applyActive({
     required BigInt expectedRevision,
   }) async {

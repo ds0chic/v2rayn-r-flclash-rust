@@ -139,8 +139,6 @@ const List<ContextMenuEntry> profilesContextMenu = <ContextMenuEntry>[
     label: '移除重复',
     actionId: 'ACT-PROF-003',
     kind: ContextActionKind.removeDuplicate,
-    enabled: false,
-    helpTooltip: '去重需后端提供等价结果比对；当前桥接无对应接口',
   ),
   ContextMenuEntry(
     label: '按测试结果移除无效',

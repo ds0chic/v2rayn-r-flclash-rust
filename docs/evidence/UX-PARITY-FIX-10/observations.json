@@ -1,0 +1,68 @@
+{
+  "applicationCommit": "c1c9c77",
+  "recordingComplete": true,
+  "mode": "run",
+  "subId": "s-18db070db7ee9408-0",
+  "removedId": "p-18db070db85481c8-2",
+  "survivedIds": [
+    "p-18db070db85479f8-0",
+    "p-18db070db8548038-1"
+  ],
+  "failures": [],
+  "checks": [
+    {
+      "step": "subscription-created",
+      "passed": true,
+      "actual": {
+        "subId": "s-18db070db7ee9408-0",
+        "ok": true,
+        "error": null
+      }
+    },
+    {
+      "step": "nodes-imported-into-group",
+      "passed": true,
+      "actual": {
+        "imported": 3,
+        "visible": 3,
+        "subId": "s-18db070db7ee9408-0",
+        "error": null
+      }
+    },
+    {
+      "step": "selection-ready",
+      "passed": true,
+      "actual": {
+        "selected": 3
+      }
+    },
+    {
+      "step": "tcping-results-measured",
+      "passed": true,
+      "actual": {
+        "liveDelays": [
+          1,
+          1
+        ],
+        "deadDelay": -1,
+        "resultIds": [
+          "p-18db070db85479f8-0",
+          "p-18db070db8548038-1",
+          "p-18db070db85481c8-2"
+        ]
+      }
+    },
+    {
+      "step": "remove-invalid-deletes-profile",
+      "passed": true,
+      "actual": {
+        "removed": 1,
+        "removedId": "p-18db070db85481c8-2",
+        "remaining": [
+          "p-18db070db85479f8-0",
+          "p-18db070db8548038-1"
+        ]
+      }
+    }
+  ]
+}

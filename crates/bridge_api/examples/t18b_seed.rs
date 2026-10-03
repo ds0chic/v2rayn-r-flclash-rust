@@ -3,6 +3,10 @@
 //! Seeds a data directory with one Xray node, marks it active and moves the
 //! inbound base port to 11808 (never 10808), so the debug app's
 //! `V2RAYN_R_AUTOSTART` hook applies the real persisted plan on launch.
+//!
+//! Pass `no-active` as the second argument to seed the node without activating
+//! it: FIX-07 made normal startup restore the persisted active node, so the
+//! ISSUE-08 negative test needs a seed that cannot legitimately start a core.
 
 use std::sync::Arc;
 
@@ -12,7 +16,8 @@ use domain::{ConfigType, CoreType, DesiredRevision, Profile};
 fn main() {
     let dir = std::env::args()
         .nth(1)
-        .expect("usage: t18b_seed <data_dir>");
+        .expect("usage: t18b_seed <data_dir> [no-active]");
+    let activate = std::env::args().nth(2).as_deref() != Some("no-active");
     let engine =
         AppEngine::open_with_runtime(std::path::Path::new(&dir), Arc::new(NetHostClient::new()))
             .expect("open engine");
@@ -31,9 +36,11 @@ fn main() {
     engine
         .save_profile(node, DesiredRevision::new(revision))
         .expect("save profile");
-    engine
-        .set_active(Some("t18b-node".into()))
-        .expect("set active");
+    if activate {
+        engine
+            .set_active(Some("t18b-node".into()))
+            .expect("set active");
+    }
     let loaded = engine.load_settings().expect("load settings");
     let mut settings = loaded.settings;
     if let Some(first) = settings.inbound.first_mut() {
@@ -43,7 +50,8 @@ fn main() {
         .save_settings(settings, loaded.revision)
         .expect("save settings");
     println!(
-        "seeded dir={dir} active=t18b-node desired={}",
+        "seeded dir={dir} active={} desired={}",
+        if activate { "t18b-node" } else { "(none)" },
         engine.desired_revision()
     );
 }

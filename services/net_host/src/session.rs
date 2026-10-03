@@ -879,6 +879,10 @@ impl HostState {
             inner.detail.pid = None;
             inner.detail.created_at_ms = None;
             inner.active_operation = None;
+            // A failed candidate must not publish an endpoint.
+            inner.detail.ports.clear();
+            inner.detail.session_id = None;
+            inner.detail.config_sha256 = None;
             inner.detail.error = Some(error.clone());
             inner.operations.insert(
                 operation_id.to_string(),
@@ -913,6 +917,11 @@ impl HostState {
             inner.detail.pid = None;
             inner.detail.created_at_ms = None;
             inner.detail.state = RuntimeState::Stopped;
+            // Withdraw the published endpoint: a stopped runtime must not keep
+            // reporting a stale listening port/config.
+            inner.detail.ports.clear();
+            inner.detail.session_id = None;
+            inner.detail.config_sha256 = None;
             drop(inner);
             // No core, but a TUN lease may still be pending (stop arriving
             // between helper-apply and core-spawn); always release.
@@ -942,6 +951,10 @@ impl HostState {
         inner.detail.created_at_ms = None;
         inner.detail.error = None;
         inner.active_operation = None;
+        // Withdraw the published endpoint on stop.
+        inner.detail.ports.clear();
+        inner.detail.session_id = None;
+        inner.detail.config_sha256 = None;
         eprintln!("[net_host] session {session_id} STOPPED pid={pid}");
         drop(inner);
         // Reverse cleanup after the core tree is gone.

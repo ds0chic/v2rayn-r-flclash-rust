@@ -19,6 +19,10 @@ class RuntimeController extends Notifier<RuntimeView> {
   BigInt? _lastEpoch;
   BigInt? _lastSeq;
 
+  /// Diagnostics: whether normal-launch restore found a persisted active node
+  /// and invoked apply. Not part of the read model.
+  bool restoreAttempted = false;
+
   @override
   RuntimeView build() {
     ref.onDispose(() {
@@ -94,12 +98,18 @@ class RuntimeController extends Notifier<RuntimeView> {
     }
   }
 
-  /// Apply the real persisted plan for the active node. The revision is
-  /// read from the last snapshot; a stale revision is rejected by the
-  /// engine with `E_REVISION_STALE` and surfaced as a structured error.
+  /// Apply the real persisted plan for the active node.
+  ///
+  /// The desired revision is re-read from a fresh snapshot immediately before
+  /// apply (upstream `SetDefaultServer` -> `Reload` semantics), so a save that
+  /// happened after the last snapshot is not rejected as `E_REVISION_STALE`.
+  /// A failed apply keeps its structured error visible; the follow-up snapshot
+  /// never overwrites it with a fake success.
   Future<void> applyActive() async {
-    final revision = state.desiredRevision ?? BigInt.zero;
     state = state.copyWith(clearError: true);
+    await refresh();
+    if (state.error != null) return;
+    final revision = state.desiredRevision ?? BigInt.zero;
     try {
       final result = await _bridge.applyActive(expectedRevision: revision);
       if (!result.ok) {
@@ -112,6 +122,17 @@ class RuntimeController extends Notifier<RuntimeView> {
     } on Object catch (e) {
       state = state.copyWith(error: _bridgeError(e));
     }
+  }
+
+  /// Normal-startup restore: apply the persisted active node once, unless the
+  /// runtime is already running. This is the production path (upstream
+  /// `MainWindowViewModel.Init` -> `Reload`), not an env-armed test hook.
+  Future<void> restoreActiveOnLaunch() async {
+    if (_bridge.activeProfileId() == null) return;
+    await refresh();
+    if (state.isRunning || state.error != null) return;
+    restoreAttempted = true;
+    await applyActive();
   }
 
   Future<void> stop() async {

@@ -15,7 +15,7 @@ use domain::runtime_plan::{
 use domain::{
     AppSettings, AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType,
     DesiredRevision, DnsProfile, DomainError, FullConfigTemplate, JobId, Profile, RoutingProfile,
-    RuleMode,
+    RuleMode, RuntimeState,
 };
 use serde_json::Value;
 
@@ -26,7 +26,7 @@ use crate::repository::{
     ProfileRepository, ProfileSort, RevisionStore, SubRepository,
 };
 use crate::runtime_client::{
-    ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
+    AppliedSession, ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
 };
 use crate::settings::{
     apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,
@@ -75,6 +75,13 @@ pub struct AppEngine {
     sub_scheduler: Arc<Mutex<Option<SubScheduler>>>,
     /// The local socks/mixed port of the running session, when known.
     local_proxy_port: Arc<Mutex<Option<u16>>>,
+    /// The applied-session fact (FIX-07): published only while net-host
+    /// reports a `Running` session, withdrawn on stop/failure.
+    applied_session: Arc<Mutex<Option<AppliedSession>>>,
+    /// The active node id captured when an apply was accepted, so the applied
+    /// session reports the node the running config was built for, not the
+    /// current desired selection.
+    apply_target: Arc<Mutex<Option<String>>>,
 }
 
 impl AppEngine {
@@ -110,6 +117,8 @@ impl AppEngine {
             runtime,
             sub_scheduler: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
+            applied_session: Arc::new(Mutex::new(None)),
+            apply_target: Arc::new(Mutex::new(None)),
         };
         engine.ensure_builtin_routing_dns();
         engine
@@ -175,6 +184,8 @@ impl AppEngine {
             runtime,
             sub_scheduler: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
+            applied_session: Arc::new(Mutex::new(None)),
+            apply_target: Arc::new(Mutex::new(None)),
         };
         engine.ensure_builtin_routing_dns();
         Ok(engine)
@@ -361,6 +372,138 @@ impl AppEngine {
             self.persist_config(&revisions)?;
         }
         Ok(removed)
+    }
+
+    /// Load all persisted `ProfileExItem` rows (test results + manual `Sort`).
+    ///
+    /// Returns an empty vec for the in-memory backend (no persistence). Used at
+    /// startup so a reopened process sees the previous run's delay/speed/sort.
+    pub fn profile_ex_all(&self) -> Result<Vec<crate::speedtest::ProfileExItem>, DomainError> {
+        let repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        match &*repo {
+            ProfileStore::Memory(_) => Ok(Vec::new()),
+            ProfileStore::Sqlite(sqlite) => {
+                let rows = sqlite
+                    .store()
+                    .read_rows("ProfileExItem")
+                    .map_err(storage_error)?;
+                Ok(rows
+                    .iter()
+                    .map(|row| {
+                        let mapped = persistence::mapping::ProfileExRow::from_raw(row);
+                        crate::speedtest::ProfileExItem {
+                            index_id: mapped.index_id,
+                            delay: mapped.delay,
+                            speed: mapped.speed,
+                            sort: mapped.sort,
+                            message: mapped.message.unwrap_or_default(),
+                            ip_info: mapped.ip_info.unwrap_or_default(),
+                        }
+                    })
+                    .collect())
+            }
+        }
+    }
+
+    /// Upsert `ProfileExItem` rows into SQLite (no-op for in-memory).
+    pub fn profile_ex_flush(
+        &self,
+        rows: &[crate::speedtest::ProfileExItem],
+    ) -> Result<(), DomainError> {
+        let repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let ProfileStore::Sqlite(sqlite) = &*repo else {
+            return Ok(());
+        };
+        let conn = sqlite.store().connection();
+        for row in rows {
+            let mut raw = persistence::rows::RawRow::new("ProfileExItem");
+            raw.set("IndexId", serde_json::json!(row.index_id));
+            raw.set("Delay", serde_json::json!(row.delay));
+            raw.set("Speed", serde_json::json!(row.speed));
+            raw.set("Sort", serde_json::json!(row.sort));
+            raw.set("Message", serde_json::json!(row.message));
+            raw.set("IpInfo", serde_json::json!(row.ip_info));
+            sqlite
+                .store()
+                .upsert_row(conn, &raw)
+                .map_err(storage_error)?;
+        }
+        Ok(())
+    }
+
+    /// `ConfigHandler.RemoveInvalidServerResult`: delete every non-complex
+    /// profile of `subid` whose persisted `ProfileExItem.Delay == -1`, then
+    /// remove the corresponding result rows. Returns the deleted profile count.
+    pub fn remove_invalid_profiles(&self, subid: &str) -> Result<u64, DomainError> {
+        let failed: std::collections::HashSet<String> = self
+            .profile_ex_all()?
+            .into_iter()
+            .filter(|r| r.delay == -1)
+            .map(|r| r.index_id)
+            .collect();
+        let page = self.query_profiles(
+            ProfileFilter {
+                subid: Some(subid.to_string()),
+                ..Default::default()
+            },
+            ProfileSort::IndexId,
+            PageRequest {
+                cursor: 0,
+                page_size: u32::MAX,
+            },
+        )?;
+        let targets: Vec<String> = page
+            .items
+            .iter()
+            .filter(|p| !p.config_type.is_complex())
+            .filter(|p| failed.contains(&p.index_id))
+            .map(|p| p.index_id.clone())
+            .collect();
+        if targets.is_empty() {
+            return Ok(0);
+        }
+        self.delete_profiles(&targets)
+    }
+
+    /// `ConfigHandler.DedupServerList`: collapse transport-identical,
+    /// non-complex profiles of `subid`. Returns `(total, kept, removed_ids)`.
+    pub fn deduplicate_profiles(
+        &self,
+        subid: &str,
+        keep_older: bool,
+    ) -> Result<(usize, usize, Vec<String>), DomainError> {
+        let page = self.query_profiles(
+            ProfileFilter {
+                subid: Some(subid.to_string()),
+                ..Default::default()
+            },
+            ProfileSort::IndexId,
+            PageRequest {
+                cursor: 0,
+                page_size: u32::MAX,
+            },
+        )?;
+        let (kept, removed_ids) = crate::speedtest::deduplicate_profiles(&page.items, keep_older);
+        Ok((page.items.len(), kept, removed_ids))
+    }
+
+    /// `ConfigHandler.MoveServer`/`SortServers`: rewrite the manual `Sort`
+    /// field for `ordered_ids` (`(i + 1) * 10`) and persist it. Returns whether
+    /// any row was written.
+    pub fn set_profile_sort(&self, ordered_ids: &[String]) -> Result<(), DomainError> {
+        if ordered_ids.is_empty() {
+            return Ok(());
+        }
+        let mut store = crate::speedtest::ProfileExStore::new();
+        store.replace_all(self.profile_ex_all()?);
+        store.apply_order(ordered_ids);
+        self.profile_ex_flush(&store.all())
     }
 
     /// Copy a set of profiles, assigning fresh stable ids and a "(副本)" suffix.
@@ -1103,6 +1246,11 @@ impl AppEngine {
 
         match self.runtime.apply(&plan)? {
             ApplyOutcome::Accepted { operation_id } => {
+                // Remember which node this apply targets so the applied-session
+                // fact reports it even if the desired selection changes later.
+                if let Ok(mut guard) = self.apply_target.lock() {
+                    *guard = self.active_profile();
+                }
                 let job = self.jobs.start("apply_runtime");
                 // The correlation the UI uses is the job id; the runtime's
                 // operation id is embedded in the plan correlation.
@@ -1151,13 +1299,72 @@ impl AppEngine {
         }
     }
 
-    /// The local proxy endpoint as an explicit URL, when known.
-    pub fn local_proxy_url(&self) -> Option<String> {
-        self.local_proxy_port
+    /// The applied session fact, when a managed core is actually running.
+    ///
+    /// `None` means no successful applied session; the desired active node is
+    /// never reported as an applied endpoint.
+    pub fn applied_session(&self) -> Option<AppliedSession> {
+        self.applied_session
             .lock()
             .ok()
-            .and_then(|guard| *guard)
-            .map(|port| format!("http://127.0.0.1:{port}"))
+            .and_then(|guard| guard.clone())
+    }
+
+    /// Reconcile the applied-session fact from a fresh runtime snapshot.
+    ///
+    /// Only a `Running` session with a bound port publishes an endpoint; a
+    /// stopped/degraded/rolling-back runtime withdraws it. Busy states keep the
+    /// previous fact so an in-place restart does not drop the old endpoint
+    /// before the new one is proven.
+    fn reconcile_applied_session(&self, snapshot: &RuntimeSnapshot) {
+        match snapshot.state {
+            RuntimeState::Running => {
+                let Some(port) = snapshot.ports.first().copied() else {
+                    return;
+                };
+                let active = self
+                    .apply_target
+                    .lock()
+                    .ok()
+                    .and_then(|guard| guard.clone())
+                    .or_else(|| self.active_profile());
+                if let Ok(mut guard) = self.applied_session.lock() {
+                    *guard = Some(AppliedSession {
+                        session_id: snapshot.session_id.clone(),
+                        active_index_id: active,
+                        proxy_port: Some(port),
+                        applied_revision: snapshot.applied_revision,
+                    });
+                }
+                self.set_local_proxy_port(Some(port));
+            }
+            RuntimeState::Stopped | RuntimeState::Degraded | RuntimeState::RollingBack => {
+                if let Ok(mut guard) = self.applied_session.lock() {
+                    *guard = None;
+                }
+                self.set_local_proxy_port(None);
+            }
+            RuntimeState::Validating
+            | RuntimeState::Preparing
+            | RuntimeState::Starting
+            | RuntimeState::Checking => {}
+        }
+    }
+
+    /// The local proxy endpoint as an explicit URL, when known.
+    ///
+    /// Prefers the actual applied-session port; the explicit
+    /// [`Self::set_local_proxy_port`] hook remains only as a test/override
+    /// fallback and is never set by the production session path.
+    pub fn local_proxy_url(&self) -> Option<String> {
+        let applied_port = self
+            .applied_session
+            .lock()
+            .ok()
+            .and_then(|guard| guard.as_ref().and_then(|session| session.proxy_port));
+        let port =
+            applied_port.or_else(|| self.local_proxy_port.lock().ok().and_then(|guard| *guard));
+        port.map(|port| format!("http://127.0.0.1:{port}"))
     }
 
     /// `list_sub_items` use case, ordered by `Sort`.
@@ -1977,6 +2184,7 @@ impl AppEngine {
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
             .desired();
         let runtime = self.runtime.snapshot()?;
+        self.reconcile_applied_session(&runtime);
         let active = self.jobs.active();
         Ok(assemble(
             desired,
@@ -2291,6 +2499,121 @@ mod tests {
         let snap = engine.snapshot().unwrap();
         assert_eq!(snap.revision_state, RevisionState::InSync);
         assert_eq!(snap.runtime_state, RuntimeState::Running);
+    }
+
+    #[test]
+    fn active_set_is_idempotent_and_switches() {
+        let engine = AppEngine::in_memory();
+        let a = synthetic_full_profile(1);
+        let b = synthetic_full_profile(2);
+        engine.seed(vec![a.clone(), b.clone()]);
+        engine.set_active(Some(a.index_id.clone())).unwrap();
+        // Setting the same active node again must not clear or change it.
+        engine.set_active(Some(a.index_id.clone())).unwrap();
+        assert_eq!(engine.active_profile(), Some(a.index_id.clone()));
+        // Setting a different node switches.
+        engine.set_active(Some(b.index_id.clone())).unwrap();
+        assert_eq!(engine.active_profile(), Some(b.index_id.clone()));
+    }
+
+    #[test]
+    fn desired_active_does_not_publish_endpoint_until_running() {
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime);
+        let p = synthetic_full_profile(1);
+        engine.seed(vec![p.clone()]);
+        engine.set_active(Some(p.index_id.clone())).unwrap();
+        // Reconcile while stopped: a desired active node is not an endpoint.
+        engine.snapshot().unwrap();
+        assert!(engine.applied_session().is_none());
+        assert!(engine.local_proxy_url().is_none());
+    }
+
+    #[test]
+    fn failed_candidate_does_not_publish_endpoint() {
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let p = synthetic_full_profile(1);
+        engine.seed(vec![p.clone()]);
+        engine.set_active(Some(p.index_id.clone())).unwrap();
+        engine
+            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .unwrap();
+        // The apply failed: net-host reports Degraded with no usable port.
+        runtime.set_state(RuntimeState::Degraded);
+        engine.snapshot().unwrap();
+        assert!(engine.applied_session().is_none());
+        assert!(engine.local_proxy_url().is_none());
+    }
+
+    #[test]
+    fn running_session_publishes_actual_endpoint_and_stop_withdraws() {
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let p = synthetic_full_profile(1);
+        engine.seed(vec![p.clone()]);
+        engine.set_active(Some(p.index_id.clone())).unwrap();
+        engine
+            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .unwrap();
+        runtime.mark_running_with("s-1", vec![11810], AppliedRevision::new(0));
+        engine.snapshot().unwrap();
+
+        let applied = engine.applied_session().expect("running session published");
+        assert_eq!(applied.proxy_port, Some(11810));
+        assert_eq!(applied.session_id.as_deref(), Some("s-1"));
+        assert_eq!(applied.active_index_id, Some(p.index_id.clone()));
+        assert_eq!(
+            engine.local_proxy_url().as_deref(),
+            Some("http://127.0.0.1:11810")
+        );
+
+        // Stopping the core withdraws the endpoint.
+        engine.stop_runtime().unwrap();
+        engine.snapshot().unwrap();
+        assert!(engine.applied_session().is_none());
+        assert!(engine.local_proxy_url().is_none());
+    }
+
+    #[test]
+    fn applied_session_reports_apply_target_not_later_selection() {
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let a = synthetic_full_profile(1);
+        let b = synthetic_full_profile(2);
+        engine.seed(vec![a.clone(), b.clone()]);
+        engine.set_active(Some(a.index_id.clone())).unwrap();
+        engine
+            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .unwrap();
+        runtime.mark_running_with("s-1", vec![11811], AppliedRevision::new(0));
+        engine.snapshot().unwrap();
+
+        // Desired active moves to B, but the running config is still A's.
+        engine.set_active(Some(b.index_id.clone())).unwrap();
+        let applied = engine.applied_session().unwrap();
+        assert_eq!(applied.active_index_id, Some(a.index_id.clone()));
+        assert_eq!(applied.proxy_port, Some(11811));
+    }
+
+    #[test]
+    fn busy_restart_keeps_previous_applied_endpoint() {
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let p = synthetic_full_profile(1);
+        engine.seed(vec![p.clone()]);
+        engine.set_active(Some(p.index_id.clone())).unwrap();
+        engine
+            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .unwrap();
+        runtime.mark_running_with("s-old", vec![11812], AppliedRevision::new(0));
+        engine.snapshot().unwrap();
+        assert_eq!(engine.applied_session().unwrap().proxy_port, Some(11812));
+        // An in-place restart is busy, not stopped: keep the proven endpoint
+        // until the new session is actually running.
+        runtime.set_state(RuntimeState::Starting);
+        engine.snapshot().unwrap();
+        assert_eq!(engine.applied_session().unwrap().proxy_port, Some(11812));
     }
 
     #[test]

@@ -124,6 +124,9 @@ class _FailingBridge implements RuntimeBridge {
   Future<RuntimeView> snapshot() async => const RuntimeView();
 
   @override
+  String? activeProfileId() => null;
+
+  @override
   Future<RuntimeActionResult> applyActive({
     required BigInt expectedRevision,
   }) async => const RuntimeActionResult(

@@ -253,6 +253,8 @@ struct SpeedTestHub {
     settings: SpeedTestSettings,
     source_revision: u64,
     subscribers: Vec<StreamSink<SpeedTestBatchDto>>,
+    /// Whether the persisted `ProfileExItem` table has been loaded once.
+    loaded: bool,
 }
 
 impl SpeedTestHub {
@@ -263,8 +265,31 @@ impl SpeedTestHub {
             settings: SpeedTestSettings::default(),
             source_revision: 0,
             subscribers: Vec::new(),
+            loaded: false,
         }
     }
+}
+
+/// Load the persisted `ProfileExItem` table into the hub exactly once.
+///
+/// A reopened process must show the previous run's delay/speed/sort (PR-17).
+/// The engine owns the SQLite store; the overlay is reloaded lazily on the
+/// first read so an engine without data (pure unit tests) stays in-memory.
+fn ensure_profile_ex_loaded(h: &mut SpeedTestHub) {
+    if h.loaded {
+        return;
+    }
+    h.loaded = true;
+    if let Ok(rows) = engine().profile_ex_all() {
+        if !rows.is_empty() {
+            h.results.replace_all(rows);
+        }
+    }
+}
+
+/// Persist the hub's `ProfileExItem` table through the engine (SQLite).
+fn flush_profile_ex(h: &SpeedTestHub) {
+    let _ = engine().profile_ex_flush(&h.results.all());
 }
 
 fn hub() -> &'static Mutex<SpeedTestHub> {
@@ -366,7 +391,11 @@ fn profile_to_node(profile: &domain::Profile) -> Option<TestNode> {
     })
 }
 
-/// Start a speedtest job over the selected node ids (empty = all stored nodes).
+/// Start a speedtest job over an explicit node id set.
+///
+/// The UI resolves the scope itself (Mixed/Fast = the current group's filtered
+/// list; the other actions = the selection), so an empty set means "nothing to
+/// test" and never widens to the whole database (PR-16).
 #[frb(sync)]
 pub fn speedtest_start(kind: i32, index_ids: Vec<String>) -> SpeedTestStartDto {
     let Some(action) = action_from_value(kind) else {
@@ -395,9 +424,7 @@ pub fn speedtest_start(kind: i32, index_ids: Vec<String>) -> SpeedTestStartDto {
             Ok(page) => page
                 .items
                 .iter()
-                .filter(|profile| {
-                    index_ids.is_empty() || filter.contains(profile.index_id.as_str())
-                })
+                .filter(|profile| filter.contains(profile.index_id.as_str()))
                 .filter_map(profile_to_node)
                 .collect(),
             Err(error) => {
@@ -460,6 +487,7 @@ pub fn speedtest_start(kind: i32, index_ids: Vec<String>) -> SpeedTestStartDto {
 
             with_hub(|h| {
                 h.jobs.finish(&job_id_for_batch);
+                flush_profile_ex(h);
                 let final_batch = SpeedTestBatchDto {
                     job_id: job_id_for_batch.clone(),
                     kind: kind_value,
@@ -493,7 +521,10 @@ pub fn speedtest_cancel(job_id: String) -> SimpleResult {
 /// All `ProfileExItem` result rows (UI overlay).
 #[frb(sync)]
 pub fn speedtest_results() -> Vec<SpeedTestResultDto> {
-    with_hub(|h| h.results.all().iter().map(from_ex).collect())
+    with_hub(|h| {
+        ensure_profile_ex_loaded(h);
+        h.results.all().iter().map(from_ex).collect()
+    })
 }
 
 /// Number of speedtest jobs still running. The UI polls this to end live
@@ -503,10 +534,17 @@ pub fn speedtest_active_jobs() -> u32 {
     with_hub(|h| h.jobs.active_count() as u32)
 }
 
-/// `RemoveInvalidServerResult`: delete rows whose delay failed (`-1`).
+/// `RemoveInvalidServerResult`: delete rows whose delay failed (`-1`) and
+/// persist the pruned table. (The real `ProfileItem` deletion of the current
+/// group is issued by the UI through `delete_profiles`; PR-11.)
 #[frb(sync)]
 pub fn speedtest_remove_invalid() -> u32 {
-    with_hub(|h| h.results.remove_invalid() as u32)
+    with_hub(|h| {
+        ensure_profile_ex_loaded(h);
+        let removed = h.results.remove_invalid() as u32;
+        flush_profile_ex(h);
+        removed
+    })
 }
 
 /// Register a batch stream.
@@ -532,6 +570,7 @@ pub fn apply_speedtest_result_for_test(
     message: String,
 ) -> Vec<SpeedTestResultDto> {
     with_hub(|h| {
+        ensure_profile_ex_loaded(h);
         h.results.apply(&SpeedTestResult {
             index_id: index_id.clone(),
             delay: Some(delay),
@@ -540,6 +579,7 @@ pub fn apply_speedtest_result_for_test(
             ip_info: None,
             failed: delay <= 0,
         });
+        flush_profile_ex(h);
         h.results.all().iter().map(from_ex).collect()
     })
 }

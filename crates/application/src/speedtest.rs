@@ -26,7 +26,7 @@ use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use domain::{CancellationToken, DomainError, SpeedTestAction};
+use domain::{CancellationToken, DomainError, Profile, SpeedTestAction};
 use rustls::pki_types::ServerName;
 use rustls::{ClientConnection, RootCertStore, StreamOwned};
 use serde::{Deserialize, Serialize};
@@ -203,12 +203,16 @@ impl SpeedTestResult {
     }
 }
 
-/// Persisted per-node test result (`ProfileExItem`, upstream `ProfilesEx.json`).
+/// Persisted per-node test result (`ProfileExItem`, upstream
+/// `Models/Entities/ProfileExItem.cs`: `IndexId`, `Delay`, `Speed`, `Sort`,
+/// `Message`, `IpInfo`). `sort` is the manual/column order written by
+/// `SetSort`; it survives a restart.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ProfileExItem {
     pub index_id: String,
     pub delay: i32,
     pub speed: f64,
+    pub sort: i32,
     pub message: String,
     pub ip_info: String,
 }
@@ -254,6 +258,7 @@ impl ProfileExStore {
                 index_id: result.index_id.clone(),
                 delay: 0,
                 speed: 0.0,
+                sort: 0,
                 message: String::new(),
                 ip_info: String::new(),
             });
@@ -279,6 +284,42 @@ impl ProfileExStore {
         }
     }
 
+    /// Replace the whole table (e.g. after loading it from SQLite at startup).
+    pub fn replace_all(&mut self, rows: Vec<ProfileExItem>) {
+        self.rows = rows.into_iter().map(|r| (r.index_id.clone(), r)).collect();
+    }
+
+    /// `ProfileExManager.SetSort`: write the manual order for one node.
+    pub fn set_sort(&mut self, index_id: &str, sort: i32) {
+        let entry = self
+            .rows
+            .entry(index_id.to_string())
+            .or_insert_with(|| ProfileExItem {
+                index_id: index_id.to_string(),
+                ..Default::default()
+            });
+        entry.sort = sort;
+    }
+
+    /// `ProfileExManager.GetSort`.
+    pub fn get_sort(&self, index_id: &str) -> i32 {
+        self.rows.get(index_id).map(|r| r.sort).unwrap_or(0)
+    }
+
+    /// `ProfileExManager.GetMaxSort`.
+    pub fn max_sort(&self) -> i32 {
+        self.rows.values().map(|r| r.sort).max().unwrap_or(0)
+    }
+
+    /// Rewrite `sort = (position + 1) * 10` for `ordered_ids`, mirroring
+    /// `ConfigHandler.MoveServer`/`SortServers`. Ids absent from the table are
+    /// inserted with just the sort value (test results overlay later).
+    pub fn apply_order(&mut self, ordered_ids: &[String]) {
+        for (i, id) in ordered_ids.iter().enumerate() {
+            self.set_sort(id, (i as i32 + 1) * 10);
+        }
+    }
+
     /// `RemoveInvalidServerResult`: drop rows whose delay failed (`== -1`).
     /// Returns the number removed.
     pub fn remove_invalid(&mut self) -> usize {
@@ -296,6 +337,34 @@ impl ProfileExStore {
     pub fn clear(&mut self) {
         self.rows.clear();
     }
+}
+
+/// `ConfigHandler.DedupServerList`: collapse transport-identical profiles.
+/// Complex nodes always stay; when `keep_older` is false the newer entry wins.
+/// Returns `(kept_count, removed_ids)`.
+pub fn deduplicate_profiles(items: &[Profile], keep_older: bool) -> (usize, Vec<String>) {
+    let ordered: Vec<&Profile> = if keep_older {
+        items.iter().collect()
+    } else {
+        items.iter().rev().collect()
+    };
+    let mut kept: Vec<&Profile> = Vec::new();
+    let mut removed_ids = Vec::new();
+    for item in ordered {
+        if item.config_type.is_complex() {
+            kept.push(item);
+            continue;
+        }
+        if kept
+            .iter()
+            .any(|existing| subscriptions::merge::compare_profile(existing, item, false))
+        {
+            removed_ids.push(item.index_id.clone());
+        } else {
+            kept.push(item);
+        }
+    }
+    (kept.len(), removed_ids)
 }
 
 // ---------------------------------------------------------------------------

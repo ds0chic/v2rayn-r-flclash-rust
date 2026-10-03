@@ -85,11 +85,11 @@ void main() {
     expect(profilesContextMenu.any((e) => e.label == '快速真延迟'), isFalse);
     expect(profilesContextMenu.any((e) => e.label == '混合测试 (真连接+测速)'), isFalse);
 
-    // Unimplemented/backend-gated entries stay visible but disabled.
+    // FIX-10 restored the real dedup action; UDP testing stays gated.
     final removeDuplicate = profilesContextMenu.firstWhere(
       (e) => e.actionId == 'ACT-PROF-003',
     );
-    expect(removeDuplicate.enabled, isFalse);
+    expect(removeDuplicate.enabled, isTrue);
     final udp = profilesContextMenu.firstWhere(
       (e) => e.actionId == 'ACT-PROF-018',
     );

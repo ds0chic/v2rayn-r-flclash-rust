@@ -68,6 +68,24 @@ impl Default for RuntimeSnapshot {
     }
 }
 
+/// Minimal applied-session fact (FIX-07).
+///
+/// Published only while net-host reports a `Running` session, so the UI and the
+/// via-proxy download path never treat a *desired* active node as an *applied*
+/// endpoint. `proxy_port` is the first bound inbound port net-host reports; a
+/// distinct API/telemetry port is not modeled yet (registered interface gap).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppliedSession {
+    /// net-host session id of the running core.
+    pub session_id: Option<String>,
+    /// The active node id the running plan was built for at apply time.
+    pub active_index_id: Option<String>,
+    /// Actual bound local proxy port, when net-host reported one.
+    pub proxy_port: Option<u16>,
+    /// Applied revision reported by net-host for this session.
+    pub applied_revision: AppliedRevision,
+}
+
 /// Outcome of an `apply` request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApplyOutcome {
@@ -105,6 +123,8 @@ pub struct NullRuntimeClient {
     last_plan: std::sync::Mutex<Option<RuntimePlan>>,
     state: std::sync::Mutex<RuntimeState>,
     applied: std::sync::Mutex<AppliedRevision>,
+    ports: std::sync::Mutex<Vec<u16>>,
+    session_id: std::sync::Mutex<Option<String>>,
 }
 
 impl NullRuntimeClient {
@@ -125,6 +145,25 @@ impl NullRuntimeClient {
             *a = revision;
         }
     }
+
+    /// Simulate a running core with a concrete session and bound ports
+    /// (test helper for the FIX-07 applied-session publication).
+    pub fn mark_running_with(&self, session_id: &str, ports: Vec<u16>, revision: AppliedRevision) {
+        self.mark_running(revision);
+        if let Ok(mut p) = self.ports.lock() {
+            *p = ports;
+        }
+        if let Ok(mut s) = self.session_id.lock() {
+            *s = Some(session_id.to_string());
+        }
+    }
+
+    /// Force a non-`Running` state (e.g. `Degraded`) for failure-path tests.
+    pub fn set_state(&self, state: RuntimeState) {
+        if let Ok(mut s) = self.state.lock() {
+            *s = state;
+        }
+    }
 }
 
 impl RuntimeClient for NullRuntimeClient {
@@ -141,6 +180,8 @@ impl RuntimeClient for NullRuntimeClient {
                 .map(|a| *a)
                 .unwrap_or(AppliedRevision::ZERO),
             host_alive: true,
+            ports: self.ports.lock().map(|p| p.clone()).unwrap_or_default(),
+            session_id: self.session_id.lock().ok().and_then(|s| s.clone()),
             ..RuntimeSnapshot::default()
         })
     }
@@ -157,6 +198,12 @@ impl RuntimeClient for NullRuntimeClient {
     fn stop(&self) -> Result<(), DomainError> {
         if let Ok(mut s) = self.state.lock() {
             *s = RuntimeState::Stopped;
+        }
+        if let Ok(mut p) = self.ports.lock() {
+            p.clear();
+        }
+        if let Ok(mut sid) = self.session_id.lock() {
+            *sid = None;
         }
         Ok(())
     }

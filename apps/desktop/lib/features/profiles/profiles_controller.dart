@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/groups.dart' as groups;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
+import 'package:v2rayn_desktop/features/profiles/profile_dedup.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
@@ -364,17 +365,22 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   /// Reload stored profiles and the node table from the backend.
+  ///
+  /// The visible set is recomputed with the same group + text filter as
+  /// [_recompute] (upstream `RefreshServers` resolves the current `SubIndexId`
+  /// and filter), so a save/delete/refresh after a group switch cannot leak
+  /// hidden nodes from another group into the visible set (PR-18).
   void reload() {
     final count = ref.read(profileRowCountProvider);
     final rows = _bridge.fetchSummaries(count);
-    final filtered = applyFilter(rows, state.filter);
-    final sorted = applySort(filtered, state.visibleColumns, state.sort);
-    state = state.copyWith(
-      all: rows,
-      visible: sorted,
-      profiles: _bridge.queryAllProfiles(),
-      activeId: _bridge.getActiveProfile(),
-      clearActive: _bridge.getActiveProfile() == null,
+    final active = _bridge.getActiveProfile();
+    state = _recompute(
+      state.copyWith(
+        all: rows,
+        profiles: _bridge.queryAllProfiles(),
+        activeId: active,
+        clearActive: active == null,
+      ),
     );
     _log('reload', 'profiles=${state.profiles.length} rows=${rows.length}');
   }
@@ -869,8 +875,17 @@ class ProfilesController extends Notifier<ProfilesState> {
     }
   }
 
-  /// Start a speedtest job for [action]. Mixed/Fast use all visible nodes
-  /// (upstream `ServerSpeedtest`); the others use the current selection.
+  /// Start a speedtest job for [action].
+  ///
+  /// Upstream `ServerSpeedtest`:
+  ///   * `Mixedtest` / `FastRealping` (Fast is remapped to Realping) test the
+  ///     current `ProfileItems` list (the current group + text filter, ordered
+  ///     by `Sort`), **not** the whole database and not the selection;
+  ///   * every other action tests `SelectedProfiles` (the current selection).
+  ///
+  /// Mixed/Fast therefore send the current *visible* ids; the other actions
+  /// send the selection. An empty scope means "nothing to test" — it is never
+  /// widened to the whole DB (PR-16).
   c.SimpleResult startSpeedTest(String action) {
     final kind = speedTestKindForAction(action);
     if (kind == null) return const c.SimpleResult(ok: true);
@@ -887,15 +902,13 @@ class ProfilesController extends Notifier<ProfilesState> {
       delayIntervalSecs: config.delayIntervalSecs,
     );
 
-    final useAll =
+    final useVisible =
         action == ProfileAction.mixedTest ||
         action == ProfileAction.fastRealping;
-    final ids = useAll ? const <String>[] : state.selected.toList();
-    // An empty id list makes Rust test every stored node; summarize against the
-    // same scope so the completion verdict matches what really ran.
-    final scopeIds = ids.isEmpty
-        ? state.all.map((r) => r.id).toList()
-        : List<String>.of(ids);
+    final ids = useVisible
+        ? state.visible.map((r) => r.id).toList()
+        : state.selected.toList();
+    final scopeIds = List<String>.of(ids);
 
     if (scopeIds.isEmpty) {
       state = state.copyWith(
@@ -935,9 +948,9 @@ class ProfilesController extends Notifier<ProfilesState> {
       speedTestRunning: started,
       speedTestStage: started ? 'Speedtesting' : 'SpeedtestingCompleted',
       speedTestMessage: started
-          ? (ids.isEmpty
-                ? '未选择节点，正在测试全部 ${scopeIds.length} 个节点'
-                : '正在测试 ${scopeIds.length} 个节点')
+          ? (useVisible
+                ? '正在测试当前列表 ${scopeIds.length} 个节点'
+                : '正在测试选中 ${scopeIds.length} 个节点')
           : '没有可测试节点',
       clearSpeedTestJob: !started,
     );
@@ -968,10 +981,80 @@ class ProfilesController extends Notifier<ProfilesState> {
     _echo(ProfileAction.stopTest);
   }
 
-  void removeInvalidResults() {
-    final removed = _bridge.removeInvalidResults();
+  /// `按测试结果移除无效` (ACT-PROF-021 / PR-11): really delete the failed
+  /// `ProfileItem`s of the current group, not just the test-result rows.
+  ///
+  /// Upstream `ConfigHandler.RemoveInvalidServerResult` finds every profile in
+  /// the current `subid` whose `ProfileExItem.Delay == -1` (complex nodes are
+  /// excluded) and removes the profile. Here the failed ids come from the live
+  /// result overlay ([speedTestResults]); only nodes present in the current
+  /// group are eligible, so a hidden group's results never delete a visible
+  /// node. The result rows are cleared afterwards (existing
+  /// `speedtest_remove_invalid`).
+  ///
+  /// Returns the number of profiles actually deleted.
+  int removeInvalidResults() {
+    final failedIds = _bridge
+        .speedTestResults()
+        .where((r) => r.delay == -1)
+        .map((r) => r.indexId)
+        .toSet();
+    // Only delete stored, non-complex profiles that belong to the current view
+    // (upstream `RemoveInvalidServerResult` skips complex nodes).
+    final targets = state.profiles
+        .where((p) => failedIds.contains(p.indexId))
+        .where((p) => !isComplexProfile(p.configType))
+        .where((p) => _profileInCurrentGroup(p))
+        .map((p) => p.indexId)
+        .toList();
+    var removed = 0;
+    if (targets.isNotEmpty) {
+      final result = _bridge.deleteProfiles(targets);
+      if (result.ok) removed = result.removed.toInt();
+    }
+    _bridge.removeInvalidResults();
     reload();
-    _log(ProfileAction.removeInvalid, 'removed=$removed');
+    _log(
+      ProfileAction.removeInvalid,
+      'profiles=$removed candidates=${targets.length}',
+    );
+    _echo(ProfileAction.removeInvalid);
+    return removed;
+  }
+
+  /// Whether a stored profile belongs to the current group/filter view.
+  ///
+  /// Mirrors the visible-row projection so batch actions never touch a hidden
+  /// group's node when the table shows a different group (PR-18).
+  bool _profileInCurrentGroup(c.ProfileDto profile) {
+    final group = state.groupSubId;
+    if (group != null && profile.subid != group) return false;
+    if (state.filter.trim().isEmpty) return true;
+    return rowMatchesQuery(dtoToSummary(profile), state.filter);
+  }
+
+  /// `移除重复` (ACT-PROF-003 / PR-12): deduplicate the current group by
+  /// transport identity, keeping the older node when `KeepOlderDedupl` is set
+  /// (complex nodes always stay). Returns the number of profiles removed.
+  ///
+  /// The comparison mirrors the frozen `ConfigHandler.CompareProfileItem` and
+  /// the existing `subscriptions::deduplicate` pure function; the deletion goes
+  /// through the real `deleteProfiles` seam, so it persists and survives a
+  /// restart.
+  int removeDuplicateProfiles({bool keepOlder = true}) {
+    final candidates = state.profiles.where(_profileInCurrentGroup).toList();
+    final duplicates = deduplicateProfiles(candidates, keepOlder: keepOlder);
+    if (duplicates.isEmpty) {
+      _log(ProfileAction.removeDuplicate, 'none');
+      _echo(ProfileAction.removeDuplicate);
+      return 0;
+    }
+    final result = _bridge.deleteProfiles(duplicates);
+    final removed = result.ok ? result.removed.toInt() : 0;
+    reload();
+    _log(ProfileAction.removeDuplicate, 'removed=$removed');
+    _echo(ProfileAction.removeDuplicate);
+    return removed;
   }
 
   Future<void> runBlockingProbe(int ms) async {

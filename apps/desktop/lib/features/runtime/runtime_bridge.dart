@@ -82,6 +82,15 @@ class RuntimeView {
       state == 'Checking' ||
       state == 'RollingBack';
 
+  /// The actual local proxy port of an applied session, when known. Never
+  /// derived from the desired settings port.
+  int? get proxyPort => ports.isEmpty ? null : ports.first;
+
+  /// True only when a session is actually running with a published endpoint:
+  /// a desired-but-not-applied plan reports `false`.
+  bool get hasAppliedEndpoint =>
+      isRunning && ports.isNotEmpty && sessionId != null;
+
   /// Never fabricates a running label: unknown or stopped reads as 未运行.
   String get statusLabel {
     if (isRunning) {
@@ -148,6 +157,10 @@ class RuntimeEvent {
 abstract class RuntimeBridge {
   Future<RuntimeView> snapshot();
 
+  /// The persisted active node id, if any. Used to decide whether a normal
+  /// launch has something to restore; never invents an active node.
+  String? activeProfileId();
+
   /// Apply the real persisted plan (active node + settings + routing +
   /// DNS + rule mode) through `apply_runtime` with an empty target id.
   Future<RuntimeActionResult> applyActive({required BigInt expectedRevision});
@@ -165,6 +178,9 @@ class FrbRuntimeBridge implements RuntimeBridge {
     final snap = await rust.getSnapshot();
     return _toView(snap);
   }
+
+  @override
+  String? activeProfileId() => rust.getActiveProfile();
 
   @override
   Future<RuntimeActionResult> applyActive({

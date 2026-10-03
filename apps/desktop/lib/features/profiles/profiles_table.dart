@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +14,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
 import 'package:v2rayn_desktop/shared/widgets/context_menu_session.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
@@ -390,7 +393,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           return KeyEventResult.handled;
         case ProfileAction.activate:
           controller.logAction(action!, 'keyboard');
-          toggleActiveSelected(ref);
+          setActiveSelected(ref);
           return KeyEventResult.handled;
       }
     }
@@ -452,7 +455,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
         : ProfileAction.edit;
     controller.logAction(action, row.id);
     if (state.doubleClick2Activate) {
-      toggleActiveSelected(ref);
+      setActiveSelected(ref);
     } else {
       editSelectedProfile(context, ref);
     }
@@ -739,6 +742,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     switch (kind) {
       case ContextActionKind.selectAll:
       case ContextActionKind.removeInvalid:
+      case ContextActionKind.removeDuplicate:
       case ContextActionKind.sortResult:
       case ContextActionKind.genGroupAll:
       case ContextActionKind.genGroupRegion:
@@ -888,9 +892,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       case ContextActionKind.delete:
         deleteSelectedProfiles(context, ref);
       case ContextActionKind.removeDuplicate:
-        shell.notImplemented(entry.label, entry.actionId);
+        unawaited(_removeDuplicate(entry));
       case ContextActionKind.activate:
-        toggleActiveSelected(ref);
+        setActiveSelected(ref);
       case ContextActionKind.share:
         shareProfilesQr(context, ref);
       case ContextActionKind.exportClientConfig:
@@ -954,6 +958,30 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     } else {
       shell.setMessage('移动失败：目标节点不存在或保存被拒绝');
     }
+  }
+
+  /// `移除重复` (ACT-PROF-003 / PR-12): deduplicate the current group after an
+  /// explicit confirmation, mirroring upstream `RemoveDuplicateServer`
+  /// (`ShowYesNoInteraction` → `DedupServerList` → refresh).
+  Future<void> _removeDuplicate(ContextMenuEntry entry) async {
+    final profiles = ref.read(profilesControllerProvider.notifier);
+    final shell = ref.read(uiShellControllerProvider.notifier);
+    final confirmed = await showAppConfirmDialog(
+      context,
+      title: '移除重复',
+      message: '确认移除当前分组中的重复节点?',
+      confirmLabel: '移除',
+      destructive: true,
+      dialogKey: const ValueKey('dedup-confirm'),
+      confirmKey: const ValueKey('dedup-confirm-ok'),
+      cancelKey: const ValueKey('dedup-cancel'),
+    );
+    if (confirmed != true) {
+      shell.setMessage('已取消移除重复');
+      return;
+    }
+    final removed = profiles.removeDuplicateProfiles();
+    shell.setMessage(removed > 0 ? '已移除 $removed 个重复节点' : '没有重复节点');
   }
 
   /// `一键生成策略组` (ACT-PROF-007/008) for the subscription group selected in

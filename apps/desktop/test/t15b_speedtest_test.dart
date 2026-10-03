@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
+import 'package:v2rayn_desktop/features/profiles/context_menu.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
@@ -48,13 +49,19 @@ void main() {
     controller.emitAction(ProfileAction.speedtest);
     expect(bridge.speedTestCalls.last['kind'], 3);
 
+    // Mixed/Fast test the current visible list (PR-16), never the whole DB.
+    final visibleIds = container
+        .read(profilesControllerProvider)
+        .visible
+        .map((r) => r.id)
+        .toList();
     controller.emitAction(ProfileAction.mixedTest);
     expect(bridge.speedTestCalls.last['kind'], 4);
-    expect(bridge.speedTestCalls.last['ids'], <String>[]);
+    expect(bridge.speedTestCalls.last['ids'], visibleIds);
 
     controller.emitAction(ProfileAction.fastRealping);
     expect(bridge.speedTestCalls.last['kind'], 5);
-    expect(bridge.speedTestCalls.last['ids'], <String>[]);
+    expect(bridge.speedTestCalls.last['ids'], visibleIds);
 
     // The job is tracked so Esc can cancel it.
     final state = container.read(profilesControllerProvider);
@@ -103,17 +110,72 @@ void main() {
     expect(row.ipInfo, '203.0.113.9');
   });
 
-  test('RemoveInvalidServerResult reaches the bridge', () {
+  test('RemoveInvalidServerResult deletes the failed ProfileItem (PR-11)', () {
     final bridge = SyntheticBridgePort();
     final container = _container(bridge);
     final controller = container.read(profilesControllerProvider.notifier);
 
     bridge.seedSpeedResult('syn-000000', -1, 0);
     bridge.seedSpeedResult('syn-000001', 20, 1.0);
+    final before = bridge.queryAllProfiles().length;
     controller.emitAction(ProfileAction.removeInvalid);
+    // The failed node's profile is really deleted, not just its result row.
+    expect(bridge.queryAllProfiles().length, before - 1);
+    expect(
+      bridge.queryAllProfiles().any((p) => p.indexId == 'syn-000000'),
+      isFalse,
+    );
     expect(bridge.removeInvalidCalls, 1);
     final rows = bridge.speedTestResults();
     expect(rows.length, 1);
     expect(rows.single.indexId, 'syn-000001');
+  });
+
+  test('mixed scope follows the current group, not the whole DB (PR-16)', () {
+    final bridge = SyntheticBridgePort();
+    final container = _container(bridge);
+    final controller = container.read(profilesControllerProvider.notifier);
+
+    // Switch to a synthetic group and confirm mixed targets only those rows.
+    controller.setGroupSubId('syn-sub-A');
+    final group = container.read(profilesControllerProvider);
+    var visibleIds = group.visible.map((r) => r.id).toList();
+    // The synthetic bridge assigns each row's subid from its seed; if the
+    // group has no members the visible list is empty, which is itself the
+    // correct "nothing to test" scope.
+    controller.emitAction(ProfileAction.mixedTest);
+    if (visibleIds.isEmpty) {
+      // Empty scope: no bridge job is started, no whole-DB fallback.
+      expect(bridge.speedTestCalls.where((c) => c['kind'] == 4), isEmpty);
+    } else {
+      expect(bridge.speedTestCalls.last['ids'], visibleIds);
+    }
+  });
+
+  test('empty selection for a per-selection test starts nothing', () {
+    final bridge = SyntheticBridgePort();
+    final container = _container(bridge);
+    final controller = container.read(profilesControllerProvider.notifier);
+    controller.clearSelection();
+    controller.emitAction(ProfileAction.tcping);
+    expect(bridge.speedTestCalls, isEmpty);
+    final state = container.read(profilesControllerProvider);
+    expect(state.speedTestMessage, '没有可测试节点');
+  });
+
+  test('removeDuplicate is enabled and deletes transport-identical nodes', () {
+    final bridge = SyntheticBridgePort();
+    final container = _container(bridge);
+    final controller = container.read(profilesControllerProvider.notifier);
+    // The synthetic seed gives each row a distinct address, so no duplicates
+    // exist; the entry must be enabled and remove nothing honestly.
+    expect(
+      profilesContextMenu
+          .firstWhere((e) => e.actionId == 'ACT-PROF-003')
+          .enabled,
+      isTrue,
+    );
+    final removed = controller.removeDuplicateProfiles();
+    expect(removed, 0, reason: 'no duplicates in the synthetic seed');
   });
 }

@@ -89,7 +89,7 @@ if (Test-Path -LiteralPath $pkgInfo) {
   try { $armedFlag = [bool](Get-Content -LiteralPath $pkgInfo -Raw | ConvertFrom-Json).smoke_armed } catch {}
 }
 
-$seedOut = & cargo run -q --manifest-path (Join-Path $RepoRoot 'Cargo.toml') -p bridge_api --example t18b_seed --release -- $seed 2>&1
+$seedOut = & cargo run -q --manifest-path (Join-Path $RepoRoot 'Cargo.toml') -p bridge_api --example t18b_seed --release -- $seed no-active 2>&1
 if ($LASTEXITCODE -ne 0) { throw "t18b_seed failed: $seedOut" }
 
 $vars = @{

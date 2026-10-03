@@ -87,7 +87,12 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       _integration = DesktopIntegration(ref);
       await _integration!.start();
       ref.read(desktopIntegrationProvider).value = _integration;
-      // Evidence-run hooks that apply the persisted plan on launch:
+      // Normal-startup restore (upstream `Init` -> `Reload`): if a node is
+      // persisted as active, apply it once on launch. This is the production
+      // path and does not depend on any test environment variable.
+      await controller.restoreActiveOnLaunch();
+      // Evidence-run hooks that force an apply even without a persisted active
+      // node:
       //  * kDebugMode + V2RAYN_R_AUTOSTART (historical T03/T18b screenshots);
       //  * the applyPlanOnLaunch override, set by main() only in builds armed
       //    with --dart-define=V2RAYN_R_SMOKE_ARMED=true and the
@@ -100,7 +105,7 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
         stderr.writeln('[t03] bootstrap autostart=$autostart');
         if (autostart == '1' || autostart == 'true') shouldApply = true;
       }
-      if (shouldApply) {
+      if (shouldApply && !ref.read(runtimeControllerProvider).isRunning) {
         await controller.applyActive();
         final view = ref.read(runtimeControllerProvider);
         stderr.writeln(

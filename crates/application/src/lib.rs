@@ -65,7 +65,8 @@ pub use repository::{
 };
 pub use routing::{new_routing_id, InMemoryRoutingRepository, RoutingRepository};
 pub use runtime_client::{
-    ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot, TunStatus,
+    AppliedSession, ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
+    TunStatus,
 };
 pub use settings::{
     apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,

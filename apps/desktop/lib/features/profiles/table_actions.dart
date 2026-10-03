@@ -15,6 +15,7 @@ class ProfileAction {
   static const fastRealping = 'fast-realping';
   static const udpTest = 'udp-test';
   static const removeInvalid = 'remove-invalid';
+  static const removeDuplicate = 'remove-duplicate';
   static const stopTest = 'stop-test';
   static const activate = 'activate';
   static const delete = 'delete';

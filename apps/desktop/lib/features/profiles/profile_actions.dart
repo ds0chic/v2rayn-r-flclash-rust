@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_editor_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/template_window.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
 
 /// Add a node of [configType] through the real editor + bridge.
@@ -177,19 +178,32 @@ Future<void> renameSelectedProfile(BuildContext context, WidgetRef ref) async {
   _toast(ref, result.ok ? '备注已更新' : '备注更新失败');
 }
 
-/// Enable/disable the active node (persisted across restarts).
-Future<void> toggleActiveSelected(WidgetRef ref) async {
+/// Set the selected node as the active node and reload the managed core.
+///
+/// Upstream `ProfilesViewModel.SetDefaultServer`: selecting the node that is
+/// already active returns without clearing it, and a successful switch ends in
+/// `MainWindowViewModel.Reload()` which loads the core with the new default
+/// server. There is no "deactivate" path through this command.
+Future<void> setActiveSelected(WidgetRef ref) async {
   final controller = ref.read(profilesControllerProvider.notifier);
   final state = ref.read(profilesControllerProvider);
   if (state.selected.length != 1) {
-    _toast(ref, '请选择单个节点后启用/停用');
+    _toast(ref, '请选择单个节点后设为活动');
     return;
   }
   final id = state.selected.first;
-  final next = state.activeId == id ? null : id;
-  final result = controller.setActive(next);
-  controller.logAction(ProfileAction.activate, 'id=${next ?? "(none)"}');
-  _toast(ref, result.ok ? (next == null ? '已停用活动节点' : '已启用为活动节点') : '操作失败');
+  if (state.activeId == id) {
+    _toast(ref, '该节点已是活动节点');
+    return;
+  }
+  final result = controller.setActive(id);
+  if (!result.ok) {
+    _toast(ref, '操作失败');
+    return;
+  }
+  controller.logAction(ProfileAction.activate, 'id=$id');
+  _toast(ref, '已设为活动节点');
+  await ref.read(runtimeControllerProvider.notifier).applyActive();
 }
 
 /// Add a PolicyGroup / ProxyChain node through the group editor + bridge.

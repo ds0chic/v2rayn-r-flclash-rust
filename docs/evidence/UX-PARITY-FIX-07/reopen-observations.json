@@ -1,0 +1,32 @@
+{
+  "applicationCommit": "c1c9c77",
+  "recordingComplete": true,
+  "mode": "reopen",
+  "failures": [],
+  "checks": [
+    {
+      "step": "reopen-active-persisted",
+      "passed": true,
+      "actual": {
+        "expectedActiveId": "p-18db072017c35384-0",
+        "persistedActiveId": "p-18db072017c35384-0",
+        "controllerActiveId": "p-18db072017c35384-0"
+      }
+    },
+    {
+      "step": "reopen-restore-attempted",
+      "passed": true,
+      "actual": {
+        "restoreAttempted": true,
+        "state": "Running",
+        "error": null,
+        "ports": [
+          11841
+        ],
+        "sessionId": "s-1791033216735-8",
+        "desiredRevision": "3",
+        "appliedRevision": "3"
+      }
+    }
+  ]
+}

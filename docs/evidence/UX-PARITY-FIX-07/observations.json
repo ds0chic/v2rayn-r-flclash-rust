@@ -1,0 +1,38 @@
+{
+  "applicationCommit": "c1c9c77",
+  "recordingComplete": true,
+  "mode": "activate",
+  "activeId": "p-18db072017c35384-0",
+  "nodeRemarks": "FIX07-ACTIVE",
+  "profileCount": 1,
+  "failures": [],
+  "checks": [
+    {
+      "step": "safe-inbound-port-saved",
+      "passed": true,
+      "actual": {
+        "safePort": 11841,
+        "persistedPort": 11841
+      }
+    },
+    {
+      "step": "node-imported",
+      "passed": true,
+      "actual": {
+        "ok": true,
+        "imported": 1,
+        "subId": "s-18db072017639ad4-0",
+        "error": null
+      }
+    },
+    {
+      "step": "set-active-persisted",
+      "passed": true,
+      "actual": {
+        "expectedActiveId": "p-18db072017c35384-0",
+        "persistedActiveId": "p-18db072017c35384-0",
+        "controllerActiveId": "p-18db072017c35384-0"
+      }
+    }
+  ]
+}

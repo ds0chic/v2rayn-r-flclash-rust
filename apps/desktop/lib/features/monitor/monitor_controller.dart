@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 
 /// Live monitor read model: traffic counters, log lines, Clash proxies and
 /// connections. Every value comes from the bridge; nothing is fabricated.
@@ -32,6 +34,7 @@ class MonitorState {
     this.proxyDelays = const <String, int>{},
     this.proxiesMessage,
     this.connections = const <m.ClashConnectionDto>[],
+    this.nodes = const <m.NodeTrafficDto>[],
     BigInt? connectionsUpload,
     BigInt? connectionsDownload,
     this.connectionsMessage,
@@ -74,6 +77,9 @@ class MonitorState {
   final Map<String, int> proxyDelays;
   final String? proxiesMessage;
   final List<m.ClashConnectionDto> connections;
+
+  /// Latest per-node `ServerStatItem` rows reported by the active session.
+  final List<m.NodeTrafficDto> nodes;
   final BigInt connectionsUpload;
   final BigInt connectionsDownload;
   final String? connectionsMessage;
@@ -117,6 +123,7 @@ class MonitorState {
     String? proxiesMessage,
     bool clearProxiesMessage = false,
     List<m.ClashConnectionDto>? connections,
+    List<m.NodeTrafficDto>? nodes,
     BigInt? connectionsUpload,
     BigInt? connectionsDownload,
     String? connectionsMessage,
@@ -151,6 +158,7 @@ class MonitorState {
           ? null
           : (proxiesMessage ?? this.proxiesMessage),
       connections: connections ?? this.connections,
+      nodes: nodes ?? this.nodes,
       connectionsUpload: connectionsUpload ?? this.connectionsUpload,
       connectionsDownload: connectionsDownload ?? this.connectionsDownload,
       connectionsMessage: clearConnectionsMessage
@@ -181,7 +189,29 @@ class MonitorController extends Notifier<MonitorState> {
       _trafficSub?.cancel();
       _logSub?.cancel();
     });
+    // Normal user entry for statistics: mirror the applied runtime session into
+    // the Rust monitor. A core apply pushes the real core / statistics ports /
+    // active node and starts polling; a stop or core switch clears the old
+    // session's ports so its collection stops. Page visibility never reaches
+    // this path, so hiding a page can only pause page-local UI refresh, never
+    // the active session's collection or persistence.
+    ref.listen<RuntimeView>(runtimeControllerProvider, (_, next) {
+      syncRuntimeSession(next);
+    });
     return MonitorState();
+  }
+
+  /// Push the applied-session facts into the Rust monitor and, when a session
+  /// is actually applied, load the current snapshot and subscribe to streams.
+  void syncRuntimeSession(RuntimeView view) {
+    _bridge.syncSession();
+    if (!view.hasAppliedEndpoint) return;
+    refreshStats();
+    _ensureStreams();
+    state = state.copyWith(
+      configured: true,
+      clashSupported: _bridge.clashSupported(),
+    );
   }
 
   /// Configure the Rust monitor for the running session. A no-op second call
@@ -230,6 +260,7 @@ class MonitorController extends Notifier<MonitorState> {
       proxyDownBps: batch.proxyDownBps,
       directUpBps: batch.directUpBps,
       directDownBps: batch.directDownBps,
+      nodes: batch.nodes,
     );
   }
 
@@ -379,6 +410,7 @@ class MonitorController extends Notifier<MonitorState> {
       directUp: snap.directUp,
       directDown: snap.directDown,
       generation: snap.generation,
+      nodes: snap.nodes,
       configured: true,
     );
   }

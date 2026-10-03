@@ -5,7 +5,6 @@
 //! pure Fmt/parse/download logic is the `subscriptions` crate (T09) and is not
 //! re-implemented here.
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -16,8 +15,7 @@ use flutter_rust_bridge::frb;
 
 use crate::api::contract::{
     DeleteSubsResult, ErrorDto, ImportResult, JobDto, ParseIssueDto, ShareExportResult,
-    SimpleResult, SubItemDto, SubItemDtoResult, SubUpdateEntryDto, SubUpdateResult, SubsPageDto,
-    UriParseResult,
+    SimpleResult, SubItemDto, SubItemDtoResult, SubUpdateResult, SubsPageDto, UriParseResult,
 };
 use crate::api::engine::{emit_control, engine, error_dto, job_view_dto, profile_dto};
 
@@ -184,16 +182,10 @@ pub fn set_local_proxy_port(port: Option<u16>) {
 
 // -- update pipeline / job -------------------------------------------------
 
-/// Per-process counter minting subscription update job ids.
-static SUB_JOB_SEQ: OnceLock<AtomicU64> = OnceLock::new();
-/// Debug-only count of live update jobs (not a cancellation path).
+/// Per-process registry of live subscription update jobs (diagnostics only).
 /// Cancellation always goes through `JobManager::cancel` via the job id
 /// returned to the caller; this registry is never read by `cancel_job`.
 static SUB_JOBS: OnceLock<Mutex<Vec<JobId>>> = OnceLock::new();
-
-fn sub_job_seq() -> &'static AtomicU64 {
-    SUB_JOB_SEQ.get_or_init(|| AtomicU64::new(0))
-}
 
 fn sub_jobs() -> &'static Mutex<Vec<JobId>> {
     SUB_JOBS.get_or_init(|| Mutex::new(Vec::new()))
@@ -201,14 +193,54 @@ fn sub_jobs() -> &'static Mutex<Vec<JobId>> {
 
 /// A cancellation token plus the job id for a subscription update.
 fn register_sub_job() -> (JobId, CancellationToken) {
-    let seq = sub_job_seq().fetch_add(1, Ordering::AcqRel) + 1;
-    let _seq_id = JobId::new(format!("sub-job-{seq:08}"));
     let job = engine().jobs().start("update_subscription");
     let token = engine().jobs().token(&job.job_id).unwrap_or_default();
     if let Ok(mut jobs) = sub_jobs().lock() {
         jobs.push(job.job_id.clone());
     }
     (job.job_id, token)
+}
+
+/// Run the refresh on a dedicated worker thread and report its completion.
+///
+/// The caller (`update_subscriptions`) has already handed the real job id back
+/// to the UI, so the progress/cancel channel is bound to that id before any
+/// network work begins.
+fn spawn_sub_update(
+    engine: application::AppEngine,
+    request: SubUpdateRequest,
+    token: CancellationToken,
+    job_id: JobId,
+) {
+    std::thread::spawn(move || {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build();
+        let report = match runtime {
+            Ok(rt) => rt.block_on(engine.refresh_subscriptions(request, &token, MAX_IMPORT_ITEMS)),
+            Err(err) => {
+                let mut report = SubUpdateReport::default();
+                report.entries.push(application::SubUpdateEntry {
+                    sub_id: String::new(),
+                    remarks: String::new(),
+                    outcome: application::SubUpdateOutcome::Failed {
+                        code: domain::codes::INTERNAL.to_string(),
+                        message: err.to_string(),
+                    },
+                });
+                report
+            }
+        };
+        let mut payload = application::report_to_json(&report);
+        if let Some(map) = payload.as_object_mut() {
+            map.insert(
+                "job_id".to_string(),
+                serde_json::Value::String(job_id.0.clone()),
+            );
+        }
+        finish_sub_job(&job_id, &report);
+        emit_control("subscriptions_updated", payload);
+    });
 }
 
 fn finish_sub_job(job_id: &JobId, report: &SubUpdateReport) {
@@ -228,65 +260,19 @@ fn finish_sub_job(job_id: &JobId, report: &SubUpdateReport) {
     }
 }
 
-fn entry_to_dto(entry: application::SubUpdateEntry) -> SubUpdateEntryDto {
-    use application::SubUpdateOutcome as O;
-    let (status, added, existing, code, message) = match entry.outcome {
-        O::Updated { added, removed } => (
-            "updated".to_string(),
-            Some(added as u32),
-            Some(removed as u32),
-            None,
-            None,
-        ),
-        O::PreservedEmpty { existing } => (
-            "preserved_empty".to_string(),
-            None,
-            Some(existing as u32),
-            None,
-            None,
-        ),
-        O::PreservedError { code, message } => (
-            "preserved_error".to_string(),
-            None,
-            None,
-            Some(code),
-            Some(message),
-        ),
-        O::Skipped { reason } => ("skipped".to_string(), None, None, None, Some(reason)),
-        O::Cancelled => ("cancelled".to_string(), None, None, None, None),
-        O::Failed { code, message } => {
-            ("failed".to_string(), None, None, Some(code), Some(message))
-        }
-    };
-    SubUpdateEntryDto {
-        sub_id: entry.sub_id,
-        remarks: entry.remarks,
-        status,
-        added,
-        existing,
-        code,
-        message,
-    }
-}
-
-fn report_to_result(report: SubUpdateReport) -> SubUpdateResult {
-    SubUpdateResult {
-        ok: report.success_count() > 0,
-        success: report.success_count() as u32,
-        cancelled: report.cancelled(),
-        entries: report.entries.into_iter().map(entry_to_dto).collect(),
-        job_id: None,
-        error: None,
-    }
-}
-
 /// `update_subscriptions` — the F-SUB-003 pipeline.
 ///
 /// `sub_ids` empty means every subscription; `via_proxy` uses the recorded
 /// local session port. When `via_proxy` is requested but no local proxy
 /// endpoint is known, a structured `E_PROXY_UNAVAILABLE` error is returned
-/// and no direct download is attempted. The returned `job_id` can be passed
-/// to `cancel_job`.
+/// and no direct download is attempted.
+///
+/// On acceptance the real `job_id` is returned *before* any network work
+/// starts (SET-03): the refresh runs on a worker thread, the UI binds its
+/// progress (`job_view`) and cancellation (`cancel_job`) to that id, and the
+/// final report is pushed as a `subscriptions_updated` control event. A
+/// cancellation never replaces the old group, reports a fake success or
+/// leaves a half-written candidate set (the pipeline is candidate-first).
 pub async fn update_subscriptions(sub_ids: Vec<String>, via_proxy: bool) -> SubUpdateResult {
     let proxy_url = via_proxy.then(|| engine().local_proxy_url()).flatten();
     if via_proxy
@@ -318,17 +304,21 @@ pub async fn update_subscriptions(sub_ids: Vec<String>, via_proxy: bool) -> SubU
         via_proxy,
         proxy_url,
     };
-    let report = engine()
-        .refresh_subscriptions(request, &token, MAX_IMPORT_ITEMS)
-        .await;
-    finish_sub_job(&job_id, &report);
-    emit_control(
-        "subscriptions_updated",
-        application::report_to_json(&report),
-    );
-    let mut result = report_to_result(report);
-    result.job_id = Some(job_id.0);
-    result
+    let _ = engine()
+        .jobs()
+        .progress(&job_id, None, Some("subs.downloading".to_string()));
+    spawn_sub_update(engine().clone(), request, token, job_id.clone());
+    // `ok` means "accepted"; the terminal state arrives through the job and
+    // the `subscriptions_updated` event. `success = 0`/empty entries must
+    // never be read as a completed run.
+    SubUpdateResult {
+        ok: true,
+        success: 0,
+        cancelled: false,
+        entries: Vec::new(),
+        job_id: Some(job_id.0),
+        error: None,
+    }
 }
 
 /// `update_subscription` — refresh a single subscription.

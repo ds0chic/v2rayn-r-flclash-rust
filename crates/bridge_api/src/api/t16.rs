@@ -744,6 +744,13 @@ pub async fn t16_apply_core_update(
     let mut applied = Vec::new();
     let mut skipped = Vec::new();
     for core in cores {
+        // The application is not a runnable core and must never be unpacked
+        // into the cores directory; its update goes through the external
+        // upgrade path (`t16_apply_app_update_spec`).
+        if core == "v2rayN" {
+            skipped.push(core);
+            continue;
+        }
         let check = match service
             .check_core(&core, prerelease, proxy.as_deref())
             .await
@@ -844,6 +851,24 @@ pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
             }),
         };
     };
+    // RT-15: the app's own update must be verified against the bundled
+    // upstream OpenPGP trust root before staging. Fail closed when no backend
+    // can enforce it; a missing/wrong signature is rejected downstream.
+    let verifier = match application::app_signature_verifier() {
+        Ok(verifier) => verifier,
+        Err(error) => {
+            return ExternalSpecDto {
+                ok: false,
+                helper_exe: None,
+                source: None,
+                install_root: None,
+                wait_for_pid: 0,
+                args: Vec::new(),
+                error: Some(error_dto(error)),
+            }
+        }
+    };
+    let signature_url = check.sig_url.clone();
     let request = application::CoreApplyRequest {
         core: "v2rayN".to_string(),
         version,
@@ -856,7 +881,14 @@ pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
     let helper = service.install_root.join("v2rayN-upgrade.exe");
     let token = CancellationToken::new();
     match service
-        .app_update_spec(&request, helper, std::process::id(), &token)
+        .app_update_spec_verified(
+            &request,
+            signature_url.as_deref(),
+            verifier.as_ref(),
+            helper,
+            std::process::id(),
+            &token,
+        )
         .await
     {
         Ok(spec) => ExternalSpecDto {

@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use domain::{codes, CancellationToken, DomainError};
+use runtime::CoreInstallLayout;
 use updater::arch::{binary_matches, detect_target, HostTarget};
 use updater::channel::{self, CoreSpec};
 use updater::download::{DownloadRequest, DownloaderOptions, FileDownloader};
@@ -31,6 +32,11 @@ pub const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(180);
 pub const MAX_DOWNLOAD_BYTES: u64 = 512 * 1024 * 1024;
 /// Version bookkeeping written next to a managed install.
 pub const INSTALL_MANIFEST_NAME: &str = "install-manifest.json";
+
+/// Error detail used when a caller tries to install the application itself as a
+/// core (`v2rayN` is not a runnable core and must never land under the cores
+/// root; its own update is staged through the external-upgrade path).
+pub const APP_NOT_CORE: &str = "v2rayN is an application target, not a core";
 
 /// Production releases API base (GitHub).
 pub const GITHUB_API_BASE: &str = "https://api.github.com/repos";
@@ -150,6 +156,9 @@ pub struct CoreUpdateCheck {
     pub download_url: Option<String>,
     pub expected_sha256: Option<String>,
     pub dgst_url: Option<String>,
+    /// Detached `.sig` asset URL (application targets only; cores ship
+    /// sha256/`.dgst` instead).
+    pub sig_url: Option<String>,
 }
 
 /// Request to download+verify+install one core artifact.
@@ -228,12 +237,12 @@ impl UpdateService {
         self
     }
 
-    /// The directory name a core is stored under (`tools/cores/<dir>/`).
+    /// The directory name a core is stored under (`cores/<dir>/<version>/`).
+    ///
+    /// Delegates to [`CoreInstallLayout`] so the updater and the runtime
+    /// locator share one frozen mapping (`sing_box` is `singbox`).
     pub fn core_dir_name(core: &str) -> &str {
-        match core {
-            "sing_box" | "sing-box" => "singbox",
-            other => other,
-        }
+        CoreInstallLayout::dir_name_str(core)
     }
 
     /// Highest installed version for a core, if any.
@@ -241,7 +250,8 @@ impl UpdateService {
     /// A managed install records its version in `install-manifest.json`; the
     /// `v*` sub-directory scan is a fallback for the dev `tools/cores/` layout.
     pub fn installed_version(&self, core: &str) -> Option<String> {
-        let dir = self.cores_root.join(Self::core_dir_name(core));
+        let layout = CoreInstallLayout::new(&self.cores_root);
+        let dir = layout.core_dir_str(core);
         if let Ok(text) = std::fs::read_to_string(dir.join(INSTALL_MANIFEST_NAME)) {
             if let Ok(manifest) = serde_json::from_str::<InstallManifest>(&text) {
                 if let Some(version) = Semver::try_parse_strict(&manifest.version) {
@@ -268,13 +278,14 @@ impl UpdateService {
 
     /// Every installed core directory (read-only probe for the UI).
     pub fn installed_cores(&self) -> Vec<InstalledCore> {
+        let layout = CoreInstallLayout::new(&self.cores_root);
         let mut out = Vec::new();
         for core in BUILTIN_TARGETS {
             if *core == "v2rayN" {
                 continue;
             }
             let dir_name = Self::core_dir_name(core);
-            let root = self.cores_root.join(dir_name);
+            let root = layout.core_dir_str(core);
             if let Ok(text) = std::fs::read_to_string(root.join(INSTALL_MANIFEST_NAME)) {
                 if let Ok(manifest) = serde_json::from_str::<InstallManifest>(&text) {
                     out.push(InstalledCore {
@@ -331,6 +342,7 @@ impl UpdateService {
                     download_url: None,
                     expected_sha256: None,
                     dgst_url: None,
+                    sig_url: None,
                 })
             }
         };
@@ -346,6 +358,7 @@ impl UpdateService {
                 download_url: None,
                 expected_sha256: None,
                 dgst_url: None,
+                sig_url: None,
             });
         }
         let prerelease = channel::check_pre_release(core, prerelease_requested);
@@ -362,12 +375,16 @@ impl UpdateService {
         let asset = release
             .select_for_target(core, self.target)
             .map_err(update_error)?;
-        let dgst_url = release
-            .assets
-            .iter()
-            .find(|a| a.name == format!("{}.dgst", asset.name))
-            .map(|a| a.browser_download_url.clone())
-            .filter(|url| !url.is_empty());
+        let asset_url = |suffix: &str| {
+            release
+                .assets
+                .iter()
+                .find(|a| a.name == format!("{}{}", asset.name, suffix))
+                .map(|a| a.browser_download_url.clone())
+                .filter(|url| !url.is_empty())
+        };
+        let dgst_url = asset_url(".dgst");
+        let sig_url = asset_url(".sig");
         let remote_semver = release.parsed_version();
         let installed_semver = installed.as_deref().and_then(Semver::try_parse_strict);
         let has_update = match (installed_semver, &remote_semver) {
@@ -386,6 +403,7 @@ impl UpdateService {
             download_url: Some(asset.browser_download_url.clone()),
             expected_sha256: asset.sha256().map(|s| s.to_ascii_lowercase()),
             dgst_url,
+            sig_url,
         })
     }
 
@@ -395,6 +413,12 @@ impl UpdateService {
         request: &CoreApplyRequest,
         cancellation: &CancellationToken,
     ) -> Result<CoreApplyOutcome, DomainError> {
+        if request.core == "v2rayN" {
+            return Err(
+                DomainError::new(codes::FIELD_FORMAT, "error.update_app_not_core")
+                    .with_detail(APP_NOT_CORE),
+            );
+        }
         let staging = self.cores_root.join(".staging").join(format!(
             "{}-{}",
             Self::core_dir_name(&request.core),
@@ -403,26 +427,68 @@ impl UpdateService {
         reset_dir(&staging)?;
         let staged = self.stage_artifact(request, &staging, cancellation).await?;
         self.verify_arch(&staged)?;
+        self.install_core_from_dir(&request.core, &request.version, &staged)
+    }
 
-        let core_dir = self.cores_root.join(Self::core_dir_name(&request.core));
+    /// Install an already-unpacked core directory under
+    /// `<cores_root>/<dir>/<version>/`, keeping the previous core directory for
+    /// rollback.
+    ///
+    /// Shared by [`Self::apply_core`] and tests so the layout the update
+    /// pipeline produces is exactly the one [`runtime::CoreLocator`] resolves.
+    pub fn install_core_from_dir(
+        &self,
+        core: &str,
+        version: &str,
+        staged: &Path,
+    ) -> Result<CoreApplyOutcome, DomainError> {
+        if !staged.is_dir() {
+            return Err(DomainError::new(codes::NOT_FOUND, "error.update_staging")
+                .with_detail(staged.display().to_string()));
+        }
+        let dir_name = Self::core_dir_name(core);
+        let core_dir = CoreInstallLayout::new(&self.cores_root).core_dir_str(core);
         std::fs::create_dir_all(&self.cores_root)
             .map_err(|e| io_error("error.update_install", e))?;
-        let keep_name = format!("{}.previous", Self::core_dir_name(&request.core));
+
+        // Wrap the unpacked tree in a version directory so several versions can
+        // coexist and the runtime resolves `<dir>/<version>/<exe>`.
+        let versioned_parent = self
+            .cores_root
+            .join(".staging")
+            .join(format!(".install-{dir_name}-{version}"));
+        reset_dir(&versioned_parent)?;
+        let versioned = versioned_parent.join("versioned");
+        copy_tree(staged, &versioned.join(version))?;
+
+        let keep_name = format!("{dir_name}.previous");
+        let keep_dir = self.cores_root.join(&keep_name);
+        if keep_dir.exists() {
+            std::fs::remove_dir_all(&keep_dir).map_err(|e| io_error("error.update_install", e))?;
+        }
         let plan = InstallPlan::new(
             &self.cores_root,
             &core_dir,
-            &staged,
+            &versioned,
             keep_name,
-            request.version.clone(),
+            version.to_string(),
         );
-        let outcome = apply_atomic(&plan).map_err(update_error)?;
+        let outcome = match apply_atomic(&plan) {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                let _ = std::fs::remove_dir_all(&versioned_parent);
+                return Err(update_error(error));
+            }
+        };
+        let _ = std::fs::remove_dir_all(&versioned_parent);
+
         let manifest_path = core_dir.join(INSTALL_MANIFEST_NAME);
         let manifest_bytes = serde_json::to_vec_pretty(&outcome.manifest)
             .map_err(|e| io_error("error.update_manifest", std::io::Error::other(e)))?;
         std::fs::write(&manifest_path, manifest_bytes)
             .map_err(|e| io_error("error.update_manifest", e))?;
         Ok(CoreApplyOutcome {
-            core: request.core.clone(),
+            core: core.to_string(),
             version: outcome.version,
             installed_dir: core_dir,
             kept_previous: outcome.kept_previous,
@@ -430,10 +496,47 @@ impl UpdateService {
     }
 
     /// Build the external-upgrade spec for the application itself. The artifact
-    /// is staged and verified, but no process is started.
+    /// is staged and digest-checked, but no process is started.
     pub async fn app_update_spec(
         &self,
         request: &CoreApplyRequest,
+        helper_exe: impl Into<PathBuf>,
+        wait_for_pid: u32,
+        cancellation: &CancellationToken,
+    ) -> Result<ExternalUpgradeSpec, DomainError> {
+        self.app_update_spec_inner(request, None, None, helper_exe, wait_for_pid, cancellation)
+            .await
+    }
+
+    /// Application self-update staging with the detached OpenPGP trust root
+    /// enforced (RT-15). `signature_url` is the `.sig` asset published next to
+    /// the app artifact: a missing signature fails closed, a wrong one reports
+    /// `SignatureInvalid`. No helper process is spawned here.
+    pub async fn app_update_spec_verified(
+        &self,
+        request: &CoreApplyRequest,
+        signature_url: Option<&str>,
+        verifier: &dyn updater::signature::SignatureVerifier,
+        helper_exe: impl Into<PathBuf>,
+        wait_for_pid: u32,
+        cancellation: &CancellationToken,
+    ) -> Result<ExternalUpgradeSpec, DomainError> {
+        self.app_update_spec_inner(
+            request,
+            signature_url,
+            Some(verifier),
+            helper_exe,
+            wait_for_pid,
+            cancellation,
+        )
+        .await
+    }
+
+    async fn app_update_spec_inner(
+        &self,
+        request: &CoreApplyRequest,
+        signature_url: Option<&str>,
+        verifier: Option<&dyn updater::signature::SignatureVerifier>,
         helper_exe: impl Into<PathBuf>,
         wait_for_pid: u32,
         cancellation: &CancellationToken,
@@ -444,6 +547,17 @@ impl UpdateService {
             .join(format!("app-{}", request.version));
         reset_dir(&staging)?;
         let staged = self.stage_artifact(request, &staging, cancellation).await?;
+
+        if let Some(verifier) = verifier {
+            let artifact = std::fs::read(staging.join(&request.asset_name))
+                .map_err(|e| io_error("error.update_signature", e))?;
+            let signature = match signature_url.filter(|url| !url.is_empty()) {
+                Some(url) => Some(download_signature(url, &staging, cancellation).await?),
+                None => None,
+            };
+            enforce_detached_signature(verifier, &artifact, signature.as_deref())?;
+        }
+
         let coordinator = UpgradeCoordinator::new(helper_exe.into(), self.install_root.clone());
         coordinator
             .external_upgrade_spec(staged, wait_for_pid)
@@ -552,6 +666,73 @@ impl UpdateService {
             Err(_) => Ok(()),
         }
     }
+}
+
+/// The built-in OpenPGP verifier for application (`v2rayN`) release assets.
+///
+/// Fails closed (`UNAVAILABLE`) when neither the pure-Rust backend nor GnuPG
+/// can enforce the bundled upstream key, so callers never stage an app update
+/// on an unverifiable trust root.
+pub fn app_signature_verifier(
+) -> Result<Box<dyn updater::signature::SignatureVerifier>, DomainError> {
+    updater::signature::v2rayn_app_verifier().map_err(update_error)
+}
+
+/// Enforce a detached signature over an already-downloaded artifact.
+///
+/// A missing signature fails closed; a wrong signature surfaces as
+/// `SignatureInvalid`. Exposed so the download pipeline's enforcement can be
+/// exercised without a network peer.
+pub fn enforce_detached_signature(
+    verifier: &dyn updater::signature::SignatureVerifier,
+    artifact: &[u8],
+    signature: Option<&[u8]>,
+) -> Result<(), DomainError> {
+    match signature {
+        Some(signature) => verifier.verify(artifact, signature).map_err(update_error),
+        None => Err(
+            DomainError::new(codes::UNAVAILABLE, "error.update_signature_missing")
+                .with_detail("no detached signature asset was published"),
+        ),
+    }
+}
+
+async fn download_signature(
+    url: &str,
+    staging: &Path,
+    cancellation: &CancellationToken,
+) -> Result<Vec<u8>, DomainError> {
+    let options = DownloaderOptions {
+        timeout: DOWNLOAD_TIMEOUT,
+        max_bytes: 4 * 1024 * 1024,
+        ..DownloaderOptions::default()
+    };
+    let downloader = FileDownloader::new(options).map_err(update_error)?;
+    let target = staging.join("artifact.sig");
+    let request = DownloadRequest::new(url.to_string(), target.clone());
+    downloader
+        .download(&request, cancellation)
+        .await
+        .map_err(update_error)?;
+    std::fs::read(&target).map_err(|e| io_error("error.update_signature", e))
+}
+
+fn copy_tree(from: &Path, to: &Path) -> Result<(), DomainError> {
+    std::fs::create_dir_all(to).map_err(|e| io_error("error.update_install", e))?;
+    for entry in std::fs::read_dir(from).map_err(|e| io_error("error.update_install", e))? {
+        let entry = entry.map_err(|e| io_error("error.update_install", e))?;
+        let src = entry.path();
+        let dst = to.join(entry.file_name());
+        let file_type = entry
+            .file_type()
+            .map_err(|e| io_error("error.update_install", e))?;
+        if file_type.is_dir() {
+            copy_tree(&src, &dst)?;
+        } else {
+            std::fs::copy(&src, &dst).map_err(|e| io_error("error.update_install", e))?;
+        }
+    }
+    Ok(())
 }
 
 fn default_target() -> HostTarget {
@@ -753,5 +934,90 @@ mod tests {
             Some(value) => std::env::set_var(API_BASE_ENV, value),
             None => std::env::remove_var(API_BASE_ENV),
         }
+    }
+
+    fn write_stub(path: &std::path::Path, bytes: &[u8]) {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
+        std::fs::write(path, bytes).unwrap();
+    }
+
+    fn one_shot_runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn install_layout_is_resolved_by_runtime_locator() {
+        let root = std::env::temp_dir().join(format!("v2rayn-fix12-layout-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let cores = root.join("cores");
+        let staged = root.join("staged");
+        let exe = if cfg!(windows) {
+            "sing-box.exe"
+        } else {
+            "sing-box"
+        };
+        write_stub(&staged.join(exe), b"stub");
+        let service = UpdateService::new(&cores);
+        let outcome = service
+            .install_core_from_dir("sing_box", "1.14.2", &staged)
+            .unwrap();
+        assert!(outcome.installed_dir.ends_with("singbox"));
+
+        // runtime resolves exactly the directory the updater just installed.
+        let locator = runtime::CoreLocator::with_roots(vec![cores.clone()], None);
+        let resolved = locator
+            .resolve(domain::CoreType::SingBox, Some("1.14.2"))
+            .unwrap();
+        assert!(resolved.starts_with(&outcome.installed_dir), "{resolved:?}");
+        assert!(resolved.ends_with(std::path::Path::new("1.14.2").join(exe)));
+
+        // A newly installed version becomes the unpinned pick.
+        std::fs::remove_dir_all(&staged).unwrap();
+        write_stub(&staged.join(exe), b"stub2");
+        service
+            .install_core_from_dir("sing_box", "1.15.0", &staged)
+            .unwrap();
+        let newest = locator.resolve(domain::CoreType::SingBox, None).unwrap();
+        assert!(newest.ends_with(std::path::Path::new("1.15.0").join(exe)));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn apply_core_refuses_application_target() {
+        let service = UpdateService::new(std::env::temp_dir().join("v2rayn-fix12-app"));
+        let request = CoreApplyRequest {
+            core: "v2rayN".to_string(),
+            version: "1.0.0".to_string(),
+            asset_name: "v2rayN-windows-64.zip".to_string(),
+            download_url: "http://127.0.0.1:11808/v2rayN-windows-64.zip".to_string(),
+            expected_sha256: None,
+            dgst_url: None,
+            proxy: None,
+        };
+        let token = CancellationToken::new();
+        let error = one_shot_runtime()
+            .block_on(service.apply_core(&request, &token))
+            .unwrap_err();
+        assert_eq!(error.message_key, "error.update_app_not_core");
+    }
+
+    #[test]
+    fn detached_signature_enforcement_rejects_wrong_and_missing() {
+        let artifact = b"v2rayN app payload";
+        let digest = updater::sha256_of(artifact);
+        let prefix = digest[..16].to_string();
+        let verifier = updater::signature::PrefixHashVerifier {
+            expected_prefix: prefix.clone(),
+        };
+        enforce_detached_signature(&verifier, artifact, Some(prefix.as_bytes())).unwrap();
+        let wrong = enforce_detached_signature(&verifier, artifact, Some(b"deadbeef")).unwrap_err();
+        assert_eq!(wrong.code, codes::PERMISSION_DENIED);
+        let missing = enforce_detached_signature(&verifier, artifact, None).unwrap_err();
+        assert_eq!(missing.message_key, "error.update_signature_missing");
     }
 }

@@ -273,6 +273,9 @@ struct MonitorHub {
     source_sig: Option<(i32, u16, u16, Option<String>)>,
     /// Test seam: when set, Clash calls use this base URL instead of the port.
     clash_base_override: Option<String>,
+    /// Whether the persistent `ServerStatItem` store has been bound to the
+    /// engine's data directory (idempotent; only attempted once).
+    store_bound: bool,
     epoch: u64,
     seq: u64,
 }
@@ -294,6 +297,7 @@ impl MonitorHub {
             connections_visible: false,
             source_sig: None,
             clash_base_override: None,
+            store_bound: false,
             epoch: 1,
             seq: 0,
         }
@@ -1058,9 +1062,51 @@ static POLL_STARTED: OnceLock<()> = OnceLock::new();
 static EPOCH_COUNTER: OnceLock<AtomicU64> = OnceLock::new();
 static SEQ_COUNTER: OnceLock<AtomicU64> = OnceLock::new();
 
+/// Pull the applied-session facts from the engine into the hub.
+///
+/// This is the normal user entry for statistics: after a managed core is
+/// applied, the UI calls `monitor_start_polling`, which syncs the running
+/// core's statistics ports and active node so the 1 Hz poller and per-node
+/// `ServerStatItem` persistence run without any test/diagnostic hook. When no
+/// core is running the ports are cleared and the poller idles, which stops
+/// collecting the old session; hiding a page never reaches this path.
+fn sync_from_engine_session(h: &mut MonitorHub) {
+    let engine = crate::api::engine::engine();
+    match engine.monitor_session() {
+        Some(session) => {
+            let (enabled, speed) = engine.monitor_settings();
+            h.core = session.core;
+            h.state_port = session.state_port;
+            h.state_port2 = session.state_port2;
+            h.source_sig = None;
+            h.stats.set_active_index(session.active_index_id);
+            h.stats.set_enabled(enabled);
+            h.stats.set_display_speed(speed);
+            if !h.store_bound {
+                if let Some(store) = engine.traffic_store() {
+                    h.stats.set_store(store);
+                    let _ = h.stats.load();
+                }
+                h.store_bound = true;
+            }
+        }
+        None => {
+            h.state_port = 0;
+            h.state_port2 = 0;
+            h.source_sig = None;
+            h.stats.set_active_index(None);
+        }
+    }
+}
+
 /// Start the 1 Hz statistics poller once. No-op for unsupported cores.
+///
+/// Each call first (re)synchronizes the hub with the applied session so a
+/// normal GUI apply enables real collection and a stop/switch clears the old
+/// session's ports.
 #[frb(sync)]
 pub fn monitor_start_polling() {
+    with_hub(|h| sync_from_engine_session(h));
     POLL_STARTED.get_or_init(|| {
         let shared = Arc::clone(hub());
         let _ = std::thread::Builder::new()

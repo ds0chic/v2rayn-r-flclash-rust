@@ -10,6 +10,8 @@ use std::path::{Path, PathBuf};
 
 use domain::{CoreType, DomainError};
 
+use crate::install_layout::CoreInstallLayout;
+
 /// Where a managed core executable was found.
 pub struct CoreLocator {
     roots: Vec<PathBuf>,
@@ -61,36 +63,24 @@ impl CoreLocator {
             }
         }
 
-        let dir = core_dir(core);
         let exe = adapter.exe_name();
         let pinned = version.map(|v| v.trim()).filter(|v| !v.is_empty());
         let mut searched = Vec::new();
         for root in &self.roots {
-            let base = root.join(dir);
+            let layout = CoreInstallLayout::new(root);
+            let base = layout.core_dir(core);
             if !base.is_dir() {
                 continue;
             }
             if let Some(version) = pinned {
-                let candidate = base.join(version).join(exe);
+                let candidate = layout.version_dir(core, version).join(exe);
                 if candidate.is_file() {
                     return Ok(candidate);
                 }
                 searched.push(candidate.display().to_string());
             } else {
-                let mut versions: Vec<PathBuf> = std::fs::read_dir(&base)
-                    .into_iter()
-                    .flatten()
-                    .flatten()
-                    .map(|e| e.path())
-                    .filter(|p| p.is_dir())
-                    .collect();
-                versions.sort();
-                versions.reverse();
-                for version_dir in versions {
-                    let candidate = version_dir.join(exe);
-                    if candidate.is_file() {
-                        return Ok(candidate);
-                    }
+                if let Some(candidate) = layout.resolve_exe(core, None) {
+                    return Ok(candidate);
                 }
                 searched.push(base.display().to_string());
             }
@@ -113,17 +103,12 @@ impl CoreLocator {
     }
 }
 
-/// Directory name of a core under a cores root (lower-case, hyphenated).
+/// Directory name of a core under a cores root.
+///
+/// Delegates to [`CoreInstallLayout`] so the updater and the locator always
+/// agree (`sing_box` is `singbox`, never `sing-box`).
 pub fn core_dir(core: CoreType) -> &'static str {
-    match core {
-        CoreType::Xray => "xray",
-        CoreType::SingBox => "sing-box",
-        CoreType::Mihomo => "mihomo",
-        CoreType::V2fly => "v2fly",
-        CoreType::V2flyV5 => "v2fly",
-        CoreType::Hysteria2 | CoreType::Hysteria => "hysteria",
-        _ => "cores",
-    }
+    CoreInstallLayout::dir_name(core)
 }
 
 fn ancestor_core_roots() -> Vec<PathBuf> {
@@ -264,7 +249,7 @@ mod tests {
     #[test]
     fn core_dir_is_lowercase() {
         assert_eq!(core_dir(CoreType::Xray), "xray");
-        assert_eq!(core_dir(CoreType::SingBox), "sing-box");
+        assert_eq!(core_dir(CoreType::SingBox), "singbox");
     }
 
     #[test]

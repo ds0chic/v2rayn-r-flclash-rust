@@ -60,6 +60,11 @@ abstract class MonitorBridge {
   Future<rust.MonitorActionResult> closeAllClashConnections();
 
   void startPolling();
+
+  /// Push the applied-session facts (core / statistics ports / active node)
+  /// into the Rust monitor and ensure polling runs. Safe to call on every
+  /// runtime transition: a stop clears the ports and idles the poller.
+  void syncSession();
 }
 
 class FrbMonitorBridge implements MonitorBridge {
@@ -163,6 +168,9 @@ class FrbMonitorBridge implements MonitorBridge {
 
   @override
   void startPolling() => rust.monitorStartPolling();
+
+  @override
+  void syncSession() => rust.monitorStartPolling();
 }
 
 final monitorBridgeProvider = Provider<MonitorBridge>(

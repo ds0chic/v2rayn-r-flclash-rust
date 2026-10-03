@@ -1,0 +1,292 @@
+### FIX-12 evidence log 2026-10-03T22:39:33.6539729+08:00
+===== cargo runtime lib =====
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests src\lib.rs (target\debug\deps\runtime-61f3f5bee583af5c.exe)
+
+running 41 tests
+test adapter::tests::core_dir_is_lowercase ... ok
+test adapter::tests::unknown_core_has_no_adapter ... ok
+test adapter::tests::xray_command_shape ... ok
+test graph::tests::empty_topology_is_allowed ... ok
+test graph::tests::cycle_is_rejected ... ok
+test graph::tests::port_conflict_is_rejected ... ok
+test graph::tests::rollback_reverses_only_started_prefix ... ok
+test install_layout::tests::version_dir_uses_shared_names ... ok
+test identity::tests::a_bogus_identity_does_not_match ... ok
+test install_layout::tests::singbox_dir_is_singbox_everywhere ... ok
+test graph::tests::start_order_is_dependency_ordered ... ok
+test install_layout::tests::version_key_orders_numerically_and_ignores_non_versions ... ok
+test tun::tests::converts_to_helper_payloads ... ok
+test tun::tests::disabled_plan_has_no_tun_work ... ok
+test sha256::tests::matches_fips_vectors ... ok
+test identity::tests::current_process_has_an_identity ... ok
+test tun::tests::rejects_bad_adapter_name ... ok
+test tun::tests::rejects_bad_address_and_prefix ... ok
+test tun::tests::dry_run_detection_reads_arg_and_env ... ok
+test tun::tests::enabled_plan_requires_a_tun_node ... ok
+test tun::tests::enabled_plan_parses_a_valid_descriptor ... ok
+test tun::tests::rejects_bad_route_exclude ... ok
+test tun::tests::rejects_empty_addresses_and_bad_mtu ... ok
+test tun::tests::rejects_route_family_mismatch_and_zero_interface ... ok
+test tun::tests::rejects_wrong_kind ... ok
+test adapter::tests::resolve_override_wins_and_missing_is_not_found ... ok
+test tun::tests::rejects_too_many_routes ... ok
+test tun::tests::rejects_zero_interface_index ... ok
+test tun::tests::route_summary_is_counts_only ... ok
+test tun::tests::route_digest_is_stable_and_order_insensitive ... ok
+test tun::tests::tun_node_rejects_controlled_file_config ... ok
+test tun::tests::tun_node_requires_the_tun_privilege ... ok
+test tun::tests::tun_node_without_flag_is_rejected ... ok
+test wire::tests::response_frame_roundtrips ... ok
+test wire::tests::event_frame_carries_runtime_detail ... ok
+test wire::tests::size_cap_is_enforced ... ok
+test adapter::tests::resolve_prefers_highest_version_then_pinned ... ok
+test install_layout::tests::resolve_picks_pinned_and_highest ... ok
+test identity::tests::an_exited_process_is_not_a_live_identity ... ok
+test job::tests::kill_on_job_close_terminates_assigned_members ... ok
+test sha256::tests::long_input_is_stable ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+===== cargo application update_service =====
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running unittests src\lib.rs (target\debug\deps\application-7735c105c4c3edff.exe)
+
+running 5 tests
+test update_service::tests::explicit_with_api_base_wins ... ok
+test update_service::tests::override_is_honoured_and_validated_in_debug ... ok
+test update_service::tests::detached_signature_enforcement_rejects_wrong_and_missing ... ok
+test update_service::tests::apply_core_refuses_application_target ... ok
+test update_service::tests::install_layout_is_resolved_by_runtime_locator ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 152 filtered out; finished in 0.01s
+
+===== cargo application t16_update =====
+   Compiling application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.30s
+     Running tests\t16_update.rs (target\debug\deps\t16_update-eef97a6b5d9c8011.exe)
+
+running 3 tests
+test digest_mismatch_leaves_no_install ... ok
+test app_update_spec_never_spawns_helper ... ok
+test check_apply_and_rollback_in_temp_dir ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+===== cargo updater all =====
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running unittests src\lib.rs (target\debug\deps\updater-95b00952c8a53545.exe)
+
+running 60 tests
+test arch::tests::elf_machines ... ok
+test arch::tests::macho_machines ... ok
+test arch::tests::implied_target_roundtrip ... ok
+test arch::tests::mismatched_arch_compares_correctly ... ok
+test arch::tests::pe_machines ... ok
+test arch::tests::truncated_pe_is_rejected ... ok
+test arch::tests::triple_parsing ... ok
+test arch::tests::unknown_format_is_rejected ... ok
+test channel::tests::core_specs_carry_locked_max ... ok
+test channel::tests::download_templates_use_expected_assets ... ok
+test channel::tests::prerelease_only_for_v2rayn_and_xray ... ok
+test channel::tests::cores_without_cap_accept_anything ... ok
+test channel::tests::singbox_cap_is_one_fourteen ... ok
+test channel::tests::supported_targets_and_packaging ... ok
+test channel::tests::url_slugs_match_upstream_coreurls ... ok
+test dgst::tests::parses_sha2_256_line ... ok
+test dgst::tests::parses_compact_and_sha256_spellings ... ok
+test channel::tests::reads_expected_sha256_from_lock ... ok
+test download::tests::sha256_helper_matches ... ok
+test install::tests::external_spec_rejects_absolute_path_outside_root ... ok
+test install::tests::external_spec_does_not_start_process ... ok
+test install::tests::plan_rejects_keep_name_with_separator ... ok
+test install::tests::plan_rejects_paths_outside_root ... ok
+test metadata::tests::locked_max_falls_back_to_highest_allowed ... ok
+test metadata::tests::locked_max_with_no_allowed_release_errors ... ok
+test metadata::tests::missing_asset_reports_fragments ... ok
+test metadata::tests::missing_stable_only_prerelease_errors ... ok
+test metadata::tests::parses_release_model ... ok
+test metadata::tests::prerelease_channel_takes_newest_first ... ok
+test metadata::tests::picks_stable_vs_prerelease ... ok
+test metadata::tests::releases_url_joins_base ... ok
+test metadata::tests::selects_assets_per_target ... ok
+test semver::tests::build_metadata_is_ignored_for_ordering ... ok
+test semver::tests::malformed_becomes_zero ... ok
+test semver::tests::parses_prefixed_and_bare ... ok
+test semver::tests::parses_two_segment_and_four_segment ... ok
+test semver::tests::prerelease_alpha_greater_than_numeric ... ok
+test semver::tests::prerelease_is_lower_than_stable ... ok
+test semver::tests::prerelease_numeric_ordering ... ok
+test semver::tests::prerelease_segment_count_ordering ... ok
+test semver::tests::standard_string_roundtrip ... ok
+test semver::tests::version_range_helpers ... ok
+test signature::tests::default_verifier_is_unsupported_not_success ... ok
+test signature::tests::malformed_public_key_is_unsupported_not_invalid ... ok
+test dgst::tests::verify_dgst_file_accepts_match_and_rejects_tamper ... ok
+test signature::tests::prefix_verifier_accepts_matching_marker ... ok
+test signature::tests::prefix_verifier_rejects_tampered_artifact ... ok
+test unpack::tests::safe_join_allows_normal_paths ... ok
+test unpack::tests::safe_join_normalizes_backslashes ... ok
+test unpack::tests::safe_join_rejects_escaping_paths ... ok
+test signature::tests::pgp_verifier_rejects_empty_signature ... ok
+test signature::tests::fingerprint_is_stable_and_hex ... ok
+test signature::tests::pgp_verifier_rejects_malformed_armored_signature ... ok
+test signature::tests::pgp_verifier_rejects_tampered_artifact ... ok
+test download::tests::rejects_non_http_scheme ... ok
+test signature::tests::pgp_verifier_accepts_binary_signature ... ok
+test signature::tests::pgp_verifier_accepts_armored_signature ... ok
+test signature::tests::pgp_verifier_rejects_signature_from_other_key ... ok
+test signature::tests::bundled_upstream_key_selects_a_real_backend_or_fails_closed ... ok
+test signature::tests::bundled_upstream_key_rejects_unrelated_signature ... ok
+
+test result: ok. 60 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests\arch.rs (target\debug\deps\arch-b6e82d3285e31739.exe)
+
+running 9 tests
+test big_endian_elf_not_mapped ... ok
+test parses_elf64_x64_and_arm64 ... ok
+test binary_matches_target ... ok
+test parses_macho_x64_and_arm64 ... ok
+test parses_pe_x64 ... ok
+test parses_pe_x86_and_arm64 ... ok
+test truncated_pe_rejected ... ok
+test unknown_format_rejected ... ok
+test unknown_pe_machine_null_arch ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\channel.rs (target\debug\deps\channel-47671e9382f4f88d.exe)
+
+running 11 tests
+test builtin_targets_supported ... ok
+test core_spec_fields ... ok
+test core_url_slugs ... ok
+test download_templates_match_assets ... ok
+test non_builtin_targets_unsupported ... ok
+test prerelease_policy_matches_upstream ... ok
+test singbox_max_is_1_14 ... ok
+test uncapped_cores_accept_any_version ... ok
+test v2rayn_blocked_for_packaged_install ... ok
+test reads_sha256_from_core_lock ... ok
+test singbox_version_range_boundaries ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\download.rs (target\debug\deps\download-e85ff5211ea56169.exe)
+
+running 10 tests
+test non_http_scheme_rejected ... ok
+test rejects_oversized_streamed_body ... ok
+test http_error_status_is_reported ... ok
+test wrong_size_vs_expected_is_incomplete ... ok
+test rejects_oversized_content_length ... ok
+test zero_byte_response_is_incomplete ... ok
+test streams_file_and_computes_sha256 ... ok
+test cancellation_aborts_before_completion ... ok
+test connect_timeout_is_classified ... ok
+test slow_server_hits_whole_timeout ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running tests\install.rs (target\debug\deps\install-ad71c540e0d776c0.exe)
+
+running 14 tests
+test external_upgrade_spec_is_returned_not_executed ... ok
+test commit_rename_failure_without_previous_is_clean ... ok
+test planner_rejects_outside_root ... ok
+test missing_staged_dir_is_conflict_without_touching_current ... ok
+test planner_rejects_keep_name_with_separator ... ok
+test manifest_scan_detects_tampering ... ok
+test atomic_swap_without_previous_installs_cleanly ... ok
+test stage_rename_failure_leaves_current_untouched ... ok
+test staged_file_is_rejected_without_touching_current ... ok
+test commit_rename_failure_rolls_back ... ok
+test atomic_swap_records_manifest_hashes ... ok
+test existing_keep_dir_is_rejected_before_swap ... ok
+test discard_previous_removes_backup ... ok
+test atomic_swap_keeps_previous_version ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\metadata.rs (target\debug\deps\metadata-9dd19dc92b4ba2d7.exe)
+
+running 14 tests
+test invalid_json_is_rejected ... ok
+test locked_max_falls_back_to_highest_allowed ... ok
+test locked_max_selects_older_stable_when_head_exceeds ... ok
+test locked_max_with_nothing_allowed_errors ... ok
+test missing_asset_reports_needles ... ok
+test only_prerelease_and_stable_requested_errors ... ok
+test model_fields_parse ... ok
+test parses_missing_optional_fields ... ok
+test picks_prerelease_head_when_requested ... ok
+test picks_stable_head ... ok
+test releases_url_from_repo_and_base ... ok
+test select_linux_and_macos_assets ... ok
+test select_windows_x64_asset ... ok
+test singbox_asset_needles ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\pipeline.rs (target\debug\deps\pipeline-91075e05fc071f1c.exe)
+
+running 3 tests
+test sha256_mismatch_would_be_detected ... ok
+test channel_cap_blocks_over_cap_release_before_download ... ok
+test full_pipeline_against_mock_github_api ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests\semver.rs (target\debug\deps\semver-ba4438a116af60d8.exe)
+
+running 10 tests
+test build_metadata_ignored_in_ordering ... ok
+test malformed_falls_back_to_zero ... ok
+test major_minor_patch_ordering ... ok
+test prerelease_lower_than_release ... ok
+test parse_v_prefix_and_case ... ok
+test parse_two_and_four_segments ... ok
+test prerelease_numeric_and_alnum_ordering ... ok
+test prerelease_numeric_lower_than_alphanumeric ... ok
+test singbox_cap_boundaries ... ok
+test standard_string_roundtrip ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\signature.rs (target\debug\deps\signature-de01bb382b4b5603.exe)
+
+running 5 tests
+test default_verifier_reports_unsupported ... ok
+test unsupported_verifier_never_reports_success ... ok
+test prefix_verifier_rejects_tampered_artifact ... ok
+test prefix_verifier_accepts_correct_signature ... ok
+test prefix_verifier_rejects_tampered_signature ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\unpack.rs (target\debug\deps\unpack-57d6791a6e0d534b.exe)
+
+running 13 tests
+test safe_join_rejects_traversal_and_absolute ... ok
+test safe_join_allows_normal_and_normalizes_separators ... ok
+test targz_symlink_entry_is_rejected ... ok
+test targz_entry_bomb_is_rejected ... ok
+test targz_traversal_entry_is_rejected ... ok
+test zip_absolute_path_is_rejected ... ok
+test zip_symlink_entry_is_rejected ... ok
+test zip_traversal_entry_is_rejected ... ok
+test zip_single_entry_bomb_is_rejected ... ok
+test targz_extracts_valid_archive ... ok
+test zip_total_bomb_is_rejected ... ok
+test zip_too_many_entries_is_rejected ... ok
+test zip_extracts_valid_archive ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests updater
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

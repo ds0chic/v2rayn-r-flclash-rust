@@ -1,0 +1,42 @@
+{
+  "task": "FIX-12",
+  "base_head": "59dfa97",
+  "status": "implemented",
+  "layout": {
+    "type": "runtime::CoreInstallLayout",
+    "install_root": "<data>/cores",
+    "core_dir_name": {"sing_box": "singbox", "sing-box": "singbox", "xray": "xray", "mihomo": "mihomo"},
+    "version_dir": "<cores>/<dir>/<version>",
+    "exe_resolution": "runtime::CoreLocator::resolve via CoreInstallLayout"
+  },
+  "acceptance": {
+    "1_shared_layout": "verified",
+    "2_runtime_resolves_new_version": "verified",
+    "3_app_core_split_guard": "verified",
+    "3b_app_upgrade_runner": "deferred_fix_12b",
+    "4_check_update_prefs_persistence": "blocked_needs_frb_regen",
+    "5_pgp_pipeline": "verified"
+  },
+  "commands": {
+    "cargo test -p runtime --lib": "41 passed",
+    "cargo test -p application --lib update_service": "5 passed",
+    "cargo test -p application --test t16_update": "3 passed",
+    "cargo test -p updater": "passed",
+    "cargo clippy -p runtime -p application -p bridge_api -- -D warnings": "passed",
+    "rustfmt --check (changed files)": "passed"
+  },
+  "affected_files": [
+    "crates/runtime/src/install_layout.rs",
+    "crates/runtime/src/lib.rs",
+    "crates/runtime/src/adapter.rs",
+    "crates/application/src/lib.rs",
+    "crates/application/src/update_service.rs",
+    "crates/bridge_api/src/api/t16.rs",
+    "crates/application/tests/t16_update.rs"
+  ],
+  "not_run": ["flutter test", "flutter analyze", "flutter build windows"],
+  "notes": [
+    "worktree contained other agents' uncommitted changes (monitor/subs) not touched/reverted by this card",
+    "compat ledger not modified to avoid YAML/count churn; evidence recorded here and in docs/tasks/FIX-12.md"
+  ]
+}

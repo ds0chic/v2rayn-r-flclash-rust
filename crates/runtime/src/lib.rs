@@ -18,6 +18,7 @@
 pub mod adapter;
 pub mod graph;
 pub mod identity;
+pub mod install_layout;
 pub mod job;
 pub mod sha256;
 pub mod tun;
@@ -29,6 +30,7 @@ pub use identity::{
     current_identity, matches_identity, process_creation_time_ms, terminate_identity,
     ProcessIdentity,
 };
+pub use install_layout::{version_key, CoreInstallLayout};
 pub use job::JobGuard;
 pub use sha256::{sha256, sha256_hex};
 pub use tun::{

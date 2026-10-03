@@ -39,7 +39,8 @@ use crate::dns::{DnsRepository, InMemoryDnsRepository};
 use crate::routing::{InMemoryRoutingRepository, RoutingRepository};
 use crate::store_repo::{
     storage_error, DnsStore, ProfileStore, RoutingStore, SqliteDnsRepository,
-    SqliteProfileRepository, SqliteRoutingRepository, SqliteSubRepository, SubStore,
+    SqliteProfileRepository, SqliteRoutingRepository, SqliteSubRepository, SqliteTrafficStore,
+    SubStore,
 };
 use crate::subs::{
     build_candidates, download_all, new_sub_id, report_to_json, sub_error_outcome, unix_now,
@@ -55,6 +56,20 @@ pub struct PreSocksDecision {
     pub core: CoreType,
     pub address: String,
     pub port: u16,
+}
+
+/// Applied-session facts the monitor pipeline needs (FIX-11).
+///
+/// These runtime facts (running core, statistics/API ports, applied node) are
+/// published only while a managed core is actually `Running`; the desired
+/// active node is never reported as a running session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MonitorSession {
+    pub core: CoreType,
+    pub active_index_id: Option<String>,
+    pub proxy_port: Option<u16>,
+    pub state_port: u16,
+    pub state_port2: u16,
 }
 
 /// Shared engine handle. Cloning shares all state.
@@ -82,6 +97,10 @@ pub struct AppEngine {
     /// session reports the node the running config was built for, not the
     /// current desired selection.
     apply_target: Arc<Mutex<Option<String>>>,
+    /// Core + statistics/API ports captured when an apply was accepted, so the
+    /// monitor pipeline polls the running core instead of re-deriving facts
+    /// from a desired (possibly changed) plan.
+    apply_facts: Arc<Mutex<Option<(CoreType, u16, u16)>>>,
 }
 
 impl AppEngine {
@@ -119,6 +138,7 @@ impl AppEngine {
             local_proxy_port: Arc::new(Mutex::new(None)),
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
+            apply_facts: Arc::new(Mutex::new(None)),
         };
         engine.ensure_builtin_routing_dns();
         engine
@@ -186,6 +206,7 @@ impl AppEngine {
             local_proxy_port: Arc::new(Mutex::new(None)),
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
+            apply_facts: Arc::new(Mutex::new(None)),
         };
         engine.ensure_builtin_routing_dns();
         Ok(engine)
@@ -1251,6 +1272,17 @@ impl AppEngine {
                 if let Ok(mut guard) = self.apply_target.lock() {
                     *guard = self.active_profile();
                 }
+                // Record the core + statistics/API ports of the accepted plan
+                // so the monitor pipeline can poll the applied session without
+                // re-deriving facts from a later desired plan.
+                let opts = self.runtime_codegen_options();
+                if let Ok(mut guard) = self.apply_facts.lock() {
+                    *guard = Some((
+                        plan.target.core_type,
+                        opts.state_port.clamp(0, u16::MAX as i32) as u16,
+                        opts.state_port2.clamp(0, u16::MAX as i32) as u16,
+                    ));
+                }
                 let job = self.jobs.start("apply_runtime");
                 // The correlation the UI uses is the job id; the runtime's
                 // operation id is embedded in the plan correlation.
@@ -1365,6 +1397,57 @@ impl AppEngine {
         let port =
             applied_port.or_else(|| self.local_proxy_port.lock().ok().and_then(|guard| *guard));
         port.map(|port| format!("http://127.0.0.1:{port}"))
+    }
+
+    /// Whether the monitor pipeline should collect (`GuiItem.EnableStatistics`)
+    /// and display real-time speed (`GuiItem.DisplayRealTimeSpeed`).
+    pub fn monitor_settings(&self) -> (bool, bool) {
+        let settings = self
+            .settings
+            .lock()
+            .map(|guard| guard.settings.clone())
+            .unwrap_or_default();
+        (
+            settings.gui_item.enable_statistics,
+            settings.gui_item.display_real_time_speed,
+        )
+    }
+
+    /// The monitor facts of the currently applied session, or `None` when no
+    /// managed core is running. This consumes the FIX-07 [`AppliedSession`]
+    /// fact; a desired-but-not-applied node is never reported.
+    pub fn monitor_session(&self) -> Option<MonitorSession> {
+        let applied = self.applied_session()?;
+        let (core, state_port, state_port2) = self
+            .apply_facts
+            .lock()
+            .ok()
+            .and_then(|guard| *guard)
+            .unwrap_or_else(|| {
+                let opts = self.runtime_codegen_options();
+                (
+                    CoreType::Xray,
+                    opts.state_port.clamp(0, u16::MAX as i32) as u16,
+                    opts.state_port2.clamp(0, u16::MAX as i32) as u16,
+                )
+            });
+        Some(MonitorSession {
+            core,
+            active_index_id: applied.active_index_id,
+            proxy_port: applied.proxy_port,
+            state_port,
+            state_port2,
+        })
+    }
+
+    /// A `ServerStatItem` store bound to this engine's data directory, or
+    /// `None` for the in-memory engine. The bridge binds it to the monitor hub
+    /// so real per-node rows persist and reload across restarts.
+    pub fn traffic_store(&self) -> Option<Box<dyn crate::monitor::TrafficStore>> {
+        let dir = self.data_dir.as_ref()?;
+        let db = dir.join("guiNDB.db");
+        let store = Store::open(&db).ok()?;
+        Some(Box::new(SqliteTrafficStore::from_store(store)))
     }
 
     /// `list_sub_items` use case, ordered by `Sort`.
@@ -2573,6 +2656,36 @@ mod tests {
         engine.snapshot().unwrap();
         assert!(engine.applied_session().is_none());
         assert!(engine.local_proxy_url().is_none());
+    }
+
+    #[test]
+    fn monitor_session_consumes_applied_session_facts() {
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let p = synthetic_full_profile(1);
+        engine.seed(vec![p.clone()]);
+        engine.set_active(Some(p.index_id.clone())).unwrap();
+        // Desired active but not applied: the monitor reports no session.
+        engine.snapshot().unwrap();
+        assert!(engine.monitor_session().is_none());
+
+        engine
+            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .unwrap();
+        runtime.mark_running_with("s-1", vec![11810], AppliedRevision::new(0));
+        engine.snapshot().unwrap();
+        let session = engine.monitor_session().expect("running session");
+        assert_eq!(session.core, CoreType::Xray);
+        assert_eq!(session.active_index_id, Some(p.index_id.clone()));
+        assert_eq!(session.proxy_port, Some(11810));
+        // Default inbound port 10808 -> Xray stats 10812 / Clash 10813.
+        assert_eq!(session.state_port, 10812);
+        assert_eq!(session.state_port2, 10813);
+
+        // Stopping the core withdraws the monitor session too.
+        engine.stop_runtime().unwrap();
+        engine.snapshot().unwrap();
+        assert!(engine.monitor_session().is_none());
     }
 
     #[test]

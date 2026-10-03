@@ -170,7 +170,22 @@ fn check_apply_and_rollback_in_temp_dir() {
             .expect("apply");
         assert_eq!(outcome.version, "26.4.0");
         assert!(outcome.kept_previous.is_some());
-        assert!(cores.path().join("xray").join("xray.exe").is_file());
+        // The freshly installed version lives in its own version directory and
+        // the runtime locator resolves exactly that directory.
+        assert!(cores
+            .path()
+            .join("xray")
+            .join("26.4.0")
+            .join("xray.exe")
+            .is_file());
+        let locator = runtime::CoreLocator::with_roots(vec![cores.path().to_path_buf()], None);
+        let resolved = locator
+            .resolve(domain::CoreType::Xray, None)
+            .expect("runtime resolves the just-installed version");
+        assert!(
+            resolved.ends_with(std::path::Path::new("26.4.0").join("xray.exe")),
+            "{resolved:?}"
+        );
         assert!(cores.path().join("xray.previous").is_dir());
 
         service.rollback_core("xray").expect("rollback");

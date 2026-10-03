@@ -185,6 +185,13 @@ impl StatsService {
         self.active_index_id.as_deref()
     }
 
+    /// Replace the persistence boundary. Used when the bridge binds the real
+    /// SQLite `ServerStatItem` store for a persistent data directory; the
+    /// caller is responsible for a follow-up [`Self::load`].
+    pub fn set_store(&mut self, store: Box<dyn TrafficStore>) {
+        self.store = store;
+    }
+
     /// Load persisted `ServerStatItem` rows into memory.
     pub fn load(&mut self) -> Result<(), DomainError> {
         self.nodes.clear();
@@ -835,6 +842,57 @@ mod tests {
         service.clear_all().unwrap();
         assert_eq!(service.nodes().count(), 0);
         assert_eq!(service.store.load().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn bound_sqlite_store_persists_and_reloads_server_stat_items() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("guiNDB.db");
+        let now = Instant::now();
+
+        let mut service = StatsService::new(
+            Box::new(crate::store_repo::SqliteTrafficStore::from_store(
+                persistence::Store::open(&db).unwrap(),
+            )),
+            true,
+            true,
+        );
+        service.set_active_index(Some("n1".into()));
+        service.apply(&[sample("proxy", 0, 0)], 0, 100, now);
+        service.apply(
+            &[sample("proxy", 100, 200)],
+            0,
+            100,
+            now + Duration::from_secs(2),
+        );
+        service.flush_store().unwrap();
+        assert_eq!(service.node("n1").unwrap().today_up, 100);
+
+        // A fresh service over the same database (process reopen) reloads it.
+        let mut reopened = StatsService::new(
+            Box::new(crate::store_repo::SqliteTrafficStore::from_store(
+                persistence::Store::open(&db).unwrap(),
+            )),
+            true,
+            true,
+        );
+        reopened.load().unwrap();
+        let row = reopened.node("n1").expect("persisted row");
+        assert_eq!(row.total_up, 100);
+        assert_eq!(row.today_up, 100);
+        assert_eq!(row.date_now, 100);
+
+        // Clear all persists the deletion.
+        reopened.clear_all().unwrap();
+        let mut third = StatsService::new(
+            Box::new(crate::store_repo::SqliteTrafficStore::from_store(
+                persistence::Store::open(&db).unwrap(),
+            )),
+            true,
+            true,
+        );
+        third.load().unwrap();
+        assert!(third.node("n1").is_none());
     }
 
     #[test]

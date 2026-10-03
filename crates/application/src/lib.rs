@@ -94,9 +94,9 @@ pub use tun_plan::{
     DEFAULT_TUN_IPV4_CIDR, DEFAULT_TUN_MTU_FALLBACK,
 };
 pub use update_service::{
-    builtin_targets, cleanup_logs_tmp, parse_dgst_sha256, test_api_base_override, update_error,
-    CleanupReport, CoreApplyOutcome, CoreApplyRequest, CoreUpdateCheck, InstalledCore,
-    UpdateService, UpdateTargetInfo, API_BASE_ENV, BUILTIN_TARGETS, GITHUB_API_BASE,
-    UPDATE_TIMEOUT,
+    app_signature_verifier, builtin_targets, cleanup_logs_tmp, enforce_detached_signature,
+    parse_dgst_sha256, test_api_base_override, update_error, CleanupReport, CoreApplyOutcome,
+    CoreApplyRequest, CoreUpdateCheck, InstalledCore, UpdateService, UpdateTargetInfo,
+    API_BASE_ENV, BUILTIN_TARGETS, GITHUB_API_BASE, UPDATE_TIMEOUT,
 };
 pub use webdav::{WebDavCheck, WebDavClient, WebDavConfig, WebDavEntry, BACKUP_FILE, DEFAULT_DIR};

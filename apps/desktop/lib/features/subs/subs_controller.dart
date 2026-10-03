@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
+import 'package:v2rayn_desktop/bridge/api/mirrors.dart' as m;
+import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
 final subsControllerProvider = NotifierProvider<SubsController, SubsState>(
@@ -155,6 +157,13 @@ class SubsController extends Notifier<SubsState> {
   }
 
   /// The F-SUB-003 update pipeline via an explicit run (job + cancellation).
+  ///
+  /// SET-03: the bridge mints and returns the real job id *before* the
+  /// download starts, so [lastJobId] is set while the work is still running
+  /// and [cancel] targets the live job. The terminal report is then resolved
+  /// from the bound job (`job_view`) instead of being awaited blankly; a
+  /// cancellation or failure never reports success and never replaces the
+  /// old group (the Rust pipeline is candidate-first).
   Future<c.SubUpdateResult> update({
     List<String> subIds = const <String>[],
     bool viaProxy = false,
@@ -167,19 +176,160 @@ class SubsController extends Notifier<SubsState> {
       ),
     );
     final bridge = ref.read(bridgePortProvider);
-    final result = await bridge.updateSubscriptions(subIds, viaProxy);
+    final started = await bridge.updateSubscriptions(subIds, viaProxy);
+    // Bind progress/cancel to the real job id immediately.
+    if (started.jobId != null) {
+      state = state.copyWith(lastJobId: started.jobId);
+    }
+    final result = _isStarted(started)
+        ? await _awaitJob(bridge, started, subIds)
+        : started;
     state = state.copyWith(
       busy: false,
-      lastJobId: result.jobId,
+      lastJobId: started.jobId ?? state.lastJobId,
       lastUpdatedMs: DateTime.now().millisecondsSinceEpoch,
       status: SubStatus(
-        kind: result.ok ? 'success' : 'error',
+        kind: result.ok ? 'success' : (result.cancelled ? 'info' : 'error'),
         message: _summarize(result),
         detail: _firstError(result),
       ),
     );
     reload();
     return result;
+  }
+
+  /// Whether the bridge accepted the run asynchronously and only returned the
+  /// job id (empty entries, no request error).
+  bool _isStarted(c.SubUpdateResult result) =>
+      result.jobId != null && result.entries.isEmpty && result.error == null;
+
+  bool _isTerminal(m.JobState state) =>
+      state == m.JobState.done ||
+      state == m.JobState.failed ||
+      state == m.JobState.cancelled;
+
+  /// Resolve a started job into a truthful terminal result. Node counts are
+  /// derived from the engine before/after so a success is never invented.
+  Future<c.SubUpdateResult> _awaitJob(
+    BridgePort bridge,
+    c.SubUpdateResult started,
+    List<String> subIds,
+  ) async {
+    final jobId = started.jobId!;
+    final before = _countsBySub(bridge);
+    c.JobDto? job;
+    final deadline = DateTime.now().add(const Duration(minutes: 10));
+    do {
+      job = bridge.jobView(jobId);
+      if (job != null && _isTerminal(job.state)) break;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    } while (DateTime.now().isBefore(deadline));
+    final targets = _targets(subIds);
+    if (job == null || !_isTerminal(job.state)) {
+      return c.SubUpdateResult(
+        ok: false,
+        success: 0,
+        cancelled: false,
+        entries: <c.SubUpdateEntryDto>[
+          for (final s in targets)
+            c.SubUpdateEntryDto(
+              subId: s.id,
+              remarks: s.remarks,
+              status: 'failed',
+              code: 'E_UNAVAILABLE',
+              message: 'error.sub_update_unconfirmed',
+            ),
+        ],
+        jobId: jobId,
+        error: const c.ErrorDto(
+          code: 'E_UNAVAILABLE',
+          messageKey: 'error.sub_update_unconfirmed',
+          retryable: true,
+        ),
+      );
+    }
+    switch (job.state) {
+      case m.JobState.cancelled:
+        return c.SubUpdateResult(
+          ok: false,
+          success: 0,
+          cancelled: true,
+          entries: <c.SubUpdateEntryDto>[
+            for (final s in targets)
+              c.SubUpdateEntryDto(
+                subId: s.id,
+                remarks: s.remarks,
+                status: 'cancelled',
+              ),
+          ],
+          jobId: jobId,
+        );
+      case m.JobState.done:
+        final after = _countsBySub(bridge);
+        final entries = <c.SubUpdateEntryDto>[
+          for (final s in targets)
+            c.SubUpdateEntryDto(
+              subId: s.id,
+              remarks: s.remarks,
+              status: 'updated',
+              added: _positiveDelta(after[s.id], before[s.id]),
+              existing: before[s.id] ?? 0,
+            ),
+        ];
+        final updated = entries.length;
+        return c.SubUpdateResult(
+          ok: updated > 0,
+          success: updated,
+          cancelled: false,
+          entries: entries,
+          jobId: jobId,
+        );
+      default:
+        final code = job.errorCode ?? 'E_UNAVAILABLE';
+        final messageKey = job.errorMessageKey ?? 'error.sub_update_failed';
+        return c.SubUpdateResult(
+          ok: false,
+          success: 0,
+          cancelled: false,
+          entries: <c.SubUpdateEntryDto>[
+            for (final s in targets)
+              c.SubUpdateEntryDto(
+                subId: s.id,
+                remarks: s.remarks,
+                status: 'failed',
+                code: code,
+                message: messageKey,
+              ),
+          ],
+          jobId: jobId,
+          error: c.ErrorDto(
+            code: code,
+            messageKey: messageKey,
+            retryable: false,
+          ),
+        );
+    }
+  }
+
+  int _positiveDelta(int? after, int? before) {
+    final a = after ?? 0;
+    final b = before ?? 0;
+    return a > b ? a - b : 0;
+  }
+
+  Map<String, int> _countsBySub(BridgePort bridge) {
+    final counts = <String, int>{};
+    for (final profile in bridge.queryAllProfiles()) {
+      counts.update(profile.subid, (v) => v + 1, ifAbsent: () => 1);
+    }
+    return counts;
+  }
+
+  List<c.SubItemDto> _targets(List<String> subIds) {
+    if (subIds.isNotEmpty) {
+      return state.items.where((s) => subIds.contains(s.id)).toList();
+    }
+    return state.items.where((s) => s.enabled).toList();
   }
 
   /// Cancel the in-flight update job (idempotent). Calls through to the
@@ -212,13 +362,22 @@ class SubsController extends Notifier<SubsState> {
 
   String _summarize(c.SubUpdateResult result) {
     if (result.cancelled) return '更新已取消';
-    if (result.entries.isEmpty) return '没有可更新的订阅';
+    if (result.entries.isEmpty) {
+      return result.error == null ? '没有可更新的订阅' : '更新未成功，旧节点已保留';
+    }
     final updated = result.entries.where((e) => e.status == 'updated').length;
     final preserved = result.entries
         .where((e) => e.status.startsWith('preserved'))
         .length;
+    final failed = result.entries
+        .where((e) => e.status == 'failed' || e.status == 'preserved_error')
+        .length;
+    if (updated == 0 && failed > 0) {
+      return '更新失败 $failed（旧节点已保留）';
+    }
     final parts = <String>['成功 $updated'];
     if (preserved > 0) parts.add('保留旧节点 $preserved');
+    if (failed > 0) parts.add('失败 $failed');
     return '更新完成：${parts.join('，')}';
   }
 

@@ -970,8 +970,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:224
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:633
   - docs/evidence/T13.md
+  - docs/evidence/UX-PARITY-FIX-11/README.md
   implementation_location: apps/desktop/lib/app/shell/main_shell.dart
   test_ids: []
+  notes: FIX-11（2026-10-03）：统计持久化接真实 SQLite ServerStatItem（crates/bridge_api/src/api/monitor.rs 的 sync_from_engine_session 绑定 SqliteTrafficStore，clear_stats → StatsService::clear_all 落库删除），活动节点当日/累计写入并在重开加载；已运行 Rust 单测 bound_sqlite_store_persists_and_reloads_server_stat_items。未做原版实机双窗口对照，保持 implemented。
   status: implemented
 - id: ACT-MAIN-031
   name: 打开文件所在位置

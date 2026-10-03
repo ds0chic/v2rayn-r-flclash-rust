@@ -1,0 +1,24 @@
+FIX-11 real-kernel probe: pinned Xray v26.3.27 /debug/vars populates non-zero
+per-outbound statistics for the exact HTTP source the app uses.
+
+Environment: Windows 11, Xray 26.3.27 (tools/cores/xray/v26.3.27/xray.exe).
+Ports: socks inbound 127.0.0.1:11850, metrics/api 11855/11857 (all >= 11808,
+probed free first). No 10808, no host system proxy, no TUN. Process started by
+this task and stopped by PID only.
+
+Synthetic config (see probe): stats {}, metrics.listen 127.0.0.1:11855,
+policy.system statsOutboundUplink/Downlink, socks inbound -> freedom outbound
+tagged "proxy". Traffic generated with:
+  curl.exe --noproxy "" --socks5 127.0.0.1:11850 http://127.0.0.1:11860/
+(--noproxy "" is required: the host no_proxy list contains 127.0.0.1 and curl
+would otherwise bypass the socks proxy, yielding zero stats.)
+
+Decisive line read from GET http://127.0.0.1:11855/debug/vars:
+"stats": {"inbound":{"api":{"downlink":0,"uplink":0},"socks-in":{"downlink":1311635,"uplink":465}},"outbound":{"proxy":{"downlink":1311575,"uplink":395}},"user":{}}
+
+This is exactly the nested shape crates/core_adapters/src/stats/xray.rs
+(parse_xray_vars -> stats.outbound[key].{uplink,downlink}) consumes, mirrored
+from upstream StatisticsXrayService.ParseOutput.
+
+Note: the earlier all-zero readings in this run were a test-harness artifact
+(curl honoring no_proxy=127.0.0.1), not a core or parser defect.

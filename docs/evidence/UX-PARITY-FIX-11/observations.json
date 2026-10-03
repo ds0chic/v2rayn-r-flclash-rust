@@ -1,0 +1,51 @@
+{
+  "task": "FIX-11",
+  "date": "2026-10-03",
+  "status": "implemented",
+  "scope": "kernel running -> view speed/proxy/connections -> switch core; statistics pipeline consumed from FIX-07 AppliedSession; visibility semantics",
+  "applied_session_injection": {
+    "source": "AppEngine::monitor_session() consumes FIX-07 AppliedSession (proxy_port/session_id/active_index_id/applied_revision)",
+    "fields": ["core", "active_index_id", "proxy_port", "state_port", "state_port2"],
+    "normal_entry": "MonitorController.build() listens runtimeControllerProvider; when RuntimeView.hasAppliedEndpoint the controller calls MonitorBridge.syncSession() (Rust monitor_start_polling syncs from the engine) and starts streams",
+    "not_test_only": true
+  },
+  "switch_stop_semantics": {
+    "engine": "sync_from_engine_session clears state_port/state_port2 when no applied session; poll_loop idles on 0/0 -> old session collection stops",
+    "verified_by": "test/fix11_monitor_session_test.dart: 'stopping the core re-syncs and stops the old session'"
+  },
+  "visibility_semantics": {
+    "rule": "hiding a page never reaches sync_from_engine_session; stats collection/persistence continue",
+    "verified_by": "test/fix11_monitor_session_test.dart: 'hiding a page pauses only that page, never the collection'"
+  },
+  "persistence": {
+    "store": "SqliteTrafficStore bound to <data_dir>/guiNDB.db ServerStatItem table",
+    "today_crossday_reopen_clear": "StatsService apply/rollover/flush_store/clear_all; unit tests in crates/application/src/monitor.rs",
+    "tests": [
+      "crates/application monitor::tests::bound_sqlite_store_persists_and_reloads_server_stat_items",
+      "crates/application monitor::tests::today_rollover_resets_today_but_keeps_total",
+      "crates/application monitor::tests::clear_all_empties_memory_and_store",
+      "crates/application engine::tests::monitor_session_consumes_applied_session_facts"
+    ]
+  },
+  "real_kernel_probe": {
+    "core": "tools/cores/xray/v26.3.27/xray.exe",
+    "ports": [11850, 11855, 11857, 11860],
+    "result": "non-zero: socks-in downlink=1311635 uplink=465; outbound proxy downlink=1311575 uplink=395",
+    "parser_match": "crates/core_adapters/src/stats/xray.rs parse_xray_vars nested stats.outbound",
+    "artifact": "real-core-debug-vars.txt"
+  },
+  "not_done": [
+    "Full end-to-end app run (net-host + real core + Flutter UI) showing non-zero in the status bar / node table was not executed; only the Rust pipeline wiring + a real-core /debug/vars probe were run.",
+    "Node-table projection of ServerStatItem (F-PROFILE-015 / PR-22) lives in features/profiles and is not modified by this card.",
+    "Clash select/close/mode/delay URL/retry and log collection semantics are registered as FIX-11B/11C."
+  ],
+  "commands": [
+    "cargo check -p application --locked",
+    "cargo check -p bridge_api --locked",
+    "cargo clippy -p application -p bridge_api --all-targets --locked -- -D warnings",
+    "cargo test -p application --lib --locked monitor",
+    "flutter analyze",
+    "flutter test test/fix11_monitor_session_test.dart",
+    "flutter test test/t15a_*.dart test/runtime_controller_test.dart test/t18b_runtime_ui_test.dart"
+  ]
+}

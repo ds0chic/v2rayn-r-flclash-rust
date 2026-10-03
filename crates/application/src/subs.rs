@@ -226,6 +226,9 @@ pub fn parse_request_headers(json: Option<&str>) -> Result<Vec<(String, String)>
         );
     };
     let mut headers = Vec::new();
+    // Upstream `HttpRequestHeadersHelper.TryParse` rejects duplicate header
+    // names regardless of case (`Dictionary(StringComparer.OrdinalIgnoreCase)`).
+    let mut seen = std::collections::HashSet::new();
     for (name, value) in map {
         let Value::String(value) = value else {
             return Err(
@@ -233,9 +236,16 @@ pub fn parse_request_headers(json: Option<&str>) -> Result<Vec<(String, String)>
                     .with_field("request_headers"),
             );
         };
-        if name.chars().any(|c| c.is_control())
+        if name.is_empty()
+            || name.chars().any(|c| c.is_control())
             || value.chars().any(|c| c.is_control() && c != '\t')
         {
+            return Err(
+                DomainError::new(domain::codes::FIELD_FORMAT, "error.sub_headers_invalid")
+                    .with_field("request_headers"),
+            );
+        }
+        if !seen.insert(name.to_ascii_lowercase()) {
             return Err(
                 DomainError::new(domain::codes::FIELD_FORMAT, "error.sub_headers_invalid")
                     .with_field("request_headers"),
@@ -625,6 +635,21 @@ mod tests {
         assert!(parse_request_headers(Some("[]")).is_err());
         assert!(parse_request_headers(Some(r#"{"X":1}"#)).is_err());
         assert!(parse_request_headers(Some("not json")).is_err());
+    }
+
+    #[test]
+    fn request_headers_reject_case_insensitive_duplicates() {
+        // Upstream `HttpRequestHeadersHelper` keys headers with
+        // `StringComparer.OrdinalIgnoreCase`, so `X-Test` / `x-test` collide.
+        // (Exact duplicate JSON keys are already collapsed by serde_json
+        // before this function sees the object.)
+        let error = parse_request_headers(Some(r#"{"X-Test":"1","x-test":"2"}"#)).unwrap_err();
+        assert_eq!(error.code, domain::codes::FIELD_FORMAT);
+        assert_eq!(error.field_path.as_deref(), Some("request_headers"));
+        assert!(parse_request_headers(Some(r#"{"Content-Type":"a","content-type":"b"}"#)).is_err());
+        // Distinct names survive, including ones that differ only in case.
+        let ok = parse_request_headers(Some(r#"{"X-A":"1","X-B":"2"}"#)).unwrap();
+        assert_eq!(ok.len(), 2);
     }
 
     #[test]

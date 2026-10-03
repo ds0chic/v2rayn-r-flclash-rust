@@ -42,6 +42,7 @@ class FakeMonitorBridge implements MonitorBridge {
   bool? lastScrollPaused;
   String? activeNode;
   bool pollingStarted = false;
+  int syncSessionCount = 0;
 
   // Synchronous broadcast so a test that `emit`s then pumps one frame sees the
   // state update; asynchronous delivery would need an extra microtask drain.
@@ -310,6 +311,12 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   void startPolling() => pollingStarted = true;
+
+  @override
+  void syncSession() {
+    syncSessionCount++;
+    pollingStarted = true;
+  }
 
   m.MonitorActionResult _ok() => m.MonitorActionResult(
     ok: true,

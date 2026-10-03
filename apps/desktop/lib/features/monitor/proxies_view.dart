@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
+import 'package:v2rayn_desktop/features/monitor/clash_ui_config.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Clash proxies tab (F-MONITOR-004, LAY-CLASHPROXY-001).
@@ -21,12 +23,18 @@ class ProxiesView extends ConsumerStatefulWidget {
 class _ProxiesViewState extends ConsumerState<ProxiesView> {
   bool _initialized = false;
   bool _autoRefresh = false;
-  bool _sortDescending = false;
+  int _sorting = 0;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    final config = ref.read(clashUiConfigProvider);
+    _autoRefresh = config.proxiesAutoRefresh;
+    _sorting = config.proxiesSorting;
+    _restartTimer(
+      config.proxiesRefreshEnabled ? config.proxiesRefreshPeriod : null,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _initialized) return;
       _initialized = true;
@@ -43,20 +51,79 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     super.dispose();
   }
 
+  /// React to a settings change while the tab is open (save -> live refresh).
+  void _applyConfig(ClashUiConfig config) {
+    if (!mounted) return;
+    setState(() {
+      _autoRefresh = config.proxiesAutoRefresh;
+      _sorting = config.proxiesSorting;
+    });
+    _restartTimer(
+      config.proxiesRefreshEnabled ? config.proxiesRefreshPeriod : null,
+    );
+  }
+
+  void _restartTimer(Duration? period) {
+    _timer?.cancel();
+    _timer = null;
+    if (period == null || period.inSeconds <= 0) return;
+    _timer = Timer.periodic(period, (_) {
+      if (mounted) {
+        unawaited(
+          ref.read(monitorControllerProvider.notifier).refreshProxies(),
+        );
+      }
+    });
+  }
+
   void _setAutoRefresh(bool value) {
     setState(() => _autoRefresh = value);
-    _timer?.cancel();
-    if (value) {
-      _timer = Timer.periodic(const Duration(seconds: 2), (_) async {
-        if (mounted) {
-          await ref.read(monitorControllerProvider.notifier).refreshProxies();
-        }
-      });
+    _restartTimer(
+      value ? ref.read(clashUiConfigProvider).proxiesRefreshPeriod : null,
+    );
+    _persistClash(<String, Object>{'ProxiesAutoRefresh': value});
+  }
+
+  void _toggleSorting() {
+    final next = _sorting == 0 ? 1 : 0;
+    setState(() => _sorting = next);
+    _persistClash(<String, Object>{'ProxiesSorting': next});
+  }
+
+  void _persistClash(Map<String, Object> changes) {
+    final settings = ref.read(settingsControllerProvider);
+    if (!settings.loaded) return;
+    ref
+        .read(settingsControllerProvider.notifier)
+        .saveGroup('ClashUIItem', clashUiGroupWith(settings.document, changes));
+  }
+
+  /// Mirrors upstream `ClashProxiesViewModel.RefreshProxyDetails` sorting:
+  /// `0` delay ascending (timeouts last), `1` name ascending, else core order.
+  void _applySorting(
+    List<m.ClashProxyDto> groups,
+    List<m.ClashProxyDto> nodes,
+    Map<String, int> delays,
+  ) {
+    if (_sorting == 0) {
+      nodes.sort(
+        (a, b) => _delayRank(a, delays).compareTo(_delayRank(b, delays)),
+      );
+      groups.sort((a, b) => a.name.compareTo(b.name));
+    } else if (_sorting == 1) {
+      groups.sort((a, b) => a.name.compareTo(b.name));
+      nodes.sort((a, b) => a.name.compareTo(b.name));
     }
+  }
+
+  int _delayRank(m.ClashProxyDto proxy, Map<String, int> delays) {
+    final delay = delays[proxy.name] ?? proxy.delay;
+    return delay < 0 ? 1 << 30 : delay;
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(clashUiConfigProvider, (_, next) => _applyConfig(next));
     final state = ref.watch(monitorControllerProvider);
     final controller = ref.read(monitorControllerProvider.notifier);
 
@@ -68,18 +135,9 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       );
     }
 
-    final groups = state.proxies.where((p) => p.isGroup).toList()
-      ..sort(
-        (a, b) => _sortDescending
-            ? b.name.compareTo(a.name)
-            : a.name.compareTo(b.name),
-      );
-    final nodes = state.proxies.where((p) => !p.isGroup).toList()
-      ..sort(
-        (a, b) => _sortDescending
-            ? b.name.compareTo(a.name)
-            : a.name.compareTo(b.name),
-      );
+    final groups = state.proxies.where((p) => p.isGroup).toList();
+    final nodes = state.proxies.where((p) => !p.isGroup).toList();
+    _applySorting(groups, nodes, state.proxyDelays);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -109,14 +167,13 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
                 ),
                 TextButton.icon(
                   key: const ValueKey('proxies-sort'),
-                  onPressed: () =>
-                      setState(() => _sortDescending = !_sortDescending),
+                  onPressed: _toggleSorting,
                   icon: Icon(
-                    _sortDescending ? Icons.sort_by_alpha : Icons.sort,
+                    _sorting == 1 ? Icons.sort_by_alpha : Icons.sort,
                     size: 14,
                   ),
                   label: Text(
-                    _sortDescending ? '名称 Z-A' : '名称 A-Z',
+                    _sorting == 1 ? '排序: 名称' : '排序: 延迟',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),

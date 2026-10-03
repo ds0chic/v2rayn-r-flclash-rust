@@ -92,6 +92,32 @@ class DesktopIntegration with WindowListener {
     await ref.read(hotkeyControllerProvider.notifier).registerAll();
     await _initTray();
     await _refreshTrayMenu();
+    // AutoHideStartup (FLD-CFG-078 / upstream `MainWindow` ctor sets
+    // `WindowState.Minimized`, `OnLoaded` calls `ShowHideWindow(false)`): a
+    // launch with the field on must never surface the window, only the tray.
+    if (shouldHideOnStartup(settings.document)) {
+      await _hideOnStartup();
+    }
+  }
+
+  /// Whether the window must stay hidden right after launch. Upstream reads
+  /// `UiItem.AutoHideStartup` once at window construction, so this is a startup
+  /// decision, not a live toggle.
+  static bool shouldHideOnStartup(Map<String, dynamic> document) =>
+      CloseBehavior.fromDocument(document).autoHideStartup;
+
+  /// Hide the already-created window. The Win32 embedder shows the window from
+  /// its first-frame callback, so hide once now (tray already exists) and again
+  /// on the next frame in case that callback lands after this runs.
+  Future<void> _hideOnStartup() async {
+    try {
+      await windowManager.hide();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        windowManager.hide();
+      });
+    } on Object catch (e) {
+      debugPrint('[desktop] auto-hide startup failed: $e');
+    }
   }
 
   Future<void> _initTray() async {

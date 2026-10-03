@@ -14,8 +14,8 @@ use domain::{CancellationToken, DomainError, Profile};
 use persistence::RawRow;
 use serde_json::{json, Map, Value};
 use subscriptions::{
-    build_client, parse_content, ContentHint, DownloadOptions, MergeOptions, ParseOptions,
-    ParsedFormat, ProxyConfig, RefreshOutcome, SubError,
+    build_client, build_convert_url, parse_content, punycode_url, ContentHint, DownloadOptions,
+    MergeOptions, ParseOptions, ParsedFormat, ProxyConfig, RefreshOutcome, SubError,
 };
 
 use crate::repository::new_index_id;
@@ -210,6 +210,63 @@ fn is_http_url(url: &str) -> bool {
     trimmed.starts_with("http://") || trimmed.starts_with("https://")
 }
 
+/// Built-in subscription-conversion config (upstream
+/// `Global.SubConvertConfig.FirstOrDefault()`).
+pub const BUILTIN_SUB_CONVERT_CONFIG: &str =
+    "https://raw.githubusercontent.com/ACL4SSR/ACL4SSR/master/Clash/config/ACL4SSR_Online.ini";
+
+/// The effective converter request parameters for one refresh run.
+///
+/// Upstream resolves these once from `ConstItem.SubConvertUrl` (falling back to
+/// `Global.SubConvertUrls.First()`) and `Global.SubConvertConfig.First()`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConvertContext {
+    pub template: String,
+    pub config: String,
+}
+
+impl ConvertContext {
+    /// The upstream built-ins (`Global.SubConvertUrls[0]` + config).
+    pub fn builtin() -> Self {
+        Self {
+            template: crate::dns::BUILTIN_SUB_CONVERT_URL.to_string(),
+            config: BUILTIN_SUB_CONVERT_CONFIG.to_string(),
+        }
+    }
+
+    /// Resolve the configured converter service from persisted settings.
+    pub fn from_const_item(const_item: &domain::ConstItem) -> Self {
+        Self {
+            template: crate::dns::effective_sub_convert_url(const_item),
+            config: BUILTIN_SUB_CONVERT_CONFIG.to_string(),
+        }
+    }
+}
+
+/// The URL to download for `item`'s main body.
+///
+/// Plain subscriptions use the punycoded URL; a non-empty `convert_target`
+/// routes the source through the converter service (`DownloadMainSubscription`).
+pub fn subscription_request_url(item: &SubItem, convert: &ConvertContext) -> String {
+    let source = punycode_url(item.url.trim());
+    match item
+        .convert_target
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(target) => build_convert_url(&convert.template, &source, target, &convert.config),
+        None => source,
+    }
+}
+
+fn has_convert_target(item: &SubItem) -> bool {
+    item.convert_target
+        .as_deref()
+        .map(str::trim)
+        .is_some_and(|s| !s.is_empty())
+}
+
 /// Parse and validate a `RequestHeaders` JSON object (`HttpRequestHeadersHelper`).
 pub fn parse_request_headers(json: Option<&str>) -> Result<Vec<(String, String)>, DomainError> {
     let Some(text) = json.map(str::trim).filter(|s| !s.is_empty()) else {
@@ -365,6 +422,24 @@ pub async fn download_all(
     proxy_url: Option<&str>,
     cancellation: &CancellationToken,
 ) -> Result<String, SubError> {
+    download_all_configured(item, via_proxy, proxy_url, None, cancellation).await
+}
+
+/// Download the main body (optionally through the converter service) plus the
+/// `MoreUrl` entries when no conversion is in play.
+///
+/// `convert` carries the effective `SubConvertUrl`/`SubConvertConfig` resolved
+/// from settings; when it is `None` the upstream built-ins are used. The
+/// ordering matches `DownloadAllSubscriptions`: `MoreUrl` is *skipped* whenever
+/// `ConvertTarget` is set, and the main body is base64-decoded before the
+/// additional bodies are appended otherwise.
+pub async fn download_all_configured(
+    item: &SubItem,
+    via_proxy: bool,
+    proxy_url: Option<&str>,
+    convert: Option<&ConvertContext>,
+    cancellation: &CancellationToken,
+) -> Result<String, SubError> {
     let headers = parse_request_headers(item.request_headers.as_deref())
         .map_err(|_| SubError::HeaderInvalid("request headers".into()))?;
     if via_proxy && proxy_url.map(str::trim).filter(|s| !s.is_empty()).is_none() {
@@ -383,8 +458,12 @@ pub async fn download_all(
     };
     let downloader = build_client(&options)?;
 
-    let main = download_with_fallback(&downloader, &options, &item.url, cancellation).await?;
-    if item.convert_target.as_deref().unwrap_or("").is_empty() && !item.more_url.trim().is_empty() {
+    let converted = has_convert_target(item);
+    let builtin = ConvertContext::builtin();
+    let request_url = subscription_request_url(item, convert.unwrap_or(&builtin));
+    let main = download_with_fallback(&downloader, &options, &request_url, cancellation).await?;
+
+    if !converted && !item.more_url.trim().is_empty() {
         let mut result = main;
         if subscriptions::util::is_base64_string(&result) {
             if let Ok(decoded) = subscriptions::util::base64_decode(&result) {
@@ -392,6 +471,7 @@ pub async fn download_all(
             }
         }
         for url in item.more_urls() {
+            let url = punycode_url(&url);
             let extra = download_with_fallback(&downloader, &options, &url, cancellation).await;
             match extra {
                 Ok(body) if !body.is_empty() => {
@@ -484,6 +564,111 @@ pub fn assign_candidate_ids(profiles: &mut [Profile]) {
         if profile.index_id.trim().is_empty() {
             profile.index_id = new_index_id();
         }
+    }
+}
+
+/// F-SUB-007 converted refresh: the candidate-first pipeline with the
+/// subscription-conversion service applied to the main URL.
+///
+/// Equivalent to [`crate::engine::AppEngine::refresh_subscriptions`] but
+/// resolves `ConstItem.SubConvertUrl` / `Global.SubConvertConfig` and routes
+/// `ConvertTarget` subscriptions through the converter (and therefore skips
+/// `MoreUrl`). The candidate-first guarantee is unchanged: a failed/empty
+/// download preserves the old group and reports a structured error.
+pub async fn refresh_subscriptions_with_convert(
+    engine: &crate::engine::AppEngine,
+    request: SubUpdateRequest,
+    cancellation: &CancellationToken,
+    max_items: usize,
+) -> SubUpdateReport {
+    let convert = engine
+        .load_settings()
+        .map(|loaded| ConvertContext::from_const_item(&loaded.settings.const_item))
+        .unwrap_or_else(|_| ConvertContext::builtin());
+    let mut report = SubUpdateReport::default();
+    let targets = match engine.list_sub_items() {
+        Ok(all) if request.sub_ids.is_empty() => all,
+        Ok(all) => all
+            .into_iter()
+            .filter(|s| request.sub_ids.contains(&s.id))
+            .collect(),
+        Err(_) => return report,
+    };
+    for item in targets {
+        if cancellation.is_cancelled() {
+            report.entries.push(SubUpdateEntry {
+                sub_id: item.id.clone(),
+                remarks: item.remarks.clone(),
+                outcome: SubUpdateOutcome::Cancelled,
+            });
+            break;
+        }
+        report.entries.push(
+            refresh_one_with_convert(engine, &item, &request, &convert, cancellation, max_items)
+                .await,
+        );
+    }
+    report
+}
+
+async fn refresh_one_with_convert(
+    engine: &crate::engine::AppEngine,
+    item: &SubItem,
+    request: &SubUpdateRequest,
+    convert: &ConvertContext,
+    cancellation: &CancellationToken,
+    max_items: usize,
+) -> SubUpdateEntry {
+    let entry = |outcome: SubUpdateOutcome| SubUpdateEntry {
+        sub_id: item.id.clone(),
+        remarks: item.remarks.clone(),
+        outcome,
+    };
+    if item.url.trim().is_empty() {
+        return entry(SubUpdateOutcome::Skipped {
+            reason: "error.url_required".into(),
+        });
+    }
+    if !item.enabled {
+        return entry(SubUpdateOutcome::Skipped {
+            reason: "error.sub_disabled".into(),
+        });
+    }
+    if cancellation.is_cancelled() {
+        return entry(SubUpdateOutcome::Cancelled);
+    }
+    let existing = engine.profiles_by_subid(&item.id).unwrap_or_default();
+
+    // Candidate-first: download and parse before touching storage.
+    let content = match download_all_configured(
+        item,
+        request.via_proxy,
+        request.proxy_url.as_deref(),
+        Some(convert),
+        cancellation,
+    )
+    .await
+    {
+        Ok(content) => content,
+        Err(SubError::Cancelled) => return entry(SubUpdateOutcome::Cancelled),
+        Err(err) => return entry(sub_error_outcome(&err)),
+    };
+
+    let mut candidates = match build_candidates(item, &content, &existing, max_items) {
+        Ok(profiles) => profiles,
+        Err(err) => return entry(sub_error_outcome(&err)),
+    };
+    assign_candidate_ids(&mut candidates);
+
+    match engine.replace_sub_profiles(&item.id, candidates, true) {
+        Ok((added, removed)) => {
+            let _ = engine.touch_sub_update_time(&item.id, unix_now());
+            entry(SubUpdateOutcome::Updated { added, removed })
+        }
+        Err(err) => entry(SubUpdateOutcome::Failed {
+            code: err.code,
+            message: err.message_key,
+        }),
     }
 }
 
@@ -647,9 +832,13 @@ pub async fn run_scheduler_pass(
             via_proxy,
             proxy_url: proxy_url.clone(),
         };
-        let item_report = engine
-            .refresh_subscriptions(request, &CancellationToken::new(), max_items)
-            .await;
+        let item_report = refresh_subscriptions_with_convert(
+            engine,
+            request,
+            &CancellationToken::new(),
+            max_items,
+        )
+        .await;
         report.entries.extend(item_report.entries);
     }
     report
@@ -1034,5 +1223,214 @@ mod tests {
             scheduler.is_finished(),
             "scheduler loop did not exit on stop"
         );
+    }
+
+    // -- FIX-09B: subscription conversion target ----------------------------
+
+    #[test]
+    fn subscription_request_url_builds_convert_request_for_target() {
+        let item = SubItem {
+            url: "https://example.com/s".into(),
+            convert_target: Some("clash".into()),
+            ..SubItem::default()
+        };
+        let ctx = ConvertContext {
+            template: "https://c/sub?url={0}".into(),
+            config: "cfg.ini".into(),
+        };
+        assert_eq!(
+            subscription_request_url(&item, &ctx),
+            "https://c/sub?url=https%3A%2F%2Fexample.com%2Fs&target=clash&config=cfg.ini"
+        );
+        // No target: the plain punycoded URL is used.
+        let plain = SubItem {
+            url: "https://example.com/s".into(),
+            ..SubItem::default()
+        };
+        assert_eq!(
+            subscription_request_url(&plain, &ctx),
+            "https://example.com/s"
+        );
+        // `Global.SubConvertUrls[0]` fallback is used when settings are unset.
+        let builtin = ConvertContext::builtin();
+        assert_eq!(builtin.template, crate::dns::BUILTIN_SUB_CONVERT_URL);
+        assert_eq!(builtin.config, BUILTIN_SUB_CONVERT_CONFIG);
+    }
+
+    /// A loopback server that captures every request and answers with a fixed
+    /// status/body. Bound at `>= 11808`.
+    async fn spawn_capture_server(
+        status: &'static str,
+        body: &'static str,
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = bind_test_listener().await;
+        let port = listener.local_addr().unwrap().port();
+        let captured = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let cap = captured.clone();
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    break;
+                };
+                let mut buf = vec![0u8; 4096];
+                let n = socket.read(&mut buf).await.unwrap_or(0);
+                cap.lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&buf[..n]).into_owned());
+                let header = format!(
+                    "{status}\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let mut bytes = header.into_bytes();
+                bytes.extend_from_slice(body.as_bytes());
+                let _ = socket.write_all(&bytes).await;
+                let _ = socket.shutdown().await;
+            }
+        });
+        (format!("http://127.0.0.1:{port}/sub"), captured)
+    }
+
+    fn set_convert_url(engine: &crate::engine::AppEngine, template: String) {
+        let revision = engine.settings_revision();
+        let mut loaded = engine.load_settings().expect("settings");
+        loaded.settings.const_item.sub_convert_url = Some(template);
+        engine
+            .save_settings(loaded.settings, revision)
+            .expect("save settings");
+    }
+
+    #[tokio::test]
+    async fn download_configured_uses_converter_and_skips_more_url() {
+        let vless = "vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none#converted";
+        let (base, captured) = spawn_capture_server("HTTP/1.1 200 OK", vless).await;
+        let item = SubItem {
+            url: "https://example.com/actual?token=abc".into(),
+            more_url: format!("{base}/more"),
+            convert_target: Some("mixed".into()),
+            user_agent: "V2RayN-Test/1.0".into(),
+            request_headers: Some(r#"{"X-Test":"1"}"#.into()),
+            ..SubItem::default()
+        };
+        let convert = ConvertContext {
+            template: format!("{base}?url={{0}}"),
+            config: "https://cfg.example/ACL4SSR_Online.ini".into(),
+        };
+        let content = download_all_configured(
+            &item,
+            false,
+            None,
+            Some(&convert),
+            &CancellationToken::new(),
+        )
+        .await
+        .expect("converted download");
+        assert!(content.contains("vless://"), "{content}");
+
+        let requests = captured.lock().unwrap().clone();
+        assert_eq!(
+            requests.len(),
+            1,
+            "MoreUrl must be skipped when converting: {requests:?}"
+        );
+        let request = &requests[0];
+        assert!(
+            request.contains("url=https%3A%2F%2Fexample.com%2Factual%3Ftoken%3Dabc"),
+            "source must be URL-encoded: {request}"
+        );
+        assert!(request.contains("target=mixed"), "{request}");
+        assert!(request.contains("config=http"), "{request}");
+        assert!(request.contains("ACL4SSR_Online.ini"), "{request}");
+        assert!(
+            request.to_ascii_lowercase().contains("x-test: 1"),
+            "custom header missing: {request}"
+        );
+        assert!(
+            request.to_ascii_lowercase().contains("v2rayn-test/1.0"),
+            "user agent missing: {request}"
+        );
+    }
+
+    #[tokio::test]
+    async fn converted_pipeline_replaces_group_with_converted_nodes() {
+        let vless = "vless://22222222-2222-2222-2222-222222222222@converted.example:443?encryption=none#conv";
+        let (base, captured) = spawn_capture_server("HTTP/1.1 200 OK", vless).await;
+        let engine = crate::engine::AppEngine::in_memory();
+        set_convert_url(&engine, format!("{base}?url={{0}}"));
+        let saved = engine
+            .save_sub_item(SubItem {
+                remarks: "conv".into(),
+                url: "https://example.com/origin".into(),
+                more_url: format!("{base}/more"),
+                convert_target: Some("v2ray".into()),
+                ..SubItem::default()
+            })
+            .expect("save");
+        let report = refresh_subscriptions_with_convert(
+            &engine,
+            SubUpdateRequest {
+                sub_ids: vec![saved.id.clone()],
+                via_proxy: false,
+                proxy_url: None,
+            },
+            &CancellationToken::new(),
+            100,
+        )
+        .await;
+        assert_eq!(report.success_count(), 1, "{:?}", report.entries);
+        assert_eq!(engine.profiles_by_subid(&saved.id).unwrap().len(), 1);
+        let requests = captured.lock().unwrap().clone();
+        assert_eq!(requests.len(), 1, "{requests:?}");
+        assert!(requests[0].contains("target=v2ray"), "{}", requests[0]);
+    }
+
+    #[tokio::test]
+    async fn convert_failure_preserves_old_group() {
+        let (base, _captured) =
+            spawn_capture_server("HTTP/1.1 500 Internal Server Error", "boom").await;
+        let engine = crate::engine::AppEngine::in_memory();
+        set_convert_url(&engine, format!("{base}?url={{0}}"));
+        let saved = engine
+            .save_sub_item(SubItem {
+                remarks: "conv".into(),
+                url: "https://example.com/origin".into(),
+                convert_target: Some("clash".into()),
+                ..SubItem::default()
+            })
+            .expect("save");
+
+        let mut old = subscriptions::resolve_uri(
+            "vless://99999999-9999-9999-9999-999999999999@old.example:443?encryption=none#keep",
+        )
+        .unwrap();
+        old.index_id = "old-conv".into();
+        old.subid = saved.id.clone();
+        engine
+            .save_profile(old, domain::DesiredRevision::new(engine.desired_revision()))
+            .unwrap();
+
+        let report = refresh_subscriptions_with_convert(
+            &engine,
+            SubUpdateRequest {
+                sub_ids: vec![saved.id.clone()],
+                via_proxy: false,
+                proxy_url: None,
+            },
+            &CancellationToken::new(),
+            100,
+        )
+        .await;
+        assert_eq!(report.success_count(), 0);
+        assert!(
+            matches!(
+                report.entries[0].outcome,
+                SubUpdateOutcome::PreservedError { .. } | SubUpdateOutcome::Failed { .. }
+            ),
+            "converter failure must be structured: {:?}",
+            report.entries[0].outcome
+        );
+        let profiles = engine.profiles_by_subid(&saved.id).unwrap();
+        assert_eq!(profiles.len(), 1);
+        assert!(profiles.iter().any(|p| p.index_id == "old-conv"));
     }
 }

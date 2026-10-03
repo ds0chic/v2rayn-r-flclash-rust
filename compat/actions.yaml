@@ -1396,6 +1396,7 @@ items:
   implementation_location: crates/platform/src/single_instance.rs
   test_ids: []
   status: implemented
+  notes: 'FIX-15B：实际进程单实例由 windows/runner/main.cpp 按 exe 路径散列命名互斥量实现，并识别上游启动参数 rebootas；真实双进程已实测（docs/evidence/UX-PARITY-FIX-15B/dual-process.log）。Rust SingleInstanceGuard 目前为未接线能力。'
 - id: ACT-WIN-011
   name: 启动隐藏并恢复隐藏状态
   domain: main-menu
@@ -1426,6 +1427,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart
   test_ids: [t13_close_behavior_parses_ui_flags]
   status: implemented
+  notes: 'FIX-15B：DesktopIntegration.start() 在 UiItem.AutoHideStartup 为真时于托盘就绪后隐藏窗口（FLD-CFG-078）；单元测试 test/fix15b_startup_test.dart 通过；真实窗口重开验证待 flutter build windows 门禁（本卡禁止构建）。'
 - id: ACT-WIN-012
   name: 第二实例启动时显示主窗口
   domain: main-menu
@@ -1454,6 +1456,7 @@ items:
   implementation_location: crates/platform/src/single_instance.rs
   test_ids: []
   status: implemented
+  notes: 'FIX-15B：runner 处理第二实例 PostMessage 后 SW_RESTORE + SetForegroundWindow；真实双进程实测第二进程 0.31s 退出、首窗口恢复可见且置前。'
 - id: ACT-HOTKEY-001
   name: 全局热键-显示窗口
   domain: hotkey
@@ -5432,3 +5435,10 @@ items:
 # ACT-CLASH-002/003 延迟 URL 取 SpeedPingTestItem.SpeedPingTestUrl（默认
 #   Global.SpeedPingTestUrls.First()=https://www.google.com/generate_204），timeout=10000；
 #   GetProxies 重试 3 次/2s（ClashApiManager.cs:11-59）。
+
+# --- FIX-16C append (evidence: docs/evidence/UX-PARITY-FIX-16C/) ---
+# ClashUIItem interval_source 已接线（本卡，仅追加，不删行）：
+#   ProxiesRefreshInterval / ProxiesAutoRefresh -> apps/desktop/lib/features/monitor/proxies_view.dart
+#   ConnectionsRefreshInterval / ConnectionsAutoRefresh -> apps/desktop/lib/features/monitor/connections_view.dart
+#   ProxiesSorting（0=Delay/1=Name）-> proxies_view 排序（对齐 ClashProxiesViewModel.cs:258）
+#   状态：verified（widget 测试 test/fix16c_clash_ui_config_test.dart）；ConnectionsColumnItem 仍 registered。

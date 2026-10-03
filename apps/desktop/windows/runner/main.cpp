@@ -94,11 +94,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
+  // Upstream startup argument: `App.xaml.cs` treats `Global.RebootAs`
+  // ("rebootas") as a self-restart. The replacement process (often elevated)
+  // must start normally instead of being mistaken for a second instance and
+  // exiting. It is the only argument the upstream app parses from `e.Args`.
+  std::vector<std::string> command_line_arguments =
+      GetCommandLineArguments();
+  bool reboot_as = false;
+  for (const std::string& arg : command_line_arguments) {
+    if (arg == "rebootas") {
+      reboot_as = true;
+      break;
+    }
+  }
+
   // Single instance (ROOT-06): a second launch wakes the running window and
-  // exits; the lock is held for the process lifetime.
+  // exits; the lock is held for the process lifetime. `rebootas` bypasses the
+  // exit so the elevated replacement can take over.
   HANDLE instance_mutex =
       ::CreateMutexW(nullptr, FALSE, InstanceMutexName().c_str());
-  if (instance_mutex != nullptr && ::GetLastError() == ERROR_ALREADY_EXISTS) {
+  if (!reboot_as && instance_mutex != nullptr &&
+      ::GetLastError() == ERROR_ALREADY_EXISTS) {
     ActivateExistingInstance();
     ::CloseHandle(instance_mutex);
     ::CoUninitialize();
@@ -106,9 +122,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   flutter::DartProject project(L"data");
-
-  std::vector<std::string> command_line_arguments =
-      GetCommandLineArguments();
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 

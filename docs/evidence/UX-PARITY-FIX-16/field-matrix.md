@@ -93,8 +93,10 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 | ConstItem.RouteRulesTemplateSourceUrl | 路由规则来源 | text | null | 同上 | save → `dns::effective_routing_template_source`（空=内置路由） | consumed（解析器已接线；外部模板抓取消费者登记为 FIX-16B 缺口） |
 | SimpleDNSItem.FakeIP / GlobalFakeIp / EnableHappyEyeballs | DNS 历史段 | checkbox | false/true/false | SimpleDNSItem | restart_core | preserved_only（上游 DNS 窗口） |
 | HappyEyeballs4RayItem.{TryDelayMs,PrioritizeIPv6,Interleave,MaxConcurrentTry} | DNS 历史段 | number/checkbox | 250/false/1/4 | HappyEyeballs4RayItem | restart_core | preserved_only（上游 DNS 窗口） |
-| ClashUIItem.EnableIPv6/EnableMixinContent | Clash 历史段 | checkbox | false | ClashUIItem | restart_core | preserved_only（上游窗口无控件） |
-| ClashUIItem.ProxiesSorting/ProxiesAutoRefresh/ProxiesRefreshInterval | Clash 历史段 | number/checkbox | 0/false/2 | 同上 | immediate | registered → FIX-16C（Clash UI 消费者未接） |
+| ClashUIItem.EnableIPv6/EnableMixinContent | Clash 历史段 | checkbox | false | ClashUIItem | restart_core | preserved_only（上游窗口无控件；Rust 侧 `grep` 无消费者，config_codegen 未接，登记后续） |
+| ClashUIItem.ProxiesSorting/ProxiesAutoRefresh/ProxiesRefreshInterval | Clash 历史段 | dropdown/checkbox/number | 0/false/2 | 同上 | immediate | **verified**（FIX-16C：`proxies_view` 读 `clashUiConfigProvider`；排序/自动刷新 widget 测试） |
+| ClashUIItem.ConnectionsAutoRefresh/ConnectionsRefreshInterval | Clash 历史段 | checkbox/number | false/2 | 同上 | immediate | **verified**（FIX-16C：`connections_view` 读同一 provider；自动刷新 widget 测试） |
+| ClashUIItem.ConnectionsColumnItem | Clash 历史段（无控件） | list | [] | 同上 | save | registered（连接表列仍硬编码，未按 Index 恢复；登记后续） |
 
 ## 系统代理
 
@@ -130,10 +132,10 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 
 ## 统计
 
-- 可见控件：101（核心 36 / 显示 40 / 系统代理 6 / Tun 11 / 内核类型 8）。
-- `verified`（本卡实测消费者）：4（CurrentLanguage / CurrentFontFamily / CurrentFontSize / SrsSourceUrl→sing-box rule_set URL）。
-- `consumed`（含 verified，持久化 + 领域消费者已知，本环境未跑内核）：71（FIX-16B 新增 SubConvertUrl/GeoSourceUrl/RouteRulesTemplateSourceUrl 解析消费者）。
-- `registered`（待接线，已登记后续卡）：3（仅 Clash Proxies* 3 项；FIX-16B 的 4 个源字段已接线到 `dns::effective_*` 解析器）。
+- 可见控件：103（核心 36 / 显示 42 / 系统代理 6 / Tun 11 / 内核类型 8；FIX-16C 在显示页 Clash 历史段新增 Connections 自动刷新/间隔 2 项）。
+- `verified`（实测消费者）：9（FIX-16 的 CurrentLanguage / CurrentFontFamily / CurrentFontSize / SrsSourceUrl 4 项 + FIX-16C 的 ProxiesSorting / ProxiesAutoRefresh / ProxiesRefreshInterval / ConnectionsAutoRefresh / ConnectionsRefreshInterval 5 项）。
+- `consumed`（含 verified，持久化 + 领域消费者已知，本环境未跑内核）：76（FIX-16B 3 个源解析消费者 + FIX-16C 5 个 Clash UI 消费者）。
+- `registered`（待接线，已登记后续卡）：1（ClashUIItem.ConnectionsColumnItem；Clash Proxies*/Connections* 已转 verified）。
 - `blocked`（平台/网络，本环境不执行）：17（系统代理 6 + Tun 11）。
-- `preserved_only`（上游本窗口不暴露）：9（DNS 4+1+1+... 见上；另 KCP 6 项入口保留但主状态计 consumed）。
+- `preserved_only`（上游本窗口不暴露）：9（DNS 见上；EnableIPv6/EnableMixinContent 保留但 Rust `grep` 无消费者，登记后续；KCP 6 项入口保留但主状态计 consumed）。
 - 未伪造缺口：KCP 页（上游注释）、FakeIP/HappyEyeballs（上游 DNS 窗口）、ClashUIItem（上游无控件）、WPF 四个额外主题（`ThemeSettingView` 未暴露）均如实登记，不造控件。

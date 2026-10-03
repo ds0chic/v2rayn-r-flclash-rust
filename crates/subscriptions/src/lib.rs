@@ -11,6 +11,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod convert;
 pub mod download;
 pub mod error;
 pub mod fmt;
@@ -18,6 +19,7 @@ pub mod merge;
 pub mod parse;
 pub mod util;
 
+pub use convert::{build_convert_url, punycode_url};
 pub use download::{
     build_client, download_string, DownloadOptions, Downloaded, Downloader, ProxyConfig,
 };

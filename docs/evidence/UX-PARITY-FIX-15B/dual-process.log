@@ -1,0 +1,12 @@
+[01:28:09.788] exe=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\build\windows\x64\runner\Release\v2rayn_desktop.exe
+[01:28:09.801] data_dir=C:\Users\Colby\AppData\Local\Temp\v2raynr-fix15b\data
+[01:28:10.740] launch first instance
+[01:28:10.784] first pid=14120
+[01:28:12.845] first window handle=0x17509E2 visible=True
+[01:28:13.650] after SW_HIDE visible=False
+[01:28:13.650] launch second instance
+[01:28:13.659] second pid=37688
+[01:28:13.972] second exited=True code=0 after=0.31s
+[01:28:15.982] after wake: first_visible=True foreground_is_first=True
+[01:28:15.983] RESULT second_exited=True first_visible_after_hide=True foreground_is_first=True pass=True
+[01:28:15.988] stopping started pid=14120

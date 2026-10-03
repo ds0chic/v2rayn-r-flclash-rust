@@ -1,0 +1,55 @@
+{
+  "task": "FIX-15B",
+  "startCommit": "fdedda2",
+  "upstream": "2dust-v2rayN-7d6a967 (7.25.4)",
+  "recordingComplete": true,
+  "scope": "启动隐藏 AutoHideStartup 落链；单实例真实双进程实测与唤回可见结果；上游启动参数明确",
+  "checks": [
+    {
+      "step": "auto-hide-startup-decision",
+      "passed": true,
+      "actual": "DesktopIntegration.shouldHideOnStartup: UiItem.AutoHideStartup=true -> true; false/absent/malformed/non-bool -> false; unit test 3/3 pass"
+    },
+    {
+      "step": "normal-launch-no-regression",
+      "passed": true,
+      "actual": "default document (fresh isolated data dir) keeps window visible; decision false"
+    },
+    {
+      "step": "startup-arg-rebootas",
+      "passed": false,
+      "actual": "windows/runner/main.cpp parses 'rebootas' and bypasses the single-instance exit (upstream Global.RebootAs); NOT compiled this round because flutter build windows is forbidden"
+    },
+    {
+      "step": "dual-process-second-exits",
+      "passed": true,
+      "actual": "second instance exited=True code=0 after=0.31s (Release exe built at FIX-15 commit 04fcd93)"
+    },
+    {
+      "step": "dual-process-wake-visible-foreground",
+      "passed": true,
+      "actual": "first window hidden with SW_HIDE -> after second launch first_visible=True foreground_is_first=True"
+    },
+    {
+      "step": "real-window-auto-hide-reopen",
+      "passed": false,
+      "actual": "integration_test/ux_parity_fix15b_startup_test.dart written (seed/hidden modes); NOT run because flutter test -d windows needs flutter build windows, forbidden this round"
+    }
+  ],
+  "testsRun": {
+    "dart format --output=none --set-exit-if-changed <changed>": "0 changed, exit 0",
+    "flutter analyze <changed 3 files>": "No issues found",
+    "flutter test test/fix15b_startup_test.dart": "3/3 pass",
+    "dual-process.ps1 (real exe x2, isolated V2RAYN_R_DATA_DIR)": "pass=True"
+  },
+  "notRun": [
+    "flutter build windows --release",
+    "flutter test integration_test/ux_parity_fix15b_startup_test.dart -d windows",
+    "Rust workspace gate"
+  ],
+  "failures": [],
+  "notes": [
+    "Dual-process evidence was produced against apps/desktop/build/windows/x64/runner/Release/v2rayn_desktop.exe built at FIX-15 (commit 04fcd93); the FIX-15B rebootas edit in main.cpp is source-only until the next build.",
+    "Only PIDs started by dual-process.ps1 were stopped; no system proxy / registry / route / TUN change; port 10808 never used."
+  ]
+}

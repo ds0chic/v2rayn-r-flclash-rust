@@ -217,7 +217,14 @@ fn spawn_sub_update(
             .enable_all()
             .build();
         let report = match runtime {
-            Ok(rt) => rt.block_on(engine.refresh_subscriptions(request, &token, MAX_IMPORT_ITEMS)),
+            // FIX-09B: resolve `ConstItem.SubConvertUrl` from settings and route
+            // `ConvertTarget` subscriptions through the converter service.
+            Ok(rt) => rt.block_on(application::subs::refresh_subscriptions_with_convert(
+                &engine,
+                request,
+                &token,
+                MAX_IMPORT_ITEMS,
+            )),
             Err(err) => {
                 let mut report = SubUpdateReport::default();
                 report.entries.push(application::SubUpdateEntry {

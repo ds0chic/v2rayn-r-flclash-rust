@@ -889,8 +889,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           ),
         ],
       ),
-      // ClashUIItem has no OptionSettingWindow control upstream; retained so the
-      // config stays editable until FIX-16C wires the Clash UI consumers.
+      // ClashUIItem has no OptionSettingWindow control upstream; the monitor
+      // Clash tabs now consume these fields (FIX-16C), so they stay editable.
       SettingsSection(
         title: '历史保留（原版 Clash UI 设置）',
         child: <Widget>[
@@ -904,20 +904,32 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _bool(_group('ClashUIItem'), 'EnableMixinContent'),
             onChanged: (v) => _set('ClashUIItem', 'EnableMixinContent', v),
           ),
-          SettingsNumberField(
+          SettingsDropdown<int>(
             label: '代理排序 (ProxiesSorting)',
             value: _int(_group('ClashUIItem'), 'ProxiesSorting'),
+            items: _items(<(String, int)>[('延迟', 0), ('名称', 1)]),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesSorting', v),
           ),
           SettingsCheckbox(
-            label: '代理自动刷新',
+            label: '代理自动刷新 (ProxiesAutoRefresh)',
             value: _bool(_group('ClashUIItem'), 'ProxiesAutoRefresh'),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesAutoRefresh', v),
           ),
           SettingsNumberField(
-            label: '代理刷新间隔',
+            label: '代理刷新间隔 (ProxiesRefreshInterval)',
             value: _int(_group('ClashUIItem'), 'ProxiesRefreshInterval'),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesRefreshInterval', v),
+          ),
+          SettingsCheckbox(
+            label: '连接自动刷新 (ConnectionsAutoRefresh)',
+            value: _bool(_group('ClashUIItem'), 'ConnectionsAutoRefresh'),
+            onChanged: (v) => _set('ClashUIItem', 'ConnectionsAutoRefresh', v),
+          ),
+          SettingsNumberField(
+            label: '连接刷新间隔 (ConnectionsRefreshInterval)',
+            value: _int(_group('ClashUIItem'), 'ConnectionsRefreshInterval'),
+            onChanged: (v) =>
+                _set('ClashUIItem', 'ConnectionsRefreshInterval', v),
           ),
         ],
       ),

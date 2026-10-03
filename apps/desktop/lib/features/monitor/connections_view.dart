@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
+import 'package:v2rayn_desktop/features/monitor/clash_ui_config.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Clash connections tab (F-MONITOR-005, LAY-CLASHCN-001).
@@ -29,6 +31,11 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   @override
   void initState() {
     super.initState();
+    final config = ref.read(clashUiConfigProvider);
+    _autoRefresh = config.connectionsAutoRefresh;
+    _restartTimer(
+      config.connectionsRefreshEnabled ? config.connectionsRefreshPeriod : null,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _initialized) return;
       _initialized = true;
@@ -45,18 +52,43 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     super.dispose();
   }
 
+  /// React to a settings change while the tab is open (save -> live refresh).
+  void _applyConfig(ClashUiConfig config) {
+    if (!mounted) return;
+    setState(() => _autoRefresh = config.connectionsAutoRefresh);
+    _restartTimer(
+      config.connectionsRefreshEnabled ? config.connectionsRefreshPeriod : null,
+    );
+  }
+
+  void _restartTimer(Duration? period) {
+    _timer?.cancel();
+    _timer = null;
+    if (period == null || period.inSeconds <= 0) return;
+    _timer = Timer.periodic(period, (_) {
+      if (mounted) {
+        unawaited(
+          ref.read(monitorControllerProvider.notifier).refreshConnections(),
+        );
+      }
+    });
+  }
+
   void _setAutoRefresh(bool value) {
     setState(() => _autoRefresh = value);
-    _timer?.cancel();
-    if (value) {
-      _timer = Timer.periodic(const Duration(seconds: 2), (_) async {
-        if (mounted) {
-          await ref
-              .read(monitorControllerProvider.notifier)
-              .refreshConnections();
-        }
-      });
-    }
+    _restartTimer(
+      value ? ref.read(clashUiConfigProvider).connectionsRefreshPeriod : null,
+    );
+    final settings = ref.read(settingsControllerProvider);
+    if (!settings.loaded) return;
+    ref
+        .read(settingsControllerProvider.notifier)
+        .saveGroup(
+          'ClashUIItem',
+          clashUiGroupWith(settings.document, <String, Object>{
+            'ConnectionsAutoRefresh': value,
+          }),
+        );
   }
 
   void _report(String message) {
@@ -87,6 +119,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(clashUiConfigProvider, (_, next) => _applyConfig(next));
     final state = ref.watch(monitorControllerProvider);
     final controller = ref.read(monitorControllerProvider.notifier);
 

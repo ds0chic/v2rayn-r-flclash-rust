@@ -1,0 +1,57 @@
+{
+  "task": "FIX-16C",
+  "status": "implemented",
+  "head": "fdedda2",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "changed_files": [
+    "apps/desktop/lib/features/monitor/clash_ui_config.dart",
+    "apps/desktop/lib/features/monitor/proxies_view.dart",
+    "apps/desktop/lib/features/monitor/connections_view.dart",
+    "apps/desktop/lib/features/settings/option_setting_window.dart",
+    "apps/desktop/test/fix16c_clash_ui_config_test.dart",
+    "apps/desktop/test/support/fake_monitor_bridge.dart"
+  ],
+  "commands": [
+    {
+      "command": "dart format lib/features/monitor/clash_ui_config.dart lib/features/monitor/proxies_view.dart lib/features/monitor/connections_view.dart lib/features/settings/option_setting_window.dart test/fix16c_clash_ui_config_test.dart test/support/fake_monitor_bridge.dart",
+      "result": "4 changed / 6 formatted"
+    },
+    {
+      "command": "flutter analyze lib/features/monitor lib/features/settings test/fix16c_clash_ui_config_test.dart test/support/fake_monitor_bridge.dart",
+      "result": "No issues found"
+    },
+    {
+      "command": "flutter test test/fix16c_clash_ui_config_test.dart",
+      "result": "8/8 passed"
+    },
+    {
+      "command": "flutter test test/fix11b_clash_panel_test.dart test/t15a_proxies_test.dart test/t15a_connections_test.dart test/fix16_settings_field_test.dart test/t12a_option_window_test.dart",
+      "result": "14/14 passed"
+    }
+  ],
+  "field_status": {
+    "ClashUIItem.ProxiesSorting": "verified",
+    "ClashUIItem.ProxiesAutoRefresh": "verified",
+    "ClashUIItem.ProxiesRefreshInterval": "verified",
+    "ClashUIItem.ConnectionsAutoRefresh": "verified",
+    "ClashUIItem.ConnectionsRefreshInterval": "verified",
+    "ClashUIItem.ConnectionsColumnItem": "registered",
+    "ClashUIItem.EnableIPv6": "preserved_only (Rust consumer unwired)",
+    "ClashUIItem.EnableMixinContent": "preserved_only (Rust consumer unwired)"
+  },
+  "constraints": {
+    "port_10808_touched": false,
+    "host_proxy_modified": false,
+    "registry_route_tun_modified": false,
+    "user_credentials_read": false,
+    "rust_changed": false,
+    "generated_files_changed": false,
+    "full_workspace_test": false,
+    "flutter_build_windows": false
+  },
+  "blockers": [
+    "ConnectionsColumnItem column restore requires column drag/width state + StorageUI write-back (LAY-CLASHCN-002).",
+    "EnableIPv6/EnableMixinContent have no config_codegen consumer in crates (grep found none).",
+    "Real Windows window integration test not run (environment flakiness); left to root agent (FIX-16F)."
+  ]
+}

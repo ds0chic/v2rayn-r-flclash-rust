@@ -46,6 +46,8 @@ class FakeMonitorBridge implements MonitorBridge {
   int closeAllCount = 0;
   int clearStatsCount = 0;
   int clearLogsCount = 0;
+  int clashProxiesCount = 0;
+  int clashConnectionsCount = 0;
   int? lastMinLevel;
   bool? lastCollectingPaused;
   bool? lastScrollPaused;
@@ -234,6 +236,7 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.ClashProxiesDto> clashProxies() async {
+    clashProxiesCount++;
     if (!clashApiSupported) {
       return m.ClashProxiesDto(
         ok: false,
@@ -314,6 +317,7 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.ClashConnectionsDto> clashConnections() async {
+    clashConnectionsCount++;
     if (!clashApiSupported) {
       return m.ClashConnectionsDto(
         ok: false,

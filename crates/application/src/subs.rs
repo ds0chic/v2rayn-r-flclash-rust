@@ -6,11 +6,12 @@
 //! `Store`-backed repositories, so a failed or empty download never clears the
 //! existing nodes (plan §15, F-SUB-011).
 
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use domain::{CancellationToken, DomainError, Profile};
+use domain::{CancellationToken, ConfigType, DomainError, Profile};
 use persistence::RawRow;
 use serde_json::{json, Map, Value};
 use subscriptions::{
@@ -208,6 +209,89 @@ fn non_empty(value: Option<String>) -> Option<String> {
 fn is_http_url(url: &str) -> bool {
     let trimmed = url.trim();
     trimmed.starts_with("http://") || trimmed.starts_with("https://")
+}
+
+/// Resolve a subscription-level chain reference by exact Remarks (`first` on
+/// index order, mirroring upstream `AppManager.GetProfileItemViaRemarks`).
+fn resolve_remarks<'a>(all: &'a HashMap<String, Profile>, remarks: &str) -> Option<&'a Profile> {
+    let mut matches: Vec<&Profile> = all.values().filter(|p| p.remarks == remarks).collect();
+    matches.sort_by(|a, b| a.index_id.cmp(&b.index_id));
+    matches.into_iter().next()
+}
+
+/// Build the virtual `ProxyChain` node that wraps `active` with the owning
+/// subscription's `PrevProfile`/`NextProfile` remarks (upstream
+/// `CoreConfigContextBuilder.BuildSubscriptionChainNodeAsync`).
+///
+/// The synthesis is generation-only: the stored `ProfileItem` rows are never
+/// modified. `None` means "no chain" — the node carries no subscription, is
+/// `Custom`, the subscription row is gone, or neither reference resolved.
+/// Missing references are reported as non-fatal warnings and excluded
+/// (upstream `MsgSubscriptionPrevProfileNotFound` /
+/// `MsgSubscriptionNextProfileNotFound`); the chain then falls back to the
+/// node and whichever reference did resolve.
+pub fn build_subscription_chain_node(
+    active: &Profile,
+    all: &HashMap<String, Profile>,
+    sub: Option<&SubItem>,
+) -> (Option<Profile>, Vec<config_codegen::Diagnostic>) {
+    let mut warnings: Vec<config_codegen::Diagnostic> = Vec::new();
+    // Upstream guard: `node.Subid.IsNullOrEmpty() || ConfigType == Custom`.
+    if active.subid.trim().is_empty() || active.config_type == ConfigType::Custom {
+        return (None, warnings);
+    }
+    let Some(sub) = sub else {
+        return (None, warnings);
+    };
+
+    let mut prev: Option<Profile> = None;
+    if let Some(remarks) = sub.prev_profile.as_deref().filter(|raw| !raw.is_empty()) {
+        match resolve_remarks(all, remarks) {
+            Some(profile) => prev = Some(profile.clone()),
+            None => warnings.push(config_codegen::Diagnostic::warning(
+                "error.subscription_prev_profile_not_found",
+                format!("subscription PrevProfile `{remarks}` does not resolve to a profile"),
+                Some("SubItem.PrevProfile"),
+            )),
+        }
+    }
+    let mut next: Option<Profile> = None;
+    if let Some(remarks) = sub.next_profile.as_deref().filter(|raw| !raw.is_empty()) {
+        match resolve_remarks(all, remarks) {
+            Some(profile) => next = Some(profile.clone()),
+            None => warnings.push(config_codegen::Diagnostic::warning(
+                "error.subscription_next_profile_not_found",
+                format!("subscription NextProfile `{remarks}` does not resolve to a profile"),
+                Some("SubItem.NextProfile"),
+            )),
+        }
+    }
+    if prev.is_none() && next.is_none() {
+        return (None, warnings);
+    }
+
+    // Upstream `ChildItems = [prev?.IndexId, node.IndexId, next?.IndexId]`,
+    // de-duplicated by the traversal's global visited set.
+    let mut seen = HashSet::new();
+    let mut child_ids: Vec<String> = Vec::new();
+    for candidate in [prev.as_ref(), Some(active), next.as_ref()]
+        .into_iter()
+        .flatten()
+    {
+        if seen.insert(candidate.index_id.clone()) {
+            child_ids.push(candidate.index_id.clone());
+        }
+    }
+    let mut chain = Profile {
+        index_id: format!("inner-{}", new_index_id()),
+        config_type: ConfigType::ProxyChain,
+        core_type: active.core_type,
+        remarks: active.remarks.clone(),
+        ..Default::default()
+    };
+    chain.proto_extra.group_type = Some(ConfigType::ProxyChain.as_str().to_string());
+    chain.proto_extra.child_items = Some(child_ids.join(","));
+    (Some(chain), warnings)
 }
 
 /// Built-in subscription-conversion config (upstream

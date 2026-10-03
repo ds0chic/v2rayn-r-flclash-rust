@@ -4952,3 +4952,16 @@ remediation_implementation_records:
     - docs/evidence/UX-PARITY-FIX-15C/README.md
     status: implemented
     note: 自启只在设置保存成功后且值变化时写 Run 项（对照 AutoStartupHandler.UpdateTask），真实 HKCU Run 写读删已复原且无残留。PAC 解析对照 PacManager.InitText，自定义 PAC 存在则用之，否则 config_dir/pac.txt，缺失时写入内置默认模板。Rust 桥函数 pac_resolve_script 因未重生成 frb_generated 暂不可被 Dart 调用，App 走 Dart 侧 selectPacFile/startPacFromConfig 复用既有 pacStartFromFile。系统代理真机仅对 ForcedChange 做写读复原，四模式状态机由内存 backend 覆盖。
+
+  - id: F-FIX-09C
+    name: 订阅前置/后置节点链（PrevProfile/NextProfile 生成期虚拟 ProxyChain）
+    implementation_location: crates/application/src/subs.rs (build_subscription_chain_node/resolve_remarks) + crates/application/src/engine.rs (build_codegen_input_with_warnings/build_runtime_plan_with_hints) + crates/config_codegen/src/xray|singbox/outbound.rs (build_chain_outbounds_list, 复用 FIX-03C)
+    test_ids:
+    - crates/application/src/engine.rs::tests::subscription_chain_synthesizes_prev_active_next
+    - crates/application/src/engine.rs::tests::subscription_chain_dangling_reference_warns_and_falls_back
+    - crates/application/src/engine.rs::tests::subscription_chain_missing_both_does_not_wrap
+    - crates/application/src/engine.rs::tests::subscription_chain_excludes_custom_and_unsubscribed_nodes
+    evidence:
+    - docs/evidence/UX-PARITY-FIX-09C/README.md
+    status: implemented
+    note: 对照冻结源码 CoreConfigContextBuilder.BuildSubscriptionChainNodeAsync（7d6a967）。生成期对带 Subid 且非 Custom 的活动节点按 SubItem.PrevProfile/NextProfile 以 Remarks 精确匹配（首个，按 index_id 升序）合成 `inner-<id>` 虚拟 ProxyChain，ChildItems=[prev,node,next]（保序去重，仅生成期，不写回 ProfileItem）；悬空引用产生 Diagnostic::warning（error.subscription_prev/next_profile_not_found，field=SubItem.PrevProfile/NextProfile）并回退到可解析子集，双空不建链。生成复用 FIX-03C 链式语义：ChildItems 反序、Xray dialerProxy / sing-box detour 串联、入口 tag=proxy、无 balancer。application 192/192、bridge_api 51/51、fmt/clippy 干净。UI 仍为文本输入框写 Remarks（上游为排除 Custom 的节点选择器），选择器缺口登记为下一步。

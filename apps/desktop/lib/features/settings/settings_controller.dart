@@ -108,6 +108,7 @@ class SettingsController extends Notifier<SettingsViewState> {
 
   /// Persist the whole document with the optimistic revision check.
   settings.SaveSettingsResult saveDocument(Map<String, dynamic> draft) {
+    _normalizeRootCertProvider(draft);
     final result = ref
         .read(bridgePortProvider)
         .saveSettingsJson(jsonEncode(draft), state.revision);
@@ -161,6 +162,19 @@ class SettingsController extends Notifier<SettingsViewState> {
   }
 
   void clearStatus() => state = state.copyWith(status: null);
+
+  /// Upstream `ConfigHandler.LoadConfig` parity: an out-of-list
+  /// `GuiItem.RootCertProvider` is forced to `system`. Missing/null is left to
+  /// the Rust defaults so unknown-field preservation stays intact.
+  static void _normalizeRootCertProvider(Map<String, dynamic> draft) {
+    final gui = draft['GuiItem'];
+    if (gui is Map) {
+      final current = gui['RootCertProvider'];
+      if (current is String && !rootCertProviders.contains(current)) {
+        gui['RootCertProvider'] = defaultRootCertProvider;
+      }
+    }
+  }
 
   void _applyImmediate(Map<String, dynamic> document) {
     ref

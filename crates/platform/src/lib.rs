@@ -12,6 +12,7 @@
 //! through the in-memory fakes and loopback PAC server.
 
 pub mod autostart;
+pub mod cert;
 pub mod error;
 pub mod hash;
 pub mod pac;
@@ -24,6 +25,11 @@ pub use error::{PlatformError, Result};
 pub use autostart::{
     decode_run_command, encode_run_command, run_value_name, AutoStartBackend, AutoStartEntry,
     FakeRegistry, AUTO_RUN_NAME,
+};
+pub use cert::{
+    install_command, remove_command, trust_source, uses_system_store, verify_command, CertBlob,
+    CertStoreScope, CertificateStore, FakeCertificateStore, RootCertProvider, TrustSource,
+    CHROME_ROOT_CERT_FILE, MOZILLA_ROOT_CERT_FILE, ROOT_CERT_PROVIDERS, ROOT_STORE_NAME,
 };
 pub use pac::{
     render_pac, resolve_pac_path, resolve_pac_script, PacConfig, PacServer, PacSource, ResolvedPac,
@@ -38,5 +44,7 @@ pub use sysproxy::{
 
 #[cfg(windows)]
 pub use autostart::windows::WindowsRunKeyBackend;
+#[cfg(windows)]
+pub use cert::windows::WindowsCertificateStore;
 #[cfg(windows)]
 pub use sysproxy::windows::WindowsSystemProxyBackend;

@@ -1,0 +1,129 @@
+{
+  "task": "FIX-16E",
+  "title": "RootCertProvider trust source and certificate-store platform effect",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "app_head": "4017e9f",
+  "status": "implemented",
+  "files_changed": [
+    "crates/platform/src/cert/mod.rs",
+    "crates/platform/src/cert/windows.rs",
+    "crates/platform/src/lib.rs",
+    "crates/platform/tests/cert_store.rs",
+    "crates/platform/tests/fixtures/synthetic-root.cer",
+    "crates/bridge_api/src/api/platform.rs",
+    "apps/desktop/lib/features/settings/settings_defaults.dart",
+    "apps/desktop/lib/features/settings/settings_controller.dart",
+    "apps/desktop/test/fix16e_cert_provider_test.dart",
+    "docs/tasks/FIX-16E.md",
+    "docs/evidence/UX-PARITY-FIX-16E/README.md",
+    "docs/evidence/UX-PARITY-FIX-16E/observations.json",
+    "docs/evidence/UX-PARITY-FIX-16/field-matrix.md"
+  ],
+  "upstream_findings": {
+    "consumer": "crates equivalent of v2rayN/ServiceLib/Manager/CertPemManager.cs BuildTrustedCertificateCollection / IsSystemRootCertProvider / BuildCertificateChainPolicy",
+    "download_consumers": [
+      "v2rayN/ServiceLib/Services/DownloadService.cs:171",
+      "v2rayN/ServiceLib/Services/DownloadService.cs:267",
+      "v2rayN/ServiceLib/Helper/DownloaderHelper.cs:294"
+    ],
+    "provider_list": "v2rayN/ServiceLib/Global.cs:758 RootCertProviders = [system, chrome, mozilla]",
+    "fallback": "v2rayN/ServiceLib/Handler/ConfigHandler.cs:98-100 unknown -> first (system)",
+    "res_ui_note": "v2rayN/ServiceLib/Resx/ResUI.zh-Hans.resx:1835 only for v2rayN UI downloads/network requests, does not affect core cert verification",
+    "no_installer": "no InstallCert/X509Store/certutil/StoreLocation anywhere in upstream 7d6a967"
+  },
+  "commands": [
+    {
+      "cmd": "cargo fmt -p platform",
+      "result": "exit 0"
+    },
+    {
+      "cmd": "cargo test -p platform --lib --locked",
+      "result": "18 passed; 0 failed; 0 ignored"
+    },
+    {
+      "cmd": "cargo clippy -p platform --all-targets --locked -- -D warnings",
+      "result": "exit 0"
+    },
+    {
+      "cmd": "cargo test -p bridge_api --lib --locked cert_",
+      "result": "2 passed; 0 failed"
+    },
+    {
+      "cmd": "cargo clippy -p bridge_api --all-targets --locked -- -D warnings",
+      "result": "exit 0"
+    },
+    {
+      "cmd": "V2RAYN_R_CERT_STORE_TEST=1 cargo test -p platform --test cert_store --locked -- --ignored --nocapture",
+      "result": "1 passed; current-user ROOT before_count=84 after_count=84; thumbprint before/after not-found"
+    },
+    {
+      "cmd": "dart format lib/features/settings/settings_defaults.dart lib/features/settings/settings_controller.dart test/fix16e_cert_provider_test.dart",
+      "result": "3 files, 0 changed"
+    },
+    {
+      "cmd": "flutter analyze <3 target files>",
+      "result": "No issues found"
+    },
+    {
+      "cmd": "flutter test test/fix16e_cert_provider_test.dart",
+      "result": "2 passed"
+    },
+    {
+      "cmd": "flutter test test/fix16_settings_field_test.dart",
+      "result": "3 passed (first attempt failed with known did-not-complete/exit 79 flake; retry passed)"
+    },
+    {
+      "cmd": "flutter test test/fix08_option_apply_test.dart",
+      "result": "1 passed"
+    }
+  ],
+  "certutil_probe": {
+    "cmd": "certutil -user -addstore -f Root <synthetic.cer>",
+    "observed": "interactive CryptUI consent dialog; command hung >90s and was terminated; store verified unchanged (thumbprint not-found)",
+    "conclusion": "certutil root addstore cannot run unattended; real backend uses silent CryptoAPI instead"
+  },
+  "store_roundtrip": {
+    "scope": "CurrentUser ROOT",
+    "fixture": "crates/platform/tests/fixtures/synthetic-root.cer (DER 718 bytes, no private key)",
+    "thumbprint_sha256": "6435cc53fe1b4e23bf3714482da5777fba2d8089f3767bbd1645728ab8e458fa",
+    "sequence": [
+      "contains(before)=false",
+      "install",
+      "contains(after)=true",
+      "remove",
+      "contains(final)=false"
+    ],
+    "store_count_before": 84,
+    "store_count_after": 84
+  },
+  "status_counts": {
+    "verified": [
+      "RootCertProvider normalization / trust source mapping",
+      "certutil install/remove command preview and invalid-scope error branch",
+      "CurrentUser ROOT synthetic certificate write/read/restore"
+    ],
+    "implemented": [
+      "WindowsCertificateStore CryptoAPI backend",
+      "FakeCertificateStore"
+    ],
+    "blocked": [
+      "chrome/mozilla bundled PEM resources absent",
+      "LocalMachine ROOT write requires elevation",
+      "certutil -addstore ROOT CryptUI consent cannot run unattended"
+    ],
+    "registered_next": [
+      "FIX-16E-2 wire trust source into crates/application download/speedtest TLS validation",
+      "FIX-16E-3 LocalMachine elevated install/rollback via authorized isolated path"
+    ]
+  },
+  "constraints_self_check": {
+    "port_10808": "not touched; no listener; tests use no ports",
+    "host_system_proxy": "not touched",
+    "registry_routing_tun": "not touched",
+    "credential_read": "none; fixture is a synthetic keyless self-signed cert",
+    "work_outputs": "read-only, unchanged",
+    "compat_ledger": "unchanged (RootCertProvider already registered with correct null_handling; no denominator change)",
+    "process_stop": "only the certutil process started by this card's probe was terminated",
+    "frb_generated": "unchanged; new #[frb(sync)] functions require regeneration by the root agent"
+  }
+}

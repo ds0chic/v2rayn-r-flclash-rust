@@ -8,9 +8,9 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `applied_dto`, `fake_service`, `mode_symbol`, `platform_error`, `proxy_state_dto`, `restore_result`, `service`, `slot`, `windows_service`
+// These functions are ignored because they are not marked as `pub`: `applied_dto`, `cert_command_dto`, `cert_scope_error`, `fake_service`, `mode_symbol`, `platform_error`, `proxy_state_dto`, `restore_result`, `service`, `slot`, `windows_service`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `HotkeyRegisterResult`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
 
 /// Explicit opt-in to the real Windows backend for the process.
 ///
@@ -124,6 +124,37 @@ SimpleResult setAutostart({
 String autostartValueName({required String startupPath}) => RustLib.instance.api
     .crateApiPlatformAutostartValueName(startupPath: startupPath);
 
+/// Upstream `Global.RootCertProviders`, in order (`system` is the fallback).
+List<String> certRootProviders() =>
+    RustLib.instance.api.crateApiPlatformCertRootProviders();
+
+/// Resolve a persisted provider to its trust source, applying the upstream
+/// fallback (outside the list -> `system`). Pure; no store access.
+CertProviderDto certProviderInfo({required String provider}) =>
+    RustLib.instance.api.crateApiPlatformCertProviderInfo(provider: provider);
+
+/// Command preview for importing a certificate file into the root store.
+///
+/// This is the audit surface only: the Windows backend uses the silent
+/// CryptoAPI path because `certutil -addstore` on `ROOT` raises the CryptUI
+/// consent dialog.
+CertCommandDto certInstallCommand({
+  required String scope,
+  required String certPath,
+}) => RustLib.instance.api.crateApiPlatformCertInstallCommand(
+  scope: scope,
+  certPath: certPath,
+);
+
+/// Command preview for removing a certificate by thumbprint from the root store.
+CertCommandDto certRemoveCommand({
+  required String scope,
+  required String thumbprint,
+}) => RustLib.instance.api.crateApiPlatformCertRemoveCommand(
+  scope: scope,
+  thumbprint: thumbprint,
+);
+
 /// Validate the two custom system-proxy paths (existence only; never executed).
 SimpleResult validateCustomProxyScript({String? pacPath, String? scriptPath}) =>
     RustLib.instance.api.crateApiPlatformValidateCustomProxyScript(
@@ -186,6 +217,88 @@ class AppliedChangeDto {
           field == other.field &&
           before == other.before &&
           after == other.after;
+}
+
+/// A constructed `certutil` command (preview only; never executed here).
+class CertCommandDto {
+  final bool ok;
+  final String program;
+  final List<String> args;
+  final ErrorDto? error;
+
+  const CertCommandDto({
+    required this.ok,
+    required this.program,
+    required this.args,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^ program.hashCode ^ args.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CertCommandDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          program == other.program &&
+          args == other.args &&
+          error == other.error;
+}
+
+/// Resolved `GuiItem.RootCertProvider` (trust anchors for the app's own
+/// downloads; upstream never writes the OS store for this field).
+class CertProviderDto {
+  final bool ok;
+
+  /// Normalized value (`system | chrome | mozilla`).
+  final String provider;
+
+  /// `system` or `bundled`.
+  final String trustSource;
+
+  /// Bundle file name when `trust_source = bundled`.
+  final String? bundleFile;
+  final bool usesSystemStore;
+
+  /// True when the input was outside `Global.RootCertProviders` and fell back.
+  final bool normalized;
+  final ErrorDto? error;
+
+  const CertProviderDto({
+    required this.ok,
+    required this.provider,
+    required this.trustSource,
+    this.bundleFile,
+    required this.usesSystemStore,
+    required this.normalized,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      provider.hashCode ^
+      trustSource.hashCode ^
+      bundleFile.hashCode ^
+      usesSystemStore.hashCode ^
+      normalized.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CertProviderDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          provider == other.provider &&
+          trustSource == other.trustSource &&
+          bundleFile == other.bundleFile &&
+          usesSystemStore == other.usesSystemStore &&
+          normalized == other.normalized &&
+          error == other.error;
 }
 
 /// One `KeyEventItem` binding exposed to the hotkey window.

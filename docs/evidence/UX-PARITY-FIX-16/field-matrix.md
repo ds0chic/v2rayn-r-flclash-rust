@@ -74,7 +74,7 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 | GuiItem.AutoUpdateInterval | 自动更新间隔 | number | 0 | 同上 | immediate → updater | consumed |
 | GuiItem.AutoRun | 开机自启 | checkbox | false | 同上 | immediate → AutoStartupHandler（FIX-08 已实测） | consumed |
 | GuiItem.EnableHWA | 硬件加速 | checkbox | false | 同上 | restart_app | consumed（持久化）；平台渲染效果 not_applicable（Flutter 无 WPF 渲染器） |
-| GuiItem.RootCertProvider | 根证书来源 | dropdown(system/chrome/mozilla) | system | 同上 | immediate → CertPemManager（T13） | consumed（持久化）；证书安装 blocked |
+| GuiItem.RootCertProvider | 根证书来源 | dropdown(system/chrome/mozilla) | system | 同上 | immediate → `platform::cert::trust_source`（system→OS 原生根存储；chrome/mozilla→内置 PEM 集合）；下载客户端实际接线登记 FIX-16E-2 | **verified**（FIX-16E：provider 归一化/信任源/`certutil` 命令预览 + 本机 `CurrentUser\ROOT` 写读复原；`chrome/mozilla` 内置 PEM 资源缺失、`LocalMachine` 提权写入 blocked） |
 | UiItem.CurrentFontFamily | 字体族 | text | null | UiItem | restart_app → app.dart buildAppTheme | **verified** |
 | UiItem.CurrentFontSize | 字号 | number | 0 | 同上 | immediate → app.dart buildAppTheme | **verified** |
 | UiItem.CurrentLanguage | 语言 | dropdown(9) | zh-Hans | 同上 | restart_app → app.dart MaterialApp.locale | **verified** |
@@ -150,10 +150,11 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 ## 统计
 
 - 可见控件：103（核心 36 / 显示 42 / 系统代理 6 / Tun 11 / 内核类型 8；FIX-16C 在显示页 Clash 历史段新增 Connections 自动刷新/间隔 2 项）。
-- `verified`（实测消费者）：9（FIX-16 的 CurrentLanguage / CurrentFontFamily / CurrentFontSize / SrsSourceUrl 4 项 + FIX-16C 的 ProxiesSorting / ProxiesAutoRefresh / ProxiesRefreshInterval / ConnectionsAutoRefresh / ConnectionsRefreshInterval 5 项）。
-- `consumed`（含 verified，持久化 + 领域消费者已知，本环境未跑内核）：76（FIX-16B 3 个源解析消费者 + FIX-16C 5 个 Clash UI 消费者）。
+- `verified`（实测消费者）：10（FIX-16 的 CurrentLanguage / CurrentFontFamily / CurrentFontSize / SrsSourceUrl 4 项 + FIX-16C 的 ProxiesSorting / ProxiesAutoRefresh / ProxiesRefreshInterval / ConnectionsAutoRefresh / ConnectionsRefreshInterval 5 项 + FIX-16E 的 RootCertProvider 信任源/存储写读复原 1 项）。
+- `consumed`（含 verified，持久化 + 领域消费者已知，本环境未跑内核）：75（FIX-16B 3 个源解析消费者 + FIX-16C 5 个 Clash UI 消费者；RootCertProvider 由 consumed 升 verified，-1）。
 - `registered`（待接线，已登记后续卡）：1（ClashUIItem.ConnectionsColumnItem；Clash Proxies*/Connections* 已转 verified）。
 - `blocked`（平台/网络，本环境不执行）：17（系统代理 6 + Tun 11）。
 - `preserved_only`（上游本窗口不暴露）：9（DNS 见上；EnableIPv6/EnableMixinContent 保留但 Rust `grep` 无消费者，登记后续；KCP 6 项入口保留但主状态计 consumed）。
 - 未伪造缺口：KCP 页（上游注释）、FakeIP/HappyEyeballs（上游 DNS 窗口）、ClashUIItem（上游无控件）、WPF 四个额外主题（`ThemeSettingView` 未暴露）均如实登记，不造控件。
 - FIX-16D（不计入上述可见控件分母，为设置窗口外的窗口/表格状态源）：`WindowSizeItem`/`MainGirdHeight1/2`（4 行）与列状态（`MainColumnItem`/`ConnectionsColumnItem`，2 行）统一到 `ui_state.json`，新增 `verified` 4 项（TypeName 行、星值、节点列宽、旧键迁移）、`implemented` 2 项（WindowSizeItem 列表状态源、连接表列状态源）；消费者绑定登记 FIX-16D-2 / FIX-16C-2。
+- FIX-16E（`GuiItem.RootCertProvider`，不在本窗口分母新增）：上游该字段仅用于应用自身下载/网络请求的信任锚（`ResUI.zh-Hans.resx:1835` 明示不影响核心证书验证），`CertPemManager.BuildTrustedCertificateCollection` 选择 system 原生根或 chrome/mozilla 内置 PEM，全仓无 `InstallCert`/`X509Store`。本仓交付 `crates/platform::cert`（provider 归一化、信任源、`certutil` 命令预览、`CertificateStore` 假/真后端）与桥接 `cert_provider_info`/`cert_*_command`；真机 `CurrentUser\ROOT` 合成自签证书写读复原通过并复位；`LocalMachine` 提权、`chrome/mozilla` 内置 PEM 资源、下载客户端实际接线分别登记 blocked/FIX-16E-2，详见 `docs/evidence/UX-PARITY-FIX-16E/`。

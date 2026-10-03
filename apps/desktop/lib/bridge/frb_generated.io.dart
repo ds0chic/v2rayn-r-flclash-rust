@@ -170,6 +170,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   CapabilityDto dco_decode_capability_dto(dynamic raw);
 
   @protected
+  CertCommandDto dco_decode_cert_command_dto(dynamic raw);
+
+  @protected
+  CertProviderDto dco_decode_cert_provider_dto(dynamic raw);
+
+  @protected
   CheckUpdateItemDto dco_decode_check_update_item_dto(dynamic raw);
 
   @protected
@@ -946,6 +952,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CapabilityDto sse_decode_capability_dto(SseDeserializer deserializer);
+
+  @protected
+  CertCommandDto sse_decode_cert_command_dto(SseDeserializer deserializer);
+
+  @protected
+  CertProviderDto sse_decode_cert_provider_dto(SseDeserializer deserializer);
 
   @protected
   CheckUpdateItemDto sse_decode_check_update_item_dto(
@@ -1923,6 +1935,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_capability_dto(CapabilityDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_cert_command_dto(
+    CertCommandDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_cert_provider_dto(
+    CertProviderDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_check_update_item_dto(

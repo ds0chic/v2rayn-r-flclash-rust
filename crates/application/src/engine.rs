@@ -2027,6 +2027,28 @@ impl AppEngine {
         core: CoreType,
         opts: &crate::codegen::CodegenOptions,
     ) -> Result<config_codegen::input::CodegenInput, DomainError> {
+        Ok(self
+            .build_codegen_input_with_warnings(index_id, core, opts)?
+            .0)
+    }
+
+    /// [`build_codegen_input`] plus the non-fatal diagnostics produced while
+    /// wrapping the active node in its subscription-level `ProxyChain`
+    /// (FIX-09C). Dangling `SubItem.PrevProfile`/`NextProfile` remarks are
+    /// reported here and never fail the build. The stored `ProfileItem` rows
+    /// are not modified; the chain exists only inside the returned input.
+    pub fn build_codegen_input_with_warnings(
+        &self,
+        index_id: &str,
+        core: CoreType,
+        opts: &crate::codegen::CodegenOptions,
+    ) -> Result<
+        (
+            config_codegen::input::CodegenInput,
+            Vec<config_codegen::Diagnostic>,
+        ),
+        DomainError,
+    > {
         let all = self.all_profiles_map_locked()?;
         let active = all
             .get(index_id)
@@ -2107,7 +2129,25 @@ impl AppEngine {
         input.settings.ruleset_url = Some(crate::dns::effective_srs_source(
             &settings_snapshot.const_item,
         ));
-        Ok(input)
+        // FIX-09C: upstream wraps a subscription node in a virtual `ProxyChain`
+        // built from `SubItem.PrevProfile`/`NextProfile` remarks
+        // (`CoreConfigContextBuilder.BuildSubscriptionChainNodeAsync`). The
+        // synthesis stays generation-only and is never written back to storage.
+        let mut warnings = Vec::new();
+        if !active.subid.trim().is_empty() {
+            let sub = self.get_sub_item(&active.subid)?;
+            let (chain, chain_warnings) =
+                crate::subs::build_subscription_chain_node(&active, &all, sub.as_ref());
+            warnings = chain_warnings;
+            if let Some(chain) = chain {
+                let projected = crate::codegen::to_codegen_profile(&chain, None);
+                input
+                    .profiles
+                    .insert(chain.index_id.clone(), projected.clone());
+                input.profile = projected;
+            }
+        }
+        Ok((input, warnings))
     }
 
     /// Base local port for the runtime codegen context.
@@ -2291,11 +2331,13 @@ impl AppEngine {
             .ok_or_else(|| DomainError::not_found("profile", target_id))?;
         let core = self.resolve_target_core(&target)?;
         let opts = self.runtime_codegen_options();
-        let input = self.build_codegen_input(target_id, core, &opts)?;
-        let generated = crate::codegen::generate(core, &input).map_err(|error| {
+        let (input, chain_warnings) =
+            self.build_codegen_input_with_warnings(target_id, core, &opts)?;
+        let mut generated = crate::codegen::generate(core, &input).map_err(|error| {
             DomainError::new(domain::codes::INVALID_PLAN, "error.codegen_failed")
                 .with_detail(error.to_string())
         })?;
+        generated.diagnostics.extend(chain_warnings);
         let body = serde_json::to_string(&generated.main).map_err(|error| {
             DomainError::new(domain::codes::INTERNAL, "error.config_serialize_failed")
                 .with_detail(error.to_string())
@@ -3159,5 +3201,182 @@ mod tests {
         assert!(outcome.restart_core_fields.is_empty());
         assert!(outcome.restart_app_fields.is_empty());
         assert!(outcome.next_launch_fields.is_empty());
+    }
+
+    fn chain_leaf(index: u32, remarks: &str) -> Profile {
+        let mut profile = synthetic_full_profile(index);
+        profile.config_type = ConfigType::Vless;
+        profile.password = "11111111-2222-3333-4444-555555555555".into();
+        profile.remarks = remarks.to_string();
+        profile
+    }
+
+    fn chain_test_opts() -> crate::codegen::CodegenOptions {
+        crate::codegen::CodegenOptions {
+            local_port: 11818,
+            state_port: 11819,
+            state_port2: 11820,
+            ..Default::default()
+        }
+    }
+
+    fn seed_chain_subscription(
+        engine: &AppEngine,
+        with_prev: bool,
+        with_next: bool,
+    ) -> (Profile, Profile, Profile) {
+        let prev = chain_leaf(2, "chain-prev");
+        let active = chain_leaf(1, "chain-active");
+        let next = chain_leaf(3, "chain-next");
+        engine
+            .save_sub_item(SubItem {
+                id: "s-chain".into(),
+                remarks: "chain-sub".into(),
+                url: "https://example.com/sub".into(),
+                prev_profile: with_prev.then(|| "chain-prev".to_string()),
+                next_profile: with_next.then(|| "chain-next".to_string()),
+                ..Default::default()
+            })
+            .unwrap();
+        engine
+            .replace_sub_profiles(
+                "s-chain",
+                vec![prev.clone(), active.clone(), next.clone()],
+                true,
+            )
+            .unwrap();
+        (prev, active, next)
+    }
+
+    #[test]
+    fn subscription_chain_synthesizes_prev_active_next() {
+        let engine = AppEngine::in_memory();
+        let (prev, active, next) = seed_chain_subscription(&engine, true, true);
+        let opts = chain_test_opts();
+        let (input, warnings) = engine
+            .build_codegen_input_with_warnings(&active.index_id, CoreType::Xray, &opts)
+            .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(
+            input.profile.config_type,
+            config_codegen::input::ConfigType::ProxyChain
+        );
+        assert!(input.profile.index_id.starts_with("inner-"));
+        assert_eq!(input.profile.remarks, "chain-active");
+        assert_eq!(
+            input.profile.proto_extra.group_type.as_deref(),
+            Some("ProxyChain")
+        );
+        let expected = format!("{},{},{}", prev.index_id, active.index_id, next.index_id);
+        assert_eq!(
+            input.profile.proto_extra.child_items.as_deref(),
+            Some(expected.as_str())
+        );
+        assert!(input.profiles.contains_key(&input.profile.index_id));
+
+        // Generated Xray config: reverse order, `proxy` entry dials the next hop.
+        let generated = crate::codegen::generate(CoreType::Xray, &input).unwrap();
+        let outbounds = generated.main["outbounds"].as_array().unwrap();
+        assert_eq!(outbounds[0]["tag"], serde_json::json!("proxy"));
+        assert_eq!(
+            outbounds[0]["settings"]["address"],
+            serde_json::json!(next.address)
+        );
+        assert!(outbounds[0]["streamSettings"]["sockopt"]
+            .get("dialerProxy")
+            .is_some());
+
+        // Generated sing-box config: same reverse chain via `detour`.
+        let sbox = crate::codegen::generate(CoreType::SingBox, &input).unwrap();
+        let sbox_out = sbox.main["outbounds"].as_array().unwrap();
+        assert_eq!(sbox_out[0]["tag"], serde_json::json!("proxy"));
+        assert!(sbox_out[0].get("detour").is_some());
+
+        // Stored rows stay untouched: no ProfileItem rewrite at generation time.
+        let stored = engine.profile_by_id(&active.index_id).unwrap().unwrap();
+        assert_eq!(stored.config_type, ConfigType::Vless);
+        assert!(stored.proto_extra.child_items.is_none());
+        assert_eq!(stored.remarks, "chain-active");
+    }
+
+    #[test]
+    fn subscription_chain_dangling_reference_warns_and_falls_back() {
+        let engine = AppEngine::in_memory();
+        let (_, active, next) = seed_chain_subscription(&engine, true, true);
+        let mut sub = engine.get_sub_item("s-chain").unwrap().unwrap();
+        sub.prev_profile = Some("missing-prev".into());
+        engine.save_sub_item(sub).unwrap();
+
+        let opts = chain_test_opts();
+        let (input, warnings) = engine
+            .build_codegen_input_with_warnings(&active.index_id, CoreType::Xray, &opts)
+            .unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(
+            warnings[0].code,
+            "error.subscription_prev_profile_not_found"
+        );
+        assert_eq!(
+            warnings[0].field_path.as_deref(),
+            Some("SubItem.PrevProfile")
+        );
+        // The node and the still-resolvable next node keep chaining.
+        assert_eq!(
+            input.profile.config_type,
+            config_codegen::input::ConfigType::ProxyChain
+        );
+        let expected = format!("{},{}", active.index_id, next.index_id);
+        assert_eq!(
+            input.profile.proto_extra.child_items.as_deref(),
+            Some(expected.as_str())
+        );
+    }
+
+    #[test]
+    fn subscription_chain_missing_both_does_not_wrap() {
+        let engine = AppEngine::in_memory();
+        let (_, active, _) = seed_chain_subscription(&engine, false, false);
+        let opts = chain_test_opts();
+        let (input, warnings) = engine
+            .build_codegen_input_with_warnings(&active.index_id, CoreType::Xray, &opts)
+            .unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(
+            input.profile.config_type,
+            config_codegen::input::ConfigType::Vless
+        );
+    }
+
+    #[test]
+    fn subscription_chain_excludes_custom_and_unsubscribed_nodes() {
+        let engine = AppEngine::in_memory();
+        let (_, active, _) = seed_chain_subscription(&engine, true, true);
+        let opts = chain_test_opts();
+
+        // No subscription id -> no synthesis.
+        let mut plain = active.clone();
+        plain.subid.clear();
+        engine.seed(vec![plain.clone()]);
+        let (input, warnings) = engine
+            .build_codegen_input_with_warnings(&plain.index_id, CoreType::Xray, &opts)
+            .unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(
+            input.profile.config_type,
+            config_codegen::input::ConfigType::Vless
+        );
+
+        // `Custom` is excluded even when it carries a subscription id.
+        let mut custom = active.clone();
+        custom.config_type = ConfigType::Custom;
+        engine.seed(vec![custom.clone()]);
+        let (input, warnings) = engine
+            .build_codegen_input_with_warnings(&custom.index_id, CoreType::Xray, &opts)
+            .unwrap();
+        assert!(warnings.is_empty());
+        assert_eq!(
+            input.profile.config_type,
+            config_codegen::input::ConfigType::Custom
+        );
     }
 }

@@ -24,8 +24,9 @@ use application::platform_service::{
 use domain::SysProxyType;
 use flutter_rust_bridge::frb;
 use platform::{
-    CustomSystemProxySetting, FakeRegistry, FakeSystemProxyBackend, PacSource, SysProxyMode,
-    DEFAULT_PAC_PORT_BASE,
+    install_command as cert_install_tokens, remove_command as cert_remove_tokens, CertStoreScope,
+    CustomSystemProxySetting, FakeRegistry, FakeSystemProxyBackend, PacSource, RootCertProvider,
+    SysProxyMode, TrustSource, DEFAULT_PAC_PORT_BASE, ROOT_CERT_PROVIDERS,
 };
 
 use crate::api::contract::{ErrorDto, SimpleResult};
@@ -155,6 +156,32 @@ pub struct HotkeyRegisterResult {
     pub registered: Vec<HotkeyDto>,
     /// Human-readable conflict/failure notes per action, if any.
     pub failures: Vec<String>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Resolved `GuiItem.RootCertProvider` (trust anchors for the app's own
+/// downloads; upstream never writes the OS store for this field).
+#[derive(Clone)]
+pub struct CertProviderDto {
+    pub ok: bool,
+    /// Normalized value (`system | chrome | mozilla`).
+    pub provider: String,
+    /// `system` or `bundled`.
+    pub trust_source: String,
+    /// Bundle file name when `trust_source = bundled`.
+    pub bundle_file: Option<String>,
+    pub uses_system_store: bool,
+    /// True when the input was outside `Global.RootCertProviders` and fell back.
+    pub normalized: bool,
+    pub error: Option<ErrorDto>,
+}
+
+/// A constructed `certutil` command (preview only; never executed here).
+#[derive(Clone)]
+pub struct CertCommandDto {
+    pub ok: bool,
+    pub program: String,
+    pub args: Vec<String>,
     pub error: Option<ErrorDto>,
 }
 
@@ -616,6 +643,97 @@ pub fn autostart_value_name(startup_path: String) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Root certificate source (GuiItem.RootCertProvider)
+// ---------------------------------------------------------------------------
+
+/// Upstream `Global.RootCertProviders`, in order (`system` is the fallback).
+#[frb(sync)]
+pub fn cert_root_providers() -> Vec<String> {
+    ROOT_CERT_PROVIDERS
+        .iter()
+        .map(|p| (*p).to_string())
+        .collect()
+}
+
+/// Resolve a persisted provider to its trust source, applying the upstream
+/// fallback (outside the list -> `system`). Pure; no store access.
+#[frb(sync)]
+pub fn cert_provider_info(provider: String) -> CertProviderDto {
+    let parsed = RootCertProvider::parse(&provider);
+    let normalized = parsed.unwrap_or(RootCertProvider::DEFAULT);
+    let (trust_source, bundle_file) = match platform::trust_source(normalized) {
+        TrustSource::SystemStore => ("system", None),
+        TrustSource::Bundled(file) => ("bundled", Some(file.to_string())),
+    };
+    CertProviderDto {
+        ok: true,
+        provider: normalized.as_str().to_string(),
+        trust_source: trust_source.to_string(),
+        bundle_file,
+        uses_system_store: platform::uses_system_store(normalized),
+        normalized: parsed.is_none(),
+        error: None,
+    }
+}
+
+fn cert_scope_error(field: &str, value: &str) -> ErrorDto {
+    ErrorDto {
+        code: "E_INVALID_ARGUMENT".to_string(),
+        message_key: "error.cert_scope_invalid".to_string(),
+        field_path: Some(field.to_string()),
+        retryable: false,
+        operation_id: None,
+        detail: Some(format!("unknown certificate store scope {value}")),
+    }
+}
+
+fn cert_command_dto(tokens: Vec<String>) -> CertCommandDto {
+    let program = tokens
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "certutil".to_string());
+    let args = tokens.into_iter().skip(1).collect();
+    CertCommandDto {
+        ok: true,
+        program,
+        args,
+        error: None,
+    }
+}
+
+/// Command preview for importing a certificate file into the root store.
+///
+/// This is the audit surface only: the Windows backend uses the silent
+/// CryptoAPI path because `certutil -addstore` on `ROOT` raises the CryptUI
+/// consent dialog.
+#[frb(sync)]
+pub fn cert_install_command(scope: String, cert_path: String) -> CertCommandDto {
+    match CertStoreScope::parse(&scope) {
+        Some(scope) => cert_command_dto(cert_install_tokens(scope, &cert_path)),
+        None => CertCommandDto {
+            ok: false,
+            program: "certutil".to_string(),
+            args: Vec::new(),
+            error: Some(cert_scope_error("scope", &scope)),
+        },
+    }
+}
+
+/// Command preview for removing a certificate by thumbprint from the root store.
+#[frb(sync)]
+pub fn cert_remove_command(scope: String, thumbprint: String) -> CertCommandDto {
+    match CertStoreScope::parse(&scope) {
+        Some(scope) => cert_command_dto(cert_remove_tokens(scope, &thumbprint)),
+        None => CertCommandDto {
+            ok: false,
+            program: "certutil".to_string(),
+            args: Vec::new(),
+            error: Some(cert_scope_error("scope", &scope)),
+        },
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Custom proxy script validation
 // ---------------------------------------------------------------------------
 
@@ -900,5 +1018,47 @@ mod tests {
         let result = resolve_uwp_loopback_tool(Some("Z:\\bin".to_string()));
         assert!(!result.ok);
         assert_eq!(result.error.unwrap().code, "E_NOT_FOUND");
+    }
+
+    #[test]
+    fn cert_provider_helpers_normalize_like_upstream() {
+        assert_eq!(cert_root_providers(), vec!["system", "chrome", "mozilla"]);
+
+        let system = cert_provider_info("system".to_string());
+        assert!(system.ok && system.uses_system_store);
+        assert_eq!(system.trust_source, "system");
+        assert_eq!(system.bundle_file, None);
+        assert!(!system.normalized);
+
+        let chrome = cert_provider_info("chrome".to_string());
+        assert!(chrome.ok && !chrome.uses_system_store);
+        assert_eq!(chrome.trust_source, "bundled");
+        assert_eq!(chrome.bundle_file.as_deref(), Some("root_ca_chrome.pem"));
+
+        // Out-of-list values fall back to the first upstream entry.
+        let bogus = cert_provider_info("nope".to_string());
+        assert!(bogus.ok && bogus.normalized);
+        assert_eq!(bogus.provider, "system");
+        assert!(bogus.uses_system_store);
+    }
+
+    #[test]
+    fn cert_command_preview_and_error_branch() {
+        let install = cert_install_command("current_user".to_string(), "C:\\c.cer".to_string());
+        assert!(install.ok);
+        assert_eq!(install.program, "certutil");
+        assert_eq!(
+            install.args,
+            vec!["-user", "-addstore", "-f", "ROOT", "C:\\c.cer"]
+        );
+
+        let remove = cert_remove_command("local_machine".to_string(), "AABB".to_string());
+        assert!(remove.ok);
+        assert_eq!(remove.args, vec!["-delstore", "ROOT", "AABB"]);
+
+        let bad = cert_install_command("nope".to_string(), "C:\\c.cer".to_string());
+        assert!(!bad.ok);
+        assert!(bad.args.is_empty());
+        assert_eq!(bad.error.unwrap().code, "E_INVALID_ARGUMENT");
     }
 }

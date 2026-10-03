@@ -1,3 +1,17 @@
+/// Upstream `Global.RootCertProviders`; the first entry is the fallback
+/// (`Global.cs:758`). Trust anchors for the app's own downloads only.
+const List<String> rootCertProviders = <String>['system', 'chrome', 'mozilla'];
+
+/// Upstream fallback value for [rootCertProviders].
+const String defaultRootCertProvider = 'system';
+
+/// Upstream `ConfigHandler.LoadConfig`: a value outside
+/// `Global.RootCertProviders` is forced to the first entry (`system`).
+String normalizeRootCertProvider(Object? value) =>
+    value is String && rootCertProviders.contains(value)
+    ? value
+    : defaultRootCertProvider;
+
 /// Top-level settings groups that can be saved independently
 /// (`domain::SETTINGS_GROUPS`).
 const List<String> defaultSettingsGroups = <String>[

@@ -236,6 +236,218 @@ async fn routing_url_import_from_loopback() {
     server.abort();
 }
 
+const XRAY_TEMPLATE: &str = r#"{"Enabled": true, "UseSystemHosts": true,
+    "NormalDNS": "8.8.8.8,1.1.1.1", "TunDNS": "1.1.1.1",
+    "DomainDNSAddress": "119.29.29.29"}"#;
+const SBOX_TEMPLATE: &str = r#"{"Enabled": true,
+    "NormalDNS": "{\"servers\":[{\"tag\":\"remote\",\"type\":\"tcp\",\"server\":\"8.8.8.8\"}]}",
+    "TunDNS": "{\"servers\":[{\"tag\":\"remote\",\"type\":\"tcp\",\"server\":\"8.8.8.8\"}]}"}"#;
+const SIMPLE_TEMPLATE: &str =
+    r#"{"FakeIP": true, "GlobalFakeIp": false, "DirectDNS": "119.29.29.29"}"#;
+
+/// Minimal loopback HTTP server for the preset download chain: answers
+/// `expected` requests using `routes`, then stops. No port below 11808 and no
+/// kernel/system state is touched.
+async fn serve_requests(
+    listener: TcpListener,
+    routes: Vec<(String, u16, String)>,
+    expected: usize,
+) {
+    for _ in 0..expected {
+        let Ok((mut socket, _)) = listener.accept().await else {
+            break;
+        };
+        let mut buf = vec![0u8; 4096];
+        let _ = socket.read(&mut buf).await;
+        let request = String::from_utf8_lossy(&buf);
+        let path = request
+            .split_whitespace()
+            .nth(1)
+            .unwrap_or("/")
+            .trim_start_matches('/')
+            .to_string();
+        let (status, body) = routes
+            .iter()
+            .find(|(p, _, _)| *p == path)
+            .map(|(_, s, b)| (*s, b.clone()))
+            .unwrap_or((404, String::new()));
+        let reason = if status == 200 { "OK" } else { "Not Found" };
+        let header = format!(
+            "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        let _ = socket.write_all(header.as_bytes()).await;
+        let _ = socket.write_all(body.as_bytes()).await;
+    }
+}
+
+#[tokio::test]
+async fn regional_preset_remote_download_plan() {
+    let listener = bind_loopback().await;
+    let port = listener.local_addr().unwrap().port();
+    let routes = vec![
+        ("v2ray.json".to_string(), 200, XRAY_TEMPLATE.to_string()),
+        ("sing_box.json".to_string(), 200, SBOX_TEMPLATE.to_string()),
+        (
+            "simple_dns.json".to_string(),
+            200,
+            SIMPLE_TEMPLATE.to_string(),
+        ),
+    ];
+    let server = tokio::spawn(serve_requests(listener, routes, 3));
+    let base = format!("http://127.0.0.1:{port}/");
+    let plan = application::dns::fetch_region_dns_plan(&base)
+        .await
+        .expect("plan");
+    assert_eq!(plan.xray.core_type, CoreType::Xray);
+    assert!(plan.xray.enabled);
+    assert_eq!(plan.xray.normal_dns.as_deref(), Some("8.8.8.8,1.1.1.1"));
+    assert_eq!(
+        plan.xray.domain_dns_address.as_deref(),
+        Some("119.29.29.29")
+    );
+    assert_eq!(plan.singbox.core_type, CoreType::SingBox);
+    assert!(plan
+        .singbox
+        .normal_dns
+        .as_ref()
+        .is_some_and(|s| s.contains("\"servers\"")));
+    assert_eq!(plan.simple.fake_ip, Some(true));
+    assert_eq!(plan.simple.global_fake_ip, Some(false));
+    assert_ne!(port, 10808);
+    server.abort();
+}
+
+#[tokio::test]
+async fn regional_preset_remote_failure_returns_error_before_write() {
+    let listener = bind_loopback().await;
+    let port = listener.local_addr().unwrap().port();
+    // sing_box.json is absent: the plan must fail, so no caller can persist a
+    // half-applied preset.
+    let routes = vec![
+        ("v2ray.json".to_string(), 200, XRAY_TEMPLATE.to_string()),
+        (
+            "simple_dns.json".to_string(),
+            200,
+            SIMPLE_TEMPLATE.to_string(),
+        ),
+    ];
+    let server = tokio::spawn(serve_requests(listener, routes, 3));
+    let base = format!("http://127.0.0.1:{port}/");
+    let result = application::dns::fetch_region_dns_plan(&base).await;
+    assert!(result.is_err(), "missing template must error");
+    server.abort();
+}
+
+#[tokio::test]
+async fn regional_preset_resolves_nested_dns_url() {
+    let listener = bind_loopback().await;
+    let port = listener.local_addr().unwrap().port();
+    let v2ray = format!(
+        r#"{{"Enabled": true, "NormalDNS": "http://127.0.0.1:{port}/normal.txt", "TunDNS": "1.1.1.1"}}"#
+    );
+    let routes = vec![
+        ("v2ray.json".to_string(), 200, v2ray),
+        ("sing_box.json".to_string(), 200, SBOX_TEMPLATE.to_string()),
+        (
+            "simple_dns.json".to_string(),
+            200,
+            SIMPLE_TEMPLATE.to_string(),
+        ),
+        ("normal.txt".to_string(), 200, "9.9.9.9".to_string()),
+    ];
+    let server = tokio::spawn(serve_requests(listener, routes, 4));
+    let base = format!("http://127.0.0.1:{port}/");
+    let plan = application::dns::fetch_region_dns_plan(&base)
+        .await
+        .expect("plan");
+    assert_eq!(plan.xray.normal_dns.as_deref(), Some("9.9.9.9"));
+    server.abort();
+}
+
+#[test]
+fn dns_import_default_and_new_row_semantics() {
+    let engine = AppEngine::in_memory();
+    // One built-in row per core is seeded on startup (upstream
+    // `InitBuiltinDNS`).
+    let builtins = engine.list_dns().expect("list");
+    assert_eq!(builtins.len(), 2);
+    let seeded_xray = builtins
+        .iter()
+        .find(|d| d.core_type == CoreType::Xray)
+        .expect("xray row")
+        .clone();
+
+    // Import fills the existing core row instead of duplicating it.
+    let xray = engine.import_default_dns(CoreType::Xray).expect("import");
+    assert!(!xray.id.is_empty());
+    assert_eq!(xray.id, seeded_xray.id, "import updates the same row");
+    assert_eq!(xray.remarks, seeded_xray.remarks);
+    assert!(xray.normal_dns.as_ref().is_some_and(|s| !s.is_empty()));
+    assert_eq!(engine.list_dns().expect("list").len(), 2);
+
+    // A fresh draft (empty id) gets a unique id; two new rows never collide.
+    let mut fresh = DnsProfile {
+        remarks: "extra".into(),
+        core_type: CoreType::Xray,
+        ..Default::default()
+    };
+    let a = engine.save_dns(fresh.clone()).expect("save new");
+    assert!(!a.id.is_empty(), "missing id is assigned");
+    fresh.remarks = "extra2".into();
+    fresh.id = String::new();
+    let b = engine.save_dns(fresh).expect("save new2");
+    assert!(!b.id.is_empty());
+    assert_ne!(a.id, b.id, "unique id per new row");
+}
+
+#[test]
+fn dns_config_feeds_generation_input() {
+    use std::collections::BTreeMap;
+    let mut simple = domain::SimpleDnsItem::builtin();
+    simple.direct_dns = Some("119.29.29.29".to_string());
+    simple.global_fake_ip = Some(false);
+    let profile = DnsProfile {
+        enabled: true,
+        normal_dns: Some("8.8.8.8".to_string()),
+        core_type: CoreType::Xray,
+        ..Default::default()
+    };
+    let dns =
+        application::codegen::dns_to_codegen(Some(&profile), &simple, BTreeMap::new(), Vec::new());
+    assert!(dns.enabled);
+    assert_eq!(dns.normal.as_deref(), Some("8.8.8.8"));
+    assert_eq!(dns.simple.direct_dns.as_deref(), Some("119.29.29.29"));
+    // GlobalFakeIp must survive into the generated plan.
+    assert_eq!(dns.simple.global_fake_ip, Some(false));
+}
+
+#[test]
+fn dns_save_reopen_keeps_global_fake_ip() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let engine =
+        AppEngine::open_with_runtime(dir.path(), Arc::new(application::NullRuntimeClient::new()))
+            .expect("open");
+    let loaded = engine.load_settings().expect("load");
+    let mut settings = loaded.settings;
+    settings.simple_dns_item.global_fake_ip = Some(false);
+    settings.simple_dns_item.direct_dns = Some("119.29.29.29".to_string());
+    engine
+        .save_settings(settings, loaded.revision)
+        .expect("save");
+    drop(engine);
+    let reopened =
+        AppEngine::open_with_runtime(dir.path(), Arc::new(application::NullRuntimeClient::new()))
+            .expect("reopen");
+    let simple = reopened
+        .load_settings()
+        .expect("reload")
+        .settings
+        .simple_dns_item;
+    assert_eq!(simple.global_fake_ip, Some(false));
+    assert_eq!(simple.direct_dns.as_deref(), Some("119.29.29.29"));
+}
+
 #[test]
 fn regional_presets_default_and_offline() {
     let engine = AppEngine::in_memory();

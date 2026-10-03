@@ -4166,13 +4166,18 @@ items:
   source_file:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs
   evidence:
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:38
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:47
+  - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:63
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:106
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:125
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2762
+  - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2894
   - docs/tasks/FIX-08.md
-  implementation_location: apps/desktop/lib/features/routing/dns_window.dart (_save validates-then-saves + GlobalFakeIp passthrough; _importDefault preview-only) + crates/bridge_api/src/api/dns.rs (save_simple_dns merge)
-  test_ids: [fix08_dns_draft_test, api::dns::fix08_tests]
-  notes: 'FIX-08: 导入默认只预览不落盘，取消无残留；保存前先校验全部自定义文本，非法则任一阶段都不写且窗口不关；GlobalFakeIp 无控件，普通保存透传+后端合并保留（上游 SaveSettingAsync 不碰该字段，LoadConfig 缺省 true）。导入/预设完整流程另卡 FIX-08B。'
+  - docs/tasks/FIX-08B.md
+  implementation_location: apps/desktop/lib/features/routing/dns_window.dart (_save validates-then-saves + GlobalFakeIp passthrough; _importDefault preview-only; _refreshPreservingDrafts; _simpleDnsEnabled gate) + crates/bridge_api/src/api/dns.rs (save_simple_dns merge; apply_regional_preset download chain) + crates/application/src/dns.rs (fetch_region_dns_plan)
+  test_ids: [fix08_dns_draft_test, fix08b_dns_apply_test, api::dns::fix08_tests, t11_routing_dns]
+  notes: 'FIX-08: 导入默认只预览不落盘，取消无残留；保存前先校验全部自定义文本，非法则任一阶段都不写且窗口不关；GlobalFakeIp 无控件，普通保存透传+后端合并保留（上游 SaveSettingAsync 不碰该字段，LoadConfig 缺省 true）。FIX-08B: 双核自定义同时启用时 IsSimpleDNSEnabled=false，基础/高级区禁用并提示；区域预设按设置源下载三模板（本地 mock），全部成功后一次落盘，失败保留旧行且不假成功；预设刷新不覆盖其它页未保存草稿。'
   status: implemented
 - id: ACT-DNS-002
   name: DNS 设置-导入默认 V2ray DNS
@@ -4197,9 +4202,11 @@ items:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:49
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/tasks/FIX-08B.md
+  implementation_location: apps/desktop/lib/features/routing/dns_window.dart (_importDefault preview-only) + crates/bridge_api/src/api/dns.rs (default_dns_text) + crates/application/src/engine.rs (import_default_dns)
+  test_ids: [fix08_dns_draft_test, fix08b_dns_apply_test, t11_routing_dns]
+  notes: 'FIX-08B: 导入只改窗口属性（预览），保存落盘；缺行时 import_default_dns 新建行并赋唯一 ID，已有核心行则更新同一行。'
+  status: implemented
 - id: ACT-DNS-003
   name: DNS 设置-导入默认 sing-box DNS
   domain: dns
@@ -4223,9 +4230,11 @@ items:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:56
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/tasks/FIX-08B.md
+  implementation_location: apps/desktop/lib/features/routing/dns_window.dart (_importDefault preview-only) + crates/bridge_api/src/api/dns.rs (default_dns_text singbox/tun) + crates/application/src/engine.rs (import_default_dns)
+  test_ids: [fix08_dns_draft_test, fix08b_dns_apply_test, t11_routing_dns]
+  notes: 'FIX-08B: 导入只改窗口属性（预览），保存落盘；sing-box 文本按 Dns4Sbox 形状校验。'
+  status: implemented
 - id: ACT-DNS-004
   name: DNS 设置-文档链接
   domain: dns

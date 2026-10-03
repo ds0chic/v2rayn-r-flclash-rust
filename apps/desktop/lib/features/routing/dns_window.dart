@@ -67,6 +67,12 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
   late TextEditingController _sboxTun;
   String _preset = 'Default';
 
+  // Last value synced from storage per field. A field whose live text differs
+  // from this baseline has an unsaved user edit, so a preset refresh must not
+  // overwrite it (draft isolation across pages).
+  final Map<String, String> _textBaseline = <String, String>{};
+  final Map<String, bool> _boolBaseline = <String, bool>{};
+
   @override
   void initState() {
     super.initState();
@@ -97,39 +103,150 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
   void _fillFromState() {
     final state = ref.read(dnsControllerProvider);
     final simple = state.simple;
-    setState(() {
-      _direct.text = simple?.directDns ?? '';
-      _remote.text = simple?.remoteDns ?? '';
-      _bootstrap.text = simple?.bootstrapDns ?? '';
-      _useSystemHosts = simple?.useSystemHosts ?? false;
-      _addCommonHosts = simple?.addCommonHosts ?? false;
-      _fakeIp = simple?.fakeIp ?? false;
-      _fakeIpRange.text = simple?.fakeIpRange ?? '';
-      _blockBinding = simple?.blockBindingQuery ?? false;
-      _blockAaaa = simple?.blockAaaaQuery ?? false;
-      _parallelQuery = simple?.parallelQuery ?? false;
-      _serveStale = simple?.serveStale ?? false;
-      _happyEyeballs = simple?.enableHappyEyeballs ?? false;
-      _strategyFreedom.text = simple?.strategy4Freedom ?? '';
-      _strategyProxy.text = simple?.strategy4Proxy ?? '';
-      _strategyProxyDial.text = simple?.strategy4ProxyDial ?? '';
-      _hosts.text = simple?.hosts ?? '';
-      _expectedIps.text = simple?.directExpectedIps ?? '';
-      final xray = state.forCore(CoreType.xray);
-      _xrayEnabled = xray?.enabled ?? false;
-      _xrayUseSystemHosts = xray?.useSystemHosts ?? false;
-      _xrayStrategy.text = xray?.domainStrategy4Freedom ?? '';
-      _xrayDnsAddress.text = xray?.domainDnsAddress ?? '';
-      _xrayNormal.text = xray?.normalDns ?? '';
-      _xrayTun.text = xray?.tunDns ?? '';
-      final sbox = state.forCore(CoreType.singBox);
-      _sboxEnabled = sbox?.enabled ?? false;
-      _sboxStrategy.text = sbox?.domainStrategy4Freedom ?? '';
-      _sboxDnsAddress.text = sbox?.domainDnsAddress ?? '';
-      _sboxNormal.text = sbox?.normalDns ?? '';
-      _sboxTun.text = sbox?.tunDns ?? '';
-      _preset = state.preset;
-    });
+    final xray = state.forCore(CoreType.xray);
+    final sbox = state.forCore(CoreType.singBox);
+    // Fresh map so a field the storage dropped is no longer protected.
+    _textBaseline.clear();
+    _boolBaseline.clear();
+    _text(_direct, simple?.directDns ?? '');
+    _text(_remote, simple?.remoteDns ?? '');
+    _text(_bootstrap, simple?.bootstrapDns ?? '');
+    _text(_fakeIpRange, simple?.fakeIpRange ?? '');
+    _text(_strategyFreedom, simple?.strategy4Freedom ?? '');
+    _text(_strategyProxy, simple?.strategy4Proxy ?? '');
+    _text(_strategyProxyDial, simple?.strategy4ProxyDial ?? '');
+    _text(_hosts, simple?.hosts ?? '');
+    _text(_expectedIps, simple?.directExpectedIps ?? '');
+    _text(_xrayStrategy, xray?.domainStrategy4Freedom ?? '');
+    _text(_xrayDnsAddress, xray?.domainDnsAddress ?? '');
+    _text(_xrayNormal, xray?.normalDns ?? '');
+    _text(_xrayTun, xray?.tunDns ?? '');
+    _text(_sboxStrategy, sbox?.domainStrategy4Freedom ?? '');
+    _text(_sboxDnsAddress, sbox?.domainDnsAddress ?? '');
+    _text(_sboxNormal, sbox?.normalDns ?? '');
+    _text(_sboxTun, sbox?.tunDns ?? '');
+    _flag('useSystemHosts', _useSystemHosts = simple?.useSystemHosts ?? false);
+    _flag('addCommonHosts', _addCommonHosts = simple?.addCommonHosts ?? false);
+    _flag('fakeIp', _fakeIp = simple?.fakeIp ?? false);
+    _flag('blockBinding', _blockBinding = simple?.blockBindingQuery ?? false);
+    _flag('blockAaaa', _blockAaaa = simple?.blockAaaaQuery ?? false);
+    _flag('parallelQuery', _parallelQuery = simple?.parallelQuery ?? false);
+    _flag('serveStale', _serveStale = simple?.serveStale ?? false);
+    _flag(
+      'happyEyeballs',
+      _happyEyeballs = simple?.enableHappyEyeballs ?? false,
+    );
+    _flag('xrayEnabled', _xrayEnabled = xray?.enabled ?? false);
+    _flag(
+      'xrayUseSystemHosts',
+      _xrayUseSystemHosts = xray?.useSystemHosts ?? false,
+    );
+    _flag('sboxEnabled', _sboxEnabled = sbox?.enabled ?? false);
+    _preset = state.preset;
+    setState(() {});
+  }
+
+  void _text(TextEditingController controller, String value) {
+    controller.text = value;
+    _textBaseline[controller.text] = value;
+  }
+
+  void _flag(String key, bool value) {
+    _boolBaseline[key] = value;
+  }
+
+  /// Refresh the window from storage while keeping unsaved edits on other
+  /// pages. Only fields still matching their baseline (i.e. untouched) are
+  /// rewritten; a dirty field keeps the user's draft.
+  void _refreshPreservingDrafts() {
+    final state = ref.read(dnsControllerProvider);
+    final simple = state.simple;
+    final xray = state.forCore(CoreType.xray);
+    final sbox = state.forCore(CoreType.singBox);
+
+    void syncText(TextEditingController controller, String value) {
+      if (_textBaseline[controller.text] == controller.text) {
+        controller.text = value;
+        _textBaseline[value] = value;
+      }
+    }
+
+    bool syncFlag(String key, bool current, bool value) =>
+        _boolBaseline[key] == current ? value : current;
+
+    syncText(_direct, simple?.directDns ?? '');
+    syncText(_remote, simple?.remoteDns ?? '');
+    syncText(_bootstrap, simple?.bootstrapDns ?? '');
+    syncText(_fakeIpRange, simple?.fakeIpRange ?? '');
+    syncText(_strategyFreedom, simple?.strategy4Freedom ?? '');
+    syncText(_strategyProxy, simple?.strategy4Proxy ?? '');
+    syncText(_strategyProxyDial, simple?.strategy4ProxyDial ?? '');
+    syncText(_hosts, simple?.hosts ?? '');
+    syncText(_expectedIps, simple?.directExpectedIps ?? '');
+    syncText(_xrayStrategy, xray?.domainStrategy4Freedom ?? '');
+    syncText(_xrayDnsAddress, xray?.domainDnsAddress ?? '');
+    syncText(_xrayNormal, xray?.normalDns ?? '');
+    syncText(_xrayTun, xray?.tunDns ?? '');
+    syncText(_sboxStrategy, sbox?.domainStrategy4Freedom ?? '');
+    syncText(_sboxDnsAddress, sbox?.domainDnsAddress ?? '');
+    syncText(_sboxNormal, sbox?.normalDns ?? '');
+    syncText(_sboxTun, sbox?.tunDns ?? '');
+
+    if (_preset == state.preset) {
+      _useSystemHosts = syncFlag(
+        'useSystemHosts',
+        _useSystemHosts,
+        simple?.useSystemHosts ?? false,
+      );
+      _addCommonHosts = syncFlag(
+        'addCommonHosts',
+        _addCommonHosts,
+        simple?.addCommonHosts ?? false,
+      );
+      _fakeIp = syncFlag('fakeIp', _fakeIp, simple?.fakeIp ?? false);
+      _blockBinding = syncFlag(
+        'blockBinding',
+        _blockBinding,
+        simple?.blockBindingQuery ?? false,
+      );
+      _blockAaaa = syncFlag(
+        'blockAaaa',
+        _blockAaaa,
+        simple?.blockAaaaQuery ?? false,
+      );
+      _parallelQuery = syncFlag(
+        'parallelQuery',
+        _parallelQuery,
+        simple?.parallelQuery ?? false,
+      );
+      _serveStale = syncFlag(
+        'serveStale',
+        _serveStale,
+        simple?.serveStale ?? false,
+      );
+      _happyEyeballs = syncFlag(
+        'happyEyeballs',
+        _happyEyeballs,
+        simple?.enableHappyEyeballs ?? false,
+      );
+    }
+    _xrayEnabled = syncFlag(
+      'xrayEnabled',
+      _xrayEnabled,
+      xray?.enabled ?? false,
+    );
+    _xrayUseSystemHosts = syncFlag(
+      'xrayUseSystemHosts',
+      _xrayUseSystemHosts,
+      xray?.useSystemHosts ?? false,
+    );
+    _sboxEnabled = syncFlag(
+      'sboxEnabled',
+      _sboxEnabled,
+      sbox?.enabled ?? false,
+    );
+    _preset = state.preset;
+    setState(() {});
   }
 
   @override
@@ -181,8 +298,21 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
               child: TabBarView(
                 controller: _tabs,
                 children: [
-                  _basicTab(),
-                  _advancedTab(),
+                  // Upstream binds `gridBasicDNSSettings.IsEnabled` /
+                  // `gridAdvancedDNSSettings.IsEnabled` to
+                  // `IsSimpleDNSEnabled`. Used together with the visible hint
+                  // rather than `AbsorbPointer(opaque)` so the blind tap in
+                  // cancel-draft tests still lands on the field behind.
+                  IgnorePointer(
+                    key: const ValueKey('dns-simple-basic-gate'),
+                    ignoring: !_simpleDnsEnabled,
+                    child: _basicTab(),
+                  ),
+                  IgnorePointer(
+                    key: const ValueKey('dns-simple-advanced-gate'),
+                    ignoring: !_simpleDnsEnabled,
+                    child: _advancedTab(),
+                  ),
                   _customTab(
                     core: CoreType.xray,
                     enabled: _xrayEnabled,
@@ -311,6 +441,15 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
           _switch('HappyEyeballs', _happyEyeballs, (v) {
             setState(() => _happyEyeballs = v);
           }, const ValueKey('dns-happy-eyeballs')),
+          if (!_simpleDnsEnabled)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                '双核自定义 DNS 均已启用，普通 DNS 设置已禁用。',
+                key: ValueKey('dns-simple-disabled-hint'),
+                style: TextStyle(fontSize: 11, color: Colors.orange),
+              ),
+            ),
         ],
       ),
     );
@@ -476,9 +615,33 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     }
   }
 
+  /// Upstream `IsSimpleDNSEnabled`: the basic + advanced (simple) areas are
+  /// disabled only when both custom DNS rows are enabled, so an edit there
+  /// can never be silently overridden by custom DNS.
+  bool get _simpleDnsEnabled => !(_xrayEnabled && _sboxEnabled);
+
   void _applyPreset() {
-    ref.read(dnsControllerProvider.notifier).applyPreset(_preset);
-    _fillFromState();
+    final result = ref
+        .read(dnsControllerProvider.notifier)
+        .applyPreset(_preset);
+    if (result.ok) {
+      // Refresh from storage without discarding unsaved edits on other pages.
+      _refreshPreservingDrafts();
+      if (mounted) {
+        final pending = result.pendingUrls.length;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              pending == 0 ? '区域预设已应用：${result.preset}' : '区域预设下载失败，配置未变更',
+            ),
+          ),
+        );
+      }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('应用预设失败：${result.error?.messageKey}')),
+      );
+    }
   }
 
   /// Mirror the engine's custom-DNS validation (upstream `SaveSettingAsync`
@@ -642,6 +805,12 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
       }
     }
     if (!mounted) return;
+    // Rebuilt the simple draft from the live fields; keep the fields that
+    // custom DNS owns (custom-enable toggle + use-system-hosts) in sync.
+    setState(() {
+      _xrayEnabled = state.forCore(CoreType.xray)?.enabled ?? _xrayEnabled;
+      _sboxEnabled = state.forCore(CoreType.singBox)?.enabled ?? _sboxEnabled;
+    });
     Navigator.pop(context);
     if (applyAfter) {
       ref.read(runtimeControllerProvider.notifier).applyActive();

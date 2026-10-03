@@ -796,24 +796,28 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '资源与证书',
         child: <Widget>[
           SettingsTextField(
+            key: const ValueKey('settings-sub-convert-url'),
             label: '订阅转换 (SubConvertUrl)',
             value: _str(_group('ConstItem'), 'SubConvertUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'SubConvertUrl', v),
           ),
           SettingsTextField(
+            key: const ValueKey('settings-geo-source-url'),
             label: 'Geo 文件来源 (GeoSourceUrl)',
             value: _str(_group('ConstItem'), 'GeoSourceUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'GeoSourceUrl', v),
           ),
           SettingsTextField(
+            key: const ValueKey('settings-srs-source-url'),
             label: 'SRS 文件来源 (SrsSourceUrl)',
             value: _str(_group('ConstItem'), 'SrsSourceUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'SrsSourceUrl', v),
           ),
           SettingsTextField(
+            key: const ValueKey('settings-route-rules-source-url'),
             label: '路由规则来源 (RouteRulesTemplateSourceUrl)',
             value: _str(_group('ConstItem'), 'RouteRulesTemplateSourceUrl'),
             width: 360,

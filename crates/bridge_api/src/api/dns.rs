@@ -276,24 +276,111 @@ pub fn save_simple_dns(draft: SimpleDnsDto, expected_revision: u64) -> SimpleDns
     }
 }
 
-/// `apply_regional_preset` — `Default` / `Russia` / `Iran`.
-#[frb(sync)]
-pub fn apply_regional_preset(preset: String) -> RegionalPresetResult {
-    let preset = match preset.as_str() {
+fn preset_enum(name: &str) -> application::dns::RegionalPreset {
+    match name {
         "Russia" => application::dns::RegionalPreset::RussiaOffline,
         "Iran" => application::dns::RegionalPreset::IranOffline,
         _ => application::dns::RegionalPreset::Default,
-    };
-    let name = match preset {
+    }
+}
+
+fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("dns preset runtime")
+        .block_on(future)
+}
+
+/// Persist a fully downloaded region plan. Only reached after every template
+/// fetched and parsed, so a download/parse failure can never write a partial
+/// preset. Existing rows keep their identity (upstream `GetExternalDNSItem`
+/// assigns `template.Id/Enabled/Remarks = currentItem.*`).
+fn apply_downloaded_plan(
+    preset: application::dns::RegionalPreset,
+    mut plan: application::dns::RegionalDnsPlan,
+) -> Result<(), DomainError> {
+    for profile in [&mut plan.xray, &mut plan.singbox] {
+        if let Some(existing) = engine().get_dns_for_core(profile.core_type)? {
+            profile.id = existing.id;
+            profile.remarks = existing.remarks;
+            profile.enabled = existing.enabled;
+        }
+    }
+    engine().save_dns(plan.xray.clone())?;
+    engine().save_dns(plan.singbox.clone())?;
+
+    let loaded = engine().load_settings()?;
+    let mut settings = loaded.settings;
+    if let Some(sources) = application::dns::region_sources(&preset) {
+        settings.const_item.geo_source_url = Some(sources.geo_source.to_string());
+        settings.const_item.srs_source_url = Some(sources.srs_source.to_string());
+        settings.const_item.route_rules_template_source_url =
+            Some(sources.routing_rules_source.to_string());
+    }
+    settings.simple_dns_item = plan.simple;
+    engine().save_settings(settings, loaded.revision)?;
+    Ok(())
+}
+
+/// `apply_regional_preset` — `Default` resets the built-in DNS. `Russia` /
+/// `Iran` download the region's `v2ray.json` / `sing_box.json` /
+/// `simple_dns.json` templates (upstream `Global.DomainDNSAddress` sources),
+/// and persist them only when all three fetched and parsed. A failed remote
+/// chain reports the error and leaves the stored DNS untouched.
+#[frb(sync)]
+pub fn apply_regional_preset(preset: String) -> RegionalPresetResult {
+    let region = preset_enum(&preset);
+    let name = match region {
         application::dns::RegionalPreset::RussiaOffline => "Russia",
         application::dns::RegionalPreset::IranOffline => "Iran",
         application::dns::RegionalPreset::Default => "Default",
     };
-    match engine().apply_regional_preset(preset) {
-        Ok((pending, _)) => RegionalPresetResult {
+    if region == application::dns::RegionalPreset::Default {
+        return match engine().apply_regional_preset(region) {
+            Ok(_) => RegionalPresetResult {
+                ok: true,
+                preset: name.to_string(),
+                pending_urls: Vec::new(),
+                error: None,
+            },
+            Err(e) => RegionalPresetResult {
+                ok: false,
+                preset: name.to_string(),
+                pending_urls: Vec::new(),
+                error: Some(err_dto(e)),
+            },
+        };
+    }
+    let Some(sources) = application::dns::region_sources(&region) else {
+        return RegionalPresetResult {
+            ok: false,
+            preset: name.to_string(),
+            pending_urls: Vec::new(),
+            error: Some(err_dto(DomainError::new(
+                domain::codes::INTERNAL,
+                "error.internal",
+            ))),
+        };
+    };
+    let plan = match block_on(application::dns::fetch_region_dns_plan(
+        sources.dns_template_base,
+    )) {
+        Ok(plan) => plan,
+        Err(e) => {
+            return RegionalPresetResult {
+                ok: false,
+                preset: name.to_string(),
+                pending_urls: application::dns::pending_remote_templates(&region),
+                error: Some(err_dto(e)),
+            };
+        }
+    };
+    match apply_downloaded_plan(region, plan) {
+        Ok(()) => RegionalPresetResult {
             ok: true,
             preset: name.to_string(),
-            pending_urls: pending,
+            pending_urls: Vec::new(),
             error: None,
         },
         Err(e) => RegionalPresetResult {

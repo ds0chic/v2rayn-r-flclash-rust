@@ -554,11 +554,14 @@ pub fn is_due(item: &SubItem, now: i64) -> bool {
 
 /// Cooperative periodic scheduler handle.
 ///
-/// The loop is detached: it never blocks process exit, and [`Self::stop`]
-/// flips a flag and wakes the loop for a prompt, graceful shutdown.
+/// The loop runs on its own OS thread with a current-thread tokio runtime, so
+/// it never needs an ambient runtime (the FRB sync entry point has none), never
+/// blocks process exit, and [`Self::stop`] flips a flag and wakes the loop for a
+/// prompt, graceful shutdown that leaves no timer behind.
 pub struct SubScheduler {
     stop: Arc<AtomicBool>,
     wake: Arc<tokio::sync::Notify>,
+    finished: Arc<AtomicBool>,
 }
 
 impl SubScheduler {
@@ -566,52 +569,120 @@ impl SubScheduler {
     pub fn start(engine: crate::engine::AppEngine, interval: Duration, max_items: usize) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
         let wake = Arc::new(tokio::sync::Notify::new());
+        let finished = Arc::new(AtomicBool::new(false));
         let stop_loop = stop.clone();
         let wake_loop = wake.clone();
-        tokio::spawn(async move {
-            loop {
-                if stop_loop.load(Ordering::Acquire) {
-                    break;
+        let finished_loop = finished.clone();
+        std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build();
+            let Ok(runtime) = runtime else {
+                finished_loop.store(true, Ordering::Release);
+                return;
+            };
+            runtime.block_on(async move {
+                loop {
+                    if stop_loop.load(Ordering::Acquire) {
+                        break;
+                    }
+                    run_scheduler_tick(&engine, max_items).await;
+                    tokio::select! {
+                        _ = tokio::time::sleep(interval) => {},
+                        _ = wake_loop.notified() => {},
+                    }
                 }
-                run_scheduler_tick(&engine, max_items).await;
-                tokio::select! {
-                    _ = tokio::time::sleep(interval) => {},
-                    _ = wake_loop.notified() => {},
-                }
-            }
+            });
+            finished_loop.store(true, Ordering::Release);
         });
-        Self { stop, wake }
+        Self {
+            stop,
+            wake,
+            finished,
+        }
     }
 
     /// Request a graceful stop and wake the loop immediately.
+    ///
+    /// `notify_one` (not `notify_waiters`) stores a permit, so a stop that races
+    /// the loop's `select!` is never lost and the loop exits at its next check.
     pub fn stop(&self) {
         self.stop.store(true, Ordering::Release);
-        self.wake.notify_waiters();
+        self.wake.notify_one();
     }
 
     pub fn is_stopped(&self) -> bool {
         self.stop.load(Ordering::Acquire)
     }
+
+    /// Whether the scheduler loop has fully exited (test/teardown aid).
+    pub fn is_finished(&self) -> bool {
+        self.finished.load(Ordering::Acquire)
+    }
 }
 
-async fn run_scheduler_tick(engine: &crate::engine::AppEngine, max_items: usize) {
-    let now = unix_now();
+/// A single scheduler pass at a controlled clock.
+///
+/// Extracted from the timer loop so tests can inject a fake clock and a local
+/// synthetic endpoint and observe the structured report. The combined report is
+/// returned so a failed or endpoint-unavailable pass is explicit rather than
+/// silently swallowed (upstream `TaskManager` logs the failure).
+pub async fn run_scheduler_pass(
+    engine: &crate::engine::AppEngine,
+    max_items: usize,
+    now: i64,
+) -> SubUpdateReport {
     let due: Vec<SubItem> = match engine.list_sub_items() {
         Ok(items) => items.into_iter().filter(|item| is_due(item, now)).collect(),
-        Err(_) => return,
+        Err(_) => return SubUpdateReport::default(),
     };
     if due.is_empty() {
-        return;
+        return SubUpdateReport::default();
     }
+    let (via_proxy, proxy_url) = scheduler_proxy_choice(engine.local_proxy_url());
+    let mut report = SubUpdateReport::default();
     for item in due {
         let request = SubUpdateRequest {
             sub_ids: vec![item.id.clone()],
-            via_proxy: true,
-            proxy_url: engine.local_proxy_url(),
+            via_proxy,
+            proxy_url: proxy_url.clone(),
         };
-        let _ = engine
+        let item_report = engine
             .refresh_subscriptions(request, &CancellationToken::new(), max_items)
             .await;
+        report.entries.extend(item_report.entries);
+    }
+    report
+}
+
+/// The background scheduler's proxy preference.
+///
+/// Upstream `TaskManager.UpdateTaskRunSubscription` (7d6a967) calls
+/// `SubscriptionHandler.UpdateProcess(..., blProxy: true)` and
+/// `DownloadSubscriptionContent` retries a direct connection when the proxied
+/// attempt yields nothing. Our bridge `update_subscriptions` guard treats an
+/// *explicit* `via_proxy` with no recorded endpoint as `E_PROXY_UNAVAILABLE`
+/// (the FIX-09 user semantics we must not change), so the scheduler prefers the
+/// recorded endpoint when one exists and otherwise downloads directly: a due
+/// background pass must not fail wholesale merely because no core is running.
+pub fn scheduler_proxy_choice(proxy_url: Option<String>) -> (bool, Option<String>) {
+    match proxy_url {
+        Some(url) if !url.trim().is_empty() => (true, Some(url)),
+        _ => (false, None),
+    }
+}
+
+async fn run_scheduler_tick(engine: &crate::engine::AppEngine, max_items: usize) {
+    let report = run_scheduler_pass(engine, max_items, unix_now()).await;
+    for entry in &report.entries {
+        if let SubUpdateOutcome::PreservedError { code, message }
+        | SubUpdateOutcome::Failed { code, message } = &entry.outcome
+        {
+            eprintln!(
+                "[subs] scheduled update failed for {}: {code} {message}",
+                entry.sub_id
+            );
+        }
     }
 }
 
@@ -832,5 +903,136 @@ mod tests {
         };
         let row = item.to_row();
         assert_eq!(SubItem::from_row(&row), item);
+    }
+
+    // -- FIX-09D scheduler: due trigger, download, explicit failure, cleanup ---
+
+    async fn bind_test_listener() -> tokio::net::TcpListener {
+        for port in 11808..11950u16 {
+            if let Ok(listener) = tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
+                return listener;
+            }
+        }
+        panic!("no free loopback port in 11808..11950");
+    }
+
+    /// A one-shot loopback HTTP server returning `body`, bound at `>= 11808`.
+    async fn spawn_sub_server(body: &'static str) -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = bind_test_listener().await;
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            if let Ok((mut socket, _)) = listener.accept().await {
+                let mut buf = [0u8; 2048];
+                let _ = socket.read(&mut buf).await;
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let mut bytes = header.into_bytes();
+                bytes.extend_from_slice(body.as_bytes());
+                let _ = socket.write_all(&bytes).await;
+                let _ = socket.shutdown().await;
+            }
+        });
+        format!("http://127.0.0.1:{port}/sub")
+    }
+
+    fn synthetic_sub(id: &str, url: String) -> SubItem {
+        SubItem {
+            id: id.into(),
+            remarks: "合成订阅".into(),
+            url,
+            enabled: true,
+            auto_update_interval: 10,
+            update_time: 0,
+            ..SubItem::default()
+        }
+    }
+
+    #[test]
+    fn scheduler_proxy_choice_prefers_endpoint_else_direct() {
+        assert_eq!(scheduler_proxy_choice(None), (false, None));
+        assert_eq!(scheduler_proxy_choice(Some("   ".into())), (false, None));
+        assert_eq!(
+            scheduler_proxy_choice(Some("http://127.0.0.1:12000".into())),
+            (true, Some("http://127.0.0.1:12000".into()))
+        );
+    }
+
+    #[tokio::test]
+    async fn scheduler_pass_skips_subscriptions_not_yet_due() {
+        let engine = crate::engine::AppEngine::in_memory();
+        let saved = engine
+            .save_sub_item(synthetic_sub("s-notdue", "http://127.0.0.1:9/sub".into()))
+            .expect("save");
+        // `now - update_time < AutoUpdateInterval * 60`: no download attempted.
+        let report = run_scheduler_pass(&engine, 100, 0).await;
+        assert!(report.entries.is_empty());
+        assert!(engine.profiles_by_subid(&saved.id).unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn scheduler_pass_downloads_due_subscription_from_local_endpoint() {
+        let vless =
+            "vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none#sched";
+        let url = spawn_sub_server(vless).await;
+        let engine = crate::engine::AppEngine::in_memory();
+        let saved = engine
+            .save_sub_item(synthetic_sub("s-due", url))
+            .expect("save");
+        let report = run_scheduler_pass(&engine, 100, 1_000_000).await;
+        assert_eq!(report.success_count(), 1, "{:?}", report.entries);
+        assert_eq!(engine.profiles_by_subid(&saved.id).unwrap().len(), 1);
+        let reread = engine.get_sub_item(&saved.id).unwrap().unwrap();
+        assert!(
+            reread.update_time > 0,
+            "UpdateTime must be touched on success"
+        );
+    }
+
+    #[tokio::test]
+    async fn scheduler_pass_reports_unavailable_endpoint_not_fake_success() {
+        // Probe a free port, then release it so the TCP connect is refused.
+        let listener = bind_test_listener().await;
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let engine = crate::engine::AppEngine::in_memory();
+        let saved = engine
+            .save_sub_item(synthetic_sub(
+                "s-dead",
+                format!("http://127.0.0.1:{port}/sub"),
+            ))
+            .expect("save");
+        let report = run_scheduler_pass(&engine, 100, 1_000_000).await;
+        assert_eq!(report.success_count(), 0);
+        assert_eq!(report.entries.len(), 1);
+        assert!(
+            matches!(
+                &report.entries[0].outcome,
+                SubUpdateOutcome::PreservedError { .. } | SubUpdateOutcome::Failed { .. }
+            ),
+            "unavailable endpoint must surface a structured failure, got {:?}",
+            report.entries[0].outcome
+        );
+        assert!(engine.profiles_by_subid(&saved.id).unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn scheduler_stop_exits_loop_without_residual_timer() {
+        let engine = crate::engine::AppEngine::in_memory();
+        let scheduler = SubScheduler::start(engine, Duration::from_millis(10), 100);
+        scheduler.stop();
+        assert!(scheduler.is_stopped());
+        for _ in 0..100 {
+            if scheduler.is_finished() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(
+            scheduler.is_finished(),
+            "scheduler loop did not exit on stop"
+        );
     }
 }

@@ -1007,33 +1007,23 @@ impl AppEngine {
                     settings.settings.const_item.route_rules_template_source_url = None;
                     settings.settings.simple_dns_item = domain::SimpleDnsItem::builtin();
                 }
-                crate::dns::RegionalPreset::RussiaOffline => {
-                    settings.settings.const_item.geo_source_url = Some(
-                        "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/{0}.dat"
-                            .to_string(),
-                    );
-                    settings.settings.const_item.srs_source_url = Some(
-                        "https://github.com/runetfreedom/sing-box-rules/rule-set-{0}/{1}.srs"
-                            .to_string(),
-                    );
-                    settings.settings.const_item.route_rules_template_source_url = Some(
-                        "https://github.com/runetfreedom/russia-v2ray-rules-dat/release/routing.json"
-                            .to_string(),
-                    );
-                }
-                crate::dns::RegionalPreset::IranOffline => {
-                    settings.settings.const_item.geo_source_url = Some(
-                        "https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/{0}.dat"
-                            .to_string(),
-                    );
-                    settings.settings.const_item.srs_source_url = Some(
-                        "https://github.com/Chocolate4U/Iran-sing-box-rules/rule-set-{0}/{1}.srs"
-                            .to_string(),
-                    );
-                    settings.settings.const_item.route_rules_template_source_url = Some(
-                        "https://github.com/Chocolate4U/Iran-v2ray-rules/release/routing.json"
-                            .to_string(),
-                    );
+                // Russia / Iran: write the canonical upstream source URLs into
+                // the settings tree. Consumers (generation, downloads) read the
+                // tree, so the preset and the settings stay linked; a preset
+                // with no source table is an explicit error, not a silent skip.
+                _ => {
+                    let Some(sources) = crate::dns::region_sources(&preset) else {
+                        return Err(DomainError::new(
+                            domain::codes::INVALID_ARGUMENT,
+                            "error.preset_no_source",
+                        ));
+                    };
+                    settings.settings.const_item.geo_source_url =
+                        Some(sources.geo_source.to_string());
+                    settings.settings.const_item.srs_source_url =
+                        Some(sources.srs_source.to_string());
+                    settings.settings.const_item.route_rules_template_source_url =
+                        Some(sources.routing_rules_source.to_string());
                 }
             }
             settings.revision += 1;
@@ -2049,7 +2039,7 @@ impl AppEngine {
             RuleMode::Direct => Some("Direct".to_string()),
             _ => None,
         };
-        Ok(crate::codegen::build_input_full(
+        let mut input = crate::codegen::build_input_full(
             &active,
             &profiles,
             None,
@@ -2060,7 +2050,14 @@ impl AppEngine {
             routing,
             dns,
             rule_mode,
-        ))
+        );
+        // FIX-16B: the SRS source really reaches generation. The stored
+        // `SrsSourceUrl` (or the upstream built-in when unset) becomes the
+        // `route.rule_set[].url` template emitted by the sing-box generator.
+        input.settings.ruleset_url = Some(crate::dns::effective_srs_source(
+            &settings_snapshot.const_item,
+        ));
+        Ok(input)
     }
 
     /// Base local port for the runtime codegen context.
@@ -2644,6 +2641,79 @@ mod tests {
         let err = engine.save_profile(p, DesiredRevision::ZERO).unwrap_err();
         assert_eq!(err.code, domain::codes::FIELD_RANGE);
         assert_eq!(err.field_path.as_deref(), Some("port"));
+    }
+
+    #[test]
+    fn regional_preset_writes_upstream_sources_into_settings() {
+        let engine = AppEngine::in_memory();
+        let (pending, _) = engine
+            .apply_regional_preset(crate::dns::RegionalPreset::RussiaOffline)
+            .unwrap();
+        let settings = engine.load_settings().unwrap().settings;
+        let sources = crate::dns::region_sources(&crate::dns::RegionalPreset::RussiaOffline)
+            .expect("russia sources");
+        assert_eq!(
+            settings.const_item.geo_source_url.as_deref(),
+            Some(sources.geo_source)
+        );
+        assert_eq!(
+            settings.const_item.srs_source_url.as_deref(),
+            Some(sources.srs_source)
+        );
+        assert_eq!(
+            settings
+                .const_item
+                .route_rules_template_source_url
+                .as_deref(),
+            Some(sources.routing_rules_source)
+        );
+        assert!(!pending.is_empty(), "remote DNS templates stay pending");
+
+        // Default resets the three sources.
+        engine
+            .apply_regional_preset(crate::dns::RegionalPreset::Default)
+            .unwrap();
+        let settings = engine.load_settings().unwrap().settings;
+        assert!(settings.const_item.geo_source_url.is_none());
+        assert!(settings.const_item.srs_source_url.is_none());
+        assert!(settings
+            .const_item
+            .route_rules_template_source_url
+            .is_none());
+    }
+
+    #[test]
+    fn build_codegen_input_uses_settings_srs_source() {
+        let engine = AppEngine::in_memory();
+        let profile = synthetic_full_profile(1);
+        let id = profile.index_id.clone();
+        engine.save_profile(profile, DesiredRevision::ZERO).unwrap();
+
+        // Unset settings -> upstream built-in SRS template.
+        let opts = engine.runtime_codegen_options();
+        let input = engine
+            .build_codegen_input(&id, CoreType::Xray, &opts)
+            .unwrap();
+        assert_eq!(
+            input.settings.ruleset_url.as_deref(),
+            Some(crate::dns::BUILTIN_SRS_URL)
+        );
+
+        // A regional preset sets the source; generation must emit that source.
+        engine
+            .apply_regional_preset(crate::dns::RegionalPreset::RussiaOffline)
+            .unwrap();
+        let stored = engine
+            .load_settings()
+            .unwrap()
+            .settings
+            .const_item
+            .srs_source_url;
+        let opts = engine.runtime_codegen_options();
+        let input = engine
+            .build_codegen_input(&id, CoreType::Xray, &opts)
+            .unwrap();
+        assert_eq!(input.settings.ruleset_url, stored);
     }
 
     #[test]

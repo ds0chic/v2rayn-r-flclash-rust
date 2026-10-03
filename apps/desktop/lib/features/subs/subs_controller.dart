@@ -344,8 +344,15 @@ class SubsController extends Notifier<SubsState> {
     );
   }
 
+  /// FIX-09D normal-launch hook: start the periodic subscription updater.
+  ///
+  /// Independent of any test environment (not armed by an env var); idempotent
+  /// so a repeated bootstrap or hot reload never spawns a second timer. Silent
+  /// when already running so it does not overwrite startup status.
   void startScheduler() {
-    final result = ref.read(bridgePortProvider).startSubScheduler();
+    final bridge = ref.read(bridgePortProvider);
+    if (bridge.subSchedulerRunning()) return;
+    final result = bridge.startSubScheduler();
     if (result.ok) {
       state = state.copyWith(
         status: const SubStatus(kind: 'success', message: '定时更新已启动'),
@@ -353,8 +360,13 @@ class SubsController extends Notifier<SubsState> {
     }
   }
 
+  /// FIX-09D shutdown hook: stop the updater so no timer survives exit.
+  ///
+  /// Idempotent; a no-op when the scheduler is not running.
   void stopScheduler() {
-    ref.read(bridgePortProvider).stopSubScheduler();
+    final bridge = ref.read(bridgePortProvider);
+    if (!bridge.subSchedulerRunning()) return;
+    bridge.stopSubScheduler();
     state = state.copyWith(
       status: const SubStatus(kind: 'info', message: '定时更新已停止'),
     );

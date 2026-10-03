@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/app/shell/main_shell.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// When overridden to `true`, the bootstrap applies the persisted runtime plan
@@ -71,6 +72,7 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
 
   void windowShutdown() {
     _integration?.removeListener();
+    ref.read(subsControllerProvider.notifier).stopScheduler();
   }
 
   @override
@@ -94,6 +96,9 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       // persisted as active, apply it once on launch. This is the production
       // path and does not depend on any test environment variable.
       await controller.restoreActiveOnLaunch();
+      // Subscription auto-update scheduler (upstream `TaskManager`): a normal
+      // launch starts it; due downloads run in the background.
+      ref.read(subsControllerProvider.notifier).startScheduler();
       // Evidence-run hooks that force an apply even without a persisted active
       // node:
       //  * kDebugMode + V2RAYN_R_AUTOSTART (historical T03/T18b screenshots);

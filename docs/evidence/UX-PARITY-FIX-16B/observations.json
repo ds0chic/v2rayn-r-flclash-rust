@@ -1,0 +1,54 @@
+{
+  "card": "FIX-16B",
+  "status": "implemented",
+  "changedFiles": [
+    "crates/application/src/dns.rs",
+    "crates/application/src/engine.rs",
+    "apps/desktop/lib/features/settings/option_setting_window.dart",
+    "apps/desktop/test/fix16b_settings_source_test.dart",
+    "docs/evidence/UX-PARITY-FIX-16/field-matrix.md",
+    "docs/tasks/FIX-16B.md",
+    "docs/evidence/UX-PARITY-FIX-16B/README.md",
+    "docs/evidence/UX-PARITY-FIX-16B/observations.json"
+  ],
+  "commands": [
+    { "cmd": "cargo fmt -p application", "exit": 0 },
+    { "cmd": "cargo clippy -p application --lib --locked -- -D warnings", "exit": 0, "result": "0 warnings" },
+    { "cmd": "cargo test -p application --lib --locked", "exit": 0, "result": "170 passed; 0 failed" },
+    { "cmd": "cargo test -p application --lib --locked srs_source", "exit": 0, "result": "1 passed" },
+    { "cmd": "dart format lib/features/settings/option_setting_window.dart test/fix16b_settings_source_test.dart", "exit": 0 },
+    { "cmd": "flutter analyze", "exit": 0, "result": "No issues found!" },
+    { "cmd": "flutter test test/fix16b_settings_source_test.dart", "exit": 0, "result": "All tests passed!" }
+  ],
+  "behavior": {
+    "regionSources": "crates/application/src/dns.rs::region_sources 逐字对齐上游 Global.GeoFilesSources/SingboxRulesetSources/RoutingRulesSources/DNSTemplateSources",
+    "resolvers": [
+      "effective_geo_source -> Global.GeoUrl fallback",
+      "effective_srs_source -> Global.SingboxRulesetUrl fallback",
+      "effective_sub_convert_url -> Global.SubConvertUrls[0] fallback",
+      "effective_routing_template_source -> None=builtin, Some=must download"
+    ],
+    "consumerWired": "SrsSourceUrl -> engine::build_codegen_input -> sing-box route.rule_set[].url",
+    "presetLink": "engine::apply_regional_preset writes region_sources into settings; missing source => error.preset_no_source"
+  },
+  "fieldMatrix": {
+    "verified": "SrsSourceUrl",
+    "consumed": ["SubConvertUrl", "GeoSourceUrl", "RouteRulesTemplateSourceUrl"],
+    "statsBefore": { "verified": 3, "consumed": 68, "registered": 7 },
+    "statsAfter": { "verified": 4, "consumed": 71, "registered": 3 }
+  },
+  "gaps": [
+    "Geo .dat download consumer in update module (not owned)",
+    "SubConvert download consumer in crates/subscriptions (not owned)",
+    "external routing template fetch consumer in routing import chain (not owned)",
+    "full localization -> FIX-16G",
+    "concurrent writer modified crates/application/src/dns.rs (added fetch_region_dns_plan etc.); repaired brace imbalance only, no revert"
+  ],
+  "constraintsVerified": {
+    "port10808Untouched": true,
+    "systemProxyUntouched": true,
+    "noCredentialRead": true,
+    "workOutputsReadOnly": true,
+    "noCommit": true
+  }
+}

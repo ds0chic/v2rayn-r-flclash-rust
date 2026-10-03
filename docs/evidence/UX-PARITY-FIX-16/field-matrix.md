@@ -87,10 +87,10 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 | UiItem.EnableDragDropSort | 拖放排序 | checkbox | false | 同上 | restart_app | consumed |
 | UiItem.MacOSShowInDock | Dock 显示 | checkbox | false | 同上 | restart_app | preserved_only（仅 macOS 显示，Windows 隐藏） |
 | SpeedTestItem.SpeedTestTimeout/MixedConcurrencyCount/SpeedTestUrl/SpeedPingTestUrl/UdpTestTarget/IPAPIUrl | 测速 6 项 | number/text | 10/10/url/url/ntp/ null | SpeedTestItem | immediate → configureSpeedTest | consumed |
-| ConstItem.SubConvertUrl | 订阅转换 | text | null | ConstItem | save | registered → FIX-16B（转换/下载链未接） |
-| ConstItem.GeoSourceUrl | Geo 来源 | text | null | 同上 | save | registered → FIX-16B |
-| ConstItem.SrsSourceUrl | SRS 来源 | text | null | 同上 | save | registered → FIX-16B |
-| ConstItem.RouteRulesTemplateSourceUrl | 路由规则来源 | text | null | 同上 | save | registered → FIX-16B |
+| ConstItem.SubConvertUrl | 订阅转换 | text | null | ConstItem | save → `dns::effective_sub_convert_url`（空回退 `Global.SubConvertUrls[0]`） | consumed（解析器已接线；订阅下载链在 `crates/subscriptions`，登记为 FIX-16B 缺口） |
+| ConstItem.GeoSourceUrl | Geo 来源 | text | null | 同上 | save → `dns::effective_geo_source`（空回退 `Global.GeoUrl`） | consumed（解析器已接线；`.dat` 下载在 update 模块，登记为 FIX-16B 缺口） |
+| ConstItem.SrsSourceUrl | SRS 来源 | text | null | 同上 | save → `dns::effective_srs_source` → sing-box `route.rule_set[].url` | **verified**（生成输入断言实际使用） |
+| ConstItem.RouteRulesTemplateSourceUrl | 路由规则来源 | text | null | 同上 | save → `dns::effective_routing_template_source`（空=内置路由） | consumed（解析器已接线；外部模板抓取消费者登记为 FIX-16B 缺口） |
 | SimpleDNSItem.FakeIP / GlobalFakeIp / EnableHappyEyeballs | DNS 历史段 | checkbox | false/true/false | SimpleDNSItem | restart_core | preserved_only（上游 DNS 窗口） |
 | HappyEyeballs4RayItem.{TryDelayMs,PrioritizeIPv6,Interleave,MaxConcurrentTry} | DNS 历史段 | number/checkbox | 250/false/1/4 | HappyEyeballs4RayItem | restart_core | preserved_only（上游 DNS 窗口） |
 | ClashUIItem.EnableIPv6/EnableMixinContent | Clash 历史段 | checkbox | false | ClashUIItem | restart_core | preserved_only（上游窗口无控件） |
@@ -131,9 +131,9 @@ SET-16/17/19/20 与 `domain::settings_timing::FIELD_TIMING`（180 项）为准�
 ## 统计
 
 - 可见控件：101（核心 36 / 显示 40 / 系统代理 6 / Tun 11 / 内核类型 8）。
-- `verified`（本卡实测消费者）：3（CurrentLanguage / CurrentFontFamily / CurrentFontSize）。
-- `consumed`（含 verified，持久化 + 领域消费者已知，本环境未跑内核）：68。
-- `registered`（待接线，已登记后续卡）：7（SubConvert/Geo/SRS/RouteRules 4 项 + Clash Proxies* 3 项）。
+- `verified`（本卡实测消费者）：4（CurrentLanguage / CurrentFontFamily / CurrentFontSize / SrsSourceUrl→sing-box rule_set URL）。
+- `consumed`（含 verified，持久化 + 领域消费者已知，本环境未跑内核）：71（FIX-16B 新增 SubConvertUrl/GeoSourceUrl/RouteRulesTemplateSourceUrl 解析消费者）。
+- `registered`（待接线，已登记后续卡）：3（仅 Clash Proxies* 3 项；FIX-16B 的 4 个源字段已接线到 `dns::effective_*` 解析器）。
 - `blocked`（平台/网络，本环境不执行）：17（系统代理 6 + Tun 11）。
 - `preserved_only`（上游本窗口不暴露）：9（DNS 4+1+1+... 见上；另 KCP 6 项入口保留但主状态计 consumed）。
 - 未伪造缺口：KCP 页（上游注释）、FakeIP/HappyEyeballs（上游 DNS 窗口）、ClashUIItem（上游无控件）、WPF 四个额外主题（`ThemeSettingView` 未暴露）均如实登记，不造控件。

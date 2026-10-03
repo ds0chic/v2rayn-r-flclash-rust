@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `dto_to_sub`, `entry_to_dto`, `finish_sub_job`, `load_outbound_json`, `register_sub_job`, `render_export`, `report_to_result`, `sub_job_seq`, `sub_jobs`, `sub_to_dto`
+// These functions are ignored because they are not marked as `pub`: `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `register_sub_job`, `render_export`, `spawn_sub_update`, `sub_jobs`, `sub_to_dto`
 
 /// `list_sub_items` — every subscription ordered by `Sort`.
 SubsPageDto listSubItems() => RustLib.instance.api.crateApiSubsListSubItems();
@@ -47,8 +47,14 @@ void setLocalProxyPort({int? port}) =>
 /// `sub_ids` empty means every subscription; `via_proxy` uses the recorded
 /// local session port. When `via_proxy` is requested but no local proxy
 /// endpoint is known, a structured `E_PROXY_UNAVAILABLE` error is returned
-/// and no direct download is attempted. The returned `job_id` can be passed
-/// to `cancel_job`.
+/// and no direct download is attempted.
+///
+/// On acceptance the real `job_id` is returned *before* any network work
+/// starts (SET-03): the refresh runs on a worker thread, the UI binds its
+/// progress (`job_view`) and cancellation (`cancel_job`) to that id, and the
+/// final report is pushed as a `subscriptions_updated` control event. A
+/// cancellation never replaces the old group, reports a fake success or
+/// leaves a half-written candidate set (the pipeline is candidate-first).
 Future<SubUpdateResult> updateSubscriptions({
   required List<String> subIds,
   required bool viaProxy,

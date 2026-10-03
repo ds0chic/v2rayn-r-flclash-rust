@@ -233,13 +233,155 @@ pub fn merge_imported_rules(
     text: &str,
     replace: bool,
 ) -> Result<Vec<RoutingRule>, DomainError> {
-    let imported = domain::routing::parse_imported_rules(text)?;
+    let imported = parse_imported_rules_compat(text)?;
     if replace {
         Ok(imported)
     } else {
         let mut merged = current.to_vec();
         merged.extend(imported);
         Ok(merged)
+    }
+}
+
+/// Parse imported rule JSON in the upstream camelCase `RulesItem` shape or the
+/// stored snake_case shape. List members may be arrays or comma/newline
+/// strings; `ruleType` may be the `ERuleType` ordinal or name. Unknown keys are
+/// kept in `extra`, and every rule gets a fresh id (upstream
+/// `AddBatchRoutingRules` assigns new GUIDs). Invalid input is an error so the
+/// caller can leave its draft untouched.
+pub fn parse_imported_rules_compat(text: &str) -> Result<Vec<RoutingRule>, DomainError> {
+    if text.trim().is_empty() {
+        return Err(invalid_rules_error("error.routing_rules_empty"));
+    }
+    let value: Value = serde_json::from_str(text).map_err(|e| {
+        DomainError::new(domain::codes::FIELD_FORMAT, "error.routing_rules_invalid")
+            .with_detail(e.to_string())
+    })?;
+    let Value::Array(entries) = value else {
+        return Err(invalid_rules_error("error.routing_rules_invalid"));
+    };
+    if entries.is_empty() {
+        return Err(invalid_rules_error("error.routing_rules_empty"));
+    }
+    let mut rules = Vec::with_capacity(entries.len());
+    for entry in entries {
+        let Value::Object(map) = entry else {
+            return Err(invalid_rules_error("error.routing_rules_invalid"));
+        };
+        rules.push(imported_rule_from_map(map)?);
+    }
+    for rule in &rules {
+        domain::routing::validate_rule(rule)?;
+    }
+    Ok(rules)
+}
+
+fn invalid_rules_error(message_key: &str) -> DomainError {
+    DomainError::new(domain::codes::FIELD_FORMAT, message_key)
+}
+
+/// Map one imported `RulesItem` object onto the stored snake_case fields, then
+/// deserialize through the entity's serde form (so `extra` keeps unknown keys).
+fn imported_rule_from_map(map: serde_json::Map<String, Value>) -> Result<RoutingRule, DomainError> {
+    let mut fields = serde_json::Map::new();
+    for (key, value) in map {
+        let (target, value): (&str, Value) = match key.as_str() {
+            "id" => continue,
+            "type" => ("rule_kind", value),
+            "inboundTag" | "inbound_tag" => {
+                let Some(list) = normalize_string_list(value) else {
+                    continue;
+                };
+                ("inbound_tag", json!(list))
+            }
+            "outboundTag" | "outbound_tag" => ("outbound_tag", value),
+            "ruleType" | "rule_type" => {
+                let Some(rule_type) = normalize_rule_type(&value) else {
+                    continue;
+                };
+                ("rule_type", json!(rule_type))
+            }
+            "ip" | "domain" | "protocol" | "process" => {
+                let Some(list) = normalize_string_list(value) else {
+                    continue;
+                };
+                (key.as_str(), json!(list))
+            }
+            "enabled" => {
+                if !value.is_boolean() {
+                    continue;
+                }
+                ("enabled", value)
+            }
+            _ => (key.as_str(), value),
+        };
+        fields.insert(target.to_string(), value);
+    }
+    fields
+        .entry("enabled".to_string())
+        .or_insert(Value::Bool(true));
+    let mut rule: RoutingRule = serde_json::from_value(Value::Object(fields)).map_err(|e| {
+        DomainError::new(domain::codes::FIELD_FORMAT, "error.routing_rules_invalid")
+            .with_detail(e.to_string())
+    })?;
+    rule.id = domain::routing::new_rule_id();
+    Ok(rule)
+}
+
+/// Accept a JSON array of strings or a comma/newline separated string.
+fn normalize_string_list(value: Value) -> Option<Vec<String>> {
+    let list: Vec<String> = match value {
+        Value::Null => return None,
+        Value::Array(items) => items
+            .into_iter()
+            .filter_map(|item| match item {
+                Value::String(text) => {
+                    let trimmed = text.trim();
+                    (!trimmed.is_empty()).then(|| trimmed.to_string())
+                }
+                other => {
+                    let text = other.to_string();
+                    (!text.is_empty()).then_some(text)
+                }
+            })
+            .collect(),
+        Value::String(text) => text
+            .split(['\r', '\n', ',', '，'])
+            .map(str::trim)
+            .filter(|part| !part.is_empty())
+            .map(str::to_string)
+            .collect(),
+        other => {
+            let text = other.to_string();
+            if text.is_empty() {
+                return None;
+            }
+            vec![text]
+        }
+    };
+    (!list.is_empty()).then_some(list)
+}
+
+/// `ruleType` as an `ERuleType` ordinal or name (`ALL` / `Routing` / `DNS`).
+fn normalize_rule_type(value: &Value) -> Option<i32> {
+    match value {
+        Value::Number(number) => number
+            .as_i64()
+            .and_then(|v| i32::try_from(v).ok())
+            .filter(|v| domain::RuleType::from_value(*v).is_some()),
+        Value::String(text) => {
+            let trimmed = text.trim();
+            if let Ok(number) = trimmed.parse::<i32>() {
+                return domain::RuleType::from_value(number).map(|_| number);
+            }
+            match trimmed.to_ascii_lowercase().as_str() {
+                "all" => Some(0),
+                "routing" | "route" => Some(1),
+                "dns" => Some(2),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 
@@ -256,7 +398,55 @@ pub fn export_selected_rules(rules: &[RoutingRule], ids: &[String]) -> Result<St
                 .with_field("ids"),
         );
     }
-    domain::routing::export_rules(&selected)
+    export_rules_camel(&selected)
+}
+
+/// Export rules as the upstream camelCase `RulesItem` JSON (id omitted,
+/// null/empty members omitted) so the output matches `RuleExportSelectedAsync`
+/// and re-imports through [`parse_imported_rules_compat`].
+pub fn export_rules_camel(rules: &[RoutingRule]) -> Result<String, DomainError> {
+    let maps: Vec<Value> = rules.iter().map(export_rule_value).collect();
+    serde_json::to_string_pretty(&maps).map_err(|e| {
+        DomainError::new(domain::codes::INTERNAL, "error.routing_rules_serialize")
+            .with_detail(e.to_string())
+    })
+}
+
+fn export_rule_value(rule: &RoutingRule) -> Value {
+    let mut map = serde_json::Map::new();
+    fn put_str(map: &mut serde_json::Map<String, Value>, key: &str, value: Option<&str>) {
+        if let Some(value) = value.map(str::trim).filter(|v| !v.is_empty()) {
+            map.insert(key.to_string(), Value::String(value.to_string()));
+        }
+    }
+    fn put_list(map: &mut serde_json::Map<String, Value>, key: &str, value: Option<&Vec<String>>) {
+        if let Some(value) = value {
+            let list: Vec<Value> = value
+                .iter()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .map(|s| Value::String(s.to_string()))
+                .collect();
+            if !list.is_empty() {
+                map.insert(key.to_string(), Value::Array(list));
+            }
+        }
+    }
+    put_str(&mut map, "type", rule.rule_kind.as_deref());
+    put_str(&mut map, "port", rule.port.as_deref());
+    put_str(&mut map, "network", rule.network.as_deref());
+    put_list(&mut map, "inboundTag", rule.inbound_tag.as_ref());
+    put_str(&mut map, "outboundTag", rule.outbound_tag.as_deref());
+    put_list(&mut map, "ip", rule.ip.as_ref());
+    put_list(&mut map, "domain", rule.domain.as_ref());
+    put_list(&mut map, "protocol", rule.protocol.as_ref());
+    put_list(&mut map, "process", rule.process.as_ref());
+    map.insert("enabled".to_string(), Value::Bool(rule.enabled));
+    put_str(&mut map, "remarks", rule.remarks.as_deref());
+    if let Some(rule_type) = rule.rule_type {
+        map.insert("ruleType".to_string(), json!(rule_type.value()));
+    }
+    Value::Object(map)
 }
 
 /// Read and parse `CustomRulesetPath4Singbox` content when the file exists.
@@ -335,5 +525,66 @@ mod tests {
         assert_eq!(appended.len(), 2);
         let replaced = merge_imported_rules(&current, text, true).unwrap();
         assert_eq!(replaced.len(), 1);
+    }
+
+    #[test]
+    fn import_accepts_upstream_camel_case_and_keeps_extras() {
+        let text = r#"[
+            {"type": "Routing", "outboundTag": "proxy", "domain": ["geosite:google"],
+             "ruleType": "DNS", "enabled": true, "future_rule_flag": true},
+            {"port": "443", "network": "tcp,udp"}
+        ]"#;
+        let rules = parse_imported_rules_compat(text).unwrap();
+        assert_eq!(rules.len(), 2);
+        assert_eq!(rules[0].rule_kind.as_deref(), Some("Routing"));
+        assert_eq!(rules[0].outbound_tag.as_deref(), Some("proxy"));
+        assert_eq!(rules[0].domain, Some(vec!["geosite:google".to_string()]));
+        assert_eq!(rules[0].rule_type, Some(domain::RuleType::Dns));
+        assert!(rules[0].extra.contains_key("future_rule_flag"));
+        assert!(!rules[0].id.is_empty());
+        assert_eq!(rules[1].port.as_deref(), Some("443"));
+        assert_eq!(rules[1].network.as_deref(), Some("tcp,udp"));
+        assert!(rules[1].enabled);
+    }
+
+    #[test]
+    fn export_is_camel_case_without_id_and_round_trips() {
+        let rules = vec![RoutingRule {
+            id: "r1".into(),
+            rule_kind: Some("Routing".into()),
+            port: Some("80".into()),
+            outbound_tag: Some("proxy".into()),
+            domain: Some(vec!["geosite:cn".into()]),
+            rule_type: Some(domain::RuleType::Routing),
+            enabled: true,
+            remarks: Some("keep".into()),
+            ..Default::default()
+        }];
+        let text = export_rules_camel(&rules).unwrap();
+        let json: Vec<Value> = serde_json::from_str(&text).unwrap();
+        assert_eq!(json.len(), 1);
+        let first = json[0].as_object().unwrap();
+        assert!(!first.contains_key("id"));
+        assert_eq!(first["type"], "Routing");
+        assert_eq!(first["outboundTag"], "proxy");
+        assert_eq!(first["domain"][0], "geosite:cn");
+        assert_eq!(first["ruleType"], 1);
+        assert_eq!(first["enabled"], true);
+
+        let back = parse_imported_rules_compat(&text).unwrap();
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].rule_kind.as_deref(), Some("Routing"));
+        assert_eq!(back[0].outbound_tag.as_deref(), Some("proxy"));
+        assert_eq!(back[0].domain, Some(vec!["geosite:cn".to_string()]));
+        assert_eq!(back[0].rule_type, Some(domain::RuleType::Routing));
+        assert_ne!(back[0].id, rules[0].id);
+    }
+
+    #[test]
+    fn import_rejects_invalid_and_empty() {
+        assert!(parse_imported_rules_compat("").is_err());
+        assert!(parse_imported_rules_compat("not json").is_err());
+        assert!(parse_imported_rules_compat("[]").is_err());
+        assert!(parse_imported_rules_compat("[{}]").is_err());
     }
 }

@@ -547,6 +547,23 @@ pub fn speedtest_remove_invalid() -> u32 {
     })
 }
 
+/// Persist the table's display order (PR-15): rewrite `ProfileExItem.Sort`
+/// for the full id list and flush, mirroring upstream `MoveServer` /
+/// `SortServers`. Ids missing from the result table get a sort-only row so a
+/// later test result still lands on the right order.
+#[frb(sync)]
+pub fn speedtest_apply_profile_order(ordered_ids: Vec<String>) -> SimpleResult {
+    with_hub(|h| {
+        ensure_profile_ex_loaded(h);
+        h.results.apply_order(&ordered_ids);
+        flush_profile_ex(h);
+    });
+    SimpleResult {
+        ok: true,
+        error: None,
+    }
+}
+
 /// Register a batch stream.
 pub fn speedtest_subscribe(sink: StreamSink<SpeedTestBatchDto>) {
     with_hub(|h| h.subscribers.push(sink));

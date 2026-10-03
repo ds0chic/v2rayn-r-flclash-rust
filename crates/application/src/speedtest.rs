@@ -2007,6 +2007,42 @@ mod tests {
     }
 
     #[test]
+    fn apply_order_writes_step_ten_and_reads_back_stably() {
+        // FIX-10B: `speedtest_apply_profile_order` rewrites `ProfileExItem.Sort`
+        // as `(position + 1) * 10` and this order is what a reopened reader
+        // reconstructs from the persisted rows.
+        let mut store = ProfileExStore::new();
+        store.apply(&SpeedTestResult::delay("a", 12));
+        store.apply(&SpeedTestResult::delay("b", -1));
+        store.apply(&SpeedTestResult::delay("c", 30));
+
+        let order = vec!["c".to_string(), "a".to_string(), "b".to_string()];
+        store.apply_order(&order);
+
+        assert_eq!(store.get_sort("c"), 10, "first row → 10");
+        assert_eq!(store.get_sort("a"), 20, "second row → 20");
+        assert_eq!(store.get_sort("b"), 30, "third row → 30");
+        assert_eq!(store.max_sort(), 30);
+
+        // Reconstruct the persisted order from `Sort` alone (reopen read-back).
+        let mut rows = store.all();
+        rows.sort_by_key(|r| r.sort);
+        let ids: Vec<&str> = rows.iter().map(|r| r.index_id.as_str()).collect();
+        assert_eq!(ids, vec!["c", "a", "b"]);
+        // The measured result fields are untouched by an order write.
+        assert_eq!(store.get("a").unwrap().delay, 12);
+        assert_eq!(store.get("b").unwrap().delay, -1);
+    }
+
+    #[test]
+    fn apply_order_is_noop_for_empty_list() {
+        let mut store = ProfileExStore::new();
+        store.apply(&SpeedTestResult::delay("a", 12));
+        store.apply_order(&[]);
+        assert_eq!(store.get_sort("a"), 0, "no order written for empty list");
+    }
+
+    #[test]
     fn clear_statistics_does_not_touch_test_results() {
         let mut store = ProfileExStore::new();
         store.apply(&SpeedTestResult::delay("a", 12));

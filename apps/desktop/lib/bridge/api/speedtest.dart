@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `action_from_value`, `action_value`, `default_core`, `dto`, `from_ex`, `hub`, `new`, `new`, `open_reserved`, `profile_to_node`, `with_hub`
+// These functions are ignored because they are not marked as `pub`: `action_from_value`, `action_value`, `default_core`, `dto`, `ensure_profile_ex_loaded`, `flush_profile_ex`, `from_ex`, `hub`, `new`, `new`, `open_reserved`, `profile_to_node`, `with_hub`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NetHostTestSession`, `SpeedTestHub`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `close`, `download`, `open`, `real_ping`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `apply_speedtest_result_for_test`, `reset_speedtest_for_test`
@@ -38,7 +38,11 @@ SimpleResult speedtestConfigure({
 SpeedTestSupportDto speedtestSupported() =>
     RustLib.instance.api.crateApiSpeedtestSpeedtestSupported();
 
-/// Start a speedtest job over the selected node ids (empty = all stored nodes).
+/// Start a speedtest job over an explicit node id set.
+///
+/// The UI resolves the scope itself (Mixed/Fast = the current group's filtered
+/// list; the other actions = the selection), so an empty set means "nothing to
+/// test" and never widens to the whole database (PR-16).
 SpeedTestStartDto speedtestStart({
   required int kind,
   required List<String> indexIds,
@@ -60,9 +64,20 @@ List<SpeedTestResultDto> speedtestResults() =>
 int speedtestActiveJobs() =>
     RustLib.instance.api.crateApiSpeedtestSpeedtestActiveJobs();
 
-/// `RemoveInvalidServerResult`: delete rows whose delay failed (`-1`).
+/// `RemoveInvalidServerResult`: delete rows whose delay failed (`-1`) and
+/// persist the pruned table. (The real `ProfileItem` deletion of the current
+/// group is issued by the UI through `delete_profiles`; PR-11.)
 int speedtestRemoveInvalid() =>
     RustLib.instance.api.crateApiSpeedtestSpeedtestRemoveInvalid();
+
+/// Persist the table's display order (PR-15): rewrite `ProfileExItem.Sort`
+/// for the full id list and flush, mirroring upstream `MoveServer` /
+/// `SortServers`. Ids missing from the result table get a sort-only row so a
+/// later test result still lands on the right order.
+SimpleResult speedtestApplyProfileOrder({required List<String> orderedIds}) =>
+    RustLib.instance.api.crateApiSpeedtestSpeedtestApplyProfileOrder(
+      orderedIds: orderedIds,
+    );
 
 /// Register a batch stream.
 Stream<SpeedTestBatchDto> speedtestSubscribe() =>

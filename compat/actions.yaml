@@ -3865,9 +3865,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:63
   - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml.cs:125
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/UX-PARITY-FIX-08C/README.md
+  implementation_location: apps/desktop/lib/features/routing/routing_windows.dart (_confirmRemove asks RemoveServer; cancel keeps the draft)
+  test_ids: [fix08c_routing_draft_test]
+  status: implemented
 - id: ACT-RR-003
   name: 路由规则-导出选中到剪贴板
   domain: routing
@@ -3893,9 +3894,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:67
   - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml.cs:100
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/UX-PARITY-FIX-08C/README.md
+  implementation_location: apps/desktop/lib/features/routing/routing_controller.dart (exportDraftRulesJson) + crates/application/src/routing.rs (export_rules_camel, camelCase no id)
+  test_ids: [fix08c_routing_draft_test, fix08_draft_unit_test]
+  status: implemented
 - id: ACT-RR-004
   name: 路由规则-从文件导入
   domain: routing
@@ -3920,9 +3922,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:49
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:253
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/UX-PARITY-FIX-08C/README.md
+  implementation_location: apps/desktop/lib/features/routing/routing_actions.dart (pickRulesFromFile via file_selector; parse failure keeps draft)
+  test_ids: [fix08c_routing_draft_test]
+  status: implemented
 - id: ACT-RR-005
   name: 路由规则-从剪贴板导入
   domain: routing
@@ -3947,9 +3950,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:54
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:273
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/UX-PARITY-FIX-08C/README.md
+  implementation_location: apps/desktop/lib/features/routing/routing_actions.dart (pickRulesFromClipboard) + crates/application/src/routing.rs (parse_imported_rules_compat camel/snake)
+  test_ids: [fix08c_routing_draft_test, fix08_draft_unit_test]
+  status: implemented
 - id: ACT-RR-006
   name: 路由规则-从 URL 导入
   domain: routing
@@ -5413,3 +5417,17 @@ items:
   test_ids: []
   status: identified
   notes: 审计 A04 拆分：双击=编辑，与原 ACT-ROUTE-003 的设为默认区分。
+
+# FIX-11B 追加（只追加，不改动上方既有行）
+# ACT-CLASH-001..005（Clash 代理组：重载/单代理延迟/整组延迟/设为活动/切换模式）
+#   与 ACT-CLASH-006..007（连接：关闭单条/全部）本轮在
+#   core_adapters::clash_api + application::ClashApiService + bridge_api::api::monitor
+#   实现，Mock 断言见 crates/core_adapters/tests/clash_api.rs；
+#   Flutter 视图/控制器已实现，新增 FRB 函数待根代理重生成。
+#   注意：ACT-CLASH-004 上游 selection_rule 要求 group type==Selector，本仓 Rust select 未强制，
+#   UI 层选择性展示；如需严格一致应在 Rust/UI 补校验并明确报错（见 FIX-11B 卡接口缺口）。
+# ACT-CLASH-005 feedback UpdateClashMode 语义：PATCH /configs 且 mode 作为 header，URL 见
+#   ServiceLib/Manager/ClashApiManager.cs:110-124。
+# ACT-CLASH-002/003 延迟 URL 取 SpeedPingTestItem.SpeedPingTestUrl（默认
+#   Global.SpeedPingTestUrls.First()=https://www.google.com/generate_204），timeout=10000；
+#   GetProxies 重试 3 次/2s（ClashApiManager.cs:11-59）。

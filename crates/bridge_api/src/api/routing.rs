@@ -426,25 +426,43 @@ pub fn import_routing_rules(
 /// `export_routing_rules` — all rules (or the `ids` selection) as JSON.
 #[frb(sync)]
 pub fn export_routing_rules(routing_id: String, ids: Vec<String>) -> RoutingRulesTextResult {
-    let ids = if ids.is_empty() { None } else { Some(ids) };
-    match engine().export_routing_rules(&routing_id, ids.as_deref()) {
-        Ok(text) => {
-            let count = serde_json::from_str::<Vec<serde_json::Value>>(&text)
-                .map(|v| v.len() as u32)
-                .unwrap_or(0);
-            RoutingRulesTextResult {
-                ok: true,
-                text,
-                rule_count: count,
-                error: None,
-            }
-        }
-        Err(e) => RoutingRulesTextResult {
-            ok: false,
-            text: String::new(),
-            rule_count: 0,
-            error: Some(err_dto(e)),
+    let profile = match engine().get_routing(&routing_id) {
+        Ok(Some(profile)) => profile,
+        Ok(None) => return export_error(DomainError::not_found("routing", &routing_id)),
+        Err(e) => return export_error(e),
+    };
+    let rules = match domain::routing::parse_rules(&profile) {
+        Ok(rules) => rules,
+        Err(e) => return export_error(e),
+    };
+    let selected: Vec<domain::RoutingRule> = if ids.is_empty() {
+        rules
+    } else {
+        rules.into_iter().filter(|r| ids.contains(&r.id)).collect()
+    };
+    if selected.is_empty() {
+        return export_error(
+            DomainError::new(domain::codes::NOT_FOUND, "error.routing_no_selection")
+                .with_field("ids"),
+        );
+    }
+    match application::routing::export_rules_camel(&selected) {
+        Ok(text) => RoutingRulesTextResult {
+            ok: true,
+            rule_count: selected.len() as u32,
+            text,
+            error: None,
         },
+        Err(e) => export_error(e),
+    }
+}
+
+fn export_error(error: DomainError) -> RoutingRulesTextResult {
+    RoutingRulesTextResult {
+        ok: false,
+        text: String::new(),
+        rule_count: 0,
+        error: Some(err_dto(error)),
     }
 }
 

@@ -186,12 +186,25 @@ pub struct ClashConnectionsDto {
     pub error: Option<ErrorDto>,
 }
 
-/// Generic result for select/close actions.
+/// Generic result for select/close/mode actions.
 #[derive(Clone)]
 pub struct MonitorActionResult {
     pub ok: bool,
     pub supported: bool,
     pub message: Option<String>,
+    pub error: Option<ErrorDto>,
+}
+
+/// `/configs` mode state: the live mode plus the selectable mode list.
+#[derive(Clone)]
+pub struct ClashModeDto {
+    pub ok: bool,
+    pub supported: bool,
+    pub message: Option<String>,
+    /// Currently applied mode (`Rule`/`Global`/`Direct`, core-cased).
+    pub mode: Option<String>,
+    /// Modes advertised by the core (`mode-list`/`modes`).
+    pub modes: Vec<String>,
     pub error: Option<ErrorDto>,
 }
 
@@ -273,6 +286,9 @@ struct MonitorHub {
     source_sig: Option<(i32, u16, u16, Option<String>)>,
     /// Test seam: when set, Clash calls use this base URL instead of the port.
     clash_base_override: Option<String>,
+    /// Configured delay-probe URL (settings `SpeedPingTestUrl`). `None` uses
+    /// the upstream default in [`ClashApiService`].
+    delay_test_url: Option<String>,
     /// Whether the persistent `ServerStatItem` store has been bound to the
     /// engine's data directory (idempotent; only attempted once).
     store_bound: bool,
@@ -297,6 +313,7 @@ impl MonitorHub {
             connections_visible: false,
             source_sig: None,
             clash_base_override: None,
+            delay_test_url: None,
             store_bound: false,
             epoch: 1,
             seq: 0,
@@ -695,6 +712,7 @@ struct ClashConfig {
     secret: Option<String>,
     refresh: Duration,
     supported: bool,
+    delay_url: Option<String>,
 }
 
 fn clash_config() -> ClashConfig {
@@ -704,17 +722,35 @@ fn clash_config() -> ClashConfig {
         secret: h.secret.clone(),
         refresh: Duration::from_millis(u64::from(h.refresh_ms.max(200))),
         supported: ClashApiService::supported(h.core),
+        delay_url: h.delay_test_url.clone(),
     })
 }
 
 fn build_clash(cfg: &ClashConfig) -> Result<ClashApiService, core_adapters::clash_api::ClashError> {
-    match &cfg.base {
-        Some(base) => Ok(ClashApiService::from_client(
+    let mut service = match &cfg.base {
+        Some(base) => ClashApiService::from_client(
             ClashApiClient::from_base(base.clone(), cfg.secret.clone(), CLASH_TIMEOUT)?,
             cfg.refresh,
-        )),
-        None => ClashApiService::new(cfg.port, cfg.secret.clone(), CLASH_TIMEOUT, cfg.refresh),
+        ),
+        None => ClashApiService::new(cfg.port, cfg.secret.clone(), CLASH_TIMEOUT, cfg.refresh)?,
+    };
+    if let Some(url) = &cfg.delay_url {
+        service.set_delay_url(url.clone());
     }
+    Ok(service)
+}
+
+/// Set the delay-probe URL from settings (`SpeedPingTestUrl`). Empty clears it
+/// back to the upstream default.
+#[frb(sync)]
+pub fn monitor_set_delay_url(url: Option<String>) -> SimpleResult {
+    with_hub(|h| {
+        h.delay_test_url = url.filter(|value| !value.trim().is_empty());
+        SimpleResult {
+            ok: true,
+            error: None,
+        }
+    })
 }
 
 /// Whether the configured core exposes the Clash API.
@@ -751,7 +787,7 @@ pub async fn clash_proxies() -> ClashProxiesDto {
             }
         }
     };
-    match service.proxies().await {
+    match service.proxies_with_retry().await {
         Ok(item) => {
             let providers = item.provider_index_map.clone();
             let items = item
@@ -794,6 +830,92 @@ pub async fn clash_proxies() -> ClashProxiesDto {
             epoch: 0,
             seq: 0,
             items: Vec::new(),
+            error: Some(clash_error(e)),
+        },
+    }
+}
+
+/// Read the live `/configs` mode and the selectable mode list.
+pub async fn clash_mode_state() -> ClashModeDto {
+    let cfg = clash_config();
+    if !cfg.supported {
+        return ClashModeDto {
+            ok: false,
+            supported: false,
+            message: not_supported(),
+            mode: None,
+            modes: Vec::new(),
+            error: None,
+        };
+    }
+    let service = match build_clash(&cfg) {
+        Ok(service) => service,
+        Err(e) => {
+            return ClashModeDto {
+                ok: false,
+                supported: true,
+                message: None,
+                mode: None,
+                modes: Vec::new(),
+                error: Some(clash_error(e)),
+            }
+        }
+    };
+    let mode = service.mode().await;
+    let modes = service.modes().await;
+    match (mode, modes) {
+        (Ok(mode), Ok(modes)) => ClashModeDto {
+            ok: true,
+            supported: true,
+            message: None,
+            mode,
+            modes,
+            error: None,
+        },
+        (Err(e), _) | (_, Err(e)) => ClashModeDto {
+            ok: false,
+            supported: true,
+            message: None,
+            mode: None,
+            modes: Vec::new(),
+            error: Some(clash_error(e)),
+        },
+    }
+}
+
+/// Switch the Clash routing mode (`PATCH /configs`).
+pub async fn update_clash_mode(mode: String) -> MonitorActionResult {
+    let cfg = clash_config();
+    if !cfg.supported {
+        return MonitorActionResult {
+            ok: false,
+            supported: false,
+            message: not_supported(),
+            error: None,
+        };
+    }
+    let service = match build_clash(&cfg) {
+        Ok(service) => service,
+        Err(e) => {
+            return MonitorActionResult {
+                ok: false,
+                supported: true,
+                message: None,
+                error: Some(clash_error(e)),
+            }
+        }
+    };
+    match service.update_mode(&mode).await {
+        Ok(()) => MonitorActionResult {
+            ok: true,
+            supported: true,
+            message: None,
+            error: None,
+        },
+        Err(e) => MonitorActionResult {
+            ok: false,
+            supported: true,
+            message: None,
             error: Some(clash_error(e)),
         },
     }

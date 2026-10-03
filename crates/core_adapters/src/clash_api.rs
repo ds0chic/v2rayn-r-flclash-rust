@@ -2,8 +2,9 @@
 //!
 //! Only the read/observe surface used by the monitor UI is implemented here:
 //! proxies (with provider merge), delay probes, connections and their close
-//! operations, plus `/configs`. Config mutation (`SetActiveProxy`,
-//! `UpdateClashMode`) belongs to the runtime/process-owner layer.
+//! operations, plus `/configs` reads and the `mode` selection used by the
+//! Clash panel. `SetActiveProxy` also lives here because selection is a
+//! user-facing monitor action with no runtime/process ownership.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -252,8 +253,24 @@ impl ClashApiClient {
     }
 
     async fn delete(&self, path: &str) -> Result<(), ClashError> {
-        let response = self
-            .request(reqwest::Method::DELETE, path)
+        self.send_expect_success(reqwest::Method::DELETE, path, &[])
+            .await
+    }
+
+    /// Send a method with custom request headers and treat any non-2xx as an
+    /// error. Upstream `ClashApiManager` sends `mode` as a header (not a body)
+    /// on `PATCH /configs`.
+    async fn send_expect_success(
+        &self,
+        method: reqwest::Method,
+        path: &str,
+        headers: &[(&str, &str)],
+    ) -> Result<(), ClashError> {
+        let mut request = self.request(method, path);
+        for (name, value) in headers {
+            request = request.header(*name, *value);
+        }
+        let response = request
             .send()
             .await
             .map_err(|err| ClashError::Http(classify_reqwest(&err)))?;
@@ -410,9 +427,10 @@ impl ClashApiClient {
             .await
     }
 
-    /// `DELETE /connections`.
+    /// `DELETE /connections/{id}` with an empty id, matching upstream
+    /// `ClashApiManager.CloseConnection("")` -> `/connections/`.
     pub async fn close_all_connections(&self) -> Result<(), ClashError> {
-        self.delete("/connections").await
+        self.delete("/connections/").await
     }
 
     /// `GET /configs` as a raw JSON object (mode list/mode live here).
@@ -420,5 +438,39 @@ impl ClashApiClient {
         let body = self.get_text("/configs").await?;
         serde_json::from_str(&body)
             .map_err(|err| ClashError::Http(HttpError::Decode(err.to_string())))
+    }
+
+    /// `PATCH /configs` carrying `mode` as a header (upstream
+    /// `ClashApiManager.UpdateClashMode` -> `UpdateConfig`).
+    pub async fn update_mode(&self, mode: &str) -> Result<(), ClashError> {
+        self.send_expect_success(reqwest::Method::PATCH, "/configs", &[("mode", mode)])
+            .await
+    }
+
+    /// `GET /configs` `mode-list` (falling back to `modes`). Empty when absent.
+    pub async fn get_modes(&self) -> Result<Vec<String>, ClashError> {
+        let config = self.get_config().await?;
+        let array = config
+            .get("mode-list")
+            .or_else(|| config.get("modes"))
+            .and_then(Value::as_array);
+        Ok(array
+            .map(|modes| {
+                modes
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default())
+    }
+
+    /// `GET /configs` current `mode` string, when present.
+    pub async fn get_mode(&self) -> Result<Option<String>, ClashError> {
+        let config = self.get_config().await?;
+        Ok(config
+            .get("mode")
+            .and_then(Value::as_str)
+            .map(str::to_string))
     }
 }

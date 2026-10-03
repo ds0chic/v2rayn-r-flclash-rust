@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `dns_to_dto`, `dto_to_dns`, `dto_to_simple`, `err_dto`, `simple_to_dto`
+// These functions are ignored because they are not marked as `pub`: `apply_downloaded_plan`, `block_on`, `dns_to_dto`, `dto_to_dns`, `dto_to_simple`, `err_dto`, `preset_enum`, `simple_to_dto`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
 
 /// `list_dns` — all DNS profiles ordered by core then remarks.
@@ -43,7 +43,11 @@ SimpleDnsDtoResult saveSimpleDns({
   expectedRevision: expectedRevision,
 );
 
-/// `apply_regional_preset` — `Default` / `Russia` / `Iran`.
+/// `apply_regional_preset` — `Default` resets the built-in DNS. `Russia` /
+/// `Iran` download the region's `v2ray.json` / `sing_box.json` /
+/// `simple_dns.json` templates (upstream `Global.DomainDNSAddress` sources),
+/// and persist them only when all three fetched and parsed. A failed remote
+/// chain reports the error and leaves the stored DNS untouched.
 RegionalPresetResult applyRegionalPreset({required String preset}) =>
     RustLib.instance.api.crateApiDnsApplyRegionalPreset(preset: preset);
 

@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `dto_to_profile`, `dto_to_rule`, `err_dto`, `profile_to_dto`, `rule_to_dto`
+// These functions are ignored because they are not marked as `pub`: `dto_to_profile`, `dto_to_rule`, `err_dto`, `export_error`, `profile_to_dto`, `rule_to_dto`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
 
 /// `list_routings` — all routing profiles in `Sort` order.

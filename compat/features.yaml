@@ -974,6 +974,7 @@ features:
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:660
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2301
+  - docs/evidence/UX-PARITY-FIX-10B/README.md
   status: identified
 - id: F-PROFILE-009
   name: 生成策略组（全部/按地区）
@@ -2292,11 +2293,13 @@ features:
   cancel_behavior: 关闭丢弃
   acceptance: 规则出站按备注正确解析
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
-  implementation_location: "domain::routing::resolve_outbound_tag/collect_warnings + crates/bridge_api/src/api/routing.rs (RoutingWarningDto) + apps/desktop/lib/features/routing/routing_windows.dart (RoutingRuleDetailsDialog + outbound picker)"
-  test_ids: ["t11_routing_dns.rs::routing_dangling_reference_warns", "t11_codegen_matrix.rs::dangling-warning xray+singbox PASS"]
+  implementation_location: "domain::routing::resolve_outbound_tag/collect_warnings + crates/bridge_api/src/api/routing.rs (RoutingWarningDto) + apps/desktop/lib/features/routing/routing_windows.dart (RoutingRuleDetailsDialog + outbound picker; excludes ConfigType.custom)"
+  test_ids: ["t11_routing_dns.rs::routing_dangling_reference_warns", "t11_codegen_matrix.rs::dangling-warning xray+singbox PASS", "fix08c_routing_draft_test.dart::outbound selector excludes Custom profiles"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:43
   - v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:75
+  - v2rayN/ServiceLib/ViewModels/RoutingRuleDetailsViewModel.cs:129
+  - docs/evidence/UX-PARITY-FIX-08C/README.md
   status: implemented
 - id: F-ROUTING-005
   name: 外部路由模板下载

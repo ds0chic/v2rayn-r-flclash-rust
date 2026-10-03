@@ -74,7 +74,7 @@ fn route(method: &str, url: &str) -> (u16, String) {
             r#"{"downloadTotal":10,"uploadTotal":20,"connections":[{"id":"c1","upload":1,"download":2,"metadata":{"host":"example.com","network":"tcp","type":"HTTP","processPath":"C:/app.exe"},"start":"2026-01-01T00:00:00Z","chains":["A"]}]}"#
                 .to_string(),
         ),
-        ("DELETE", "/connections") => (204, String::new()),
+        ("DELETE", "/connections/") => (204, String::new()),
         ("DELETE", _) => (204, String::new()),
         _ => (404, String::new()),
     }
@@ -128,9 +128,11 @@ async fn clash_api_service_reads_selects_and_closes() {
     assert!(seen
         .iter()
         .any(|(m, u, _)| m == "DELETE" && u == "/connections/c1"));
+    // Upstream `ClashConnectionClose(all: true)` passes an empty id, producing
+    // `/connections/` (trailing slash).
     assert!(seen
         .iter()
-        .any(|(m, u, _)| m == "DELETE" && u == "/connections"));
+        .any(|(m, u, _)| m == "DELETE" && u == "/connections/"));
 }
 
 #[test]

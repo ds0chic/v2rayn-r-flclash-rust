@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
@@ -460,7 +461,7 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
                 _tool(
                   '删除',
                   const ValueKey('rule-remove'),
-                  _selectedRuleIds.isEmpty ? null : _removeSelected,
+                  _selectedRuleIds.isEmpty ? null : _confirmRemove,
                 ),
                 _tool(
                   '导出选中',
@@ -584,11 +585,36 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
     }
   }
 
-  void _removeSelected() {
-    setState(() {
-      _rules = _rules.where((e) => !_selectedRuleIds.contains(e.id)).toList();
-      _selectedRuleIds.clear();
-    });
+  /// Confirm before removing the selected rules (upstream `RuleRemoveAsync`
+  /// asks `RemoveServer`); cancelling keeps the draft untouched.
+  Future<void> _confirmRemove() async {
+    if (_selectedRuleIds.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        key: const ValueKey('rule-delete-confirm-dialog'),
+        title: const Text('删除规则', style: TextStyle(fontSize: 14)),
+        content: Text('确定删除选中的 ${_selectedRuleIds.length} 条规则吗？'),
+        actions: <Widget>[
+          TextButton(
+            key: const ValueKey('rule-delete-cancel'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('rule-delete-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() {
+        _rules = _rules.where((e) => !_selectedRuleIds.contains(e.id)).toList();
+        _selectedRuleIds.clear();
+      });
+    }
   }
 
   /// Merge parsed import results into this draft only; storage is untouched
@@ -1133,10 +1159,17 @@ class _RoutingRuleDetailsDialogState
   }
 
   /// OutboundTag selector: built-in tags + live node remarks (F-ROUTING-004).
+  /// Custom-config profiles are excluded (upstream `SelectProfileAsync`:
+  /// `SetConfigTypeFilter([EConfigType.Custom], exclude: true)`).
   Future<void> _selectProfile() async {
     final bridge = ref.read(bridgePortProvider);
-    final profiles = bridge.queryAllProfiles();
-    final remarks = profiles.map((p) => p.remarks).toList()..sort();
+    final remarks =
+        bridge
+            .queryAllProfiles()
+            .where((p) => p.configType != ConfigType.custom)
+            .map((p) => p.remarks)
+            .toList()
+          ..sort();
     final options = <String>['proxy', 'direct', 'block', ...remarks];
     final picked = await showDialog<String>(
       context: context,

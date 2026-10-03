@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,48 +25,28 @@ Future<void> openDnsSettings(BuildContext context, WidgetRef ref) async {
 /// Returning null means cancelled/failed; the caller's draft stays untouched.
 typedef DraftRuleImport = ({List<r.RoutingRuleDto> rules, bool replace});
 
-/// Read rule JSON from a file path, parse and ask append/replace.
-/// Nothing is persisted; the caller merges the result into its draft.
+/// Pick a rule JSON file with the native picker, parse and ask append/replace.
+/// Nothing is persisted; the caller merges the result into its draft. A
+/// cancelled picker or a failed parse leaves the draft untouched.
 Future<DraftRuleImport?> pickRulesFromFile(BuildContext context) async {
-  final pathController = TextEditingController();
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      key: const ValueKey('routing-import-file-dialog'),
-      title: const Text('从文件导入规则', style: TextStyle(fontSize: 15)),
-      content: SizedBox(
-        width: 440,
-        child: TextField(
-          key: const ValueKey('routing-import-file-path'),
-          controller: pathController,
-          decoration: const InputDecoration(
-            hintText: '规则 JSON 文件完整路径',
-            border: OutlineInputBorder(),
-          ),
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          key: const ValueKey('routing-import-file-ok'),
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('读取'),
-        ),
-      ],
-    ),
+  const group = XTypeGroup(
+    label: '规则 JSON',
+    extensions: <String>['json', 'txt'],
   );
-  if (confirmed != true || !context.mounted) return null;
-  final path = pathController.text.trim();
-  if (path.isEmpty) return null;
+  XFile? file;
+  try {
+    file = await openFile(acceptedTypeGroups: <XTypeGroup>[group]);
+  } catch (_) {
+    if (context.mounted) _toast(context, '无法打开文件选择器');
+    return null;
+  }
+  if (file == null) return null;
   String text;
   try {
-    text = await File(path).readAsString();
+    text = await file.readAsString();
   } catch (_) {
     if (!context.mounted) return null;
-    _toast(context, '读取文件失败：$path');
+    _toast(context, '读取文件失败：${file.path}');
     return null;
   }
   if (!context.mounted) return null;

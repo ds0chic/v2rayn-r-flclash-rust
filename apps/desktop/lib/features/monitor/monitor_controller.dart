@@ -33,6 +33,9 @@ class MonitorState {
     this.proxies = const <m.ClashProxyDto>[],
     this.proxyDelays = const <String, int>{},
     this.proxiesMessage,
+    this.clashMode,
+    this.clashModes = const <String>[],
+    this.modeMessage,
     this.connections = const <m.ClashConnectionDto>[],
     this.nodes = const <m.NodeTrafficDto>[],
     BigInt? connectionsUpload,
@@ -76,6 +79,11 @@ class MonitorState {
   final List<m.ClashProxyDto> proxies;
   final Map<String, int> proxyDelays;
   final String? proxiesMessage;
+
+  /// Live Clash routing mode (`Rule`/`Global`/`Direct`) and the selectable set.
+  final String? clashMode;
+  final List<String> clashModes;
+  final String? modeMessage;
   final List<m.ClashConnectionDto> connections;
 
   /// Latest per-node `ServerStatItem` rows reported by the active session.
@@ -122,6 +130,11 @@ class MonitorState {
     Map<String, int>? proxyDelays,
     String? proxiesMessage,
     bool clearProxiesMessage = false,
+    String? clashMode,
+    bool clearClashMode = false,
+    List<String>? clashModes,
+    String? modeMessage,
+    bool clearModeMessage = false,
     List<m.ClashConnectionDto>? connections,
     List<m.NodeTrafficDto>? nodes,
     BigInt? connectionsUpload,
@@ -157,6 +170,9 @@ class MonitorState {
       proxiesMessage: clearProxiesMessage
           ? null
           : (proxiesMessage ?? this.proxiesMessage),
+      clashMode: clearClashMode ? null : (clashMode ?? this.clashMode),
+      clashModes: clashModes ?? this.clashModes,
+      modeMessage: clearModeMessage ? null : (modeMessage ?? this.modeMessage),
       connections: connections ?? this.connections,
       nodes: nodes ?? this.nodes,
       connectionsUpload: connectionsUpload ?? this.connectionsUpload,
@@ -318,6 +334,44 @@ class MonitorController extends Notifier<MonitorState> {
       clearError: result.error == null,
     );
   }
+
+  Future<void> refreshClashMode() async {
+    final result = await _bridge.clashModeState();
+    state = state.copyWith(
+      clashSupported: result.supported,
+      clashMode: result.mode,
+      clashModes: result.modes,
+      modeMessage: result.supported
+          ? (result.ok ? null : monitorErrorText(result.error))
+          : (result.message ?? '当前内核不提供 Clash API'),
+      clearModeMessage: result.supported && result.ok,
+      clearClashMode: !result.ok,
+      error: result.error?.code,
+      clearError: result.error == null,
+    );
+  }
+
+  /// Switch the Clash routing mode; refreshes the live value on success.
+  Future<bool> setClashMode(String mode) async {
+    final result = await _bridge.updateClashMode(mode);
+    if (result.ok) {
+      await refreshClashMode();
+    } else {
+      state = state.copyWith(
+        modeMessage: result.supported
+            ? (monitorErrorText(result.error) ??
+                  result.message ??
+                  'Clash 模式切换失败')
+            : (result.message ?? '当前内核不提供 Clash API'),
+        error: result.error?.code,
+        clearError: result.error == null,
+      );
+    }
+    return result.ok;
+  }
+
+  /// Push the settings delay-probe URL into Rust (null restores default).
+  void setDelayUrl(String? url) => _bridge.setDelayUrl(url);
 
   Future<bool> selectProxy(String group, String name) async {
     final result = await _bridge.selectClashProxy(group, name);

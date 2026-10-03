@@ -24,11 +24,9 @@ fn routing(request: &MockRequest) -> MockResponse {
     } else if url == "/providers/proxies" {
         MockResponse::json(PROVIDERS)
     } else if url == "/connections" {
-        if request.method == "DELETE" {
-            MockResponse::json("").status(204)
-        } else {
-            MockResponse::json(CONNECTIONS)
-        }
+        MockResponse::json(CONNECTIONS)
+    } else if url == "/connections/" && request.method == "DELETE" {
+        MockResponse::json("").status(204)
     } else if url.starts_with("/proxies/") && url.contains("/delay") {
         MockResponse::json(r#"{"delay":123}"#)
     } else if url.starts_with("/providers/proxies/") && url.contains("/healthcheck") {
@@ -165,7 +163,7 @@ async fn closes_one_connection() {
 async fn closes_all_connections() {
     let mock = MockHttp::spawn(|request| {
         assert_eq!(request.method, "DELETE");
-        assert_eq!(request.url, "/connections");
+        assert_eq!(request.url, "/connections/");
         routing(request)
     });
     client(mock.port).close_all_connections().await.unwrap();
@@ -235,4 +233,64 @@ async fn get_config_returns_raw_json() {
     let config = client(mock.port).get_config().await.unwrap();
     assert_eq!(config["mode"], "rule");
     assert_eq!(config["mode-list"][1], "global");
+}
+
+#[tokio::test]
+async fn get_mode_reads_config() {
+    let mock = MockHttp::spawn(routing);
+    assert_eq!(
+        client(mock.port).get_mode().await.unwrap().as_deref(),
+        Some("rule")
+    );
+}
+
+#[tokio::test]
+async fn get_modes_prefers_mode_list() {
+    let mock = MockHttp::spawn(routing);
+    let modes = client(mock.port).get_modes().await.unwrap();
+    assert_eq!(modes, vec!["rule", "global"]);
+}
+
+#[tokio::test]
+async fn update_mode_patches_config_header() {
+    let mock = MockHttp::spawn(|request| {
+        assert_eq!(request.method, "PATCH");
+        assert_eq!(request.url, "/configs");
+        assert_eq!(request.header("mode"), Some("global"));
+        MockResponse::json("").status(204)
+    });
+    client(mock.port).update_mode("global").await.unwrap();
+}
+
+#[tokio::test]
+async fn retry_returns_first_non_empty_after_failures() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+    let calls = Arc::new(AtomicUsize::new(0));
+    let calls_for_handler = Arc::clone(&calls);
+    let mock = MockHttp::spawn(move |request| {
+        let n = calls_for_handler.fetch_add(1, Ordering::SeqCst);
+        // Fail the whole first attempt (both endpoints) so the retry path runs.
+        if n < 2 {
+            MockResponse::json("boom").status(500)
+        } else {
+            routing(request)
+        }
+    });
+    let item = client(mock.port)
+        .get_proxies_with_retry(3, Duration::from_millis(10))
+        .await
+        .unwrap();
+    assert!(item.proxies.contains_key("GLOBAL"));
+    assert!(calls.load(Ordering::SeqCst) >= 4);
+}
+
+#[tokio::test]
+async fn retry_gives_up_after_attempts() {
+    let mock = MockHttp::spawn(|_| MockResponse::json("boom").status(500));
+    let err = client(mock.port)
+        .get_proxies_with_retry(2, Duration::from_millis(10))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, ClashError::Http(HttpError::Status(500))));
 }

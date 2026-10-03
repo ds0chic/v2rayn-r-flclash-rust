@@ -1,0 +1,76 @@
+{
+  "task": "FIX-10B",
+  "source": "FIX-10 PR-15 interface gap (repair-queue.md line 35)",
+  "applicationHead": "72e4c1e",
+  "upstreamCommit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "implemented",
+  "recordingComplete": true,
+  "dartLayer": "SyntheticBridgePort (no native library)",
+  "checks": [
+    {
+      "step": "header-sort-persists-visible-order",
+      "passed": true,
+      "actual": { "bridgeCall": "applyProfileOrder(orderedIds=visible)", "lastOrderMatchesVisible": true }
+    },
+    {
+      "step": "result-sort-persists-delay-order",
+      "passed": true,
+      "actual": { "seededDelays": [200, 10], "lowestDelayFirst": true, "persisted": true }
+    },
+    {
+      "step": "drag-reorder-moves-and-persists",
+      "passed": true,
+      "actual": { "movedRowIndex": "2->0", "persisted": true, "selfDropWritesNothing": true }
+    },
+    {
+      "step": "move-up-down-top-bottom-persist",
+      "passed": true,
+      "actual": { "moveTopFirst": true, "moveBottomLast": true, "eachStepPersisted": true }
+    },
+    {
+      "step": "empty-and-single-row-write-nothing",
+      "passed": true,
+      "actual": { "singleRowWrites": 0, "emptyRowWrites": 0, "noThrow": true }
+    }
+  ],
+  "rustChecks": [
+    {
+      "test": "speedtest::tests::apply_order_writes_step_ten_and_reads_back_stably",
+      "passed": true,
+      "actual": { "sort": { "c": 10, "a": 20, "b": 30 }, "maxSort": 30, "reconstructedOrder": ["c", "a", "b"] }
+    },
+    {
+      "test": "speedtest::tests::apply_order_is_noop_for_empty_list",
+      "passed": true,
+      "actual": { "sortAfterEmpty": 0 }
+    },
+    {
+      "test": "fix10_speedtest_result::profile_ex_and_sort_survive_reopen",
+      "passed": true,
+      "actual": { "reopenedEngine": "Sort persisted (b=10,a=20) and delay/speed retained" }
+    }
+  ],
+  "commands": [
+    { "cmd": "dart format --set-exit-if-changed bridge_port.dart profiles_controller.dart fix10b_profile_order_test.dart", "result": "0 changed" },
+    { "cmd": "flutter analyze <3 files>", "result": "No issues found" },
+    { "cmd": "flutter test test/fix10b_profile_order_test.dart", "result": "5 passed" },
+    { "cmd": "cargo fmt -p application -- --check", "result": "no diff" },
+    { "cmd": "cargo test -p application --lib speedtest --locked", "result": "19 passed" },
+    { "cmd": "cargo test -p application --test fix10_speedtest_result --locked", "result": "4 passed" }
+  ],
+  "failures": [],
+  "notRun": [
+    "cargo test --workspace --locked",
+    "flutter build windows --release",
+    "real-window reopen integration (root agent batches)"
+  ],
+  "interfaceGaps": [
+    "SpeedTestResultDto has no `sort` field and ProfileDto has no `Sort`; Dart cannot read Sort back to reorder the node table on reopen. Read-back proven at the Rust layer. A generated-file change would be required for the Dart read-back path."
+  ],
+  "constraints": {
+    "usedPort10808": false,
+    "systemProxyTouched": false,
+    "kernelStarted": false,
+    "generatedFilesChanged": false
+  }
+}

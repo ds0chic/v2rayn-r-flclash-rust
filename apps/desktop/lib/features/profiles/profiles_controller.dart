@@ -637,7 +637,22 @@ class ProfilesController extends Notifier<ProfilesState> {
 
   void sortBy(String key) {
     state = _recompute(state.copyWith(sort: state.sort.next(key)));
+    _persistOrder();
     _log('sort', '$key ${state.sort.direction.name}');
+  }
+
+  /// Persist the current visible row order into the upstream
+  /// `ProfileExItem.Sort` field (PR-15 / FIX-10B).
+  ///
+  /// Mirrors `ConfigHandler.SortServers`/`MoveServer`: the whole visible list
+  /// is written as `(position + 1) * 10` through the real
+  /// `speedtestApplyProfileOrder` bridge, so the order survives a restart. An
+  /// empty list or a single row carries no ordering information and is never
+  /// written (no fake persistence, no error).
+  void _persistOrder() {
+    final ids = state.visible.map((r) => r.id).toList();
+    if (ids.length < 2) return;
+    _bridge.applyProfileOrder(ids);
   }
 
   /// `按测试结果排序` (ACT-PROF-020): order the visible rows by the measured
@@ -652,6 +667,7 @@ class ProfilesController extends Notifier<ProfilesState> {
       return ad.compareTo(bd);
     });
     state = state.copyWith(visible: rows);
+    _persistOrder();
     _log('sort-result', 'rows=${rows.length}');
     _echo('sort-result');
   }
@@ -755,8 +771,46 @@ class ProfilesController extends Notifier<ProfilesState> {
     _log(ProfileAction.dragStart, 'id=$id');
   }
 
+  /// `拖动排序` (ACT-PROF-033): move [sourceId] to [targetId]'s position in the
+  /// visible order and persist it via `ProfileExItem.Sort`.
+  ///
+  /// The reorder is expressed on the current visible list (the current group +
+  /// text filter), matching `ConfigHandler.MoveServer` operating on the visible
+  /// `ProfileItems`. A no-op (same row, unknown id, single row) leaves the
+  /// order untouched and writes nothing.
   void handleDrop(String sourceId, String targetId) {
     _log(ProfileAction.drop, '$sourceId -> $targetId');
+    if (sourceId == targetId) return;
+    final rows = List<ProfileSummary>.of(state.visible);
+    if (rows.length < 2) return;
+    final from = rows.indexWhere((r) => r.id == sourceId);
+    final to = rows.indexWhere((r) => r.id == targetId);
+    if (from < 0 || to < 0) return;
+    final moved = rows.removeAt(from);
+    rows.insert(to, moved);
+    // Manual drag defines the order; clear any active column sort so the
+    // dragged order is what the user sees and what gets persisted.
+    state = _recompute(
+      state.copyWith(all: _withVisibleOrder(rows), sort: const SortSpec()),
+    );
+    _persistOrder();
+  }
+
+  /// Reflect a new visible order back onto `all`, keeping hidden rows in place.
+  ///
+  /// [orderedVisible] is the full current visible set; the hidden rows keep
+  /// their relative slots so a later group switch/filter reset is not
+  /// scrambled by a drag performed in one group.
+  List<ProfileSummary> _withVisibleOrder(List<ProfileSummary> orderedVisible) {
+    final visibleIds = orderedVisible.map((r) => r.id).toSet();
+    final iterator = orderedVisible.iterator;
+    return <ProfileSummary>[
+      for (final row in state.all)
+        if (visibleIds.contains(row.id))
+          (iterator.moveNext() ? iterator.current : row)
+        else
+          row,
+    ];
   }
 
   void toggleDoubleClick2Activate() {
@@ -1133,7 +1187,11 @@ class ProfilesController extends Notifier<ProfilesState> {
       final insertAt = (lastIndex + 1 - block.length + 1).clamp(0, next.length);
       next.insertAll(insertAt, block);
     }
-    state = _recompute(state.copyWith(all: next));
+    // A manual reorder defines the new order; an active column sort would
+    // immediately override it, so clear it (upstream `MoveServer` is a manual
+    // move independent of `SortServers`).
+    state = _recompute(state.copyWith(all: next, sort: const SortSpec()));
+    _persistOrder();
   }
 
   void _persistColumns() {

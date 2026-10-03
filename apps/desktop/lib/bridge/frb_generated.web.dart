@@ -181,6 +181,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ClashConnectionsDto dco_decode_clash_connections_dto(dynamic raw);
 
   @protected
+  ClashModeDto dco_decode_clash_mode_dto(dynamic raw);
+
+  @protected
   ClashProxiesDto dco_decode_clash_proxies_dto(dynamic raw);
 
   @protected
@@ -954,6 +957,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   ClashConnectionsDto sse_decode_clash_connections_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  ClashModeDto sse_decode_clash_mode_dto(SseDeserializer deserializer);
 
   @protected
   ClashProxiesDto sse_decode_clash_proxies_dto(SseDeserializer deserializer);
@@ -1925,6 +1931,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     ClashConnectionsDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_clash_mode_dto(ClashModeDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_clash_proxies_dto(

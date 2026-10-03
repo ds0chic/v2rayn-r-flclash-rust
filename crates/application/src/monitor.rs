@@ -27,8 +27,14 @@ use core_adapters::stats::{classify_tag, CounterSample, StatsAggregator, TagClas
 use domain::event::{EventEnvelope, EventKind};
 use domain::{CoreType, DomainError, TrafficStats};
 
-/// Default Clash delay-probe URL (upstream `ClashApiManager` default).
-pub const DELAY_TEST_URL: &str = "https://www.gstatic.com/generate_204";
+/// Default Clash delay-probe URL. Upstream `ClashApiManager.TestProxyDelay`
+/// uses `Config.SpeedTestItem.SpeedPingTestUrl`, whose configured default is
+/// `Global.SpeedPingTestUrls.First()` = `https://www.google.com/generate_204`.
+pub const DELAY_TEST_URL: &str = "https://www.google.com/generate_204";
+
+/// Upstream `ClashApiManager.GetProxies` retry budget: 3 attempts, 2s pause.
+pub const PROXY_RETRY_ATTEMPTS: usize = 3;
+pub const PROXY_RETRY_DELAY: Duration = Duration::from_secs(2);
 
 /// Seconds in one day, for the `DateNow` epoch-day bucket.
 pub const SECONDS_PER_DAY: i64 = 86_400;
@@ -607,6 +613,8 @@ pub struct ClashApiService {
     client: ClashApiClient,
     refresh: Duration,
     visible: bool,
+    /// Delay-probe URL; upstream defaults to the configured SpeedPing test URL.
+    delay_url: String,
 }
 
 impl ClashApiService {
@@ -620,6 +628,7 @@ impl ClashApiService {
             client: ClashApiClient::new(port, secret, timeout)?,
             refresh,
             visible: false,
+            delay_url: DELAY_TEST_URL.to_string(),
         })
     }
 
@@ -628,7 +637,20 @@ impl ClashApiService {
             client,
             refresh,
             visible: false,
+            delay_url: DELAY_TEST_URL.to_string(),
         }
+    }
+
+    /// Override the delay-probe URL (settings `SpeedPingTestUrl`).
+    pub fn set_delay_url(&mut self, url: impl Into<String>) {
+        let url = url.into();
+        if !url.trim().is_empty() {
+            self.delay_url = url;
+        }
+    }
+
+    pub fn delay_url(&self) -> &str {
+        &self.delay_url
     }
 
     /// Clash API is only served by mihomo and sing-box (upstream
@@ -653,6 +675,13 @@ impl ClashApiService {
         self.client.get_proxies().await
     }
 
+    /// Proxies with upstream's 3× / 2s retry (`ClashApiManager.GetProxies`).
+    pub async fn proxies_with_retry(&self) -> Result<ClashItem, ClashError> {
+        self.client
+            .get_proxies_with_retry(PROXY_RETRY_ATTEMPTS, PROXY_RETRY_DELAY)
+            .await
+    }
+
     pub async fn proxy(&self, name: &str) -> Result<ClashProxy, ClashError> {
         self.client.get_proxy(name).await
     }
@@ -664,7 +693,7 @@ impl ClashApiService {
     /// Single-node delay. `-1` means timeout/unreachable, as upstream.
     pub async fn proxy_delay(&self, name: &str) -> i32 {
         self.client
-            .get_proxy_delay(name, DEFAULT_DELAY_TIMEOUT_MS, DELAY_TEST_URL)
+            .get_proxy_delay(name, DEFAULT_DELAY_TIMEOUT_MS, &self.delay_url)
             .await
     }
 
@@ -685,7 +714,7 @@ impl ClashApiService {
                         &provider,
                         &name,
                         DEFAULT_DELAY_TIMEOUT_MS,
-                        DELAY_TEST_URL,
+                        &self.delay_url,
                     )
                     .await
                     .unwrap_or(-1),
@@ -694,6 +723,21 @@ impl ClashApiService {
             out.push((name, delay));
         }
         Ok(out)
+    }
+
+    /// Current `mode`/`mode-list` from `/configs` (`GetClashMode`).
+    pub async fn mode(&self) -> Result<Option<String>, ClashError> {
+        self.client.get_mode().await
+    }
+
+    /// Selectable mode names from `/configs` (`GetClashModes`).
+    pub async fn modes(&self) -> Result<Vec<String>, ClashError> {
+        self.client.get_modes().await
+    }
+
+    /// Switch mode via `PATCH /configs` (`UpdateClashMode`).
+    pub async fn update_mode(&self, mode: &str) -> Result<(), ClashError> {
+        self.client.update_mode(mode).await
     }
 
     pub async fn connections(&self) -> Result<ClashConnections, ClashError> {
@@ -976,6 +1020,30 @@ mod tests {
         assert!(ClashApiService::supported(CoreType::SingBox));
         assert!(!ClashApiService::supported(CoreType::Xray));
         assert!(!ClashApiService::supported(CoreType::Hysteria2));
+    }
+
+    #[test]
+    fn clash_default_delay_url_matches_upstream_speed_ping_default() {
+        assert_eq!(DELAY_TEST_URL, "https://www.google.com/generate_204");
+        let service =
+            ClashApiService::new(0, None, Duration::from_secs(1), Duration::from_secs(1)).unwrap();
+        assert_eq!(service.delay_url(), DELAY_TEST_URL);
+    }
+
+    #[test]
+    fn clash_delay_url_override_ignores_blank() {
+        let mut service =
+            ClashApiService::new(0, None, Duration::from_secs(1), Duration::from_secs(1)).unwrap();
+        service.set_delay_url("https://example.com/generate_204");
+        assert_eq!(service.delay_url(), "https://example.com/generate_204");
+        service.set_delay_url("   ");
+        assert_eq!(service.delay_url(), "https://example.com/generate_204");
+    }
+
+    #[test]
+    fn proxy_retry_budget_matches_upstream() {
+        assert_eq!(PROXY_RETRY_ATTEMPTS, 3);
+        assert_eq!(PROXY_RETRY_DELAY, Duration::from_secs(2));
     }
 
     #[test]

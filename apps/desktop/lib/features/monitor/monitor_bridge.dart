@@ -45,7 +45,15 @@ abstract class MonitorBridge {
 
   bool clashSupported();
 
+  /// Push the configured delay-probe URL (settings `SpeedPingTestUrl`); null
+  /// restores the upstream default.
+  void setDelayUrl(String? url);
+
   Future<rust.ClashProxiesDto> clashProxies();
+
+  Future<rust.ClashModeDto> clashModeState();
+
+  Future<rust.MonitorActionResult> updateClashMode(String mode);
 
   Future<rust.MonitorActionResult> selectClashProxy(String group, String name);
 
@@ -138,7 +146,17 @@ class FrbMonitorBridge implements MonitorBridge {
   bool clashSupported() => rust.clashSupported();
 
   @override
+  void setDelayUrl(String? url) => rust.monitorSetDelayUrl(url: url);
+
+  @override
   Future<rust.ClashProxiesDto> clashProxies() => rust.clashProxies();
+
+  @override
+  Future<rust.ClashModeDto> clashModeState() => rust.clashModeState();
+
+  @override
+  Future<rust.MonitorActionResult> updateClashMode(String mode) =>
+      rust.updateClashMode(mode: mode);
 
   @override
   Future<rust.MonitorActionResult> selectClashProxy(

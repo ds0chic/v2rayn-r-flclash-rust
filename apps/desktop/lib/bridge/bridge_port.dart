@@ -240,6 +240,12 @@ abstract class BridgePort {
   /// Number of speedtest jobs still running (drives live UI refresh).
   int speedTestActiveJobs();
 
+  /// Persist the node table's display order (PR-15): rewrite the upstream
+  /// `ProfileExItem.Sort` field (`(i + 1) * 10`) for [orderedIds] and flush it
+  /// to SQLite, mirroring `ConfigHandler.MoveServer`/`SortServers`. A reopened
+  /// process reads the same `Sort` back. An empty list is a no-op.
+  c.SimpleResult applyProfileOrder(List<String> orderedIds);
+
   // -- T16 backup / WebDAV / update surface ------------------------------
 
   c.BackupResultDto t16BackupLocal(String destRoot);
@@ -642,6 +648,10 @@ class FrbBridgePort implements BridgePort {
 
   @override
   int speedTestActiveJobs() => speedtest.speedtestActiveJobs();
+
+  @override
+  c.SimpleResult applyProfileOrder(List<String> orderedIds) =>
+      speedtest.speedtestApplyProfileOrder(orderedIds: orderedIds);
 
   // -- T16 backup / WebDAV / update (FRB) --------------------------------
 
@@ -2409,6 +2419,19 @@ class SyntheticBridgePort implements BridgePort {
   /// Tests report zero active jobs so the polling loop settles immediately.
   @override
   int speedTestActiveJobs() => 0;
+
+  /// Orders written through the synthetic bridge, in call order. Widget tests
+  /// assert persistence was requested with the real visible id order; it is not
+  /// a storage-success signal.
+  final List<List<String>> appliedProfileOrders = <List<String>>[];
+
+  @override
+  c.SimpleResult applyProfileOrder(List<String> orderedIds) {
+    if (orderedIds.isNotEmpty) {
+      appliedProfileOrders.add(List<String>.of(orderedIds));
+    }
+    return const c.SimpleResult(ok: true);
+  }
 
   routing.RoutingProfileDto _withRoutingId(
     routing.RoutingProfileDto r,

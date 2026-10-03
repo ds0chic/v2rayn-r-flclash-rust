@@ -16,6 +16,10 @@ class FakeMonitorBridge implements MonitorBridge {
     List<m.ClashConnectionDto>? connections,
     List<m.LogLineDto>? initialLogs,
     this.proxyDelayValue = 42,
+    this.clashMode,
+    this.clashModes = const <String>['Rule', 'Global', 'Direct'],
+    this.modeFails = false,
+    this.closeAllFails = false,
   }) : proxies = proxies ?? <m.ClashProxyDto>[],
        connections = connections ?? <m.ClashConnectionDto>[],
        logs = List<m.LogLineDto>.of(initialLogs ?? const <m.LogLineDto>[]);
@@ -26,6 +30,11 @@ class FakeMonitorBridge implements MonitorBridge {
   List<m.ClashConnectionDto> connections;
   List<m.LogLineDto> logs;
   int proxyDelayValue;
+  String? clashMode;
+  List<String> clashModes;
+  bool modeFails;
+  bool closeAllFails;
+  String? delayUrl;
 
   // Recorded calls.
   final List<String> configured = <String>[];
@@ -192,6 +201,38 @@ class FakeMonitorBridge implements MonitorBridge {
   bool clashSupported() => clashApiSupported;
 
   @override
+  void setDelayUrl(String? url) => delayUrl = url;
+
+  @override
+  Future<m.ClashModeDto> clashModeState() async {
+    if (!clashApiSupported) {
+      return m.ClashModeDto(
+        ok: false,
+        supported: false,
+        message: clashMessage,
+        mode: null,
+        modes: const <String>[],
+      );
+    }
+    return m.ClashModeDto(
+      ok: true,
+      supported: true,
+      message: null,
+      mode: clashMode,
+      modes: clashModes,
+    );
+  }
+
+  @override
+  Future<m.MonitorActionResult> updateClashMode(String mode) async {
+    if (modeFails) {
+      return m.MonitorActionResult(ok: false, supported: true, message: null);
+    }
+    clashMode = mode;
+    return _ok();
+  }
+
+  @override
   Future<m.ClashProxiesDto> clashProxies() async {
     if (!clashApiSupported) {
       return m.ClashProxiesDto(
@@ -305,6 +346,9 @@ class FakeMonitorBridge implements MonitorBridge {
   @override
   Future<m.MonitorActionResult> closeAllClashConnections() async {
     closeAllCount++;
+    if (closeAllFails) {
+      return m.MonitorActionResult(ok: false, supported: true, message: null);
+    }
     connections = <m.ClashConnectionDto>[];
     return _ok();
   }

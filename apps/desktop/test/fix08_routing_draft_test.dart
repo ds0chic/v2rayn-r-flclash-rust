@@ -159,7 +159,13 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('rule-row-2')));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.tap(find.byKey(const ValueKey('rule-remove')));
-    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('rule-delete-confirm-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('rule-delete-confirm')));
+    await tester.pumpAndSettle();
     expect(find.text('暂无规则，请新增或导入'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('ruleset-save')));
     await tester.pumpAndSettle();

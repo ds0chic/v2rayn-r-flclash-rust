@@ -59,6 +59,16 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     }
   }
 
+  void _report(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      SnackBar(
+        key: const ValueKey('connections-action-error'),
+        content: Text(message, style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
   List<m.ClashConnectionDto> _filtered(List<m.ClashConnectionDto> items) {
     final needle = _needle.trim().toLowerCase();
     if (needle.isEmpty) return items;
@@ -138,10 +148,17 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                   onPressed: closeSelectedDisabled
                       ? null
                       : () async {
+                          var failures = 0;
                           for (final id in _selected.toList()) {
-                            await controller.closeConnection(id);
+                            final ok = await controller.closeConnection(id);
+                            if (!ok) failures++;
                           }
-                          if (mounted) setState(() => _selected.clear());
+                          if (mounted) {
+                            setState(() => _selected.clear());
+                            if (failures > 0) {
+                              _report('关闭 $failures 条连接失败');
+                            }
+                          }
                         },
                   child: const Text('关闭选中', style: TextStyle(fontSize: 12)),
                 ),
@@ -149,8 +166,11 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                 OutlinedButton(
                   key: const ValueKey('connections-close-all'),
                   onPressed: () async {
-                    await controller.closeAllConnections();
-                    if (mounted) setState(() => _selected.clear());
+                    final ok = await controller.closeAllConnections();
+                    if (mounted) {
+                      setState(() => _selected.clear());
+                      if (!ok) _report('关闭全部连接失败');
+                    }
                   },
                   child: const Text('关闭全部', style: TextStyle(fontSize: 12)),
                 ),

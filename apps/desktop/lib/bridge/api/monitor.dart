@@ -8,9 +8,9 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_clash`, `build_source`, `clash_config`, `clash_error`, `domain_error`, `hub`, `ingest_runtime_event`, `join_host_port`, `level_from_value`, `level_value`, `lines_from_envelope`, `new`, `next_seq`, `node_dtos`, `not_supported`, `now_unix`, `poll_loop`, `traffic_dto`, `with_hub`
+// These functions are ignored because they are not marked as `pub`: `build_clash`, `build_source`, `clash_config`, `clash_error`, `domain_error`, `hub`, `ingest_runtime_event`, `join_host_port`, `level_from_value`, `level_value`, `lines_from_envelope`, `new`, `next_seq`, `node_dtos`, `not_supported`, `now_unix`, `poll_loop`, `sync_from_engine_session`, `traffic_dto`, `with_hub`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ClashConfig`, `MonitorHub`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `ingest_log_text_for_test`, `ingest_stats_for_test`, `inject_log_batch_for_test`, `log_subscriber_count_for_test`, `reset_monitor_for_test`, `set_clash_base_for_test`, `take_seq`, `traffic_subscriber_count_for_test`
 
 /// Configure the monitor with the running session's facts.
@@ -97,12 +97,25 @@ PageVisibilityDto setPageVisible({
   visible: visible,
 );
 
+/// Set the delay-probe URL from settings (`SpeedPingTestUrl`). Empty clears it
+/// back to the upstream default.
+SimpleResult monitorSetDelayUrl({String? url}) =>
+    RustLib.instance.api.crateApiMonitorMonitorSetDelayUrl(url: url);
+
 /// Whether the configured core exposes the Clash API.
 bool clashSupported() => RustLib.instance.api.crateApiMonitorClashSupported();
 
 /// Fetch proxies/groups from the Clash controller.
 Future<ClashProxiesDto> clashProxies() =>
     RustLib.instance.api.crateApiMonitorClashProxies();
+
+/// Read the live `/configs` mode and the selectable mode list.
+Future<ClashModeDto> clashModeState() =>
+    RustLib.instance.api.crateApiMonitorClashModeState();
+
+/// Switch the Clash routing mode (`PATCH /configs`).
+Future<MonitorActionResult> updateClashMode({required String mode}) =>
+    RustLib.instance.api.crateApiMonitorUpdateClashMode(mode: mode);
 
 /// Select `name` inside proxy group `group`.
 Future<MonitorActionResult> selectClashProxy({
@@ -134,6 +147,10 @@ Future<MonitorActionResult> closeAllClashConnections() =>
     RustLib.instance.api.crateApiMonitorCloseAllClashConnections();
 
 /// Start the 1 Hz statistics poller once. No-op for unsupported cores.
+///
+/// Each call first (re)synchronizes the hub with the applied session so a
+/// normal GUI apply enables real collection and a stop/switch clears the old
+/// session's ports.
 void monitorStartPolling() =>
     RustLib.instance.api.crateApiMonitorMonitorStartPolling();
 
@@ -242,6 +259,50 @@ class ClashConnectionsDto {
           uploadTotal == other.uploadTotal &&
           downloadTotal == other.downloadTotal &&
           items == other.items &&
+          error == other.error;
+}
+
+/// `/configs` mode state: the live mode plus the selectable mode list.
+class ClashModeDto {
+  final bool ok;
+  final bool supported;
+  final String? message;
+
+  /// Currently applied mode (`Rule`/`Global`/`Direct`, core-cased).
+  final String? mode;
+
+  /// Modes advertised by the core (`mode-list`/`modes`).
+  final List<String> modes;
+  final ErrorDto? error;
+
+  const ClashModeDto({
+    required this.ok,
+    required this.supported,
+    this.message,
+    this.mode,
+    required this.modes,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      supported.hashCode ^
+      message.hashCode ^
+      mode.hashCode ^
+      modes.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ClashModeDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          supported == other.supported &&
+          message == other.message &&
+          mode == other.mode &&
+          modes == other.modes &&
           error == other.error;
 }
 
@@ -515,7 +576,7 @@ class LogPageDto {
           error == other.error;
 }
 
-/// Generic result for select/close actions.
+/// Generic result for select/close/mode actions.
 class MonitorActionResult {
   final bool ok;
   final bool supported;

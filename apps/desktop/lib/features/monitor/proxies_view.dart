@@ -33,6 +33,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       final controller = ref.read(monitorControllerProvider.notifier);
       controller.setPageVisible('proxies', true);
       await controller.refreshProxies();
+      await controller.refreshClashMode();
     });
   }
 
@@ -120,6 +121,13 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
                   ),
                 ),
                 const SizedBox(width: 16),
+                _ModeSelector(
+                  mode: state.clashMode,
+                  modes: state.clashModes,
+                  message: state.modeMessage,
+                  onChanged: controller.setClashMode,
+                ),
+                const SizedBox(width: 16),
                 Text(
                   '组 ${groups.length} / 节点 ${nodes.length}',
                   style: const TextStyle(fontSize: 11.5),
@@ -166,6 +174,72 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// Canonical routing modes when the core does not advertise a `mode-list`.
+const List<String> canonicalClashModes = <String>['Rule', 'Global', 'Direct'];
+
+/// Case-insensitive match between a core-reported mode and a canonical choice.
+String _canonicalMode(String mode) {
+  final lower = mode.toLowerCase();
+  for (final candidate in canonicalClashModes) {
+    if (candidate.toLowerCase() == lower) return candidate;
+  }
+  return mode;
+}
+
+class _ModeSelector extends StatelessWidget {
+  const _ModeSelector({
+    required this.mode,
+    required this.modes,
+    required this.message,
+    required this.onChanged,
+  });
+
+  final String? mode;
+  final List<String> modes;
+  final String? message;
+  final Future<bool> Function(String mode) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final choices = modes.isEmpty
+        ? canonicalClashModes
+        : modes.map(_canonicalMode).toSet().toList();
+    final current = mode == null ? null : _canonicalMode(mode!);
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: message ?? 'Clash 运行模式',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const Text('模式', style: TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          DropdownButton<String>(
+            key: const ValueKey('proxies-mode'),
+            value: current != null && choices.contains(current)
+                ? current
+                : null,
+            hint: const Text('--', style: TextStyle(fontSize: 12)),
+            isDense: true,
+            style: TextStyle(fontSize: 12, color: scheme.onSurface),
+            underline: const SizedBox.shrink(),
+            items: <DropdownMenuItem<String>>[
+              for (final choice in choices)
+                DropdownMenuItem<String>(
+                  key: ValueKey('proxies-mode-$choice'),
+                  value: choice,
+                  child: Text(choice, style: const TextStyle(fontSize: 12)),
+                ),
+            ],
+            onChanged: (value) {
+              if (value != null && value != current) onChanged(value);
+            },
+          ),
+        ],
+      ),
     );
   }
 }

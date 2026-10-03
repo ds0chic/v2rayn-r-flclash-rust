@@ -78,12 +78,29 @@ Future<void> importFromTextDialog(BuildContext context, WidgetRef ref) async {
   );
   if (text == null || text.trim().isEmpty) return;
   if (!context.mounted) return;
+  await importShareText(context, ref, text);
+}
+
+/// Shared share-text import pipeline (ACT-MAIN-016 paste dialog, FIX-05 image
+/// QR scan). Parses through `importFromText`, persists each parsed profile
+/// (which carries no `subid`), refreshes the node table, and falls back to the
+/// subscription-add offer when the payload is only subscription URLs.
+Future<void> importShareText(
+  BuildContext context,
+  WidgetRef ref,
+  String text, {
+  String sourceLabel = '剪贴板',
+}) async {
+  if (text.trim().isEmpty) return;
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.importFromText(text, deduplicate: true);
   if (result.ok && result.profiles.isNotEmpty) {
     final persisted = persistImportedProfiles(bridge, result.profiles);
     ref.read(profilesControllerProvider.notifier).reload();
-    _toast(ref, _importSuccessToast(persisted, result));
+    _toast(
+      ref,
+      _importSuccessToast(persisted, result, sourceLabel: sourceLabel),
+    );
     return;
   }
   final urls = extractSubscriptionUrls(text);
@@ -97,9 +114,10 @@ Future<void> importFromTextDialog(BuildContext context, WidgetRef ref) async {
 
 String _importSuccessToast(
   PersistImportedResult persisted,
-  c.ImportResult result,
-) {
-  final parts = <String>['已从剪贴板导入 ${persisted.saved} 个节点'];
+  c.ImportResult result, {
+  String sourceLabel = '剪贴板',
+}) {
+  final parts = <String>['已从$sourceLabel导入 ${persisted.saved} 个节点'];
   if (persisted.hasFailures) {
     parts.add('${persisted.failed} 个保存失败（${persisted.firstErrorCode ?? "未知"}）');
   }

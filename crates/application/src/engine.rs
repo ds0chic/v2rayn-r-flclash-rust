@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use domain::runtime_plan::{
-    ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, PortRequest, ProcessGraph,
-    ProcessNode, RequiredPrivilege, RuntimePlan, RuntimeTarget,
+    ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, PortRequest, PortTransport,
+    ProcessGraph, ProcessNode, RequiredPrivilege, RuntimePlan, RuntimeTarget,
 };
 use domain::{
     AppSettings, AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType,
@@ -46,9 +46,13 @@ use crate::subs::{
     build_candidates, download_all, new_sub_id, report_to_json, sub_error_outcome, unix_now,
     SubItem, SubScheduler, SubUpdateEntry, SubUpdateOutcome, SubUpdateReport, SubUpdateRequest,
 };
+use crate::tun_plan::{self, TunPlanHints};
 
 /// Application data directory override.
 pub const DATA_DIR_ENV: &str = "V2RAYN_R_DATA_DIR";
+
+/// Process-node id for the pre-SOCKS / LegacyProtect sidecar (FIX-13).
+pub const PRE_SOCKS_PROCESS_ID: &str = "pre-socks";
 
 /// Pre-SOCKS sidecar decision (`ConfigHandler.GetPreSocksItem` parity).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -246,6 +250,72 @@ impl AppEngine {
     /// The data directory this engine is rooted at, when persistent.
     pub fn data_dir(&self) -> Option<&Path> {
         self.data_dir.as_deref()
+    }
+
+    /// Drop every live SQLite handle so the data directory's files can be
+    /// exchanged by a restore/replace. In-memory engines are a no-op. After
+    /// this call the engine must be [`AppEngine::reopen`]ed before serving
+    /// queries; otherwise it answers from the empty in-memory backends.
+    pub fn quiesce(&self) -> Result<(), DomainError> {
+        if self.data_dir.is_none() {
+            return Ok(());
+        }
+        *self.repo.lock().map_err(|_| lock_error())? =
+            ProfileStore::Memory(InMemoryProfileRepository::new());
+        *self.subs.lock().map_err(|_| lock_error())? =
+            SubStore::Memory(InMemorySubRepository::new());
+        *self.routing.lock().map_err(|_| lock_error())? =
+            RoutingStore::Memory(InMemoryRoutingRepository::new());
+        *self.dns_items.lock().map_err(|_| lock_error())? =
+            DnsStore::Memory(InMemoryDnsRepository::new());
+        Ok(())
+    }
+
+    /// Reopen SQLite storage and reload every config-derived in-memory value
+    /// (`settings`, active id, revisions, templates, rule mode) from
+    /// `guiNConfig.json`. Used after `quiesce` + a file exchange so later
+    /// saves never overwrite a restored configuration.
+    pub fn reopen(&self) -> Result<(), DomainError> {
+        let Some(dir) = self.data_dir.clone() else {
+            return Ok(());
+        };
+        let db_path = dir.join("guiNDB.db");
+        let repo = SqliteProfileRepository::open(&db_path)?;
+        let subs = SqliteSubRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+        let routing =
+            SqliteRoutingRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+        let dns = SqliteDnsRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+        let config = read_config(&dir)?;
+        let desired = config
+            .get("desired_revision")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let active = config
+            .get("active_index_id")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        let rule_mode = config
+            .get("rule_mode")
+            .and_then(Value::as_str)
+            .map(|s| match s {
+                "Global" => RuleMode::Global,
+                "Direct" => RuleMode::Direct,
+                _ => RuleMode::Rule,
+            })
+            .unwrap_or(RuleMode::Rule);
+
+        *self.repo.lock().map_err(|_| lock_error())? = ProfileStore::Sqlite(repo);
+        *self.subs.lock().map_err(|_| lock_error())? = SubStore::Sqlite(subs);
+        *self.routing.lock().map_err(|_| lock_error())? = RoutingStore::Sqlite(routing);
+        *self.dns_items.lock().map_err(|_| lock_error())? = DnsStore::Sqlite(dns);
+        *self.rule_mode.lock().map_err(|_| lock_error())? = rule_mode;
+        *self.revisions.lock().map_err(|_| lock_error())? =
+            RevisionStore::with_desired(DesiredRevision::new(desired));
+        *self.active.lock().map_err(|_| lock_error())? = active;
+        *self.templates.lock().map_err(|_| lock_error())? = read_templates(&config);
+        *self.settings.lock().map_err(|_| lock_error())? = read_settings_state(&config);
+        self.ensure_builtin_routing_dns();
+        Ok(())
     }
 
     /// Seed profiles (test/bootstrap helper).
@@ -2093,9 +2163,9 @@ impl AppEngine {
     ///   on, otherwise the node's own resolved core.
     /// - Otherwise no sidecar is required (`None`).
     ///
-    /// The single-process net-host session does not orchestrate this second
-    /// core yet (see T18b evidence); the decision is exposed so callers and
-    /// tests observe the same condition upstream would act on.
+    /// FIX-13 consumes this in `build_runtime_plan` to write the sidecar
+    /// process node and start-order edge; net-host still does not *execute* the
+    /// second core (FIX-13B), so only the plan topology is emitted today.
     pub fn pre_socks_decision(&self, node: &Profile, core: CoreType) -> Option<PreSocksDecision> {
         let settings = self
             .settings
@@ -2156,6 +2226,19 @@ impl AppEngine {
         target_id: &str,
         desired_revision: u64,
     ) -> Result<RuntimePlan, DomainError> {
+        let hints = tun_plan::tun_hints_from_env();
+        self.build_runtime_plan_with_hints(target_id, desired_revision, &hints)
+    }
+
+    /// Build the real immutable [`RuntimePlan`] with explicit TUN helper hints
+    /// (adapter name + OS interface index). Used by isolated/dry-run runs and
+    /// tests; the plain entry point reads the `V2RAYN_R_TUN_*` env hints.
+    pub fn build_runtime_plan_with_hints(
+        &self,
+        target_id: &str,
+        desired_revision: u64,
+        tun_hints: &TunPlanHints,
+    ) -> Result<RuntimePlan, DomainError> {
         let target = self
             .profile_by_id(target_id)?
             .ok_or_else(|| DomainError::not_found("profile", target_id))?;
@@ -2191,11 +2274,7 @@ impl AppEngine {
         if inbound.map(|item| item.udp_enabled).unwrap_or(true) {
             ports.push(PortRequest::udp(port, "inbound"));
         }
-        let privileges = if settings.tun_mode_item.enable_tun {
-            vec![RequiredPrivilege::Tun]
-        } else {
-            vec![RequiredPrivilege::None]
-        };
+        let privileges = vec![RequiredPrivilege::None];
         let mut graph = ProcessGraph::default();
         graph.add_process(ProcessNode {
             id: core.as_str().to_string(),
@@ -2204,7 +2283,42 @@ impl AppEngine {
             ports: ports.clone(),
             privileges: privileges.clone(),
         });
-        Ok(RuntimePlan {
+
+        // FIX-13: pre-SOCKS / LegacyProtect sidecar topology (upstream
+        // `CoreConfigContextBuilder` / `CoreManager`). Frozen order is main
+        // core -> wait for proxy port -> front service, so the sidecar depends
+        // on the main core. Executing the sidecar is FIX-13B; this card writes
+        // the real process/port graph and start order into the plan.
+        if let Some(decision) = Self::pre_socks_of(&settings, &target, core) {
+            let sidecar_id = PRE_SOCKS_PROCESS_ID.to_string();
+            // Upstream shares one user-facing SOCKS port between the main core
+            // and the pre-service (the main core owns the listener; the
+            // pre-service forwards/dials it). Record the port in the graph but
+            // not as an exclusive claim, so the topology is visible without a
+            // false hard conflict; FIX-13B owns the actual listener handoff.
+            let sidecar_port = PortRequest {
+                port: decision.port,
+                transport: PortTransport::Tcp,
+                owner: sidecar_id.clone(),
+                exclusive: false,
+            };
+            graph.add_process(ProcessNode {
+                id: sidecar_id.clone(),
+                core_type: decision.core,
+                config: ConfigSource::Inline {
+                    body: format!(
+                        "{{\"kind\":\"v2rayn.presocks.plan.v1\",\"address\":\"{}\",\"port\":{}}}",
+                        decision.address, decision.port
+                    ),
+                },
+                ports: vec![sidecar_port.clone()],
+                privileges: vec![RequiredPrivilege::None],
+            });
+            graph.depends_on(&sidecar_id, core.as_str());
+            ports.push(sidecar_port);
+        }
+
+        let mut plan = RuntimePlan {
             plan_id: format!("rt-{}-{}-{}", core.as_str(), target_id, desired_revision),
             desired_revision,
             target: RuntimeTarget {
@@ -2219,11 +2333,22 @@ impl AppEngine {
             privileges,
             network_policy: NetworkPolicy {
                 system_proxy: None,
-                tun_enabled: settings.tun_mode_item.enable_tun,
+                tun_enabled: false,
                 bypass: Vec::new(),
             },
             resources: Vec::new(),
-        })
+        };
+
+        // FIX-13: attach the real TUN descriptor only when one can be built.
+        // `tun_spec_from_settings` returns `Ok(None)` when TUN is off and a
+        // structured error when it is on but the interface hints are missing;
+        // a plan never claims `tun_enabled` without a matching `tun` node.
+        if let Some(spec) = tun_plan::tun_spec_from_settings(&settings.tun_mode_item, tun_hints)? {
+            tun_plan::attach_tun_to_plan(&mut plan, &spec)?;
+        }
+
+        plan.validate()?;
+        Ok(plan)
     }
 
     /// The JSON event payload for a refresh report.
@@ -2298,6 +2423,10 @@ impl Default for AppEngine {
     fn default() -> Self {
         Self::in_memory()
     }
+}
+
+fn lock_error() -> DomainError {
+    DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
 }
 
 /// Read `guiNConfig.json` from the data directory (empty object when absent).

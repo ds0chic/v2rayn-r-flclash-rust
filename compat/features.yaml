@@ -1139,6 +1139,7 @@ features:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:539
   - v2rayN/ServiceLib/Common/QRCodeUtils.cs
   status: identified
+  notes: FIX-05 只完成图片扫码半边（F-IMPORT-006，见其 notes）。屏幕扫码半边（ACT-MAIN-017，上游 MainWindow.xaml.cs:226 Ctrl+S→ScanScreenTaskAsync 隐藏→截图→恢复）登记 FIX-05B，本卡未实现、未标完成。
 - id: F-PROFILE-014
   name: 节点过滤与搜索
   family: profile
@@ -1753,6 +1754,7 @@ features:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:522
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:528
   status: identified
+  notes: FIX-05（docs/tasks/FIX-05.md）实现扫描图片二维码→导入。新增 apps/desktop/lib/features/subs/scan_image_qr.dart（file_selector 选图 → image+zxing2 解码含水平镜像重试 → 复用 importShareText=importFromText+saveImportedProfile 落库并 reload），subs_actions.dart 抽出公共 importShareText。取消静默、空图/非 QR/打开失败给可操作提示。test/scan_image_qr_test.dart 8/8、真 bridge_api.dll 的 test/ux_parity_fix05_scan_test.dart 2/2（落库+同 data dir 重开仍在）通过；主菜单 ACT-MAIN-018 接线由根代理完成（补丁见任务卡），未做原版实机对照前保持 identified。屏幕扫描（Ctrl+S=ACT-MAIN-017）登记 FIX-05B，分享窗口 PR-24 不动。
 - id: F-IMPORT-007
   name: 屏幕扫码导入
   family: import-export
@@ -4112,7 +4114,12 @@ features:
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:121
   - v2rayN/ServiceLib/ViewModels/BackupAndRestoreViewModel.cs:129
   - docs/evidence/T16.md
+  - docs/evidence/UX-PARITY-FIX-14/README.md
+  - crates/application/src/backup_service.rs:restore (recursive resource copy-back + rollback)
+  - crates/application/src/backup_service.rs:import_upstream (upstream config activation)
+  - crates/application/src/engine.rs:quiesce/reopen (close + reload SQLite/config)
   status: implemented
+  notes: FIX-14 (2026-10-03 append) - restore now quiesces live SQLite handles, swaps DB+config+recursive resources with rollback, then reopens settings/active/revisions. Upstream CPU timeline AppExit(false)+DisposeDbConnectionAsync()+extract+Shutdown(true) is replaced by in-process quiesce+reopen+resource rollback. Upstream import now writes upstream_config into the live guiNConfig.json with IndexId/SubIndexId/active_index_id remapped. Not validated against a real upstream window; stays implemented.
 - id: F-BACKUP-003
   name: WebDAV 远程备份/恢复
   family: backup

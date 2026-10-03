@@ -5,8 +5,8 @@ import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_format.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
-import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/tun_toggle.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/proxy_settings_view.dart';
@@ -24,9 +24,10 @@ class StatusBarView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shell = ref.watch(uiShellControllerProvider);
-    final shellController = ref.read(uiShellControllerProvider.notifier);
     final profiles = ref.watch(profilesControllerProvider);
     final runtime = ref.watch(runtimeControllerProvider);
+    final settings = ref.watch(settingsControllerProvider);
+    final desiredTun = _desiredTun(settings.document);
     final routing = ref.watch(routingControllerProvider);
     final routingController = ref.read(routingControllerProvider.notifier);
     final platform = ref.watch(platformControllerProvider);
@@ -59,17 +60,16 @@ class StatusBarView extends ConsumerWidget {
               const Text('TUN', style: TextStyle(fontSize: 11.5)),
               Switch(
                 key: const ValueKey('tun-toggle'),
-                value: shell.tunEnabled,
-                onChanged: shellController.setTunEnabled,
+                value: desiredTun,
+                onChanged: (value) => _onTunToggle(ref, value),
               ),
-              // T14: TUN actual state is read from the runtime snapshot, never
-              // from the desired switch above. The bridge carries no per-lease
-              // TUN facts, so the bar distinguishes only what the snapshot
-              // proves: no live runtime (or switch off) reads 未启用; a helper
-              // failure reads 失败已回滚; a live runtime with TUN desired reads
-              // 已请求(未验证) — never a fabricated "TUN active".
+              // FIX-13: the desired flag is persisted to `TunModeItem.EnableTun`
+              // and then the real plan is re-applied. The actual label is read
+              // from the runtime snapshot, never from the switch: no live
+              // runtime (or switch off) reads 未启用; a helper refusal reads
+              // 失败已回滚; a live runtime reads 已请求(未验证).
               Text(
-                '实际: ${_tunActualLabel(shell.tunEnabled, runtime)}',
+                '实际: ${tunActualLabel(desiredTun, runtime)}',
                 key: const ValueKey('tun-actual'),
                 style: muted,
               ),
@@ -250,16 +250,48 @@ class StatusBarView extends ConsumerWidget {
   }
 }
 
-/// T14 TUN actual-state label (see the `tun-actual` widget above).
-///
-/// `tunEnabled` is the *desired* switch from settings; `runtime` is the live
-/// snapshot. Only a live runtime proves anything: without one the answer is
-/// always 未启用, even when the switch is on.
-String _tunActualLabel(bool tunEnabled, RuntimeView runtime) {
-  if (!tunEnabled) return '未启用';
-  if (runtime.error?.code == 'E_TUN_HELPER_UNAVAILABLE') return '失败已回滚';
-  if (!runtime.isRunning) return '未启用';
-  return '已请求(未验证)';
+/// Desired TUN flag from the persisted settings document (`TunModeItem`).
+bool _desiredTun(Map<String, dynamic> document) {
+  final tun = document['TunModeItem'];
+  if (tun is Map<String, dynamic>) return tun['EnableTun'] == true;
+  return false;
+}
+
+/// Persist the desired TUN flag first; only a successful save re-applies the
+/// real plan. A failed save leaves the running session untouched and reports
+/// the failure; a denied/absent elevation helper surfaces through the runtime
+/// error and is never rendered as success.
+Future<void> _onTunToggle(WidgetRef ref, bool value) async {
+  final settings = ref.read(settingsControllerProvider.notifier);
+  final shell = ref.read(uiShellControllerProvider.notifier);
+  final result = await toggleTunDesired(
+    enabled: value,
+    persist: (enabled) {
+      final document = settings.draft();
+      final tun = Map<String, dynamic>.of(
+        (document['TunModeItem'] as Map<String, dynamic>?) ?? const {},
+      );
+      tun['EnableTun'] = enabled;
+      document['TunModeItem'] = tun;
+      final saved = settings.saveDocument(document);
+      if (!saved.ok) {
+        shell.setMessage(
+          'TUN 保存失败: ${saved.error?.messageKey ?? 'error.settings_save_failed'}',
+        );
+      }
+      return saved.ok;
+    },
+    apply: () => ref.read(runtimeControllerProvider.notifier).applyActive(),
+  );
+  if (!result.ok) return;
+  final runtime = ref.read(runtimeControllerProvider);
+  if (value && runtime.error != null) {
+    // UAC/helper refusal or a missing privileged helper: the setting is saved
+    // but the runtime was not switched to TUN. Report honestly.
+    shell.setMessage('TUN 授权被拒绝或 helper 不可用，运行状态未改变');
+  } else {
+    shell.setMessage(value ? 'TUN 已保存并应用' : 'TUN 已关闭并应用');
+  }
 }
 
 String _activeSchemeLabel(RoutingState routing) {

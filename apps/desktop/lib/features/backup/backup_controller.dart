@@ -128,7 +128,7 @@ class BackupController extends Notifier<BackupState> {
       _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
       return;
     }
-    _status('success', '本地恢复完成：${result.message}');
+    _status('success', '本地恢复完成（配置与资源已重载，请重开窗口查看）：${result.message}');
   }
 
   void recognize(String path) {
@@ -161,7 +161,10 @@ class BackupController extends Notifier<BackupState> {
       _status('error', '导入失败（未修改现有数据）', detail: _detail(result.error));
       return;
     }
-    _status('success', '导入完成：${result.status}，导入 ${result.importedRows} 行');
+    _status(
+      'success',
+      '导入完成：${result.status}，导入 ${result.importedRows} 行，原版设置/活动节点已激活',
+    );
   }
 
   void saveWebdav(c.WebDavConfigDto config) {

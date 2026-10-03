@@ -11,11 +11,16 @@ use std::path::{Path, PathBuf};
 
 use domain::{codes, DomainError};
 use persistence::backup::{
-    self, ArchiveRecognition, BackupManifest, BackupVerification, RestoreReport, CONFIG_FILE_NAME,
-    DB_FILE_NAME, MANIFEST_NAME,
+    self, ArchiveRecognition, BackupManifest, BackupVerification, ResourceEntry, RestoreReport,
+    CONFIG_FILE_NAME, DB_FILE_NAME, MANIFEST_NAME,
 };
+use persistence::hash::derived_id;
 use persistence::store::table_counts;
-use persistence::{import_from_path, ImportOptions, ImportReport, PersistenceError, Store};
+use persistence::{
+    import_from_path, ConfigDocument, ImportOptions, ImportReport, ImportStatus, PersistenceError,
+    Store,
+};
+use serde_json::Value;
 use updater::unpack::{safe_unpack_zip, UnpackLimits};
 
 /// Upstream commit recorded in every manifest (T00 frozen baseline).
@@ -101,11 +106,13 @@ impl BackupService {
         backup::verify_backup(root).map_err(persist_error)
     }
 
-    /// Restore a verified bundle into the live database (and config).
+    /// Restore a verified bundle into the live database, config and every
+    /// referenced resource (including nested configuration subdirectories).
     ///
     /// The database is swapped through the T04 candidate commit; the bundled
-    /// config is copied last with a temp+rename so a failure cannot leave a
-    /// half-restored pair.
+    /// config and resources are copied with atomic temp+rename. If any copy
+    /// fails, the previously restored members (database, config, resources)
+    /// are rolled back so the live directory is never left half-restored.
     pub fn restore(&self, root: &Path, work_dir: &Path) -> Result<RestoreReport, DomainError> {
         let verification = self.verify(root)?;
         if !verification.ok {
@@ -116,13 +123,68 @@ impl BackupService {
                 )),
             );
         }
+        let manifest = backup::read_manifest(root).map_err(persist_error)?;
         let report =
             backup::restore_backup(root, &self.db_path(), work_dir).map_err(persist_error)?;
+
+        // Config first, then resources; roll the whole group back on failure.
+        let config_path = self.data_dir.join(CONFIG_FILE_NAME);
+        let mut config_prior: Option<PathBuf> = None;
         let bundled_config = root.join(CONFIG_FILE_NAME);
         if bundled_config.is_file() {
-            copy_atomic(&bundled_config, &self.data_dir.join(CONFIG_FILE_NAME))?;
+            config_prior = backup_previous(&config_path)?;
+            if let Err(error) = copy_atomic(&bundled_config, &config_path) {
+                restore_previous(&config_path, config_prior.as_deref());
+                rollback_database(&self.db_path(), report.target_backup.as_deref());
+                return Err(error);
+            }
         }
-        Ok(report)
+        match self.restore_resources(root, &manifest.referenced_resources) {
+            Ok(_) => {
+                if let Some(prior) = &config_prior {
+                    let _ = std::fs::remove_file(prior);
+                }
+                Ok(report)
+            }
+            Err(error) => {
+                restore_previous(&config_path, config_prior.as_deref());
+                rollback_database(&self.db_path(), report.target_backup.as_deref());
+                Err(error)
+            }
+        }
+    }
+
+    /// Copy every manifest-listed resource (nested paths included) back into
+    /// the data directory. Returns the number copied.
+    fn restore_resources(
+        &self,
+        root: &Path,
+        resources: &[ResourceEntry],
+    ) -> Result<usize, DomainError> {
+        let mut applied: Vec<(PathBuf, Option<PathBuf>)> = Vec::new();
+        for entry in resources {
+            let src = root.join(&entry.relative_path);
+            let dest = self.data_dir.join(&entry.relative_path);
+            let prior = match backup_previous(&dest) {
+                Ok(prior) => prior,
+                Err(error) => {
+                    rollback_previous(&applied);
+                    return Err(error);
+                }
+            };
+            if let Err(error) = copy_atomic(&src, &dest) {
+                restore_previous(&dest, prior.as_deref());
+                rollback_previous(&applied);
+                return Err(error);
+            }
+            applied.push((dest, prior));
+        }
+        for (_, prior) in &applied {
+            if let Some(prior) = prior {
+                let _ = std::fs::remove_file(prior);
+            }
+        }
+        Ok(applied.len())
     }
 
     /// Recognise an upstream `guiConfigs/` archive (or this project's ZIP).
@@ -130,14 +192,21 @@ impl BackupService {
         backup::recognize_archive(path).map_err(persist_error)
     }
 
-    /// Import an upstream directory or ZIP through the T04 candidate flow.
+    /// Import an upstream directory or ZIP through the T04 candidate flow and
+    /// activate the imported configuration.
+    ///
+    /// The upstream `guiNConfig.json` is not left stranded in the DB meta:
+    /// after a successful candidate commit it is written to the live
+    /// `guiNConfig.json` with `IndexId`/`SubIndexId` remapped to the imported
+    /// rows and the engine `active_index_id` set, so settings/active/group
+    /// become the active configuration on the next load/reopen.
     pub fn import_upstream(
         &self,
         path: &Path,
         work_dir: &Path,
         now: i64,
     ) -> Result<ImportReport, DomainError> {
-        import_from_path(
+        let report = import_from_path(
             path,
             &self.db_path(),
             work_dir,
@@ -146,7 +215,70 @@ impl BackupService {
                 ..ImportOptions::default()
             },
         )
-        .map_err(persist_error)
+        .map_err(persist_error)?;
+        if matches!(
+            report.status,
+            ImportStatus::Imported | ImportStatus::AlreadyImported
+        ) {
+            self.activate_upstream_config(&report.source_fingerprint)?;
+        }
+        Ok(report)
+    }
+
+    /// Apply the `upstream_config` recorded by the last import to the live
+    /// settings file. No-op when the source carried no config. The upstream
+    /// PascalCase tree and every unknown key are preserved verbatim; only the
+    /// id references and engine-owned meta keys are (re)written.
+    pub fn activate_upstream_config(
+        &self,
+        fingerprint: &str,
+    ) -> Result<Option<String>, DomainError> {
+        let store = Store::open(self.db_path()).map_err(persist_error)?;
+        let raw = store.get_meta("upstream_config").map_err(persist_error)?;
+        let Some(raw) = raw else {
+            return Ok(None);
+        };
+        if raw.trim().is_empty() || raw.trim() == "{}" {
+            return Ok(None);
+        }
+        let doc = ConfigDocument::parse(&raw).map_err(persist_error)?;
+        let mut value = doc.to_json_value();
+        let Some(object) = value.as_object_mut() else {
+            return Err(internal("upstream_config root is not an object"));
+        };
+        let old_active = object
+            .get("IndexId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let old_sub = object
+            .get("SubIndexId")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let active = (!old_active.is_empty())
+            .then(|| derived_id("profile", &format!("{fingerprint}:{old_active}")));
+        let sub =
+            (!old_sub.is_empty()).then(|| derived_id("sub", &format!("{fingerprint}:{old_sub}")));
+        object.insert(
+            "IndexId".to_string(),
+            Value::String(active.clone().unwrap_or_default()),
+        );
+        if let Some(sub) = &sub {
+            object.insert("SubIndexId".to_string(), Value::String(sub.clone()));
+        }
+        object.insert(
+            "active_index_id".to_string(),
+            active.clone().map(Value::String).unwrap_or(Value::Null),
+        );
+        object
+            .entry("desired_revision".to_string())
+            .or_insert_with(|| Value::from(0));
+        object
+            .entry("rule_mode".to_string())
+            .or_insert_with(|| Value::String("Rule".to_string()));
+        write_json_atomic(&self.data_dir.join(CONFIG_FILE_NAME), &value)?;
+        Ok(active)
     }
 
     /// List bundles directly under `parent` (a directory with a manifest).
@@ -170,31 +302,55 @@ impl BackupService {
     }
 }
 
-/// Regular files directly under `data_dir` (excluding the database, the config
-/// and temp leftovers) become the bundle's referenced resource list.
+/// Every regular file under `data_dir` (excluding the database, the config,
+/// the manifest, temp leftovers and the engine work dir) becomes a referenced
+/// resource, keyed by its forward-slash relative path so nested configuration
+/// subdirectories round-trip exactly.
 fn collect_resources(data_dir: &Path) -> Result<Vec<(String, PathBuf)>, DomainError> {
     let mut resources = Vec::new();
-    let entries = std::fs::read_dir(data_dir).map_err(|e| internal(e.to_string()))?;
-    for entry in entries {
-        let entry = entry.map_err(|e| internal(e.to_string()))?;
-        let path = entry.path();
-        let file_type = entry.file_type().map_err(|e| internal(e.to_string()))?;
-        if !file_type.is_file() {
-            continue;
+    let mut stack = vec![data_dir.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        let entries = std::fs::read_dir(&current).map_err(|e| internal(e.to_string()))?;
+        for entry in entries {
+            let entry = entry.map_err(|e| internal(e.to_string()))?;
+            let path = entry.path();
+            let file_type = entry.file_type().map_err(|e| internal(e.to_string()))?;
+            if file_type.is_dir() {
+                // Never walk into the transient work dir (restore candidates).
+                if entry.file_name() == ".work" {
+                    continue;
+                }
+                stack.push(path);
+                continue;
+            }
+            if !file_type.is_file() || is_reserved_name(&path) {
+                continue;
+            }
+            let relative = path
+                .strip_prefix(data_dir)
+                .map_err(|_| internal("resource escaped data dir"))?
+                .to_string_lossy()
+                .replace('\\', "/");
+            resources.push((relative, path));
         }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name == DB_FILE_NAME
-            || name == CONFIG_FILE_NAME
-            || name == MANIFEST_NAME
-            || name.ends_with(".tmp")
-            || name.ends_with(".partial")
-        {
-            continue;
-        }
-        resources.push((name, path));
     }
     resources.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(resources)
+}
+
+/// Files that are part of the bundle's fixed members, not referenced
+/// resources (and transient leftovers).
+fn is_reserved_name(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
+        return true;
+    };
+    name == DB_FILE_NAME
+        || name == CONFIG_FILE_NAME
+        || name == MANIFEST_NAME
+        || name.ends_with(".tmp")
+        || name.ends_with(".partial")
+        || name.ends_with("-wal")
+        || name.ends_with("-shm")
 }
 
 /// Safely extract a `backup.zip` bundle into `dest` (rejects traversal and
@@ -255,8 +411,67 @@ fn copy_atomic(src: &Path, dest: &Path) -> Result<(), DomainError> {
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent).map_err(|e| internal(e.to_string()))?;
     }
-    let tmp = dest.with_extension("tmp-restore");
+    let tmp = sibling_with_suffix(dest, ".tmp-restore");
     std::fs::copy(src, &tmp).map_err(|e| internal(e.to_string()))?;
     std::fs::rename(&tmp, dest).map_err(|e| internal(e.to_string()))?;
+    Ok(())
+}
+
+fn sibling_with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = path.file_name().map(ToOwned::to_owned).unwrap_or_default();
+    name.push(suffix);
+    path.with_file_name(name)
+}
+
+/// Snapshot an existing destination before overwriting it during a restore.
+fn backup_previous(dest: &Path) -> Result<Option<PathBuf>, DomainError> {
+    if !dest.is_file() {
+        return Ok(None);
+    }
+    let prior = sibling_with_suffix(dest, ".restore-prev");
+    let _ = std::fs::remove_file(&prior);
+    std::fs::copy(dest, &prior).map_err(|e| internal(e.to_string()))?;
+    Ok(Some(prior))
+}
+
+/// Restore a destination from its snapshot, or remove it when newly created.
+fn restore_previous(dest: &Path, prior: Option<&Path>) {
+    match prior {
+        Some(prior) => {
+            let _ = std::fs::copy(prior, dest);
+            let _ = std::fs::remove_file(prior);
+        }
+        None => {
+            let _ = std::fs::remove_file(dest);
+        }
+    }
+}
+
+fn rollback_previous(applied: &[(PathBuf, Option<PathBuf>)]) {
+    for (dest, prior) in applied.iter().rev() {
+        restore_previous(dest, prior.as_deref());
+    }
+}
+
+/// Undo a committed database swap by moving the candidate's `.bak` back.
+fn rollback_database(db: &Path, target_backup: Option<&str>) {
+    let Some(backup) = target_backup else {
+        return;
+    };
+    let backup = Path::new(backup);
+    if backup.is_file() {
+        let _ = std::fs::remove_file(db);
+        let _ = std::fs::rename(backup, db);
+    }
+}
+
+fn write_json_atomic(path: &Path, value: &Value) -> Result<(), DomainError> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| internal(e.to_string()))?;
+    }
+    let text = serde_json::to_string_pretty(value).map_err(|e| internal(e.to_string()))?;
+    let tmp = sibling_with_suffix(path, ".tmp-restore");
+    std::fs::write(&tmp, text).map_err(|e| internal(e.to_string()))?;
+    std::fs::rename(&tmp, path).map_err(|e| internal(e.to_string()))?;
     Ok(())
 }

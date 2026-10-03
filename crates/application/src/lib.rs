@@ -44,7 +44,9 @@ pub use backup_service::{
 };
 pub use dns::{new_dns_id, DnsRepository, InMemoryDnsRepository, RegionalPreset};
 pub use domain::CancellationToken;
-pub use engine::{capability_table, empty_snapshot, AppEngine, PreSocksDecision};
+pub use engine::{
+    capability_table, empty_snapshot, AppEngine, PreSocksDecision, PRE_SOCKS_PROCESS_ID,
+};
 pub use jobs::{JobManager, JobView};
 pub use monitor::{
     epoch_day, BucketTotals, ClashApiService, InMemoryTrafficStore, LogEntry, LogPage, LogService,
@@ -90,8 +92,8 @@ pub use subs::{
     SubUpdateEntry, SubUpdateOutcome, SubUpdateReport, SubUpdateRequest,
 };
 pub use tun_plan::{
-    attach_tun_to_plan, tun_spec_from_settings, TunPlanHints, DEFAULT_TUN_ADAPTER,
-    DEFAULT_TUN_IPV4_CIDR, DEFAULT_TUN_MTU_FALLBACK,
+    attach_tun_to_plan, tun_hints_from_env, tun_spec_from_settings, TunPlanHints,
+    DEFAULT_TUN_ADAPTER, DEFAULT_TUN_IPV4_CIDR, DEFAULT_TUN_MTU_FALLBACK,
 };
 pub use update_service::{
     app_signature_verifier, builtin_targets, cleanup_logs_tmp, enforce_detached_signature,

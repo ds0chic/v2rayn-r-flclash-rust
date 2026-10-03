@@ -174,7 +174,13 @@ pub fn t16_backup_restore(bundle_dir: String) -> RestoreResultDto {
             }
         }
     };
-    match service.restore(Path::new(&bundle_dir), &work) {
+    // Quiesce the live engine so the database file can be exchanged, then
+    // reopen it against whatever is on disk (restored or rolled-back) so later
+    // saves never write stale in-memory settings over the restored config.
+    let _ = engine().quiesce();
+    let outcome = service.restore(Path::new(&bundle_dir), &work);
+    let _ = engine().reopen();
+    match outcome {
         Ok(report) => RestoreResultDto {
             ok: report.restored,
             restored: report.restored,
@@ -261,7 +267,10 @@ pub fn t16_backup_import_upstream(path: String) -> ImportSummaryDto {
             }
         }
     };
-    match service.import_upstream(Path::new(&path), &work, now_epoch()) {
+    let _ = engine().quiesce();
+    let outcome = service.import_upstream(Path::new(&path), &work, now_epoch());
+    let _ = engine().reopen();
+    match outcome {
         Ok(report) => {
             let imported_rows = report.counts.iter().map(|c| c.imported_rows).sum::<u64>();
             let status = match report.status {

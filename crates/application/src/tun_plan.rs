@@ -35,6 +35,28 @@ pub const DEFAULT_TUN_IPV4_CIDR: &str = "172.18.0.1/30";
 /// `Global.TunMtus.First()=1280`).
 pub const DEFAULT_TUN_MTU_FALLBACK: u16 = 1280;
 
+/// Env overrides for the TUN helper hints during isolated/dry-run runs.
+///
+/// The TUN adapter is created by the core; the OS interface index is normally
+/// discovered after the core starts (tracked as the FIX-13 discovery blocker).
+/// These variables let an isolated run provide the adapter/index explicitly so
+/// the plan -> helper -> core chain can be exercised without a real adapter.
+/// An unset or non-numeric index stays `0`, which the builder rejects loudly.
+pub fn tun_hints_from_env() -> TunPlanHints {
+    let mut hints = TunPlanHints::default();
+    if let Ok(name) = std::env::var("V2RAYN_R_TUN_ADAPTER") {
+        if !name.trim().is_empty() {
+            hints.adapter_name = name;
+        }
+    }
+    if let Ok(index) = std::env::var("V2RAYN_R_TUN_INTERFACE_INDEX") {
+        if let Ok(parsed) = index.trim().parse::<u32>() {
+            hints.interface_index = parsed;
+        }
+    }
+    hints
+}
+
 /// Operator hints that settings alone cannot provide: the OS interface index
 /// (refused when still unknown) and any explicit helper routes. Empty routes
 /// mean "adapter address only"; in-core routing (`auto_route`) stays in the

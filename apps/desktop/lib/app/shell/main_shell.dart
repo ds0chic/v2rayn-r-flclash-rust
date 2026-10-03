@@ -23,6 +23,7 @@ import 'package:v2rayn_desktop/features/routing/routing_actions.dart'
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_actions.dart';
+import 'package:v2rayn_desktop/features/subs/scan_image_qr.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/shared/widgets/horizontal_toolbar.dart';
@@ -328,7 +329,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       case 'ACT-MAIN-017':
         shareProfilesQr(context, ref);
       case 'ACT-MAIN-018':
-        importFromTextDialog(context, ref);
+        scanImageQr(context, ref);
       case 'ACT-MAIN-019':
         openSubSettings(context, ref);
       case 'ACT-MAIN-020':

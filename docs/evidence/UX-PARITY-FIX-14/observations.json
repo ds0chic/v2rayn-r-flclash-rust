@@ -1,0 +1,40 @@
+{
+  "task": "FIX-14",
+  "flow": "import upstream ZIP -> active config -> reopen",
+  "app_head": "b638821",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "rust": {
+    "cargo_test_t16_backup": { "passed": 9, "failed": 0 },
+    "cargo_test_application_lib": { "passed": 157, "failed": 0 },
+    "cargo_test_bridge_api": { "passed": 43, "failed": 0 }
+  },
+  "flutter": {
+    "fix14_backup_activate_test": { "passed": 3, "failed": 0 },
+    "t16_backup_test": { "passed": 6, "failed": 0 },
+    "analyze_issues": [
+      "lib/app/shell/status_bar_view.dart:10 unused_import (pre-existing, not FIX-14)"
+    ]
+  },
+  "key_assertions": {
+    "nested_resources_collected": true,
+    "resource_hash_mismatch_rejected": true,
+    "rollback_includes_db_config_resources": true,
+    "upstream_config_written_to_active_guiNConfig": true,
+    "active_index_id_remapped": "derived_id(profile, <fingerprint>:node-hk)",
+    "unknown_keys_preserved": ["BrandNewRootItem", "UIItem"],
+    "engine_quiesce_reopen_roundtrip": true
+  },
+  "upstream_trace": [
+    "BackupAndRestoreViewModel.cs:108 LocalRestore",
+    "BackupAndRestoreViewModel.cs:133 AppExitAsync(false)",
+    "BackupAndRestoreViewModel.cs:134 DisposeDbConnectionAsync",
+    "BackupAndRestoreViewModel.cs:150 Shutdown(true)",
+    "BackupAndRestoreViewModel.cs:169 CopyDirectory",
+    "BackupAndRestoreViewModel.cs:170 CreateFromDirectory"
+  ],
+  "interface_gaps": [
+    "FIX-14B current-bundle local restore picker / backup_*.zip",
+    "FIX-14C WebDAV remote backup.zip layout interop",
+    "root-owned RestoreLifecycle: Flutter reload/refresh + current group persistence"
+  ]
+}

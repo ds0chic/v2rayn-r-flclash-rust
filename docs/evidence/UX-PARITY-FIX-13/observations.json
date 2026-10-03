@@ -1,0 +1,85 @@
+{
+  "task": "FIX-13",
+  "title": "TUN 开关→授权/取消→真实运行→关闭回滚 (主链) + 预 SOCKS plan 接线",
+  "head": "b638821",
+  "date": "2026-10-03",
+  "upstream": "2dust-v2rayN 7.25.4 @ 7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "port_policy": {
+    "forbidden": [10808],
+    "min_test_port": 11808,
+    "used_test_ports": [11808, 11818, 11828, 11838, 11848, 11858, 11868],
+    "host_proxy_touched": false,
+    "tun_device_touched": false,
+    "route_table_touched": false,
+    "registry_touched": false
+  },
+  "status": {
+    "tun_plan_attach": "implemented",
+    "tun_missing_hint_structured_error": "implemented",
+    "presocks_plan_process_graph_and_order": "implemented",
+    "presocks_execution": "blocked",
+    "ui_toggle_persist_then_apply": "implemented",
+    "ui_toggle_widget_native_round_trip": "blocked",
+    "real_tun_end_to_end": "blocked",
+    "custom_core_candidates": "blocked (FIX-13C)",
+    "other_core_adapters": "blocked (FIX-13C)"
+  },
+  "rust": {
+    "changes": [
+      "crates/application/src/engine.rs: build_runtime_plan delegates to build_runtime_plan_with_hints(tun_hints); TUN descriptor attached only when buildable; pre-SOCKS sidecar ProcessNode + start-order edge + shared non-exclusive port written into plan; plan.validate()",
+      "crates/application/src/tun_plan.rs: tun_hints_from_env() (V2RAYN_R_TUN_ADAPTER / V2RAYN_R_TUN_INTERFACE_INDEX) for isolated/dry-run runs",
+      "crates/application/src/lib.rs: re-export PRE_SOCKS_PROCESS_ID and tun_hints_from_env",
+      "crates/application/tests/fix13_tun_presocks_plan.rs: 6 synthetic tests"
+    ]
+  },
+  "flutter": {
+    "changes": [
+      "apps/desktop/lib/features/runtime/tun_toggle.dart: pure toggleTunDesired(persist-then-apply) + tunActualLabel(desired, runtime)",
+      "apps/desktop/lib/app/shell/status_bar_view.dart: TUN switch now saves TunModeItem.EnableTun then applies the real plan; desired reads from settings; actual label from runtime snapshot",
+      "apps/desktop/test/fix13_tun_toggle_test.dart: 7 tests"
+    ]
+  },
+  "commands": [
+    {
+      "cmd": "cargo fmt -p application -- --check",
+      "result": "clean"
+    },
+    {
+      "cmd": "cargo clippy -p application --all-targets --locked -- -D warnings",
+      "result": "Finished; no warnings"
+    },
+    {
+      "cmd": "cargo test -p application --test fix13_tun_presocks_plan --locked",
+      "result": "6 passed; 0 failed"
+    },
+    {
+      "cmd": "cargo test -p application --locked",
+      "result": "all integration suites and 157 lib tests passed; 0 failed"
+    },
+    {
+      "cmd": "dart format lib/features/runtime/tun_toggle.dart lib/app/shell/status_bar_view.dart test/fix13_tun_toggle_test.dart",
+      "result": "2 changed, 1 unchanged"
+    },
+    {
+      "cmd": "flutter analyze",
+      "result": "No issues found"
+    },
+    {
+      "cmd": "flutter test test/t13_statusbar_test.dart test/fix13_tun_toggle_test.dart",
+      "result": "9 passed (2 pre-existing statusbar + 7 new)"
+    }
+  ],
+  "upstream_parity": {
+    "CoreManager.LoadCore": "CoreStop -> CoreStart(main) -> WaitForProxyPort -> CoreStartPreService; plan edge main->pre-socks matches",
+    "CoreConfigContextBuilder.BuildAll": "main core does not handle TUN directly when pre-socks is used; pre-socks context owns TUN; main+pre share one user SOCKS port (recorded non-exclusive, handoff deferred to FIX-13B)",
+    "ConfigHandler.GetPreSocksItem": "decision already existed and is now consumed by build_runtime_plan",
+    "v2rayN app id is not a core": "unchanged; no candidate reduction"
+  },
+  "blocked": [
+    "Real TUN end-to-end (adapter create, route apply, UAC grant/cancel) not run: requires authorized isolated host writes; this card used synthetic helper/dry-run paths only.",
+    "TUN OS interface-index discovery after core start is not implemented; build_runtime_plan_with_hints requires a caller/env-provided index and fails loudly otherwise. Registered for FIX-13B.",
+    "Pre-SOCKS sidecar execution (second process, listener handoff, failure cleanup of old session) is not implemented; only the plan topology/order/ports are written. FIX-13B.",
+    "Custom core candidate exe/args/env/raw-config/YAML-mixin per core and other non-Xray/SingBox adapters are FIX-13C.",
+    "Flutter toggle exercised at the pure seam; a full widget tap -> FRB settings save -> net-host apply round trip on a real window was not run in this card."
+  ]
+}

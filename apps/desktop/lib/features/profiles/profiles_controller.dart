@@ -376,6 +376,61 @@ class ProfilesController extends Notifier<ProfilesState> {
     }
   }
 
+  /// Move the given profiles to a subscription group (ACT-PROF-013).
+  ///
+  /// The real persistence path is the existing `saveProfile` seam: load each
+  /// stored `ProfileDto`, set its `subid`/`subRemarks`, and save it back under
+  /// the same optimistic revision. The bridge exposes no dedicated
+  /// move-to-group API, so this reuses the documented profile save. Empty
+  /// [subId] moves the nodes to the "no group" bucket. Returns false when a
+  /// target no longer exists or any save is rejected; no partial fake success.
+  bool moveProfilesToGroup(
+    List<String> ids,
+    String subId, {
+    String subRemarks = '',
+  }) {
+    if (ids.isEmpty) return false;
+    var allOk = true;
+    for (final id in ids) {
+      final dto = profileById(id);
+      if (dto == null) {
+        allOk = false;
+        continue;
+      }
+      final moved = c.ProfileDto(
+        indexId: dto.indexId,
+        configType: dto.configType,
+        coreType: dto.coreType,
+        configVersion: dto.configVersion,
+        subid: subId,
+        isSub: dto.isSub,
+        preSocksPort: dto.preSocksPort,
+        displayLog: dto.displayLog,
+        remarks: dto.remarks,
+        address: dto.address,
+        port: dto.port,
+        password: dto.password,
+        username: dto.username,
+        network: dto.network,
+        muxEnabled: dto.muxEnabled,
+        finalmask: dto.finalmask,
+        security: dto.security,
+        protoExtra: dto.protoExtra,
+        transportExtra: dto.transportExtra,
+        extraJson: dto.extraJson,
+      );
+      final result = saveDraft(moved);
+      if (!result.ok) allOk = false;
+    }
+    reload();
+    _log(
+      'move-to-group',
+      'ids=${ids.length} sub=${subId.isEmpty ? "(none)" : subId}',
+    );
+    _echo('move-to-group');
+    return allOk;
+  }
+
   /// Generate the "all nodes" policy group for one subscription.
   c.SaveProfileResult genGroupAll(String subId) {
     final result = _bridge.genGroupAll(subId);
@@ -409,6 +464,22 @@ class ProfilesController extends Notifier<ProfilesState> {
   void sortBy(String key) {
     state = _recompute(state.copyWith(sort: state.sort.next(key)));
     _log('sort', '$key ${state.sort.direction.name}');
+  }
+
+  /// `按测试结果排序` (ACT-PROF-020): order the visible rows by the measured
+  /// delay ascending, unknown/failed delays (-1) last. Operates on the real
+  /// `ProfileSummary.delay` from the speedtest result overlay; no synthetic
+  /// ordering is produced.
+  void sortByResult() {
+    final rows = List<ProfileSummary>.of(state.visible);
+    rows.sort((a, b) {
+      final ad = a.delay < 0 ? 1 << 30 : a.delay;
+      final bd = b.delay < 0 ? 1 << 30 : b.delay;
+      return ad.compareTo(bd);
+    });
+    state = state.copyWith(visible: rows);
+    _log('sort-result', 'rows=${rows.length}');
+    _echo('sort-result');
   }
 
   void selectRow(String id, {bool ctrl = false, bool shift = false}) {

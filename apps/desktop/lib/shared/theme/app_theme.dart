@@ -65,6 +65,14 @@ class AppTokens {
   static const double iconSize = 16;
   static const double iconSizeToolbar = 18;
 
+  // -- Profiles top toolbar geometry (LAY-PROFILES-001) ------------------
+  // Upstream icons are 30x30 with 4px side margins, so adjacent outer edges
+  // sit 8px apart. The group/filter boundary uses a wider 12px gap.
+  static const double toolbarIconButton = 30;
+  static const double toolbarIconGap = 8;
+  static const double toolbarGroupFilterGap = 12;
+  static const double toolbarFilterWidth = 200;
+
   // -- Neutrals (light) --------------------------------------------------
   static const Color lightSurface = Color(0xFFF3F4F6);
   static const Color lightSurfaceContainer = Color(0xFFEAECEF);
@@ -136,6 +144,62 @@ class AppTokens {
 
   static IconData icon(String semantic) =>
       iconBySemantic[semantic] ?? Icons.circle_outlined;
+}
+
+/// Shared desktop form metrics and theme-derived text styles (UX-SPACE-03).
+///
+/// Forms must not reuse the compact table row height: the default input is
+/// ~36 logical px tall, fields are separated by 10, groups by 16, and a label
+/// keeps a 12 px gap to its control. Every style is derived from
+/// `ThemeData.textTheme`, so the user's `UIItem.CurrentFontSize` (FLD-CFG-075)
+/// propagates to labels, content and error text without local `const`
+/// font-size locks.
+class AppForm {
+  const AppForm._();
+
+  /// Target height for a single-line outlined input at the default font size.
+  static const double controlHeight = 36;
+
+  /// Net vertical gap between two adjacent field rows.
+  static const double fieldGap = 10;
+
+  /// Net vertical gap between two section groups.
+  static const double groupGap = 16;
+
+  /// Fixed label column width; long labels wrap and the row stays top-aligned.
+  static const double labelColumnWidth = 148;
+
+  /// Horizontal gap between the label column and its control.
+  static const double labelControlGap = 12;
+
+  /// Gap between a section title and its first field.
+  static const double sectionTitleGap = 8;
+
+  /// Inner padding for a dense single-line outlined field. Combined with
+  /// `isDense: true` it reaches [controlHeight] at the default font size and
+  /// grows with a larger `CurrentFontSize` instead of clipping the glyphs.
+  static const EdgeInsets controlPadding = EdgeInsets.symmetric(
+    horizontal: 10,
+    vertical: 12,
+  );
+
+  static TextStyle contentStyle(ThemeData theme) =>
+      theme.textTheme.bodyMedium ??
+      const TextStyle(fontSize: AppTokens.fontSize);
+
+  static TextStyle labelStyle(ThemeData theme) =>
+      contentStyle(theme).copyWith(fontWeight: FontWeight.w500);
+
+  static TextStyle sectionTitleStyle(ThemeData theme) =>
+      contentStyle(theme).copyWith(fontWeight: FontWeight.w600);
+
+  static TextStyle errorStyle(ThemeData theme) =>
+      (theme.textTheme.bodySmall ?? contentStyle(theme)).copyWith(
+        color: theme.colorScheme.error,
+      );
+
+  static TextStyle helperStyle(ThemeData theme) =>
+      theme.textTheme.bodySmall ?? contentStyle(theme);
 }
 
 /// Theme-extension carrying the semantic colors and density values so widgets

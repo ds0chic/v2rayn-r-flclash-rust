@@ -7,7 +7,8 @@ void main() {
 
   test('default column set matches LAY-PROFILES-002', () {
     final columns = defaultProfileColumns();
-    expect(columns.map((c) => c.title).toList(), <String>[
+    // Stable internal ExName keys drive persistence/sort/FRB.
+    expect(columns.map((c) => c.key).toList(), <String>[
       'ConfigType',
       'Remarks',
       'Address',
@@ -22,6 +23,23 @@ void main() {
       'TodayDown',
       'TotalUp',
       'TotalDown',
+    ]);
+    // Display labels come from ResUI.zh-Hans.resx, never used as storage keys.
+    expect(columns.map((c) => c.title).toList(), <String>[
+      '类型',
+      '别名',
+      '地址',
+      '端口',
+      '传输协议',
+      'TLS',
+      '订阅分组',
+      '延迟 (ms)',
+      '速度 (MB/s)',
+      '今日上传',
+      'IP 信息',
+      '今日下载',
+      '总上传',
+      '总下载',
     ]);
     expect(columns.length, 14);
   });

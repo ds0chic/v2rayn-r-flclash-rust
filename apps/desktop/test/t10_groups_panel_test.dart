@@ -28,7 +28,6 @@ void main() {
     container.read(profilesControllerProvider.notifier).reload();
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('groups-title')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-filter-all')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-filter-sub-000')), findsOneWidget);
 

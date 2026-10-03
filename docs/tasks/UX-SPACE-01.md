@@ -1,6 +1,6 @@
 # UX-SPACE-01 — 恢复原版节点区入口和表头
 
-状态：`identified`。本卡为修复方案，本轮没有实施。
+状态：`implemented`（结构/尺寸/表头/列持久化已验证；业务流程前置缺口未修复，相关流程未 verified）。
 
 任务 ID：UX-SPACE-01
 
@@ -48,3 +48,13 @@
 完成条件：LAY-PROFILES-001/002的结构与资源映射可核对；当前额外侧栏/文字条造成的布局偏离消除；原有功能和列偏好保留；实际用户路径稳定，视觉没有遮挡/贴边/误读。业务流程前置未完成时不得给完整verified。
 
 发现接口缺口时的处理：登记阻塞与建议，不自行削减需求。
+
+## 执行记录（2026-10-03，HEAD 25c907e，未 commit）
+
+- 实施：profiles_page.dart 恢复顶部 WrapPanel（订阅分组 chips → 编辑/新增订阅图标 → 200 宽过滤框 → 自动列宽/快速真延迟/混合图标），移除左侧分组栏与两行文字条；profiles_models.dart 展示标签本地化（key 仍 ExName）；app_theme.dart 新增工具栏几何 token。
+- 尺寸实测（真实窗口，real-window/observations.json）：宽屏单行 38 高、800/水平布局按 Wrap 折为 2 行 72 高；表头 30；表格左缘 x=0；过滤框 200。
+- 列持久化：ux_space01_column_persistence_test 证明 width/visible/order 按 ExName 存储并跨重开还原，改中文 title 不影响。
+- 门禁：dart format / flutter analyze / 逐文件 flutter test / build windows --release / cargo fmt+clippy+test 全通过。
+- 遗留：DPI 125%/150%、大字号、3×3×2 全交叉未测；备注入口仅本工具栏，需菜单侧配合；新增/更新丢分组、隐藏选择等行为由其他任务负责，未 verified。
+- 证据：docs/evidence/UX-SPACE-01/（README.md、before/、real-window/）。
+

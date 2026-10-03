@@ -164,9 +164,25 @@ mod tests {
         }
     }
 
+    /// Unique per-call temp root: `now_ms()+offset` collided when tests ran in
+    /// parallel threads and made these tests flaky.
+    fn unique_test_root() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        std::env::temp_dir().join(format!(
+            "v2rayn-t03-journal-{}-{nanos}-{n}",
+            std::process::id()
+        ))
+    }
+
     #[test]
     fn finalized_sessions_are_not_recovered() {
-        let root = std::env::temp_dir().join(format!("v2rayn-t03-journal-{}", now_ms()));
+        let root = unique_test_root();
         std::fs::create_dir_all(&root).unwrap();
         write_entry(&root, &entry("done", RecoveryStage::Finalized)).unwrap();
         let report = recover_stale(&root);
@@ -176,7 +192,7 @@ mod tests {
 
     #[test]
     fn stale_session_without_pid_is_finalized() {
-        let root = std::env::temp_dir().join(format!("v2rayn-t03-journal-{}", now_ms() + 1));
+        let root = unique_test_root();
         std::fs::create_dir_all(&root).unwrap();
         write_entry(&root, &entry("stale", RecoveryStage::Applying)).unwrap();
         let report = recover_stale(&root);
@@ -188,7 +204,7 @@ mod tests {
 
     #[test]
     fn staged_artifacts_are_removed_but_journal_survives() {
-        let root = std::env::temp_dir().join(format!("v2rayn-t03-journal-{}", now_ms() + 2));
+        let root = unique_test_root();
         let dir = session_dir(&root, "s1");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("config.json"), b"{\"secret\":true}").unwrap();
@@ -205,7 +221,7 @@ mod tests {
 
     #[test]
     fn recovery_deletes_staged_config_after_finalizing() {
-        let root = std::env::temp_dir().join(format!("v2rayn-t03-journal-{}", now_ms() + 3));
+        let root = unique_test_root();
         let dir = session_dir(&root, "stale");
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("config.json"), b"{\"secret\":true}").unwrap();

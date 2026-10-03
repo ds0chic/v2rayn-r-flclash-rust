@@ -1,0 +1,13 @@
+{
+  "failures": [],
+  "records": [
+    {
+      "step": "bridge-initialized",
+      "facts": {}
+    },
+    {
+      "step": "app-started",
+      "facts": {}
+    }
+  ]
+}

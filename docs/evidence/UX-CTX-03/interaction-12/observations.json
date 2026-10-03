@@ -1,0 +1,205 @@
+{
+  "recordingComplete": true,
+  "mode": "interaction",
+  "imagesSkipped": true,
+  "failures": [
+    "move-to-group-executes"
+  ],
+  "records": [
+    {
+      "step": "bridge-initialized",
+      "facts": {}
+    },
+    {
+      "step": "app-started",
+      "facts": {}
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": true,
+        "editEnabled": false,
+        "selected": []
+      },
+      "passed": true
+    },
+    {
+      "step": "synthetic-nodes-imported",
+      "facts": {
+        "count": 8
+      }
+    },
+    {
+      "step": "menu-position-and-density",
+      "facts": {
+        "firstItem": {
+          "x": 188.0,
+          "y": 130.0,
+          "width": 206.16532135009766,
+          "height": 32.0
+        },
+        "clickX": 188.0,
+        "rootWindow": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1184.0,
+          "height": 761.0
+        }
+      },
+      "passed": true
+    },
+    {
+      "step": "left-click-another-row-dismisses-menu",
+      "facts": {
+        "menuOpen": false,
+        "selected": [
+          "p-18dadcf715e6143c-1"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "escape-closes-menu-without-clearing-selection",
+      "facts": {
+        "menuOpenBeforeEscape": true,
+        "menuOpen": false,
+        "selectedBefore": [
+          "p-18dadcf715e608e8-0"
+        ],
+        "selectedAfter": [
+          "p-18dadcf715e608e8-0"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-selected-multi-row",
+      "facts": {
+        "selectionBefore": [
+          "p-18dadcf715e608e8-0",
+          "p-18dadcf715e6143c-1"
+        ],
+        "selectionAfter": [
+          "p-18dadcf715e608e8-0",
+          "p-18dadcf715e6143c-1"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-different-row-while-menu-open",
+      "facts": {
+        "selected": [
+          "p-18dadcf715e615cc-2"
+        ],
+        "menuOpen": true,
+        "menuCount": 1,
+        "leftDelta": 0.0
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-row-header",
+      "facts": {
+        "menuOpen": true,
+        "selected": [
+          "p-18dadcf715e61888-4"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": true,
+        "editEnabled": false,
+        "selected": []
+      },
+      "passed": true
+    },
+    {
+      "step": "menu-structure-parity",
+      "facts": {
+        "rootOrder": [
+          "设为活动",
+          "编辑",
+          "克隆所选",
+          "移除所选 (多选)",
+          "移除重复",
+          "按测试结果移除无效",
+          "测试延迟 Tcping (多选)",
+          "测试真连接延迟 (多选)",
+          "测试 UDP 延迟 (多选)",
+          "测试速度 (多选)",
+          "按测试结果排序",
+          "移至订阅分组",
+          "移至上下",
+          "全选",
+          "分享",
+          "导出",
+          "一键生成策略组"
+        ],
+        "missingRoots": [],
+        "extraRoots": [],
+        "rootItemCount": 17,
+        "separatorCount": 4,
+        "firstRowHeight": 32.0
+      },
+      "passed": true
+    },
+    {
+      "step": "keyboard-arrow-navigates-menu",
+      "facts": {
+        "menuOpenBefore": true,
+        "menuOpen": true,
+        "selected": [
+          "p-18dadcf715e608e8-0"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "keyboard-escape-closes-menu",
+      "facts": {
+        "menuOpen": false,
+        "selected": [
+          "p-18dadcf715e608e8-0"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "submenu-hover-keeps-chain",
+      "facts": {
+        "rootOpen": true,
+        "exportItems": 1
+      },
+      "passed": true
+    },
+    {
+      "step": "pointer-crosses-gap-stays-open",
+      "facts": {
+        "menuOpen": true
+      }
+    },
+    {
+      "step": "move-to-group-submenu",
+      "facts": {
+        "rootOpen": true,
+        "noGroupVisible": true
+      },
+      "passed": true
+    },
+    {
+      "step": "move-to-group-executes",
+      "facts": {
+        "eventCount": 0,
+        "details": [],
+        "countBefore": 8,
+        "countAfter": 8,
+        "menuOpen": false
+      },
+      "passed": false
+    }
+  ]
+}

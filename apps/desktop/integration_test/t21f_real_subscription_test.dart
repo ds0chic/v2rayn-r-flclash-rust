@@ -39,8 +39,9 @@ Future<void> _openMenu(WidgetTester tester, String group, String item) async {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('real subscription survives actual menu clicks + real network',
-      (tester) async {
+  testWidgets('real subscription survives actual menu clicks + real network', (
+    tester,
+  ) async {
     final dataDir = Platform.environment['V2RAYN_R_DATA_DIR'];
     expect(dataDir, isNotNull, reason: 'V2RAYN_R_DATA_DIR must be set');
     expect(_subUrl, isNotEmpty, reason: 'pass --dart-define=T21F_SUB_URL');
@@ -56,7 +57,10 @@ void main() {
     await _openMenu(tester, '订阅分组', '订阅分组设置');
     await _pumpUntil(
       tester,
-      () => find.byKey(const ValueKey('sub-setting-window')).evaluate().isNotEmpty,
+      () => find
+          .byKey(const ValueKey('sub-setting-window'))
+          .evaluate()
+          .isNotEmpty,
       reason: 'subscription settings window did not open',
     );
 

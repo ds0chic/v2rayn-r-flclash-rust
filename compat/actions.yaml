@@ -1752,6 +1752,7 @@ items:
   implementation_location: null
   test_ids: []
   status: identified
+  notes: UX-SPACE-02（2026-10-03）：右键菜单已恢复「移除重复」根条目（上游顺序第 5），因桥接无去重结果比对 API，当前禁用并附诚实 tooltip，未接假实现。证据 docs/evidence/UX-SPACE-02/README.md。
 - id: ACT-PROF-004
   name: 复制选中节点
   domain: profiles
@@ -2036,9 +2037,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:167
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:660
   - v2rayN/v2rayN/Views/ProfilesView.xaml:176
-  implementation_location: null
+  implementation_location: apps/desktop/lib/features/profiles/profiles_controller.dart (moveProfilesToGroup)
   test_ids: []
-  status: identified
+  status: implemented
+  notes: UX-SPACE-02（2026-10-03）：右键菜单「移至订阅分组」恢复为真实子菜单，列出订阅分组 +「无分组」；动作经 engine.saveProfile 回写 ProfileDto.subid（桥接无独立 move-to-group API，走等价 profile 保存路径）。目标 ID 经会话快照校验。跨进程持久化读数（关窗重开验 Subid）尚未取证。证据 docs/evidence/UX-SPACE-02/README.md。
 - id: ACT-PROF-014
   name: 快速真连接延迟测试
   domain: testing
@@ -2065,9 +2067,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:705
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:738
   - docs/evidence/T15b.md
-  implementation_location: apps/desktop/lib/features/profiles/context_menu.dart + apps/desktop/lib/features/profiles/profiles_controller.dart + apps/desktop/lib/features/profiles/profiles_table.dart
+  implementation_location: apps/desktop/lib/features/profiles/profiles_page.dart (toolbar) + apps/desktop/lib/features/profiles/profiles_controller.dart
   test_ids: [t15b_speedtest_test.dart]
   status: implemented
+  notes: UX-SPACE-02（2026-10-03）：确认上游该动作入口为节点表工具栏（menu_path 已是工具栏），右键菜单不应含此根条目；已从右键菜单删除「快速真延迟」，仅保留工具栏入口。证据 docs/evidence/UX-SPACE-02/README.md。
 - id: ACT-PROF-015
   name: 混合测试（真连接+测速）
   domain: testing
@@ -2094,9 +2097,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:177
   - v2rayN/v2rayN/Views/ProfilesView.xaml.cs:254
   - docs/evidence/T15b.md
-  implementation_location: apps/desktop/lib/features/profiles/context_menu.dart + apps/desktop/lib/features/profiles/profiles_controller.dart + apps/desktop/lib/features/profiles/profiles_table.dart
+  implementation_location: apps/desktop/lib/features/profiles/profiles_page.dart (toolbar) + apps/desktop/lib/features/profiles/profiles_controller.dart
   test_ids: [t15b_speedtest_test.dart]
   status: implemented
+  notes: UX-SPACE-02（2026-10-03）：上游入口为节点表工具栏/混合测试按钮（menu_path 已是工具栏），右键菜单不应含此根条目；已从右键菜单删除「混合测试」，仅保留工具栏入口。证据 docs/evidence/UX-SPACE-02/README.md。
 - id: ACT-PROF-016
   name: TCPing 延迟测试
   domain: testing
@@ -2185,6 +2189,7 @@ items:
   implementation_location: apps/desktop/lib/features/profiles/context_menu.dart (disabled) + crates/application/src/speedtest.rs (udp unsupported)
   test_ids: [speedtest::tests::udp_without_support_is_explicitly_unavailable]
   status: implemented
+  notes: UX-SPACE-02（2026-10-03）：右键菜单恢复「测试 UDP 延迟 (多选)」根条目（上游顺序第 9），保持禁用 + 诚实 tooltip（后端 SpeedTestSupport.udp=false）。证据 docs/evidence/UX-SPACE-02/README.md。
 - id: ACT-PROF-019
   name: 测速
   domain: testing
@@ -2239,9 +2244,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:197
   - v2rayN/v2rayN/Views/ProfilesView.xaml:170
-  implementation_location: null
+  implementation_location: apps/desktop/lib/features/profiles/profiles_controller.dart (sortByResult) + apps/desktop/lib/features/profiles/profiles_table.dart
   test_ids: []
-  status: identified
+  status: implemented
+  notes: UX-SPACE-02（2026-10-03）：右键菜单恢复「按测试结果排序」根条目（上游顺序第 11）；sortByResult 按真实 ProfileSummary.delay 升序（未知/-1 置尾），无合成排序。证据 docs/evidence/UX-SPACE-02/README.md。
 - id: ACT-PROF-021
   name: 移除无效测试结果节点
   domain: profiles
@@ -2299,6 +2305,7 @@ items:
   implementation_location: null
   test_ids: []
   status: identified
+  notes: UX-SPACE-02（2026-10-03）：菜单恢复「导出所选完整配置」条目，因桥接无客户端完整配置导出接口（export_profiles 仅 share/base64/inner），保持禁用 + 诚实 tooltip。所需 API 建议：扩展 export_profiles 支持 client-config 渲染。证据 docs/evidence/UX-SPACE-02/README.md。
 - id: ACT-PROF-023
   name: 导出客户端配置到剪贴板
   domain: profiles
@@ -2326,6 +2333,7 @@ items:
   implementation_location: null
   test_ids: []
   status: identified
+  notes: UX-SPACE-02（2026-10-03）：菜单恢复「导出所选完整配置至剪贴板」条目，因桥接无客户端完整配置导出接口而禁用 + 诚实 tooltip。证据 docs/evidence/UX-SPACE-02/README.md。
 - id: ACT-PROF-024
   name: 批量导出分享链接
   domain: profiles

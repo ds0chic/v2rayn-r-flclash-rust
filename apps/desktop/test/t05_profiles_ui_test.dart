@@ -27,7 +27,7 @@ void main() {
       // Column resize persists to ui_state.json (LAY-PROFILES-003).
       final before = widthOf('Remarks');
       await tester.drag(
-        find.byKey(const ValueKey('resize-Remarks')),
+        find.byKey(const ValueKey('resize-别名')),
         const Offset(40, 0),
       );
       await tester.pump();
@@ -102,7 +102,7 @@ void main() {
       final selectedAfterRightClick = container
           .read(profilesControllerProvider)
           .selected;
-      await tester.tap(find.byKey(const ValueKey('header-Port')));
+      await tester.tap(find.byKey(const ValueKey('header-端口')));
       await tester.pumpAndSettle();
       expect(
         container.read(profilesControllerProvider).selected,

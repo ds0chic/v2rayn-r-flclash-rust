@@ -1,7 +1,10 @@
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 
-/// Column model for the 14-column profile table. Titles follow the upstream
-/// `ExName` values in `compat/layouts.yaml` LAY-PROFILES-002.
+/// Column model for the 14-column profile table (LAY-PROFILES-002).
+///
+/// `key` is the stable upstream `ExName` used for persistence, sorting and the
+/// FRB field; `title` is the localized display label from
+/// `ResUI.zh-Hans.resx` and is never used as a storage key.
 class ProfileColumn {
   const ProfileColumn({
     required this.key,
@@ -95,14 +98,14 @@ List<double> fittedColumnWidths(
 List<ProfileColumn> defaultProfileColumns() => const <ProfileColumn>[
   ProfileColumn(
     key: 'ConfigType',
-    title: 'ConfigType',
+    title: '类型',
     width: 80,
     numeric: false,
     display: _configTypeLabel,
   ),
   ProfileColumn(
     key: 'Remarks',
-    title: 'Remarks',
+    title: '别名',
     width: 150,
     numeric: false,
     display: _remarksLabel,
@@ -111,7 +114,7 @@ List<ProfileColumn> defaultProfileColumns() => const <ProfileColumn>[
   ),
   ProfileColumn(
     key: 'Address',
-    title: 'Address',
+    title: '地址',
     width: 120,
     numeric: false,
     display: _addressLabel,
@@ -120,28 +123,28 @@ List<ProfileColumn> defaultProfileColumns() => const <ProfileColumn>[
   ),
   ProfileColumn(
     key: 'Port',
-    title: 'Port',
+    title: '端口',
     width: 60,
     numeric: true,
     display: _portLabel,
   ),
   ProfileColumn(
     key: 'Network',
-    title: 'Network',
+    title: '传输协议',
     width: 100,
     numeric: false,
     display: _networkLabel,
   ),
   ProfileColumn(
     key: 'StreamSecurity',
-    title: 'StreamSecurity',
+    title: 'TLS',
     width: 100,
     numeric: false,
     display: _securityLabel,
   ),
   ProfileColumn(
     key: 'SubRemarks',
-    title: 'SubRemarks',
+    title: '订阅分组',
     width: 100,
     numeric: false,
     display: _subRemarksLabel,
@@ -150,49 +153,49 @@ List<ProfileColumn> defaultProfileColumns() => const <ProfileColumn>[
   ),
   ProfileColumn(
     key: 'DelayVal',
-    title: 'DelayVal',
+    title: '延迟 (ms)',
     width: 100,
     numeric: true,
     display: _delayLabel,
   ),
   ProfileColumn(
     key: 'SpeedVal',
-    title: 'SpeedVal',
+    title: '速度 (MB/s)',
     width: 100,
     numeric: true,
     display: _speedLabel,
   ),
   ProfileColumn(
     key: 'TodayUp',
-    title: 'TodayUp',
+    title: '今日上传',
     width: 100,
     numeric: true,
     display: _todayUpLabel,
   ),
   ProfileColumn(
     key: 'IpInfo',
-    title: 'IpInfo',
+    title: 'IP 信息',
     width: 100,
     numeric: false,
     display: _ipInfoLabel,
   ),
   ProfileColumn(
     key: 'TodayDown',
-    title: 'TodayDown',
+    title: '今日下载',
     width: 100,
     numeric: true,
     display: _todayDownLabel,
   ),
   ProfileColumn(
     key: 'TotalUp',
-    title: 'TotalUp',
+    title: '总上传',
     width: 100,
     numeric: true,
     display: _totalUpLabel,
   ),
   ProfileColumn(
     key: 'TotalDown',
-    title: 'TotalDown',
+    title: '总下载',
     width: 100,
     numeric: true,
     display: _totalDownLabel,

@@ -1,0 +1,22 @@
+{
+  "failures": [],
+  "records": [
+    {
+      "step": "bridge-initialized",
+      "facts": {}
+    },
+    {
+      "step": "app-started",
+      "facts": {}
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": true,
+        "editEnabled": false,
+        "selected": []
+      },
+      "passed": true
+    }
+  ]
+}

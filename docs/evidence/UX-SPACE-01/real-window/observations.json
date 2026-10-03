@@ -1,0 +1,206 @@
+{
+  "schema": "ux-space01-real-window",
+  "note": "logical surface sizes via setSurfaceSize; pixelRatio=1; synthetic bridge data; OS window is the live app window",
+  "records": [
+    {
+      "name": "01-800x600-vertical-light",
+      "surface": {
+        "width": 800.0,
+        "height": 600.0
+      },
+      "layout": "vertical",
+      "theme": "light",
+      "toolbar": {
+        "x": 0.0,
+        "y": 41.0,
+        "width": 800.0,
+        "height": 72.0
+      },
+      "filter": {
+        "x": 581.1566352844238,
+        "y": 45.0,
+        "width": 200.0,
+        "height": 30.0
+      },
+      "header": {
+        "x": 48.0,
+        "y": 113.0,
+        "width": 80.0,
+        "height": 30.0
+      },
+      "wrapRuns": 2
+    },
+    {
+      "name": "02-1200x800-vertical-light",
+      "surface": {
+        "width": 1200.0,
+        "height": 800.0
+      },
+      "layout": "vertical",
+      "theme": "light",
+      "toolbar": {
+        "x": 0.0,
+        "y": 41.0,
+        "width": 1200.0,
+        "height": 38.0
+      },
+      "filter": {
+        "x": 581.1566352844238,
+        "y": 45.0,
+        "width": 200.0,
+        "height": 30.0
+      },
+      "header": {
+        "x": 48.0,
+        "y": 79.0,
+        "width": 80.0,
+        "height": 30.0
+      },
+      "wrapRuns": 1
+    },
+    {
+      "name": "03-1920x1080-vertical-light",
+      "surface": {
+        "width": 1920.0,
+        "height": 1080.0
+      },
+      "layout": "vertical",
+      "theme": "light",
+      "toolbar": {
+        "x": 0.0,
+        "y": 41.0,
+        "width": 1920.0,
+        "height": 38.0
+      },
+      "filter": {
+        "x": 581.1566352844238,
+        "y": 45.0,
+        "width": 200.0,
+        "height": 30.0
+      },
+      "header": {
+        "x": 48.0,
+        "y": 79.0,
+        "width": 80.0,
+        "height": 30.0
+      },
+      "wrapRuns": 1
+    },
+    {
+      "name": "04-1200x800-horizontal-light",
+      "surface": {
+        "width": 1200.0,
+        "height": 800.0
+      },
+      "layout": "horizontal",
+      "theme": "light",
+      "toolbar": {
+        "x": 0.0,
+        "y": 41.0,
+        "width": 597.0,
+        "height": 72.0
+      },
+      "filter": {
+        "x": 4.0,
+        "y": 79.0,
+        "width": 200.0,
+        "height": 30.0
+      },
+      "header": {
+        "x": 48.0,
+        "y": 113.0,
+        "width": 80.0,
+        "height": 30.0
+      },
+      "wrapRuns": 2
+    },
+    {
+      "name": "05-1200x800-tab-light",
+      "surface": {
+        "width": 1200.0,
+        "height": 800.0
+      },
+      "layout": "tab",
+      "theme": "light",
+      "toolbar": {
+        "x": 121.0,
+        "y": 41.0,
+        "width": 1079.0,
+        "height": 38.0
+      },
+      "filter": {
+        "x": 702.1566352844238,
+        "y": 45.0,
+        "width": 200.0,
+        "height": 30.0
+      },
+      "header": {
+        "x": 169.0,
+        "y": 79.0,
+        "width": 80.0,
+        "height": 30.0
+      },
+      "wrapRuns": 1
+    },
+    {
+      "name": "06-1200x800-vertical-dark",
+      "surface": {
+        "width": 1200.0,
+        "height": 800.0
+      },
+      "layout": "vertical",
+      "theme": "dark",
+      "toolbar": {
+        "x": 0.0,
+        "y": 41.0,
+        "width": 1200.0,
+        "height": 38.0
+      },
+      "filter": {
+        "x": 581.1566352844238,
+        "y": 45.0,
+        "width": 200.0,
+        "height": 30.0
+      },
+      "header": {
+        "x": 48.0,
+        "y": 79.0,
+        "width": 80.0,
+        "height": 30.0
+      },
+      "wrapRuns": 1
+    },
+    {
+      "name": "07-800x600-vertical-dark",
+      "surface": {
+        "width": 800.0,
+        "height": 600.0
+      },
+      "layout": "vertical",
+      "theme": "dark",
+      "toolbar": {
+        "x": 0.0,
+        "y": 41.0,
+        "width": 800.0,
+        "height": 72.0
+      },
+      "filter": {
+        "x": 581.1566352844238,
+        "y": 45.0,
+        "width": 200.0,
+        "height": 30.0
+      },
+      "header": {
+        "x": 48.0,
+        "y": 113.0,
+        "width": 80.0,
+        "height": 30.0
+      },
+      "wrapRuns": 2
+    },
+    {
+      "recordingComplete": true,
+      "count": 7
+    }
+  ]
+}

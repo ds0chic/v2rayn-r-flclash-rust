@@ -3,6 +3,7 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Modal editor for one node of any of the 11 basic protocol kinds.
 ///
@@ -73,7 +74,6 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
         widget.initial.isNew
             ? '添加 [${_draft.configType.name}]'
             : '编辑 [${_draft.configType.name}]',
-        style: const TextStyle(fontSize: 15),
       ),
       content: SizedBox(
         width: 620,
@@ -85,13 +85,14 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 if (_serverError != null) _errorBanner(theme, _serverError!),
-                _section('基础', _topFields()),
-                _section('协议', protocolFields(_draft.configType)),
-                _section('传输', <FieldSpec>[
+                _section(theme, '基础', _topFields()),
+                _section(theme, '协议', protocolFields(_draft.configType)),
+                _section(theme, '传输', <FieldSpec>[
                   _networkField(),
                   ...transportFields(_draft.network),
                 ]),
                 _section(
+                  theme,
                   'TLS / Reality',
                   securityFields(_draft.streamSecurity),
                 ),
@@ -118,7 +119,7 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
   Widget _errorBanner(ThemeData theme, c.ErrorDto error) {
     return Container(
       key: const ValueKey('editor-error'),
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: AppForm.groupGap),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
@@ -126,26 +127,31 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       ),
       child: Text(
         '保存失败: ${error.messageKey} (${error.code})',
-        style: TextStyle(
-          fontSize: 12,
-          color: theme.colorScheme.onErrorContainer,
-        ),
+        style: AppForm.contentStyle(theme)
+            .copyWith(color: theme.colorScheme.onErrorContainer),
       ),
     );
   }
 
-  Widget _section(String title, List<FieldSpec> fields) {
+  Widget _section(ThemeData theme, String title, List<FieldSpec> fields) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: 4),
+          padding: const EdgeInsets.only(
+            top: AppForm.groupGap,
+            bottom: AppForm.sectionTitleGap,
+          ),
           child: Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            key: ValueKey('section-$title'),
+            style: AppForm.sectionTitleStyle(theme),
           ),
         ),
-        for (final field in fields) _buildField(field),
+        for (var i = 0; i < fields.length; i++) ...<Widget>[
+          if (i > 0) const SizedBox(height: AppForm.fieldGap),
+          _buildField(theme, fields[i]),
+        ],
       ],
     );
   }
@@ -230,109 +236,109 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
     ],
   );
 
-  Widget _buildField(FieldSpec spec) {
+  /// One label/control row. The label lives in a fixed column so long labels
+  /// wrap; the row is top-aligned so a wrapping label never pushes the control
+  /// down relative to the field above.
+  Widget _buildField(ThemeData theme, FieldSpec spec) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        SizedBox(
+          width: AppForm.labelColumnWidth,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              spec.label,
+              key: ValueKey('label-${spec.key}'),
+              style: AppForm.labelStyle(theme),
+            ),
+          ),
+        ),
+        const SizedBox(width: AppForm.labelControlGap),
+        Expanded(child: _buildControl(theme, spec)),
+      ],
+    );
+  }
+
+  Widget _buildControl(ThemeData theme, FieldSpec spec) {
     final value = spec.get(_draft);
     final fieldError = _fieldErrors[spec.key];
+    final contentStyle = AppForm.contentStyle(theme);
+    InputDecoration decoration({String? hint}) => InputDecoration(
+      hintText: hint,
+      hintStyle: AppForm.helperStyle(theme),
+      isDense: true,
+      contentPadding: AppForm.controlPadding,
+      border: const OutlineInputBorder(),
+      errorText: fieldError,
+      errorStyle: AppForm.errorStyle(theme),
+    );
     switch (spec.kind) {
       case FieldKind.dropdown:
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: DropdownButtonFormField<String?>(
-            key: ValueKey('field-${spec.key}'),
-            initialValue: value,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: spec.label,
-              isDense: true,
-              border: const OutlineInputBorder(),
-              errorText: fieldError,
-            ),
-            items: <DropdownMenuItem<String?>>[
-              for (final option in spec.options ?? const <FieldOption>[])
-                DropdownMenuItem<String?>(
-                  value: option.value,
-                  child: Text(
-                    option.label,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-            ],
-            onChanged: (v) {
-              _fieldErrors.remove(spec.key);
-              spec.set(_draft, v);
-            },
-            validator: (_) => _validate(spec, spec.get(_draft)),
-          ),
+        return DropdownButtonFormField<String?>(
+          key: ValueKey('field-${spec.key}'),
+          initialValue: value,
+          isExpanded: true,
+          style: contentStyle,
+          decoration: decoration(),
+          items: <DropdownMenuItem<String?>>[
+            for (final option in spec.options ?? const <FieldOption>[])
+              DropdownMenuItem<String?>(
+                value: option.value,
+                child: Text(option.label),
+              ),
+          ],
+          onChanged: (v) {
+            _fieldErrors.remove(spec.key);
+            spec.set(_draft, v);
+          },
+          validator: (_) => _validate(spec, spec.get(_draft)),
         );
       case FieldKind.boolField:
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: DropdownButtonFormField<String?>(
-            key: ValueKey('field-${spec.key}'),
-            initialValue: value,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: spec.label,
-              isDense: true,
-              border: const OutlineInputBorder(),
-              errorText: fieldError,
-            ),
-            items: const <DropdownMenuItem<String?>>[
-              DropdownMenuItem<String?>(value: null, child: Text('(未设置)')),
-              DropdownMenuItem<String?>(value: 'true', child: Text('启用')),
-              DropdownMenuItem<String?>(value: 'false', child: Text('禁用')),
-            ],
-            onChanged: (v) {
-              _fieldErrors.remove(spec.key);
-              spec.set(_draft, v);
-            },
-          ),
+        return DropdownButtonFormField<String?>(
+          key: ValueKey('field-${spec.key}'),
+          initialValue: value,
+          isExpanded: true,
+          style: contentStyle,
+          decoration: decoration(),
+          items: const <DropdownMenuItem<String?>>[
+            DropdownMenuItem<String?>(value: null, child: Text('(未设置)')),
+            DropdownMenuItem<String?>(value: 'true', child: Text('启用')),
+            DropdownMenuItem<String?>(value: 'false', child: Text('禁用')),
+          ],
+          onChanged: (v) {
+            _fieldErrors.remove(spec.key);
+            spec.set(_draft, v);
+          },
         );
       case FieldKind.multiline:
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: TextFormField(
-            key: ValueKey('field-${spec.key}'),
-            initialValue: value,
-            minLines: 2,
-            maxLines: 4,
-            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-            decoration: InputDecoration(
-              labelText: spec.label,
-              isDense: true,
-              border: const OutlineInputBorder(),
-              errorText: fieldError,
-            ),
-            onChanged: (v) => spec.set(_draft, v),
-            validator: (_) => _validate(spec, spec.get(_draft)),
-          ),
+        return TextFormField(
+          key: ValueKey('field-${spec.key}'),
+          initialValue: value,
+          minLines: 2,
+          maxLines: 4,
+          style: contentStyle.copyWith(fontFamily: AppTokens.monoFontFamily),
+          decoration: decoration(hint: spec.hint),
+          onChanged: (v) => spec.set(_draft, v),
+          validator: (_) => _validate(spec, spec.get(_draft)),
         );
       case FieldKind.text:
       case FieldKind.password:
       case FieldKind.intField:
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: TextFormField(
-            key: ValueKey('field-${spec.key}'),
-            initialValue: value,
-            obscureText: spec.kind == FieldKind.password,
-            keyboardType: spec.kind == FieldKind.intField
-                ? TextInputType.number
-                : TextInputType.text,
-            style: const TextStyle(fontSize: 12),
-            decoration: InputDecoration(
-              labelText: spec.label,
-              hintText: spec.hint,
-              isDense: true,
-              border: const OutlineInputBorder(),
-              errorText: fieldError,
-            ),
-            onChanged: (v) {
-              _fieldErrors.remove(spec.key);
-              spec.set(_draft, v);
-            },
-            validator: (_) => _validate(spec, spec.get(_draft)),
-          ),
+        return TextFormField(
+          key: ValueKey('field-${spec.key}'),
+          initialValue: value,
+          obscureText: spec.kind == FieldKind.password,
+          keyboardType: spec.kind == FieldKind.intField
+              ? TextInputType.number
+              : TextInputType.text,
+          style: contentStyle,
+          decoration: decoration(hint: spec.hint),
+          onChanged: (v) {
+            _fieldErrors.remove(spec.key);
+            spec.set(_draft, v);
+          },
+          validator: (_) => _validate(spec, spec.get(_draft)),
         );
     }
   }

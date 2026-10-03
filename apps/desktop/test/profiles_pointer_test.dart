@@ -51,7 +51,7 @@ void main() {
     expect(actions.contains('drop'), isTrue);
 
     // Header click sorts locally.
-    await tester.tap(find.byKey(const ValueKey('header-Port')));
+    await tester.tap(find.byKey(const ValueKey('header-端口')));
     await tester.pump();
     expect(readState(container).sort.columnKey, 'Port');
     expect(readState(container).sort.direction.name, 'ascending');

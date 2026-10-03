@@ -76,7 +76,9 @@ void main() {
     final dataDir = Platform.environment['V2RAYN_R_DATA_DIR'];
     final evidenceDir = Platform.environment['V2RAYN_R_CONTEXT_EVIDENCE_DIR'];
     final mode = Platform.environment['V2RAYN_R_CONTEXT_MODE'] ?? 'full';
-    final sampleCount = mode == 'editor' ? 4 : (mode == 'interaction' ? 8 : 32);
+    final sampleCount = (mode == 'editor' || mode == 'screens')
+        ? 4
+        : (mode == 'interaction' ? 8 : 32);
     expect(dataDir, isNotNull);
     expect(evidenceDir, isNotNull);
     await Directory(evidenceDir!).create(recursive: true);
@@ -191,6 +193,46 @@ void main() {
       final rows = container.read(profilesControllerProvider).visible;
       Finder cell(int index) =>
           find.byKey(ValueKey('cell-${rows[index].id}-Remarks'));
+
+      if (mode == 'screens') {
+        // Light screenshot-only pass: open the menu on a row, then capture the
+        // structure panel, the export submenu, the move-to-group submenu and a
+        // bottom-edge open. Kept separate so the heavier interaction flow's
+        // intermittent native crash cannot prevent the required PNGs.
+        final shootPoint = tester.getCenter(cell(1));
+        await _right(tester, shootPoint);
+        await _shot(tester, evidenceDir, 'menu-overview');
+        final exportFinder = find.byKey(const ValueKey('ctx-导出'));
+        final hover = TestGesture(
+          dispatcher: tester.sendEventToBinding,
+          kind: PointerDeviceKind.mouse,
+          device: 71,
+          pointer: 571,
+        );
+        await hover.addPointer(location: tester.getCenter(exportFinder));
+        await hover.moveTo(tester.getCenter(exportFinder));
+        await tester.pump(const Duration(milliseconds: 700));
+        await _shot(tester, evidenceDir, 'submenu-export');
+        final moveFinder = find.byKey(const ValueKey('ctx-移至订阅分组'));
+        await hover.moveTo(tester.getCenter(moveFinder));
+        await tester.pump(const Duration(milliseconds: 700));
+        await _shot(tester, evidenceDir, 'submenu-move-to-group');
+        await hover.removePointer();
+        await closeByOutside();
+
+        // Bottom-right corner: the menu must flip/reposition to stay visible.
+        final tableRect = tester.getRect(find.byType(ProfilesTable));
+        await _right(tester, Offset(tableRect.right - 8, tableRect.bottom - 8));
+        await _shot(tester, evidenceDir, 'menu-edge-bottom-right');
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump(const Duration(milliseconds: 200));
+        await _shot(tester, evidenceDir, 'menu-keyboard-highlight');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await _settle(tester);
+        complete();
+        return;
+      }
 
       if (mode == 'editor') {
         for (var index = 0; index < 2; index++) {
@@ -453,6 +495,206 @@ void main() {
               .toList(),
         }, passed: _menuOpen(tester) && emptyEdit.onPressed == null);
         await _shot(tester, evidenceDir, '04-empty-right-click');
+        await closeByOutside();
+
+        // 8. Structure parity: 17 root entries in upstream order, 4 separators,
+        // 32-px rows. Labels come from ResUI.zh-Hans; the two extra roots
+        // (快速真延迟 / 混合测试) must be gone.
+        await tester.tap(cell(0));
+        await _settle(tester);
+        await _right(tester, pointA);
+        final rootOrder = <String>[
+          '设为活动',
+          '编辑',
+          '克隆所选',
+          '移除所选 (多选)',
+          '移除重复',
+          '按测试结果移除无效',
+          '测试延迟 Tcping (多选)',
+          '测试真连接延迟 (多选)',
+          '测试 UDP 延迟 (多选)',
+          '测试速度 (多选)',
+          '按测试结果排序',
+          '移至订阅分组',
+          '移至上下',
+          '全选',
+          '分享',
+          '导出',
+          '一键生成策略组',
+        ];
+        final missingRoots = <String>[
+          for (final label in rootOrder)
+            if (find.byKey(ValueKey('ctx-$label')).evaluate().isEmpty) label,
+        ];
+        final extraRoots = <String>[
+          for (final label in <String>['快速真延迟', '混合测试 (真连接+测速)'])
+            if (find.byKey(ValueKey('ctx-$label')).evaluate().isNotEmpty) label,
+        ];
+        bool isContextKey(Element e) {
+          final key = e.widget.key;
+          return key is ValueKey<String> && key.value.startsWith('ctx-');
+        }
+
+        // Scope to the menu overlay: only widgets carrying a `ctx-` key belong
+        // to the node-table context menu (the shell MenuBar has its own).
+        final rootItems = <Element>[
+          ...find.byType(MenuItemButton).evaluate(),
+          ...find.byType(SubmenuButton).evaluate(),
+        ].where(isContextKey).length;
+        final separators = find
+            .byType(Divider)
+            .evaluate()
+            .where(
+              (e) =>
+                  e.widget.key is ValueKey<String> &&
+                  (e.widget.key! as ValueKey<String>).value.startsWith(
+                    'ctx-sep-',
+                  ),
+            )
+            .length;
+        final firstRowHeight = tester
+            .getSize(find.byKey(const ValueKey('ctx-设为活动')))
+            .height;
+        record(
+          'menu-structure-parity',
+          {
+            'rootOrder': rootOrder,
+            'missingRoots': missingRoots,
+            'extraRoots': extraRoots,
+            'rootItemCount': rootItems,
+            'separatorCount': separators,
+            'firstRowHeight': firstRowHeight,
+          },
+          passed:
+              missingRoots.isEmpty &&
+              extraRoots.isEmpty &&
+              rootItems == 17 &&
+              separators == 4 &&
+              firstRowHeight == 32,
+        );
+        await _shot(tester, evidenceDir, '08-menu-structure');
+
+        // 9. Keyboard navigation: ↓ moves the highlight, Enter activates the
+        // highlighted row, Esc closes without clearing the selection.
+        final selectedBeforeKeys = Set<String>.of(
+          container.read(profilesControllerProvider).selected,
+        );
+        final beforeDown = _menuOpen(tester);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await _settle(tester);
+        // Two ↓ from the "no highlight" state land on the second root entry
+        // (编辑); the highlight is a coloured decoration on that row.
+        final highlightedAfter = tester
+            .widget<Container>(
+              find
+                  .descendant(
+                    of: find.byKey(const ValueKey('ctx-编辑')),
+                    matching: find.byType(Container),
+                  )
+                  .first,
+            )
+            .decoration;
+        record(
+          'keyboard-arrow-navigates-menu',
+          {
+            'menuOpenBefore': beforeDown,
+            'menuOpen': _menuOpen(tester),
+            'selected': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+          },
+          // Two ↓ from the "no highlight" state land on the second root entry;
+          // the table selection must be untouched (keys stay in the menu).
+          passed:
+              beforeDown &&
+              _menuOpen(tester) &&
+              setEquals(
+                selectedBeforeKeys,
+                container.read(profilesControllerProvider).selected,
+              ) &&
+              highlightedAfter != null,
+        );
+        await _shot(tester, evidenceDir, '09-keyboard-highlight');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await _settle(tester);
+        record(
+          'keyboard-escape-closes-menu',
+          {
+            'menuOpen': _menuOpen(tester),
+            'selected': container
+                .read(profilesControllerProvider)
+                .selected
+                .toList(),
+          },
+          passed:
+              !_menuOpen(tester) &&
+              setEquals(
+                selectedBeforeKeys,
+                container.read(profilesControllerProvider).selected,
+              ),
+        );
+
+        // 10. Submenu hover: entering 导出 keeps the root open and renders the
+        // share/export entries; leaving the root menu does not close the chain.
+        await _right(tester, pointA);
+        final exportFinder = find.byKey(const ValueKey('ctx-导出'));
+        final hover = TestGesture(
+          dispatcher: tester.sendEventToBinding,
+          kind: PointerDeviceKind.mouse,
+          device: 61,
+          pointer: 561,
+        );
+        await hover.addPointer(location: tester.getCenter(exportFinder));
+        await hover.moveTo(tester.getCenter(exportFinder));
+        await tester.pump(const Duration(milliseconds: 700));
+        final exportEntry = find.byKey(const ValueKey('ctx-导出分享链接至剪贴板 (多选)'));
+        record('submenu-hover-keeps-chain', {
+          'rootOpen': _menuOpen(tester),
+          'exportItems': exportEntry.evaluate().length,
+        }, passed: _menuOpen(tester) && exportEntry.evaluate().isNotEmpty);
+        await _shot(tester, evidenceDir, '10-submenu');
+        await hover.moveTo(
+          tester.getCenter(find.byKey(const ValueKey('ctx-编辑'))),
+        );
+        await _settle(tester);
+        await hover.removePointer();
+        record('pointer-crosses-gap-stays-open', {
+          'menuOpen': _menuOpen(tester),
+        });
+
+        // 11. Move-to-group submenu is a real cascade listing the live groups
+        // (the synthetic import attaches nodes to no subscription, so the
+        // honest list shows 无分组 plus any stored groups).
+        await closeByOutside();
+        await _right(tester, pointA);
+        final moveFinder = find.byKey(const ValueKey('ctx-移至订阅分组'));
+        final moveHover = TestGesture(
+          dispatcher: tester.sendEventToBinding,
+          kind: PointerDeviceKind.mouse,
+          device: 62,
+          pointer: 562,
+        );
+        await moveHover.addPointer(location: tester.getCenter(moveFinder));
+        await moveHover.moveTo(tester.getCenter(moveFinder));
+        await tester.pump(const Duration(milliseconds: 700));
+        final noGroup = find.byKey(const ValueKey('ctx-无分组'));
+        record('move-to-group-submenu', {
+          'rootOpen': _menuOpen(tester),
+          'noGroupVisible': noGroup.evaluate().isNotEmpty,
+        }, passed: _menuOpen(tester) && noGroup.evaluate().isNotEmpty);
+        await _shot(tester, evidenceDir, '11-move-to-group');
+        // The 「无分组」 entry must be enabled (real save path exists). Its
+        // execution is covered by the controller unit test
+        // `profiles move-to-group rewrites subid through the save path`; the
+        // cascade tap in the integration overlay is not a stable hit target.
+        final noGroupButton = tester.widget<MenuItemButton>(noGroup);
+        record('move-to-group-entry-enabled', {
+          'noGroupEnabled': noGroupButton.onPressed != null,
+        }, passed: noGroupButton.onPressed != null);
+        await moveHover.removePointer();
+
         complete();
         return;
       }

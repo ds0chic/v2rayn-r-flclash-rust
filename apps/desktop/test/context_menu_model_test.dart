@@ -49,4 +49,56 @@ void main() {
     );
     expect(selectAll.kind, ContextActionKind.selectAll);
   });
+
+  test('restores the frozen upstream 17-root / 4-separator structure', () {
+    // Frozen ProfilesView.xaml `DataGrid.ContextMenu` order, labels resolved
+    // from ResUI.zh-Hans.resx (see upstream-menu-structure.json). The two
+    // extra roots 快速真延迟 / 混合测试 must not reappear.
+    const expectedOrder = <String>[
+      '设为活动',
+      '编辑',
+      '克隆所选',
+      '移除所选 (多选)',
+      '移除重复',
+      '按测试结果移除无效',
+      '测试延迟 Tcping (多选)',
+      '测试真连接延迟 (多选)',
+      '测试 UDP 延迟 (多选)',
+      '测试速度 (多选)',
+      '按测试结果排序',
+      '移至订阅分组',
+      '移至上下',
+      '全选',
+      '分享',
+      '导出',
+      '一键生成策略组',
+    ];
+    expect(profilesContextMenu.length, 17);
+    expect(profilesContextMenu.map((e) => e.label).toList(), expectedOrder);
+    final separators = profilesContextMenu
+        .where((e) => e.separatorAfter)
+        .length;
+    expect(separators, 4);
+
+    // The extra roots are gone from the node table menu (their toolbar entries
+    // are untouched).
+    expect(profilesContextMenu.any((e) => e.label == '快速真延迟'), isFalse);
+    expect(profilesContextMenu.any((e) => e.label == '混合测试 (真连接+测速)'), isFalse);
+
+    // Unimplemented/backend-gated entries stay visible but disabled.
+    final removeDuplicate = profilesContextMenu.firstWhere(
+      (e) => e.actionId == 'ACT-PROF-003',
+    );
+    expect(removeDuplicate.enabled, isFalse);
+    final udp = profilesContextMenu.firstWhere(
+      (e) => e.actionId == 'ACT-PROF-018',
+    );
+    expect(udp.kind, ContextActionKind.udpTest);
+    expect(udp.enabled, isFalse);
+
+    // The labels come from the real ResUI resources, not the mojibake copy.
+    for (final entry in profilesContextMenu) {
+      expect(contextMenuLabels.values, contains(entry.label));
+    }
+  });
 }

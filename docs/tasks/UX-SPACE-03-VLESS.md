@@ -1,6 +1,6 @@
 # UX-SPACE-03-VLESS — 节点编辑表单留白
 
-状态：`identified`。先完成一条VLESS编辑路径，其他协议和参数设置各自拆后续卡，不以此卡替代全部表单验收。
+状态：`implemented`（100% DPI 真窗口实测通过；125%/150% DPI、最小窗口、其他协议/弹窗未验证，见执行记录与证据）。先完成一条VLESS编辑路径，其他协议和参数设置各自拆后续卡，不以此卡替代全部表单验收。
 
 任务 ID：UX-SPACE-03-VLESS
 
@@ -43,3 +43,27 @@
 完成条件：该VLESS流程可读、完整且正确，输入高度/标签/错误无拥挤与重叠；取消后原值保持；共享样式没有造成其他表单明显回归。其余协议、参数设置和跨平台必须继续保持各自未验证状态。
 
 发现接口缺口时的处理：登记阻塞与建议，不自行削减需求。
+
+## 执行记录（2026-10-03，deepseek-v4.1-flash）
+
+状态：`implemented`。完整证据见 `docs/evidence/UX-SPACE-03-VLESS/`。
+
+改动文件（仅呈现层与共享表单/theme 最小样式）：
+- `apps/desktop/lib/features/profiles/profile_editor_dialog.dart`：标签改为左侧固定列（宽 148，长标签换行顶对齐）、字段净距 10、分组间 16、标签↔控件 12、`isDense` + 内边距使输入框默认 ~34 高；字号全部改由 theme 派生，删除局部 `const TextStyle(fontSize: 12)`；错误/帮助由 `InputDecoration.errorText/hintText` 独立占位。
+- `apps/desktop/lib/shared/theme/app_theme.dart`：新增 `AppForm` 度量（controlHeight/fieldGap/groupGap/labelColumnWidth/labelControlGap/controlPadding）与 `contentStyle/labelStyle/sectionTitleStyle/errorStyle/helperStyle`。
+- 新增 `apps/desktop/test/ux_space03_vless_editor_test.dart`（错误端口→保存被拒→草稿保留→取消→重开原值；默认/大字号度量；错误不盖下一字段；VMess/Trojan 抽查）。
+- 新增 `apps/desktop/integration_test/ux_space03_vless_editor_test.dart`（真窗口度量 + 错误/取消/重开 + 浅深色 + 大字号）。
+- 新增 `apps/desktop/integration_test/ux_space03_before_probe_test.dart`（HEAD 基线截图）。
+- `docs/evidence/UX-SPACE-03-VLESS/`（README、observations.json、before/、6 张 PNG）。
+
+实测（真窗口 1184×761，100% DPI）：备注输入框 22→34，标签↔控件 12，字段 10，分组 16，
+错误独立占位且下一字段不重叠，保存/取消在窗内；大字号 20 时输入框 45、标签/内容 20、错误 19。
+字号传播：`AppForm` 从 `textTheme.bodyMedium`（= `shell.fontSize` = FLD-CFG-075）派生，未锁 12。
+
+门禁：`dart format`/`flutter analyze`/`flutter test`（逐文件）/`flutter build windows --release`/
+`cargo fmt/clippy/test --workspace --locked` 全部通过。执行期间共享树被并行任务改到无法编译，
+故门禁在 HEAD `25c907e` 的隔离 worktree 中跑本轮文件；worktree 已清理。
+
+未验证/遗留：125%/150% DPI、最小窗口、水平/标签布局、其余 9 协议与参数/自定义/分组弹窗；
+大字号输入框 45 > 34–36 目标登记为规格缺口（控件随字号增长，未裁文字、未缩设置值域）；
+Debug 真窗口偶发 `flutter_windows.dll` 间歇原生崩溃（重试后完整通过，未定位根因）。未 commit。

@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/features/profiles/context_menu.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
+import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/shared/widgets/context_menu_session.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
@@ -31,8 +32,27 @@ class ProfilesTable extends ConsumerStatefulWidget {
   ConsumerState<ProfilesTable> createState() => _ProfilesTableState();
 }
 
-class _ProfilesTableState extends ConsumerState<ProfilesTable> {
+class _ProfilesTableState extends ConsumerState<ProfilesTable>
+    with WidgetsBindingObserver {
   static const _headerHeight = AppTokens.tableHeaderHeight;
+
+  /// Upstream `App.xaml` `MenuItemHeight=32`; every root and submenu row uses
+  /// this exact height so the icon/text/shortcut/arrow columns line up.
+  static const double _menuItemHeight = 32;
+
+  /// Initial horizontal padding inside a menu row (upstream 10-12).
+  static const double _menuItemPadding = 12;
+
+  /// Forces every `MenuItemButton`/`SubmenuButton` box to the upstream 32-px
+  /// row height; Material's default `visualDensity` otherwise yields 40.
+  static const ButtonStyle _menuRowStyle = ButtonStyle(
+    minimumSize: WidgetStatePropertyAll(Size(0, _menuItemHeight)),
+    maximumSize: WidgetStatePropertyAll(Size.infinite),
+    fixedSize: WidgetStatePropertyAll(Size.fromHeight(_menuItemHeight)),
+    padding: WidgetStatePropertyAll(EdgeInsets.zero),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    alignment: Alignment.centerLeft,
+  );
 
   /// Row height follows the configured base font size (24/26/28) exposed on
   /// the theme extension, keeping the desktop table compact.
@@ -48,6 +68,19 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
   /// Command target snapshot for the currently open menu, or null when closed.
   ContextMenuSession? _menuSession;
 
+  /// Keyboard highlight index within the root menu while it is open (-1 = no
+  /// highlight yet). Arrow keys move it, Enter activates the highlighted row.
+  int _menuFocusIndex = -1;
+
+  /// Root entries actually rendered for the open menu (with the live
+  /// move-to-group submenu injected). Used by keyboard navigation because the
+  /// constant [profilesContextMenu] does not carry the runtime group list.
+  List<ContextMenuEntry> _activeRootEntries = const <ContextMenuEntry>[];
+
+  /// Focus nodes for each rendered root row, so ↑/↓ can move the visible
+  /// highlight and Enter can activate the same row the pointer would.
+  final List<FocusNode> _menuRowFocusNodes = <FocusNode>[];
+
   late final ScrollController _vertical =
       widget.verticalController ?? ScrollController();
   late final ScrollController _horizontal =
@@ -60,14 +93,33 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     super.initState();
     _ownsVertical = widget.verticalController == null;
     _ownsHorizontal = widget.horizontalController == null;
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _focusNode.dispose();
+    for (final node in _menuRowFocusNodes) {
+      node.dispose();
+    }
     if (_ownsVertical) _vertical.dispose();
     if (_ownsHorizontal) _horizontal.dispose();
     super.dispose();
+  }
+
+  /// Window lifecycle (UX-CTX-03): a lost/inactive window must not leave the
+  /// context menu hanging over stale content, and reactivating the window must
+  /// never restore it. Windows minimization reports `inactive`/`hidden`.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_menuController.isOpen &&
+        (state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.hidden ||
+            state == AppLifecycleState.paused ||
+            state == AppLifecycleState.detached)) {
+      _menuController.close();
+    }
   }
 
   @override
@@ -80,8 +132,20 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
       controller: _menuController,
       menuChildren: _buildContextMenu(
         context,
-        profilesContextMenu,
+        _activeRootEntries.isEmpty ? profilesContextMenu : _activeRootEntries,
         _menuSession,
+      ),
+      // Constrain the panel to the window so a long label never pushes it past
+      // the visible edge; the actual width is measured from the rendered
+      // labels by the shared menu style. `visualDensity` cannot set the row
+      // height, so each row carries its own 32-px box.
+      style: MenuStyle(
+        maximumSize: WidgetStatePropertyAll(
+          Size(
+            (MediaQuery.sizeOf(context).width - 16).clamp(160, 560),
+            MediaQuery.sizeOf(context).height - 16,
+          ),
+        ),
       ),
       onClose: _onMenuClosed,
       child: Focus(
@@ -274,17 +338,30 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
   /// fall through to the controller. Text fields keep their own scope (HKR-002).
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     if (_menuController.isOpen) {
-      // The menu owns the keyboard while it is open. Esc closes the menu and
-      // restores table focus without leaking into the table shortcuts (which
-      // would clear the selection / stop a running test). Other keys are left
-      // to the menu's own focus scope; the table never handles them here.
-      if ((event is KeyDownEvent || event is KeyRepeatEvent) &&
-          event.logicalKey == LogicalKeyboardKey.escape) {
-        _menuController.close();
-        _focusNode.requestFocus();
+      // The menu owns the keyboard while it is open. Esc closes the whole chain
+      // (upstream submenu Esc-return semantics are not real-machine verified
+      // yet; registered as an open point) and restores table focus without
+      // leaking into the table shortcuts. Arrow/Enter move the menu highlight
+      // instead of reaching the table, so the table never activates a row.
+      if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
         return KeyEventResult.handled;
       }
-      return KeyEventResult.ignored;
+      switch (event.logicalKey) {
+        case LogicalKeyboardKey.escape:
+          _closeMenuChain();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.arrowDown:
+          _moveMenuHighlight(1);
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.arrowUp:
+          _moveMenuHighlight(-1);
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.enter:
+        case LogicalKeyboardKey.numpadEnter:
+          _activateMenuHighlight();
+          return KeyEventResult.handled;
+      }
+      return KeyEventResult.handled;
     }
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
       final keyboard = HardwareKeyboard.instance;
@@ -317,6 +394,49 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     return ref.read(profilesControllerProvider.notifier).handleKeyEvent(event)
         ? KeyEventResult.handled
         : KeyEventResult.ignored;
+  }
+
+  /// Close the menu chain from the keyboard, restoring table focus and
+  /// clearing the highlight. Used by Esc and by the window lifecycle observer.
+  void _closeMenuChain() {
+    _menuController.close();
+    _menuFocusIndex = -1;
+    _focusNode.requestFocus();
+  }
+
+  /// Move the visible menu highlight by [delta] rows within the open root menu.
+  void _moveMenuHighlight(int delta) {
+    final count = _activeRootEntries.length;
+    if (count == 0) return;
+    var next = _menuFocusIndex + delta;
+    if (_menuFocusIndex < 0) next = delta > 0 ? 0 : count - 1;
+    if (next < 0) next = count - 1;
+    if (next >= count) next = 0;
+    // Keep focus on the table so subsequent keys reach [_onKey]; the highlight
+    // is purely visual state. Submenus take focus only on activation, below.
+    setState(() => _menuFocusIndex = next);
+  }
+
+  /// Activate the highlighted root row. A plain entry runs its command; a
+  /// submenu opens (the Material menu handles the cascade via focus/hover). A
+  /// disabled row does nothing, matching the mouse path.
+  void _activateMenuHighlight() {
+    if (_menuFocusIndex < 0 || _menuFocusIndex >= _activeRootEntries.length) {
+      _moveMenuHighlight(1);
+      return;
+    }
+    final entry = _activeRootEntries[_menuFocusIndex];
+    final enabled =
+        entry.enabled &&
+        (!_requiresTarget(entry.kind) || (_menuSession?.hasTargets ?? false));
+    if (!enabled) return;
+    if (entry.isSubmenu) {
+      if (_menuFocusIndex < _menuRowFocusNodes.length) {
+        _menuRowFocusNodes[_menuFocusIndex].requestFocus();
+      }
+      return;
+    }
+    _onContextAction(entry, _menuSession);
   }
 
   void _onDoubleTap(ProfileSummary row) {
@@ -523,27 +643,96 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
       region: region,
       focusRestore: _focusNode,
     );
-    setState(() => _menuSession = session);
+    setState(() {
+      _menuSession = session;
+      _menuFocusIndex = -1;
+      _activeRootEntries = _resolveRootEntries(snapshot);
+      _syncMenuRowFocusNodes(_activeRootEntries.length);
+    });
     _menuController.open(position: local);
-    // Keep the table as the focus owner so Esc reaches [_onKey]; the menu's own
-    // focus scope is still reachable by hover/click.
+    // Keep the table as the focus owner so Esc/arrows reach [_onKey]; the menu's
+    // own focus scope is still reachable by hover/click and by the per-row
+    // focus nodes used for keyboard navigation.
     _focusNode.requestFocus();
   }
 
   void _onMenuClosed() {
     if (!mounted) return;
-    setState(() => _menuSession = null);
+    setState(() {
+      _menuSession = null;
+      _menuFocusIndex = -1;
+      _activeRootEntries = const <ContextMenuEntry>[];
+    });
+  }
+
+  /// Inject the live subscription-group list into the `移至订阅分组` submenu.
+  ///
+  /// The submenu lists every stored subscription group plus a `无分组` entry
+  /// (empty `subid`), mirroring the upstream `cmbMoveToGroup` ComboBox. When
+  /// the backend cannot persist a move, the entries are rendered disabled with
+  /// an honest tooltip instead of faking a change.
+  List<ContextMenuEntry> _resolveRootEntries(ProfilesState state) {
+    final subs = ref.read(profilesControllerProvider.notifier).subItems();
+    final moveEntries = <ContextMenuEntry>[
+      if (subs.isEmpty)
+        const ContextMenuEntry(
+          label: '暂无订阅分组',
+          actionId: 'ACT-PROF-013',
+          kind: ContextActionKind.notImplemented,
+          enabled: false,
+          helpTooltip: '没有可移动到的订阅分组',
+        ),
+      for (final sub in subs)
+        ContextMenuEntry(
+          label:
+              '${sub.remarks.isEmpty ? sub.id : sub.remarks} (${_countFor(state, sub.id)})',
+          actionId: 'ACT-PROF-013',
+          kind: ContextActionKind.moveToGroup,
+          enabled: true,
+        ),
+      const ContextMenuEntry(
+        label: '无分组',
+        actionId: 'ACT-PROF-013',
+        kind: ContextActionKind.moveToGroup,
+        enabled: true,
+      ),
+    ];
+    return <ContextMenuEntry>[
+      for (final entry in profilesContextMenu)
+        if (entry.kind == ContextActionKind.moveToGroup)
+          ContextMenuEntry(
+            label: entry.label,
+            actionId: entry.actionId,
+            kind: entry.kind,
+            submenu: moveEntries,
+          )
+        else
+          entry,
+    ];
+  }
+
+  int _countFor(ProfilesState state, String subId) {
+    return state.profiles.where((p) => p.subid == subId).length;
+  }
+
+  void _syncMenuRowFocusNodes(int count) {
+    while (_menuRowFocusNodes.length < count) {
+      _menuRowFocusNodes.add(
+        FocusNode(debugLabel: 'ctx-row-${_menuRowFocusNodes.length}'),
+      );
+    }
   }
 
   /// Whether an entry needs a live command target. Entries that operate on the
-  /// whole view (select all, remove invalid, mixed/fast test, dev stubs) stay
-  /// enabled without a selection; the rest are disabled like the upstream menu.
+  /// whole view (select all, remove invalid) stay enabled without a selection;
+  /// the rest are disabled like the upstream menu.
   static bool _requiresTarget(ContextActionKind kind) {
     switch (kind) {
       case ContextActionKind.selectAll:
       case ContextActionKind.removeInvalid:
-      case ContextActionKind.mixedTest:
-      case ContextActionKind.fastRealping:
+      case ContextActionKind.sortResult:
+      case ContextActionKind.genGroupAll:
+      case ContextActionKind.genGroupRegion:
       case ContextActionKind.notImplemented:
         return false;
       default:
@@ -551,58 +740,98 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
     }
   }
 
+  /// The root menu children, built once per open. `_activeRootEntries` carries
+  /// the runtime move-to-group submenu so keyboard navigation and rendering
+  /// stay in sync.
   List<Widget> _buildContextMenu(
+    BuildContext context,
+    List<ContextMenuEntry> entries,
+    ContextMenuSession? session,
+  ) {
+    return _buildMenuLevel(context, entries, session);
+  }
+
+  List<Widget> _buildMenuLevel(
     BuildContext context,
     List<ContextMenuEntry> entries,
     ContextMenuSession? session,
   ) {
     final hasTargets = session?.hasTargets ?? false;
     final widgets = <Widget>[];
-    for (final entry in entries) {
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      final enabled =
+          entry.enabled && (!_requiresTarget(entry.kind) || hasTargets);
+      final highlighted = !entry.isSubmenu && i == _menuFocusIndex;
       if (entry.isSubmenu) {
         widgets.add(
           SubmenuButton(
             key: ValueKey('ctx-${entry.label}'),
-            menuChildren: _buildContextMenu(context, entry.submenu, session),
-            child: _menuLabel(entry),
+            style: _menuRowStyle,
+            menuChildren: _buildMenuLevel(context, entry.submenu, session),
+            child: _menuLabel(entry, highlighted: false),
           ),
         );
       } else {
-        final enabled =
-            entry.enabled && (!_requiresTarget(entry.kind) || hasTargets);
         // Bind the session snapshot captured when the menu opened. The table's
         // MenuItemButton closes the menu (firing onClose) before running
         // onPressed, so reading live `_menuSession` there would already be null.
-        widgets.add(
-          MenuItemButton(
-            key: ValueKey('ctx-${entry.label}'),
-            onPressed: enabled ? () => _onContextAction(entry, session) : null,
-            child: _menuLabel(entry),
-          ),
+        final button = MenuItemButton(
+          key: ValueKey('ctx-${entry.label}'),
+          style: _menuRowStyle,
+          onPressed: enabled ? () => _onContextAction(entry, session) : null,
+          child: _menuLabel(entry, highlighted: highlighted),
         );
+        if (entry.helpTooltip != null && entry.helpTooltip!.isNotEmpty) {
+          widgets.add(Tooltip(message: entry.helpTooltip!, child: button));
+        } else {
+          widgets.add(button);
+        }
       }
       if (entry.separatorAfter) {
-        widgets.add(const Divider(height: 1));
+        widgets.add(Divider(height: 1, key: ValueKey('ctx-sep-$i')));
       }
     }
     return widgets;
   }
 
-  Widget _menuLabel(ContextMenuEntry entry) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(entry.label, style: const TextStyle(fontSize: 12)),
-        ),
-        if (entry.shortcut != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 24),
+  /// A menu row with a fixed 32-px height (upstream `MenuItemHeight`), a text
+  /// column, an optional right-aligned shortcut column and the submenu arrow
+  /// column reserved by [SubmenuButton]. Widths are measured from the actual
+  /// labels; long labels/tooltips never force the panel past the window edge
+  /// because [MenuStyle] constrains it (see the anchor `style`).
+  Widget _menuLabel(ContextMenuEntry entry, {required bool highlighted}) {
+    return Container(
+      height: _menuItemHeight,
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: _menuItemPadding),
+      decoration: highlighted
+          ? BoxDecoration(
+              color: Theme.of(context).colorScheme.primary
+                  .withValues(alpha: 0.10),
+            )
+          : null,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Flexible(
             child: Text(
-              entry.shortcut!,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              entry.label,
+              style: const TextStyle(fontSize: 12),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-      ],
+          if (entry.shortcut != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 24),
+              child: Text(
+                entry.shortcut!,
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -621,12 +850,13 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
           session.groupSubId == current.groupSubId &&
           profiles.restoreContextTargets(session.targetIds);
       if (!restored) {
-        _menuController.close();
+        _closeMenuChain();
         shell.setMessage('操作目标已失效，请重新选择节点');
         return;
       }
     }
     _menuController.close();
+    _menuFocusIndex = -1;
 
     switch (entry.kind) {
       case ContextActionKind.selectAll:
@@ -639,33 +869,107 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable> {
         profiles.emitAction(ProfileAction.moveDown);
       case ContextActionKind.moveBottom:
         profiles.emitAction(ProfileAction.moveBottom);
+      case ContextActionKind.moveToGroup:
+        _moveToGroup(entry.label);
       case ContextActionKind.edit:
         editSelectedProfile(context, ref);
       case ContextActionKind.copy:
         copySelectedProfiles(ref);
       case ContextActionKind.delete:
         deleteSelectedProfiles(context, ref);
+      case ContextActionKind.removeDuplicate:
+        shell.notImplemented(entry.label, entry.actionId);
       case ContextActionKind.activate:
         toggleActiveSelected(ref);
-      case ContextActionKind.remarks:
-        renameSelectedProfile(context, ref);
+      case ContextActionKind.share:
+        shareProfilesQr(context, ref);
+      case ContextActionKind.exportClientConfig:
+      case ContextActionKind.exportClientConfigClipboard:
+        shell.notImplemented(entry.label, entry.actionId);
+      case ContextActionKind.exportShare:
+        exportProfiles(context, ref, kind: 'share');
+      case ContextActionKind.exportShareBase64:
+        exportProfiles(context, ref, kind: 'base64');
+      case ContextActionKind.exportInner:
+        exportProfiles(context, ref, kind: 'inner');
       case ContextActionKind.tcping:
         profiles.emitAction(ProfileAction.tcping);
       case ContextActionKind.realping:
         profiles.emitAction(ProfileAction.realping);
       case ContextActionKind.speedtest:
         profiles.emitAction(ProfileAction.speedtest);
-      case ContextActionKind.mixedTest:
-        profiles.emitAction(ProfileAction.mixedTest);
-      case ContextActionKind.fastRealping:
-        profiles.emitAction(ProfileAction.fastRealping);
       case ContextActionKind.udpTest:
         // Disabled in the restricted scope; never faked.
         profiles.emitAction(ProfileAction.udpTest);
+      case ContextActionKind.sortResult:
+        profiles.sortByResult();
       case ContextActionKind.removeInvalid:
         profiles.emitAction(ProfileAction.removeInvalid);
+      case ContextActionKind.genGroupAll:
+        _genGroup(region: false);
+      case ContextActionKind.genGroupRegion:
+        _genGroup(region: true);
       case ContextActionKind.notImplemented:
         shell.notImplemented(entry.label, entry.actionId);
+    }
+  }
+
+  /// `移至订阅分组` (ACT-PROF-013): move the session target ids into the chosen
+  /// subscription group. The group is derived from the selected label, which is
+  /// the live submenu text (remarks or `无分组`).
+  void _moveToGroup(String label) {
+    final profiles = ref.read(profilesControllerProvider.notifier);
+    final shell = ref.read(uiShellControllerProvider.notifier);
+    final session = _menuSession;
+    if (session == null || session.targetIds.isEmpty) {
+      shell.setMessage('请先选择要移动的节点');
+      return;
+    }
+    final subs = profiles.subItems();
+    final target = label.startsWith('无分组')
+        ? null
+        : subs
+              .where(
+                (s) => label.startsWith(s.remarks.isEmpty ? s.id : s.remarks),
+              )
+              .firstOrNull;
+    final subId = target?.id ?? '';
+    final result = profiles.moveProfilesToGroup(
+      session.targetIds,
+      subId,
+      subRemarks: target?.remarks ?? '',
+    );
+    if (result) {
+      shell.setMessage(
+        target == null ? '已移至无分组' : '已移至分组“${label.split(' (')[0]}”',
+      );
+    } else {
+      shell.setMessage('移动失败：目标节点不存在或保存被拒绝');
+    }
+  }
+
+  /// `一键生成策略组` (ACT-PROF-007/008) for the primary target's subscription.
+  void _genGroup({required bool region}) {
+    final profiles = ref.read(profilesControllerProvider.notifier);
+    final shell = ref.read(uiShellControllerProvider.notifier);
+    final session = _menuSession;
+    final primary = session?.primaryId;
+    if (primary == null) {
+      shell.setMessage('请先选择节点以确定订阅分组');
+      return;
+    }
+    final dto = profiles.profileById(primary);
+    final subId = dto?.subid ?? '';
+    if (subId.isEmpty) {
+      shell.setMessage('所选节点不属于任何订阅分组');
+      return;
+    }
+    if (region) {
+      final count = profiles.genGroupRegion(subId);
+      shell.setMessage(count >= 0 ? '已生成 $count 个地区策略组' : '生成地区策略组失败');
+    } else {
+      final result = profiles.genGroupAll(subId);
+      shell.setMessage(result.ok ? '已生成全部配置项策略组' : '生成策略组失败');
     }
   }
 }

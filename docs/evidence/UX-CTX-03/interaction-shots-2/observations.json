@@ -1,0 +1,97 @@
+{
+  "failures": [],
+  "records": [
+    {
+      "step": "bridge-initialized",
+      "facts": {}
+    },
+    {
+      "step": "app-started",
+      "facts": {}
+    },
+    {
+      "step": "right-click-empty-table",
+      "facts": {
+        "menuOpen": true,
+        "editEnabled": false,
+        "selected": []
+      },
+      "passed": true
+    },
+    {
+      "step": "synthetic-nodes-imported",
+      "facts": {
+        "count": 8
+      }
+    },
+    {
+      "step": "menu-position-and-density",
+      "facts": {
+        "firstItem": {
+          "x": 188.0,
+          "y": 130.0,
+          "width": 206.16532135009766,
+          "height": 32.0
+        },
+        "clickX": 188.0,
+        "rootWindow": {
+          "x": 0.0,
+          "y": 0.0,
+          "width": 1184.0,
+          "height": 761.0
+        }
+      },
+      "passed": true
+    },
+    {
+      "step": "left-click-another-row-dismisses-menu",
+      "facts": {
+        "menuOpen": false,
+        "selected": [
+          "p-18dadbdd439a8f2c-1"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "escape-closes-menu-without-clearing-selection",
+      "facts": {
+        "menuOpenBeforeEscape": true,
+        "menuOpen": false,
+        "selectedBefore": [
+          "p-18dadbdd439a8310-0"
+        ],
+        "selectedAfter": [
+          "p-18dadbdd439a8310-0"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-selected-multi-row",
+      "facts": {
+        "selectionBefore": [
+          "p-18dadbdd439a8310-0",
+          "p-18dadbdd439a8f2c-1"
+        ],
+        "selectionAfter": [
+          "p-18dadbdd439a8310-0",
+          "p-18dadbdd439a8f2c-1"
+        ]
+      },
+      "passed": true
+    },
+    {
+      "step": "right-click-different-row-while-menu-open",
+      "facts": {
+        "selected": [
+          "p-18dadbdd439a90bc-2"
+        ],
+        "menuOpen": true,
+        "menuCount": 1,
+        "leftDelta": 0.0
+      },
+      "passed": true
+    }
+  ]
+}

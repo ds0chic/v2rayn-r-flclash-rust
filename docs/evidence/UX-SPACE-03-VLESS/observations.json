@@ -1,0 +1,221 @@
+{
+ "recordingComplete": true,
+ "devicePixelRatio": 1.0,
+ "physicalSize": [
+  1184.0,
+  761.0
+ ],
+ "failures": [],
+ "records": [
+  {
+   "step": "editor-default-light",
+   "facts": {
+    "themeBrightness": "light",
+    "baseFontSize": 12.5,
+    "labelFontSize": 12.5,
+    "contentFontSize": 12.5,
+    "labelGap": 12.0,
+    "controlHeight": 34.0,
+    "fieldGap": 10.0,
+    "groupGap": 16.0,
+    "saveInWindow": true,
+    "cancelInWindow": true,
+    "label": {
+     "x": 282.0,
+     "y": 190.0,
+     "w": 148.0,
+     "h": 18.0
+    },
+    "remarks": {
+     "x": 442.0,
+     "y": 182.0,
+     "w": 460.0,
+     "h": 34.0
+    },
+    "address": {
+     "x": 442.0,
+     "y": 226.0,
+     "w": 460.0,
+     "h": 34.0
+    },
+    "transportTitle": {
+     "x": 282.0,
+     "y": 496.0,
+     "w": 25.5,
+     "h": 18.0
+    },
+    "save": {
+     "x": 828.7999992370605,
+     "y": 674.0,
+     "w": 73.20000076293945,
+     "h": 32.0
+    },
+    "cancel": {
+     "x": 764.7999992370605,
+     "y": 674.0,
+     "w": 56.0,
+     "h": 32.0
+    },
+    "frame": {
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1184.0,
+     "h": 761.0
+    }
+   },
+   "passed": true
+  },
+  {
+   "step": "font-propagation-default",
+   "facts": {
+    "baseFontSize": 12.5,
+    "labelFontSize": 12.5,
+    "contentFontSize": 12.5
+   },
+   "passed": true
+  },
+  {
+   "step": "invalid-port-rejected",
+   "facts": {
+    "dialogOpen": true,
+    "errorVisible": true,
+    "errorRect": {
+     "x": 456.0,
+     "y": 308.0,
+     "w": 95.74433898925781,
+     "h": 15.0
+    },
+    "remarksInitial": "真实窗口改后备注",
+    "portInitial": "99999",
+    "countUnchanged": true,
+    "remarksErrorRowGap": 10.0
+   },
+   "passed": true
+  },
+  {
+   "step": "cancel-reopen-original",
+   "facts": {
+    "expectedRemarks": "节点1",
+    "reopenRemarks": "节点1",
+    "reopenPort": "11980"
+   },
+   "passed": true
+  },
+  {
+   "step": "editor-default-dark",
+   "facts": {
+    "themeBrightness": "dark",
+    "baseFontSize": 12.5,
+    "labelFontSize": 12.5,
+    "contentFontSize": 12.5,
+    "labelGap": 12.0,
+    "controlHeight": 34.0,
+    "fieldGap": 10.0,
+    "groupGap": 16.0,
+    "saveInWindow": true,
+    "cancelInWindow": true,
+    "label": {
+     "x": 282.0,
+     "y": 190.0,
+     "w": 148.0,
+     "h": 18.0
+    },
+    "remarks": {
+     "x": 442.0,
+     "y": 182.0,
+     "w": 460.0,
+     "h": 34.0
+    },
+    "address": {
+     "x": 442.0,
+     "y": 226.0,
+     "w": 460.0,
+     "h": 34.0
+    },
+    "transportTitle": {
+     "x": 282.0,
+     "y": 496.0,
+     "w": 25.5,
+     "h": 18.0
+    },
+    "save": {
+     "x": 828.7999992370605,
+     "y": 674.0,
+     "w": 73.20000076293945,
+     "h": 32.0
+    },
+    "cancel": {
+     "x": 764.7999992370605,
+     "y": 674.0,
+     "w": 56.0,
+     "h": 32.0
+    },
+    "frame": {
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1184.0,
+     "h": 761.0
+    }
+   },
+   "passed": true
+  },
+  {
+   "step": "editor-large-font",
+   "facts": {
+    "themeBrightness": "light",
+    "baseFontSize": 20.0,
+    "labelFontSize": 20.0,
+    "contentFontSize": 20.0,
+    "labelGap": 12.0,
+    "controlHeight": 45.0,
+    "fieldGap": 10.0,
+    "groupGap": 15.999999999999886,
+    "saveInWindow": true,
+    "cancelInWindow": true,
+    "label": {
+     "x": 282.0,
+     "y": 205.6,
+     "w": 148.0,
+     "h": 29.0
+    },
+    "remarks": {
+     "x": 442.0,
+     "y": 197.6,
+     "w": 460.0,
+     "h": 45.0
+    },
+    "address": {
+     "x": 442.0,
+     "y": 252.6,
+     "w": 460.0,
+     "h": 45.00000000000003
+    },
+    "transportTitle": {
+     "x": 282.0,
+     "y": 575.8,
+     "w": 40.5,
+     "h": 29.0
+    },
+    "save": {
+     "x": 824.0857135227749,
+     "y": 674.0,
+     "w": 77.91428647722512,
+     "h": 32.0
+    },
+    "cancel": {
+     "x": 755.3142841884069,
+     "y": 674.0,
+     "w": 60.77142933436801,
+     "h": 32.0
+    },
+    "frame": {
+     "x": 0.0,
+     "y": 0.0,
+     "w": 1184.0,
+     "h": 761.0
+    }
+   },
+   "passed": true
+  }
+ ]
+}

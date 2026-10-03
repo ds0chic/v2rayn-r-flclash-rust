@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `action_from_value`, `action_value`, `default_core`, `dto`, `from_ex`, `hub`, `new`, `new`, `profile_to_node`, `with_hub`
+// These functions are ignored because they are not marked as `pub`: `action_from_value`, `action_value`, `default_core`, `dto`, `from_ex`, `hub`, `new`, `new`, `open_reserved`, `profile_to_node`, `with_hub`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NetHostTestSession`, `SpeedTestHub`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `close`, `download`, `open`, `real_ping`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `apply_speedtest_result_for_test`, `reset_speedtest_for_test`

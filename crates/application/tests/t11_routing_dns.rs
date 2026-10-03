@@ -387,3 +387,138 @@ fn builtin_routing_templates_parse() {
     >;
     let _ = DnsProfile::default();
 }
+
+// FIX-08 (SET-07/08/09): unknown rule keys inside the stored `RuleSet` text
+// survive a save/reopen, and a DTO-shaped re-save (extras stripped, as the
+// bridge DTOs carry none) restores them by rule id instead of wiping them.
+#[test]
+fn routing_save_preserves_unknown_rule_fields() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let engine =
+        AppEngine::open_with_runtime(dir.path(), Arc::new(application::NullRuntimeClient::new()))
+            .expect("open");
+    let mut draft = RoutingProfile {
+        remarks: "fix08".into(),
+        ..Default::default()
+    };
+    draft.rule_set = r#"[{"id":"r1","outbound_tag":"proxy","domain":["geosite:google"],"enabled":true,"remarks":"r1","rule_type":1,"future_rule_flag":true}]"#.into();
+    let saved = engine.save_routing(draft).expect("save");
+    let rules = saved.rules().expect("rules");
+    assert_eq!(
+        rules[0].extra.get("future_rule_flag"),
+        Some(&serde_json::json!(true))
+    );
+
+    // Reopen: the text column round-trips the unknown key.
+    drop(engine);
+    let reopened =
+        AppEngine::open_with_runtime(dir.path(), Arc::new(application::NullRuntimeClient::new()))
+            .expect("reopen");
+    let loaded = reopened
+        .get_routing(&saved.id)
+        .expect("get")
+        .expect("present");
+    let rules = loaded.rules().expect("rules");
+    assert_eq!(
+        rules[0].extra.get("future_rule_flag"),
+        Some(&serde_json::json!(true))
+    );
+
+    // DTO-shaped re-save: rebuild the profile the way `dto_to_profile` does
+    // (extras dropped, unmodified fields intact) and save again; the merge
+    // must restore the unknown key rather than wipe it.
+    let mut dto_shaped = loaded.clone();
+    dto_shaped.extra = Default::default();
+    let mut bare_rules = loaded.rules().expect("rules");
+    for rule in &mut bare_rules {
+        rule.extra = Default::default();
+    }
+    domain::routing::set_rules(&mut dto_shaped, &bare_rules).expect("set");
+    dto_shaped.remarks = "fix08-renamed".into();
+    let resaved = reopened.save_routing(dto_shaped).expect("resave");
+    assert_eq!(resaved.remarks, "fix08-renamed");
+    let rules = resaved.rules().expect("rules");
+    assert_eq!(
+        rules[0].extra.get("future_rule_flag"),
+        Some(&serde_json::json!(true))
+    );
+    assert_eq!(
+        rules[0].outbound_tag.as_deref(),
+        Some("proxy"),
+        "unmodified DTO fields survive"
+    );
+}
+
+// FIX-08 (SET-09): deleting every rule still saves (empty list persists with
+// rule_num 0), and a failed save leaves the stored row untouched.
+#[test]
+fn routing_save_empty_rule_list_persists() {
+    let engine = AppEngine::in_memory();
+    let saved = engine
+        .save_routing(profile("empty", &[rule("r1", "proxy", Some("geosite:x"))]))
+        .expect("save");
+    assert_eq!(saved.rule_num, 1);
+
+    // The `save_routing_rules` equivalent: replace the whole list with [].
+    let mut cleared = engine.get_routing(&saved.id).expect("get").expect("row");
+    domain::routing::set_rules(&mut cleared, &[]).expect("clear");
+    let resaved = engine.save_routing(cleared).expect("save empty");
+    assert_eq!(resaved.rule_num, 0);
+    assert!(resaved.rules().expect("rules").is_empty());
+    let reloaded = engine.get_routing(&saved.id).expect("get").expect("row");
+    assert_eq!(reloaded.rule_num, 0);
+
+    // A failed save (empty remarks) does not touch the stored row.
+    let mut bad = reloaded.clone();
+    bad.remarks = "   ".into();
+    assert!(engine.save_routing(bad).is_err());
+    let kept = engine.get_routing(&saved.id).expect("get").expect("row");
+    assert_eq!(kept.remarks, "empty");
+    assert_eq!(kept.rule_num, 0);
+}
+
+// FIX-08: a whole-tree settings save keeps `SimpleDNSItem.global_fake_ip`
+// (explicit false, not just default true) and unknown settings keys.
+#[test]
+fn settings_save_preserves_simple_dns_global_fake_ip_and_extra() {
+    let engine = AppEngine::in_memory();
+    let loaded = engine.load_settings().expect("load");
+    let mut settings = loaded.settings;
+    settings.simple_dns_item.global_fake_ip = Some(false);
+    settings
+        .simple_dns_item
+        .extra
+        .insert("FutureDnsFlag".into(), serde_json::json!(7));
+    settings.gui_item.auto_run = true;
+    engine
+        .save_settings(settings, loaded.revision)
+        .expect("save settings");
+
+    let reloaded = engine.load_settings().expect("reload");
+    assert_eq!(
+        reloaded.settings.simple_dns_item.global_fake_ip,
+        Some(false)
+    );
+    assert_eq!(
+        reloaded.settings.simple_dns_item.extra.get("FutureDnsFlag"),
+        Some(&serde_json::json!(7))
+    );
+
+    // An unrelated edit (no SimpleDNS fields touched) keeps both.
+    let loaded = reloaded;
+    let mut settings = loaded.settings.clone();
+    settings.gui_item.tray_menu_servers_limit = 42;
+    engine
+        .save_settings(settings, loaded.revision)
+        .expect("save unrelated");
+    let reloaded = engine.load_settings().expect("reload");
+    assert_eq!(
+        reloaded.settings.simple_dns_item.global_fake_ip,
+        Some(false)
+    );
+    assert_eq!(
+        reloaded.settings.simple_dns_item.extra.get("FutureDnsFlag"),
+        Some(&serde_json::json!(7))
+    );
+    assert_eq!(reloaded.settings.gui_item.tray_menu_servers_limit, 42);
+}

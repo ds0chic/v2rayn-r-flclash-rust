@@ -1,0 +1,99 @@
+{
+  "applicationCommit": "FIX-03",
+  "recordingComplete": true,
+  "failures": [],
+  "records": [
+    {
+      "step": "leaves-seeded",
+      "passed": true,
+      "actual": {
+        "leaf1": "p-18db03b6544c6dbc-0",
+        "leaf2": "p-18db03b6548e5150-1"
+      }
+    },
+    {
+      "step": "specials-seeded",
+      "passed": true,
+      "actual": {
+        "customId": "p-18db03b654ebc4c0-2",
+        "groupId": "p-18db03b65516e240-3"
+      }
+    },
+    {
+      "step": "custom-edit-opens-custom-editor",
+      "passed": true,
+      "actual": {
+        "customEditor": 1,
+        "genericEditor": 0
+      }
+    },
+    {
+      "step": "custom-save-keeps-text-and-extras",
+      "passed": true,
+      "actual": {
+        "remarks": "fix03-custom-renamed",
+        "preSocksPort": 11820,
+        "customConfigText": "{\"tag\": \"proxy\"}",
+        "futureFlag": true,
+        "futureTransport": 7,
+        "headerType": "none"
+      }
+    },
+    {
+      "step": "custom-reopen-same-editor-and-values",
+      "passed": true,
+      "actual": {
+        "reopenRemarks": "fix03-custom-renamed",
+        "reopenAddress": "fix03-custom.yaml"
+      }
+    },
+    {
+      "step": "custom-cancel-keeps-database",
+      "passed": true,
+      "actual": {
+        "remarks": "fix03-custom-renamed"
+      }
+    },
+    {
+      "step": "group-edit-opens-group-editor",
+      "passed": true,
+      "actual": {
+        "groupEditor": 1,
+        "genericEditor": 0
+      }
+    },
+    {
+      "step": "group-editor-shows-ordered-children",
+      "passed": true,
+      "actual": {
+        "leaf1Tile": 1,
+        "leaf2Tile": 1
+      }
+    },
+    {
+      "step": "group-save-keeps-children-mode-filter",
+      "passed": true,
+      "actual": {
+        "remarks": "fix03-group-renamed",
+        "childItems": "p-18db03b6544c6dbc-0,p-18db03b6548e5150-1",
+        "multipleLoad": 3,
+        "filter": "^fix03",
+        "groupType": "PolicyGroup"
+      }
+    },
+    {
+      "step": "group-reopen-same-editor-and-children",
+      "passed": true,
+      "actual": {
+        "groupEditor": 1
+      }
+    },
+    {
+      "step": "group-cancel-keeps-database",
+      "passed": true,
+      "actual": {
+        "remarks": "fix03-group-renamed"
+      }
+    }
+  ]
+}

@@ -49,6 +49,12 @@ abstract class BridgePort {
 
   c.SaveProfileResult saveProfile(c.ProfileDto draft, int expectedRevision);
 
+  /// Import-pipeline save: empty remarks/address/port are valid (FIX-04).
+  c.SaveProfileResult saveImportedProfile(
+    c.ProfileDto draft,
+    int expectedRevision,
+  );
+
   c.DeleteProfilesResult deleteProfiles(List<String> ids);
 
   c.CopyProfilesResult copyProfiles(List<String> ids);
@@ -349,6 +355,15 @@ class FrbBridgePort implements BridgePort {
         draft: draft,
         expectedRevision: BigInt.from(expectedRevision),
       );
+
+  @override
+  c.SaveProfileResult saveImportedProfile(
+    c.ProfileDto draft,
+    int expectedRevision,
+  ) => engine.saveImportedProfile(
+    draft: draft,
+    expectedRevision: BigInt.from(expectedRevision),
+  );
 
   @override
   c.DeleteProfilesResult deleteProfiles(List<String> ids) =>
@@ -972,6 +987,40 @@ class SyntheticBridgePort implements BridgePort {
           code: 'E_FIELD_REQUIRED',
           messageKey: 'error.remarks_required',
           fieldPath: 'remarks',
+          retryable: false,
+        ),
+      );
+    }
+    var saved = draft;
+    if (draft.indexId.trim().isEmpty) {
+      saved = _withId(draft, 'syn-new-${_newId++}');
+    }
+    final index = _profiles.indexWhere((p) => p.indexId == saved.indexId);
+    if (index >= 0) {
+      _profiles[index] = saved;
+    } else {
+      _profiles.add(saved);
+    }
+    _revision += 1;
+    return c.SaveProfileResult(
+      ok: true,
+      profile: saved,
+      newRevision: BigInt.from(_revision),
+    );
+  }
+
+  @override
+  c.SaveProfileResult saveImportedProfile(
+    c.ProfileDto draft,
+    int expectedRevision,
+  ) {
+    _ensureProfiles();
+    if (expectedRevision != _revision) {
+      return const c.SaveProfileResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_REVISION_STALE',
+          messageKey: 'error.revision_stale',
           retryable: false,
         ),
       );
@@ -1940,7 +1989,70 @@ class SyntheticBridgePort implements BridgePort {
     } else {
       _routings.add(saved);
     }
+    // Mirror the engine: the stored rule list follows the saved RuleSet text,
+    // so the single-save path (scheme + rules in one call) reads back.
+    _rules[saved.id] = _parseRuleSet(saved.ruleSet);
     return routing.RoutingDtoResult(ok: true, item: saved);
+  }
+
+  /// Best-effort parse of a stored `RuleSet` array (domain serde shape).
+  /// Unparseable text yields an empty draft list, never a throw.
+  List<routing.RoutingRuleDto> _parseRuleSet(String ruleSet) {
+    try {
+      final decoded = jsonDecode(ruleSet);
+      if (decoded is! List) return const <routing.RoutingRuleDto>[];
+      final rules = <routing.RoutingRuleDto>[];
+      for (final entry in decoded) {
+        if (entry is! Map) continue;
+        final map = Map<String, Object?>.from(entry);
+        List<String> strings(Object? value) {
+          if (value is List) {
+            return value.map((e) => e.toString()).toList();
+          }
+          return const <String>[];
+        }
+
+        String? text(Object? value) {
+          if (value == null) return null;
+          final str = value.toString();
+          return str.isEmpty ? null : str;
+        }
+
+        final id = map['id']?.toString() ?? '';
+        if (id.isEmpty) continue;
+        final inbound = strings(map['inbound_tag']);
+        final ip = strings(map['ip']);
+        final domain = strings(map['domain']);
+        final protocol = strings(map['protocol']);
+        final process = strings(map['process']);
+        final ruleType = map['rule_type'];
+        rules.add(
+          routing.RoutingRuleDto(
+            id: id,
+            ruleKind: text(map['rule_kind']),
+            port: text(map['port']),
+            network: text(map['network']),
+            inboundTag: inbound,
+            hasInboundTag: inbound.isNotEmpty,
+            outboundTag: text(map['outbound_tag']),
+            ip: ip,
+            hasIp: ip.isNotEmpty,
+            domain: domain,
+            hasDomain: domain.isNotEmpty,
+            protocol: protocol,
+            hasProtocol: protocol.isNotEmpty,
+            process: process,
+            hasProcess: process.isNotEmpty,
+            enabled: map['enabled'] is bool ? map['enabled'] as bool : true,
+            remarks: text(map['remarks']),
+            ruleType: ruleType is num ? ruleType.toInt() : null,
+          ),
+        );
+      }
+      return rules;
+    } catch (_) {
+      return const <routing.RoutingRuleDto>[];
+    }
   }
 
   @override
@@ -2196,7 +2308,29 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   dns.SimpleDnsDtoResult saveSimpleDns(dns.SimpleDnsDto draft, int revision) {
-    _simpleDns = draft;
+    // Mirror the engine fix: a null globalFakeIp means "not edited here"
+    // (this window has no such control), so the stored value survives.
+    final merged = dns.SimpleDnsDto(
+      useSystemHosts: draft.useSystemHosts,
+      addCommonHosts: draft.addCommonHosts,
+      fakeIp: draft.fakeIp,
+      globalFakeIp: draft.globalFakeIp ?? _simpleDns.globalFakeIp,
+      fakeIpRange: draft.fakeIpRange,
+      blockBindingQuery: draft.blockBindingQuery,
+      blockAaaaQuery: draft.blockAaaaQuery,
+      directDns: draft.directDns,
+      remoteDns: draft.remoteDns,
+      bootstrapDns: draft.bootstrapDns,
+      strategy4Freedom: draft.strategy4Freedom,
+      strategy4Proxy: draft.strategy4Proxy,
+      strategy4ProxyDial: draft.strategy4ProxyDial,
+      serveStale: draft.serveStale,
+      parallelQuery: draft.parallelQuery,
+      hosts: draft.hosts,
+      directExpectedIps: draft.directExpectedIps,
+      enableHappyEyeballs: draft.enableHappyEyeballs,
+    );
+    _simpleDns = merged;
     _settingsRevision += 1;
     return dns.SimpleDnsDtoResult(
       ok: true,

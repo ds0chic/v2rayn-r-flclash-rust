@@ -506,6 +506,31 @@ pub fn save_profile(mut draft: ProfileDto, expected_revision: u64) -> SaveProfil
     }
 }
 
+/// `save_imported_profile` — import-pipeline persistence (FIX-04): accepts the
+/// empty remarks/address/port that share URIs and inner `v2rayn://` payloads
+/// legitimately carry, unlike the editor draft contract of `save_profile`.
+#[frb(sync)]
+pub fn save_imported_profile(mut draft: ProfileDto, expected_revision: u64) -> SaveProfileResult {
+    if draft.index_id.trim().is_empty() {
+        draft.index_id = application::new_index_id();
+    }
+    let profile = dto_to_profile(draft);
+    match engine().save_imported_profile(profile, DesiredRevision::new(expected_revision)) {
+        Ok((saved, new_revision)) => SaveProfileResult {
+            ok: true,
+            profile: Some(profile_to_dto(saved)),
+            new_revision: Some(new_revision.get()),
+            error: None,
+        },
+        Err(e) => SaveProfileResult {
+            ok: false,
+            profile: None,
+            new_revision: None,
+            error: Some(error_dto(e)),
+        },
+    }
+}
+
 /// `delete_profiles` — delete a selection by stable id set.
 #[frb(sync)]
 pub fn delete_profiles(ids: Vec<String>) -> DeleteProfilesResult {
@@ -926,6 +951,37 @@ mod tests {
         assert!(json.get("runtime_state").is_some());
         assert!(json.get("runtime_pid").is_some());
         assert!(json.get("profile_count").is_some());
+    }
+
+    #[test]
+    fn save_imported_profile_accepts_empty_remarks_and_address() {
+        let _guard = engine_test_lock();
+        let mut draft = draft_dto();
+        draft.index_id = String::new();
+        draft.remarks = String::new();
+        draft.address = String::new();
+        draft.port = 0;
+        let result = save_imported_profile(draft, profile_revision());
+        assert!(
+            result.ok,
+            "import save rejected: {:?}",
+            result.error.map(|e| e.code)
+        );
+        let saved = result.profile.expect("saved profile");
+        assert!(!saved.index_id.is_empty(), "stable id must be assigned");
+        assert_eq!(saved.remarks, "");
+        assert!(get_profile(saved.index_id.clone()).is_some());
+
+        // The editor draft contract still requires remarks.
+        let mut editor = draft_dto();
+        editor.index_id = String::new();
+        editor.remarks = String::new();
+        let rejected = save_profile(editor, profile_revision());
+        assert!(!rejected.ok, "editor save must keep remarks required");
+        assert_eq!(
+            rejected.error.expect("editor error").code,
+            "E_FIELD_REQUIRED"
+        );
     }
 
     /// Mirror of the DTO into a serializable shape for the assertion above.

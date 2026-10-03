@@ -1,0 +1,15 @@
+{
+  "IndexId": "fixture-group-1",
+  "ConfigType": 101,
+  "CoreType": 2,
+  "ConfigVersion": 4,
+  "Remarks": "合成策略组",
+  "Port": 0,
+  "ProtoExtraObj": {
+    "GroupType": "PolicyGroup",
+    "SubChildItems": "self",
+    "ChildItems": "fixture-vless-1",
+    "Filter": ".*",
+    "MultipleLoad": 3
+  }
+}

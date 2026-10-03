@@ -201,38 +201,87 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        // T18b: a saved core-affecting change invalidates the running plan
-        // until re-applied; the button applies the real plan immediately.
-        if (state.needsCoreRestart)
-          FilledButton.tonal(
-            key: const ValueKey('settings-apply'),
-            onPressed: () {
-              Navigator.of(context).pop();
-              ref.read(runtimeControllerProvider.notifier).applyActive();
-            },
-            child: const Text('应用'),
-          ),
-        FilledButton(onPressed: _save, child: const Text('保存')),
+        // FIX-08: 应用 saves the visible draft first, then applies the real
+        // plan. A save error keeps the window open with the error shown and
+        // never reports success or applies a stale document.
+        FilledButton.tonal(
+          key: const ValueKey('settings-apply'),
+          onPressed: () => _save(applyAfter: true),
+          child: const Text('应用'),
+        ),
+        FilledButton(
+          key: const ValueKey('settings-save'),
+          onPressed: () => _save(),
+          child: const Text('保存'),
+        ),
       ],
     );
   }
 
-  void _save() {
+  /// Upstream `OptionSettingViewModel.SaveSettingAsync` rejects a non-numeric
+  /// or out-of-range local port before touching storage.
+  String? _validateDraft() {
+    final inbound = _inboundListener();
+    final port = (inbound['LocalPort'] as num?)?.toInt();
+    if (port == null || port <= 0 || port >= 65536) {
+      return '请填写本地监听端口';
+    }
+    return null;
+  }
+
+  void _save({bool applyAfter = false}) {
+    final localError = _validateDraft();
+    if (localError != null) {
+      setState(() => _error = localError);
+      return;
+    }
+    final previousAutoRun = _loadedAutoRun();
     final result = ref
         .read(settingsControllerProvider.notifier)
         .saveDocument(_draft);
     if (result.ok) {
+      // Upstream writes autostart only after the config save succeeded, and
+      // only the saved value takes effect. Skip the host write entirely when
+      // the value did not change (evidence runs must not touch the Run key).
+      final savedAutoRun = _bool(_group('GuiItem'), 'AutoRun');
+      if (savedAutoRun != previousAutoRun) {
+        _syncAutostart(savedAutoRun);
+      }
       // Core-affecting fields stay dormant until the plan is re-applied:
-      // keep the dialog open so the 未应用 hint + 应用 entry are visible.
-      if (result.restartCoreFields.isNotEmpty) {
+      // keep the dialog open so the 未应用 hint + 应用 entry are visible,
+      // unless this *is* the apply path.
+      if (result.restartCoreFields.isNotEmpty && !applyAfter) {
         setState(() {});
         return;
       }
       if (!mounted) return;
       Navigator.of(context).pop();
+      if (applyAfter) {
+        ref.read(runtimeControllerProvider.notifier).applyActive();
+      }
     } else {
       setState(() => _error = result.error?.messageKey ?? 'error.save_failed');
     }
+  }
+
+  bool _loadedAutoRun() {
+    final document = ref.read(settingsControllerProvider).document;
+    final gui = document['GuiItem'];
+    if (gui is Map<String, dynamic>) return gui['AutoRun'] == true;
+    return false;
+  }
+
+  /// Write/clear the Run key for the saved value and report honestly.
+  /// Only runs after a successful settings save, never on toggle or cancel.
+  void _syncAutostart(bool enabled) {
+    final ok = _applyAutostartWrite(enabled);
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(ok ? '开机自启已更新' : '开机自启写入失败'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   // -- helpers -----------------------------------------------------------
@@ -312,6 +361,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '入站 (LAN)',
         child: <Widget>[
           SettingsNumberField(
+            key: const ValueKey('settings-local-port'),
             label: '本地端口 (LocalPort)',
             value: _int(inbound, 'LocalPort'),
             onChanged: (v) => _set('Inbound', 'LocalPort', v),
@@ -485,34 +535,19 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _bool(ui, 'EnableDragDropSort'),
             onChanged: (v) => _set('UiItem', 'EnableDragDropSort', v),
           ),
-          // F-DESKTOP-003: the toggle persists `GuiItem.AutoRun` and, on an
-          // explicit user action, writes/clears the real Run key. Never done
-          // from an automated/test path.
+          // F-DESKTOP-003: the toggle only edits the draft. The real Run key
+          // is written after a successful save (upstream `SaveSettingAsync`
+          // runs `AutoStartupHandler.UpdateTask` after `SaveConfig`), so
+          // Cancel never touches host autostart.
           SettingsCheckbox(
             key: const ValueKey('autorun-toggle'),
             label: '开机自启 (AutoRun)',
             value: _bool(gui, 'AutoRun'),
-            onChanged: (v) {
-              _set('GuiItem', 'AutoRun', v);
-              _applyAutostart(v);
-            },
+            onChanged: (v) => _set('GuiItem', 'AutoRun', v),
           ),
         ],
       ),
     ]);
-  }
-
-  /// Write the Run key for the current checkbox state and report the result
-  /// honestly (the real write only happens here, on a user action).
-  void _applyAutostart(bool enabled) {
-    final ok = _applyAutostartWrite(enabled);
-    if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(ok ? '开机自启已更新' : '开机自启写入失败'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   Widget _systemProxyTab() {

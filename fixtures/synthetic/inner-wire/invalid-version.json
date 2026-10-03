@@ -1,0 +1,8 @@
+{
+  "IndexId": "fixture-bad-version",
+  "ConfigType": 5,
+  "ConfigVersion": 3,
+  "Remarks": "旧版本应被拒绝",
+  "Address": "node.example.invalid",
+  "Port": 11981
+}

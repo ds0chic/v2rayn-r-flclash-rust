@@ -1,0 +1,51 @@
+{
+  "recordingComplete": true,
+  "mode": "apply",
+  "applyRuntimeState": "Stopped",
+  "applyRuntimeError": "error.no_active_profile",
+  "failures": [],
+  "checks": [
+    {
+      "step": "settings-window-open",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "step": "baseline-read",
+      "passed": true,
+      "actual": {
+        "port": 10808,
+        "revision": 0
+      }
+    },
+    {
+      "step": "apply-window-closed",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "step": "apply-saved-port",
+      "passed": true,
+      "actual": {
+        "savedPort": 11822,
+        "expected": 11822
+      }
+    },
+    {
+      "step": "apply-revision-bumped",
+      "passed": true,
+      "actual": {
+        "revision": 1,
+        "beforeRevision": 0
+      }
+    },
+    {
+      "step": "apply-no-crash",
+      "passed": true,
+      "actual": {
+        "runtimeState": "Stopped",
+        "runtimeError": "error.no_active_profile"
+      }
+    }
+  ]
+}

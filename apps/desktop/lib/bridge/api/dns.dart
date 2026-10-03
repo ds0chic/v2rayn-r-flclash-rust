@@ -30,6 +30,11 @@ SimpleDnsDtoResult loadSimpleDns() =>
 
 /// `save_simple_dns` — whole-tree save with the SimpleDNS group replaced.
 /// `expected_revision` is the settings revision from `load_simple_dns`.
+///
+/// The DNS window has no `GlobalFakeIp` control (neither does upstream's),
+/// so a `None` here means "not edited", not "clear": the stored value is
+/// kept. Stored unknown keys (`extra`) are likewise preserved because this
+/// DTO has no channel for them.
 SimpleDnsDtoResult saveSimpleDns({
   required SimpleDnsDto draft,
   required BigInt expectedRevision,

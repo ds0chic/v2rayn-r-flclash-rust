@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/dns.dart' as d;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/dns_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 
@@ -262,10 +265,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
         ),
         TextButton(
           key: const ValueKey('dns-apply'),
-          onPressed: () {
-            Navigator.pop(context);
-            ref.read(runtimeControllerProvider.notifier).applyActive();
-          },
+          onPressed: () => _save(applyAfter: true),
           child: const Text('应用'),
         ),
         FilledButton(
@@ -457,9 +457,23 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     );
   }
 
+  /// Fill the tab's text fields from the embedded template without persisting
+  /// anything (upstream `ImportDefConfig4V2ray/Singbox` only sets window
+  /// properties). Cancel discards the preview; only Save persists.
   void _importDefault(CoreType core) {
-    ref.read(dnsControllerProvider.notifier).importDefault(core);
-    _fillFromState();
+    final bridge = ref.read(bridgePortProvider);
+    if (core == CoreType.singBox) {
+      setState(() {
+        _sboxNormal.text = bridge.defaultDnsText('singbox');
+        _sboxTun.text = bridge.defaultDnsText('tun');
+      });
+    } else {
+      final text = bridge.defaultDnsText('v2ray');
+      setState(() {
+        _xrayNormal.text = text;
+        _xrayTun.text = text;
+      });
+    }
   }
 
   void _applyPreset() {
@@ -467,12 +481,74 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     _fillFromState();
   }
 
-  void _save() {
+  /// Mirror the engine's custom-DNS validation (upstream `SaveSettingAsync`
+  /// validates every text before the first save): Xray texts must be empty,
+  /// brace-free, or JSON objects with a `servers` key; sing-box texts must
+  /// parse with a non-empty `servers` list whose entries all set `type`.
+  /// Returns an error message, or null when all texts are acceptable.
+  String? _validateCustomTexts() {
+    for (final text in [_xrayNormal.text, _xrayTun.text]) {
+      final error = _validateXrayText(text);
+      if (error != null) return error;
+    }
+    for (final text in [_sboxNormal.text, _sboxTun.text]) {
+      final error = _validateSingboxText(text);
+      if (error != null) return error;
+    }
+    return null;
+  }
+
+  String? _validateXrayText(String text) {
+    if (text.trim().isEmpty) return null;
+    if (!text.contains('{') && !text.contains('}')) return null;
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map && decoded.containsKey('servers')) return null;
+    } catch (_) {}
+    return '请填写正确的 DNS 文本';
+  }
+
+  String? _validateSingboxText(String text) {
+    if (text.trim().isEmpty) return null;
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map) {
+        final servers = decoded['servers'];
+        if (servers is List &&
+            servers.isNotEmpty &&
+            servers.every(
+              (s) =>
+                  s is Map &&
+                  (s['type']?.toString().trim().isNotEmpty ?? false),
+            )) {
+          return null;
+        }
+      }
+    } catch (_) {}
+    return '请填写正确的 DNS 文本';
+  }
+
+  /// Persist the visible draft: SimpleDNS first, then both per-core rows.
+  /// All custom texts are validated before the first write, so a bad second
+  /// text never leaves a half-saved first stage behind. Errors keep the
+  /// window open without a success report; `applyAfter` additionally applies
+  /// the real plan after a successful save-and-close.
+  void _save({bool applyAfter = false}) {
+    final invalid = _validateCustomTexts();
+    if (invalid != null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(invalid)));
+      return;
+    }
     final controller = ref.read(dnsControllerProvider.notifier);
+    final current = ref.read(dnsControllerProvider).simple;
     final simple = d.SimpleDnsDto(
       useSystemHosts: _useSystemHosts,
       addCommonHosts: _addCommonHosts,
       fakeIp: _fakeIp,
+      // This window has no GlobalFakeIp control (upstream neither); pass the
+      // stored value through so an unrelated edit never clears it (SET-11).
+      globalFakeIp: current?.globalFakeIp,
       fakeIpRange: _fakeIpRange.text.trim().isEmpty
           ? null
           : _fakeIpRange.text.trim(),
@@ -565,6 +641,10 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
         return;
       }
     }
-    if (mounted) Navigator.pop(context);
+    if (!mounted) return;
+    Navigator.pop(context);
+    if (applyAfter) {
+      ref.read(runtimeControllerProvider.notifier).applyActive();
+    }
   }
 }

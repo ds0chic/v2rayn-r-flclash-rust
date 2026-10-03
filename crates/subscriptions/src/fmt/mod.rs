@@ -12,6 +12,7 @@ pub mod trojan;
 pub mod tuic;
 pub mod vless;
 pub mod vmess;
+pub mod wire;
 pub mod wireguard;
 
 use domain::ConfigType;
@@ -167,6 +168,18 @@ pub fn to_uri(item: &domain::Profile) -> Result<String, SubError> {
 /// Returns the newline-joined URI list, or `None` when nothing is exportable.
 pub fn to_inner_uri(items: &[domain::Profile]) -> Option<String> {
     inner::emit(items)
+}
+
+/// [`to_inner_uri`] with a resolver for file-backed `Outbound` addresses.
+///
+/// The loader maps an `Address` file path to its parsed JSON content; the
+/// pure [`to_inner_uri`] skips such nodes, like upstream's `null` when the
+/// file is missing.
+pub fn to_inner_uri_with_outbound_loader(
+    items: &[domain::Profile],
+    outbound_loader: wire::OutboundLoader<'_>,
+) -> Option<String> {
+    inner::emit_with(items, outbound_loader)
 }
 
 /// Best-effort identification of a single line's format.

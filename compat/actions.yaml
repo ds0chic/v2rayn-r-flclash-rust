@@ -587,6 +587,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/main_shell.dart
   test_ids: [t17_menu_structure_test]
   status: implemented
+  notes: FIX-04（docs/tasks/FIX-04.md）：v2rayn:// 内部 URI 经同一剪贴板/文本导入入口解析（subs_actions 提示含 v2rayn://；importFromText→parse inner），真桥测试 ux_parity_fix04_inner_test.dart 以 PascalCase 合成 URI 验证导入→落库→重开。空备注/地址的剪贴板直写仍需新增持久化桥接函数（缺口见任务卡）。
 - id: ACT-MAIN-017
   name: 从屏幕二维码扫描导入
   domain: main-menu
@@ -1695,7 +1696,10 @@ items:
   status: implemented
   notes: UX-CTX-01：右键→编辑→取消在真实窗口复验（docs/evidence/UX-CTX-01/editor，
     full-f3）。菜单打开时快照目标 ID，命令执行前经 restoreContextTargets 重新绑定，
-    目标失效则关闭菜单不取其他行。未改菜单条目/顺序，未改本动作语义。
+    目标失效则关闭菜单不取其他行。未改菜单条目/顺序，未改本动作语义。FIX-03 已修
+    （implemented）：编辑入口按 configType 分派专用编辑器后再执行本动作流程，
+    Custom/PolicyGroup 真实窗口保存/重开/取消 11/11 通过
+    （docs/evidence/UX-PARITY-FIX-03/observations.json）。
 - id: ACT-PROF-002
   name: 删除选中节点
   domain: profiles
@@ -2426,6 +2430,7 @@ items:
   implementation_location: null
   test_ids: []
   status: identified
+  notes: FIX-04（docs/tasks/FIX-04.md）：右键导出入口已存在且接线正确（context_menu exportInner→profiles_table→exportProfiles kind=inner→render_export→to_inner_uri_with_outbound_loader）；真桥验证导出→再导入往返通过。文件型 Outbound 经新增 loader 读文件，缺文件时跳过（与上游 null 一致）。状态提升留根代理判定。
 - id: ACT-PROF-027
   name: 新增订阅
   domain: subscriptions
@@ -3742,9 +3747,11 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:59
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:110
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/tasks/FIX-08.md
+  implementation_location: apps/desktop/lib/features/routing/routing_windows.dart (strategy row reads/writes RoutingBasicItem via saveGroup)
+  test_ids: [fix08_routing_draft_test]
+  notes: 'FIX-08: 顶部域名策略读写全局 RoutingBasicItem（SaveSettingsAsync 语义），不再误写选中方案；sing-box 分支同理。'
+  status: implemented
 - id: ACT-ROUTE-006
   name: 路由设置-全选规则集
   domain: routing
@@ -3823,9 +3830,11 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:45
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:124
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/tasks/FIX-08.md
+  implementation_location: apps/desktop/lib/features/routing/routing_controller.dart (newRuleId/newRuleDraft) + routing_windows.dart (draft entry)
+  test_ids: [fix08_routing_draft_test, fix08_draft_unit_test]
+  notes: 'FIX-08: 新规则进入草稿即分配唯一 ID 并跨编辑保持稳定，多条新规则不再互相命中；详情保存透传 ruleKind。'
+  status: implemented
 - id: ACT-RR-002
   name: 路由规则-删除规则
   domain: routing
@@ -3988,9 +3997,11 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:72
   - v2rayN/v2rayN/Views/RoutingRuleSettingWindow.xaml.cs:109
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/tasks/FIX-08.md
+  implementation_location: apps/desktop/lib/features/routing/routing_windows.dart (_move pure draft reorder; row buttons moved out of the double-tap arena)
+  test_ids: [fix08_routing_draft_test]
+  notes: 'FIX-08: 移动只改同一草稿列表，不再提前写库/重载丢弃未保存修改；另修行内 T/U/D/B 按钮被行双击手势竞技场吞掉导致无响应的 latent 缺陷（按钮移出 InkWell）。'
+  status: implemented
 - id: ACT-RR-008
   name: 路由规则-编辑规则双击
   domain: routing
@@ -4069,9 +4080,11 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:89
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:224
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/tasks/FIX-08.md
+  implementation_location: apps/desktop/lib/features/routing/routing_windows.dart (_save single save_routing with embedded RuleSet)
+  test_ids: [fix08_routing_draft_test, t11_routing_dns.rs::routing_save_empty_rule_list_persists]
+  notes: 'FIX-08: 方案+规则一次 save_routing 提交；删空列表可保存（rule_num 0）；失败不清窗口不报成功。上游保存时重发全部规则 Id，本实现保持草稿 Id 稳定（行为差异常注任务卡）。'
+  status: implemented
 - id: ACT-RR-011
   name: 规则详情-保存
   domain: routing
@@ -4151,9 +4164,11 @@ items:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:47
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:106
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:125
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/tasks/FIX-08.md
+  implementation_location: apps/desktop/lib/features/routing/dns_window.dart (_save validates-then-saves + GlobalFakeIp passthrough; _importDefault preview-only) + crates/bridge_api/src/api/dns.rs (save_simple_dns merge)
+  test_ids: [fix08_dns_draft_test, api::dns::fix08_tests]
+  notes: 'FIX-08: 导入默认只预览不落盘，取消无残留；保存前先校验全部自定义文本，非法则任一阶段都不写且窗口不关；GlobalFakeIp 无控件，普通保存透传+后端合并保留（上游 SaveSettingAsync 不碰该字段，LoadConfig 缺省 true）。导入/预设完整流程另卡 FIX-08B。'
+  status: implemented
 - id: ACT-DNS-002
   name: DNS 设置-导入默认 V2ray DNS
   domain: dns
@@ -4258,9 +4273,14 @@ items:
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:129
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:291
   - v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:308
-  implementation_location: null
-  test_ids: []
-  status: identified
+  - docs/evidence/UX-PARITY-FIX-08/cancel-observations.json
+  - docs/evidence/UX-PARITY-FIX-08/apply-observations.json
+  - docs/evidence/UX-PARITY-FIX-08/reopen-observations.json
+  - docs/tasks/FIX-08.md
+  implementation_location: apps/desktop/lib/features/settings/option_setting_window.dart (_save/applyAfter + draft AutoRun + port validation)
+  test_ids: [fix08_option_apply_test, fix08_option_cancel_test, fix08_option_error_test]
+  notes: 'FIX-08: 应用先存眼前草稿再 applyActive，取消/关闭不落盘（含 AutoRun 只在保存成功后写 Run 键），非法端口报错不关闭不报成功；改参->取消->重开无变化、改参->应用->重开生效已在真实窗口验证。'
+  status: implemented
 - id: ACT-OPT-002
   name: 参数设置-浏览自定义 PAC/脚本
   domain: settings

@@ -85,7 +85,8 @@ void main() {
     expect(find.byKey(const ValueKey('group-editor')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-remarks')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-multiple-load')), findsOneWidget);
-    expect(find.byKey(const ValueKey('group-add-select')), findsOneWidget);
+    expect(find.byKey(const ValueKey('group-pick-open')), findsOneWidget);
+    expect(find.byKey(const ValueKey('group-child-count')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-sub-child')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-filter')), findsOneWidget);
   });
@@ -130,18 +131,13 @@ void main() {
       find.byKey(const ValueKey('group-remarks')),
       'my group',
     );
-    // Add both children (dropdown resets after each add).
-    await tester.tap(find.byKey(const ValueKey('group-add-select')));
+    // Multi-select picker: check both nodes, confirm appends in list order.
+    await tester.tap(find.byKey(const ValueKey('group-pick-open')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('HK-1 [vless]').last);
+    expect(find.byKey(const ValueKey('group-picker')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('group-pick-select-all')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('group-add')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('group-add-select')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('US-1 [vless]').last);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('group-add')));
+    await tester.tap(find.byKey(const ValueKey('group-pick-ok')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('group-child-n1')), findsOneWidget);
     expect(find.byKey(const ValueKey('group-child-n2')), findsOneWidget);
@@ -160,6 +156,23 @@ void main() {
     expect(saved.single.protoExtra.childItems, 'n2');
     expect(saved.single.remarks, 'my group');
     expect(find.byKey(const ValueKey('group-editor')), findsNothing);
+  });
+
+  testWidgets('group editor picker cancel adds nothing', (tester) async {
+    final saved = <c.ProfileDto>[];
+    await _open(tester, saved: saved);
+    await tester.enterText(
+      find.byKey(const ValueKey('group-remarks')),
+      'my group',
+    );
+    await tester.tap(find.byKey(const ValueKey('group-pick-open')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('group-pick-select-all')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('group-pick-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('group-child-n1')), findsNothing);
+    expect(find.byKey(const ValueKey('group-child-n2')), findsNothing);
   });
 
   testWidgets('group editor keeps sub-child source and filter', (tester) async {

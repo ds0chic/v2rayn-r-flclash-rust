@@ -230,6 +230,11 @@ pub fn load_simple_dns() -> SimpleDnsDtoResult {
 
 /// `save_simple_dns` — whole-tree save with the SimpleDNS group replaced.
 /// `expected_revision` is the settings revision from `load_simple_dns`.
+///
+/// The DNS window has no `GlobalFakeIp` control (neither does upstream's),
+/// so a `None` here means "not edited", not "clear": the stored value is
+/// kept. Stored unknown keys (`extra`) are likewise preserved because this
+/// DTO has no channel for them.
 #[frb(sync)]
 pub fn save_simple_dns(draft: SimpleDnsDto, expected_revision: u64) -> SimpleDnsDtoResult {
     let mut settings = match engine().load_settings() {
@@ -243,7 +248,15 @@ pub fn save_simple_dns(draft: SimpleDnsDto, expected_revision: u64) -> SimpleDns
             };
         }
     };
-    settings.simple_dns_item = dto_to_simple(draft);
+    let stored = settings.simple_dns_item.clone();
+    let mut simple = dto_to_simple(draft);
+    if simple.global_fake_ip.is_none() {
+        simple.global_fake_ip = stored.global_fake_ip;
+    }
+    if simple.extra.is_empty() {
+        simple.extra = stored.extra;
+    }
+    settings.simple_dns_item = simple;
     match engine().save_settings(settings, expected_revision) {
         Ok(outcome) => SimpleDnsDtoResult {
             ok: true,
@@ -300,5 +313,73 @@ pub fn default_dns_text(kind: String) -> String {
         "singbox" => domain::dns::DEFAULT_SINGBOX_DNS.to_string(),
         "tun" => domain::dns::DEFAULT_TUN_SINGBOX_DNS.to_string(),
         _ => domain::dns::DEFAULT_V2RAY_DNS.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod fix08_tests {
+    use super::*;
+
+    /// FIX-08 (SET-11): `save_simple_dns` without `global_fake_ip` (the DNS
+    /// window has no such control, neither does upstream's
+    /// `DNSSettingViewModel`) keeps the stored value instead of clearing it,
+    /// and stored unknown keys survive. Upstream basis:
+    /// `DNSSettingViewModel.SaveSettingAsync` mutates only its own fields on
+    /// the live `_config` object; `ConfigHandler.LoadConfig` defaults
+    /// `GlobalFakeIp` to true when null.
+    #[test]
+    fn save_simple_dns_preserves_global_fake_ip_and_extra_when_unset() {
+        let _guard = crate::api::engine::engine_test_lock();
+        // Seed an explicit false plus an unknown key through the whole-tree
+        // path (the in-memory test engine starts at revision 0).
+        let loaded = engine().load_settings().expect("load");
+        let mut settings = loaded.settings;
+        settings.simple_dns_item.global_fake_ip = Some(false);
+        settings
+            .simple_dns_item
+            .extra
+            .insert("FutureDnsFlag".into(), serde_json::json!(7));
+        engine()
+            .save_settings(settings, loaded.revision)
+            .expect("seed");
+
+        let loaded = engine().load_settings().expect("reload");
+        // A plain-DNS edit carries no global_fake_ip: it must not wipe the
+        // stored false, and the unknown key must survive.
+        let draft = SimpleDnsDto {
+            direct_dns: Some("119.29.29.29".to_string()),
+            ..Default::default()
+        };
+        assert!(draft.global_fake_ip.is_none());
+        let saved = save_simple_dns(draft, loaded.revision);
+        assert!(
+            saved.ok,
+            "unexpected error: {:?}",
+            saved.error.map(|e| e.code)
+        );
+        let reloaded = engine().load_settings().expect("reload");
+        assert_eq!(
+            reloaded.settings.simple_dns_item.global_fake_ip,
+            Some(false)
+        );
+        assert_eq!(
+            reloaded.settings.simple_dns_item.extra.get("FutureDnsFlag"),
+            Some(&serde_json::json!(7))
+        );
+        assert_eq!(
+            reloaded.settings.simple_dns_item.direct_dns.as_deref(),
+            Some("119.29.29.29")
+        );
+
+        // An explicit value still overrides.
+        let loaded = engine().load_settings().expect("reload");
+        let draft = SimpleDnsDto {
+            global_fake_ip: Some(true),
+            ..Default::default()
+        };
+        let saved = save_simple_dns(draft, loaded.revision);
+        assert!(saved.ok);
+        let reloaded = engine().load_settings().expect("reload");
+        assert_eq!(reloaded.settings.simple_dns_item.global_fake_ip, Some(true));
     }
 }

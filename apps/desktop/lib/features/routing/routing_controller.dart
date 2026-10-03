@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
@@ -56,6 +58,180 @@ class RoutingState {
 }
 
 class RoutingController extends Notifier<RoutingState> {
+  static int _ruleSeq = 0;
+
+  /// Fresh draft rule id (upstream `RoutingRuleDetailsViewModel` assigns a
+  /// GUID when a new rule enters; the draft keeps it stable across edits).
+  static String newRuleId() {
+    final micros = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
+    return 'r$micros-${(_ruleSeq++).toRadixString(16).padLeft(4, '0')}';
+  }
+
+  /// Parse imported rule JSON into draft DTOs (file/clipboard/URL bodies).
+  ///
+  /// Accepts the upstream camelCase `RulesItem` shape and the stored
+  /// snake_case shape. Every rule gets a fresh [newRuleId] (upstream
+  /// `AddBatchRoutingRules` assigns new GUIDs); rules without a match
+  /// criterion are rejected like the engine does. Throws [FormatException]
+  /// on invalid input; the caller keeps its draft untouched.
+  static List<r.RoutingRuleDto> parseImportedRuleDtos(String text) {
+    final Object? decoded = _decodeJson(text);
+    if (decoded is! List) {
+      throw const FormatException('error.routing_rules_invalid');
+    }
+    final rules = <r.RoutingRuleDto>[];
+    for (final entry in decoded) {
+      if (entry is! Map) {
+        throw const FormatException('error.routing_rules_invalid');
+      }
+      final rule = _ruleFromJson(Map<String, Object?>.from(entry));
+      final has =
+          (rule.port ?? '').trim().isNotEmpty ||
+          (rule.network ?? '').trim().isNotEmpty ||
+          rule.protocol.isNotEmpty ||
+          rule.domain.isNotEmpty ||
+          rule.ip.isNotEmpty ||
+          rule.process.isNotEmpty ||
+          rule.inboundTag.isNotEmpty;
+      if (!has) {
+        throw const FormatException('error.routing_rule_empty');
+      }
+      rules.add(rule);
+    }
+    if (rules.isEmpty) {
+      throw const FormatException('error.routing_rules_empty');
+    }
+    return rules;
+  }
+
+  static Object? _decodeJson(String text) {
+    return jsonDecode(text);
+  }
+
+  static r.RoutingRuleDto _ruleFromJson(Map<String, Object?> json) {
+    String? str(String camel, String snake) {
+      final value = json[camel] ?? json[snake];
+      if (value == null) return null;
+      final text = value.toString();
+      return text.trim().isEmpty ? null : text;
+    }
+
+    List<String> list(String camel, String snake) {
+      final value = json[camel] ?? json[snake];
+      if (value is List) {
+        return value
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+      if (value is String && value.trim().isNotEmpty) {
+        return value
+            .split(RegExp(r'[\r\n,]+'))
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      }
+      return const <String>[];
+    }
+
+    int? ruleType() {
+      final value = json['ruleType'] ?? json['rule_type'];
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '');
+    }
+
+    final inbound = list('inboundTag', 'inbound_tag');
+    final ip = list('ip', 'ip');
+    final domain = list('domain', 'domain');
+    final protocol = list('protocol', 'protocol');
+    final process = list('process', 'process');
+    return r.RoutingRuleDto(
+      id: newRuleId(),
+      ruleKind: str('ruleKind', 'rule_kind') ?? str('type', 'type'),
+      port: str('port', 'port'),
+      network: str('network', 'network'),
+      inboundTag: inbound,
+      hasInboundTag: inbound.isNotEmpty,
+      outboundTag: str('outboundTag', 'outbound_tag'),
+      ip: ip,
+      hasIp: ip.isNotEmpty,
+      domain: domain,
+      hasDomain: domain.isNotEmpty,
+      protocol: protocol,
+      hasProtocol: protocol.isNotEmpty,
+      process: process,
+      hasProcess: process.isNotEmpty,
+      enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
+      remarks: str('remarks', 'remarks'),
+      ruleType: ruleType(),
+    );
+  }
+
+  /// Serialize draft rules to the upstream clipboard shape: indented camelCase
+  /// `RulesItem` JSON with ids cleared (upstream `RuleExportSelectedAsync`).
+  /// Re-importing assigns fresh ids via [parseImportedRuleDtos].
+  static String exportDraftRulesJson(
+    List<r.RoutingRuleDto> rules, [
+    List<String>? ids,
+  ]) {
+    final selected = ids == null || ids.isEmpty
+        ? rules
+        : rules.where((r) => ids.contains(r.id)).toList();
+    final maps = selected.map(_ruleToUpstreamJson).toList();
+    return const JsonEncoder.withIndent('  ').convert(maps);
+  }
+
+  static Map<String, Object?> _ruleToUpstreamJson(r.RoutingRuleDto rule) {
+    final map = <String, Object?>{};
+    void put(String key, Object? value) {
+      if (value == null) return;
+      if (value is String && value.trim().isEmpty) return;
+      if (value is List && value.isEmpty) return;
+      map[key] = value;
+    }
+
+    put('type', rule.ruleKind);
+    put('port', rule.port);
+    put('network', rule.network);
+    if (rule.hasInboundTag) map['inboundTag'] = rule.inboundTag;
+    put('outboundTag', rule.outboundTag);
+    if (rule.hasIp) map['ip'] = rule.ip;
+    if (rule.hasDomain) map['domain'] = rule.domain;
+    if (rule.hasProtocol) map['protocol'] = rule.protocol;
+    if (rule.hasProcess) map['process'] = rule.process;
+    map['enabled'] = rule.enabled;
+    put('remarks', rule.remarks);
+    if (rule.ruleType != null) map['ruleType'] = rule.ruleType;
+    return map;
+  }
+
+  /// Serialize draft rules into the stored `RuleSet` shape (the domain
+  /// `RoutingRule` serde form) so a scheme + its rules persist with one
+  /// `save_routing` call. `has*` false maps to null, matching the bridge DTO
+  /// conversion; ids are kept stable.
+  static String rulesToRuleSetJson(List<r.RoutingRuleDto> rules) {
+    final maps = rules.map((rule) {
+      Object? optStr(String? value) =>
+          value == null || value.trim().isEmpty ? null : value;
+      return <String, Object?>{
+        'id': rule.id,
+        'rule_kind': optStr(rule.ruleKind),
+        'port': optStr(rule.port),
+        'network': optStr(rule.network),
+        'inbound_tag': rule.hasInboundTag ? rule.inboundTag : null,
+        'outbound_tag': optStr(rule.outboundTag),
+        'ip': rule.hasIp ? rule.ip : null,
+        'domain': rule.hasDomain ? rule.domain : null,
+        'protocol': rule.hasProtocol ? rule.protocol : null,
+        'process': rule.hasProcess ? rule.process : null,
+        'enabled': rule.enabled,
+        'remarks': optStr(rule.remarks),
+        'rule_type': rule.ruleType,
+      };
+    }).toList();
+    return jsonEncode(maps);
+  }
+
   @override
   RoutingState build() {
     final page = ref.read(bridgePortProvider).listRoutings();
@@ -227,8 +403,10 @@ class RoutingController extends Notifier<RoutingState> {
   );
 
   /// Fresh rule draft (upstream defaults: `proxy` outbound, enabled).
-  r.RoutingRuleDto newRuleDraft() => const r.RoutingRuleDto(
-    id: '',
+  /// The draft carries a stable unique id from entry, so selecting/editing
+  /// one new rule can never hit another (SET-07).
+  r.RoutingRuleDto newRuleDraft() => r.RoutingRuleDto(
+    id: newRuleId(),
     inboundTag: [],
     hasInboundTag: false,
     outboundTag: 'proxy',

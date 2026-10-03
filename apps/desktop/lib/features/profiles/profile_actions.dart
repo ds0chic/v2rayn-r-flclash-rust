@@ -27,7 +27,34 @@ Future<void> startAddProfile(
   _toast(ref, saved == null ? '已取消添加' : '已保存 ${saved.configType.name}');
 }
 
+/// Which dedicated editor an existing node must open in.
+///
+/// Mirrors upstream `ProfilesViewModel.EditServerAsync` (frozen `7d6a967`):
+/// Custom/Outbound -> AddServer2, PolicyGroup/ProxyChain (`IsGroupType`) ->
+/// AddGroup, everything else -> AddServer (the generic editor). Routing by
+/// [ConfigType] keeps special nodes out of the generic editor's core/port/
+/// network clamps (PR-02).
+enum SpecialEditorKind { generic, custom, group }
+
+/// Pure routing decision for [editSelectedProfile], unit-tested without widgets.
+SpecialEditorKind resolveEditorKind(ConfigType configType) {
+  switch (configType) {
+    case ConfigType.custom:
+    case ConfigType.outbound:
+      return SpecialEditorKind.custom;
+    case ConfigType.policyGroup:
+    case ConfigType.proxyChain:
+      return SpecialEditorKind.group;
+    default:
+      return SpecialEditorKind.generic;
+  }
+}
+
 /// Edit the single selected node (Ctrl+D / context menu / double click).
+///
+/// The editor is chosen by [resolveEditorKind]: special nodes reopen in their
+/// dedicated editor, ordinary nodes in the generic one. Cancel never persists
+/// (each dialog edits a local [ProfileDraft] copy).
 Future<void> editSelectedProfile(BuildContext context, WidgetRef ref) async {
   final controller = ref.read(profilesControllerProvider.notifier);
   final state = ref.read(profilesControllerProvider);
@@ -41,13 +68,33 @@ Future<void> editSelectedProfile(BuildContext context, WidgetRef ref) async {
     _toast(ref, '未找到节点 $id');
     return;
   }
-  final saved = await showProfileEditor(
-    context,
-    initial: ProfileDraft.fromDto(dto),
-    onSave: controller.saveDraft,
-    allowConfigTypeChange: false,
-  );
-  _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
+  switch (resolveEditorKind(dto.configType)) {
+    case SpecialEditorKind.custom:
+      final saved = await showCustomEditor(
+        context,
+        initial: ProfileDraft.fromDto(dto),
+        onSave: controller.saveDraft,
+      );
+      _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
+    case SpecialEditorKind.group:
+      final saved = await showGroupEditor(
+        context,
+        initial: ProfileDraft.fromDto(dto),
+        allProfiles: state.profiles,
+        subItems: controller.subItems(),
+        previewChildren: controller.groupChildPreview,
+        onSave: controller.saveDraft,
+      );
+      _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
+    case SpecialEditorKind.generic:
+      final saved = await showProfileEditor(
+        context,
+        initial: ProfileDraft.fromDto(dto),
+        onSave: controller.saveDraft,
+        allowConfigTypeChange: false,
+      );
+      _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
+  }
 }
 
 /// Delete the selection after an explicit confirmation.
@@ -164,6 +211,7 @@ Future<void> startAddGroupProfile(
     initial: draft,
     allProfiles: ref.read(profilesControllerProvider).profiles,
     subItems: controller.subItems(),
+    previewChildren: controller.groupChildPreview,
     onSave: controller.saveDraft,
   );
   _toast(ref, saved == null ? '已取消添加' : '已保存 ${saved.remarks}');
@@ -193,6 +241,7 @@ Future<void> editSelectedGroup(BuildContext context, WidgetRef ref) async {
     initial: ProfileDraft.fromDto(dto),
     allProfiles: state.profiles,
     subItems: controller.subItems(),
+    previewChildren: controller.groupChildPreview,
     onSave: controller.saveDraft,
   );
   _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');

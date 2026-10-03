@@ -1,0 +1,13 @@
+{
+  "IndexId": "fixture-outbound-1",
+  "ConfigType": 13,
+  "CoreType": 2,
+  "ConfigVersion": 4,
+  "Remarks": "合成内联出站",
+  "Port": 0,
+  "CustomOutboundObj": {
+    "tag": "synthetic-out",
+    "protocol": "freedom",
+    "settings": {}
+  }
+}

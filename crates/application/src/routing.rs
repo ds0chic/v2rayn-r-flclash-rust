@@ -91,6 +91,50 @@ pub fn normalize_routing(mut profile: RoutingProfile) -> Result<RoutingProfile, 
     Ok(profile)
 }
 
+/// Copy stored unknown-field extras into an incoming save.
+///
+/// The bridge DTOs have no room for `extra` keys, so a DTO round trip would
+/// otherwise wipe them. Stored keys survive unless the draft overrides them;
+/// per-rule extras are matched by rule id (upstream re-keys every rule id on
+/// save, but this engine keeps draft ids stable, so the match is exact).
+pub fn preserve_extras(existing: Option<&RoutingProfile>, incoming: &mut RoutingProfile) {
+    let Some(stored) = existing else {
+        return;
+    };
+    for (key, value) in &stored.extra {
+        incoming
+            .extra
+            .entry(key.clone())
+            .or_insert_with(|| value.clone());
+    }
+    let Ok(mut incoming_rules) = incoming.rules() else {
+        return;
+    };
+    if incoming_rules.is_empty() {
+        return;
+    }
+    let stored_rules = stored.rules().unwrap_or_default();
+    let by_id: std::collections::HashMap<&str, &RoutingRule> = stored_rules
+        .iter()
+        .map(|rule| (rule.id.as_str(), rule))
+        .collect();
+    let mut touched = false;
+    for rule in &mut incoming_rules {
+        let Some(stored_rule) = by_id.get(rule.id.as_str()) else {
+            continue;
+        };
+        for (key, value) in &stored_rule.extra {
+            if !rule.extra.contains_key(key) {
+                rule.extra.insert(key.clone(), value.clone());
+                touched = true;
+            }
+        }
+    }
+    if touched {
+        let _ = incoming.set_rules(&incoming_rules);
+    }
+}
+
 /// Repository boundary for routing profiles.
 pub trait RoutingRepository {
     fn list(&self) -> Result<Vec<RoutingProfile>, DomainError>;

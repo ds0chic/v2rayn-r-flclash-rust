@@ -1,0 +1,8 @@
+{
+  "IndexId": "fixture-bad-enum",
+  "ConfigType": 999,
+  "ConfigVersion": 4,
+  "Remarks": "未知类型应被拒绝",
+  "Address": "node.example.invalid",
+  "Port": 11982
+}

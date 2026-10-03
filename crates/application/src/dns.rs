@@ -95,6 +95,20 @@ pub fn normalize_dns(mut profile: DnsProfile) -> Result<DnsProfile, DomainError>
     Ok(profile)
 }
 
+/// Copy stored unknown-field extras into an incoming save (same contract as
+/// `routing::preserve_extras`: stored keys survive unless overridden).
+pub fn preserve_dns_extras(existing: Option<&DnsProfile>, incoming: &mut DnsProfile) {
+    let Some(stored) = existing else {
+        return;
+    };
+    for (key, value) in &stored.extra {
+        incoming
+            .extra
+            .entry(key.clone())
+            .or_insert_with(|| value.clone());
+    }
+}
+
 /// Repository boundary for DNS profiles.
 pub trait DnsRepository {
     fn list(&self) -> Result<Vec<DnsProfile>, DomainError>;

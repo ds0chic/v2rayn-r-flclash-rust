@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `dto_to_sub`, `entry_to_dto`, `finish_sub_job`, `register_sub_job`, `render_export`, `report_to_result`, `sub_job_seq`, `sub_jobs`, `sub_to_dto`
+// These functions are ignored because they are not marked as `pub`: `dto_to_sub`, `entry_to_dto`, `finish_sub_job`, `load_outbound_json`, `register_sub_job`, `render_export`, `report_to_result`, `sub_job_seq`, `sub_jobs`, `sub_to_dto`
 
 /// `list_sub_items` — every subscription ordered by `Sort`.
 SubsPageDto listSubItems() => RustLib.instance.api.crateApiSubsListSubItems();

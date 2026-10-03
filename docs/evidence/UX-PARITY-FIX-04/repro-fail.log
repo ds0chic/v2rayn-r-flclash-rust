@@ -1,0 +1,32 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.27s
+     Running tests\parity_original_inner.rs (target\debug\deps\parity_original_inner-dfe72b222f1d1c80.exe)
+
+running 2 tests
+test frozen_pascal_case_inner_uri_preserves_vless_entity_and_extras ... FAILED
+test exported_inner_uri_uses_frozen_profile_property_names ... FAILED
+
+failures:
+
+---- frozen_pascal_case_inner_uri_preserves_vless_entity_and_extras stdout ----
+
+thread 'frozen_pascal_case_inner_uri_preserves_vless_entity_and_extras' (3668) panicked at crates\subscriptions\tests\parity_original_inner.rs:39:5:
+assertion `left == right` failed
+  left: Vmess
+ right: Vless
+
+---- exported_inner_uri_uses_frozen_profile_property_names stdout ----
+
+thread 'exported_inner_uri_uses_frozen_profile_property_names' (34540) panicked at crates\subscriptions\tests\parity_original_inner.rs:66:5:
+assertion `left == right` failed
+  left: Null
+ right: 5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    exported_inner_uri_uses_frozen_profile_property_names
+    frozen_pascal_case_inner_uri_preserves_vless_entity_and_extras
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p subscriptions --test parity_original_inner`

@@ -1,0 +1,23 @@
+{
+  "IndexId": "fixture-vless-1",
+  "ConfigType": 5,
+  "CoreType": 2,
+  "ConfigVersion": 4,
+  "Remarks": "合成 VLESS",
+  "Address": "node.example.invalid",
+  "Port": 11980,
+  "Password": "11111111-2222-3333-4444-555555555555",
+  "Network": "ws",
+  "StreamSecurity": "tls",
+  "Sni": "tls.example.invalid",
+  "Fingerprint": "chrome",
+  "ProtoExtraObj": {
+    "VlessEncryption": "none",
+    "Flow": "xtls-rprx-vision"
+  },
+  "TransportExtraObj": {
+    "Host": "host.example.invalid",
+    "Path": "/synthetic"
+  },
+  "FutureUpstreamField": "must-survive-roundtrip"
+}

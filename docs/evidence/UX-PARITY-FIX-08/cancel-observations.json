@@ -1,0 +1,41 @@
+{
+  "recordingComplete": true,
+  "mode": "cancel",
+  "failures": [],
+  "checks": [
+    {
+      "step": "settings-window-open",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "step": "baseline-read",
+      "passed": true,
+      "actual": {
+        "port": 10808,
+        "revision": 0
+      }
+    },
+    {
+      "step": "cancel-window-closed",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "step": "cancel-port-unchanged",
+      "passed": true,
+      "actual": {
+        "port": 10808,
+        "beforePort": 10808
+      }
+    },
+    {
+      "step": "cancel-revision-unchanged",
+      "passed": true,
+      "actual": {
+        "revision": 0,
+        "beforeRevision": 0
+      }
+    }
+  ]
+}

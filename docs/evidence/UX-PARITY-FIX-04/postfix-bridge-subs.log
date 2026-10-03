@@ -1,0 +1,9 @@
+test api::subs::tests::export_share_and_base64_agree ... ok
+test api::subs::tests::import_rejects_free_text ... ok
+test api::subs::tests::import_inner_uri_parses_frozen_pascal_case_shape ... ok
+test api::subs::tests::save_nonempty_invalid_url_is_rejected ... ok
+test api::subs::tests::save_empty_url_plain_group_round_trips ... ok
+test api::subs::tests::import_share_uri_assigns_ids_and_subid ... ok
+test api::subs::tests::update_via_proxy_without_endpoint_returns_proxy_unavailable ... ok
+test api::subs::tests::inner_export_serves_inline_and_file_outbound ... ok
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 34 filtered out; finished in 0.00s

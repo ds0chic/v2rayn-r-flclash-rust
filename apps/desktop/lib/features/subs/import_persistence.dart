@@ -22,8 +22,10 @@ class PersistImportedResult {
 /// T21-E root cause: `subs.importFromText` (Rust) only writes profiles when a
 /// non-empty `subid` is supplied; a clipboard import passes none, so the real
 /// bridge reports `ok` / `imported = N` while SQLite stays empty and the node
-/// table never updates. Until the Rust side persists subid-less imports, the
-/// UI performs the insert through the existing optimistic `saveProfile` seam.
+/// table never updates. The import pipeline therefore persists each parsed
+/// profile through `saveImportedProfile` (FIX-04), which accepts the empty
+/// remarks/address that share URIs legitimately carry — unlike the editor
+/// draft contract enforced by `saveProfile`.
 ///
 /// The desired revision is re-read before every save so the optimistic
 /// revision contract holds for the whole batch.
@@ -35,7 +37,10 @@ PersistImportedResult persistImportedProfiles(
   var failed = 0;
   String? firstErrorCode;
   for (final profile in profiles) {
-    final result = bridge.saveProfile(profile, bridge.profileRevision());
+    final result = bridge.saveImportedProfile(
+      profile,
+      bridge.profileRevision(),
+    );
     if (result.ok) {
       saved++;
     } else {

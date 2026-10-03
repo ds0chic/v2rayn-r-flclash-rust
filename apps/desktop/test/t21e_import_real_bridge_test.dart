@@ -71,7 +71,8 @@ void main() {
     expect(result.profiles.length, 4);
 
     // The UI persistence seam: the Rust bridge drops subid-less imports, so the
-    // UI writes the parsed profiles through the optimistic saveProfile path.
+    // UI writes the parsed profiles through `saveImportedProfile` (FIX-04),
+    // which accepts the empty remarks/address that share URIs may carry.
     final persisted = persistImportedProfiles(
       const FrbBridgePort(),
       result.profiles,

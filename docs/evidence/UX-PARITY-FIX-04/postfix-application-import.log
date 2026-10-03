@@ -1,0 +1,3 @@
+test imported_vless_without_remarks_or_address_persists_and_reopens ... ok
+test imported_outbound_inline_content_persists_and_reopens ... ok
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s

@@ -301,6 +301,102 @@ impl Profile {
         }
         Ok(())
     }
+
+    /// Actual node validity, mirroring upstream `ProfileItem.IsValid()`.
+    ///
+    /// Unlike [`Profile::validate`] (the editor-draft contract requiring
+    /// remarks/address), this is the import/display-side check: complex and
+    /// `Outbound` kinds are always valid, ordinary nodes need address/port,
+    /// and Vmess/VLESS/Shadowsocks carry their credential rules. Reality
+    /// nodes additionally require a public key.
+    pub fn is_valid(&self) -> bool {
+        use crate::enums::ConfigType;
+
+        if self.config_type.is_complex() || self.config_type == ConfigType::Outbound {
+            return true;
+        }
+        if self.address.trim().is_empty() || !(1..=65535).contains(&self.port) {
+            return false;
+        }
+        match self.config_type {
+            ConfigType::Vmess => {
+                if !is_guid(&self.password) {
+                    return false;
+                }
+            }
+            ConfigType::Vless => {
+                if self.password.is_empty()
+                    || (!is_guid(&self.password) && self.password.len() > 30)
+                {
+                    return false;
+                }
+                if !VLESS_FLOWS.contains(&self.proto_extra.flow.as_deref().unwrap_or("")) {
+                    return false;
+                }
+            }
+            ConfigType::Shadowsocks => {
+                if self.password.is_empty() {
+                    return false;
+                }
+                match self.proto_extra.ss_method.as_deref() {
+                    Some(method) if SS_METHODS_SINGBOX.contains(&method) => {}
+                    _ => return false,
+                }
+            }
+            _ => {}
+        }
+        if matches!(self.config_type, ConfigType::Vless | ConfigType::Trojan)
+            && self
+                .security
+                .stream_security
+                .as_deref()
+                .is_some_and(|s| s.eq_ignore_ascii_case("reality"))
+            && self.security.public_key.as_deref().unwrap_or("").is_empty()
+        {
+            return false;
+        }
+        true
+    }
+}
+
+/// Upstream `Global.Flows` (`ServiceLib/Global.cs`).
+const VLESS_FLOWS: [&str; 3] = ["", "xtls-rprx-vision", "xtls-rprx-vision-udp443"];
+
+/// Upstream `Global.SsSecuritiesInSingbox`, the validity reference used by
+/// `ProfileItem.IsValid()`.
+const SS_METHODS_SINGBOX: [&str; 18] = [
+    "aes-256-gcm",
+    "aes-192-gcm",
+    "aes-128-gcm",
+    "chacha20-ietf-poly1305",
+    "xchacha20-ietf-poly1305",
+    "none",
+    "2022-blake3-aes-128-gcm",
+    "2022-blake3-aes-256-gcm",
+    "2022-blake3-chacha20-poly1305",
+    "aes-128-ctr",
+    "aes-192-ctr",
+    "aes-256-ctr",
+    "aes-128-cfb",
+    "aes-192-cfb",
+    "aes-256-cfb",
+    "rc4-md5",
+    "chacha20-ietf",
+    "xchacha20",
+];
+
+/// Upstream `Utils.IsGuidByParse`: `8-4-4-4-12` hex with braces/parentheses
+/// rejected (only the canonical dashed form counts here).
+fn is_guid(value: &str) -> bool {
+    const GROUPS: [usize; 5] = [8, 4, 4, 4, 12];
+    let parts: Vec<&str> = value.split('-').collect();
+    if parts.len() != GROUPS.len() {
+        return false;
+    }
+    parts
+        .iter()
+        .zip(GROUPS)
+        .all(|(part, len)| part.len() == len && part.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
 #[cfg(test)]
@@ -373,5 +469,78 @@ mod tests {
             p.validate().unwrap_err().code,
             crate::error::codes::FIELD_RANGE
         );
+    }
+
+    #[test]
+    fn is_valid_mirrors_upstream_rules() {
+        // Complex and Outbound kinds are always valid, even empty.
+        for config_type in [
+            ConfigType::PolicyGroup,
+            ConfigType::ProxyChain,
+            ConfigType::Custom,
+            ConfigType::Outbound,
+        ] {
+            let p = Profile {
+                config_type,
+                ..Default::default()
+            };
+            assert!(p.is_valid(), "{config_type:?} is always valid");
+        }
+        // Ordinary nodes need address and port; remarks are not required.
+        let mut vless = Profile {
+            config_type: ConfigType::Vless,
+            address: "192.0.2.1".into(),
+            port: 443,
+            password: "11111111-2222-3333-4444-555555555555".into(),
+            ..Default::default()
+        };
+        assert!(vless.is_valid());
+        vless.address.clear();
+        assert!(!vless.is_valid());
+        vless.address = "192.0.2.1".into();
+        vless.password = "short-non-uuid".into();
+        assert!(vless.is_valid());
+        vless.password = "this-password-is-longer-than-thirty-chars".into();
+        assert!(!vless.is_valid());
+        vless.password = "11111111-2222-3333-4444-555555555555".into();
+        vless.proto_extra.flow = Some("not-a-flow".into());
+        assert!(!vless.is_valid());
+
+        let mut vmess = Profile {
+            config_type: ConfigType::Vmess,
+            address: "192.0.2.1".into(),
+            port: 443,
+            password: "not-a-guid".into(),
+            ..Default::default()
+        };
+        assert!(!vmess.is_valid());
+        vmess.password = "11111111-2222-3333-4444-555555555555".into();
+        assert!(vmess.is_valid());
+
+        let mut ss = Profile {
+            config_type: ConfigType::Shadowsocks,
+            address: "192.0.2.1".into(),
+            port: 8388,
+            password: "secret".into(),
+            ..Default::default()
+        };
+        assert!(!ss.is_valid());
+        ss.proto_extra.ss_method = Some("plain".into());
+        assert!(!ss.is_valid());
+        ss.proto_extra.ss_method = Some("aes-256-gcm".into());
+        assert!(ss.is_valid());
+
+        // Reality without a public key is invalid for VLESS/Trojan.
+        let mut reality = Profile {
+            config_type: ConfigType::Trojan,
+            address: "192.0.2.1".into(),
+            port: 443,
+            password: "secret".into(),
+            ..Default::default()
+        };
+        reality.security.stream_security = Some("reality".into());
+        assert!(!reality.is_valid());
+        reality.security.public_key = Some("key".into());
+        assert!(reality.is_valid());
     }
 }

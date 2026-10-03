@@ -22,7 +22,9 @@ pub use download::{
     build_client, download_string, DownloadOptions, Downloaded, Downloader, ProxyConfig,
 };
 pub use error::{ParseIssue, SubError};
-pub use fmt::{fmt_kind_of, resolve_uri, to_inner_uri, to_uri, FmtKind};
+pub use fmt::{
+    fmt_kind_of, resolve_uri, to_inner_uri, to_inner_uri_with_outbound_loader, to_uri, FmtKind,
+};
 pub use merge::{
     compare_profile, deduplicate, filter_by_regex, refresh, MergeOptions, MergeResult,
     RefreshOutcome,

@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -33153446;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -718216460;
 
 // Section: executor
 
@@ -2760,6 +2760,40 @@ fn wire__crate__api__dns__save_dns_impl(
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
                 let output_ok = Ok::<_, ()>(crate::api::dns::save_dns(api_draft))?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__engine__save_imported_profile_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "save_imported_profile",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_draft = <crate::api::contract::ProfileDto>::sse_decode(&mut deserializer);
+            let api_expected_revision = <u64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Ok::<_, ()>(crate::api::engine::save_imported_profile(
+                    api_draft,
+                    api_expected_revision,
+                ))?;
                 std::result::Result::Ok(output_ok)
             })())
         },
@@ -9004,40 +9038,40 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        96 => {
+        97 => {
             wire__crate__api__contract__security_dto_default_impl(port, ptr, rust_vec_len, data_len)
         }
-        98 => wire__crate__api__monitor__select_clash_proxy_impl(port, ptr, rust_vec_len, data_len),
-        111 => {
+        99 => wire__crate__api__monitor__select_clash_proxy_impl(port, ptr, rust_vec_len, data_len),
+        112 => {
             wire__crate__api__dns__simple_dns_dto_default_impl(port, ptr, rust_vec_len, data_len)
         }
-        112 => {
+        113 => {
             wire__crate__api__profiles__simulate_blocking_impl(port, ptr, rust_vec_len, data_len)
         }
-        119 => {
+        120 => {
             wire__crate__api__speedtest__speedtest_subscribe_impl(port, ptr, rust_vec_len, data_len)
         }
-        123 => wire__crate__api__engine__stop_runtime_impl(port, ptr, rust_vec_len, data_len),
-        126 => wire__crate__api__engine__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
-        127 => wire__crate__api__monitor__subscribe_logs_impl(port, ptr, rust_vec_len, data_len),
-        128 => wire__crate__api__monitor__subscribe_traffic_impl(port, ptr, rust_vec_len, data_len),
-        132 => {
+        124 => wire__crate__api__engine__stop_runtime_impl(port, ptr, rust_vec_len, data_len),
+        127 => wire__crate__api__engine__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
+        128 => wire__crate__api__monitor__subscribe_logs_impl(port, ptr, rust_vec_len, data_len),
+        129 => wire__crate__api__monitor__subscribe_traffic_impl(port, ptr, rust_vec_len, data_len),
+        133 => {
             wire__crate__api__t16__t16_apply_app_update_spec_impl(port, ptr, rust_vec_len, data_len)
         }
-        133 => wire__crate__api__t16__t16_apply_core_update_impl(port, ptr, rust_vec_len, data_len),
-        140 => wire__crate__api__t16__t16_check_updates_impl(port, ptr, rust_vec_len, data_len),
-        145 => wire__crate__api__t16__t16_webdav_backup_impl(port, ptr, rust_vec_len, data_len),
-        146 => wire__crate__api__t16__t16_webdav_check_impl(port, ptr, rust_vec_len, data_len),
-        149 => wire__crate__api__t16__t16_webdav_list_impl(port, ptr, rust_vec_len, data_len),
-        150 => wire__crate__api__t16__t16_webdav_restore_impl(port, ptr, rust_vec_len, data_len),
-        151 => wire__crate__api__contract__transport_extra_dto_default_impl(
+        134 => wire__crate__api__t16__t16_apply_core_update_impl(port, ptr, rust_vec_len, data_len),
+        141 => wire__crate__api__t16__t16_check_updates_impl(port, ptr, rust_vec_len, data_len),
+        146 => wire__crate__api__t16__t16_webdav_backup_impl(port, ptr, rust_vec_len, data_len),
+        147 => wire__crate__api__t16__t16_webdav_check_impl(port, ptr, rust_vec_len, data_len),
+        150 => wire__crate__api__t16__t16_webdav_list_impl(port, ptr, rust_vec_len, data_len),
+        151 => wire__crate__api__t16__t16_webdav_restore_impl(port, ptr, rust_vec_len, data_len),
+        152 => wire__crate__api__contract__transport_extra_dto_default_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        152 => wire__crate__api__subs__update_subscription_impl(port, ptr, rust_vec_len, data_len),
-        153 => wire__crate__api__subs__update_subscriptions_impl(port, ptr, rust_vec_len, data_len),
+        153 => wire__crate__api__subs__update_subscription_impl(port, ptr, rust_vec_len, data_len),
+        154 => wire__crate__api__subs__update_subscriptions_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -9125,66 +9159,67 @@ fn pde_ffi_dispatcher_sync_impl(
         ),
         85 => wire__crate__api__profiles__rust_profile_count_impl(ptr, rust_vec_len, data_len),
         86 => wire__crate__api__dns__save_dns_impl(ptr, rust_vec_len, data_len),
-        87 => wire__crate__api__engine__save_profile_impl(ptr, rust_vec_len, data_len),
-        88 => wire__crate__api__routing__save_routing_impl(ptr, rust_vec_len, data_len),
-        89 => wire__crate__api__routing__save_routing_rules_impl(ptr, rust_vec_len, data_len),
-        90 => wire__crate__api__settings__save_settings_impl(ptr, rust_vec_len, data_len),
-        91 => wire__crate__api__settings__save_settings_group_impl(ptr, rust_vec_len, data_len),
-        92 => wire__crate__api__settings__save_settings_json_impl(ptr, rust_vec_len, data_len),
-        93 => wire__crate__api__dns__save_simple_dns_impl(ptr, rust_vec_len, data_len),
-        94 => wire__crate__api__subs__save_sub_item_impl(ptr, rust_vec_len, data_len),
-        95 => wire__crate__api__groups__save_template_impl(ptr, rust_vec_len, data_len),
-        97 => wire__crate__api__engine__seed_synthetic_profiles_impl(ptr, rust_vec_len, data_len),
-        99 => wire__crate__api__engine__set_active_profile_impl(ptr, rust_vec_len, data_len),
-        100 => wire__crate__api__platform__set_autostart_impl(ptr, rust_vec_len, data_len),
-        101 => wire__crate__api__routing__set_default_routing_impl(ptr, rust_vec_len, data_len),
-        102 => wire__crate__api__subs__set_local_proxy_port_impl(ptr, rust_vec_len, data_len),
-        103 => wire__crate__api__monitor__set_log_filter_impl(ptr, rust_vec_len, data_len),
-        104 => wire__crate__api__monitor__set_log_pause_impl(ptr, rust_vec_len, data_len),
-        105 => wire__crate__api__monitor__set_page_visible_impl(ptr, rust_vec_len, data_len),
-        106 => wire__crate__api__engine__set_profile_remarks_impl(ptr, rust_vec_len, data_len),
-        107 => wire__crate__api__routing__set_rule_mode_impl(ptr, rust_vec_len, data_len),
-        108 => wire__crate__api__subs__set_sub_enabled_impl(ptr, rust_vec_len, data_len),
-        109 => wire__crate__api__platform__set_system_proxy_impl(ptr, rust_vec_len, data_len),
-        110 => wire__crate__api__settings__settings_revision_impl(ptr, rust_vec_len, data_len),
-        113 => wire__crate__api__speedtest__speedtest_active_jobs_impl(ptr, rust_vec_len, data_len),
-        114 => wire__crate__api__speedtest__speedtest_cancel_impl(ptr, rust_vec_len, data_len),
-        115 => wire__crate__api__speedtest__speedtest_configure_impl(ptr, rust_vec_len, data_len),
-        116 => {
+        87 => wire__crate__api__engine__save_imported_profile_impl(ptr, rust_vec_len, data_len),
+        88 => wire__crate__api__engine__save_profile_impl(ptr, rust_vec_len, data_len),
+        89 => wire__crate__api__routing__save_routing_impl(ptr, rust_vec_len, data_len),
+        90 => wire__crate__api__routing__save_routing_rules_impl(ptr, rust_vec_len, data_len),
+        91 => wire__crate__api__settings__save_settings_impl(ptr, rust_vec_len, data_len),
+        92 => wire__crate__api__settings__save_settings_group_impl(ptr, rust_vec_len, data_len),
+        93 => wire__crate__api__settings__save_settings_json_impl(ptr, rust_vec_len, data_len),
+        94 => wire__crate__api__dns__save_simple_dns_impl(ptr, rust_vec_len, data_len),
+        95 => wire__crate__api__subs__save_sub_item_impl(ptr, rust_vec_len, data_len),
+        96 => wire__crate__api__groups__save_template_impl(ptr, rust_vec_len, data_len),
+        98 => wire__crate__api__engine__seed_synthetic_profiles_impl(ptr, rust_vec_len, data_len),
+        100 => wire__crate__api__engine__set_active_profile_impl(ptr, rust_vec_len, data_len),
+        101 => wire__crate__api__platform__set_autostart_impl(ptr, rust_vec_len, data_len),
+        102 => wire__crate__api__routing__set_default_routing_impl(ptr, rust_vec_len, data_len),
+        103 => wire__crate__api__subs__set_local_proxy_port_impl(ptr, rust_vec_len, data_len),
+        104 => wire__crate__api__monitor__set_log_filter_impl(ptr, rust_vec_len, data_len),
+        105 => wire__crate__api__monitor__set_log_pause_impl(ptr, rust_vec_len, data_len),
+        106 => wire__crate__api__monitor__set_page_visible_impl(ptr, rust_vec_len, data_len),
+        107 => wire__crate__api__engine__set_profile_remarks_impl(ptr, rust_vec_len, data_len),
+        108 => wire__crate__api__routing__set_rule_mode_impl(ptr, rust_vec_len, data_len),
+        109 => wire__crate__api__subs__set_sub_enabled_impl(ptr, rust_vec_len, data_len),
+        110 => wire__crate__api__platform__set_system_proxy_impl(ptr, rust_vec_len, data_len),
+        111 => wire__crate__api__settings__settings_revision_impl(ptr, rust_vec_len, data_len),
+        114 => wire__crate__api__speedtest__speedtest_active_jobs_impl(ptr, rust_vec_len, data_len),
+        115 => wire__crate__api__speedtest__speedtest_cancel_impl(ptr, rust_vec_len, data_len),
+        116 => wire__crate__api__speedtest__speedtest_configure_impl(ptr, rust_vec_len, data_len),
+        117 => {
             wire__crate__api__speedtest__speedtest_remove_invalid_impl(ptr, rust_vec_len, data_len)
         }
-        117 => wire__crate__api__speedtest__speedtest_results_impl(ptr, rust_vec_len, data_len),
-        118 => wire__crate__api__speedtest__speedtest_start_impl(ptr, rust_vec_len, data_len),
-        120 => wire__crate__api__speedtest__speedtest_supported_impl(ptr, rust_vec_len, data_len),
-        121 => wire__crate__api__subs__start_sub_scheduler_impl(ptr, rust_vec_len, data_len),
-        122 => wire__crate__api__monitor__stats_snapshot_impl(ptr, rust_vec_len, data_len),
-        124 => wire__crate__api__subs__stop_sub_scheduler_impl(ptr, rust_vec_len, data_len),
-        125 => wire__crate__api__subs__sub_scheduler_running_impl(ptr, rust_vec_len, data_len),
-        129 => wire__crate__api__engine__subscriber_count_impl(ptr, rust_vec_len, data_len),
-        130 => wire__crate__api__platform__sysproxy_mode_value_impl(ptr, rust_vec_len, data_len),
-        131 => wire__crate__api__platform__sysproxy_type_valid_impl(ptr, rust_vec_len, data_len),
-        134 => wire__crate__api__t16__t16_backup_import_upstream_impl(ptr, rust_vec_len, data_len),
-        135 => wire__crate__api__t16__t16_backup_list_impl(ptr, rust_vec_len, data_len),
-        136 => wire__crate__api__t16__t16_backup_local_impl(ptr, rust_vec_len, data_len),
-        137 => wire__crate__api__t16__t16_backup_recognize_impl(ptr, rust_vec_len, data_len),
-        138 => wire__crate__api__t16__t16_backup_restore_impl(ptr, rust_vec_len, data_len),
-        139 => wire__crate__api__t16__t16_backup_verify_impl(ptr, rust_vec_len, data_len),
-        141 => wire__crate__api__t16__t16_cleanup_logs_tmp_impl(ptr, rust_vec_len, data_len),
-        142 => wire__crate__api__t16__t16_get_core_versions_impl(ptr, rust_vec_len, data_len),
-        143 => wire__crate__api__t16__t16_open_config_dir_impl(ptr, rust_vec_len, data_len),
-        144 => wire__crate__api__t16__t16_update_targets_impl(ptr, rust_vec_len, data_len),
-        147 => wire__crate__api__t16__t16_webdav_config_get_impl(ptr, rust_vec_len, data_len),
-        148 => wire__crate__api__t16__t16_webdav_config_save_impl(ptr, rust_vec_len, data_len),
-        154 => {
+        118 => wire__crate__api__speedtest__speedtest_results_impl(ptr, rust_vec_len, data_len),
+        119 => wire__crate__api__speedtest__speedtest_start_impl(ptr, rust_vec_len, data_len),
+        121 => wire__crate__api__speedtest__speedtest_supported_impl(ptr, rust_vec_len, data_len),
+        122 => wire__crate__api__subs__start_sub_scheduler_impl(ptr, rust_vec_len, data_len),
+        123 => wire__crate__api__monitor__stats_snapshot_impl(ptr, rust_vec_len, data_len),
+        125 => wire__crate__api__subs__stop_sub_scheduler_impl(ptr, rust_vec_len, data_len),
+        126 => wire__crate__api__subs__sub_scheduler_running_impl(ptr, rust_vec_len, data_len),
+        130 => wire__crate__api__engine__subscriber_count_impl(ptr, rust_vec_len, data_len),
+        131 => wire__crate__api__platform__sysproxy_mode_value_impl(ptr, rust_vec_len, data_len),
+        132 => wire__crate__api__platform__sysproxy_type_valid_impl(ptr, rust_vec_len, data_len),
+        135 => wire__crate__api__t16__t16_backup_import_upstream_impl(ptr, rust_vec_len, data_len),
+        136 => wire__crate__api__t16__t16_backup_list_impl(ptr, rust_vec_len, data_len),
+        137 => wire__crate__api__t16__t16_backup_local_impl(ptr, rust_vec_len, data_len),
+        138 => wire__crate__api__t16__t16_backup_recognize_impl(ptr, rust_vec_len, data_len),
+        139 => wire__crate__api__t16__t16_backup_restore_impl(ptr, rust_vec_len, data_len),
+        140 => wire__crate__api__t16__t16_backup_verify_impl(ptr, rust_vec_len, data_len),
+        142 => wire__crate__api__t16__t16_cleanup_logs_tmp_impl(ptr, rust_vec_len, data_len),
+        143 => wire__crate__api__t16__t16_get_core_versions_impl(ptr, rust_vec_len, data_len),
+        144 => wire__crate__api__t16__t16_open_config_dir_impl(ptr, rust_vec_len, data_len),
+        145 => wire__crate__api__t16__t16_update_targets_impl(ptr, rust_vec_len, data_len),
+        148 => wire__crate__api__t16__t16_webdav_config_get_impl(ptr, rust_vec_len, data_len),
+        149 => wire__crate__api__t16__t16_webdav_config_save_impl(ptr, rust_vec_len, data_len),
+        155 => {
             wire__crate__api__settings__validate_current_settings_impl(ptr, rust_vec_len, data_len)
         }
-        155 => wire__crate__api__platform__validate_custom_proxy_script_impl(
+        156 => wire__crate__api__platform__validate_custom_proxy_script_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        156 => wire__crate__api__subs__validate_sub_item_impl(ptr, rust_vec_len, data_len),
-        157 => wire__crate__api__subs__write_export_file_impl(ptr, rust_vec_len, data_len),
+        157 => wire__crate__api__subs__validate_sub_item_impl(ptr, rust_vec_len, data_len),
+        158 => wire__crate__api__subs__write_export_file_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

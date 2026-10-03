@@ -296,6 +296,50 @@ impl AppEngine {
         Ok((draft, new_revision))
     }
 
+    /// `save_imported_profile` use case (FIX-04): persist one node arriving
+    /// from an import pipeline (inner `v2rayn://`, share URIs, subscriptions).
+    ///
+    /// Unlike [`AppEngine::save_profile`] (the editor-draft contract), empty
+    /// remarks/address/port are accepted: upstream `AddBatchServers4InnerUri`
+    /// and the per-type `Add*Server` entry points never required them.
+    /// Group drafts still normalize and cycle-check; `Custom`/`Outbound`
+    /// drafts normalize without the editor's file-path requirement (file
+    /// materialization happens at apply time).
+    pub fn save_imported_profile(
+        &self,
+        draft: Profile,
+        expected_revision: DesiredRevision,
+    ) -> Result<(Profile, DesiredRevision), DomainError> {
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        revisions.check(expected_revision)?;
+        let mut draft = draft;
+        if draft.index_id.trim().is_empty() {
+            draft.index_id = crate::repository::new_index_id();
+        }
+        draft.config_version = 4;
+        if crate::groups::is_group(draft.config_type) {
+            draft = crate::groups::normalize_group(draft);
+            let mut all = self.all_profiles_map_locked()?;
+            all.insert(draft.index_id.clone(), draft.clone());
+            crate::groups::validate_group(&draft, &all)?;
+        }
+        if matches!(draft.config_type, ConfigType::Custom | ConfigType::Outbound) {
+            draft = crate::custom::normalize_custom(draft);
+        }
+
+        let mut repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        repo.upsert(draft.clone())?;
+        let new_revision = revisions.bump();
+        self.persist_config(&revisions)?;
+        Ok((draft, new_revision))
+    }
+
     /// Delete a set of profiles. Returns how many rows were removed.
     pub fn delete_profiles(&self, ids: &[String]) -> Result<u64, DomainError> {
         let mut revisions = self
@@ -471,7 +515,15 @@ impl AppEngine {
     /// Save (insert or replace) one routing profile. Remarks are required and
     /// the embedded rules must each carry a match criterion.
     pub fn save_routing(&self, profile: RoutingProfile) -> Result<RoutingProfile, DomainError> {
-        let normalized = crate::routing::normalize_routing(profile)?;
+        let mut normalized = crate::routing::normalize_routing(profile)?;
+        // The DTO shape has no room for unknown keys: merge stored extras
+        // (profile + per-rule, by id) back so an unrelated edit never wipes
+        // them. New ids have no stored counterpart and keep their own.
+        if !normalized.id.trim().is_empty() {
+            if let Ok(Some(stored)) = self.get_routing(&normalized.id) {
+                crate::routing::preserve_extras(Some(&stored), &mut normalized);
+            }
+        }
         let mut revisions = self
             .revisions
             .lock()
@@ -644,7 +696,15 @@ impl AppEngine {
 
     /// Save (insert or replace) one DNS profile with per-core validation.
     pub fn save_dns(&self, profile: DnsProfile) -> Result<DnsProfile, DomainError> {
-        let normalized = crate::dns::normalize_dns(profile)?;
+        let mut normalized = crate::dns::normalize_dns(profile)?;
+        if !normalized.id.trim().is_empty() {
+            let stored = self
+                .dns_items
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+                .get(&normalized.id)?;
+            crate::dns::preserve_dns_extras(stored.as_ref(), &mut normalized);
+        }
         let mut revisions = self
             .revisions
             .lock()

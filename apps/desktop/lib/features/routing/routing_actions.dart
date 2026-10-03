@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
+import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
 import 'package:v2rayn_desktop/features/routing/dns_window.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_windows.dart';
@@ -20,116 +20,80 @@ Future<void> openDnsSettings(BuildContext context, WidgetRef ref) async {
   await showDnsSettingWindow(context, ref);
 }
 
-/// Import rule JSON from a file path (read with dart:io, no picker dep).
-Future<void> importRulesFromFile(
-  BuildContext context,
-  WidgetRef ref,
-  String routingId,
-) async {
+/// A parsed draft import: rules plus whether they replace the draft list.
+/// Returning null means cancelled/failed; the caller's draft stays untouched.
+typedef DraftRuleImport = ({List<r.RoutingRuleDto> rules, bool replace});
+
+/// Read rule JSON from a file path, parse and ask append/replace.
+/// Nothing is persisted; the caller merges the result into its draft.
+Future<DraftRuleImport?> pickRulesFromFile(BuildContext context) async {
   final pathController = TextEditingController();
-  var replace = false;
   final confirmed = await showDialog<bool>(
     context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => AlertDialog(
-        key: const ValueKey('routing-import-file-dialog'),
-        title: const Text('从文件导入规则', style: TextStyle(fontSize: 15)),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              TextField(
-                key: const ValueKey('routing-import-file-path'),
-                controller: pathController,
-                decoration: const InputDecoration(
-                  hintText: '规则 JSON 文件完整路径',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              CheckboxListTile(
-                value: replace,
-                onChanged: (v) => setState(() => replace = v ?? false),
-                title: const Text(
-                  '替换现有规则（不勾选则追加）',
-                  style: TextStyle(fontSize: 12),
-                ),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-            ],
+    builder: (context) => AlertDialog(
+      key: const ValueKey('routing-import-file-dialog'),
+      title: const Text('从文件导入规则', style: TextStyle(fontSize: 15)),
+      content: SizedBox(
+        width: 440,
+        child: TextField(
+          key: const ValueKey('routing-import-file-path'),
+          controller: pathController,
+          decoration: const InputDecoration(
+            hintText: '规则 JSON 文件完整路径',
+            border: OutlineInputBorder(),
           ),
         ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            key: const ValueKey('routing-import-file-ok'),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('导入'),
-          ),
-        ],
       ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const ValueKey('routing-import-file-ok'),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('读取'),
+        ),
+      ],
     ),
   );
-  if (confirmed != true || !context.mounted) return;
+  if (confirmed != true || !context.mounted) return null;
   final path = pathController.text.trim();
-  if (path.isEmpty) return;
+  if (path.isEmpty) return null;
   String text;
   try {
     text = await File(path).readAsString();
   } catch (_) {
-    _toast(ref, '读取文件失败：$path');
-    return;
+    if (!context.mounted) return null;
+    _toast(context, '读取文件失败：$path');
+    return null;
   }
-  final result = ref
-      .read(routingControllerProvider.notifier)
-      .importRules(routingId, text, replace: replace);
-  _toast(
-    ref,
-    result.ok
-        ? '已导入 ${result.ruleCount} 条规则'
-        : '导入失败：${result.error?.messageKey}',
-  );
+  if (!context.mounted) return null;
+  return _parseAndAsk(context, text);
 }
 
-/// Import rule JSON from the clipboard.
-Future<void> importRulesFromClipboard(
-  BuildContext context,
-  WidgetRef ref,
-  String routingId,
-) async {
+/// Read rule JSON from the clipboard, parse and ask append/replace.
+Future<DraftRuleImport?> pickRulesFromClipboard(BuildContext context) async {
   final data = await Clipboard.getData(Clipboard.kTextPlain);
-  if (!context.mounted) return;
+  if (!context.mounted) return null;
   final text = data?.text ?? '';
   if (text.trim().isEmpty) {
-    _toast(ref, '剪贴板为空');
-    return;
+    _toast(context, '剪贴板为空');
+    return null;
   }
-  final replace = await _askReplace(context);
-  if (replace == null || !context.mounted) return;
-  final result = ref
-      .read(routingControllerProvider.notifier)
-      .importRules(routingId, text, replace: replace);
-  _toast(
-    ref,
-    result.ok
-        ? '已导入 ${result.ruleCount} 条规则'
-        : '导入失败：${result.error?.messageKey}',
-  );
+  return _parseAndAsk(context, text);
 }
 
-/// Import rule JSON from a URL (loopback-friendly, 15 s timeout).
-Future<void> importRulesFromUrl(
+/// Download rule JSON from a URL (loopback-friendly, 15 s timeout), parse
+/// and ask append/replace. An empty URL asks for one first (upstream
+/// `MsgNeedUrl`).
+Future<DraftRuleImport?> pickRulesFromUrl(
   BuildContext context,
-  WidgetRef ref,
-  String routingId,
   String url,
 ) async {
   if (url.trim().isEmpty) {
-    _toast(ref, '请先填写规则 URL');
-    return;
+    _toast(context, '请先填写规则 URL');
+    return null;
   }
   String text;
   try {
@@ -138,69 +102,61 @@ Future<void> importRulesFromUrl(
     final request = await client.getUrl(Uri.parse(url.trim()));
     final response = await request.close().timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      _toast(ref, '下载失败：HTTP ${response.statusCode}');
+      if (!context.mounted) return null;
+      _toast(context, '下载失败：HTTP ${response.statusCode}');
       client.close();
-      return;
+      return null;
     }
     text = await response.transform(utf8.decoder).join();
     client.close();
   } catch (_) {
-    _toast(ref, '下载失败，请检查 URL');
-    return;
+    if (!context.mounted) return null;
+    _toast(context, '下载失败，请检查 URL');
+    return null;
   }
-  if (!context.mounted) return;
-  final replace = await _askReplace(context);
-  if (replace == null || !context.mounted) return;
-  final result = ref
-      .read(routingControllerProvider.notifier)
-      .importRules(routingId, text, replace: replace);
-  _toast(
-    ref,
-    result.ok
-        ? '已导入 ${result.ruleCount} 条规则'
-        : '导入失败：${result.error?.messageKey}',
-  );
+  if (!context.mounted) return null;
+  return _parseAndAsk(context, text);
 }
 
-/// Export the selected (or all) rules to the clipboard as JSON.
-Future<void> exportSelectedRules(
+Future<DraftRuleImport?> _parseAndAsk(BuildContext context, String text) async {
+  final List<r.RoutingRuleDto> rules;
+  try {
+    rules = RoutingController.parseImportedRuleDtos(text);
+  } on FormatException catch (e) {
+    _toast(context, '导入失败：${e.message}');
+    return null;
+  }
+  return _askReplace(context, rules);
+}
+
+Future<DraftRuleImport?> _askReplace(
   BuildContext context,
-  WidgetRef ref,
-  String routingId,
-  List<String> ids,
+  List<r.RoutingRuleDto> rules,
 ) async {
-  final result = ref
-      .read(routingControllerProvider.notifier)
-      .exportRules(routingId, ids);
-  if (!result.ok || result.text.isEmpty) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? '无选中规则'}');
-    return;
-  }
-  await Clipboard.setData(ClipboardData(text: result.text));
-  _toast(ref, '已导出 ${result.ruleCount} 条规则到剪贴板');
+  final replace = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      key: const ValueKey('routing-import-mode-dialog'),
+      title: const Text('导入规则', style: TextStyle(fontSize: 15)),
+      content: const Text('追加到现有规则，还是替换全部规则？'),
+      actions: <Widget>[
+        TextButton(
+          key: const ValueKey('routing-import-append'),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('追加'),
+        ),
+        FilledButton(
+          key: const ValueKey('routing-import-replace'),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('替换'),
+        ),
+      ],
+    ),
+  );
+  if (replace == null) return null;
+  return (rules: rules, replace: replace);
 }
 
-Future<bool?> _askReplace(BuildContext context) => showDialog<bool>(
-  context: context,
-  builder: (context) => AlertDialog(
-    key: const ValueKey('routing-import-mode-dialog'),
-    title: const Text('导入规则', style: TextStyle(fontSize: 15)),
-    content: const Text('追加到现有规则，还是替换全部规则？'),
-    actions: <Widget>[
-      TextButton(
-        key: const ValueKey('routing-import-append'),
-        onPressed: () => Navigator.pop(context, false),
-        child: const Text('追加'),
-      ),
-      FilledButton(
-        key: const ValueKey('routing-import-replace'),
-        onPressed: () => Navigator.pop(context, true),
-        child: const Text('替换'),
-      ),
-    ],
-  ),
-);
-
-void _toast(WidgetRef ref, String message) {
-  ref.read(uiShellControllerProvider.notifier).setMessage(message);
+void _toast(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }

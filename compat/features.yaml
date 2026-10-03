@@ -784,7 +784,7 @@ features:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:464
   - docs/evidence/T06a.md
   status: implemented
-  notes: Ctrl+D / 右键编辑 / 双击(非激活模式) 均打开同一编辑器；expected_revision 冲突返回 E_REVISION_STALE。
+  notes: Ctrl+D / 右键编辑 / 双击(非激活模式) 均打开同一编辑器；expected_revision 冲突返回 E_REVISION_STALE。FIX-03 已修（implemented）：editSelectedProfile 按 configType 分派专用编辑器（Custom/Outbound→custom_editor_dialog，PolicyGroup/ProxyChain→group_editor_dialog，其余走通用编辑器；上游 ProfilesViewModel.EditServerAsync:479/484）。组编辑器手工候选仅排除 Custom（上游 AddChildAsync 过滤），嵌套组由 Rust validate_group 环检测；新增多选节点选择器与已落库组合预览。widget 7/7 + 真实窗口 11/11 通过（docs/evidence/UX-PARITY-FIX-03/observations.json）。Outbound 文件浏览导入/外部编辑、Chain 内核端到端校验拆至后续卡。
 - id: F-PROFILE-003
   name: 删除节点
   family: profile
@@ -1717,6 +1717,7 @@ features:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1977
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:832
   status: implemented
+  notes: FIX-04（docs/tasks/FIX-04.md）：冻结 wire DTO（crates/subscriptions/src/fmt/wire.rs）承接 PascalCase/ProtoExtraObj/TransportExtraObj/CustomOutboundObj 与未知键；parity_original_inner 9/9（含原 2 项去 ignore）、subscriptions 全包 117 通过；真桥链路 test/ux_parity_fix04_inner_test.dart 导入→落库→导出→再导入→重开通过。空备注/地址节点经新增 Engine::save_imported_profile 落库（剪贴板 saveProfile 直写仍需新桥接函数，登记缺口未动）。
 - id: F-IMPORT-006
   name: 图片二维码导入
   family: import-export
@@ -2213,13 +2214,15 @@ features:
   acceptance: 路由模板可增删并设默认
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   implementation_location: "crates/application/src/routing.rs + engine.rs (list/get/save/delete/set_default) + crates/bridge_api/src/api/routing.rs + apps/desktop/lib/features/routing/routing_windows.dart (RoutingSettingWindow)"
-  test_ids: ["t11_routing_dns.rs::routing_crud_survives_reopen", "t11_routing_test.dart::seeds one active builtin scheme", "t11_menu_test.dart::menu opens the routing window"]
+  test_ids: ["t11_routing_dns.rs::routing_crud_survives_reopen", "t11_routing_test.dart::seeds one active builtin scheme", "t11_menu_test.dart::menu opens the routing window", "fix08_routing_draft_test::strategy edits global object"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:22
   - v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs:78
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2322
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2599
+  - docs/tasks/FIX-08.md
   status: implemented
+  notes: 'FIX-08: 顶部策略按冻结对象写入全局 RoutingBasicItem（原写选中方案已改）；外部模板导入/多选等余量另卡 FIX-08C。'
 - id: F-ROUTING-003
   name: 路由规则编辑与排序
   family: routing
@@ -2246,12 +2249,14 @@ features:
   acceptance: 规则顺序与内容持久化
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   implementation_location: "crates/application/src/routing.rs (move_rule/merge_imported_rules/export_selected_rules/fetch_rules_text) + apps/desktop/lib/features/routing/routing_windows.dart (RoutingRulesetWindow T/U/D/B) + routing_actions.dart (file/clipboard/URL)"
-  test_ids: ["t11_routing_dns.rs::routing_rule_order_and_move", "t11_routing_dns.rs::routing_import_export_round_trip", "t11_routing_dns.rs::routing_url_import_from_loopback", "t11_routing_test.dart::rules move preserves order"]
+  test_ids: ["t11_routing_dns.rs::routing_rule_order_and_move", "t11_routing_dns.rs::routing_import_export_round_trip", "t11_routing_dns.rs::routing_url_import_from_loopback", "t11_routing_test.dart::rules move preserves order", "t11_routing_dns.rs::routing_save_empty_rule_list_persists", "t11_routing_dns.rs::routing_save_preserves_unknown_rule_fields", "fix08_routing_draft_test", "fix08_draft_unit_test"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/RoutingRuleSettingViewModel.cs:24
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2345
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2389
+  - docs/tasks/FIX-08.md
   status: implemented
+  notes: 'FIX-08: 单草稿语义落地（新规则稳定 ID、移动/导入/导出只改草稿、删空可存、失败不关窗）；未知规则键按 id 合并保留；行内移动按钮脱离双击竞技场。'
 - id: F-ROUTING-004
   name: 规则详情与出站绑定
   family: routing
@@ -2373,11 +2378,13 @@ features:
   acceptance: 设置持久化并进入生成配置
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   implementation_location: "crates/application/src/dns.rs + engine.rs (list_dns/save_dns/SimpleDNS via settings) + crates/bridge_api/src/api/dns.rs + apps/desktop/lib/features/routing/dns_window.dart (4 tabs) + dns_controller.dart"
-  test_ids: ["t11_routing_dns.rs::dns_crud_and_validation", "t11_dns_test.dart::4 tests", "t11_menu_test.dart"]
+  test_ids: ["t11_routing_dns.rs::dns_crud_and_validation", "t11_dns_test.dart::4 tests", "t11_menu_test.dart", "fix08_dns_draft_test", "api::dns::fix08_tests::save_simple_dns_preserves_global_fake_ip_and_extra_when_unset"]
   evidence:
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:7
   - v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:106
+  - docs/tasks/FIX-08.md
   status: implemented
+  notes: 'FIX-08: 导入默认仅预览、保存透传 GlobalFakeIp 且先验后写、应用先存后生效；未知键合并保留。预设/远端模板完整流另卡 FIX-08B。'
 - id: F-DNS-002
   name: 原生 DNS 配置（Xray/sing-box）
   family: dns

@@ -12,6 +12,7 @@ use domain::{ConfigType, CoreType, Profile};
 use serde_json::{Map, Value};
 
 use super::base::INNER;
+use super::wire::{self, OutboundLoader};
 use crate::util::{base64_decode, base64_urlsafe_nopad};
 
 /// `subid` replacement accepted by exported group nodes.
@@ -82,7 +83,16 @@ pub fn parse(input: &str, subid: &str) -> Vec<Profile> {
 
 /// Export profiles as newline-separated `v2rayn://` URIs. Returns `None` when
 /// nothing exportable remains.
+///
+/// `Outbound` nodes without inline content are skipped here; callers that can
+/// read the file behind `Address` should use [`emit_with`] instead.
 pub fn emit(items: &[Profile]) -> Option<String> {
+    emit_with(items, &|_| None)
+}
+
+/// [`emit`] with a resolver for file-backed `Outbound` addresses, mirroring
+/// upstream `ToUriSingle` reading the file behind `Address`.
+pub fn emit_with(items: &[Profile], outbound_loader: OutboundLoader<'_>) -> Option<String> {
     let mut out = String::new();
     for item in items {
         if item.config_type == ConfigType::Custom {
@@ -108,7 +118,7 @@ pub fn emit(items: &[Profile]) -> Option<String> {
                 clone.proto_extra.child_items = Some(crate::util::list2string(&remapped));
             }
         }
-        if let Some(uri) = emit_single(&clone) {
+        if let Some(uri) = emit_single(&clone, outbound_loader) {
             out.push_str(&uri);
             out.push('\n');
         }
@@ -127,8 +137,9 @@ fn is_group(config_type: ConfigType) -> bool {
     )
 }
 
-fn emit_single(item: &Profile) -> Option<String> {
-    let mut value = serde_json::to_value(item).ok()?;
+fn emit_single(item: &Profile, outbound_loader: OutboundLoader<'_>) -> Option<String> {
+    let map = wire::profile_to_wire_object(item, outbound_loader)?;
+    let mut value = Value::Object(map.into_iter().collect());
     remove_empty_json(&mut value);
     let json = serde_json::to_string(&value).ok()?;
     let encoded = base64_urlsafe_nopad(json.as_bytes());
@@ -144,10 +155,27 @@ fn parse_single(line: &str) -> Option<Profile> {
     }
     let decoded = base64_decode(segment).ok()?;
     let value: Value = serde_json::from_str(&decoded).ok()?;
-    let Value::Object(mut obj) = value else {
+    let Value::Object(obj) = value else {
         return None;
     };
 
+    // Frozen upstream shape first; legacy snake_case exports fall back below.
+    // The gate matters: the legacy struct defaults (`config_version = 4`,
+    // `config_type = Vmess`) would otherwise resurrect payloads the frozen
+    // wire contract already rejected (wrong version / undefined enum).
+    if obj.contains_key("ConfigType") || obj.contains_key("ConfigVersion") {
+        if let Ok(wire_item) = serde_json::from_value::<wire::InnerProfile>(Value::Object(obj)) {
+            return wire::wire_to_profile(wire_item);
+        }
+        return None;
+    }
+    parse_single_legacy(obj)
+}
+
+/// Pre-freeze spelling (`snake_case` storage names): still accepted so URIs
+/// this app exported before the PascalCase wire DTO keep importing.
+fn parse_single_legacy(obj: Map<String, Value>) -> Option<Profile> {
+    let mut obj = obj;
     flatten_extra(&mut obj, "ProtoExtra", "ProtoExtraObj", "proto_extra");
     flatten_extra(
         &mut obj,

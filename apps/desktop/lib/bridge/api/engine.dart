@@ -53,6 +53,17 @@ SaveProfileResult saveProfile({
   expectedRevision: expectedRevision,
 );
 
+/// `save_imported_profile` — import-pipeline persistence (FIX-04): accepts the
+/// empty remarks/address/port that share URIs and inner `v2rayn://` payloads
+/// legitimately carry, unlike the editor draft contract of `save_profile`.
+SaveProfileResult saveImportedProfile({
+  required ProfileDto draft,
+  required BigInt expectedRevision,
+}) => RustLib.instance.api.crateApiEngineSaveImportedProfile(
+  draft: draft,
+  expectedRevision: expectedRevision,
+);
+
 /// `delete_profiles` — delete a selection by stable id set.
 DeleteProfilesResult deleteProfiles({required List<String> ids}) =>
     RustLib.instance.api.crateApiEngineDeleteProfiles(ids: ids);

@@ -1,0 +1,18 @@
+   Compiling domain v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\domain)
+   Compiling subscriptions v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\subscriptions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.15s
+     Running tests\parity_original_inner.rs (target\debug\deps\parity_original_inner-dfe72b222f1d1c80.exe)
+
+running 9 tests
+test exported_inner_uri_uses_frozen_profile_property_names ... ok
+test fixture_outbound_file_path_round_trips_through_loader ... ok
+test legacy_snake_case_inner_uri_still_imports ... ok
+test ordinary_node_without_remarks_or_address_still_imports ... ok
+test frozen_pascal_case_inner_uri_preserves_vless_entity_and_extras ... ok
+test fixture_invalid_payloads_are_rejected ... ok
+test fixture_vless_import_export_reimport_is_stable ... ok
+test fixture_outbound_inline_content_never_becomes_a_file_path ... ok
+test fixture_group_self_sentinel_resolves_to_importing_subid ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

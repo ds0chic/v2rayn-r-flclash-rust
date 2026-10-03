@@ -6,8 +6,9 @@ import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 /// Modal editor for PolicyGroup (101) / ProxyChain (102) nodes.
 ///
 /// Mirrors `AddGroupServerViewModel`: remarks, core, five `MultipleLoad`
-/// modes, ordered child list (add/remove/T/U/D/B), subscription child source
-/// (`SubChildItems`) plus remarks `Filter`. Cancel never persists; save
+/// modes, ordered child list (multi-select add, remove, T/U/D/B), subscription
+/// child source (`SubChildItems`) plus remarks `Filter`, and a persisted
+/// resolution preview (`group_children`). Cancel never persists; save
 /// delegates to [onSave] and keeps the form open on server rejection.
 class GroupEditorDialog extends StatefulWidget {
   const GroupEditorDialog({
@@ -16,12 +17,18 @@ class GroupEditorDialog extends StatefulWidget {
     required this.allProfiles,
     required this.subItems,
     required this.onSave,
+    this.previewChildren,
   });
 
   final ProfileDraft initial;
   final List<c.ProfileDto> allProfiles;
   final List<c.SubItemDto> subItems;
   final c.SaveProfileResult Function(c.ProfileDto draft) onSave;
+
+  /// Persisted child resolution for [indexId] (subscription matches first,
+  /// then explicit order). Injected so widget tests can stub it; production
+  /// passes `ProfilesController.groupChildPreview`.
+  final List<c.ProfileDto> Function(String indexId)? previewChildren;
 
   @override
   State<GroupEditorDialog> createState() => _GroupEditorDialogState();
@@ -31,8 +38,9 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late ProfileDraft _draft;
   late List<String> _childIds;
-  String? _selectedCandidate;
   String? _selectedSubId;
+  List<c.ProfileDto> _preview = const <c.ProfileDto>[];
+  bool _previewLoaded = false;
   c.ErrorDto? _serverError;
   bool _submitting = false;
 
@@ -71,6 +79,20 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
         .toList();
     final sub = (_draft.subChildItems ?? '').trim();
     _selectedSubId = sub.isEmpty ? null : sub;
+    _refreshPreview();
+  }
+
+  /// Reload the persisted child resolution. It reflects the stored node, not
+  /// the in-progress draft: recompute after saving to confirm the new order.
+  void _refreshPreview() {
+    final preview = widget.previewChildren;
+    if (preview == null || _draft.indexId.isEmpty) {
+      _preview = const <c.ProfileDto>[];
+      _previewLoaded = preview != null;
+      return;
+    }
+    _preview = preview(_draft.indexId);
+    _previewLoaded = true;
   }
 
   List<c.ProfileDto> get _candidates {
@@ -84,10 +106,15 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
     ];
   }
 
-  static bool _isEligible(ConfigType type) =>
-      type != ConfigType.policyGroup &&
-      type != ConfigType.proxyChain &&
-      type != ConfigType.custom;
+  /// Manual child selection excludes only Custom, exactly like upstream
+  /// `AddGroupServerViewModel.AddChildAsync`
+  /// (`SetConfigTypeFilter([EConfigType.Custom], exclude: true)`): nested
+  /// PolicyGroup/ProxyChain and Outbound nodes stay selectable, and a cycle
+  /// through nested groups is rejected at save time by the Rust
+  /// `validate_group` ring check. (The subscription-derived `SubChildItems`
+  /// resolution is the stricter rule that drops complex nodes; it does not
+  /// apply to hand-picked `ChildItems`.)
+  static bool _isEligible(ConfigType type) => type != ConfigType.custom;
 
   String _labelOf(c.ProfileDto p) =>
       p.remarks.isEmpty ? p.indexId : '${p.remarks} [${p.configType.name}]';
@@ -226,6 +253,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                   ),
                   onChanged: (v) => _draft.filter = v,
                 ),
+                if (widget.previewChildren != null) _previewSection(),
               ],
             ),
           ),
@@ -246,45 +274,34 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
     );
   }
 
+  /// Open the multi-select node picker (upstream `ProfilesSelectWindow`:
+  /// multi-select with select-all, Custom excluded) and append the chosen ids
+  /// in list order, skipping duplicates.
+  Future<void> _pickNodes() async {
+    final picked = await showNodePicker(context, candidates: _candidates);
+    if (picked == null || picked.isEmpty) return;
+    setState(() {
+      final taken = _childIds.toSet();
+      for (final id in picked) {
+        if (taken.add(id)) _childIds.add(id);
+      }
+    });
+  }
+
   Widget _addRow() {
-    final candidates = _candidates;
     return Row(
       children: <Widget>[
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            key: const ValueKey('group-add-select'),
-            initialValue: _selectedCandidate,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: '选择节点加入',
-              isDense: true,
-              border: OutlineInputBorder(),
-            ),
-            items: <DropdownMenuItem<String>>[
-              for (final p in candidates)
-                DropdownMenuItem<String>(
-                  value: p.indexId,
-                  child: Text(
-                    _labelOf(p),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-            ],
-            onChanged: (v) => setState(() => _selectedCandidate = v),
-          ),
+        OutlinedButton.icon(
+          key: const ValueKey('group-pick-open'),
+          onPressed: _candidates.isEmpty ? null : _pickNodes,
+          icon: const Icon(Icons.add, size: 16),
+          label: const Text('选择节点... (多选)', style: TextStyle(fontSize: 12)),
         ),
         const SizedBox(width: 8),
-        OutlinedButton(
-          key: const ValueKey('group-add'),
-          onPressed: () {
-            final id = _selectedCandidate;
-            if (id == null || id.isEmpty) return;
-            setState(() {
-              _childIds.add(id);
-              _selectedCandidate = null;
-            });
-          },
-          child: const Text('加入'),
+        Text(
+          '已选 ${_childIds.length}',
+          key: const ValueKey('group-child-count'),
+          style: const TextStyle(fontSize: 12),
         ),
       ],
     );
@@ -344,6 +361,64 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
       final id = _childIds.removeAt(from);
       _childIds.insert(clamped, id);
     });
+  }
+
+  /// Persisted child resolution (upstream pre-outbound list tab): subscription
+  /// matches first, then the explicit order. It reflects the stored node, so
+  /// save first and then refresh to confirm a reordered draft.
+  Widget _previewSection() {
+    String labelOf(String id) {
+      for (final p in widget.allProfiles) {
+        if (p.indexId == id) return _labelOf(p);
+      }
+      for (final p in _preview) {
+        if (p.indexId == id) return _labelOf(p);
+      }
+      return id;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          child: Row(
+            children: <Widget>[
+              const Expanded(
+                child: Text(
+                  '组合预览 (已落库解析，订阅匹配优先)',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+              OutlinedButton(
+                key: const ValueKey('group-preview-refresh'),
+                onPressed: () => setState(_refreshPreview),
+                child: const Text('刷新', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+        ),
+        if (!_previewLoaded)
+          const Text(
+            '新建节点保存后可预览',
+            key: ValueKey('group-preview-empty'),
+            style: TextStyle(fontSize: 12),
+          )
+        else if (_preview.isEmpty)
+          const Text(
+            '暂无解析子节点',
+            key: ValueKey('group-preview-empty'),
+            style: TextStyle(fontSize: 12),
+          )
+        else
+          for (var i = 0; i < _preview.length; i++)
+            Text(
+              '${i + 1}. ${labelOf(_preview[i].indexId)}',
+              key: ValueKey('group-preview-${_preview[i].indexId}'),
+              style: const TextStyle(fontSize: 12),
+            ),
+      ],
+    );
   }
 
   Widget _dropdown<T>({
@@ -424,6 +499,7 @@ Future<c.ProfileDto?> showGroupEditor(
   required List<c.ProfileDto> allProfiles,
   required List<c.SubItemDto> subItems,
   required c.SaveProfileResult Function(c.ProfileDto draft) onSave,
+  List<c.ProfileDto> Function(String indexId)? previewChildren,
 }) {
   return showDialog<c.ProfileDto>(
     context: context,
@@ -432,6 +508,7 @@ Future<c.ProfileDto?> showGroupEditor(
       allProfiles: allProfiles,
       subItems: subItems,
       onSave: onSave,
+      previewChildren: previewChildren,
     ),
   );
 }
@@ -440,3 +517,126 @@ Future<c.ProfileDto?> showGroupEditor(
 List<String> groupChildIds(c.ProfilePageDto page) => <String>[
   for (final p in page.items) p.indexId,
 ];
+
+/// Multi-select node picker for group children.
+///
+/// Mirrors upstream `ProfilesSelectWindow` as used by
+/// `AddGroupServerViewModel.AddChildAsync`: multi-select with select-all over
+/// the eligible candidates (Custom already filtered out by the caller).
+/// Returns the picked `indexId`s in list order, or `null` on cancel.
+Future<List<String>?> showNodePicker(
+  BuildContext context, {
+  required List<c.ProfileDto> candidates,
+}) {
+  return showDialog<List<String>>(
+    context: context,
+    builder: (context) => _NodePickerDialog(candidates: candidates),
+  );
+}
+
+class _NodePickerDialog extends StatefulWidget {
+  const _NodePickerDialog({required this.candidates});
+
+  final List<c.ProfileDto> candidates;
+
+  @override
+  State<_NodePickerDialog> createState() => _NodePickerDialogState();
+}
+
+class _NodePickerDialogState extends State<_NodePickerDialog> {
+  final Set<String> _picked = <String>{};
+
+  String _labelOf(c.ProfileDto p) =>
+      p.remarks.isEmpty ? p.indexId : '${p.remarks} [${p.configType.name}]';
+
+  @override
+  Widget build(BuildContext context) {
+    final allPicked =
+        widget.candidates.isNotEmpty &&
+        _picked.length == widget.candidates.length;
+    return AlertDialog(
+      key: const ValueKey('group-picker'),
+      title: const Text('选择子节点 (多选)', style: TextStyle(fontSize: 15)),
+      content: SizedBox(
+        width: 480,
+        height: 420,
+        child: Column(
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                TextButton(
+                  key: const ValueKey('group-pick-select-all'),
+                  onPressed: widget.candidates.isEmpty
+                      ? null
+                      : () => setState(() {
+                          if (allPicked) {
+                            _picked.clear();
+                          } else {
+                            _picked
+                              ..clear()
+                              ..addAll(widget.candidates.map((p) => p.indexId));
+                          }
+                        }),
+                  child: Text(allPicked ? '全不选' : '全选'),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '已选 ${_picked.length}/${widget.candidates.length}',
+                  key: const ValueKey('group-pick-count'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+            const Divider(height: 8),
+            Expanded(
+              child: widget.candidates.isEmpty
+                  ? const Center(
+                      child: Text(
+                        '没有可选节点',
+                        key: ValueKey('group-pick-empty'),
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    )
+                  : ListView(
+                      children: <Widget>[
+                        for (final p in widget.candidates)
+                          CheckboxListTile(
+                            key: ValueKey('group-pick-node-${p.indexId}'),
+                            dense: true,
+                            title: Text(
+                              _labelOf(p),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            value: _picked.contains(p.indexId),
+                            onChanged: (v) => setState(() {
+                              if (v == true) {
+                                _picked.add(p.indexId);
+                              } else {
+                                _picked.remove(p.indexId);
+                              }
+                            }),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const ValueKey('group-pick-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const ValueKey('group-pick-ok'),
+          onPressed: () => Navigator.of(context).pop(<String>[
+            for (final p in widget.candidates)
+              if (_picked.contains(p.indexId)) p.indexId,
+          ]),
+          child: const Text('确定'),
+        ),
+      ],
+    );
+  }
+}

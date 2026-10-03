@@ -541,12 +541,37 @@ pub fn export_profiles(ids: Vec<String>, kind: String) -> ShareExportResult {
     }
 }
 
+/// Resolve an `Outbound` file-path `Address` to parsed JSON for inner export.
+///
+/// Tries the path as-is, then joined with the engine data dir (the local
+/// equivalent of upstream `Utils.GetConfigPath`). Only local files are read;
+/// a missing/unparseable file yields `None` and the node is skipped.
+fn load_outbound_json(path: &str, data_dir: Option<&std::path::Path>) -> Option<serde_json::Value> {
+    let mut candidates = vec![std::path::PathBuf::from(path)];
+    if let Some(dir) = data_dir {
+        candidates.push(dir.join(path));
+    }
+    candidates.into_iter().find_map(|candidate| {
+        std::fs::read_to_string(candidate)
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+    })
+}
+
 fn render_export(profiles: &[Profile], kind: &str) -> Result<String, DomainError> {
     match kind {
-        "inner" => subscriptions::to_inner_uri(profiles).ok_or_else(|| {
-            DomainError::new(domain::codes::INVALID_ARGUMENT, "error.export_nothing")
-                .with_detail("no exportable inner uri")
-        }),
+        "inner" => {
+            // File-backed `Outbound` nodes resolve `Address` like upstream
+            // `ToUriSingle` (direct path, then the data dir as the config-dir
+            // equivalent). Inline-type nodes never reach the loader: the
+            // subscriptions crate serves them from preserved inline content.
+            let data_dir = engine().data_dir().map(|dir| dir.to_path_buf());
+            let loader = |path: &str| load_outbound_json(path, data_dir.as_deref());
+            subscriptions::to_inner_uri_with_outbound_loader(profiles, &loader).ok_or_else(|| {
+                DomainError::new(domain::codes::INVALID_ARGUMENT, "error.export_nothing")
+                    .with_detail("no exportable inner uri")
+            })
+        }
         "base64" => {
             let mut lines = Vec::new();
             for profile in profiles {
@@ -711,5 +736,73 @@ mod tests {
         let base64 = render_export(&profiles, "base64").unwrap();
         let decoded = subscriptions::util::base64_decode(&base64).unwrap();
         assert!(decoded.contains("vless://"));
+    }
+
+    #[test]
+    fn import_inner_uri_parses_frozen_pascal_case_shape() {
+        // No engine lock: subid-less imports never touch persistence.
+        let payload = serde_json::json!({
+            "IndexId": "bridge-vless",
+            "ConfigType": 5,
+            "ConfigVersion": 4,
+            "Remarks": "桥接合成",
+            "Address": "node.example.invalid",
+            "Port": 11984,
+            "Password": "11111111-2222-3333-4444-555555555555",
+            "Network": "tcp",
+            "ProtoExtraObj": {"VlessEncryption": "none"}
+        });
+        let uri = format!(
+            "v2rayn://vless/{}",
+            subscriptions::util::base64_urlsafe_nopad(payload.to_string().as_bytes())
+        );
+        let result = import_from_text(uri, None, false);
+        assert!(result.ok, "{:?}", result.error.map(|e| e.code));
+        assert_eq!(result.imported, 1);
+        let profile = &result.profiles[0];
+        assert_eq!(profile.config_type, domain::ConfigType::Vless);
+        assert_eq!(profile.remarks, "桥接合成");
+    }
+
+    #[test]
+    fn inner_export_serves_inline_and_file_outbound() {
+        use domain::ConfigType;
+
+        let mut inline = Profile {
+            index_id: "inline-out".into(),
+            config_type: ConfigType::Outbound,
+            remarks: "内联出站".into(),
+            ..Default::default()
+        };
+        inline.proto_extra.extra.insert(
+            "customConfigText".into(),
+            serde_json::Value::String(r#"{"tag":"inline-out"}"#.into()),
+        );
+        let text = render_export(&[inline], "inner").unwrap();
+        assert!(text.starts_with("v2rayn://outbound/"));
+
+        let dir = std::env::temp_dir();
+        let file_name = format!("fix04-outbound-{}.json", std::process::id());
+        let file_path = dir.join(&file_name);
+        std::fs::write(&file_path, r#"{"tag":"file-out"}"#).unwrap();
+        let file_node = Profile {
+            index_id: "file-out".into(),
+            config_type: ConfigType::Outbound,
+            remarks: "文件出站".into(),
+            address: file_path.to_string_lossy().into_owned(),
+            ..Default::default()
+        };
+        let text = render_export(&[file_node], "inner").unwrap();
+        assert!(text.starts_with("v2rayn://outbound/"));
+        std::fs::remove_file(&file_path).ok();
+
+        let missing = Profile {
+            index_id: "missing-out".into(),
+            config_type: ConfigType::Outbound,
+            remarks: "缺文件出站".into(),
+            address: "fix04-definitely-missing-outbound.json".into(),
+            ..Default::default()
+        };
+        assert!(render_export(&[missing], "inner").is_err());
     }
 }

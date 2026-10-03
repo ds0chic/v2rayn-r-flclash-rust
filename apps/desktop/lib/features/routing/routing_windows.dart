@@ -6,6 +6,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 
 /// Upstream `DomainStrategy` candidates (Xray).
 const domainStrategyOptions = <String>[
@@ -52,6 +53,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(routingControllerProvider.notifier).reload();
+      // The top strategy row edits the global object; load it for display.
+      try {
+        ref.read(settingsControllerProvider.notifier).load();
+      } catch (_) {}
     });
   }
 
@@ -75,7 +80,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                 const SizedBox(width: 8),
                 DropdownButton<String>(
                   key: const ValueKey('routing-domain-strategy'),
-                  value: _strategyValue(state),
+                  value: _strategyValue(),
                   items: [
                     for (final s in domainStrategyOptions)
                       DropdownMenuItem(
@@ -93,7 +98,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                 const SizedBox(width: 8),
                 DropdownButton<String>(
                   key: const ValueKey('routing-domain-strategy-sbox'),
-                  value: _strategySboxValue(state),
+                  value: _strategySboxValue(),
                   items: [
                     for (final s in domainStrategySboxOptions)
                       DropdownMenuItem(
@@ -181,51 +186,41 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
     );
   }
 
-  String _strategyValue(RoutingState state) {
-    final selected = state.selected;
-    final value = selected?.domainStrategy ?? '';
+  /// Upstream `RoutingSettingViewModel.SaveSettingsAsync`: the top strategy
+  /// row edits the global `RoutingBasicItem`, never the selected scheme.
+  String _strategyValue() {
+    final group = ref
+        .watch(settingsControllerProvider)
+        .group('RoutingBasicItem');
+    final value = group['DomainStrategy']?.toString() ?? '';
     return domainStrategyOptions.contains(value) ? value : '';
   }
 
-  String _strategySboxValue(RoutingState state) {
-    final selected = state.selected;
-    final value = selected?.domainStrategy4Singbox ?? '';
+  String _strategySboxValue() {
+    final group = ref
+        .watch(settingsControllerProvider)
+        .group('RoutingBasicItem');
+    final value = group['DomainStrategy4Singbox']?.toString() ?? '';
     return domainStrategySboxOptions.contains(value) ? value : '';
   }
 
   void _saveStrategy(String value) {
-    final controller = ref.read(routingControllerProvider.notifier);
-    final selected = ref.read(routingControllerProvider).selected;
-    if (selected == null) return;
-    controller.save(_withStrategy(selected, value, null));
+    final settings = ref.read(settingsControllerProvider.notifier);
+    final group = Map<String, dynamic>.of(
+      ref.read(settingsControllerProvider).group('RoutingBasicItem'),
+    );
+    group['DomainStrategy'] = value;
+    settings.saveGroup('RoutingBasicItem', group);
   }
 
   void _saveStrategySbox(String value) {
-    final controller = ref.read(routingControllerProvider.notifier);
-    final selected = ref.read(routingControllerProvider).selected;
-    if (selected == null) return;
-    controller.save(_withStrategy(selected, null, value));
+    final settings = ref.read(settingsControllerProvider.notifier);
+    final group = Map<String, dynamic>.of(
+      ref.read(settingsControllerProvider).group('RoutingBasicItem'),
+    );
+    group['DomainStrategy4Singbox'] = value;
+    settings.saveGroup('RoutingBasicItem', group);
   }
-
-  r.RoutingProfileDto _withStrategy(
-    r.RoutingProfileDto item,
-    String? strategy,
-    String? strategySbox,
-  ) => r.RoutingProfileDto(
-    id: item.id,
-    remarks: item.remarks,
-    url: item.url,
-    ruleSet: item.ruleSet,
-    ruleNum: item.ruleNum,
-    enabled: item.enabled,
-    locked: item.locked,
-    customIcon: item.customIcon,
-    customRulesetPath4Singbox: item.customRulesetPath4Singbox,
-    domainStrategy: strategy ?? item.domainStrategy,
-    domainStrategy4Singbox: strategySbox ?? item.domainStrategy4Singbox,
-    sort: item.sort,
-    isActive: item.isActive,
-  );
 
   Future<void> _openRuleset(r.RoutingProfileDto? item) async {
     await showRoutingRulesetWindow(context, ref, item);
@@ -473,27 +468,13 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
                   _selectedRuleIds.isEmpty ? null : _exportSelected,
                 ),
                 _tool('从剪贴板导入', const ValueKey('rule-import-clipboard'), () {
-                  final id = widget.item?.id;
-                  if (id == null) return;
-                  importRulesFromClipboard(
-                    context,
-                    ref,
-                    id,
-                  ).then((_) => _loadRules(id));
+                  pickRulesFromClipboard(context).then(_mergeImported);
                 }),
                 _tool('从文件导入', const ValueKey('rule-import-file'), () {
-                  final id = widget.item?.id;
-                  if (id == null) return;
-                  importRulesFromFile(
-                    context,
-                    ref,
-                    id,
-                  ).then((_) => _loadRules(id));
+                  pickRulesFromFile(context).then(_mergeImported);
                 }),
                 _tool('从URL导入', const ValueKey('rule-import-url'), () {
-                  final id = widget.item?.id;
-                  if (id == null) return;
-                  _importFromUrl(id);
+                  _importFromUrl();
                 }),
               ],
             ),
@@ -610,53 +591,53 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
     });
   }
 
+  /// Merge parsed import results into this draft only; storage is untouched
+  /// until Save (upstream `AddBatchRoutingRulesAsync` mutates `_rules`).
+  /// A failed parse or a cancelled dialog leaves the draft unchanged.
+  void _mergeImported(({List<r.RoutingRuleDto> rules, bool replace})? picked) {
+    if (picked == null || !mounted) return;
+    setState(() {
+      _rules = picked.replace
+          ? List<r.RoutingRuleDto>.of(picked.rules)
+          : <r.RoutingRuleDto>[..._rules, ...picked.rules];
+    });
+  }
+
   Future<void> _exportSelected() async {
-    final id = widget.item?.id;
-    if (id == null) {
-      // Unsaved scheme: export from the in-memory draft list.
-      await Clipboard.setData(
-        ClipboardData(
-          text: _rules
-              .where((e) => _selectedRuleIds.contains(e.id))
-              .map((e) => e.outboundTag ?? '')
-              .join('\n'),
-        ),
-      );
-      return;
-    }
-    await exportSelectedRules(context, ref, id, _selectedRuleIds.toList());
+    // Export what the user is looking at (the draft), not the stored row.
+    if (_selectedRuleIds.isEmpty) return;
+    final text = RoutingController.exportDraftRulesJson(
+      _rules,
+      _selectedRuleIds.toList(),
+    );
+    await Clipboard.setData(ClipboardData(text: text));
   }
 
+  /// Reorder the draft list in place (upstream `ConfigHandler.MoveRoutingRule`
+  /// on `_rules`). Nothing is persisted until Save.
   void _move(int index, int direction) {
-    final id = widget.item?.id;
-    if (id == null) {
-      // Unsaved scheme: reorder the in-memory draft list.
-      setState(() {
-        final list = List.of(_rules);
-        var target = index;
-        switch (direction) {
-          case 0:
-            target = 0;
-          case 1:
-            target = index - 1;
-          case 2:
-            target = index + 1;
-          case 3:
-            target = list.length - 1;
-        }
-        if (target >= 0 && target < list.length && target != index) {
-          final item = list.removeAt(index);
-          list.insert(target, item);
-          _rules = list;
-        }
-      });
-      return;
-    }
-    ref.read(routingControllerProvider.notifier).moveRule(id, index, direction);
-    _loadRules(id);
+    setState(() {
+      final list = List.of(_rules);
+      var target = index;
+      switch (direction) {
+        case 0:
+          target = 0;
+        case 1:
+          target = index - 1;
+        case 2:
+          target = index + 1;
+        case 3:
+          target = list.length - 1;
+      }
+      if (target >= 0 && target < list.length && target != index) {
+        final item = list.removeAt(index);
+        list.insert(target, item);
+        _rules = list;
+      }
+    });
   }
 
-  Future<void> _importFromUrl(String id) async {
+  Future<void> _importFromUrl() async {
     final urlController = TextEditingController(text: _url.text);
     final url = await showDialog<String>(
       context: context,
@@ -688,10 +669,12 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
       ),
     );
     if (url == null || !mounted) return;
-    await importRulesFromUrl(context, ref, id, url);
-    if (mounted) _loadRules(id);
+    pickRulesFromUrl(context, url).then(_mergeImported);
   }
 
+  /// Persist the scheme and its draft rules with one `save_routing` call, so
+  /// an empty rule list also saves and a rule failure never closes the window
+  /// with a partial commit. Cancel/close leaves storage untouched.
   void _save() {
     if (_remarks.text.trim().isEmpty) {
       ScaffoldMessenger.of(context)
@@ -704,7 +687,7 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
       id: existing?.id ?? '',
       remarks: _remarks.text.trim(),
       url: _url.text.trim(),
-      ruleSet: existing?.ruleSet ?? '[]',
+      ruleSet: RoutingController.rulesToRuleSetJson(_rules),
       ruleNum: _rules.length,
       enabled: _enabled,
       locked: existing?.locked ?? false,
@@ -721,34 +704,6 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
         SnackBar(content: Text('保存失败：${saved.error?.messageKey}')),
       );
       return;
-    }
-    final routingId = saved.item?.id;
-    if (routingId != null && _rules.isNotEmpty) {
-      // Persist the edited rule list (ids kept stable across edits).
-      final withIds = _rules.map((e) {
-        if (e.id.isNotEmpty) return e;
-        return r.RoutingRuleDto(
-          id: 'draft-${e.hashCode}',
-          ruleKind: e.ruleKind,
-          port: e.port,
-          network: e.network,
-          inboundTag: e.inboundTag,
-          hasInboundTag: e.hasInboundTag,
-          outboundTag: e.outboundTag,
-          ip: e.ip,
-          hasIp: e.hasIp,
-          domain: e.domain,
-          hasDomain: e.hasDomain,
-          protocol: e.protocol,
-          hasProtocol: e.hasProtocol,
-          process: e.process,
-          hasProcess: e.hasProcess,
-          enabled: e.enabled,
-          remarks: e.remarks,
-          ruleType: e.ruleType,
-        );
-      }).toList();
-      controller.saveRules(routingId, withIds);
     }
     if (mounted) Navigator.pop(context);
   }
@@ -819,40 +774,50 @@ class _RuleRow extends StatelessWidget {
       2 => 'DNS',
       _ => 'Routing',
     };
-    return InkWell(
+    // The move buttons sit OUTSIDE the row InkWell on purpose: an ancestor
+    // with onDoubleTap starves inner button taps in the gesture arena (the
+    // single tap never resolves), so nesting them silently kills T/U/D/B.
+    return Container(
       key: ValueKey('rule-row-$index'),
-      onTap: onTap,
-      onDoubleTap: onEdit,
-      child: Container(
-        color: selected ? Colors.blue.withValues(alpha: 0.08) : null,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          children: <Widget>[
-            Expanded(flex: 2, child: Text(rule.remarks ?? '—')),
-            Expanded(child: Text(typeName)),
-            Expanded(child: Text(rule.outboundTag ?? '—')),
-            Expanded(
-              flex: 3,
-              child: Text(
-                match.isEmpty ? '—' : match,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ),
-            Expanded(child: Text(rule.enabled ? '是' : '否')),
-            SizedBox(
-              width: 120,
+      color: selected ? Colors.blue.withValues(alpha: 0.08) : null,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            flex: 5,
+            child: InkWell(
+              onTap: onTap,
+              onDoubleTap: onEdit,
               child: Row(
                 children: <Widget>[
-                  _mv('T', const ValueKey('rule-top'), onTop, index),
-                  _mv('U', const ValueKey('rule-up'), onUp, index),
-                  _mv('D', const ValueKey('rule-down'), onDown, index),
-                  _mv('B', const ValueKey('rule-bottom'), onBottom, index),
+                  Expanded(flex: 2, child: Text(rule.remarks ?? '—')),
+                  Expanded(child: Text(typeName)),
+                  Expanded(child: Text(rule.outboundTag ?? '—')),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      match.isEmpty ? '—' : match,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                  Expanded(child: Text(rule.enabled ? '是' : '否')),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+          SizedBox(
+            width: 120,
+            child: Row(
+              children: <Widget>[
+                _mv('T', const ValueKey('rule-top'), onTop, index),
+                _mv('U', const ValueKey('rule-up'), onUp, index),
+                _mv('D', const ValueKey('rule-down'), onDown, index),
+                _mv('B', const ValueKey('rule-bottom'), onBottom, index),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1223,20 +1188,21 @@ class _RoutingRuleDetailsDialogState
       );
       return;
     }
-    if (_outbound.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('请填写出站标签或选择节点')));
-      return;
-    }
+    // Empty outbound falls back to `proxy` with a warning at generation
+    // (upstream `CoreConfigContextBuilder`); it must not block the save.
+    final outbound = _outbound.text.trim();
     Navigator.pop(
       context,
       r.RoutingRuleDto(
-        id: widget.rule.id,
+        id: widget.rule.id.isEmpty
+            ? RoutingController.newRuleId()
+            : widget.rule.id,
+        ruleKind: widget.rule.ruleKind,
         port: _port.text.trim().isEmpty ? null : _port.text.trim(),
         network: _network.text.trim().isEmpty ? null : _network.text.trim(),
         inboundTag: _inbounds.toList(),
         hasInboundTag: _inbounds.isNotEmpty,
-        outboundTag: _outbound.text.trim(),
+        outboundTag: outbound.isEmpty ? null : outbound,
         ip: ips,
         hasIp: ips.isNotEmpty,
         domain: domains,

@@ -1,0 +1,20 @@
+{
+  "recordingComplete": true,
+  "mode": "reopen",
+  "failures": [],
+  "checks": [
+    {
+      "step": "settings-window-open",
+      "passed": true,
+      "actual": {}
+    },
+    {
+      "step": "reopen-port-persisted",
+      "passed": true,
+      "actual": {
+        "port": 11822,
+        "expected": 11822
+      }
+    }
+  ]
+}

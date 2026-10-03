@@ -612,6 +612,68 @@ mod tests {
     }
 
     #[test]
+    fn save_empty_url_plain_group_round_trips() {
+        // FIX-06 / SET-01: a real-bridge save of a remarks-only plain group
+        // (empty URL) succeeds and reads back from persistence; the URL is
+        // only validated when non-empty.
+        let _guard = crate::api::engine::engine_test_lock();
+        let result = save_sub_item(SubItemDto {
+            id: String::new(),
+            remarks: "普通分组".into(),
+            url: String::new(),
+            more_url: String::new(),
+            enabled: true,
+            user_agent: String::new(),
+            request_headers: None,
+            sort: 0,
+            filter: None,
+            auto_update_interval: 0,
+            update_time: 0,
+            convert_target: None,
+            prev_profile: None,
+            next_profile: None,
+            pre_socks_port: None,
+            memo: None,
+            custom_core_type: None,
+        });
+        assert!(result.ok, "{:?}", result.error.map(|e| e.code));
+        let saved = result.item.expect("saved item");
+        assert!(saved.url.is_empty());
+        let read_back = get_sub_item(saved.id.clone()).expect("read back");
+        assert_eq!(read_back.remarks, "普通分组");
+        assert!(read_back.url.is_empty());
+        let _ = delete_sub_items(vec![saved.id]);
+    }
+
+    #[test]
+    fn save_nonempty_invalid_url_is_rejected() {
+        let _guard = crate::api::engine::engine_test_lock();
+        let result = save_sub_item(SubItemDto {
+            id: String::new(),
+            remarks: "bad".into(),
+            url: "ftp://example.com".into(),
+            more_url: String::new(),
+            enabled: true,
+            user_agent: String::new(),
+            request_headers: None,
+            sort: 0,
+            filter: None,
+            auto_update_interval: 0,
+            update_time: 0,
+            convert_target: None,
+            prev_profile: None,
+            next_profile: None,
+            pre_socks_port: None,
+            memo: None,
+            custom_core_type: None,
+        });
+        assert!(!result.ok);
+        let error = result.error.expect("field error");
+        assert_eq!(error.code, domain::codes::FIELD_FORMAT);
+        assert_eq!(error.field_path.as_deref(), Some("url"));
+    }
+
+    #[test]
     fn import_rejects_free_text() {
         let result = import_from_text("just words".to_string(), None, false);
         assert!(!result.ok);

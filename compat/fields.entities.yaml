@@ -2508,6 +2508,8 @@ items:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2197
   - v2rayN/v2rayN/Views/SubEditWindow.xaml:109
   status: implemented
+  notes: FIX-06：空 URL=普通分组，可保存且不下载；仅非空 URL 校验 http(s)（UI 与 Rust 同规则，
+    error.url_invalid）；更新全部跳过普通分组。证据 docs/evidence/UX-PARITY-FIX-06。
 - id: FLD-ENT-085
   entity: SubItem
   name: MoreUrl

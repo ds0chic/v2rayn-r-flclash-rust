@@ -105,6 +105,10 @@ class SubsController extends Notifier<SubsState> {
     final result = ref.read(bridgePortProvider).saveSubItem(item);
     if (result.ok) {
       reload();
+      // Keep the top profile group chips in sync with the subscription list
+      // (FIX-06): the toolbar rebuilds off the profiles controller, so a
+      // saved plain group must refresh it, not only the subs state.
+      ref.read(profilesControllerProvider.notifier).reload();
       state = state.copyWith(
         status: const SubStatus(kind: 'success', message: '订阅已保存'),
       );
@@ -124,6 +128,8 @@ class SubsController extends Notifier<SubsState> {
     final result = ref.read(bridgePortProvider).deleteSubItems(ids);
     if (result.ok) {
       reload();
+      // Drop the deleted group chip from the top toolbar (FIX-06).
+      ref.read(profilesControllerProvider.notifier).reload();
       state = state.copyWith(
         status: SubStatus(
           kind: 'success',

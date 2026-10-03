@@ -420,6 +420,88 @@ async fn cancellation_marks_entry_cancelled() {
 }
 
 #[tokio::test]
+async fn update_all_skips_empty_url_plain_group_without_failing() {
+    // FIX-06 / SET-01: a plain group (empty URL) mixed with a real
+    // subscription must not fail "update all", must be reported as skipped,
+    // and must not replace/own any nodes.
+    let body = b64_lines(&[
+        "vless://11111111-1111-1111-1111-111111111111@a.example:443?encryption=none#one",
+    ]);
+    let server = spawn_bodies(vec![http_ok(body.as_bytes())]).await;
+    let engine = AppEngine::in_memory();
+
+    let plain = engine
+        .save_sub_item(SubItem {
+            remarks: "普通分组".into(),
+            url: String::new(),
+            ..SubItem::default()
+        })
+        .unwrap();
+    assert!(!plain.id.is_empty());
+    engine
+        .save_sub_item(SubItem {
+            remarks: "real".into(),
+            url: server.url("/s"),
+            ..SubItem::default()
+        })
+        .unwrap();
+
+    let report = engine
+        .refresh_subscriptions(
+            SubUpdateRequest {
+                sub_ids: Vec::new(),
+                via_proxy: false,
+                proxy_url: None,
+            },
+            &CancellationToken::new(),
+            1000,
+        )
+        .await;
+
+    assert_eq!(report.success_count(), 1);
+    let plain_entry = report
+        .entries
+        .iter()
+        .find(|e| e.sub_id == plain.id)
+        .expect("plain group entry present");
+    assert!(matches!(
+        plain_entry.outcome,
+        SubUpdateOutcome::Skipped { .. }
+    ));
+    assert!(engine.profiles_by_subid(&plain.id).unwrap().is_empty());
+    assert_eq!(
+        engine.get_sub_item(&plain.id).unwrap().unwrap().update_time,
+        0
+    );
+    server.abort();
+}
+
+#[tokio::test]
+async fn empty_url_plain_group_survives_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_path_buf();
+    {
+        let engine = AppEngine::open(&path).unwrap();
+        let saved = engine
+            .save_sub_item(SubItem {
+                remarks: "仅备注普通分组".into(),
+                url: String::new(),
+                memo: Some("memo".into()),
+                ..SubItem::default()
+            })
+            .unwrap();
+        assert!(!saved.id.is_empty());
+    }
+    {
+        let engine = AppEngine::open(&path).unwrap();
+        let items = engine.list_sub_items().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].remarks, "仅备注普通分组");
+        assert!(items[0].url.is_empty());
+    }
+}
+
+#[tokio::test]
 async fn subitem_crud_survives_reopen() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().to_path_buf();

@@ -126,13 +126,14 @@ void main() {
       reason: 'field gap must stay 8-12',
     );
 
-    // Section group gap: last field of 协议 -> 传输 title.
-    final encryption = _rect(
+    // Section group gap: last row of 协议 -> 传输 title. Measured from the row
+    // box (a long wrapping label can be taller than its control).
+    final encryptionRow = _rect(
       tester,
-      find.byKey(const ValueKey('field-vlessEncryption')),
+      find.byKey(const ValueKey('row-vlessEncryption')),
     );
     final transport = _rect(tester, find.byKey(const ValueKey('section-传输')));
-    expect(transport.top - encryption.bottom, inInclusiveRange(14, 18));
+    expect(transport.top - encryptionRow.bottom, inInclusiveRange(14, 18));
   });
 
   testWidgets('field error grows its own row without covering the next field', (

@@ -1,0 +1,93 @@
+{
+  "applicationCommit": "1251cbc",
+  "recordingComplete": true,
+  "mode": "generate",
+  "subId": "s-18daff16cd37d850-0",
+  "generatedGroupId": "p-18daff1776523a98-2",
+  "regionGroupIds": [
+    "p-18daff17f7ff119c-3",
+    "p-18daff17f866765c-4"
+  ],
+  "failures": [],
+  "checks": [
+    {
+      "step": "subscription-created",
+      "passed": true,
+      "actual": {
+        "subId": "s-18daff16cd37d850-0",
+        "ok": true,
+        "error": null
+      }
+    },
+    {
+      "step": "nodes-imported-into-group",
+      "passed": true,
+      "actual": {
+        "ok": true,
+        "imported": 2,
+        "error": null
+      }
+    },
+    {
+      "step": "group-selected",
+      "passed": true,
+      "actual": {
+        "groupSubId": "s-18daff16cd37d850-0",
+        "visible": 2
+      }
+    },
+    {
+      "step": "no-selection",
+      "passed": true,
+      "actual": {
+        "selected": 0
+      }
+    },
+    {
+      "step": "generate-all-persisted",
+      "passed": true,
+      "actual": {
+        "created": 1,
+        "remarks": "FIX01合成订阅 - PolicyGroup"
+      }
+    },
+    {
+      "step": "generate-all-fields-match-upstream",
+      "passed": true,
+      "actual": {
+        "coreType": "xray",
+        "groupType": "PolicyGroup",
+        "subChildItems": "s-18daff16cd37d850-0",
+        "childItems": null,
+        "filter": "^(?!.*(?:剩余|过期|到期|重置|[Rr]emaining|[Ee]xpir|[Rr]eset)).*$",
+        "multipleLoad": 0,
+        "isSub": false
+      }
+    },
+    {
+      "step": "generated-group-in-node-table",
+      "passed": true,
+      "actual": {
+        "generatedGroupId": "p-18daff1776523a98-2",
+        "inAll": true,
+        "inVisible": true,
+        "totalAfter": 3
+      }
+    },
+    {
+      "step": "generate-region-persisted",
+      "passed": true,
+      "actual": {
+        "created": 2,
+        "regions": [
+          "US",
+          "HK"
+        ],
+        "filters": [
+          "^(?!.*(?:剩余|过期|到期|重置|[Rr]emaining|[Ee]xpir|[Rr]eset)).*(?:美国|\\b[Uu][Ss]\\b|🇺🇸|[Uu]nited [Ss]tates|\\b[Uu][Ss][Aa]\\b).*$",
+          "^(?!.*(?:剩余|过期|到期|重置|[Rr]emaining|[Ee]xpir|[Rr]eset)).*(?:香港|\\b[Hh][Kk]\\b|🇭🇰|[Hh]ong ?[Kk]ong).*$"
+        ]
+      }
+    }
+  ]
+}

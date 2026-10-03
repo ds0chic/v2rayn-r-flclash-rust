@@ -1,0 +1,2460 @@
+[
+  {
+    "key": "action:ACT-MAIN-001",
+    "id": "ACT-MAIN-001",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 VMess 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-001",
+      "name": "添加 VMess 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[VMess]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.VMess",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表；默认项变化时 Reload 内核",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddVmessServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs",
+        "v2rayN/v2rayN/Views/MainWindow.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:99",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:91"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-002",
+    "id": "ACT-MAIN-002",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 VLESS 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-002",
+      "name": "添加 VLESS 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[VLESS]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.VLESS",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddVlessServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:103"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-003",
+    "id": "ACT-MAIN-003",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 Shadowsocks 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-003",
+      "name": "添加 Shadowsocks 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[Shadowsocks]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.Shadowsocks",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddShadowsocksServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:107"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-004",
+    "id": "ACT-MAIN-004",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 SOCKS 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-004",
+      "name": "添加 SOCKS 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[Socks]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.SOCKS",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddSocksServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:111"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-005",
+    "id": "ACT-MAIN-005",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 HTTP 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-005",
+      "name": "添加 HTTP 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[HTTP]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.HTTP",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddHttpServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:115"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-006",
+    "id": "ACT-MAIN-006",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 Trojan 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-006",
+      "name": "添加 Trojan 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[Trojan]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.Trojan",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddTrojanServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:119"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-007",
+    "id": "ACT-MAIN-007",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 Hysteria2 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-007",
+      "name": "添加 Hysteria2 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[Hysteria2]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.Hysteria2",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddHysteria2ServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:123"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-008",
+    "id": "ACT-MAIN-008",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 TUIC 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-008",
+      "name": "添加 TUIC 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[Tuic]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.TUIC",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddTuicServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:127"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-009",
+    "id": "ACT-MAIN-009",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 WireGuard 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-009",
+      "name": "添加 WireGuard 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[Wireguard]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.WireGuard",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddWireguardServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:131"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-010",
+    "id": "ACT-MAIN-010",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 Anytls 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-010",
+      "name": "添加 Anytls 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[Anytls]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.Anytls",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddAnytlsServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:135"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-011",
+    "id": "ACT-MAIN-011",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加 Naive 节点",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-011",
+      "name": "添加 Naive 节点",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[Naive]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.Naive",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddNaiveServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:139"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-012",
+    "id": "ACT-MAIN-012",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加自定义配置（Custom）",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-012",
+      "name": "添加自定义配置（Custom）",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[自定义配置]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.Custom",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServer2Window 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddCustomServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:143"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-013",
+    "id": "ACT-MAIN-013",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加自定义出站（Custom Outbound）",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-013",
+      "name": "添加自定义出站（Custom Outbound）",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[自定义出站]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.Outbound",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddServer2Window 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddCustomOutboundServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:147"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-014",
+    "id": "ACT-MAIN-014",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加策略组（Policy Group）",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-014",
+      "name": "添加策略组（Policy Group）",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[策略组]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.PolicyGroup；IsGroupType()",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddGroupServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddPolicyGroupServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:151",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:464"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-015",
+    "id": "ACT-MAIN-015",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "添加链式代理（Proxy Chain）",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-015",
+      "name": "添加链式代理（Proxy Chain）",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/添加[链式代理]节点",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "当前订阅组；EConfigType.ProxyChain；IsGroupType()",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭 AddGroupServerWindow 丢弃草稿",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "保存成功刷新节点列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddProxyChainServerCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:155",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:464"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-016",
+    "id": "ACT-MAIN-016",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "从剪贴板批量导入服务器",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-016",
+      "name": "从剪贴板批量导入服务器",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/从剪贴板导入批量URL",
+        "shortcut": "Ctrl+V",
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "全局（主窗口）；导入到当前订阅组 _config.SubIndexId",
+      "selection_rule": "无条件；TextBox 聚焦时 Ctrl+V 被跳过",
+      "confirm": "无",
+      "cancel": "读剪贴板为空则提示 OperationFailed",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "成功 Enqueue SuccessfullyImportedServerViaClipboard；否则 OperationFailed",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddServerViaClipboardCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:159",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:217",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:63",
+        "docs/evidence/T21-E.md",
+        "apps/desktop/integration_test/t21e_import_test.dart",
+        "apps/desktop/test/t21e_import_ux_test.dart"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-017",
+    "id": "ACT-MAIN-017",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "从屏幕二维码扫描导入",
+    "ledger_status": "preserved_only",
+    "source_contract": {
+      "id": "ACT-MAIN-017",
+      "name": "从屏幕二维码扫描导入",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/扫描屏幕二维码",
+        "shortcut": "Ctrl+S",
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "全局（主窗口）",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "未识别二维码提示 NoValidQRcodeFound",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "截屏期间隐藏窗口再恢复；成功导入并提示",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddServerViaScanCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:163",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:226",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:265"
+      ],
+      "implementation_location": null,
+      "test_ids": [],
+      "status": "preserved_only"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-018",
+    "id": "ACT-MAIN-018",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "从图片二维码导入",
+    "ledger_status": "preserved_only",
+    "source_contract": {
+      "id": "ACT-MAIN-018",
+      "name": "从图片二维码导入",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "服务器/从图片识别二维码",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "全局（主窗口）",
+      "selection_rule": "无条件",
+      "confirm": "文件选择对话框",
+      "cancel": "取消文件选择即中止",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "成功导入并提示",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.AddServerViaImageCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:167",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:110"
+      ],
+      "implementation_location": null,
+      "test_ids": [],
+      "status": "preserved_only"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-019",
+    "id": "ACT-MAIN-019",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "打开订阅设置",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-MAIN-019",
+      "name": "打开订阅设置",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "订阅/订阅设置",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭窗口不刷新",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "返回 true 时刷新订阅列表",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.SubSettingCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:173",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:565"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t17_menu_structure_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-MAIN-035",
+    "id": "ACT-MAIN-035",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "重载内核",
+    "ledger_status": "preserved_only",
+    "source_contract": {
+      "id": "ACT-MAIN-035",
+      "name": "重载内核",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "工具栏/重载",
+        "shortcut": "F5",
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "全局；未选默认服务器时提示 CheckServerSettings",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "重入时标记 _hasNextReloadJob 排队；执行期间按钮禁用",
+      "async": {
+        "job": true,
+        "cancellable": false
+      },
+      "feedback": "重建核心配置、加载核心、更新系统代理、异步测速",
+      "scheduled": null,
+      "upstream_symbol": "MainWindowViewModel.ReloadCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:233",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:664",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:233"
+      ],
+      "implementation_location": null,
+      "test_ids": [],
+      "status": "preserved_only"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-001",
+    "id": "ACT-WIN-001",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "关闭按钮-最小化到托盘",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-WIN-001",
+      "name": "关闭按钮-最小化到托盘",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "窗口关闭按钮(X)",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "主窗口",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "取消关闭并隐藏窗口",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "WPF MainWindow_Closing 设 e.Cancel=true 并 ShowHideWindow(false)；Avalonia 依 CloseReason WindowClosing/OwnerWindowClosing 时 Cancel 并隐藏",
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.MainWindow_Closing",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:193",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:195",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:192",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:203",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart",
+      "test_ids": [
+        "t13_close_behavior_parses_ui_flags"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-002",
+    "id": "ACT-WIN-002",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "菜单-关闭（最小化到托盘）",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-WIN-002",
+      "name": "菜单-关闭（最小化到托盘）",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "工具栏/关闭",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "主窗口",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "WPF 保存窗口布局并隐藏窗口；Avalonia 弹确认框 menuExitTips 后退出应用",
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.MenuClose_Click",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:240",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:290",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-003",
+    "id": "ACT-WIN-003",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "菜单-推广链接",
+    "ledger_status": "preserved_only",
+    "source_contract": {
+      "id": "ACT-WIN-003",
+      "name": "菜单-推广链接",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "工具栏/推广",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "ProcessStart(Base64Decode(PromotionUrl) + 时间戳)",
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.MenuPromotion_Click",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:246",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:248"
+      ],
+      "implementation_location": null,
+      "test_ids": [],
+      "status": "preserved_only"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-005",
+    "id": "ACT-WIN-005",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "菜单-检查更新",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-WIN-005",
+      "name": "菜单-检查更新",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "帮助/检查更新",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "关闭对话框",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "打开 CheckUpdateView 对话框并清除新更新标记",
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.MenuCheckUpdate_Click",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:278",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:284",
+        "docs/evidence/T16.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart (ACT-WIN-005 -> showCheckUpdateWindow); apps/desktop/lib/features/update/check_update_view.dart",
+      "test_ids": [
+        "t05_shell_chrome_test.dart (帮助/检查更新 opens update-window)"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-006",
+    "id": "ACT-WIN-006",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "按钮-新版本提示",
+    "ledger_status": "preserved_only",
+    "source_contract": {
+      "id": "ACT-WIN-006",
+      "name": "按钮-新版本提示",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "工具栏/新版本",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "有更新时可见",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "feedback": "与 menuCheckUpdate 相同处理",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.btnNewUpdate_Click",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:30",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:278"
+      ],
+      "implementation_location": null,
+      "test_ids": [],
+      "status": "preserved_only"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-008",
+    "id": "ACT-WIN-008",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "动态生成帮助菜单项",
+    "ledger_status": "preserved_only",
+    "source_contract": {
+      "id": "ACT-WIN-008",
+      "name": "动态生成帮助菜单项",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": "帮助/<核心名> 网站",
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "排除 v2fly/hysteria 的核心列表",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "点击 ProcessStart 到核心 Url（去掉 /releases）",
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.AddHelpMenuItem / MenuItem_Click",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:431",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:448"
+      ],
+      "implementation_location": null,
+      "test_ids": [],
+      "status": "preserved_only"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-009",
+    "id": "ACT-WIN-009",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "系统会话结束处理",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ACT-WIN-009",
+      "name": "系统会话结束处理",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "Windows 注销/关机",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": true,
+        "cancellable": false
+      },
+      "feedback": "保存布局并 AppExitAsync(false)",
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.Current_SessionEnding",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:199",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:203"
+      ],
+      "implementation_location": null,
+      "test_ids": [],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-010",
+    "id": "ACT-WIN-010",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "启动参数 RebootAs 与单实例",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-WIN-010",
+      "name": "启动参数 RebootAs 与单实例",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "进程启动",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "非 RebootAs 且已存在同名 EventWaitHandle 时发信号并退出；否则创建主窗口",
+      "scheduled": null,
+      "upstream_symbol": "App.OnStartup",
+      "source_file": [
+        "v2rayN/v2rayN/App.xaml.cs",
+        "v2rayN/v2rayN.Desktop/Program.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/App.xaml.cs:24",
+        "v2rayN/v2rayN/App.xaml.cs:29",
+        "v2rayN/v2rayN.Desktop/Program.cs:26",
+        "v2rayN/v2rayN.Desktop/Program.cs:41",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "crates/platform/src/single_instance.rs",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-011",
+    "id": "ACT-WIN-011",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "启动隐藏并恢复隐藏状态",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-WIN-011",
+      "name": "启动隐藏并恢复隐藏状态",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "主窗口启动",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "UiItem.AutoHideStartup 为真时最小化/隐藏窗口",
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.OnLoaded / WindowState",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:146",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:318",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:152",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart",
+      "test_ids": [
+        "t13_close_behavior_parses_ui_flags"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-WIN-012",
+    "id": "ACT-WIN-012",
+    "kind": "action",
+    "owner": "root",
+    "ledger": "compat/actions.yaml",
+    "label": "第二实例启动时显示主窗口",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-WIN-012",
+      "name": "第二实例启动时显示主窗口",
+      "domain": "main-menu",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": null,
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "已有实例运行时再次启动",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "ProgramStarted 事件触发 OnProgramStarted，显示窗口",
+      "scheduled": null,
+      "upstream_symbol": "MainWindow.OnProgramStarted",
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:162",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:166",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "crates/platform/src/single_instance.rs",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "layout:LAY-MAIN-004",
+    "id": "LAY-MAIN-004",
+    "kind": "layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "主窗口-顶部菜单/工具栏",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-MAIN-004",
+      "name": "主窗口-顶部菜单/工具栏",
+      "window": "MainWindow",
+      "platform": "windows-wpf",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "layout_mode": "shared",
+      "structure": "WPF ToolBarTray>ToolBar>Menu(ToolbarMenu)x6 + PopupBox(pbTheme) + btnNewUpdate；DockPanel.Dock=Top。Avalonia 为 DockPanel>Menu（无 ToolBarTray）+ conTheme（DockPanel.Dock=Right）+ btnNewUpdate。",
+      "anchors": [
+        "WPF: ToolBarTray:41",
+        "menuServers:49",
+        "menuSubscription:140",
+        "menuSetting:175",
+        "menuHelp:246",
+        "menuReload:265",
+        "menuPromotion:282",
+        "menuClose:299",
+        "pbTheme:319",
+        "btnNewUpdate:323",
+        "Avalonia: Menu:25",
+        "conTheme:24",
+        "menuClose->menuExit:103"
+      ],
+      "persistence_keys": [],
+      "platform_differences": {
+        "avalonia_menu_item_visibility": {
+          "menuGlobalHotkeySetting": "{Binding BlIsWindows}",
+          "menuRebootAsAdmin": "{Binding BlIsWindows}",
+          "menuSettingsSetUWP": "{Binding BlIsWindows}"
+        }
+      },
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml:41",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:49",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:299",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:319",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:23",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:25",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:73",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:78",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:82",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:103",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:101"
+      ],
+      "unresolved": [],
+      "status": "identified",
+      "implementation_location": null,
+      "notes": "审计 FND-003：menuPromotion 在 Avalonia 亦存在（MainWindow.axaml:101），原 unresolved 关闭。"
+    }
+  },
+  {
+    "key": "layout:LAY-MAIN-005",
+    "id": "LAY-MAIN-005",
+    "kind": "layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "主题快速入口控件",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-MAIN-005",
+      "name": "主题快速入口控件",
+      "window": "MainWindow",
+      "platform": "windows-wpf",
+      "layout_mode": "shared",
+      "structure": "WPF pbTheme（PopupBox, HorizontalAlignment=Right, StaysOpen=True）承载 ThemeSettingView；Avalonia conTheme（ContentControl, DockPanel.Dock=Right）承载 ThemeSettingView。",
+      "anchors": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml:314",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:319",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:33",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:24",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:33"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml:314",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:319",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:24"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-MAIN-006",
+    "id": "LAY-MAIN-006",
+    "kind": "layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "主窗口-底部状态栏宿主",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-MAIN-006",
+      "name": "主窗口-底部状态栏宿主",
+      "window": "MainWindow",
+      "platform": "windows-wpf",
+      "layout_mode": "shared",
+      "structure": "WPF ContentControl contentStatusBarView（DockPanel.Dock=Bottom）经 ViewHost.Show 绑定 StatusBarViewModel；Avalonia 直接绑定 Content。",
+      "anchors": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml:331",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:89",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:114",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:81"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml:331",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:114"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-MAIN-007",
+    "id": "LAY-MAIN-007",
+    "kind": "layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "主窗口-布局恢复与持久化",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-MAIN-007",
+      "name": "主窗口-布局恢复与持久化",
+      "window": "MainWindow",
+      "platform": "windows-wpf",
+      "layout_mode": "shared",
+      "structure": "RestoreUI 在 Loaded/UpdateLayout 后按 orientation 设置 gridMain 列或 gridMain1 行的 Star 值；StorageUI 在 AppExit 与关闭时保存窗口尺寸与两个分栏尺寸。MainGirdHeight1/2 分别对应第一/第二面板（星值）。",
+      "anchors": [
+        "RestoreUI:328-343",
+        "StorageUI:345-357",
+        "UpdateLayout:359-429",
+        "SaveMainGirdHeight:2989",
+        "MainGirdHeight1/2 语义"
+      ],
+      "splitter": {
+        "horizontal": "MainGirdHeight1->gridMain.ColumnDefinitions[0]; MainGirdHeight2->gridMain.ColumnDefinitions[2]",
+        "vertical": "MainGirdHeight1->gridMain1.RowDefinitions[0]; MainGirdHeight2->gridMain1.RowDefinitions[2]"
+      },
+      "persistence_keys": [
+        "UIItem.MainGirdHeight1",
+        "UIItem.MainGirdHeight2",
+        "UIItem.MainGirdOrientation",
+        "UIItem.WindowSizeItem"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:328",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:330",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:334",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:339",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:347",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:351",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:355",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:359",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:2989",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:2993",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:2994"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-DIALOG-WPF-001",
+    "id": "LAY-DIALOG-WPF-001",
+    "kind": "layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "WPF 确认/错误对话框",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-DIALOG-WPF-001",
+      "name": "WPF 确认/错误对话框",
+      "window": "System.Windows.MessageBox",
+      "platform": "windows-wpf",
+      "layout_mode": "dialog",
+      "structure": "WPF 用 UI.ShowYesNo（封装 MessageBox）做删除/退出确认；字符串由 Interaction 传入。位置/按钮关系由系统 MessageBox 决定（未在源码布局中声明）。",
+      "anchors": [
+        "UI.ShowYesNo:14",
+        "ProfilesView.xaml.cs:88",
+        "MainWindow.xaml.cs（退出由菜单 Close 隐藏，不做确认）"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Common/UI.cs",
+        "v2rayN/v2rayN/Views/ProfilesView.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Common/UI.cs:14",
+        "v2rayN/v2rayN/Views/ProfilesView.xaml.cs:85",
+        "v2rayN/v2rayN/Views/ProfilesView.xaml.cs:88"
+      ],
+      "unresolved": [
+        "WPF 删除确认（ProfilesViewModel.RemoveServerAsync 调用 ShowYesNoInteraction ResUI.RemoveServer）的实际按钮文案/默认按钮/窗口标题由系统 MessageBox 与资源决定，本阶段未逐条读取资源文本。"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-MSGBOX-AVA-001",
+    "id": "LAY-MSGBOX-AVA-001",
+    "kind": "layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "Avalonia 消息框",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-MSGBOX-AVA-001",
+      "name": "Avalonia 消息框",
+      "window": "MessageBoxDialog",
+      "platform": "windows-avalonia",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "layout_mode": "dialog",
+      "structure": "无标题栏按钮：只读文本框 txtMessage（可滚动）+ 右下 btnYes(TbConfirm, IsDefault) / btnNo(TbCancel, IsCancel)；WindowStartupLocation=CenterOwner, CanResize=False, SizeToContent=Height。经 UI.ShowYesNo 弹出。",
+      "anchors": [
+        "txtMessage:27",
+        "btnYes:40",
+        "btnNo:45",
+        "UI.ShowYesNo:11",
+        "MainWindow.axaml.cs:294"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml",
+        "v2rayN/v2rayN.Desktop/Common/UI.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:2",
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:27",
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:40",
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:45",
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:15",
+        "v2rayN/v2rayN.Desktop/Common/UI.cs:11",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:294"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-WINSIZE-001",
+    "id": "LAY-WINSIZE-001",
+    "kind": "layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "窗口尺寸持久化矩阵",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-WINSIZE-001",
+      "name": "窗口尺寸持久化矩阵",
+      "window": "WindowBase",
+      "platform": "windows-wpf",
+      "layout_mode": "shared",
+      "structure": "WPF/Avalonia 的 WindowBase 在 Loaded 时按 GetType().Name 从 UiItem.WindowSizeItem 恢复尺寸并居中，OnClosed 保存；MainWindow 单独在 StorageUI 保存。窗口 TypeName=类名。",
+      "persistence_keys": [
+        "UIItem.WindowSizeItem"
+      ],
+      "connections": {
+        "wpf_windows_using_windowbase": [
+          "AddServerWindow",
+          "AddServer2Window",
+          "AddGroupServerWindow",
+          "DNSSettingWindow",
+          "FullConfigTemplateWindow",
+          "GlobalHotkeySettingWindow",
+          "MainWindow",
+          "OptionSettingWindow",
+          "ProfilesSelectWindow",
+          "RoutingRuleDetailsWindow",
+          "RoutingRuleSettingWindow",
+          "RoutingSettingWindow",
+          "SubEditWindow",
+          "SubSettingWindow"
+        ],
+        "avalonia_windows_using_windowbase": [
+          "AddGroupServerWindow",
+          "AddServer2Window",
+          "AddServerWindow",
+          "DNSSettingWindow",
+          "FullConfigTemplateWindow",
+          "GlobalHotkeySettingWindow",
+          "MainWindow",
+          "OptionSettingWindow",
+          "ProfilesSelectWindow",
+          "RoutingRuleDetailsWindow",
+          "RoutingRuleSettingWindow",
+          "RoutingSettingWindow",
+          "SubEditWindow",
+          "SubSettingWindow"
+        ],
+        "not_using_windowbase": [
+          "MessageBoxDialog(Avalonia",
+          "自定义 Window)"
+        ]
+      },
+      "anchors": [
+        "WPF WindowBase.cs:14",
+        "WPF WindowBase.cs:35",
+        "Avalonia WindowBase.cs:26",
+        "Avalonia WindowBase.cs:32",
+        "Avalonia WindowBase.cs:58",
+        "ConfigHandler.GetWindowSizeItem:2963",
+        "ConfigHandler.SaveWindowSizeItem:2974"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Base/WindowBase.cs",
+        "v2rayN/v2rayN.Desktop/Base/WindowBase.cs",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Base/WindowBase.cs:14",
+        "v2rayN/v2rayN/Base/WindowBase.cs:20",
+        "v2rayN/v2rayN/Base/WindowBase.cs:35",
+        "v2rayN/v2rayN.Desktop/Base/WindowBase.cs:26",
+        "v2rayN/v2rayN.Desktop/Base/WindowBase.cs:32",
+        "v2rayN/v2rayN.Desktop/Base/WindowBase.cs:58",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:2963",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:2974"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "main_layout:LAY-MAIN-001",
+    "id": "LAY-MAIN-001",
+    "kind": "main_layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "主窗口-水平布局",
+    "ledger_status": "identified",
+    "source_contract": {
+      "mode": "horizontal",
+      "id": "LAY-MAIN-001",
+      "name": "主窗口-水平布局",
+      "enum": "EGirdOrientation.Horizontal",
+      "default": false,
+      "grid": "gridMain",
+      "panels": {
+        "left": "tabProfiles (ContentControl, Grid.Column=0, Width=\"1*\")",
+        "splitter": "GridSplitter (Grid.Column=1, Width=10)",
+        "right": "tabMain (TabControl, Grid.Column=2, Width=\"1*\")",
+        "right_tabs": [
+          "tabMsgView",
+          "tabClashProxies",
+          "tabClashConnections"
+        ]
+      },
+      "splitter_key": "MainGirdHeight1/MainGirdHeight2",
+      "persistence_keys": [
+        "UIItem.MainGirdHeight1",
+        "UIItem.MainGirdHeight2",
+        "UIItem.MainGirdOrientation",
+        "UIItem.WindowSizeItem"
+      ],
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml:334",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:335",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:336",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:340",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:341",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:342",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:117",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:119",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:121",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:122"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "main_layout:LAY-MAIN-002",
+    "id": "LAY-MAIN-002",
+    "kind": "main_layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "主窗口-垂直布局",
+    "ledger_status": "identified",
+    "source_contract": {
+      "mode": "vertical",
+      "id": "LAY-MAIN-002",
+      "name": "主窗口-垂直布局",
+      "enum": "EGirdOrientation.Vertical",
+      "default": true,
+      "default_verified": true,
+      "grid": "gridMain1",
+      "panels": {
+        "top": "tabProfiles1 (ContentControl, Grid.Row=0, Height=\"1*\")",
+        "splitter": "GridSplitter (Grid.Row=1, Height=10)",
+        "bottom": "tabMain1 (TabControl, Grid.Row=2, Height=\"1*\", TabStripPlacement=\"Left\")",
+        "bottom_tabs": [
+          "tabMsgView1",
+          "tabClashProxies1",
+          "tabClashConnections1"
+        ]
+      },
+      "splitter_key": "MainGirdHeight1/MainGirdHeight2",
+      "persistence_keys": [
+        "UIItem.MainGirdHeight1",
+        "UIItem.MainGirdHeight2",
+        "UIItem.MainGirdOrientation",
+        "UIItem.WindowSizeItem"
+      ],
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:93",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:351",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:352",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:353",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:357",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:358",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:359",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:364",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:132",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:135",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:136",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:137",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:141"
+      ],
+      "notes": "WPF 用 materialDesign NavigationRail TabControl + PackIcon 图标头；Avalonia 仅 TabStripPlacement=Left 纯文本头。",
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "main_layout:LAY-MAIN-003",
+    "id": "LAY-MAIN-003",
+    "kind": "main_layout",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "主窗口-标签布局",
+    "ledger_status": "identified",
+    "source_contract": {
+      "mode": "tab",
+      "id": "LAY-MAIN-003",
+      "name": "主窗口-标签布局",
+      "enum": "EGirdOrientation.Tab",
+      "default": false,
+      "grid": "gridMain2",
+      "panels": {
+        "single": "tabMain2 (TabControl, TabStripPlacement=\"Left\")",
+        "tabs": [
+          "tabProfiles2",
+          "tabMsgView2",
+          "tabClashProxies2",
+          "tabClashConnections2"
+        ],
+        "splitter": null
+      },
+      "splitter_key": null,
+      "persistence_keys": [
+        "UIItem.MainGirdOrientation",
+        "UIItem.WindowSizeItem"
+      ],
+      "source_file": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml:400",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:401",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:406",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:417",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:428",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:439",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:147",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:148",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:149"
+      ],
+      "notes": "Tab 模式下 profiles 是第一个 TabItem；Avalonia 的 tabClashConnections2 无单独 IsVisible 绑定（UpdateLayout:444-445 仅对 proxies2/connections2 绑定 ShowClashUI）。",
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "window:INV-WPF-001",
+    "id": "INV-WPF-001",
+    "kind": "window",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "App",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-WPF-001",
+      "name": "App",
+      "kind": "application",
+      "platform": "windows-wpf",
+      "file": "v2rayN/v2rayN/App.xaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN/App.xaml:1",
+        "v2rayN/v2rayN/App.xaml:7"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-WPF-002",
+    "id": "INV-WPF-002",
+    "kind": "window",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "MainWindow",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-WPF-002",
+      "name": "MainWindow",
+      "kind": "window",
+      "platform": "windows-wpf",
+      "file": "v2rayN/v2rayN/Views/MainWindow.xaml",
+      "is_dialog": false,
+      "title": "v2rayN",
+      "default_size": {
+        "width": 1200,
+        "height": 800
+      },
+      "min_size": {
+        "width": 800,
+        "height": null
+      },
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml:2",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:14",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:16"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-001",
+    "id": "INV-AVA-001",
+    "kind": "window",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "App",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-001",
+      "name": "App",
+      "kind": "application",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/App.axaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/App.axaml:1",
+        "v2rayN/v2rayN.Desktop/App.axaml:35"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-002",
+    "id": "INV-AVA-002",
+    "kind": "window",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "GlobalResources",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-002",
+      "name": "GlobalResources",
+      "kind": "resourcedictionary",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Assets/GlobalResources.axaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Assets/GlobalResources.axaml:1"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-003",
+    "id": "INV-AVA-003",
+    "kind": "window",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "GlobalStyles",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-003",
+      "name": "GlobalStyles",
+      "kind": "styles",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Assets/GlobalStyles.axaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Assets/GlobalStyles.axaml:1"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-004",
+    "id": "INV-AVA-004",
+    "kind": "window",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "MainWindow",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-004",
+      "name": "MainWindow",
+      "kind": "window",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml",
+      "is_dialog": false,
+      "title": "v2rayN",
+      "default_size": {
+        "width": 1200,
+        "height": 800
+      },
+      "min_size": {
+        "width": 600,
+        "height": null
+      },
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:2",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:12",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:14"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-016",
+    "id": "INV-AVA-016",
+    "kind": "window",
+    "owner": "root",
+    "ledger": "compat/layouts.yaml",
+    "label": "MessageBoxDialog",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-016",
+      "name": "MessageBoxDialog",
+      "kind": "window",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml",
+      "is_dialog": true,
+      "default_size": {
+        "width": 420,
+        "height": null
+      },
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:2",
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:8",
+        "v2rayN/v2rayN.Desktop/Views/MessageBoxDialog.axaml:15"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-001",
+    "id": "ENUM-001",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-001",
+      "file": "v2rayN/ServiceLib/Enums/EConfigType.cs",
+      "classification": "real_functional",
+      "values": [
+        "VMess=1",
+        "Custom=2",
+        "Shadowsocks=3",
+        "SOCKS=4",
+        "VLESS=5",
+        "Trojan=6",
+        "Hysteria2=7",
+        "TUIC=8",
+        "WireGuard=9",
+        "HTTP=10",
+        "Anytls=11",
+        "Naive=12",
+        "Outbound=13",
+        "PolicyGroup=101",
+        "ProxyChain=102"
+      ],
+      "rationale": "15 类配置类型，被 ConfigHandler/Fmt/生成器广泛引用",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/EConfigType.cs:3"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-002",
+    "id": "ENUM-002",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-002",
+      "file": "v2rayN/ServiceLib/Enums/ECoreType.cs",
+      "classification": "real_functional",
+      "values": [
+        "v2fly=1",
+        "Xray=2",
+        "v2fly_v5=4",
+        "mihomo=13",
+        "hysteria=21",
+        "naiveproxy=22",
+        "tuic=23",
+        "sing_box=24",
+        "juicity=25",
+        "hysteria2=26",
+        "brook=27",
+        "overtls=28",
+        "shadowquic=29",
+        "mieru=30",
+        "v2rayN=99"
+      ],
+      "rationale": "内核标识 + 应用更新标识 v2rayN=99",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:3"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-003",
+    "id": "ENUM-003",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-003",
+      "file": "v2rayN/ServiceLib/Enums/EGirdOrientation.cs",
+      "classification": "real_functional_ui",
+      "values": [
+        "Horizontal",
+        "Vertical",
+        "Tab"
+      ],
+      "rationale": "主界面布局方向，UiItem.MainGirdOrientation",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/EGirdOrientation.cs:3",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:196"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-004",
+    "id": "ENUM-004",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-004",
+      "file": "v2rayN/ServiceLib/Enums/EGlobalHotkey.cs",
+      "classification": "real_functional",
+      "values": [
+        "ShowForm=0",
+        "SystemProxyClear=1",
+        "SystemProxySet=2",
+        "SystemProxyUnchanged=3",
+        "SystemProxyPac=4"
+      ],
+      "rationale": "全局热键动作",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/EGlobalHotkey.cs:3"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-005",
+    "id": "ENUM-005",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-005",
+      "file": "v2rayN/ServiceLib/Enums/EInboundProtocol.cs",
+      "classification": "real_functional",
+      "values": [
+        "socks=0",
+        "socks2",
+        "socks3",
+        "pac",
+        "api",
+        "api2",
+        "mixed",
+        "speedtest=21"
+      ],
+      "rationale": "本地入站协议与本地端口偏移来源（AppManager.GetLocalPort 用枚举值加偏移）",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/EInboundProtocol.cs:3",
+        "v2rayN/ServiceLib/Manager/AppManager.cs:165"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-006",
+    "id": "ENUM-006",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-006",
+      "file": "v2rayN/ServiceLib/Enums/EMove.cs",
+      "classification": "real_functional",
+      "values": [
+        "Top=1",
+        "Up=2",
+        "Down=3",
+        "Bottom=4",
+        "Position=5"
+      ],
+      "rationale": "节点/规则移动方向",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/EMove.cs:3"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-007",
+    "id": "ENUM-007",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-007",
+      "file": "v2rayN/ServiceLib/Enums/EMultipleLoad.cs",
+      "classification": "real_functional",
+      "values": [
+        "LeastPing",
+        "Fallback",
+        "Random",
+        "RoundRobin",
+        "LeastLoad"
+      ],
+      "rationale": "策略组五种负载模式",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/EMultipleLoad.cs:3",
+        "v2rayN/ServiceLib/ViewModels/AddGroupServerViewModel.cs:90"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-008",
+    "id": "ENUM-008",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-008",
+      "file": "v2rayN/ServiceLib/Enums/EPresetType.cs",
+      "classification": "real_functional",
+      "values": [
+        "Default=0",
+        "Russia=1",
+        "Iran=2"
+      ],
+      "rationale": "区域预设",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/EPresetType.cs:3",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:2894"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-009",
+    "id": "ENUM-009",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-009",
+      "file": "v2rayN/ServiceLib/Enums/ERuleMode.cs",
+      "classification": "real_functional",
+      "values": [
+        "Rule=0",
+        "Global=1",
+        "Direct=2"
+      ],
+      "rationale": "基础路由模式",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ERuleMode.cs:3",
+        "v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:97"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-010",
+    "id": "ENUM-010",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-010",
+      "file": "v2rayN/ServiceLib/Enums/ERuleType.cs",
+      "classification": "real_functional",
+      "values": [
+        "ALL=0",
+        "Routing=1",
+        "DNS=2"
+      ],
+      "rationale": "规则/资源类型区分",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ERuleType.cs:3"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-011",
+    "id": "ENUM-011",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-011",
+      "file": "v2rayN/ServiceLib/Enums/EServerColName.cs",
+      "classification": "real_functional",
+      "values": [
+        "Def=0",
+        "ConfigType",
+        "Remarks",
+        "Address",
+        "Port",
+        "Network",
+        "StreamSecurity",
+        "SubRemarks",
+        "DelayVal",
+        "SpeedVal",
+        "IpInfo",
+        "TodayDown",
+        "TodayUp",
+        "TotalDown",
+        "TotalUp"
+      ],
+      "rationale": "节点表列名与排序键",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/EServerColName.cs:3",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:1038"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-012",
+    "id": "ENUM-012",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-012",
+      "file": "v2rayN/ServiceLib/Enums/ESpeedActionType.cs",
+      "classification": "real_functional",
+      "values": [
+        "Tcping",
+        "Realping",
+        "UdpTest",
+        "Speedtest",
+        "Mixedtest",
+        "FastRealping"
+      ],
+      "rationale": "测试动作类型",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ESpeedActionType.cs:3"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-013",
+    "id": "ENUM-013",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-013",
+      "file": "v2rayN/ServiceLib/Enums/ESysProxyType.cs",
+      "classification": "real_functional",
+      "values": [
+        "ForcedClear=0",
+        "ForcedChange=1",
+        "Unchanged=2",
+        "Pac=3"
+      ],
+      "rationale": "系统代理四语义",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ESysProxyType.cs:3",
+        "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:10"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-014",
+    "id": "ENUM-014",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-014",
+      "file": "v2rayN/ServiceLib/Enums/ETheme.cs",
+      "classification": "real_functional_ui",
+      "values": [
+        "FollowSystem",
+        "Dark",
+        "Light",
+        "Aquatic",
+        "Desert",
+        "Dusk",
+        "NightSky"
+      ],
+      "rationale": "主题；WPF 界面仅取前 3 项",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ETheme.cs:3",
+        "v2rayN/v2rayN/Views/ThemeSettingView.xaml.cs:15"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "enum:ENUM-015",
+    "id": "ENUM-015",
+    "kind": "enum",
+    "owner": "root",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ENUM-015",
+      "file": "v2rayN/ServiceLib/Enums/ETransport.cs",
+      "classification": "real_functional",
+      "values": [
+        "raw",
+        "kcp",
+        "ws",
+        "httpupgrade",
+        "xhttp",
+        "h2",
+        "http",
+        "quic",
+        "grpc"
+      ],
+      "rationale": "传输层标识；注意 Global.Networks 仅暴露 raw/xhttp/kcp/grpc/ws/httpupgrade",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ETransport.cs:3",
+        "v2rayN/ServiceLib/Global.cs:330"
+      ],
+      "status": "identified"
+    }
+  }
+]

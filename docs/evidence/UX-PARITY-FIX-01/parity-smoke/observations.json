@@ -1,0 +1,78 @@
+{
+  "applicationCommit": "1251cbc",
+  "recordingComplete": true,
+  "failures": [
+    "import-complete-xray-config",
+    "screen-qr-scan-is-import",
+    "image-qr-scan-is-image-input"
+  ],
+  "records": [
+    {
+      "step": "isolated-first-launch",
+      "passed": true,
+      "actual": {
+        "nodeCount": 0,
+        "subscriptionCount": 0
+      }
+    },
+    {
+      "step": "import-complete-xray-config",
+      "passed": false,
+      "actual": {
+        "nodeCount": 0,
+        "message": "已从剪贴板导入 0 个节点，1 个保存失败（E_FIELD_REQUIRED），1 行未识别"
+      }
+    },
+    {
+      "step": "tuic-distinct-uuid-and-password-inputs",
+      "passed": true,
+      "actual": {
+        "usernameFieldCount": 1,
+        "passwordFieldCount": 1,
+        "uuidLabelCount": 0
+      }
+    },
+    {
+      "step": "create-group-without-subscription-url",
+      "passed": true,
+      "actual": {
+        "subscriptionCount": 1,
+        "editorStillOpen": false,
+        "urlRequiredError": false
+      }
+    },
+    {
+      "step": "screen-qr-scan-is-import",
+      "passed": false,
+      "actual": {
+        "openedShareDialog": true,
+        "message": "已从剪贴板导入 1 个节点"
+      }
+    },
+    {
+      "step": "image-qr-scan-is-image-input",
+      "passed": false,
+      "actual": {
+        "openedTextImport": true
+      }
+    },
+    {
+      "step": "synthetic-group-fixture",
+      "fixtureSetup": true,
+      "actual": {
+        "currentGroupId": "s-18daffad6f97f508-0",
+        "nodeGroupId": "s-18daffad6f97f508-0"
+      }
+    },
+    {
+      "step": "context-generate-group-keeps-menu-target",
+      "passed": true,
+      "actual": {
+        "nodeCountBefore": 1,
+        "nodeCountAfter": 2,
+        "openedGroupEditor": false,
+        "message": "已生成全部配置项策略组"
+      }
+    }
+  ]
+}

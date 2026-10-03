@@ -1,0 +1,45 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/parity_review_smoke_test.dart
+Building Windows application...                                    13.7s
+√ Built build\windows\x64\runner\Debug\v2rayn_desktop.exe
+00:00 +0: frozen upstream parity through real Windows UI and Rust
+[runtime] runtime event gap: seq=1543 after 0
+[desktop] tray init failed: PlatformException(Bad Arguments, Unable to init system tray, false, null)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: empty
+  Actual: [
+            'import-complete-xray-config',
+            'tuic-distinct-uuid-and-password-inputs',
+            'create-group-without-subscription-url',
+            'screen-qr-scan-is-import',
+            'image-qr-scan-is-image-input',
+            'context-generate-group-keeps-menu-target'
+          ]
+Upstream differences: [import-complete-xray-config, tuic-distinct-uuid-and-password-inputs,
+create-group-without-subscription-url, screen-qr-scan-is-import, image-qr-scan-is-image-input,
+context-generate-group-keeps-menu-target]
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/parity_review_smoke_test.dart:250:7)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/parity_review_smoke_test.dart line 250
+The test description was:
+  frozen upstream parity through real Windows UI and Rust
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:15 +0 -1: frozen upstream parity through real Windows UI and Rust [E]
+  Test failed. See exception logs above.
+  The test description was: frozen upstream parity through real Windows UI and Rust
+  
+00:15 +0 -1: (tearDownAll)
+00:15 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/parity_review_smoke_test.dart: frozen upstream parity through real Windows UI and Rust

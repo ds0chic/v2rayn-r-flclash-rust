@@ -369,6 +369,7 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:127
   implementation_location: apps/desktop/lib/app/shell/main_shell.dart
   test_ids: [t17_menu_structure_test]
+  notes: 'FIX-02（docs/tasks/FIX-02.md）：添加 TUIC 编辑器现提供独立 用户 ID (id)（绑定 username，含「生成」UUID 按钮）与 密码 (password)（绑定 password），核心固定 singBox；保存→重开两字段各自保留，仅改备注不重置 security/transport；真实窗口证据 docs/evidence/UX-PARITY-FIX-02/observations.json（4/4 pass）。'
   status: implemented
 - id: ACT-MAIN-009
   name: 添加 WireGuard 节点
@@ -1865,8 +1866,11 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:141
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:610
   - v2rayN/v2rayN/Views/ProfilesView.xaml:253
-  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
-  test_ids: [t10_groups_panel_test]
+  - docs/evidence/UX-PARITY-FIX-01/observations.json
+  - docs/tasks/FIX-01.md
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart (CommandContext + _genGroup); apps/desktop/lib/features/profiles/profiles_controller.dart (genGroupAll/selectGenerated)
+  test_ids: [t10_groups_panel_test, ux_parity_fix01_gen_group_ui_test, ux_parity_fix01_gen_group_guard_test, ux_parity_fix01_gen_group_test]
+  notes: FIX-01 已修：对象改为菜单打开时捕获的当前组 groupSubId，无需选中节点；关闭菜单不清业务目标。真实窗口 generate/reopen 全绿。
   status: implemented
 - id: ACT-PROF-008
   name: 生成聚合子节点-按区域
@@ -1893,8 +1897,11 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:145
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:622
   - v2rayN/v2rayN/Views/ProfilesView.xaml:257
-  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
-  test_ids: [t10_groups_panel_test]
+  - docs/evidence/UX-PARITY-FIX-01/observations.json
+  - docs/tasks/FIX-01.md
+  implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart (CommandContext + _genGroup); apps/desktop/lib/features/profiles/profiles_controller.dart (genGroupRegion/selectGenerated)
+  test_ids: [t10_groups_panel_test, ux_parity_fix01_gen_group_test]
+  notes: FIX-01 已修：按当前组稳定 ID 生成，回传首个新组并选中；真实窗口 HK/US 地区组落库、重开存在。
   status: implemented
 - id: ACT-PROF-009
   name: 节点上移到顶部
@@ -2037,7 +2044,8 @@ items:
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:167
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:660
   - v2rayN/v2rayN/Views/ProfilesView.xaml:176
-  implementation_location: apps/desktop/lib/features/profiles/profiles_controller.dart (moveProfilesToGroup)
+  - docs/tasks/FIX-01.md
+  implementation_location: apps/desktop/lib/features/profiles/profiles_controller.dart (moveProfilesToGroup); apps/desktop/lib/features/profiles/profiles_table.dart (_moveToGroup + ContextMenuEntry.targetSubId)
   test_ids: []
   status: implemented
   notes: UX-SPACE-02（2026-10-03）：右键菜单「移至订阅分组」恢复为真实子菜单，列出订阅分组 +「无分组」；动作经 engine.saveProfile 回写 ProfileDto.subid（桥接无独立 move-to-group API，走等价 profile 保存路径）。目标 ID 经会话快照校验。跨进程持久化读数（关窗重开验 Subid）尚未取证。证据 docs/evidence/UX-SPACE-02/README.md。

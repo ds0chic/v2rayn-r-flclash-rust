@@ -1,0 +1,43 @@
+{
+  "applicationCommit": "1251cbc+FIX-02",
+  "recordingComplete": true,
+  "failures": [],
+  "records": [
+    {
+      "step": "tuic-distinct-uuid-and-password-inputs",
+      "passed": true,
+      "actual": {
+        "usernameFieldCount": 1,
+        "passwordFieldCount": 1
+      }
+    },
+    {
+      "step": "tuic-save-maps-uuid-to-username",
+      "passed": true,
+      "actual": {
+        "username": "11111111-2222-3333-4444-555555555555",
+        "passwordIsSet": true,
+        "streamSecurity": "tls",
+        "nodeCount": 1
+      }
+    },
+    {
+      "step": "tuic-reopen-keeps-both-fields",
+      "passed": true,
+      "actual": {
+        "reopenUsername": "11111111-2222-3333-4444-555555555555",
+        "reopenPasswordMatches": true
+      }
+    },
+    {
+      "step": "tuic-remarks-only-keeps-security",
+      "passed": true,
+      "actual": {
+        "remarks": "fix02-tuic-renamed",
+        "streamSecurity": "tls",
+        "network": "raw",
+        "path": null
+      }
+    }
+  ]
+}

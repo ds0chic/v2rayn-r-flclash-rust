@@ -43,6 +43,7 @@ class ContextMenuEntry {
     this.separatorAfter = false,
     this.enabled = true,
     this.helpTooltip,
+    this.targetSubId,
   });
 
   final String label;
@@ -51,6 +52,12 @@ class ContextMenuEntry {
   final ContextActionKind kind;
   final List<ContextMenuEntry> submenu;
   final bool separatorAfter;
+
+  /// Stable target subscription id for `移至订阅分组` entries. Carried as data
+  /// instead of parsing the display label, so remark/prefix collisions can no
+  /// longer move nodes into the wrong group (ACT-PROF-013). `''` means the
+  /// "无分组" bucket; `null` for every other entry.
+  final String? targetSubId;
 
   /// A disabled entry stays visible (layout parity) but never runs.
   final bool enabled;

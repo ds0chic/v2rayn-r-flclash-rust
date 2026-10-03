@@ -1,0 +1,80 @@
+{
+  "application_commit": "1251cbc6821276e35d082f7739b8b9c15b6f93dd",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "purpose": "Assignment and source inventory; inclusion does not mean functional verification.",
+  "total_rows": 800,
+  "by_kind": {
+    "feature": 110,
+    "setting": 180,
+    "entity": 158,
+    "action": 185,
+    "layout": 36,
+    "main_layout": 3,
+    "window": 53,
+    "config_type": 15,
+    "format": 17,
+    "core_matrix": 15,
+    "background": 6,
+    "scheduled": 7,
+    "enum": 15
+  },
+  "by_owner": {
+    "profiles": 258,
+    "settings": 373,
+    "runtime": 107,
+    "root": 62
+  },
+  "audit_status": "verified",
+  "product_status": "identified",
+  "scope": "All inventoried rows source-reviewed; six current Windows flows and two original-wire codec assertions executed. Not all functional paths tested.",
+  "end_commit": "1251cbc6821276e35d082f7739b8b9c15b6f93dd",
+  "baseline_unchanged": true,
+  "coverage": {
+    "profiles": {
+      "assigned": 258,
+      "recorded": 258,
+      "missing": 0,
+      "duplicates": 0
+    },
+    "settings": {
+      "assigned": 373,
+      "recorded": 373,
+      "missing": 0,
+      "duplicates": 0
+    },
+    "runtime": {
+      "assigned": 107,
+      "recorded": 107,
+      "missing": 0,
+      "duplicates": 0
+    },
+    "root": {
+      "assigned": 62,
+      "recorded": 62,
+      "missing": 0,
+      "duplicates": 0
+    }
+  },
+  "raw_record_statuses": {
+    "identified": 481,
+    "implemented": 226,
+    "preserved_only": 93
+  },
+  "evidence_levels": {
+    "source_trace + current_windows_ui_observation": 31,
+    "source_trace": 462,
+    "source_trace_and_executable_codec": 20,
+    "source_trace + backend_synthetic_tests": 171,
+    "source_trace + real_windows_ui + backend_synthetic_tests": 4,
+    "source_tracing_and_targeted_tests": 28,
+    "source_tracing": 79,
+    "source_trace_and_current_ui": 5
+  },
+  "reference_warnings": [],
+  "limitations": [
+    "800 rows include fields, enums, windows, layouts and functions; no completion percentage is computed.",
+    "Original expected behavior comes from frozen source, not a live original GUI run.",
+    "Current six Windows scenarios use actual Flutter/FRB/Rust/SQLite and synthetic isolated data; no kernel or host network-setting effects.",
+    "No macOS/Linux/ARM64 execution; no release package produced in this audit."
+  ]
+}

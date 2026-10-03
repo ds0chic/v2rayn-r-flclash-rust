@@ -63,6 +63,13 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
     // Clamp a persisted network (e.g. synthetic "tcp") to the protocol's set.
     final networks = ProfileCapabilities.allowedNetworks(_draft.configType);
     if (!networks.contains(_draft.network)) _draft.network = 'raw';
+    // Upstream `AddTuicServer` forces TLS when the imported value is empty;
+    // never touch a non-empty (imported) value so a remarks-only save stays
+    // lossless.
+    if (_draft.configType == ConfigType.tuic &&
+        (_draft.streamSecurity == null || _draft.streamSecurity!.isEmpty)) {
+      _draft.streamSecurity = 'tls';
+    }
   }
 
   @override
@@ -86,7 +93,11 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
               children: <Widget>[
                 if (_serverError != null) _errorBanner(theme, _serverError!),
                 _section(theme, '基础', _topFields()),
-                _section(theme, '协议', protocolFields(_draft.configType)),
+                _section(
+                  theme,
+                  '协议',
+                  protocolFields(_draft.configType, coreType: _draft.coreType),
+                ),
                 _section(theme, '传输', <FieldSpec>[
                   _networkField(),
                   ...transportFields(_draft.network),
@@ -241,6 +252,7 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
   /// down relative to the field above.
   Widget _buildField(ThemeData theme, FieldSpec spec) {
     return Row(
+      key: ValueKey('row-${spec.key}'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         SizedBox(
@@ -264,30 +276,43 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
     final value = spec.get(_draft);
     final fieldError = _fieldErrors[spec.key];
     final contentStyle = AppForm.contentStyle(theme);
-    InputDecoration decoration({String? hint}) => InputDecoration(
-      hintText: hint,
-      hintStyle: AppForm.helperStyle(theme),
-      isDense: true,
-      contentPadding: AppForm.controlPadding,
-      border: const OutlineInputBorder(),
-      errorText: fieldError,
-      errorStyle: AppForm.errorStyle(theme),
-    );
+    InputDecoration decoration({String? hint, Widget? suffix}) =>
+        InputDecoration(
+          hintText: hint,
+          hintStyle: AppForm.helperStyle(theme),
+          isDense: true,
+          contentPadding: AppForm.controlPadding,
+          border: const OutlineInputBorder(),
+          errorText: fieldError,
+          errorStyle: AppForm.errorStyle(theme),
+          suffixIcon: suffix,
+        );
     switch (spec.kind) {
       case FieldKind.dropdown:
         return DropdownButtonFormField<String?>(
           key: ValueKey('field-${spec.key}'),
-          initialValue: value,
+          initialValue: _dropdownValue(spec, value),
           isExpanded: true,
           style: contentStyle,
           decoration: decoration(),
-          items: <DropdownMenuItem<String?>>[
-            for (final option in spec.options ?? const <FieldOption>[])
-              DropdownMenuItem<String?>(
-                value: option.value,
-                child: Text(option.label),
-              ),
-          ],
+          items: _dropdownItems(spec, value),
+          onChanged: (v) {
+            _fieldErrors.remove(spec.key);
+            setState(() {
+              spec.set(_draft, v);
+              if (spec.key == 'cert') _syncCertSha();
+            });
+          },
+          validator: (_) => _validate(spec, spec.get(_draft)),
+        );
+      case FieldKind.combo:
+        return _ComboField(
+          fieldKey: ValueKey('field-${spec.key}'),
+          menuKey: ValueKey('combo-${spec.key}'),
+          initialValue: value,
+          options: spec.options ?? const <FieldOption>[],
+          style: contentStyle,
+          decoration: decoration(hint: spec.hint),
           onChanged: (v) {
             _fieldErrors.remove(spec.key);
             spec.set(_draft, v);
@@ -308,7 +333,7 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
           ],
           onChanged: (v) {
             _fieldErrors.remove(spec.key);
-            spec.set(_draft, v);
+            setState(() => spec.set(_draft, v));
           },
         );
       case FieldKind.multiline:
@@ -319,7 +344,10 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
           maxLines: 4,
           style: contentStyle.copyWith(fontFamily: AppTokens.monoFontFamily),
           decoration: decoration(hint: spec.hint),
-          onChanged: (v) => spec.set(_draft, v),
+          onChanged: (v) {
+            spec.set(_draft, v);
+            if (spec.key == 'cert') _syncCertSha();
+          },
           validator: (_) => _validate(spec, spec.get(_draft)),
         );
       case FieldKind.text:
@@ -333,15 +361,127 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
               ? TextInputType.number
               : TextInputType.text,
           style: contentStyle,
-          decoration: decoration(hint: spec.hint),
+          decoration: decoration(
+            hint: spec.hint,
+            suffix: _isUuidField(spec)
+                ? _uuidButton(spec)
+                : (spec.key == 'cert' ? _certButton() : null),
+          ),
           onChanged: (v) {
             _fieldErrors.remove(spec.key);
             spec.set(_draft, v);
+            if (spec.key == 'cert') _syncCertSha();
           },
           validator: (_) => _validate(spec, spec.get(_draft)),
         );
     }
   }
+
+  bool _isUuidField(FieldSpec spec) =>
+      spec.kind == FieldKind.text &&
+      spec.key == uuidFieldKey(_draft.configType);
+
+  /// The upstream "生成" (TbGUID) button regenerates the UUID field in place.
+  Widget _uuidButton(FieldSpec spec) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: TextButton(
+        key: ValueKey('gen-uuid-${spec.key}'),
+        onPressed: () => setState(() => spec.set(_draft, generateUuidV4())),
+        child: const Text('生成'),
+      ),
+    );
+  }
+
+  /// Upstream `btnFetchCert` / `btnFetchCertChain` next to the certificate box.
+  Widget _certButton() {
+    return PopupMenuButton<String>(
+      key: const ValueKey('fetch-cert-menu'),
+      tooltip: '获取证书',
+      onSelected: (value) => _fetchCert(chain: value == 'chain'),
+      itemBuilder: (context) => const <PopupMenuEntry<String>>[
+        PopupMenuItem<String>(value: 'leaf', child: Text('获取证书')),
+        PopupMenuItem<String>(value: 'chain', child: Text('获取证书链')),
+      ],
+    );
+  }
+
+  Future<void> _fetchCert({required bool chain}) async {
+    final host = _draft.address.trim();
+    final port = _draft.port;
+    if (host.isEmpty || port < 1 || port > 65535) {
+      _showSnack('请先填写有效的地址与端口');
+      return;
+    }
+    final serverName = (_draft.sni ?? '').trim().isEmpty
+        ? (_draft.host ?? '').trim()
+        : _draft.sni!.trim();
+    try {
+      final pem = await fetchPeerCertPem(
+        host: host,
+        port: port,
+        serverName: serverName.isEmpty ? null : serverName,
+      );
+      if (!mounted) return;
+      if (pem == null) {
+        _showSnack('未能获取证书');
+        return;
+      }
+      setState(() {
+        _draft.cert = pem;
+        _syncCertSha();
+      });
+      _showSnack(chain ? '已获取证书链' : '已获取证书');
+    } on Object catch (e) {
+      if (!mounted) return;
+      _showSnack('获取证书失败: $e');
+    }
+  }
+
+  void _showSnack(String message) {
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Valid `initialValue` for a dropdown. A stored value not in the candidate
+  /// list is preserved (see [_dropdownItems]), so it stays visible/editable and
+  /// Flutter does not assert.
+  String? _dropdownValue(FieldSpec spec, String? value) => value;
+
+  List<DropdownMenuItem<String?>> _dropdownItems(
+    FieldSpec spec,
+    String? value,
+  ) {
+    final options = spec.options ?? const <FieldOption>[];
+    final items = <DropdownMenuItem<String?>>[
+      for (final option in options)
+        DropdownMenuItem<String?>(
+          value: option.value,
+          child: Text(option.label),
+        ),
+    ];
+    final known = options.any((o) => o.value == value);
+    if (value != null && !known) {
+      items.insert(
+        0,
+        DropdownMenuItem<String?>(value: value, child: Text('$value (未知候选)')),
+      );
+    }
+    return items;
+  }
+
+  /// Recompute CertSha whenever the Cert text changes (upstream `UpdateCertSha`).
+  void _syncCertSha() {
+    final cert = _draft.cert;
+    if (cert == null || cert.isEmpty) return;
+    final sha = certShaFromChain(cert);
+    if (sha != null) _draft.certSha = sha;
+  }
+
+  static final RegExp _uuidPattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+    r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+  );
 
   String? _validate(FieldSpec spec, String? value) {
     final text = value?.trim() ?? '';
@@ -352,6 +492,11 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       if (spec.key == 'port' && (parsed < 1 || parsed > 65535)) {
         return '端口需在 1-65535';
       }
+    }
+    if (spec.key == uuidFieldKey(_draft.configType) &&
+        text.isNotEmpty &&
+        !_uuidPattern.hasMatch(text)) {
+      return 'UUID 格式无效';
     }
     if (_draft.streamSecurity == 'reality' &&
         spec.key == 'publicKey' &&
@@ -402,4 +547,65 @@ Future<c.ProfileDto?> showProfileEditor(
       allowConfigTypeChange: allowConfigTypeChange,
     ),
   );
+}
+
+/// Editable dropdown used by fields upstream marks `IsEditable="True"`.
+///
+/// A free-text [TextFormField] carries the value; a suffix menu offers the
+/// candidate list. Any stored value (including one not in the list) is kept.
+class _ComboField extends StatelessWidget {
+  const _ComboField({
+    required this.fieldKey,
+    required this.menuKey,
+    required this.initialValue,
+    required this.options,
+    required this.style,
+    required this.decoration,
+    required this.onChanged,
+    required this.validator,
+  });
+
+  final Key fieldKey;
+  final Key menuKey;
+  final String? initialValue;
+  final List<FieldOption> options;
+  final TextStyle style;
+  final InputDecoration decoration;
+  final ValueChanged<String?> onChanged;
+  final FormFieldValidator<String> validator;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TextEditingController(text: initialValue ?? '');
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: TextFormField(
+            key: fieldKey,
+            controller: controller,
+            style: style,
+            decoration: decoration,
+            onChanged: onChanged,
+            validator: validator,
+          ),
+        ),
+        PopupMenuButton<String?>(
+          key: menuKey,
+          tooltip: '候选值',
+          onSelected: (v) {
+            controller.text = v ?? '';
+            onChanged(v);
+          },
+          itemBuilder: (context) => <PopupMenuEntry<String?>>[
+            for (final option in options)
+              PopupMenuItem<String?>(
+                value: option.value,
+                child: Text(option.label),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
 }

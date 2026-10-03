@@ -129,18 +129,10 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
       });
       return;
     }
-    if (draft.url.isEmpty) {
-      setState(() {
-        _errorText = 'URL 不能为空';
-      });
-      return;
-    }
-    if (!draft.url.startsWith('http://') && !draft.url.startsWith('https://')) {
-      setState(() {
-        _errorText = 'URL 必须以 http(s):// 开头';
-      });
-      return;
-    }
+    // An empty URL is a plain group (upstream `SubEditViewModel`): it saves
+    // without downloading. A non-empty URL is validated by the Rust bridge
+    // (`error.url_invalid`, `E_FIELD_FORMAT`), so the scheme rule has a single
+    // source of truth.
     final headers = draft.requestHeaders;
     if (headers != null && !headers.trimLeft().startsWith('{')) {
       setState(() {
@@ -187,7 +179,7 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
                   ),
                 ),
               _field('备注 *', _remarks, 'sub-field-remarks'),
-              _field('Url *', _url, 'sub-field-url'),
+              _field('Url（留空为普通分组）', _url, 'sub-field-url'),
               _field('MoreUrl（逗号分隔）', _moreUrl, 'sub-field-moreurl'),
               _field('UserAgent', _userAgent, 'sub-field-useragent'),
               _field(

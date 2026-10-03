@@ -88,7 +88,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sub-edit-save')));
     await tester.pump();
 
-    expect(find.text('URL 必须以 http(s):// 开头'), findsOneWidget);
+    expect(find.text('error.url_invalid'), findsOneWidget);
   });
 
   testWidgets('cancel does not persist', (tester) async {

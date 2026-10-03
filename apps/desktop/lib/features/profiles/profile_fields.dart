@@ -1,8 +1,25 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 
 /// Input widget kind for a form field.
-enum FieldKind { text, intField, boolField, dropdown, multiline, password }
+///
+/// [combo] is an editable dropdown: a free-text control plus a candidate list,
+/// mirroring upstream's `IsEditable="True"` ComboBox (Fingerprint). A stored
+/// value that is not in the candidate list is kept as-is instead of asserting.
+enum FieldKind {
+  text,
+  intField,
+  boolField,
+  dropdown,
+  combo,
+  multiline,
+  password,
+}
 
 /// One editable form field, bound to a [ProfileDraft].
 class FieldSpec {
@@ -97,14 +114,41 @@ class ProfileCapabilities {
       t == ConfigType.vmess || t == ConfigType.vless || t == ConfigType.trojan;
 }
 
-const _ssMethods = <String>[
-  'aes-128-gcm',
+/// Shadowsocks methods supported by Xray (`Global.SsSecuritiesInXray`).
+const _ssMethodsXray = <String>[
   'aes-256-gcm',
+  'aes-128-gcm',
+  'chacha20-poly1305',
   'chacha20-ietf-poly1305',
+  'xchacha20-poly1305',
+  'xchacha20-ietf-poly1305',
+  'none',
+  'plain',
   '2022-blake3-aes-128-gcm',
   '2022-blake3-aes-256-gcm',
   '2022-blake3-chacha20-poly1305',
+];
+
+/// Shadowsocks methods supported by sing-box (`Global.SsSecuritiesInSingbox`).
+const _ssMethodsSingBox = <String>[
+  'aes-256-gcm',
+  'aes-192-gcm',
+  'aes-128-gcm',
+  'chacha20-ietf-poly1305',
+  'xchacha20-ietf-poly1305',
   'none',
+  '2022-blake3-aes-128-gcm',
+  '2022-blake3-aes-256-gcm',
+  '2022-blake3-chacha20-poly1305',
+  'aes-128-ctr',
+  'aes-192-ctr',
+  'aes-256-ctr',
+  'aes-128-cfb',
+  'aes-192-cfb',
+  'aes-256-cfb',
+  'rc4-md5',
+  'chacha20-ietf',
+  'xchacha20',
 ];
 
 const _vmessSecurities = <String>[
@@ -125,6 +169,8 @@ const _fingerprints = <String>[
   '360',
   'qq',
   'random',
+  'randomized',
+  '',
 ];
 
 const _headerTypes = <String>[
@@ -138,13 +184,16 @@ const _headerTypes = <String>[
 ];
 
 /// Protocol-specific fields for one of the 11 basic protocol kinds.
-List<FieldSpec> protocolFields(ConfigType t) {
+///
+/// [coreType] selects the Shadowsocks method list (Xray vs sing-box). A stored
+/// method outside the selected list is preserved as an unknown candidate.
+List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
   switch (t) {
     case ConfigType.vmess:
       return <FieldSpec>[
         _text(
           'password',
-          '用户 ID (UUID)',
+          '用户 ID (id)',
           (d) => d.password,
           (d, v) => d.password = v ?? '',
           required: true,
@@ -152,7 +201,7 @@ List<FieldSpec> protocolFields(ConfigType t) {
         _text('alterId', 'AlterId', (d) => d.alterId, (d, v) => d.alterId = v),
         _drop(
           'vmessSecurity',
-          '加密方式',
+          '加密方式 (security)',
           (d) => d.vmessSecurity,
           (d, v) => d.vmessSecurity = v,
           _vmessSecurities,
@@ -162,7 +211,7 @@ List<FieldSpec> protocolFields(ConfigType t) {
       return <FieldSpec>[
         _text(
           'password',
-          '用户 ID (UUID)',
+          '用户 ID (id)',
           (d) => d.password,
           (d, v) => d.password = v ?? '',
           required: true,
@@ -174,22 +223,26 @@ List<FieldSpec> protocolFields(ConfigType t) {
           (d, v) => d.flow = v,
           const <String>['', 'xtls-rprx-vision', 'xtls-rprx-vision-udp443'],
         ),
-        _drop(
+        // Upstream `txtSecurity5` is a plain TextBox so real encryption
+        // parameters (e.g. mlkem) can be typed, not only the two presets.
+        _text(
           'vlessEncryption',
-          '加密',
+          '加密方式 (encryption)',
           (d) => d.vlessEncryption,
           (d, v) => d.vlessEncryption = v,
-          const <String>['none', 'mlkem768x25519plus'],
         ),
       ];
     case ConfigType.shadowsocks:
+      final methods = coreType == CoreType.singBox
+          ? _ssMethodsSingBox
+          : _ssMethodsXray;
       return <FieldSpec>[
         _drop(
           'ssMethod',
-          '加密方式',
+          '加密方式 (encryption)',
           (d) => d.ssMethod,
           (d, v) => d.ssMethod = v,
-          _ssMethods,
+          methods,
           required: true,
         ),
         _text(
@@ -302,17 +355,26 @@ List<FieldSpec> protocolFields(ConfigType t) {
         ),
       ];
     case ConfigType.tuic:
+      // Upstream `gridTuic`: Username (UUID) and Password are two separate
+      // TextBoxes (txtId8 / txtSecurity8). TUIC always runs on sing-box.
       return <FieldSpec>[
         _text(
+          'username',
+          '用户 ID (id)',
+          (d) => d.username,
+          (d, v) => d.username = v ?? '',
+          required: true,
+        ),
+        _text(
           'password',
-          'UUID',
+          '密码 (password)',
           (d) => d.password,
           (d, v) => d.password = v ?? '',
           required: true,
         ),
         _drop(
           'congestionControl',
-          '拥塞控制',
+          '拥塞控制算法',
           (d) => d.congestionControl,
           (d, v) => d.congestionControl = v,
           const <String>['cubic', 'new_reno', 'bbr'],
@@ -496,7 +558,7 @@ List<FieldSpec> securityFields(String? streamSecurity) {
     ),
     _drop(
       'allowInsecure',
-      '允许不安全',
+      '跳过证书验证 (allowInsecure)',
       (d) => d.allowInsecure,
       (d, v) => d.allowInsecure = v,
       const <String>['', 'true', 'false'],
@@ -509,9 +571,9 @@ List<FieldSpec> securityFields(String? streamSecurity) {
       (d, v) => d.alpn = v,
       hint: '逗号分隔，如 h2,http/1.1',
     ),
-    _drop(
+    _combo(
       'fingerprint',
-      '指纹',
+      'Fingerprint',
       (d) => d.fingerprint,
       (d, v) => d.fingerprint = v,
       _fingerprints,
@@ -629,6 +691,311 @@ FieldSpec _drop(
   get: get,
   set: set,
   required: required,
+  options: <FieldOption>[
+    for (final o in options)
+      FieldOption(o.isEmpty ? null : o, o.isEmpty ? '(无)' : o),
+  ],
+);
+
+/// The write path of the UUID-bearing field for [t].
+///
+/// Upstream stores the TUIC UUID in `username` (txtId8) and the VMess/VLESS
+/// UUID in `password`. Returns `null` when the protocol has no UUID concept.
+void Function(ProfileDraft, String)? uuidSetter(ConfigType t) {
+  switch (t) {
+    case ConfigType.vmess:
+    case ConfigType.vless:
+      return (d, v) => d.password = v;
+    case ConfigType.tuic:
+      return (d, v) => d.username = v;
+    default:
+      return null;
+  }
+}
+
+/// The field key that carries the UUID for [t], or `null`.
+String? uuidFieldKey(ConfigType t) {
+  switch (t) {
+    case ConfigType.vmess:
+    case ConfigType.vless:
+      return 'password';
+    case ConfigType.tuic:
+      return 'username';
+    default:
+      return null;
+  }
+}
+
+/// Generate a random v4 UUID (`Utils.GetGuid`).
+String generateUuidV4([Random? random]) {
+  final rng = random ?? Random.secure();
+  final bytes = List<int>.generate(16, (_) => rng.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  String hex(int b) => b.toRadixString(16).padLeft(2, '0');
+  final s = bytes.map(hex).join();
+  return '${s.substring(0, 8)}-${s.substring(8, 12)}-${s.substring(12, 16)}'
+      '-${s.substring(16, 20)}-${s.substring(20)}';
+}
+
+/// Split a PEM bundle into individual `-----BEGIN CERTIFICATE-----` blocks
+/// (`CertPemManager.ParsePemChain`).
+List<String> parsePemChain(String pem) {
+  final blocks = <String>[];
+  const begin = '-----BEGIN CERTIFICATE-----';
+  const end = '-----END CERTIFICATE-----';
+  var cursor = 0;
+  while (true) {
+    final start = pem.indexOf(begin, cursor);
+    if (start < 0) break;
+    final stop = pem.indexOf(end, start);
+    if (stop < 0) break;
+    blocks.add(pem.substring(start, stop + end.length));
+    cursor = stop + end.length;
+  }
+  return blocks;
+}
+
+/// Compute the upper-case SHA-256 thumbprint of one PEM certificate, mirroring
+/// `CertPemManager.GetCertSha256Thumbprint` (hash of the DER body).
+String? certSha256Thumbprint(String pemBlock) {
+  final begin = pemBlock.indexOf('-----BEGIN');
+  final endMarker = pemBlock.indexOf('-----END');
+  if (begin < 0 || endMarker < 0 || endMarker <= begin) return null;
+  final header = pemBlock.indexOf('-----', begin + 5);
+  if (header < 0 || header >= endMarker) return null;
+  final body = pemBlock
+      .substring(header + 5, endMarker)
+      .replaceAll(RegExp(r'\s'), '');
+  if (body.isEmpty) return null;
+  // A malformed body cannot be decoded; upstream returns empty and the caller
+  // leaves the SHA untouched.
+  final bytes = base64.decode(body);
+  final digest = _sha256(bytes);
+  return digest.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+}
+
+/// Derive a comma-joined CertSha list from a full PEM chain. Returns `null`
+/// when no certificate block parses (upstream leaves CertSha unchanged).
+String? certShaFromChain(String pem) {
+  final blocks = parsePemChain(pem);
+  if (blocks.isEmpty) return null;
+  final shas = <String>[];
+  for (final block in blocks) {
+    final sha = certSha256Thumbprint(block);
+    if (sha == null) return null;
+    shas.add(sha);
+  }
+  return shas.join(',');
+}
+
+/// Fetch the peer's leaf certificate as a PEM block (`CertPemManager.GetCertPemAsync`).
+///
+/// `dart:io` exposes only the leaf certificate; the chain variant below reuses
+/// it and callers keep the leaf-only limitation. Never bypasses verification on
+/// purpose for the host, but accepts the handshake so an expired/self-signed
+/// pinning target can still be inspected (upstream behavior).
+Future<String?> fetchPeerCertPem({
+  required String host,
+  required int port,
+  String? serverName,
+  Duration timeout = const Duration(seconds: 8),
+}) async {
+  SecureSocket? socket;
+  try {
+    socket = await SecureSocket.connect(
+      host,
+      port,
+      onBadCertificate: (_) => true,
+      timeout: timeout,
+    );
+    final der = socket.peerCertificate?.der;
+    if (der == null) return null;
+    return _derToPem(der);
+  } finally {
+    await socket?.close();
+  }
+}
+
+/// Fetch the certificate chain as concatenated PEM. `dart:io` only returns the
+/// leaf, so this matches [fetchPeerCertPem] on this platform.
+Future<String?> fetchPeerCertChainPem({
+  required String host,
+  required int port,
+  String? serverName,
+  Duration timeout = const Duration(seconds: 8),
+}) => fetchPeerCertPem(
+  host: host,
+  port: port,
+  serverName: serverName,
+  timeout: timeout,
+);
+
+String _derToPem(List<int> der) {
+  const lineLength = 64;
+  final base64Body = base64.encode(der);
+  final lines = <String>[];
+  for (var i = 0; i < base64Body.length; i += lineLength) {
+    final end = (i + lineLength < base64Body.length)
+        ? i + lineLength
+        : base64Body.length;
+    lines.add(base64Body.substring(i, end));
+  }
+  return '-----BEGIN CERTIFICATE-----\n'
+      '${lines.join('\n')}\n'
+      '-----END CERTIFICATE-----';
+}
+
+const _sha256K = <int>[
+  0x428a2f98,
+  0x71374491,
+  0xb5c0fbcf,
+  0xe9b5dba5,
+  0x3956c25b,
+  0x59f111f1,
+  0x923f82a4,
+  0xab1c5ed5,
+  0xd807aa98,
+  0x12835b01,
+  0x243185be,
+  0x550c7dc3,
+  0x72be5d74,
+  0x80deb1fe,
+  0x9bdc06a7,
+  0xc19bf174,
+  0xe49b69c1,
+  0xefbe4786,
+  0x0fc19dc6,
+  0x240ca1cc,
+  0x2de92c6f,
+  0x4a7484aa,
+  0x5cb0a9dc,
+  0x76f988da,
+  0x983e5152,
+  0xa831c66d,
+  0xb00327c8,
+  0xbf597fc7,
+  0xc6e00bf3,
+  0xd5a79147,
+  0x06ca6351,
+  0x14292967,
+  0x27b70a85,
+  0x2e1b2138,
+  0x4d2c6dfc,
+  0x53380d13,
+  0x650a7354,
+  0x766a0abb,
+  0x81c2c92e,
+  0x92722c85,
+  0xa2bfe8a1,
+  0xa81a664b,
+  0xc24b8b70,
+  0xc76c51a3,
+  0xd192e819,
+  0xd6990624,
+  0xf40e3585,
+  0x106aa070,
+  0x19a4c116,
+  0x1e376c08,
+  0x2748774c,
+  0x34b0bcb5,
+  0x391c0cb3,
+  0x4ed8aa4a,
+  0x5b9cca4f,
+  0x682e6ff3,
+  0x748f82ee,
+  0x78a5636f,
+  0x84c87814,
+  0x8cc70208,
+  0x90befffa,
+  0xa4506ceb,
+  0xbef9a3f7,
+  0xc67178f2,
+];
+
+List<int> _sha256(List<int> message) {
+  var h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
+  var h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
+
+  final bitLen = message.length * 8;
+  final withOne = <int>[...message, 0x80];
+  while (withOne.length % 64 != 56) {
+    withOne.add(0);
+  }
+  for (var i = 7; i >= 0; i--) {
+    withOne.add((bitLen >> (i * 8)) & 0xff);
+  }
+
+  final w = List<int>.filled(64, 0);
+  for (var offset = 0; offset < withOne.length; offset += 64) {
+    for (var i = 0; i < 16; i++) {
+      final j = offset + i * 4;
+      w[i] =
+          (withOne[j] << 24) |
+          (withOne[j + 1] << 16) |
+          (withOne[j + 2] << 8) |
+          withOne[j + 3];
+    }
+    for (var i = 16; i < 64; i++) {
+      final s0 = _rotr(w[i - 15], 7) ^ _rotr(w[i - 15], 18) ^ (w[i - 15] >> 3);
+      final s1 = _rotr(w[i - 2], 17) ^ _rotr(w[i - 2], 19) ^ (w[i - 2] >> 10);
+      w[i] = (_u32(w[i - 16] + s0 + w[i - 7] + s1));
+    }
+    var a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+    for (var i = 0; i < 64; i++) {
+      final s1 = _rotr(e, 6) ^ _rotr(e, 11) ^ _rotr(e, 25);
+      final ch = (e & f) ^ (~e & g);
+      final t1 = _u32(h + s1 + ch + _sha256K[i] + w[i]);
+      final s0 = _rotr(a, 2) ^ _rotr(a, 13) ^ _rotr(a, 22);
+      final maj = (a & b) ^ (a & c) ^ (b & c);
+      final t2 = _u32(s0 + maj);
+      h = g;
+      g = f;
+      f = e;
+      e = _u32(d + t1);
+      d = c;
+      c = b;
+      b = a;
+      a = _u32(t1 + t2);
+    }
+    h0 = _u32(h0 + a);
+    h1 = _u32(h1 + b);
+    h2 = _u32(h2 + c);
+    h3 = _u32(h3 + d);
+    h4 = _u32(h4 + e);
+    h5 = _u32(h5 + f);
+    h6 = _u32(h6 + g);
+    h7 = _u32(h7 + h);
+  }
+
+  final out = <int>[];
+  for (final value in <int>[h0, h1, h2, h3, h4, h5, h6, h7]) {
+    for (var i = 3; i >= 0; i--) {
+      out.add((value >> (i * 8)) & 0xff);
+    }
+  }
+  return out;
+}
+
+int _rotr(int x, int n) => ((x >> n) | (x << (32 - n))) & 0xffffffff;
+
+int _u32(int x) => x & 0xffffffff;
+FieldSpec _combo(
+  String key,
+  String label,
+  String? Function(ProfileDraft) get,
+  void Function(ProfileDraft, String?) set,
+  List<String> options, {
+  bool required = false,
+  String? hint,
+}) => FieldSpec(
+  key: key,
+  label: label,
+  kind: FieldKind.combo,
+  get: get,
+  set: set,
+  required: required,
+  hint: hint,
   options: <FieldOption>[
     for (final o in options)
       FieldOption(o.isEmpty ? null : o, o.isEmpty ? '(无)' : o),

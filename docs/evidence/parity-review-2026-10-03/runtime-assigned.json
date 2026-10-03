@@ -1,0 +1,4333 @@
+[
+  {
+    "key": "feature:F-CORE-001",
+    "id": "F-CORE-001",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "内核类型选择",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "F-CORE-001",
+      "name": "内核类型选择",
+      "family": "core",
+      "summary": "为不同协议配置默认内核（Xray/sing_box）",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/参数设置/内核",
+        "symbol": "OptionSettingViewModel.SaveCoreType",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "CoreTypeItem 保存 ConfigType→CoreType 映射；AppManager.GetCoreType 解析",
+      "failure_behavior": "解析失败回退 Xray",
+      "cancel_behavior": "关闭丢弃",
+      "acceptance": "更改后节点使用对应内核生成配置",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": null,
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:233",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:414",
+        "v2rayN/ServiceLib/Manager/AppManager.cs:666",
+        "v2rayN/ServiceLib/Global.cs:360"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "feature:F-CORE-002",
+    "id": "F-CORE-002",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "内置内核更新",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-CORE-002",
+      "name": "内置内核更新",
+      "family": "core",
+      "summary": "检查并下载更新 Xray/mihomo/sing-box",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "CheckUpdateWindow",
+        "menu_path": "帮助/检查更新",
+        "symbol": "UpdateService.CheckUpdateCore",
+        "files": [
+          "v2rayN/ServiceLib/Services/UpdateService.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "mihomo",
+        "sing_box"
+      ],
+      "depends_on_features": [
+        "F-CORE-004"
+      ],
+      "preconditions": [
+        "非 x86/低版本 Windows"
+      ],
+      "normal_behavior": "GetRemoteVersion 取 latest/Release API，ParseDownloadUrl 生成平台 URL 并下载解压",
+      "failure_behavior": "不支持时返回 MsgNotSupport",
+      "cancel_behavior": "无显式取消",
+      "acceptance": "更新后内核二进制替换且版本刷新",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/update_service.rs (check_core/apply_core); crates/updater/src/**; crates/bridge_api/src/api/t16.rs (t16_check_updates/t16_apply_core_update); apps/desktop/lib/features/update/**",
+      "test_ids": [
+        "t16_update.rs (check_apply_and_rollback_in_temp_dir / digest_mismatch_leaves_no_install)",
+        "t16_update_test.dart (check-update applies core updates and reports counts)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:53",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Services/UpdateService.cs:49",
+        "v2rayN/ServiceLib/Services/UpdateService.cs:261",
+        "docs/evidence/T16.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-CORE-003",
+    "id": "F-CORE-003",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "应用自身更新",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-CORE-003",
+      "name": "应用自身更新",
+      "family": "core",
+      "summary": "检查并升级 v2rayN 应用，支持 prerelease",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "CheckUpdateWindow",
+        "menu_path": "检查更新",
+        "symbol": "UpdateService.CheckUpdateGuiN",
+        "files": [
+          "v2rayN/ServiceLib/Services/UpdateService.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "v2rayN"
+      ],
+      "depends_on_features": [
+        "F-APP-007"
+      ],
+      "preconditions": [
+        "非打包安装"
+      ],
+      "normal_behavior": "下载 zip 后由 UpgradeApp 启动替换并退出",
+      "failure_behavior": "打包安装提示不支持",
+      "cancel_behavior": "无",
+      "acceptance": "非打包环境可升级",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/update_service.rs (app_update_spec -> ExternalUpgradeSpec); crates/updater/src/install.rs (UpgradeCoordinator, no spawn); crates/bridge_api/src/api/t16.rs (t16_apply_app_update_spec)",
+      "test_ids": [
+        "t16_update.rs (app_update_spec_never_spawns_helper)",
+        "t16_update_test.dart (application update only produces an external spec)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Services/UpdateService.cs:9",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:79",
+        "v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:259",
+        "v2rayN/AmazTool/UpgradeApp.cs:24",
+        "docs/evidence/T16.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-CORE-004",
+    "id": "F-CORE-004",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "仅检查更新（不下载）",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "F-CORE-004",
+      "name": "仅检查更新（不下载）",
+      "family": "core",
+      "summary": "检查各内核/应用是否有新版本",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "CheckUpdateWindow",
+        "menu_path": "检查更新/仅检查",
+        "symbol": "UpdateService.CheckHasUpdateOnly",
+        "files": [
+          "v2rayN/ServiceLib/Services/UpdateService.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "mihomo",
+        "sing_box",
+        "v2rayN"
+      ],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "逐内核比较远端版本，结果存 AppManager.LastCheckUpdateResults",
+      "failure_behavior": "不支持返回 MsgNotSupport",
+      "cancel_behavior": "无",
+      "acceptance": "有新版时给出提示",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": null,
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/ServiceLib/Services/UpdateService.cs:102",
+        "v2rayN/ServiceLib/Services/UpdateService.cs:114",
+        "v2rayN/ServiceLib/Manager/AppManager.cs:54",
+        "v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:143"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "feature:F-CORE-005",
+    "id": "F-CORE-005",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "内核启动/停止/重载",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-CORE-005",
+      "name": "内核启动/停止/重载",
+      "family": "core",
+      "summary": "生成配置后启动内核，重载时先停后启",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "重载",
+        "symbol": "CoreManager.LoadCore / CoreStop",
+        "files": [
+          "v2rayN/ServiceLib/Manager/CoreManager.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [
+        "F-CORE-008"
+      ],
+      "preconditions": [
+        "有效节点"
+      ],
+      "normal_behavior": "GenerateClientConfig→CoreStop→CoreStart；Windows TUN 先 RemoveTunDevice；Reload 用信号量串行",
+      "failure_behavior": "生成失败中止并提示",
+      "cancel_behavior": "无",
+      "acceptance": "切换节点后仅新节点进程存活",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/engine.rs (build_runtime_plan/apply_runtime); services/net_host (session lifecycle)",
+      "test_ids": [
+        "t18b_runtime_plan",
+        "t18b_runtime_e2e"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/CoreManager.cs:65",
+        "v2rayN/ServiceLib/Manager/CoreManager.cs:147",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:664",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:662",
+        "docs/evidence/T18b.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-CORE-006",
+    "id": "F-CORE-006",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "预 SOCKS 端口",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "F-CORE-006",
+      "name": "预 SOCKS 端口",
+      "family": "core",
+      "summary": "节点可配置预代理 SOCKS 端口，运行前先起预内核",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "AddServerWindow",
+        "menu_path": "节点编辑/预SocksPort",
+        "symbol": "ConfigHandler.GetPreSocksItem",
+        "files": [
+          "v2rayN/ServiceLib/Handler/ConfigHandler.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [
+        "F-CORE-005"
+      ],
+      "preconditions": [
+        "节点设置 PreSocksPort"
+      ],
+      "normal_behavior": "BuildPreSocksIfNeeded 生成 preContext，CoreStartPreService 另起进程，WaitForProxyPort 探测就绪",
+      "failure_behavior": "端口未就绪记录超时",
+      "cancel_behavior": "无",
+      "acceptance": "预内核先于主内核就绪",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": null,
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:1555",
+        "v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:189",
+        "v2rayN/ServiceLib/Manager/CoreManager.cs:194",
+        "v2rayN/ServiceLib/Manager/CoreManager.cs:219"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "feature:F-CORE-007",
+    "id": "F-CORE-007",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "自定义配置生成",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "F-CORE-007",
+      "name": "自定义配置生成",
+      "family": "core",
+      "summary": "Custom 节点按文件复制（mihomo 走 YAML 处理）",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "配置生成",
+        "menu_path": null,
+        "symbol": "CoreConfigHandler.GenerateClientCustomConfig",
+        "files": [
+          "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [],
+      "preconditions": [
+        "Custom 节点文件存在"
+      ],
+      "normal_behavior": "复制配置文件到 bin/config.json，mihomo 经 CoreConfigClashService",
+      "failure_behavior": "文件缺失报错",
+      "cancel_behavior": "无",
+      "acceptance": "Custom 节点生成内容与源一致",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": null,
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:16",
+        "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:44",
+        "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:20"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "feature:F-CORE-008",
+    "id": "F-CORE-008",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "结构化配置生成",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "F-CORE-008",
+      "name": "结构化配置生成",
+      "family": "core",
+      "summary": "由领域节点生成 Xray/sing-box 完整配置",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "配置生成",
+        "menu_path": null,
+        "symbol": "CoreConfigV2rayService / CoreConfigSingboxService",
+        "files": [
+          "v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs",
+          "v2rayN/ServiceLib/Services/CoreConfig/Singbox/CoreConfigSingboxService.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "依 RunCoreType 分支生成，写入 bin/config.json",
+      "failure_behavior": "生成失败返回消息",
+      "cancel_behavior": "无",
+      "acceptance": "差分测试输出配置",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": null,
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:24",
+        "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:30",
+        "v2rayN/ServiceLib.Tests/CoreConfig/V2ray/CoreConfigV2rayServiceTests.cs:6",
+        "v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs:6"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "feature:F-CORE-009",
+    "id": "F-CORE-009",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "完整配置模板",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-CORE-009",
+      "name": "完整配置模板",
+      "family": "core",
+      "summary": "为 Xray/sing-box 维护可编辑完整配置模板",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "FullConfigTemplateWindow",
+        "menu_path": "设置/完整配置模板",
+        "symbol": "FullConfigTemplateViewModel",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [
+        "F-CORE-008"
+      ],
+      "preconditions": [],
+      "normal_behavior": "保存 FullConfigTemplateItem，生成时合并",
+      "failure_behavior": "无",
+      "cancel_behavior": "关闭丢弃",
+      "acceptance": "模板内容进入生成配置",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "apps/desktop/lib/features/profiles/template_window.dart; crates/application/src/templates.rs + engine template store; crates/bridge_api/src/api/groups.rs",
+      "test_ids": [
+        "t10_groups_templates.rs::template_crud_survives_reopen",
+        "t10_template_window_test.dart (4 tests)",
+        "t10_core_matrix.rs::template xray+singbox PASS"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/FullConfigTemplateViewModel.cs:39",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:2838",
+        "v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:44",
+        "docs/evidence/T10.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-CORE-010",
+    "id": "F-CORE-010",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "Clash Mixin 合并",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-CORE-010",
+      "name": "Clash Mixin 合并",
+      "family": "core",
+      "summary": "mihomo 自定义配置支持 Mixin 覆盖，含 prepend-/append-/removed- 前缀",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/参数设置/Mixin",
+        "symbol": "CoreConfigClashService.MixinContent",
+        "files": [
+          "v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "mihomo"
+      ],
+      "depends_on_features": [
+        "F-CORE-007"
+      ],
+      "preconditions": [
+        "ClashUIItem.EnableMixinContent"
+      ],
+      "normal_behavior": "读取 Mixin.yaml；普通键覆盖，prepend-/append- 合并列表，removed- 删除前缀项；TUN 关闭时跳过 tun 键",
+      "failure_behavior": "Mixin 解析异常记录日志不阻断",
+      "cancel_behavior": "无",
+      "acceptance": "Mixin 键按前缀语义合并进最终 YAML",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/mixin.rs (GenerateClientCustomConfig merge)",
+      "test_ids": [
+        "mixin.rs unit tests (6)",
+        "t10_core_matrix.rs::t10_mihomo_mixin_file_round_trip"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:113",
+        "v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:164",
+        "v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:192",
+        "v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:206",
+        "docs/evidence/T10.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-CORE-011",
+    "id": "F-CORE-011",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "内核可执行文件定位",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-CORE-011",
+      "name": "内核可执行文件定位",
+      "family": "core",
+      "summary": "按 CoreExes 候选列表在 bin/内核名 目录查找可执行文件",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "启动内核",
+        "menu_path": null,
+        "symbol": "CoreInfoManager.GetCoreExecFile",
+        "files": [
+          "v2rayN/ServiceLib/Manager/CoreInfoManager.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "遍历 CoreExes 找存在文件，否则提示 NotFoundCore",
+      "failure_behavior": "未找到给出下载 URL 提示",
+      "cancel_behavior": "无",
+      "acceptance": "缺失内核时明确提示",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/runtime/src/adapter.rs (CoreLocator roots/pinned/custom override)",
+      "test_ids": [
+        "adapter::resolve_prefers_highest_version_then_pinned",
+        "adapter::resolve_override_wins_and_missing_is_not_found"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:32",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:38",
+        "docs/evidence/T18b.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-CORE-012",
+    "id": "F-CORE-012",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "Linux/macOS TUN 提权运行",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "F-CORE-012",
+      "name": "Linux/macOS TUN 提权运行",
+      "family": "core",
+      "summary": "TUN 启动且为非 Windows 时以 sudo 运行内核",
+      "platforms": [
+        "linux",
+        "macos"
+      ],
+      "upstream_entry": {
+        "window": "启动内核",
+        "menu_path": null,
+        "symbol": "CoreManager.ShouldRunAsSudo / CoreAdminManager",
+        "files": [
+          "v2rayN/ServiceLib/Manager/CoreManager.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [
+        "F-TUN-001"
+      ],
+      "preconditions": [
+        "TUN 开启，非 Windows"
+      ],
+      "normal_behavior": "生成 run_as_sudo.sh 并 sudo -S 执行，退出时 kill_as_sudo",
+      "failure_behavior": "启动失败抛 FailedToRunCore",
+      "cancel_behavior": "CoreStop 时结束 sudo 进程",
+      "acceptance": "TUN 下内核以提权运行并可终止",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": null,
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/CoreManager.cs:298",
+        "v2rayN/ServiceLib/Manager/CoreManager.cs:316",
+        "v2rayN/ServiceLib/Manager/CoreAdminManager.cs:32",
+        "v2rayN/ServiceLib/Manager/CoreAdminManager.cs:72"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "feature:F-CORE-013",
+    "id": "F-CORE-013",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "Geo/规则资源更新",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "F-CORE-013",
+      "name": "Geo/规则资源更新",
+      "family": "core",
+      "summary": "下载 geosite/geoip 及附加 dat/mmdb",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "更新Geo文件",
+        "symbol": "UpdateService.UpdateGeoFileAll",
+        "files": [
+          "v2rayN/ServiceLib/Services/UpdateService.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "下载到临时文件再原子替换；非中国区额外下载 OtherGeoUrls",
+      "failure_behavior": "单项失败记录消息",
+      "cancel_behavior": "无",
+      "acceptance": "bin 下 dat 更新",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": null,
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/ServiceLib/Services/UpdateService.cs:139",
+        "v2rayN/ServiceLib/Services/UpdateService.cs:369",
+        "v2rayN/ServiceLib/Services/UpdateService.cs:391",
+        "v2rayN/ServiceLib/Services/UpdateService.cs:533"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "feature:F-SYSPROXY-001",
+    "id": "F-SYSPROXY-001",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "系统代理四种语义",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-SYSPROXY-001",
+      "name": "系统代理四种语义",
+      "family": "system-proxy",
+      "summary": "ForcedClear/ForcedChange/Unchanged/Pac 四种系统代理状态",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "StatusBarView",
+        "menu_path": "状态栏/系统代理",
+        "symbol": "SysProxyHandler.UpdateSysProxy",
+        "files": [
+          "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "按平台分发到 ProxySettingWindows/Linux/OSX；Pac 仅 Windows",
+      "failure_behavior": "异常记录日志仍返回 true",
+      "cancel_behavior": "切到 Unchanged 不修改系统",
+      "acceptance": "四态切换与退出恢复行为符合基线",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/platform_service.rs; crates/bridge_api/src/api/platform.rs; apps/desktop/lib/features/settings/platform_controller.dart; apps/desktop/lib/app/shell/status_bar_view.dart",
+      "test_ids": [
+        "t13_platform_matrix_forced_clear_then_change_then_restore",
+        "t13_platform_matrix_pac_sets_url_and_clears_named_proxy",
+        "t13_platform_matrix_unchanged_is_a_total_noop",
+        "bridge_sysproxy_four_modes_apply_and_restore_through_fake",
+        "t13_statusbar_four_modes_apply"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ESysProxyType.cs:3",
+        "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:8",
+        "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:26",
+        "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:53",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:183",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-SYSPROXY-002",
+    "id": "F-SYSPROXY-002",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "系统代理绕过项与高级协议",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-SYSPROXY-002",
+      "name": "系统代理绕过项与高级协议",
+      "family": "system-proxy",
+      "summary": "绕过列表、NotProxyLocalAddress、SystemProxyAdvancedProtocol 模板",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/系统代理",
+        "symbol": "SysProxyHandler.GetWindowsProxyString",
+        "files": [
+          "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [
+        "F-SYSPROXY-001"
+      ],
+      "preconditions": [],
+      "normal_behavior": "高级协议替换 {ip}/{http_port}/{socks_port}；本地地址加 <local>",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "设置生效于系统代理字符串",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/platform_service.rs; apps/desktop/lib/features/settings/proxy_settings_view.dart",
+      "test_ids": [
+        "t13_settings_view_builds_server_with_advanced_template",
+        "t13_settings_view_builds_bypass_adding_local"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:86",
+        "v2rayN/ServiceLib/Global.cs:133",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:83",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-SYSPROXY-003",
+    "id": "F-SYSPROXY-003",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "PAC 本地服务",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-SYSPROXY-003",
+      "name": "PAC 本地服务",
+      "family": "system-proxy",
+      "summary": "本地 HTTP 服务提供 PAC 脚本，支持自定义 PAC 文件",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/系统代理",
+        "symbol": "PacManager",
+        "files": [
+          "v2rayN/ServiceLib/Manager/PacManager.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [
+        "F-SYSPROXY-001"
+      ],
+      "preconditions": [
+        "SystemProxyType=Pac；Windows 设系统代理"
+      ],
+      "normal_behavior": "读取 pac.txt 或自定义路径，替换 __PROXY__ 后监听 pac 端口",
+      "failure_behavior": "监听异常记录日志",
+      "cancel_behavior": "停止 PAC 服务",
+      "acceptance": "浏览器通过 PAC 正常代理",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/platform/src/pac.rs; crates/application/src/platform_service.rs; crates/bridge_api/src/api/platform.rs",
+      "test_ids": [
+        "t13_pac_start_stop_and_idempotent_restart",
+        "t13_pac_serves_rendered_script_over_loopback",
+        "bridge_pac_lifecycle_through_bridge",
+        "t13_pac_rejects_port_below_reserved_base"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/PacManager.cs:11",
+        "v2rayN/ServiceLib/Manager/PacManager.cs:32",
+        "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:110",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-SYSPROXY-004",
+    "id": "F-SYSPROXY-004",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "退出时恢复系统代理",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-SYSPROXY-004",
+      "name": "退出时恢复系统代理",
+      "family": "system-proxy",
+      "summary": "应用退出强制清除系统代理（除非 Unchanged）",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "退出",
+        "menu_path": "退出",
+        "symbol": "AppManager.AppExitAsync",
+        "files": [
+          "v2rayN/ServiceLib/Manager/AppManager.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [
+        "F-SYSPROXY-001"
+      ],
+      "preconditions": [],
+      "normal_behavior": "UpdateSysProxy(forceDisable=true) 将非 Unchanged 置 ForcedClear",
+      "failure_behavior": "异常静默",
+      "cancel_behavior": "无",
+      "acceptance": "退出后系统代理被清除",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/platform_service.rs; crates/bridge_api/src/api/platform.rs; apps/desktop/lib/app/shell/desktop_integration.dart",
+      "test_ids": [
+        "t13_restore_returns_to_original_when_still_owned",
+        "t13_externally_modified_field_is_kept_and_reported",
+        "t13_exit_recovery_clears_owned_and_keeps_user_changes",
+        "t13_exit_recovery_is_idempotent_across_two_runs",
+        "bridge_restore_reports_conflicts"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/AppManager.cs:128",
+        "v2rayN/ServiceLib/Handler/SysProxy/SysProxyHandler.cs:12",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-TUN-001",
+    "id": "F-TUN-001",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "TUN 模式开关",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-TUN-001",
+      "name": "TUN 模式开关",
+      "family": "tun",
+      "summary": "状态栏开关 TUN，需内核与管理员权限",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "StatusBarView",
+        "menu_path": "状态栏/TUN",
+        "symbol": "StatusBarViewModel.DoEnableTun",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [
+        "F-CORE-005"
+      ],
+      "preconditions": [
+        "AllowEnableTun"
+      ],
+      "normal_behavior": "写入 TunModeItem.EnableTun 并 Reload",
+      "failure_behavior": "不满足条件回退关闭",
+      "cancel_behavior": "关闭即回退",
+      "acceptance": "开关触发配置 TUN 段与提权",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "services/net_host/src/session.rs (apply_plan TUN 阶段/helper 失败回滚/stop 释放/detail.tun); services/net_host/src/tun_lease.rs + helper_client.rs (租约/恢复/dry-run); crates/application/src/runtime_client.rs (TunStatus) + snapshot.rs; apps/desktop/lib/app/shell/status_bar_view.dart (tun-actual 四态指示)",
+      "test_ids": [
+        "services/net_host/src/tun_lease.rs (14: apply/deny/timeout/disconnect/cleanup 幂等/重启恢复/dry-run)",
+        "services/net_host/src/helper_client.rs (14: Fake 全流程/回滚/不可用)",
+        "services/net_host/src/session.rs (5: detail 映射/dry-run 环境/PID 身份/factory 缝)",
+        "crates/application/src/net_host_client.rs (2: tun 透传/缺失保持) + snapshot.rs (2)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:430",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:437",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:463",
+        "docs/evidence/T14-runtime.md",
+        "docs/decisions/T14-runtime.md"
+      ],
+      "status": "implemented",
+      "notes": "受控执行与回滚已实现；真实提权/路由/适配器操作未执行（未验证）；UI 仅四态文字，未伪造成功。"
+    }
+  },
+  {
+    "key": "feature:F-TUN-002",
+    "id": "F-TUN-002",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "TUN 参数（栈/MTU/自动路由/严格路由/ICMP）",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-TUN-002",
+      "name": "TUN 参数（栈/MTU/自动路由/严格路由/ICMP）",
+      "family": "tun",
+      "summary": "栈、MTU、AutoRoute、StrictRoute、IcmpRouting、LegacyProtect 设置",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/参数设置/TUN",
+        "symbol": "TunModeItem",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [
+        "F-TUN-001"
+      ],
+      "preconditions": [],
+      "normal_behavior": "候选来自 Global.TunStacks/TunMtus/TunIcmpRoutingPolicies",
+      "failure_behavior": "无",
+      "cancel_behavior": "关闭丢弃",
+      "acceptance": "参数进入 TUN 配置",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/tun_plan.rs (tun_spec_from_settings: EnableTun/MTU/CIDR/IPv6 开关映射与回退); crates/runtime/src/tun.rs (TunSpec 校验); core 段仍由 crates/application/src/codegen.rs 生成",
+      "test_ids": [
+        "crates/application/src/tun_plan.rs (11: 开关/CIDR/缺省/MTU/IPv6/attach 回读幂等)",
+        "crates/runtime/src/tun.rs (18: 描述符校验/digest/dry-run)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Global.cs:585",
+        "v2rayN/ServiceLib/Global.cs:575",
+        "v2rayN/ServiceLib/Global.cs:743",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:217",
+        "docs/evidence/T14-runtime.md"
+      ],
+      "status": "implemented",
+      "notes": "helper 描述符侧参数已实现；栈/auto-route 等 core 段归 codegen；MTU<=0 回退 1280（上游首选）。"
+    }
+  },
+  {
+    "key": "feature:F-TUN-003",
+    "id": "F-TUN-003",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "TUN 地址与路由排除",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-TUN-003",
+      "name": "TUN 地址与路由排除",
+      "family": "tun",
+      "summary": "IPv4/IPv6 地址与 RouteExcludeAddress",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/TUN 地址",
+        "symbol": "TunModeItem.IPv4Address/IPv6Address/RouteExcludeAddress",
+        "files": [
+          "v2rayN/ServiceLib/Global.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "sing_box"
+      ],
+      "depends_on_features": [
+        "F-TUN-001"
+      ],
+      "preconditions": [],
+      "normal_behavior": "TunIPv4Address/TunIPv6Address 候选；Builder 校验排除地址",
+      "failure_behavior": "非法地址警告并过滤",
+      "cancel_behavior": "无",
+      "acceptance": "地址进入配置且非法项被剔除",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/tun_plan.rs (IPv4/IPv6 CIDR + route_exclude 透传校验); crates/ipc_contract/src/helper.rs (parse_cidr/validate_tun_address，见 T14-helper); crates/runtime/src/tun.rs",
+      "test_ids": [
+        "crates/application/src/tun_plan.rs (bare IP 拒绝/缺省/IPv6 三态/坏 exclude 拒绝)",
+        "crates/runtime/src/tun.rs (地址/前缀/家族一致性)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Global.cs:765",
+        "v2rayN/ServiceLib/Global.cs:779",
+        "v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:100",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:100",
+        "docs/evidence/T14-helper.md",
+        "docs/evidence/T14-runtime.md"
+      ],
+      "status": "implemented",
+      "notes": "描述符侧地址/exclude 校验已实现；真实适配器配置未执行（未验证）。"
+    }
+  },
+  {
+    "key": "feature:F-TUN-004",
+    "id": "F-TUN-004",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "TUN DNS 与 FakeIP",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-TUN-004",
+      "name": "TUN DNS 与 FakeIP",
+      "family": "tun",
+      "summary": "TUN 专用 DNS 段与 FakeIP 过滤",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "DNSSettingWindow",
+        "menu_path": "DNS设置/TunDNS",
+        "symbol": "DNSItem.TunDNS",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [
+        "F-DNS-002",
+        "F-TUN-001"
+      ],
+      "preconditions": [],
+      "normal_behavior": "TunDNS 进入 TUN 生成配置",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "TUN DNS 生效",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/dns.rs + codegen.rs (TunDNS 进 core 配置，T11 已有); crates/application/src/tun_plan.rs (route_exclude 进 helper 描述符)",
+      "test_ids": [
+        "crates/application/src/tun_plan.rs (route_exclude 透传/非法拒绝)",
+        "crates/application/src/dns.rs (既有 TunDNS 用例，见 T11)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:29",
+        "v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:140",
+        "v2rayN/ServiceLib.Tests/CoreConfig/Singbox/CoreConfigSingboxServiceTests.cs:50",
+        "docs/evidence/T14-runtime.md"
+      ],
+      "status": "implemented",
+      "notes": "本轮仅新增 route_exclude 描述符侧；TunDNS core 生成沿用 T11；真实 DNS 生效未验证。"
+    }
+  },
+  {
+    "key": "feature:F-TUN-005",
+    "id": "F-TUN-005",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "Windows TUN 设备清理",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-TUN-005",
+      "name": "Windows TUN 设备清理",
+      "family": "tun",
+      "summary": "TUN 启动前移除旧 TUN 设备",
+      "platforms": [
+        "windows"
+      ],
+      "upstream_entry": {
+        "window": "启动内核",
+        "menu_path": null,
+        "symbol": "WindowsUtils.RemoveTunDevice",
+        "files": [
+          "v2rayN/ServiceLib/Manager/CoreManager.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [
+        "F-TUN-001"
+      ],
+      "preconditions": [
+        "Windows 且 TUN"
+      ],
+      "normal_behavior": "CoreStart 前调用 RemoveTunDevice",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "重复切换 TUN 不残留设备",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "services/net_host/src/tun_lease.rs (cleanup_tun_lease 幂等 + reconcile_stale_tun 重启对账，只清本应用记录资源); services/privileged_helper/src/server.rs (断连 CleanOwned，见 T14-helper)",
+      "test_ids": [
+        "services/net_host/src/tun_lease.rs (cleanup 幂等/失配仍清理/重启恢复/pending 保留)",
+        "services/privileged_helper/tests/dispatch.rs + loopback.rs (租约清理，见 T14-helper)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/CoreManager.cs:88",
+        "v2rayN/ServiceLib/Handler/Builder/CoreConfigContextBuilder.cs:53",
+        "docs/evidence/T14-helper.md",
+        "docs/evidence/T14-runtime.md"
+      ],
+      "status": "implemented",
+      "notes": "上游 RemoveTunDevice（删旧设备）对应物为租约范围清理；真实设备删除未执行（未验证）。"
+    }
+  },
+  {
+    "key": "feature:F-MONITOR-001",
+    "id": "F-MONITOR-001",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "运行日志显示",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-MONITOR-001",
+      "name": "运行日志显示",
+      "family": "monitor",
+      "summary": "显示内核 stdout 日志，级别可设",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "消息/日志标签",
+        "symbol": "Logging / CoreBasicItem.LogEnabled",
+        "files": [
+          "v2rayN/ServiceLib/Common/Logging.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "LogEnabled/Loglevel 控制日志；ProcessService displayLog 输出",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "日志随内核输出刷新",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/monitor.rs + services/net_host/src/session.rs + apps/desktop/lib/features/monitor/logs_view.dart",
+      "test_ids": [
+        "t15a_logs_streams_and_filters",
+        "log_ring_drops_oldest_and_counts_overflow",
+        "log_batch_envelope_ingests_entries"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Common/Logging.cs",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:19",
+        "v2rayN/ServiceLib/Manager/AppManager.cs:101",
+        "v2rayN/ServiceLib/Manager/CoreManager.cs:185",
+        "v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:12",
+        "v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:20",
+        "v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:109",
+        "docs/evidence/T15a.md"
+      ],
+      "status": "implemented",
+      "notes": "审计 A06/FND-004：日志过滤（MsgFilter/DoMsgFilter）与自动刷新（AutoRefresh）已实现；清空 ClearMsg 在冻结版本被注释（MsgViewModel.cs:109-112）。"
+    }
+  },
+  {
+    "key": "feature:F-MONITOR-002",
+    "id": "F-MONITOR-002",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "流量统计",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-MONITOR-002",
+      "name": "流量统计",
+      "family": "monitor",
+      "summary": "统计活动节点上下行流量并写入 ServerStatItem",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "参数设置/启用统计",
+        "symbol": "StatisticsManager",
+        "files": [
+          "v2rayN/ServiceLib/Manager/StatisticsManager.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [],
+      "preconditions": [
+        "GuiItem.EnableStatistics 或 DisplayRealTimeSpeed"
+      ],
+      "normal_behavior": "Xray 读 /debug/vars，sing-box 读 ws /traffic",
+      "failure_behavior": "无",
+      "cancel_behavior": "Close 停止采集",
+      "acceptance": "流量累计到对应节点",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/monitor.rs + crates/bridge_api/src/api/monitor.rs",
+      "test_ids": [
+        "throttle_does_not_lose_cumulative_bytes",
+        "classifies_proxy_and_direct_buckets",
+        "t15a_test_injection_updates_snapshot"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/StatisticsManager.cs:18",
+        "v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs:10",
+        "v2rayN/ServiceLib/Services/Statistics/StatisticsSingboxService.cs:10",
+        "docs/evidence/T15a.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-MONITOR-003",
+    "id": "F-MONITOR-003",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "历史统计与清零",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-MONITOR-003",
+      "name": "历史统计与清零",
+      "family": "monitor",
+      "summary": "今日/累计上下行持久化，清空所有统计",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "设置/清空统计",
+        "symbol": "StatisticsManager.ClearAllServerStatistics",
+        "files": [
+          "v2rayN/ServiceLib/Manager/StatisticsManager.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [
+        "F-MONITOR-002"
+      ],
+      "preconditions": [],
+      "normal_behavior": "跨日 Today 归零；ClearAll 删除 ServerStatItem",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "清空后统计为 0",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/monitor.rs + crates/application/src/store_repo.rs",
+      "test_ids": [
+        "today_rollover_resets_today_but_keeps_total",
+        "clear_all_empties_memory_and_store"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/StatisticsManager.cs:44",
+        "v2rayN/ServiceLib/Manager/StatisticsManager.cs:90",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:224",
+        "docs/evidence/T15a.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-MONITOR-004",
+    "id": "F-MONITOR-004",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "Clash 代理组视图",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-MONITOR-004",
+      "name": "Clash 代理组视图",
+      "family": "monitor",
+      "summary": "展示 Clash 兼容代理组、延迟测试、切换活动代理",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow(tabClashProxies)",
+        "menu_path": "代理标签",
+        "symbol": "ClashProxiesViewModel",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [],
+      "preconditions": [
+        "运行 sing-box/mihomo"
+      ],
+      "normal_behavior": "ClashApiManager.GetProxies/TestDelay/SetActiveProxy",
+      "failure_behavior": "API 不可达重试 3 次后返回",
+      "cancel_behavior": "无",
+      "acceptance": "代理组与节点状态正确显示并可切换",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/monitor.rs + crates/bridge_api/src/api/monitor.rs + apps/desktop/lib/features/monitor/proxies_view.dart",
+      "test_ids": [
+        "clash_api_service_reads_selects_and_closes",
+        "t15a_proxies_renders_groups_and_selects_member"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs:77",
+        "v2rayN/ServiceLib/Manager/ClashApiManager.cs:11",
+        "v2rayN/ServiceLib/Manager/ClashApiManager.cs:61",
+        "v2rayN/ServiceLib/Manager/ClashApiManager.cs:95",
+        "docs/evidence/T15a.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-MONITOR-005",
+    "id": "F-MONITOR-005",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "Clash 连接视图与断开",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-MONITOR-005",
+      "name": "Clash 连接视图与断开",
+      "family": "monitor",
+      "summary": "展示活动连接并可断开单个/全部",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow(tabClashConnections)",
+        "menu_path": "连接标签",
+        "symbol": "ClashConnectionsViewModel",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "sing_box",
+        "mihomo"
+      ],
+      "depends_on_features": [
+        "F-MONITOR-004"
+      ],
+      "preconditions": [
+        "运行 sing-box/mihomo"
+      ],
+      "normal_behavior": "ClashApiManager.GetConnections/CloseConnection",
+      "failure_behavior": "异常记录日志",
+      "cancel_behavior": "无",
+      "acceptance": "连接列表与断开生效",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/monitor.rs + crates/bridge_api/src/api/monitor.rs + apps/desktop/lib/features/monitor/connections_view.dart",
+      "test_ids": [
+        "t15a_connections_renders_and_closes",
+        "clash_api_service_reads_selects_and_closes"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs:41",
+        "v2rayN/ServiceLib/Manager/ClashApiManager.cs:166",
+        "v2rayN/ServiceLib/Manager/ClashApiManager.cs:184",
+        "docs/evidence/T15a.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-MONITOR-006",
+    "id": "F-MONITOR-006",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "实时速度显示",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-MONITOR-006",
+      "name": "实时速度显示",
+      "family": "monitor",
+      "summary": "状态栏/节点表实时上下行速度",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "参数设置/显示实时速度",
+        "symbol": "GuiItem.DisplayRealTimeSpeed",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "sing_box"
+      ],
+      "depends_on_features": [
+        "F-MONITOR-002"
+      ],
+      "preconditions": [],
+      "normal_behavior": "StatisticsManager 推送 ServerSpeedItem 到 UI",
+      "failure_behavior": "无",
+      "cancel_behavior": "关闭即停止",
+      "acceptance": "实时速度刷新且隐藏到托盘停止刷新",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/monitor.rs + apps/desktop/lib/app/shell/status_bar_view.dart",
+      "test_ids": [
+        "t15a_statusbar_shows_real_rates",
+        "configure_round_trips_and_flags"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:509",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:389",
+        "v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:304",
+        "docs/evidence/T15a.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-DESKTOP-001",
+    "id": "F-DESKTOP-001",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "托盘菜单与显示隐藏",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-DESKTOP-001",
+      "name": "托盘菜单与显示隐藏",
+      "family": "desktop",
+      "summary": "托盘图标、显示/隐藏窗口、切节点、系统代理、退出",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "StatusBarView",
+        "menu_path": "托盘",
+        "symbol": "StatusBarViewModel",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+          "v2rayN/v2rayN/Views/StatusBarView.xaml.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [
+        "F-SYSPROXY-001"
+      ],
+      "preconditions": [],
+      "normal_behavior": "copyProxy/NotifyLeftClick/Show/Hide Window；TrayMenuServersLimit 限制节点数",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "托盘可切换窗口与代理",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "apps/desktop/lib/app/shell/tray_menu_model.dart; apps/desktop/lib/app/shell/desktop_integration.dart",
+      "test_ids": [
+        "t13_tray_menu_model_order_and_active_mode",
+        "t13_tray_menu_pac_windows_only",
+        "t13_tray_node_submenu_limit"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:36",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:59",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:227",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml.cs:14",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:229",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:230",
+        "v2rayN/v2rayN.Desktop/App.axaml:43",
+        "v2rayN/v2rayN.Desktop/App.axaml:51",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-DESKTOP-002",
+    "id": "F-DESKTOP-002",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "全局热键",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-DESKTOP-002",
+      "name": "全局热键",
+      "family": "desktop",
+      "summary": "配置全局热键（显示窗口/清除/设置/不变/PAC）",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "GlobalHotkeySettingWindow",
+        "menu_path": "设置/全局热键",
+        "symbol": "GlobalHotkeySettingViewModel / EGlobalHotkey",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/GlobalHotkeySettingViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [
+        "F-SYSPROXY-001"
+      ],
+      "preconditions": [],
+      "normal_behavior": "保存 GlobalHotkeys 并注册",
+      "failure_behavior": "无",
+      "cancel_behavior": "关闭丢弃",
+      "acceptance": "热键触发对应动作",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "apps/desktop/lib/features/settings/hotkeys.dart; apps/desktop/lib/app/shell/desktop_integration.dart; crates/bridge_api/src/api/platform.rs",
+      "test_ids": [
+        "t13_hotkey_binding_parse_and_label",
+        "t13_hotkey_register_reports_conflicts",
+        "t13_hotkey_save_rejects_when_persist_fails",
+        "bridge_hotkey_helpers_filter_and_map"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/GlobalHotkeySettingViewModel.cs:9",
+        "v2rayN/ServiceLib/Enums/EGlobalHotkey.cs:3",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:212",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-DESKTOP-003",
+    "id": "F-DESKTOP-003",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "开机自启",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-DESKTOP-003",
+      "name": "开机自启",
+      "family": "desktop",
+      "summary": "Windows 注册表/计划任务、Linux .desktop、macOS LaunchAgent",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/开机自启",
+        "symbol": "AutoStartupHandler.UpdateTask",
+        "files": [
+          "v2rayN/ServiceLib/Handler/AutoStartupHandler.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "按平台写入/清除自启；Windows 管理员用计划任务",
+      "failure_behavior": "异常记录日志",
+      "cancel_behavior": "关闭即清除",
+      "acceptance": "开启后系统登录自动启动",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/platform/src/autostart/mod.rs; crates/application/src/platform_service.rs; crates/bridge_api/src/api/platform.rs; apps/desktop/lib/features/settings/option_setting_window.dart",
+      "test_ids": [
+        "t13_autostart_toggle_writes_and_removes",
+        "t13_autostart_command_round_trips_through_service",
+        "bridge_autostart_round_trip_through_fake"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Handler/AutoStartupHandler.cs:9",
+        "v2rayN/ServiceLib/Handler/AutoStartupHandler.cs:88",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:43",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-DESKTOP-004",
+    "id": "F-DESKTOP-004",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "关闭行为与启动隐藏",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-DESKTOP-004",
+      "name": "关闭行为与启动隐藏",
+      "family": "desktop",
+      "summary": "关闭时最小化到托盘、启动时隐藏",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/关闭行为",
+        "symbol": "UiItem.Hide2TrayWhenClose/AutoHideStartup",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "依设置决定关闭/启动显示",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "行为与设置一致",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/features/settings/option_setting_window.dart",
+      "test_ids": [
+        "t13_close_behavior_parses_ui_flags"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:48",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:49",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:356",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-DESKTOP-005",
+    "id": "F-DESKTOP-005",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "Windows UWP 回环设置",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-DESKTOP-005",
+      "name": "Windows UWP 回环设置",
+      "family": "desktop",
+      "summary": "运行 EnableLoopback.exe 解除 UWP 回环限制",
+      "platforms": [
+        "windows"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "设置/设置UWP回环",
+        "symbol": "MenuSettingsSetUWP_Click",
+        "files": [
+          "v2rayN/v2rayN/Views/MainWindow.xaml.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [
+        "bin 下存在 EnableLoopback.exe"
+      ],
+      "normal_behavior": "ProcUtils.ProcessStart(GetBinPath(\"EnableLoopback.exe\"))",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "启动 UWP 回环工具",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/bridge_api/src/api/platform.rs; apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "bridge_resolve_uwp_tool_reports_missing"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:251",
+        "v2rayN/v2rayN/Views/MainWindow.xaml:211",
+        "v2rayN/ServiceLib/Resx/ResUI.Designer.cs:4713",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-DESKTOP-006",
+    "id": "F-DESKTOP-006",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "管理员重启",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-DESKTOP-006",
+      "name": "管理员重启",
+      "family": "desktop",
+      "summary": "以管理员身份重启应用",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "设置/以管理员身份重启",
+        "symbol": "AppManager.RebootAsAdmin",
+        "files": [
+          "v2rayN/ServiceLib/Manager/AppManager.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "ProcUtils.RebootAsAdmin 后退出",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "重启后进程具备管理员权限",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/AppManager.cs:155",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:220",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:58",
+        "docs/evidence/T13.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-DESKTOP-007",
+    "id": "F-DESKTOP-007",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "单实例运行",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "F-DESKTOP-007",
+      "name": "单实例运行",
+      "family": "desktop",
+      "summary": "通过命名事件/互斥体防止多实例运行",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "App / Program",
+        "menu_path": null,
+        "symbol": "App.ProgramStarted / ProgramStarted + Mutex",
+        "files": [
+          "v2rayN/v2rayN/App.xaml.cs",
+          "v2rayN/v2rayN.Desktop/Program.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "WPF 用 EventWaitHandle 抢锁（App.xaml.cs:11,29）；Avalonia Windows 用 EventWaitHandle、非 Windows 用命名 Mutex(\"v2rayN\")（Program.cs:32,41）；抢锁失败的第二实例退出。",
+      "failure_behavior": "单实例锁失败时第二实例退出（Program.cs:42）。",
+      "cancel_behavior": "无",
+      "acceptance": "第二实例启动即退出；reboot-as-admin 除外路径按源码。",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": null,
+      "test_ids": [],
+      "evidence": [
+        "v2rayN/v2rayN/App.xaml.cs:11",
+        "v2rayN/v2rayN/App.xaml.cs:29",
+        "v2rayN/v2rayN.Desktop/Program.cs:32",
+        "v2rayN/v2rayN.Desktop/Program.cs:41"
+      ],
+      "unresolved": "",
+      "status": "identified",
+      "notes": "审计 A06：原 unresolved 关闭（单实例实现已定位）。"
+    }
+  },
+  {
+    "key": "feature:F-APP-001",
+    "id": "F-APP-001",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "参数设置（核心/UI/系统代理/TUN/内核）",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-APP-001",
+      "name": "参数设置（核心/UI/系统代理/TUN/内核）",
+      "family": "app-mgmt",
+      "summary": "综合设置窗口，覆盖端口、日志、Mux、分片、UI、系统代理、TUN、内核映射",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/参数设置",
+        "symbol": "OptionSettingViewModel",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "校验后写入对应子项并保存，必要时提示重启",
+      "failure_behavior": "端口/分片参数非法提示不保存",
+      "cancel_behavior": "关闭丢弃",
+      "acceptance": "各分组设置持久化并回读一致",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "apps/desktop/lib/features/settings/option_setting_window.dart; crates/domain/src/settings.rs; crates/application/src/settings.rs; crates/bridge_api/src/api/settings.rs",
+      "test_ids": [
+        "t12a_option_window_test.dart (whole-window save + KCP all-6 editable)",
+        "t12a_settings_storage_test.dart (group/whole optimistic save + stale rejection)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:291",
+        "v2rayN/ServiceLib/ViewModels/OptionSettingViewModel.cs:400",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:196",
+        "docs/evidence/T12a.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-APP-002",
+    "id": "F-APP-002",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "主题",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-APP-002",
+      "name": "主题",
+      "family": "app-mgmt",
+      "summary": "跟随系统/深色/浅色主题（WPF 仅前 3 项）",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "ThemeSettingView",
+        "menu_path": "设置/主题",
+        "symbol": "ETheme / ThemeSettingViewModel",
+        "files": [
+          "v2rayN/v2rayN/Views/ThemeSettingView.xaml.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "ETheme 枚举，UI 绑定 CurrentTheme",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "主题切换即时生效",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "apps/desktop/lib/features/settings/theme_setting_dialog.dart; apps/desktop/lib/shared/theme/app_theme.dart",
+      "test_ids": [
+        "t12a_theme_test.dart (apply+persist, and failed-save keeps old theme)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ETheme.cs:3",
+        "v2rayN/v2rayN/Views/ThemeSettingView.xaml.cs:15",
+        "v2rayN/ServiceLib/Handler/SysProxy/ProxySettingWindows.cs",
+        "docs/evidence/T12a.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-APP-003",
+    "id": "F-APP-003",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "语言切换",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-APP-003",
+      "name": "语言切换",
+      "family": "app-mgmt",
+      "summary": "9 种语言，重启后生效",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "OptionSettingWindow",
+        "menu_path": "设置/语言",
+        "symbol": "UiItem.CurrentLanguage / Global.LanguageOptions",
+        "files": [
+          "v2rayN/ServiceLib/Global.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "LoadConfig 依据文化回填默认语言",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "切换语言后界面文案改变",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "apps/desktop/lib/features/settings/settings_controller.dart; apps/desktop/lib/app/shell/ui_shell_controller.dart",
+      "test_ids": [
+        "t12a_theme_test.dart (language dropdown persists)",
+        "t12a_option_window_test.dart (UIItem round-trip)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Global.cs:498",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:108",
+        "v2rayN/ServiceLib/Manager/AppManager.cs:77",
+        "docs/evidence/T12a.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-APP-004",
+    "id": "F-APP-004",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "打开程序目录",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-APP-004",
+      "name": "打开程序目录",
+      "family": "app-mgmt",
+      "summary": "打开应用启动目录",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "MainWindow",
+        "menu_path": "帮助/打开文件所在位置",
+        "symbol": "MainWindowViewModel.OpenTheFileLocation",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "按平台用 explorer/xdg-open/open 打开路径",
+      "failure_behavior": "无",
+      "cancel_behavior": "无",
+      "acceptance": "文件管理器打开目标目录",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/bridge_api/src/api/t16.rs (t16_open_config_dir); apps/desktop/lib/features/backup/backup_controller.dart; apps/desktop/lib/app/shell/main_shell.dart",
+      "test_ids": [
+        "t16_backup_test.dart (cleanup and open-directory actions route through the bridge)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:639",
+        "v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:60",
+        "docs/evidence/T16.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-APP-005",
+    "id": "F-APP-005",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "更新检查页面（含 prerelease 与经代理）",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-APP-005",
+      "name": "更新检查页面（含 prerelease 与经代理）",
+      "family": "app-mgmt",
+      "summary": "选择要检查的内核/Geo，开关 prerelease 与经代理",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "CheckUpdateWindow",
+        "menu_path": "检查更新",
+        "symbol": "CheckUpdateViewModel",
+        "files": [
+          "v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs"
+        ]
+      },
+      "depends_on_cores": [
+        "Xray",
+        "mihomo",
+        "sing_box",
+        "v2rayN"
+      ],
+      "depends_on_features": [
+        "F-CORE-002",
+        "F-CORE-003"
+      ],
+      "preconditions": [],
+      "normal_behavior": "选中项存 CheckUpdateItem.SelectedCoreTypes；prerelease 与 UpdateViaProxy 即时保存",
+      "failure_behavior": "打包安装 v2rayN 提示不支持",
+      "cancel_behavior": "无",
+      "acceptance": "检查结果与开关持久化",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/bridge_api/src/api/t16.rs (t16_update_targets/t16_check_updates); apps/desktop/lib/features/update/check_update_view.dart; crates/application/src/update_service.rs",
+      "test_ids": [
+        "t16_update_test.dart (unsupported targets render disabled / via-proxy check without a local port is structured)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:13",
+        "v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:36",
+        "v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:123",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:87",
+        "docs/evidence/T16.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-APP-006",
+    "id": "F-APP-006",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "日志与临时文件清理",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-APP-006",
+      "name": "日志与临时文件清理",
+      "family": "app-mgmt",
+      "summary": "定期清理测试配置、日志、临时文件",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "background",
+        "menu_path": null,
+        "symbol": "TaskManager.ScheduledTasks",
+        "files": [
+          "v2rayN/ServiceLib/Manager/TaskManager.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [],
+      "preconditions": [],
+      "normal_behavior": "每小时删除 1h 前 Test 文件、7 天前日志与临时文件",
+      "failure_behavior": "异常记录日志",
+      "cancel_behavior": "无",
+      "acceptance": "过期文件被删除",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/update_service.rs (cleanup_logs_tmp); crates/bridge_api/src/api/t16.rs (t16_cleanup_logs_tmp); apps/desktop/lib/features/backup/backup_and_restore_view.dart",
+      "test_ids": [
+        "t16_backup_test.dart (cleanup and open-directory actions route through the bridge)",
+        "t16_update.rs (manual trigger uses a temp root; scheduled loop not wired)"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:57",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:58",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:59",
+        "docs/evidence/T16.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "feature:F-APP-007",
+    "id": "F-APP-007",
+    "kind": "feature",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "经代理检查更新",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "F-APP-007",
+      "name": "经代理检查更新",
+      "family": "app-mgmt",
+      "summary": "通过本地代理下载更新与订阅",
+      "platforms": [
+        "windows",
+        "macos",
+        "linux"
+      ],
+      "upstream_entry": {
+        "window": "CheckUpdateWindow",
+        "menu_path": "检查更新/经代理",
+        "symbol": "CheckUpdateItem.UpdateViaProxy",
+        "files": [
+          "v2rayN/ServiceLib/Services/UpdateService.cs"
+        ]
+      },
+      "depends_on_cores": [],
+      "depends_on_features": [
+        "F-SYSPROXY-001"
+      ],
+      "preconditions": [],
+      "normal_behavior": "blProxy 透传到 DownloadService/TryDownloadString",
+      "failure_behavior": "代理失败可回退直连（订阅下载）",
+      "cancel_behavior": "无",
+      "acceptance": "开关控制是否经代理",
+      "source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+      "implementation_location": "crates/application/src/update_service.rs (explicit proxy parameter); crates/updater/src/download.rs (DownloaderOptions.proxy); crates/updater/src/fetch.rs (new_with_proxy); crates/bridge_api/src/api/t16.rs; apps/desktop/lib/features/update/update_controller.dart",
+      "test_ids": [
+        "t16_update_test.dart (via-proxy check without a local port is structured)",
+        "bridge_api::api::t16::tests::update_via_proxy_without_port_is_structured"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/CheckUpdateViewModel.cs:16",
+        "v2rayN/ServiceLib/Services/UpdateService.cs:49",
+        "v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:107",
+        "docs/evidence/T16.md"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-001",
+    "id": "ACT-TRAY-001",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘图标左键单击-显示/隐藏主窗口",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-001",
+      "name": "托盘图标左键单击-显示/隐藏主窗口",
+      "domain": "tray",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": "左键单击托盘图标",
+        "tray": "左键单击",
+        "hotkey": null
+      },
+      "scope": "托盘图标 tbNotify",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "NotifyLeftClickCmd 发布 ShowHideWindowRequested(null)，按当前 ShowInTaskbar 反转",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.NotifyLeftClickCmd / MainWindow.ShowHideWindow",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:147",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:149",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml.cs:49",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:300",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [
+        "t13_models_tray_menu_model_order_and_active_mode"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-002",
+    "id": "ACT-TRAY-002",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-清除系统代理",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-002",
+      "name": "托盘菜单-清除系统代理",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/清除系统代理",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "SetListenerType(ForcedClear) 并刷新图标",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.SystemProxyClearCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:181",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:362",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:114",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [
+        "t13_models_tray_menu_model_order_and_active_mode",
+        "t13_statusbar_shows_four_modes_and_applies_one"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-003",
+    "id": "ACT-TRAY-003",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-设置系统代理",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-003",
+      "name": "托盘菜单-设置系统代理",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/设置系统代理",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "SetListenerType(ForcedChange)",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.SystemProxySetCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:185",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:129",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [
+        "t13_models_tray_menu_model_order_and_active_mode"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-004",
+    "id": "ACT-TRAY-004",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-不改变系统代理",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-004",
+      "name": "托盘菜单-不改变系统代理",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/不改变系统代理",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "SetListenerType(Unchanged)",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.SystemProxyNothingCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:189",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:144",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [
+        "t13_models_tray_menu_model_order_and_active_mode"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-005",
+    "id": "ACT-TRAY-005",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-PAC 模式",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-005",
+      "name": "托盘菜单-PAC 模式",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/PAC模式",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局；仅 Windows 可见（BlSystemProxyPacVisible）",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "SetListenerType(Pac)",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.SystemProxyPacCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:193",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:112",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:159",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [
+        "t13_models_tray_menu_pac_entry_is_windows_only"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-006",
+    "id": "ACT-TRAY-006",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-切换路由",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-006",
+      "name": "托盘菜单-切换路由",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/路由/<下拉>",
+        "shortcut": null,
+        "mouse": "下拉选择",
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "路由列表 RoutingItems",
+      "selection_rule": "SelectedRouting 非空",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "SetDefaultRouting 后提示 TipChangeRouting 并 Reload 内核、刷新图标",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.RoutingSelectedChangedAsync",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:126",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:400",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:175",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-007",
+    "id": "ACT-TRAY-007",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-切换服务器",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-007",
+      "name": "托盘菜单-切换服务器",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/服务器/<下拉>",
+        "shortcut": null,
+        "mouse": "下拉选择",
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "服务器 ComboItem 列表；超过 TrayMenuServersLimit 时隐藏下拉",
+      "selection_rule": "SelectedServer.ID 非空",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "SetDefaultServerRequested 切换默认服务器",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.ServerSelectedChanged",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:130",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:285",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:191",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [
+        "t13_models_tray_node_submenu_hides_above_limit"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-008",
+    "id": "ACT-TRAY-008",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-从剪贴板导入",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-008",
+      "name": "托盘菜单-从剪贴板导入",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/从剪贴板导入批量URL",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "发布 AddServerViaClipboardRequested，延迟 1s 由主窗口处理",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.AddServerViaClipboardCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:163",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:244",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:207",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-009",
+    "id": "ACT-TRAY-009",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-扫描屏幕二维码",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-009",
+      "name": "托盘菜单-扫描屏幕二维码",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/扫描屏幕二维码",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "发布 AddServerViaScanRequested",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.AddServerViaScanCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:167",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:210",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-010",
+    "id": "ACT-TRAY-010",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-更新订阅",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-010",
+      "name": "托盘菜单-更新订阅",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/更新订阅",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无显式取消入口",
+      "async": {
+        "job": true,
+        "cancellable": false
+      },
+      "feedback": "发布 SubscriptionsUpdateRequested(false)",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.SubUpdateCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:171",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:215",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-011",
+    "id": "ACT-TRAY-011",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-更新订阅(走代理)",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-011",
+      "name": "托盘菜单-更新订阅(走代理)",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/更新订阅(走代理)",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无显式取消入口",
+      "async": {
+        "job": true,
+        "cancellable": false
+      },
+      "feedback": "发布 SubscriptionsUpdateRequested(true)",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.SubUpdateViaProxyCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:175",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:219",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-012",
+    "id": "ACT-TRAY-012",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-复制代理命令到剪贴板",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-012",
+      "name": "托盘菜单-复制代理命令到剪贴板",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/复制代理命令",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "写入 set/export http_proxy 等环境变量文本",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.CopyProxyCmdToClipboardCmd",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:142",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:227",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:224",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-013",
+    "id": "ACT-TRAY-013",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-退出",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-013",
+      "name": "托盘菜单-退出",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/退出",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "全局",
+      "selection_rule": "无条件",
+      "confirm": "WPF 无确认；Avalonia 无确认（MenuExit_Click）",
+      "cancel": "无",
+      "async": {
+        "job": true,
+        "cancellable": false
+      },
+      "feedback": "释放托盘图标并 AppExitAsync(true)",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarView.menuExit_Click / DesktopApp.MenuExit_Click",
+      "source_file": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml",
+        "v2rayN/v2rayN.Desktop/App.axaml.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml.cs:88",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:229",
+        "v2rayN/v2rayN.Desktop/App.axaml.cs:144",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-014",
+    "id": "ACT-TRAY-014",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-显示/隐藏主窗口(非 Windows)",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-014",
+      "name": "托盘菜单-显示/隐藏主窗口(非 Windows)",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/显示或隐藏主窗口",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "非 Windows 可见（BlIsNonWindows）",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "NotifyLeftClickCmd",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.NotifyLeftClickCmd",
+      "source_file": [
+        "v2rayN/v2rayN.Desktop/App.axaml",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/App.axaml:47",
+        "v2rayN/v2rayN.Desktop/App.axaml:49",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-TRAY-015",
+    "id": "ACT-TRAY-015",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "托盘菜单-显示 GUI(非 Windows)",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-TRAY-015",
+      "name": "托盘菜单-显示 GUI(非 Windows)",
+      "domain": "tray",
+      "entry": {
+        "menu_path": "托盘菜单/显示GUI",
+        "shortcut": null,
+        "mouse": null,
+        "tray": "菜单项",
+        "hotkey": null
+      },
+      "scope": "非 Windows 可见",
+      "selection_rule": "无条件",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "ShowWindowCmd 发布 ShowHideWindowRequested(true)",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.ShowWindowCmd",
+      "source_file": [
+        "v2rayN/v2rayN.Desktop/App.axaml",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/App.axaml:43",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:152",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-STAT-001",
+    "id": "ACT-STAT-001",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "状态栏-系统代理下拉切换",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-STAT-001",
+      "name": "状态栏-系统代理下拉切换",
+      "domain": "statusbar",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": "下拉选择索引",
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "状态栏 cmbSystemProxy（4 项：清除/设置/不改变/PAC）",
+      "selection_rule": "索引 >=0",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "DoSystemProxySelected -> SetListenerType，保存配置并刷新图标",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.DoSystemProxySelected / SystemProxySelected",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:134",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:421",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:73",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/status_bar_view.dart",
+      "test_ids": [
+        "t13_statusbar_shows_four_modes_and_applies_one",
+        "t13_statusbar_renders_state_label"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-STAT-002",
+    "id": "ACT-STAT-002",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "状态栏-路由下拉切换",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-STAT-002",
+      "name": "状态栏-路由下拉切换",
+      "domain": "statusbar",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": "下拉选择",
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "状态栏 cmbRoutings2",
+      "selection_rule": "SelectedRouting 非空",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": false,
+        "cancellable": false
+      },
+      "feedback": "同托盘路由切换",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.SelectedRouting",
+      "source_file": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:87",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:400",
+        "docs/evidence/T13.md"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/status_bar_view.dart",
+      "test_ids": [],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-STAT-003",
+    "id": "ACT-STAT-003",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "状态栏-TUN 模式开关",
+    "ledger_status": "implemented",
+    "source_contract": {
+      "id": "ACT-STAT-003",
+      "name": "状态栏-TUN 模式开关",
+      "domain": "statusbar",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": "切换 ToggleButton",
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "状态栏 togEnableTun",
+      "selection_rule": "开启时要求管理员（Windows）或已有 sudo 密码（Linux/macOS）",
+      "confirm": "Windows 无权限时重启为管理员；非 Windows 弹密码输入",
+      "cancel": "密码为空则回退 EnableTun=false",
+      "async": {
+        "job": true,
+        "cancellable": false
+      },
+      "feedback": "DoEnableTun 保存配置并 Reload 内核",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarViewModel.DoEnableTun / AllowEnableTun",
+      "source_file": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml"
+      ],
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:139",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:430",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:60"
+      ],
+      "implementation_location": "apps/desktop/lib/app/shell/status_bar_view.dart",
+      "test_ids": [
+        "t13_statusbar_test"
+      ],
+      "status": "implemented"
+    }
+  },
+  {
+    "key": "action:ACT-STAT-004",
+    "id": "ACT-STAT-004",
+    "kind": "action",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "状态栏-双击运行信息测试可用性",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "ACT-STAT-004",
+      "name": "状态栏-双击运行信息测试可用性",
+      "domain": "statusbar",
+      "entry": {
+        "menu_path": null,
+        "shortcut": null,
+        "mouse": "单击/按下（PreviewMouseDown；双击亦触发）",
+        "tray": null,
+        "hotkey": null
+      },
+      "scope": "状态栏 txtRunningServerDisplay / txtRunningInfoDisplay",
+      "selection_rule": "无默认服务器返回 null",
+      "confirm": "无",
+      "cancel": "无",
+      "async": {
+        "job": true,
+        "cancellable": false
+      },
+      "feedback": "TestServerAvailability 输出 Times/Ip 到运行信息并写回节点延迟/IP",
+      "scheduled": null,
+      "upstream_symbol": "StatusBarView.txtRunningInfoDisplay_MouseDoubleClick / TestServerAvailability",
+      "source_file": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml.cs",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml.cs:94",
+        "v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs:317",
+        "v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml.cs:91"
+      ],
+      "implementation_location": null,
+      "test_ids": [],
+      "status": "identified",
+      "notes": "审计 A04：绑定为 PreviewMouseDown（StatusBarView.xaml.cs:15-16），非严格双击事件。"
+    }
+  },
+  {
+    "key": "layout:LAY-CLASHPROXY-001",
+    "id": "LAY-CLASHPROXY-001",
+    "kind": "layout",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "代理视图-分组与明细",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-CLASHPROXY-001",
+      "name": "代理视图-分组与明细",
+      "window": "ClashProxiesView",
+      "platform": "windows-wpf",
+      "layout_mode": "embedded",
+      "structure": "DockPanel：顶部 WrapPanel（规则模式 cmbRulemode + 排序 cmbSorting + 重载/延迟测试 + 自动刷新 togAutoRefresh）；下方左右两个 ListView（分组 lstProxyGroups, 明细 lstProxyDetails, 卡片 160 宽）。",
+      "anchors": [
+        "WPF WrapPanel:24",
+        "cmbRulemode:36",
+        "cmbSorting:53",
+        "lstProxyGroups:94",
+        "lstProxyDetails:138",
+        "Avalonia WrapPanel:21",
+        "lstProxyGroups:86",
+        "lstProxyDetails:113"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/ClashProxiesView.xaml",
+        "v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/ClashProxiesView.xaml:24",
+        "v2rayN/v2rayN/Views/ClashProxiesView.xaml:98",
+        "v2rayN/v2rayN/Views/ClashProxiesView.xaml:138",
+        "v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml:21",
+        "v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml:113"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-CLASHCN-001",
+    "id": "LAY-CLASHCN-001",
+    "kind": "layout",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "连接表-列定义",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-CLASHCN-001",
+      "name": "连接表-列定义",
+      "window": "ClashConnectionsView",
+      "platform": "windows-wpf",
+      "layout_mode": "embedded",
+      "structure": "DataGrid lstConnections 列 ExName/默认宽：Host 300, Chain 500, Network 80, Type 160, ProcessPath 100, Elapsed 100。顶部过滤 txtHostFilter、关闭全部、自适应列宽、自动刷新。",
+      "columns": [
+        "Host",
+        "Chain",
+        "Network",
+        "Type",
+        "ProcessPath",
+        "Elapsed"
+      ],
+      "anchors": [
+        "WPF Columns:81-112",
+        "Avalonia Columns:82-111"
+      ],
+      "table_virtualization": "WPF EnableRowVirtualization=True (ClashConnectionsView.xaml:70)",
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml",
+        "v2rayN/v2rayN.Desktop/Views/ClashConnectionsView.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml:81",
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml:88",
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml:93",
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml:103",
+        "v2rayN/v2rayN.Desktop/Views/ClashConnectionsView.axaml:82"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-CLASHCN-002",
+    "id": "LAY-CLASHCN-002",
+    "kind": "layout",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "连接表-列状态持久化",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-CLASHCN-002",
+      "name": "连接表-列状态持久化",
+      "window": "ClashConnectionsView",
+      "platform": "windows-wpf",
+      "layout_mode": "embedded",
+      "structure": "RestoreUI 读 ClashUIItem.ConnectionsColumnItem（按 Index 排序）恢复 Width/DisplayIndex；StorageUI 回写 Name/Width/Index。",
+      "persistence_keys": [
+        "ClashUIItem.ConnectionsColumnItem"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs",
+        "v2rayN/ServiceLib/Models/Configs/ConfigItems.cs"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs:74",
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs:89",
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs:125",
+        "v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:219"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-MSG-001",
+    "id": "LAY-MSG-001",
+    "kind": "layout",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "消息视图",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-MSG-001",
+      "name": "消息视图",
+      "window": "MsgView",
+      "platform": "windows-wpf",
+      "layout_mode": "embedded",
+      "structure": "DockPanel：顶部过滤 ComboBox cmbMsgFilter + 复制/清空 + 自动刷新/滚动到底 ToggleButton；主体只读 TextBox txtMsg（Wrap）。",
+      "anchors": [
+        "WPF WrapPanel:17",
+        "cmbMsgFilter:23",
+        "txtMsg:75",
+        "Avalonia"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/MsgView.xaml",
+        "v2rayN/v2rayN.Desktop/Views/MsgView.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/MsgView.xaml:16",
+        "v2rayN/v2rayN/Views/MsgView.xaml:75",
+        "v2rayN/v2rayN.Desktop/Views/MsgView.axaml:2"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-STATUSBAR-001",
+    "id": "LAY-STATUSBAR-001",
+    "kind": "layout",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "状态栏视图",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-STATUSBAR-001",
+      "name": "状态栏视图",
+      "window": "StatusBarView",
+      "platform": "windows-wpf",
+      "layout_mode": "embedded",
+      "structure": "WPF Grid>ColorZone>DockPanel：右侧上下行/直连速度，左侧入站/入站LAN、TUN 开关 spEnableTun、系统代理 cmbSystemProxy(4项)、路由 cmbRoutings2、运行服务器信息；另含 H.NotifyIcon 托盘 TaskbarIcon tbNotify 及其右键菜单。Avalonia 无 ColorZone，ProfileIcon/托盘菜单移入 App.axaml NativeMenu。",
+      "anchors": [
+        "WPF ColorZone:18",
+        "togEnableTun:60",
+        "cmbSystemProxy:73",
+        "cmbRoutings2:87",
+        "tbNotify:106",
+        "Avalonia DockPanel:14",
+        "togEnableTun ToggleSwitch:43"
+      ],
+      "platform_differences": {
+        "wpf_tray": "StatusBarView.xaml 内 TaskbarIcon + ContextMenu",
+        "avalonia_tray": "App.axaml TrayIcon + NativeMenu；Pac 项 IsVisible=BlSystemProxyPacVisible",
+        "avalonia_tray_nonwindows_items": [
+          "{Binding BlIsNonWindows} 显示 GUI / 显示或隐藏主窗口"
+        ]
+      },
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml",
+        "v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml",
+        "v2rayN/v2rayN.Desktop/App.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:18",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:60",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:73",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:106",
+        "v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml:14",
+        "v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml:43",
+        "v2rayN/v2rayN.Desktop/App.axaml:35",
+        "v2rayN/v2rayN.Desktop/App.axaml:46",
+        "v2rayN/v2rayN.Desktop/App.axaml:72"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-CHECKUPDATE-001",
+    "id": "LAY-CHECKUPDATE-001",
+    "kind": "layout",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "检查更新视图",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-CHECKUPDATE-001",
+      "name": "检查更新视图",
+      "window": "CheckUpdateView",
+      "platform": "windows-wpf",
+      "layout_mode": "embedded_dialog",
+      "structure": "底部开关（通过代理更新/预发布）+ btnCheckOnly/btnCheckUpdate(IsDefault)；上方内核列表 lstCheckUpdates（选择/名称/说明）。",
+      "anchors": [
+        "WPF togEnableUpdateViaProxy:30",
+        "btnCheckUpdate:52",
+        "lstCheckUpdates:62",
+        "Avalonia togEnableUpdateViaProxy:34 / btnCheckUpdate:55 / lstCheckUpdates:68"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN/Views/CheckUpdateView.xaml",
+        "v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN/Views/CheckUpdateView.xaml:30",
+        "v2rayN/v2rayN/Views/CheckUpdateView.xaml:52",
+        "v2rayN/v2rayN/Views/CheckUpdateView.xaml:62",
+        "v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml:34",
+        "v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml:55",
+        "v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml:68"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "layout:LAY-SUDOPW-001",
+    "id": "LAY-SUDOPW-001",
+    "kind": "layout",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "Linux sudo 密码输入视图",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "LAY-SUDOPW-001",
+      "name": "Linux sudo 密码输入视图",
+      "window": "SudoPasswordInputView",
+      "platform": "linux-avalonia",
+      "platforms": [
+        "linux"
+      ],
+      "layout_mode": "dialog",
+      "structure": "提示 TbSettingsLinuxSudoPassword + 密码 TextBox(400 宽, revealPasswordButton) + 提示 TbSettingsLinuxSudoPasswordTip；底部确认/取消。",
+      "anchors": [
+        "txtPassword:48",
+        "btnSave:21",
+        "TbSettingsLinuxSudoPassword:46"
+      ],
+      "screenshots": [],
+      "source_file": [
+        "v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml"
+      ],
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:46",
+        "v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:48",
+        "v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:21"
+      ],
+      "status": "identified",
+      "implementation_location": null
+    }
+  },
+  {
+    "key": "window:INV-WPF-004",
+    "id": "INV-WPF-004",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "StatusBarView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-WPF-004",
+      "name": "StatusBarView",
+      "kind": "usercontrol_view",
+      "platform": "windows-wpf",
+      "file": "v2rayN/v2rayN/Views/StatusBarView.xaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:2",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:18",
+        "v2rayN/v2rayN/Views/StatusBarView.xaml:106"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-WPF-005",
+    "id": "INV-WPF-005",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "MsgView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-WPF-005",
+      "name": "MsgView",
+      "kind": "usercontrol_view",
+      "platform": "windows-wpf",
+      "file": "v2rayN/v2rayN/Views/MsgView.xaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN/Views/MsgView.xaml:2",
+        "v2rayN/v2rayN/Views/MsgView.xaml:16"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-WPF-007",
+    "id": "INV-WPF-007",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "ClashProxiesView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-WPF-007",
+      "name": "ClashProxiesView",
+      "kind": "usercontrol_view",
+      "platform": "windows-wpf",
+      "file": "v2rayN/v2rayN/Views/ClashProxiesView.xaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN/Views/ClashProxiesView.xaml:2",
+        "v2rayN/v2rayN/Views/ClashProxiesView.xaml:23"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-WPF-008",
+    "id": "INV-WPF-008",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "ClashConnectionsView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-WPF-008",
+      "name": "ClashConnectionsView",
+      "kind": "usercontrol_view",
+      "platform": "windows-wpf",
+      "file": "v2rayN/v2rayN/Views/ClashConnectionsView.xaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml:2",
+        "v2rayN/v2rayN/Views/ClashConnectionsView.xaml:17"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-WPF-010",
+    "id": "INV-WPF-010",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "CheckUpdateView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-WPF-010",
+      "name": "CheckUpdateView",
+      "kind": "usercontrol_view",
+      "platform": "windows-wpf",
+      "file": "v2rayN/v2rayN/Views/CheckUpdateView.xaml",
+      "is_dialog": true,
+      "notes": "DialogHost RootDialog",
+      "evidence": [
+        "v2rayN/v2rayN/Views/CheckUpdateView.xaml:2",
+        "v2rayN/v2rayN/Views/MainWindow.xaml.cs:282"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-006",
+    "id": "INV-AVA-006",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "StatusBarView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-006",
+      "name": "StatusBarView",
+      "kind": "usercontrol_view",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml:2",
+        "v2rayN/v2rayN.Desktop/Views/StatusBarView.axaml:13"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-007",
+    "id": "INV-AVA-007",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "MsgView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-007",
+      "name": "MsgView",
+      "kind": "usercontrol_view",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Views/MsgView.axaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/MsgView.axaml:2"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-009",
+    "id": "INV-AVA-009",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "ClashProxiesView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-009",
+      "name": "ClashProxiesView",
+      "kind": "usercontrol_view",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml:2",
+        "v2rayN/v2rayN.Desktop/Views/ClashProxiesView.axaml:20"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-010",
+    "id": "INV-AVA-010",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "ClashConnectionsView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-010",
+      "name": "ClashConnectionsView",
+      "kind": "usercontrol_view",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Views/ClashConnectionsView.axaml",
+      "is_dialog": false,
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/ClashConnectionsView.axaml:2"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-012",
+    "id": "INV-AVA-012",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "CheckUpdateView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-012",
+      "name": "CheckUpdateView",
+      "kind": "usercontrol_view",
+      "platforms": [
+        "windows-avalonia",
+        "macos-avalonia",
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml",
+      "is_dialog": true,
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/CheckUpdateView.axaml:2",
+        "v2rayN/v2rayN.Desktop/Views/MainWindow.axaml.cs:278"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "window:INV-AVA-015",
+    "id": "INV-AVA-015",
+    "kind": "window",
+    "owner": "runtime",
+    "ledger": "compat/layouts.yaml",
+    "label": "SudoPasswordInputView",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "INV-AVA-015",
+      "name": "SudoPasswordInputView",
+      "kind": "usercontrol_view",
+      "platforms": [
+        "linux-avalonia"
+      ],
+      "file": "v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml",
+      "is_dialog": true,
+      "notes": "Linux sudo 密码输入，仅 Avalonia；资源键 TbSettingsLinuxSudoPassword",
+      "evidence": [
+        "v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:2",
+        "v2rayN/v2rayN.Desktop/Views/SudoPasswordInputView.axaml:46"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-001",
+    "id": "CRM-001",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-001",
+      "core": "v2fly",
+      "enum_value": 1,
+      "structured_config_generation": "true_via_v2ray_branch",
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": "-version",
+      "special_handling": "CoreExes=[v2ray]; Arguments={0}; 环境变量 V2RAY_LOCATION_ASSET；IsRunningCore 中 Xray 覆盖 v2fly/v2fly_v5",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:5",
+        "v2rayN/ServiceLib/Global.cs:360",
+        "v2rayN/ServiceLib/Global.cs:649",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:122",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:24",
+        "v2rayN/ServiceLib/Manager/AppManager.cs:43"
+      ],
+      "unresolved": "v2fly 未出现在 Global.CoreTypes(仅 Xray/sing_box)，界面是否可选择未核实；结构化生成走 V2ray 分支但未找到 v2fly 专属差异。",
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-002",
+    "id": "CRM-002",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-002",
+      "core": "v2fly_v5",
+      "enum_value": 4,
+      "structured_config_generation": "unknown",
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": "version",
+      "special_handling": "CoreExes=[v2ray]; Arguments=\"run -c {0} -format jsonv5\"; 环境变量 V2RAY_LOCATION_ASSET",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:7",
+        "v2rayN/ServiceLib/Global.cs:649",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:135",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75"
+      ],
+      "unresolved": "jsonv5 格式是否由 CoreConfigV2rayService 生成、界面可选性均未核实。",
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-003",
+    "id": "CRM-003",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-003",
+      "core": "Xray",
+      "enum_value": 2,
+      "structured_config_generation": true,
+      "custom_config_support": true,
+      "update_supported": true,
+      "stats_support": true,
+      "version_param": "-version",
+      "special_handling": "CoreConfigV2rayService 生成结构化配置；统计经 http://127.0.0.1:StatePort/debug/vars；环境变量 XRAY_LOCATION_ASSET、XRAY_LOCATION_CERT；DownloadUrl 覆盖 Win/Linux/macOS x64/arm64/riscv64/loong64",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:6",
+        "v2rayN/ServiceLib/Global.cs:653",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:149",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:30",
+        "v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs:10"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-004",
+    "id": "CRM-004",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-004",
+      "core": "sing_box",
+      "enum_value": 24,
+      "structured_config_generation": true,
+      "custom_config_support": true,
+      "update_supported": true,
+      "stats_support": true,
+      "version_param": "version",
+      "special_handling": "CoreConfigSingboxService 生成结构化配置；Arguments=\"run -c {0} --disable-color\"；LockedMaxVersion=1.14.int.MaxValue 限制 sing-box 上限；DownloadUrl 含 {1} 版本占位；统计经 ws://127.0.0.1:StatePort2/traffic",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:12",
+        "v2rayN/ServiceLib/Global.cs:654",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:216",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:232",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Services/Statistics/StatisticsSingboxService.cs:10"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-005",
+    "id": "CRM-005",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-005",
+      "core": "mihomo",
+      "enum_value": 13,
+      "structured_config_generation": "custom_only_partial",
+      "custom_config_support": true,
+      "update_supported": true,
+      "stats_support": "partial_via_clash_api",
+      "version_param": "-v",
+      "special_handling": "Custom 节点经 CoreConfigClashService 复制并在 YAML 层改写 mixed-port/log-level/external-controller/tun/mixin；CoreExes 平台相关含 clash/mihomo；Arguments=\"-f {0}\" + -d bin 便携目录；DownloadUrl 各平台",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:8",
+        "v2rayN/ServiceLib/Global.cs:655",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:173",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Handler/CoreConfigHandler.cs:20",
+        "v2rayN/ServiceLib/Services/CoreConfig/CoreConfigClashService.cs:15",
+        "v2rayN/ServiceLib/Manager/ClashApiManager.cs:11"
+      ],
+      "unresolved": "mihomo 流量统计是否走 Statistics 服务未核实；已知经 Clash API /proxies 与 /connections 查询。",
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-006",
+    "id": "CRM-006",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-006",
+      "core": "hysteria",
+      "enum_value": 21,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes=[hysteria]; Arguments 为空串；仅作为 Custom 内核运行",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:9",
+        "v2rayN/ServiceLib/Global.cs:656",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:192",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-007",
+    "id": "CRM-007",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-007",
+      "core": "hysteria2",
+      "enum_value": 26,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes 平台候选 [hysteria-windows-amd64, hysteria-linux-amd64, hysteria]；Arguments 为空串；hysteria2 协议节点实际由 sing_box 结构化生成",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:14",
+        "v2rayN/ServiceLib/Global.cs:657",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:245",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:769"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-008",
+    "id": "CRM-008",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-008",
+      "core": "naiveproxy",
+      "enum_value": 22,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes=[naive, naiveproxy]; Arguments={0}；Naive 协议结构化由 sing_box 生成",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:10",
+        "v2rayN/ServiceLib/Global.cs:658",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:200",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:971"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-009",
+    "id": "CRM-009",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-009",
+      "core": "tuic",
+      "enum_value": 23,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes=[tuic-client, tuic]; Arguments=\"-c {0}\"; TUIC 协议结构化由 sing_box 生成",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:11",
+        "v2rayN/ServiceLib/Global.cs:659",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:208",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Handler/ConfigHandler.cs:847"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-010",
+    "id": "CRM-010",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-010",
+      "core": "juicity",
+      "enum_value": 25,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes=[juicity-client, juicity]; Arguments=\"run -c {0}\"",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:13",
+        "v2rayN/ServiceLib/Global.cs:660",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:237",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-011",
+    "id": "CRM-011",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-011",
+      "core": "brook",
+      "enum_value": 27,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes 平台候选; Arguments=\" {0}\"; AbsolutePath=true（配置路径为 bin 绝对路径）",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:15",
+        "v2rayN/ServiceLib/Global.cs:661",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:253",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:259",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-012",
+    "id": "CRM-012",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-012",
+      "core": "overtls",
+      "enum_value": 28,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes=[overtls-bin, overtls]; Arguments=\"-r client -c {0}\"; AbsolutePath=false",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:16",
+        "v2rayN/ServiceLib/Global.cs:662",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:262",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-013",
+    "id": "CRM-013",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-013",
+      "core": "shadowquic",
+      "enum_value": 29,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes=[shadowquic]; Arguments=\"-c {0}\"; AbsolutePath=false",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:17",
+        "v2rayN/ServiceLib/Global.cs:663",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:271",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-014",
+    "id": "CRM-014",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-014",
+      "core": "mieru",
+      "enum_value": 30,
+      "structured_config_generation": false,
+      "custom_config_support": true,
+      "update_supported": false,
+      "stats_support": false,
+      "version_param": null,
+      "special_handling": "CoreExes=[mieru]; Arguments=\"run\"; 环境变量 MIERU_CONFIG_JSON_FILE={0}; AbsolutePath=false",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:18",
+        "v2rayN/ServiceLib/Global.cs:664",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:280",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "core_matrix:CRM-015",
+    "id": "CRM-015",
+    "kind": "core_matrix",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": null,
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "CRM-015",
+      "core": "v2rayN",
+      "enum_value": 99,
+      "structured_config_generation": "not_applicable",
+      "custom_config_support": "not_applicable",
+      "update_supported": "true_if_not_packaged",
+      "stats_support": "not_applicable",
+      "version_param": null,
+      "special_handling": "应用自身更新标识而非代理内核；IsCheckUpdateSupported 仅当非打包安装；GetCheckUpdateCoreTypes 中始终优先加入；下载含 -desktop.zip 分支",
+      "evidence": [
+        "v2rayN/ServiceLib/Enums/ECoreType.cs:19",
+        "v2rayN/ServiceLib/Global.cs:665",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:106",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:75",
+        "v2rayN/ServiceLib/Manager/CoreInfoManager.cs:87",
+        "v2rayN/ServiceLib/Services/UpdateService.cs:291"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "background:BG-TASK-001",
+    "id": "BG-TASK-001",
+    "kind": "background",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "定时任务主循环（每 1 分钟）",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "BG-TASK-001",
+      "name": "定时任务主循环（每 1 分钟）",
+      "summary": "PeriodicTimer 每分钟触发订阅检查，20 分钟保存配置，60 分钟清理/Geo，24 小时检查更新",
+      "trigger": "every_1_minute",
+      "behavior": "numOfExecuted 计数：%20 保存 Config/ProfileEx；%60 清理 Test(1h)/log(7d)/temp(7d) 并 UpdateTaskRunGeo；%1440==1 检查更新",
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:18",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:22",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:37",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:53",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:72"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "background:BG-TASK-002",
+    "id": "BG-TASK-002",
+    "kind": "background",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "订阅自动更新任务",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "BG-TASK-002",
+      "name": "订阅自动更新任务",
+      "summary": "达到 AutoUpdateInterval 的订阅自动更新",
+      "trigger": "every_1_minute",
+      "behavior": "过滤 AutoUpdateInterval>0 且已到期订阅，逐个 UpdateProcess 后写 UpdateTime",
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:87",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:104",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:112"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "background:BG-TASK-003",
+    "id": "BG-TASK-003",
+    "kind": "background",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "Geo 文件自动更新任务",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "BG-TASK-003",
+      "name": "Geo 文件自动更新任务",
+      "summary": "按 GuiItem.AutoUpdateInterval 小时周期更新 Geo",
+      "trigger": "hourly_check",
+      "behavior": "hours % AutoUpdateInterval == 0 时 UpdateGeoFileAll",
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:118",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:120"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "background:BG-TASK-004",
+    "id": "BG-TASK-004",
+    "kind": "background",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "每日更新检查任务",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "BG-TASK-004",
+      "name": "每日更新检查任务",
+      "summary": "每 24 小时检查一次所有内核/应用更新",
+      "trigger": "every_24_hours",
+      "behavior": "CheckHasUpdateOnlyAll，结果入 NoticeManager 并发布 HasUpdateNotified",
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:131",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:137",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:142"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "background:BG-TASK-005",
+    "id": "BG-TASK-005",
+    "kind": "background",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "统计采集后台循环",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "BG-TASK-005",
+      "name": "统计采集后台循环",
+      "summary": "内核统计轮询/WS 订阅，非 UI 定时任务",
+      "trigger": "continuous",
+      "behavior": "StatisticsXrayService 轮询 /debug/vars；StatisticsSingboxService 订阅 /traffic",
+      "source_file": "v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Services/Statistics/StatisticsXrayService.cs:35",
+        "v2rayN/ServiceLib/Services/Statistics/StatisticsSingboxService.cs:35"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "background:BG-TASK-006",
+    "id": "BG-TASK-006",
+    "kind": "background",
+    "owner": "runtime",
+    "ledger": "compat/features.yaml",
+    "label": "配置持久化任务",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "BG-TASK-006",
+      "name": "配置持久化任务",
+      "summary": "20 分钟周期保存 Config 与 ProfileEx",
+      "trigger": "every_20_minutes",
+      "behavior": "ConfigHandler.SaveConfig + ProfileExManager.SaveTo",
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:42",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:44"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "scheduled:SCH-001",
+    "id": "SCH-001",
+    "kind": "scheduled",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "订阅自动更新定时任务",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "SCH-001",
+      "name": "订阅自动更新定时任务",
+      "action_id": "ACT-SUB-006",
+      "trigger": "PeriodicTimer 每分钟一次",
+      "interval_source": "SubItem.AutoUpdateInterval（分钟，>0 才参与）；上次更新时间 SubItem.UpdateTime",
+      "behavior": "对 AutoUpdateInterval>0 且 updateTime-UpdateTime>=AutoUpdateInterval*60 的订阅逐个调用 SubscriptionHandler.UpdateProcess（强制走代理 blProxy=true），更新后回写 UpdateTime 并 AddSubItem，每条间隔 1 秒",
+      "cancellable": false,
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:22",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:29",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:87",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:104"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "scheduled:SCH-002",
+    "id": "SCH-002",
+    "kind": "scheduled",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "配置与统计定时保存",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "SCH-002",
+      "name": "配置与统计定时保存",
+      "action_id": null,
+      "trigger": "PeriodicTimer 每 20 次 tick（约 20 分钟）",
+      "interval_source": "硬编码 20",
+      "behavior": "ConfigHandler.SaveConfig + ProfileExManager.SaveTo",
+      "cancellable": false,
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:37",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:43"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "scheduled:SCH-003",
+    "id": "SCH-003",
+    "kind": "scheduled",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "过期文件清理与 Geo 更新",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "SCH-003",
+      "name": "过期文件清理与 Geo 更新",
+      "action_id": null,
+      "trigger": "PeriodicTimer 每 60 次 tick（约 1 小时）",
+      "interval_source": "硬编码 60；Geo 间隔来自 GuiItem.AutoUpdateInterval",
+      "behavior": "删除 binConfig 下 Test* 中 1 小时前文件、日志目录与临时目录中 7 天前文件；当 GuiItem.AutoUpdateInterval>0 且 hours%interval==0 时 UpdateService.UpdateGeoFileAll",
+      "cancellable": false,
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:53",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:57",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:58",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:59",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:118"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "scheduled:SCH-004",
+    "id": "SCH-004",
+    "kind": "scheduled",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "每日检查更新",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "SCH-004",
+      "name": "每日检查更新",
+      "action_id": "ACT-UPDATE-003",
+      "trigger": "PeriodicTimer numOfExecuted%1440==1（约每 24 小时）",
+      "interval_source": "硬编码 1440",
+      "behavior": "UpdateService.CheckHasUpdateOnlyAll(CheckPreReleaseUpdate, UpdateViaProxy)，消息入通知队列；有更新时 Publish HasUpdateNotified(true)",
+      "cancellable": false,
+      "source_file": "v2rayN/ServiceLib/Manager/TaskManager.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:72",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:76",
+        "v2rayN/ServiceLib/Manager/TaskManager.cs:131"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "scheduled:SCH-005",
+    "id": "SCH-005",
+    "kind": "scheduled",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "消息视图刷新定时器",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "SCH-005",
+      "name": "消息视图刷新定时器",
+      "action_id": "ACT-MSG-001",
+      "trigger": "Signal.Every(1 秒)（视图激活期间）",
+      "interval_source": "硬编码 1 秒；受 MsgViewModel.AutoRefresh 与 ShowInTaskbar 控制",
+      "behavior": "将后台消息队列批量刷入消息视图，上限 NumMaxMsg=500",
+      "cancellable": true,
+      "cancel_behavior": "视图 dispose 时停止订阅",
+      "source_file": "v2rayN/ServiceLib/ViewModels/MsgViewModel.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:36",
+        "v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:9",
+        "v2rayN/ServiceLib/ViewModels/MsgViewModel.cs:44"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "scheduled:SCH-006",
+    "id": "SCH-006",
+    "kind": "scheduled",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "Clash 代理列表刷新定时器",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "SCH-006",
+      "name": "Clash 代理列表刷新定时器",
+      "action_id": null,
+      "trigger": "PeriodicTimer 1 秒",
+      "interval_source": "ClashUIItem.ProxiesRefreshInterval（秒，>0）",
+      "behavior": "当 AutoRefresh && ShowInTaskbar && 运行 sing_box 时按间隔 GetClashProxies；取消时静默退出",
+      "cancellable": true,
+      "cancel_behavior": "CancellationDisposable 随视图释放；捕获 OperationCanceledException",
+      "source_file": "v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs:111",
+        "v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs:121",
+        "v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs:126",
+        "v2rayN/ServiceLib/ViewModels/ClashProxiesViewModel.cs:133"
+      ],
+      "status": "identified"
+    }
+  },
+  {
+    "key": "scheduled:SCH-007",
+    "id": "SCH-007",
+    "kind": "scheduled",
+    "owner": "runtime",
+    "ledger": "compat/actions.yaml",
+    "label": "Clash 连接列表刷新定时器",
+    "ledger_status": "identified",
+    "source_contract": {
+      "id": "SCH-007",
+      "name": "Clash 连接列表刷新定时器",
+      "action_id": null,
+      "trigger": "PeriodicTimer 1 秒",
+      "interval_source": "ClashUIItem.ConnectionsRefreshInterval（秒，>0）",
+      "behavior": "当 AutoRefresh && ShowInTaskbar && 运行 sing_box 时按间隔 GetClashConnections",
+      "cancellable": true,
+      "cancel_behavior": "CancellationDisposable 随视图释放；捕获 OperationCanceledException",
+      "source_file": "v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs",
+      "evidence": [
+        "v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs:127",
+        "v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs:137",
+        "v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs:142",
+        "v2rayN/ServiceLib/ViewModels/ClashConnectionsViewModel.cs:149"
+      ],
+      "status": "identified"
+    }
+  }
+]

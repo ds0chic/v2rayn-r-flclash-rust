@@ -1,0 +1,73 @@
+{
+  "applicationCommit": "1251cbc",
+  "recordingComplete": true,
+  "failures": [
+    "import-complete-xray-config",
+    "tuic-distinct-uuid-and-password-inputs",
+    "create-group-without-subscription-url",
+    "screen-qr-scan-is-import",
+    "image-qr-scan-is-image-input",
+    "context-generate-group-keeps-menu-target"
+  ],
+  "records": [
+    {
+      "step": "isolated-first-launch",
+      "passed": true,
+      "actual": {
+        "nodeCount": 0,
+        "subscriptionCount": 0
+      }
+    },
+    {
+      "step": "import-complete-xray-config",
+      "passed": false,
+      "actual": {
+        "nodeCount": 0,
+        "message": "已从剪贴板导入 0 个节点，1 个保存失败（E_FIELD_REQUIRED），1 行未识别"
+      }
+    },
+    {
+      "step": "tuic-distinct-uuid-and-password-inputs",
+      "passed": false,
+      "actual": {
+        "usernameFieldCount": 0,
+        "passwordFieldCount": 1,
+        "uuidLabelCount": 1
+      }
+    },
+    {
+      "step": "create-group-without-subscription-url",
+      "passed": false,
+      "actual": {
+        "subscriptionCount": 0,
+        "editorStillOpen": true,
+        "urlRequiredError": true
+      }
+    },
+    {
+      "step": "screen-qr-scan-is-import",
+      "passed": false,
+      "actual": {
+        "openedShareDialog": true,
+        "message": "已从剪贴板导入 1 个节点"
+      }
+    },
+    {
+      "step": "image-qr-scan-is-image-input",
+      "passed": false,
+      "actual": {
+        "openedTextImport": true
+      }
+    },
+    {
+      "step": "context-generate-group-keeps-menu-target",
+      "passed": false,
+      "actual": {
+        "nodeCountBefore": 1,
+        "nodeCountAfter": 1,
+        "openedGroupEditor": false,
+        "message": "请先选择节点以确定订阅分组"
+      }
+    }
+  ]
+}

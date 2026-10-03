@@ -1,0 +1,25 @@
+{
+  "applicationCommit": "1251cbc",
+  "recordingComplete": true,
+  "mode": "reopen",
+  "failures": [],
+  "checks": [
+    {
+      "step": "reopen-generated-group-exists",
+      "passed": true,
+      "actual": {
+        "expectedGroupId": "p-18daff1776523a98-2",
+        "foundGroupId": "p-18daff1776523a98-2",
+        "foundSubId": "s-18daff16cd37d850-0",
+        "totalProfiles": 5
+      }
+    },
+    {
+      "step": "reopen-region-groups-exist",
+      "passed": true,
+      "actual": {
+        "regionGroupCount": 3
+      }
+    }
+  ]
+}

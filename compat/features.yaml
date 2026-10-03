@@ -168,8 +168,8 @@ config_types:
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:19
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:291
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:847
-  notes: AddTuicServer 强制 CoreType=sing_box。
-  status: identified
+  notes: AddTuicServer 强制 CoreType=sing_box。FIX-02（docs/tasks/FIX-02.md）：UI 拆出独立 UUID（username）与密码（password）字段，新增/空值时按 AddTuicServer 默认 StreamSecurity=tls、Alpn=h3（见 ConfigHandler.cs:865；当前编辑器只补 tls，未补 h3，登记遗留）；sing-box 生成 uuid<-username、password<-password（config_codegen 已正确，补回归断言 singbox_tuic_uuid_username_password_split）。保存/重开/仅改备注无损已真窗口验证（docs/evidence/UX-PARITY-FIX-02/observations.json）。status 从 identified 提升为 implemented。
+  status: implemented
 - id: CFG-009
   name: EConfigType.WireGuard
   enum_value: 9
@@ -1009,6 +1009,10 @@ features:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1422
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1487
   - docs/evidence/T10.md
+  - docs/evidence/UX-PARITY-FIX-01/observations.json
+  - docs/evidence/UX-PARITY-FIX-01/reopen-observations.json
+  - docs/tasks/FIX-01.md
+  notes: FIX-01 已修（implemented）：菜单关闭前捕获不可变 CommandContext；生成对象改为当前订阅组稳定 ID（无需选中节点，不卷入隐藏他组选择）。真实窗口 generate 8/8 + reopen 2/2 通过；生成字段 coreType=xray/groupType=PolicyGroup/SubChildItems/Filter/LeastPing。Rust 最小修复 crates/application/src/groups.rs 补 CoreType=Xray。未做原版实机双窗口对照，未写 verified。
   status: implemented
 - id: F-PROFILE-010
   name: 移除无效节点结果

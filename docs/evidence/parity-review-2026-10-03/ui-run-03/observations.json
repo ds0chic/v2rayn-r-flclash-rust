@@ -1,0 +1,15 @@
+{
+  "applicationCommit": "1251cbc",
+  "recordingComplete": false,
+  "failures": [],
+  "records": [
+    {
+      "step": "isolated-first-launch",
+      "passed": true,
+      "actual": {
+        "nodeCount": 0,
+        "subscriptionCount": 0
+      }
+    }
+  ]
+}

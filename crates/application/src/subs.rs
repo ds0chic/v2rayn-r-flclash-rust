@@ -161,13 +161,10 @@ impl SubItem {
                     .with_field("remarks"),
             );
         }
-        if self.url.trim().is_empty() {
-            return Err(
-                DomainError::new(domain::codes::FIELD_REQUIRED, "error.url_required")
-                    .with_field("url"),
-            );
-        }
-        if !is_http_url(&self.url) {
+        // An empty URL is a plain group (upstream `SubEditViewModel` only
+        // validates the URL when non-empty); only a non-empty URL must be a
+        // valid http(s) address. Refreshes skip plain groups instead.
+        if !self.url.trim().is_empty() && !is_http_url(&self.url) {
             return Err(
                 DomainError::new(domain::codes::FIELD_FORMAT, "error.url_invalid")
                     .with_field("url"),
@@ -649,6 +646,45 @@ mod tests {
         );
         item.request_headers = None;
         assert!(item.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_allows_empty_url_plain_group() {
+        // FIX-06 / SET-01: an empty URL is a plain group and saves without a
+        // URL error; only `remarks` is required.
+        let item = SubItem {
+            remarks: "普通分组".into(),
+            url: String::new(),
+            ..SubItem::default()
+        };
+        assert!(item.validate().is_ok());
+
+        // A whitespace-only URL is treated the same as empty.
+        let blank = SubItem {
+            remarks: "普通分组".into(),
+            url: "   ".into(),
+            ..SubItem::default()
+        };
+        assert!(blank.validate().is_ok());
+
+        // The remarks requirement is unchanged.
+        let no_remarks = SubItem::default();
+        assert_eq!(
+            no_remarks.validate().unwrap_err().field_path.as_deref(),
+            Some("remarks")
+        );
+    }
+
+    #[test]
+    fn validate_still_rejects_invalid_nonempty_url() {
+        let item = SubItem {
+            remarks: "sub".into(),
+            url: "not a url".into(),
+            ..SubItem::default()
+        };
+        let error = item.validate().unwrap_err();
+        assert_eq!(error.code, domain::codes::FIELD_FORMAT);
+        assert_eq!(error.field_path.as_deref(), Some("url"));
     }
 
     #[test]

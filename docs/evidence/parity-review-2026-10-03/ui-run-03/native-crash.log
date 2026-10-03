@@ -1,0 +1,14 @@
+
+TimeCreated : 2026/10/3 13:43:55
+Message     : 出错应用程序名称： v2rayn_desktop.exe，版本： 1.0.0.1，时间戳： 0x6ac04ac1
+              出错模块名称： flutter_windows.dll， 版本： 0.0.0.0，时间戳： 0x6aac5be2
+              异常代码： 0xc0000005
+              错误偏移： 0x0000000000927160
+              出错进程 ID： 0x119C
+              出错应用程序开始时间： 0x1DD52FA2B9E88D1
+              Faulting 应用程序路径： C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\build\windows\x64\runner\Debug\v2rayn_desktop.exe
+              Faulting 模块路径： C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\build\windows\x64\runner\Debug\flutter_windows.dll
+              Report ID： 08143d6d-9280-427b-abd4-49c591f04150
+              Faulting 包全名： 
+              Faulting 程序包相对应用程序 ID：  个
+

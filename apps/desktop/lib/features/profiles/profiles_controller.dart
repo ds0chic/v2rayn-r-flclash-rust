@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
+import 'package:v2rayn_desktop/bridge/api/groups.dart' as groups;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
@@ -577,14 +578,32 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   /// Generate one policy group per matching region.
-  int genGroupRegion(String subId) {
+  ///
+  /// Returns the real bridge result so the caller can select the first created
+  /// group (upstream `_pendingSelectIndexId`) and report the exact outcome.
+  groups.GroupGenResult genGroupRegion(String subId) {
     final result = _bridge.genGroupRegion(subId);
     if (result.ok) {
       reload();
       _log('gen-group-region', 'sub=$subId count=${result.profiles.length}');
-      return result.profiles.length;
     }
-    return -1;
+    return result;
+  }
+
+  /// Select the first generated group that is present in the current view.
+  ///
+  /// Upstream sets `_pendingSelectIndexId` and selects it after the refresh.
+  /// The generated group lives in the current subscription view, so it is in
+  /// `state.all` for the real backend; in pure widget tests where the summary
+  /// list is synthetic it may be absent, in which case the selection is left
+  /// untouched instead of inventing a row.
+  void selectGenerated(List<String> ids) {
+    if (ids.isEmpty) return;
+    final known = state.all.map((r) => r.id).toSet();
+    final target = ids.firstWhere(known.contains, orElse: () => '');
+    if (target.isEmpty) return;
+    state = state.copyWith(selected: selectSingle(target));
+    _log('gen-group-select', 'id=$target');
   }
 
   void setFilter(String value) {

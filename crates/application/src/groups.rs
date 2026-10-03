@@ -10,7 +10,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use domain::{codes, ConfigType, DomainError, Profile};
+use domain::{codes, ConfigType, CoreType, DomainError, Profile};
 
 use crate::repository::new_index_id;
 
@@ -360,6 +360,8 @@ pub fn new_group_all(sub_id: &str, remarks: String) -> Profile {
         domain::MultipleLoad::LeastPing,
     );
     profile.subid = sub_id.to_string();
+    // Upstream `AddGroupAllServer` sets `CoreType = ECoreType.Xray`.
+    profile.core_type = Some(CoreType::Xray);
     profile.proto_extra.sub_child_items = Some(sub_id.to_string());
     profile.proto_extra.filter = Some(DEFAULT_ALL_FILTER.to_string());
     profile
@@ -375,6 +377,8 @@ pub fn new_group_region(sub_id: &str, remarks: String, region: &str, pattern: &s
         domain::MultipleLoad::LeastPing,
     );
     profile.subid = sub_id.to_string();
+    // Upstream `AddGroupRegionServer` sets `CoreType = ECoreType.Xray`.
+    profile.core_type = Some(CoreType::Xray);
     profile.proto_extra.sub_child_items = Some(sub_id.to_string());
     profile.proto_extra.filter = Some(region_filter(pattern));
     profile

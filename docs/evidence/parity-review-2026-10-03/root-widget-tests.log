@@ -1,0 +1,10 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_menu_structure_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_menu_structure_test.dart: top-level menu order matches the upstream layout
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_menu_structure_test.dart: 30 main-menu action ids are reachable from the model
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_menu_structure_test.dart: help submenu keeps 检查更新 and the dynamic core-website entry
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_menu_structure_test.dart: preserved-only entries are never invocable
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_menu_structure_test.dart: implemented entries stay invocable
+00:00 +5: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/context_menu_model_test.dart
+00:00 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/context_menu_model_test.dart: context menu entries match LAY-PROFILES-004 / ACT-PROF-*
+00:00 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/context_menu_model_test.dart: restores the frozen upstream 17-root / 4-separator structure
+00:00 +7: All tests passed!

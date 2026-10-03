@@ -1,0 +1,41 @@
+{
+  "task": "FIX-06",
+  "recordingComplete": true,
+  "failures": [],
+  "records": [
+    {
+      "step": "isolated-first-launch",
+      "passed": true,
+      "actual": {
+        "subscriptionCount": 0
+      }
+    },
+    {
+      "step": "plain-group-saves-with-empty-url",
+      "passed": true,
+      "actual": {
+        "remarks": "仅备注普通分组",
+        "url": "",
+        "subId": "s-18daff3700e98e80-0",
+        "editorStillOpen": false
+      }
+    },
+    {
+      "step": "top-group-chip-appears-after-save",
+      "passed": true,
+      "actual": {
+        "groupId": "s-18daff3700e98e80-0",
+        "chipFound": true,
+        "nodeCount": 0
+      }
+    },
+    {
+      "step": "plain-group-persists-after-reopen",
+      "passed": true,
+      "actual": {
+        "remarks": "仅备注普通分组",
+        "url": ""
+      }
+    }
+  ]
+}

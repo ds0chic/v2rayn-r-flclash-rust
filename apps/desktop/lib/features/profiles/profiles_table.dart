@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/features/profiles/command_context.dart';
 import 'package:v2rayn_desktop/features/profiles/context_menu.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
@@ -65,8 +66,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   /// the MenuAnchor-local coordinates its `open(position:)` requires.
   final GlobalKey _anchorBoxKey = GlobalKey(debugLabel: 'profiles-menu-anchor');
 
-  /// Command target snapshot for the currently open menu, or null when closed.
-  ContextMenuSession? _menuSession;
+  /// Immutable command target captured when the menu opens. Cleared on close,
+  /// but the command closure already holds its own reference, so closing the
+  /// menu never destroys the business target (FIX-01 / PR-19).
+  CommandContext? _commandContext;
 
   /// Keyboard highlight index within the root menu while it is open (-1 = no
   /// highlight yet). Arrow keys move it, Enter activates the highlighted row.
@@ -133,7 +136,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       menuChildren: _buildContextMenu(
         context,
         _activeRootEntries.isEmpty ? profilesContextMenu : _activeRootEntries,
-        _menuSession,
+        _commandContext,
       ),
       // Constrain the panel to the window so a long label never pushes it past
       // the visible edge; the actual width is measured from the rendered
@@ -428,7 +431,8 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     final entry = _activeRootEntries[_menuFocusIndex];
     final enabled =
         entry.enabled &&
-        (!_requiresTarget(entry.kind) || (_menuSession?.hasTargets ?? false));
+        (!_requiresTarget(entry.kind) ||
+            (_commandContext?.hasTargets ?? false));
     if (!enabled) return;
     if (entry.isSubmenu) {
       if (_menuFocusIndex < _menuRowFocusNodes.length) {
@@ -436,7 +440,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       }
       return;
     }
-    _onContextAction(entry, _menuSession);
+    _onContextAction(entry, _commandContext);
   }
 
   void _onDoubleTap(ProfileSummary row) {
@@ -633,18 +637,18 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       controller.handleRightTap(rowId);
     }
     final snapshot = ref.read(profilesControllerProvider);
-    final session = ContextMenuSession(
+    final command = CommandContext(
       targetIds: snapshot.selected.toList(),
       primaryId:
           rowId ??
           (snapshot.selected.length == 1 ? snapshot.selected.first : null),
       groupSubId: snapshot.groupSubId,
-      position: local,
-      region: region,
+      menuOpenPosition: local,
+      viewContext: region,
       focusRestore: _focusNode,
     );
     setState(() {
-      _menuSession = session;
+      _commandContext = command;
       _menuFocusIndex = -1;
       _activeRootEntries = _resolveRootEntries(snapshot);
       _syncMenuRowFocusNodes(_activeRootEntries.length);
@@ -658,8 +662,11 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
 
   void _onMenuClosed() {
     if (!mounted) return;
+    // Clearing the on-screen session must not destroy the already-captured
+    // command: `_onContextAction` receives its own [CommandContext] reference
+    // and runs after this fires.
     setState(() {
-      _menuSession = null;
+      _commandContext = null;
       _menuFocusIndex = -1;
       _activeRootEntries = const <ContextMenuEntry>[];
     });
@@ -689,12 +696,14 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           actionId: 'ACT-PROF-013',
           kind: ContextActionKind.moveToGroup,
           enabled: true,
+          targetSubId: sub.id,
         ),
       const ContextMenuEntry(
         label: '无分组',
         actionId: 'ACT-PROF-013',
         kind: ContextActionKind.moveToGroup,
         enabled: true,
+        targetSubId: '',
       ),
     ];
     return <ContextMenuEntry>[
@@ -746,17 +755,17 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   List<Widget> _buildContextMenu(
     BuildContext context,
     List<ContextMenuEntry> entries,
-    ContextMenuSession? session,
+    CommandContext? command,
   ) {
-    return _buildMenuLevel(context, entries, session);
+    return _buildMenuLevel(context, entries, command);
   }
 
   List<Widget> _buildMenuLevel(
     BuildContext context,
     List<ContextMenuEntry> entries,
-    ContextMenuSession? session,
+    CommandContext? command,
   ) {
-    final hasTargets = session?.hasTargets ?? false;
+    final hasTargets = command?.hasTargets ?? false;
     final widgets = <Widget>[];
     for (var i = 0; i < entries.length; i++) {
       final entry = entries[i];
@@ -768,18 +777,19 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           SubmenuButton(
             key: ValueKey('ctx-${entry.label}'),
             style: _menuRowStyle,
-            menuChildren: _buildMenuLevel(context, entry.submenu, session),
+            menuChildren: _buildMenuLevel(context, entry.submenu, command),
             child: _menuLabel(entry, highlighted: false),
           ),
         );
       } else {
-        // Bind the session snapshot captured when the menu opened. The table's
+        // Bind the immutable command captured when the menu opened. The table's
         // MenuItemButton closes the menu (firing onClose) before running
-        // onPressed, so reading live `_menuSession` there would already be null.
+        // onPressed, so reading the live `_commandContext` field there would
+        // already be null; the captured [command] reference survives the close.
         final button = MenuItemButton(
           key: ValueKey('ctx-${entry.label}'),
           style: _menuRowStyle,
-          onPressed: enabled ? () => _onContextAction(entry, session) : null,
+          onPressed: enabled ? () => _onContextAction(entry, command) : null,
           child: _menuLabel(entry, highlighted: highlighted),
         );
         if (entry.helpTooltip != null && entry.helpTooltip!.isNotEmpty) {
@@ -835,7 +845,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     );
   }
 
-  void _onContextAction(ContextMenuEntry entry, ContextMenuSession? session) {
+  void _onContextAction(ContextMenuEntry entry, CommandContext? command) {
     final profiles = ref.read(profilesControllerProvider.notifier);
     final shell = ref.read(uiShellControllerProvider.notifier);
 
@@ -846,9 +856,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     if (_requiresTarget(entry.kind)) {
       final current = ref.read(profilesControllerProvider);
       final restored =
-          session != null &&
-          session.groupSubId == current.groupSubId &&
-          profiles.restoreContextTargets(session.targetIds);
+          command != null &&
+          command.groupSubId == current.groupSubId &&
+          profiles.restoreContextTargets(command.targetIds);
       if (!restored) {
         _closeMenuChain();
         shell.setMessage('操作目标已失效，请重新选择节点');
@@ -870,7 +880,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       case ContextActionKind.moveBottom:
         profiles.emitAction(ProfileAction.moveBottom);
       case ContextActionKind.moveToGroup:
-        _moveToGroup(entry.label);
+        _moveToGroup(command, entry);
       case ContextActionKind.edit:
         editSelectedProfile(context, ref);
       case ContextActionKind.copy:
@@ -906,70 +916,82 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       case ContextActionKind.removeInvalid:
         profiles.emitAction(ProfileAction.removeInvalid);
       case ContextActionKind.genGroupAll:
-        _genGroup(region: false);
+        _genGroup(command, region: false);
       case ContextActionKind.genGroupRegion:
-        _genGroup(region: true);
+        _genGroup(command, region: true);
       case ContextActionKind.notImplemented:
         shell.notImplemented(entry.label, entry.actionId);
     }
   }
 
-  /// `移至订阅分组` (ACT-PROF-013): move the session target ids into the chosen
-  /// subscription group. The group is derived from the selected label, which is
-  /// the live submenu text (remarks or `无分组`).
-  void _moveToGroup(String label) {
+  /// `移至订阅分组` (ACT-PROF-013): move the captured target ids into the chosen
+  /// subscription group.
+  ///
+  /// The destination comes from the entry's stable [ContextMenuEntry.targetSubId]
+  /// (never parsed from the display label), and the ids come from the immutable
+  /// [CommandContext] captured when the menu opened (never the live selection).
+  void _moveToGroup(CommandContext? command, ContextMenuEntry entry) {
     final profiles = ref.read(profilesControllerProvider.notifier);
     final shell = ref.read(uiShellControllerProvider.notifier);
-    final session = _menuSession;
-    if (session == null || session.targetIds.isEmpty) {
+    if (command == null || command.targetIds.isEmpty) {
       shell.setMessage('请先选择要移动的节点');
       return;
     }
-    final subs = profiles.subItems();
-    final target = label.startsWith('无分组')
+    final subId = entry.targetSubId ?? '';
+    final target = subId.isEmpty
         ? null
-        : subs
-              .where(
-                (s) => label.startsWith(s.remarks.isEmpty ? s.id : s.remarks),
-              )
-              .firstOrNull;
-    final subId = target?.id ?? '';
+        : profiles.subItems().where((s) => s.id == subId).firstOrNull;
+    final label = target?.remarks.isEmpty ?? true
+        ? (target?.id ?? '无分组')
+        : target!.remarks;
     final result = profiles.moveProfilesToGroup(
-      session.targetIds,
+      command.targetIds,
       subId,
       subRemarks: target?.remarks ?? '',
     );
     if (result) {
-      shell.setMessage(
-        target == null ? '已移至无分组' : '已移至分组“${label.split(' (')[0]}”',
-      );
+      shell.setMessage(target == null ? '已移至无分组' : '已移至分组“$label”');
     } else {
       shell.setMessage('移动失败：目标节点不存在或保存被拒绝');
     }
   }
 
-  /// `一键生成策略组` (ACT-PROF-007/008) for the primary target's subscription.
-  void _genGroup({required bool region}) {
+  /// `一键生成策略组` (ACT-PROF-007/008) for the subscription group selected in
+  /// the table at menu-open time.
+  ///
+  /// Upstream `GenGroupAllServer`/`GenGroupRegionServer` generate for
+  /// `SelectedSub`; they do not need a selected node. The captured
+  /// `command.groupSubId` is the stable target, so a later group switch or a
+  /// leftover hidden selection cannot retarget the command (PR-21). With no
+  /// concrete group selected the command fails with an honest message instead
+  /// of guessing from a row.
+  void _genGroup(CommandContext? command, {required bool region}) {
     final profiles = ref.read(profilesControllerProvider.notifier);
     final shell = ref.read(uiShellControllerProvider.notifier);
-    final session = _menuSession;
-    final primary = session?.primaryId;
-    if (primary == null) {
-      shell.setMessage('请先选择节点以确定订阅分组');
-      return;
-    }
-    final dto = profiles.profileById(primary);
-    final subId = dto?.subid ?? '';
-    if (subId.isEmpty) {
-      shell.setMessage('所选节点不属于任何订阅分组');
+    final subId = command?.groupSubId;
+    if (subId == null || subId.isEmpty) {
+      shell.setMessage('请先在顶部分组中选择一个订阅分组');
       return;
     }
     if (region) {
-      final count = profiles.genGroupRegion(subId);
-      shell.setMessage(count >= 0 ? '已生成 $count 个地区策略组' : '生成地区策略组失败');
+      final result = profiles.genGroupRegion(subId);
+      if (result.ok && result.profiles.isNotEmpty) {
+        profiles.selectGenerated(
+          result.profiles.map((p) => p.indexId).toList(),
+        );
+        shell.setMessage('已生成 ${result.profiles.length} 个地区策略组');
+      } else {
+        shell.setMessage('生成地区策略组失败：该分组无匹配地区节点或被拒绝');
+      }
     } else {
       final result = profiles.genGroupAll(subId);
-      shell.setMessage(result.ok ? '已生成全部配置项策略组' : '生成策略组失败');
+      final created = result.profile;
+      if (result.ok && created != null) {
+        profiles.selectGenerated(<String>[created.indexId]);
+        shell.setMessage('已生成全部配置项策略组');
+      } else {
+        shell.setMessage('生成策略组失败：订阅分组不存在或保存被拒绝');
+      }
     }
   }
 }

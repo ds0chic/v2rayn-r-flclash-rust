@@ -198,3 +198,21 @@ fn singbox_wireguard_endpoint() {
     assert!(!has_wg, "wireguard must be an endpoint, not an outbound");
     assert_no_live_port(main);
 }
+
+// FIX-02 (PR-03): the TUIC editor stores the UUID in `username` and the
+// authentication secret in `password`; sing-box must map them verbatim
+// (`uuid` <- username, `password` <- password) and never swap them.
+#[test]
+fn singbox_tuic_uuid_username_password_split() {
+    let mut tuic = profile(ConfigType::Tuic, "192.0.2.40", 443);
+    tuic.username = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee".into();
+    tuic.password = "distinct-auth-secret".into();
+    let generated = generate_singbox(&codegen_input(tuic)).expect("tuic");
+    let uuid = string_at(&generated.main, "/outbounds/0/uuid");
+    let password = string_at(&generated.main, "/outbounds/0/password");
+    assert_eq!(uuid, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    assert_eq!(password, "distinct-auth-secret");
+    assert_ne!(uuid, password, "UUID and password must not be swapped");
+    assert_eq!(string_at(&generated.main, "/outbounds/0/type"), "tuic");
+    assert_no_live_port(&generated.main);
+}

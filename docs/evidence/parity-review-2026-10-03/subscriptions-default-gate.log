@@ -1,0 +1,148 @@
+   Compiling subscriptions v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\subscriptions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.98s
+     Running unittests src\lib.rs (target\debug\deps\subscriptions-8597b4a37b92b42a.exe)
+
+running 61 tests
+test download::tests::control_char_in_value_is_rejected ... ok
+test download::tests::invalid_header_is_rejected ... ok
+test fmt::base::tests::network_normalizes_unknown_and_empty_to_raw ... ok
+test fmt::base::tests::build_uri_encodes_user_info_and_brackets_ipv6 ... ok
+test fmt::base::tests::raw_uses_tcp_alias_and_none_header ... ok
+test download::tests::non_http_proxy_is_rejected ... ok
+test fmt::batch::tests::html_and_clash_detection_require_all_markers ... ok
+test fmt::hysteria2::tests::hyrealm_parse_and_server_url ... ok
+test download::tests::origin_comparison_detects_scheme_host_port_changes ... ok
+test fmt::hysteria2::tests::escaped_query_decodes_exactly_once ... ok
+test fmt::batch::tests::singbox_full_and_outbound_detection ... ok
+test fmt::base::tests::resolve_then_emit_query_roundtrips_transport ... ok
+test fmt::batch::tests::full_xray_config_becomes_a_custom_profile ... ok
+test fmt::batch::tests::bare_outbounds_are_extracted ... ok
+test fmt::anytls::tests::roundtrip_basic_fields ... ok
+test fmt::hysteria2::tests::obfs_and_port_range_roundtrip ... ok
+test fmt::hysteria2::tests::port_defaults_to_443_and_explicit_zero_is_kept ... ok
+test fmt::hysteria2::tests::realm_roundtrip ... ok
+test fmt::inner::tests::non_inner_lines_are_ignored ... ok
+test fmt::naive::tests::https_roundtrip_credentials_and_concurrency ... ok
+test fmt::naive::tests::quic_scheme_roundtrip ... ok
+test fmt::inner::tests::empty_group_is_dropped_and_custom_skipped ... ok
+test fmt::tests::group_and_http_have_no_share_uri ... ok
+test fmt::socks::tests::legacy_base64_socks_is_parsed ... ok
+test fmt::socks::tests::roundtrip_userinfo ... ok
+test fmt::tests::kind_detection_covers_prefixes ... ok
+test fmt::tests::unsupported_line_is_rejected ... ok
+test fmt::inner::tests::group_references_are_remapped_and_self_becomes_subid ... ok
+test fmt::trojan::tests::roundtrip_writes_both_insecure_spellings ... ok
+test fmt::trojan::tests::special_characters_in_password_roundtrip ... ok
+test fmt::tuic::tests::roundtrip_userinfo_and_congestion_control ... ok
+test fmt::vless::tests::reality_parameters_roundtrip ... ok
+test fmt::vmess::tests::invalid_json_base64_is_rejected ... ok
+test fmt::vless::tests::roundtrip_basic_fields_and_encryption_default ... ok
+test fmt::vmess::tests::std_uri_with_at_is_parsed_as_standard_form ... ok
+test fmt::vmess::tests::json_roundtrip_preserves_core_fields ... ok
+test fmt::wireguard::tests::conf_without_private_key_is_rejected ... ok
+test fmt::wireguard::tests::conf_parses_peers_and_strips_inline_comments ... ok
+test merge::tests::complex_nodes_are_never_deduplicated ... ok
+test merge::tests::empty_incoming_preserves_existing ... ok
+test fmt::wireguard::tests::uri_roundtrip_with_ipv6_and_escaped_keys ... ok
+test merge::tests::identical_nodes_collapse_keeping_older ... ok
+test merge::tests::parse_error_preserves_existing ... ok
+test parse::tests::content_limit_is_enforced ... ok
+test parse::tests::base64_list_is_detected ... ok
+test merge::tests::filter_drops_non_matching_remarks ... ok
+test parse::tests::item_limit_truncates_with_warning ... ok
+test parse::tests::plain_list_partial_success_locates_bad_lines ... ok
+test parse::tests::unknown_content_reports_error ... ok
+test util::tests::base64_roundtrip_tolerates_urlsafe_and_padding ... ok
+test util::tests::ipv6_bracketting_is_idempotent ... ok
+test util::tests::decode_body_bytes_honours_gbk_charset ... ok
+test util::tests::query_decodes_exactly_once ... ok
+test util::tests::pem_helpers_extract_and_hash ... ok
+test util::tests::query_splits_on_first_equals_and_keeps_stun_occurrences ... ok
+test util::tests::url_encode_matches_rfc3986_unreserved ... ok
+test util::tests::regex_guard_fails_open_on_invalid_and_oversized_patterns ... ok
+test fmt::shadowsocks::tests::legacy_and_sip002_roundtrip ... ok
+test fmt::shadowsocks::tests::missing_required_fields_are_rejected ... ok
+test fmt::shadowsocks::tests::noncanonical_plugin_with_literal_equals_configures_obfs ... ok
+test fmt::shadowsocks::tests::legacy_base64_form_is_parsed ... ok
+
+test result: ok. 61 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\download.rs (target\debug\deps\download-18928fa771b9605a.exe)
+
+running 11 tests
+test proxy_scheme_validation_is_local ... ok
+test downloads_body_successfully ... ok
+test custom_header_and_user_agent_are_sent ... ok
+test oversized_body_is_rejected ... ok
+test missing_required_header_is_rejected_by_server ... ok
+test non_success_status_is_an_error ... ok
+test gbk_charset_is_decoded ... ok
+test same_origin_redirect_is_followed ... ok
+test cross_origin_redirect_drops_authorization ... ok
+test cancellation_stops_a_slow_download ... ok
+test slow_response_times_out ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests\fmt_roundtrip.rs (target\debug\deps\fmt_roundtrip-e005b1a3058c72d9.exe)
+
+running 23 tests
+test fmt_kind_matrix ... ok
+test hysteria2_percent_value_survives_roundtrip ... ok
+test group_profile_has_no_share_uri ... ok
+test hysteria2_port_defaults_to_443 ... ok
+test anytls_roundtrip ... ok
+test hysteria2_roundtrip_obfs_and_port_range ... ok
+test naive_https_and_quic_roundtrip ... ok
+test hysteria2_realm_roundtrip ... ok
+test socks_roundtrip_and_legacy ... ok
+test unsupported_and_empty_inputs_error ... ok
+test trojan_roundtrip_writes_both_insecure_spellings ... ok
+test vless_roundtrip_reality ... ok
+test tuic_roundtrip ... ok
+test vless_kcp_and_grpc_transport_roundtrip ... ok
+test vless_xhttp_transport_roundtrip ... ok
+test unicode_and_emoji_remarks_survive ... ok
+test vmess_aid_written_as_string_still_parses ... ok
+test vmess_standard_uri_is_parsed ... ok
+test wireguard_conf_parses_two_peers ... ok
+test vmess_json_roundtrip ... ok
+test wireguard_roundtrip_brackets_ipv6 ... ok
+test shadowsocks_sip002_roundtrip ... ok
+test shadowsocks_legacy_and_obfs_plugin ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\parity_original_inner.rs (target\debug\deps\parity_original_inner-dfe72b222f1d1c80.exe)
+
+running 2 tests
+test exported_inner_uri_uses_frozen_profile_property_names ... ignored, PR-08: frozen upstream wire format mismatch; run with --ignored
+test frozen_pascal_case_inner_uri_preserves_vless_entity_and_extras ... ignored, PR-08: frozen upstream wire format mismatch; run with --ignored
+
+test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\parse_pipeline.rs (target\debug\deps\parse_pipeline-1a04d1178ae9f2d1.exe)
+
+running 13 tests
+test html_page_is_flagged_not_imported ... ok
+test plain_list_partial_success_locates_bad_lines ... ok
+test auto_detects_base64_list ... ok
+test auto_partial_list_keeps_good_nodes_and_reports_bad ... ok
+test clash_detection_requires_all_markers ... ok
+test content_and_item_limits_are_enforced ... ok
+test pre_cancelled_token_stops_the_pipeline ... ok
+test wireguard_conf_is_parsed ... ok
+test sip008_json_is_parsed ... ok
+test singbox_outbound_is_detected ... ok
+test xray_full_config_is_detected ... ok
+test auto_mixes_standard_and_inner_uris ... ok
+test inner_self_sentinel_uses_option_subid ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests subscriptions
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

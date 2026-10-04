@@ -1,0 +1,7 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_r3_prof_menu_target_test.dart
+00:00 +0: context menu commands target the captured main row
+00:00 +0: context menu commands target the captured main row - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_r3_prof_menu_target_test.dart: context menu commands target the captured main row (did not complete)

@@ -1,0 +1,33 @@
+SR-01 command evidence (collected on d27eff0 working tree)
+
+# Rust: application subs tests (includes new per-group report case)
+$ cargo test -p application --lib subs::tests --locked
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 174 filtered out
+  - subs::tests::refresh_report_is_per_group_success_failure_and_empty_url ... ok
+
+# Rust: bridge_api subscription bridge tests (includes report cache case)
+$ cargo test -p bridge_api --lib api::subs --locked
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out
+  - api::subs::tests::sub_update_report_round_trips_and_unknown_is_none ... ok
+
+# Rust: format check (two crates only, not workspace-wide)
+$ cargo fmt -p application -p bridge_api -- --check
+EXIT=0
+
+# Dart: format changed files
+$ dart format lib/features/subs/subs_controller.dart test/fix09_subs_job_cancel_test.dart test/sr01_subs_report_test.dart
+Formatted 3 files (2 changed)
+
+# Dart: analyze
+$ flutter analyze
+No issues found!
+
+# Dart: widget tests
+$ flutter test test/fix09_subs_job_cancel_test.dart test/sr01_subs_report_test.dart test/fix09d_scheduler_ctrl_test.dart test/t09_sub_edit_test.dart test/t09_sub_setting_test.dart
+00:03 +15: All tests passed!
+  - fix09: binds the live job id before completion and cancels by id
+  - fix09: reports a real success only after the bound job completes (report-driven, added=2)
+  - fix09: a Done job without a report never fabricates success
+  - sr01: per-group report: A success, B failure, C empty URL skipped
+  - fix09d: startScheduler idempotent / stopScheduler leaves no timer
+  - t09_sub_edit / t09_sub_setting: unchanged suite green

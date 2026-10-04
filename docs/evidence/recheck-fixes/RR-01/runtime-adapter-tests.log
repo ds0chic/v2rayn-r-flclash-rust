@@ -1,0 +1,14 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests src\lib.rs (target\debug\deps\runtime-61f3f5bee583af5c.exe)
+
+running 7 tests
+test adapter::tests::core_dir_is_lowercase ... ok
+test adapter::tests::unknown_core_has_no_adapter ... ok
+test adapter::tests::xray_command_shape ... ok
+test adapter::tests::default_root_matches_engine_data_cores ... ok
+test adapter::tests::resolve_override_wins_and_missing_is_not_found ... ok
+test adapter::tests::explicit_cores_root_disables_dev_fallback ... ok
+test adapter::tests::resolve_prefers_highest_version_then_pinned ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 36 filtered out; finished in 0.00s
+

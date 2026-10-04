@@ -1,0 +1,72 @@
+{
+  "date": "2026-10-04",
+  "startHead": "d27eff0",
+  "upstream": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "implemented",
+  "kernelStarted": false,
+  "hostProxyTouched": false,
+  "credentialsRead": false,
+  "mainShellModified": false,
+  "checks": [
+    {
+      "id": "RE-PROF-01",
+      "name": "new/paste/scan inherit the command-start group",
+      "passed": true,
+      "evidence": [
+        "newDraft writes state.groupSubId",
+        "importFromClipboard/importShareText snapshot group before await",
+        "persistImportedProfiles re-binds empty subid to the snapshot",
+        "tests: recheck01_group_inheritance_test (4) + recheck01_import_snapshot_widget_test (1)"
+      ]
+    },
+    {
+      "id": "RE-PROF-05",
+      "name": "hidden selection cleared on group/filter/reload",
+      "passed": true,
+      "evidence": [
+        "_recompute intersects selected with visible",
+        "tests: recheck05_hidden_selection_test (2)"
+      ]
+    },
+    {
+      "id": "RE-PROF-02",
+      "name": "edit/delete active re-applies; fallback selection",
+      "passed": true,
+      "evidence": [
+        "applyAfterEditIfActive + reconcileActiveAfterRemoval + nextActiveAfterRemoval",
+        "activateProfileDetailed separates persist vs apply failure",
+        "tests: recheck02_active_apply_test (4)"
+      ]
+    },
+    {
+      "id": "R-01",
+      "name": "shared RuntimeController.reload()",
+      "passed": true,
+      "wired": false,
+      "evidence": [
+        "runtime_controller.reload busy-guarded refresh+applyActive",
+        "tests: recheck_r01_runtime_reload_test (3)",
+        "main_shell wiring patch documented only (file frozen for this task)"
+      ]
+    }
+  ],
+  "commands": [
+    {"cmd": "dart format <11 files>", "result": "5 changed"},
+    {"cmd": "flutter analyze", "result": "No issues found"},
+    {"cmd": "flutter test recheck01_group_inheritance + recheck05 + recheck_r01", "result": "+9 pass"},
+    {"cmd": "flutter test recheck01_import_snapshot_widget_test", "result": "+1 pass"},
+    {"cmd": "flutter test recheck02_active_apply_test", "result": "+4 pass"},
+    {"cmd": "flutter test t06a_controller + context_menu_move + fix10b_profile_order", "result": "+10 pass"},
+    {"cmd": "flutter test ux_parity_fix05_scan + t09_import_export", "result": "+6 pass"}
+  ],
+  "notRun": [
+    "real Windows window end-to-end",
+    "flutter build windows",
+    "full flutter test",
+    "original v2rayN dual-window comparison"
+  ],
+  "gaps": [
+    "main_shell F5 and ACT-MAIN-035 wiring (forbidden to modify here; patch documented)",
+    "runtime apply effect not verified on a real isolated runtime"
+  ]
+}

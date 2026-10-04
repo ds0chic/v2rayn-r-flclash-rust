@@ -76,6 +76,22 @@ pub struct MonitorSession {
     pub state_port2: u16,
 }
 
+/// The managed cores root for a given data directory: `V2RAYN_R_CORES_DIR`
+/// overrides, otherwise `<data_dir>/cores`, falling back to the default data
+/// directory. Shared by install (bridge `cores_root`) and run (NetHostClient
+/// forwards it to net-host as `V2RAYN_R_CORES_ROOT`).
+pub fn managed_cores_root(data_dir: Option<&Path>) -> PathBuf {
+    if let Ok(dir) = std::env::var("V2RAYN_R_CORES_DIR") {
+        if !dir.trim().is_empty() {
+            return PathBuf::from(dir);
+        }
+    }
+    match data_dir {
+        Some(dir) => dir.join("cores"),
+        None => AppEngine::default_data_dir().join("cores"),
+    }
+}
+
 /// Shared engine handle. Cloning shares all state.
 #[derive(Clone)]
 pub struct AppEngine {
@@ -152,7 +168,13 @@ impl AppEngine {
     /// `guiNDB.db` / `guiNConfig.json` as needed). Runtime events go to the
     /// real net-host client.
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self, DomainError> {
-        Self::open_with_runtime(data_dir, Arc::new(NetHostClient::new()))
+        let data_dir = data_dir.as_ref().to_path_buf();
+        let runtime: Arc<dyn RuntimeClient> = Arc::new(NetHostClient::with_cores_root(
+            std::env::var("V2RAYN_R_PIPE")
+                .unwrap_or_else(|_| runtime::NET_HOST_PIPE_NAME.to_string()),
+            managed_cores_root(Some(&data_dir)),
+        ));
+        Self::open_with_runtime(data_dir, runtime)
     }
 
     /// Open a real SQLite-backed engine with an injected runtime client.
@@ -250,6 +272,13 @@ impl AppEngine {
     /// The data directory this engine is rooted at, when persistent.
     pub fn data_dir(&self) -> Option<&Path> {
         self.data_dir.as_deref()
+    }
+
+    /// The managed cores root - the single source of truth shared by the update
+    /// pipeline (install) and the runtime locator (run). `V2RAYN_R_CORES_DIR`
+    /// overrides; otherwise it is `<data_dir>/cores`.
+    pub fn cores_root(&self) -> PathBuf {
+        managed_cores_root(self.data_dir.as_deref())
     }
 
     /// Drop every live SQLite handle so the data directory's files can be

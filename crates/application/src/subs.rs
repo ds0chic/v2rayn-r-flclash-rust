@@ -762,26 +762,31 @@ pub fn report_to_json(report: &SubUpdateReport) -> Value {
         .entries
         .iter()
         .map(|e| {
-            let (status, added, existing, code, message) = match &e.outcome {
+            let (status, added, existing, removed, code, message) = match &e.outcome {
+                // A group that downloaded and merged: `added` is the real new
+                // row count and `removed` the real removed count, never a net
+                // growth.
                 SubUpdateOutcome::Updated { added, removed } => {
-                    ("updated", Some(*added), Some(*removed), None, None)
+                    ("updated", Some(*added), None, Some(*removed), None, None)
                 }
                 SubUpdateOutcome::PreservedEmpty { existing } => {
-                    ("preserved_empty", None, Some(*existing), None, None)
+                    ("preserved_empty", None, Some(*existing), None, None, None)
                 }
                 SubUpdateOutcome::PreservedError { code, message } => (
                     "preserved_error",
+                    None,
                     None,
                     None,
                     Some(code.clone()),
                     Some(message.clone()),
                 ),
                 SubUpdateOutcome::Skipped { reason } => {
-                    ("skipped", None, None, None, Some(reason.clone()))
+                    ("skipped", None, None, None, None, Some(reason.clone()))
                 }
-                SubUpdateOutcome::Cancelled => ("cancelled", None, None, None, None),
+                SubUpdateOutcome::Cancelled => ("cancelled", None, None, None, None, None),
                 SubUpdateOutcome::Failed { code, message } => (
                     "failed",
+                    None,
                     None,
                     None,
                     Some(code.clone()),
@@ -797,6 +802,9 @@ pub fn report_to_json(report: &SubUpdateReport) -> Value {
             }
             if let Some(existing) = existing {
                 map.insert("existing".into(), json!(existing));
+            }
+            if let Some(removed) = removed {
+                map.insert("removed".into(), json!(removed));
             }
             if let Some(code) = code {
                 map.insert("code".into(), json!(code));
@@ -1289,6 +1297,106 @@ mod tests {
             report.entries[0].outcome
         );
         assert!(engine.profiles_by_subid(&saved.id).unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn refresh_report_is_per_group_success_failure_and_empty_url() {
+        // SR-01: A succeeds, B cannot be downloaded, C is an enabled plain
+        // (empty URL) group. The report must keep the three outcomes distinct
+        // and expose the real `added` count for A instead of inferring "all
+        // succeeded" from success_count > 0.
+        let vless =
+            "vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none#sr01";
+        let ok_url = spawn_sub_server(vless).await;
+        let dead = bind_test_listener().await;
+        let dead_port = dead.local_addr().unwrap().port();
+        drop(dead);
+        let engine = crate::engine::AppEngine::in_memory();
+        engine
+            .save_sub_item(SubItem {
+                id: "s-a".into(),
+                remarks: "A".into(),
+                url: ok_url,
+                enabled: true,
+                ..SubItem::default()
+            })
+            .expect("save A");
+        engine
+            .save_sub_item(SubItem {
+                id: "s-b".into(),
+                remarks: "B".into(),
+                url: format!("http://127.0.0.1:{dead_port}/sub"),
+                enabled: true,
+                ..SubItem::default()
+            })
+            .expect("save B");
+        engine
+            .save_sub_item(SubItem {
+                id: "s-c".into(),
+                remarks: "C 普通分组".into(),
+                url: String::new(),
+                enabled: true,
+                ..SubItem::default()
+            })
+            .expect("save C");
+
+        let report = refresh_subscriptions_with_convert(
+            &engine,
+            SubUpdateRequest::default(),
+            &CancellationToken::new(),
+            100,
+        )
+        .await;
+        assert_eq!(report.success_count(), 1, "{:?}", report.entries);
+        let entry = |id: &str| {
+            report
+                .entries
+                .iter()
+                .find(|e| e.sub_id == id)
+                .unwrap_or_else(|| panic!("missing entry {id}"))
+        };
+        assert!(
+            matches!(
+                entry("s-a").outcome,
+                SubUpdateOutcome::Updated { added: 1, .. }
+            ),
+            "A must report the real added count, got {:?}",
+            entry("s-a").outcome
+        );
+        assert!(
+            matches!(
+                entry("s-b").outcome,
+                SubUpdateOutcome::PreservedError { .. } | SubUpdateOutcome::Failed { .. }
+            ),
+            "B must surface a structured failure, got {:?}",
+            entry("s-b").outcome
+        );
+        assert!(
+            matches!(entry("s-c").outcome, SubUpdateOutcome::Skipped { .. }),
+            "empty-URL group must be skipped, not counted as success, got {:?}",
+            entry("s-c").outcome
+        );
+
+        let json = report_to_json(&report);
+        assert_eq!(json["success"], 1);
+        let entries = json["entries"].as_array().expect("entries array");
+        let a = entries
+            .iter()
+            .find(|e| e["sub_id"] == "s-a")
+            .expect("A json entry");
+        assert_eq!(a["status"], "updated");
+        assert_eq!(a["added"], 1);
+        assert!(a.get("removed").is_some(), "report must carry removed");
+        let b = entries
+            .iter()
+            .find(|e| e["sub_id"] == "s-b")
+            .expect("B json entry");
+        assert_ne!(b["status"], "updated");
+        let c = entries
+            .iter()
+            .find(|e| e["sub_id"] == "s-c")
+            .expect("C json entry");
+        assert_eq!(c["status"], "skipped");
     }
 
     #[tokio::test]

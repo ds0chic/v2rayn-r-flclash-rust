@@ -1,0 +1,13 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.32s
+     Running tests\t16_update.rs (target\debug\deps\t16_update-eef97a6b5d9c8011.exe)
+
+running 6 tests
+test app_update_requires_configured_source ... ok
+test digest_mismatch_leaves_no_install ... ok
+test app_update_spec_never_spawns_helper ... ok
+test app_update_rejects_wpf_payload_for_flutter_binary ... ok
+test app_update_stage_replace_rollback_restart_isolated ... ok
+test check_apply_and_rollback_in_temp_dir ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+

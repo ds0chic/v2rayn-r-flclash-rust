@@ -347,10 +347,15 @@ class ProfilesController extends Notifier<ProfilesState> {
   // -- T06a profile editor / repository actions ---------------------------
 
   /// A fresh draft for a new node of [configType].
+  ///
+  /// The draft inherits the currently selected group (upstream
+  /// `AddServerAsync` -> `ProfileItem{Subid = _config.SubIndexId}`), so a node
+  /// added while a group is visible lands in that group instead of "no group".
   ProfileDraft newDraft(ConfigType configType) {
     return ProfileDraft()
       ..configType = configType
       ..coreType = ProfileCapabilities.defaultCore(configType)
+      ..subid = state.groupSubId ?? ''
       ..remarks = ''
       ..address = ''
       ..port = 443
@@ -488,7 +493,15 @@ class ProfilesController extends Notifier<ProfilesState> {
       grouped = filtered.where((r) => _rowSubId(subById, r) == group).toList();
     }
     final sorted = applySort(grouped, base.visibleColumns, base.sort);
-    return base.copyWith(visible: sorted);
+    // Upstream `RefreshServersBiz` rebuilds the visible list and the selection
+    // from it; a row that is no longer visible (group/filter change, delete)
+    // must not stay selected, otherwise a batch/keyboard action would hit a
+    // hidden node (RE-PROF-05).
+    final visibleIds = sorted.map((r) => r.id).toSet();
+    return base.copyWith(
+      visible: sorted,
+      selected: base.selected.where(visibleIds.contains).toSet(),
+    );
   }
 
   /// Owning subscription id of a table row.

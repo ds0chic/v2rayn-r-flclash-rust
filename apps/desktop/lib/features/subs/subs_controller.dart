@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart' as m;
@@ -65,6 +67,13 @@ class SubsState {
 
 /// Subscription window controller (ACT-MAIN-019..023, F-SUB-001..011).
 class SubsController extends Notifier<SubsState> {
+  /// Stage-key prefix carrying the terminal per-group report.
+  ///
+  /// `job_view` already round-trips `stage_key`, so the Rust bridge parks the
+  /// backend report there for the same job id (SR-01). A dedicated
+  /// `subUpdateReport` getter replaces this carrier once FRB is regenerated.
+  static const String reportStagePrefix = 'subs.report:';
+
   @override
   SubsState build() {
     return SubsState(items: _load());
@@ -208,15 +217,14 @@ class SubsController extends Notifier<SubsState> {
       state == m.JobState.failed ||
       state == m.JobState.cancelled;
 
-  /// Resolve a started job into a truthful terminal result. Node counts are
-  /// derived from the engine before/after so a success is never invented.
+  /// Resolve a started job into a truthful terminal result from the backend's
+  /// per-group report; a success is never invented from the Done state.
   Future<c.SubUpdateResult> _awaitJob(
     BridgePort bridge,
     c.SubUpdateResult started,
     List<String> subIds,
   ) async {
     final jobId = started.jobId!;
-    final before = _countsBySub(bridge);
     c.JobDto? job;
     final deadline = DateTime.now().add(const Duration(minutes: 10));
     do {
@@ -226,28 +234,12 @@ class SubsController extends Notifier<SubsState> {
     } while (DateTime.now().isBefore(deadline));
     final targets = _targets(subIds);
     if (job == null || !_isTerminal(job.state)) {
-      return c.SubUpdateResult(
-        ok: false,
-        success: 0,
-        cancelled: false,
-        entries: <c.SubUpdateEntryDto>[
-          for (final s in targets)
-            c.SubUpdateEntryDto(
-              subId: s.id,
-              remarks: s.remarks,
-              status: 'failed',
-              code: 'E_UNAVAILABLE',
-              message: 'error.sub_update_unconfirmed',
-            ),
-        ],
-        jobId: jobId,
-        error: const c.ErrorDto(
-          code: 'E_UNAVAILABLE',
-          messageKey: 'error.sub_update_unconfirmed',
-          retryable: true,
-        ),
-      );
+      return _unconfirmed(jobId, targets);
     }
+    // SR-01: trust the backend's per-group report for this exact job id.
+    // Never reconstruct "all updated" from the Done state.
+    final reported = _reportFromJob(job);
+    if (reported != null) return reported;
     switch (job.state) {
       case m.JobState.cancelled:
         return c.SubUpdateResult(
@@ -265,25 +257,9 @@ class SubsController extends Notifier<SubsState> {
           jobId: jobId,
         );
       case m.JobState.done:
-        final after = _countsBySub(bridge);
-        final entries = <c.SubUpdateEntryDto>[
-          for (final s in targets)
-            c.SubUpdateEntryDto(
-              subId: s.id,
-              remarks: s.remarks,
-              status: 'updated',
-              added: _positiveDelta(after[s.id], before[s.id]),
-              existing: before[s.id] ?? 0,
-            ),
-        ];
-        final updated = entries.length;
-        return c.SubUpdateResult(
-          ok: updated > 0,
-          success: updated,
-          cancelled: false,
-          entries: entries,
-          jobId: jobId,
-        );
+        // Terminal but no report: the truth is unprovable, so say so instead
+        // of inventing per-group success.
+        return _unconfirmed(jobId, targets);
       default:
         final code = job.errorCode ?? 'E_UNAVAILABLE';
         final messageKey = job.errorMessageKey ?? 'error.sub_update_failed';
@@ -311,25 +287,85 @@ class SubsController extends Notifier<SubsState> {
     }
   }
 
-  int _positiveDelta(int? after, int? before) {
-    final a = after ?? 0;
-    final b = before ?? 0;
-    return a > b ? a - b : 0;
+  /// Decode the backend report parked on the terminal job's stage key.
+  ///
+  /// Returns `null` when no report is present or it is malformed, so callers
+  /// fall back to explicit (never fabricated) terminal handling.
+  c.SubUpdateResult? _reportFromJob(c.JobDto job) {
+    final stage = job.stageKey;
+    if (stage == null || !stage.startsWith(reportStagePrefix)) return null;
+    try {
+      final decoded = jsonDecode(stage.substring(reportStagePrefix.length));
+      if (decoded is! Map) return null;
+      final rawEntries = decoded['entries'];
+      if (rawEntries is! List) return null;
+      final entries = <c.SubUpdateEntryDto>[
+        for (final raw in rawEntries)
+          if (raw is Map)
+            c.SubUpdateEntryDto(
+              subId: '${raw['sub_id'] ?? ''}',
+              remarks: '${raw['remarks'] ?? ''}',
+              status: '${raw['status'] ?? 'failed'}',
+              added: raw['added'] is int ? raw['added'] as int : null,
+              existing: raw['existing'] is int ? raw['existing'] as int : null,
+              code: raw['code'] is String ? raw['code'] as String : null,
+              message: raw['message'] is String
+                  ? raw['message'] as String
+                  : null,
+            ),
+      ];
+      final cancelled =
+          decoded['cancelled'] == true ||
+          entries.any((e) => e.status == 'cancelled');
+      final updated = entries.where((e) => e.status == 'updated').length;
+      return c.SubUpdateResult(
+        ok: !cancelled && updated > 0,
+        success: updated,
+        cancelled: cancelled,
+        entries: entries,
+        jobId: job.jobId,
+        error: (!cancelled && updated == 0)
+            ? c.ErrorDto(
+                code: job.errorCode ?? 'E_UNAVAILABLE',
+                messageKey: job.errorMessageKey ?? 'error.sub_update_failed',
+                retryable: false,
+              )
+            : null,
+      );
+    } on FormatException {
+      return null;
+    }
   }
 
-  Map<String, int> _countsBySub(BridgePort bridge) {
-    final counts = <String, int>{};
-    for (final profile in bridge.queryAllProfiles()) {
-      counts.update(profile.subid, (v) => v + 1, ifAbsent: () => 1);
-    }
-    return counts;
-  }
+  c.SubUpdateResult _unconfirmed(String jobId, List<c.SubItemDto> targets) =>
+      c.SubUpdateResult(
+        ok: false,
+        success: 0,
+        cancelled: false,
+        entries: <c.SubUpdateEntryDto>[
+          for (final s in targets)
+            c.SubUpdateEntryDto(
+              subId: s.id,
+              remarks: s.remarks,
+              status: 'failed',
+              code: 'E_UNAVAILABLE',
+              message: 'error.sub_update_unconfirmed',
+            ),
+        ],
+        jobId: jobId,
+        error: const c.ErrorDto(
+          code: 'E_UNAVAILABLE',
+          messageKey: 'error.sub_update_unconfirmed',
+          retryable: true,
+        ),
+      );
 
   List<c.SubItemDto> _targets(List<String> subIds) {
-    if (subIds.isNotEmpty) {
-      return state.items.where((s) => subIds.contains(s.id)).toList();
-    }
-    return state.items.where((s) => s.enabled).toList();
+    final selected = subIds.isNotEmpty
+        ? state.items.where((s) => subIds.contains(s.id))
+        : state.items.where((s) => s.enabled);
+    // Empty-URL groups are plain groups: they are never download targets.
+    return selected.where((s) => s.url.trim().isNotEmpty).toList();
   }
 
   /// Cancel the in-flight update job (idempotent). Calls through to the
@@ -381,13 +417,17 @@ class SubsController extends Notifier<SubsState> {
     final preserved = result.entries
         .where((e) => e.status.startsWith('preserved'))
         .length;
+    final skipped = result.entries.where((e) => e.status == 'skipped').length;
     final failed = result.entries
         .where((e) => e.status == 'failed' || e.status == 'preserved_error')
         .length;
-    if (updated == 0 && failed > 0) {
-      return '更新失败 $failed（旧节点已保留）';
+    if (updated == 0) {
+      if (failed > 0) return '更新失败 $failed（旧节点已保留）';
+      if (skipped > 0) return '已跳过 $skipped 个分组（无 URL 或已禁用）';
+      return '没有可更新的订阅';
     }
     final parts = <String>['成功 $updated'];
+    if (skipped > 0) parts.add('跳过 $skipped');
     if (preserved > 0) parts.add('保留旧节点 $preserved');
     if (failed > 0) parts.add('失败 $failed');
     return '更新完成：${parts.join('，')}';

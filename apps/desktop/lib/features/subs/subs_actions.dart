@@ -17,6 +17,10 @@ import 'package:v2rayn_desktop/features/subs/sub_setting_window.dart';
 /// [persistImportedProfiles]); when the payload is a subscription URL instead
 /// of a share link the user is offered the real subscription add/update path.
 Future<void> importFromClipboard(BuildContext context, WidgetRef ref) async {
+  // Snapshot the current group before any await: upstream passes
+  // `_config.SubIndexId` at command time, so a group switch during parsing
+  // must not retarget the imported nodes.
+  final groupSubId = ref.read(profilesControllerProvider).groupSubId;
   final data = await Clipboard.getData(Clipboard.kTextPlain);
   final text = data?.text ?? '';
   if (text.trim().isEmpty) {
@@ -24,9 +28,17 @@ Future<void> importFromClipboard(BuildContext context, WidgetRef ref) async {
     return;
   }
   final bridge = ref.read(bridgePortProvider);
-  final result = await bridge.importFromText(text, deduplicate: true);
+  final result = await bridge.importFromText(
+    text,
+    subid: groupSubId,
+    deduplicate: true,
+  );
   if (result.ok && result.profiles.isNotEmpty) {
-    final persisted = persistImportedProfiles(bridge, result.profiles);
+    final persisted = persistImportedProfiles(
+      bridge,
+      result.profiles,
+      subid: groupSubId,
+    );
     ref.read(profilesControllerProvider.notifier).reload();
     _toast(ref, _importSuccessToast(persisted, result));
     return;
@@ -92,10 +104,21 @@ Future<void> importShareText(
   String sourceLabel = '剪贴板',
 }) async {
   if (text.trim().isEmpty) return;
+  // Same contract as the clipboard entry: snapshot the group once at command
+  // start so paste/scan both inherit the visible group.
+  final groupSubId = ref.read(profilesControllerProvider).groupSubId;
   final bridge = ref.read(bridgePortProvider);
-  final result = await bridge.importFromText(text, deduplicate: true);
+  final result = await bridge.importFromText(
+    text,
+    subid: groupSubId,
+    deduplicate: true,
+  );
   if (result.ok && result.profiles.isNotEmpty) {
-    final persisted = persistImportedProfiles(bridge, result.profiles);
+    final persisted = persistImportedProfiles(
+      bridge,
+      result.profiles,
+      subid: groupSubId,
+    );
     ref.read(profilesControllerProvider.notifier).reload();
     _toast(
       ref,

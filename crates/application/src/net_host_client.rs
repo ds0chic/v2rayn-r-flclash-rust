@@ -52,6 +52,10 @@ fn trace(message: impl AsRef<str>) {
 struct Shared {
     pipe_name: String,
     auto_launch: bool,
+    /// Managed cores root forwarded to a launched net-host as
+    /// `V2RAYN_R_CORES_ROOT`, so install (`UpdateService`) and run
+    /// (`CoreLocator`) share one root with no user-set environment.
+    cores_root: Mutex<Option<PathBuf>>,
     /// Serializes control requests so at most one request connection is live.
     req_mutex: Mutex<()>,
     /// Serializes net-host launches across the event and control paths.
@@ -93,6 +97,7 @@ impl NetHostClient {
             shared: Arc::new(Shared {
                 pipe_name: pipe_name.into(),
                 auto_launch: std::env::var_os("V2RAYN_R_NO_AUTOLAUNCH").is_none(),
+                cores_root: Mutex::new(None),
                 req_mutex: Mutex::new(()),
                 launch_mutex: Mutex::new(()),
                 sink: Arc::new(Mutex::new(None)),
@@ -104,9 +109,34 @@ impl NetHostClient {
         }
     }
 
+    /// Build a client that forwards `cores_root` to every net-host it launches.
+    pub fn with_cores_root(pipe_name: impl Into<String>, cores_root: impl Into<PathBuf>) -> Self {
+        let client = Self::with_pipe(pipe_name);
+        client.set_cores_root(cores_root);
+        client
+    }
+
+    /// Set the managed cores root forwarded as `V2RAYN_R_CORES_ROOT` on launch.
+    /// Call before the first runtime request; later calls affect only later
+    /// launches.
+    pub fn set_cores_root(&self, cores_root: impl Into<PathBuf>) {
+        if let Ok(mut slot) = self.shared.cores_root.lock() {
+            *slot = Some(cores_root.into());
+        }
+    }
+
     /// The configured pipe name (diagnostics/tests).
     pub fn pipe_name(&self) -> &str {
         &self.shared.pipe_name
+    }
+
+    /// The managed cores root forwarded to a launched net-host, if configured.
+    pub fn cores_root(&self) -> Option<PathBuf> {
+        self.shared
+            .cores_root
+            .lock()
+            .ok()
+            .and_then(|slot| slot.clone())
     }
 
     fn request(
@@ -392,7 +422,7 @@ fn connect(shared: &Arc<Shared>) -> Result<File, DomainError> {
         return Ok(file);
     }
     trace("connect: launching net_host");
-    launch_net_host()?;
+    launch_net_host(shared)?;
     let deadline = Instant::now() + LAUNCH_WAIT;
     loop {
         if let Ok(file) = open_pipe(&shared.pipe_name) {
@@ -427,11 +457,30 @@ fn read_payload<R: Read>(reader: &mut R) -> std::io::Result<Vec<u8>> {
     Ok(payload)
 }
 
-fn launch_net_host() -> Result<(), DomainError> {
+/// Forward the engine's managed cores root to a launched net-host.
+///
+/// The engine's cores root is the single source of truth: install
+/// ([`UpdateService`](crate::UpdateService)) and run (`CoreLocator`) must agree
+/// with no user-set environment. An explicit `V2RAYN_R_CORES_ROOT` already in
+/// this process wins over the client field.
+fn apply_launch_env(command: &mut std::process::Command, shared: &Arc<Shared>) {
+    let cores_root = shared
+        .cores_root
+        .lock()
+        .ok()
+        .and_then(|slot| slot.clone())
+        .or_else(|| std::env::var_os("V2RAYN_R_CORES_ROOT").map(PathBuf::from));
+    if let Some(root) = cores_root {
+        command.env("V2RAYN_R_CORES_ROOT", root);
+    }
+}
+
+fn launch_net_host(shared: &Arc<Shared>) -> Result<(), DomainError> {
     let exe = locate_net_host().ok_or_else(|| {
         unavailable("net_host.exe not found (set V2RAYN_R_NET_HOST or build the workspace)")
     })?;
     let mut command = std::process::Command::new(&exe);
+    apply_launch_env(&mut command, shared);
     command
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
@@ -569,5 +618,39 @@ mod tests {
         let detail = RuntimeDetail::default();
         let snap = map_snapshot(&ipc_snapshot(), &detail);
         assert!(snap.tun.is_none(), "no lease must never become a fake TUN");
+    }
+
+    #[test]
+    fn launch_env_forwards_configured_cores_root() {
+        let client =
+            NetHostClient::with_cores_root("\\\\.\\pipe\\rr01-test", "C:\\tmp\\data\\cores");
+        assert_eq!(
+            client.cores_root().as_deref(),
+            Some(std::path::Path::new("C:\\tmp\\data\\cores"))
+        );
+        let mut command = std::process::Command::new("net_host.exe");
+        apply_launch_env(&mut command, &client.shared);
+        let env: Vec<(std::ffi::OsString, Option<std::ffi::OsString>)> = command
+            .get_envs()
+            .map(|(k, v)| (k.to_os_string(), v.map(|v| v.to_os_string())))
+            .collect();
+        let found = env
+            .iter()
+            .find(|(k, _)| k == "V2RAYN_R_CORES_ROOT")
+            .expect("cores root must be forwarded");
+        assert_eq!(
+            found.1.as_deref(),
+            Some(std::ffi::OsStr::new("C:\\tmp\\data\\cores"))
+        );
+    }
+
+    #[test]
+    fn launch_env_without_root_forwards_nothing() {
+        let client = NetHostClient::with_pipe("\\\\.\\pipe\\rr01-test-empty");
+        assert!(client.cores_root().is_none());
+        let mut command = std::process::Command::new("net_host.exe");
+        apply_launch_env(&mut command, &client.shared);
+        let has_root = command.get_envs().any(|(k, _)| k == "V2RAYN_R_CORES_ROOT");
+        assert!(!has_root, "no root means no forwarded env var");
     }
 }

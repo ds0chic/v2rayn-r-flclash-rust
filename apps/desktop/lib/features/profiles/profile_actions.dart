@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
+import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/custom_editor_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/group_editor_dialog.dart';
@@ -69,19 +70,22 @@ Future<void> editSelectedProfile(BuildContext context, WidgetRef ref) async {
     _toast(ref, '未找到节点 $id');
     return;
   }
+  // Upstream `EditServerAsync`: a successful save of the active node ends in
+  // `Reload()`, which re-applies the running core.
+  final wasActive = state.activeId == id;
   final bridge = ref.read(bridgePortProvider);
+  final c.ProfileDto? saved;
   switch (resolveEditorKind(dto.configType)) {
     case SpecialEditorKind.custom:
-      final saved = await showCustomEditor(
+      saved = await showCustomEditor(
         context,
         initial: ProfileDraft.fromDto(dto),
         onSave: controller.saveDraft,
         customImportFile: bridge.customImportFile,
         dataDir: bridge.dataDir,
       );
-      _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
     case SpecialEditorKind.group:
-      final saved = await showGroupEditor(
+      saved = await showGroupEditor(
         context,
         initial: ProfileDraft.fromDto(dto),
         allProfiles: state.profiles,
@@ -89,19 +93,25 @@ Future<void> editSelectedProfile(BuildContext context, WidgetRef ref) async {
         previewChildren: controller.groupChildPreview,
         onSave: controller.saveDraft,
       );
-      _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
     case SpecialEditorKind.generic:
-      final saved = await showProfileEditor(
+      saved = await showProfileEditor(
         context,
         initial: ProfileDraft.fromDto(dto),
         onSave: controller.saveDraft,
         allowConfigTypeChange: false,
       );
-      _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
+  }
+  _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');
+  if (saved != null && wasActive) {
+    await applyAfterEditIfActive(ref, id);
   }
 }
 
 /// Delete the selection after an explicit confirmation.
+///
+/// Upstream `RemoveServerAsync`: after the confirmation the profiles are
+/// removed and, when the active node was among them, `Reload()` runs.
+/// `ConfigHandler.SetDefaultServer` then picks a replacement before applying.
 Future<void> deleteSelectedProfiles(BuildContext context, WidgetRef ref) async {
   final controller = ref.read(profilesControllerProvider.notifier);
   final state = ref.read(profilesControllerProvider);
@@ -109,6 +119,9 @@ Future<void> deleteSelectedProfiles(BuildContext context, WidgetRef ref) async {
     _toast(ref, '请先选择要删除的节点');
     return;
   }
+  final activeBefore = state.activeId;
+  final removedActive =
+      activeBefore != null && state.selected.contains(activeBefore);
   final confirmed = await showAppConfirmDialog(
     context,
     title: '删除节点',
@@ -124,7 +137,67 @@ Future<void> deleteSelectedProfiles(BuildContext context, WidgetRef ref) async {
     return;
   }
   final result = controller.deleteSelected();
-  _toast(ref, result.ok ? '已删除 ${result.removed} 个节点' : '删除失败');
+  if (!result.ok) {
+    _toast(ref, '删除失败');
+    return;
+  }
+  if (removedActive) {
+    await reconcileActiveAfterRemoval(ref);
+  }
+  _toast(ref, '已删除 ${result.removed} 个节点');
+}
+
+/// Upstream `ConfigHandler.SetDefaultServer` fallback after the active node was
+/// removed: prefer a `Port > 0` node from the current visible list, then the
+/// whole stored set; with no candidate the active id is cleared and nothing is
+/// applied. Returns the chosen id, or null when the active id was cleared.
+Future<String?> reconcileActiveAfterRemoval(WidgetRef ref) async {
+  final controller = ref.read(profilesControllerProvider.notifier);
+  final candidate = nextActiveAfterRemoval(
+    ref.read(profilesControllerProvider),
+  );
+  if (candidate == null) {
+    controller.setActive(null);
+    controller.logAction(ProfileAction.activate, 'id=(none) after delete');
+    return null;
+  }
+  final outcome = await activateProfileDetailed(ref, candidate);
+  if (!outcome.persisted) {
+    _toast(ref, '删除后未能设置新的活动节点');
+    return null;
+  }
+  return candidate;
+}
+
+/// Pure fallback pick (upstream `SetDefaultServer`): first `Port > 0` row of
+/// the current visible list that still exists in the store, else the first
+/// stored `Port > 0` node. Null means "no candidate, clear the active id".
+String? nextActiveAfterRemoval(ProfilesState state) {
+  final stored = <String, c.ProfileDto>{
+    for (final p in state.profiles) p.indexId: p,
+  };
+  for (final row in state.visible) {
+    final profile = stored[row.id];
+    if (profile != null && profile.port > 0) return row.id;
+  }
+  for (final profile in state.profiles) {
+    if (profile.port > 0) return profile.indexId;
+  }
+  return null;
+}
+
+/// Applies the runtime after an edit that targeted the active node; a no-op for
+/// any other node (the table reload already happened in `saveDraft`).
+Future<void> applyAfterEditIfActive(WidgetRef ref, String editedId) async {
+  if (ref.read(profilesControllerProvider).activeId != editedId) return;
+  await _applyRuntime(ref);
+}
+
+/// Run the shared runtime apply and report whether it succeeded. A failed
+/// apply keeps its structured error in the runtime state (never a fake ok).
+Future<bool> _applyRuntime(WidgetRef ref) async {
+  await ref.read(runtimeControllerProvider.notifier).applyActive();
+  return ref.read(runtimeControllerProvider).error == null;
 }
 
 /// Clone the selection.
@@ -181,20 +254,58 @@ Future<void> renameSelectedProfile(BuildContext context, WidgetRef ref) async {
   _toast(ref, result.ok ? '备注已更新' : '备注更新失败');
 }
 
+/// Outcome of activating a node: persistence and runtime apply are reported
+/// separately so a stored-but-failed apply is never shown as full success.
+class ActivationOutcome {
+  const ActivationOutcome({
+    required this.persisted,
+    required this.applied,
+    this.applyErrorCode,
+  });
+
+  final bool persisted;
+  final bool applied;
+  final String? applyErrorCode;
+
+  bool get fullyOk => persisted && applied;
+}
+
 /// Activate one node by stable id and reload the managed core.
 ///
 /// Shared by the table command and the tray node submenu (RT-11) so both run
 /// the same use case. Re-selecting the active node is a no-op, mirroring
-/// upstream `SetDefaultServer`.
-Future<bool> activateProfileById(WidgetRef ref, String id) async {
+/// upstream `SetDefaultServer`. Returns the detailed outcome so callers can tell
+/// a rejected persist from a failed runtime apply.
+Future<ActivationOutcome> activateProfileDetailed(
+  WidgetRef ref,
+  String id,
+) async {
   final controller = ref.read(profilesControllerProvider.notifier);
-  if (ref.read(profilesControllerProvider).activeId == id) return true;
+  if (ref.read(profilesControllerProvider).activeId == id) {
+    return const ActivationOutcome(persisted: true, applied: true);
+  }
   final result = controller.setActive(id);
-  if (!result.ok) return false;
+  if (!result.ok) {
+    return ActivationOutcome(
+      persisted: false,
+      applied: false,
+      applyErrorCode: result.error?.code,
+    );
+  }
   controller.logAction(ProfileAction.activate, 'id=$id');
-  await ref.read(runtimeControllerProvider.notifier).applyActive();
-  return true;
+  final applied = await _applyRuntime(ref);
+  return ActivationOutcome(
+    persisted: true,
+    applied: applied,
+    applyErrorCode: applied
+        ? null
+        : ref.read(runtimeControllerProvider).error?.code,
+  );
 }
+
+/// Bool wrapper kept for callers that only care about persistence (tray menu).
+Future<bool> activateProfileById(WidgetRef ref, String id) async =>
+    (await activateProfileDetailed(ref, id)).persisted;
 
 /// Set the selected node as the active node and reload the managed core.
 ///
@@ -213,8 +324,20 @@ Future<void> setActiveSelected(WidgetRef ref) async {
     _toast(ref, '该节点已是活动节点');
     return;
   }
-  final ok = await activateProfileById(ref, id);
-  _toast(ref, ok ? '已设为活动节点' : '操作失败');
+  final outcome = await activateProfileDetailed(ref, id);
+  if (!outcome.persisted) {
+    _toast(
+      ref,
+      '设为活动节点失败${outcome.applyErrorCode == null ? '' : '（${outcome.applyErrorCode}）'}',
+    );
+  } else if (outcome.applied) {
+    _toast(ref, '已设为活动节点');
+  } else {
+    _toast(
+      ref,
+      '已设为活动节点，但运行应用失败${outcome.applyErrorCode == null ? '' : '（${outcome.applyErrorCode}）'}',
+    );
+  }
 }
 
 /// Add a PolicyGroup / ProxyChain node through the group editor + bridge.

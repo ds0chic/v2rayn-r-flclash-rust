@@ -135,6 +135,18 @@ class RuntimeController extends Notifier<RuntimeView> {
     await applyActive();
   }
 
+  /// Shared reload use case for the F5 shortcut and the ACT-MAIN-035 menu
+  /// (upstream `MainWindowViewModel.Reload`: re-read the latest desired plan and
+  /// re-apply it). Busy-protected so a reload never stomps an in-flight
+  /// apply/stop; with no persisted active node it only refreshes the snapshot.
+  Future<void> reload() async {
+    if (state.isBusy) return;
+    await refresh();
+    if (state.error != null) return;
+    if (_bridge.activeProfileId() == null) return;
+    await applyActive();
+  }
+
   Future<void> stop() async {
     try {
       final result = await _bridge.stop();

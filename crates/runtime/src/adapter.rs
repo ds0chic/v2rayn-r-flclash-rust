@@ -22,18 +22,27 @@ pub struct CoreLocator {
 impl CoreLocator {
     /// Build a locator from the environment.
     ///
-    /// Search order: `V2RAYN_R_XRAY_BIN` (explicit), `V2RAYN_R_CORES_ROOT`,
-    /// `%LOCALAPPDATA%\v2rayn-r\cores`, then the `tools/cores` directory of
-    /// this repository (discovered by walking up from the current exe/cwd).
+    /// Search order: `V2RAYN_R_XRAY_BIN` (explicit per-exe override),
+    /// `V2RAYN_R_CORES_ROOT` (the managed root the app's NetHostClient always
+    /// forwards), otherwise the managed default `<data>/cores`
+    /// (`V2RAYN_R_DATA_DIR` or `%LOCALAPPDATA%\v2rayn-r\data\cores`, matching
+    /// `AppEngine::default_data_dir`). The repository `tools/cores` tree is
+    /// appended *only* as a development fallback; when an explicit
+    /// `V2RAYN_R_CORES_ROOT` is present it is the sole root so a development
+    /// tree can never mask a production install.
     pub fn from_env() -> Self {
+        let explicit = std::env::var_os("V2RAYN_R_CORES_ROOT")
+            .filter(|value| !value.is_empty())
+            .map(PathBuf::from);
         let mut roots = Vec::new();
-        if let Some(root) = std::env::var_os("V2RAYN_R_CORES_ROOT") {
-            roots.push(PathBuf::from(root));
+        match &explicit {
+            Some(root) => roots.push(root.clone()),
+            None => roots.push(default_managed_cores_root()),
         }
-        if let Some(local) = std::env::var_os("LOCALAPPDATA") {
-            roots.push(PathBuf::from(local).join("v2rayn-r").join("cores"));
+        // Dev-only fallback: never reachable once the app forwarded a root.
+        if explicit.is_none() {
+            roots.extend(ancestor_core_roots());
         }
-        roots.extend(ancestor_core_roots());
         Self {
             roots,
             xray_override: std::env::var_os("V2RAYN_R_XRAY_BIN").map(PathBuf::from),
@@ -109,6 +118,33 @@ impl CoreLocator {
 /// agree (`sing_box` is `singbox`, never `sing-box`).
 pub fn core_dir(core: CoreType) -> &'static str {
     CoreInstallLayout::dir_name(core)
+}
+
+/// The managed cores root for the current user, mirroring
+/// `application::AppEngine::default_data_dir()` (`<data>/cores`) so the runtime
+/// and the update pipeline resolve the same directory even before the app has
+/// forwarded an explicit `V2RAYN_R_CORES_ROOT`.
+pub fn default_managed_cores_root() -> PathBuf {
+    if let Some(dir) = std::env::var_os("V2RAYN_R_DATA_DIR") {
+        if !dir.is_empty() {
+            return PathBuf::from(dir).join("cores");
+        }
+    }
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        return PathBuf::from(local)
+            .join("v2rayn-r")
+            .join("data")
+            .join("cores");
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        return PathBuf::from(home)
+            .join(".local")
+            .join("share")
+            .join("v2rayn-r")
+            .join("data")
+            .join("cores");
+    }
+    PathBuf::from("v2rayn-r-data").join("cores")
 }
 
 fn ancestor_core_roots() -> Vec<PathBuf> {
@@ -297,6 +333,67 @@ mod tests {
         let missing = CoreLocator::with_roots(vec![root.join("empty")], None);
         let err = missing.resolve(CoreType::Xray, None).unwrap_err();
         assert_eq!(err.code, domain::codes::NOT_FOUND);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Serializes the two env-mutating tests in this module; no other test in
+    /// the crate reads `V2RAYN_R_CORES_ROOT` / `V2RAYN_R_DATA_DIR`.
+    static ENV_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    struct EnvScope(Vec<(&'static str, Option<std::ffi::OsString>)>);
+
+    impl EnvScope {
+        fn set(pairs: &[(&'static str, Option<&str>)]) -> Self {
+            let saved = pairs
+                .iter()
+                .map(|(k, _)| (*k, std::env::var_os(k)))
+                .collect::<Vec<_>>();
+            for (k, v) in pairs {
+                match v {
+                    Some(v) => std::env::set_var(k, v),
+                    None => std::env::remove_var(k),
+                }
+            }
+            Self(saved)
+        }
+    }
+
+    impl Drop for EnvScope {
+        fn drop(&mut self) {
+            for (k, v) in &self.0 {
+                match v {
+                    Some(v) => std::env::set_var(k, v),
+                    None => std::env::remove_var(k),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn explicit_cores_root_disables_dev_fallback() {
+        let _guard = ENV_GUARD.lock().unwrap();
+        let root = temp_root("explicit-root");
+        let _env = EnvScope::set(&[("V2RAYN_R_CORES_ROOT", Some("C:/managed/cores"))]);
+        let locator = CoreLocator::from_env();
+        assert_eq!(locator.roots.len(), 1);
+        assert_eq!(locator.roots[0], PathBuf::from("C:/managed/cores"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn default_root_matches_engine_data_cores() {
+        let _guard = ENV_GUARD.lock().unwrap();
+        let root = temp_root("default-root");
+        let data = root.join("data");
+        let data_str = data.to_string_lossy().into_owned();
+        let _env = EnvScope::set(&[
+            ("V2RAYN_R_CORES_ROOT", None),
+            ("V2RAYN_R_DATA_DIR", Some(&data_str)),
+        ]);
+        assert_eq!(default_managed_cores_root(), data.join("cores"));
+        // Without an explicit root the dev fallback is allowed to participate.
+        let locator = CoreLocator::from_env();
+        assert_eq!(locator.roots[0], data.join("cores"));
         let _ = std::fs::remove_dir_all(&root);
     }
 }

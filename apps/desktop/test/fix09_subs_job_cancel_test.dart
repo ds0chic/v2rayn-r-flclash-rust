@@ -13,10 +13,14 @@ import 'support/subs_harness.dart';
 /// `cancelJob` is keyed by that id.
 class StartedJobBridge extends SeededSubsBridge {
   final String jobId;
+
+  /// The terminal per-group report the real bridge parks on the job's stage
+  /// key (SR-01). A Done job without it must not be read as "all succeeded".
+  final String? terminalReport;
   JobState state = JobState.running;
   int _views = 0;
 
-  StartedJobBridge({this.jobId = 'job-live-1'});
+  StartedJobBridge({this.jobId = 'job-live-1', this.terminalReport});
 
   @override
   Future<c.SubUpdateResult> updateSubscriptions(
@@ -38,7 +42,15 @@ class StartedJobBridge extends SeededSubsBridge {
     if (state == JobState.running && _views >= 2) {
       state = JobState.done;
     }
-    return c.JobDto(jobId: jobId, kind: 'update_subscription', state: state);
+    final stage = (state == JobState.done && terminalReport != null)
+        ? '${SubsController.reportStagePrefix}$terminalReport'
+        : null;
+    return c.JobDto(
+      jobId: jobId,
+      kind: 'update_subscription',
+      state: state,
+      stageKey: stage,
+    );
   }
 
   @override
@@ -89,7 +101,13 @@ void main() {
   testWidgets('reports a real success only after the bound job completes', (
     tester,
   ) async {
-    final bridge = StartedJobBridge();
+    // SR-01: the terminal outcome comes from the backend per-group report, not
+    // from the Done flag. A successful group must carry its real `added` count.
+    const report =
+        '{"success":1,"cancelled":false,"entries":['
+        '{"sub_id":"s-1","remarks":"测试订阅","status":"updated","added":2}'
+        ']}';
+    final bridge = StartedJobBridge(terminalReport: report);
     final container = makeSubsContainer(bridge: bridge);
     addTearDown(container.dispose);
     final controller = container.read(subsControllerProvider.notifier);
@@ -103,7 +121,29 @@ void main() {
     await tester.pump();
 
     expect(result.ok, isTrue);
-    expect(result.entries, isNotEmpty);
+    expect(result.success, 1);
+    expect(result.entries, hasLength(1));
+    expect(result.entries.single.status, 'updated');
+    expect(result.entries.single.added, 2);
     expect(container.read(subsControllerProvider).status!.isSuccess, isTrue);
+  });
+
+  testWidgets('a Done job without a report never fabricates success', (
+    tester,
+  ) async {
+    final bridge = StartedJobBridge();
+    final container = makeSubsContainer(bridge: bridge);
+    addTearDown(container.dispose);
+    final controller = container.read(subsControllerProvider.notifier);
+
+    final future = controller.update(viaProxy: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    final result = await future;
+    await tester.pump();
+
+    expect(result.ok, isFalse);
+    expect(result.success, 0);
+    expect(container.read(subsControllerProvider).status!.isSuccess, isFalse);
   });
 }

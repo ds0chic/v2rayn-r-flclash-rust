@@ -27,20 +27,28 @@ class PersistImportedResult {
 /// remarks/address that share URIs legitimately carry — unlike the editor
 /// draft contract enforced by `saveProfile`.
 ///
+/// [subid] is the group snapshot taken when the import command started. Any
+/// returned profile that carries no owning subscription is rebound to it before
+/// saving (upstream `AddBatchServers(..., _config.SubIndexId, ...)`), so a
+/// paste/scan lands in the group that was visible when the command began. A
+/// null/empty snapshot leaves the profile in the "no group" bucket.
+///
 /// The desired revision is re-read before every save so the optimistic
 /// revision contract holds for the whole batch.
 PersistImportedResult persistImportedProfiles(
   BridgePort bridge,
-  List<c.ProfileDto> profiles,
-) {
+  List<c.ProfileDto> profiles, {
+  String? subid,
+}) {
+  final groupSubId = (subid != null && subid.isNotEmpty) ? subid : null;
   var saved = 0;
   var failed = 0;
   String? firstErrorCode;
   for (final profile in profiles) {
-    final result = bridge.saveImportedProfile(
-      profile,
-      bridge.profileRevision(),
-    );
+    final target = (groupSubId != null && profile.subid.isEmpty)
+        ? _withSubId(profile, groupSubId)
+        : profile;
+    final result = bridge.saveImportedProfile(target, bridge.profileRevision());
     if (result.ok) {
       saved++;
     } else {
@@ -54,6 +62,30 @@ PersistImportedResult persistImportedProfiles(
     firstErrorCode: firstErrorCode,
   );
 }
+
+/// Copy [profile] with its owning subscription replaced by [subid].
+c.ProfileDto _withSubId(c.ProfileDto p, String subid) => c.ProfileDto(
+  indexId: p.indexId,
+  configType: p.configType,
+  coreType: p.coreType,
+  configVersion: p.configVersion,
+  subid: subid,
+  isSub: p.isSub,
+  preSocksPort: p.preSocksPort,
+  displayLog: p.displayLog,
+  remarks: p.remarks,
+  address: p.address,
+  port: p.port,
+  password: p.password,
+  username: p.username,
+  network: p.network,
+  muxEnabled: p.muxEnabled,
+  finalmask: p.finalmask,
+  security: p.security,
+  protoExtra: p.protoExtra,
+  transportExtra: p.transportExtra,
+  extraJson: p.extraJson,
+);
 
 final RegExp _subscriptionUrlLine = RegExp(
   r'^\s*https?://\S+\s*$',

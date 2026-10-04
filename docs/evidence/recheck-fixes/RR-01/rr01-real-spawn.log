@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running tests\rr01_cores_root.rs (target\debug\deps\rr01_cores_root-710ef82d106b24c7.exe)
+
+running 1 test
+test real_spawn_proves_temporary_root ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 1.60s
+

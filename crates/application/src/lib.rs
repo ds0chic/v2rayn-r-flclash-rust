@@ -46,7 +46,8 @@ pub use backup_service::{
 pub use dns::{new_dns_id, DnsRepository, InMemoryDnsRepository, RegionalPreset};
 pub use domain::CancellationToken;
 pub use engine::{
-    capability_table, empty_snapshot, AppEngine, PreSocksDecision, PRE_SOCKS_PROCESS_ID,
+    capability_table, empty_snapshot, managed_cores_root, AppEngine, PreSocksDecision,
+    PRE_SOCKS_PROCESS_ID,
 };
 pub use jobs::{JobManager, JobView};
 pub use monitor::{

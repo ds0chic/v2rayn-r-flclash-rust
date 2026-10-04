@@ -659,15 +659,8 @@ pub async fn t16_webdav_restore(cfg: WebDavConfigDto) -> RestoreResultDto {
 // -- update -----------------------------------------------------------------
 
 fn cores_root() -> PathBuf {
-    if let Ok(dir) = std::env::var("V2RAYN_R_CORES_DIR") {
-        if !dir.trim().is_empty() {
-            return PathBuf::from(dir);
-        }
-    }
-    match engine().data_dir() {
-        Some(dir) => dir.join("cores"),
-        None => application::AppEngine::default_data_dir().join("cores"),
-    }
+    // Single source of truth shared with AppEngine/NetHostClient.
+    engine().cores_root()
 }
 
 /// Explicit application install root: the directory holding the running

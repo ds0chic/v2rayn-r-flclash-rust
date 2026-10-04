@@ -5,6 +5,7 @@
 //! pure Fmt/parse/download logic is the `subscriptions` crate (T09) and is not
 //! re-implemented here.
 
+use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -191,6 +192,45 @@ fn sub_jobs() -> &'static Mutex<Vec<JobId>> {
     SUB_JOBS.get_or_init(|| Mutex::new(Vec::new()))
 }
 
+/// Process-global terminal reports keyed by job id (SR-01).
+///
+/// Kept after the job finishes so the UI can resolve the same job id into its
+/// true per-group outcome instead of inferring "all succeeded" from the job
+/// state. `sub_update_report` exposes it once FRB bindings are regenerated.
+static SUB_REPORTS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+
+fn sub_reports() -> &'static Mutex<HashMap<String, String>> {
+    SUB_REPORTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Marker prefix for the report parked on the terminal job's stage key.
+///
+/// `job_view` already round-trips `stage_key`, so this carries the backend
+/// per-group report to the UI for the matching job id without changing the
+/// generated bridge bindings. The dedicated [`sub_update_report`] getter takes
+/// over once FRB is regenerated.
+pub const SUB_REPORT_STAGE_PREFIX: &str = "subs.report:";
+
+pub(crate) fn remember_sub_report(job_id: &str, report_json: String) {
+    if let Ok(mut reports) = sub_reports().lock() {
+        reports.insert(job_id.to_string(), report_json);
+    }
+}
+
+/// `sub_update_report` — the terminal per-group report JSON for `job_id`.
+///
+/// Returns `None` for an unknown/never-run id. Implemented here but absent
+/// from the checked-in `frb_generated` bindings; the bridge currently reaches
+/// the report through the job stage key. Regenerating FRB wires this getter
+/// directly, replacing the stage-key carrier.
+#[frb(sync)]
+pub fn sub_update_report(job_id: String) -> Option<String> {
+    sub_reports()
+        .lock()
+        .ok()
+        .and_then(|reports| reports.get(&job_id).cloned())
+}
+
 /// A cancellation token plus the job id for a subscription update.
 fn register_sub_job() -> (JobId, CancellationToken) {
     let job = engine().jobs().start("update_subscription");
@@ -245,6 +285,15 @@ fn spawn_sub_update(
                 serde_json::Value::String(job_id.0.clone()),
             );
         }
+        // SR-01: cache the full report and park it on the job's stage key so
+        // the UI can resolve the same job id into the real per-group outcome.
+        let report_json = payload.to_string();
+        remember_sub_report(&job_id.0, report_json.clone());
+        let _ = engine.jobs().progress(
+            &job_id,
+            None,
+            Some(format!("{SUB_REPORT_STAGE_PREFIX}{report_json}")),
+        );
         finish_sub_job(&job_id, &report);
         emit_control("subscriptions_updated", payload);
     });
@@ -1012,5 +1061,17 @@ mod tests {
             .proto_extra
             .extra_json
             .contains("customConfigText"));
+    }
+
+    #[test]
+    fn sub_update_report_round_trips_and_unknown_is_none() {
+        // SR-01: the terminal report is retrievable by job id and survives
+        // after the job is done (the getter is not yet in frb_generated).
+        assert!(sub_update_report("job-never-ran".into()).is_none());
+        remember_sub_report("job-sr01", r#"{"success":1,"entries":[]}"#.into());
+        assert_eq!(
+            sub_update_report("job-sr01".into()).as_deref(),
+            Some(r#"{"success":1,"entries":[]}"#)
+        );
     }
 }

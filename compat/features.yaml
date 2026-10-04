@@ -1323,6 +1323,8 @@ features:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:178
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:574
   - v2rayN/ServiceLib/Handler/SubscriptionHandler.cs:5
+  - docs/tasks/SR-01.md
+  - docs/evidence/recheck-fixes/SR-01/README.md
   status: implemented
 - id: F-SUB-004
   name: 订阅自定义 HTTP Header
@@ -4965,3 +4967,18 @@ remediation_implementation_records:
     - docs/evidence/UX-PARITY-FIX-09C/README.md
     status: implemented
     note: 对照冻结源码 CoreConfigContextBuilder.BuildSubscriptionChainNodeAsync（7d6a967）。生成期对带 Subid 且非 Custom 的活动节点按 SubItem.PrevProfile/NextProfile 以 Remarks 精确匹配（首个，按 index_id 升序）合成 `inner-<id>` 虚拟 ProxyChain，ChildItems=[prev,node,next]（保序去重，仅生成期，不写回 ProfileItem）；悬空引用产生 Diagnostic::warning（error.subscription_prev/next_profile_not_found，field=SubItem.PrevProfile/NextProfile）并回退到可解析子集，双空不建链。生成复用 FIX-03C 链式语义：ChildItems 反序、Xray dialerProxy / sing-box detour 串联、入口 tag=proxy、无 balancer。application 192/192、bridge_api 51/51、fmt/clippy 干净。UI 仍为文本输入框写 Remarks（上游为排除 Custom 的节点选择器），选择器缺口登记为下一步。
+
+  - id: RR-01
+    name: managed cores root is the single source of truth (install == run)
+    implementation_location: crates/runtime/src/adapter.rs (CoreLocator::from_env, default_managed_cores_root) + crates/application/src/net_host_client.rs (with_cores_root/apply_launch_env) + crates/application/src/engine.rs (AppEngine::cores_root/managed_cores_root, open) + crates/bridge_api/src/api/t16.rs (cores_root)
+    test_ids:
+    - crates/runtime/src/adapter.rs::tests::explicit_cores_root_disables_dev_fallback
+    - crates/runtime/src/adapter.rs::tests::default_root_matches_engine_data_cores
+    - crates/application/src/net_host_client.rs::tests::launch_env_forwards_configured_cores_root
+    - crates/application/src/net_host_client.rs::tests::launch_env_without_root_forwards_nothing
+    - crates/application/tests/rr01_cores_root.rs::install_and_run_share_engine_cores_root
+    - crates/application/tests/rr01_cores_root.rs::real_spawn_proves_temporary_root
+    evidence:
+    - docs/evidence/recheck-fixes/RR-01/README.md
+    status: implemented
+    note: RR-01 P1. Engine cores root (<data>/cores or V2RAYN_R_CORES_DIR) is forwarded by NetHostClient to the launched net-host as V2RAYN_R_CORES_ROOT; net-host CoreLocator gives that explicit root absolute priority, defaults to <data>/cores to match AppEngine::default_data_dir, and only uses tools/cores as a dev fallback that is disabled when an explicit root exists. Install (update_service::install_core_from_dir via t16 cores_root) and run resolve through the same CoreInstallLayout and same root. FIX-12 CoreInstallLayout semantics and PGP verification unchanged. Verified with temp data dir install->CoreLocator resolution, captured child env, and an opt-in real xray spawn from a temporary cores root (exe path starts_with temp root).

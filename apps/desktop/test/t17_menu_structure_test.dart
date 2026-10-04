@@ -76,11 +76,16 @@ void main() {
         'ACT-MAIN-032',
         'ACT-MAIN-033',
         'ACT-MAIN-034',
-        'ACT-MAIN-035', // 重载
       }),
       isTrue,
       reason: 'preserved set: $ids',
     );
+  });
+
+  test('reload entry is invocable after the shared reload use case', () {
+    final reload = all.firstWhere((e) => e.actionId == 'ACT-MAIN-035');
+    expect(reload.preservedOnly, isFalse);
+    expect(reload.isInvocable, isTrue);
   });
 
   test('implemented entries stay invocable', () {

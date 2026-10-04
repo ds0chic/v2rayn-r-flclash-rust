@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.35s
+     Running unittests src\lib.rs (target\debug\deps\application-7735c105c4c3edff.exe)
+
+running 4 tests
+test net_host_client::tests::missing_tun_detail_stays_missing ... ok
+test net_host_client::tests::tun_detail_maps_into_snapshot_status ... ok
+test net_host_client::tests::launch_env_without_root_forwards_nothing ... ok
+test net_host_client::tests::launch_env_forwards_configured_cores_root ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 191 filtered out; finished in 0.00s
+

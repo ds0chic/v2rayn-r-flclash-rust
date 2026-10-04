@@ -153,14 +153,8 @@ final List<AppMenuEntry> mainMenuModel = <AppMenuEntry>[
     submenu: _settingEntries,
   ),
   AppMenuEntry(label: '帮助', actionId: 'UI-GROUP-HELP', submenu: _helpEntries),
-  // ACT-MAIN-035: upstream `menuReload` (重载). Kept as a top-level action but
-  // the backend reload is not wired, so it is preserved-only.
-  AppMenuEntry(
-    label: '重载',
-    actionId: 'ACT-MAIN-035',
-    shortcut: 'F5',
-    preservedOnly: true,
-  ),
+  // ACT-MAIN-035: upstream `menuReload` (重载), same use case as F5.
+  AppMenuEntry(label: '重载', actionId: 'ACT-MAIN-035', shortcut: 'F5'),
   AppMenuEntry(label: '推广', actionId: 'ACT-WIN-003', preservedOnly: true),
   AppMenuEntry(label: '关闭', actionId: 'ACT-WIN-002', shortcut: 'Alt+F4'),
 ];

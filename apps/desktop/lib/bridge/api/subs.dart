@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `materialize_custom_configs`, `register_sub_job`, `render_export`, `sanitize_index_id`, `spawn_sub_update`, `sub_jobs`, `sub_to_dto`
+// These functions are ignored because they are not marked as `pub`: `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `materialize_custom_configs`, `register_sub_job`, `remember_sub_report`, `render_export`, `sanitize_index_id`, `spawn_sub_update`, `sub_jobs`, `sub_reports`, `sub_to_dto`
 
 /// `list_sub_items` — every subscription ordered by `Sort`.
 SubsPageDto listSubItems() => RustLib.instance.api.crateApiSubsListSubItems();
@@ -41,6 +41,15 @@ SimpleResult validateSubItem({required SubItemDto item}) =>
 /// `set_local_proxy_port` — record the running session's mixed/socks port.
 void setLocalProxyPort({int? port}) =>
     RustLib.instance.api.crateApiSubsSetLocalProxyPort(port: port);
+
+/// `sub_update_report` — the terminal per-group report JSON for `job_id`.
+///
+/// Returns `None` for an unknown/never-run id. Implemented here but absent
+/// from the checked-in `frb_generated` bindings; the bridge currently reaches
+/// the report through the job stage key. Regenerating FRB wires this getter
+/// directly, replacing the stage-key carrier.
+String? subUpdateReport({required String jobId}) =>
+    RustLib.instance.api.crateApiSubsSubUpdateReport(jobId: jobId);
 
 /// `update_subscriptions` — the F-SUB-003 pipeline.
 ///

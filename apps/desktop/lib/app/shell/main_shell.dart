@@ -161,11 +161,10 @@ class _MainShellState extends ConsumerState<MainShell> {
     return Scaffold(
       body: CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.f5): () => ref
-              .read(uiShellControllerProvider.notifier)
-              .setMessage(
-                '${AppMenuEntry.preservedTooltip}: 重载 (ACT-MAIN-035)',
-              ),
+          const SingleActivator(LogicalKeyboardKey.f5): () => _guarded(
+            ref,
+            () => ref.read(runtimeControllerProvider.notifier).reload(),
+          ),
           const SingleActivator(LogicalKeyboardKey.keyS, control: true): () =>
               _guarded(ref, () => scanScreenQr(context, ref)),
           const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
@@ -418,6 +417,8 @@ class _MainShellState extends ConsumerState<MainShell> {
         } else {
           shell.setMessage('已请求最小化到托盘 (ACT-WIN-002)');
         }
+      case 'ACT-MAIN-035':
+        ref.read(runtimeControllerProvider.notifier).reload();
       default:
         final entry = _findMenuEntry(actionId);
         if (entry != null && entry.preservedOnly) {

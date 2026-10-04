@@ -24,7 +24,10 @@ pub mod sha256;
 pub mod tun;
 pub mod wire;
 
-pub use adapter::{adapter_for, core_dir, CoreAdapter, CoreLocator, SingBoxAdapter, XrayAdapter};
+pub use adapter::{
+    adapter_for, core_dir, default_managed_cores_root, CoreAdapter, CoreLocator, SingBoxAdapter,
+    XrayAdapter,
+};
 pub use graph::ExecutionPlan;
 pub use identity::{
     current_identity, matches_identity, process_creation_time_ms, terminate_identity,

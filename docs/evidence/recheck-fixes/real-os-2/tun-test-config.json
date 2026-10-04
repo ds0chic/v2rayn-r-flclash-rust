@@ -1,0 +1,15 @@
+{
+  "log": { "level": "info" },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "v2rayn-r-test-tun",
+      "address": ["172.19.0.1/30"],
+      "auto_route": false,
+      "strict_route": false,
+      "stack": "gvisor"
+    }
+  ],
+  "outbounds": [{ "type": "direct", "tag": "direct" }]
+}

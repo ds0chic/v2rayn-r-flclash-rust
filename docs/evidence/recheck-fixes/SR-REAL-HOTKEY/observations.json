@@ -1,0 +1,99 @@
+{
+  "task": "SR-REAL-HOTKEY",
+  "combo": "Ctrl+Alt+F12",
+  "action": "showForm (显示/隐藏窗口)",
+  "realHotkey": true,
+  "recordingComplete": true,
+  "failures": [],
+  "checks": [
+    {
+      "step": "os-combo-free-before",
+      "passed": true,
+      "actual": {
+        "exit": 0,
+        "stdout": "{\"mode\":\"probe\",\"combo\":\"ctrl+alt+f12\",\"modFlags\":3,\"mainVk\":123,\"free\":true,\"lastError\":0}",
+        "stderr": ""
+      }
+    },
+    {
+      "step": "bridge-write-and-save",
+      "passed": true,
+      "actual": {
+        "ok": true,
+        "saved": true
+      }
+    },
+    {
+      "step": "registered-showform",
+      "passed": true,
+      "actual": {
+        "registered": [
+          "showForm"
+        ],
+        "conflicts": []
+      }
+    },
+    {
+      "step": "window-visible-before",
+      "passed": true,
+      "actual": {
+        "visible": true
+      }
+    },
+    {
+      "step": "sendinput-1",
+      "passed": true,
+      "actual": {
+        "exit": 0,
+        "stdout": "{\"mode\":\"send\",\"combo\":\"ctrl+alt+f12\",\"request\":4,\"sent\":6,\"lastError\":0}",
+        "stderr": ""
+      }
+    },
+    {
+      "step": "callback-fired-showform",
+      "passed": true,
+      "actual": {
+        "fired": [
+          "showForm"
+        ]
+      }
+    },
+    {
+      "step": "window-hidden-after-press",
+      "passed": true,
+      "actual": {
+        "hidden": true,
+        "fired": [
+          "showForm"
+        ]
+      }
+    },
+    {
+      "step": "plugin-registry-empty",
+      "passed": true,
+      "actual": {
+        "registeredList": 0
+      }
+    },
+    {
+      "step": "os-combo-free-after",
+      "passed": true,
+      "actual": {
+        "exit": 0,
+        "stdout": "{\"mode\":\"probe\",\"combo\":\"ctrl+alt+f12\",\"modFlags\":3,\"mainVk\":123,\"free\":true,\"lastError\":0}",
+        "stderr": ""
+      }
+    },
+    {
+      "step": "no-dispatch-after-unregister",
+      "passed": true,
+      "actual": {
+        "sendExit": 0,
+        "firedBefore": 1,
+        "firedAfter": 1,
+        "visibleBefore": true,
+        "visibleAfter": true
+      }
+    }
+  ]
+}

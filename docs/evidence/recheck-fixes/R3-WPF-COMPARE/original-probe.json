@@ -1,0 +1,24 @@
+{
+  "pid": 42460,
+  "exe": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-wpf-run\\v2rayN.exe",
+  "run_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-wpf-run",
+  "shots": [
+    "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-WPF-COMPARE\\original-main.png"
+  ],
+  "ui_tree": 127,
+  "windows": [
+    {
+      "title": "v2rayN - V7.25.4 - X64 - 以管理员身份运行",
+      "hwnd": 51907340,
+      "rect": "360,116,1560,916",
+      "dpi": 96
+    }
+  ],
+  "error": null,
+  "cleanup": {
+    "stopped": [
+      42460
+    ],
+    "alive_after": false
+  }
+}

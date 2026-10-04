@@ -1,0 +1,3 @@
+   Compiling privileged_helper v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\privileged_helper)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.19s
+     Running tests\real_windows.rs (target\debug\deps\real_windows-6413c4e672cd35b4.exe)

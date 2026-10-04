@@ -1,0 +1,39 @@
+{
+  "pid": 33248,
+  "shots": [
+    "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-WPF-COMPARE\\original-main.png",
+    "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-WPF-COMPARE\\original-option.png",
+    "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-WPF-COMPARE\\original-routing.png"
+  ],
+  "windows": [
+    {
+      "name": "main",
+      "title": "v2rayN - V7.25.4 - X64 - 以管理员身份运行",
+      "rect": "360,116,1560,916",
+      "dpi": 96
+    },
+    {
+      "name": "option",
+      "title": "设置",
+      "rect": "460,166,1460,866",
+      "dpi": 96
+    },
+    {
+      "name": "routing",
+      "title": "路由设置",
+      "rect": "460,166,1460,866",
+      "dpi": 96
+    }
+  ],
+  "steps": [
+    "option hwnd=52366092",
+    "routing hwnd=103681580"
+  ],
+  "error": null,
+  "cleanup": {
+    "stopped": [
+      33248
+    ],
+    "alive_after": false
+  }
+}

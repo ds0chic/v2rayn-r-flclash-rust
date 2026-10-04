@@ -1,0 +1,6 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/sr_real_hotkey_test.dart
+Building Windows application...                                    16.6s
+鉁?Built build\windows\x64\runner\Debug\v2rayn_desktop.exe
+00:00 +0: SR-REAL-HOTKEY Ctrl+Alt+F12 dispatches show-window through real OS hotkey
+00:00 +0 ~1: (tearDownAll)
+00:00 +0 ~1: All tests skipped.

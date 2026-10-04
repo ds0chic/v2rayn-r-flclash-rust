@@ -3701,6 +3701,8 @@ features:
   - docs/tasks/SR-05.md
   - docs/tasks/SR-06.md
   - docs/evidence/recheck-fixes/SR-05-06/README.md
+  - docs/tasks/SR-REAL-HOTKEY.md
+  - docs/evidence/recheck-fixes/SR-REAL-HOTKEY/README.md
   status: implemented
 - id: F-DESKTOP-003
   name: 开机自启

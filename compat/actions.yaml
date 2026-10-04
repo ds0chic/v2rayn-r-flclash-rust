@@ -56,6 +56,8 @@ hotkey_scope_rules:
   - docs/tasks/SR-05.md
   - docs/tasks/SR-06.md
   - docs/evidence/recheck-fixes/SR-05-06/README.md
+  - docs/tasks/SR-REAL-HOTKEY.md
+  - docs/evidence/recheck-fixes/SR-REAL-HOTKEY/README.md
 - id: HKR-008
   name: Avalonia 平台的 Ctrl/Meta 等价
   description: Avalonia 视图用 e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta，在 macOS 上 Cmd 与 Ctrl 等效。
@@ -1496,6 +1498,8 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:180
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:189
   - docs/evidence/T13.md
+  - docs/tasks/SR-REAL-HOTKEY.md
+  - docs/evidence/recheck-fixes/SR-REAL-HOTKEY/README.md
   unresolved:
   - 源码中 GlobalHotkeys 默认仅初始化为空集合（ConfigHandler.cs:189 config.GlobalHotkeys ??= []），未见任何默认热键 KeyCode；任务要求的“四个默认键”在冻结源码中不存在，无法核实
   - Windows 与 macOS/Linux 的默认热键差异无可核实依据
@@ -5569,3 +5573,27 @@ items:
 #   (upstream CheckServerSettings). The old busy no-op assertion is corrected.
 # Boundaries: no live app release source, no real OS hotkey, no real menu network, no real cert chain/TLS
 #   against a node, no full workspace gate, no flutter build windows.
+
+# --- R3-WPF-COMPARE append (2026-10-04; evidence: docs/evidence/recheck-fixes/R3-WPF-COMPARE/; task: docs/tasks/R3-WPF-COMPARE.md) ---
+# Append only; no denominator change. Frozen v2rayN 7.25.4 (7d6a967) was built with dotnet 10
+#   (net10.0-windows10.0.19041.0, 0 warn/0 err) and launched from a temp copy so the exe dir is the
+#   data dir (Utils.StartupPath), with guiNConfig.json SystemProxyItem.SysProxyType=2 pre-seeded so
+#   StatusBarViewModel.Init / AppExitAsync never call ProxySettingWindows.UnsetProxy; process force
+#   killed. Real Windows screenshots captured for main + OptionSetting + RoutingSetting on both the
+#   frozen WPF app and the RC (RC via V2RAYN_R_OPEN_SETTINGS/ROUTING, isolated V2RAYN_R_DATA_DIR,
+#   Inbound.LocalPort=11808). Visible-structure observations only, no event-level comparison:
+#   * MATCH: top menu groups/order; node-table Chinese headers and set; routing builtin rulesets
+#     (V4-绕过大陆/黑名单/全局 = 8/11/4, order 1/2/3); 5 option tab concepts.
+#   * DIFF (candidate follow-ups): main window theme (frozen fixed Light; RC follows persisted
+#     system -> dark), MENU '重载' vs '重启服务', extra '#' index column, extra apply/stop/layout
+#     toolbar buttons, status-bar wording, empty-state, menu separators absent; option window
+#     title/group/field names, missing 认证用户名/密码 + Pac/Xray/mihomo 端口 hint + 默认 TLS 指纹,
+#     extra Mux/Hysteria2/Fragment/KCP sections, 取消/应用/保存 vs 确定/取消, raw 'settings.saved'
+#     key shown; routing window labels, missing '预定义规则集列表' heading and
+#     添加规则集/一键导入规则集, column headers 备注/规则数/URL/状态 vs 别名/数量/可选地址(Url)/
+#     自定义图标, bottom action row.
+#   * UNKNOWN: full submenu item/separator set, per-page field matrix, column widths/high-DPI,
+#     event-level behaviour.
+# Boundaries: no production code changed; no real node/subscription/credential; no 10808 use;
+#   no host system-proxy/registry/route/TUN write; only script-started PIDs stopped. Suggested
+#   follow-up cards: R3-WPF-Option-Labels, R3-WPF-Routing-Structure, R3-WPF-Main-Chrome.

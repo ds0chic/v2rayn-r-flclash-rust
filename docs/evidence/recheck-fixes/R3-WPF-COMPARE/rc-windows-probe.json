@@ -1,0 +1,54 @@
+[
+  {
+    "name": "rc-main",
+    "pid": 28056,
+    "extra": {},
+    "shot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-WPF-COMPARE\\rc-main.png",
+    "window": {
+      "title": "v2rayN",
+      "rect": "40,40,1240,840",
+      "dpi": 96
+    },
+    "error": null,
+    "stopped": [
+      28056
+    ],
+    "alive_after": false
+  },
+  {
+    "name": "rc-option",
+    "pid": 18476,
+    "extra": {
+      "V2RAYN_R_OPEN_SETTINGS": "1"
+    },
+    "shot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-WPF-COMPARE\\rc-option.png",
+    "window": {
+      "title": "v2rayN",
+      "rect": "40,40,1240,840",
+      "dpi": 96
+    },
+    "error": null,
+    "stopped": [
+      18476
+    ],
+    "alive_after": false
+  },
+  {
+    "name": "rc-routing",
+    "pid": 26716,
+    "extra": {
+      "V2RAYN_R_OPEN_ROUTING": "1"
+    },
+    "shot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-WPF-COMPARE\\rc-routing.png",
+    "window": {
+      "title": "v2rayN",
+      "rect": "40,40,1240,840",
+      "dpi": 96
+    },
+    "error": null,
+    "stopped": [
+      26716
+    ],
+    "alive_after": false
+  }
+]

@@ -1,0 +1,27 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-06 groupHotkeyBindings same combo with two actions collapses to one registration
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-06 groupHotkeyBindings different combos stay separate, duplicates collapse, unbound skipped
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-06 one registration dispatches every action of the combo
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-05 open pauses the old binding, records it without firing, cancel restores
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-05 save registers the new combo and dispatches it
+00:00 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-06 a failed registration keeps the window open
+00:00 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: R3-SET-05 partial failure stays paused until the edit ends
+00:00 +7: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart
+00:01 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter known WPF Key values map to the upstream virtual keys
+00:01 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter VK round-trips back to the persisted WPF Key
+00:01 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter WPF Key resolves to a registerable Flutter physical key
+00:01 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter unsupported keys never guess
+00:01 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter modifier detection matches the recording rule
+00:01 +12: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: hotkey dispatch registered trigger reaches the shell dispatcher
+00:01 +13: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: hotkey dispatch a failed persist does not re-register or dispatch
+00:01 +14: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: hotkey window recording a modifier does not terminate recording, then key sets WPF Key
+00:01 +15: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart
+00:02 +15: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey binding model unbound correspondence and label
+00:02 +16: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey binding model parses and serializes the KeyEventItem shape
+00:02 +17: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey controller registerAll accepts valid bindings and reports conflicts
+00:02 +18: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey controller conflict is surfaced, not swallowed
+00:02 +19: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey controller save rejects when persist fails
+00:02 +20: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: close behavior parses UiItem close flags
+00:02 +21: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_hotkey_test.dart
+00:02 +21: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_hotkey_test.dart: hotkey window records a combo and persists it
+00:02 +22: All tests passed!

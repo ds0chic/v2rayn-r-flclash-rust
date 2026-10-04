@@ -6,6 +6,7 @@ import 'package:v2rayn_desktop/app/app.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/bridge/frb_generated.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/settings/option_setting_window_entry.dart';
 import 'package:v2rayn_desktop/perf/t18_bench.dart';
 
 /// Compile-time arming flag for release-only evidence/benchmark hooks.
@@ -58,3 +59,10 @@ Future<void> main() async {
     ),
   );
 }
+
+/// Entrypoint of the independent option settings window engine. The native
+/// window host (`SettingsWindow`) creates a second Flutter engine with
+/// `set_dart_entrypoint("settingsWindowMain")`. Must stay a top-level function
+/// in this library to be reachable in AOT builds.
+@pragma('vm:entry-point')
+void settingsWindowMain() => runOptionSettingWindow();

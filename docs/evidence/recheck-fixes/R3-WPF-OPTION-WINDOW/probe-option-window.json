@@ -1,0 +1,119 @@
+{
+  "session": {
+    "pid": 33064,
+    "exe": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop\\build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe",
+    "run_exe": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-option-run-2892833cb4ee45f7a622430084a2eb29\\v2rayn_desktop.exe",
+    "run_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-option-run-2892833cb4ee45f7a622430084a2eb29",
+    "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-option-probe-ddaf3bf446f242dc8d66d8a83f3d423b",
+    "started": "2026-10-05T00:43:57.7510481+08:00",
+    "exited_early": false,
+    "exit_code": null,
+    "stopped": true,
+    "alive_after": false
+  },
+  "windows": [
+    {
+      "hwnd": "0x1D1192",
+      "hwnd_raw": 1905042,
+      "title": "",
+      "visible": false,
+      "enabled": true,
+      "owner": null,
+      "owner_raw": 0,
+      "style": "0x04CF0000",
+      "rect": {
+        "bottom": 38,
+        "left": -1,
+        "top": -1,
+        "right": 135
+      }
+    },
+    {
+      "hwnd": "0x1B126C",
+      "hwnd_raw": 1774188,
+      "title": "设置",
+      "visible": true,
+      "enabled": true,
+      "owner": "0x461016",
+      "owner_raw": 4591638,
+      "style": "0x14CF0000",
+      "rect": {
+        "bottom": 820,
+        "left": 120,
+        "top": 120,
+        "right": 1120
+      }
+    },
+    {
+      "hwnd": "0x461016",
+      "hwnd_raw": 4591638,
+      "title": "v2rayN",
+      "visible": true,
+      "enabled": false,
+      "owner": null,
+      "owner_raw": 0,
+      "style": "0x1CCF0000",
+      "rect": {
+        "bottom": 810,
+        "left": 10,
+        "top": 10,
+        "right": 1210
+      }
+    },
+    {
+      "hwnd": "0x4150D92",
+      "hwnd_raw": 68488594,
+      "title": "Default IME",
+      "visible": false,
+      "enabled": false,
+      "owner": "0x1B126C",
+      "owner_raw": 1774188,
+      "style": "0x8C000000",
+      "rect": {
+        "bottom": 0,
+        "left": 0,
+        "top": 0,
+        "right": 0
+      }
+    },
+    {
+      "hwnd": "0x1512FA",
+      "hwnd_raw": 1381114,
+      "title": "MSCTFIME UI",
+      "visible": false,
+      "enabled": false,
+      "owner": "0x4150D92",
+      "owner_raw": 68488594,
+      "style": "0x8C000000",
+      "rect": {
+        "bottom": 0,
+        "left": 0,
+        "top": 0,
+        "right": 0
+      }
+    }
+  ],
+  "trace": [
+    "[0.5] h:v2rayN-R (T01) | h:Default IME",
+    "[0.9] h:v2rayN-R (T01) | h:Default IME",
+    "[1.3] h:v2rayN-R (T01) | h:Default IME | h:MSCTFIME UI",
+    "[1.7] h:设置 | h:v2rayN-R (T01) | h:Default IME | h:MSCTFIME UI",
+    "[2.1] h:设置 | h:v2rayN-R (T01) | h:Default IME | h:MSCTFIME UI",
+    "[2.5] h: | V:设置 | V:v2rayN | h:Default IME | h:MSCTFIME UI"
+  ],
+  "foreground_raw": 62460520,
+  "checks": {
+    "main_present": true,
+    "settings_present": true,
+    "settings_title": true,
+    "independent_hwnd": true,
+    "settings_owned_by_main": true,
+    "main_disabled_modal": true,
+    "settings_enabled": true,
+    "two_visible_top_level": true,
+    "main_screenshot": true,
+    "settings_screenshot": true,
+    "settings_foregroundable": false
+  },
+  "passed": true
+}

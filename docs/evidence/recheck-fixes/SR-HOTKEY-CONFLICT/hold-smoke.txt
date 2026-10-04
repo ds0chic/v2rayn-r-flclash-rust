@@ -1,0 +1,12 @@
+# Standalone `-Hold` smoke (SR-HOTKEY-CONFLICT)
+# command: powershell.exe -NoProfile -ExecutionPolicy Bypass -File hold_smoke.ps1
+# (hold_smoke.ps1 drives tools/real_hotkey_sendinput.ps1 -Hold with stdin control)
+
+FREE_BEFORE: exit=0 {"mode":"probe","combo":"ctrl+alt+f11","modFlags":3,"mainVk":122,"free":true,"lastError":0}
+HOLD_STARTED: {"mode":"hold","combo":"ctrl+alt+f11","modFlags":3,"mainVk":122,"held":true,"lastError":0}
+PROBE_WHILE_HELD: exit=2 {"mode":"probe","combo":"ctrl+alt+f11","modFlags":3,"mainVk":122,"free":false,"lastError":1409}
+HOLDER_EXIT: 0
+FREE_AFTER: exit=0 {"mode":"probe","combo":"ctrl+alt+f11","modFlags":3,"mainVk":122,"free":true,"lastError":0}
+
+# Independent standalone dart:ffi GetLastError sanity check while occupied:
+#   register=0 lastError=1409

@@ -1,3 +1,6 @@
+import 'dart:ffi';
+import 'dart:io' show Platform;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:v2rayn_desktop/features/settings/hotkey_keycodec.dart';
@@ -194,6 +197,157 @@ List<HotkeyRegistration> groupHotkeyBindings(List<HotkeyBinding> bindings) {
   ];
 }
 
+/// Win32 `ERROR_HOTKEY_ALREADY_REGISTERED`: `RegisterHotKey` failed because the
+/// combination is already owned by another window/thread/process.
+const int errorHotkeyAlreadyRegistered = 1409;
+
+/// Outcome of an OS-level occupancy probe for one combination.
+class HotkeyProbeResult {
+  const HotkeyProbeResult({required this.free, this.errorCode});
+
+  /// True when the probe registered the combination and released it again.
+  final bool free;
+
+  /// Win32 error from a failed probe (`1409` = already registered). Null when
+  /// [free] is true, and also when the probe failed but `GetLastError` was not
+  /// preserved (then the failure itself means the combination is occupied).
+  final int? errorCode;
+}
+
+/// Human-readable conflict note for a probe result.
+///
+/// A nil/[errorHotkeyAlreadyRegistered] code means the combination is owned by
+/// another program: `RegisterHotKey` returned FALSE for a combination whose key
+/// and modifiers were already validated, which is the documented
+/// "already registered" case. Any other nonzero code keeps the raw Win32 value
+/// rather than inventing a cause.
+String hotkeyConflictNote(
+  Iterable<GlobalHotkeyAction> actions,
+  int? errorCode,
+) {
+  final labels = actions.map((a) => a.label).join('/');
+  final occupied =
+      errorCode == null || errorCode == errorHotkeyAlreadyRegistered;
+  final reason = occupied ? '组合已被其它程序占用' : '组合探测失败 (Win32 $errorCode)';
+  return '$labels: $reason';
+}
+
+/// Testable seam over the OS-level hotkey occupancy probe.
+///
+/// `hotkey_manager_windows` ignores `RegisterHotKey`'s return value and always
+/// reports success, so a combination held by another program is never observed
+/// by [HotkeyRegistrar.register]. This probe is the honest conflict signal.
+abstract class HotkeyProbe {
+  /// Try to register [combo] with the OS and immediately release it. Must not
+  /// mutate anything beyond a transient registration.
+  HotkeyProbeResult probe(HotkeyCombo combo, HotkeyKeyCodec codec);
+}
+
+/// Probe backed by `user32!RegisterHotKey` on a private registration id.
+///
+/// There is a short race window between this probe's `UnregisterHotKey` and the
+/// plugin's own `RegisterHotKey`: a combination grabbed by a third process in
+/// that window would still be misreported. A combination that was already held
+/// before the probe is reliably detected.
+class Win32HotkeyProbe implements HotkeyProbe {
+  const Win32HotkeyProbe();
+
+  /// Ephemeral id on the calling thread; disjoint from the plugin's ids.
+  static const int _probeId = 0x9A02;
+
+  @override
+  HotkeyProbeResult probe(HotkeyCombo combo, HotkeyKeyCodec codec) {
+    if (!Platform.isWindows) return const HotkeyProbeResult(free: true);
+    final vk = codec.virtualKeyFromWpf(combo.keyCode);
+    if (vk == null) {
+      // Unsupported key: the registrar reports it separately; never a conflict.
+      return const HotkeyProbeResult(free: true);
+    }
+    final modifiers =
+        (combo.alt ? 0x0001 : 0) |
+        (combo.control ? 0x0002 : 0) |
+        (combo.shift ? 0x0004 : 0);
+    try {
+      final api = _Win32HotkeyApi.instance;
+      final ok = api.register(0, _probeId, modifiers, vk);
+      if (ok != 0) {
+        api.unregister(0, _probeId);
+        return const HotkeyProbeResult(free: true);
+      }
+      // `RegisterHotKey` returned FALSE for a validated combination: the OS
+      // owns it. `GetLastError` is best-effort here (dart:ffi does not always
+      // preserve it across the engine boundary -> often 0 = ERROR_SUCCESS), so
+      // a 0 is surfaced as a null code and treated as occupancy by
+      // [hotkeyConflictNote].
+      final err = api.lastError();
+      return HotkeyProbeResult(free: false, errorCode: err == 0 ? null : err);
+    } on Object {
+      // Without user32 there is no honest occupancy signal; do not fake a
+      // conflict (unexpected: this probe only runs on Windows).
+      return const HotkeyProbeResult(free: true);
+    }
+  }
+}
+
+/// Thin `dart:ffi` binding to the three user32/kernel32 entry points the probe
+/// needs. Loaded lazily so non-Windows test runners never touch it.
+class _Win32HotkeyApi {
+  _Win32HotkeyApi._(this._register, this._unregister, this._lastError);
+
+  final int Function(int hWnd, int id, int modifiers, int vk) _register;
+  final int Function(int hWnd, int id) _unregister;
+  final int Function() _lastError;
+
+  static final _Win32HotkeyApi instance = _load();
+
+  static _Win32HotkeyApi _load() {
+    final user32 = DynamicLibrary.open('user32.dll');
+    final kernel32 = DynamicLibrary.open('kernel32.dll');
+    return _Win32HotkeyApi._(
+      user32.lookupFunction<
+        Int32 Function(IntPtr, Int32, Uint32, Uint32),
+        int Function(int, int, int, int)
+      >('RegisterHotKey'),
+      user32.lookupFunction<
+        Int32 Function(IntPtr, Int32),
+        int Function(int, int)
+      >('UnregisterHotKey'),
+      kernel32.lookupFunction<Uint32 Function(), int Function()>(
+        'GetLastError',
+      ),
+    );
+  }
+
+  int register(int hWnd, int id, int modifiers, int vk) =>
+      _register(hWnd, id, modifiers, vk);
+
+  int unregister(int hWnd, int id) => _unregister(hWnd, id);
+
+  int lastError() => _lastError();
+}
+
+/// Native `hotkey_manager` operations the registrar needs, isolated behind an
+/// interface so the probe/conflict decision is unit-testable without the
+/// platform plugin.
+abstract class HotkeyPlugin {
+  Future<void> unregisterAll();
+
+  Future<void> register(HotKey hotKey, {void Function(HotKey)? keyDownHandler});
+}
+
+class HotkeyManagerPlugin implements HotkeyPlugin {
+  const HotkeyManagerPlugin();
+
+  @override
+  Future<void> unregisterAll() => HotKeyManager.instance.unregisterAll();
+
+  @override
+  Future<void> register(
+    HotKey hotKey, {
+    void Function(HotKey)? keyDownHandler,
+  }) => HotKeyManager.instance.register(hotKey, keyDownHandler: keyDownHandler);
+}
+
 /// Mutable holder for the live dispatcher. The shell installs the real handler
 /// (window toggle / system-proxy action) at bootstrap; widget tests may leave it
 /// null, in which case a trigger is dropped rather than faked.
@@ -227,7 +381,16 @@ abstract class HotkeyRegistrar {
 /// several actions is registered exactly once and its handler dispatches every
 /// bound action (upstream `HotkeyManager` dictionary of action lists).
 class PluginHotkeyRegistrar implements HotkeyRegistrar {
-  const PluginHotkeyRegistrar();
+  const PluginHotkeyRegistrar({
+    this.probe = const Win32HotkeyProbe(),
+    this.plugin = const HotkeyManagerPlugin(),
+  });
+
+  /// OS occupancy probe run immediately before each plugin registration.
+  final HotkeyProbe probe;
+
+  /// The native registration backend (`hotkey_manager` by default).
+  final HotkeyPlugin plugin;
 
   @override
   Future<(Set<GlobalHotkeyAction>, List<String>)> register(
@@ -237,10 +400,9 @@ class PluginHotkeyRegistrar implements HotkeyRegistrar {
   }) async {
     final accepted = <GlobalHotkeyAction>{};
     final failures = <String>[];
-    final manager = HotKeyManager.instance;
     // Reload semantics (upstream `HotkeyManager.ReLoad`).
     try {
-      await manager.unregisterAll();
+      await plugin.unregisterAll();
     } on Object catch (e) {
       failures.add('热键重载失败: $e');
     }
@@ -255,13 +417,21 @@ class PluginHotkeyRegistrar implements HotkeyRegistrar {
         );
         continue;
       }
+      // Probe the OS before handing the combination to the plugin. The plugin
+      // ignores `RegisterHotKey` failures and always reports success, so this
+      // is the only way a combination held by another program is observed.
+      final probed = probe.probe(registration.combo, codec);
+      if (!probed.free) {
+        failures.add(hotkeyConflictNote(actions, probed.errorCode));
+        continue;
+      }
       final modifiers = <HotKeyModifier>[];
       if (registration.combo.control) modifiers.add(HotKeyModifier.control);
       if (registration.combo.alt) modifiers.add(HotKeyModifier.alt);
       if (registration.combo.shift) modifiers.add(HotKeyModifier.shift);
       final dispatch = List<GlobalHotkeyAction>.unmodifiable(actions);
       try {
-        await manager.register(
+        await plugin.register(
           HotKey(
             identifier: registration.combo.id,
             key: key,
@@ -288,7 +458,7 @@ class PluginHotkeyRegistrar implements HotkeyRegistrar {
       actions.map((a) => a.label).join('/');
 
   @override
-  Future<void> unregisterAll() => HotKeyManager.instance.unregisterAll();
+  Future<void> unregisterAll() => plugin.unregisterAll();
 }
 
 final hotkeyRegistrarProvider = Provider<HotkeyRegistrar>(

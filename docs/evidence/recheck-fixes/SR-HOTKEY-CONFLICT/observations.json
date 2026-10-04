@@ -1,0 +1,88 @@
+{
+  "task": "SR-HOTKEY-CONFLICT",
+  "combo": "Ctrl+Alt+F11",
+  "action": "showForm (显示/隐藏窗口)",
+  "realHotkey": true,
+  "recordingComplete": true,
+  "failures": [],
+  "checks": [
+    {
+      "step": "os-combo-free-before",
+      "passed": true,
+      "actual": {
+        "exit": 0,
+        "stdout": "{\"mode\":\"probe\",\"combo\":\"ctrl+alt+f11\",\"modFlags\":3,\"mainVk\":122,\"free\":true,\"lastError\":0}",
+        "stderr": ""
+      }
+    },
+    {
+      "step": "os-combo-occupied-externally",
+      "passed": true,
+      "actual": {
+        "exit": 2,
+        "stdout": "{\"mode\":\"probe\",\"combo\":\"ctrl+alt+f11\",\"modFlags\":3,\"mainVk\":122,\"free\":false,\"lastError\":1409}",
+        "stderr": ""
+      }
+    },
+    {
+      "step": "conflict-save-reports-occupied",
+      "passed": true,
+      "actual": {
+        "ok": false,
+        "registered": [],
+        "conflicts": [
+          "显示/隐藏窗口: 组合已被其它程序占用"
+        ],
+        "isPaused": true
+      }
+    },
+    {
+      "step": "os-combo-free-after-release",
+      "passed": true,
+      "actual": {
+        "exit": 0,
+        "stdout": "{\"mode\":\"probe\",\"combo\":\"ctrl+alt+f11\",\"modFlags\":3,\"mainVk\":122,\"free\":true,\"lastError\":0}",
+        "stderr": ""
+      }
+    },
+    {
+      "step": "release-then-save-registers",
+      "passed": true,
+      "actual": {
+        "ok": true,
+        "registered": [
+          "showForm"
+        ],
+        "conflicts": []
+      }
+    },
+    {
+      "step": "real-key-dispatches-showform",
+      "passed": true,
+      "actual": {
+        "sendExit": 0,
+        "fired": [
+          "showForm"
+        ],
+        "visibleBefore": true,
+        "hidden": true
+      }
+    },
+    {
+      "step": "plugin-registry-empty",
+      "passed": true,
+      "actual": {
+        "registeredList": 0
+      }
+    },
+    {
+      "step": "os-combo-free-after",
+      "passed": true,
+      "actual": {
+        "exit": 0,
+        "stdout": "{\"mode\":\"probe\",\"combo\":\"ctrl+alt+f11\",\"modFlags\":3,\"mainVk\":122,\"free\":true,\"lastError\":0}",
+        "stderr": ""
+      }
+    }
+  ]
+}

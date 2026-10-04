@@ -36,6 +36,12 @@ class Win32Window {
   // |Show| is called. Returns true if the window was created successfully.
   bool Create(const std::wstring& title, const Point& origin, const Size& size);
 
+  // Same as above, but creates the window owned by |owner| (an owned top-level
+  // window that stays above its owner and has no taskbar button). Pass nullptr
+  // for an unowned window.
+  bool Create(const std::wstring& title, const Point& origin, const Size& size,
+              HWND owner);
+
   // Show the current window. Returns true if the window was successfully shown.
   bool Show();
 

@@ -322,9 +322,13 @@ impl CoreAdapter for SingBoxAdapter {
     }
 }
 
-/// v2fly (v4) adapter: upstream `Arguments = "{0}"`, `VersionArg = "-version"`.
-/// Config validation falls back to a non-binding version probe until a
-/// per-core check flag is verified (registered blocked).
+/// v2fly (v4) adapter: `v2ray -config {0}`, `v2ray -test -config {0}`,
+/// `v2ray -version`.
+///
+/// The real 4.45.2 binary ignores a bare positional config path (upstream
+/// `Arguments = "{0}"`) and falls back to `<exe dir>/config.json`, so the
+/// explicit `-config` flag is required for the staged config to load. `-test`
+/// performs a real non-binding config validation.
 pub struct V2flyAdapter;
 
 impl CoreAdapter for V2flyAdapter {
@@ -346,17 +350,27 @@ impl CoreAdapter for V2flyAdapter {
         }
     }
     fn run_args(&self, config: &Path) -> Vec<OsString> {
-        vec![config.as_os_str().to_os_string()]
+        vec!["-config".into(), config.as_os_str().to_os_string()]
     }
-    fn test_args(&self, _config: &Path) -> Vec<OsString> {
-        self.version_args()
+    fn test_args(&self, config: &Path) -> Vec<OsString> {
+        vec![
+            "-test".into(),
+            "-config".into(),
+            config.as_os_str().to_os_string(),
+        ]
     }
     fn version_args(&self) -> Vec<OsString> {
         vec!["-version".into()]
     }
 }
 
-/// v2fly v5 adapter: `run -c {0} -format jsonv5`.
+/// v2fly v5 adapter: `v2ray run -c {0}`, `v2ray test -c {0}`,
+/// `v2ray version`.
+///
+/// The real 5.53.0 binary rejects upstream's `-format jsonv5` flag ("unknown
+/// field `type`" once the v5 native loader is selected); `run`/`test` auto-
+/// detect the v4-compatible schema the shared config generator emits, so the
+/// format flag is not passed.
 pub struct V2flyV5Adapter;
 
 impl CoreAdapter for V2flyV5Adapter {
@@ -378,16 +392,14 @@ impl CoreAdapter for V2flyV5Adapter {
         }
     }
     fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec!["run".into(), "-c".into(), config.as_os_str().to_os_string()]
+    }
+    fn test_args(&self, config: &Path) -> Vec<OsString> {
         vec![
-            "run".into(),
+            "test".into(),
             "-c".into(),
             config.as_os_str().to_os_string(),
-            "-format".into(),
-            "jsonv5".into(),
         ]
-    }
-    fn test_args(&self, _config: &Path) -> Vec<OsString> {
-        self.version_args()
     }
     fn version_args(&self) -> Vec<OsString> {
         vec!["version".into()]
@@ -453,6 +465,10 @@ impl CoreAdapter for MihomoAdapter {
 }
 
 /// hysteria adapter: upstream `Arguments = ""`.
+///
+/// The v1 core takes no config path argument; it reads `./config.json` from
+/// its working directory, so the staged config's parent is the working
+/// directory (verified against 1.3.5).
 pub struct HysteriaAdapter;
 
 impl CoreAdapter for HysteriaAdapter {
@@ -474,6 +490,9 @@ impl CoreAdapter for HysteriaAdapter {
     }
     fn version_args(&self) -> Vec<OsString> {
         vec!["-v".into()]
+    }
+    fn working_dir(&self, config: &Path) -> Option<std::path::PathBuf> {
+        config.parent().map(Path::to_path_buf)
     }
 }
 
@@ -574,6 +593,10 @@ impl CoreAdapter for JuicityAdapter {
 }
 
 /// hysteria2 adapter: platform-suffixed binaries, upstream `Arguments = ""`.
+///
+/// Like hysteria v1 the core consumes `config.json` resolved from its working
+/// directory (viper "config" search), so the config's parent is the working
+/// directory. Verified against 2.12.3.
 pub struct Hysteria2Adapter;
 
 impl CoreAdapter for Hysteria2Adapter {
@@ -602,6 +625,9 @@ impl CoreAdapter for Hysteria2Adapter {
     }
     fn version_args(&self) -> Vec<OsString> {
         vec!["version".into()]
+    }
+    fn working_dir(&self, config: &Path) -> Option<std::path::PathBuf> {
+        config.parent().map(Path::to_path_buf)
     }
 }
 
@@ -857,6 +883,65 @@ mod tests {
                 adapter.env_vars(config).is_empty(),
                 "{} must not inject environment",
                 adapter.core_type().as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn v2fly_uses_the_explicit_config_flag() {
+        let adapter = V2flyAdapter;
+        let config = Path::new("C:/run/config.json");
+        assert_eq!(
+            adapter.run_args(config),
+            vec![
+                OsString::from("-config"),
+                OsString::from("C:/run/config.json")
+            ]
+        );
+        assert_eq!(
+            adapter.test_args(config),
+            vec![
+                OsString::from("-test"),
+                OsString::from("-config"),
+                OsString::from("C:/run/config.json")
+            ]
+        );
+    }
+
+    #[test]
+    fn v2fly_v5_uses_run_and_test_without_jsonv5_format() {
+        let adapter = V2flyV5Adapter;
+        let config = Path::new("C:/run/config.json");
+        let run = adapter.run_args(config);
+        assert_eq!(
+            run,
+            vec![
+                OsString::from("run"),
+                OsString::from("-c"),
+                OsString::from("C:/run/config.json")
+            ]
+        );
+        assert!(!run.iter().any(|a| a == "jsonv5" || a == "-format"));
+        assert_eq!(
+            adapter.test_args(config),
+            vec![
+                OsString::from("test"),
+                OsString::from("-c"),
+                OsString::from("C:/run/config.json")
+            ]
+        );
+    }
+
+    #[test]
+    fn hysteria_cores_run_from_the_config_directory() {
+        let adapters: Vec<Box<dyn CoreAdapter>> =
+            vec![Box::new(HysteriaAdapter), Box::new(Hysteria2Adapter)];
+        for adapter in adapters {
+            let config = Path::new("C:/run/session/config.json");
+            assert!(adapter.run_args(config).is_empty());
+            assert_eq!(
+                adapter.working_dir(config),
+                Some(PathBuf::from("C:/run/session"))
             );
         }
     }

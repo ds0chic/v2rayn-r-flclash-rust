@@ -123,6 +123,13 @@ Win32Window::~Win32Window() {
 bool Win32Window::Create(const std::wstring& title,
                          const Point& origin,
                          const Size& size) {
+  return Create(title, origin, size, nullptr);
+}
+
+bool Win32Window::Create(const std::wstring& title,
+                         const Point& origin,
+                         const Size& size,
+                         HWND owner) {
   Destroy();
 
   const wchar_t* window_class =
@@ -138,7 +145,7 @@ bool Win32Window::Create(const std::wstring& title,
       window_class, title.c_str(), WS_OVERLAPPEDWINDOW,
       Scale(origin.x, scale_factor), Scale(origin.y, scale_factor),
       Scale(size.width, scale_factor), Scale(size.height, scale_factor),
-      nullptr, nullptr, GetModuleHandle(nullptr), this);
+      owner, nullptr, GetModuleHandle(nullptr), this);
 
   if (!window) {
     return false;

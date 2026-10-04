@@ -1,6 +1,6 @@
 # R3-WPF-OPTION-WINDOW — 参数设置改为独立顶层窗口
 
-状态：`identified`（原版独立 WPF 窗口，当前 Flutter `showDialog`；尚未实施）。
+状态：`implemented`（原版独立 WPF 窗口；已用原生 C++ 第二顶层 HWND + 第二 Flutter engine 实现，窗口探针、widget 测试与 `flutter build windows --release` 通过；逐事件行为对照与真实保存生效留待下一步）。
 
 任务 ID：R3-WPF-OPTION-WINDOW。
 
@@ -27,3 +27,9 @@
 完成条件：以上实际窗口与设置生效流程通过，并与冻结 WPF 窗口逐事件/布局对照；仅组件渲染或 `showDialog` 通过不得记 `verified`。
 
 发现接口缺口时的处理：登记阻塞与建议，不自行削减独立窗口需求。
+
+## 实施记录（2026-10-05，HEAD 55e6d10）
+
+- 方案：原生 C++ 第二顶层窗口（`SettingsWindow`，owner=主窗口，创建时 `EnableWindow(main,FALSE)` 复现 WPF `ShowDialog` 模态），托管第二个 `FlutterEngine`，Dart entrypoint `settingsWindowMain`；两 engine 通过 `v2rayn/option_window` 方法通道交换快照/草稿/结果，子窗口不持有 FRB/Rust 句柄。
+- 证据：`docs/evidence/recheck-fixes/R3-WPF-OPTION-WINDOW/`（`probe-option-window.json`、`probe-option.png`、`probe-main.png`、`probe_option_window.ps1`）。
+- 未改 `main_shell.dart`：`ACT-MAIN-024` 仍调用 `openOptionSettingWindow`，入口在 `settings_actions.dart` 内改为打开独立窗口，无需接线补丁。

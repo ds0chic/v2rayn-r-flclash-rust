@@ -175,7 +175,7 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
           ? (result.error?.messageKey ?? '保存失败')
           : (state.conflicts.isEmpty
                 ? '已保存并重新注册 ${state.registered.length} 项'
-                : '已保存；${state.conflicts.length} 项注册冲突，请修改后重试');
+                : '已保存；以下组合注册冲突：${state.conflicts.join('；')}');
     });
     if (ok) {
       _saved = true;

@@ -199,3 +199,26 @@
 | 系统代理对运行中应用的即时生效 | **未验证** | WinINET per-connection 推送失败原因未深究，未逐应用验证 |
 
 用户环境说明：首轮代理测试的注册表回退曾改写用户 `ProxyServer` 镜像值；已归一为与有效 WinINET 状态一致的直连（`ProxyEnable=0`），用户可在 v2rayN 内一键恢复系统代理。
+
+### 6.3 核心版本与真实运行矩阵（R3-CORE-MATRIX，2026-10-05，Windows x64 当前用户）
+
+证据：`docs/evidence/recheck-fixes/R3-CORE-MATRIX/`（`README.md`、`per-core.json`、`logs/**`）；lock：`tools/cores/cores.lock.json`（14 条，`sha256_verified` 规则见 lock note）。来源依据冻结 `CoreInfoManager.cs` + `Global.CoreUrls`。未占用/修改 `127.0.0.1:10808`；会话端口先探测，全部 ≥11808；只停本脚本启动的 PID。
+
+| 核 | 版本 | version | 真实最小会话 | 结论 |
+|---|---|---|---|---|
+| xray | 26.3.27 | ok | ok | verified |
+| sing-box | 1.14.2 | ok | ok | verified |
+| v2fly | 4.45.2 | ok | ok（修正 `-config`） | verified |
+| v2fly_v5 | 5.53.0 | ok | ok（去 `-format jsonv5`） | verified |
+| mihomo | 1.19.32 | ok | ok | verified |
+| hysteria (v1) | 1.3.5 | ok | ok（`lazy_start:true`） | verified |
+| naiveproxy | 154.0.8037.49-2 | ok | ok | verified |
+| tuic | 1.0.0 | ok | ok | verified |
+| juicity | 0.5.0 | ok | ok | verified |
+| hysteria2 | 2.12.3 | ok | blocked（需 TLS 服务器/证书） | blocked（会话） |
+| brook | 20270101 | ok | ok（配置=brook 命令脚本） | verified |
+| overtls | 0.3.15 | ok | blocked（需 TLS 服务器/证书） | blocked（会话） |
+| shadowquic | 0.4.0 | ok | ok | verified |
+| mieru | 3.38.0 | ok | ok（`MIERU_CONFIG_JSON_FILE`） | verified |
+
+adapter 修正（`crates/runtime/src/adapter.rs`）：v2fly `-config`/`-test -config`；v2fly_v5 `run -c`/`test -c`（去掉真实二进制拒绝的 `-format jsonv5`）；hysteria/hysteria2 `working_dir`=配置目录。补测后 runtime 58 passed、net_host 62 passed。hysteria2/overtls 仅“合成回环无服务器最小会话”blocked，version 探针均通过；接口缺口（env 无法表达 exe 目录、`run_config_check` 不注入 env/workdir）已登记在任务卡与证据 README。

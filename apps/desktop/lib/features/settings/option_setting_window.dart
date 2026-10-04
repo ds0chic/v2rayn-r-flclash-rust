@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
+import 'package:v2rayn_desktop/features/settings/settings_window_host.dart';
 
 /// Option settings window (LAY-OPTSET-001/002).
 ///
@@ -23,7 +25,15 @@ import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
 /// through the Rust engine. Platform-layer actions (kernel restart, system
 /// proxy, TUN) are labelled 未接线 here and are never reported as having run.
 class OptionSettingWindow extends ConsumerStatefulWidget {
-  const OptionSettingWindow({super.key});
+  const OptionSettingWindow({super.key, this.host, this.standalone = false});
+
+  /// When non-null the editor runs in the independent desktop settings window:
+  /// it loads its snapshot and persists the draft through [host] instead of the
+  /// in-process settings controller, so the second engine never touches Rust.
+  final SettingsEditorHost? host;
+
+  /// When true the editor renders as a full window body (no dialog chrome).
+  final bool standalone;
 
   static Future<void> show(BuildContext context) => showDialog<void>(
     context: context,
@@ -53,12 +63,26 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     if (requested != null && requested >= 0 && requested < _tabs.length) {
       _tabs.index = requested;
     }
+    if (widget.host != null) {
+      _loadHostSnapshot();
+      return;
+    }
     // Deferred so the provider is not mutated during the widget build; the
     // draft is derived in build() once the document is loaded.
     Future<void>.microtask(() {
       if (!mounted) return;
       ref.read(settingsControllerProvider.notifier).load();
       if (mounted) setState(() {});
+    });
+  }
+
+  /// Seed the draft from the snapshot supplied by the main window.
+  Future<void> _loadHostSnapshot() async {
+    final document = await widget.host!.loadSnapshot();
+    if (!mounted) return;
+    setState(() {
+      _draft = document;
+      _draftInit = true;
     });
   }
 
@@ -131,92 +155,148 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(settingsControllerProvider);
+    final SettingsViewState state = widget.host != null
+        ? SettingsViewState(loaded: _draftInit)
+        : ref.watch(settingsControllerProvider);
     // Seed the editable draft exactly once, from the persisted document, after
     // the first successful load. The old `_draft.isEmpty` guard failed whenever
     // a tab built (and created a group map) before load finished, which silently
     // replaced the stored values with defaults on reopen.
-    if (!_draftInit && state.loaded) {
+    if (widget.host == null && !_draftInit && state.loaded) {
       _draft = ref.read(settingsControllerProvider.notifier).draft();
       _draftInit = true;
     }
+    if (widget.host != null && !_draftInit) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final tabColumn = Column(
+      children: <Widget>[
+        TabBar(
+          controller: _tabs,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelStyle: const TextStyle(fontSize: 12),
+          // Frozen `OptionSettingWindow.xaml` TabItem headers:
+          // TbSettingsCore / TbSettingsN / TbSettingsSystemproxy /
+          // TbSettingsTunMode / TbSettingsCoreType.
+          tabs: const <Tab>[
+            Tab(text: 'Core: 基础设置'),
+            Tab(text: 'v2rayN 设置'),
+            Tab(text: '系统代理设置'),
+            Tab(text: 'Tun 模式设置'),
+            Tab(text: 'Core 类型设置'),
+          ],
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.all(4),
+            child: Text(
+              _error!,
+              style: TextStyle(
+                fontSize: 11,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ),
+        if (state.status != null)
+          Padding(
+            padding: const EdgeInsets.all(4),
+            child: Text(
+              _statusText(state.status!),
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            children: <Widget>[
+              _coreTab(),
+              _displayTab(),
+              _systemProxyTab(),
+              _tunTab(),
+              _coreTypeTab(),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    final actions = <Widget>[
+      // Upstream `OptionSettingWindow` has a single 确定/取消 pair (btnSave /
+      // btnCancel). FIX-08 draft semantics are preserved: 确定 saves the
+      // visible draft and applies the real plan; 取消 discards the draft
+      // without touching storage. A save error keeps the window open with the
+      // error shown and never reports success or applies a stale document.
+      FilledButton(
+        key: const ValueKey('settings-save'),
+        onPressed: () => _save(applyAfter: true),
+        child: const Text('确定'),
+      ),
+      TextButton(
+        key: const ValueKey('settings-cancel'),
+        onPressed: _cancel,
+        child: const Text('取消'),
+      ),
+    ];
+
+    if (widget.standalone) {
+      return CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.escape): _cancel,
+        },
+        child: Focus(
+          autofocus: true,
+          child: Scaffold(
+            body: Column(
+              children: <Widget>[
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: tabColumn,
+                  ),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: <Widget>[
+                      for (final action in actions)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: action,
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return AlertDialog(
       // Upstream `OptionSettingWindow` Title = ResUI.menuSetting (设置).
       title: const Text('设置', style: TextStyle(fontSize: 15)),
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      content: SizedBox(
-        width: 720,
-        height: 520,
-        child: Column(
-          children: <Widget>[
-            TabBar(
-              controller: _tabs,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              labelStyle: const TextStyle(fontSize: 12),
-              // Frozen `OptionSettingWindow.xaml` TabItem headers:
-              // TbSettingsCore / TbSettingsN / TbSettingsSystemproxy /
-              // TbSettingsTunMode / TbSettingsCoreType.
-              tabs: const <Tab>[
-                Tab(text: 'Core: 基础设置'),
-                Tab(text: 'v2rayN 设置'),
-                Tab(text: '系统代理设置'),
-                Tab(text: 'Tun 模式设置'),
-                Tab(text: 'Core 类型设置'),
-              ],
-            ),
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.all(4),
-                child: Text(
-                  _error!,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              ),
-            if (state.status != null)
-              Padding(
-                padding: const EdgeInsets.all(4),
-                child: Text(
-                  _statusText(state.status!),
-                  style: const TextStyle(fontSize: 11),
-                ),
-              ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabs,
-                children: <Widget>[
-                  _coreTab(),
-                  _displayTab(),
-                  _systemProxyTab(),
-                  _tunTab(),
-                  _coreTypeTab(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: <Widget>[
-        // Upstream `OptionSettingWindow` has a single 确定/取消 pair (btnSave /
-        // btnCancel). FIX-08 draft semantics are preserved: 确定 saves the
-        // visible draft and applies the real plan; 取消 discards the draft
-        // without touching storage. A save error keeps the window open with the
-        // error shown and never reports success or applies a stale document.
-        FilledButton(
-          key: const ValueKey('settings-save'),
-          onPressed: () => _save(applyAfter: true),
-          child: const Text('确定'),
-        ),
-        TextButton(
-          key: const ValueKey('settings-cancel'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-      ],
+      content: SizedBox(width: 720, height: 520, child: tabColumn),
+      actions: actions,
     );
+  }
+
+  /// 取消 / Esc / title-bar close discard the draft without saving.
+  void _cancel() {
+    final host = widget.host;
+    if (host != null) {
+      host.close();
+      return;
+    }
+    Navigator.of(context).pop();
   }
 
   /// The controller reports status as stable message keys; the window must
@@ -287,10 +367,24 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     return false;
   }
 
-  void _save({bool applyAfter = false}) {
+  Future<void> _save({bool applyAfter = false}) async {
     final localError = _validateDraft();
     if (localError != null) {
       setState(() => _error = localError);
+      return;
+    }
+    final host = widget.host;
+    if (host != null) {
+      // Independent-window path: the main engine owns persistence and applies
+      // the real plan; this engine only forwards the draft. A failed save keeps
+      // the window open with the error shown.
+      final outcome = await host.save(_draft);
+      if (!mounted) return;
+      if (outcome.ok) {
+        await host.close();
+      } else {
+        setState(() => _error = outcome.message ?? '保存配置失败');
+      }
       return;
     }
     final previousAutoRun = _loadedAutoRun();

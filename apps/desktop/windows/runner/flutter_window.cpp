@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "option_window_host.h"
 #include "runner_messages.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
@@ -26,6 +27,10 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  // Bind the option-settings window host to this engine so the menu can spawn
+  // the independent top-level settings window.
+  OptionWindowHost::Instance().Attach(flutter_controller_->engine(),
+                                      GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -67,6 +72,11 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       // Second instance asked to restore the window (ROOT-06 / ACT-WIN-012).
       ShowWindow(GetHandle(), SW_RESTORE);
       SetForegroundWindow(GetHandle());
+      return 0;
+    case kSettingsClosedMessage:
+      // The settings window finished destroying itself; release it and
+      // re-enable this (owner) window.
+      OptionWindowHost::Instance().OnSettingsWindowDestroyed();
       return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();

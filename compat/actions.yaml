@@ -58,6 +58,8 @@ hotkey_scope_rules:
   - docs/evidence/recheck-fixes/SR-05-06/README.md
   - docs/tasks/SR-REAL-HOTKEY.md
   - docs/evidence/recheck-fixes/SR-REAL-HOTKEY/README.md
+  - docs/tasks/SR-HOTKEY-CONFLICT.md
+  - docs/evidence/recheck-fixes/SR-HOTKEY-CONFLICT/README.md
 - id: HKR-008
   name: Avalonia 平台的 Ctrl/Meta 等价
   description: Avalonia 视图用 e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta，在 macOS 上 Cmd 与 Ctrl 等效。
@@ -919,6 +921,8 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:212
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:214
   - docs/evidence/T13.md
+  - docs/tasks/SR-HOTKEY-CONFLICT.md
+  - docs/evidence/recheck-fixes/SR-HOTKEY-CONFLICT/README.md
   implementation_location: apps/desktop/lib/features/settings/hotkeys.dart
   test_ids: [t13_hotkey_controller_registerAll_reports_conflicts]
   status: implemented

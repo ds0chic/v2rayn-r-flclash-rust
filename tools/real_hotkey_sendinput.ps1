@@ -1,18 +1,23 @@
-# Real global-hotkey test helper (SR-REAL-HOTKEY).
+# Real global-hotkey test helper (SR-REAL-HOTKEY / SR-HOTKEY-CONFLICT).
 #
-# Two modes, both using only user32 SendInput / RegisterHotKey:
+# Three modes, all using only user32 SendInput / RegisterHotKey:
 #   - Send  : inject a real key combination (default). Used to trigger a hotkey
 #             registered by the app under test through the OS input queue.
 #   - Probe : try RegisterHotKey for the combination, then immediately
 #             UnregisterHotKey. Success proves the combination is free at the
 #             OS level (no hotkey_manager residue); failure reports the Win32
 #             error (1409 = ERROR_HOTKEY_ALREADY_REGISTERED).
+#   - Hold  : RegisterHotKey the combination and keep this process alive until
+#             the parent closes stdin, then UnregisterHotKey. Used as an
+#             independent, external owner to prove the app reports the conflict
+#             instead of faking success.
 #
-# The allowed test combination is Ctrl+Alt+F12 only. Never touches the system
-# proxy, registry, routing or TUN.
+# The allowed test combinations are Ctrl+Alt+F11 / Ctrl+Alt+F12 only. Never
+# touches the system proxy, registry, routing or TUN.
 param(
   [Parameter(Mandatory = $true)][string]$Combo,
   [switch]$Probe,
+  [switch]$Hold,
   [int]$HoldMs = 80
 )
 
@@ -138,6 +143,17 @@ public static class RealHotkeyInterop {
     if (ok) UnregisterHotKey(IntPtr.Zero, id);
     return ok ? 0 : err;
   }
+
+  private const int HoldId = 0x9A03;
+
+  public static int Hold(uint fsModifiers, uint key) {
+    bool ok = RegisterHotKey(IntPtr.Zero, HoldId, fsModifiers, key);
+    return ok ? 0 : Marshal.GetLastWin32Error();
+  }
+
+  public static void Release() {
+    UnregisterHotKey(IntPtr.Zero, HoldId);
+  }
 }
 '@
 
@@ -152,6 +168,26 @@ if ($Probe) {
     lastError = $err
   } | ConvertTo-Json -Compress
   if ($err -ne 0) { exit 2 }
+  exit 0
+}
+
+if ($Hold) {
+  $err = [RealHotkeyInterop]::Hold($modFlags, $mainVk)
+  [pscustomobject]@{
+    mode      = 'hold'
+    combo     = $Combo
+    modFlags  = $modFlags
+    mainVk    = $mainVk
+    held      = ($err -eq 0)
+    lastError = $err
+  } | ConvertTo-Json -Compress
+  if ($err -ne 0) { exit 2 }
+  try {
+    # Block until the parent closes stdin, then release the combination.
+    [void][Console]::In.ReadLine()
+  } finally {
+    [RealHotkeyInterop]::Release()
+  }
   exit 0
 }
 

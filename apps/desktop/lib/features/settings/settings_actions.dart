@@ -1,15 +1,24 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/dns.dart' as dns;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/global_hotkey_window.dart';
-import 'package:v2rayn_desktop/features/settings/option_setting_window.dart';
+import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_window_host.dart';
 import 'package:v2rayn_desktop/features/settings/theme_setting_dialog.dart';
 
-/// Open the option settings window, refreshing the document first.
+/// Open the option settings window as an independent top-level window.
+///
+/// The window runs in its own Flutter engine with a snapshot of the current
+/// settings document. It has no Rust handle: 确定 relays the draft back here,
+/// where the existing settings path persists it, syncs autostart and applies
+/// the real plan before the window closes. 取消/Esc/title-bar close write
+/// nothing. A failure to open is reported visibly and never faked as success.
 Future<void> openOptionSettingWindow(
   BuildContext context,
   WidgetRef ref,
@@ -17,7 +26,88 @@ Future<void> openOptionSettingWindow(
   try {
     ref.read(settingsControllerProvider.notifier).load();
   } catch (_) {}
-  await OptionSettingWindow.show(context);
+  final snapshot = ref.read(settingsControllerProvider.notifier).draft();
+  final opened = await OptionWindowHost.instance.open(
+    snapshot: snapshot,
+    onSave: (draftJson) => _applyOptionDraft(ref, draftJson),
+  );
+  if (!opened && context.mounted) {
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(const SnackBar(content: Text('打开设置窗口失败')));
+  }
+}
+
+/// Persist a draft relayed from the settings window through the same path the
+/// in-process dialog used: optimistic save, autostart sync, then re-apply.
+Future<SettingsEditorOutcome> _applyOptionDraft(
+  WidgetRef ref,
+  String draftJson,
+) async {
+  Map<String, dynamic> draft;
+  try {
+    final decoded = jsonDecode(draftJson);
+    if (decoded is! Map) {
+      return const SettingsEditorOutcome(ok: false, message: '保存配置失败');
+    }
+    draft = decoded.cast<String, dynamic>();
+  } catch (_) {
+    return const SettingsEditorOutcome(ok: false, message: '保存配置失败');
+  }
+  final controller = ref.read(settingsControllerProvider.notifier);
+  final previousAutoRun = _documentAutoRun(
+    ref.read(settingsControllerProvider).document,
+  );
+  final result = controller.saveDocument(draft);
+  if (!result.ok) {
+    return SettingsEditorOutcome(
+      ok: false,
+      message: _saveErrorMessage(result.error?.messageKey),
+    );
+  }
+  // Upstream writes autostart only after the config save succeeded, and only
+  // the saved value takes effect; an unchanged value never touches the Run key.
+  if (_draftAutoRun(draft) != previousAutoRun) {
+    _writeAutostart(ref, _draftAutoRun(draft));
+  }
+  ref.read(runtimeControllerProvider.notifier).applyActive();
+  return const SettingsEditorOutcome(ok: true);
+}
+
+bool _documentAutoRun(Map<String, dynamic> document) {
+  final gui = document['GuiItem'];
+  return gui is Map && gui['AutoRun'] == true;
+}
+
+bool _draftAutoRun(Map<String, dynamic> draft) {
+  final gui = draft['GuiItem'];
+  return gui is Map && gui['AutoRun'] == true;
+}
+
+bool _writeAutostart(WidgetRef ref, bool enabled) {
+  try {
+    final bridge = ref.read(platformBridgeProvider);
+    final exe = Platform.resolvedExecutable;
+    final name = bridge.autostartValueName(exe);
+    return bridge.setAutostart(
+      name: name,
+      enabled: enabled,
+      exe: exe,
+      args: '',
+    );
+  } on Object {
+    return false;
+  }
+}
+
+String _saveErrorMessage(String? key) {
+  switch (key) {
+    case 'error.settings_load_failed':
+      return '读取配置失败';
+    case 'error.settings_save_failed':
+      return '保存配置失败';
+    default:
+      return '操作失败，请检查并重试';
+  }
 }
 
 /// Open the theme setting window (immediate apply + persist).

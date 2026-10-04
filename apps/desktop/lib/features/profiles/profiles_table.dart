@@ -100,6 +100,12 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   String? _dragAnchorId;
   bool _dragSelecting = false;
 
+  /// Edge auto-scroll while drag-selecting beyond the viewport (-1 up, +1
+  /// down). The timer scrolls one third of a row per frame and extends the
+  /// range to the row entering the viewport, matching the WPF DataGrid.
+  Timer? _dragScrollTimer;
+  int _dragScrollDirection = 0;
+
   @override
   void initState() {
     super.initState();
@@ -110,6 +116,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
 
   @override
   void dispose() {
+    _stopDragAutoScroll();
     WidgetsBinding.instance.removeObserver(this);
     _focusNode.dispose();
     for (final node in _menuRowFocusNodes) {
@@ -684,6 +691,20 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   void _onPointerMove(PointerMoveEvent event) {
     final anchorId = _dragAnchorId;
     if (anchorId == null || (event.buttons & kPrimaryButton) == 0) return;
+    if (_vertical.hasClients) {
+      final position = _vertical.position;
+      final contentTop = _headerHeight;
+      final contentBottom = contentTop + position.viewportDimension;
+      if (event.localPosition.dy < contentTop) {
+        _startDragAutoScroll(-1, anchorId);
+        return;
+      }
+      if (event.localPosition.dy > contentBottom) {
+        _startDragAutoScroll(1, anchorId);
+        return;
+      }
+    }
+    _stopDragAutoScroll();
     final state = ref.read(profilesControllerProvider);
     final currentId = _rowIdAt(event.localPosition, state.visible);
     if (currentId == null) return;
@@ -694,7 +715,55 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
         .selectRange(anchorId, currentId);
   }
 
+  /// Auto-scroll while the drag-select pointer is held beyond an edge. Extends
+  /// the range to the first/last row entering the viewport on every tick.
+  void _startDragAutoScroll(int direction, String anchorId) {
+    if (_dragScrollTimer != null && _dragScrollDirection == direction) return;
+    _stopDragAutoScroll();
+    _dragScrollDirection = direction;
+    _dragSelecting = true;
+    _extendRangeToEdge(anchorId, direction);
+    _dragScrollTimer = Timer.periodic(const Duration(milliseconds: 16), (_) {
+      if (!mounted || _dragAnchorId == null) {
+        _stopDragAutoScroll();
+        return;
+      }
+      if (!_vertical.hasClients) return;
+      final position = _vertical.position;
+      final delta = _dragScrollDirection * (_rowHeight / 3);
+      final target = (position.pixels + delta).clamp(
+        0.0,
+        position.maxScrollExtent,
+      );
+      if (target != position.pixels) {
+        _vertical.jumpTo(target);
+      }
+      _extendRangeToEdge(anchorId, _dragScrollDirection, atOffset: target);
+    });
+  }
+
+  void _extendRangeToEdge(String anchorId, int direction, {double? atOffset}) {
+    final state = ref.read(profilesControllerProvider);
+    final rows = state.visible;
+    if (rows.isEmpty || !_vertical.hasClients) return;
+    final position = _vertical.position;
+    final offset = atOffset ?? position.pixels;
+    final firstIndex = (offset / _rowHeight).floor().clamp(0, rows.length - 1);
+    final lastIndex = ((offset + position.viewportDimension) / _rowHeight)
+        .floor()
+        .clamp(0, rows.length - 1);
+    final edgeId = direction < 0 ? rows[firstIndex].id : rows[lastIndex].id;
+    ref.read(profilesControllerProvider.notifier).selectRange(anchorId, edgeId);
+  }
+
+  void _stopDragAutoScroll() {
+    _dragScrollTimer?.cancel();
+    _dragScrollTimer = null;
+    _dragScrollDirection = 0;
+  }
+
   void _onPointerUp(PointerEvent event) {
+    _stopDragAutoScroll();
     _dragAnchorId = null;
     _dragSelecting = false;
   }

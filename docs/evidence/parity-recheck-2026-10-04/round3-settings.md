@@ -103,7 +103,7 @@ Flutter（apps/desktop，逐文件顺序运行，全部 exit 0）：
 
 分别 **1/1、1/1、4/4、6/6**，共 **12** 个 fake bridge/registrar 用例。没有执行真实宿主热键注册。
 
-A→B→A 附加 harness 已归档为 [round3-settings-repro.rs](./round3-settings-repro.rs)，仅合成数据。它最初在 `C:/Users/Colby/AppData/Local/Temp/v2rayn-round3-import-a2e0169ca887428c893b43fb9b2bc2dd/repro.rs` 编译/执行；归档副本与执行源相同，便于 Temp 清理后仍可复现。下述临时路径/rlib 哈希是本轮执行记录；重建时使用归档源码及新编译产物路径。
+A→B→A 附加 harness 已归档为 [round3-settings-repro.rs](C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/parity-recheck-2026-10-04/round3-settings-repro.rs)，仅合成数据。它最初在 `C:/Users/Colby/AppData/Local/Temp/v2rayn-round3-import-a2e0169ca887428c893b43fb9b2bc2dd/repro.rs` 编译/执行；归档副本与执行源相同（SHA256 `35810745D2E697810E785A8FE14ABC5FDB10F3351E514BCD68817D3A7B2C2381`），便于 Temp 清理后仍可复现。下述临时路径/rlib 哈希是本轮执行记录；重建时使用归档源码及新编译产物路径。
 
 可重复步骤：创建全新临时目录下的 A、B、live；用 `Store::create` 与 `persistence::UPSTREAM_TABLES` 建两个合成上游 DB，分别插入唯一 Custom ProfileItem（IndexId=node-a/node-b，ConfigType=2，ConfigVersion=4，Address=custom.json，无凭据）；A guiNConfig 的 IndexId=node-a、UIItem.CurrentTheme=Dark，B 为 node-b/Light；各写 `config/custom.json` 为 `{"outbounds":[{"protocol":"freedom"}]}`。对同一个 BackupService(live) 依次 import_upstream(A)、import_upstream(B)、import_upstream(A)，每次使用独立 work 目录。查询 ProfileItem 总数、live guiNConfig 的主题与 active_index_id，再按 active_index_id 查询对应 ProfileItem 数。原临时目录已含运行输出数据，再跑请传**新的**临时目录参数。
 
@@ -111,6 +111,13 @@ A→B→A 附加 harness 已归档为 [round3-settings-repro.rs](./round3-settin
 
 ```powershell
 & 'C:/Users/Colby/.cargo/bin/rustc.exe' --edition 2021 'C:/Users/Colby/AppData/Local/Temp/v2rayn-round3-import-a2e0169ca887428c893b43fb9b2bc2dd/repro.rs' -L 'dependency=C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/target/debug/deps' -L 'native=C:/Users/Colby/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows_x86_64_msvc-0.52.6/lib' --extern 'application=C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/target/debug/deps/libapplication-4d1a48e3b9f00f59.rlib' --extern 'persistence=C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/target/debug/deps/libpersistence-9c9ed47043b3a7ee.rlib' -o 'C:/Users/Colby/AppData/Local/Temp/v2rayn-round3-import-a2e0169ca887428c893b43fb9b2bc2dd/repro.exe'
+```
+
+生成 exe 后重现时使用新临时根目录，避免复用已运行数据：
+
+```powershell
+$round3Data = Join-Path ([System.IO.Path]::GetTempPath()) ('v2rayn-round3-fresh-' + [Guid]::NewGuid().ToString('N'))
+& 'C:/Users/Colby/AppData/Local/Temp/v2rayn-round3-import-a2e0169ca887428c893b43fb9b2bc2dd/repro.exe' $round3Data
 ```
 
 首次直接 rustc 缺 native search path，LNK1181（windows.0.52.0.lib），未运行；补上述 `-L native` 后编译及执行均 exit 0。实际执行给同一初次空临时根目录，输出与三个断言：

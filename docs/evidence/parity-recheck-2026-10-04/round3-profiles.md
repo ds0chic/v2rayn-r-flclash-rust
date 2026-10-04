@@ -4,7 +4,7 @@
 
 对照源码根目录记为 `UP = work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/`。以下 `UP/ServiceLib/...` 与 `UP/v2rayN/...` 均是该冻结目录的真实源码，不是远端最新版。应用定位均为当前工作树的一基行号。
 
-本轮只读生产代码，没有修改应用、台账、冻结源或方案，没有 commit。实际修改仅本报告。运行时外部并发变更包括 `profiles_table.dart` 增加 69 行拖选边缘自动滚动、旧 `profiles_selection_test.dart` 被拆分/删除，以及五个新的选择/拖选测试。审查时 `profiles_table.dart` SHA256 为 `4B6A4351730E8E7886E9ADA8C43BCF1032EDA10DDC63F40E5036336E2C0EA2DF`；该差异只改变拖选滚动段与 dispose/pointer-up 清理，不改变本报告指出的菜单业务分派。它尚未包含在 HEAD 或已发布包中，不能用工作树测试替代正式包证据。
+本轮只读生产代码，没有修改应用、台账、冻结源或方案，没有 commit。实际修改仅本报告。运行时外部并发变更包括 `profiles_table.dart` 增加 69 行拖选边缘自动滚动、旧 `profiles_selection_test.dart` 被拆分/删除，以及五个新的选择/拖选测试。审查时 `profiles_table.dart` SHA256 为 `4B6A4351730E8E7886E9ADA8C43BCF1032EDA10DDC63F40E5036336E2C0EA2DF`；该差异只改变拖选滚动段与 dispose/pointer-up 清理，不改变本报告指出的菜单业务分派。报告收尾时外部已提交为 `f328d0f91fe95ce5ff64d1b56d382c9e25c1c68d`，文件哈希未变；本文因此覆盖起始 HEAD 的已提交业务逻辑与该最终拖选快照。发布包仍来自 `a4ceab5`，不能用新工作树测试替代正式包证据。
 
 ## 证据边界
 
@@ -29,7 +29,7 @@
 
 **状态：`implemented`（普通编辑/删除后的重载和回退）；`identified`（多选单节点动作）。**
 
-冻结 `ProfilesViewModel.cs:494-500` 编辑活动节点成功后 Reload，`:515-526` 删除含活动后 Reload。当前 `profile_actions.dart:173-204` 保存前捕获是否活动，成功后 `applyAfterEditIfActive`；`:213-250` 确认删除后调用 `reconcileActiveAfterRemoval`；`:258-291` 按当前列表/存量 `Port>0` 回退；`:401-449` 区分持久化与应用失败，重复设活动不清空。这些已接真实 bridge 和共享 runtime apply，不能再说“只保存不应用”。
+冻结 `ProfilesViewModel.cs:494-500` 编辑活动节点成功后 Reload，`:515-526` 删除含活动后 Reload。当前 `profile_actions.dart:130-175` 保存前捕获是否活动，成功后 `applyAfterEditIfActive`；`:184-216` 确认删除后调用 `reconcileActiveAfterRemoval`；`:223-255` 按当前列表/存量 `Port>0` 回退；`:367-431` 区分持久化与应用失败，重复设活动不清空。这些已接真实 bridge 和共享 runtime apply，不能再说“只保存不应用”。
 
 未在本轮启动真实内核验证这些效果；根此前 synthetic runtime 计数证据见 `recheck-fixes/RE-PROF-01-05-02/`。普通编辑和设置活动仍要求 `selected.length == 1`，多选无主行，见 R3-PROF-01。无候选时清 active 而未 stop 的行为需结合运行合同评估；冻结 Reload 在无默认对象时也提前返回（`MainWindowViewModel.cs:690-695`），本报告不把“最后一个节点删除后未 stop”单独称为新迁移差异。
 
@@ -37,7 +37,7 @@
 
 **状态：`implemented`（快捷键接线已修）；`identified`（多选 Ctrl+F 主对象缺失）。**
 
-冻结 `UP/v2rayN/Views/ProfilesView.xaml.cs:221-246` 对应分享链接和分享窗口。当前 `table_actions.dart` 映射、`profiles_table.dart:411-425` 实际分派，`profile_actions.dart:324-336` 导出真实分享 URI 写剪贴板；空集合静默返回，不再克隆。Ctrl+F 实际打开 QR 窗口，不再只是日志。已有两个 shortcut widget 证据可查 `recheck-fixes/RE-PROF-03/`，本轮 codec 互通 9 个断言通过。
+冻结 `UP/v2rayN/Views/ProfilesView.xaml.cs:221-246` 对应分享链接和分享窗口。当前 `table_actions.dart` 映射、`profiles_table.dart:411-425` 实际分派，`profile_actions.dart:288-299` 导出真实分享 URI 写剪贴板；空集合静默返回，不再克隆。Ctrl+F 实际打开 QR 窗口，不再只是日志。已有两个 shortcut widget 证据可查 `recheck-fixes/RE-PROF-03/`，本轮 codec 互通 9 个断言通过。
 
 `subs_actions.dart:295-303` 多选时直接拒绝分享，原版 `ShareServerAsync:593-607` 取 `SelectedProfile`。见 R3-PROF-01，不能以“分享单节点”推导“必须只有一个选中项”。
 
@@ -57,7 +57,7 @@
 
 冻结 `RefreshServersBiz:366-375` 在非空列表默认选 pending → 活动 → 第一行；当前只求交，切入非空组/新增保存后经常无选择，须额外点击才能编辑/Enter。表格多选只有 Set，没有独立主行和 anchor，`extendSelection`/方向键从 Set/首个可见选中项推导，难与 WPF 当前行语义一致。`emitAction(Escape):965-972` 停测速后清选择，而冻结 `ProfilesView.xaml.cs:289-291` 只有 `ServerSpeedtestStop()`。菜单打开时 Esc 先关闭菜单的逻辑已正确接线，不与这里混同。
 
-外部正在修拖选 auto-scroll，不再以旧“没有边缘自动滚动”断言当前树未实现。根本轮独立原三个选择断言已绿；整文件 `did not complete` 属 tester 未完成，不能认定产品交互失败。五个新拆分/自动滚动测试由根继续复验，本文不虚构通过。
+外部本轮已修拖选 auto-scroll 并在收尾时提交 f328d0f，不再以旧“没有边缘自动滚动”断言当前树未实现。根本轮独立原三个选择断言已绿；整文件 `did not complete` 属 tester 未完成，不能认定产品交互失败。五个新拆分/自动滚动测试由根继续复验，本文不虚构通过。
 
 ### RE-PROF-06：去重 / 移除无效
 
@@ -119,7 +119,7 @@ UDP现在可点击且支持标记 true，但生产探针 `bridge_api/speedtest.r
 
 **状态：`implemented`。旧缺标记问题已修。**
 
-`profiles_table.dart:527-541` 活动数据单元格填色，`:606-616` handle 实心前导标记，独立于 selected；即使活动行同时选中，标记仍在。已有浅/深主题 widget 证据 `recheck-fixes/RE-PROF-13-14/`。冻结 `UP/v2rayN/Views/ProfilesView.xaml:271-279` 独立 IsActive 样式满足；尚未本轮真窗像素/缩放/密集长文本对照，不能从颜色函数测试断言最佳颜值。
+`profiles_table.dart:527-549` 活动数据单元格填色，`:606-616` handle 实心前导标记，独立于 selected；即使活动行同时选中，标记仍在。已有浅/深主题 widget 证据 `recheck-fixes/RE-PROF-13-14/`。冻结 `UP/v2rayN/Views/ProfilesView.xaml:271-279` 独立 IsActive 样式满足；尚未本轮真窗像素/缩放/密集长文本对照，不能从颜色函数测试断言最佳颜值。
 
 ### RE-PROF-14：自动宽度 / 拖动开关 / 搜索时机
 
@@ -127,7 +127,7 @@ UDP现在可点击且支持标记 true，但生产探针 `bridge_api/speedtest.r
 
 `profiles_controller.dart:1283-1325` TextPainter 量宽并持久化，最多500行、40..600钳制；非旧 log-only。`profilesEnableDragDropSortProvider` 读设置，`profiles_table.dart:581-603/623-643` false 不构建拖动/目标。搜索 `profiles_controller.dart:693-712` 非空暂存、Enter提交、清空即刷新，匹配 remarks/address，已对齐冻结 `ProfilesViewModel.cs:343-350` 和 `ProfilesView.xaml.cs:316-322`。
 
-已有测试证据见 `RE-PROF-13-14/`；本轮没有重新做真实窗口自动宽度/拖动排序/高 DPI 视觉。外部新增的拖选自动滚动仅当前工作树实现，需根单独稳定测试；不覆盖已提交的 EnableDragDropSort 语义。
+已有测试证据见 `RE-PROF-13-14/`；本轮没有重新做真实窗口自动宽度/拖动排序/高 DPI 视觉。外部新增拖选自动滚动已在收尾时提交 f328d0f，仍需根单独稳定测试；不覆盖 EnableDragDropSort 语义，也尚未进入 a4ceab5 发布包。
 
 ## 优先修复的当前用户流程缺口
 
@@ -135,7 +135,7 @@ UDP现在可点击且支持标记 true，但生产探针 `bridge_api/speedtest.r
 
 | ID / 优先级 | 用户触发与实际差异 | 精确当前定位 / 安全复现 |
 |---|---|---|
-| R3-PROF-01 / P1 | Ctrl选 A+B，右键其中一行，编辑/分享/设活动/导出完整配置均提示必须单个选中，原版使用独立 SelectedProfile | `profile_actions.dart:153-162/43-62/426-431`、`subs_actions.dart:295-300`。菜单捕获 `primaryId`（`profiles_table.dart:809-811`）却未消费。Synthetic 两节点，多选后逐命令断言目标应等于主行；全局 primary/anchor 与 batch selection 应分离。 |
+| R3-PROF-01 / P1 | Ctrl选 A+B，右键其中一行，编辑/分享/设活动/导出完整配置均提示必须单个选中，原版使用独立 SelectedProfile | `profile_actions.dart:130-139/43-62/407-413`、`subs_actions.dart:295-300`。菜单捕获 `primaryId`（`profiles_table.dart:809-811`）却未消费。Synthetic 两节点，多选后逐命令断言目标应等于主行；全局 primary/anchor 与 batch selection 应分离。 |
 | R3-PROF-02 / P1 | 菜单在 A 打开后刷新/选择漂移成 B，完整配置导出读取 live B；同组过滤隐藏 A 后菜单仍可恢复 A 并执行 | `profiles_table.dart:943-953/1065-1108`；`restoreContextTargets:849-855` 只查 all。用合成状态在菜单开/执行之间改选择或过滤，记录 bridge 请求 ID；完整导出需同样使用 immutable command target，隐藏对象合同需明确定义。去重确认期间换组同样读取 live group，需快照。 |
 | R3-PROF-03 / P1 | 延迟升序把失败放前；已按备注排序后“按测试结果排序”，下一次 refresh 回到备注；搜索后表头排序不改变整组顺序 | `profiles_models.dart:350-374`、`profiles_controller.dart:539-551/715-730/753-769`。合成 A/B/C，delay=-1/10/100；先 sort Remarks，再 sortByResult，再 reload，断言稳定顺序及失败沉底；另隐藏 B 后验证整组写序。 |
 | R3-PROF-04 / P1 | 关“保留较旧项”仍删新项；去重删活动重复对象后不 Reload；DB删除失败提示“没有重复节点” | `profiles_controller.dart:1252-1269`、`profiles_table.dart:1189-1190`、`engine.rs:540-559`。Synthetic 两条相同节点+false设置，统计选中 ID 和 apply调用；failDeleteProfiles 必須给真实失败信息而非无重复。 |

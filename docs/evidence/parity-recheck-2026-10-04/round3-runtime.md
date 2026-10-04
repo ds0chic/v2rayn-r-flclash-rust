@@ -2,6 +2,8 @@
 
 日期：2026-10-04。审查 HEAD：`7edf1ee4e64590093e39444188229a69beb59908`；RC 编译源码：`a4ceab5dcf9c752e324be7dbf5d35ae128119a3d`。冻结原版：v2rayN 7.25.4 / `7d6a967c18c697f28dc6917122ed3a4993fcf336`，Windows 对照 WPF。
 
+后续并行提交 `f328d0f` 只修改节点表拖选/测试，`6699c31` 刷新 ZIP；下文旧哈希是本代理审查快照，最新 ZIP/build-info 的 `git_dirty=true` 发布限制见 [第三轮总览](round3-README.md)。运行域源码结论未因这两次提交改变。
+
 本报告重新检查当前源码、RR 任务卡、相关 compat 条目及冻结源。旧 RR 编号只是问题对应关系，不把旧实现描述当当前事实，不把历史测试写成本轮实测。生产源码只读；未改用户正在调整的 profiles 文件，未提交。本文的 `implemented` 表示找到实际接线并说明证据边界，不等于整项用户流程通过验收。
 
 路径约定：仓库根为 `C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn`；以下 `U/` 指该根下 `work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/`。行号对应本轮读取的当前源码。

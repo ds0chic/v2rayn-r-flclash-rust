@@ -43,3 +43,37 @@
 - 全部卡未做原版实机双窗口逐事件对照，保持 `implemented`。
 
 安全边界：全程未占用 10808、未改宿主系统代理/注册表/路由/TUN、未读用户凭据；系统写读仅经授权路径并复原。
+
+## 第三轮（round3-*，2026-10-04）
+
+Wave H（提交 `593e289`）：
+- R3-SET-01：AlreadyImported 幂等 no-op + 按批次配置，杜绝 A→B→A 跨源激活/悬空 active。
+- R3-SET-02：原版 ZIP 恢复改为替换 DB/config（合并导入保留独立入口）。
+- R3-SET-03：恢复前取消/排空在途订阅，epoch 保护拒绝换库后旧提交，停止超时阻断恢复。
+- R3-SET-04：恢复后重载并重注册 GlobalHotkeys。
+- R3-02：预 SOCKS 顺序改为“主核→等待端口→侧车”，侧车配置消费真实设置（入站本地端口、出站拨主核、TUN/DNS/路由）。
+- R3-03：非 Xray/sing-box 原生 Custom 配置逐字保留（不再被 Xray 端点解析拒绝），补 mieru env 等合同。
+- R3-05：helper 成功后所有失败分支统一清理 TUN lease/journal。
+- R3-07：Custom API secret/listen/类型进入 AppliedFacts/MonitorSession；无 API 不访问默认统计端点。
+- R3-PROF-01：多选主行合同（编辑/分享/设活动/完整导出用 primary，不再要求单选中）。
+- R3-PROF-02：菜单命令目标不可变（漂移/隐藏对象拒绝；完整导出读捕获目标）。
+- R3-PROF-03：失败/未测延迟两向沉底；结果排序后 reload 不回退；整组写 Sort（含过滤隐藏行）。
+- R3-PROF-04：去重读 KeepOlderDedupl、删除含活动后回退、失败显示真实错误。
+
+Wave I（提交 `d48e69e`）：
+- R3-01：PAC 渲染 `PROXY/SOCKS5 host:port;DIRECT;` 指令串，与 WinINET 服务器串分离。
+- R3-PROXY-UI：系统代理/PAC 按 AppliedSession 协议（SOCKS/HTTP）区分。
+- R3-10：路由重载提示以新 applied 事实为准，失败呈现具体错误。
+- R3-06：sing-box 统计 WS 后台任务置于持续 executor，生产 poll loop 合成非零验证。
+- R3-PROF-05：UDP 测速经节点 session 的 SOCKS5 UDP ASSOCIATE，不再宿主直连冒充。
+- R3-PROF-07：订阅策略组只保留有效叶子（Rust `is_valid` + Dart 同步）。
+- R3-08：普通更新检查对 App 分流到本产品源；未配置时明确 blocked，不展示原版发行信息。
+- R3-PROF-06：Custom 原始文本导出字节不变；扩展名按 address；缺 fileName 显式失败。
+- R3-PROF-09：证书获取连接节点 Address:Port + `SecureSocket.secure(host: SNI)`。
+- R3-SET-05：热键部分冲突后保持暂停，编辑结束前不恢复动作。
+- R3-SET-06：主菜单 toast 复用逐组汇总，失败可查看详情。
+- R3-ROOT-01：F5/重载重入补跑最后一次；空活动提示。
+- 台账：ACT-MAIN-035 状态/实现定位更新（R3-02 root 漂移）。
+
+第三轮仍未完成（登记）：R3-04 首次 TUN 设备创建（隔离 VM）；R3-09 托盘图标状态/“今日”范围；R3-PROF-08 选择器延迟/速度列与键盘合同；R3-PROF-10 默认选中/Esc 语义；R3-PROF-11 Reality 指纹保存固化；R3-02/03 root（台账其余漂移、管理员重启/UWP 回环/区域预置/核心网站等 preservedOnly 入口）；真实发行源与真实 OS 热键/TUN/系统代理整链。
+

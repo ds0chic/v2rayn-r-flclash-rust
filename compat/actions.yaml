@@ -1113,10 +1113,11 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:233
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:664
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:233
-  implementation_location: null
-  test_ids: []
-  status: preserved_only
-  notes: 'RE-PROF-R-01 2026-10-04: shared RuntimeController.reload() (busy-guard + refresh + applyActive) 已实现并单测；main_shell.dart F5 与 ACT-MAIN-035 菜单接线仍未完成（该文件本任务冻结），补丁见 docs/evidence/recheck-fixes/RE-PROF-01-05-02/README.md。接线前状态保持 preserved_only。'
+  implementation_location: apps/desktop/lib/app/shell/main_shell.dart:160-164,421-422 + apps/desktop/lib/features/runtime/runtime_controller.dart:142-147
+  test_ids:
+  - apps/desktop/test/recheck_r01_runtime_reload_test.dart
+  status: implemented
+  notes: 'RE-PROF-R-01 2026-10-04: shared RuntimeController.reload() (busy-guard + refresh + applyActive) 已实现；main_shell.dart F5 与 ACT-MAIN-035 菜单已接线（2026-10-04 round3 wave）。R3-ROOT-01 补重入 pending 补跑与空活动提示，见 docs/tasks/R3-ROOT-01.md。'
 - id: ACT-WIN-001
   name: 关闭按钮-最小化到托盘
   domain: main-menu

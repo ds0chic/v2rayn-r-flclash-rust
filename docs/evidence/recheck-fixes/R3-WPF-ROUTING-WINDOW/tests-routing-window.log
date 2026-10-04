@@ -1,0 +1,43 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart                                                                            
+00:01 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart                                                                            
+00:01 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart: menu model carries the routing and DNS entries                                    
+00:01 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart: menu model carries the routing and DNS entries                                    
+00:01 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart: menu opens the routing window; status bar shows the switch                        
+00:02 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart: menu opens the routing window; status bar shows the switch                        
+00:02 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart: menu opens the routing window; status bar shows the switch                        
+00:02 +2: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_structure_test.dart                                                            
+00:03 +2: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_structure_test.dart                                                            
+00:03 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_structure_test.dart: renders the upstream title, toolbar, block title and columns      
+00:03 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_structure_test.dart: renders the upstream title, toolbar, block title and columns      
+00:03 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_structure_test.dart: row context menu mirrors the upstream DataGrid context menu       
+00:03 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_structure_test.dart: row context menu mirrors the upstream DataGrid context menu       
+00:03 +4: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart                                                               
+00:04 +4: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart                                                               
+00:04 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: renders the Wave K structure from the host snapshot                  
+00:04 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: renders the Wave K structure from the host snapshot                  
+00:04 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: 纭畾 relays the whole draft to the host then closes                    
+00:04 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: 纭畾 relays the whole draft to the host then closes                    
+00:04 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: editing a scheme feeds back into the relayed draft                   
+00:04 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: editing a scheme feeds back into the relayed draft                   
+00:04 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: 鍙栨秷 discards the draft: no save, window closes                        
+00:04 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: 鍙栨秷 discards the draft: no save, window closes                        
+00:04 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: Esc closes without writing the draft                                 
+00:04 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: Esc closes without writing the draft                                 
+00:04 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: a failed save keeps the window open and shows the error              
+00:05 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: a failed save keeps the window open and shows the error              
+00:05 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_routing_window_test.dart: a failed save keeps the window open and shows the error             
+00:05 +10: All tests passed!                                                                                                                                                                           

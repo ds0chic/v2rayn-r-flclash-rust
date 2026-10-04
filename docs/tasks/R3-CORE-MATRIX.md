@@ -1,6 +1,6 @@
 # R3-CORE-MATRIX — 其余 12 核版本锁定与真实运行矩阵
 
-状态：`verified`（14 核 version 探针全部通过；14 核真实最小会话 12 `verified`、2 `blocked`（hysteria2/overtls，需 TLS 服务器/证书）；adapter 合同已按真实二进制修正并补测）。
+状态：`verified`（14 核 version 探针全部通过；14 核真实最小会话 **14 `verified`、0 `blocked`**——hysteria2/overtls 已用自签 TLS 服务器对 + 客户端最小会话 + 代理 GET 与失败探针解除 blocker；adapter 合同已按真实二进制修正并补测）。
 
 任务 ID：R3-CORE-MATRIX（对应 `docs/evidence/recheck-fixes/remaining-boundaries-2026-10-05.md` 第 3 项）。
 
@@ -30,7 +30,7 @@
 本次必须通过的命令/真实场景：
 - `tools/cores/fetch_cores.ps1`（12 核官方资产下载/解压/哈希）
 - `tools/cores/smoke_cores.ps1`（14 核 version）：14/14 exit 0
-- `tools/cores/session_matrix.ps1`（14 核真实最小会话）：12 ok / 2 blocked，逐核清理无残留
+- `tools/cores/session_matrix.ps1`（14 核真实最小会话）：14 ok / 0 blocked（hysteria2/overtls 走自签 TLS 对会话 + 代理 GET），逐核清理无残留
 - `cargo fmt -p runtime -- --check`、`cargo clippy -p runtime --all-targets --locked -- -D warnings`
 - `cargo test -p runtime --locked`、`cargo test -p net_host --locked`
 
@@ -42,8 +42,10 @@
 - `V2RAY_LOCATION_ASSET`/`XRAY_LOCATION_ASSET`/`XRAY_LOCATION_CERT` 上游指向 exe 目录，而 `CoreAdapter::env_vars` 仅接收配置路径，无法表达 exe 目录；当前未注入（本机 geo 资产与 exe 同目录）。
 - `run_config_check` 执行 `test_args` 时不注入 `env_vars`/`working_dir`；当前受影响核无碍，后续依赖 env/cwd 的校验命令需同步。
 
-本轮实际结果：`cores.lock.json` 扩为 14 条（追加 12 条；5 核上游校验一致、7 核本地计算）；`fetch_cores.ps1`/`smoke_cores.ps1`/`session_matrix.ps1` 新增；`adapter.rs` 修正 v2fly（`-config`/`-test -config`）、v2fly_v5（去 `-format jsonv5`，`run -c`/`test -c`）、hysteria/hysteria2（`working_dir`=配置目录）并新增 3 个单测。runtime 58 passed、net_host 62 passed；fmt/clippy 通过。hysteria2、overtls 仅“无服务器最小会话”`blocked`。
+本轮实际结果：`cores.lock.json` 扩为 14 条（追加 12 条；5 核上游校验一致、7 核本地计算）；`fetch_cores.ps1`/`smoke_cores.ps1`/`session_matrix.ps1` 新增；`adapter.rs` 修正 v2fly（`-config`/`-test -config`）、v2fly_v5（去 `-format jsonv5`，`run -c`/`test -c`）、hysteria/hysteria2（`working_dir`=配置目录）并新增 3 个单测。runtime 58 passed、net_host 62 passed；fmt/clippy 通过。
 
-blocked（需证书/服务器，登记）：hysteria2（v2 启动即拨号中继，合成回环无服务器 exit 1）、overtls（启动即建 TLS 隧道，ConnectionRefused 退出）。
+hysteria2/overtls 补测（`session_matrix.ps1` 新增 pair 会话路径）：在 `$TEMP` 用锁定 hysteria2 的 `cert` 生成临时自签 PEM（只记 cert sha256 / pin，不落私钥），`server` 显式起 TLS 监听（hysteria2 UDP，overtls TCP），客户端按 adapter 合同连接并代理真实 HTTP GET 到本地目标（回体 `HY2-OK`/`OV-OK`），同时跑“指向关闭端口”的失败探针（hysteria2 QUIC 握手超时 exit 1、overtls `ConnectionRefused` exit 1）。14 核会话结果：14 ok / 0 blocked；全部进程按 PID 停止、`still_running=false`、临时物仅存 `$TEMP`。overtls `--help` 证实本地 `-r server` 模式存在；adapter 只实现 client 角色，未改。
 
-未完成 / 下一步前置：hysteria2/overtls 的“含本地自签服务器最小会话”留作后续；未跑全仓 `cargo test --workspace`。
+blocked（已解除）：hysteria2、overtls 的“含本地自签服务器最小会话”均已完成，矩阵 14/14。
+
+未完成 / 下一步前置：未跑全仓 `cargo test --workspace`（仅运行受影响的 runtime 与 net_host）；xray/sing-box lock 未重下。

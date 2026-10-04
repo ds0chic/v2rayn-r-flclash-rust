@@ -2,6 +2,7 @@
 // the routing window opens from the menu and the status bar exposes the
 // Rule/Global/Direct switch plus the scheme list.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/app/menu/main_menu.dart';
 
@@ -30,6 +31,18 @@ void main() {
   testWidgets('menu opens the routing window; status bar shows the switch', (
     tester,
   ) async {
+    // No native routing host in widget tests: report "not opened" so the
+    // shell falls back to the embedded routing dialog.
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('v2rayn/routing_window'),
+      (call) async => call.method == 'open' ? false : null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('v2rayn/routing_window'),
+        null,
+      ),
+    );
     await pumpApp(tester, rows: 200);
     await tester.tap(find.byKey(const ValueKey('menu-设置')));
     await tester.pumpAndSettle();

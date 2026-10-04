@@ -1,0 +1,50 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart                                                                         
+00:01 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart                                                                         
+00:01 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing controller seeds one active builtin scheme                             
+00:01 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing controller seeds one active builtin scheme                             
+00:01 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing save rejects empty remarks                                             
+00:01 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing save rejects empty remarks                                             
+00:01 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing rules move preserves order (T/U/D/B)                                   
+00:01 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing rules move preserves order (T/U/D/B)                                   
+00:01 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing import/export round-trips through the bridge                           
+00:01 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing import/export round-trips through the bridge                           
+00:01 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing mode switches Rule/Global/Direct                                       
+00:01 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing mode switches Rule/Global/Direct                                       
+00:01 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing settings window renders list and closes                                
+00:01 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_routing_test.dart: routing settings window renders list and closes                                
+00:01 +6: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_routing_draft_test.dart                                                                 
+00:02 +6: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_routing_draft_test.dart                                                                 
+00:02 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_routing_draft_test.dart: ruleset draft: unique ids, draft move, delete-all saves                
+00:03 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_routing_draft_test.dart: ruleset draft: unique ids, draft move, delete-all saves                
+00:03 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_routing_draft_test.dart: ruleset draft: unique ids, draft move, delete-all saves                
+00:03 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_routing_draft_test.dart: routing top strategy edits the global object, not the scheme           
+00:03 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_routing_draft_test.dart: routing top strategy edits the global object, not the scheme           
+00:03 +8: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart                                                                
+00:04 +8: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart                                                                
+00:04 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart: import failure keeps the draft; success enters it                     
+00:04 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart: import failure keeps the draft; success enters it                     
+00:04 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart: deleting rules asks for confirmation; cancel keeps the draft          
+00:05 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart: deleting rules asks for confirmation; cancel keeps the draft          
+00:05 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart: deleting rules asks for confirmation; cancel keeps the draft         
+00:05 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart: outbound selector excludes Custom profiles                           
+00:05 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart: outbound selector excludes Custom profiles                           
+00:05 +11: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t21e_dialogs_responsive_test.dart                                                            
+00:06 +11: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t21e_dialogs_responsive_test.dart                                                            
+00:06 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t21e_dialogs_responsive_test.dart: windows render without overflow at 1000x700                       
+00:07 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t21e_dialogs_responsive_test.dart: windows render without overflow at 1000x700                       
+00:07 +12: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t21e_dialogs_responsive_test.dart: windows render without overflow at 1000x700                       
+00:07 +12: All tests passed!                                                                                                                                                                           

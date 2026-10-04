@@ -1,6 +1,6 @@
 # R3-WPF-ROUTING-WINDOW — 路由设置改为独立顶层窗口
 
-状态：`identified`（原版独立 WPF 窗口，当前 Flutter `showDialog`；尚未实施）。
+状态：`implemented`（已迁移为原生第二顶层窗口；发布包隔离数据目录 HWND 探针通过；未做逐事件/DPI 对照，故未达 `verified`。证据：`docs/evidence/recheck-fixes/R3-WPF-ROUTING-WINDOW/`）。
 
 任务 ID：R3-WPF-ROUTING-WINDOW。
 

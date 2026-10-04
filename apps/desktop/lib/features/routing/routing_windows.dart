@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +10,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Upstream `DomainStrategy` candidates (Xray).
 const domainStrategyOptions = <String>[
@@ -972,9 +976,17 @@ Future<r.RoutingRuleDto?> showRoutingRuleDetailsDialog(
 }
 
 class RoutingRuleDetailsDialog extends ConsumerStatefulWidget {
-  const RoutingRuleDetailsDialog({super.key, required this.rule});
+  const RoutingRuleDetailsDialog({
+    super.key,
+    required this.rule,
+    this.outboundTags,
+  });
 
   final r.RoutingRuleDto rule;
+
+  /// Outbound candidates supplied by the routing window (second engine) so the
+  /// picker never needs the Rust bridge. Null keeps the embedded-dialog path.
+  final List<String>? outboundTags;
 
   @override
   ConsumerState<RoutingRuleDetailsDialog> createState() =>
@@ -1252,15 +1264,20 @@ class _RoutingRuleDetailsDialogState
   /// Custom-config profiles are excluded (upstream `SelectProfileAsync`:
   /// `SetConfigTypeFilter([EConfigType.Custom], exclude: true)`).
   Future<void> _selectProfile() async {
-    final bridge = ref.read(bridgePortProvider);
-    final remarks =
-        bridge
-            .queryAllProfiles()
-            .where((p) => p.configType != ConfigType.custom)
-            .map((p) => p.remarks)
-            .toList()
-          ..sort();
-    final options = <String>['proxy', 'direct', 'block', ...remarks];
+    final supplied = widget.outboundTags;
+    final options = supplied != null
+        ? List<String>.of(supplied)
+        : () {
+            final bridge = ref.read(bridgePortProvider);
+            final remarks =
+                bridge
+                    .queryAllProfiles()
+                    .where((p) => p.configType != ConfigType.custom)
+                    .map((p) => p.remarks)
+                    .toList()
+                  ..sort();
+            return <String>['proxy', 'direct', 'block', ...remarks];
+          }();
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
@@ -1338,6 +1355,1240 @@ class _RoutingRuleDetailsDialogState
         remarks: _remarks.text.trim().isEmpty ? null : _remarks.text.trim(),
         ruleType: _ruleType,
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// R3-WPF-ROUTING-WINDOW: 路由设置 as an independent top-level window.
+//
+// The window runs in its own Flutter engine with a snapshot of the routing
+// schemes (with their rules) and the global strategy. It has no Rust handle:
+// every edit mutates a local draft, and 确定 relays the draft to the main
+// engine, which persists it through the existing routing save path. 取消/Esc/
+// title-bar close write nothing. Widget tests use an in-memory fake host; the
+// embedded dialog is kept as a fallback for environments without the native
+// host (e.g. `flutter test`).
+// ---------------------------------------------------------------------------
+
+/// One scheme plus its editable rules, as exchanged with the main engine.
+class RoutingSchemeSnapshot {
+  const RoutingSchemeSnapshot({required this.profile, required this.rules});
+
+  final r.RoutingProfileDto profile;
+  final List<r.RoutingRuleDto> rules;
+}
+
+/// The routing window's draft at 确定 time.
+class RoutingDraft {
+  const RoutingDraft({
+    required this.schemes,
+    required this.domainStrategy,
+    required this.domainStrategySbox,
+  });
+
+  final List<RoutingSchemeSnapshot> schemes;
+  final String domainStrategy;
+  final String domainStrategySbox;
+}
+
+/// The routing window's starting snapshot.
+class RoutingEditorSnapshot {
+  const RoutingEditorSnapshot({
+    required this.schemes,
+    required this.domainStrategy,
+    required this.domainStrategySbox,
+    required this.outboundTags,
+  });
+
+  final List<RoutingSchemeSnapshot> schemes;
+  final String domainStrategy;
+  final String domainStrategySbox;
+  final List<String> outboundTags;
+}
+
+/// Outcome of persisting a routing draft through the main engine.
+class RoutingEditorOutcome {
+  const RoutingEditorOutcome({required this.ok, this.message});
+
+  final bool ok;
+
+  /// User-facing error text; only set when [ok] is false.
+  final String? message;
+}
+
+/// Persistence/close seam for the routing window. The desktop implementation
+/// talks to the main window through the native host; tests use a fake.
+abstract class RoutingEditorHost {
+  Future<RoutingEditorSnapshot> loadSnapshot();
+  Future<RoutingEditorOutcome> save(RoutingDraft draft);
+  Future<void> close();
+}
+
+Map<String, dynamic> routingRuleToJson(r.RoutingRuleDto rule) =>
+    <String, dynamic>{
+      'id': rule.id,
+      'ruleKind': rule.ruleKind,
+      'port': rule.port,
+      'network': rule.network,
+      'inboundTag': rule.inboundTag,
+      'hasInboundTag': rule.hasInboundTag,
+      'outboundTag': rule.outboundTag,
+      'ip': rule.ip,
+      'hasIp': rule.hasIp,
+      'domain': rule.domain,
+      'hasDomain': rule.hasDomain,
+      'protocol': rule.protocol,
+      'hasProtocol': rule.hasProtocol,
+      'process': rule.process,
+      'hasProcess': rule.hasProcess,
+      'enabled': rule.enabled,
+      'remarks': rule.remarks,
+      'ruleType': rule.ruleType,
+    };
+
+List<String> _routingStrList(Object? value) {
+  if (value is List) {
+    return value.map((e) => e.toString()).toList();
+  }
+  return const <String>[];
+}
+
+r.RoutingRuleDto routingRuleFromJson(Map<String, dynamic> json) =>
+    r.RoutingRuleDto(
+      id: json['id'] as String? ?? RoutingController.newRuleId(),
+      ruleKind: json['ruleKind'] as String?,
+      port: json['port'] as String?,
+      network: json['network'] as String?,
+      inboundTag: _routingStrList(json['inboundTag']),
+      hasInboundTag: json['hasInboundTag'] == true,
+      outboundTag: json['outboundTag'] as String?,
+      ip: _routingStrList(json['ip']),
+      hasIp: json['hasIp'] == true,
+      domain: _routingStrList(json['domain']),
+      hasDomain: json['hasDomain'] == true,
+      protocol: _routingStrList(json['protocol']),
+      hasProtocol: json['hasProtocol'] == true,
+      process: _routingStrList(json['process']),
+      hasProcess: json['hasProcess'] == true,
+      enabled: json['enabled'] != false,
+      remarks: json['remarks'] as String?,
+      ruleType: (json['ruleType'] as num?)?.toInt(),
+    );
+
+Map<String, dynamic> routingSchemeToJson(RoutingSchemeSnapshot scheme) {
+  final d = scheme.profile;
+  return <String, dynamic>{
+    'id': d.id,
+    'remarks': d.remarks,
+    'url': d.url,
+    'enabled': d.enabled,
+    'locked': d.locked,
+    'customIcon': d.customIcon,
+    'customRulesetPath4Singbox': d.customRulesetPath4Singbox,
+    'domainStrategy': d.domainStrategy,
+    'domainStrategy4Singbox': d.domainStrategy4Singbox,
+    'sort': d.sort,
+    'isActive': d.isActive,
+    'rules': scheme.rules.map(routingRuleToJson).toList(),
+  };
+}
+
+RoutingSchemeSnapshot routingSchemeFromJson(Map<String, dynamic> json) {
+  final rules = <r.RoutingRuleDto>[
+    for (final entry in (json['rules'] as List? ?? const <Object>[]))
+      if (entry is Map) routingRuleFromJson(entry.cast<String, dynamic>()),
+  ];
+  final profile = r.RoutingProfileDto(
+    id: json['id'] as String? ?? '',
+    remarks: json['remarks'] as String? ?? '',
+    url: json['url'] as String? ?? '',
+    ruleSet: RoutingController.rulesToRuleSetJson(rules),
+    ruleNum: rules.length,
+    enabled: json['enabled'] != false,
+    locked: json['locked'] == true,
+    customIcon: json['customIcon'] as String? ?? '',
+    customRulesetPath4Singbox:
+        json['customRulesetPath4Singbox'] as String? ?? '',
+    domainStrategy: json['domainStrategy'] as String? ?? '',
+    domainStrategy4Singbox: json['domainStrategy4Singbox'] as String? ?? '',
+    sort: (json['sort'] as num?)?.toInt() ?? 0,
+    isActive: json['isActive'] == true,
+  );
+  return RoutingSchemeSnapshot(profile: profile, rules: rules);
+}
+
+String encodeRoutingSnapshot(RoutingEditorSnapshot snapshot) => jsonEncode({
+  'schemes': snapshot.schemes.map(routingSchemeToJson).toList(),
+  'domainStrategy': snapshot.domainStrategy,
+  'domainStrategy4Singbox': snapshot.domainStrategySbox,
+  'outboundTags': snapshot.outboundTags,
+});
+
+RoutingEditorSnapshot decodeRoutingSnapshot(String text) {
+  Object? decoded;
+  try {
+    decoded = jsonDecode(text);
+  } catch (_) {
+    decoded = null;
+  }
+  final map = decoded is Map
+      ? decoded.cast<String, dynamic>()
+      : <String, dynamic>{};
+  return RoutingEditorSnapshot(
+    schemes: _decodeRoutingSchemes(map),
+    domainStrategy: map['domainStrategy'] as String? ?? '',
+    domainStrategySbox: map['domainStrategy4Singbox'] as String? ?? '',
+    outboundTags: _routingStrList(map['outboundTags']),
+  );
+}
+
+String encodeRoutingDraft(RoutingDraft draft) => jsonEncode({
+  'schemes': draft.schemes.map(routingSchemeToJson).toList(),
+  'domainStrategy': draft.domainStrategy,
+  'domainStrategy4Singbox': draft.domainStrategySbox,
+});
+
+List<RoutingSchemeSnapshot> _decodeRoutingSchemes(Map<String, dynamic> map) =>
+    <RoutingSchemeSnapshot>[
+      for (final entry in (map['schemes'] as List? ?? const <Object>[]))
+        if (entry is Map) routingSchemeFromJson(entry.cast<String, dynamic>()),
+    ];
+
+/// Decoded routing draft (`{schemes, domainStrategy, domainStrategy4Singbox}`).
+class RoutingDraftDecoded {
+  const RoutingDraftDecoded({
+    required this.schemes,
+    required this.domainStrategy,
+    required this.domainStrategySbox,
+  });
+
+  final List<RoutingSchemeSnapshot> schemes;
+  final String domainStrategy;
+  final String domainStrategySbox;
+}
+
+RoutingDraftDecoded? decodeRoutingDraft(String text) {
+  Object? decoded;
+  try {
+    decoded = jsonDecode(text);
+  } catch (_) {
+    return null;
+  }
+  if (decoded is! Map) return null;
+  final map = decoded.cast<String, dynamic>();
+  return RoutingDraftDecoded(
+    schemes: _decodeRoutingSchemes(map),
+    domainStrategy: map['domainStrategy'] as String? ?? '',
+    domainStrategySbox: map['domainStrategy4Singbox'] as String? ?? '',
+  );
+}
+
+/// Main-window side of the native routing host. Registers the `applyDraft`
+/// callback and asks the native side to open the independent window. Mirrors
+/// [OptionWindowHost] on a distinct channel.
+class RoutingWindowHost {
+  RoutingWindowHost._();
+
+  static final RoutingWindowHost instance = RoutingWindowHost._();
+
+  static const MethodChannel _channel = MethodChannel('v2rayn/routing_window');
+
+  Future<RoutingEditorOutcome> Function(String draftJson)? _save;
+  bool _unavailable = false;
+
+  /// True when the native host is absent (widget-test environment); callers
+  /// should fall back to the embedded dialog instead of reporting a failure.
+  bool get unavailable => _unavailable;
+
+  Future<bool> open({
+    required RoutingEditorSnapshot snapshot,
+    required Future<RoutingEditorOutcome> Function(String draftJson) onSave,
+  }) async {
+    _save = onSave;
+    _unavailable = false;
+    _channel.setMethodCallHandler(_handle);
+    try {
+      final opened = await _channel
+          .invokeMethod<bool>('open', encodeRoutingSnapshot(snapshot))
+          .timeout(const Duration(seconds: 5));
+      return opened ?? false;
+    } on MissingPluginException {
+      _unavailable = true;
+      return false;
+    } on TimeoutException {
+      _unavailable = true;
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  Future<dynamic> _handle(MethodCall call) async {
+    if (call.method != 'applyDraft') return null;
+    final args = (call.arguments as Map).cast<String, dynamic>();
+    final id = args['id'];
+    final draftJson = args['draft'] as String? ?? '{}';
+    final save = _save;
+    final outcome = save == null
+        ? const RoutingEditorOutcome(ok: false, message: '保存路由设置失败')
+        : await save(draftJson);
+    await _channel.invokeMethod<void>('reportOutcome', <String, dynamic>{
+      'id': id,
+      'ok': outcome.ok,
+      'message': outcome.message,
+    });
+    return null;
+  }
+}
+
+/// Routing-window side of the native host. Runs in the second Flutter engine,
+/// which has no Rust bridge handle; every mutation is relayed to the main
+/// engine, which performs the actual save.
+class NativeRoutingEditorHost implements RoutingEditorHost {
+  NativeRoutingEditorHost() {
+    _ready = _init();
+  }
+
+  static const MethodChannel _channel = MethodChannel('v2rayn/routing_window');
+
+  final Map<int, Completer<RoutingEditorOutcome>> _pending =
+      <int, Completer<RoutingEditorOutcome>>{};
+  late final Future<void> _ready;
+  int _nextId = 1;
+  String _snapshotJson = '{}';
+
+  Future<void> _init() async {
+    _channel.setMethodCallHandler(_handle);
+    for (var attempt = 0; attempt < 50; attempt++) {
+      try {
+        final value = await _channel.invokeMethod<String>('ready');
+        if (value != null && value.isNotEmpty) {
+          _snapshotJson = value;
+          return;
+        }
+      } on MissingPluginException {
+        // handler not installed yet
+      } on PlatformException {
+        // transient; retry
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+
+  @override
+  Future<RoutingEditorSnapshot> loadSnapshot() async {
+    await _ready;
+    return decodeRoutingSnapshot(_snapshotJson);
+  }
+
+  @override
+  Future<RoutingEditorOutcome> save(RoutingDraft draft) async {
+    final id = _nextId++;
+    final completer = Completer<RoutingEditorOutcome>();
+    _pending[id] = completer;
+    try {
+      await _channel.invokeMethod<void>('saveDraft', <String, dynamic>{
+        'id': id,
+        'draft': encodeRoutingDraft(draft),
+      });
+    } catch (_) {
+      _pending.remove(id);
+      return const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
+    }
+    return completer.future;
+  }
+
+  @override
+  Future<void> close() async {
+    try {
+      await _channel.invokeMethod<void>('close');
+    } catch (_) {}
+  }
+
+  Future<dynamic> _handle(MethodCall call) async {
+    if (call.method != 'saveOutcome') return null;
+    final args = (call.arguments as Map).cast<String, dynamic>();
+    final id = args['id'] as int?;
+    final completer = id == null ? null : _pending.remove(id);
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(
+        RoutingEditorOutcome(
+          ok: args['ok'] == true,
+          message: args['message'] as String?,
+        ),
+      );
+    }
+    return null;
+  }
+}
+
+r.RoutingRuleDto _newRoutingRuleDraft() => r.RoutingRuleDto(
+  id: RoutingController.newRuleId(),
+  inboundTag: const <String>[],
+  hasInboundTag: false,
+  outboundTag: 'proxy',
+  ip: const <String>[],
+  hasIp: false,
+  domain: const <String>[],
+  hasDomain: false,
+  protocol: const <String>[],
+  hasProtocol: false,
+  process: const <String>[],
+  hasProcess: false,
+  enabled: true,
+  ruleType: 1,
+);
+
+/// Root widget of the independent routing window (second Flutter engine).
+class RoutingWindowApp extends StatelessWidget {
+  const RoutingWindowApp({super.key, required this.host});
+
+  final RoutingEditorHost host;
+
+  @override
+  Widget build(BuildContext context) {
+    // ProviderScope is required by the reused rule-details dialog, but this
+    // engine never reads the Rust-backed routing controllers.
+    return ProviderScope(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(Brightness.light),
+        home: RoutingEditorWindow(host: host),
+      ),
+    );
+  }
+}
+
+/// Boots the routing window engine. Called by `routingWindowMain`
+/// (`lib/main.dart`), the actual Flutter entrypoint symbol.
+void runRoutingWindow() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(RoutingWindowApp(host: NativeRoutingEditorHost()));
+}
+
+/// The routing settings UI for the independent window. Mirrors the Wave K
+/// structure (toolbar, strategy rows, five-column scheme gread) and adds the
+/// upstream window's 确定/取消 semantics: 确定 persists+applies via the host,
+/// 取消/Esc/title-bar close discard the draft.
+class RoutingEditorWindow extends StatefulWidget {
+  const RoutingEditorWindow({super.key, required this.host});
+
+  final RoutingEditorHost host;
+
+  @override
+  State<RoutingEditorWindow> createState() => _RoutingEditorWindowState();
+}
+
+class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
+  bool _loading = true;
+  String? _error;
+  String? _status;
+  bool _busy = false;
+  List<RoutingSchemeSnapshot> _schemes = const <RoutingSchemeSnapshot>[];
+  String? _selectedId;
+  String _domainStrategy = '';
+  String _domainStrategySbox = '';
+  List<String> _outboundTags = const <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final snapshot = await widget.host.loadSnapshot();
+      if (!mounted) return;
+      setState(() {
+        _schemes = snapshot.schemes;
+        _domainStrategy = snapshot.domainStrategy;
+        _domainStrategySbox = snapshot.domainStrategySbox;
+        _outboundTags = snapshot.outboundTags;
+        _selectedId = _schemes.isEmpty ? null : _schemes.first.profile.id;
+        _loading = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = '读取路由设置失败';
+      });
+    }
+  }
+
+  Future<void> _openSchemeEditor(RoutingSchemeSnapshot? existing) async {
+    final edited = await showRoutingSchemeEditor(
+      context,
+      existing,
+      _outboundTags,
+    );
+    if (edited == null || !mounted) return;
+    setState(() {
+      if (existing == null) {
+        final id = edited.profile.id.isEmpty
+            ? 'new-${DateTime.now().microsecondsSinceEpoch}'
+            : edited.profile.id;
+        final profile = r.RoutingProfileDto(
+          id: id,
+          remarks: edited.profile.remarks,
+          url: edited.profile.url,
+          ruleSet: edited.profile.ruleSet,
+          ruleNum: edited.profile.ruleNum,
+          enabled: edited.profile.enabled,
+          locked: edited.profile.locked,
+          customIcon: edited.profile.customIcon,
+          customRulesetPath4Singbox: edited.profile.customRulesetPath4Singbox,
+          domainStrategy: edited.profile.domainStrategy,
+          domainStrategy4Singbox: edited.profile.domainStrategy4Singbox,
+          sort: edited.profile.sort,
+          isActive: _schemes.isEmpty,
+        );
+        _schemes = <RoutingSchemeSnapshot>[
+          ..._schemes,
+          RoutingSchemeSnapshot(profile: profile, rules: edited.rules),
+        ];
+        _selectedId = id;
+      } else {
+        _schemes = _schemes
+            .map(
+              (s) => s.profile.id == existing.profile.id
+                  ? RoutingSchemeSnapshot(
+                      profile: edited.profile,
+                      rules: edited.rules,
+                    )
+                  : s,
+            )
+            .toList();
+      }
+      _status = '有未保存的更改';
+    });
+  }
+
+  Future<void> _deleteScheme(String id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('删除路由方案', style: TextStyle(fontSize: 14)),
+        content: const Text('确定删除选中的路由方案吗？'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('routing-delete-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final wasActive = _schemes.any(
+      (s) => s.profile.id == id && s.profile.isActive,
+    );
+    setState(() {
+      _schemes = _schemes.where((s) => s.profile.id != id).toList();
+      if (_schemes.isNotEmpty && wasActive) {
+        _schemes = _schemes
+            .map(
+              (s) => s.profile.id == _schemes.first.profile.id
+                  ? RoutingSchemeSnapshot(
+                      profile: _copyProfile(s.profile, isActive: true),
+                      rules: s.rules,
+                    )
+                  : s,
+            )
+            .toList();
+      }
+      if (_selectedId == id) {
+        _selectedId = _schemes.isEmpty ? null : _schemes.first.profile.id;
+      }
+      _status = '有未保存的更改';
+    });
+  }
+
+  void _setDefault(String id) {
+    setState(() {
+      _schemes = _schemes
+          .map(
+            (s) => RoutingSchemeSnapshot(
+              profile: _copyProfile(s.profile, isActive: s.profile.id == id),
+              rules: s.rules,
+            ),
+          )
+          .toList();
+      _status = '有未保存的更改';
+    });
+  }
+
+  void _onStrategyChanged(String value, {required bool sbox}) {
+    setState(() {
+      if (sbox) {
+        _domainStrategySbox = value;
+      } else {
+        _domainStrategy = value;
+      }
+      _status = '有未保存的更改';
+    });
+  }
+
+  Future<void> _importBuiltin() async {
+    // Upstream `ConfigHandler.InitRouting(config, true)`; the Rust import use
+    // case is a registered gap, so this is surfaced honestly.
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(const SnackBar(content: Text('内置规则集已刷新（导入后端用例待接入）')));
+  }
+
+  Future<void> _ok() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final outcome = await widget.host.save(
+      RoutingDraft(
+        schemes: _schemes,
+        domainStrategy: _domainStrategy,
+        domainStrategySbox: _domainStrategySbox,
+      ),
+    );
+    if (!mounted) return;
+    if (outcome.ok) {
+      await widget.host.close();
+      return;
+    }
+    setState(() {
+      _busy = false;
+      _error = outcome.message ?? '保存路由设置失败';
+    });
+  }
+
+  void _cancel() {
+    widget.host.close();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.escape): _cancel,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    TextButton.icon(
+                      key: const ValueKey('routing-add'),
+                      onPressed: () => _openSchemeEditor(null),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('添加规则集'),
+                    ),
+                    const SizedBox(width: 4),
+                    TextButton.icon(
+                      key: const ValueKey('routing-import-builtin'),
+                      onPressed: _importBuiltin,
+                      icon: const Icon(Icons.download, size: 16),
+                      label: const Text('一键导入规则集'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                _strategyRow(
+                  label: '域名解析策略',
+                  key: const ValueKey('routing-domain-strategy'),
+                  value: _domainStrategy,
+                  options: domainStrategyOptions,
+                  onChanged: (v) => _onStrategyChanged(v, sbox: false),
+                ),
+                const SizedBox(height: 4),
+                _strategyRow(
+                  label: 'sing-box 域名解析策略',
+                  key: const ValueKey('routing-domain-strategy-sbox'),
+                  value: _domainStrategySbox,
+                  options: domainStrategySboxOptions,
+                  onChanged: (v) => _onStrategyChanged(v, sbox: true),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '预定义规则集列表',
+                    key: const ValueKey('routing-block-title'),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.primary,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const _SchemeTableHeader(),
+                const Divider(height: 1),
+                Expanded(
+                  child: _schemes.isEmpty
+                      ? const Center(
+                          key: ValueKey('routing-empty'),
+                          child: Text('暂无路由方案'),
+                        )
+                      : ListView.builder(
+                          key: const ValueKey('routing-list'),
+                          itemCount: _schemes.length,
+                          itemBuilder: (context, index) {
+                            final scheme = _schemes[index];
+                            return _SchemeRow(
+                              item: scheme.profile,
+                              selected: scheme.profile.id == _selectedId,
+                              onTap: () => setState(
+                                () => _selectedId = scheme.profile.id,
+                              ),
+                              onEdit: () => _openSchemeEditor(scheme),
+                              onContextMenu: (position) => _showRowMenu(
+                                context,
+                                position,
+                                scheme.profile,
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _error!,
+                      key: const ValueKey('routing-error'),
+                      style: const TextStyle(fontSize: 11, color: Colors.red),
+                    ),
+                  ),
+                if (_status != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      _status!,
+                      key: const ValueKey('routing-status'),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: <Widget>[
+                      TextButton(
+                        key: const ValueKey('routing-cancel'),
+                        onPressed: _cancel,
+                        child: const Text('取消'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        key: const ValueKey('routing-ok'),
+                        onPressed: _busy ? null : _ok,
+                        child: const Text('确定'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _strategyRow({
+    required String label,
+    required ValueKey<String> key,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Row(
+      children: <Widget>[
+        Text(label, style: TextStyle(fontSize: 12, color: primary)),
+        const SizedBox(width: 2),
+        Icon(Icons.link, size: 14, color: primary),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 300,
+          child: DropdownButton<String>(
+            key: key,
+            value: options.contains(value) ? value : '',
+            isExpanded: true,
+            items: [
+              for (final s in options)
+                DropdownMenuItem(
+                  value: s,
+                  child: Text(s, style: const TextStyle(fontSize: 12)),
+                ),
+            ],
+            onChanged: (v) => onChanged(v ?? ''),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showRowMenu(
+    BuildContext context,
+    Offset globalPosition,
+    r.RoutingProfileDto item,
+  ) async {
+    setState(() => _selectedId = item.id);
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(value: 'add', child: Text('添加规则集')),
+        PopupMenuItem<String>(
+          value: 'remove',
+          enabled: item.remarks.isNotEmpty,
+          child: const Text('移除所选规则'),
+        ),
+        PopupMenuItem<String>(
+          value: 'default',
+          enabled: item.remarks.isNotEmpty,
+          child: const Text('设为活动规则'),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(value: 'import', child: Text('一键导入规则集')),
+      ],
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'add':
+        await _openSchemeEditor(null);
+      case 'remove':
+        await _deleteScheme(item.id);
+      case 'default':
+        _setDefault(item.id);
+      case 'import':
+        await _importBuiltin();
+    }
+  }
+}
+
+r.RoutingProfileDto _copyProfile(
+  r.RoutingProfileDto d, {
+  bool? isActive,
+  bool? enabled,
+}) => r.RoutingProfileDto(
+  id: d.id,
+  remarks: d.remarks,
+  url: d.url,
+  ruleSet: d.ruleSet,
+  ruleNum: d.ruleNum,
+  enabled: enabled ?? d.enabled,
+  locked: d.locked,
+  customIcon: d.customIcon,
+  customRulesetPath4Singbox: d.customRulesetPath4Singbox,
+  domainStrategy: d.domainStrategy,
+  domainStrategy4Singbox: d.domainStrategy4Singbox,
+  sort: d.sort,
+  isActive: isActive ?? d.isActive,
+);
+
+/// Rule-set editor for the independent window. Edits a local draft (scheme
+/// metadata + rules) and returns it to the caller; nothing is persisted here.
+Future<RoutingSchemeSnapshot?> showRoutingSchemeEditor(
+  BuildContext context,
+  RoutingSchemeSnapshot? scheme,
+  List<String> outboundTags,
+) {
+  return showDialog<RoutingSchemeSnapshot>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) =>
+        _RoutingSchemeEditor(scheme: scheme, outboundTags: outboundTags),
+  );
+}
+
+class _RoutingSchemeEditor extends StatefulWidget {
+  const _RoutingSchemeEditor({this.scheme, required this.outboundTags});
+
+  final RoutingSchemeSnapshot? scheme;
+  final List<String> outboundTags;
+
+  @override
+  State<_RoutingSchemeEditor> createState() => _RoutingSchemeEditorState();
+}
+
+class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
+  late TextEditingController _remarks;
+  late TextEditingController _url;
+  late TextEditingController _customIcon;
+  late TextEditingController _rulesetPath;
+  late TextEditingController _sort;
+  bool _enabled = true;
+  final Set<String> _selectedRuleIds = <String>{};
+  List<r.RoutingRuleDto> _rules = const <r.RoutingRuleDto>[];
+
+  bool get isNew => widget.scheme == null;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.scheme?.profile;
+    _remarks = TextEditingController(text: profile?.remarks ?? '');
+    _url = TextEditingController(text: profile?.url ?? '');
+    _customIcon = TextEditingController(text: profile?.customIcon ?? '');
+    _rulesetPath = TextEditingController(
+      text: profile?.customRulesetPath4Singbox ?? '',
+    );
+    _sort = TextEditingController(text: '${profile?.sort ?? 0}');
+    _enabled = profile?.enabled ?? true;
+    _rules = List<r.RoutingRuleDto>.of(
+      widget.scheme?.rules ?? const <r.RoutingRuleDto>[],
+    );
+  }
+
+  @override
+  void dispose() {
+    _remarks.dispose();
+    _url.dispose();
+    _customIcon.dispose();
+    _rulesetPath.dispose();
+    _sort.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('routing-ruleset-window'),
+      title: Text(
+        isNew ? '新增路由方案' : '编辑路由方案',
+        style: const TextStyle(fontSize: 15),
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      content: SizedBox(
+        width: 780,
+        height: 520,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _field('备注', _remarks, const ValueKey('ruleset-remarks')),
+            _field('URL', _url, const ValueKey('ruleset-url')),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: _field(
+                    '自定义图标',
+                    _customIcon,
+                    const ValueKey('ruleset-icon'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _field(
+                    'sing-box 自定义规则集路径',
+                    _rulesetPath,
+                    const ValueKey('ruleset-path'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 90,
+                  child: _field(
+                    '排序',
+                    _sort,
+                    const ValueKey('ruleset-sort'),
+                    numeric: true,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Row(
+                  children: <Widget>[
+                    const Text('启用', style: TextStyle(fontSize: 12)),
+                    Switch(
+                      key: const ValueKey('ruleset-enabled'),
+                      value: _enabled,
+                      onChanged: (v) => setState(() => _enabled = v),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            Row(
+              children: <Widget>[
+                _tool('新增规则', const ValueKey('rule-add'), _addRule),
+                _tool(
+                  '删除',
+                  const ValueKey('rule-remove'),
+                  _selectedRuleIds.isEmpty ? null : _confirmRemove,
+                ),
+                _tool(
+                  '导出选中',
+                  const ValueKey('rule-export'),
+                  _selectedRuleIds.isEmpty ? null : _exportSelected,
+                ),
+                _tool('从剪贴板导入', const ValueKey('rule-import-clipboard'), () {
+                  pickRulesFromClipboard(context).then(_mergeImported);
+                }),
+                _tool('从文件导入', const ValueKey('rule-import-file'), () {
+                  pickRulesFromFile(context).then(_mergeImported);
+                }),
+                _tool('从URL导入', const ValueKey('rule-import-url'), () {
+                  _importFromUrl();
+                }),
+              ],
+            ),
+            const _RuleTableHeader(),
+            const Divider(height: 1),
+            Expanded(
+              child: _rules.isEmpty
+                  ? const Center(child: Text('暂无规则，请新增或导入'))
+                  : ListView.builder(
+                      key: const ValueKey('rule-list'),
+                      itemCount: _rules.length,
+                      itemBuilder: (context, index) {
+                        final rule = _rules[index];
+                        return _RuleRow(
+                          rule: rule,
+                          index: index,
+                          selected: _selectedRuleIds.contains(rule.id),
+                          onTap: () => setState(() {
+                            if (_selectedRuleIds.contains(rule.id)) {
+                              _selectedRuleIds.remove(rule.id);
+                            } else {
+                              _selectedRuleIds.add(rule.id);
+                            }
+                          }),
+                          onEdit: () => _editRule(rule),
+                          onTop: () => _move(index, 0),
+                          onUp: () => _move(index, 1),
+                          onDown: () => _move(index, 2),
+                          onBottom: () => _move(index, 3),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const ValueKey('ruleset-cancel'),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const ValueKey('ruleset-save'),
+          onPressed: _save,
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+
+  Widget _field(
+    String label,
+    TextEditingController controller,
+    ValueKey<String> key, {
+    bool numeric = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: TextField(
+        key: key,
+        controller: controller,
+        keyboardType: numeric ? TextInputType.number : null,
+        inputFormatters: numeric
+            ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
+            : null,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          isDense: true,
+        ),
+        style: const TextStyle(fontSize: 13),
+      ),
+    );
+  }
+
+  Widget _tool(String label, ValueKey<String> key, VoidCallback? onPressed) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: TextButton(key: key, onPressed: onPressed, child: Text(label)),
+    );
+  }
+
+  Future<void> _addRule() async {
+    final saved = await showDialog<r.RoutingRuleDto>(
+      context: context,
+      builder: (_) => RoutingRuleDetailsDialog(
+        rule: _newRoutingRuleDraft(),
+        outboundTags: widget.outboundTags,
+      ),
+    );
+    if (saved != null && mounted) {
+      setState(() => _rules = <r.RoutingRuleDto>[..._rules, saved]);
+    }
+  }
+
+  Future<void> _editRule(r.RoutingRuleDto rule) async {
+    final saved = await showDialog<r.RoutingRuleDto>(
+      context: context,
+      builder: (_) => RoutingRuleDetailsDialog(
+        rule: rule,
+        outboundTags: widget.outboundTags,
+      ),
+    );
+    if (saved != null && mounted) {
+      setState(() {
+        _rules = _rules.map((e) => e.id == rule.id ? saved : e).toList();
+      });
+    }
+  }
+
+  Future<void> _confirmRemove() async {
+    if (_selectedRuleIds.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        key: const ValueKey('rule-delete-confirm-dialog'),
+        title: const Text('删除规则', style: TextStyle(fontSize: 14)),
+        content: Text('确定删除选中的 ${_selectedRuleIds.length} 条规则吗？'),
+        actions: <Widget>[
+          TextButton(
+            key: const ValueKey('rule-delete-cancel'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('rule-delete-confirm'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() {
+        _rules = _rules.where((e) => !_selectedRuleIds.contains(e.id)).toList();
+        _selectedRuleIds.clear();
+      });
+    }
+  }
+
+  void _mergeImported(({List<r.RoutingRuleDto> rules, bool replace})? picked) {
+    if (picked == null || !mounted) return;
+    setState(() {
+      _rules = picked.replace
+          ? List<r.RoutingRuleDto>.of(picked.rules)
+          : <r.RoutingRuleDto>[..._rules, ...picked.rules];
+    });
+  }
+
+  Future<void> _exportSelected() async {
+    if (_selectedRuleIds.isEmpty) return;
+    final text = RoutingController.exportDraftRulesJson(
+      _rules,
+      _selectedRuleIds.toList(),
+    );
+    await Clipboard.setData(ClipboardData(text: text));
+  }
+
+  void _move(int index, int direction) {
+    setState(() {
+      final list = List.of(_rules);
+      var target = index;
+      switch (direction) {
+        case 0:
+          target = 0;
+        case 1:
+          target = index - 1;
+        case 2:
+          target = index + 1;
+        case 3:
+          target = list.length - 1;
+      }
+      if (target >= 0 && target < list.length && target != index) {
+        final item = list.removeAt(index);
+        list.insert(target, item);
+        _rules = list;
+      }
+    });
+  }
+
+  Future<void> _importFromUrl() async {
+    final urlController = TextEditingController(text: _url.text);
+    final url = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        key: const ValueKey('routing-import-url-dialog'),
+        title: const Text('从 URL 导入规则', style: TextStyle(fontSize: 15)),
+        content: SizedBox(
+          width: 420,
+          child: TextField(
+            key: const ValueKey('routing-import-url-field'),
+            controller: urlController,
+            decoration: const InputDecoration(
+              hintText: 'http(s)://…/rules.json',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('routing-import-url-ok'),
+            onPressed: () => Navigator.pop(context, urlController.text),
+            child: const Text('下载导入'),
+          ),
+        ],
+      ),
+    );
+    if (url == null || !mounted) return;
+    pickRulesFromUrl(context, url).then(_mergeImported);
+  }
+
+  void _save() {
+    if (_remarks.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('请填写备注')));
+      return;
+    }
+    final existing = widget.scheme?.profile;
+    final profile = r.RoutingProfileDto(
+      id: existing?.id ?? '',
+      remarks: _remarks.text.trim(),
+      url: _url.text.trim(),
+      ruleSet: RoutingController.rulesToRuleSetJson(_rules),
+      ruleNum: _rules.length,
+      enabled: _enabled,
+      locked: existing?.locked ?? false,
+      customIcon: _customIcon.text.trim(),
+      customRulesetPath4Singbox: _rulesetPath.text.trim(),
+      domainStrategy: existing?.domainStrategy ?? '',
+      domainStrategy4Singbox: existing?.domainStrategy4Singbox ?? '',
+      sort: int.tryParse(_sort.text.trim()) ?? 0,
+      isActive: existing?.isActive ?? false,
+    );
+    Navigator.pop(
+      context,
+      RoutingSchemeSnapshot(profile: profile, rules: _rules),
     );
   }
 }

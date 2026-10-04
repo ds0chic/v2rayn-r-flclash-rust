@@ -222,3 +222,5 @@
 | mieru | 3.38.0 | ok | ok（`MIERU_CONFIG_JSON_FILE`） | verified |
 
 adapter 修正（`crates/runtime/src/adapter.rs`）：v2fly `-config`/`-test -config`；v2fly_v5 `run -c`/`test -c`（去掉真实二进制拒绝的 `-format jsonv5`）；hysteria/hysteria2 `working_dir`=配置目录。补测后 runtime 58 passed、net_host 62 passed。hysteria2/overtls 仅“合成回环无服务器最小会话”blocked，version 探针均通过；接口缺口（env 无法表达 exe 目录、`run_config_check` 不注入 env/workdir）已登记在任务卡与证据 README。
+
+**追加更正（2026-10-05）：** 上表 218/220 行的 `blocked（会话）` 已解除。在 `$TEMP` 用锁定 hysteria2 的 `cert` 生成临时自签 PEM（只记 cert sha256/pin，不落私钥），hysteria2 显式 `server -c` 起 UDP 监听、overtls `-r server -c` 起 TCP 监听，客户端按 adapter 合同连接后经 SOCKS5 发真实 HTTP GET 到本地目标（回体 `HY2-OK`/`OV-OK`）；并各跑“指向关闭端口”的失败探针（hysteria2 握手超时 exit 1、overtls `ConnectionRefused` exit 1）。`tools/cores/session_matrix.ps1` 会话结果 14 ok / 0 blocked，全部按 PID 清理无残留。证据：`docs/evidence/recheck-fixes/R3-CORE-MATRIX/`（`per-core.json`、`logs/session-results.json`）。overtls `--help` 证实本地 `-r server` 角色存在，adapter 仍只实现 client 角色，合同未变。

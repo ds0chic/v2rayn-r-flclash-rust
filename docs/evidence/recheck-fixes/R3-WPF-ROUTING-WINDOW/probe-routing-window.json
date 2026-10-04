@@ -1,0 +1,119 @@
+{
+  "session": {
+    "pid": 27188,
+    "exe": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop\\build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe",
+    "run_exe": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-routing-run-217d005ee2f244ffa6efdfcb3ff7136d\\v2rayn_desktop.exe",
+    "run_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-routing-run-217d005ee2f244ffa6efdfcb3ff7136d",
+    "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-routing-probe-dc2d41ffd5ea4352a48e7d78acd23012",
+    "started": "2026-10-05T01:17:36.9145188+08:00",
+    "exited_early": false,
+    "exit_code": null,
+    "stopped": true,
+    "alive_after": false
+  },
+  "windows": [
+    {
+      "hwnd": "0x6F50C80",
+      "hwnd_raw": 116722816,
+      "title": "",
+      "visible": false,
+      "enabled": true,
+      "owner": null,
+      "owner_raw": 0,
+      "style": "0x04CF0000",
+      "rect": {
+        "right": 135,
+        "left": -1,
+        "bottom": 38,
+        "top": -1
+      }
+    },
+    {
+      "hwnd": "0xD80A30",
+      "hwnd_raw": 14158384,
+      "title": "路由设置",
+      "visible": true,
+      "enabled": true,
+      "owner": "0x3F0AAA",
+      "owner_raw": 4131498,
+      "style": "0x14CF0000",
+      "rect": {
+        "right": 1120,
+        "left": 120,
+        "bottom": 820,
+        "top": 120
+      }
+    },
+    {
+      "hwnd": "0x3F0AAA",
+      "hwnd_raw": 4131498,
+      "title": "v2rayN",
+      "visible": true,
+      "enabled": false,
+      "owner": null,
+      "owner_raw": 0,
+      "style": "0x1CCF0000",
+      "rect": {
+        "right": 1210,
+        "left": 10,
+        "bottom": 810,
+        "top": 10
+      }
+    },
+    {
+      "hwnd": "0x94C0AD0",
+      "hwnd_raw": 155978448,
+      "title": "MSCTFIME UI",
+      "visible": false,
+      "enabled": false,
+      "owner": "0x6110A12",
+      "owner_raw": 101779986,
+      "style": "0x8C000000",
+      "rect": {
+        "right": 0,
+        "left": 0,
+        "bottom": 0,
+        "top": 0
+      }
+    },
+    {
+      "hwnd": "0x6110A12",
+      "hwnd_raw": 101779986,
+      "title": "Default IME",
+      "visible": false,
+      "enabled": false,
+      "owner": "0xD80A30",
+      "owner_raw": 14158384,
+      "style": "0x8C000000",
+      "rect": {
+        "right": 0,
+        "left": 0,
+        "bottom": 0,
+        "top": 0
+      }
+    }
+  ],
+  "trace": [
+    "[0.5] h:v2rayN-R (T01) | h:Default IME",
+    "[0.9] h:v2rayN-R (T01) | h:Default IME",
+    "[1.3] h:v2rayN-R (T01) | h:MSCTFIME UI | h:Default IME",
+    "[1.7] h:路由设置 | h:v2rayN-R (T01) | h:MSCTFIME UI | h:Default IME",
+    "[2.1] h:路由设置 | h:v2rayN-R (T01) | h:MSCTFIME UI | h:Default IME",
+    "[2.6] h: | V:路由设置 | V:v2rayN | h:MSCTFIME UI | h:Default IME"
+  ],
+  "foreground_raw": 14158384,
+  "checks": {
+    "main_present": true,
+    "routing_present": true,
+    "routing_title": true,
+    "independent_hwnd": true,
+    "routing_owned_by_main": true,
+    "main_disabled_modal": true,
+    "routing_enabled": true,
+    "two_visible_top_level": true,
+    "main_screenshot": true,
+    "routing_screenshot": true,
+    "routing_foregroundable": true
+  },
+  "passed": true
+}

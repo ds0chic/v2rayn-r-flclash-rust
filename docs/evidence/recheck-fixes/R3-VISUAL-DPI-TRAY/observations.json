@@ -1,0 +1,94 @@
+{
+  "task": "R3-VISUAL-DPI-TRAY",
+  "date": "2026-10-05",
+  "base_head": "8cba2c6",
+  "upstream_frozen_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "implemented",
+  "scope": {
+    "added_assets": [
+      "apps/desktop/assets/tray/tray_icon.ico",
+      "apps/desktop/assets/tray/tray_icon_core.ico",
+      "apps/desktop/assets/tray/tray_icon_proxy.ico",
+      "apps/desktop/assets/tray/tray_icon_pac.ico"
+    ],
+    "modified_dart_lib": [
+      "apps/desktop/lib/app/shell/desktop_integration.dart",
+      "apps/desktop/pubspec.yaml"
+    ],
+    "added_tests": [
+      "apps/desktop/test/r3_visual_tray_assets_test.dart",
+      "apps/desktop/test/r3_visual_dpi_shell_test.dart",
+      "apps/desktop/test/r3_visual_dpi_windows_test.dart",
+      "apps/desktop/test/r3_visual_dpi_picker_test.dart",
+      "apps/desktop/test/support/dpi_assertions.dart"
+    ],
+    "tray_mapping_unchanged": true,
+    "untouched_forbidden": true,
+    "note": "worktree also contained another subagent's concurrent edits (main.dart, routing_windows.dart, windows/runner/routing_window*); this card did not modify them"
+  },
+  "findings": [
+    {
+      "id": "R3-VISUAL-TRAY-ASSETS",
+      "state": "implemented",
+      "change": "four TrayIconStatus values resolve to packaged, visually distinct 16/32/48 .ico assets; pubspec declares assets/tray/; _trayAssetsDir points at flutter_assets/assets/tray; fallback tray_icon.ico -> app_icon.ico preserved",
+      "evidence": [
+        "r3_visual_tray_assets_test.dart 4/4",
+        "release build bundles four .ico (15086 bytes each)",
+        "tray-icons-preview.png"
+      ]
+    },
+    {
+      "id": "R3-VISUAL-DPI",
+      "state": "verified",
+      "change": "widget matrix at devicePixelRatio 1.0/1.25/1.5/2.0 with logical 1280x800 and 800x600: main shell (3 layouts), settings 5 pages, routing window, node picker show no overflow/truncation; chrome controls reachable at the floor",
+      "evidence": [
+        "r3_visual_dpi_shell_test.dart 1/1",
+        "r3_visual_dpi_windows_test.dart 1/1",
+        "r3_visual_dpi_picker_test.dart 1/1"
+      ],
+      "boundary": "host has a single DPI monitor; real-window 125/150/200% not tested"
+    },
+    {
+      "id": "R3-VISUAL-REAL",
+      "state": "verified",
+      "change": "host DPI 96: light/dark main-window and full-screen captures; tray overflow shows the gray ring icon, tooltip v2rayN-R; right-click context menu matches tray_menu_model with Unchanged checked",
+      "evidence": [
+        "main-light.png", "main-dark.png", "desktop-light.png", "desktop-dark.png",
+        "desktop-overflow-light.png", "desktop-tray-tooltip-light.png", "desktop-tray-menu-light.png",
+        "probe-light.json", "probe-dark.json"
+      ],
+      "boundary": "only normal (core stopped) tray state live; coreRunning/proxyActive/proxyPac need a running core or system-proxy write"
+    }
+  ],
+  "host": {
+    "system_dpi": 96,
+    "screen": "1920x1080",
+    "window_dpi": 96,
+    "window_title": "v2rayN",
+    "window_rect": "40,40,1240,840"
+  },
+  "commands": [
+    { "cmd": "pwsh make_tray_icons.ps1", "result": "4 .ico written (16/32/48, 32bpp DIB)" },
+    { "cmd": "dart format --output=none --set-exit-if-changed <changed files>", "result": "0 changed" },
+    { "cmd": "flutter analyze", "result": "No issues found!" },
+    { "cmd": "flutter test test/r3_visual_tray_assets_test.dart", "result": "4/4 passed" },
+    { "cmd": "flutter test test/r3_visual_dpi_shell_test.dart", "result": "1/1 passed" },
+    { "cmd": "flutter test test/r3_visual_dpi_windows_test.dart", "result": "1/1 passed" },
+    { "cmd": "flutter test test/r3_visual_dpi_picker_test.dart", "result": "1/1 passed" },
+    { "cmd": "flutter test test/r3_09_tray_icon_today_test.dart test/recheck_rr08_tray_sync_test.dart test/fix15_tray_pac_test.dart", "result": "20/20 passed" },
+    { "cmd": "flutter build windows --release", "result": "success (35.8s); assets/tray/*.ico bundled" },
+    { "cmd": "capture_visual.ps1 light|dark", "result": "success; host dpi 96" },
+    { "cmd": "capture_tray_overflow.ps1", "result": "success; ring icon in overflow" },
+    { "cmd": "capture_tray_menu.ps1", "result": "success; tooltip v2rayN-R + context menu" }
+  ],
+  "known_flake": "none observed; flutter_test did not hit exit 79 this round",
+  "constraints_respected": {
+    "port_10808_untouched": true,
+    "isolated_data_dir_seed": "SystemProxyItem.SysProxyType=2 (Unchanged), Inbound.LocalPort=11808, no active node",
+    "no_system_proxy_registry_route_tun": true,
+    "no_host_dpi_display_change": true,
+    "no_external_process_kill": true,
+    "no_full_workspace_test": true,
+    "no_commit": true
+  }
+}

@@ -21,13 +21,13 @@
 | naiveproxy | 154.0.8037.49-2 | 本地计算 | ok | ok（positional） | verified |
 | tuic | 1.0.0 | 上游 .sha256sum 一致 | ok | ok（`-c`） | verified |
 | juicity | 0.5.0 | 上游 .dgst 一致 | ok | ok（`run -c`） | verified |
-| hysteria2 | 2.12.3 | 本地计算 | ok | **blocked**（需 TLS 服务器/证书） | blocked（会话） |
+| hysteria2 | 2.12.3 | 本地计算 | ok | ok（自签 TLS server+client，代理 GET=HY2-OK） | verified |
 | brook | 20270101 | 本地计算 | ok | ok（配置=brook 命令脚本） | verified |
-| overtls | 0.3.15 | 本地计算 | ok | **blocked**（需 TLS 服务器/证书） | blocked（会话） |
+| overtls | 0.3.15 | 本地计算 | ok | ok（自签 TLS server+client，代理 GET=OV-OK） | verified |
 | shadowquic | 0.4.0 | 本地计算 | ok | ok（YAML direct） | verified |
 | mieru | 3.38.0 | 上游 .sha256.txt 一致 | ok | ok（`MIERU_CONFIG_JSON_FILE`） | verified |
 
-会话汇总：14 核 version 全部 exit 0；14 核真实最小会话 12 ok、2 blocked；所有启动进程均已按 PID 停止，无残留（`stillRunning=false`）。
+会话汇总：14 核 version 全部 exit 0；14 核真实最小会话 **14 ok、0 blocked**；所有启动进程均已按 PID 停止，无残留（`stillRunning=false`）。
 
 ## 版本锁定
 
@@ -43,7 +43,8 @@
 ceiling 与坑：
 - **v2fly v4**：真实 `4.45.2` 忽略裸定位配置路径（上游 `Arguments="{0}"`），回退到 `<exe 目录>/config.json`；必须 `-config {0}`。
 - **v2fly_v5**：真实 `5.53.0` 拒绝上游 `-format jsonv5`（切到 v5 原生加载器后报 `unknown field "type"/"loglevel"`）；`run -c`/`test -c` 能自动识别生成器产出的 v4 兼容 schema，故去掉该 flag。
-- **hysteria/hysteria2**：上游 `Arguments=""`，核从“工作目录”解析 `config.json`；adapter 需 `working_dir=config 目录`。v1 加 `lazy_start:true` 可在无服务器时绑定 SOCKS5 监听；v2 启动即连接中继，失败即退出。
+- **hysteria/hysteria2**：上游 `Arguments=""`，核从“工作目录”解析 `config.json`；adapter 需 `working_dir=config 目录`。v1 加 `lazy_start:true` 可在无服务器时绑定 SOCKS5 监听；v2 **无子命令时恒为 client 模式**（不按配置自动判定），故 v2 server 必须用显式 `server -c`（仅 harness 使用，adapter 客户端合同仍是 `args=[]`+cwd）。v2 自签对起后可正常建连并转发。
+- **hysteria2/overtls 自签对会话**：harness 用锁定 hysteria2 的 `cert` 子命令在 `$TEMP` 生成临时自签 PEM（只记录 cert 文件 sha256 与 hysteria pinSHA256，绝不记录私钥）。hysteria2 server 走 UDP（`Get-NetUDPEndpoint` 判定监听）；overtls server 走 TCP。两核均先跑“客户端指向关闭端口”的失败探针（hysteria2 QUIC 握手超时 exit 1；overtls `ConnectionRefused` exit 1），再跑成功对会话并经客户端 SOCKS5 发真实 HTTP GET 到本地目标（回体 `HY2-OK`/`OV-OK`）。
 - **brook**：上游 `Arguments=" {0}"`（绝对路径）实测是把“配置文件当作 brook 命令脚本”读取；内容 `socks5 --listen 127.0.0.1:PORT` 即起监听，合同成立。
 - **hysteria v1 误导日志**：运行期出现 `[version:app/v2.12.3] New version available ... HyNetworks/hysteria`，是 v1.3.5 自身的更新检查，不是二进制版本；实际 `-v` 与哈希均为 v1.3.5。
 - **tuic**：relay `server`/`local server` 均须 `host:port`；relay 认证字段是 `uuid`+`password`（无 `token`）。
@@ -61,7 +62,7 @@ ceiling 与坑：
 
 - `tools/cores/fetch_cores.ps1`：12 核官方资产下载+解压+哈希，全部成功。
 - `tools/cores/smoke_cores.ps1`：14 核 version 探针，14/14 exit 0。
-- `tools/cores/session_matrix.ps1`：14 核真实最小会话，12 ok / 2 blocked，逐核清理无残留。
+- `tools/cores/session_matrix.ps1`：14 核真实最小会话，14 ok / 0 blocked，逐核清理无残留；hysteria2/overtls 走自签 TLS 对会话（server+client+代理 GET）。
 - `cargo fmt -p runtime -- --check`：exit 0。
 - `cargo clippy -p runtime --all-targets --locked -- -D warnings`：exit 0，0 警告。
 - `cargo test -p runtime --locked`：58 passed / 0 failed。
@@ -73,12 +74,12 @@ ceiling 与坑：
 - 逐核 `CoreExes`/`Arguments`/`VersionArg`/`Environment`/`AbsolutePath` 与冻结 `CoreInfoManager.cs` 一致或已按真实二进制修正（见上）。
 - 发现上游 v2fly/v2fly_v5 的 `Arguments` 在真实 4.45.2/5.53.0 上不可用（裸路径 / `-format jsonv5`），本实现以真实二进制为准做最小修正并补测。
 
-## blocked 清单
+## blocked 清单（已全部解除）
 
-- hysteria2（v2 会话）：客户端启动即拨号中继，合成回环无服务器/证书时 exit 1；需 TLS 服务器对或自签证书方能最小运行。
-- overtls（会话）：客户端启动即建立 TLS 隧道，`ConnectionRefused` 即退出；需 TLS 服务器/证书。
+- hysteria2：**已解除**。用锁定 hysteria2 的 `cert` 在 `$TEMP` 生成临时自签证书，显式 `server -c` 起 UDP 监听，客户端按 adapter 合同（`args=[]`+cwd=配置目录）连接成功，SOCKS5 监听 11809，经其代理的 HTTP GET 回体 `HY2-OK`；失败探针（指向关闭端口）exit 1。进程全部按 PID 停止，无残留。
+- overtls：**已解除**。`--help` 证实 `-r, --role <server|client>` 支持本地 server 模式；自签证书起 `-r server -c` TCP 监听，客户端 `-r client -c` 连接成功，mixed 监听 11809，经其代理的 HTTP GET 回体 `OV-OK`；失败探针 `ConnectionRefused` exit 1。进程全部按 PID 停止，无残留。
 
-两核 version 探针均通过，仅“无服务器最小会话”blocked，符合任务对“需要特定资产/证书”的 blocker 分类。
+两核 version 探针均通过；此前“合成回环无服务器”所记 blocker 已由自签对会话解除，矩阵 14/14。
 
 ## 接口缺口（登记）
 
@@ -87,6 +88,6 @@ ceiling 与坑：
 
 ## 未完成 / 下一步前置
 
-- hysteria2、overtls 的“含服务器最小会话”（需生成自签证书并对起本地 server）留作后续，本卡按 blocker 登记。
+- hysteria2、overtls 的“含服务器最小会话”已完成（自签 TLS 对会话 + 代理 GET + 失败探针），矩阵 14/14。
 - xray/sing-box 的 lock 条目沿用既有版本，未重新下载；其 sha256 校验状态维持原状。
 - adapter 合同已按实测修正并补测；未跑全仓 `cargo test --workspace`（仅运行受影响的 runtime 与 net_host）。

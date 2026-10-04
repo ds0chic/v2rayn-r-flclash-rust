@@ -142,9 +142,27 @@
       "executable": "tools/cores/hysteria/v2.12.3/hysteria-windows-amd64.exe",
       "version_probe": { "args": ["version"], "status": "ok", "exit_code": 0, "sample": "Version: v2.12.3" },
       "run_contract": { "args": [], "cwd": "config_dir", "env": [] },
-      "session": { "status": "blocked", "port": 11808, "listened": false, "stopped": true, "still_running": false, "reason": "client dials the relay during startup and exits on connect failure; a client-only synthetic loopback session cannot stay up without a TLS server/certificate" },
-      "adapter_change": "added working_dir = config parent; v2 viper resolves config.json from the working directory",
-      "status": "blocked"
+      "session": {
+        "status": "ok",
+        "mode": "pair",
+        "server_port": 11808,
+        "client_port": 11809,
+        "target_port": 11810,
+        "server_listen_protocol": "udp",
+        "server_listened": true,
+        "client_listened": true,
+        "proxied_http_body": "HY2-OK",
+        "proxied_curl_exit": 0,
+        "negative_probe": { "exited": true, "exit_code": 1, "waited_ms": 5372, "note": "adapter-contract client against a closed server port; QUIC handshake timeout" },
+        "server_pid_stopped": true,
+        "client_pid_stopped": true,
+        "stopped": true,
+        "still_running": false,
+        "reason": null,
+        "note": "self-signed cert generated in TEMP via `hysteria cert`; server launched with explicit `server -c` subcommand (harness only); client launched via the adapter contract (args=[], working_dir=config dir). End-to-end proxied HTTP GET returned HY2-OK."
+      },
+      "adapter_change": "added working_dir = config parent; v2 viper resolves config.json from the working directory. The product client contract is args=[] + cwd=config dir; no auto-detection, so a server must use an explicit `server` subcommand (never used by the adapter).",
+      "status": "verified"
     },
     {
       "core": "brook",
@@ -170,9 +188,27 @@
       "executable": "tools/cores/overtls/v0.3.15/overtls-bin.exe",
       "version_probe": { "args": ["--version"], "status": "ok", "exit_code": 0, "sample": "overtls 0.3.15" },
       "run_contract": { "args": ["-r", "client", "-c", "{cfg}"], "cwd": "default", "env": [] },
-      "session": { "status": "blocked", "port": 11808, "listened": false, "stopped": true, "still_running": false, "reason": "client establishes the TLS tunnel during startup and exits on ConnectionRefused; needs a TLS server/certificate" },
-      "adapter_change": "none (args contract already matched)",
-      "status": "blocked"
+      "session": {
+        "status": "ok",
+        "mode": "pair",
+        "server_port": 11808,
+        "client_port": 11809,
+        "target_port": 11810,
+        "server_listen_protocol": "tcp",
+        "server_listened": true,
+        "client_listened": true,
+        "proxied_http_body": "OV-OK",
+        "proxied_curl_exit": 0,
+        "negative_probe": { "exited": true, "exit_code": 1, "waited_ms": 2227, "note": "client against a closed server port; ConnectionRefused on the TLS tunnel" },
+        "server_pid_stopped": true,
+        "client_pid_stopped": true,
+        "stopped": true,
+        "still_running": false,
+        "reason": null,
+        "note": "self-signed cert generated in TEMP via the locked hysteria2 `cert` command; server launched with `-r server -c`; client launched via the adapter contract `-r client -c` (dangerous_mode skips cert verification). End-to-end proxied HTTP GET returned OV-OK."
+      },
+      "adapter_change": "none (args contract already matched). The binary exposes role=server/client via `--help`, so server mode exists; the adapter intentionally implements only the client role, unchanged.",
+      "status": "verified"
     },
     {
       "core": "shadowquic",

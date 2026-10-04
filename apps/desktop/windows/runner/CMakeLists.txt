@@ -10,6 +10,8 @@ add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
   "main.cpp"
   "option_window_host.cpp"
+  "routing_window.cpp"
+  "routing_window_host.cpp"
   "settings_window.cpp"
   "utils.cpp"
   "win32_window.cpp"

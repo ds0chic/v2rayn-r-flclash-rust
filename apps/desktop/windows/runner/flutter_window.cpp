@@ -4,6 +4,7 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "option_window_host.h"
+#include "routing_window_host.h"
 #include "runner_messages.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
@@ -31,6 +32,10 @@ bool FlutterWindow::OnCreate() {
   // the independent top-level settings window.
   OptionWindowHost::Instance().Attach(flutter_controller_->engine(),
                                       GetHandle());
+  // Bind the routing-settings window host for the independent top-level
+  // routing window.
+  RoutingWindowHost::Instance().Attach(flutter_controller_->engine(),
+                                       GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
@@ -77,6 +82,11 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       // The settings window finished destroying itself; release it and
       // re-enable this (owner) window.
       OptionWindowHost::Instance().OnSettingsWindowDestroyed();
+      return 0;
+    case kRoutingClosedMessage:
+      // The routing window finished destroying itself; release it and
+      // re-enable this (owner) window.
+      RoutingWindowHost::Instance().OnRoutingWindowDestroyed();
       return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();

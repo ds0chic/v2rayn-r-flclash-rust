@@ -20,4 +20,12 @@ constexpr UINT kSettingsCloseMessage = WM_APP + 0x52;
 // the host can release it and re-enable the main window.
 constexpr UINT kSettingsClosedMessage = WM_APP + 0x53;
 
+// Posted by the routing-window host to the routing window to make it destroy
+// itself once the "close" method call has been answered.
+constexpr UINT kRoutingCloseMessage = WM_APP + 0x54;
+
+// Posted by the routing window to the main window once its HWND is gone, so
+// the host can release it and re-enable the main window.
+constexpr UINT kRoutingClosedMessage = WM_APP + 0x55;
+
 #endif  // RUNNER_RUNNER_MESSAGES_H_

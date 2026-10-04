@@ -158,7 +158,8 @@ class DesktopIntegration with WindowListener {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     return '$exeDir${Platform.pathSeparator}data'
         '${Platform.pathSeparator}flutter_assets'
-        '${Platform.pathSeparator}assets';
+        '${Platform.pathSeparator}assets'
+        '${Platform.pathSeparator}tray';
   }
 
   String _trayIconPath() =>

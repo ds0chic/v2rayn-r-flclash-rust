@@ -5,15 +5,148 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
+import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/dns_window.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_windows.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 
-/// ACT-MAIN-025: open the routing settings window.
+/// ACT-MAIN-025: open the routing settings window as an independent top-level
+/// window. The window runs in its own Flutter engine with a snapshot of the
+/// schemes+rules; 确定 relays the draft back here, where the existing routing
+/// save/reload path persists and applies it. 取消/Esc/title-bar close write
+/// nothing. When the native host is absent (widget tests) or window creation
+/// fails, the embedded dialog is kept as a fallback with visible feedback.
 Future<void> openRoutingSettings(BuildContext context, WidgetRef ref) async {
   ref.read(routingControllerProvider.notifier).reload();
-  await showRoutingSettingWindow(context, ref);
+  try {
+    ref.read(settingsControllerProvider.notifier).load();
+  } catch (_) {}
+  // Keep a context that survives the await below: the caller may be a popup
+  // menu entry that unmounts when the menu closes.
+  final navigator = Navigator.of(context, rootNavigator: true);
+  final RoutingEditorSnapshot snapshot;
+  try {
+    snapshot = _buildRoutingSnapshot(ref);
+  } catch (_) {
+    if (context.mounted) await showRoutingSettingWindow(context, ref);
+    return;
+  }
+  final opened = await RoutingWindowHost.instance.open(
+    snapshot: snapshot,
+    onSave: (draftJson) => _applyRoutingDraft(ref, draftJson),
+  );
+  if (opened) return;
+  final fallback = navigator.context;
+  if (!RoutingWindowHost.instance.unavailable && fallback.mounted) {
+    ScaffoldMessenger.maybeOf(fallback)
+        ?.showSnackBar(const SnackBar(content: Text('打开路由设置窗口失败')));
+  }
+  if (fallback.mounted) {
+    await showRoutingSettingWindow(fallback, ref);
+  }
+}
+
+RoutingEditorSnapshot _buildRoutingSnapshot(WidgetRef ref) {
+  final bridge = ref.read(bridgePortProvider);
+  final items = ref.read(routingControllerProvider).items;
+  final schemes = <RoutingSchemeSnapshot>[];
+  for (final item in items) {
+    final page = bridge.listRoutingRules(item.id);
+    schemes.add(
+      RoutingSchemeSnapshot(
+        profile: item,
+        rules: page.ok ? page.rules : const <r.RoutingRuleDto>[],
+      ),
+    );
+  }
+  final basic = ref.read(settingsControllerProvider).group('RoutingBasicItem');
+  final outbound = <String>['proxy', 'direct', 'block'];
+  try {
+    final remarks =
+        bridge
+            .queryAllProfiles()
+            .where((p) => p.configType != ConfigType.custom)
+            .map((p) => p.remarks)
+            .toList()
+          ..sort();
+    outbound.addAll(remarks);
+  } catch (_) {}
+  return RoutingEditorSnapshot(
+    schemes: schemes,
+    domainStrategy: basic['DomainStrategy']?.toString() ?? '',
+    domainStrategySbox: basic['DomainStrategy4Singbox']?.toString() ?? '',
+    outboundTags: outbound,
+  );
+}
+
+/// Persist a draft relayed from the routing window through the existing
+/// routing save/delete/set-default + settings-group paths, then reload the
+/// runtime so the change takes effect only after a successful save.
+Future<RoutingEditorOutcome> _applyRoutingDraft(
+  WidgetRef ref,
+  String draftJson,
+) async {
+  final decoded = decodeRoutingDraft(draftJson);
+  if (decoded == null) {
+    return const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
+  }
+  final controller = ref.read(routingControllerProvider.notifier);
+  // Snapshot the pre-edit list so deletion detection is not affected by the
+  // reload each save performs.
+  final current = ref.read(routingControllerProvider).items;
+  final draftIds = <String>{};
+  var activeId = '';
+  for (final scheme in decoded.schemes) {
+    final dto = scheme.profile;
+    draftIds.add(dto.id);
+    if (dto.isActive && dto.id.isNotEmpty) activeId = dto.id;
+    final result = controller.save(dto);
+    if (!result.ok) {
+      return RoutingEditorOutcome(
+        ok: false,
+        message: _routingErrorMessage(result.error?.messageKey),
+      );
+    }
+  }
+  for (final item in current) {
+    if (!draftIds.contains(item.id)) {
+      controller.delete(item.id);
+    }
+  }
+  final settings = ref.read(settingsControllerProvider.notifier);
+  settings.saveGroup('RoutingBasicItem', <String, dynamic>{
+    ...ref.read(settingsControllerProvider).group('RoutingBasicItem'),
+    'DomainStrategy': decoded.domainStrategy,
+    'DomainStrategy4Singbox': decoded.domainStrategySbox,
+  });
+  String? previousActive;
+  for (final item in current) {
+    if (item.isActive) {
+      previousActive = item.id;
+      break;
+    }
+  }
+  final activeChanged = activeId.isNotEmpty && activeId != previousActive;
+  if (activeChanged && current.any((e) => e.id == activeId)) {
+    await controller.setDefaultAndReload(activeId);
+  } else {
+    await ref.read(runtimeControllerProvider.notifier).reload();
+  }
+  return const RoutingEditorOutcome(ok: true);
+}
+
+String _routingErrorMessage(String? key) {
+  switch (key) {
+    case 'error.routing_delete_failed':
+      return '删除路由方案失败';
+    case 'error.routing_save_failed':
+    default:
+      return '保存路由设置失败';
+  }
 }
 
 /// ACT-MAIN-026: open the DNS settings window.

@@ -6,6 +6,7 @@ import 'package:v2rayn_desktop/app/app.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/bridge/frb_generated.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/routing/routing_windows.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window_entry.dart';
 import 'package:v2rayn_desktop/perf/t18_bench.dart';
 
@@ -66,3 +67,10 @@ Future<void> main() async {
 /// in this library to be reachable in AOT builds.
 @pragma('vm:entry-point')
 void settingsWindowMain() => runOptionSettingWindow();
+
+/// Entrypoint of the independent routing settings window engine. The native
+/// window host (`RoutingWindow`) creates a second Flutter engine with
+/// `set_dart_entrypoint("routingWindowMain")`. Must stay a top-level function
+/// in this library to be reachable in AOT builds.
+@pragma('vm:entry-point')
+void routingWindowMain() => runRoutingWindow();

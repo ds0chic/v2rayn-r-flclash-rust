@@ -5631,3 +5631,16 @@ items:
 #   fix16c_clash_ui_config / fix16e_cert_provider / fix16d_ui_state_store all pass.
 # Boundaries: no main_shell/app/frb/api/crates changes; window form unchanged; no 10808 use; no host
 #   system-proxy/registry/route/TUN write; no full workspace gate; no flutter build windows.
+# --- R3-VISUAL-DPI-TRAY append (2026-10-05; evidence: docs/evidence/recheck-fixes/R3-VISUAL-DPI-TRAY/; task: docs/tasks/R3-VISUAL-DPI-TRAY.md) ---
+# ACT-TRAY-014/015 tray visual (Wave J state mapping unchanged): four TrayIconStatus
+#   values now resolve to packaged assets/tray/{tray_icon,tray_icon_core,tray_icon_proxy,
+#   tray_icon_pac}.ico (16/32/48, 32bpp DIB); pubspec declares assets/tray/ and
+#   _trayAssetsDir targets flutter_assets/assets/tray; missing-file fallback preserved.
+# Verified on host DPI 96 (100%): light/dark main-window + full-screen captures; tray
+#   overflow shows the ring icon with tooltip v2rayN-R and a right-click context menu
+#   matching StatusBarView order (Unchanged checked). Synthetic/isolated data dir,
+#   SysProxyType=Unchanged, LocalPort=11808, no core/session, no proxy write.
+# DPI widget matrix 100/125/150/200% (devicePixelRatio x physical size): main shell
+#   (3 layouts), settings 5 pages, routing window, node picker -> no overflow/truncation.
+# Boundaries: host single-DPI monitor so 125/150/200% real windows untested; live tray
+#   only normal state (coreRunning/proxyActive/proxyPac need a running core or proxy write).

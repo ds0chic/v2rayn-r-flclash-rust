@@ -1,0 +1,20 @@
+{
+  "theme": "light",
+  "host_dpi": 96,
+  "pid": 3324,
+  "window": {
+    "title": "v2rayN",
+    "rect": "40,40,1240,840",
+    "dpi": 96
+  },
+  "main_shot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-VISUAL-DPI-TRAY\\main-light.png",
+  "screen_shot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\recheck-fixes\\R3-VISUAL-DPI-TRAY\\desktop-light.png",
+  "error": null,
+  "stopped": [
+    41136,
+    3648,
+    3324
+  ],
+  "alive_after": false,
+  "screen_bounds": "1920x1080"
+}

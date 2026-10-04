@@ -6,9 +6,16 @@
   1. cargo build --workspace --release --locked
   2. flutter build windows --release
   3. Assemble dist/v2rayN-R-<version>-windows-x64/ from the Flutter Release
-     directory plus our own net_host.exe / privileged_helper.exe.
+     directory plus our own net_host.exe / privileged_helper.exe and the
+     self-update helper (upgrade_runner.exe copied as v2rayN-upgrade.exe, the
+     name the updater expects).
   4. Emit dist/build-info.json, dist/v2rayN-R-<version>-windows-x64.zip and
      dist/SHA256SUMS.
+
+  The stage is flat (matching the Inno installer and the upstream
+  AmazTool.UpgradeApp flat overlay): v2rayn_desktop.exe, net_host.exe,
+  privileged_helper.exe and v2rayN-upgrade.exe all live directly in the
+  install root.
 
   External proxy cores (xray / sing-box) are NOT bundled; they are downloaded
   at runtime and pinned by tools/cores/cores.lock.json.
@@ -21,6 +28,10 @@
   package and never sets the arming define. Armed artifacts go to
   dist/evidence-armed/ and are never mixed with the official dist/ package.
 
+  -ReleaseDirOverride / -TargetReleaseOverride / -OutRootOverride let release
+  tests point the packaging step at synthetic stage inputs without a full
+  build.
+
 .NOTES
   Do not touch 127.0.0.1:10808 or the host system proxy. This script only
   builds and copies files.
@@ -31,16 +42,19 @@ param(
   [switch]$SkipBuild,
   [switch]$SkipFlutter,
   [switch]$SmokeArmed,
-  [switch]$KeepStage
+  [switch]$KeepStage,
+  [string]$ReleaseDirOverride = '',
+  [string]$TargetReleaseOverride = '',
+  [string]$OutRootOverride = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $AppDir = Join-Path $RepoRoot 'apps\desktop'
-$ReleaseDir = Join-Path $AppDir 'build\windows\x64\runner\Release'
-$TargetRelease = Join-Path $RepoRoot 'target\release'
-$DistDir = Join-Path $RepoRoot 'dist'
+$ReleaseDir = if ($ReleaseDirOverride -ne '') { $ReleaseDirOverride } else { Join-Path $AppDir 'build\windows\x64\runner\Release' }
+$TargetRelease = if ($TargetReleaseOverride -ne '') { $TargetReleaseOverride } else { Join-Path $RepoRoot 'target\release' }
+$DistDir = if ($OutRootOverride -ne '') { $OutRootOverride } else { Join-Path $RepoRoot 'dist' }
 # Armed evidence builds are isolated so they can never overwrite the official
 # release package, build-info.json or SHA256SUMS under dist/.
 $OutRoot = if ($SmokeArmed) { Join-Path $DistDir 'evidence-armed' } else { $DistDir }
@@ -118,7 +132,8 @@ try {
       (Join-Path $ReleaseDir 'v2rayn_desktop.exe'),
       (Join-Path $ReleaseDir 'bridge_api.dll'),
       (Join-Path $TargetRelease 'net_host.exe'),
-      (Join-Path $TargetRelease 'privileged_helper.exe')
+      (Join-Path $TargetRelease 'privileged_helper.exe'),
+      (Join-Path $TargetRelease 'upgrade_runner.exe')
     )) {
     if (-not (Test-Path -LiteralPath $required)) {
       throw "missing build artifact: $required"
@@ -139,6 +154,9 @@ try {
 
   Copy-Item -LiteralPath (Join-Path $TargetRelease 'net_host.exe') -Destination $stageDir -Force
   Copy-Item -LiteralPath (Join-Path $TargetRelease 'privileged_helper.exe') -Destination $stageDir -Force
+  # Self-update helper: the updater launches `v2rayN-upgrade.exe` from the flat
+  # install root, so the Rust `upgrade_runner` binary ships under that name.
+  Copy-Item -LiteralPath (Join-Path $TargetRelease 'upgrade_runner.exe') -Destination (Join-Path $stageDir 'v2rayN-upgrade.exe') -Force
 
   foreach ($doc in @('LICENSE', 'NOTICE.md', 'README.md')) {
     $src = Join-Path $RepoRoot $doc

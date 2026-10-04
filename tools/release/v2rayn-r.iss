@@ -69,5 +69,9 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; Only remove within {app}; user data lives elsewhere (V2RAYN_R_DATA_DIR).
-Type: filesandordirs; Name: "{app}"
+; Inno removes the files it installed. Only managed upgrade leftovers are
+; deleted explicitly, and the install directory is removed only when empty:
+; user/foreign files placed under {app} are never recursively deleted.
+Type: filesandordirs; Name: "{app}\.staging"
+Type: filesandordirs; Name: "{app}\app.previous"
+Type: dirifempty; Name: "{app}"

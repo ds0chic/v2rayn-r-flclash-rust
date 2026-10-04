@@ -264,6 +264,123 @@ fn resource_copy_failure_rolls_back_database_and_config() {
     assert_eq!(config, r#"{"IndexId":"n1"}"#);
 }
 
+/// A runtime whose snapshot reports a live session but whose stop always fails,
+/// to prove the restore lifecycle aborts before exchanging any file.
+struct StopFailingRuntime;
+
+impl application::RuntimeClient for StopFailingRuntime {
+    fn snapshot(&self) -> Result<application::RuntimeSnapshot, domain::DomainError> {
+        Ok(application::RuntimeSnapshot {
+            state: domain::RuntimeState::Running,
+            ..Default::default()
+        })
+    }
+
+    fn apply(
+        &self,
+        _plan: &domain::runtime_plan::RuntimePlan,
+    ) -> Result<application::ApplyOutcome, domain::DomainError> {
+        Ok(application::ApplyOutcome::Accepted {
+            operation_id: "op-test".to_string(),
+        })
+    }
+
+    fn stop(&self) -> Result<(), domain::DomainError> {
+        Err(domain::DomainError::new(
+            domain::codes::INTERNAL,
+            "error.test_stop_failed",
+        ))
+    }
+
+    fn cancel(
+        &self,
+        _job_id: &domain::JobId,
+    ) -> Result<domain::CancelOutcome, domain::DomainError> {
+        Ok(domain::CancelOutcome::NotCancellable)
+    }
+}
+
+fn null_engine(dir: &Path) -> application::AppEngine {
+    application::AppEngine::open_with_runtime(
+        dir,
+        std::sync::Arc::new(application::NullRuntimeClient::new()),
+    )
+    .expect("open null-runtime engine")
+}
+
+#[test]
+fn restore_lifecycle_reloads_settings_and_active() {
+    let src = tempfile::tempdir().expect("src");
+    seed_data_dir(src.path(), "source");
+    std::fs::write(
+        src.path().join("guiNConfig.json"),
+        r#"{"IndexId":"n1","active_index_id":"restored-active","desired_revision":7,"UIItem":{"CurrentTheme":"Dark"}}"#,
+    )
+    .expect("src config");
+    let service = BackupService::new(src.path());
+    let parent = tempfile::tempdir().expect("bundle parent");
+    let bundle_root = parent.path().join("bundle");
+    service.create_local(&bundle_root, 3).expect("backup");
+
+    let data = tempfile::tempdir().expect("data");
+    seed_data_dir(data.path(), "existing");
+    let engine = null_engine(data.path());
+    assert_eq!(engine.desired_revision(), 0);
+
+    let target_service = BackupService::new(data.path());
+    let report = target_service
+        .restore_with_lifecycle(&engine, &bundle_root, &data.path().join("work"))
+        .expect("lifecycle restore");
+    assert!(report.restored);
+    // After reopen the engine serves the restored settings/active, not the
+    // pre-restore in-memory values.
+    assert_eq!(engine.active_profile().as_deref(), Some("restored-active"));
+    assert_eq!(engine.desired_revision(), 7);
+}
+
+#[test]
+fn restore_lifecycle_propagates_stop_failure_before_exchange() {
+    let src = tempfile::tempdir().expect("src");
+    seed_data_dir(src.path(), "source");
+    let service = BackupService::new(src.path());
+    let parent = tempfile::tempdir().expect("bundle parent");
+    let bundle_root = parent.path().join("bundle");
+    service.create_local(&bundle_root, 1).expect("backup");
+
+    let data = tempfile::tempdir().expect("data");
+    seed_data_dir(data.path(), "existing");
+    let engine = application::AppEngine::open_with_runtime(
+        data.path(),
+        std::sync::Arc::new(StopFailingRuntime),
+    )
+    .expect("open engine");
+
+    let result = service.restore_with_lifecycle(&engine, &bundle_root, &data.path().join("work"));
+    assert!(result.is_err(), "a stop failure must abort the restore");
+    // The live database was never exchanged.
+    let store = Store::open(data.path().join("guiNDB.db")).expect("open db");
+    let remark: String = store
+        .connection()
+        .query_row("SELECT Remarks FROM SubItem LIMIT 1", [], |r| r.get(0))
+        .expect("remark");
+    assert_eq!(remark, "existing");
+}
+
+#[test]
+fn engine_reopen_propagates_corrupt_config() {
+    let data = tempfile::tempdir().expect("data");
+    seed_data_dir(data.path(), "existing");
+    let engine = null_engine(data.path());
+    engine.quiesce().expect("quiesce drops sqlite handles");
+    // Damage the config while the engine holds no handle; reopen must surface
+    // the failure instead of leaving the engine on empty in-memory backends.
+    std::fs::write(data.path().join("guiNConfig.json"), b"{ not json").expect("corrupt config");
+    assert!(
+        engine.reopen().is_err(),
+        "reopen must surface a corrupt config"
+    );
+}
+
 #[test]
 fn live_engine_quiesce_restore_reopen_roundtrip() {
     // Source bundle with a distinguishing config marker.

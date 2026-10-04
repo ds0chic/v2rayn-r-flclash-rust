@@ -664,8 +664,29 @@ impl UpdateService {
         }
 
         let coordinator = UpgradeCoordinator::new(helper_exe.into(), self.install_root.clone());
+        // RR-04: emit the real `upgrade_runner` command line. The plan is the
+        // flat-overlay contract (payload laid over the install root exactly like
+        // the RC ZIP / Inno install); writing it next to the staged payload lets
+        // the external runner apply the same swap in place.
+        let layout = self.app_layout();
+        let plan = layout.replacement_plan(&request.version, &staged);
+        let plan_dir = self.install_root.join(".staging");
+        std::fs::create_dir_all(&plan_dir).map_err(|e| io_error("error.update_install", e))?;
+        let plan_path = plan_dir.join(format!("upgrade-plan-{}.json", request.version));
+        let result_path = plan_dir.join(format!("upgrade-result-{}.json", request.version));
+        let plan_bytes = serde_json::to_vec_pretty(&plan)
+            .map_err(|e| io_error("error.update_manifest", std::io::Error::other(e)))?;
+        std::fs::write(&plan_path, plan_bytes).map_err(|e| io_error("error.update_manifest", e))?;
+        let restart = layout.restart_command();
         coordinator
-            .external_upgrade_spec(staged, wait_for_pid)
+            .runner_spec(
+                &staged,
+                &plan_path,
+                &result_path,
+                Some(&restart.program),
+                Some(&restart.working_dir),
+                wait_for_pid,
+            )
             .map_err(update_error)
     }
 

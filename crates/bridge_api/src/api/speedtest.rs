@@ -635,6 +635,33 @@ mod tests {
     }
 
     #[test]
+    fn results_follow_persisted_sort_order() {
+        // RE-PROF-04: `speedtest_results()` must emit rows in persisted
+        // `ProfileExItem.Sort` order so the Dart read chain can restore it.
+        let _guard = lock();
+        reset_speedtest_for_test();
+        apply_speedtest_result_for_test("a".into(), 12, 1.0, String::new());
+        apply_speedtest_result_for_test("b".into(), 20, 1.0, String::new());
+        apply_speedtest_result_for_test("c".into(), 30, 1.0, String::new());
+
+        let ids = || -> Vec<String> {
+            speedtest_results()
+                .into_iter()
+                .map(|r| r.index_id)
+                .collect()
+        };
+        assert_eq!(ids(), vec!["a", "b", "c"], "index order before any write");
+
+        let ordered = vec!["c".to_string(), "a".to_string(), "b".to_string()];
+        assert!(speedtest_apply_profile_order(ordered).ok);
+        assert_eq!(ids(), vec!["c", "a", "b"], "read back in Sort order");
+
+        let flipped = vec!["b".to_string(), "a".to_string(), "c".to_string()];
+        assert!(speedtest_apply_profile_order(flipped).ok);
+        assert_eq!(ids(), vec!["b", "a", "c"], "direction toggle read-back");
+    }
+
+    #[test]
     fn unsupported_udp_is_reported() {
         let support = speedtest_supported();
         assert!(support.tcp_ping && support.real_ping && support.download);

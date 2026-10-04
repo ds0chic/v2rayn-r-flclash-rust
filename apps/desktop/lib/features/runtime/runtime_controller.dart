@@ -147,6 +147,18 @@ class RuntimeController extends Notifier<RuntimeView> {
     await applyActive();
   }
 
+  /// SR-03 restore-lifecycle hook: the engine exchanged storage and stopped
+  /// the managed session. Drop any stale running view (idempotent stop), then
+  /// re-apply the restored active node at the original post-restore timing.
+  /// No active node leaves the runtime stopped; an apply failure stays visible
+  /// and is never replaced by a fabricated Running state.
+  Future<void> resyncAfterRestore() async {
+    await stop();
+    if (state.error != null) return;
+    if (_bridge.activeProfileId() == null) return;
+    await applyActive();
+  }
+
   Future<void> stop() async {
     try {
       final result = await _bridge.stop();

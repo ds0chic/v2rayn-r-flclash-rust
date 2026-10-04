@@ -2267,7 +2267,7 @@ items:
   implementation_location: apps/desktop/lib/features/profiles/profiles_controller.dart (sortByResult) + apps/desktop/lib/features/profiles/profiles_table.dart
   test_ids: []
   status: implemented
-  notes: UX-SPACE-02（2026-10-03）：右键菜单恢复「按测试结果排序」根条目（上游顺序第 11）；sortByResult 按真实 ProfileSummary.delay 升序（未知/-1 置尾），无合成排序。证据 docs/evidence/UX-SPACE-02/README.md。FIX-10（2026-10-03）：结果排序当前仅改内存行序；上游 SortServerResultCmd→SortServer→SortServers 写 ProfileExItem.Sort 并重开保持，本仓库已有 engine.set_profile_sort 用例与 ProfileExItem.Sort 落库单测（fix10_speedtest_result），但桥接缺暴露「排序写 Sort」的 FRB 函数（ProfileDto 无 Sort 字段、无 speedtest_sort 类函数），登记接口缺口后再接 UI，排序重开持久化未完成、未伪造。
+  notes: UX-SPACE-02（2026-10-03）：右键菜单恢复「按测试结果排序」根条目（上游顺序第 11）；sortByResult 按真实 ProfileSummary.delay 升序（未知/-1 置尾），无合成排序。证据 docs/evidence/UX-SPACE-02/README.md。FIX-10（2026-10-03）：结果排序当前仅改内存行序；上游 SortServerResultCmd→SortServer→SortServers 写 ProfileExItem.Sort 并重开保持，本仓库已有 engine.set_profile_sort 用例与 ProfileExItem.Sort 落库单测（fix10_speedtest_result），但桥接缺暴露「排序写 Sort」的 FRB 函数（ProfileDto 无 Sort 字段、无 speedtest_sort 类函数），登记接口缺口后再接 UI，排序重开持久化未完成、未伪造。RE-PROF-04（2026-10-04）：桥接读链已补——fetchSummaries 按结果表 list 顺序（即 ProfileExItem.Sort）重排节点行，刷新/150ms 测速轮询/重开不再被 queryAllProfiles 的 IndexId 顺序覆盖；sortByResult 支持升↔降两向切换（失败/未知恒沉底）；写失败在状态行提示。证据 docs/evidence/recheck-fixes/RE-PROF-04/。
 - id: ACT-PROF-021
   name: 移除无效测试结果节点
   domain: profiles
@@ -2581,6 +2581,7 @@ items:
   implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
   test_ids: [t05_profiles_ui_test]
   status: implemented
+  notes: RE-PROF-04（2026-10-04）：表头排序方向改为两向切换（升↔降，不再第三击清空），对齐上游 SortServer/_dicHeaderSort；已写 Sort 由 fetchSummaries 读回。证据 docs/evidence/recheck-fixes/RE-PROF-04/。
 - id: ACT-PROF-032
   name: 全选节点
   domain: profiles
@@ -2639,6 +2640,7 @@ items:
   implementation_location: apps/desktop/lib/features/profiles/profiles_table.dart
   test_ids: [profiles_pointer_test]
   status: implemented
+  notes: RE-PROF-04（2026-10-04）：拖动后写入的 ProfileExItem.Sort 由 fetchSummaries 读回；刷新/测速轮询/重开保持拖动顺序，不再回退 IndexId。证据 docs/evidence/recheck-fixes/RE-PROF-04/。
 - id: ACT-PROF-034
   name: 右键保留已有多选
   domain: profiles

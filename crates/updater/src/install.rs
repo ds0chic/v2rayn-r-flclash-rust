@@ -87,6 +87,22 @@ fn collect_files(
     Ok(())
 }
 
+/// How an [`InstallPlan`] places the new version.
+///
+/// `DirSwap` (cores) renames the whole current directory aside and swaps in the
+/// staged directory. `FlatOverlay` (the application, whose release ZIP and the
+/// Inno installer both lay files out flat in `<install_root>`) copies the
+/// staged files over the install root in place, backing up every overwritten
+/// file under `<root>/<keep_name>` for rollback. This matches upstream
+/// `AmazTool.UpgradeApp`, which extracts the package over `StartupPath()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallMode {
+    #[default]
+    DirSwap,
+    FlatOverlay,
+}
+
 /// A plan describing a single atomic replacement.
 ///
 /// Serialised as JSON so an out-of-process helper (the `upgrade_runner`
@@ -95,7 +111,8 @@ fn collect_files(
 pub struct InstallPlan {
     /// Managed root; every path in the plan must live inside it.
     pub root: PathBuf,
-    /// Directory currently holding the active version.
+    /// Directory currently holding the active version. For `FlatOverlay` this
+    /// is the install root itself.
     pub current_dir: PathBuf,
     /// Directory holding the new version (already unpacked).
     pub staged_dir: PathBuf,
@@ -104,6 +121,9 @@ pub struct InstallPlan {
     pub version: String,
     /// When true, the current version is deleted after a successful swap.
     pub discard_previous: bool,
+    /// Placement strategy; defaults to the historical directory swap.
+    #[serde(default)]
+    pub mode: InstallMode,
 }
 
 impl InstallPlan {
@@ -121,6 +141,26 @@ impl InstallPlan {
             keep_name: keep_name.into(),
             version: version.into(),
             discard_previous: false,
+            mode: InstallMode::DirSwap,
+        }
+    }
+
+    /// Plan that overlays a flat staged payload over the install root.
+    pub fn flat_overlay(
+        root: impl Into<PathBuf>,
+        staged_dir: impl Into<PathBuf>,
+        keep_name: impl Into<String>,
+        version: impl Into<String>,
+    ) -> Self {
+        let root = root.into();
+        Self {
+            current_dir: root.clone(),
+            root,
+            staged_dir: staged_dir.into(),
+            keep_name: keep_name.into(),
+            version: version.into(),
+            discard_previous: false,
+            mode: InstallMode::FlatOverlay,
         }
     }
 
@@ -138,6 +178,22 @@ impl InstallPlan {
                 "staged dir missing: {}",
                 self.staged_dir.display()
             )));
+        }
+        if self.mode == InstallMode::FlatOverlay
+            && normalize_lexically(&self.current_dir) != normalize_lexically(&self.root)
+        {
+            return Err(UpdateError::UnsafeTarget(format!(
+                "flat overlay current dir must equal the install root: {}",
+                self.current_dir.display()
+            )));
+        }
+        if self.mode == InstallMode::FlatOverlay
+            && normalize_lexically(&self.staged_dir)
+                .starts_with(normalize_lexically(std::path::Path::new(&self.keep_name)))
+        {
+            return Err(UpdateError::UnsafeTarget(
+                self.staged_dir.display().to_string(),
+            ));
         }
         Ok(())
     }
@@ -188,6 +244,9 @@ pub fn apply_atomic(plan: &InstallPlan) -> Result<ApplyOutcome, UpdateError> {
 
 fn apply_atomic_inner(plan: &InstallPlan, fail_at: FailPoint) -> Result<ApplyOutcome, UpdateError> {
     plan.validate()?;
+    if plan.mode == InstallMode::FlatOverlay {
+        return apply_flat_overlay(plan, fail_at);
+    }
     let keep_dir = plan.root.join(&plan.keep_name);
 
     if keep_dir.exists() {
@@ -240,7 +299,130 @@ fn apply_atomic_inner(plan: &InstallPlan, fail_at: FailPoint) -> Result<ApplyOut
     })
 }
 
-/// Ensure `current_dir` exists after a failed/partial swap. When the current
+/// Flat-overlay placement: copy every staged file over the install root,
+/// moving any overwritten file into the keep directory first so a failed copy
+/// can be rolled back. Files the user added that are not part of the package
+/// are never touched.
+fn apply_flat_overlay(plan: &InstallPlan, fail_at: FailPoint) -> Result<ApplyOutcome, UpdateError> {
+    let root = plan.root.clone();
+    let keep_dir = root.join(&plan.keep_name);
+    if fail_at == FailPoint::StageRename {
+        return Err(UpdateError::Io("injected: overlay stage".into()));
+    }
+    if keep_dir.exists() {
+        std::fs::remove_dir_all(&keep_dir).map_err(|e| UpdateError::Io(e.to_string()))?;
+    }
+
+    let mut files = Vec::new();
+    collect_relative_files(&plan.staged_dir, &plan.staged_dir, &mut files)?;
+    files.sort();
+
+    // Phase 1: back up files that the package overwrites.
+    let mut replaced: Vec<PathBuf> = Vec::new();
+    for rel in &files {
+        let dest = root.join(rel);
+        if !dest.is_file() {
+            continue;
+        }
+        let backup = keep_dir.join(rel);
+        if let Some(parent) = backup.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                restore_overlay_backups(&root, &keep_dir, &replaced);
+                return Err(UpdateError::Io(format!("overlay backup dir: {e}")));
+            }
+        }
+        if let Err(e) = std::fs::rename(&dest, &backup) {
+            restore_overlay_backups(&root, &keep_dir, &replaced);
+            return Err(UpdateError::Io(format!("overlay backup: {e}")));
+        }
+        replaced.push(rel.clone());
+    }
+    if fail_at == FailPoint::CommitRename {
+        restore_overlay_backups(&root, &keep_dir, &replaced);
+        let _ = std::fs::remove_dir_all(&keep_dir);
+        return Err(UpdateError::Io("injected: overlay commit".into()));
+    }
+
+    // Phase 2: copy the new files into place.
+    let mut copied: Vec<PathBuf> = Vec::new();
+    for rel in &files {
+        let src = plan.staged_dir.join(rel);
+        let dest = root.join(rel);
+        if let Some(parent) = dest.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                remove_overlay_copies(&root, &copied);
+                restore_overlay_backups(&root, &keep_dir, &replaced);
+                return Err(UpdateError::Io(format!("overlay target dir: {e}")));
+            }
+        }
+        match std::fs::copy(&src, &dest) {
+            Ok(_) => copied.push(rel.clone()),
+            Err(e) => {
+                remove_overlay_copies(&root, &copied);
+                restore_overlay_backups(&root, &keep_dir, &replaced);
+                return Err(UpdateError::Io(format!("overlay copy: {e}")));
+            }
+        }
+    }
+
+    let kept = !replaced.is_empty();
+    if !kept && keep_dir.is_dir() {
+        let _ = std::fs::remove_dir_all(&keep_dir);
+    }
+    let mut manifest = InstallManifest::scan_directory(&plan.version, &plan.staged_dir)?;
+    manifest.previous_version = kept.then(|| plan.keep_name.clone());
+    if plan.discard_previous && kept {
+        let _ = std::fs::remove_dir_all(&keep_dir);
+        manifest.previous_version = None;
+    }
+    let kept_previous = (kept && keep_dir.is_dir()).then_some(keep_dir);
+    Ok(ApplyOutcome {
+        version: plan.version.clone(),
+        kept_previous,
+        manifest,
+    })
+}
+
+fn collect_relative_files(
+    root: &Path,
+    dir: &Path,
+    out: &mut Vec<PathBuf>,
+) -> Result<(), UpdateError> {
+    for entry in std::fs::read_dir(dir).map_err(|e| UpdateError::Io(e.to_string()))? {
+        let entry = entry.map_err(|e| UpdateError::Io(e.to_string()))?;
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .map_err(|e| UpdateError::Io(e.to_string()))?;
+        if file_type.is_dir() {
+            collect_relative_files(root, &path, out)?;
+        } else if file_type.is_file() {
+            let rel = path
+                .strip_prefix(root)
+                .map_err(|_| UpdateError::InstallConflict(path.display().to_string()))?;
+            out.push(rel.to_path_buf());
+        }
+    }
+    Ok(())
+}
+
+fn restore_overlay_backups(root: &Path, keep_dir: &Path, replaced: &[PathBuf]) {
+    for rel in replaced {
+        let backup = keep_dir.join(rel);
+        let dest = root.join(rel);
+        if let Some(parent) = dest.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let _ = std::fs::rename(&backup, &dest);
+    }
+}
+
+fn remove_overlay_copies(root: &Path, copied: &[PathBuf]) {
+    for rel in copied {
+        let _ = std::fs::remove_file(root.join(rel));
+    }
+}
+
 /// directory is missing but the kept previous version is present, rename it
 /// back into place. Returns whether a restore happened.
 ///
@@ -248,6 +430,11 @@ fn apply_atomic_inner(plan: &InstallPlan, fail_at: FailPoint) -> Result<ApplyOut
 /// back its own rename failures, but a helper that crashes between steps can
 /// still leave only the kept version, which this recovers.
 pub fn restore_previous(plan: &InstallPlan) -> Result<bool, UpdateError> {
+    if plan.mode == InstallMode::FlatOverlay {
+        // The install root always exists; `apply_atomic` already rolls back its
+        // own overlay failures in-process, so there is nothing to rename.
+        return Ok(false);
+    }
     if plan.current_dir.exists() {
         return Ok(false);
     }
@@ -283,6 +470,10 @@ pub fn verify_manifest(dir: &Path, manifest: &InstallManifest) -> Result<(), Upd
 
 /// A spec for an external updater process (Windows cannot replace a running
 /// executable). The coordinator returns this; it never spawns anything.
+///
+/// `args` is the exact command line for the `upgrade_runner` helper:
+/// `--plan <json> --result <json> --pid <n> [--restart-exe <path>
+/// --restart-cwd <dir>]`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExternalUpgradeSpec {
     /// Executable that will perform the swap.
@@ -293,8 +484,14 @@ pub struct ExternalUpgradeSpec {
     pub install_root: PathBuf,
     /// PID of the process that must exit first (the running app).
     pub wait_for_pid: u32,
-    /// Extra CLI arguments for the helper (upstream uses a file path).
+    /// CLI arguments for the helper (runner flags, not just a bare path).
     pub args: Vec<String>,
+    /// Plan JSON the runner loads (mirrors `--plan`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plan: Option<PathBuf>,
+    /// Result JSON the runner writes (mirrors `--result`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result: Option<PathBuf>,
 }
 
 /// Coordinates an upgrade that cannot run in-process.
@@ -312,22 +509,50 @@ impl UpgradeCoordinator {
         }
     }
 
-    /// Build the spec for the external helper. No process is started.
-    pub fn external_upgrade_spec(
+    /// Build the spec for the external helper, emitting the real
+    /// `upgrade_runner` command line. No process is started.
+    ///
+    /// `restart_exe`/`restart_cwd` are the relaunch target the runner spawns
+    /// after a successful swap; pass `None` to leave restart to the caller.
+    pub fn runner_spec(
         &self,
         source: impl Into<PathBuf>,
+        plan_path: impl Into<PathBuf>,
+        result_path: impl Into<PathBuf>,
+        restart_exe: Option<&Path>,
+        restart_cwd: Option<&Path>,
         wait_for_pid: u32,
     ) -> Result<ExternalUpgradeSpec, UpdateError> {
         let source = source.into();
         if !is_within_root(&self.install_root, &source) {
             return Err(UpdateError::UnsafeTarget(source.display().to_string()));
         }
+        let plan_path = plan_path.into();
+        let result_path = result_path.into();
+        let mut args = vec![
+            "--plan".to_string(),
+            plan_path.to_string_lossy().into_owned(),
+            "--result".to_string(),
+            result_path.to_string_lossy().into_owned(),
+            "--pid".to_string(),
+            wait_for_pid.to_string(),
+        ];
+        if let Some(exe) = restart_exe {
+            args.push("--restart-exe".to_string());
+            args.push(exe.to_string_lossy().into_owned());
+        }
+        if let Some(cwd) = restart_cwd {
+            args.push("--restart-cwd".to_string());
+            args.push(cwd.to_string_lossy().into_owned());
+        }
         Ok(ExternalUpgradeSpec {
             helper_exe: self.helper_exe.clone(),
-            args: vec![source.to_string_lossy().into_owned()],
             source,
             install_root: self.install_root.clone(),
             wait_for_pid,
+            args,
+            plan: Some(plan_path),
+            result: Some(result_path),
         })
     }
 }
@@ -338,7 +563,22 @@ pub fn external_upgrade_spec(
     source: impl Into<PathBuf>,
     wait_for_pid: u32,
 ) -> Result<ExternalUpgradeSpec, UpdateError> {
-    coordinator.external_upgrade_spec(source, wait_for_pid)
+    // Legacy bare-path entry point kept for callers that only need the helper
+    // and staging source; production app upgrades use
+    // [`UpgradeCoordinator::runner_spec`] so the arguments match the runner.
+    let source = source.into();
+    if !is_within_root(&coordinator.install_root, &source) {
+        return Err(UpdateError::UnsafeTarget(source.display().to_string()));
+    }
+    Ok(ExternalUpgradeSpec {
+        helper_exe: coordinator.helper_exe.clone(),
+        args: vec![source.to_string_lossy().into_owned()],
+        source,
+        install_root: coordinator.install_root.clone(),
+        wait_for_pid,
+        plan: None,
+        result: None,
+    })
 }
 
 /// Lexically normalize a path (resolve `.`/`..` without touching the fs).
@@ -435,9 +675,7 @@ mod tests {
     #[test]
     fn external_spec_does_not_start_process() {
         let coordinator = UpgradeCoordinator::new("/root/helper.exe", "/root");
-        let spec = coordinator
-            .external_upgrade_spec("/root/stage/new.zip", 4242)
-            .unwrap();
+        let spec = external_upgrade_spec(&coordinator, "/root/stage/new.zip", 4242).unwrap();
         assert_eq!(spec.wait_for_pid, 4242);
         assert_eq!(spec.args, vec!["/root/stage/new.zip".to_string()]);
         assert!(!spec.source.is_dir());
@@ -447,25 +685,116 @@ mod tests {
     fn external_spec_rejects_absolute_path_outside_root() {
         let coordinator = UpgradeCoordinator::new("/root/helper.exe", "/root");
         assert!(matches!(
-            coordinator.external_upgrade_spec("/elsewhere/evil.zip", 1),
+            external_upgrade_spec(&coordinator, "/elsewhere/evil.zip", 1),
             Err(UpdateError::UnsafeTarget(_))
         ));
         assert!(matches!(
-            coordinator.external_upgrade_spec("C:/Windows/evil.zip", 1),
+            external_upgrade_spec(&coordinator, "C:/Windows/evil.zip", 1),
             Err(UpdateError::UnsafeTarget(_))
         ));
         assert!(matches!(
-            coordinator.external_upgrade_spec(r"C:\Windows\evil.zip", 1),
+            external_upgrade_spec(&coordinator, r"C:\Windows\evil.zip", 1),
             Err(UpdateError::UnsafeTarget(_))
         ));
         // Traversal via `..` must not escape either.
         assert!(matches!(
-            coordinator.external_upgrade_spec("/root/../evil.zip", 1),
+            external_upgrade_spec(&coordinator, "/root/../evil.zip", 1),
             Err(UpdateError::UnsafeTarget(_))
         ));
         // Relative paths resolve against the root staging layout.
-        assert!(coordinator
-            .external_upgrade_spec("stage/new.zip", 1)
-            .is_ok());
+        assert!(external_upgrade_spec(&coordinator, "stage/new.zip", 1).is_ok());
+    }
+
+    fn tmp(tag: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let root = std::env::temp_dir().join(format!("v2rayn-install-{tag}-{nanos}"));
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn flat_overlay_replaces_managed_files_and_keeps_user_files() {
+        let root = tmp("overlay");
+        std::fs::write(root.join("v2rayn_desktop.exe"), b"old-exe").unwrap();
+        std::fs::write(root.join("user.txt"), b"user-data").unwrap();
+        let staged = root.join(".staging").join("app-9.9.9");
+        std::fs::create_dir_all(&staged).unwrap();
+        std::fs::write(staged.join("v2rayn_desktop.exe"), b"new-exe").unwrap();
+        std::fs::write(staged.join("net_host.exe"), b"new-net").unwrap();
+
+        let plan = InstallPlan::flat_overlay(&root, &staged, "app.previous", "9.9.9");
+        let outcome = apply_atomic(&plan).unwrap();
+        assert_eq!(
+            std::fs::read(root.join("v2rayn_desktop.exe")).unwrap(),
+            b"new-exe"
+        );
+        assert!(root.join("net_host.exe").is_file());
+        // Untouched user file survives the overlay.
+        assert_eq!(std::fs::read(root.join("user.txt")).unwrap(), b"user-data");
+        // The overwritten file is kept for rollback.
+        assert_eq!(
+            std::fs::read(root.join("app.previous").join("v2rayn_desktop.exe")).unwrap(),
+            b"old-exe"
+        );
+        assert_eq!(outcome.kept_previous, Some(root.join("app.previous")));
+    }
+
+    #[test]
+    fn flat_overlay_commit_failure_leaves_original_intact() {
+        let root = tmp("overlay-fail");
+        std::fs::write(root.join("v2rayn_desktop.exe"), b"old-exe").unwrap();
+        let staged = root.join(".staging").join("app-9.9.9");
+        std::fs::create_dir_all(&staged).unwrap();
+        std::fs::write(staged.join("v2rayn_desktop.exe"), b"new-exe").unwrap();
+
+        let plan = InstallPlan::flat_overlay(&root, &staged, "app.previous", "9.9.9");
+        let error = apply_atomic_inject(&plan, FailPoint::CommitRename).unwrap_err();
+        assert!(matches!(error, UpdateError::Io(_)));
+        assert_eq!(
+            std::fs::read(root.join("v2rayn_desktop.exe")).unwrap(),
+            b"old-exe"
+        );
+    }
+
+    #[test]
+    fn runner_spec_args_match_runner_cli() {
+        let root = tmp("runner-cli");
+        let coordinator = UpgradeCoordinator::new(root.join("v2rayN-upgrade.exe"), &root);
+        let spec = coordinator
+            .runner_spec(
+                root.join(".staging").join("app-1.2.3"),
+                root.join(".staging").join("plan.json"),
+                root.join(".staging").join("result.json"),
+                Some(&root.join("v2rayn_desktop.exe")),
+                Some(&root),
+                4242,
+            )
+            .unwrap();
+        let expected = vec![
+            "--plan".to_string(),
+            root.join(".staging")
+                .join("plan.json")
+                .to_string_lossy()
+                .into_owned(),
+            "--result".to_string(),
+            root.join(".staging")
+                .join("result.json")
+                .to_string_lossy()
+                .into_owned(),
+            "--pid".to_string(),
+            "4242".to_string(),
+            "--restart-exe".to_string(),
+            root.join("v2rayn_desktop.exe")
+                .to_string_lossy()
+                .into_owned(),
+            "--restart-cwd".to_string(),
+            root.to_string_lossy().into_owned(),
+        ];
+        assert_eq!(spec.args, expected);
+        assert!(spec.plan.is_some());
+        assert!(spec.result.is_some());
     }
 }

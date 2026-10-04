@@ -2,6 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/backup/backup_picker.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/routing/dns_controller.dart';
+import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 
 final backupControllerProvider =
     NotifierProvider<BackupController, BackupState>(BackupController.new);
@@ -136,9 +141,32 @@ class BackupController extends Notifier<BackupState> {
     _status('success', '本地备份完成：${result.root ?? destRoot}');
   }
 
-  /// Re-read engine-owned settings so the window never keeps serving stale
-  /// state after a restore swapped the on-disk config (`quiesce`/`reopen`).
-  void _refreshAfterRestore() {
+  /// Whether the subscription scheduler was running before a restore; used to
+  /// restore it only when it had been started (upstream relaunch timing).
+  bool _schedulerWasRunning() =>
+      ref.read(bridgePortProvider).subSchedulerRunning();
+
+  /// SR-03: reload every long-lived Dart provider after the engine exchanged
+  /// the database and config, so no cached profile/group/routing/DNS/theme can
+  /// keep impersonating the pre-restore configuration.
+  void _reloadProviders() {
+    ref.read(settingsControllerProvider.notifier).load();
+    ref.read(profilesControllerProvider.notifier).reload();
+    ref.read(routingControllerProvider.notifier).reload();
+    ref.read(dnsControllerProvider.notifier).reload();
+    ref.read(subsControllerProvider.notifier).reload();
+  }
+
+  /// Restart the periodic updater only if it was running before the restore.
+  void _restartScheduler(bool wasRunning) {
+    if (wasRunning) {
+      ref.read(subsControllerProvider.notifier).startScheduler(silent: true);
+    }
+  }
+
+  /// Re-read this window's own engine-owned state (WebDAV config, core
+  /// versions) so it never serves a stale snapshot after a restore.
+  void _refreshWindowState() {
     final bridge = ref.read(bridgePortProvider);
     final config = bridge.t16WebdavConfigGet();
     final cores = bridge.t16GetCoreVersions();
@@ -149,23 +177,35 @@ class BackupController extends Notifier<BackupState> {
     );
   }
 
-  bool _restoreBundlePath(String bundleDir) {
+  /// Re-apply the restored active node (or stay stopped when there is none);
+  /// the Rust lifecycle already stopped the old session before the swap.
+  Future<void> _resyncRuntime() =>
+      ref.read(runtimeControllerProvider.notifier).resyncAfterRestore();
+
+  Future<bool> _restoreBundlePath(String bundleDir) async {
+    final schedulerWasRunning = _schedulerWasRunning();
     final result = ref.read(bridgePortProvider).t16BackupRestore(bundleDir);
     if (!result.ok) {
       _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
+      _restartScheduler(schedulerWasRunning);
+      _refreshWindowState();
+      await _resyncRuntime();
       return false;
     }
-    _refreshAfterRestore();
-    _status('success', '本地恢复完成（配置与资源已重载，请重开窗口查看）：${result.message}');
+    _reloadProviders();
+    _restartScheduler(schedulerWasRunning);
+    _refreshWindowState();
+    _status('success', '本地恢复完成（节点/分组/主题/运行会话已重载）：${result.message}');
+    await _resyncRuntime();
     return true;
   }
 
-  void restoreBundle(String bundleDir) {
+  Future<void> restoreBundle(String bundleDir) async {
     if (bundleDir.trim().isEmpty) {
       _status('error', '请选择备份包目录');
       return;
     }
-    _restoreBundlePath(bundleDir.trim());
+    await _restoreBundlePath(bundleDir.trim());
   }
 
   /// Pick a local `backup_*.zip` with the native dialog and restore it. A
@@ -175,10 +215,10 @@ class BackupController extends Notifier<BackupState> {
   Future<void> restoreFromArchive() async {
     final path = await ref.read(backupPickerProvider).pickArchive();
     if (path == null || path.trim().isEmpty) return;
-    _restoreArchivePath(path.trim());
+    await _restoreArchivePath(path.trim());
   }
 
-  void _restoreArchivePath(String path) {
+  Future<void> _restoreArchivePath(String path) async {
     final bridge = ref.read(bridgePortProvider);
     final recognition = bridge.t16BackupRecognize(path);
     if (recognition.error != null) {
@@ -189,13 +229,20 @@ class BackupController extends Notifier<BackupState> {
       _status('error', '不是可恢复的备份文件（缺少配置或数据库，现有配置未修改）');
       return;
     }
+    final schedulerWasRunning = _schedulerWasRunning();
     final result = bridge.t16BackupImportUpstream(path);
     if (!result.ok) {
       _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
+      _restartScheduler(schedulerWasRunning);
+      _refreshWindowState();
+      await _resyncRuntime();
       return;
     }
-    _refreshAfterRestore();
-    _status('success', '本地恢复完成（配置与资源已重载，请重开窗口查看）：${result.status}');
+    _reloadProviders();
+    _restartScheduler(schedulerWasRunning);
+    _refreshWindowState();
+    _status('success', '本地恢复完成（节点/分组/主题/运行会话已重载）：${result.status}');
+    await _resyncRuntime();
   }
 
   /// Pick a project bundle directory with the native dialog and restore it via
@@ -203,19 +250,19 @@ class BackupController extends Notifier<BackupState> {
   Future<void> restoreFromDirectory() async {
     final path = await ref.read(backupPickerProvider).pickDirectory();
     if (path == null || path.trim().isEmpty) return;
-    restoreBundle(path.trim());
+    await restoreBundle(path.trim());
   }
 
   /// Restore one bundle from the discovered list. Real `backup_list` items may
   /// not carry their root path yet; those are surfaced as an error instead of
   /// guessing a directory.
-  void restoreListed(c.BackupManifestDto manifest) {
+  Future<void> restoreListed(c.BackupManifestDto manifest) async {
     final root = manifest.root;
     if (root == null || root.trim().isEmpty) {
       _status('error', '该备份未提供路径，无法直接恢复');
       return;
     }
-    restoreBundle(root);
+    await restoreBundle(root);
   }
 
   void recognize(String path) {
@@ -236,22 +283,30 @@ class BackupController extends Notifier<BackupState> {
     );
   }
 
-  void importUpstream(String path) {
+  Future<void> importUpstream(String path) async {
     if (path.trim().isEmpty) {
       _status('error', '请输入要导入的 ZIP 路径');
       return;
     }
+    final schedulerWasRunning = _schedulerWasRunning();
     final result = ref
         .read(bridgePortProvider)
         .t16BackupImportUpstream(path.trim());
     if (!result.ok) {
       _status('error', '导入失败', detail: _detail(result.error));
+      _restartScheduler(schedulerWasRunning);
+      _refreshWindowState();
+      await _resyncRuntime();
       return;
     }
+    _reloadProviders();
+    _restartScheduler(schedulerWasRunning);
+    _refreshWindowState();
     _status(
       'success',
-      '导入完成：${result.status}，导入 ${result.importedRows} 行，原版设置/活动节点已激活',
+      '导入完成：${result.status}，导入 ${result.importedRows} 行（节点/分组/主题/运行会话已重载）',
     );
+    await _resyncRuntime();
   }
 
   void saveWebdav(c.WebDavConfigDto config) {
@@ -311,14 +366,21 @@ class BackupController extends Notifier<BackupState> {
 
   Future<void> webdavRestore(c.WebDavConfigDto config) async {
     state = state.copyWith(busy: true);
+    final schedulerWasRunning = _schedulerWasRunning();
     final result = await ref.read(bridgePortProvider).t16WebdavRestore(config);
     state = state.copyWith(busy: false);
     if (!result.ok) {
       _status('error', '远程恢复失败（已保留现有配置）', detail: _webdavDetail(result.error));
+      _restartScheduler(schedulerWasRunning);
+      _refreshWindowState();
+      await _resyncRuntime();
       return;
     }
-    _refreshAfterRestore();
-    _status('success', '远程恢复完成（配置与资源已重载，请重开窗口查看）：${result.message}');
+    _reloadProviders();
+    _restartScheduler(schedulerWasRunning);
+    _refreshWindowState();
+    _status('success', '远程恢复完成（节点/分组/主题/运行会话已重载）：${result.message}');
+    await _resyncRuntime();
   }
 
   void openConfigDir() {

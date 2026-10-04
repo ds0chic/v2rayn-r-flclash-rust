@@ -195,6 +195,23 @@ class _Toolbar extends ConsumerWidget {
                 ),
               ),
             ),
+          if (state.orderMessage != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  state.orderMessage!,
+                  key: const ValueKey('order-message'),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
         ],
       ),
     );

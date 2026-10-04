@@ -89,6 +89,7 @@ class ProfilesState {
     this.speedTestRunning = false,
     this.speedTestStage = '',
     this.speedTestMessage,
+    this.orderMessage,
   });
 
   final List<ProfileSummary> all;
@@ -126,6 +127,10 @@ class ProfilesState {
   final String speedTestStage;
   final String? speedTestMessage;
 
+  /// Last drag/header/result order-persistence failure, shown in the status
+  /// line (`ProfileExItem.Sort` write). Cleared by the next successful write.
+  final String? orderMessage;
+
   int get selectedCount => selected.length;
   int get totalCount => all.length;
   TableEvent? get lastEvent => events.isEmpty ? null : events.last;
@@ -157,6 +162,8 @@ class ProfilesState {
     bool? speedTestRunning,
     String? speedTestStage,
     String? speedTestMessage,
+    String? orderMessage,
+    bool clearOrderMessage = false,
     bool clearSpeedTestJob = false,
   }) {
     return ProfilesState(
@@ -183,6 +190,9 @@ class ProfilesState {
       speedTestRunning: speedTestRunning ?? this.speedTestRunning,
       speedTestStage: speedTestStage ?? this.speedTestStage,
       speedTestMessage: speedTestMessage ?? this.speedTestMessage,
+      orderMessage: clearOrderMessage
+          ? null
+          : (orderMessage ?? this.orderMessage),
     );
   }
 }
@@ -199,6 +209,11 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// Node ids covered by the last started speedtest job; used to summarize the
   /// run when it settles (progress rows alone are not a completion verdict).
   List<String> _speedTestTargets = const <String>[];
+
+  /// Direction for "按测试结果排序" (DelayVal). Upstream reuses the header sort
+  /// toggle, so repeated invocations flip ascending/descending. Failed and
+  /// untested rows always sink to the bottom regardless of direction.
+  bool _resultSortAscending = true;
 
   @override
   ProfilesState build() {
@@ -662,10 +677,24 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// `speedtestApplyProfileOrder` bridge, so the order survives a restart. An
   /// empty list or a single row carries no ordering information and is never
   /// written (no fake persistence, no error).
-  void _persistOrder() {
+  c.SimpleResult _persistOrder() {
     final ids = state.visible.map((r) => r.id).toList();
-    if (ids.length < 2) return;
-    _bridge.applyProfileOrder(ids);
+    if (ids.length < 2) return const c.SimpleResult(ok: true);
+    final result = _bridge.applyProfileOrder(ids);
+    if (result.ok) {
+      if (state.orderMessage != null) {
+        state = state.copyWith(clearOrderMessage: true);
+      }
+      return result;
+    }
+    final code = result.error?.code ?? 'unknown';
+    final detail = result.error?.messageKey;
+    final message = (detail == null || detail.isEmpty)
+        ? '排序保存失败：$code'
+        : '排序保存失败：$code（$detail）';
+    state = state.copyWith(orderMessage: message);
+    _log('order-persist-failed', code);
+    return result;
   }
 
   /// `按测试结果排序` (ACT-PROF-020): order the visible rows by the measured
@@ -674,14 +703,25 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// ordering is produced.
   void sortByResult() {
     final rows = List<ProfileSummary>.of(state.visible);
+    final ascending = _resultSortAscending;
     rows.sort((a, b) {
-      final ad = a.delay < 0 ? 1 << 30 : a.delay;
-      final bd = b.delay < 0 ? 1 << 30 : b.delay;
-      return ad.compareTo(bd);
+      // Failed/untested delays (<= 0) always sink, in both directions
+      // (upstream `SortServers` reassigns them `maxSort`).
+      final aSink = a.delay <= 0;
+      final bSink = b.delay <= 0;
+      if (aSink != bSink) return aSink ? 1 : -1;
+      if (aSink) return 0;
+      return ascending
+          ? a.delay.compareTo(b.delay)
+          : b.delay.compareTo(a.delay);
     });
+    _resultSortAscending = !ascending;
     state = state.copyWith(visible: rows);
     _persistOrder();
-    _log('sort-result', 'rows=${rows.length}');
+    _log(
+      'sort-result',
+      'rows=${rows.length} direction=${ascending ? "asc" : "desc"}',
+    );
     _echo('sort-result');
   }
 

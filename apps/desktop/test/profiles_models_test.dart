@@ -76,14 +76,22 @@ void main() {
     expect(desc.first.delay >= desc.last.delay, isTrue);
   });
 
-  test('SortSpec cycles asc -> desc -> none', () {
+  test('SortSpec toggles the same column two-way, resets on a new column', () {
     var spec = const SortSpec();
     spec = spec.next('Port');
     expect(spec.direction, SortDirection.ascending);
     spec = spec.next('Port');
     expect(spec.direction, SortDirection.descending);
     spec = spec.next('Port');
-    expect(spec.direction, SortDirection.none);
+    expect(
+      spec.direction,
+      SortDirection.ascending,
+      reason: 'same-column repeat flips two-way (upstream SortServer)',
+    );
+    // A different column starts fresh at ascending.
+    spec = spec.next('Remarks');
+    expect(spec.columnKey, 'Remarks');
+    expect(spec.direction, SortDirection.ascending);
   });
 
   test('formatBytes renders human readable units', () {

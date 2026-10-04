@@ -245,19 +245,50 @@ class SortSpec {
   final String? columnKey;
   final SortDirection direction;
 
+  /// Two-way toggle for the same column (`SortDirection.none` is only the
+  /// "no column sort" initial/manual-drag-cleared state).
+  ///
+  /// Mirrors upstream `ProfilesViewModel.SortServer` + `_dicHeaderSort`: the
+  /// first click on a column is ascending, each repeat click on the same
+  /// column flips ascending/descending; a click on another column resets to
+  /// ascending. It never cycles back to "no sort".
   SortSpec next(String key) {
     if (columnKey != key || direction == SortDirection.none) {
       return SortSpec(columnKey: key, direction: SortDirection.ascending);
     }
-    switch (direction) {
-      case SortDirection.ascending:
-        return SortSpec(columnKey: key, direction: SortDirection.descending);
-      case SortDirection.descending:
-        return const SortSpec();
-      case SortDirection.none:
-        return SortSpec(columnKey: key, direction: SortDirection.ascending);
-    }
+    return direction == SortDirection.ascending
+        ? SortSpec(columnKey: key, direction: SortDirection.descending)
+        : SortSpec(columnKey: key, direction: SortDirection.ascending);
   }
+}
+
+/// Reorder [rows] to follow the persisted `ProfileExItem.Sort` order.
+///
+/// [persistedOrder] is the id sequence read back from the result store, whose
+/// list order already reflects `Sort` (`ProfileExStore::all`). Rows absent from
+/// it keep their relative order and are appended last; no row is ever dropped.
+/// This is how the node table reads back the order written by
+/// `applyProfileOrder` after a reload, a speedtest poll, or a reopen.
+List<ProfileSummary> orderByPersistedSort(
+  List<ProfileSummary> rows,
+  List<String> persistedOrder,
+) {
+  if (persistedOrder.isEmpty || rows.length < 2) {
+    return List<ProfileSummary>.of(rows);
+  }
+  final rank = <String, int>{};
+  for (var i = 0; i < persistedOrder.length; i++) {
+    rank.putIfAbsent(persistedOrder[i], () => i);
+  }
+  final indexed = <(int, int, ProfileSummary)>[
+    for (var i = 0; i < rows.length; i++)
+      (rank[rows[i].id] ?? (1 << 30), i, rows[i]),
+  ];
+  indexed.sort((a, b) {
+    final byRank = a.$1.compareTo(b.$1);
+    return byRank != 0 ? byRank : a.$2.compareTo(b.$2);
+  });
+  return indexed.map((e) => e.$3).toList();
 }
 
 bool rowMatchesQuery(ProfileSummary row, String query) {

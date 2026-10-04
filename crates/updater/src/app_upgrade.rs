@@ -1,19 +1,29 @@
-//! Application self-update: stage -> atomic replace (keep `.previous`) ->
-//! restart command (FIX-12B).
+//! Application self-update: stage -> flat overlay -> restart command (FIX-12B,
+//! RR-04).
 //!
 //! Modelled on the frozen upstream `AmazTool/UpgradeApp.cs` and
 //! `AmazTool/Utils.StartV2RayN`, driven by `CheckUpdateViewModel.UpgradeN`:
 //! the app stages the downloaded package, launches an external helper
 //! (`AmazTool.exe` upstream, `v2rayN-upgrade.exe` here), exits, and the helper
-//! extracts over the install directory and relaunches the application.
+//! extracts the package over the install directory and relaunches the
+//! application.
+//!
+//! The release ZIP and the Inno installer both lay the application out **flat**
+//! in `<install_root>` (`v2rayn_desktop.exe`, `net_host.exe`,
+//! `privileged_helper.exe`, `v2rayN-upgrade.exe`). The upgrade therefore
+//! overlays the staged package over the install root in place (upstream
+//! extracts over `StartupPath()`), keeping overwritten files under
+//! `<install_root>/app.previous` for rollback. There is no `app/` payload
+//! sub-directory: shortcuts and the old flat executable target the same paths
+//! the runner replaces.
 //!
 //! This module freezes the same shape for the Flutter rebuild:
 //!
-//! - the active application payload lives under `<install_root>/app`;
-//! - [`apply_app_upgrade`] swaps it atomically via [`crate::install::apply_atomic`],
+//! - the active application payload lives directly in `<install_root>`;
+//! - [`apply_app_upgrade`] overlays it via [`crate::install::apply_atomic`],
 //!   keeping `<install_root>/app.previous` for rollback;
 //! - [`AppInstallLayout::restart_command`] *constructs* the relaunch command
-//!   (never spawns it); production hands both the staged source and the helper
+//!   (never spawns it); production hands the staged payload and the runner CLI
 //!   to the external runner through [`crate::install::UpgradeCoordinator`].
 
 use std::path::{Path, PathBuf};
@@ -34,18 +44,15 @@ pub const DEFAULT_APP_EXE: &str = if cfg!(windows) {
     "v2rayN"
 };
 
-/// Sub-directory of the install root holding the active application payload.
-pub const PAYLOAD_DIR: &str = "app";
-
-/// Sibling directory keeping the previous payload for rollback.
+/// Sibling directory keeping the files overwritten by the last overlay.
 pub const PREVIOUS_DIR: &str = "app.previous";
 
 /// Directory (under the install root) used to stage a new payload.
 pub const STAGING_DIR: &str = ".staging";
 
-/// Frozen application install layout: install root, executable name and the
-/// external runner. The install root is always supplied explicitly (FIX-12 gap:
-/// the application root is not `cores_root.parent()`).
+/// Frozen application install layout: a flat install root, the executable name
+/// and the external runner. The install root is always supplied explicitly
+/// (FIX-12 gap: the application root is not `cores_root.parent()`).
 #[derive(Debug, Clone)]
 pub struct AppInstallLayout {
     install_root: PathBuf,
@@ -89,12 +96,7 @@ impl AppInstallLayout {
         &self.runner_name
     }
 
-    /// `<install_root>/app` — the active payload swapped on upgrade.
-    pub fn payload_dir(&self) -> PathBuf {
-        self.install_root.join(PAYLOAD_DIR)
-    }
-
-    /// `<install_root>/app.previous` — rollback copy.
+    /// `<install_root>/app.previous` — rollback copy of overwritten files.
     pub fn previous_dir(&self) -> PathBuf {
         self.install_root.join(PREVIOUS_DIR)
     }
@@ -104,9 +106,9 @@ impl AppInstallLayout {
         self.install_root.join(&self.runner_name)
     }
 
-    /// The running application executable inside the active payload.
+    /// The running application executable in the flat install root.
     pub fn app_exe(&self) -> PathBuf {
-        self.payload_dir().join(&self.app_exe_name)
+        self.install_root.join(&self.app_exe_name)
     }
 
     /// `<install_root>/.staging/app-<version>`.
@@ -121,24 +123,23 @@ impl AppInstallLayout {
         UpgradeCoordinator::new(self.runner_exe(), self.install_root.clone())
     }
 
-    /// Atomic replacement plan for an already-staged payload directory.
+    /// Flat-overlay plan for an already-staged payload directory.
     pub fn replacement_plan(&self, version: &str, staged_payload: &Path) -> InstallPlan {
-        InstallPlan::new(
+        InstallPlan::flat_overlay(
             &self.install_root,
-            self.payload_dir(),
             staged_payload.to_path_buf(),
             PREVIOUS_DIR,
             version.to_string(),
         )
     }
 
-    /// The command the runner executes after the swap. Constructed only; the
+    /// The command the runner executes after the overlay. Constructed only; the
     /// caller (an external process) is responsible for spawning it.
     pub fn restart_command(&self) -> AppRestartCommand {
         AppRestartCommand {
             program: self.app_exe(),
             args: Vec::new(),
-            working_dir: self.payload_dir(),
+            working_dir: self.install_root.clone(),
         }
     }
 }
@@ -149,7 +150,7 @@ pub struct AppRestartCommand {
     /// Application executable to launch.
     pub program: PathBuf,
     pub args: Vec<String>,
-    /// Working directory (the active payload, upstream `StartupPath`).
+    /// Working directory (the flat install root, upstream `StartupPath`).
     pub working_dir: PathBuf,
 }
 
@@ -229,35 +230,47 @@ pub fn apply_app_upgrade(
     Ok(AppUpgradeOutcome {
         version: outcome.version,
         app_exe: layout.app_exe(),
-        installed_dir: layout.payload_dir(),
+        installed_dir: layout.install_root().to_path_buf(),
         kept_previous: outcome.kept_previous,
         restart: layout.restart_command(),
         manifest: outcome.manifest,
     })
 }
 
-/// Restore `<install_root>/app.previous` over the active payload after a bad
-/// replacement. Returns the restored active payload directory.
+/// Restore the files backed up in `<install_root>/app.previous` over the flat
+/// install root after a bad overlay. Returns the install root.
 pub fn rollback_app_upgrade(layout: &AppInstallLayout) -> Result<PathBuf, UpdateError> {
-    let current = layout.payload_dir();
     let previous = layout.previous_dir();
     if !previous.is_dir() {
         return Err(UpdateError::InstallConflict(
             "no previous application payload".into(),
         ));
     }
-    let trash = layout.install_root.join(".app-old");
-    if trash.exists() {
-        std::fs::remove_dir_all(&trash).map_err(|e| UpdateError::Io(e.to_string()))?;
+    let root = layout.install_root().to_path_buf();
+    let mut stack = vec![previous.clone()];
+    while let Some(dir) = stack.pop() {
+        for entry in std::fs::read_dir(&dir).map_err(|e| UpdateError::Io(e.to_string()))? {
+            let entry = entry.map_err(|e| UpdateError::Io(e.to_string()))?;
+            let path = entry.path();
+            let file_type = entry
+                .file_type()
+                .map_err(|e| UpdateError::Io(e.to_string()))?;
+            if file_type.is_dir() {
+                stack.push(path);
+            } else if file_type.is_file() {
+                let rel = path
+                    .strip_prefix(&previous)
+                    .map_err(|_| UpdateError::InstallConflict(path.display().to_string()))?;
+                let dest = root.join(rel);
+                if let Some(parent) = dest.parent() {
+                    std::fs::create_dir_all(parent).map_err(|e| UpdateError::Io(e.to_string()))?;
+                }
+                std::fs::copy(&path, &dest).map_err(|e| UpdateError::Io(e.to_string()))?;
+            }
+        }
     }
-    if current.exists() {
-        std::fs::rename(&current, &trash).map_err(|e| UpdateError::Io(e.to_string()))?;
-    }
-    std::fs::rename(&previous, &current).map_err(|e| UpdateError::Io(e.to_string()))?;
-    if trash.exists() {
-        let _ = std::fs::remove_dir_all(&trash);
-    }
-    Ok(current)
+    let _ = std::fs::remove_dir_all(&previous);
+    Ok(root)
 }
 
 #[cfg(test)]
@@ -283,12 +296,12 @@ mod tests {
     }
 
     #[test]
-    fn replace_keeps_previous_and_restart_targets_payload() {
+    fn overlay_keeps_overwritten_file_and_restart_targets_flat_exe() {
         let root = temp_root("replace");
         let layout = AppInstallLayout::new(&root, "v2rayn_desktop.exe");
-        // Seed an active payload so the first apply keeps a rollback copy.
-        std::fs::create_dir_all(layout.payload_dir()).unwrap();
-        std::fs::write(layout.payload_dir().join("old.txt"), b"old").unwrap();
+        // Seed the flat install root so the first apply keeps a rollback copy.
+        std::fs::write(layout.app_exe(), b"old").unwrap();
+        std::fs::write(root.join("old.txt"), b"old").unwrap();
 
         let outcome = apply_app_upgrade(
             &layout,
@@ -297,17 +310,20 @@ mod tests {
         )
         .unwrap();
         assert!(outcome.app_exe.is_file());
+        assert_eq!(outcome.installed_dir, root);
         assert!(layout.previous_dir().is_dir());
         assert_eq!(
             outcome.kept_previous.as_deref(),
             Some(layout.previous_dir().as_path())
         );
         assert_eq!(outcome.restart.program, layout.app_exe());
-        assert_eq!(outcome.restart.working_dir, layout.payload_dir());
+        assert_eq!(outcome.restart.working_dir, root);
+        // User file untouched by the overlay.
+        assert!(root.join("old.txt").is_file());
 
         let restored = rollback_app_upgrade(&layout).unwrap();
-        assert_eq!(restored, layout.payload_dir());
-        assert!(layout.payload_dir().join("old.txt").is_file());
+        assert_eq!(restored, root);
+        assert_eq!(std::fs::read(layout.app_exe()).unwrap(), b"old");
     }
 
     #[test]
@@ -319,7 +335,7 @@ mod tests {
         let v2 = staged(&root, "two", "v2rayn_desktop.exe");
         let outcome = apply_app_upgrade(&layout, "1.1.0", &v2).unwrap();
         assert_eq!(outcome.version, "1.1.0");
-        // The rollback copy is the immediately previous payload only.
+        // The rollback copy holds the immediately previous package's files.
         assert_eq!(
             std::fs::read_to_string(layout.previous_dir().join("data.txt")).unwrap(),
             "one"
@@ -333,7 +349,7 @@ mod tests {
         let wpf = staged(&root, "wpf", "v2rayN.exe");
         let error = apply_app_upgrade(&layout, "7.99.0", &wpf).unwrap_err();
         assert!(matches!(error, UpdateError::InstallConflict(_)));
-        assert!(!layout.payload_dir().exists());
+        assert!(!layout.app_exe().exists());
     }
 
     #[test]
@@ -341,13 +357,26 @@ mod tests {
         let root = temp_root("runner");
         let layout = AppInstallLayout::new(&root, "v2rayn_desktop.exe");
         let source = staged(&root, "src", "v2rayn_desktop.exe");
+        let plan_path = root.join(".staging").join("plan.json");
+        let result_path = root.join(".staging").join("result.json");
+        let restart = layout.restart_command();
         let spec = layout
             .coordinator()
-            .external_upgrade_spec(&source, 4242)
+            .runner_spec(
+                &source,
+                &plan_path,
+                &result_path,
+                Some(&restart.program),
+                Some(&restart.working_dir),
+                4242,
+            )
             .unwrap();
         assert_eq!(spec.helper_exe, layout.runner_exe());
         assert_eq!(spec.install_root, root);
         assert_eq!(spec.wait_for_pid, 4242);
+        assert_eq!(spec.args[0], "--plan");
+        assert_eq!(spec.args[2], "--result");
+        assert!(spec.args.iter().any(|a| a == "--restart-exe"));
         assert!(!layout.runner_exe().exists(), "runner must not be created");
     }
 }

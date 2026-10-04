@@ -385,11 +385,11 @@ class SubsController extends Notifier<SubsState> {
   /// Independent of any test environment (not armed by an env var); idempotent
   /// so a repeated bootstrap or hot reload never spawns a second timer. Silent
   /// when already running so it does not overwrite startup status.
-  void startScheduler() {
+  void startScheduler({bool silent = false}) {
     final bridge = ref.read(bridgePortProvider);
     if (bridge.subSchedulerRunning()) return;
     final result = bridge.startSubScheduler();
-    if (result.ok) {
+    if (result.ok && !silent) {
       state = state.copyWith(
         status: const SubStatus(kind: 'success', message: '定时更新已启动'),
       );
@@ -399,13 +399,15 @@ class SubsController extends Notifier<SubsState> {
   /// FIX-09D shutdown hook: stop the updater so no timer survives exit.
   ///
   /// Idempotent; a no-op when the scheduler is not running.
-  void stopScheduler() {
+  void stopScheduler({bool silent = false}) {
     final bridge = ref.read(bridgePortProvider);
     if (!bridge.subSchedulerRunning()) return;
     bridge.stopSubScheduler();
-    state = state.copyWith(
-      status: const SubStatus(kind: 'info', message: '定时更新已停止'),
-    );
+    if (!silent) {
+      state = state.copyWith(
+        status: const SubStatus(kind: 'info', message: '定时更新已停止'),
+      );
+    }
   }
 
   String _summarize(c.SubUpdateResult result) {

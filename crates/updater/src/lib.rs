@@ -31,8 +31,7 @@ pub mod unpack;
 
 pub use app_upgrade::{
     apply_app_upgrade, rollback_app_upgrade, verify_payload, AppInstallLayout, AppRestartCommand,
-    AppUpgradeOutcome, DEFAULT_APP_EXE, DEFAULT_RUNNER_NAME, PAYLOAD_DIR, PREVIOUS_DIR,
-    STAGING_DIR,
+    AppUpgradeOutcome, DEFAULT_APP_EXE, DEFAULT_RUNNER_NAME, PREVIOUS_DIR, STAGING_DIR,
 };
 pub use arch::{
     binary_matches, detect_target, parse_binary_arch, parse_triple, BinaryArch, BinaryFormat,

@@ -23,6 +23,8 @@ use persistence::{
 use serde_json::Value;
 use updater::unpack::{safe_unpack_zip, UnpackLimits};
 
+use crate::engine::AppEngine;
+
 /// Upstream commit recorded in every manifest (T00 frozen baseline).
 pub const APP_SOURCE_COMMIT: &str = persistence::SOURCE_COMMIT;
 
@@ -241,6 +243,40 @@ impl BackupService {
             }
         }
         Ok(report)
+    }
+
+    /// Restore a verified bundle under the SR-03 lifecycle: stop the managed
+    /// session + scheduler, quiesce, exchange the files, then reopen.
+    ///
+    /// The engine is always reopened after a successful quiesce so it can never
+    /// keep serving the empty in-memory backends. A reopen failure is surfaced
+    /// rather than swallowed: the live files are the restored state but the
+    /// engine could not reload them, so the caller must not report success.
+    pub fn restore_with_lifecycle(
+        &self,
+        engine: &AppEngine,
+        root: &Path,
+        work_dir: &Path,
+    ) -> Result<RestoreReport, DomainError> {
+        engine.prepare_restore()?;
+        let outcome = self.restore(root, work_dir);
+        finish_lifecycle(outcome, engine.reopen(), "restore")
+    }
+
+    /// Import an upstream directory/ZIP under the same lifecycle as
+    /// [`Self::restore_with_lifecycle`] (`prepare_restore` -> import ->
+    /// `reopen`), so a restore that changes the database never leaves the live
+    /// engine bound to the pre-import state.
+    pub fn import_upstream_with_lifecycle(
+        &self,
+        engine: &AppEngine,
+        path: &Path,
+        work_dir: &Path,
+        now: i64,
+    ) -> Result<ImportReport, DomainError> {
+        engine.prepare_restore()?;
+        let outcome = self.import_upstream(path, work_dir, now);
+        finish_lifecycle(outcome, engine.reopen(), "import")
     }
 
     /// Close a committed upstream import: write the activated config and
@@ -530,6 +566,44 @@ fn copy_verified(src: &Path, dest: &Path) -> Result<(), DomainError> {
         )));
     }
     Ok(())
+}
+
+/// Close a restore/import lifecycle by combining the operation result with the
+/// engine reopen result. A successful operation whose reopen failed is an
+/// error, not a success: the on-disk state changed but the engine could not
+/// reload it, so the UI must not claim the restore took effect.
+fn finish_lifecycle<T>(
+    outcome: Result<T, DomainError>,
+    reopened: Result<(), DomainError>,
+    operation: &str,
+) -> Result<T, DomainError> {
+    match (outcome, reopened) {
+        (Ok(value), Ok(())) => Ok(value),
+        (Ok(_), Err(reopen)) => Err(reopen_failure(operation, None, reopen)),
+        (Err(error), Ok(())) => Err(error),
+        (Err(error), Err(reopen)) => Err(reopen_failure(operation, Some(error), reopen)),
+    }
+}
+
+/// Build the structured error for a restore/import whose storage exchange
+/// completed but whose engine reopen failed, preserving any prior operation
+/// error detail so a rollback outcome is never hidden.
+fn reopen_failure(
+    operation: &str,
+    primary: Option<DomainError>,
+    reopen: DomainError,
+) -> DomainError {
+    let reopen_detail = reopen.detail.unwrap_or(reopen.message_key);
+    let mut error = match primary {
+        Some(primary) => primary,
+        None => DomainError::new(codes::INTERNAL, "error.restore_engine_reopen_failed"),
+    };
+    let note = format!("{operation} engine reopen failed after storage exchange: {reopen_detail}");
+    error.detail = Some(match error.detail {
+        Some(detail) => format!("{detail}; {note}"),
+        None => note,
+    });
+    error
 }
 
 /// Attach the actual post-commit outcome to a two-phase import failure so the

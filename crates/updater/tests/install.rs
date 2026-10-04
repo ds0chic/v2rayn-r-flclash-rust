@@ -334,7 +334,7 @@ fn external_upgrade_spec_is_returned_not_executed() {
     let helper = root.join("AmazTool.exe");
     let source = root.join("stage/update.zip");
     let coordinator = UpgradeCoordinator::new(&helper, root);
-    let spec = coordinator.external_upgrade_spec(&source, 4242).unwrap();
+    let spec = updater::external_upgrade_spec(&coordinator, &source, 4242).unwrap();
     assert_eq!(spec.wait_for_pid, 4242);
     assert_eq!(spec.helper_exe, helper);
     assert_eq!(spec.source, source);

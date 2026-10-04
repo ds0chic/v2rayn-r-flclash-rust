@@ -21,6 +21,38 @@ use crate::api::contract::{
 };
 use crate::api::engine::{engine, error_dto};
 
+/// Last update flags the user selected (RR-04).
+///
+/// The generated FRB signature of `t16_apply_app_update_spec` takes no
+/// arguments, so it cannot carry flags without regenerating bindings. The
+/// check / apply-core calls record the most recent selection here and the app
+/// self-update action reuses it; when nothing was selected yet the safe
+/// defaults (`prerelease=false`, direct connection) apply.
+#[derive(Clone, Default)]
+struct UpdateFlags {
+    prerelease: bool,
+    proxy: Option<String>,
+}
+
+fn update_flags() -> &'static std::sync::Mutex<UpdateFlags> {
+    static FLAGS: std::sync::OnceLock<std::sync::Mutex<UpdateFlags>> = std::sync::OnceLock::new();
+    FLAGS.get_or_init(|| std::sync::Mutex::new(UpdateFlags::default()))
+}
+
+fn remember_update_flags(prerelease: bool, proxy: Option<String>) {
+    if let Ok(mut flags) = update_flags().lock() {
+        flags.prerelease = prerelease;
+        flags.proxy = proxy;
+    }
+}
+
+fn last_update_flags() -> UpdateFlags {
+    update_flags()
+        .lock()
+        .map(|flags| flags.clone())
+        .unwrap_or_default()
+}
+
 fn work_dir(kind: &str) -> Result<PathBuf, DomainError> {
     let base = engine()
         .data_dir()
@@ -174,12 +206,11 @@ pub fn t16_backup_restore(bundle_dir: String) -> RestoreResultDto {
             }
         }
     };
-    // Quiesce the live engine so the database file can be exchanged, then
-    // reopen it against whatever is on disk (restored or rolled-back) so later
-    // saves never write stale in-memory settings over the restored config.
-    let _ = engine().quiesce();
-    let outcome = service.restore(Path::new(&bundle_dir), &work);
-    let _ = engine().reopen();
+    // SR-03: stop the managed session/timer, quiesce, exchange and reopen in
+    // one lifecycle. A failed quiesce/reopen is a structured error; it is never
+    // dropped, so the UI cannot be told a swap succeeded when the engine is
+    // still bound to the old (or no) storage.
+    let outcome = service.restore_with_lifecycle(engine(), Path::new(&bundle_dir), &work);
     match outcome {
         Ok(report) => RestoreResultDto {
             ok: report.restored,
@@ -267,9 +298,10 @@ pub fn t16_backup_import_upstream(path: String) -> ImportSummaryDto {
             }
         }
     };
-    let _ = engine().quiesce();
-    let outcome = service.import_upstream(Path::new(&path), &work, now_epoch());
-    let _ = engine().reopen();
+    // SR-03: same lifecycle as the local restore; quiesce/reopen failures are
+    // propagated as structured errors instead of being ignored.
+    let outcome =
+        service.import_upstream_with_lifecycle(engine(), Path::new(&path), &work, now_epoch());
     match outcome {
         Ok(report) => {
             let imported_rows = report.counts.iter().map(|c| c.imported_rows).sum::<u64>();
@@ -601,9 +633,9 @@ pub async fn t16_webdav_restore(cfg: WebDavConfigDto) -> RestoreResultDto {
         .map(|recognition| recognition.is_upstream)
         .unwrap_or(false);
     if upstream {
-        let _ = engine().quiesce();
-        let outcome = service.import_upstream(&zip_path, &work, now_epoch());
-        let _ = engine().reopen();
+        // SR-03: lifecycle-aware import; quiesce/reopen failures surface.
+        let outcome =
+            service.import_upstream_with_lifecycle(engine(), &zip_path, &work, now_epoch());
         return match outcome {
             Ok(report) => {
                 let changed = report.status.changed_target()
@@ -635,9 +667,8 @@ pub async fn t16_webdav_restore(cfg: WebDavConfigDto) -> RestoreResultDto {
             error: Some(error_dto(error)),
         };
     }
-    let _ = engine().quiesce();
-    let outcome = service.restore(&unpacked, &work);
-    let _ = engine().reopen();
+    // SR-03: lifecycle-aware restore; quiesce/reopen failures surface.
+    let outcome = service.restore_with_lifecycle(engine(), &unpacked, &work);
     match outcome {
         Ok(report) => RestoreResultDto {
             ok: report.restored,
@@ -753,6 +784,7 @@ pub async fn t16_check_updates(
             error: Some(proxy_unavailable()),
         };
     }
+    remember_update_flags(prerelease, proxy.clone());
     let service = update_service();
     let selected = if cores.is_empty() {
         application::BUILTIN_TARGETS
@@ -807,6 +839,7 @@ pub async fn t16_apply_core_update(
             error: Some(proxy_unavailable()),
         };
     }
+    remember_update_flags(prerelease, proxy.clone());
     let service = update_service();
     let token = CancellationToken::new();
     let mut applied = Vec::new();
@@ -885,7 +918,11 @@ pub async fn t16_apply_core_update(
 /// external-upgrade spec. No process is started.
 pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
     let service = update_service();
-    let check = match service.check_app_update(true, None).await {
+    let flags = last_update_flags();
+    let check = match service
+        .check_app_update(flags.prerelease, flags.proxy.as_deref())
+        .await
+    {
         Ok(check) => check,
         Err(error) => {
             return ExternalSpecDto {
@@ -944,7 +981,7 @@ pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
         download_url,
         expected_sha256: check.expected_sha256,
         dgst_url: check.dgst_url,
-        proxy: None,
+        proxy: flags.proxy.clone(),
     };
     let helper = service.app_layout().runner_exe();
     let token = CancellationToken::new();

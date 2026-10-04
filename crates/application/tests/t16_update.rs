@@ -272,11 +272,11 @@ fn app_update_stage_replace_rollback_restart_isolated() {
     let app_root = tempfile::tempdir().expect("app root");
     let mut service = service(&app_root.path().join("cores"), mock.port);
     service.install_root = app_root.path().to_path_buf();
-    // Seed an active payload (so the swap keeps a rollback copy) and a runner
-    // stub that must never be executed.
+    // Seed a flat current install (so the overlay keeps a rollback copy) and a
+    // runner stub that must never be executed.
     let layout = service.app_layout();
-    std::fs::create_dir_all(layout.payload_dir()).expect("payload");
-    std::fs::write(layout.payload_dir().join("old.txt"), b"old").expect("old");
+    std::fs::write(layout.app_exe(), b"old-app").expect("old app");
+    std::fs::write(app_root.path().join("old.txt"), b"old").expect("old");
     std::fs::write(layout.runner_exe(), b"stub").expect("runner stub");
 
     let rt = runtime();
@@ -298,11 +298,11 @@ fn app_update_stage_replace_rollback_restart_isolated() {
         assert!(outcome.app_exe.is_file());
         assert!(layout.previous_dir().is_dir());
         assert_eq!(outcome.restart.program, layout.app_exe());
-        assert_eq!(outcome.restart.working_dir, layout.payload_dir());
+        assert_eq!(outcome.restart.working_dir, app_root.path());
 
         let restored = service.rollback_app_upgrade().expect("rollback");
-        assert_eq!(restored, layout.payload_dir());
-        assert!(layout.payload_dir().join("old.txt").is_file());
+        assert_eq!(restored, app_root.path());
+        assert!(app_root.path().join("old.txt").is_file());
     });
 }
 
@@ -330,6 +330,6 @@ fn app_update_rejects_wpf_payload_for_flutter_binary() {
             .apply_app_upgrade(&spec, &version)
             .expect_err("mismatched package");
         assert_eq!(error.code, "E_CONFLICT");
-        assert!(!layout.payload_dir().exists());
+        assert!(!layout.app_exe().exists());
     });
 }

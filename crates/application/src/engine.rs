@@ -347,6 +347,48 @@ impl AppEngine {
         Ok(())
     }
 
+    /// Stop the subscription scheduler and wait (bounded) for an in-flight
+    /// tick to finish, so no scheduler pass can write to the database while a
+    /// restore/import exchanges the live files. `None` when no scheduler runs.
+    pub fn stop_sub_scheduler_blocking(&self, timeout: std::time::Duration) {
+        let scheduler = self
+            .sub_scheduler
+            .lock()
+            .ok()
+            .and_then(|mut guard| guard.take());
+        let Some(scheduler) = scheduler else {
+            return;
+        };
+        scheduler.stop();
+        let deadline = std::time::Instant::now() + timeout;
+        while !scheduler.is_finished() && std::time::Instant::now() < deadline {
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    /// SR-03 restore lifecycle, storage half: stop the managed runtime session
+    /// and the subscription scheduler, then quiesce the SQLite handles so a
+    /// restore/import can exchange the live files without a competing session
+    /// or timer.
+    ///
+    /// The scheduler is stopped and drained unconditionally. A runtime that
+    /// reports a live session is stopped through the idempotent boundary and a
+    /// failure is returned *before* any file is touched; an idle or unreachable
+    /// runtime is left alone so a backup-only session can still restore.
+    /// Quiesce failures are propagated for the same reason.
+    pub fn prepare_restore(&self) -> Result<(), DomainError> {
+        self.stop_sub_scheduler_blocking(std::time::Duration::from_millis(2000));
+        let live = self
+            .runtime
+            .snapshot()
+            .map(|snapshot| !matches!(snapshot.state, RuntimeState::Stopped))
+            .unwrap_or(false);
+        if live {
+            self.stop_runtime()?;
+        }
+        self.quiesce()
+    }
+
     /// Seed profiles (test/bootstrap helper).
     pub fn seed(&self, profiles: Vec<Profile>) {
         if let Ok(mut repo) = self.repo.lock() {

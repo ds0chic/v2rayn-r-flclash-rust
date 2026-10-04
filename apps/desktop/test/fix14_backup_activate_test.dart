@@ -90,7 +90,7 @@ void main() {
       await pressKey(tester, 'backup-import-btn');
 
       expect(bridge.t16Calls, contains('backup_import:/tmp/upstream.zip'));
-      expect(find.textContaining('活动节点已激活'), findsOneWidget);
+      expect(find.textContaining('已重载'), findsOneWidget);
     },
   );
 

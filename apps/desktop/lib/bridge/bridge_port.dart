@@ -11,6 +11,7 @@ import 'package:v2rayn_desktop/bridge/api/settings.dart' as settings;
 import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
 import 'package:v2rayn_desktop/bridge/api/subs.dart' as subs;
 import 'package:v2rayn_desktop/bridge/api/t16.dart' as t16;
+import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 
 /// Thin, testable seam over the flutter_rust_bridge generated API.
@@ -339,10 +340,18 @@ class FrbBridgePort implements BridgePort {
   }
 
   @override
-  List<ProfileSummary> fetchSummaries(int count) => applySpeedTestOverlay(
-    queryAllProfiles().map(dtoToSummary).toList(),
-    speedTestResults(),
-  );
+  List<ProfileSummary> fetchSummaries(int count) {
+    // Read back the persisted display order (`ProfileExItem.Sort`) so a
+    // reload, a speedtest poll or a reopen no longer falls back to the
+    // `queryAllProfiles` index-id order. The result store's list order already
+    // encodes `Sort`; ids never ordered keep their profile order (appended).
+    final results = speedTestResults();
+    final rows = orderByPersistedSort(
+      queryAllProfiles().map(dtoToSummary).toList(),
+      results.map((r) => r.indexId).toList(),
+    );
+    return applySpeedTestOverlay(rows, results);
+  }
 
   @override
   List<c.ProfileDto> queryAllProfiles() {
@@ -875,6 +884,13 @@ class SyntheticBridgePort implements BridgePort {
   String? lastSpeedTestConfig;
   int removeInvalidCalls = 0;
 
+  /// Persisted display order stand-in for `ProfileExItem.Sort`; [fetchSummaries]
+  /// reads it back so the synthetic bridge models the read chain.
+  final List<String> _persistedOrder = <String>[];
+
+  /// Test helper: force [applyProfileOrder] to report a structured failure.
+  bool failApplyProfileOrder = false;
+
   /// Test helper: publish a result row without running a real job.
   void seedSpeedResult(
     String id,
@@ -973,8 +989,10 @@ class SyntheticBridgePort implements BridgePort {
   }
 
   @override
-  List<ProfileSummary> fetchSummaries(int count) =>
-      applySpeedTestOverlay(generate(count), _speedResults.values.toList());
+  List<ProfileSummary> fetchSummaries(int count) => applySpeedTestOverlay(
+    orderByPersistedSort(generate(count), _persistedOrder),
+    speedTestResults(),
+  );
 
   @override
   List<c.ProfileDto> queryAllProfiles() {
@@ -2479,9 +2497,21 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   c.SimpleResult applyProfileOrder(List<String> orderedIds) {
-    if (orderedIds.isNotEmpty) {
-      appliedProfileOrders.add(List<String>.of(orderedIds));
+    if (orderedIds.isEmpty) return const c.SimpleResult(ok: true);
+    appliedProfileOrders.add(List<String>.of(orderedIds));
+    if (failApplyProfileOrder) {
+      return const c.SimpleResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_ORDER_PERSIST',
+          messageKey: 'error.order_persist',
+          retryable: true,
+        ),
+      );
     }
+    _persistedOrder
+      ..clear()
+      ..addAll(orderedIds);
     return const c.SimpleResult(ok: true);
   }
 

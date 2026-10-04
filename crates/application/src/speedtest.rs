@@ -241,10 +241,19 @@ impl ProfileExStore {
         self.rows.get(index_id)
     }
 
-    /// All rows, sorted by `index_id` for deterministic UI output.
+    /// All rows in the persisted display order: by `sort`, then `index_id`.
+    ///
+    /// Upstream `GetProfileItemsEx` joins the result rows and does
+    /// `OrderBy(t => t.Sort)`, so the list order reported to the UI already
+    /// carries the manual/column order. Rows never ordered (`sort == 0`) keep
+    /// a stable `index_id` order, matching the tie-break of `OrderBy(Sort)`.
     pub fn all(&self) -> Vec<ProfileExItem> {
         let mut rows: Vec<ProfileExItem> = self.rows.values().cloned().collect();
-        rows.sort_by(|a, b| a.index_id.cmp(&b.index_id));
+        rows.sort_by(|a, b| {
+            a.sort
+                .cmp(&b.sort)
+                .then_with(|| a.index_id.cmp(&b.index_id))
+        });
         rows
     }
 
@@ -2032,6 +2041,29 @@ mod tests {
         // The measured result fields are untouched by an order write.
         assert_eq!(store.get("a").unwrap().delay, 12);
         assert_eq!(store.get("b").unwrap().delay, -1);
+    }
+
+    #[test]
+    fn all_reports_persisted_sort_order_and_direction() {
+        // RE-PROF-04: the UI reads order back through the result list, so
+        // `all()` must already be in persisted `Sort` order (not index order).
+        let mut store = ProfileExStore::new();
+        store.apply(&SpeedTestResult::delay("a", 12));
+        store.apply(&SpeedTestResult::delay("b", 20));
+        store.apply(&SpeedTestResult::delay("c", 30));
+
+        // No order written yet: deterministic index order.
+        let ids = |s: &ProfileExStore| -> Vec<String> {
+            s.all().iter().map(|r| r.index_id.clone()).collect()
+        };
+        assert_eq!(ids(&store), vec!["a", "b", "c"]);
+
+        store.apply_order(&["c".into(), "a".into(), "b".into()]);
+        assert_eq!(ids(&store), vec!["c", "a", "b"]);
+
+        // Re-writing the order (the UI's descending toggle) flips the read-back.
+        store.apply_order(&["b".into(), "a".into(), "c".into()]);
+        assert_eq!(ids(&store), vec!["b", "a", "c"]);
     }
 
     #[test]

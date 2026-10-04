@@ -163,6 +163,6 @@ void main() {
     await fillUrlAndPress(tester, 'webdav-restore-btn');
 
     expect(bridge.t16Calls, contains('webdav_restore'));
-    expect(find.textContaining('配置与资源已重载'), findsOneWidget);
+    expect(find.textContaining('已重载'), findsOneWidget);
   });
 }

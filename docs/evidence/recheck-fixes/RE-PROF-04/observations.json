@@ -1,0 +1,86 @@
+{
+  "task": "RE-PROF-04",
+  "status": "implemented",
+  "date": "2026-10-04",
+  "start_head": "e9b8e74",
+  "upstream": {
+    "repo": "2dust/v2rayN",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "refs": [
+      "ServiceLib/ViewModels/ProfilesViewModel.cs:400-437 OrderBy(Sort) read-back",
+      "ServiceLib/ViewModels/ProfilesViewModel.cs:635-650 SortServer two-way toggle",
+      "ServiceLib/ViewModels/ProfilesViewModel.cs:197-199 SortServerResultCmd -> DelayVal",
+      "ServiceLib/Handler/ConfigHandler.cs:1004-1112 SortServers SetSort((i+1)*10), <=0 sinks to maxSort"
+    ]
+  },
+  "files_changed": [
+    "apps/desktop/lib/features/profiles/profiles_models.dart",
+    "apps/desktop/lib/features/profiles/profiles_controller.dart",
+    "apps/desktop/lib/features/profiles/profiles_page.dart",
+    "apps/desktop/lib/bridge/bridge_port.dart",
+    "apps/desktop/test/reprof04_sort_readback_test.dart",
+    "crates/application/src/speedtest.rs",
+    "crates/bridge_api/src/api/speedtest.rs",
+    "docs/tasks/RE-PROF-04.md",
+    "docs/evidence/recheck-fixes/RE-PROF-04/README.md",
+    "docs/evidence/recheck-fixes/RE-PROF-04/observations.json",
+    "compat/actions.yaml"
+  ],
+  "mapping": {
+    "readback": "ProfileExStore::all() sorts by (Sort, IndexId); fetchSummaries reorders rows via orderByPersistedSort",
+    "direction_header": "SortSpec.next two-way asc<->desc (none only initial/manual-clear)",
+    "direction_result": "sortByResult two-way with failed/unknown (delay<=0) always sinking",
+    "write_failure": "_persistOrder checks SimpleResult, sets ProfilesState.orderMessage, cleared on success",
+    "write_chain": "applyProfileOrder (FIX-10B) reused, not duplicated"
+  },
+  "commands": [
+    {
+      "cmd": "dart format --output=none --set-exit-if-changed lib/features/profiles lib/bridge test/reprof04_sort_readback_test.dart",
+      "exit": 0,
+      "result": "36 files, 0 changed after one reformat"
+    },
+    {
+      "cmd": "flutter analyze lib/features/profiles lib/bridge/bridge_port.dart test/reprof04_sort_readback_test.dart",
+      "exit": 0,
+      "result": "No issues found!"
+    },
+    {
+      "cmd": "flutter test test/reprof04_sort_readback_test.dart",
+      "exit": 0,
+      "result": "5/5 passed"
+    },
+    {
+      "cmd": "flutter test test/fix10b_profile_order_test.dart",
+      "exit": 0,
+      "result": "5/5 passed"
+    },
+    {
+      "cmd": "rustfmt --edition 2021 --check crates/application/src/speedtest.rs crates/bridge_api/src/api/speedtest.rs",
+      "exit": 0,
+      "result": "clean"
+    },
+    {
+      "cmd": "cargo test -p application --lib speedtest --locked",
+      "exit": 101,
+      "result": "blocked: pre-existing concurrent error E0308 in crates/updater/src/install.rs:191 prevents compiling dependency `updater`"
+    }
+  ],
+  "not_run": [
+    "flutter build windows --release",
+    "full flutter test",
+    "cargo test --workspace --locked",
+    "real Windows window integration test"
+  ],
+  "gaps": [
+    "SpeedTestResultDto has no `sort` field and generated Dart (lib/bridge/api/**) is immutable for this task; order is carried via the result list order (zero ABI change). An explicit field requires root-agent FRB regeneration.",
+    "Rust unit tests parse (rustfmt) but were not executed because of the external updater compile error.",
+    "compat/features.yaml not appended; compat/actions.yaml ACT-PROF-020/031/033 notes appended."
+  ],
+  "constraints_respected": {
+    "no_10808": true,
+    "no_system_proxy_registry_route_tun": true,
+    "synthetic_nodes_and_store": true,
+    "work_outputs_readonly": true,
+    "no_git_add_commit": true
+  }
+}

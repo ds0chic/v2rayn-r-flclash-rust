@@ -5452,3 +5452,8 @@ items:
 #   ConnectionsRefreshInterval / ConnectionsAutoRefresh -> apps/desktop/lib/features/monitor/connections_view.dart
 #   ProxiesSorting（0=Delay/1=Name）-> proxies_view 排序（对齐 ClashProxiesViewModel.cs:258）
 #   状态：verified（widget 测试 test/fix16c_clash_ui_config_test.dart）；ConnectionsColumnItem 仍 registered。
+
+# --- RE-PROF-06 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RE-PROF-06/; task: docs/tasks/RE-PROF-06.md) ---
+# Dedup / RemoveInvalidServerResult now scope to the whole current group (subid) with no text filter;
+# result cleanup is orphan-only (prunes delay==-1 rows whose profile no longer exists), so another group's
+# failure evidence and a failed/partial delete are preserved. FRB regen needed for speedtest_remove_invalid_group.

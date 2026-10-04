@@ -8,7 +8,10 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `app_install_root`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
+// These functions are ignored because they are not marked as `pub`: `app_install_root`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `last_update_flags`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `remember_update_flags`, `update_flags`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UpdateFlags`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
+// These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`
 
 /// `backup_local` — write a versioned bundle under `dest_root`.
 BackupResultDto t16BackupLocal({required String destRoot}) =>

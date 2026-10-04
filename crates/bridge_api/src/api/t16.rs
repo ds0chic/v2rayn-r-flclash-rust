@@ -28,6 +28,7 @@ use crate::api::engine::{engine, error_dto};
 /// check / apply-core calls record the most recent selection here and the app
 /// self-update action reuses it; when nothing was selected yet the safe
 /// defaults (`prerelease=false`, direct connection) apply.
+#[frb(ignore)]
 #[derive(Clone, Default)]
 struct UpdateFlags {
     prerelease: bool,

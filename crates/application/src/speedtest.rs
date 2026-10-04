@@ -337,6 +337,27 @@ impl ProfileExStore {
         before - self.rows.len()
     }
 
+    /// Group-scoped `RemoveInvalidServerResult`: drop failed (`delay == -1`)
+    /// rows that belong to `ids` (the current group's index ids), leaving every
+    /// other group's failure evidence untouched (RE-PROF-06).
+    pub fn remove_invalid_in(&mut self, ids: &HashSet<&str>) -> usize {
+        let before = self.rows.len();
+        self.rows
+            .retain(|id, row| row.delay != -1 || !ids.contains(id.as_str()));
+        before - self.rows.len()
+    }
+
+    /// Drop failed rows whose profile no longer exists. Deleting a real
+    /// `ProfileItem` leaves its result row behind; this prunes exactly those
+    /// orphans. A failed node that is still stored (another group, or a failed
+    /// delete) keeps its evidence (RE-PROF-06).
+    pub fn remove_invalid_orphans(&mut self, stored: &HashSet<&str>) -> usize {
+        let before = self.rows.len();
+        self.rows
+            .retain(|id, row| row.delay != -1 || stored.contains(id.as_str()));
+        before - self.rows.len()
+    }
+
     /// Clearing traffic statistics (`ClearServerStatistics`) must not touch the
     /// test-result closure; this is a no-op documented by a test.
     pub fn clear_statistics(&mut self) {
@@ -345,6 +366,46 @@ impl ProfileExStore {
 
     pub fn clear(&mut self) {
         self.rows.clear();
+    }
+}
+
+#[cfg(test)]
+mod re_prof_06_tests {
+    use super::*;
+
+    fn store(rows: &[(&str, i32)]) -> ProfileExStore {
+        let mut s = ProfileExStore::new();
+        for (id, delay) in rows {
+            s.apply(&SpeedTestResult::delay(*id, *delay));
+        }
+        s
+    }
+
+    #[test]
+    fn remove_invalid_in_clears_only_the_scoped_group() {
+        let mut s = store(&[("a", -1), ("b", 20), ("other", -1)]);
+        let ids: HashSet<&str> = ["a", "b"].into_iter().collect();
+        assert_eq!(s.remove_invalid_in(&ids), 1, "only the in-scope failure");
+        assert!(s.get("a").is_none());
+        assert!(s.get("b").is_some(), "an in-scope success stays");
+        assert!(
+            s.get("other").is_some(),
+            "another group's failure evidence stays"
+        );
+    }
+
+    #[test]
+    fn remove_invalid_orphans_keeps_stored_failures() {
+        let mut s = store(&[("deleted", -1), ("failed", -1), ("ok", 15)]);
+        // Only `failed` and `ok` profiles still exist; `deleted` was removed.
+        let stored: HashSet<&str> = ["failed", "ok"].into_iter().collect();
+        assert_eq!(s.remove_invalid_orphans(&stored), 1, "only the orphan");
+        assert!(s.get("deleted").is_none());
+        assert!(
+            s.get("failed").is_some(),
+            "a failed profile that was not deleted keeps its evidence"
+        );
+        assert!(s.get("ok").is_some());
     }
 }
 

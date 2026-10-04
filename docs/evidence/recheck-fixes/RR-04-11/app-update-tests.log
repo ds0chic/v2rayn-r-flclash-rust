@@ -1,0 +1,14 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr04_app_update_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr04_app_update_test.dart: success: runner launched detached-ish and app exits
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr04_app_update_test.dart: launch failure is reported and app does not exit
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr04_app_update_test.dart: missing helper path is reported, no launch, no exit
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr04_app_update_test.dart: spec unavailable: blocked message and no launch
+00:00 +4: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart
+00:01 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart: unsupported targets render disabled
+00:01 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart: via-proxy check without a local port is structured
+00:01 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart: prerelease toggle is forwarded to the bridge
+00:01 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart: check-update applies core updates and reports counts
+00:01 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart: application update launches the runner and exits
+00:01 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart: unconfigured application source is reported as blocked
+00:01 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart: rendering the window performs no update call
+00:02 +11: All tests passed!

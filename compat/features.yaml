@@ -1202,7 +1202,7 @@ features:
   - v2rayN/ServiceLib/Enums/EServerColName.cs:3
   - docs/evidence/UX-PARITY-FIX-10/README.md
   status: implemented
-  notes: FIX-10（2026-10-03，部分）：ProfileExItem 补 Sort 并接入 SQLite 读写（PR-17），delay/speed/sort/message/ip 重开保持；节点表延迟/速度/IP 列叠加真实结果。排序重开持久化（PR-15）仍受桥接函数缺口限制，未完成；统计（今日/累计流量，PR-22）不在本卡。未做原版实机对照，保持 implemented。
+  notes: FIX-10（2026-10-03，部分）：ProfileExItem 补 Sort 并接入 SQLite 读写（PR-17），delay/speed/sort/message/ip 重开保持；节点表延迟/速度/IP 列叠加真实结果。排序重开持久化（PR-15）仍受桥接函数缺口限制，未完成；统计（今日/累计流量，PR-22）不在本卡。未做原版实机对照，保持 implemented。 RE-PROF-09（2026-10-04）：节点表今日/总 上传下载四列已在生产 seam `FrbBridgePort.fetchSummaries` 按 `IndexId` 消费 `monitor.statsSnapshot()` 的 `ServerStatItem`（今日量=TodayXxx，累计量=TotalXxx），统计禁用（`enabled=false`）时不展示；Dart 受控统计夹具与 Rust `StatsService`/`stats_snapshot` 单测通过，未跑真实内核流量与真实窗口，复用现有 monitor DTO 无需 FRB 重生成。
 - id: F-PROFILE-016
   name: 批量导入多格式文本
   family: profile
@@ -5009,3 +5009,8 @@ remediation_implementation_records:
     - docs/tasks/RR-03.md
     status: implemented
     note: RR-03 P1. Status bar, tray and hotkeys route through PlatformController.applyModeFromConfig; PAC goes through startPacFromConfig (real pac.txt/custom script, no inline minimal template); the proxy/PAC address prefers the actual AppliedSession ports from RuntimeView and a mode needing a live proxy reports E_NO_RUNNING_SESSION instead of faking success; SysProxyType is persisted in every case. Normal launch re-applies the saved mode after restoreActiveOnLaunch (upstream MainWindowViewModel.LoadCore -> UpdateSysProxy) via the frozen app.dart patch. Ownership exit restore (restoreOnExit) unchanged. Host system-proxy/PAC writes not run this round; platform state verified with the synthetic bridge.
+
+# --- RE-PROF-06 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RE-PROF-06/; task: docs/tasks/RE-PROF-06.md) ---
+# Dedup / RemoveInvalidServerResult now scope to the whole current group (subid) with no text filter;
+# result cleanup is orphan-only (prunes delay==-1 rows whose profile no longer exists), so another group's
+# failure evidence and a failed/partial delete are preserved. FRB regen needed for speedtest_remove_invalid_group.

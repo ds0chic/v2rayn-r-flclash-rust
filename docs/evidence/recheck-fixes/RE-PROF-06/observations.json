@@ -1,0 +1,80 @@
+{
+  "task": "RE-PROF-06",
+  "head": "472ca54",
+  "upstream_lock": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "implemented",
+  "started_dirty_tree": false,
+  "network_started": false,
+  "ports_used": [],
+  "system_proxy_touched": false,
+  "scenarios": [
+    {
+      "id": "dart-dedup-filter-hidden-same-group",
+      "layer": "dart-synthetic-bridge",
+      "input": "groupA has r06-a1(remarks=visible) and r06-a2(remarks=hidden-dup) with identical transport; filter='visible' hides r06-a2; groupB has r06-b1",
+      "action": "removeDuplicateProfiles()",
+      "expected": "filter-hidden same-group duplicate r06-a2 is removed; r06-a1 and r06-b1 remain",
+      "observed": "removed == 1; r06-a2 gone; r06-a1 and r06-b1 present",
+      "result": "pass"
+    },
+    {
+      "id": "dart-remove-invalid-filter-hidden-and-cross-group",
+      "layer": "dart-synthetic-bridge",
+      "input": "groupA r06-a1(remarks=hidden, delay=-1), r06-a2(remarks=visible, delay=20); groupB r06-b1(delay=-1); filter='visible'",
+      "action": "removeInvalidResults()",
+      "expected": "filter-hidden failed r06-a1 deleted; r06-b1 profile and its result row preserved; r06-a1 result row pruned",
+      "observed": "removed == 1; r06-b1 present with delay=-1 row retained; r06-a1 row pruned; removeInvalidCalls == 1",
+      "result": "pass"
+    },
+    {
+      "id": "dart-remove-invalid-delete-failure-keeps-evidence",
+      "layer": "dart-synthetic-bridge",
+      "input": "groupA r06-a1(delay=-1); failDeleteProfiles=true",
+      "action": "removeInvalidResults()",
+      "expected": "removed == 0; profile kept; same-group failure row kept; result cleanup not invoked",
+      "observed": "removed == 0; r06-a1 present; result row present; removeInvalidCalls == 0",
+      "result": "pass"
+    },
+    {
+      "id": "rust-remove-invalid-in-group-scope",
+      "layer": "rust-application-store-unit",
+      "input": "rows a(-1), b(20), other(-1); ids={a,b}",
+      "action": "ProfileExStore::remove_invalid_in(&ids)",
+      "expected": "only in-scope failure a removed; b(success) and other(other-group failure) kept",
+      "observed": "removed == 1; a absent; b and other present",
+      "result": "pass"
+    },
+    {
+      "id": "rust-remove-invalid-orphans",
+      "layer": "rust-application-store-unit",
+      "input": "rows deleted(-1), failed(-1), ok(15); stored={failed,ok}",
+      "action": "ProfileExStore::remove_invalid_orphans(&stored)",
+      "expected": "only orphan 'deleted' removed; stored failure 'failed' kept",
+      "observed": "removed == 1; deleted absent; failed and ok present",
+      "result": "pass"
+    },
+    {
+      "id": "rust-bridge-orphan-cleanup-regression",
+      "layer": "rust-bridge_api-unit",
+      "input": "result rows a(delay=12), b(delay=-1); no stored profiles",
+      "action": "speedtest_remove_invalid()",
+      "expected": "orphan b pruned; success a kept",
+      "observed": "removed == 1; results == [a]",
+      "result": "pass"
+    },
+    {
+      "id": "rust-fix10-regression",
+      "layer": "rust-application-integration",
+      "action": "cargo test -p application --test fix10_speedtest_result",
+      "expected": "remove_invalid_profiles by group, dedup, ProfileEx reopen all pass",
+      "observed": "4 passed; 0 failed",
+      "result": "pass"
+    }
+  ],
+  "frb_regen_required": {
+    "needed": true,
+    "function": "crates/bridge_api/src/api/speedtest.rs::speedtest_remove_invalid_group(subid: String) -> i32",
+    "reason": "new #[frb(sync)] surface; frb_generated.* and lib/bridge/api/** intentionally not regenerated in this task",
+    "live_path_without_regen": "speedtest_remove_invalid() orphan-prune (unchanged signature)"
+  }
+}

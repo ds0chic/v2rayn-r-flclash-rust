@@ -1,0 +1,34 @@
+RE-PROF-06 command runs (2026-10-04, HEAD 472ca54)
+
+# Rust (repo root)
+cargo fmt -p application -p bridge_api -- --check
+  -> exit 0 (no output)
+
+cargo test -p application --lib re_prof_06_tests --locked
+  -> 2 passed; 0 failed (remove_invalid_in_clears_only_the_scoped_group,
+                         remove_invalid_orphans_keeps_stored_failures)
+
+cargo test -p application --test fix10_speedtest_result --locked
+  -> 4 passed; 0 failed (regression)
+
+cargo test -p bridge_api speedtest --locked
+  -> 5 passed; 0 failed (regression, incl. result_overlay_and_invalid_cleanup)
+
+cargo clippy -p application -p bridge_api --all-targets --locked -- -D warnings
+  -> exit 0
+
+# Flutter (apps/desktop)
+dart format lib/features/profiles/profiles_controller.dart lib/bridge/bridge_port.dart test/re_prof_06_scope_test.dart
+  -> exit 0
+
+flutter analyze
+  -> No issues found!
+
+flutter test test/re_prof_06_scope_test.dart test/t15b_speedtest_test.dart
+  -> 10 passed; 0 failed
+
+flutter test test/fix10_dedup_test.dart
+  -> 4 passed; 0 failed (regression)
+
+# Not run
+# - full workspace tests, flutter build windows, real Windows window / FRB end-to-end

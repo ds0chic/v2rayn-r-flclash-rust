@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/update/check_update_view.dart';
+import 'package:v2rayn_desktop/features/update/update_controller.dart';
 
 /// Application self-update with no configured release source (blocked).
 class _UnconfiguredAppBridge extends SyntheticBridgePort {
@@ -123,11 +124,24 @@ void main() {
     expect(find.textContaining('已更新'), findsOneWidget);
   });
 
-  testWidgets('application update only produces an external spec', (
+  testWidgets('application update launches the runner and exits', (
     tester,
   ) async {
     final bridge = SyntheticBridgePort();
-    final container = makeContainer(bridge);
+    final launches = <String>[];
+    var exited = 0;
+    final container = ProviderContainer(
+      overrides: [
+        bridgePortProvider.overrideWithValue(bridge),
+        updateControllerProvider.overrideWith(
+          () => UpdateController(
+            launchRunner: (helper, args, cwd) async =>
+                launches.add('$helper|${args.join(",")}|$cwd'),
+            exitApp: () => exited++,
+          ),
+        ),
+      ],
+    );
     addTearDown(container.dispose);
     await pumpUpdate(tester, container);
 
@@ -135,7 +149,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(bridge.t16Calls, contains('app_update_spec'));
-    expect(find.textContaining('外部 runner 执行替换并重启'), findsOneWidget);
+    expect(launches, hasLength(1));
+    expect(launches.single, startsWith('/app/v2rayN-upgrade.exe|'));
+    expect(launches.single, endsWith('|/app'));
+    expect(exited, 1);
+    expect(find.textContaining('已启动更新程序，应用将退出'), findsOneWidget);
   });
 
   testWidgets('unconfigured application source is reported as blocked', (

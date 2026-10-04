@@ -1,0 +1,62 @@
+{
+  "task": "RE-PROF-09",
+  "status": "implemented",
+  "date": "2026-10-04",
+  "start_head": "472ca54",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "changed_files": [
+    "apps/desktop/lib/bridge/bridge_port.dart",
+    "apps/desktop/test/reprof09_node_stats_test.dart",
+    "docs/tasks/RE-PROF-09.md",
+    "docs/evidence/recheck-fixes/RE-PROF-09/README.md",
+    "docs/evidence/recheck-fixes/RE-PROF-09/observations.json",
+    "compat/features.yaml"
+  ],
+  "production_chain": "FrbBridgePort.fetchSummaries -> monitor.statsSnapshot().nodes -> applyNodeStatsOverlay (join by IndexId)",
+  "upstream": {
+    "join": "ProfilesViewModel.cs:398-437 GetProfileItemsEx left join ServerStat by IndexId",
+    "gate": "EnableStatistics false => no ServerStat rows shown",
+    "missing_row": "t22 == null => empty"
+  },
+  "commands": [
+    {
+      "cmd": "dart format lib/bridge/bridge_port.dart test/reprof09_node_stats_test.dart",
+      "exit": 0,
+      "result": "Formatted 2 files (1 changed)"
+    },
+    {
+      "cmd": "flutter analyze",
+      "exit": 0,
+      "result": "No issues found!"
+    },
+    {
+      "cmd": "flutter test test/reprof09_node_stats_test.dart",
+      "exit": 0,
+      "result": "5 passed; first run failed to compile due to a concurrent half-written profiles_controller.dart, second run showed 'Connection closed before test suite loaded' (flaky), retry all green"
+    },
+    {
+      "cmd": "cargo test -p application --locked --lib monitor::",
+      "exit": 0,
+      "result": "17 passed; 0 failed"
+    },
+    {
+      "cmd": "cargo test -p bridge_api --locked --lib monitor",
+      "exit": 0,
+      "result": "7 passed; 0 failed"
+    }
+  ],
+  "frb_regeneration_required": false,
+  "rust_source_changed": false,
+  "not_run": [
+    "flutter build windows --release",
+    "full flutter test",
+    "cargo test --workspace",
+    "real Windows window",
+    "real core traffic probe"
+  ],
+  "boundaries": [
+    "reopen display depends on an applied session triggering monitor_start_polling/sync_from_engine_session to load the SQLite ServerStatItem store",
+    "store_bound is bound once; database switch rebind not handled",
+    "HumanFy vs formatBytes wording differs (0.0 B/PB vs 0 B/TB); 1024-based semantics match"
+  ]
+}

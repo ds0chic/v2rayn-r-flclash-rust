@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/bridge/api/dns.dart' as dns;
 import 'package:v2rayn_desktop/bridge/api/engine.dart' as engine;
 import 'package:v2rayn_desktop/bridge/api/groups.dart' as groups;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/bridge/api/monitor.dart' as monitor;
 import 'package:v2rayn_desktop/bridge/api/profiles.dart' as rust;
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as routing;
 import 'package:v2rayn_desktop/bridge/api/settings.dart' as settings;
@@ -248,6 +249,10 @@ abstract class BridgePort {
   /// `RemoveInvalidServerResult`: delete rows whose delay failed.
   int removeInvalidResults();
 
+  /// Group-scoped `RemoveInvalidServerResult`: prune failed result rows that
+  /// belong to [subid]'s stored profiles, leaving other groups untouched.
+  int removeInvalidResultsForGroup(String subid);
+
   /// Number of speedtest jobs still running (drives live UI refresh).
   int speedTestActiveJobs();
 
@@ -350,7 +355,19 @@ class FrbBridgePort implements BridgePort {
       queryAllProfiles().map(dtoToSummary).toList(),
       results.map((r) => r.indexId).toList(),
     );
-    return applySpeedTestOverlay(rows, results);
+    // Join the live monitor `ServerStatItem` rows onto the table
+    // (upstream `ProfilesViewModel.GetProfileItemsEx`: join on IndexId). The
+    // snapshot is a read-only view of the background statistics collection, so
+    // reading it never pauses collection or depends on page visibility.
+    // Upstream shows no traffic at all when statistics are disabled, so the
+    // overlay is skipped in that case instead of fabricating zero rows.
+    final stats = monitor.statsSnapshot();
+    return applySpeedTestOverlay(
+      stats.enabled
+          ? applyNodeStatsOverlay(rows, stats.nodes.map(nodeStatFromDto))
+          : rows,
+      results,
+    );
   }
 
   @override
@@ -673,6 +690,10 @@ class FrbBridgePort implements BridgePort {
   int removeInvalidResults() => speedtest.speedtestRemoveInvalid();
 
   @override
+  int removeInvalidResultsForGroup(String subid) =>
+      speedtest.speedtestRemoveInvalidGroup(subid: subid);
+
+  @override
   int speedTestActiveJobs() => speedtest.speedtestActiveJobs();
 
   @override
@@ -821,8 +842,82 @@ List<ProfileSummary> applySpeedTestOverlay(
 /// from the wire `-1` (which also means "unknown" for an untested row).
 const int profileDelayTestFailed = -2;
 
+/// Per-node `ServerStatItem` counters consumed by the node table, normalized to
+/// [BigInt] so the same value shape works on native (`BigInt`) and web (`int`).
+class NodeStat {
+  const NodeStat({
+    required this.indexId,
+    required this.todayUp,
+    required this.todayDown,
+    required this.totalUp,
+    required this.totalDown,
+  });
+
+  final String indexId;
+  final BigInt todayUp;
+  final BigInt todayDown;
+  final BigInt totalUp;
+  final BigInt totalDown;
+}
+
+/// Convert a monitor `NodeTrafficDto` into the table-facing [NodeStat].
+NodeStat nodeStatFromDto(monitor.NodeTrafficDto dto) => NodeStat(
+  indexId: dto.indexId,
+  todayUp: _statBytes(dto.todayUp),
+  todayDown: _statBytes(dto.todayDown),
+  totalUp: _statBytes(dto.totalUp),
+  totalDown: _statBytes(dto.totalDown),
+);
+
+/// Join per-node statistics onto the node table by `IndexId` (upstream
+/// `ProfilesViewModel.GetProfileItemsEx:404-433`). Today/cumulative up/down are
+/// raw byte counters from the Rust `StatsService`; a row without a matching
+/// stat keeps the summary's "unknown" zero defaults (never a fabricated value).
+/// Because the join is by the current row id, a deleted node or a switched
+/// database cannot inherit another row's counters.
+List<ProfileSummary> applyNodeStatsOverlay(
+  List<ProfileSummary> rows,
+  Iterable<NodeStat> nodes,
+) {
+  final byId = <String, NodeStat>{for (final n in nodes) n.indexId: n};
+  if (byId.isEmpty || rows.isEmpty) return rows;
+  return rows.map((row) {
+    final stat = byId[row.id];
+    if (stat == null) return row;
+    return ProfileSummary(
+      id: row.id,
+      configType: row.configType,
+      remarks: row.remarks,
+      address: row.address,
+      port: row.port,
+      network: row.network,
+      streamSecurity: row.streamSecurity,
+      subRemarks: row.subRemarks,
+      delay: row.delay,
+      speed: row.speed,
+      todayUp: stat.todayUp,
+      ipInfo: row.ipInfo,
+      todayDown: stat.todayDown,
+      totalUp: stat.totalUp,
+      totalDown: stat.totalDown,
+      coreType: row.coreType,
+    );
+  }).toList();
+}
+
+BigInt _statBytes(Object? value) {
+  if (value is BigInt) return value.isNegative ? BigInt.zero : value;
+  if (value is int) return value > 0 ? BigInt.from(value) : BigInt.zero;
+  if (value is num) {
+    final v = value.toInt();
+    return v > 0 ? BigInt.from(v) : BigInt.zero;
+  }
+  return BigInt.zero;
+}
+
 /// Map a stored profile DTO onto the node-table summary shape. Traffic/delay
-/// fields stay at their "unknown" defaults (never fabricated).
+/// fields stay at their "unknown" defaults (never fabricated); the node table
+/// fills the four traffic columns from the monitor via [applyNodeStatsOverlay].
 ProfileSummary dtoToSummary(c.ProfileDto dto) => ProfileSummary(
   id: dto.indexId,
   configType: dto.configType,
@@ -887,6 +982,34 @@ class SyntheticBridgePort implements BridgePort {
   /// Persisted display order stand-in for `ProfileExItem.Sort`; [fetchSummaries]
   /// reads it back so the synthetic bridge models the read chain.
   final List<String> _persistedOrder = <String>[];
+
+  /// Controlled monitor `ServerStatItem` fixture keyed by id. The real
+  /// [FrbBridgePort] reads the same shape from `monitor.statsSnapshot()`;
+  /// seeding this models that read chain without fabricating traffic values in
+  /// production. [statsEnabled] mirrors the upstream `EnableStatistics` gate.
+  final Map<String, NodeStat> _nodeStats = <String, NodeStat>{};
+  bool statsEnabled = false;
+
+  /// Publish one controlled statistics row (today/total up/down, raw bytes).
+  void seedNodeStat(
+    String id, {
+    int todayUp = 0,
+    int todayDown = 0,
+    int totalUp = 0,
+    int totalDown = 0,
+  }) {
+    _nodeStats[id] = NodeStat(
+      indexId: id,
+      todayUp: BigInt.from(todayUp),
+      todayDown: BigInt.from(todayDown),
+      totalUp: BigInt.from(totalUp),
+      totalDown: BigInt.from(totalDown),
+    );
+  }
+
+  /// Drop one controlled statistics row, as a node deletion must remove its
+  /// mapping.
+  void clearNodeStat(String id) => _nodeStats.remove(id);
 
   /// Test helper: force [applyProfileOrder] to report a structured failure.
   bool failApplyProfileOrder = false;
@@ -989,10 +1112,13 @@ class SyntheticBridgePort implements BridgePort {
   }
 
   @override
-  List<ProfileSummary> fetchSummaries(int count) => applySpeedTestOverlay(
-    orderByPersistedSort(generate(count), _persistedOrder),
-    speedTestResults(),
-  );
+  List<ProfileSummary> fetchSummaries(int count) {
+    var rows = orderByPersistedSort(generate(count), _persistedOrder);
+    if (statsEnabled) {
+      rows = applyNodeStatsOverlay(rows, _nodeStats.values);
+    }
+    return applySpeedTestOverlay(rows, speedTestResults());
+  }
 
   @override
   List<c.ProfileDto> queryAllProfiles() {
@@ -1088,9 +1214,24 @@ class SyntheticBridgePort implements BridgePort {
     );
   }
 
+  /// Test helper: force [deleteProfiles] to report a structured failure so a
+  /// caller's error branch (do not clear result rows) can be asserted.
+  bool failDeleteProfiles = false;
+
   @override
   c.DeleteProfilesResult deleteProfiles(List<String> ids) {
     _ensureProfiles();
+    if (failDeleteProfiles) {
+      return c.DeleteProfilesResult(
+        ok: false,
+        removed: BigInt.zero,
+        error: const c.ErrorDto(
+          code: 'E_DELETE_FAILED',
+          messageKey: 'error.delete_failed',
+          retryable: true,
+        ),
+      );
+    }
     final before = _profiles.length;
     _profiles.removeWhere((p) => ids.contains(p.indexId));
     final removed = before - _profiles.length;
@@ -2481,8 +2622,29 @@ class SyntheticBridgePort implements BridgePort {
   @override
   int removeInvalidResults() {
     removeInvalidCalls += 1;
+    _ensureProfiles();
+    // Mirror the Rust orphan-prune: only failed rows whose profile no longer
+    // exists are dropped, so another group's (or a failed delete's) evidence
+    // is preserved (RE-PROF-06).
+    final stored = _profiles.map((p) => p.indexId).toSet();
     final before = _speedResults.length;
-    _speedResults.removeWhere((_, r) => r.delay == -1);
+    _speedResults.removeWhere((id, r) => r.delay == -1 && !stored.contains(id));
+    return before - _speedResults.length;
+  }
+
+  /// Group ids passed to [removeInvalidResultsForGroup], in call order.
+  final List<String> removeInvalidGroupCalls = <String>[];
+
+  @override
+  int removeInvalidResultsForGroup(String subid) {
+    removeInvalidGroupCalls.add(subid);
+    _ensureProfiles();
+    final inGroup = _profiles
+        .where((p) => p.subid == subid)
+        .map((p) => p.indexId)
+        .toSet();
+    final before = _speedResults.length;
+    _speedResults.removeWhere((id, r) => r.delay == -1 && inGroup.contains(id));
     return before - _speedResults.length;
   }
 

@@ -1,0 +1,11 @@
+
+PACKAGE  v2rayN-R-1.0.0+1-windows-x64
+STAGE    C:\Users\Colby\AppData\Local\Temp\v2rayn-rr04-d741b886\dist\v2rayN-R-1.0.0+1-windows-x64
+ZIP      C:\Users\Colby\AppData\Local\Temp\v2rayn-rr04-d741b886\dist\v2rayN-R-1.0.0+1-windows-x64.zip
+SHA256   47171f81b21020f972d9f763911a56c7d5895f89dd8a756c79685d31570057a5
+ARMED    False
+ELAPSED  1.1s
+T20_BUILD_OK version=1.0.0+1 armed=False zip=C:\Users\Colby\AppData\Local\Temp\v2rayn-rr04-d741b886\dist\v2rayN-R-1.0.0+1-windows-x64.zip sha256=47171f81b21020f972d9f763911a56c7d5895f89dd8a756c79685d31570057a5
+PASS stage contains v2rayN-upgrade.exe
+PASS [UninstallDelete] rules: Type: filesandordirs; Name: "{app}\.staging" | Type: filesandordirs; Name: "{app}\app.previous" | Type: dirifempty; Name: "{app}"
+RR04_RELEASE_ASSERTS ok=true stage=C:\Users\Colby\AppData\Local\Temp\v2rayn-rr04-d741b886\dist\v2rayN-R-1.0.0+1-windows-x64

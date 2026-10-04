@@ -116,7 +116,7 @@ class CheckUpdateView extends ConsumerWidget {
         ),
         OutlinedButton(
           key: const ValueKey('update-app-spec-btn'),
-          onPressed: state.busy ? null : controller.stageAppUpdateSpec,
+          onPressed: state.busy ? null : controller.applyAppUpdate,
           child: const Text('应用自身更新', style: TextStyle(fontSize: 12)),
         ),
         TextButton(

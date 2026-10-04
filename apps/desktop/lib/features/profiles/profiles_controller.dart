@@ -1098,56 +1098,73 @@ class ProfilesController extends Notifier<ProfilesState> {
     _echo(ProfileAction.stopTest);
   }
 
-  /// `按测试结果移除无效` (ACT-PROF-021 / PR-11): really delete the failed
-  /// `ProfileItem`s of the current group, not just the test-result rows.
+  /// `按测试结果移除无效` (ACT-PROF-021 / PR-11 / RE-PROF-06): really delete the
+  /// failed `ProfileItem`s of the current group, not just the test-result rows.
   ///
   /// Upstream `ConfigHandler.RemoveInvalidServerResult` finds every profile in
   /// the current `subid` whose `ProfileExItem.Delay == -1` (complex nodes are
-  /// excluded) and removes the profile. Here the failed ids come from the live
-  /// result overlay ([speedTestResults]); only nodes present in the current
-  /// group are eligible, so a hidden group's results never delete a visible
-  /// node. The result rows are cleared afterwards (existing
-  /// `speedtest_remove_invalid`).
+  /// excluded) and removes it. The scope is the **whole current group**
+  /// (`ProfileModels(subid, "")`): the text filter must not shrink it, so a
+  /// failed node that a search merely hides is still removed.
   ///
-  /// Returns the number of profiles actually deleted.
+  /// Result rows are pruned only after every targeted profile is really gone;
+  /// a failed or partial delete keeps the same group's failure evidence, and
+  /// another group's failed nodes are never touched. Returns the number of
+  /// profiles actually deleted.
   int removeInvalidResults() {
     final failedIds = _bridge
         .speedTestResults()
         .where((r) => r.delay == -1)
         .map((r) => r.indexId)
         .toSet();
-    // Only delete stored, non-complex profiles that belong to the current view
-    // (upstream `RemoveInvalidServerResult` skips complex nodes).
+    // Only delete stored, non-complex profiles of the current group (upstream
+    // `RemoveInvalidServerResult` skips complex nodes and ignores the filter).
     final targets = state.profiles
         .where((p) => failedIds.contains(p.indexId))
         .where((p) => !isComplexProfile(p.configType))
-        .where((p) => _profileInCurrentGroup(p))
+        .where(_profileInGroup)
         .map((p) => p.indexId)
         .toList();
     var removed = 0;
+    var fullyRemoved = true;
     if (targets.isNotEmpty) {
       final result = _bridge.deleteProfiles(targets);
       if (result.ok) removed = result.removed.toInt();
+      fullyRemoved = result.ok && removed == targets.length;
+      if (!result.ok) {
+        _log(
+          ProfileAction.removeInvalid,
+          'delete-failed candidates=${targets.length}',
+        );
+      }
     }
-    _bridge.removeInvalidResults();
+    // Prune only once every target is gone. The Rust orphan-prune drops rows
+    // whose profile no longer exists, so a failed/partial delete keeps the
+    // same group's evidence and another group's failed nodes (still stored)
+    // are never touched. (A group-scoped prune cannot run after the delete:
+    // the removed profiles no longer identify their group.)
+    if (targets.isNotEmpty && fullyRemoved) {
+      _bridge.removeInvalidResults();
+    }
     reload();
     _log(
       ProfileAction.removeInvalid,
-      'profiles=$removed candidates=${targets.length}',
+      'profiles=$removed candidates=${targets.length} pruned=$fullyRemoved',
     );
     _echo(ProfileAction.removeInvalid);
     return removed;
   }
 
-  /// Whether a stored profile belongs to the current group/filter view.
+  /// Whether a stored profile belongs to the current group (`subid`).
   ///
-  /// Mirrors the visible-row projection so batch actions never touch a hidden
-  /// group's node when the table shows a different group (PR-18).
-  bool _profileInCurrentGroup(c.ProfileDto profile) {
+  /// Dedup / remove-invalid scope to the whole group, mirroring upstream
+  /// `ProfileItems(subId)` / `ProfileModels(subid, "")`; the live text filter is
+  /// deliberately not applied, so a filter-hidden node is still eligible
+  /// (RE-PROF-06). When no group is selected all stored profiles are in scope.
+  bool _profileInGroup(c.ProfileDto profile) {
     final group = state.groupSubId;
-    if (group != null && profile.subid != group) return false;
-    if (state.filter.trim().isEmpty) return true;
-    return rowMatchesQuery(dtoToSummary(profile), state.filter);
+    if (group == null) return true;
+    return profile.subid == group;
   }
 
   /// `移除重复` (ACT-PROF-003 / PR-12): deduplicate the current group by
@@ -1159,7 +1176,9 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// through the real `deleteProfiles` seam, so it persists and survives a
   /// restart.
   int removeDuplicateProfiles({bool keepOlder = true}) {
-    final candidates = state.profiles.where(_profileInCurrentGroup).toList();
+    // Upstream `DedupServerList` scopes to the whole group (`ProfileItems(subId)`),
+    // never the live text filter (RE-PROF-06).
+    final candidates = state.profiles.where(_profileInGroup).toList();
     final duplicates = deduplicateProfiles(candidates, keepOlder: keepOlder);
     if (duplicates.isEmpty) {
       _log(ProfileAction.removeDuplicate, 'none');
@@ -1167,7 +1186,12 @@ class ProfilesController extends Notifier<ProfilesState> {
       return 0;
     }
     final result = _bridge.deleteProfiles(duplicates);
-    final removed = result.ok ? result.removed.toInt() : 0;
+    if (!result.ok) {
+      _log(ProfileAction.removeDuplicate, 'delete-failed');
+      _echo(ProfileAction.removeDuplicate);
+      return 0;
+    }
+    final removed = result.removed.toInt();
     reload();
     _log(ProfileAction.removeDuplicate, 'removed=$removed');
     _echo(ProfileAction.removeDuplicate);

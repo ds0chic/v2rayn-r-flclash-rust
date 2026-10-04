@@ -112,6 +112,22 @@ class ProfileCapabilities {
 
   static bool supportsReality(ConfigType t) =>
       t == ConfigType.vmess || t == ConfigType.vless || t == ConfigType.trojan;
+
+  /// Upstream `AddServerWindow` `togmuxEnabled` bindings: VMess/Shadowsocks/
+  /// VLESS/Trojan only.
+  static bool supportsMux(ConfigType t) =>
+      t == ConfigType.vmess ||
+      t == ConfigType.vless ||
+      t == ConfigType.trojan ||
+      t == ConfigType.shadowsocks;
+
+  /// Upstream `togUotEnabled3`/`togUotEnabled12`: Shadowsocks and Naive.
+  static bool supportsUot(ConfigType t) =>
+      t == ConfigType.shadowsocks || t == ConfigType.naive;
+
+  /// Upstream `gridFinalmask` is collapsed for TUIC/Anytls/Naive only.
+  static bool supportsFinalmask(ConfigType t) =>
+      t != ConfigType.tuic && t != ConfigType.anytls && t != ConfigType.naive;
 }
 
 /// Shadowsocks methods supported by Xray (`Global.SsSecuritiesInXray`).
@@ -206,6 +222,12 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
           (d, v) => d.vmessSecurity = v,
           _vmessSecurities,
         ),
+        _bool(
+          'muxEnabled',
+          '启用 Mux (muxEnabled)',
+          (d) => d.muxEnabled,
+          (d, v) => d.muxEnabled = v,
+        ),
       ];
     case ConfigType.vless:
       return <FieldSpec>[
@@ -231,6 +253,12 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
           (d) => d.vlessEncryption,
           (d, v) => d.vlessEncryption = v,
         ),
+        _bool(
+          'muxEnabled',
+          '启用 Mux (muxEnabled)',
+          (d) => d.muxEnabled,
+          (d, v) => d.muxEnabled = v,
+        ),
       ];
     case ConfigType.shadowsocks:
       final methods = coreType == CoreType.singBox
@@ -251,6 +279,13 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
           (d) => d.password,
           (d, v) => d.password = v ?? '',
           required: true,
+        ),
+        _bool('uot', 'UDP over TCP', (d) => d.uot, (d, v) => d.uot = v),
+        _bool(
+          'muxEnabled',
+          '启用 Mux (muxEnabled)',
+          (d) => d.muxEnabled,
+          (d, v) => d.muxEnabled = v,
         ),
       ];
     case ConfigType.socks:
@@ -297,6 +332,12 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
           (d) => d.password,
           (d, v) => d.password = v ?? '',
           required: true,
+        ),
+        _bool(
+          'muxEnabled',
+          '启用 Mux (muxEnabled)',
+          (d) => d.muxEnabled,
+          (d, v) => d.muxEnabled = v,
         ),
       ];
     case ConfigType.hysteria2:
@@ -379,7 +420,6 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
           (d, v) => d.congestionControl = v,
           const <String>['cubic', 'new_reno', 'bbr'],
         ),
-        _bool('uot', 'UDP over TCP', (d) => d.uot, (d, v) => d.uot = v),
       ];
     case ConfigType.wireGuard:
       return <FieldSpec>[
@@ -456,6 +496,7 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
           (d) => d.naiveQuic,
           (d, v) => d.naiveQuic = v,
         ),
+        _bool('uot', 'UDP over TCP', (d) => d.uot, (d, v) => d.uot = v),
       ];
     default:
       return const <FieldSpec>[];
@@ -546,7 +587,10 @@ List<FieldSpec> transportFields(String network) {
 }
 
 /// TLS/Reality fields. Reality-only fields are included only when selected.
-List<FieldSpec> securityFields(String? streamSecurity) {
+List<FieldSpec> securityFields(
+  String? streamSecurity, {
+  bool finalmask = false,
+}) {
   final isReality = streamSecurity == 'reality';
   return <FieldSpec>[
     _drop(
@@ -614,6 +658,13 @@ List<FieldSpec> securityFields(String? streamSecurity) {
       (d) => d.verifyPeerCertByName,
       (d, v) => d.verifyPeerCertByName = v,
     ),
+    if (finalmask)
+      _multiline(
+        'finalmask',
+        'Finalmask',
+        (d) => d.finalmask,
+        (d, v) => d.finalmask = v,
+      ),
   ];
 }
 

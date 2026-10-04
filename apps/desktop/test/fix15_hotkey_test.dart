@@ -17,14 +17,16 @@ class _RecordingRegistrar implements HotkeyRegistrar {
 
   @override
   Future<(Set<GlobalHotkeyAction>, List<String>)> register(
-    List<HotkeyBinding> bindings, {
+    List<HotkeyRegistration> registrations, {
     HotkeyTriggerHandler? onTriggered,
     HotkeyKeyCodec codec = const HotkeyKeyCodec(),
   }) async {
     registerCount++;
     this.onTriggered = onTriggered;
     return (
-      bindings.where((b) => b.isBound).map((b) => b.action).toSet(),
+      <GlobalHotkeyAction>{
+        for (final registration in registrations) ...registration.actions,
+      },
       const <String>[],
     );
   }

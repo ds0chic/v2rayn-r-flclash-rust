@@ -453,10 +453,15 @@ impl AppEngine {
             let mut all = self.all_profiles_map_locked()?;
             all.insert(draft.index_id.clone(), draft.clone());
             crate::groups::validate_group(&draft, &all)?;
-        }
-        if matches!(draft.config_type, ConfigType::Custom | ConfigType::Outbound) {
+        } else if matches!(draft.config_type, ConfigType::Custom | ConfigType::Outbound) {
             draft = crate::custom::normalize_custom(draft);
             crate::custom::validate_custom(&draft)?;
+        } else {
+            // Ordinary protocols normalize like the frozen `Add*Server`
+            // entry points; the UI defaults do not own the persisted shape
+            // (RE-PROF-07).
+            draft = crate::custom::normalize_server(draft);
+            crate::custom::validate_server(&draft)?;
         }
 
         let mut repo = self
@@ -498,9 +503,16 @@ impl AppEngine {
             let mut all = self.all_profiles_map_locked()?;
             all.insert(draft.index_id.clone(), draft.clone());
             crate::groups::validate_group(&draft, &all)?;
-        }
-        if matches!(draft.config_type, ConfigType::Custom | ConfigType::Outbound) {
+        } else if matches!(draft.config_type, ConfigType::Custom | ConfigType::Outbound) {
             draft = crate::custom::normalize_custom(draft);
+        } else {
+            // Import/subscription entries normalize the same way as the
+            // editor save, independent of any UI defaults (RE-PROF-07). The
+            // tolerant-import contract (FIX-04/PR-09) is preserved: a node
+            // with an empty credential is still persisted (honestly flagged
+            // invalid) instead of silently dropped, so no credential gate runs
+            // on this path.
+            draft = crate::custom::normalize_server(draft);
         }
 
         let mut repo = self

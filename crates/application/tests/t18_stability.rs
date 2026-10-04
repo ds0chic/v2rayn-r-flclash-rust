@@ -158,6 +158,7 @@ fn app_reopen_ten_times_has_no_drift() {
             remarks: "T18 seed".into(),
             address: "192.0.2.10".into(),
             port: 443,
+            password: "11111111-2222-3333-4444-555555555555".into(),
             ..Default::default()
         };
         // T18b: a settings save invalidates the applied runtime, so the

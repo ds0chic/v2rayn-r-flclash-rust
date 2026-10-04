@@ -1,0 +1,28 @@
+RE-PROF-10 actual runs (2026-10-04), repo apps/desktop unless noted.
+
+# format (touched files only)
+dart format lib/features/profiles/group_editor_dialog.dart lib/features/profiles/profile_actions.dart lib/features/profiles/profiles_controller.dart test/reprof10_group_preview_test.dart
+-> Formatted 4 files (2 changed)
+
+# analyze
+flutter analyze
+-> Analyzing desktop...
+-> No issues found! (ran in 3.4s)
+
+# new evidence tests
+flutter test test/reprof10_group_preview_test.dart
+-> 00:01 +8: All tests passed!
+
+# regression: special editors + group editor
+flutter test test/fix03_special_editors_test.dart test/fix03c_proxy_chain_editor_test.dart test/t10_group_editor_test.dart
+-> 00:05 +20: All tests passed!
+
+# regression: group panel/flow (first batch)
+flutter test test/recheck01_group_inheritance_test.dart test/t10_groups_panel_test.dart test/ux_space01_group_flow_test.dart test/ux_parity_fix01_gen_group_ui_test.dart test/ux_parity_fix01_gen_group_guard_test.dart
+-> recheck01 4 passed; t10_groups_panel "did not complete [E]" (flutter_tester flake); remaining passed
+
+# regression retry: t10_groups_panel standalone
+flutter test test/t10_groups_panel_test.dart
+-> 00:01 +2: All tests passed!
+
+Constraints respected: no 10808 usage, no system proxy/registry/route/TUN changes, no kernel/port listeners, synthetic nodes only (192.0.2.1), work/ and outputs/ read-only, no git add/commit, no full workspace test, no flutter build windows.

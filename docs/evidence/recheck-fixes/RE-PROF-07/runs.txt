@@ -1,0 +1,48 @@
+# RE-PROF-07 actual commands and results (2026-10-04)
+
+cargo check -p application --locked
+  -> Finished (array-length compile fix, then clean)
+
+cargo test -p application --test re_prof_07_normalize --locked
+  -> 10 passed; 0 failed
+
+cargo test -p application --test profiles_persist --locked
+  -> 5 passed; 0 failed
+     (save_reopen_round_trips_all_eleven_protocols updated to compare the reopened
+      row against the normalized saved profile; original "lossless save" assumption
+      conflicts with the new upstream normalization)
+
+cargo test -p application --test t10_core_matrix --test t11_codegen_matrix --test t18b_runtime_plan --test fix04_inner_import --test fix10_speedtest_result --locked
+  -> all passed (2 + 11 + 1 + 2 + 4)
+
+cargo test -p application --lib custom --locked
+  -> 8 passed; 0 failed
+
+cargo test -p bridge_api --lib save_imported_profile --locked
+  -> 1 passed; 0 failed (tolerant-import regression)
+
+cargo fmt -p application -- --check
+  -> exit 0
+
+cargo clippy -p application --all-targets --locked -- -D warnings
+  -> exit 0
+
+dart format lib/features/profiles/profile_fields.dart lib/features/profiles/profile_editor_dialog.dart test/re_prof_07_fields_test.dart
+  -> 2 changed, 0 errors
+
+flutter analyze
+  -> No issues found! (ran in 3.0s)
+
+flutter test test/re_prof_07_fields_test.dart
+  -> 7 passed
+
+flutter test test/fix02_tuic_editor_test.dart test/ux_space03_vless_editor_test.dart test/t06a_editor_form_test.dart test/t06a_editor_save_test.dart test/t06a_editor_error_test.dart
+  -> protocol/editor regressions passed; t06a_editor_cancel_test failed to LOAD in the same process
+     ("Connection closed before test suite loaded") due to the known multi-file native leak.
+
+flutter test test/t06a_editor_cancel_test.dart
+  -> 1 passed (retry alone)
+
+Notes:
+- No kernel started, no listener opened, no host proxy/registry/TUN touched, port 10808 untouched.
+- Synthetic nodes only (RFC 5737 addresses, synthetic UUIDs/passwords). No user secrets read or written.

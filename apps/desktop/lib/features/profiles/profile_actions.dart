@@ -91,7 +91,6 @@ Future<void> editSelectedProfile(BuildContext context, WidgetRef ref) async {
         initial: ProfileDraft.fromDto(dto),
         allProfiles: state.profiles,
         subItems: controller.subItems(),
-        previewChildren: controller.groupChildPreview,
         onSave: controller.saveDraft,
       );
     case SpecialEditorKind.generic:
@@ -382,7 +381,6 @@ Future<void> startAddGroupProfile(
     initial: draft,
     allProfiles: ref.read(profilesControllerProvider).profiles,
     subItems: controller.subItems(),
-    previewChildren: controller.groupChildPreview,
     onSave: controller.saveDraft,
   );
   _toast(ref, saved == null ? '已取消添加' : '已保存 ${saved.remarks}');
@@ -412,7 +410,6 @@ Future<void> editSelectedGroup(BuildContext context, WidgetRef ref) async {
     initial: ProfileDraft.fromDto(dto),
     allProfiles: state.profiles,
     subItems: controller.subItems(),
-    previewChildren: controller.groupChildPreview,
     onSave: controller.saveDraft,
   );
   _toast(ref, saved == null ? '已取消编辑' : '已保存 ${saved.remarks}');

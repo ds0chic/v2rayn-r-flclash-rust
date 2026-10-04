@@ -127,13 +127,14 @@ void main() {
     );
 
     // Section group gap: last row of 协议 -> 传输 title. Measured from the row
-    // box (a long wrapping label can be taller than its control).
-    final encryptionRow = _rect(
+    // box (a long wrapping label can be taller than its control). VLESS's last
+    // protocol row is muxEnabled (RE-PROF-07 added the upstream mux toggle).
+    final lastProtocolRow = _rect(
       tester,
-      find.byKey(const ValueKey('row-vlessEncryption')),
+      find.byKey(const ValueKey('row-muxEnabled')),
     );
     final transport = _rect(tester, find.byKey(const ValueKey('section-传输')));
-    expect(transport.top - encryptionRow.bottom, inInclusiveRange(14, 18));
+    expect(transport.top - lastProtocolRow.bottom, inInclusiveRange(14, 18));
   });
 
   testWidgets('field error grows its own row without covering the next field', (

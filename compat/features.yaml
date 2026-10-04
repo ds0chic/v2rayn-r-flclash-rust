@@ -3693,6 +3693,9 @@ features:
   - v2rayN/ServiceLib/Enums/EGlobalHotkey.cs:3
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:212
   - docs/evidence/T13.md
+  - docs/tasks/SR-05.md
+  - docs/tasks/SR-06.md
+  - docs/evidence/recheck-fixes/SR-05-06/README.md
   status: implemented
 - id: F-DESKTOP-003
   name: 开机自启
@@ -5014,3 +5017,10 @@ remediation_implementation_records:
 # Dedup / RemoveInvalidServerResult now scope to the whole current group (subid) with no text filter;
 # result cleanup is orphan-only (prunes delay==-1 rows whose profile no longer exists), so another group's
 # failure evidence and a failed/partial delete are preserved. FRB regen needed for speedtest_remove_invalid_group.
+
+# --- RE-PROF-07 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RE-PROF-07/; task: docs/tasks/RE-PROF-07.md) ---
+# Ordinary-protocol backend normalization added at crates/application/src/custom.rs::normalize_server, used by
+# both save_profile and save_imported_profile (TUIC/Trojan/Hysteria2/AnyTLS/Naive/VMess/VLESS/SS per frozen
+# ConfigHandler.Add*Server + AddServerCommon). validate_server gives explicit editor errors; the tolerant
+# import path normalizes only. UI adds Mux (VMess/VLESS/Trojan/SS), UOT (SS/Naive, removed from TUIC) and
+# Finalmask (all except TUIC/Anytls/Naive) FieldSpecs. Fields FLD-ENT-028/033/041. No FRB change.

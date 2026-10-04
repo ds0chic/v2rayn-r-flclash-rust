@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,15 +43,31 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
   bool _draftInit = false;
   int? _recording;
   String? _status;
+  bool _saved = false;
+  late final HotkeyController _hotkeyController;
 
   @override
   void initState() {
     super.initState();
+    // Pause the native registration while the editor is open (upstream
+    // `HotkeyManager.IsPause = true`): a recorded combo must reach this editor
+    // instead of firing its saved action. `dispose` restores it on cancel.
+    _hotkeyController = ref.read(hotkeyControllerProvider.notifier);
+    unawaited(_hotkeyController.beginEdit());
     Future<void>.microtask(() {
       if (!mounted) return;
       ref.read(settingsControllerProvider.notifier).load();
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void dispose() {
+    if (!_saved) {
+      // Cancel / Esc / barrier dismissal: restore the pre-edit registration.
+      unawaited(_hotkeyController.cancelEdit());
+    }
+    super.dispose();
   }
 
   void _ensureDraft() {
@@ -147,11 +165,9 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
         .read(settingsControllerProvider.notifier)
         .saveGroup('GlobalHotkeys', _hotkeys);
     // Save then re-register through the shared controller so the OS binding is
-    // reloaded and dispatched (SET-15 / RT-12); a failed persist keeps the
-    // window open with the draft intact.
-    final ok = await ref
-        .read(hotkeyControllerProvider.notifier)
-        .save(bindings, () => result.ok);
+    // reloaded and dispatched (SET-15 / RT-12). A failed persist or a native
+    // registration conflict keeps the window open with the draft intact.
+    final ok = await _hotkeyController.save(bindings, () => result.ok);
     if (!mounted) return;
     final state = ref.read(hotkeyControllerProvider);
     setState(() {
@@ -159,9 +175,10 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
           ? (result.error?.messageKey ?? '保存失败')
           : (state.conflicts.isEmpty
                 ? '已保存并重新注册 ${state.registered.length} 项'
-                : '已保存；${state.conflicts.length} 项注册冲突');
+                : '已保存；${state.conflicts.length} 项注册冲突，请修改后重试');
     });
     if (ok) {
+      _saved = true;
       Navigator.of(context).pop();
     }
   }

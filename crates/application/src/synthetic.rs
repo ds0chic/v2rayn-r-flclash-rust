@@ -147,6 +147,10 @@ pub fn synthetic_full_profile(index: u32) -> domain::Profile {
         address: summary.address,
         port: summary.port as i32,
         network: summary.network,
+        // Synthetic nodes carry a fixed reserved uuid so the per-protocol
+        // validation added by RE-PROF-07 (upstream `Add*Server` requires the
+        // id/password field) accepts them.
+        password: "11111111-2222-3333-4444-555555555555".into(),
         ..Default::default()
     };
     profile.security.stream_security = if summary.stream_security == "none" {

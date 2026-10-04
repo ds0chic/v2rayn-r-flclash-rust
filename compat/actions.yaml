@@ -53,6 +53,9 @@ hotkey_scope_rules:
   evidence:
   - v2rayN/v2rayN/Views/GlobalHotkeySettingWindow.xaml.cs:16
   - v2rayN/v2rayN/Views/GlobalHotkeySettingWindow.xaml.cs:17
+  - docs/tasks/SR-05.md
+  - docs/tasks/SR-06.md
+  - docs/evidence/recheck-fixes/SR-05-06/README.md
 - id: HKR-008
   name: Avalonia 平台的 Ctrl/Meta 等价
   description: Avalonia 视图用 e.KeyModifiers is KeyModifiers.Control or KeyModifiers.Meta，在 macOS 上 Cmd 与 Ctrl 等效。
@@ -5239,6 +5242,7 @@ items:
   implementation_location: null
   test_ids: []
   status: identified
+  notes: 'RE-PROF-10 (2026-10-04, implemented)：预览改为解析当前草稿——group_editor_dialog.dart 新增纯函数 resolveGroupPreview（移植 crates/application/src/groups.rs 的 resolve_children/resolve_sub_children，即上游 GroupProfileManager.GetChildProfileItemsByProtocolExtra：SubChildItems→备注正则+leaf/Outbound 资格+按 IndexId 排序，再接显式 ChildItems 顺序并去重，self 解析为组自身 subid）。刷新预览不再调用已落库 group_children；新建组保存前可预览；取消无副作用。旧 ProfilesController.groupChildPreview 已删除。Dart 8 用例 + FIX-03/03C/T10 回归 20 通过（docs/evidence/recheck-fixes/RE-PROF-10/）。未做原版实机双窗口对照。'
 - id: ACT-GROUP-006
   name: 策略组-保存
   domain: profiles
@@ -5457,3 +5461,8 @@ items:
 # Dedup / RemoveInvalidServerResult now scope to the whole current group (subid) with no text filter;
 # result cleanup is orphan-only (prunes delay==-1 rows whose profile no longer exists), so another group's
 # failure evidence and a failed/partial delete are preserved. FRB regen needed for speedtest_remove_invalid_group.
+
+# --- RE-PROF-07 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RE-PROF-07/; task: docs/tasks/RE-PROF-07.md) ---
+# Ordinary-protocol save/import normalization + Mux/Finalmask/UOT controls. Backend: custom.rs::normalize_server
+# (both save paths) + validate_server (editor). UI: Mux on VMess/VLESS/Trojan/SS, UOT on SS/Naive (removed from
+# TUIC), Finalmask on all except TUIC/Anytls/Naive. No FRB change; tolerant import (FIX-04) preserved.

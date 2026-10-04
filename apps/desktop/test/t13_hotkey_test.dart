@@ -13,7 +13,8 @@ class FakeHotkeyRegistrar implements HotkeyRegistrar {
   FakeHotkeyRegistrar({this.conflicting = const <GlobalHotkeyAction>{}});
 
   final Set<GlobalHotkeyAction> conflicting;
-  final List<List<HotkeyBinding>> registrations = <List<HotkeyBinding>>[];
+  final List<List<HotkeyRegistration>> registrations =
+      <List<HotkeyRegistration>>[];
 
   /// The dispatcher passed on the most recent registration, so dispatch tests
   /// can simulate an OS key press.
@@ -22,20 +23,21 @@ class FakeHotkeyRegistrar implements HotkeyRegistrar {
 
   @override
   Future<(Set<GlobalHotkeyAction>, List<String>)> register(
-    List<HotkeyBinding> bindings, {
+    List<HotkeyRegistration> registrations, {
     HotkeyTriggerHandler? onTriggered,
     HotkeyKeyCodec codec = const HotkeyKeyCodec(),
   }) async {
-    registrations.add(bindings);
+    this.registrations.add(registrations);
     lastTrigger = onTriggered;
     final accepted = <GlobalHotkeyAction>{};
     final failures = <String>[];
-    for (final b in bindings) {
-      if (!b.isBound) continue;
-      if (conflicting.contains(b.action)) {
-        failures.add('${b.action.label}: 注册失败（已被占用）');
-      } else {
-        accepted.add(b.action);
+    for (final registration in registrations) {
+      for (final action in registration.actions) {
+        if (conflicting.contains(action)) {
+          failures.add('${action.label}: 注册失败（已被占用）');
+        } else {
+          accepted.add(action);
+        }
       }
     }
     return (accepted, failures);

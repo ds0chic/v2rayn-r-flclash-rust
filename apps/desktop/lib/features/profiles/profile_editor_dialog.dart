@@ -105,7 +105,12 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
                 _section(
                   theme,
                   'TLS / Reality',
-                  securityFields(_draft.streamSecurity),
+                  securityFields(
+                    _draft.streamSecurity,
+                    finalmask: ProfileCapabilities.supportsFinalmask(
+                      _draft.configType,
+                    ),
+                  ),
                 ),
               ],
             ),

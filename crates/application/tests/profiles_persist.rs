@@ -106,12 +106,17 @@ const BASIC_11: [ConfigType; 11] = [
 #[test]
 fn save_reopen_round_trips_all_eleven_protocols() {
     let dir = tempfile::tempdir().unwrap();
+    // `save_profile` normalizes ordinary protocols like upstream `Add*Server`
+    // (RE-PROF-07), so the persisted contract is "reopen equals the saved,
+    // normalized profile", not the raw fixture.
+    let mut saved_profiles: Vec<Profile> = Vec::new();
     {
         let engine = open(dir.path());
         let mut revision = engine.snapshot().unwrap().revisions.desired;
         for (i, t) in BASIC_11.iter().enumerate() {
             let p = protocol_profile(*t, i as u32);
-            let (_, next) = engine.save_profile(p, revision).unwrap();
+            let (saved, next) = engine.save_profile(p, revision).unwrap();
+            saved_profiles.push(saved);
             revision = next;
         }
         assert_eq!(engine.profile_count(), 11);
@@ -122,8 +127,10 @@ fn save_reopen_round_trips_all_eleven_protocols() {
     for (i, t) in BASIC_11.iter().enumerate() {
         let id = format!("t06a-{i:02}");
         let loaded = engine.profile_by_id(&id).unwrap().expect("profile present");
-        let expected = protocol_profile(*t, i as u32);
-        assert_eq!(loaded, expected, "round-trip mismatch for {t:?}");
+        assert_eq!(
+            loaded, saved_profiles[i],
+            "round-trip mismatch for {t:?} (reopen must equal the normalized saved profile)"
+        );
     }
 }
 

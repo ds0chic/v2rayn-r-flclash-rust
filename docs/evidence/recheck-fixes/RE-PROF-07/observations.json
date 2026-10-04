@@ -1,0 +1,95 @@
+{
+  "task": "RE-PROF-07",
+  "status": "implemented",
+  "date": "2026-10-04",
+  "upstream": {
+    "repo": "2dust/v2rayN",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "files": [
+      "ServiceLib/Handler/ConfigHandler.cs",
+      "ServiceLib/Global.cs",
+      "v2rayN/Views/AddServerWindow.xaml.cs",
+      "v2rayN/Views/AddServerWindow.xaml"
+    ]
+  },
+  "backend_normalization": {
+    "location": "crates/application/src/custom.rs::normalize_server",
+    "called_from": [
+      "AppEngine::save_profile (editor path, then validate_server)",
+      "AppEngine::save_imported_profile (import/subscription path, normalize only)"
+    ],
+    "per_protocol": {
+      "vmess": "trim address/password/network/streamSecurity/vmessSecurity",
+      "vless": "trim; empty vlessEncryption->none; unknown flow->''; trim network/streamSecurity",
+      "shadowsocks": "trim address/password/ssMethod",
+      "socks_http": "trim address",
+      "trojan": "trim password; empty streamSecurity->tls",
+      "hysteria2": "clear fingerprint/alpn/network; empty streamSecurity->tls; trim salamander/hopInterval; gecko clamp 512/1200 when invalid",
+      "tuic": "force sing_box; trim username/password; clear network/fingerprint; congestion default cubic; empty streamSecurity->tls; empty alpn->h3",
+      "anytls": "force sing_box; trim password; clear network; empty streamSecurity->tls",
+      "naive": "force sing_box; trim username/password; clear fingerprint/alpn/network/allowInsecure; empty streamSecurity->tls",
+      "wireguard": "trim keys/reserved/dns; wgMtu<=0->1280",
+      "common_tail": "invalid StreamSecurity -> None; Network not in Global.Networks -> raw; configVersion=4"
+    },
+    "cleared_optional_canonical_form": "None (round-trip stable with the SQLite empty->None mapping); non-empty values preserved",
+    "editor_validation": {
+      "vmess": "vmessSecurity must be in Global.VmessSecurities; password required",
+      "shadowsocks": "ssMethod must match core list; password required",
+      "vless/trojan/hysteria2/tuic/anytls/naive/wireguard": "password required",
+      "errors": "E_FIELD_FORMAT/E_FIELD_REQUIRED with fieldPath, no silent correction"
+    },
+    "import_boundary": "normalize only; tolerant-import (FIX-04/PR-09) persists empty-credential nodes instead of dropping them"
+  },
+  "ui_fields": {
+    "mux": ["vmess", "vless", "trojan", "shadowsocks"],
+    "uot": ["shadowsocks", "naive"],
+    "finalmask": "all except tuic/anytls/naive"
+  },
+  "upstream_control_evidence": {
+    "mux": "AddServerWindow.xaml.cs:63/70/93/99 (togmuxEnabled/togmuxEnabled3/5/6)",
+    "uot": "AddServerWindow.xaml.cs:69/140 (togUotEnabled3 Shadowsocks, togUotEnabled12 Naive)",
+    "finalmask": "AddServerWindow.xaml.cs:190 bind; :252/272/280 collapse for TUIC/Anytls/Naive",
+    "tuic_defaults": "ConfigHandler.cs:847-881",
+    "common_tail": "ConfigHandler.cs:1201-1248"
+  },
+  "tests": {
+    "rust": {
+      "re_prof_07_normalize": {"passed": 10, "failed": 0},
+      "profiles_persist": {"passed": 5, "failed": 0, "note": "round-trip assertion updated to compare reopen vs normalized saved profile"},
+      "t10_core_matrix": {"passed": 2, "failed": 0},
+      "t11_codegen_matrix": {"passed": 11, "failed": 0},
+      "t18b_runtime_plan": {"passed": 1, "failed": 0},
+      "fix04_inner_import": {"passed": 2, "failed": 0},
+      "fix10_speedtest_result": {"passed": 4, "failed": 0},
+      "application_lib_custom": {"passed": 8, "failed": 0},
+      "bridge_api_lib_save_imported_profile": {"passed": 1, "failed": 0}
+    },
+    "dart": {
+      "re_prof_07_fields_test": {"passed": 7, "failed": 0},
+      "fix02_tuic_editor_test": "passed",
+      "ux_space03_vless_editor_test": "passed (last-protocol-row metric updated to row-muxEnabled)",
+      "t06a_editor_form_test": "passed",
+      "t06a_editor_save_test": "passed",
+      "t06a_editor_error_test": "passed",
+      "t06a_editor_cancel_test": "passed alone (multi-file load flake retry)"
+    }
+  },
+  "out_of_allowlist_minimal_change": {
+    "file": "crates/application/tests/profiles_persist.rs",
+    "reason": "save_reopen_round_trips_all_eleven_protocols asserted save_profile is lossless, which this task's upstream normalization intentionally changes for TUIC/Hysteria2/AnyTLS/Naive",
+    "change": "compare reopened row against the normalized saved profile (persistence fidelity) instead of the raw fixture"
+  },
+  "safety": {
+    "kernel_started": false,
+    "listener_opened": false,
+    "host_proxy_registry_tun_touched": false,
+    "port_10808_touched": false,
+    "user_secrets_read": false,
+    "synthetic_data_only": true
+  },
+  "limitations": [
+    "No real Windows window / original v2rayN double-window comparison.",
+    "No real kernel/codegen application of the normalized profile (shape only).",
+    "Config-dependent reality fingerprint default (CoreBasicItem.DefFingerprint) is not applied, since the Rust save path carries no Config."
+  ]
+}

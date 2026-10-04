@@ -1034,7 +1034,7 @@ mod tests {
             remarks: "bridge".into(),
             address: "192.0.2.55".into(),
             port: 443,
-            password: String::new(),
+            password: "11111111-2222-3333-4444-555555555555".into(),
             username: String::new(),
             network: "raw".into(),
             mux_enabled: None,

@@ -1,14 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/features/profiles/profile_dedup.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
+
+/// True for subscription-derived children, mirroring upstream
+/// `!ConfigType.IsComplexType() || Outbound` and the Rust generation path
+/// (`application::groups::is_eligible_child`): leaves stay, Outbound stays, and
+/// PolicyGroup/ProxyChain/Custom are dropped.
+bool _isEligibleSubChild(ConfigType type) =>
+    !isComplexProfile(type) || type == ConfigType.outbound;
+
+/// `SubChildItems` targets, resolving the `self` sentinel against the owning
+/// subscription ([ownerSubId]) and dropping empty entries (upstream
+/// `Utils.String2List`, Rust `sub_child_ids`).
+List<String> _subChildTargets(String? raw, String ownerSubId) {
+  if (raw == null) return const <String>[];
+  return <String>[
+    for (final part in raw.split(','))
+      if (part.trim().toLowerCase() == 'self') ownerSubId else part.trim(),
+  ].where((id) => id.isNotEmpty).toList();
+}
+
+/// Match `remarks` against the draft filter, mirroring upstream
+/// `Utils.IsRegexMatch`: an empty filter matches everything, an empty remarks
+/// never matches, and an uncompilable pattern also matches everything (the
+/// .NET helper catches `ArgumentException` and returns true).
+bool _remarksMatch(String? filter, String remarks) {
+  if (filter == null || filter.trim().isEmpty) return true;
+  if (remarks.isEmpty) return false;
+  try {
+    return RegExp(filter).hasMatch(remarks);
+  } on FormatException {
+    return true;
+  }
+}
+
+/// Resolve the current group/chain draft for the editor preview.
+///
+/// Faithful Dart port of the persisted generation path
+/// (`application::groups::resolve_children` / `resolve_sub_children`, itself
+/// the port of upstream `GroupProfileManager.GetChildProfileItemsByProtocolExtra`):
+/// subscription matches first (eligible leaf/Outbound nodes of [subChildItems]
+/// whose remarks pass [filter], ordered by `IndexId`), then the explicit
+/// [childIds] in list order, de-duplicated. Pure: it never reads or writes the
+/// store, so refreshing the preview has no side effect on the saved node.
+List<c.ProfileDto> resolveGroupPreview({
+  required List<c.ProfileDto> all,
+  required List<String> childIds,
+  String? subChildItems,
+  String? filter,
+  String ownerSubId = '',
+}) {
+  final result = <c.ProfileDto>[];
+  final seen = <String>{};
+  final subIds = _subChildTargets(subChildItems, ownerSubId);
+  if (subIds.isNotEmpty) {
+    final matched = <c.ProfileDto>[
+      for (final p in all)
+        if (subIds.contains(p.subid) &&
+            _isEligibleSubChild(p.configType) &&
+            _remarksMatch(filter, p.remarks))
+          p,
+    ]..sort((a, b) => a.indexId.compareTo(b.indexId));
+    for (final p in matched) {
+      if (seen.add(p.indexId)) result.add(p);
+    }
+  }
+  final byId = <String, c.ProfileDto>{for (final p in all) p.indexId: p};
+  for (final id in childIds) {
+    if (id.isEmpty || id.toLowerCase() == 'self') continue;
+    final profile = byId[id];
+    if (profile != null && seen.add(profile.indexId)) result.add(profile);
+  }
+  return result;
+}
 
 /// Modal editor for PolicyGroup (101) / ProxyChain (102) nodes.
 ///
 /// Mirrors `AddGroupServerViewModel`: remarks, core, five `MultipleLoad`
 /// modes, ordered child list (multi-select add, remove, T/U/D/B), subscription
-/// child source (`SubChildItems`) plus remarks `Filter`, and a persisted
-/// resolution preview (`group_children`). Cancel never persists; save
+/// child source (`SubChildItems`) plus remarks `Filter`, and a preview resolved
+/// from the **current draft** (RE-PROF-10). Cancel never persists; save
 /// delegates to [onSave] and keeps the form open on server rejection.
 class GroupEditorDialog extends StatefulWidget {
   const GroupEditorDialog({
@@ -25,9 +98,11 @@ class GroupEditorDialog extends StatefulWidget {
   final List<c.SubItemDto> subItems;
   final c.SaveProfileResult Function(c.ProfileDto draft) onSave;
 
-  /// Persisted child resolution for [indexId] (subscription matches first,
-  /// then explicit order). Injected so widget tests can stub it; production
-  /// passes `ProfilesController.groupChildPreview`.
+  /// Optional external preview override (test seam). Production leaves this
+  /// null, so the editor resolves the current draft itself through
+  /// [resolveGroupPreview] against [allProfiles]; the preview then reflects
+  /// unsaved `ChildItems`/mode/`SubChildItems`/`Filter` edits instead of the
+  /// persisted node.
   final List<c.ProfileDto> Function(String indexId)? previewChildren;
 
   @override
@@ -40,7 +115,6 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   late List<String> _childIds;
   String? _selectedSubId;
   List<c.ProfileDto> _preview = const <c.ProfileDto>[];
-  bool _previewLoaded = false;
   c.ErrorDto? _serverError;
   bool _submitting = false;
 
@@ -82,17 +156,24 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
     _refreshPreview();
   }
 
-  /// Reload the persisted child resolution. It reflects the stored node, not
-  /// the in-progress draft: recompute after saving to confirm the new order.
+  /// Resolve the preview from the in-progress draft (upstream
+  /// `UpdatePreviewList` -> `GetUpdatedProtocolExtra`): the current
+  /// `ChildItems`, `SubChildItems`, `Filter` and owner `Subid` are read from the
+  /// editor, not the persisted node. Never persists, so cancel leaves the store
+  /// untouched. A non-null [GroupEditorDialog.previewChildren] overrides it.
   void _refreshPreview() {
-    final preview = widget.previewChildren;
-    if (preview == null || _draft.indexId.isEmpty) {
-      _preview = const <c.ProfileDto>[];
-      _previewLoaded = preview != null;
+    final override = widget.previewChildren;
+    if (override != null) {
+      _preview = override(_draft.indexId);
       return;
     }
-    _preview = preview(_draft.indexId);
-    _previewLoaded = true;
+    _preview = resolveGroupPreview(
+      all: widget.allProfiles,
+      childIds: _childIds,
+      subChildItems: _selectedSubId,
+      filter: _draft.filter,
+      ownerSubId: _draft.subid,
+    );
   }
 
   List<c.ProfileDto> get _candidates {
@@ -253,7 +334,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                   ),
                   onChanged: (v) => _draft.filter = v,
                 ),
-                if (widget.previewChildren != null) _previewSection(),
+                _previewSection(),
               ],
             ),
           ),
@@ -363,9 +444,10 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
     });
   }
 
-  /// Persisted child resolution (upstream pre-outbound list tab): subscription
-  /// matches first, then the explicit order. It reflects the stored node, so
-  /// save first and then refresh to confirm a reordered draft.
+  /// Draft child resolution (upstream pre-outbound preview tab): subscription
+  /// matches first, then the explicit order. [GroupEditorDialog.previewChildren]
+  /// may override it in tests; otherwise [resolveGroupPreview] reads the current
+  /// editor state, so an unsaved reorder/filter is reflected on refresh.
   Widget _previewSection() {
     String labelOf(String id) {
       for (final p in widget.allProfiles) {
@@ -386,25 +468,19 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
             children: <Widget>[
               const Expanded(
                 child: Text(
-                  '组合预览 (已落库解析，订阅匹配优先)',
+                  '组合预览 (按当前草稿解析，订阅匹配优先)',
                   style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
               OutlinedButton(
                 key: const ValueKey('group-preview-refresh'),
                 onPressed: () => setState(_refreshPreview),
-                child: const Text('刷新', style: TextStyle(fontSize: 12)),
+                child: const Text('刷新预览', style: TextStyle(fontSize: 12)),
               ),
             ],
           ),
         ),
-        if (!_previewLoaded)
-          const Text(
-            '新建节点保存后可预览',
-            key: ValueKey('group-preview-empty'),
-            style: TextStyle(fontSize: 12),
-          )
-        else if (_preview.isEmpty)
+        if (_preview.isEmpty)
           const Text(
             '暂无解析子节点',
             key: ValueKey('group-preview-empty'),

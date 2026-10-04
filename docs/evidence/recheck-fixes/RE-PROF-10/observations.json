@@ -1,0 +1,48 @@
+{
+  "task": "RE-PROF-10",
+  "status": "implemented",
+  "head": "256c3dd",
+  "frozen_upstream": "v2rayN 7.25.4 7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "date": "2026-10-04",
+  "summary": "Group/chain editor preview resolves the current draft (ChildItems/SubChildItems/Filter/owner Subid) instead of the persisted node.",
+  "draft_resolution_semantics": {
+    "sub_children_first": true,
+    "eligibility": "leaf or Outbound (!isComplex || Outbound)",
+    "remarks_filter": "regex; empty=all; empty remarks=false; invalid=true (upstream IsRegexMatch)",
+    "sub_order": "IndexId ascending",
+    "explicit_children_order": "draft ChildItems list order",
+    "dedupe": "sub matches then explicit, first occurrence wins",
+    "self_sentinel": "resolved to owning group subid",
+    "persistence_side_effects": "none"
+  },
+  "tests": {
+    "reprof10_group_preview_test.dart": {
+      "passed": 8,
+      "cases": [
+        {"name": "resolveGroupPreview subscription matches first: eligible nodes + remarks filter", "result": "pass"},
+        {"name": "resolveGroupPreview explicit children keep list order and de-dupe against sub matches", "result": "pass"},
+        {"name": "resolveGroupPreview self sentinel uses owner subid and invalid filter matches all", "result": "pass"},
+        {"name": "edit draft to B + filter then refresh shows B, not stored A", "result": "pass"},
+        {"name": "cancel after a changed preview persists nothing", "result": "pass"},
+        {"name": "a new group previews a child before it is saved", "result": "pass"},
+        {"name": "subscription children are filtered by the draft remarks regex", "result": "pass"},
+        {"name": "chain draft reorder is reflected by the refresh preview", "result": "pass"}
+      ]
+    },
+    "regression": {
+      "fix03_special_editors_test.dart": "7 passed",
+      "fix03c_proxy_chain_editor_test.dart": "7 passed",
+      "t10_group_editor_test.dart": "6 passed",
+      "t10_groups_panel_test.dart": "first run did not complete (flutter_tester flake); standalone retry 2 passed",
+      "recheck01_group_inheritance_test.dart": "4 passed",
+      "ux_space01_group_flow_test.dart": "1 passed",
+      "ux_parity_fix01_gen_group_ui_test.dart": "pass",
+      "ux_parity_fix01_gen_group_guard_test.dart": "pass"
+    }
+  },
+  "not_run": [
+    "real Windows window / original v2rayN dual-window event-by-event parity",
+    "full workspace cargo test",
+    "flutter build windows"
+  ]
+}

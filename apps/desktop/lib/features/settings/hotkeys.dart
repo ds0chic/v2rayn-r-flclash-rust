@@ -124,6 +124,76 @@ class HotkeyState {
 /// Called when the OS reports a registered hotkey was pressed.
 typedef HotkeyTriggerHandler = void Function(GlobalHotkeyAction action);
 
+/// A unique OS hotkey combination: modifiers plus a persisted WPF `Key`.
+///
+/// This is the upstream dictionary key (`key = (vKey << 16) | modifiers` in
+/// `HotkeyManager.Init`), used so a combination shared by several actions is
+/// registered exactly once.
+class HotkeyCombo {
+  const HotkeyCombo({
+    required this.keyCode,
+    this.alt = false,
+    this.control = false,
+    this.shift = false,
+  });
+
+  final int keyCode;
+  final bool alt;
+  final bool control;
+  final bool shift;
+
+  /// Stable registration identifier; independent of any action.
+  String get id =>
+      'v2rayn-$keyCode-${(control ? 1 : 0)}${(alt ? 2 : 0)}${(shift ? 4 : 0)}';
+
+  @override
+  bool operator ==(Object other) =>
+      other is HotkeyCombo &&
+      other.keyCode == keyCode &&
+      other.alt == alt &&
+      other.control == control &&
+      other.shift == shift;
+
+  @override
+  int get hashCode => Object.hash(keyCode, alt, control, shift);
+}
+
+/// One OS registration: a combo and the ordered actions it dispatches
+/// (upstream `Dictionary<int, List<EGlobalHotkey>>` value).
+class HotkeyRegistration {
+  const HotkeyRegistration({required this.combo, required this.actions});
+
+  final HotkeyCombo combo;
+  final List<GlobalHotkeyAction> actions;
+}
+
+/// Group bound bindings by combo, preserving first-seen order and deduplicating
+/// a repeated action within one combo (upstream `HotkeyManager.Init`).
+List<HotkeyRegistration> groupHotkeyBindings(List<HotkeyBinding> bindings) {
+  final order = <HotkeyCombo>[];
+  final actionsByCombo = <HotkeyCombo, List<GlobalHotkeyAction>>{};
+  for (final binding in bindings) {
+    if (!binding.isBound) continue;
+    final combo = HotkeyCombo(
+      keyCode: binding.keyCode!,
+      alt: binding.alt,
+      control: binding.control,
+      shift: binding.shift,
+    );
+    final actions = actionsByCombo.putIfAbsent(combo, () {
+      order.add(combo);
+      return <GlobalHotkeyAction>[];
+    });
+    if (!actions.contains(binding.action)) {
+      actions.add(binding.action);
+    }
+  }
+  return <HotkeyRegistration>[
+    for (final combo in order)
+      HotkeyRegistration(combo: combo, actions: actionsByCombo[combo]!),
+  ];
+}
+
 /// Mutable holder for the live dispatcher. The shell installs the real handler
 /// (window toggle / system-proxy action) at bootstrap; widget tests may leave it
 /// null, in which case a trigger is dropped rather than faked.
@@ -137,13 +207,13 @@ final hotkeyDispatchProvider = Provider<HotkeyDispatch>(
 
 /// The testable seam over the OS hotkey registration.
 abstract class HotkeyRegistrar {
-  /// Register the given bindings; returns the actions the OS accepted plus any
-  /// conflict/failure notes. Must never fake success.
+  /// Register the given combinations; returns the actions the OS accepted plus
+  /// any conflict/failure notes. Must never fake success.
   ///
-  /// [onTriggered] is invoked when the OS reports a bound hotkey, keyed by the
-  /// action — this is the missing dispatch link from SET-15/RT-12.
+  /// [onTriggered] is invoked for every action bound to a fired combination
+  /// — this is the missing dispatch link from SET-15/RT-12.
   Future<(Set<GlobalHotkeyAction>, List<String>)> register(
-    List<HotkeyBinding> bindings, {
+    List<HotkeyRegistration> registrations, {
     HotkeyTriggerHandler? onTriggered,
     HotkeyKeyCodec codec = const HotkeyKeyCodec(),
   });
@@ -152,12 +222,16 @@ abstract class HotkeyRegistrar {
 }
 
 /// Real registrar backed by `hotkey_manager`.
+///
+/// Combinations are pre-grouped by [HotkeyCombo], so a combination shared by
+/// several actions is registered exactly once and its handler dispatches every
+/// bound action (upstream `HotkeyManager` dictionary of action lists).
 class PluginHotkeyRegistrar implements HotkeyRegistrar {
   const PluginHotkeyRegistrar();
 
   @override
   Future<(Set<GlobalHotkeyAction>, List<String>)> register(
-    List<HotkeyBinding> bindings, {
+    List<HotkeyRegistration> registrations, {
     HotkeyTriggerHandler? onTriggered,
     HotkeyKeyCodec codec = const HotkeyKeyCodec(),
   }) async {
@@ -170,23 +244,26 @@ class PluginHotkeyRegistrar implements HotkeyRegistrar {
     } on Object catch (e) {
       failures.add('热键重载失败: $e');
     }
-    for (final binding in bindings) {
-      if (!binding.isBound) continue;
+    for (final registration in registrations) {
+      final actions = registration.actions;
+      if (actions.isEmpty) continue;
       // Persisted value is the WPF Key enum; resolve via WPF -> VK -> Flutter.
-      final key = codec.physicalFromWpf(binding.keyCode);
+      final key = codec.physicalFromWpf(registration.combo.keyCode);
       if (key == null) {
-        failures.add('${binding.action.label}: 不支持的按键 #${binding.keyCode}');
+        failures.add(
+          '${_labelsFor(actions)}: 不支持的按键 #${registration.combo.keyCode}',
+        );
         continue;
       }
       final modifiers = <HotKeyModifier>[];
-      if (binding.control) modifiers.add(HotKeyModifier.control);
-      if (binding.alt) modifiers.add(HotKeyModifier.alt);
-      if (binding.shift) modifiers.add(HotKeyModifier.shift);
-      final identifier = hotkeyIdentifier(binding.action);
+      if (registration.combo.control) modifiers.add(HotKeyModifier.control);
+      if (registration.combo.alt) modifiers.add(HotKeyModifier.alt);
+      if (registration.combo.shift) modifiers.add(HotKeyModifier.shift);
+      final dispatch = List<GlobalHotkeyAction>.unmodifiable(actions);
       try {
         await manager.register(
           HotKey(
-            identifier: identifier,
+            identifier: registration.combo.id,
             key: key,
             modifiers: modifiers.isEmpty ? null : modifiers,
             scope: HotKeyScope.system,
@@ -194,35 +271,24 @@ class PluginHotkeyRegistrar implements HotkeyRegistrar {
           keyDownHandler: onTriggered == null
               ? null
               : (hotKey) {
-                  final action = hotkeyActionFromIdentifier(hotKey.identifier);
-                  if (action != null) onTriggered(action);
+                  for (final action in dispatch) {
+                    onTriggered(action);
+                  }
                 },
         );
-        accepted.add(binding.action);
+        accepted.addAll(dispatch);
       } on Object catch (e) {
-        failures.add('${binding.action.label}: 注册失败 ${e.toString()}');
+        failures.add('${_labelsFor(actions)}: 注册失败 ${e.toString()}');
       }
     }
     return (accepted, failures);
   }
 
+  String _labelsFor(List<GlobalHotkeyAction> actions) =>
+      actions.map((a) => a.label).join('/');
+
   @override
   Future<void> unregisterAll() => HotKeyManager.instance.unregisterAll();
-}
-
-/// Stable registration identifier, encoding the action value.
-String hotkeyIdentifier(GlobalHotkeyAction action) => 'v2rayn-${action.value}';
-
-/// Parse a registration identifier back to its action (null when unknown).
-GlobalHotkeyAction? hotkeyActionFromIdentifier(String identifier) {
-  final index = identifier.lastIndexOf('-');
-  if (index < 0) return null;
-  final value = int.tryParse(identifier.substring(index + 1));
-  if (value == null) return null;
-  for (final a in GlobalHotkeyAction.values) {
-    if (a.value == value) return a;
-  }
-  return null;
 }
 
 final hotkeyRegistrarProvider = Provider<HotkeyRegistrar>(
@@ -235,6 +301,11 @@ final hotkeyControllerProvider =
 class HotkeyController extends Notifier<HotkeyState> {
   @override
   HotkeyState build() => const HotkeyState();
+
+  /// True while the editor holds native dispatch paused (`HotkeyManager.IsPause`).
+  bool _paused = false;
+
+  bool get isPaused => _paused;
 
   HotkeyRegistrar get _registrar => ref.read(hotkeyRegistrarProvider);
 
@@ -252,16 +323,40 @@ class HotkeyController extends Notifier<HotkeyState> {
     return state;
   }
 
-  /// (Re)register all bound hotkeys. Reports conflicts instead of pretending
-  /// success. Uses the shell-installed dispatcher so a real key press reaches
-  /// the same window/proxy entry points as the menus (RT-12).
+  /// Pause native dispatch while the hotkey editor is open (upstream
+  /// `HotkeyManager.IsPause`). The live registration is dropped so a combo
+  /// pressed during recording reaches the Flutter editor instead of firing its
+  /// saved action; [cancelEdit] restores the dropped registration.
+  Future<void> beginEdit() async {
+    if (_paused) return;
+    _paused = true;
+    try {
+      await _registrar.unregisterAll();
+    } on Object catch (_) {
+      // Best effort: a missing native plugin must not block the editor.
+    }
+  }
+
+  /// Leave the editor without saving: re-register the bindings captured before
+  /// [beginEdit] (upstream `Closing -> IsPause = false`).
+  Future<void> cancelEdit() async {
+    if (!_paused) return;
+    _paused = false;
+    await registerAll();
+  }
+
+  /// (Re)register all bound hotkeys. Same `modifiers + Key` combos are grouped
+  /// into one OS registration whose handler dispatches every action (upstream
+  /// `Dictionary<int, List<EGlobalHotkey>>`). Reports conflicts instead of
+  /// pretending success. Uses the shell-installed dispatcher so a real key press
+  /// reaches the same window/proxy entry points as the menus (RT-12).
   Future<HotkeyState> registerAll() async {
     final handler = ref.read(hotkeyDispatchProvider).handler;
     Set<GlobalHotkeyAction> accepted;
     List<String> failures;
     try {
       (accepted, failures) = await _registrar.register(
-        state.bindings,
+        groupHotkeyBindings(state.bindings),
         onTriggered: handler,
       );
     } on Object catch (e) {
@@ -289,8 +384,9 @@ class HotkeyController extends Notifier<HotkeyState> {
 
   /// Save edited bindings back to the settings document and re-register.
   ///
-  /// `resultOk` tells the caller whether the settings save succeeded; the hotkey
-  /// window keeps the draft open on failure.
+  /// Returns `true` only when the settings save *and* every native registration
+  /// succeeded, so the window stays open on a conflict instead of closing over a
+  /// silently-dead binding.
   Future<bool> save(
     List<HotkeyBinding> bindings,
     bool Function() persist,
@@ -301,7 +397,8 @@ class HotkeyController extends Notifier<HotkeyState> {
       return false;
     }
     state = state.copyWith(bindings: bindings);
+    _paused = false;
     await registerAll();
-    return true;
+    return state.conflicts.isEmpty;
   }
 }

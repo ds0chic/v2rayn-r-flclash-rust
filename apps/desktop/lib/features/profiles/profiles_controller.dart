@@ -546,20 +546,6 @@ class ProfilesController extends Notifier<ProfilesState> {
     }
   }
 
-  /// Persisted resolution of a group/chain node (subscription matches first,
-  /// then the explicit `ChildItems` order), for the group editor preview.
-  ///
-  /// Best effort like the Rust echo path: a backend failure yields an empty
-  /// preview instead of breaking the editor.
-  List<c.ProfileDto> groupChildPreview(String indexId) {
-    if (indexId.isEmpty) return const [];
-    try {
-      return _bridge.groupChildren(indexId).items;
-    } catch (_) {
-      return const [];
-    }
-  }
-
   /// Move the given profiles to a subscription group (ACT-PROF-013).
   ///
   /// The real persistence path is the existing `saveProfile` seam: load each

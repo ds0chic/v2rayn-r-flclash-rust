@@ -364,7 +364,22 @@ List<ProfileSummary> applySort(
   final indexed = <(int, ProfileSummary)>[
     for (var i = 0; i < rows.length; i++) (i, rows[i]),
   ];
+  // Frozen `ConfigHandler.SortServers` (`:1087-1105`) reassigns Delay/Speed
+  // rows with no usable value (`<= 0`, failed or untested) to the maximum sort
+  // key, so they sink in *both* directions; only the positive values toggle.
+  final sinkNegatives = column.key == 'DelayVal' || column.key == 'SpeedVal';
   indexed.sort((a, b) {
+    if (sinkNegatives) {
+      final av = valueForColumn(column, a.$2);
+      final bv = valueForColumn(column, b.$2);
+      final aSink = av is! num || av <= 0;
+      final bSink = bv is! num || bv <= 0;
+      if (aSink != bSink) return aSink ? 1 : -1;
+      if (aSink) return a.$1.compareTo(b.$1);
+      final cmp = _compare(av, bv);
+      if (cmp == 0) return a.$1.compareTo(b.$1);
+      return sort.direction == SortDirection.ascending ? cmp : -cmp;
+    }
     final cmp = _compare(
       valueForColumn(column, a.$2),
       valueForColumn(column, b.$2),

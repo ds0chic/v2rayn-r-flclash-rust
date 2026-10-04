@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -32,7 +33,22 @@ final clientConfigSavePickerProvider = Provider<ClientConfigSavePicker>((ref) {
   };
 });
 
-/// Export the single selected (or active) node's complete client configuration.
+/// Resolve the single-object command target.
+///
+/// Precedence: the explicit target captured by a context menu
+/// (`CommandContext.primaryId`) wins, otherwise the controller's independent
+/// main row (`state.primaryId`), otherwise a single selected row. A
+/// multi-selection therefore acts on its main row instead of being rejected
+/// (R3-PROF-01). Returns null when there is no unambiguous target.
+String? resolveSingleTarget(ProfilesState state, String? explicit) {
+  if (explicit != null && explicit.isNotEmpty) return explicit;
+  final primary = state.primaryId;
+  if (primary != null && primary.isNotEmpty) return primary;
+  if (state.selected.length == 1) return state.selected.first;
+  return null;
+}
+
+/// Export a single node's complete client configuration.
 ///
 /// Upstream `Export2ClientConfigAsync(blClipboard)` /
 /// `Export2ClientConfigResult`: the node's generated kernel config is copied to
@@ -42,16 +58,15 @@ Future<void> exportSelectedClientConfig(
   BuildContext context,
   WidgetRef ref, {
   required bool toClipboard,
+  String? targetId,
 }) async {
   final state = ref.read(profilesControllerProvider);
-  final String? id;
-  if (state.selected.length == 1) {
-    id = state.selected.first;
-  } else if (state.selected.isEmpty) {
-    id = state.activeId;
-  } else {
-    id = null;
-  }
+  // Use the immutable captured target/primary row; only fall back to the
+  // active node when nothing is selected at all (upstream
+  // `Export2ClientConfigAsync`). Never re-reads the live selection while the
+  // menu is open (R3-PROF-02).
+  var id = resolveSingleTarget(state, targetId);
+  if (id == null && state.selected.isEmpty) id = state.activeId;
   if (id == null) {
     _toast(ref, state.selected.length > 1 ? '请选择单个节点后导出' : '请先选择节点');
     return;
@@ -127,14 +142,18 @@ SpecialEditorKind resolveEditorKind(ConfigType configType) {
 /// The editor is chosen by [resolveEditorKind]: special nodes reopen in their
 /// dedicated editor, ordinary nodes in the generic one. Cancel never persists
 /// (each dialog edits a local [ProfileDraft] copy).
-Future<void> editSelectedProfile(BuildContext context, WidgetRef ref) async {
+Future<void> editSelectedProfile(
+  BuildContext context,
+  WidgetRef ref, {
+  String? targetId,
+}) async {
   final controller = ref.read(profilesControllerProvider.notifier);
   final state = ref.read(profilesControllerProvider);
-  if (state.selected.length != 1) {
+  final id = resolveSingleTarget(state, targetId);
+  if (id == null) {
     _toast(ref, state.selected.isEmpty ? '请先选择节点' : '请选择单个节点后编辑');
     return;
   }
-  final id = state.selected.first;
   final dto = controller.profileById(id);
   if (dto == null) {
     _toast(ref, '未找到节点 $id');
@@ -298,15 +317,71 @@ Future<void> exportSelectedShareUrls(WidgetRef ref) async {
   _toast(ref, '已导出 ${result.count} 个节点到剪贴板');
 }
 
-/// Rename the single selected node.
-Future<void> renameSelectedProfile(BuildContext context, WidgetRef ref) async {
-  final controller = ref.read(profilesControllerProvider.notifier);
+/// F-IMPORT-010: show one node's share URI as a QR code.
+///
+/// Upstream `ShareServerAsync` uses the current `SelectedProfile`, so a
+/// multi-selection still shares its main row (via [resolveSingleTarget]) instead
+/// of being rejected (R3-PROF-01). The QR dialog and key match the existing
+/// subscription share window so keyboard and menu paths are identical.
+Future<void> shareProfileQr(
+  BuildContext context,
+  WidgetRef ref, {
+  String? targetId,
+}) async {
   final state = ref.read(profilesControllerProvider);
-  if (state.selected.length != 1) {
-    _toast(ref, '请选择单个节点后修改备注');
+  final id = resolveSingleTarget(state, targetId);
+  if (id == null) {
+    _toast(ref, state.selected.isEmpty ? '请先选择节点' : '请选择单个节点后分享');
     return;
   }
-  final id = state.selected.first;
+  final bridge = ref.read(bridgePortProvider);
+  final result = await bridge.exportProfiles(<String>[id], 'share');
+  if (!result.ok) {
+    _toast(ref, '无法生成分享链接');
+    return;
+  }
+  if (!context.mounted) return;
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      key: const ValueKey('profile-share-qr'),
+      title: const Text('分享节点', style: TextStyle(fontSize: 15)),
+      content: SizedBox(
+        width: 256,
+        height: 256,
+        child: ColoredBox(
+          color: Colors.white,
+          child: QrImageView(
+            data: result.text,
+            version: QrVersions.auto,
+            size: 240,
+            backgroundColor: Colors.white,
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('关闭'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Rename the single selected node.
+Future<void> renameSelectedProfile(
+  BuildContext context,
+  WidgetRef ref, {
+  String? targetId,
+}) async {
+  final controller = ref.read(profilesControllerProvider.notifier);
+  final state = ref.read(profilesControllerProvider);
+  final id = resolveSingleTarget(state, targetId);
+  if (id == null) {
+    _toast(ref, state.selected.isEmpty ? '请先选择节点' : '请选择单个节点后修改备注');
+    return;
+  }
   final current = controller.profileById(id);
   final textController = TextEditingController(text: current?.remarks ?? '');
   final remarks = await showDialog<String>(
@@ -404,13 +479,13 @@ Future<bool> activateProfileById(WidgetRef ref, String id) async =>
 /// already active returns without clearing it, and a successful switch ends in
 /// `MainWindowViewModel.Reload()` which loads the core with the new default
 /// server. There is no "deactivate" path through this command.
-Future<void> setActiveSelected(WidgetRef ref) async {
+Future<void> setActiveSelected(WidgetRef ref, {String? targetId}) async {
   final state = ref.read(profilesControllerProvider);
-  if (state.selected.length != 1) {
-    _toast(ref, '请选择单个节点后设为活动');
+  final id = resolveSingleTarget(state, targetId);
+  if (id == null) {
+    _toast(ref, state.selected.isEmpty ? '请先选择节点' : '请选择单个节点后设为活动');
     return;
   }
-  final id = state.selected.first;
   if (state.activeId == id) {
     _toast(ref, '该节点已是活动节点');
     return;
@@ -456,14 +531,18 @@ Future<void> startAddGroupProfile(
 }
 
 /// Edit the single selected group/chain node.
-Future<void> editSelectedGroup(BuildContext context, WidgetRef ref) async {
+Future<void> editSelectedGroup(
+  BuildContext context,
+  WidgetRef ref, {
+  String? targetId,
+}) async {
   final controller = ref.read(profilesControllerProvider.notifier);
   final state = ref.read(profilesControllerProvider);
-  if (state.selected.length != 1) {
+  final id = resolveSingleTarget(state, targetId);
+  if (id == null) {
     _toast(ref, state.selected.isEmpty ? '请先选择节点' : '请选择单个节点后编辑');
     return;
   }
-  final id = state.selected.first;
   final dto = controller.profileById(id);
   if (dto == null) {
     _toast(ref, '未找到节点 $id');
@@ -507,14 +586,19 @@ Future<void> startAddCustomProfile(
 }
 
 /// Edit the single selected Custom / Outbound node.
-Future<void> editSelectedCustom(BuildContext context, WidgetRef ref) async {
+Future<void> editSelectedCustom(
+  BuildContext context,
+  WidgetRef ref, {
+  String? targetId,
+}) async {
   final controller = ref.read(profilesControllerProvider.notifier);
   final state = ref.read(profilesControllerProvider);
-  if (state.selected.length != 1) {
+  final id = resolveSingleTarget(state, targetId);
+  if (id == null) {
     _toast(ref, state.selected.isEmpty ? '请先选择节点' : '请选择单个节点后编辑');
     return;
   }
-  final dto = controller.profileById(state.selected.first);
+  final dto = controller.profileById(id);
   if (dto == null) {
     _toast(ref, '未找到节点');
     return;

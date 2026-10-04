@@ -1,0 +1,34 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.49s
+     Running tests\fix13_tun_presocks_plan.rs (target\debug\deps\fix13_tun_presocks_plan-741159fcf327f8b3.exe)
+
+running 6 tests
+test custom_presocks_port_is_recorded_for_the_sidecar ... ok
+test tun_enabled_without_interface_hint_is_a_structured_error ... ok
+test no_presocks_sidecar_when_legacy_protect_is_off ... ok
+test tun_disabled_plan_has_no_tun_node_or_privilege ... ok
+test tun_enabled_with_hint_attaches_a_round_tripping_tun_node ... ok
+test legacy_protect_writes_presocks_graph_and_start_order ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests\r3_02_presocks_sidecar.rs (target\debug\deps\r3_02_presocks_sidecar-491831046d08bcec.exe)
+
+running 2 tests
+test legacy_protect_sidecar_reflects_tun_and_real_local_port ... ok
+test custom_sidecar_inbound_is_local_port_and_outbound_dials_main_core ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests\r3_03_native_custom.rs (target\debug\deps\r3_03_native_custom-4dec7bf9697d60ec.exe)
+
+running 4 tests
+test xray_custom_without_proxy_inbound_is_still_rejected ... ok
+test mieru_custom_is_preserved_verbatim ... ok
+test naive_custom_is_preserved_verbatim ... ok
+test mihomo_yaml_custom_is_preserved_verbatim ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+

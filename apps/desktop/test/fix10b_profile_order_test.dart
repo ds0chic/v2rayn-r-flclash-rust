@@ -111,29 +111,30 @@ void main() {
     expect(_visibleIds(container).last, before[2]);
   });
 
-  test('empty and single-row lists never write an order', () {
+  test('whole-group sort writes the group order even when filtered', () {
     final bridge = SyntheticBridgePort();
     final container = _container(bridge);
     final controller = container.read(profilesControllerProvider.notifier);
 
-    // Single row: filter down to exactly one visible id (matches by remarks).
-    final firstRow = container.read(profilesControllerProvider).visible.first;
-    final one = firstRow.id;
+    final all = container.read(profilesControllerProvider).visible;
+    final firstRow = all.first;
+    // Filter down to exactly one visible id (matches by remarks).
     controller.setFilter(firstRow.remarks);
     controller.submitFilter();
     expect(container.read(profilesControllerProvider).visible.length, 1);
     bridge.appliedProfileOrders.clear();
     controller.sortBy('Remarks');
-    controller.sortByResult();
-    controller.selectRow(one);
-    controller.emitAction(ProfileAction.moveTop);
+    // R3-PROF-03: the sort persists the whole group (hidden rows included),
+    // not just the filtered visible set.
+    expect(bridge.appliedProfileOrders, isNotEmpty);
     expect(
-      bridge.appliedProfileOrders,
-      isEmpty,
-      reason: 'single-row list has no order to persist',
+      bridge.appliedProfileOrders.last.length,
+      all.length,
+      reason: 'whole group order includes rows hidden by the filter',
     );
 
-    // Empty row set: a query matching nothing.
+    // Empty visible set: sorting by result never throws and writes no new order.
+    bridge.appliedProfileOrders.clear();
     controller.setFilter('___no_such_node___');
     controller.submitFilter();
     expect(container.read(profilesControllerProvider).visible, isEmpty);

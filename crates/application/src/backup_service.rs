@@ -14,6 +14,7 @@ use persistence::backup::{
     self, ArchiveRecognition, BackupManifest, BackupVerification, ResourceEntry, RestoreReport,
     CONFIG_FILE_NAME, DB_FILE_NAME, MANIFEST_NAME,
 };
+use persistence::candidate::restore_from_path;
 use persistence::hash::{derived_id, sha256_file};
 use persistence::store::table_counts;
 use persistence::{
@@ -202,34 +203,62 @@ impl BackupService {
         backup::recognize_archive(path).map_err(persist_error)
     }
 
-    /// Import an upstream directory or ZIP through the T04 candidate flow and
-    /// activate the imported configuration.
+    /// Restore an upstream directory or ZIP through the T04 candidate flow and
+    /// activate the restored configuration.
     ///
-    /// The upstream `guiNConfig.json` is not left stranded in the DB meta:
-    /// after a successful candidate commit it is written to the live
-    /// `guiNConfig.json` with `IndexId`/`SubIndexId` remapped to the imported
-    /// rows and the engine `active_index_id` set, so settings/active/group
-    /// become the active configuration on the next load/reopen.
+    /// The upstream `guiNDB.db` is the complete desired database (upstream
+    /// `BackupAndRestoreViewModel` exits, replaces the database file, then
+    /// restarts), so the existing target rows are **replaced**, never merged.
+    /// The append/migration import is the separately named
+    /// [`Self::import_upstream_merge`].
+    ///
+    /// The upstream `guiNConfig.json` is written to the live `guiNConfig.json`
+    /// with `IndexId`/`SubIndexId` remapped to the restored rows and the engine
+    /// `active_index_id` set, so settings/active/group become the active
+    /// configuration on the next load/reopen.
     pub fn import_upstream(
         &self,
         path: &Path,
         work_dir: &Path,
         now: i64,
     ) -> Result<ImportReport, DomainError> {
-        let report = import_from_path(
-            path,
-            &self.db_path(),
-            work_dir,
-            &ImportOptions {
-                now,
-                ..ImportOptions::default()
-            },
-        )
+        self.import_upstream_inner(path, work_dir, now, true)
+    }
+
+    /// Import an upstream directory or ZIP by appending its rows to the live
+    /// database (the migration flow). Kept as the explicitly named merge entry;
+    /// the restore path is [`Self::import_upstream`].
+    pub fn import_upstream_merge(
+        &self,
+        path: &Path,
+        work_dir: &Path,
+        now: i64,
+    ) -> Result<ImportReport, DomainError> {
+        self.import_upstream_inner(path, work_dir, now, false)
+    }
+
+    fn import_upstream_inner(
+        &self,
+        path: &Path,
+        work_dir: &Path,
+        now: i64,
+        replace: bool,
+    ) -> Result<ImportReport, DomainError> {
+        let options = ImportOptions {
+            now,
+            ..ImportOptions::default()
+        };
+        let report = if replace {
+            restore_from_path(path, &self.db_path(), work_dir, &options)
+        } else {
+            import_from_path(path, &self.db_path(), work_dir, &options)
+        }
         .map_err(persist_error)?;
-        if matches!(
-            report.status,
-            ImportStatus::Imported | ImportStatus::AlreadyImported
-        ) {
+        // Only a real commit activates. `AlreadyImported` is an idempotent
+        // no-op: activating from the last global `upstream_config` remapped
+        // another source's config under this fingerprint and left the active
+        // node dangling (R3-SET-01).
+        if report.status == ImportStatus::Imported {
             // Two-phase close: the candidate database is already committed, so
             // any later failure must undo it together with the config and every
             // resource written after it.
@@ -276,6 +305,20 @@ impl BackupService {
     ) -> Result<ImportReport, DomainError> {
         engine.prepare_restore()?;
         let outcome = self.import_upstream(path, work_dir, now);
+        finish_lifecycle(outcome, engine.reopen(), "import")
+    }
+
+    /// Same lifecycle as [`Self::import_upstream_with_lifecycle`] but for the
+    /// explicitly named merge/migration flow (`import_upstream_merge`).
+    pub fn import_upstream_merge_with_lifecycle(
+        &self,
+        engine: &AppEngine,
+        path: &Path,
+        work_dir: &Path,
+        now: i64,
+    ) -> Result<ImportReport, DomainError> {
+        engine.prepare_restore()?;
+        let outcome = self.import_upstream_merge(path, work_dir, now);
         finish_lifecycle(outcome, engine.reopen(), "import")
     }
 
@@ -364,7 +407,15 @@ impl BackupService {
         fingerprint: &str,
     ) -> Result<Option<String>, DomainError> {
         let store = Store::open(self.db_path()).map_err(persist_error)?;
-        let raw = store.get_meta("upstream_config").map_err(persist_error)?;
+        // Prefer the batch-scoped config for this exact source, so activation
+        // never applies another batch's global `upstream_config` (R3-SET-01).
+        let scoped = store
+            .get_meta(&format!("upstream_config:{fingerprint}"))
+            .map_err(persist_error)?;
+        let raw = match scoped {
+            Some(raw) => Some(raw),
+            None => store.get_meta("upstream_config").map_err(persist_error)?,
+        };
         let Some(raw) = raw else {
             return Ok(None);
         };
@@ -847,4 +898,138 @@ fn write_json_atomic(path: &Path, value: &Value) -> Result<(), DomainError> {
     std::fs::write(&tmp, text).map_err(|e| internal(e.to_string()))?;
     std::fs::rename(&tmp, path).map_err(|e| internal(e.to_string()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn write_source(dir: &Path, id: &str, theme: &str) {
+        std::fs::create_dir_all(dir).unwrap();
+        std::fs::write(
+            dir.join("guiNConfig.json"),
+            format!(r#"{{"IndexId":"{id}","UIItem":{{"CurrentTheme":"{theme}"}}}}"#),
+        )
+        .unwrap();
+        let store = Store::create(dir.join("guiNDB.db")).unwrap();
+        let conn = store.connection();
+        for table in persistence::UPSTREAM_TABLES {
+            conn.execute_batch(&table.create_sql()).unwrap();
+        }
+        conn.execute(
+            "INSERT INTO ProfileItem (IndexId, ConfigType, ConfigVersion, Remarks) \
+             VALUES (?1, 5, 4, ?2)",
+            rusqlite::params![id, id],
+        )
+        .unwrap();
+        drop(store);
+    }
+
+    #[test]
+    fn merge_import_a_b_a_is_idempotent_and_active_stays_resolvable() {
+        let base = tempfile::tempdir().unwrap();
+        let data = base.path().join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        let service = BackupService::new(&data);
+        let a = base.path().join("a");
+        let b = base.path().join("b");
+        write_source(&a, "pA", "Dark");
+        write_source(&b, "pB", "Light");
+
+        assert_eq!(
+            service
+                .import_upstream_merge(&a, &base.path().join("wa"), 1)
+                .unwrap()
+                .status,
+            ImportStatus::Imported
+        );
+        let second = service
+            .import_upstream_merge(&b, &base.path().join("wb"), 1)
+            .unwrap();
+        assert_eq!(second.status, ImportStatus::Imported);
+        // Re-importing A is a no-op, so B stays active under B's fingerprint.
+        assert_eq!(
+            service
+                .import_upstream_merge(&a, &base.path().join("wa2"), 1)
+                .unwrap()
+                .status,
+            ImportStatus::AlreadyImported
+        );
+
+        let config: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(data.join("guiNConfig.json")).unwrap())
+                .unwrap();
+        let active = config
+            .get("active_index_id")
+            .and_then(|v| v.as_str())
+            .expect("active id");
+        let expected = derived_id("profile", &format!("{}:pB", second.source_fingerprint));
+        assert_eq!(
+            active, expected,
+            "A's no-op must not remap B's config under A's fingerprint"
+        );
+        assert_eq!(
+            config
+                .get("UIItem")
+                .and_then(|ui| ui.get("CurrentTheme"))
+                .and_then(|v| v.as_str()),
+            Some("Light"),
+            "settings must stay with the active (B) source"
+        );
+
+        let store = Store::open_readonly(data.join("guiNDB.db")).unwrap();
+        let exists: i64 = store
+            .connection()
+            .query_row(
+                "SELECT COUNT(*) FROM ProfileItem WHERE IndexId = ?1",
+                [active],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(exists, 1, "the active node must exist in the database");
+    }
+
+    #[test]
+    fn restore_replace_drops_existing_and_keeps_only_source() {
+        let base = tempfile::tempdir().unwrap();
+        let data = base.path().join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        let service = BackupService::new(&data);
+        let a = base.path().join("a");
+        let b = base.path().join("b");
+        write_source(&a, "pA", "Dark");
+        write_source(&b, "pB", "Light");
+
+        let ra = service
+            .import_upstream(&a, &base.path().join("wa"), 1)
+            .unwrap();
+        assert_eq!(ra.status, ImportStatus::Imported);
+        let rb = service
+            .import_upstream(&b, &base.path().join("wb"), 1)
+            .unwrap();
+        assert_eq!(rb.status, ImportStatus::Imported);
+
+        let store = Store::open_readonly(data.join("guiNDB.db")).unwrap();
+        let rows = store.read_rows("ProfileItem").unwrap();
+        assert_eq!(rows.len(), 1, "restore must replace the existing rows");
+        assert_eq!(rows[0].string("Remarks"), "pB");
+        let a_id = derived_id("profile", &format!("{}:pA", ra.source_fingerprint));
+        assert!(
+            !rows.iter().any(|row| row.string("IndexId") == a_id),
+            "the pre-restore node must be gone"
+        );
+
+        let config: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(data.join("guiNConfig.json")).unwrap())
+                .unwrap();
+        let expected = derived_id("profile", &format!("{}:pB", rb.source_fingerprint));
+        assert_eq!(
+            config.get("active_index_id").and_then(|v| v.as_str()),
+            Some(expected.as_str())
+        );
+        assert_eq!(
+            config.get("IndexId").and_then(|v| v.as_str()),
+            Some(expected.as_str())
+        );
+    }
 }

@@ -267,26 +267,42 @@ pub fn generate(core: CoreType, input: &CodegenInput) -> Result<GeneratedConfigs
     }
 }
 
-/// Generate a real pre-SOCKS sidecar config: a plain SOCKS listener on
-/// `listen:port`, produced by the frozen generators rather than a plan
-/// descriptor. Mirrors upstream `CoreManager.CoreStartPreService` ->
-/// `CoreConfigHandler.GenerateClientConfig(preContext, ...)`, where the
-/// pre-context node is the synthesized SOCKS `ProfileItem` from
-/// `ConfigHandler.GetPreSocksItem`.
+/// Generate a real pre-SOCKS sidecar config. Mirrors upstream
+/// `ConfigHandler.GetPreSocksItem` (a synthesized `SOCKS` node with
+/// `Address = Loopback`, `Port = main core proxy port`) plus
+/// `CoreManager.CoreStartPreService` -> `CoreConfigHandler.GenerateClientConfig`
+/// with the full pre-context. The frozen generator therefore emits:
+///
+/// - a user-facing inbound on the real local port (`opts.local_port`), and
+/// - a `socks` outbound that dials `dial_address:dial_port` (the main core).
+///
+/// The sidecar must consume the real settings tree (`settings`), not
+/// `CodegenInput::default`, so TUN / simple-DNS / routing-basic / statistics
+/// choices reach its config; `routing`/`dns` carry the active profile exactly
+/// as the main core generation does.
 pub fn generate_pre_socks_config(
     core: CoreType,
-    listen: &str,
-    port: u16,
+    dial_address: &str,
+    dial_port: u16,
+    opts: &CodegenOptions,
+    settings: &domain::AppSettings,
+    routing: Option<CodegenRouting>,
+    dns: Option<CodegenDns>,
 ) -> Result<GeneratedConfigs, CodegenError> {
     let profile = CodegenProfile {
         index_id: "pre-socks".to_string(),
         config_type: CodegenConfigType::Socks,
         remarks: "pre-socks".to_string(),
-        address: listen.to_string(),
-        port: port as i32,
+        address: dial_address.to_string(),
+        port: dial_port as i32,
         ..Default::default()
     };
-    let mut input = CodegenInput::default();
+    let mut input = CodegenInput {
+        settings: settings_from_app(settings, opts),
+        routing,
+        dns,
+        ..Default::default()
+    };
     input
         .profiles
         .insert(profile.index_id.clone(), profile.clone());

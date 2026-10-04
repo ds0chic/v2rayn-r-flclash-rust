@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/dns_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/hotkeys.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 
@@ -148,13 +149,16 @@ class BackupController extends Notifier<BackupState> {
 
   /// SR-03: reload every long-lived Dart provider after the engine exchanged
   /// the database and config, so no cached profile/group/routing/DNS/theme can
-  /// keep impersonating the pre-restore configuration.
-  void _reloadProviders() {
+  /// keep impersonating the pre-restore configuration. Native hotkeys are
+  /// re-read and re-registered so the restored `GlobalHotkeys` take effect
+  /// immediately (R3-SET-04).
+  Future<void> _reloadProviders() async {
     ref.read(settingsControllerProvider.notifier).load();
     ref.read(profilesControllerProvider.notifier).reload();
     ref.read(routingControllerProvider.notifier).reload();
     ref.read(dnsControllerProvider.notifier).reload();
     ref.read(subsControllerProvider.notifier).reload();
+    await ref.read(hotkeyControllerProvider.notifier).reloadFromSettings();
   }
 
   /// Restart the periodic updater only if it was running before the restore.
@@ -192,7 +196,7 @@ class BackupController extends Notifier<BackupState> {
       await _resyncRuntime();
       return false;
     }
-    _reloadProviders();
+    await _reloadProviders();
     _restartScheduler(schedulerWasRunning);
     _refreshWindowState();
     _status('success', '本地恢复完成（节点/分组/主题/运行会话已重载）：${result.message}');
@@ -238,7 +242,7 @@ class BackupController extends Notifier<BackupState> {
       await _resyncRuntime();
       return;
     }
-    _reloadProviders();
+    await _reloadProviders();
     _restartScheduler(schedulerWasRunning);
     _refreshWindowState();
     _status('success', '本地恢复完成（节点/分组/主题/运行会话已重载）：${result.status}');
@@ -299,7 +303,7 @@ class BackupController extends Notifier<BackupState> {
       await _resyncRuntime();
       return;
     }
-    _reloadProviders();
+    await _reloadProviders();
     _restartScheduler(schedulerWasRunning);
     _refreshWindowState();
     _status(
@@ -376,7 +380,7 @@ class BackupController extends Notifier<BackupState> {
       await _resyncRuntime();
       return;
     }
-    _reloadProviders();
+    await _reloadProviders();
     _restartScheduler(schedulerWasRunning);
     _refreshWindowState();
     _status('success', '远程恢复完成（节点/分组/主题/运行会话已重载）：${result.message}');

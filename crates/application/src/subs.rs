@@ -670,6 +670,9 @@ pub async fn refresh_subscriptions_with_convert(
         .map(|loaded| ConvertContext::from_const_item(&loaded.settings.const_item))
         .unwrap_or_else(|_| ConvertContext::builtin());
     let mut report = SubUpdateReport::default();
+    // Capture the epoch before any download so a commit that races a
+    // restore/import is rejected (R3-SET-03).
+    let epoch = engine.restore_epoch();
     let targets = match engine.list_sub_items() {
         Ok(all) if request.sub_ids.is_empty() => all,
         Ok(all) => all
@@ -688,13 +691,22 @@ pub async fn refresh_subscriptions_with_convert(
             break;
         }
         report.entries.push(
-            refresh_one_with_convert(engine, &item, &request, &convert, cancellation, max_items)
-                .await,
+            refresh_one_with_convert(
+                engine,
+                &item,
+                &request,
+                &convert,
+                cancellation,
+                max_items,
+                epoch,
+            )
+            .await,
         );
     }
     report
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn refresh_one_with_convert(
     engine: &crate::engine::AppEngine,
     item: &SubItem,
@@ -702,6 +714,7 @@ async fn refresh_one_with_convert(
     convert: &ConvertContext,
     cancellation: &CancellationToken,
     max_items: usize,
+    epoch: u64,
 ) -> SubUpdateEntry {
     let entry = |outcome: SubUpdateOutcome| SubUpdateEntry {
         sub_id: item.id.clone(),
@@ -744,7 +757,7 @@ async fn refresh_one_with_convert(
     };
     assign_candidate_ids(&mut candidates);
 
-    match engine.replace_sub_profiles(&item.id, candidates, true) {
+    match engine.replace_sub_profiles_at_epoch(&item.id, candidates, true, epoch) {
         Ok((added, removed)) => {
             let _ = engine.touch_sub_update_time(&item.id, unix_now());
             entry(SubUpdateOutcome::Updated { added, removed })
@@ -839,6 +852,9 @@ pub struct SubScheduler {
     stop: Arc<AtomicBool>,
     wake: Arc<tokio::sync::Notify>,
     finished: Arc<AtomicBool>,
+    /// Cancels the in-flight download(s) of the current tick so a stop does not
+    /// wait for a slow network response (R3-SET-03).
+    cancel: CancellationToken,
 }
 
 impl SubScheduler {
@@ -847,9 +863,11 @@ impl SubScheduler {
         let stop = Arc::new(AtomicBool::new(false));
         let wake = Arc::new(tokio::sync::Notify::new());
         let finished = Arc::new(AtomicBool::new(false));
+        let cancel = CancellationToken::new();
         let stop_loop = stop.clone();
         let wake_loop = wake.clone();
         let finished_loop = finished.clone();
+        let cancel_loop = cancel.clone();
         std::thread::spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -863,7 +881,7 @@ impl SubScheduler {
                     if stop_loop.load(Ordering::Acquire) {
                         break;
                     }
-                    run_scheduler_tick(&engine, max_items).await;
+                    run_scheduler_tick(&engine, max_items, &cancel_loop).await;
                     tokio::select! {
                         _ = tokio::time::sleep(interval) => {},
                         _ = wake_loop.notified() => {},
@@ -876,6 +894,7 @@ impl SubScheduler {
             stop,
             wake,
             finished,
+            cancel,
         }
     }
 
@@ -883,7 +902,10 @@ impl SubScheduler {
     ///
     /// `notify_one` (not `notify_waiters`) stores a permit, so a stop that races
     /// the loop's `select!` is never lost and the loop exits at its next check.
+    /// The cancellation token is flipped first so a download already in flight
+    /// aborts at its next safe point.
     pub fn stop(&self) {
+        self.cancel.cancel();
         self.stop.store(true, Ordering::Release);
         self.wake.notify_one();
     }
@@ -908,6 +930,7 @@ pub async fn run_scheduler_pass(
     engine: &crate::engine::AppEngine,
     max_items: usize,
     now: i64,
+    cancellation: &CancellationToken,
 ) -> SubUpdateReport {
     let due: Vec<SubItem> = match engine.list_sub_items() {
         Ok(items) => items.into_iter().filter(|item| is_due(item, now)).collect(),
@@ -919,18 +942,21 @@ pub async fn run_scheduler_pass(
     let (via_proxy, proxy_url) = scheduler_proxy_choice(engine.local_proxy_url());
     let mut report = SubUpdateReport::default();
     for item in due {
+        if cancellation.is_cancelled() {
+            report.entries.push(SubUpdateEntry {
+                sub_id: item.id.clone(),
+                remarks: item.remarks.clone(),
+                outcome: SubUpdateOutcome::Cancelled,
+            });
+            break;
+        }
         let request = SubUpdateRequest {
             sub_ids: vec![item.id.clone()],
             via_proxy,
             proxy_url: proxy_url.clone(),
         };
-        let item_report = refresh_subscriptions_with_convert(
-            engine,
-            request,
-            &CancellationToken::new(),
-            max_items,
-        )
-        .await;
+        let item_report =
+            refresh_subscriptions_with_convert(engine, request, cancellation, max_items).await;
         report.entries.extend(item_report.entries);
     }
     report
@@ -953,8 +979,12 @@ pub fn scheduler_proxy_choice(proxy_url: Option<String>) -> (bool, Option<String
     }
 }
 
-async fn run_scheduler_tick(engine: &crate::engine::AppEngine, max_items: usize) {
-    let report = run_scheduler_pass(engine, max_items, unix_now()).await;
+async fn run_scheduler_tick(
+    engine: &crate::engine::AppEngine,
+    max_items: usize,
+    cancellation: &CancellationToken,
+) {
+    let report = run_scheduler_pass(engine, max_items, unix_now(), cancellation).await;
     for entry in &report.entries {
         if let SubUpdateOutcome::PreservedError { code, message }
         | SubUpdateOutcome::Failed { code, message } = &entry.outcome
@@ -1248,7 +1278,7 @@ mod tests {
             .save_sub_item(synthetic_sub("s-notdue", "http://127.0.0.1:9/sub".into()))
             .expect("save");
         // `now - update_time < AutoUpdateInterval * 60`: no download attempted.
-        let report = run_scheduler_pass(&engine, 100, 0).await;
+        let report = run_scheduler_pass(&engine, 100, 0, &CancellationToken::new()).await;
         assert!(report.entries.is_empty());
         assert!(engine.profiles_by_subid(&saved.id).unwrap().is_empty());
     }
@@ -1262,7 +1292,7 @@ mod tests {
         let saved = engine
             .save_sub_item(synthetic_sub("s-due", url))
             .expect("save");
-        let report = run_scheduler_pass(&engine, 100, 1_000_000).await;
+        let report = run_scheduler_pass(&engine, 100, 1_000_000, &CancellationToken::new()).await;
         assert_eq!(report.success_count(), 1, "{:?}", report.entries);
         assert_eq!(engine.profiles_by_subid(&saved.id).unwrap().len(), 1);
         let reread = engine.get_sub_item(&saved.id).unwrap().unwrap();
@@ -1285,7 +1315,7 @@ mod tests {
                 format!("http://127.0.0.1:{port}/sub"),
             ))
             .expect("save");
-        let report = run_scheduler_pass(&engine, 100, 1_000_000).await;
+        let report = run_scheduler_pass(&engine, 100, 1_000_000, &CancellationToken::new()).await;
         assert_eq!(report.success_count(), 0);
         assert_eq!(report.entries.len(), 1);
         assert!(
@@ -1414,6 +1444,59 @@ mod tests {
         assert!(
             scheduler.is_finished(),
             "scheduler loop did not exit on stop"
+        );
+    }
+
+    #[tokio::test]
+    async fn scheduler_stop_cancels_slow_download_before_commit() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        // A slow one-shot server: holds the response for 800ms so the tick is
+        // still in flight when `stop` is called.
+        let listener = bind_test_listener().await;
+        let port = listener.local_addr().unwrap().port();
+        tokio::spawn(async move {
+            if let Ok((mut socket, _)) = listener.accept().await {
+                let mut buf = [0u8; 2048];
+                let _ = socket.read(&mut buf).await;
+                tokio::time::sleep(Duration::from_millis(800)).await;
+                let body = "vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none#slow";
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let mut bytes = header.into_bytes();
+                bytes.extend_from_slice(body.as_bytes());
+                let _ = socket.write_all(&bytes).await;
+                let _ = socket.shutdown().await;
+            }
+        });
+        let engine = crate::engine::AppEngine::in_memory();
+        let saved = engine
+            .save_sub_item(synthetic_sub(
+                "s-slow",
+                format!("http://127.0.0.1:{port}/sub"),
+            ))
+            .expect("save");
+        let scheduler = SubScheduler::start(engine.clone(), Duration::from_secs(3600), 100);
+        // Let the first tick start the download.
+        tokio::time::sleep(Duration::from_millis(120)).await;
+        let started = std::time::Instant::now();
+        scheduler.stop();
+        for _ in 0..200 {
+            if scheduler.is_finished() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(scheduler.is_finished(), "cancelled tick must end the loop");
+        assert!(
+            started.elapsed() < Duration::from_millis(700),
+            "stop must abort the slow download, not wait for the body"
+        );
+        // Candidate-first: the aborted download never replaced the node set.
+        assert!(
+            engine.profiles_by_subid(&saved.id).unwrap().is_empty(),
+            "an aborted scheduler download must not commit profiles"
         );
     }
 

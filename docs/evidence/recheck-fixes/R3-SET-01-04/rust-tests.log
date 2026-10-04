@@ -1,0 +1,38 @@
+R3-SET-01..04 Rust evidence
+Base HEAD: 6699c31
+
+$ cargo fmt -p persistence -p application -p bridge_api -- --check
+exit=0
+
+$ cargo test -p persistence --lib --locked
+test candidate::tests::reimport_of_earlier_source_is_noop_and_keeps_scoped_config ... ok
+test candidate::tests::restore_replace_removes_existing_and_keeps_source ... ok
+test result: ok. 65 passed; 0 failed; 0 ignored
+
+$ cargo test -p application --lib --locked
+test backup_service::tests::merge_import_a_b_a_is_idempotent_and_active_stays_resolvable ... ok
+test backup_service::tests::restore_replace_drops_existing_and_keeps_only_source ... ok
+test subs::tests::scheduler_stop_cancels_slow_download_before_commit ... ok
+test subs::tests::scheduler_stop_exits_loop_without_residual_timer ... ok
+test subs::tests::scheduler_pass_downloads_due_subscription_from_local_endpoint ... ok
+test result: ok. 218 passed; 0 failed; 0 ignored
+
+$ cargo test -p application --lib --locked engine::   (filtered)
+test engine::tests::cancel_and_drain_sub_tasks_times_out_on_stuck_job ... ok
+test engine::tests::replace_sub_profiles_rejects_stale_restore_epoch ... ok  (included in 37 engine tests)
+test result: ok. 37 passed; 0 failed
+
+$ cargo test -p application --test t16_backup --locked
+test upstream_import_activates_config_and_active_id ... ok
+test upstream_import_installs_resources_and_generates_file_node ... ok
+test config_activation_failure_rolls_back_committed_import ... ok
+test resource_install_failure_rolls_back_config_and_database ... ok
+test result: ok. 16 passed; 0 failed; 0 ignored
+
+$ cargo clippy -p persistence -p application -p bridge_api --all-targets --locked
+# No warning/error points at the files changed by this task
+# (candidate.rs, backup_service.rs, engine.rs, subs.rs, api/t16.rs, api/subs.rs).
+# Pre-existing warnings remain in application/src/codegen.rs, bridge_api/src/api/monitor.rs,
+# application/tests/r3_02_presocks_sidecar.rs (not part of this task's allowed files).
+
+Synthetic slow-response test binds loopback ports in 11808..11949; 10808 is never touched.

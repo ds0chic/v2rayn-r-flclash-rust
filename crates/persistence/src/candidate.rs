@@ -51,7 +51,19 @@ pub struct ImportOptions {
     pub fault: ImportFault,
 }
 
-/// Import an upstream source into `target_db`.
+/// How an upstream source is folded into the target database.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ImportMode {
+    /// Append the source rows to the existing target (migration import).
+    #[default]
+    Merge,
+    /// Replace the target with the source rows only (upstream restore, where
+    /// the source `guiNDB.db` is the complete desired database).
+    Replace,
+}
+
+/// Import an upstream source into `target_db`, appending to any existing rows
+/// (the migration/merge flow).
 ///
 /// `work_dir` must be a caller-owned temporary directory. Nothing outside
 /// `work_dir` is written until the single atomic commit at the end.
@@ -60,6 +72,37 @@ pub fn import_from_path(
     target_db: &Path,
     work_dir: &Path,
     options: &ImportOptions,
+) -> Result<ImportReport> {
+    import_from_path_with_mode(source_path, target_db, work_dir, options, ImportMode::Merge)
+}
+
+/// Restore an upstream source into `target_db`, replacing the existing database
+/// with the source rows only (upstream `BackupAndRestoreViewModel`: the selected
+/// `guiNDB.db` becomes the database).
+///
+/// Same six-step gate as [`import_from_path`]; only the candidate seed differs:
+/// no existing target rows are copied into the candidate.
+pub fn restore_from_path(
+    source_path: &Path,
+    target_db: &Path,
+    work_dir: &Path,
+    options: &ImportOptions,
+) -> Result<ImportReport> {
+    import_from_path_with_mode(
+        source_path,
+        target_db,
+        work_dir,
+        options,
+        ImportMode::Replace,
+    )
+}
+
+fn import_from_path_with_mode(
+    source_path: &Path,
+    target_db: &Path,
+    work_dir: &Path,
+    options: &ImportOptions,
+    mode: ImportMode,
 ) -> Result<ImportReport> {
     std::fs::create_dir_all(work_dir)?;
 
@@ -88,7 +131,9 @@ pub fn import_from_path(
 
     let candidate_path = work_dir.join("candidate.db");
     remove_sqlite_files(&candidate_path);
-    if target_db.exists() {
+    // Merge keeps the existing target as the candidate seed; replace starts
+    // from an empty database so only the restored source rows survive.
+    if mode == ImportMode::Merge && target_db.exists() {
         upstream_db::consistent_copy(target_db, &candidate_path)?;
     }
     let store = Store::create(&candidate_path)?;
@@ -299,8 +344,17 @@ fn build_candidate(
 
     if let Some(config) = &snapshot.config {
         store.set_meta(&tx, "upstream_config", &config.to_json_string()?)?;
+        // Batch-scoped copy keyed by this source's fingerprint, so a later
+        // activation reads this import's own config and never another batch's
+        // global meta (R3-SET-01).
+        store.set_meta(
+            &tx,
+            &format!("upstream_config:{source_fingerprint}"),
+            &config.to_json_string()?,
+        )?;
     } else {
         store.set_meta(&tx, "upstream_config", "{}")?;
+        store.set_meta(&tx, &format!("upstream_config:{source_fingerprint}"), "{}")?;
     }
     store.set_meta(&tx, "last_import_fingerprint", &source_fingerprint)?;
     store.set_meta(
@@ -991,5 +1045,109 @@ mod tests {
             .unwrap();
         let value: serde_json::Value = serde_json::from_str(&raw).unwrap();
         assert_eq!(value["FutureCol"], json!("future-value"));
+    }
+
+    fn mk_upstream_source(
+        base: &Path,
+        name: &str,
+        id: &str,
+        remarks: &str,
+        config: &str,
+    ) -> PathBuf {
+        let dir = base.join(name);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("guiNConfig.json"), config).unwrap();
+        let conn = Connection::open(dir.join("guiNDB.db")).unwrap();
+        for table in crate::schema::UPSTREAM_TABLES {
+            conn.execute_batch(&table.create_sql()).unwrap();
+        }
+        conn.execute(
+            "INSERT INTO ProfileItem (IndexId, ConfigType, ConfigVersion, Remarks) VALUES (?1,5,4,?2)",
+            rusqlite::params![id, remarks],
+        )
+        .unwrap();
+        drop(conn);
+        dir
+    }
+
+    #[test]
+    fn restore_replace_removes_existing_and_keeps_source() {
+        let base = tempfile::tempdir().unwrap();
+        let target = base.path().join("target.db");
+        let work = tempfile::tempdir().unwrap();
+        let opts = ImportOptions {
+            now: 1,
+            fault: ImportFault::None,
+        };
+
+        let source_a = mk_upstream_source(base.path(), "a", "pA", "A", r#"{"IndexId":"pA"}"#);
+        let source_b = mk_upstream_source(base.path(), "b", "pB", "B", r#"{"IndexId":"pB"}"#);
+        assert_eq!(
+            import_from_path(&source_a, &target, work.path(), &opts)
+                .unwrap()
+                .status,
+            ImportStatus::Imported
+        );
+
+        // Restoring B replaces A entirely: only B's rows exist afterwards.
+        let report = restore_from_path(&source_b, &target, work.path(), &opts).unwrap();
+        assert_eq!(report.status, ImportStatus::Imported);
+        let store = Store::open_readonly(&target).unwrap();
+        let rows = store.read_rows("ProfileItem").unwrap();
+        assert_eq!(rows.len(), 1, "restore must replace, not merge");
+        assert_eq!(rows[0].string("Remarks"), "B");
+    }
+
+    #[test]
+    fn reimport_of_earlier_source_is_noop_and_keeps_scoped_config() {
+        let base = tempfile::tempdir().unwrap();
+        let target = base.path().join("target.db");
+        let work = tempfile::tempdir().unwrap();
+        let opts = ImportOptions {
+            now: 1,
+            fault: ImportFault::None,
+        };
+
+        let source_a = mk_upstream_source(
+            base.path(),
+            "a",
+            "pA",
+            "A",
+            r#"{"IndexId":"pA","UIItem":{"CurrentTheme":"Dark"}}"#,
+        );
+        let source_b = mk_upstream_source(
+            base.path(),
+            "b",
+            "pB",
+            "B",
+            r#"{"IndexId":"pB","UIItem":{"CurrentTheme":"Light"}}"#,
+        );
+        let first = import_from_path(&source_a, &target, work.path(), &opts).unwrap();
+        assert_eq!(first.status, ImportStatus::Imported);
+        assert_eq!(
+            import_from_path(&source_b, &target, work.path(), &opts)
+                .unwrap()
+                .status,
+            ImportStatus::Imported
+        );
+
+        // Re-importing A is a no-op and does not touch A's own batch config.
+        let again = import_from_path(&source_a, &target, work.path(), &opts).unwrap();
+        assert_eq!(again.status, ImportStatus::AlreadyImported);
+        let store = Store::open_readonly(&target).unwrap();
+        assert_eq!(store.count_rows("ProfileItem").unwrap(), 2);
+        let scoped = store
+            .get_meta(&format!("upstream_config:{}", first.source_fingerprint))
+            .unwrap()
+            .expect("batch-scoped config for A");
+        let value: serde_json::Value = serde_json::from_str(&scoped).unwrap();
+        assert_eq!(
+            value
+                .get("UIItem")
+                .and_then(|ui| ui.get("CurrentTheme"))
+                .and_then(|v| v.as_str()),
+            Some("Dark"),
+            "A's scoped config must survive B's import"
+        );
     }
 }

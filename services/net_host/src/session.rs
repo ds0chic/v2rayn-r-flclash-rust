@@ -976,129 +976,12 @@ impl HostState {
             }
         }
 
-        // --- Nested process graph (RR-06): start the pre-SOCKS sidecar(s)
-        // before the main core, wait for the shared proxy port to accept a
-        // SOCKS greeting, then start the main core. Reverse order on any
-        // failure; a sidecar that never becomes ready rolls the session back
-        // before the main core is spawned.
-        let mut sidecar_sessions = Vec::new();
-        for sidecar in sidecars {
-            let sidecar_dir = journal::session_dir(&self.config.run_root, &session_id)
-                .join("processes")
-                .join(&sidecar.id);
-            if let Err(e) = std::fs::create_dir_all(&sidecar_dir) {
-                let error = DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
-                    .with_operation(&operation_id)
-                    .with_detail(format!("create sidecar dir failed: {e}"));
-                self.fail_operation(&operation_id, &error).await;
-                self.stop_sidecars(&mut sidecar_sessions).await;
-                return Err(error);
-            }
-            let sidecar_config = sidecar_dir.join("config.json");
-            if let Err(e) = std::fs::write(&sidecar_config, sidecar.body.as_bytes()) {
-                let error = DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
-                    .with_operation(&operation_id)
-                    .with_detail(format!("write sidecar config failed: {e}"));
-                self.fail_operation(&operation_id, &error).await;
-                self.stop_sidecars(&mut sidecar_sessions).await;
-                return Err(error);
-            }
-            let sidecar_log = sidecar_dir.join("core.log");
-            let mut command = Command::new(&sidecar.exe);
-            command
-                .args(sidecar.adapter.run_args(&sidecar_config))
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-            #[cfg(windows)]
-            {
-                const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-                command.creation_flags(CREATE_NO_WINDOW);
-            }
-            let mut child = match command.spawn() {
-                Ok(child) => child,
-                Err(e) => {
-                    let error =
-                        DomainError::new(domain::codes::UNAVAILABLE, "error.core_spawn_failed")
-                            .with_operation(&operation_id)
-                            .with_detail(format!("{}: {e}", sidecar.exe.display()));
-                    self.fail_operation(&operation_id, &error).await;
-                    self.stop_sidecars(&mut sidecar_sessions).await;
-                    return Err(error);
-                }
-            };
-            let sidecar_job = match JobGuard::create_kill_on_close() {
-                Ok(sidecar_job) => sidecar_job,
-                Err(e) => {
-                    let _ = child.start_kill();
-                    let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
-                    let error =
-                        DomainError::new(domain::codes::UNAVAILABLE, "error.job_create_failed")
-                            .with_operation(&operation_id)
-                            .with_detail(e.to_string());
-                    self.fail_operation(&operation_id, &error).await;
-                    self.stop_sidecars(&mut sidecar_sessions).await;
-                    return Err(error);
-                }
-            };
-            #[cfg(windows)]
-            {
-                let assignment = match child.raw_handle() {
-                    Some(handle) => sidecar_job.assign(handle),
-                    None => Err(std::io::Error::other("sidecar process handle unavailable")),
-                };
-                if let Err(e) = assignment {
-                    let _ = child.start_kill();
-                    let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
-                    let error = job_assign_failed(&operation_id, e.to_string());
-                    self.fail_operation(&operation_id, &error).await;
-                    self.stop_sidecars(&mut sidecar_sessions).await;
-                    return Err(error);
-                }
-            }
-            if let Some(stdout) = child.stdout.take() {
-                spawn_log_reader(
-                    stdout,
-                    sidecar_log.clone(),
-                    Box::leak(sidecar.id.clone().into_boxed_str()),
-                    self.bus.clone(),
-                );
-            }
-            if let Some(stderr) = child.stderr.take() {
-                spawn_log_reader(
-                    stderr,
-                    sidecar_log.clone(),
-                    Box::leak(sidecar.id.clone().into_boxed_str()),
-                    self.bus.clone(),
-                );
-            }
-            sidecar_sessions.push(SidecarSession {
-                child,
-                _job: sidecar_job,
-            });
-            // Wait for the sidecar to accept the same SOCKS greeting the core
-            // will: `WaitForProxyPort` upstream.
-            if sidecar.port != 0 {
-                let ready = wait_socks_port(
-                    sidecar.port,
-                    self.config.readiness_timeout,
-                    self.config.readiness_interval,
-                )
-                .await;
-                if !ready {
-                    let error = DomainError::new(domain::codes::TIMEOUT, "error.readiness_timeout")
-                        .with_operation(&operation_id)
-                        .with_field("port")
-                        .with_detail(format!(
-                            "sidecar {} port {} not ready within {:?}",
-                            sidecar.id, sidecar.port, self.config.readiness_timeout
-                        ));
-                    self.fail_operation(&operation_id, &error).await;
-                    self.stop_sidecars(&mut sidecar_sessions).await;
-                    return Err(error);
-                }
-            }
-        }
+        // --- Nested process graph (RR-06 / R3-02) ---
+        // Frozen order (`CoreManager.LoadCore`): start the main core, wait for
+        // its proxy port (`WaitForProxyPort`), then start the pre-SOCKS
+        // sidecar(s). The sidecars are started in the `Ready` arm below, after
+        // the main core is up, so the sidecar can dial the main core's port
+        // that the engine baked into its config.
 
         // --- Starting ---
         {
@@ -1125,7 +1008,6 @@ impl HostState {
                 self.release_tun_lease().await;
                 self.finalize_journal(&journal_entry).await;
                 self.fail_operation(&operation_id, &error).await;
-                self.stop_sidecars(&mut sidecar_sessions).await;
                 return Err(error);
             }
         };
@@ -1136,6 +1018,15 @@ impl HostState {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        // R3-03: cores like mieru take their config path only via the
+        // environment (`MIERU_CONFIG_JSON_FILE`), and some cores expect a
+        // specific working directory. Both come from the adapter contract.
+        for (key, value) in adapter.env_vars(&config_path) {
+            command.env(key, value);
+        }
+        if let Some(dir) = adapter.working_dir(&config_path) {
+            command.current_dir(dir);
+        }
         #[cfg(windows)]
         {
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -1151,7 +1042,6 @@ impl HostState {
                 self.release_tun_lease().await;
                 self.finalize_journal(&journal_entry).await;
                 self.fail_operation(&operation_id, &error).await;
-                self.stop_sidecars(&mut sidecar_sessions).await;
                 return Err(error);
             }
         };
@@ -1172,7 +1062,6 @@ impl HostState {
                 let result = self
                     .abort_job_assign(&operation_id, &mut child, &journal_entry, e)
                     .await;
-                self.stop_sidecars(&mut sidecar_sessions).await;
                 return result;
             }
         }
@@ -1204,8 +1093,6 @@ impl HostState {
             inner.detail.pid = Some(pid);
             inner.detail.created_at_ms = Some(created_at_ms);
         }
-        let mut sidecar_sessions: Vec<SidecarSession> = std::mem::take(&mut sidecar_sessions);
-
         let outcome = wait_ready(
             &mut child,
             port,
@@ -1216,6 +1103,22 @@ impl HostState {
 
         match outcome {
             ReadyOutcome::Ready => {
+                // R3-02/R3-05: the main core is up (and its proxy port is
+                // ready). Start the pre-SOCKS sidecar(s) now. Any failure here
+                // runs the same failure cleanup scope as the core branches:
+                // stop the started sidecars, kill the main core, release the
+                // TUN lease and finalize the journal.
+                let sidecar_sessions = match self
+                    .start_sidecars(&operation_id, &session_id, sidecars)
+                    .await
+                {
+                    Ok(sessions) => sessions,
+                    Err(error) => {
+                        return self
+                            .rollback(&operation_id, &mut child, &session_id, error)
+                            .await;
+                    }
+                };
                 let session = Session {
                     session_id: session_id.clone(),
                     plan_id: plan.plan_id.clone(),
@@ -1225,7 +1128,7 @@ impl HostState {
                     exe,
                     child,
                     identity,
-                    sidecars: std::mem::take(&mut sidecar_sessions),
+                    sidecars: sidecar_sessions,
                     job,
                 };
                 // Stay `Applied` (not `Finalized`) while the core runs: if
@@ -1283,7 +1186,6 @@ impl HostState {
                 let error = DomainError::new(domain::codes::INTERNAL, "error.core_exited")
                     .with_operation(&operation_id)
                     .with_detail(format!("core exited early (code {code:?}): {tail}"));
-                self.stop_sidecars(&mut sidecar_sessions).await;
                 self.rollback(&operation_id, &mut child, &session_id, error)
                     .await
             }
@@ -1295,11 +1197,154 @@ impl HostState {
                         "port {port} not ready within {:?}",
                         self.config.readiness_timeout
                     ));
-                self.stop_sidecars(&mut sidecar_sessions).await;
                 self.rollback(&operation_id, &mut child, &session_id, error)
                     .await
             }
         }
+    }
+
+    /// Start the prepared sidecar processes (RR-06 / R3-02). Called after the
+    /// main core is spawned and its proxy port is ready, matching the frozen
+    /// `CoreManager.LoadCore` order: main core -> `WaitForProxyPort` ->
+    /// `CoreStartPreService`. On any failure the already-started sidecars are
+    /// stopped and the error is returned; the caller then rolls back the main
+    /// core, TUN lease and journal (R3-05).
+    async fn start_sidecars(
+        &self,
+        operation_id: &str,
+        session_id: &str,
+        sidecars: Vec<PreparedSidecar>,
+    ) -> Result<Vec<SidecarSession>, DomainError> {
+        let mut started: Vec<SidecarSession> = Vec::new();
+        for sidecar in sidecars {
+            match self
+                .start_one_sidecar(operation_id, session_id, &sidecar)
+                .await
+            {
+                Ok(session) => started.push(session),
+                Err(error) => {
+                    self.stop_sidecars(&mut started).await;
+                    return Err(error);
+                }
+            }
+        }
+        Ok(started)
+    }
+
+    /// Stage, spawn and readiness-probe one sidecar. The sidecar is bound into
+    /// the kill-on-close job exactly like the main core.
+    async fn start_one_sidecar(
+        &self,
+        operation_id: &str,
+        session_id: &str,
+        sidecar: &PreparedSidecar,
+    ) -> Result<SidecarSession, DomainError> {
+        let sidecar_dir = journal::session_dir(&self.config.run_root, session_id)
+            .join("processes")
+            .join(&sidecar.id);
+        std::fs::create_dir_all(&sidecar_dir).map_err(|e| {
+            DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
+                .with_operation(operation_id)
+                .with_detail(format!("create sidecar dir failed: {e}"))
+        })?;
+        let sidecar_config = sidecar_dir.join("config.json");
+        std::fs::write(&sidecar_config, sidecar.body.as_bytes()).map_err(|e| {
+            DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
+                .with_operation(operation_id)
+                .with_detail(format!("write sidecar config failed: {e}"))
+        })?;
+        let sidecar_log = sidecar_dir.join("core.log");
+        let mut command = Command::new(&sidecar.exe);
+        command
+            .args(sidecar.adapter.run_args(&sidecar_config))
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        for (key, value) in sidecar.adapter.env_vars(&sidecar_config) {
+            command.env(key, value);
+        }
+        if let Some(dir) = sidecar.adapter.working_dir(&sidecar_config) {
+            command.current_dir(dir);
+        }
+        #[cfg(windows)]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(CREATE_NO_WINDOW);
+        }
+        let mut child = command.spawn().map_err(|e| {
+            DomainError::new(domain::codes::UNAVAILABLE, "error.core_spawn_failed")
+                .with_operation(operation_id)
+                .with_detail(format!("{}: {e}", sidecar.exe.display()))
+        })?;
+        let sidecar_job = match JobGuard::create_kill_on_close() {
+            Ok(job) => job,
+            Err(e) => {
+                let _ = child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
+                return Err(DomainError::new(
+                    domain::codes::UNAVAILABLE,
+                    "error.job_create_failed",
+                )
+                .with_operation(operation_id)
+                .with_detail(e.to_string()));
+            }
+        };
+        #[cfg(windows)]
+        {
+            let assignment = match child.raw_handle() {
+                Some(handle) => sidecar_job.assign(handle),
+                None => Err(std::io::Error::other("sidecar process handle unavailable")),
+            };
+            if let Err(e) = assignment {
+                let _ = child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
+                return Err(job_assign_failed(operation_id, e.to_string()));
+            }
+        }
+        if let Some(stdout) = child.stdout.take() {
+            spawn_log_reader(
+                stdout,
+                sidecar_log.clone(),
+                Box::leak(sidecar.id.clone().into_boxed_str()),
+                self.bus.clone(),
+            );
+        }
+        if let Some(stderr) = child.stderr.take() {
+            spawn_log_reader(
+                stderr,
+                sidecar_log.clone(),
+                Box::leak(sidecar.id.clone().into_boxed_str()),
+                self.bus.clone(),
+            );
+        }
+        let mut session = SidecarSession {
+            child,
+            _job: sidecar_job,
+        };
+        // Wait for the sidecar to accept the same SOCKS greeting the main core
+        // accepts (`WaitForProxyPort` upstream). A TUN-only sidecar reports
+        // port 0 and needs no TCP probe.
+        if sidecar.port != 0 {
+            let ready = wait_socks_port(
+                sidecar.port,
+                self.config.readiness_timeout,
+                self.config.readiness_interval,
+            )
+            .await;
+            if !ready {
+                session.terminate_and_wait(Duration::from_secs(5)).await;
+                return Err(
+                    DomainError::new(domain::codes::TIMEOUT, "error.readiness_timeout")
+                        .with_operation(operation_id)
+                        .with_field("port")
+                        .with_detail(format!(
+                            "sidecar {} port {} not ready within {:?}",
+                            sidecar.id, sidecar.port, self.config.readiness_timeout
+                        )),
+                );
+            }
+        }
+        Ok(session)
     }
 
     /// Stop a set of started sidecars in reverse order (RR-06). Used when a
@@ -2328,7 +2373,7 @@ mod tests {
     }
 
     #[test]
-    fn rr06_apply_starts_and_stops_the_sidecar_before_the_core() {
+    fn rr06_apply_tracks_sidecar_after_the_core_is_ready() {
         let _guard = rr10_lock();
         let state = test_state("sidecar-run");
         let dir = state.config.run_root.join("stubs");
@@ -2348,7 +2393,9 @@ mod tests {
                     privileges: vec![],
                 });
         }
-        // The sidecar must start before the main core.
+        // R3-02 frozen order (`CoreManager.LoadCore`): the main core starts
+        // first, then its proxy port must be ready, then the pre-service
+        // sidecar. The `pre-socks` node therefore depends on the core.
         plan.process_graph.depends_on("pre-socks", "Xray");
 
         futures_block_on(state.apply_plan(plan)).expect("multi-process session starts");
@@ -2394,6 +2441,101 @@ mod tests {
         );
         assert_eq!(inner.detail.state, RuntimeState::Stopped);
         assert!(inner.detail.ports.is_empty());
+        drop(inner);
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    // -- R3-05: unified failure cleanup after a successful helper apply ------
+
+    /// A TUN plan whose sidecar never becomes ready. The helper apply succeeds
+    /// (recording fake link), then the sidecar readiness probe fails. R3-05
+    /// requires the failure cleanup scope to release the TUN lease, drop the
+    /// helper link/session id and finalize the journal instead of leaving a
+    /// phantom lease while reporting `Stopped`.
+    #[test]
+    fn r305_sidecar_failure_after_helper_releases_tun_lease() {
+        use crate::helper_client::{FakeHelperLink, HelperLink};
+        use domain::runtime_plan::{
+            ConfigSource, PortRequest, PortTransport, ProcessNode, RequiredPrivilege,
+        };
+        use runtime::tun::{TunAddress, TunSpec, TUN_CONFIG_KIND, TUN_PROCESS_ID};
+
+        let _guard = rr10_lock();
+        let state = test_state("r305-cleanup");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        state.set_helper_factory(std::sync::Arc::new(|_| {
+            let link: Box<dyn HelperLink> = Box::new(FakeHelperLink::new());
+            link
+        }));
+
+        // A sidecar port that will never answer the SOCKS greeting.
+        let dead_sidecar_port = 11_913u16;
+        let mut plan = plan_with_body("tun-sidecar", "{}", 0, None);
+        plan.network_policy.tun_enabled = true;
+        plan.privileges.push(RequiredPrivilege::Tun);
+        let spec = TunSpec {
+            kind: TUN_CONFIG_KIND.into(),
+            adapter_name: "v2rayn-tun".into(),
+            interface_index: 9,
+            addresses: vec![TunAddress {
+                address: "172.18.0.1".into(),
+                prefix_len: 30,
+            }],
+            mtu: Some(1280),
+            routes: vec![],
+            route_exclude: vec![],
+        };
+        plan.process_graph.add_process(ProcessNode {
+            id: TUN_PROCESS_ID.into(),
+            core_type: domain::CoreType::Xray,
+            config: ConfigSource::Inline {
+                body: serde_json::to_string(&spec).unwrap(),
+            },
+            ports: vec![],
+            privileges: vec![RequiredPrivilege::Tun],
+        });
+        plan.process_graph.add_process(ProcessNode {
+            id: "Xray".into(),
+            core_type: domain::CoreType::Xray,
+            config: ConfigSource::Inline { body: "{}".into() },
+            ports: vec![],
+            privileges: vec![],
+        });
+        plan.process_graph.add_process(ProcessNode {
+            id: "pre-socks".into(),
+            core_type: domain::CoreType::Xray,
+            config: ConfigSource::Inline { body: "{}".into() },
+            ports: vec![],
+            privileges: vec![],
+        });
+        plan.process_graph.depends_on("pre-socks", "Xray");
+        plan.ports = vec![
+            PortRequest::tcp(0, "inbound"),
+            PortRequest {
+                port: dead_sidecar_port,
+                transport: PortTransport::Tcp,
+                owner: "pre-socks".into(),
+                exclusive: false,
+            },
+        ];
+
+        let error = futures_block_on(state.apply_plan(plan)).expect_err("sidecar must fail");
+        assert_eq!(error.code, domain::codes::TIMEOUT);
+
+        let inner = futures_block_on(state.inner.lock());
+        assert!(inner.session.is_none(), "no running session after failure");
+        assert!(inner.tun_lease.is_none(), "TUN lease must be released");
+        assert!(
+            inner.tun_session_id.is_none(),
+            "tun session id must be cleared"
+        );
+        assert!(inner.tun_link.is_none(), "helper link must be dropped");
+        assert!(inner.detail.tun.is_none(), "tun detail must be withdrawn");
+        assert_eq!(inner.detail.state, RuntimeState::Stopped);
+        assert!(inner.detail.session_id.is_none());
         drop(inner);
         let _ = std::fs::remove_dir_all(&state.config.run_root);
     }

@@ -57,7 +57,7 @@ void main() {
     expect(applyFilter(rows, '  ').length, rows.length);
   });
 
-  test('sort by delay ascending then descending', () {
+  test('sort by delay sinks failed rows in both directions', () {
     final columns = defaultProfileColumns();
     final asc = applySort(
       rows,
@@ -72,8 +72,28 @@ void main() {
         direction: SortDirection.descending,
       ),
     );
-    expect(asc.first.delay <= asc.last.delay, isTrue);
-    expect(desc.first.delay >= desc.last.delay, isTrue);
+    // R3-PROF-03: failed/untested (delay <= 0 / null) rows always sink; the
+    // positive delays keep the requested order among themselves.
+    for (final sorted in <List<dynamic>>[asc, desc]) {
+      int delayOf(dynamic r) => (r.delay as int?) ?? -1;
+      final firstNonPositive = sorted.indexWhere((r) => delayOf(r) <= 0);
+      if (firstNonPositive >= 0) {
+        expect(
+          sorted.skip(firstNonPositive).every((r) => delayOf(r) <= 0),
+          isTrue,
+          reason: 'failures sink to the bottom',
+        );
+      }
+      final positives = sorted
+          .where((r) => delayOf(r) > 0)
+          .map((r) => delayOf(r))
+          .toList();
+      final expected = List<int>.of(positives)
+        ..sort(
+          sorted == desc ? (a, b) => b.compareTo(a) : (a, b) => a.compareTo(b),
+        );
+      expect(positives, expected);
+    }
   });
 
   test('SortSpec toggles the same column two-way, resets on a new column', () {

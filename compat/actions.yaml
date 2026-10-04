@@ -5499,3 +5499,33 @@ items:
 # starts first, the shared SOCKS port is awaited, then the main core starts; stop is the reverse order.
 # No new UI action; this realises the topology already emitted by FIX-13. Real GUI-driven multi-core
 # run not yet verified on this host.
+
+# --- R3-SET-01..04 append (2026-10-04; evidence: docs/evidence/recheck-fixes/R3-SET-01-04/; tasks: docs/tasks/R3-SET-01.md .. R3-SET-04.md) ---
+# Settings-domain recheck fixes (append only; no denominator change):
+# R3-SET-01 repeated upstream import is an idempotent no-op; per-batch upstream_config:<fingerprint> is
+#   stored and preferred on activation, so A->B->A never remaps another source's config and the active id stays resolvable.
+# R3-SET-02 "restore upstream ZIP" replaces guiNDB/config (ImportMode::Replace / restore_from_path); the append
+#   flow is preserved as the separately named BackupService::import_upstream_merge (+ merge lifecycle entry).
+# R3-SET-03 prepare_restore bumps a restore epoch, cancels/drains manual subscription jobs and the scheduler
+#   tick (stop cancels in-flight downloads); a stale replace_sub_profiles commit is rejected
+#   (error.restore_in_progress); drain/scheduler timeout returns a structured error and blocks the restore.
+# R3-SET-04 after a restore the Dart layer reloads and re-registers GlobalHotkeys via
+#   HotkeyController.reloadFromSettings() (fake registrar only; no real OS hotkey registered).
+# Boundaries: no real window/FRB end-to-end restore, no real OS hotkey, no real slow-download+restore concurrency.
+
+# --- R3-PROF-01..04 append (2026-10-04; evidence: docs/evidence/recheck-fixes/R3-PROF-01-04/; tasks: docs/tasks/R3-PROF-01.md .. R3-PROF-04.md) ---
+# Node-table command/sort/dedup recheck fixes (append only; no denominator change):
+# R3-PROF-01 multi-selection gains an independent main row (ProfilesState.primaryId); edit / share /
+#   set-active / full-config export use the captured CommandContext.primaryId, so selected.length==1 is
+#   no longer required and the batch selection is never collapsed (ACT-PROF-001/005/006/022/023).
+# R3-PROF-02 commands bind the immutable context captured at menu open; a target hidden by a later
+#   refresh/filter/group switch is refused ("操作目标已失效"), and full-config export reads the captured
+#   target instead of the live selection.
+# R3-PROF-03 header Delay/Speed sort sinks failed/untested (<=0) rows in both directions
+#   (ConfigHandler.cs:1087-1105); sortByResult syncs state.sort so reload no longer reverts to the old
+#   column; header sort writes the whole group (ConfigHandler.cs:1004-1006) including filter-hidden rows.
+# R3-PROF-04 dedup reads GuiItem.KeepOlderDedupl (false reverses, ConfigHandler.cs:1166-1168); a deleted
+#   active duplicate triggers the RE-PROF-02 fallback (ProfilesViewModel.cs:537-541); delete failure shows
+#   the real error code instead of "没有重复节点".
+# Boundaries: synthetic controller/widget only; no real Windows window + FRB end-to-end, no real SQLite
+#   reopen; engine.delete_profiles still does not clear active (UI-level fallback only).

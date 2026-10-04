@@ -415,10 +415,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           exportSelectedShareUrls(ref);
           return KeyEventResult.handled;
         case ProfileAction.share:
-          // Ctrl+F: open the selected node's share QR window
-          // (upstream `ShareServerAsync`), not the default log/echo.
+          // Ctrl+F: open the main row's share QR window (upstream
+          // `ShareServerAsync`), not the default log/echo.
           controller.logAction(action!, 'keyboard');
-          shareProfilesQr(context, ref);
+          shareProfileQr(context, ref);
           return KeyEventResult.handled;
         case ProfileAction.activate:
           controller.logAction(action!, 'keyboard');
@@ -936,6 +936,23 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     }
   }
 
+  /// Whether an entry resolves its object from the captured node primary
+  /// (`CommandContext.primaryId`). These are the entry points that must refuse
+  /// a hidden/retargeted row (R3-PROF-01/02); everything else uses batch ids,
+  /// the group, or the whole view.
+  static bool _usesPrimaryTarget(ContextActionKind kind) {
+    switch (kind) {
+      case ContextActionKind.edit:
+      case ContextActionKind.share:
+      case ContextActionKind.activate:
+      case ContextActionKind.exportClientConfig:
+      case ContextActionKind.exportClientConfigClipboard:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   /// Whether an entry needs a live command target. Entries that operate on the
   /// whole view (select all, remove invalid) stay enabled without a selection;
   /// the rest are disabled like the upstream menu.
@@ -1074,6 +1091,19 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
         return;
       }
     }
+    // A captured single-object target (edit/share/activate/export) must still
+    // be visible; a filter that hides it refuses the command instead of
+    // silently retargeting to the live selection (R3-PROF-02). Commands that
+    // do not consume a node primary (group generation, batch, results) are not
+    // gated by this.
+    final targetId = command?.primaryId;
+    if (_usesPrimaryTarget(entry.kind) &&
+        targetId != null &&
+        !profiles.isVisibleTarget(targetId)) {
+      _closeMenuChain();
+      shell.setMessage('操作目标已失效，请重新选择节点');
+      return;
+    }
     _menuController.close();
     _menuFocusIndex = -1;
 
@@ -1091,7 +1121,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       case ContextActionKind.moveToGroup:
         _moveToGroup(command, entry);
       case ContextActionKind.edit:
-        editSelectedProfile(context, ref);
+        editSelectedProfile(context, ref, targetId: targetId);
       case ContextActionKind.copy:
         copySelectedProfiles(ref);
       case ContextActionKind.delete:
@@ -1099,13 +1129,27 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       case ContextActionKind.removeDuplicate:
         unawaited(_removeDuplicate(entry));
       case ContextActionKind.activate:
-        setActiveSelected(ref);
+        setActiveSelected(ref, targetId: targetId);
       case ContextActionKind.share:
-        shareProfilesQr(context, ref);
+        shareProfileQr(context, ref, targetId: targetId);
       case ContextActionKind.exportClientConfig:
-        unawaited(exportSelectedClientConfig(context, ref, toClipboard: false));
+        unawaited(
+          exportSelectedClientConfig(
+            context,
+            ref,
+            toClipboard: false,
+            targetId: targetId,
+          ),
+        );
       case ContextActionKind.exportClientConfigClipboard:
-        unawaited(exportSelectedClientConfig(context, ref, toClipboard: true));
+        unawaited(
+          exportSelectedClientConfig(
+            context,
+            ref,
+            toClipboard: true,
+            targetId: targetId,
+          ),
+        );
       case ContextActionKind.exportShare:
         exportProfiles(context, ref, kind: 'share');
       case ContextActionKind.exportShareBase64:
@@ -1186,8 +1230,29 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       shell.setMessage('已取消移除重复');
       return;
     }
-    final removed = profiles.removeDuplicateProfiles();
-    shell.setMessage(removed > 0 ? '已移除 $removed 个重复节点' : '没有重复节点');
+    // Read `GuiItem.KeepOlderDedupl` inside the detailed call and distinguish a
+    // real delete failure from "no duplicates" (R3-PROF-04).
+    final outcome = profiles.removeDuplicateProfilesDetailed();
+    if (!outcome.ok) {
+      final code = outcome.errorCode ?? 'unknown';
+      final detail = outcome.errorMessageKey;
+      shell.setMessage(
+        detail == null || detail.isEmpty
+            ? '移除重复失败：$code'
+            : '移除重复失败：$code（$detail）',
+      );
+      return;
+    }
+    if (!outcome.hadDuplicates) {
+      shell.setMessage('没有重复节点');
+      return;
+    }
+    // If the active duplicate was deleted, re-pick a live node before applying
+    // (same fallback as node deletion, RE-PROF-02/RE-PROF-06).
+    if (outcome.activeRemoved) {
+      await reconcileActiveAfterRemoval(ref);
+    }
+    shell.setMessage('已移除 ${outcome.removed} 个重复节点');
   }
 
   /// `一键生成策略组` (ACT-PROF-007/008) for the subscription group selected in

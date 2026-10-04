@@ -1,0 +1,39 @@
+R3-SET-01..04 Flutter evidence
+Base HEAD: 6699c31  (apps/desktop)
+
+$ flutter analyze
+No issues found! (ran in 2.9s)
+
+$ flutter test test/r3_set_restore_test.dart
+00:00 +1: All tests passed!
+
+$ flutter test test/sr05_sr06_hotkey_test.dart
+00:00 +6: All tests passed!
+
+$ flutter test test/sr02_04_backup_import_test.dart
+00:00 +1: All tests passed!
+
+$ flutter test test/sr03_restore_lifecycle_test.dart
+00:00 +4: All tests passed!
+
+$ flutter test test/fix14b_backup_restore_test.dart
+00:01 +5: All tests passed!
+
+$ flutter test test/fix09d_scheduler_ctrl_test.dart
+00:00 +1: All tests passed!
+
+$ flutter test test/t16_backup_test.dart
+00:01 +6: All tests passed!
+
+$ flutter test test/fix14_backup_activate_test.dart
+00:01 +3: All tests passed!
+
+$ flutter test test/fix14c_webdav_backup_test.dart
+00:01 +4: All tests passed!
+
+Notes:
+- r3_set_restore_test.dart drives the backup restore with a fake hotkey registrar and a
+  swappable settings document; it never registers a real OS hotkey.
+- All previous restore/import fake tests still pass after _reloadProviders became async and
+  the hotkey reload was added (native hotkey re-registration is gated on the shell having
+  installed its live dispatch handler).

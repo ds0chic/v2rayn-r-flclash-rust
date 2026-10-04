@@ -6,6 +6,7 @@
 //! replaces [`InMemoryProfileRepository`] with SQLite.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use domain::runtime_plan::{
@@ -74,17 +75,24 @@ pub struct MonitorSession {
     pub proxy_port: Option<u16>,
     pub state_port: u16,
     pub state_port2: u16,
+    /// Clash `secret` from a full Custom config, when the config declares one.
+    /// Data only: never written to logs or evidence.
+    pub api_secret: Option<String>,
 }
 
 /// Core + statistics/API ports and proxy scheme captured when an apply was
 /// accepted. For a full Custom config the values come from the emitted JSON
-/// (RR-07); otherwise they are the generated-config expectations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// (RR-07 / R3-07); otherwise they are the generated-config expectations.
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct AppliedFacts {
     core: CoreType,
     state_port: u16,
     state_port2: u16,
     scheme: runtime::ProxyProtocol,
+    /// API kind (`ClashApi` / `XrayStats`) when a Custom config declared one.
+    api_kind: Option<runtime::ApiKind>,
+    /// Clash `secret`; data only, never logged.
+    api_secret: Option<String>,
 }
 
 /// The managed cores root for a given data directory: `V2RAYN_R_CORES_DIR`
@@ -132,6 +140,10 @@ pub struct AppEngine {
     /// monitor pipeline polls the running core instead of re-deriving facts
     /// from a desired (possibly changed) plan.
     apply_facts: Arc<Mutex<Option<AppliedFacts>>>,
+    /// Monotonic epoch bumped before every restore/import file exchange. A
+    /// subscription commit that captured the epoch before the bump is rejected
+    /// so a slow download cannot write into the swapped database (R3-SET-03).
+    restore_epoch: Arc<AtomicU64>,
 }
 
 impl AppEngine {
@@ -170,6 +182,7 @@ impl AppEngine {
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
             apply_facts: Arc::new(Mutex::new(None)),
+            restore_epoch: Arc::new(AtomicU64::new(0)),
         };
         engine.ensure_builtin_routing_dns();
         engine
@@ -244,6 +257,7 @@ impl AppEngine {
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
             apply_facts: Arc::new(Mutex::new(None)),
+            restore_epoch: Arc::new(AtomicU64::new(0)),
         };
         engine.ensure_builtin_routing_dns();
         Ok(engine)
@@ -361,20 +375,93 @@ impl AppEngine {
     /// Stop the subscription scheduler and wait (bounded) for an in-flight
     /// tick to finish, so no scheduler pass can write to the database while a
     /// restore/import exchanges the live files. `None` when no scheduler runs.
-    pub fn stop_sub_scheduler_blocking(&self, timeout: std::time::Duration) {
+    ///
+    /// A scheduler that does not finish before `timeout` returns a structured
+    /// error: the restore must be blocked, never silently continue onto a
+    /// database a stale tick can still write (R3-SET-03).
+    pub fn stop_sub_scheduler_blocking(
+        &self,
+        timeout: std::time::Duration,
+    ) -> Result<(), DomainError> {
         let scheduler = self
             .sub_scheduler
             .lock()
             .ok()
             .and_then(|mut guard| guard.take());
         let Some(scheduler) = scheduler else {
-            return;
+            return Ok(());
         };
         scheduler.stop();
         let deadline = std::time::Instant::now() + timeout;
         while !scheduler.is_finished() && std::time::Instant::now() < deadline {
             std::thread::sleep(std::time::Duration::from_millis(5));
         }
+        if scheduler.is_finished() {
+            Ok(())
+        } else {
+            Err(DomainError::new(
+                domain::codes::UNAVAILABLE,
+                "error.restore_scheduler_timeout",
+            )
+            .with_detail("subscription scheduler did not stop before the restore deadline"))
+        }
+    }
+
+    /// Cancel every in-flight manual subscription update and wait (bounded) for
+    /// it to reach a terminal state. Returns the number cancelled. A task that
+    /// does not finish before `timeout` blocks the restore with a structured
+    /// error instead of silently continuing onto a swapped database.
+    pub fn cancel_and_drain_sub_tasks(
+        &self,
+        timeout: std::time::Duration,
+    ) -> Result<usize, DomainError> {
+        let active_ids: Vec<JobId> = self
+            .jobs
+            .active()
+            .into_iter()
+            .filter(|job| job.kind == "update_subscription")
+            .map(|job| job.job_id)
+            .collect();
+        for id in &active_ids {
+            let _ = self.jobs.cancel(id);
+        }
+        if active_ids.is_empty() {
+            return Ok(0);
+        }
+        let deadline = std::time::Instant::now() + timeout;
+        loop {
+            let remaining = self
+                .jobs
+                .active()
+                .into_iter()
+                .filter(|job| job.kind == "update_subscription")
+                .count();
+            if remaining == 0 {
+                return Ok(active_ids.len());
+            }
+            if std::time::Instant::now() >= deadline {
+                return Err(DomainError::new(
+                    domain::codes::UNAVAILABLE,
+                    "error.restore_sub_task_timeout",
+                )
+                .with_detail(format!(
+                    "{remaining} subscription task(s) did not stop before the restore deadline"
+                )));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    /// The current restore/import epoch. A subscription run captures this
+    /// before downloading and passes it to
+    /// [`Self::replace_sub_profiles_at_epoch`].
+    pub fn restore_epoch(&self) -> u64 {
+        self.restore_epoch.load(Ordering::Acquire)
+    }
+
+    /// Advance the restore epoch (called before every restore/import exchange).
+    fn bump_restore_epoch(&self) -> u64 {
+        self.restore_epoch.fetch_add(1, Ordering::AcqRel) + 1
     }
 
     /// SR-03 restore lifecycle, storage half: stop the managed runtime session
@@ -382,13 +469,19 @@ impl AppEngine {
     /// restore/import can exchange the live files without a competing session
     /// or timer.
     ///
-    /// The scheduler is stopped and drained unconditionally. A runtime that
-    /// reports a live session is stopped through the idempotent boundary and a
-    /// failure is returned *before* any file is touched; an idle or unreachable
-    /// runtime is left alone so a backup-only session can still restore.
-    /// Quiesce failures are propagated for the same reason.
+    /// The restore epoch is bumped first, then the manual subscription workers
+    /// are cancelled and drained and the scheduler is stopped and drained; a
+    /// timeout is a structured error that aborts the restore before any file is
+    /// touched. A runtime that reports a live session is stopped through the
+    /// idempotent boundary and a failure is returned *before* any file is
+    /// touched; an idle or unreachable runtime is left alone so a backup-only
+    /// session can still restore. Quiesce failures are propagated for the same
+    /// reason.
     pub fn prepare_restore(&self) -> Result<(), DomainError> {
-        self.stop_sub_scheduler_blocking(std::time::Duration::from_millis(2000));
+        self.bump_restore_epoch();
+        let timeout = std::time::Duration::from_millis(2000);
+        self.cancel_and_drain_sub_tasks(timeout)?;
+        self.stop_sub_scheduler_blocking(timeout)?;
         let live = self
             .runtime
             .snapshot()
@@ -1598,14 +1691,17 @@ impl AppEngine {
             .apply_facts
             .lock()
             .ok()
-            .and_then(|guard| *guard)
+            .and_then(|guard| guard.clone())
             .map(|facts| facts.scheme.scheme())
             .unwrap_or("http");
         port.map(|port| format!("{scheme}://127.0.0.1:{port}"))
     }
 
     /// Resolve the monitor/API facts for an accepted plan. A full Custom config
-    /// carries its real statistics/API port in the emitted JSON (RR-07).
+    /// carries its real statistics/API port, listen address and Clash secret in
+    /// the emitted JSON (RR-07 / R3-07). A Custom config that declares no API
+    /// gets zero endpoints so the poller idles instead of probing the default
+    /// statistics port.
     fn applied_facts_for(&self, plan: &RuntimePlan) -> AppliedFacts {
         let opts = self.runtime_codegen_options();
         let core = plan.target.core_type;
@@ -1614,6 +1710,8 @@ impl AppEngine {
             state_port: opts.state_port.clamp(0, u16::MAX as i32) as u16,
             state_port2: opts.state_port2.clamp(0, u16::MAX as i32) as u16,
             scheme: runtime::ProxyProtocol::Mixed,
+            api_kind: None,
+            api_secret: None,
         };
         let is_custom = self
             .active_profile()
@@ -1621,14 +1719,19 @@ impl AppEngine {
             .map(|profile| profile.config_type == ConfigType::Custom)
             .unwrap_or(false);
         if is_custom {
+            // Never fall back to a default statistics API for a Custom config:
+            // the ports exist only if the config declares them.
+            facts.state_port = 0;
+            facts.state_port2 = 0;
             if let ConfigSource::Inline { body } = &plan.target.config {
                 if let Ok(endpoints) = runtime::parse_custom_endpoints(core, body) {
-                    if core == CoreType::Xray {
-                        if let Some(api) = endpoints.api_port {
-                            facts.state_port = api;
+                    if let Some(api) = &endpoints.api {
+                        facts.api_kind = Some(api.kind);
+                        facts.api_secret = api.secret.clone();
+                        match api.kind {
+                            runtime::ApiKind::XrayStats => facts.state_port = api.port,
+                            runtime::ApiKind::ClashApi => facts.state_port2 = api.port,
                         }
-                    } else if let Some(api) = endpoints.api_port {
-                        facts.state_port2 = api;
                     }
                     if let Some(primary) = endpoints.primary() {
                         facts.scheme = primary.protocol;
@@ -1662,7 +1765,7 @@ impl AppEngine {
             .apply_facts
             .lock()
             .ok()
-            .and_then(|guard| *guard)
+            .and_then(|guard| guard.clone())
             .unwrap_or_else(|| {
                 let opts = self.runtime_codegen_options();
                 AppliedFacts {
@@ -1670,6 +1773,8 @@ impl AppEngine {
                     state_port: opts.state_port.clamp(0, u16::MAX as i32) as u16,
                     state_port2: opts.state_port2.clamp(0, u16::MAX as i32) as u16,
                     scheme: runtime::ProxyProtocol::Mixed,
+                    api_kind: None,
+                    api_secret: None,
                 }
             });
         Some(MonitorSession {
@@ -1678,6 +1783,7 @@ impl AppEngine {
             proxy_port: applied.proxy_port,
             state_port: facts.state_port,
             state_port2: facts.state_port2,
+            api_secret: facts.api_secret,
         })
     }
 
@@ -1849,6 +1955,10 @@ impl AppEngine {
         max_items: usize,
     ) -> SubUpdateReport {
         let mut report = SubUpdateReport::default();
+        // Capture the epoch before any download: if a restore/import exchanges
+        // the database while a download is in flight, `refresh_one`'s commit is
+        // rejected instead of writing into the swapped database (R3-SET-03).
+        let epoch = self.restore_epoch();
         let targets = match self.target_subs(&request) {
             Ok(items) => items,
             Err(_) => return report,
@@ -1863,7 +1973,7 @@ impl AppEngine {
                 break;
             }
             report.entries.push(
-                self.refresh_one(&item, &request, cancellation, max_items)
+                self.refresh_one(&item, &request, cancellation, max_items, epoch)
                     .await,
             );
         }
@@ -1876,6 +1986,7 @@ impl AppEngine {
         request: &SubUpdateRequest,
         cancellation: &CancellationToken,
         max_items: usize,
+        epoch: u64,
     ) -> SubUpdateEntry {
         let entry = |outcome: SubUpdateOutcome| SubUpdateEntry {
             sub_id: item.id.clone(),
@@ -1918,7 +2029,7 @@ impl AppEngine {
         crate::subs::assign_candidate_ids(&mut candidates);
 
         // Atomic replace for this subid (upstream: remove-then-write).
-        match self.replace_sub_profiles(&item.id, candidates, true) {
+        match self.replace_sub_profiles_at_epoch(&item.id, candidates, true, epoch) {
             Ok((added, removed)) => {
                 let _ = self.touch_sub_update_time(&item.id, unix_now());
                 SubUpdateEntry {
@@ -1961,6 +2072,26 @@ impl AppEngine {
         profiles: Vec<Profile>,
         remove_existing: bool,
     ) -> Result<(usize, usize), DomainError> {
+        self.replace_sub_profiles_at_epoch(subid, profiles, remove_existing, self.restore_epoch())
+    }
+
+    /// [`Self::replace_sub_profiles`] guarded by the restore epoch that a task
+    /// captured before the exchange. A mismatch means a restore/import replaced
+    /// the database while the download was in flight, so the stale commit is
+    /// explicitly rejected instead of clobbering the restored nodes.
+    pub fn replace_sub_profiles_at_epoch(
+        &self,
+        subid: &str,
+        profiles: Vec<Profile>,
+        remove_existing: bool,
+        expected_epoch: u64,
+    ) -> Result<(usize, usize), DomainError> {
+        if self.restore_epoch() != expected_epoch {
+            return Err(
+                DomainError::new(domain::codes::CONFLICT, "error.restore_in_progress")
+                    .with_detail("subscription commit rejected: restore exchanged the database"),
+            );
+        }
         let mut profiles = profiles;
         for profile in &mut profiles {
             if profile.subid.is_empty() {
@@ -2308,6 +2439,17 @@ impl AppEngine {
             .unwrap_or(11808)
     }
 
+    /// R3-03: which proxy cores emit a structured Xray/sing-box JSON config
+    /// whose `inbounds` / statistics endpoints the runtime can resolve. Every
+    /// other core receives its native config file passed through untouched
+    /// (mihomo YAML, naive, tuic, mieru, ...).
+    fn core_uses_json_endpoints(core: CoreType) -> bool {
+        matches!(
+            core,
+            CoreType::Xray | CoreType::V2fly | CoreType::V2flyV5 | CoreType::SingBox
+        )
+    }
+
     /// The runtime codegen context derived from the persisted settings
     /// (`AppManager.GetLocalPort` + state-port offsets). No free-port probing
     /// here: the state ports are only emitted when the matching feature is on.
@@ -2494,16 +2636,35 @@ impl AppEngine {
                 .with_detail(error.to_string())
         })?;
         generated.diagnostics.extend(chain_warnings);
-        let body = serde_json::to_string(&generated.main).map_err(|error| {
-            DomainError::new(domain::codes::INTERNAL, "error.config_serialize_failed")
-                .with_detail(error.to_string())
-        })?;
+        // R3-03: only Xray-family and sing-box `Custom` configs are structured
+        // JSON whose proxy inbounds / statistics endpoints the runtime can
+        // resolve. Every other proxy core receives its native config verbatim
+        // (mihomo YAML, naive args file, mieru JSON delivered via
+        // `MIERU_CONFIG_JSON_FILE`, ...): re-serialising it as JSON or parsing
+        // it for `inbounds` would corrupt or reject it. Keep the raw text and
+        // mark the endpoint state as native instead of failing.
+        let native_custom =
+            target.config_type == ConfigType::Custom && !Self::core_uses_json_endpoints(core);
+        let body = if native_custom {
+            input
+                .profile
+                .custom_config
+                .clone()
+                .filter(|text| !text.trim().is_empty())
+                .unwrap_or_else(|| serde_json::to_string(&generated.main).unwrap_or_default())
+        } else {
+            serde_json::to_string(&generated.main).map_err(|error| {
+                DomainError::new(domain::codes::INTERNAL, "error.config_serialize_failed")
+                    .with_detail(error.to_string())
+            })?
+        };
 
-        // RR-07: a full `Custom` config is emitted verbatim, so the plan must
-        // wait on and publish the ports the config actually binds, not
-        // `opts.local_port`. A config with no usable inbound is a hard error:
-        // never pretend the core is ready.
-        let custom_endpoints = if target.config_type == ConfigType::Custom {
+        // RR-07: a structured `Custom` config is emitted verbatim, so the plan
+        // must wait on and publish the ports the config actually binds, not
+        // `opts.local_port`. A native-format core exposes no parseable endpoint
+        // here: the plan records that state (no `custom_endpoints`) rather than
+        // rejecting the config.
+        let custom_endpoints = if target.config_type == ConfigType::Custom && !native_custom {
             match runtime::parse_custom_endpoints(core, &body) {
                 Ok(endpoints) => Some(endpoints),
                 Err(detail) => {
@@ -2542,7 +2703,7 @@ impl AppEngine {
                     ports.push(PortRequest::udp(resolved.port, "inbound"));
                 }
             }
-            if let Some(api_port) = endpoints.api_port {
+            if let Some(api_port) = endpoints.api_port() {
                 ports.push(PortRequest {
                     port: api_port,
                     transport: PortTransport::Tcp,
@@ -2592,6 +2753,10 @@ impl AppEngine {
                 decision.core,
                 &decision.address,
                 decision.port,
+                &opts,
+                &settings,
+                input.routing.clone(),
+                input.dns.clone(),
             )
             .map_err(|error| {
                 DomainError::new(
@@ -3224,6 +3389,80 @@ mod tests {
     }
 
     #[test]
+    fn custom_singbox_clash_secret_reaches_monitor_session() {
+        // R3-07: a sing-box Custom config's Clash API port, listen address and
+        // secret reach the monitor session through the normal applied-session
+        // path (not only the dedicated `monitor_configure` hook). The secret is
+        // returned as data; this test never logs it.
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let mut custom = synthetic_full_profile(1);
+        custom.config_type = ConfigType::Custom;
+        custom.core_type = Some(CoreType::SingBox);
+        custom.address = "custom.json".into();
+        custom.proto_extra.extra.insert(
+            crate::codegen::CUSTOM_CONFIG_KEY.to_string(),
+            serde_json::json!(
+                r#"{"inbounds":[{"type":"mixed","listen":"127.0.0.1","listen_port":11960,"users":[{"username":"u","password":"p"}]}],"experimental":{"clash_api":{"external_controller":"127.0.0.1:11965","secret":"synthetic-secret"}},"outbounds":[]}"#
+            ),
+        );
+        engine.seed(vec![custom.clone()]);
+        engine.set_active(Some(custom.index_id.clone())).unwrap();
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan(&custom.index_id, revision)
+            .unwrap();
+        engine
+            .apply_runtime(plan, DesiredRevision::new(revision))
+            .unwrap();
+        runtime.mark_running_with("s-c", vec![11960], AppliedRevision::new(revision));
+        engine.snapshot().unwrap();
+
+        let session = engine.monitor_session().expect("running sing-box custom");
+        assert_eq!(session.core, CoreType::SingBox);
+        assert_eq!(session.state_port, 0);
+        assert_eq!(session.state_port2, 11965, "clash api port");
+        assert_eq!(session.api_secret.as_deref(), Some("synthetic-secret"));
+        assert_eq!(
+            engine.local_proxy_url().as_deref(),
+            Some("http://127.0.0.1:11960")
+        );
+    }
+
+    #[test]
+    fn custom_without_api_publishes_zero_stats_ports() {
+        // R3-07: a Custom config that declares no statistics/API listener must
+        // not fall back to the generic/default statistics port; the poller must
+        // idle instead of probing an API the config does not expose.
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let mut custom = synthetic_full_profile(1);
+        custom.config_type = ConfigType::Custom;
+        custom.core_type = Some(CoreType::Xray);
+        custom.address = "custom.json".into();
+        custom.proto_extra.extra.insert(
+            crate::codegen::CUSTOM_CONFIG_KEY.to_string(),
+            serde_json::json!(r#"{"inbounds":[{"port":11970,"protocol":"socks"}],"outbounds":[]}"#),
+        );
+        engine.seed(vec![custom.clone()]);
+        engine.set_active(Some(custom.index_id.clone())).unwrap();
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan(&custom.index_id, revision)
+            .unwrap();
+        engine
+            .apply_runtime(plan, DesiredRevision::new(revision))
+            .unwrap();
+        runtime.mark_running_with("s-c", vec![11970], AppliedRevision::new(revision));
+        engine.snapshot().unwrap();
+
+        let session = engine.monitor_session().expect("running custom session");
+        assert_eq!(session.state_port, 0, "no default statistics API");
+        assert_eq!(session.state_port2, 0, "no default Clash API");
+        assert!(session.api_secret.is_none());
+    }
+
+    #[test]
     fn pre_socks_legacy_sidecar_uses_base_port_and_real_socks_config() {
         // RR-06: a non-sing-box node under TUN + LegacyProtect gets a sing-box
         // pre-SOCKS sidecar on the runtime base port, and the graph node body
@@ -3719,5 +3958,60 @@ mod tests {
             input.profile.config_type,
             config_codegen::input::ConfigType::Custom
         );
+    }
+
+    #[test]
+    fn replace_sub_profiles_rejects_stale_restore_epoch() {
+        let engine = AppEngine::in_memory();
+        engine
+            .save_sub_item(SubItem {
+                id: "s1".into(),
+                remarks: "s1".into(),
+                url: "https://example.invalid/sub".into(),
+                ..SubItem::default()
+            })
+            .unwrap();
+        let epoch = engine.restore_epoch();
+        let candidate = synthetic_full_profile(1);
+        // A restore bumps the epoch; the stale task's commit is rejected.
+        engine.bump_restore_epoch();
+        let err = engine
+            .replace_sub_profiles_at_epoch("s1", vec![candidate.clone()], true, epoch)
+            .unwrap_err();
+        assert_eq!(err.code, domain::codes::CONFLICT);
+        assert!(engine.profiles_by_subid("s1").unwrap().is_empty());
+        // The current epoch commits normally.
+        let current = engine.restore_epoch();
+        let (added, _) = engine
+            .replace_sub_profiles_at_epoch("s1", vec![candidate], true, current)
+            .unwrap();
+        assert_eq!(added, 1);
+        assert_eq!(engine.profiles_by_subid("s1").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn cancel_and_drain_sub_tasks_times_out_on_stuck_job() {
+        let engine = AppEngine::in_memory();
+        let job = engine.jobs().start("update_subscription");
+        let err = engine
+            .cancel_and_drain_sub_tasks(std::time::Duration::from_millis(40))
+            .unwrap_err();
+        assert_eq!(err.code, domain::codes::UNAVAILABLE);
+        // Once the worker reports terminal, the drain succeeds.
+        engine.jobs().finish(&job.job_id, JobState::Cancelled, None);
+        assert_eq!(
+            engine
+                .cancel_and_drain_sub_tasks(std::time::Duration::from_millis(40))
+                .unwrap(),
+            0
+        );
+    }
+
+    #[test]
+    fn prepare_restore_bumps_epoch_before_exchange() {
+        let engine = AppEngine::in_memory();
+        let before = engine.restore_epoch();
+        engine.prepare_restore().unwrap();
+        assert_eq!(engine.restore_epoch(), before + 1);
     }
 }

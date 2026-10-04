@@ -266,7 +266,8 @@ pub fn t16_backup_recognize(path: String) -> RecognitionDto {
     }
 }
 
-/// `backup_import_upstream` — import a directory/ZIP via the T04 candidate flow.
+/// `backup_import_upstream` — restore a directory/ZIP via the T04 candidate
+/// flow with replace semantics (the upstream `guiNDB.db` becomes the database).
 #[frb(sync)]
 pub fn t16_backup_import_upstream(path: String) -> ImportSummaryDto {
     let service = match backup_service() {
@@ -303,6 +304,84 @@ pub fn t16_backup_import_upstream(path: String) -> ImportSummaryDto {
     // propagated as structured errors instead of being ignored.
     let outcome =
         service.import_upstream_with_lifecycle(engine(), Path::new(&path), &work, now_epoch());
+    match outcome {
+        Ok(report) => {
+            let imported_rows = report.counts.iter().map(|c| c.imported_rows).sum::<u64>();
+            let status = match report.status {
+                ImportStatus::Imported => "imported",
+                ImportStatus::AlreadyImported => "already_imported",
+                ImportStatus::Rejected => "rejected",
+                ImportStatus::Failed => "failed",
+            };
+            ImportSummaryDto {
+                ok: report.status.changed_target()
+                    || report.status == ImportStatus::AlreadyImported,
+                status: status.to_string(),
+                source_version: report.source_version,
+                imported_rows,
+                warnings: report.warnings.len() as u32,
+                errors: report.errors.len() as u32,
+                message: report.user_summary,
+                error: None,
+            }
+        }
+        Err(error) => ImportSummaryDto {
+            ok: false,
+            status: "failed".to_string(),
+            source_version: 0,
+            imported_rows: 0,
+            warnings: 0,
+            errors: 1,
+            message: String::new(),
+            error: Some(error_dto(error)),
+        },
+    }
+}
+
+/// `backup_import_upstream_merge` — the explicitly named migration/merge
+/// import that appends the source rows to the live database (R3-SET-02).
+///
+/// Registered as an independent entry; the checked-in `frb_generated` bindings
+/// are not regenerated, so the UI restore path stays on
+/// [`t16_backup_import_upstream`] (replace).
+#[frb(sync)]
+pub fn t16_backup_import_upstream_merge(path: String) -> ImportSummaryDto {
+    let service = match backup_service() {
+        Ok(service) => service,
+        Err(error) => {
+            return ImportSummaryDto {
+                ok: false,
+                status: "failed".to_string(),
+                source_version: 0,
+                imported_rows: 0,
+                warnings: 0,
+                errors: 0,
+                message: String::new(),
+                error: Some(error_dto(error)),
+            }
+        }
+    };
+    let work = match work_dir("import-merge") {
+        Ok(path) => path,
+        Err(error) => {
+            return ImportSummaryDto {
+                ok: false,
+                status: "failed".to_string(),
+                source_version: 0,
+                imported_rows: 0,
+                warnings: 0,
+                errors: 0,
+                message: String::new(),
+                error: Some(error_dto(error)),
+            }
+        }
+    };
+    let outcome = service.import_upstream_merge_with_lifecycle(
+        engine(),
+        Path::new(&path),
+        &work,
+        now_epoch(),
+    );
     match outcome {
         Ok(report) => {
             let imported_rows = report.counts.iter().map(|c| c.imported_rows).sum::<u64>();

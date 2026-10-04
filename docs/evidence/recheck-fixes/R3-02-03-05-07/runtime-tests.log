@@ -1,0 +1,62 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running unittests src\lib.rs (target\debug\deps\runtime-61f3f5bee583af5c.exe)
+
+running 55 tests
+test adapter::tests::app_identity_has_no_adapter_but_every_proxy_core_does ... ok
+test adapter::tests::candidate_exe_names_mirror_frozen_core_info ... ok
+test adapter::tests::core_dir_is_lowercase ... ok
+test adapter::tests::cores_without_env_contract_report_none ... ok
+test adapter::tests::mieru_config_is_delivered_via_environment ... ok
+test adapter::tests::mihomo_run_args_use_config_flag ... ok
+test adapter::tests::xray_command_shape ... ok
+test endpoints::tests::host_port_parsing_handles_brackets_and_bare ... ok
+test endpoints::tests::custom_without_proxy_inbound_is_an_error ... ok
+test endpoints::tests::invalid_json_is_an_error ... ok
+test endpoints::tests::singbox_custom_reads_listen_port_and_clash_api ... ok
+test endpoints::tests::xray_custom_reads_real_inbound_and_metrics ... ok
+test endpoints::tests::xray_custom_socks_only_has_socks_scheme ... ok
+test endpoints::tests::xray_inbound_auth_is_detected ... ok
+test graph::tests::empty_topology_is_allowed ... ok
+test graph::tests::cycle_is_rejected ... ok
+test graph::tests::port_conflict_is_rejected ... ok
+test graph::tests::rollback_reverses_only_started_prefix ... ok
+test identity::tests::a_bogus_identity_does_not_match ... ok
+test graph::tests::start_order_is_dependency_ordered ... ok
+test identity::tests::current_process_has_an_identity ... ok
+test install_layout::tests::singbox_dir_is_singbox_everywhere ... ok
+test adapter::tests::default_root_matches_engine_data_cores ... ok
+test install_layout::tests::version_dir_uses_shared_names ... ok
+test install_layout::tests::version_key_orders_numerically_and_ignores_non_versions ... ok
+test sha256::tests::matches_fips_vectors ... ok
+test tun::tests::converts_to_helper_payloads ... ok
+test tun::tests::dry_run_detection_reads_arg_and_env ... ok
+test adapter::tests::resolve_override_wins_and_missing_is_not_found ... ok
+test tun::tests::disabled_plan_has_no_tun_work ... ok
+test tun::tests::enabled_plan_parses_a_valid_descriptor ... ok
+test tun::tests::enabled_plan_requires_a_tun_node ... ok
+test tun::tests::rejects_bad_adapter_name ... ok
+test adapter::tests::explicit_cores_root_disables_dev_fallback ... ok
+test tun::tests::rejects_bad_address_and_prefix ... ok
+test tun::tests::rejects_bad_route_exclude ... ok
+test tun::tests::rejects_empty_addresses_and_bad_mtu ... ok
+test tun::tests::rejects_route_family_mismatch_and_zero_interface ... ok
+test tun::tests::rejects_wrong_kind ... ok
+test tun::tests::rejects_zero_interface_index ... ok
+test tun::tests::rejects_too_many_routes ... ok
+test tun::tests::route_summary_is_counts_only ... ok
+test tun::tests::route_digest_is_stable_and_order_insensitive ... ok
+test tun::tests::tun_node_rejects_controlled_file_config ... ok
+test tun::tests::tun_node_requires_the_tun_privilege ... ok
+test tun::tests::tun_node_without_flag_is_rejected ... ok
+test wire::tests::size_cap_is_enforced ... ok
+test wire::tests::response_frame_roundtrips ... ok
+test wire::tests::event_frame_carries_runtime_detail ... ok
+test adapter::tests::candidate_fallback_finds_alternate_exe_name ... ok
+test adapter::tests::resolve_prefers_highest_version_then_pinned ... ok
+test install_layout::tests::resolve_picks_pinned_and_highest ... ok
+test identity::tests::an_exited_process_is_not_a_live_identity ... ok
+test job::tests::kill_on_job_close_terminates_assigned_members ... ok
+test sha256::tests::long_input_is_stable ... ok
+
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+

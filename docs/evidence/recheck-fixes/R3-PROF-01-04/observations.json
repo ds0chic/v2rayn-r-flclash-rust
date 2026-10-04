@@ -1,0 +1,84 @@
+{
+  "task": "R3-PROF-01-04",
+  "date": "2026-10-04",
+  "base_head": "6699c31",
+  "upstream_frozen_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "implemented",
+  "scope": {
+    "modified_lib": [
+      "apps/desktop/lib/features/profiles/profiles_models.dart",
+      "apps/desktop/lib/features/profiles/profiles_controller.dart",
+      "apps/desktop/lib/features/profiles/profile_actions.dart",
+      "apps/desktop/lib/features/profiles/profiles_table.dart"
+    ],
+    "modified_test": [
+      "apps/desktop/test/recheck_r3_prof_controller_test.dart",
+      "apps/desktop/test/recheck_r3_prof_menu_target_test.dart",
+      "apps/desktop/test/recheck_r3_prof04_dedup_widget_test.dart",
+      "apps/desktop/test/support/profiles_harness.dart"
+    ],
+    "untouched_forbidden": true
+  },
+  "findings": [
+    {
+      "id": "R3-PROF-01",
+      "state": "implemented",
+      "change": "independent ProfilesState.primaryId; menu consumes CommandContext.primaryId for edit/share/activate/full-config export; batch selection never collapsed",
+      "evidence": [
+        "recheck_r3_prof_controller_test.dart: R3-PROF-01",
+        "recheck_r3_prof_menu_target_test.dart: context menu commands target the captured main row"
+      ]
+    },
+    {
+      "id": "R3-PROF-02",
+      "state": "implemented",
+      "change": "restoreContextTargets requires state.visible; hidden/regrouped target refused; export reads captured target not live selection",
+      "evidence": [
+        "recheck_r3_prof_controller_test.dart: R3-PROF-02",
+        "recheck_r3_prof_menu_target_test.dart scenario C"
+      ]
+    },
+    {
+      "id": "R3-PROF-03",
+      "state": "implemented",
+      "change": "applySort sinks Delay/Speed <=0 both directions; sortByResult syncs state.sort (stable across reload); header sort writes whole group incl. hidden rows",
+      "evidence": [
+        "recheck_r3_prof_controller_test.dart: R3-PROF-03 x3",
+        "reprof04_sort_readback_test.dart 5/5"
+      ]
+    },
+    {
+      "id": "R3-PROF-04",
+      "state": "implemented",
+      "change": "read GuiItem.KeepOlderDedupl (false reverses); active duplicate triggers reconcile fallback; delete failure shows real error code",
+      "evidence": [
+        "recheck_r3_prof_controller_test.dart: R3-PROF-04 x3",
+        "recheck_r3_prof04_dedup_widget_test.dart",
+        "re_prof_06_scope_test.dart 3/3",
+        "fix10_dedup_test.dart 4/4"
+      ]
+    }
+  ],
+  "commands": [
+    { "cmd": "flutter analyze", "result": "No issues found!" },
+    { "cmd": "flutter test test/recheck_r3_prof_controller_test.dart", "result": "8/8 passed" },
+    { "cmd": "flutter test test/recheck_r3_prof_menu_target_test.dart", "result": "1/1 passed (retry after flutter_tester 'did not complete')" },
+    { "cmd": "flutter test test/recheck_r3_prof04_dedup_widget_test.dart", "result": "1/1 passed" },
+    { "cmd": "flutter test test/reprof04_sort_readback_test.dart", "result": "5/5 passed" },
+    { "cmd": "flutter test test/re_prof_06_scope_test.dart", "result": "3/3 passed" },
+    { "cmd": "flutter test test/fix10_dedup_test.dart", "result": "4/4 passed" },
+    { "cmd": "flutter test test/t15b_speedtest_test.dart", "result": "7/7 passed" },
+    { "cmd": "flutter test test/re_prof_08_export_udp_test.dart", "result": "5/5 passed" },
+    { "cmd": "flutter test test/ux_parity_fix01_gen_group_guard_test.dart", "result": "1/1 passed" },
+    { "cmd": "flutter test test/re_prof_14_autofit_test.dart test/re_prof_14_drag_enabled_test.dart test/re_prof_14_drag_disabled_test.dart", "result": "3/3 passed" }
+  ],
+  "known_flake": "test/profiles_keyboard_test.dart -> flutter_tester 0xC0000005 / did not complete (documented T12a/T15a; not a regression)",
+  "constraints_respected": {
+    "port_10808_untouched": true,
+    "synthetic_nodes_only": true,
+    "no_system_proxy_registry_route_tun": true,
+    "no_external_process_kill": true,
+    "no_full_workspace_test": true,
+    "no_commit": true
+  }
+}

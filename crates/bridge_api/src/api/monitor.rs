@@ -275,6 +275,10 @@ fn now_unix() -> i64 {
 // Hub
 // ---------------------------------------------------------------------------
 
+/// Applied-session signature: `(core, state_port, state_port2, active node,
+/// api secret, enable_statistics, display_real_time_speed)`.
+type SessionSignature = (i32, u16, u16, Option<String>, Option<String>, bool, bool);
+
 struct MonitorHub {
     core: CoreType,
     state_port: u16,
@@ -303,10 +307,10 @@ struct MonitorHub {
     /// Last store open/load failure, surfaced through `stats_snapshot().error`.
     store_error: Option<ErrorDto>,
     /// Applied-session signature `(core, state_port, state_port2, active node,
-    /// enable_statistics, display_real_time_speed)`. Only a real change forces
-    /// the poller to rebuild its `StatsSource`; unrelated RuntimeView churn
-    /// (log lines, heartbeat seq) never does.
-    session_sig: Option<(i32, u16, u16, Option<String>, bool, bool)>,
+    /// api secret, enable_statistics, display_real_time_speed)`. Only a real
+    /// change forces the poller to rebuild its `StatsSource`; unrelated
+    /// RuntimeView churn (log lines, heartbeat seq) never does.
+    session_sig: Option<SessionSignature>,
     epoch: u64,
     seq: u64,
 }
@@ -1228,6 +1232,7 @@ fn sync_from_engine_session(h: &mut MonitorHub) {
                 session.state_port,
                 session.state_port2,
                 session.active_index_id.clone(),
+                session.api_secret.clone(),
                 enabled,
                 speed,
             );
@@ -1238,6 +1243,10 @@ fn sync_from_engine_session(h: &mut MonitorHub) {
             h.core = session.core;
             h.state_port = session.state_port;
             h.state_port2 = session.state_port2;
+            // R3-07: a full Custom config carries its own Clash secret; the
+            // normal apply path must publish it to the hub, not only the
+            // dedicated `monitor_configure` hook. Never logged.
+            h.secret = session.api_secret.clone();
             h.stats.set_active_index(session.active_index_id);
             h.stats.set_enabled(enabled);
             h.stats.set_display_speed(speed);
@@ -1245,6 +1254,7 @@ fn sync_from_engine_session(h: &mut MonitorHub) {
         None => {
             h.state_port = 0;
             h.state_port2 = 0;
+            h.secret = None;
             h.source_sig = None;
             h.session_sig = None;
             h.stats.set_active_index(None);

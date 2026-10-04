@@ -41,6 +41,8 @@ Future<ProviderContainer> pumpApp(
   MemoryUiStateStore? store,
   FakeMonitorBridge? monitor,
   bool? dragDropSort,
+  BridgePort? bridge,
+  ProviderContainer? container,
 }) async {
   if (setViewSize) {
     tester.view.physicalSize = Size(width, height);
@@ -49,27 +51,31 @@ Future<ProviderContainer> pumpApp(
     addTearDown(tester.view.resetDevicePixelRatio);
   }
 
-  final container = ProviderContainer(
-    overrides: [
-      bridgePortProvider.overrideWithValue(SyntheticBridgePort()),
-      uiStateStoreProvider.overrideWithValue(store ?? MemoryUiStateStore()),
-      profileRowCountProvider.overrideWithValue(rows),
-      platformBridgeProvider.overrideWithValue(FakePlatformBridge()),
-      monitorBridgeProvider.overrideWithValue(monitor ?? FakeMonitorBridge()),
-      if (dragDropSort != null)
-        profilesEnableDragDropSortProvider.overrideWithValue(dragDropSort),
-    ],
-  );
-  addTearDown(container.dispose);
+  final resolved =
+      container ??
+      ProviderContainer(
+        overrides: [
+          bridgePortProvider.overrideWithValue(bridge ?? SyntheticBridgePort()),
+          uiStateStoreProvider.overrideWithValue(store ?? MemoryUiStateStore()),
+          profileRowCountProvider.overrideWithValue(rows),
+          platformBridgeProvider.overrideWithValue(FakePlatformBridge()),
+          monitorBridgeProvider.overrideWithValue(
+            monitor ?? FakeMonitorBridge(),
+          ),
+          if (dragDropSort != null)
+            profilesEnableDragDropSortProvider.overrideWithValue(dragDropSort),
+        ],
+      );
+  addTearDown(resolved.dispose);
   await tester.pumpWidget(
     UncontrolledProviderScope(
-      container: container,
+      container: resolved,
       child: const MaterialApp(home: MainShell()),
     ),
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 20));
-  return container;
+  return resolved;
 }
 
 ProfilesState readState(ProviderContainer container) =>

@@ -323,6 +323,21 @@ class HotkeyController extends Notifier<HotkeyState> {
     return state;
   }
 
+  /// Reload bindings from the (possibly restored) settings document and
+  /// re-register them, so native dispatch matches the restored configuration
+  /// after a backup restore (R3-SET-04).
+  ///
+  /// Registration only runs when the shell has installed its live dispatcher
+  /// ([hotkeyDispatchProvider]); in a pure widget/test context there is no
+  /// native target, so the bindings are reloaded without touching the plugin.
+  Future<HotkeyState> reloadFromSettings() async {
+    loadFromSettings();
+    if (ref.read(hotkeyDispatchProvider).handler == null) {
+      return state;
+    }
+    return registerAll();
+  }
+
   /// Pause native dispatch while the hotkey editor is open (upstream
   /// `HotkeyManager.IsPause`). The live registration is dropped so a combo
   /// pressed during recording reaches the Flutter editor instead of firing its

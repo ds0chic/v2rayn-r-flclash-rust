@@ -234,6 +234,17 @@ pub trait CoreAdapter: Send + Sync {
     fn test_args(&self, config: &Path) -> Vec<OsString>;
     /// Arguments for a version probe.
     fn version_args(&self) -> Vec<OsString>;
+    /// Environment variables the core needs to find its config. Empty for
+    /// cores that take the config path as a command-line argument. Mirrors
+    /// upstream `CoreInfo.Environment` (R3-03).
+    fn env_vars(&self, _config: &Path) -> Vec<(String, String)> {
+        Vec::new()
+    }
+    /// Working directory for the process. `None` keeps the caller's default;
+    /// cores like mihomo pass their directory as an argument instead.
+    fn working_dir(&self, _config: &Path) -> Option<std::path::PathBuf> {
+        None
+    }
 }
 
 /// Xray-core adapter (`xray run -c`, `xray run -test -c`, `xray version`).
@@ -711,6 +722,14 @@ impl CoreAdapter for MieruAdapter {
     fn version_args(&self) -> Vec<OsString> {
         vec!["version".into()]
     }
+    /// Upstream `CoreInfoManager` injects `MIERU_CONFIG_JSON_FILE={0}` for
+    /// mieru; `run` reads the config from that environment variable (R3-03).
+    fn env_vars(&self, config: &Path) -> Vec<(String, String)> {
+        vec![(
+            "MIERU_CONFIG_JSON_FILE".to_string(),
+            config.to_string_lossy().into_owned(),
+        )]
+    }
 }
 
 /// Resolve the adapter for a core type. `App` (the v2rayN self-update
@@ -811,6 +830,35 @@ mod tests {
         let args = adapter.run_args(Path::new("C:/run/config.json"));
         assert_eq!(args[0], "-f");
         assert_eq!(args[1], "C:/run/config.json");
+    }
+
+    #[test]
+    fn mieru_config_is_delivered_via_environment() {
+        let adapter = MieruAdapter;
+        let config = Path::new("C:/run/config.json");
+        assert_eq!(adapter.run_args(config), vec![OsString::from("run")]);
+        let env = adapter.env_vars(config);
+        assert_eq!(env.len(), 1);
+        assert_eq!(env[0].0, "MIERU_CONFIG_JSON_FILE");
+        assert_eq!(env[0].1, "C:/run/config.json");
+    }
+
+    #[test]
+    fn cores_without_env_contract_report_none() {
+        for adapter in [
+            Box::new(XrayAdapter) as Box<dyn CoreAdapter>,
+            Box::new(SingBoxAdapter),
+            Box::new(MihomoAdapter),
+            Box::new(NaiveProxyAdapter),
+            Box::new(TuicAdapter),
+        ] {
+            let config = Path::new("C:/run/config");
+            assert!(
+                adapter.env_vars(config).is_empty(),
+                "{} must not inject environment",
+                adapter.core_type().as_str()
+            );
+        }
     }
 
     fn temp_root(tag: &str) -> PathBuf {

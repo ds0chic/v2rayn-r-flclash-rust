@@ -1,0 +1,64 @@
+   Compiling application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+   Compiling bridge_api v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\bridge_api)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.38s
+     Running unittests src\lib.rs (target\debug\deps\bridge_api-0b2c693ee414d458.exe)
+
+running 55 tests
+test api::engine::tests::event_kind_str_is_stable ... ok
+test api::monitor::tests::injected_log_batch_reaches_service ... ok
+test api::monitor::tests::log_pipeline_filters_and_pages ... ok
+test api::monitor::tests::configure_round_trips_and_flags ... ok
+test api::monitor::tests::page_visibility_uses_refresh_interval ... ok
+test api::monitor::tests::paused_collection_drops_incoming_batch ... ok
+test api::monitor::tests::store_bind_failure_is_visible_and_retryable ... ok
+test api::platform::tests::cert_provider_helpers_normalize_like_upstream ... ok
+test api::platform::tests::hotkey_helpers_filter_and_map ... ok
+test api::platform::tests::cert_command_preview_and_error_branch ... ok
+test api::monitor::tests::test_injection_updates_snapshot ... ok
+test api::monitor::tests::unsupported_core_reports_clash_not_available ... ok
+test api::platform::tests::mode_and_port_helpers ... ok
+test api::engine::tests::test_only_smoke_plan_has_socks_inbound_and_freedom_outbound ... ok
+test api::platform::tests::resolve_uwp_tool_reports_missing ... ok
+test api::settings::tests::dto_round_trip_all_groups_with_extras ... ok
+test api::settings::tests::dto_round_trip_preserves_tree_and_extras ... ok
+test api::platform::tests::pac_resolve_script_seeds_and_reads_default ... ok
+test api::speedtest::tests::action_mapping_round_trips ... ok
+test api::speedtest::tests::configure_clamps_timeout_and_concurrency ... ok
+test api::speedtest::tests::export_client_config_reports_missing_profile ... ok
+test api::speedtest::tests::result_overlay_and_invalid_cleanup ... ok
+test api::speedtest::tests::results_follow_persisted_sort_order ... ok
+test api::speedtest::tests::udp_is_supported_by_the_direct_probe ... ok
+test api::dns::fix08_tests::save_simple_dns_preserves_global_fake_ip_and_extra_when_unset ... ok
+test api::engine::tests::save_profile_rejects_stale_revision_through_bridge ... ok
+test api::engine::tests::global_engine_tests_are_serialized_not_concurrent ... ok
+test api::engine::tests::snapshot_dto_serializes_with_contract_fields ... ok
+test api::groups::tests::template_round_trip_through_bridge ... ok
+test api::engine::tests::save_imported_profile_accepts_empty_remarks_and_address ... ok
+test api::groups::tests::group_children_empty_for_unknown_group ... ok
+test api::subs::tests::export_share_and_base64_agree ... ok
+test api::platform::tests::autostart_round_trip_through_fake ... ok
+test api::platform::tests::custom_script_validation_missing_file ... ok
+test api::subs::tests::import_rejects_free_text ... ok
+test api::platform::tests::invalid_mode_value_is_rejected ... ok
+test api::subs::tests::sub_update_report_round_trips_and_unknown_is_none ... ok
+test api::subs::tests::import_inner_uri_parses_frozen_pascal_case_shape ... ok
+test api::t16::tests::dgst_parse_reads_sha256_line ... ok
+test api::t16::tests::update_targets_list_builtins_with_caps ... ok
+test api::subs::tests::file_type_and_inline_type_do_not_impersonate ... ok
+test api::subs::tests::inner_export_serves_inline_and_file_outbound ... ok
+test api::platform::tests::pac_lifecycle_through_bridge ... ok
+test api::platform::tests::sysproxy_four_modes_apply_and_restore_through_fake ... ok
+test api::platform::tests::unchanged_is_noop_and_pac_requires_url ... ok
+test api::settings::tests::save_settings_group_rejects_unknown_group ... ok
+test api::settings::tests::save_settings_group_returns_timing ... ok
+test api::subs::tests::clash_yaml_imports_as_file_type_yaml ... ok
+test api::subs::tests::full_singbox_config_imports_as_file_type ... ok
+test api::subs::tests::full_v2ray_config_imports_as_file_type_and_generates ... ok
+test api::subs::tests::import_share_uri_assigns_ids_and_subid ... ok
+test api::subs::tests::save_empty_url_plain_group_round_trips ... ok
+test api::subs::tests::save_nonempty_invalid_url_is_rejected ... ok
+test api::subs::tests::update_via_proxy_without_endpoint_returns_proxy_unavailable ... ok
+test api::t16::tests::update_via_proxy_without_port_is_structured ... ok
+
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

@@ -53,6 +53,32 @@ bool readEnableDragDropSort(BridgePort bridge) {
   return false;
 }
 
+/// Resolve `GuiItem.KeepOlderDedupl` from the settings document.
+///
+/// Frozen `ConfigHandler.DedupServerList` (`:1166-1168`) reverses the list when
+/// the flag is false, so the *newer* entry wins. The flag defaults to false in
+/// the frozen `ConfigItems.KeepOlderDedupl`; when settings are unavailable the
+/// conservative `true` (keep the older entry) is used so a transient read
+/// failure can never silently delete data.
+@visibleForTesting
+bool readKeepOlderDedupl(BridgePort bridge) {
+  try {
+    final load = bridge.getSettings();
+    if (!load.ok || load.settingsJson.isEmpty) return true;
+    final decoded = jsonDecode(load.settingsJson);
+    if (decoded is Map<String, dynamic>) {
+      final gui = decoded['GuiItem'];
+      if (gui is Map<String, dynamic>) {
+        final value = gui['KeepOlderDedupl'];
+        if (value is bool) return value;
+      }
+    }
+  } catch (_) {
+    // No native library (pure widget tests) or malformed settings.
+  }
+  return true;
+}
+
 final profileRowCountProvider = Provider<int>((ref) => 10000);
 
 final profilesControllerProvider =
@@ -68,6 +94,28 @@ class TableEvent {
   final int seq;
   final String action;
   final String detail;
+}
+
+/// Outcome of `移除重复` (ACT-PROF-003). Distinguishes "no duplicates found"
+/// from a real delete failure and records whether the active node was removed,
+/// so the caller can show the true error and run the active-node fallback
+/// (R3-PROF-04).
+class DedupOutcome {
+  const DedupOutcome({
+    required this.ok,
+    this.removed = 0,
+    required this.hadDuplicates,
+    this.activeRemoved = false,
+    this.errorCode,
+    this.errorMessageKey,
+  });
+
+  final bool ok;
+  final int removed;
+  final bool hadDuplicates;
+  final bool activeRemoved;
+  final String? errorCode;
+  final String? errorMessageKey;
 }
 
 /// Effective configuration for one speedtest run.
@@ -110,6 +158,7 @@ class ProfilesState {
     required this.rustCount,
     required this.columns,
     this.profiles = const <c.ProfileDto>[],
+    this.primaryId,
     this.activeId,
     this.groupSubId,
     this.lastAckSeq,
@@ -135,7 +184,17 @@ class ProfilesState {
   /// but only refreshes on Enter/clear).
   final String filterInput;
   final SortSpec sort;
+
+  /// Batch selection (Ctrl/Shift/marquee). Kept separate from [primaryId].
   final Set<String> selected;
+
+  /// The independent "current row" / main target, mirroring upstream
+  /// `DataGrid.SelectedItem` (`SelectedProfile`). Single-object commands
+  /// (edit / share / set-active / full-config export) use this instead of
+  /// requiring `selected.length == 1`, so a multi-selection still has a main
+  /// row to act on (R3-PROF-01). Null when no row is current/visible.
+  final String? primaryId;
+
   final List<TableEvent> events;
   final bool doubleClick2Activate;
   final int rustCount;
@@ -189,6 +248,8 @@ class ProfilesState {
     int? rustCount,
     List<ProfileColumn>? columns,
     List<c.ProfileDto>? profiles,
+    String? primaryId,
+    bool clearPrimary = false,
     String? activeId,
     bool clearActive = false,
     String? groupSubId,
@@ -218,6 +279,7 @@ class ProfilesState {
       rustCount: rustCount ?? this.rustCount,
       columns: columns ?? this.columns,
       profiles: profiles ?? this.profiles,
+      primaryId: clearPrimary ? null : (primaryId ?? this.primaryId),
       activeId: clearActive ? null : (activeId ?? this.activeId),
       groupSubId: clearGroup ? null : (groupSubId ?? this.groupSubId),
       lastAckSeq: lastAckSeq ?? this.lastAckSeq,
@@ -554,10 +616,37 @@ class ProfilesController extends Notifier<ProfilesState> {
     // must not stay selected, otherwise a batch/keyboard action would hit a
     // hidden node (RE-PROF-05).
     final visibleIds = sorted.map((r) => r.id).toSet();
+    // The primary/current row must stay addressable: a refresh/filter that
+    // hides it clears the main row instead of leaving a dangling target.
+    final primaryVisible =
+        base.primaryId != null && visibleIds.contains(base.primaryId);
     return base.copyWith(
       visible: sorted,
       selected: base.selected.where(visibleIds.contains).toSet(),
+      primaryId: primaryVisible ? base.primaryId : null,
+      clearPrimary: !primaryVisible,
     );
+  }
+
+  /// Whether [id] is currently visible in the table (group + text filter).
+  ///
+  /// The context-menu hidden-object contract: a command captured on a row that
+  /// a later refresh/filter no longer shows must be refused, not silently run
+  /// against the live state (R3-PROF-02).
+  bool isVisibleTarget(String id) => state.visible.any((r) => r.id == id);
+
+  /// All rows of the current group, ignoring the live text filter.
+  ///
+  /// Frozen `ConfigHandler.SortServers` receives `ProfileModels(subId, "")`,
+  /// so a header sort reorders the whole group (hidden rows included) and must
+  /// not be shrunk to the current search result (R3-PROF-03).
+  List<ProfileSummary> _groupScope(ProfilesState base) {
+    final group = base.groupSubId;
+    if (group == null) return List<ProfileSummary>.of(base.all);
+    final subById = <String, String>{
+      for (final p in base.profiles) p.indexId: p.subid,
+    };
+    return base.all.where((r) => _rowSubId(subById, r) == group).toList();
   }
 
   /// Owning subscription id of a table row.
@@ -713,9 +802,15 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   void sortBy(String key) {
-    state = _recompute(state.copyWith(sort: state.sort.next(key)));
-    _persistOrder();
-    _log('sort', '$key ${state.sort.direction.name}');
+    final sort = state.sort.next(key);
+    // Frozen `ConfigHandler.SortServers` sorts `ProfileModels(subId, "")`: the
+    // whole current group, ignoring the live text filter. The persisted `Sort`
+    // therefore covers hidden rows too, while the table still shows the
+    // filtered subsequence in the same order (R3-PROF-03).
+    final scoped = applySort(_groupScope(state), state.visibleColumns, sort);
+    state = _recompute(state.copyWith(sort: sort));
+    _persistOrder(ids: scoped.map((r) => r.id).toList());
+    _log('sort', '$key ${sort.direction.name} scoped=${scoped.length}');
   }
 
   /// Persist the current visible row order into the upstream
@@ -726,10 +821,10 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// `speedtestApplyProfileOrder` bridge, so the order survives a restart. An
   /// empty list or a single row carries no ordering information and is never
   /// written (no fake persistence, no error).
-  c.SimpleResult _persistOrder() {
-    final ids = state.visible.map((r) => r.id).toList();
-    if (ids.length < 2) return const c.SimpleResult(ok: true);
-    final result = _bridge.applyProfileOrder(ids);
+  c.SimpleResult _persistOrder({List<String>? ids}) {
+    final ordered = ids ?? state.visible.map((r) => r.id).toList();
+    if (ordered.length < 2) return const c.SimpleResult(ok: true);
+    final result = _bridge.applyProfileOrder(ordered);
     if (result.ok) {
       if (state.orderMessage != null) {
         state = state.copyWith(clearOrderMessage: true);
@@ -751,25 +846,21 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// `ProfileSummary.delay` from the speedtest result overlay; no synthetic
   /// ordering is produced.
   void sortByResult() {
-    final rows = List<ProfileSummary>.of(state.visible);
+    // Route through the same DelayVal sort as a header click, so the active
+    // sort is synced into `state.sort`: a later reload/`_recompute` re-applies
+    // it instead of falling back to the previously clicked column (R3-PROF-03).
+    // `applySort` sinks failed/untested (`<= 0`) delays in both directions.
     final ascending = _resultSortAscending;
-    rows.sort((a, b) {
-      // Failed/untested delays (<= 0) always sink, in both directions
-      // (upstream `SortServers` reassigns them `maxSort`).
-      final aSink = a.delay <= 0;
-      final bSink = b.delay <= 0;
-      if (aSink != bSink) return aSink ? 1 : -1;
-      if (aSink) return 0;
-      return ascending
-          ? a.delay.compareTo(b.delay)
-          : b.delay.compareTo(a.delay);
-    });
     _resultSortAscending = !ascending;
-    state = state.copyWith(visible: rows);
+    final sort = SortSpec(
+      columnKey: 'DelayVal',
+      direction: ascending ? SortDirection.ascending : SortDirection.descending,
+    );
+    state = _recompute(state.copyWith(sort: sort));
     _persistOrder();
     _log(
       'sort-result',
-      'rows=${rows.length} direction=${ascending ? "asc" : "desc"}',
+      'rows=${state.visible.length} direction=${ascending ? "asc" : "desc"}',
     );
     _echo('sort-result');
   }
@@ -783,29 +874,37 @@ class ProfilesController extends Notifier<ProfilesState> {
     } else {
       next = selectSingle(id);
     }
-    state = state.copyWith(selected: next);
+    state = state.copyWith(selected: next, primaryId: id);
     _log('select', 'id=$id selected=${next.length}');
   }
 
   /// Drag-select: replace the selection with the inclusive visible range
   /// between the drag anchor and the row under the pointer (WPF DataGrid
-  /// press-and-drag parity).
+  /// press-and-drag parity). The anchor stays the current/main row so the
+  /// target does not drift while the range grows.
   void selectRange(String anchorId, String currentId) {
     final next = rangeSelection(state.visible, anchorId, currentId);
-    if (setEquals(next, state.selected)) return;
-    state = state.copyWith(selected: next);
+    if (setEquals(next, state.selected) && state.primaryId == anchorId) return;
+    state = state.copyWith(selected: next, primaryId: anchorId);
     _log('select', 'range=$anchorId..$currentId selected=${next.length}');
   }
 
   void selectAll() {
     final ids = state.visible.map((r) => r.id).toSet();
-    state = state.copyWith(selected: ids);
+    final primary = state.primaryId != null && ids.contains(state.primaryId)
+        ? state.primaryId
+        : (state.visible.isEmpty ? null : state.visible.first.id);
+    state = state.copyWith(
+      selected: ids,
+      primaryId: primary,
+      clearPrimary: primary == null,
+    );
     _log(ProfileAction.selectAll, 'selected=${ids.length}');
     _echo(ProfileAction.selectAll);
   }
 
   void clearSelection() {
-    state = state.copyWith(selected: const <String>{});
+    state = state.copyWith(selected: const <String>{}, clearPrimary: true);
     _log(ProfileAction.escape, 'selection cleared');
     _echo(ProfileAction.escape);
   }
@@ -825,7 +924,7 @@ class ProfilesController extends Notifier<ProfilesState> {
     }
     final target = (index + delta).clamp(0, rows.length - 1);
     final id = rows[target].id;
-    state = state.copyWith(selected: selectSingle(id));
+    state = state.copyWith(selected: selectSingle(id), primaryId: id);
     _log(
       delta < 0 ? ProfileAction.navigateUp : ProfileAction.navigateDown,
       'id=$id',
@@ -833,8 +932,12 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   void handleRightTap(String id) {
+    // The row under the pointer becomes the current/main row; an existing
+    // multi-selection is preserved (upstream DataGrid context menu).
     if (!state.selected.contains(id)) {
-      state = state.copyWith(selected: selectSingle(id));
+      state = state.copyWith(selected: selectSingle(id), primaryId: id);
+    } else {
+      state = state.copyWith(primaryId: id);
     }
     _log(ProfileAction.contextMenu, 'kept=${state.selected.length}');
   }
@@ -844,15 +947,20 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// the selection drifted meanwhile.
   ///
   /// Returns false without touching the selection when the snapshot is empty or
-  /// any target id no longer exists (refresh/delete/filter); the caller then
-  /// closes the stale menu instead of acting on a hidden/other row.
+  /// any target id is no longer **visible** (refresh/delete/filter); the caller
+  /// then closes the stale menu instead of acting on a hidden/other row. Note
+  /// this checks the current view (`state.visible`), not merely the store, so a
+  /// text filter that hides a captured target refuses the command (R3-PROF-02).
   bool restoreContextTargets(List<String> ids) {
     if (ids.isEmpty) return false;
-    final known = state.all.map((r) => r.id).toSet();
-    if (!ids.every(known.contains)) return false;
+    final visible = state.visible.map((r) => r.id).toSet();
+    if (!ids.every(visible.contains)) return false;
     final target = ids.toSet();
-    if (!setEquals(state.selected, target)) {
-      state = state.copyWith(selected: target);
+    final primary = state.primaryId != null && target.contains(state.primaryId)
+        ? state.primaryId
+        : ids.first;
+    if (!setEquals(state.selected, target) || state.primaryId != primary) {
+      state = state.copyWith(selected: target, primaryId: primary);
       _log(ProfileAction.contextMenu, 'restore=${ids.length}');
     }
     return true;
@@ -1242,35 +1350,64 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   /// `移除重复` (ACT-PROF-003 / PR-12): deduplicate the current group by
-  /// transport identity, keeping the older node when `KeepOlderDedupl` is set
-  /// (complex nodes always stay). Returns the number of profiles removed.
+  /// transport identity (complex nodes always stay) and report the outcome.
   ///
-  /// The comparison mirrors the frozen `ConfigHandler.CompareProfileItem` and
-  /// the existing `subscriptions::deduplicate` pure function; the deletion goes
-  /// through the real `deleteProfiles` seam, so it persists and survives a
-  /// restart.
-  int removeDuplicateProfiles({bool keepOlder = true}) {
+  /// When [keepOlder] is null the frozen `GuiItem.KeepOlderDedupl` setting is
+  /// read (`false` reverses the list so the newer entry wins, matching
+  /// `ConfigHandler.cs:1166-1168`); the real UI path uses this. The comparison
+  /// mirrors `ConfigHandler.CompareProfileItem`; deletion goes through the real
+  /// `deleteProfiles` seam so it persists and survives a restart. Unlike the
+  /// legacy int wrapper this distinguishes "no duplicates" from a real failure
+  /// and reports whether the active node was deleted (R3-PROF-04).
+  DedupOutcome removeDuplicateProfilesDetailed({bool? keepOlder}) {
     // Upstream `DedupServerList` scopes to the whole group (`ProfileItems(subId)`),
     // never the live text filter (RE-PROF-06).
+    final effectiveKeepOlder = keepOlder ?? readKeepOlderDedupl(_bridge);
     final candidates = state.profiles.where(_profileInGroup).toList();
-    final duplicates = deduplicateProfiles(candidates, keepOlder: keepOlder);
+    final duplicates = deduplicateProfiles(
+      candidates,
+      keepOlder: effectiveKeepOlder,
+    );
     if (duplicates.isEmpty) {
       _log(ProfileAction.removeDuplicate, 'none');
       _echo(ProfileAction.removeDuplicate);
-      return 0;
+      return const DedupOutcome(ok: true, hadDuplicates: false);
     }
+    final activeBefore = state.activeId;
+    final activeRemoved =
+        activeBefore != null && duplicates.contains(activeBefore);
     final result = _bridge.deleteProfiles(duplicates);
     if (!result.ok) {
       _log(ProfileAction.removeDuplicate, 'delete-failed');
       _echo(ProfileAction.removeDuplicate);
-      return 0;
+      return DedupOutcome(
+        ok: false,
+        hadDuplicates: true,
+        activeRemoved: activeRemoved,
+        errorCode: result.error?.code,
+        errorMessageKey: result.error?.messageKey,
+      );
     }
     final removed = result.removed.toInt();
     reload();
-    _log(ProfileAction.removeDuplicate, 'removed=$removed');
+    _log(
+      ProfileAction.removeDuplicate,
+      'removed=$removed keepOlder=$effectiveKeepOlder',
+    );
     _echo(ProfileAction.removeDuplicate);
-    return removed;
+    return DedupOutcome(
+      ok: true,
+      removed: removed,
+      hadDuplicates: true,
+      activeRemoved: activeRemoved,
+    );
   }
+
+  /// Number of profiles removed by dedup. Kept for direct controller callers;
+  /// explicit [keepOlder] is honored (the settings-driven path is
+  /// [removeDuplicateProfilesDetailed]).
+  int removeDuplicateProfiles({bool keepOlder = true}) =>
+      removeDuplicateProfilesDetailed(keepOlder: keepOlder).removed;
 
   Future<void> runBlockingProbe(int ms) async {
     state = state.copyWith(blockingBusy: true);

@@ -40,6 +40,7 @@ Future<ProviderContainer> pumpApp(
   bool setViewSize = true,
   MemoryUiStateStore? store,
   FakeMonitorBridge? monitor,
+  bool? dragDropSort,
 }) async {
   if (setViewSize) {
     tester.view.physicalSize = Size(width, height);
@@ -55,6 +56,8 @@ Future<ProviderContainer> pumpApp(
       profileRowCountProvider.overrideWithValue(rows),
       platformBridgeProvider.overrideWithValue(FakePlatformBridge()),
       monitorBridgeProvider.overrideWithValue(monitor ?? FakeMonitorBridge()),
+      if (dragDropSort != null)
+        profilesEnableDragDropSortProvider.overrideWithValue(dragDropSort),
     ],
   );
   addTearDown(container.dispose);

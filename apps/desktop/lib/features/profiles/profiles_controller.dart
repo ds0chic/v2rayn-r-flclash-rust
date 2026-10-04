@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show max;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
@@ -15,12 +17,41 @@ import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 final bridgePortProvider = Provider<BridgePort>((ref) => const FrbBridgePort());
 
 final uiStateStoreProvider = Provider<UiStateStore>(
   (ref) => FileUiStateStore(),
 );
+
+/// Whether the node table registers row drag-reorder, read from the persisted
+/// `UiItem.EnableDragDropSort` (FLD-CFG-076 / upstream `ProfilesView.xaml:27-34`).
+///
+/// Upstream only wires the drag handlers when this is true; when false a row
+/// has no `Draggable`/`DragTarget` at all. Tests override this provider instead
+/// of mutating the locked settings store.
+final profilesEnableDragDropSortProvider = Provider<bool>(
+  (ref) => readEnableDragDropSort(ref.read(bridgePortProvider)),
+);
+
+/// Resolve `UiItem.EnableDragDropSort` from the settings document, defaulting to
+/// false when settings are unavailable or malformed.
+@visibleForTesting
+bool readEnableDragDropSort(BridgePort bridge) {
+  try {
+    final load = bridge.getSettings();
+    if (!load.ok || load.settingsJson.isEmpty) return false;
+    final decoded = jsonDecode(load.settingsJson);
+    if (decoded is Map<String, dynamic>) {
+      final ui = decoded['UiItem'];
+      if (ui is Map<String, dynamic>) return ui['EnableDragDropSort'] == true;
+    }
+  } catch (_) {
+    // No native library (pure widget tests) or malformed settings.
+  }
+  return false;
+}
 
 final profileRowCountProvider = Provider<int>((ref) => 10000);
 
@@ -71,6 +102,7 @@ class ProfilesState {
     required this.all,
     required this.visible,
     required this.filter,
+    this.filterInput = '',
     required this.sort,
     required this.selected,
     required this.events,
@@ -94,7 +126,14 @@ class ProfilesState {
 
   final List<ProfileSummary> all;
   final List<ProfileSummary> visible;
+
+  /// Committed text filter applied to [visible] (upstream `_serverFilter`).
   final String filter;
+
+  /// Raw text currently typed in the filter box, which may be ahead of
+  /// [filter] until Enter commits it (upstream binds the box to `ServerFilter`
+  /// but only refreshes on Enter/clear).
+  final String filterInput;
   final SortSpec sort;
   final Set<String> selected;
   final List<TableEvent> events;
@@ -142,6 +181,7 @@ class ProfilesState {
     List<ProfileSummary>? all,
     List<ProfileSummary>? visible,
     String? filter,
+    String? filterInput,
     SortSpec? sort,
     Set<String>? selected,
     List<TableEvent>? events,
@@ -170,6 +210,7 @@ class ProfilesState {
       all: all ?? this.all,
       visible: visible ?? this.visible,
       filter: filter ?? this.filter,
+      filterInput: filterInput ?? this.filterInput,
       sort: sort ?? this.sort,
       selected: selected ?? this.selected,
       events: events ?? this.events,
@@ -640,12 +681,34 @@ class ProfilesController extends Notifier<ProfilesState> {
     _log('gen-group-select', 'id=$target');
   }
 
+  /// Apply a text filter immediately (programmatic/test seam).
+  ///
+  /// The UI filter box does not use this: it follows upstream
+  /// `ServerFilterChanged`, which only refreshes on clear, plus Enter submit
+  /// ([updateFilterInput]/[submitFilter]).
   void setFilter(String value) {
-    state = _recompute(state.copyWith(filter: value));
+    state = _recompute(state.copyWith(filter: value, filterInput: value));
   }
 
+  /// Record raw filter-box text without applying it.
+  ///
+  /// Upstream `ServerFilterChanged` only calls `RefreshServers` when the box is
+  /// cleared (frozen `ProfilesViewModel.cs:343-350`); a non-empty query stays
+  /// pending until Enter (`TxtServerFilter_PreviewKeyDown` ->
+  /// `RefreshServers`). Clearing the box refreshes immediately.
+  void updateFilterInput(String value) {
+    if (value.trim().isEmpty) {
+      state = _recompute(state.copyWith(filter: '', filterInput: value));
+      _log('refresh', 'filter="" -> ${state.visible.length}');
+      return;
+    }
+    state = state.copyWith(filterInput: value);
+  }
+
+  /// Commit the pending filter-box text (Enter). The query is applied to the
+  /// current group through the same [applyFilter] used by every refresh.
   void submitFilter() {
-    state = _recompute(state.copyWith(filter: state.filter));
+    state = _recompute(state.copyWith(filter: state.filterInput));
     _log('refresh', 'filter="${state.filter}" -> ${state.visible.length}');
   }
 
@@ -896,6 +959,9 @@ class ProfilesController extends Notifier<ProfilesState> {
       case ProfileAction.selectAll:
         selectAll();
         return;
+      case ProfileAction.autofitColumns:
+        autofitColumns();
+        return;
       case ProfileAction.escape:
         // ACT-PROF-038: Esc stops a running test first, then clears the
         // selection (upstream `LstProfiles_PreviewKeyDown(Escape)`).
@@ -992,6 +1058,28 @@ class ProfilesController extends Notifier<ProfilesState> {
   c.SimpleResult startSpeedTest(String action) {
     final kind = speedTestKindForAction(action);
     if (kind == null) return const c.SimpleResult(ok: true);
+
+    // RE-PROF-08: UDP is a runtime capability. When the build/platform cannot
+    // perform it, report an explicit reason instead of starting a job that can
+    // only fail silently.
+    if (kind == 2 && !_bridge.speedTestSupport().udp) {
+      state = state.copyWith(
+        speedTestRunning: false,
+        speedTestStage: 'SpeedtestingFailed',
+        speedTestMessage: '当前构建/平台不支持 UDP 测速',
+        clearSpeedTestJob: true,
+      );
+      _log(action, 'udp-unsupported');
+      _echo(action);
+      return const c.SimpleResult(
+        ok: false,
+        error: c.ErrorDto(
+          code: 'E_UNSUPPORTED',
+          messageKey: 'error.speedtest_udp_unsupported',
+          retryable: false,
+        ),
+      );
+    }
 
     final config = _resolveSpeedTestConfig();
     _bridge.configureSpeedTest(
@@ -1190,6 +1278,51 @@ class ProfilesController extends Notifier<ProfilesState> {
     final elapsed = await _bridge.simulateBlocking(ms);
     state = state.copyWith(blockingBusy: false, lastBlockingMs: elapsed);
     _log('blocking-done', 'elapsed=$elapsed ms');
+  }
+
+  /// `自动列宽` (upstream `BtnAutofitColumnWidth_Click` /
+  /// `AutofitColumnWidth`, `ProfilesView.xaml.cs:296-314`): size every column to
+  /// the wider of its header and current cell content, equivalent to setting
+  /// each `DataGridColumn.Width` to `Auto`.
+  ///
+  /// The measured widths are persisted through the same column store as a
+  /// manual resize, so the fit survives a reopen. Only realized (visible) rows
+  /// are measured, mirroring the real DataGrid; a large list is bounded so the
+  /// command stays responsive.
+  void autofitColumns() {
+    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
+    const cellStyle = TextStyle(fontSize: AppTokens.fontSize);
+    final rows = state.visible;
+    final sampled = rows.length > _autofitSampleRows
+        ? rows.sublist(0, _autofitSampleRows)
+        : rows;
+    final updated = state.columns.map((column) {
+      final headerWidth = _measureText('${column.title} \u25B2', headerStyle);
+      var contentWidth = 0.0;
+      for (final row in sampled) {
+        final width = _measureText(column.display(row), cellStyle);
+        if (width > contentWidth) contentWidth = width;
+      }
+      final fitted =
+          max(headerWidth, contentWidth) + _cellHorizontalPadding * 2;
+      return column.copyWith(width: fitted.clamp(40.0, 600.0).toDouble());
+    }).toList();
+    state = state.copyWith(columns: updated);
+    _persistColumns();
+    _log('autofit-columns', 'columns=${updated.length} rows=${sampled.length}');
+    _echo('autofit-columns');
+  }
+
+  static const int _autofitSampleRows = 500;
+  static const double _cellHorizontalPadding = 6;
+
+  double _measureText(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    return painter.width;
   }
 
   void resizeColumn(String key, double delta) {

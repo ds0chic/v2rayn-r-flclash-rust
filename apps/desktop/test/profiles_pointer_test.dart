@@ -9,7 +9,7 @@ void main() {
   testWidgets('double click, right click, drag/drop and header sort', (
     tester,
   ) async {
-    final container = await pumpApp(tester, rows: 20);
+    final container = await pumpApp(tester, rows: 20, dragDropSort: true);
     final controller = container.read(profilesControllerProvider.notifier);
     final cell = find.byKey(const ValueKey('cell-syn-000000-Remarks'));
 

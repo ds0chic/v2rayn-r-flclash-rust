@@ -257,6 +257,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   EventEnvelopeDto dco_decode_event_envelope_dto(dynamic raw);
 
   @protected
+  ExportClientConfigDto dco_decode_export_client_config_dto(dynamic raw);
+
+  @protected
   ExternalSpecDto dco_decode_external_spec_dto(dynamic raw);
 
   @protected
@@ -1051,6 +1054,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   EventEnvelopeDto sse_decode_event_envelope_dto(SseDeserializer deserializer);
+
+  @protected
+  ExportClientConfigDto sse_decode_export_client_config_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ExternalSpecDto sse_decode_external_spec_dto(SseDeserializer deserializer);
@@ -2074,6 +2082,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_event_envelope_dto(
     EventEnvelopeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_export_client_config_dto(
+    ExportClientConfigDto self,
     SseSerializer serializer,
   );
 

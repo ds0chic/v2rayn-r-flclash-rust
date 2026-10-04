@@ -1,7 +1,7 @@
 //! Session lifecycle: the state machine that owns exactly one managed core.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -17,10 +17,10 @@ use tokio::net::TcpStream;
 use tokio::process::Command;
 use tokio::sync::{Mutex, Notify};
 
-use runtime::tun::tun_spec_from_plan;
+use runtime::tun::{tun_spec_from_plan, TunSpec};
 use runtime::{
-    adapter_for, matches_identity, process_creation_time_ms, sha256_hex, CoreLocator, JobGuard,
-    ProcessIdentity, RuntimeDetail, RuntimeTunDetail, ServerFrame, NET_HOST_PIPE_NAME,
+    adapter_for, matches_identity, process_creation_time_ms, sha256_hex, CoreAdapter, CoreLocator,
+    JobGuard, ProcessIdentity, RuntimeDetail, RuntimeTunDetail, ServerFrame, NET_HOST_PIPE_NAME,
     RUNTIME_DETAIL_EVENT,
 };
 
@@ -77,6 +77,18 @@ impl HostConfig {
     }
 }
 
+/// A plan that passed every side-effect-free precheck (RR-10): adapter, hash,
+/// port, core executable, TUN spec and a real `test_args` config check. It is
+/// built *before* the running session is stopped.
+struct PreparedPlan {
+    adapter: Box<dyn CoreAdapter>,
+    exe: PathBuf,
+    body: String,
+    actual_hash: String,
+    port: u16,
+    tun_spec: Option<TunSpec>,
+}
+
 /// One live managed core plus the facts needed to own and recover it.
 pub struct Session {
     pub session_id: String,
@@ -84,6 +96,9 @@ pub struct Session {
     pub desired_revision: u64,
     pub port: u16,
     pub config_sha256: String,
+    /// The executable this session runs, retained so a failed switch restores
+    /// the exact same core (RR-10).
+    pub exe: PathBuf,
     pub child: tokio::process::Child,
     pub identity: ProcessIdentity,
     pub job: JobGuard,
@@ -127,6 +142,11 @@ impl TestSessionChild {
 
 pub struct Inner {
     pub session: Option<Session>,
+    /// Plan of the currently-running (or last applied) session, retained so a
+    /// failed switch can restore the previous good session (RR-10).
+    pub last_plan: Option<RuntimePlan>,
+    /// Resolved executable of the running session, reused verbatim on restore.
+    pub last_exe: Option<PathBuf>,
     pub detail: RuntimeDetail,
     pub active_operation: Option<String>,
     pub operations: HashMap<String, OperationStatus>,
@@ -168,6 +188,11 @@ fn next_operation_id() -> String {
     format!("op-{}-{}", journal::now_ms(), seq)
 }
 
+/// Stub-core tests opt out of the real `test_args` config check.
+fn skip_config_check() -> bool {
+    std::env::var_os("V2RAYN_R_SKIP_CONFIG_CHECK").is_some()
+}
+
 /// Structured error for a core that could not be bound into the ownership job.
 /// Non-retryable: the caller must not keep an unowned core alive.
 fn job_assign_failed(operation_id: &str, detail: impl Into<String>) -> DomainError {
@@ -192,6 +217,8 @@ impl HostState {
         let state = Self {
             inner: Mutex::new(Inner {
                 session: None,
+                last_plan: None,
+                last_exe: None,
                 detail: RuntimeDetail::default(),
                 active_operation: None,
                 operations: HashMap::new(),
@@ -300,6 +327,13 @@ impl HostState {
         let mut inner = self.inner.lock().await;
         inner.detail.error = Some(error.clone());
         inner.detail.state = RuntimeState::Stopped;
+        // RR-10: a failed candidate must not leave a published endpoint that no
+        // listener backs.
+        inner.detail.pid = None;
+        inner.detail.created_at_ms = None;
+        inner.detail.session_id = None;
+        inner.detail.config_sha256 = None;
+        inner.detail.ports.clear();
         inner.active_operation = None;
         inner.operations.insert(
             operation_id.to_string(),
@@ -394,8 +428,255 @@ impl HostState {
         Err(error)
     }
 
-    /// Apply an immutable plan: validate, stage, spawn, probe, commit.
+    /// Side-effect-free preflight of a plan (RR-10). None of it touches the
+    /// running session, so a doomed switch is rejected before the old core is
+    /// stopped.
+    async fn precheck_plan(&self, plan: &RuntimePlan) -> Result<PreparedPlan, DomainError> {
+        self.precheck_plan_with_exe(plan, None).await
+    }
+
+    async fn precheck_plan_with_exe(
+        &self,
+        plan: &RuntimePlan,
+        exe_override: Option<PathBuf>,
+    ) -> Result<PreparedPlan, DomainError> {
+        let core = plan.target.core_type;
+        let adapter = adapter_for(core).ok_or_else(|| {
+            DomainError::new(domain::codes::NOT_FOUND, "error.core_not_supported")
+                .with_detail(format!("no adapter for {}", core.as_str()))
+        })?;
+        let body = match &plan.target.config {
+            ConfigSource::Inline { body } => body.clone(),
+            ConfigSource::ControlledFile { .. } => {
+                return Err(DomainError::new(
+                    domain::codes::INVALID_PLAN,
+                    "error.plan_unsupported",
+                )
+                .with_detail("controlled-file configs are not supported in T03"));
+            }
+        };
+        let actual_hash = sha256_hex(body.as_bytes());
+        let declared = plan.target.config_sha256.as_str();
+        if !declared.is_empty() && declared != actual_hash {
+            return Err(DomainError::new(
+                domain::codes::INVALID_PLAN,
+                "error.config_hash_mismatch",
+            )
+            .with_field("config_sha256")
+            .with_detail(format!("declared {declared}, computed {actual_hash}")));
+        }
+
+        let port = plan
+            .ports
+            .iter()
+            .find(|p| {
+                matches!(
+                    p.transport,
+                    domain::PortTransport::Tcp | domain::PortTransport::Both
+                )
+            })
+            .map(|p| p.port)
+            .or_else(|| plan.ports.first().map(|p| p.port))
+            .unwrap_or(0);
+
+        // The running session may still own the target port (an in-place
+        // switch). Only probe ports that are not currently ours.
+        let owned = self.inner.lock().await.session.as_ref().map(|s| s.port);
+        if port != 0 && Some(port) != owned {
+            preflight_port(port)?;
+        }
+
+        let exe = match exe_override {
+            Some(exe) if exe.is_file() => exe,
+            _ => {
+                let locator = CoreLocator::from_env();
+                locator.resolve(core, plan.target.version.as_deref())?
+            }
+        };
+        let tun_spec = tun_spec_from_plan(plan)?;
+
+        // Real config validation (`xray run -test` / `sing-box check`): a bad
+        // config must fail before the old core is stopped. Stub-core tests can
+        // opt out with `V2RAYN_R_SKIP_CONFIG_CHECK=1`.
+        if !skip_config_check() {
+            self.run_config_check(&*adapter, &exe, &body, &actual_hash)
+                .await?;
+        }
+
+        Ok(PreparedPlan {
+            adapter,
+            exe,
+            body,
+            actual_hash,
+            port,
+            tun_spec,
+        })
+    }
+
+    /// Validate a staged config with the core's own `test_args`, bounded and
+    /// without binding any listener.
+    async fn run_config_check(
+        &self,
+        adapter: &dyn CoreAdapter,
+        exe: &Path,
+        body: &str,
+        hash: &str,
+    ) -> Result<(), DomainError> {
+        let dir = self.config.run_root.join("precheck");
+        std::fs::create_dir_all(&dir).map_err(|e| {
+            DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
+                .with_detail(format!("create precheck dir failed: {e}"))
+        })?;
+        let path = dir.join(format!("check-{hash}.json"));
+        std::fs::write(&path, body.as_bytes()).map_err(|e| {
+            DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
+                .with_detail(format!("write precheck config failed: {e}"))
+        })?;
+        let args: Vec<std::ffi::OsString> = adapter.test_args(&path);
+        let exe = exe.to_path_buf();
+        let result = tokio::task::spawn_blocking(move || {
+            let mut command = std::process::Command::new(&exe);
+            command
+                .args(args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+                command.creation_flags(CREATE_NO_WINDOW);
+            }
+            command.output()
+        })
+        .await;
+        let _ = std::fs::remove_file(&path);
+        match result {
+            Ok(Ok(output)) if output.status.success() => Ok(()),
+            Ok(Ok(output)) => {
+                let mut text = String::from_utf8_lossy(&output.stderr).into_owned();
+                text.push_str(&String::from_utf8_lossy(&output.stdout));
+                let tail = text
+                    .lines()
+                    .filter(|line| !line.trim().is_empty())
+                    .rev()
+                    .take(6)
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect::<Vec<_>>()
+                    .join(" | ");
+                Err(
+                    DomainError::new(domain::codes::INVALID_PLAN, "error.config_check_failed")
+                        .with_field("config")
+                        .with_detail(format!("core config check failed: {tail}")),
+                )
+            }
+            Ok(Err(e)) => Err(DomainError::new(
+                domain::codes::UNAVAILABLE,
+                "error.core_spawn_failed",
+            )
+            .with_detail(format!("config check spawn failed: {e}"))),
+            Err(join) => Err(DomainError::new(
+                domain::codes::INTERNAL,
+                "error.config_check_failed",
+            )
+            .with_detail(format!("config check task failed: {join}"))),
+        }
+    }
+
+    /// Apply an immutable plan.
+    ///
+    /// RR-10 ordering: precheck (adapter/locator/hash/port/TUN/`test_args`)
+    /// runs before the old session is stopped; a precheck failure keeps the old
+    /// session running. If the switch still fails after the stop, the previous
+    /// good plan is restored when possible, otherwise the runtime truthfully
+    /// stays stopped.
     pub async fn apply_plan(&self, plan: RuntimePlan) -> Result<String, DomainError> {
+        if let Err(error) = plan.validate() {
+            let mut inner = self.inner.lock().await;
+            inner.detail.error = Some(error.clone());
+            drop(inner);
+            return Err(error);
+        }
+
+        let prepared = match self.precheck_plan(&plan).await {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                {
+                    let mut inner = self.inner.lock().await;
+                    inner.detail.error = Some(error.clone());
+                }
+                self.bus.emit_named(
+                    "error_raised",
+                    json!({
+                        "code": error.code,
+                        "message_key": error.message_key,
+                        "detail": error.detail,
+                    }),
+                );
+                eprintln!(
+                    "[net_host] switch precheck failed, keeping current session: {}",
+                    error.code
+                );
+                return Err(error);
+            }
+        };
+
+        let (previous_plan, previous_exe) = {
+            let inner = self.inner.lock().await;
+            (inner.last_plan.clone(), inner.last_exe.clone())
+        };
+        let had_session = { self.inner.lock().await.session.is_some() };
+
+        match self.start_prepared(plan.clone(), prepared).await {
+            Ok(operation_id) => {
+                let mut inner = self.inner.lock().await;
+                inner.last_plan = Some(plan);
+                Ok(operation_id)
+            }
+            Err(error) => {
+                if had_session {
+                    self.try_restore(previous_plan, previous_exe).await;
+                }
+                Err(error)
+            }
+        }
+    }
+
+    /// Best-effort restore of the previous good session after a failed switch.
+    /// The previous executable is reused verbatim. When it cannot be restored
+    /// the runtime truthfully stays stopped.
+    async fn try_restore(&self, previous: Option<RuntimePlan>, previous_exe: Option<PathBuf>) {
+        let Some(previous) = previous else {
+            return;
+        };
+        match self.precheck_plan_with_exe(&previous, previous_exe).await {
+            Ok(prepared) => match self.start_prepared(previous.clone(), prepared).await {
+                Ok(_) => {
+                    let mut inner = self.inner.lock().await;
+                    inner.last_plan = Some(previous);
+                    eprintln!("[net_host] restored previous session after failed switch");
+                }
+                Err(error) => eprintln!(
+                    "[net_host] previous session could not be restored: {}",
+                    error.code
+                ),
+            },
+            Err(error) => eprintln!(
+                "[net_host] previous session precheck failed during restore: {}",
+                error.code
+            ),
+        }
+    }
+
+    /// Stage, spawn and probe a prechecked plan. The running session (if any)
+    /// is stopped first.
+    async fn start_prepared(
+        &self,
+        plan: RuntimePlan,
+        prepared: PreparedPlan,
+    ) -> Result<String, DomainError> {
         let operation_id = next_operation_id();
         if let Err(error) = plan.validate() {
             let mut inner = self.inner.lock().await;
@@ -438,42 +719,16 @@ impl HostState {
         );
 
         // --- Preparing: stage config, verify hash, journal ---
-        let core = plan.target.core_type;
-        let adapter = adapter_for(core).ok_or_else(|| {
-            DomainError::new(domain::codes::NOT_FOUND, "error.core_not_supported")
-                .with_detail(format!("no adapter for {}", core.as_str()))
-        })?;
-        let body = match &plan.target.config {
-            ConfigSource::Inline { body } => body.clone(),
-            ConfigSource::ControlledFile { .. } => {
-                let error = DomainError::new(domain::codes::INVALID_PLAN, "error.plan_unsupported")
-                    .with_detail("controlled-file configs are not supported in T03");
-                self.fail_operation(&operation_id, &error).await;
-                return Err(error);
-            }
-        };
-        let actual_hash = sha256_hex(body.as_bytes());
-        let declared = plan.target.config_sha256.as_str();
-        if !declared.is_empty() && declared != actual_hash {
-            let error = DomainError::new(domain::codes::INVALID_PLAN, "error.config_hash_mismatch")
-                .with_field("config_sha256")
-                .with_detail(format!("declared {declared}, computed {actual_hash}"));
-            self.fail_operation(&operation_id, &error).await;
-            return Err(error);
-        }
-
-        let port = plan
-            .ports
-            .iter()
-            .find(|p| {
-                matches!(
-                    p.transport,
-                    domain::PortTransport::Tcp | domain::PortTransport::Both
-                )
-            })
-            .map(|p| p.port)
-            .or_else(|| plan.ports.first().map(|p| p.port))
-            .unwrap_or(0);
+        // Every value here was resolved by `precheck_plan` before the old
+        // session was stopped.
+        let PreparedPlan {
+            adapter,
+            exe,
+            body,
+            actual_hash,
+            port,
+            tun_spec,
+        } = prepared;
 
         let session_seq = SESSION_COUNTER.fetch_add(1, Ordering::AcqRel) + 1;
         let session_id = format!("s-{}-{}", journal::now_ms(), session_seq);
@@ -529,45 +784,13 @@ impl HostState {
             }
         }
 
-        let locator = CoreLocator::from_env();
-        let exe = match locator.resolve(core, plan.target.version.as_deref()) {
-            Ok(exe) => exe,
-            Err(error) => {
-                let error = error.with_operation(&operation_id);
-                let _ = journal::write_entry(
-                    &self.config.run_root,
-                    &JournalEntry {
-                        stage: RecoveryStage::Finalized,
-                        ..journal_entry.clone()
-                    },
-                );
-                self.fail_operation(&operation_id, &error).await;
-                return Err(error);
-            }
-        };
-
         // --- TUN: validated descriptor -> helper routes/adapter (T14) ---
         //
         // Order is prepare-config -> helper -> spawn-core -> ready -> Applied.
         // The helper owns the elevated work; net-host only records the lease.
         // Any helper failure is structural (`E_TUN_HELPER_UNAVAILABLE`): the
         // plan fails here, before any core is spawned, and never degrades to
-        // a direct TUN path.
-        let tun_spec = match tun_spec_from_plan(&plan) {
-            Ok(spec) => spec,
-            Err(error) => {
-                let error = error.with_operation(&operation_id);
-                let _ = journal::write_entry(
-                    &self.config.run_root,
-                    &JournalEntry {
-                        stage: RecoveryStage::Finalized,
-                        ..journal_entry.clone()
-                    },
-                );
-                self.fail_operation(&operation_id, &error).await;
-                return Err(error);
-            }
-        };
+        // a direct TUN path. `tun_spec` was validated during precheck.
         if let Some(spec) = tun_spec {
             let run_root = self.config.run_root.clone();
             let lease_session = session_id.clone();
@@ -761,6 +984,7 @@ impl HostState {
                     desired_revision: plan.desired_revision,
                     port,
                     config_sha256: actual_hash.clone(),
+                    exe,
                     child,
                     identity,
                     job,
@@ -797,6 +1021,7 @@ impl HostState {
                             error: None,
                         },
                     );
+                    inner.last_exe = Some(session.exe.clone());
                     inner.session = Some(session);
                 }
                 eprintln!(
@@ -916,6 +1141,9 @@ impl HostState {
         let Some(mut session) = inner.session.take() else {
             inner.detail.pid = None;
             inner.detail.created_at_ms = None;
+            // No running session to restore from.
+            inner.last_plan = None;
+            inner.last_exe = None;
             inner.detail.state = RuntimeState::Stopped;
             // Withdraw the published endpoint: a stopped runtime must not keep
             // reporting a stale listening port/config.
@@ -951,10 +1179,13 @@ impl HostState {
         inner.detail.created_at_ms = None;
         inner.detail.error = None;
         inner.active_operation = None;
-        // Withdraw the published endpoint on stop.
+        // Withdraw the published endpoint on stop and drop the restore source:
+        // a stopped session has nothing to fall back to.
         inner.detail.ports.clear();
         inner.detail.session_id = None;
         inner.detail.config_sha256 = None;
+        inner.last_plan = None;
+        inner.last_exe = None;
         eprintln!("[net_host] session {session_id} STOPPED pid={pid}");
         drop(inner);
         // Reverse cleanup after the core tree is gone.
@@ -1529,5 +1760,215 @@ mod tests {
         let dry: Box<dyn HelperLink> = Box::new(DryRunHelperLink::new());
         assert!(dry.dry_run());
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // -- RR-10 precheck / restore ------------------------------------------
+
+    /// The RR-10 tests mutate process-global env (`V2RAYN_R_XRAY_BIN`) and
+    /// must not interleave when the harness runs tests in parallel.
+    fn rr10_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+        LOCK.get_or_init(|| std::sync::Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// A HostState whose run root is a fresh temp dir and whose core "exe" is
+    /// `cmd.exe` via the xray override, so no real core is needed.
+    fn test_state(tag: &str) -> HostState {
+        let root = std::env::temp_dir().join(format!(
+            "v2rayn-rr10-{tag}-{}-{}",
+            std::process::id(),
+            crate::journal::now_ms()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        std::env::set_var("V2RAYN_R_XRAY_BIN", "C:\\Windows\\System32\\cmd.exe");
+        std::env::set_var("V2RAYN_R_SKIP_CONFIG_CHECK", "1");
+        let config = HostConfig {
+            pipe_name: r"\\.\pipe\v2rayn-r-test-nonexistent".into(),
+            run_root: root,
+            disconnect_grace: Duration::from_millis(1000),
+            heartbeat_interval: Duration::from_millis(1000),
+            readiness_timeout: Duration::from_millis(400),
+            readiness_interval: Duration::from_millis(20),
+            helper: HelperConfig {
+                pipe_name: r"\\.\pipe\v2rayn-r-test-nonexistent".into(),
+                token: String::new(),
+                bin: None,
+                auto_launch: false,
+                allowed_run_roots: Vec::new(),
+                dry_run: true,
+            },
+        };
+        HostState::new(config)
+    }
+
+    fn plan_with_body(id: &str, body: &str, port: u16, hash_override: Option<&str>) -> RuntimePlan {
+        let actual = sha256_hex(body.as_bytes());
+        RuntimePlan {
+            plan_id: format!("plan-{id}"),
+            desired_revision: 1,
+            target: domain::runtime_plan::RuntimeTarget {
+                core_type: domain::CoreType::Xray,
+                version: None,
+                config: ConfigSource::Inline {
+                    body: body.to_string(),
+                },
+                config_sha256: domain::runtime_plan::ContentHash::new(
+                    hash_override.map(str::to_string).unwrap_or(actual),
+                ),
+            },
+            process_graph: Default::default(),
+            outbound_graph: Default::default(),
+            ports: vec![domain::runtime_plan::PortRequest::tcp(port, "inbound")],
+            privileges: vec![domain::runtime_plan::RequiredPrivilege::None],
+            network_policy: Default::default(),
+            resources: vec![],
+        }
+    }
+
+    #[test]
+    fn rr10_precheck_rejects_bad_hash_without_stopping() {
+        let _guard = rr10_lock();
+        // Wrong declared hash fails precheck before the running session stops.
+        let state = test_state("hash");
+        let plan = plan_with_body(
+            "p",
+            "{\"inbounds\":[],\"outbounds\":[]}",
+            11_908,
+            Some("00"),
+        );
+        let error = match futures_block_on(state.precheck_plan(&plan)) {
+            Ok(_) => panic!("hash mismatch must fail precheck"),
+            Err(error) => error,
+        };
+        assert_eq!(error.code, domain::codes::INVALID_PLAN);
+        assert_eq!(error.message_key, "error.config_hash_mismatch");
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[test]
+    fn rr10_precheck_rejects_unsupported_core_without_stopping() {
+        let _guard = rr10_lock();
+        let state = test_state("unsupported");
+        let mut plan = plan_with_body("p", "{}", 11_909, None);
+        plan.target.core_type = domain::CoreType::Mihomo;
+        let error = match futures_block_on(state.precheck_plan(&plan)) {
+            Ok(_) => panic!("no adapter for Mihomo"),
+            Err(error) => error,
+        };
+        assert_eq!(error.code, domain::codes::NOT_FOUND);
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[test]
+    fn rr10_precheck_rejects_busy_port_owned_by_other() {
+        let _guard = rr10_lock();
+        let state = test_state("busy");
+        // Occupy a real port with a listener we own (>= 11808).
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 11_907)).unwrap();
+        let plan = plan_with_body("p", "{}", 11_907, None);
+        let error = match futures_block_on(state.precheck_plan(&plan)) {
+            Ok(_) => panic!("busy port must fail precheck"),
+            Err(error) => error,
+        };
+        assert_eq!(error.code, domain::codes::PORT_CONFLICT);
+        drop(listener);
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    /// Minimal current-thread block_on so the sync `#[test]`s can await the
+    /// async precheck without pulling a runtime into every test.
+    fn futures_block_on<F: std::future::Future>(future: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(future)
+    }
+
+    /// Write a `.cmd` core stub: `"stay"` pings for a long time (stays alive,
+    /// no port -> Ready by liveness); `"exit"` exits immediately (post-stop
+    /// readiness failure).
+    fn core_stub(dir: &std::path::Path, name: &str, mode: &str) -> PathBuf {
+        let path = dir.join(format!("{name}.cmd"));
+        let body = if mode == "stay" {
+            "@echo off\r\nping -n 5 127.0.0.1 >nul\r\n"
+        } else {
+            "@echo off\r\nexit /b 1\r\n"
+        };
+        std::fs::write(&path, body).unwrap();
+        path
+    }
+
+    #[test]
+    fn rr10_failed_switch_restores_previous_session() {
+        let _guard = rr10_lock();
+        let state = test_state("restore");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        let exit = core_stub(&dir, "exit", "exit");
+
+        // Start the good session (no port -> readiness by process liveness).
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        let good = plan_with_body("good", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        futures_block_on(state.apply_plan(good)).expect("good session starts");
+
+        // Switch to a plan whose core exits immediately: precheck passes (stub
+        // skipped config check) but readiness fails after the old stop.
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &exit);
+        let bad = plan_with_body("bad", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        let error = futures_block_on(state.apply_plan(bad)).expect_err("switch must fail");
+        assert_eq!(error.code, domain::codes::INTERNAL, "core exited early");
+
+        // RR-10: the previous good session is restored, so a listener owned by
+        // this project is running again.
+        let inner = futures_block_on(state.inner.lock());
+        assert!(
+            inner.session.is_some(),
+            "previous good session must be restored"
+        );
+        assert_eq!(
+            inner.detail.state,
+            RuntimeState::Running,
+            "restored session is Running"
+        );
+        drop(inner);
+
+        // Cleanup: stop the restored session.
+        futures_block_on(state.stop_managed(None));
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[test]
+    fn rr10_failed_switch_without_restorable_previous_reports_stopped() {
+        let _guard = rr10_lock();
+        let state = test_state("cant-restore");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        let exit = core_stub(&dir, "exit", "exit");
+
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        let good = plan_with_body("good", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        futures_block_on(state.apply_plan(good)).expect("good session starts");
+
+        // Remove the stub so the restore attempt itself fails to locate a core.
+        std::fs::remove_file(&stay).unwrap();
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &exit);
+        let bad = plan_with_body("bad", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        let _ = futures_block_on(state.apply_plan(bad));
+
+        let inner = futures_block_on(state.inner.lock());
+        // Cannot restore -> truthful Stopped, no fake endpoint.
+        assert!(
+            inner.session.is_none(),
+            "unrestorable previous must not report a session"
+        );
+        assert_eq!(inner.detail.state, RuntimeState::Stopped);
+        assert!(inner.detail.ports.is_empty());
+        drop(inner);
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
     }
 }

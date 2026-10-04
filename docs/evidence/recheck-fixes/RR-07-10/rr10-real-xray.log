@@ -1,0 +1,23 @@
+net_host pid=37932 pipe=v2rayn-rr10-40800-36518a28 old=11808 new=11809
+=== 1. apply good config (real xray socks) ===
+RESULT {"kind":"accepted","operation_id":"op-1791097898204-1"}
+DETAIL {"state":"running","applied_revision":1,"pid":42876,"created_at_ms":1791097898208,"ports":[11808],"session_id":"s-1791097898204-2","config_sha256":"9da10a2ece14b0a5b55363557d05e97fb1c755fce9e29d86f10e847640c776b3","operation_id":"op-1791097898204-1","error":null,"tun":null}
+APPLY_OK
+apply exit=0
+=== 2. apply-bad: precheck must reject, old session survives ===
+RESULT {"kind":"error","code":"E_INVALID_PLAN","message_key":"error.config_check_failed","field_path":"config","retryable":false,"operation_id":null,"detail":"core config check failed: Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64) | A unified platform for anti-censorship. | Failed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-rr10-9979c251\\precheck\\check-1056b3e9ee4479e0747150b10fc630445697eb6391e623f0a097010ea42659d4.json] > infra/conf: failed to build inbound config with tag  > infra/conf: failed to load inbound detour config for protocol not-a-real-protocol > infra/conf: unknown config id: not-a-real-protocol"}
+DETAIL {"state":"running","applied_revision":1,"pid":42876,"created_at_ms":1791097898208,"ports":[11808],"session_id":"s-1791097898204-2","config_sha256":"9da10a2ece14b0a5b55363557d05e97fb1c755fce9e29d86f10e847640c776b3","operation_id":"op-1791097898204-1","error":{"code":"E_INVALID_PLAN","message_key":"error.config_check_failed","field_path":"config","retryable":false,"operation_id":null,"detail":"core config check failed: Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64) | A unified platform for anti-censorship. | Failed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-rr10-9979c251\\precheck\\check-1056b3e9ee4479e0747150b10fc630445697eb6391e623f0a097010ea42659d4.json] > infra/conf: failed to build inbound config with tag  > infra/conf: failed to load inbound detour config for protocol not-a-real-protocol > infra/conf: unknown config id: not-a-real-protocol"},"tun":null}
+APPLY_ERROR
+apply-bad exit=3
+=== 3. snapshot: still Running on old port ===
+RESULT {"kind":"snapshot","state":"running","applied_revision":1,"epoch":2,"last_seq":10,"active_operation":null,"recovery":null,"host_alive":true}
+DETAIL {"state":"running","applied_revision":1,"pid":42876,"created_at_ms":1791097898208,"ports":[11808],"session_id":"s-1791097898204-2","config_sha256":"9da10a2ece14b0a5b55363557d05e97fb1c755fce9e29d86f10e847640c776b3","operation_id":"op-1791097898204-1","error":{"code":"E_INVALID_PLAN","message_key":"error.config_check_failed","field_path":"config","retryable":false,"operation_id":null,"detail":"core config check failed: Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64) | A unified platform for anti-censorship. | Failed to start: main: failed to load config files: [C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-rr10-9979c251\\precheck\\check-1056b3e9ee4479e0747150b10fc630445697eb6391e623f0a097010ea42659d4.json] > infra/conf: failed to build inbound config with tag  > infra/conf: failed to load inbound detour config for protocol not-a-real-protocol > infra/conf: unknown config id: not-a-real-protocol"},"tun":null}
+=== 4. apply good config on a NEW port (real switch) ===
+RESULT {"kind":"accepted","operation_id":"op-1791097898604-3"}
+DETAIL {"state":"running","applied_revision":1,"pid":41428,"created_at_ms":1791097898615,"ports":[11809],"session_id":"s-1791097898613-4","config_sha256":"0eb9a92e4bee7b8fe545cc97705268379e4d5b0e84ab94aac4b0a822c6a6134c","operation_id":"op-1791097898604-3","error":null,"tun":null}
+APPLY_OK
+switch exit=0
+=== 5. stop ===
+STOPPED
+RR10_REAL_XRAY_OK
+stopped net_host pid=37932

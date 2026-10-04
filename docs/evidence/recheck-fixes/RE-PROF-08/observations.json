@@ -1,0 +1,49 @@
+{
+  "task": "RE-PROF-08",
+  "status": "implemented",
+  "head": "842520b",
+  "upstream": {
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "profile_export": "ServiceLib/ViewModels/ProfilesViewModel.cs:743-797",
+    "udp_action": "ACT-PROF-018 / SpeedtestHandler UdpTest"
+  },
+  "rust": {
+    "udp_probe": "application::speedtest::udp_ping (direct datagram round trip)",
+    "udp_targets": ["ntp", "dns", "stun", "mcbe", "host:port"],
+    "support_flag": "SpeedTestSupportDto.udp=true",
+    "export_fn": "bridge_api::api::speedtest::export_client_config (new FRB, not regenerated)",
+    "tests": {
+      "application_re_prof_08": "4 passed / 0 failed",
+      "application_client_config_export_text": "1 passed / 0 failed",
+      "bridge_api_speedtest": "6 passed / 0 failed",
+      "clippy": "passed"
+    },
+    "loopback": {
+      "port_floor": 11808,
+      "bound_interface": "127.0.0.1",
+      "reserved_proxy_port_used": false
+    }
+  },
+  "dart": {
+    "analyze": "No issues found",
+    "test_file": "apps/desktop/test/re_prof_08_export_udp_test.dart",
+    "tests": "5 passed / 0 failed",
+    "branches": ["clipboard_export", "file_cancel_no_write", "file_write_success", "file_write_failure", "udp_support_gate"]
+  },
+  "frb_regeneration_required": true,
+  "frb_note": "FrbBridgePort.exportClientConfigText returns E_FRB_REGENERATION_REQUIRED until frb_generated is regenerated and wired to speedtest.exportClientConfig.",
+  "not_run": [
+    "full workspace tests",
+    "flutter build windows",
+    "real kernel / node-routed UDP",
+    "real OS save dialog",
+    "FIX-10/10B speedtest scope and sort regression rerun"
+  ],
+  "side_effects": {
+    "kernel_started": false,
+    "system_proxy_changed": false,
+    "registry_or_routes_changed": false,
+    "user_credentials_read": false,
+    "port_10808_touched": false
+  }
+}

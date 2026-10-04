@@ -135,7 +135,8 @@ class _Toolbar extends ConsumerWidget {
             keyId: 'toolbar-自动列宽',
             tooltip: '自动调整列宽',
             icon: Icons.vertical_split_outlined,
-            onPressed: () => controller.emitAction('autofit-columns'),
+            onPressed: () =>
+                controller.emitAction(ProfileAction.autofitColumns),
           ),
           _IconTool(
             keyId: 'toolbar-快速真延迟',
@@ -315,7 +316,7 @@ class _FilterField extends ConsumerWidget {
           border: OutlineInputBorder(),
           contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         ),
-        onChanged: profiles.setFilter,
+        onChanged: profiles.updateFilterInput,
         onSubmitted: (_) => profiles.submitFilter(),
       ),
     );

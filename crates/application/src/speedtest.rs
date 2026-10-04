@@ -1214,6 +1214,262 @@ pub fn tcping(address: &str, port: i32, timeout: Duration, ct: &CancellationToke
     }
 }
 
+// ---------------------------------------------------------------------------
+// UDP latency probe (RE-PROF-08)
+// ---------------------------------------------------------------------------
+
+/// Resolve an upstream UDP test target to `(host, port)`.
+///
+/// A bare protocol keyword maps to its canonical endpoint (`ntp`/`time`,
+/// `dns`, `stun`, `mcbe`); anything else must be `host:port`. `None` means the
+/// target is unusable, which the UI surfaces as an explicit failure.
+pub fn udp_target_endpoint(target: &str) -> Option<(String, u16)> {
+    let trimmed = target.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some((host, port)) = match trimmed.to_ascii_lowercase().as_str() {
+        "ntp" | "time" => Some(("pool.ntp.org", 123u16)),
+        "dns" => Some(("1.1.1.1", 53u16)),
+        "stun" => Some(("stun.l.google.com", 19302u16)),
+        "mcbe" | "minecraft" | "minecraft-be" => Some(("play.nethergames.org", 19132u16)),
+        _ => None,
+    } {
+        return Some((host.to_string(), port));
+    }
+    let (host, port) = trimmed.rsplit_once(':')?;
+    let host = host.trim().trim_start_matches('[').trim_end_matches(']');
+    let port: u16 = port.trim().parse().ok()?;
+    if host.is_empty() || port == 0 {
+        return None;
+    }
+    Some((host.to_string(), port))
+}
+
+/// Protocol-shaped probe payload. The reply is not parsed: any datagram within
+/// the timeout counts as a response, mirroring upstream's UDP ping (it measures
+/// the round trip, not the payload content).
+fn udp_probe_payload(target: &str) -> Vec<u8> {
+    match target.trim().to_ascii_lowercase().as_str() {
+        "ntp" | "time" => {
+            let mut packet = vec![0u8; 48];
+            packet[0] = 0x1b;
+            packet
+        }
+        "stun" => {
+            let mut packet = vec![0u8; 20];
+            packet[1] = 0x01;
+            packet[4] = 0x21;
+            packet[5] = 0x12;
+            packet[6] = 0xa4;
+            packet[7] = 0x42;
+            packet
+        }
+        "dns" => vec![
+            0x12, 0x34, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x02, 0x00, 0x01,
+        ],
+        _ => vec![0x00],
+    }
+}
+
+/// One direct UDP round trip. Returns the round-trip milliseconds (>= 1), or
+/// `None` on resolve/send/timeout/cancel.
+///
+/// Scope note: this is a direct datagram probe, not a route through the node's
+/// SOCKS UDP associate; node-routed UDP remains an isolated acceptance item
+/// (RE-PROF-08 task card / evidence). The endpoint comes from the effective
+/// `UdpTestTarget`, so it is exercised here with a loopback fixture.
+pub fn udp_ping(target: &str, timeout: Duration, ct: &CancellationToken) -> Option<i32> {
+    if ct.is_cancelled() {
+        return None;
+    }
+    let (host, port) = udp_target_endpoint(target)?;
+    let addr = (host.as_str(), port).to_socket_addrs().ok()?.next()?;
+    let socket = std::net::UdpSocket::bind(("0.0.0.0", 0)).ok()?;
+    let effective = timeout
+        .min(Duration::from_secs(5))
+        .max(Duration::from_millis(50));
+    socket.set_read_timeout(Some(effective)).ok()?;
+    let payload = udp_probe_payload(target);
+    let start = Instant::now();
+    socket.send_to(&payload, addr).ok()?;
+    let mut buf = [0u8; 4096];
+    match socket.recv_from(&mut buf) {
+        Ok(_) if !ct.is_cancelled() => Some((start.elapsed().as_millis() as i32).max(1)),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod re_prof_08_udp_tests {
+    use super::*;
+    use std::net::UdpSocket;
+
+    fn bind_udp_floor() -> UdpSocket {
+        for port in TEST_PORT_FLOOR..TEST_PORT_FLOOR + 200 {
+            if port == 10_808 {
+                continue;
+            }
+            if let Ok(socket) = UdpSocket::bind(("127.0.0.1", port)) {
+                return socket;
+            }
+        }
+        panic!("no free UDP test port >= {TEST_PORT_FLOOR}");
+    }
+
+    fn echo_once(socket: UdpSocket) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let mut buf = [0u8; 2048];
+            if let Ok((len, peer)) = socket.recv_from(&mut buf) {
+                let _ = socket.send_to(&buf[..len], peer);
+            }
+        })
+    }
+
+    #[test]
+    fn udp_keyword_and_host_port_targets_resolve() {
+        assert_eq!(
+            udp_target_endpoint("ntp"),
+            Some(("pool.ntp.org".into(), 123))
+        );
+        assert_eq!(
+            udp_target_endpoint("stun"),
+            Some(("stun.l.google.com".into(), 19302))
+        );
+        assert_eq!(
+            udp_target_endpoint("127.0.0.1:11808"),
+            Some(("127.0.0.1".into(), 11808))
+        );
+        assert_eq!(udp_target_endpoint("not-a-target"), None);
+        assert_eq!(udp_target_endpoint("  "), None);
+    }
+
+    #[test]
+    fn udp_ping_measures_loopback_round_trip() {
+        let server = bind_udp_floor();
+        let port = server.local_addr().expect("addr").port();
+        let handle = echo_once(server);
+        let ct = CancellationToken::new();
+        let delay = udp_ping(&format!("127.0.0.1:{port}"), Duration::from_secs(2), &ct);
+        let _ = handle.join();
+        assert!(delay.is_some_and(|d| d >= 1), "delay={delay:?}");
+    }
+
+    #[test]
+    fn udp_ping_times_out_without_a_reply() {
+        let silent = bind_udp_floor();
+        let port = silent.local_addr().expect("addr").port();
+        let ct = CancellationToken::new();
+        assert_eq!(
+            udp_ping(
+                &format!("127.0.0.1:{port}"),
+                Duration::from_millis(200),
+                &ct
+            ),
+            None
+        );
+        drop(silent);
+    }
+
+    struct LoopbackUdpSession;
+
+    impl SpeedTestSession for LoopbackUdpSession {
+        fn open(&self, node: &TestNode) -> Result<TestSession, DomainError> {
+            Ok(TestSession {
+                node: node.clone(),
+                port: TEST_PORT_FLOOR,
+                handle_id: "loopback".into(),
+            })
+        }
+        fn real_ping(
+            &self,
+            _session: &TestSession,
+            _url: &str,
+            _timeout: Duration,
+            _trust: &TlsTrust,
+            _ct: &CancellationToken,
+        ) -> Result<i32, ProbeError> {
+            Err(ProbeError::new(ProbeFailureKind::Connect, "unused"))
+        }
+        fn download(
+            &self,
+            _session: &TestSession,
+            _url: &str,
+            _timeout: Duration,
+            _max_bytes: u64,
+            _trust: &TlsTrust,
+            _ct: &CancellationToken,
+        ) -> Result<DownloadOutcome, ProbeError> {
+            Err(ProbeError::new(ProbeFailureKind::Connect, "unused"))
+        }
+        fn udp_ping(
+            &self,
+            _session: &TestSession,
+            target: &str,
+            timeout: Duration,
+            ct: &CancellationToken,
+        ) -> Option<i32> {
+            udp_ping(target, timeout, ct)
+        }
+        fn close(&self, _session: TestSession) {}
+    }
+
+    fn node() -> TestNode {
+        TestNode {
+            index_id: "n1".into(),
+            address: "127.0.0.1".into(),
+            port: 1,
+            config_type: 0,
+            core_type: 0,
+        }
+    }
+
+    #[test]
+    fn runner_udp_reports_measured_delay_and_failure() {
+        let ct = CancellationToken::new();
+
+        let server = bind_udp_floor();
+        let port = server.local_addr().expect("addr").port();
+        let handle = echo_once(server);
+        let settings = SpeedTestSettings {
+            udp_test_target: Some(format!("127.0.0.1:{port}")),
+            timeout: Duration::from_secs(2),
+            ..Default::default()
+        };
+        let runner = SpeedTestRunner::new(settings, Arc::new(LoopbackUdpSession));
+        let outcome = runner.run(SpeedTestAction::UdpTest, &[node()], &ct, |_| {});
+        let _ = handle.join();
+        assert!(
+            outcome
+                .results
+                .iter()
+                .any(|r| r.index_id == "n1" && r.delay.is_some_and(|d| d >= 1)),
+            "results={:?}",
+            outcome.results
+        );
+
+        let silent = bind_udp_floor();
+        let silent_port = silent.local_addr().expect("addr").port();
+        let settings = SpeedTestSettings {
+            udp_test_target: Some(format!("127.0.0.1:{silent_port}")),
+            timeout: Duration::from_millis(200),
+            ..Default::default()
+        };
+        let runner = SpeedTestRunner::new(settings, Arc::new(LoopbackUdpSession));
+        let outcome = runner.run(SpeedTestAction::UdpTest, &[node()], &ct, |_| {});
+        assert!(
+            outcome
+                .results
+                .iter()
+                .any(|r| r.index_id == "n1" && r.delay == Some(-1) && r.failed),
+            "results={:?}",
+            outcome.results
+        );
+        drop(silent);
+    }
+}
+
 /// Test-port ceiling for the allocation scan (exclusive).
 const TEST_PORT_CEIL: u16 = 59_000;
 /// Number of consecutive ports reserved per test session: the SOCKS inbound

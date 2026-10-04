@@ -76,6 +76,17 @@ pub struct MonitorSession {
     pub state_port2: u16,
 }
 
+/// Core + statistics/API ports and proxy scheme captured when an apply was
+/// accepted. For a full Custom config the values come from the emitted JSON
+/// (RR-07); otherwise they are the generated-config expectations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct AppliedFacts {
+    core: CoreType,
+    state_port: u16,
+    state_port2: u16,
+    scheme: runtime::ProxyProtocol,
+}
+
 /// The managed cores root for a given data directory: `V2RAYN_R_CORES_DIR`
 /// overrides, otherwise `<data_dir>/cores`, falling back to the default data
 /// directory. Shared by install (bridge `cores_root`) and run (NetHostClient
@@ -120,7 +131,7 @@ pub struct AppEngine {
     /// Core + statistics/API ports captured when an apply was accepted, so the
     /// monitor pipeline polls the running core instead of re-deriving facts
     /// from a desired (possibly changed) plan.
-    apply_facts: Arc<Mutex<Option<(CoreType, u16, u16)>>>,
+    apply_facts: Arc<Mutex<Option<AppliedFacts>>>,
 }
 
 impl AppEngine {
@@ -1466,13 +1477,9 @@ impl AppEngine {
                 // Record the core + statistics/API ports of the accepted plan
                 // so the monitor pipeline can poll the applied session without
                 // re-deriving facts from a later desired plan.
-                let opts = self.runtime_codegen_options();
+                let facts = self.applied_facts_for(&plan);
                 if let Ok(mut guard) = self.apply_facts.lock() {
-                    *guard = Some((
-                        plan.target.core_type,
-                        opts.state_port.clamp(0, u16::MAX as i32) as u16,
-                        opts.state_port2.clamp(0, u16::MAX as i32) as u16,
-                    ));
+                    *guard = Some(facts);
                 }
                 let job = self.jobs.start("apply_runtime");
                 // The correlation the UI uses is the job id; the runtime's
@@ -1587,7 +1594,49 @@ impl AppEngine {
             .and_then(|guard| guard.as_ref().and_then(|session| session.proxy_port));
         let port =
             applied_port.or_else(|| self.local_proxy_port.lock().ok().and_then(|guard| *guard));
-        port.map(|port| format!("http://127.0.0.1:{port}"))
+        let scheme = self
+            .apply_facts
+            .lock()
+            .ok()
+            .and_then(|guard| *guard)
+            .map(|facts| facts.scheme.scheme())
+            .unwrap_or("http");
+        port.map(|port| format!("{scheme}://127.0.0.1:{port}"))
+    }
+
+    /// Resolve the monitor/API facts for an accepted plan. A full Custom config
+    /// carries its real statistics/API port in the emitted JSON (RR-07).
+    fn applied_facts_for(&self, plan: &RuntimePlan) -> AppliedFacts {
+        let opts = self.runtime_codegen_options();
+        let core = plan.target.core_type;
+        let mut facts = AppliedFacts {
+            core,
+            state_port: opts.state_port.clamp(0, u16::MAX as i32) as u16,
+            state_port2: opts.state_port2.clamp(0, u16::MAX as i32) as u16,
+            scheme: runtime::ProxyProtocol::Mixed,
+        };
+        let is_custom = self
+            .active_profile()
+            .and_then(|id| self.profile_by_id(&id).ok().flatten())
+            .map(|profile| profile.config_type == ConfigType::Custom)
+            .unwrap_or(false);
+        if is_custom {
+            if let ConfigSource::Inline { body } = &plan.target.config {
+                if let Ok(endpoints) = runtime::parse_custom_endpoints(core, body) {
+                    if core == CoreType::Xray {
+                        if let Some(api) = endpoints.api_port {
+                            facts.state_port = api;
+                        }
+                    } else if let Some(api) = endpoints.api_port {
+                        facts.state_port2 = api;
+                    }
+                    if let Some(primary) = endpoints.primary() {
+                        facts.scheme = primary.protocol;
+                    }
+                }
+            }
+        }
+        facts
     }
 
     /// Whether the monitor pipeline should collect (`GuiItem.EnableStatistics`)
@@ -1609,25 +1658,26 @@ impl AppEngine {
     /// fact; a desired-but-not-applied node is never reported.
     pub fn monitor_session(&self) -> Option<MonitorSession> {
         let applied = self.applied_session()?;
-        let (core, state_port, state_port2) = self
+        let facts = self
             .apply_facts
             .lock()
             .ok()
             .and_then(|guard| *guard)
             .unwrap_or_else(|| {
                 let opts = self.runtime_codegen_options();
-                (
-                    CoreType::Xray,
-                    opts.state_port.clamp(0, u16::MAX as i32) as u16,
-                    opts.state_port2.clamp(0, u16::MAX as i32) as u16,
-                )
+                AppliedFacts {
+                    core: CoreType::Xray,
+                    state_port: opts.state_port.clamp(0, u16::MAX as i32) as u16,
+                    state_port2: opts.state_port2.clamp(0, u16::MAX as i32) as u16,
+                    scheme: runtime::ProxyProtocol::Mixed,
+                }
             });
         Some(MonitorSession {
-            core,
+            core: facts.core,
             active_index_id: applied.active_index_id,
             proxy_port: applied.proxy_port,
-            state_port,
-            state_port2,
+            state_port: facts.state_port,
+            state_port2: facts.state_port2,
         })
     }
 
@@ -2426,13 +2476,33 @@ impl AppEngine {
                 .with_detail(error.to_string())
         })?;
 
+        // RR-07: a full `Custom` config is emitted verbatim, so the plan must
+        // wait on and publish the ports the config actually binds, not
+        // `opts.local_port`. A config with no usable inbound is a hard error:
+        // never pretend the core is ready.
+        let custom_endpoints = if target.config_type == ConfigType::Custom {
+            match runtime::parse_custom_endpoints(core, &body) {
+                Ok(endpoints) => Some(endpoints),
+                Err(detail) => {
+                    return Err(DomainError::new(
+                        domain::codes::INVALID_PLAN,
+                        "error.custom_endpoint_parse_failed",
+                    )
+                    .with_field("customConfig")
+                    .with_detail(detail));
+                }
+            }
+        } else {
+            None
+        };
+
         let settings = self
             .settings
             .lock()
             .map(|guard| guard.settings.clone())
             .unwrap_or_default();
         let local_port = opts.local_port;
-        if !(1..=65535).contains(&local_port) {
+        if custom_endpoints.is_none() && !(1..=65535).contains(&local_port) {
             return Err(
                 DomainError::new(domain::codes::FIELD_RANGE, "error.local_port_range")
                     .with_field("Inbound.LocalPort"),
@@ -2441,10 +2511,28 @@ impl AppEngine {
         let port = local_port as u16;
         let config = ConfigSource::Inline { body: body.clone() };
         let config_sha256 = ContentHash::new(runtime::sha256_hex(body.as_bytes()));
-        let mut ports = vec![PortRequest::tcp(port, "inbound")];
-        let inbound = settings.inbound.first();
-        if inbound.map(|item| item.udp_enabled).unwrap_or(true) {
-            ports.push(PortRequest::udp(port, "inbound"));
+        let mut ports = Vec::new();
+        if let Some(endpoints) = &custom_endpoints {
+            for resolved in &endpoints.inbounds {
+                ports.push(PortRequest::tcp(resolved.port, "inbound"));
+                if resolved.udp {
+                    ports.push(PortRequest::udp(resolved.port, "inbound"));
+                }
+            }
+            if let Some(api_port) = endpoints.api_port {
+                ports.push(PortRequest {
+                    port: api_port,
+                    transport: PortTransport::Tcp,
+                    owner: "api".to_string(),
+                    exclusive: false,
+                });
+            }
+        } else {
+            ports.push(PortRequest::tcp(port, "inbound"));
+            let inbound = settings.inbound.first();
+            if inbound.map(|item| item.udp_enabled).unwrap_or(true) {
+                ports.push(PortRequest::udp(port, "inbound"));
+            }
         }
         let privileges = vec![RequiredPrivilege::None];
         let mut graph = ProcessGraph::default();
@@ -3060,6 +3148,42 @@ mod tests {
         engine.stop_runtime().unwrap();
         engine.snapshot().unwrap();
         assert!(engine.monitor_session().is_none());
+    }
+
+    #[test]
+    fn custom_config_publishes_actual_api_port_and_socks_scheme() {
+        // RR-07: a Custom Xray config's real metrics port reaches the monitor
+        // session, and a SOCKS-only config yields a socks5 download URL.
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let mut custom = synthetic_full_profile(1);
+        custom.config_type = ConfigType::Custom;
+        custom.core_type = Some(CoreType::Xray);
+        custom.address = "custom.json".into();
+        custom.proto_extra.extra.insert(
+            crate::codegen::CUSTOM_CONFIG_KEY.to_string(),
+            serde_json::json!(
+                r#"{"inbounds":[{"port":11950,"protocol":"socks"}],"metrics":{"listen":"127.0.0.1:11955"},"outbounds":[{"protocol":"freedom"}]}"#
+            ),
+        );
+        engine.seed(vec![custom.clone()]);
+        engine.set_active(Some(custom.index_id.clone())).unwrap();
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan(&custom.index_id, revision)
+            .unwrap();
+        engine
+            .apply_runtime(plan, DesiredRevision::new(revision))
+            .unwrap();
+        runtime.mark_running_with("s-c", vec![11950], AppliedRevision::new(revision));
+        engine.snapshot().unwrap();
+
+        let session = engine.monitor_session().expect("running custom session");
+        assert_eq!(session.state_port, 11955, "actual metrics port");
+        assert_eq!(
+            engine.local_proxy_url().as_deref(),
+            Some("socks5://127.0.0.1:11950")
+        );
     }
 
     #[test]

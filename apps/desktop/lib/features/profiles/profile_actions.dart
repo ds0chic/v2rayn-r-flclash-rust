@@ -1,3 +1,4 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,74 @@ import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/template_window.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
+
+/// Save-location picker for the full client-config file export. Returns the
+/// chosen path, or null when the user cancels. Overridable in widget tests so
+/// the OS dialog is never opened.
+typedef ClientConfigSavePicker = Future<String?> Function(String suggestedName);
+
+final clientConfigSavePickerProvider = Provider<ClientConfigSavePicker>((ref) {
+  return (String suggestedName) async {
+    final location = await getSaveLocation(
+      suggestedName: suggestedName,
+      acceptedTypeGroups: <XTypeGroup>[
+        const XTypeGroup(label: '配置', extensions: <String>['json']),
+      ],
+    );
+    return location?.path;
+  };
+});
+
+/// Export the single selected (or active) node's complete client configuration.
+///
+/// Upstream `Export2ClientConfigAsync(blClipboard)` /
+/// `Export2ClientConfigResult`: the node's generated kernel config is copied to
+/// the clipboard, or written to a user-chosen file after the save dialog. A
+/// cancel never writes; a write failure is reported and never faked as success.
+Future<void> exportSelectedClientConfig(
+  BuildContext context,
+  WidgetRef ref, {
+  required bool toClipboard,
+}) async {
+  final state = ref.read(profilesControllerProvider);
+  final String? id;
+  if (state.selected.length == 1) {
+    id = state.selected.first;
+  } else if (state.selected.isEmpty) {
+    id = state.activeId;
+  } else {
+    id = null;
+  }
+  if (id == null) {
+    _toast(ref, state.selected.length > 1 ? '请选择单个节点后导出' : '请先选择节点');
+    return;
+  }
+
+  final bridge = ref.read(bridgePortProvider);
+  final result = bridge.exportClientConfigText(id);
+  if (!result.ok) {
+    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    return;
+  }
+
+  if (toClipboard) {
+    await Clipboard.setData(ClipboardData(text: result.text));
+    _toast(ref, '已复制完整配置到剪贴板');
+    return;
+  }
+
+  final picker = ref.read(clientConfigSavePickerProvider);
+  final path = await picker('config.json');
+  if (path == null || path.trim().isEmpty) {
+    return;
+  }
+  final write = bridge.writeExportFile(path, result.text);
+  if (!write.ok) {
+    _toast(ref, '保存失败：${write.error?.messageKey ?? "写入被拒绝"}');
+    return;
+  }
+  _toast(ref, '已保存完整配置：$path');
+}
 
 /// Add a node of [configType] through the real editor + bridge.
 Future<void> startAddProfile(

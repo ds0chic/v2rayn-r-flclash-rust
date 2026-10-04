@@ -212,10 +212,12 @@ fn custom_presocks_port_is_recorded_for_the_sidecar() {
         pre_socks_port: Some(pre_port as i32),
         ..Default::default()
     };
+    // RR-07: a full Custom config must carry a real proxy inbound; the sidecar
+    // assertion below is about the pre-socks graph, not the main listener.
     custom.proto_extra.extra.insert(
         application::codegen::CUSTOM_CONFIG_KEY.to_string(),
         serde_json::json!(
-            r#"{"log":{"loglevel":"warning"},"inbounds":[],"outbounds":[{"protocol":"freedom","tag":"direct"}]}"#
+            r#"{"log":{"loglevel":"warning"},"inbounds":[{"port":11867,"protocol":"socks"}],"outbounds":[{"protocol":"freedom","tag":"direct"}]}"#
         ),
     );
     save(&engine, custom);

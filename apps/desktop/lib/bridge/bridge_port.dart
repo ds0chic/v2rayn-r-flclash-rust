@@ -129,6 +129,12 @@ abstract class BridgePort {
 
   c.SimpleResult writeExportFile(String path, String text);
 
+  /// Full client config text for [id] (upstream `Export2ClientConfigAsync` /
+  /// `Export2ClientConfigResult`). Reuses the engine `build_codegen_input` +
+  /// `generate` path; an unknown node or codegen failure is a structured error,
+  /// never a fake config.
+  c.ShareExportResult exportClientConfigText(String id);
+
   // -- T10 group / custom / template surface -----------------------------
 
   groups.TemplatesPageDto listTemplates();
@@ -508,6 +514,17 @@ class FrbBridgePort implements BridgePort {
   @override
   c.SimpleResult writeExportFile(String path, String text) =>
       subs.writeExportFile(path: path, text: text);
+
+  @override
+  c.ShareExportResult exportClientConfigText(String id) {
+    final result = speedtest.exportClientConfig(indexId: id);
+    return c.ShareExportResult(
+      ok: result.ok,
+      text: result.text,
+      count: result.ok ? 1 : 0,
+      error: result.error,
+    );
+  }
 
   @override
   groups.TemplatesPageDto listTemplates() => groups.listTemplates();
@@ -1624,12 +1641,22 @@ class SyntheticBridgePort implements BridgePort {
     return c.ShareExportResult(ok: true, text: text, count: selected.length);
   }
 
+  /// Test helper: let [writeExportFile] report success so the file-save happy
+  /// path can be asserted without touching disk. Defaults to the honest
+  /// structured "not wired" failure.
+  bool fakeWriteExportFileSucceeds = false;
+
+  /// Paths passed through [writeExportFile], in call order.
+  final List<String> writtenExportFiles = <String>[];
+
   @override
-  c.SimpleResult writeExportFile(String path, String text) =>
-      const c.SimpleResult(
-        // Synthetic: nothing is written to disk. A structured "not wired"
-        // failure (never `ok: true`) so the test double cannot be mistaken
-        // for a real export; the production FRB bridge performs the write.
+  c.SimpleResult writeExportFile(String path, String text) {
+    writtenExportFiles.add(path);
+    if (!fakeWriteExportFileSucceeds) {
+      // Synthetic default: nothing is written to disk. A structured "not wired"
+      // failure (never `ok: true`) so the test double cannot be mistaken for a
+      // real export; the production FRB bridge performs the write.
+      return const c.SimpleResult(
         ok: false,
         error: c.ErrorDto(
           code: 'E_NOT_WIRED',
@@ -1637,6 +1664,52 @@ class SyntheticBridgePort implements BridgePort {
           retryable: false,
         ),
       );
+    }
+    return const c.SimpleResult(ok: true);
+  }
+
+  /// Test helper: force [exportClientConfigText] to report a codegen failure.
+  bool failExportClientConfig = false;
+
+  /// Ids passed through [exportClientConfigText], in call order.
+  final List<String> exportedClientConfigIds = <String>[];
+
+  @override
+  c.ShareExportResult exportClientConfigText(String id) {
+    _ensureProfiles();
+    exportedClientConfigIds.add(id);
+    if (failExportClientConfig) {
+      return const c.ShareExportResult(
+        ok: false,
+        text: '',
+        count: 0,
+        error: c.ErrorDto(
+          code: 'E_CODEGEN_FAILED',
+          messageKey: 'error.codegen_failed',
+          retryable: false,
+        ),
+      );
+    }
+    final profile = getProfile(id);
+    if (profile == null) {
+      return const c.ShareExportResult(
+        ok: false,
+        text: '',
+        count: 0,
+        error: c.ErrorDto(
+          code: 'E_NOT_FOUND',
+          messageKey: 'error.not_found',
+          retryable: false,
+        ),
+      );
+    }
+    final text =
+        '{\n'
+        '  "remarks": "${profile.remarks}",\n'
+        '  "outbounds": [{"protocol": "vless", "address": "${profile.address}", "port": ${profile.port}}]\n'
+        '}';
+    return c.ShareExportResult(ok: true, text: text, count: 1);
+  }
 
   // -- T10 group / template (synthetic) ----------------------------------
 
@@ -2567,15 +2640,18 @@ class SyntheticBridgePort implements BridgePort {
   @override
   String defaultDnsText(String kind) => '{"servers": []}';
 
+  /// Test helper: model a build/platform without UDP support.
+  bool udpSupported = true;
+
   @override
   speedtest.SpeedTestSupportDto speedTestSupport() =>
-      const speedtest.SpeedTestSupportDto(
+      speedtest.SpeedTestSupportDto(
         tcpPing: true,
         realPing: true,
         download: true,
         mixed: true,
         fastRealPing: true,
-        udp: false,
+        udp: udpSupported,
       );
 
   @override

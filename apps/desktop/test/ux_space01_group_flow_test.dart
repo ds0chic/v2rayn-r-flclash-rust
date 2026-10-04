@@ -42,9 +42,16 @@ void main() {
     expect(readState(container).groupSubId, 'sub-000');
     expect(readState(container).visible.length, 100);
 
-    // Filter inside A, then clear; the group selection must survive.
+    // Filter inside A, then clear; the group selection must survive. A
+    // non-empty query only takes effect on Enter (upstream
+    // `ServerFilterChanged`), clearing refreshes immediately.
     final filter = find.byKey(const ValueKey('filter-field'));
     await tester.enterText(filter, 'Synthetic-00001');
+    await tester.pump();
+    expect(readState(container).visible.length, 100);
+    expect(readState(container).groupSubId, 'sub-000');
+
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     final filtered = readState(container).visible.length;
     expect(filtered, lessThan(100));

@@ -294,14 +294,11 @@ List<ProfileSummary> orderByPersistedSort(
 bool rowMatchesQuery(ProfileSummary row, String query) {
   final q = query.trim().toLowerCase();
   if (q.isEmpty) return true;
+  // Frozen `AppManager.ProfileModels` filters with
+  // `a.remarks like '%q%' or a.address like '%q%'` (AppManager.cs:226), so the
+  // table text filter only searches remarks and address.
   return row.remarks.toLowerCase().contains(q) ||
-      row.address.toLowerCase().contains(q) ||
-      row.subRemarks.toLowerCase().contains(q) ||
-      row.ipInfo.toLowerCase().contains(q) ||
-      row.configType.name.toLowerCase().contains(q) ||
-      row.network.toLowerCase().contains(q) ||
-      row.streamSecurity.toLowerCase().contains(q) ||
-      row.port.toString().contains(q);
+      row.address.toLowerCase().contains(q);
 }
 
 List<ProfileSummary> applyFilter(List<ProfileSummary> rows, String query) {

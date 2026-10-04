@@ -709,4 +709,25 @@ mod tests {
         assert_eq!(outbounds[2]["tag"], serde_json::json!("chain-proxy-2-c1"));
         assert!(outbounds[2].get("detour").is_none());
     }
+
+    #[test]
+    fn client_config_export_text_contains_node_and_outbounds() {
+        // RE-PROF-08: the full client-config export serializes the same
+        // `generate` output the runtime plan uses. The saved/clipboard text
+        // must carry the node address and an outbounds section.
+        let active = leaf("export-leaf", "192.0.2.55");
+        let all = vec![active.clone()];
+        let input = build_input(
+            &active,
+            &all,
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        let generated = generate(CoreType::Xray, &input).unwrap();
+        let text = serde_json::to_string_pretty(&generated.main).unwrap();
+        assert!(text.contains("192.0.2.55"), "{text}");
+        assert!(text.contains("\"outbounds\""), "{text}");
+    }
 }

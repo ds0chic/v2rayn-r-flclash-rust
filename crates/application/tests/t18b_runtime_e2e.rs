@@ -645,3 +645,63 @@ fn stop_releases_listener_port() {
     engine.stop_runtime().expect("stop runtime is idempotent");
     assert!(start.elapsed() < BUDGET, "exceeded 60s budget");
 }
+
+#[test]
+fn rr07_custom_config_plan_serves_on_its_real_port() {
+    // RR-07: a full Custom Xray config whose inbound port differs from the
+    // settings base port must plan/wait/publish the *actual* port. The plan
+    // body is spawned verbatim and the real port must carry traffic.
+    let start = Instant::now();
+    let origin_port = free_port(11987);
+    let _origin = Origin::start(origin_port);
+    let base_port = free_port(11990); // deliberately NOT the config port
+    let custom_port = free_port(11991);
+    let api_port = free_port(11992);
+
+    let (_keep, engine) = engine();
+    set_base_port(&engine, base_port);
+    route_ip_direct(&engine, "127.0.0.1");
+    let body = format!(
+        r#"{{"log":{{"loglevel":"warning"}},"inbounds":[{{"port":{custom_port},"listen":"127.0.0.1","protocol":"socks"}}],"metrics":{{"listen":"127.0.0.1:{api_port}"}},"outbounds":[{{"protocol":"freedom","tag":"direct"}}],"routing":{{"rules":[{{"type":"field","ip":["127.0.0.1"],"outboundTag":"direct"}}]}}}}"#
+    );
+    let mut custom = Profile {
+        index_id: "custom-e2e".into(),
+        config_type: ConfigType::Custom,
+        core_type: Some(CoreType::Xray),
+        remarks: "custom-e2e".into(),
+        address: "custom-e2e.json".into(),
+        ..Default::default()
+    };
+    custom.proto_extra.extra.insert(
+        application::codegen::CUSTOM_CONFIG_KEY.to_string(),
+        serde_json::json!(body),
+    );
+    save(&engine, custom);
+
+    let revision = engine.desired_revision();
+    let plan = engine
+        .build_runtime_plan("custom-e2e", revision)
+        .expect("build custom plan");
+    // RR-07: the plan claims the actual port and API port, not the base port.
+    assert!(plan.ports.iter().any(|p| p.port == custom_port));
+    assert!(
+        !plan.ports.iter().any(|p| p.port == base_port),
+        "base port must not be planned for a full Custom config"
+    );
+    let body = match &plan.target.config {
+        domain::runtime_plan::ConfigSource::Inline { body } => body.clone(),
+        other => panic!("expected inline config, got {other:?}"),
+    };
+    assert!(!body.contains("10808"));
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = write_config(dir.path(), "custom-e2e.json", &body);
+    let _kernel = Kernel::spawn(XRAY_EXE, &config);
+    wait_port(custom_port, Duration::from_secs(20));
+    let reply = socks5_get(custom_port, origin_port, None).expect("serving on real port");
+    assert!(
+        reply.contains("200") && reply.contains("t18b-ok"),
+        "unexpected reply: {reply}"
+    );
+    assert!(start.elapsed() < BUDGET, "exceeded 60s budget");
+}

@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 /// widget and the tests. Names match the upstream `ACT-PROF-*` shortcuts.
 class ProfileAction {
   static const selectAll = 'select-all';
+  static const autofitColumns = 'autofit-columns';
   static const copy = 'copy';
   static const exportShareUrl = 'export-share-url';
   static const edit = 'edit';

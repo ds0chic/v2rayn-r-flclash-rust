@@ -139,6 +139,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     final state = ref.watch(profilesControllerProvider);
     final columns = state.visibleColumns;
     final rows = state.visible;
+    // `UiItem.EnableDragDropSort`: only register row drag-reorder when the
+    // persisted setting is true (upstream `ProfilesView.xaml:27-34`).
+    final dragSortEnabled = ref.watch(profilesEnableDragDropSortProvider);
 
     return MenuAnchor(
       controller: _menuController,
@@ -201,6 +204,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                         state,
                         columns,
                         rows,
+                        dragSortEnabled,
                       ),
                     ),
                   ),
@@ -267,6 +271,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     ProfilesState state,
     List<ProfileColumn> columns,
     List<ProfileSummary> rows,
+    bool dragSortEnabled,
   ) {
     if (vicinity.row == 0) {
       return _headerCell(context, vicinity.column, state, columns);
@@ -275,7 +280,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     if (dataIndex >= rows.length) return const SizedBox.shrink();
     final row = rows[dataIndex];
     if (vicinity.column == 0) {
-      return _handleCell(context, row, dataIndex, state);
+      return _handleCell(context, row, dataIndex, state, dragSortEnabled);
     }
     final column = columns[vicinity.column - 1];
     return _dataCell(context, row, column, state);
@@ -511,6 +516,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     ProfilesState state,
   ) {
     final selected = state.selected.contains(row.id);
+    // Active node marker, independent from the multi-select highlight: an
+    // active row keeps its own fill even when a different row is selected.
+    final isActive = state.activeId == row.id;
     final controller = ref.read(profilesControllerProvider.notifier);
     final value = column.display(row);
     final label = Text(
@@ -529,7 +537,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       ),
       onDoubleTap: () => _onDoubleTap(row),
       child: Container(
-        color: selected ? context.semantics.selectedRow : null,
+        color: selected
+            ? context.semantics.selectedRow
+            : (isActive ? activeRowFill(context) : null),
         alignment: column.numeric
             ? Alignment.centerRight
             : Alignment.centerLeft,
@@ -551,34 +561,62 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     ProfileSummary row,
     int index,
     ProfilesState state,
+    bool dragSortEnabled,
   ) {
     final selected = state.selected.contains(row.id);
+    final isActive = state.activeId == row.id;
     final controller = ref.read(profilesControllerProvider.notifier);
-    final content = Container(
+    final ordinal = Text('${index + 1}', style: const TextStyle(fontSize: 11));
+
+    final numberBox = Container(
       color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
       alignment: Alignment.center,
-      child: Draggable<ProfileSummary>(
-        data: row,
-        dragAnchorStrategy: pointerDragAnchorStrategy,
-        onDragStarted: () {
-          _menuController.close();
-          controller.handleDragStart(row.id);
-        },
-        feedback: Material(
-          elevation: 4,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            child: Text(row.remarks),
+      child: dragSortEnabled
+          ? Draggable<ProfileSummary>(
+              data: row,
+              dragAnchorStrategy: pointerDragAnchorStrategy,
+              onDragStarted: () {
+                _menuController.close();
+                controller.handleDragStart(row.id);
+              },
+              feedback: Material(
+                elevation: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  child: Text(row.remarks),
+                ),
+              ),
+              childWhenDragging: Opacity(opacity: 0.3, child: ordinal),
+              child: ordinal,
+            )
+          : ordinal,
+    );
+
+    // A solid leading marker independent from the selectable row fill, so the
+    // active node stays visible even when the same row is also selected.
+    final cell = Row(
+      children: <Widget>[
+        SizedBox(
+          width: 3,
+          child: ColoredBox(
+            key: ValueKey('active-marker-${row.id}'),
+            color: isActive
+                ? activeRowMarkerColor(context)
+                : Colors.transparent,
           ),
         ),
-        childWhenDragging: Opacity(
-          opacity: 0.3,
-          child: Text('${index + 1}', style: const TextStyle(fontSize: 11)),
-        ),
-        child: Text('${index + 1}', style: const TextStyle(fontSize: 11)),
-      ),
+        Expanded(child: numberBox),
+      ],
     );
+
+    if (!dragSortEnabled) {
+      return Container(key: ValueKey('handle-${row.id}'), child: cell);
+    }
+
     return DragTarget<ProfileSummary>(
       key: ValueKey('drop-${row.id}'),
       onAcceptWithDetails: (details) =>
@@ -593,7 +631,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                   width: 2,
                 ),
               ),
-        child: content,
+        child: cell,
       ),
     );
   }
@@ -776,8 +814,45 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
             submenu: moveEntries,
           )
         else
-          entry,
+          _withRuntimeCapabilities(entry),
     ];
+  }
+
+  /// Re-enable entries whose availability is a runtime capability rather than a
+  /// missing feature. UDP test follows `SpeedTestSupport.udp`; the two full
+  /// client-config exports are always actionable (the backend reports a
+  /// structured error when it cannot generate). The entries stay visible so the
+  /// upstream menu layout is preserved (RE-PROF-08).
+  ContextMenuEntry _withRuntimeCapabilities(ContextMenuEntry entry) {
+    final mappedSubmenu = entry.submenu
+        .map(_withRuntimeCapabilities)
+        .toList(growable: false);
+    ContextMenuEntry rebuild({bool? enabled, String? helpTooltip}) =>
+        ContextMenuEntry(
+          label: entry.label,
+          actionId: entry.actionId,
+          kind: entry.kind,
+          shortcut: entry.shortcut,
+          submenu: mappedSubmenu,
+          separatorAfter: entry.separatorAfter,
+          enabled: enabled ?? entry.enabled,
+          helpTooltip: helpTooltip,
+          targetSubId: entry.targetSubId,
+        );
+
+    switch (entry.kind) {
+      case ContextActionKind.udpTest:
+        final udp = ref.read(bridgePortProvider).speedTestSupport().udp;
+        return rebuild(
+          enabled: udp,
+          helpTooltip: udp ? null : '当前构建/平台不支持 UDP 测速',
+        );
+      case ContextActionKind.exportClientConfig:
+      case ContextActionKind.exportClientConfigClipboard:
+        return rebuild(enabled: true);
+      default:
+        return mappedSubmenu.isEmpty ? entry : rebuild();
+    }
   }
 
   int _countFor(ProfilesState state, String subId) {
@@ -803,6 +878,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       case ContextActionKind.sortResult:
       case ContextActionKind.genGroupAll:
       case ContextActionKind.genGroupRegion:
+      // Full client-config export falls back to the active node when nothing
+      // is selected (RE-PROF-08), so it must stay clickable without a target.
+      case ContextActionKind.exportClientConfig:
+      case ContextActionKind.exportClientConfigClipboard:
       case ContextActionKind.notImplemented:
         return false;
       default:
@@ -955,8 +1034,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       case ContextActionKind.share:
         shareProfilesQr(context, ref);
       case ContextActionKind.exportClientConfig:
+        unawaited(exportSelectedClientConfig(context, ref, toClipboard: false));
       case ContextActionKind.exportClientConfigClipboard:
-        shell.notImplemented(entry.label, entry.actionId);
+        unawaited(exportSelectedClientConfig(context, ref, toClipboard: true));
       case ContextActionKind.exportShare:
         exportProfiles(context, ref, kind: 'share');
       case ContextActionKind.exportShareBase64:
@@ -1080,3 +1160,22 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     }
   }
 }
+
+/// Background fill for the active node row, independent from the multi-select
+/// highlight (`Semantics.selectedRow`).
+///
+/// Upstream `ProfilesView.xaml:271-277` paints every cell of an active row
+/// `MaterialDesign.Brush.Primary.Light`; the selection keeps its own container
+/// color, so the active marker stays distinguishable in both themes.
+@visibleForTesting
+Color activeRowFill(BuildContext context) {
+  final scheme = Theme.of(context).colorScheme;
+  final light = Theme.of(context).brightness == Brightness.light;
+  return scheme.primary.withValues(alpha: light ? 0.16 : 0.30);
+}
+
+/// Solid leading marker drawn on the active row, visible even when that row is
+/// also selected.
+@visibleForTesting
+Color activeRowMarkerColor(BuildContext context) =>
+    Theme.of(context).colorScheme.primary;

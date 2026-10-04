@@ -2835,7 +2835,11 @@ features:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:664
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:662
   - docs/evidence/T18b.md
+  - docs/evidence/recheck-fixes/RR-07-10/README.md
+  - docs/evidence/recheck-fixes/RR-07-10/rr10-real-xray.log
+  - docs/evidence/recheck-fixes/RR-07-10/rr07-real-xray.log
   status: implemented
+  note: RR-10（2026-10-04，HEAD 842520b）：切换预检（adapter/locator/hash/端口/test_args/TUN）移到停旧会话之前，预检失败保留旧 Running 会话并结构化报错；预检通过但启动失败时用上一 last_plan+last_exe 恢复（restore 也走 precheck），无法恢复则如实 Stopped 且清空端点；applied 事实经 fail_operation/stop_managed 同步撤回。真实 xray：apply-bad 被 `xray run -test` 预检拒绝，旧会话仍 Running，随后新端口真实切换成功。实现：services/net_host/src/session.rs（PreparedPlan/precheck_plan/start_prepared/try_restore/Inner.last_plan,last_exe/Session.exe），crates/application/src/engine.rs（apply_facts 扩展）。测试：net_host 5 用例 + run_rr10_real_xray.ps1。RR-07（同日）：完整 Custom 配置端点从配置内容解析（crates/runtime/src/endpoints.rs 新增：Xray inbounds/metrics.listen、sing-box inbounds/experimental.clash_api；socks/http/mixed 与 API 端口），build_runtime_plan 用真实端口构造 ports（解析失败 E_INVALID_PLAN/error.custom_endpoint_parse_failed），monitor state_port/state_port2 与 local_proxy_url scheme 取真实值，普通节点不变；真实 xray 在配置端口 11991 提供 SOCKS 且计划不含设置基础端口 11990。未做原版 UI 实机对照，保持 implemented。
 - id: F-CORE-006
   name: 预 SOCKS 端口
   family: core
@@ -5024,3 +5028,13 @@ remediation_implementation_records:
 # ConfigHandler.Add*Server + AddServerCommon). validate_server gives explicit editor errors; the tolerant
 # import path normalizes only. UI adds Mux (VMess/VLESS/Trojan/SS), UOT (SS/Naive, removed from TUIC) and
 # Finalmask (all except TUIC/Anytls/Naive) FieldSpecs. Fields FLD-ENT-028/033/041. No FRB change.
+
+# --- RE-PROF-13/14 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RE-PROF-13-14/; tasks: docs/tasks/RE-PROF-13.md, docs/tasks/RE-PROF-14.md) ---
+# F-PROFILE-014 node-table refinements. RE-PROF-13: active node gets its own visual marker
+# (activeRowFill + active-marker leading bar) independent from the multi-select highlight
+# (Semantics.selectedRow), matching ProfilesView.xaml:271-279 IsActive DataTrigger; both light/dark themes.
+# RE-PROF-14a: 'autofit-columns' really measures header/content with TextPainter and persists widths to
+# ui_state.json column_layout (upstream AutofitColumnWidth Auto). RE-PROF-14b: row drag-reorder is gated
+# by UiItem.EnableDragDropSort (FLD-CFG-076) read from settings; false registers no Draggable/DragTarget.
+# RE-PROF-14c: filter follows upstream timing (Enter submits non-empty, clearing refreshes) and searches
+# remarks/address only (AppManager.cs:226). No Rust/FRB change.

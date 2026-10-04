@@ -338,6 +338,107 @@ fn legacy_protect_decision_matches_upstream() {
     assert!(decision.is_some(), "custom pre-socks port must be honored");
 }
 
+fn custom_config_node(id: &str, core: CoreType, body: &str) -> Profile {
+    let mut profile = Profile {
+        index_id: id.into(),
+        config_type: ConfigType::Custom,
+        core_type: Some(core),
+        remarks: id.into(),
+        address: format!("{id}.json"),
+        ..Default::default()
+    };
+    profile.proto_extra.extra.insert(
+        application::codegen::CUSTOM_CONFIG_KEY.to_string(),
+        serde_json::json!(body),
+    );
+    profile
+}
+
+fn plan_ports(engine: &AppEngine, target: &str) -> Vec<(u16, domain::PortTransport)> {
+    let revision = engine.desired_revision();
+    let plan = engine
+        .build_runtime_plan(target, revision)
+        .expect("build runtime plan");
+    plan.ports.iter().map(|p| (p.port, p.transport)).collect()
+}
+
+#[test]
+fn custom_config_uses_real_inbound_port_and_metrics() {
+    // RR-07: the plan publishes the config's actual inbound port (and protocol
+    // scheme), not the settings base port.
+    let engine = engine();
+    set_base_port(&engine, free_port(11910));
+    let body = r#"{"inbounds":[{"port":11911,"listen":"127.0.0.1","protocol":"socks"}],"metrics":{"listen":"127.0.0.1:11915"},"outbounds":[{"protocol":"freedom"}]}"#;
+    save(&engine, custom_config_node("c1", CoreType::Xray, body));
+    let ports = plan_ports(&engine, "c1");
+    assert!(
+        ports.contains(&(11911, domain::PortTransport::Tcp)),
+        "actual inbound port missing: {ports:?}"
+    );
+    assert!(
+        !ports.iter().any(|(p, _)| *p == 11910),
+        "expected base port must not appear: {ports:?}"
+    );
+}
+
+#[test]
+fn custom_config_socks_only_publishes_socks_scheme() {
+    // A SOCKS-only Custom config must not be treated as an HTTP download proxy.
+    let engine = engine();
+    let body =
+        r#"{"inbounds":[{"port":11921,"protocol":"socks"}],"outbounds":[{"protocol":"freedom"}]}"#;
+    save(&engine, custom_config_node("c2", CoreType::Xray, body));
+    let body_json = r#"{"inbounds":[{"port":11925,"protocol":"http"}],"metrics":{"listen":":11926"},"outbounds":[{"protocol":"freedom"}]}"#;
+    save(&engine, custom_config_node("c3", CoreType::Xray, body_json));
+    // plan for the socks node uses the socks port
+    let ports = plan_ports(&engine, "c2");
+    assert!(
+        ports.iter().any(|(p, _)| *p == 11921),
+        "socks port missing: {ports:?}"
+    );
+}
+
+#[test]
+fn custom_config_without_inbound_is_a_structured_error() {
+    let engine = engine();
+    let body = r#"{"inbounds":[{"port":11930,"protocol":"dokodemo-door"}],"outbounds":[{"protocol":"freedom"}]}"#;
+    save(&engine, custom_config_node("c4", CoreType::Xray, body));
+    let revision = engine.desired_revision();
+    let error = engine
+        .build_runtime_plan("c4", revision)
+        .expect_err("no proxy inbound must fail");
+    assert_eq!(error.code, domain::codes::INVALID_PLAN);
+    assert_eq!(error.message_key, "error.custom_endpoint_parse_failed");
+}
+
+#[test]
+fn custom_config_invalid_json_is_rejected_at_save() {
+    // Invalid JSON never reaches storage, so it can never reach the parser.
+    let engine = engine();
+    let revision = engine.desired_revision();
+    let error = engine
+        .save_profile(
+            custom_config_node("c5", CoreType::Xray, "{not json"),
+            DesiredRevision::new(revision),
+        )
+        .expect_err("invalid json must be rejected");
+    assert_eq!(error.code, domain::codes::FIELD_FORMAT);
+}
+
+#[test]
+fn normal_node_plan_unchanged_by_rr07() {
+    // Regression: non-Custom nodes still use the settings base port.
+    let engine = engine();
+    save(&engine, vless_leaf("n1"));
+    let base = free_port(11940);
+    set_base_port(&engine, base);
+    let ports = plan_ports(&engine, "n1");
+    assert!(
+        ports.iter().any(|(p, _)| *p == base),
+        "base port missing: {ports:?}"
+    );
+}
+
 fn routing_profile(remarks: &str, rules: &[RoutingRule]) -> RoutingProfile {
     let mut profile = RoutingProfile {
         remarks: remarks.to_string(),

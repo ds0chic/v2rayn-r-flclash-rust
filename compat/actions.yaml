@@ -5466,3 +5466,9 @@ items:
 # Ordinary-protocol save/import normalization + Mux/Finalmask/UOT controls. Backend: custom.rs::normalize_server
 # (both save paths) + validate_server (editor). UI: Mux on VMess/VLESS/Trojan/SS, UOT on SS/Naive (removed from
 # TUIC), Finalmask on all except TUIC/Anytls/Naive. No FRB change; tolerant import (FIX-04) preserved.
+
+# --- RE-PROF-13/14 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RE-PROF-13-14/; tasks: docs/tasks/RE-PROF-13.md, docs/tasks/RE-PROF-14.md) ---
+# ACT-PROF-033 drag-reorder now consumed via UiItem.EnableDragDropSort (false => no drag handlers);
+# autofit-columns toolbar action real (ProfileAction.autofitColumns -> autofitColumns, persisted);
+# node-table filter timing aligned to ServerFilterChanged (Enter/clear) with remarks/address scope.
+# Active-node visual marker independent from selection. No FRB change.

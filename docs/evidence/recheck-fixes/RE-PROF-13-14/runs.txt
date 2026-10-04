@@ -1,0 +1,56 @@
+RE-PROF-13 / RE-PROF-14 runs (2026-10-04, start HEAD 842520b, Windows PowerShell 7)
+
+[dart format --output=none --set-exit-if-changed lib test]
+exit 0
+Formatted 234 files (0 changed) in 0.69 seconds.
+
+[flutter analyze]
+exit 0
+No issues found! (ran in 3.1s)
+
+[flutter test test/re_prof_13_active_marker_test.dart]
+1 passed
+
+[flutter test test/re_prof_13_theme_colors_test.dart]
+1 passed
+
+[flutter test test/re_prof_14_autofit_test.dart]
+1 passed
+
+[flutter test test/re_prof_14_drag_disabled_test.dart]
+1 passed
+
+[flutter test test/re_prof_14_drag_enabled_test.dart]
+first run: 00:01 +0: Some tests failed. No tests were found. (flaky)
+retry: 1 passed
+
+[flutter test test/profiles_filter_test.dart]
+1 passed (updated: non-empty applies on Enter, clearing refreshes immediately)
+
+[flutter test test/ux_space01_group_flow_test.dart]
+1 passed (updated to Enter submit)
+
+[flutter test test/profiles_pointer_test.dart]
+1 passed (harness dragDropSort: true)
+
+regression batch (all passed):
+  profiles_models_test.dart
+  fix10b_profile_order_test.dart
+  recheck05_hidden_selection_test.dart
+  re_prof_06_scope_test.dart
+  profiles_render_test.dart
+  profiles_keyboard_test.dart
+  reprof04_sort_readback_test.dart
+  recheck02_active_apply_test.dart
+  profiles_share_shortcut_test.dart
+  recheck01_group_inheritance_test.dart
+  ux_space01_entries_test.dart
+  context_menu_model_test.dart
+  context_menu_move_test.dart
+
+[flutter test test/t05_profiles_ui_test.dart]
+first run: did not complete [E] (flaky flutter_tester)
+retry: 1 passed
+
+Not run (task constraints): flutter build windows --release, full flutter test,
+cargo test --workspace, real Windows window, original WPF side-by-side.

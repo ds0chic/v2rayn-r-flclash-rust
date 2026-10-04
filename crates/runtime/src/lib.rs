@@ -16,6 +16,7 @@
 #![allow(clippy::result_large_err)]
 
 pub mod adapter;
+pub mod endpoints;
 pub mod graph;
 pub mod identity;
 pub mod install_layout;
@@ -28,6 +29,7 @@ pub use adapter::{
     adapter_for, core_dir, default_managed_cores_root, CoreAdapter, CoreLocator, SingBoxAdapter,
     XrayAdapter,
 };
+pub use endpoints::{parse_custom_endpoints, CustomEndpoints, ProxyProtocol, ResolvedInbound};
 pub use graph::ExecutionPlan;
 pub use identity::{
     current_identity, matches_identity, process_creation_time_ms, terminate_identity,

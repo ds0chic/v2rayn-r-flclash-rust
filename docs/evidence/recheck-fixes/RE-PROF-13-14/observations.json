@@ -1,0 +1,78 @@
+{
+  "task": "RE-PROF-13/RE-PROF-14",
+  "status": "implemented",
+  "date": "2026-10-04",
+  "start_head": "842520b",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "changed_files": [
+    "apps/desktop/lib/features/profiles/profiles_table.dart",
+    "apps/desktop/lib/features/profiles/profiles_page.dart",
+    "apps/desktop/lib/features/profiles/profiles_controller.dart",
+    "apps/desktop/lib/features/profiles/profiles_models.dart",
+    "apps/desktop/lib/features/profiles/table_actions.dart",
+    "apps/desktop/test/re_prof_13_active_marker_test.dart",
+    "apps/desktop/test/re_prof_13_theme_colors_test.dart",
+    "apps/desktop/test/re_prof_14_autofit_test.dart",
+    "apps/desktop/test/re_prof_14_drag_disabled_test.dart",
+    "apps/desktop/test/re_prof_14_drag_enabled_test.dart",
+    "apps/desktop/test/profiles_filter_test.dart",
+    "apps/desktop/test/ux_space01_group_flow_test.dart",
+    "apps/desktop/test/profiles_pointer_test.dart",
+    "apps/desktop/test/support/profiles_harness.dart",
+    "docs/tasks/RE-PROF-13.md",
+    "docs/tasks/RE-PROF-14.md",
+    "docs/evidence/recheck-fixes/RE-PROF-13-14/README.md",
+    "docs/evidence/recheck-fixes/RE-PROF-13-14/observations.json",
+    "docs/evidence/recheck-fixes/RE-PROF-13-14/runs.txt",
+    "compat/features.yaml",
+    "compat/actions.yaml"
+  ],
+  "upstream": {
+    "active_marker": "ProfilesView.xaml:271-279 DataGridCell IsActive=True -> Primary.Light background, independent from DataGrid selection",
+    "autofit": "ProfilesView.xaml.cs:296-314 AutofitColumnWidth sets every column to DataGridLength Auto",
+    "drag_gate": "ProfilesView.xaml:27-34 drag-reorder only registered when UiItem.EnableDragDropSort is true",
+    "filter_timing": "ProfilesViewModel.cs:343-350 ServerFilterChanged refreshes only when cleared; ProfilesView.xaml.cs:316-322 Enter -> RefreshServers",
+    "filter_fields": "AppManager.cs:226 filter matches a.remarks or a.address only"
+  },
+  "production_chain": {
+    "active": "ProfilesState.activeId -> _dataCell activeRowFill / _handleCell active-marker (independent of state.selected)",
+    "autofit": "toolbar -> ProfileAction.autofitColumns -> ProfilesController.autofitColumns -> TextPainter measure -> _persistColumns -> ui_state.json column_layout",
+    "drag": "profilesEnableDragDropSortProvider -> readEnableDragDropSort(getSettings().settingsJson.UiItem.EnableDragDropSort) -> _handleCell builds Draggable/DragTarget only when true",
+    "filter": "_FilterField.onChanged -> updateFilterInput (non-empty staged, empty refreshes) / onSubmitted -> submitFilter -> rowMatchesQuery(remarks|address)"
+  },
+  "commands": [
+    { "cmd": "dart format --output=none --set-exit-if-changed lib test", "exit": 0, "result": "Formatted 234 files (0 changed)" },
+    { "cmd": "flutter analyze", "exit": 0, "result": "No issues found!" },
+    { "cmd": "flutter test test/re_prof_13_active_marker_test.dart", "exit": 0, "result": "1 passed" },
+    { "cmd": "flutter test test/re_prof_13_theme_colors_test.dart", "exit": 0, "result": "1 passed" },
+    { "cmd": "flutter test test/re_prof_14_autofit_test.dart", "exit": 0, "result": "1 passed" },
+    { "cmd": "flutter test test/re_prof_14_drag_disabled_test.dart", "exit": 0, "result": "1 passed" },
+    { "cmd": "flutter test test/re_prof_14_drag_enabled_test.dart", "exit": 0, "result": "1 passed (first run flaky 'No tests were found', retry green)" },
+    { "cmd": "flutter test test/profiles_filter_test.dart", "exit": 0, "result": "1 passed (updated to Enter/clear semantics)" },
+    { "cmd": "flutter test test/ux_space01_group_flow_test.dart", "exit": 0, "result": "1 passed (updated to Enter submit)" },
+    { "cmd": "flutter test test/profiles_pointer_test.dart", "exit": 0, "result": "1 passed (pumpApp dragDropSort: true)" },
+    { "cmd": "flutter test test/{profiles_models,fix10b_profile_order,recheck05_hidden_selection,re_prof_06_scope,profiles_render,profiles_keyboard,reprof04_sort_readback,recheck02_active_apply,profiles_share_shortcut,recheck01_group_inheritance,ux_space01_entries,context_menu_model,context_menu_move}_test.dart", "exit": 0, "result": "all passed" },
+    { "cmd": "flutter test test/t05_profiles_ui_test.dart", "exit": 0, "result": "first run 'did not complete' (flaky flutter_tester), retry 1 passed" }
+  ],
+  "frb_regeneration_required": false,
+  "rust_source_changed": false,
+  "compat_decision": {
+    "filter_timing": "UI follows upstream: non-empty applies on Enter, clearing refreshes immediately",
+    "setFilter_seam": "ProfilesController.setFilter kept as an immediate-filter programmatic/test entry (used by recheck05/re_prof_06/fix10b); UI does not use it",
+    "filter_fields": "narrowed from multi-field to remarks/address to match AppManager.ProfileModels"
+  },
+  "not_run": [
+    "flutter build windows --release",
+    "full flutter test",
+    "cargo test --workspace",
+    "real Windows window",
+    "original WPF side-by-side"
+  ],
+  "boundaries": [
+    "active marker pixel rendering and real drag-reorder not verified on a real Windows window",
+    "setFilter immediate-filter seam retained by design (non-UI path)",
+    "search fields narrowed to remarks/address (behaviour change to match upstream)",
+    "drag switch is RestartApp timing; runtime settings change does not update the table until restart",
+    "autofit samples up to 500 visible rows, matching DataGrid realized-row measurement"
+  ]
+}

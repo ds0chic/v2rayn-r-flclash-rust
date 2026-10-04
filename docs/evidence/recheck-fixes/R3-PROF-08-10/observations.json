@@ -1,0 +1,88 @@
+{
+  "task": ["R3-PROF-08", "R3-PROF-10"],
+  "baseline_head": "cd141f5",
+  "date": "2026-10-04",
+  "scope": "synthetic widget/controller only; no native FRB, no network, no user credentials",
+  "ports_touched": [],
+  "system_proxy_touched": false,
+  "processes_killed": [],
+  "changes": [
+    "apps/desktop/lib/features/profiles/group_editor_dialog.dart",
+    "apps/desktop/lib/features/profiles/profiles_controller.dart",
+    "apps/desktop/lib/features/profiles/table_actions.dart",
+    "apps/desktop/lib/bridge/bridge_port.dart",
+    "apps/desktop/test/recheck_r3_prof08_picker_columns_test.dart",
+    "apps/desktop/test/recheck_r3_prof08_picker_keyboard_test.dart",
+    "apps/desktop/test/recheck_r3_prof08_picker_double_click_test.dart",
+    "apps/desktop/test/recheck_r3_prof08_picker_esc_test.dart",
+    "apps/desktop/test/recheck_r3_prof08_picker_hidden_confirm_test.dart",
+    "apps/desktop/test/recheck_r3_prof10_default_selection_test.dart",
+    "apps/desktop/test/support/node_picker_harness.dart",
+    "apps/desktop/test/recheck01_group_inheritance_test.dart",
+    "apps/desktop/test/table_actions_test.dart",
+    "apps/desktop/test/profiles_select_basic_test.dart",
+    "apps/desktop/test/recheck05_hidden_selection_test.dart"
+  ],
+  "commands": [
+    {
+      "cmd": "dart format lib/features/profiles/group_editor_dialog.dart lib/features/profiles/profiles_controller.dart lib/features/profiles/table_actions.dart lib/bridge/bridge_port.dart",
+      "result": "exit 0; 4 files, 2 changed"
+    },
+    {
+      "cmd": "flutter analyze",
+      "result": "exit 0; No issues found"
+    },
+    {
+      "cmd": "flutter test test/recheck_r3_prof08_picker_columns_test.dart test/recheck_r3_prof08_picker_keyboard_test.dart test/recheck_r3_prof08_picker_double_click_test.dart test/recheck_r3_prof08_picker_esc_test.dart test/recheck_r3_prof08_picker_hidden_confirm_test.dart test/recheck_r3_prof10_default_selection_test.dart",
+      "result": "exit 0; all green (keyboard/esc/double-click/prof10 6/6); columns+hidden failed first pass due to test-side tap/hit issues, fixed and re-run green"
+    },
+    {
+      "cmd": "flutter test test/recheck_r3_prof08_picker_columns_test.dart test/recheck_r3_prof08_picker_hidden_confirm_test.dart test/recheck_r3_prof08_picker_double_click_test.dart",
+      "result": "exit 0; 3/3 passed"
+    },
+    {
+      "cmd": "flutter test test/recheck_reprof11_node_picker_test.dart test/recheck_reprof11_picker_cancel_test.dart test/recheck_reprof11_picker_multi_test.dart test/recheck_reprof11_picker_single_test.dart test/recheck_reprof11_picker_type_exclude_test.dart test/recheck_reprof11_picker_type_include_test.dart test/recheck_reprof11_child_batch_remove_test.dart test/reprof10_group_preview_test.dart",
+      "result": "exit 0; 16 assertions passed"
+    },
+    {
+      "cmd": "flutter test test/recheck05_hidden_selection_test.dart",
+      "result": "updated to default-selection semantics; exit 0 after fix"
+    },
+    {
+      "cmd": "flutter test test/table_actions_test.dart test/profiles_select_basic_test.dart test/profiles_keyboard_test.dart test/t17_table_keyboard_test.dart test/t17_keyboard_dialog_test.dart test/t15b_speedtest_test.dart test/recheck_r3_prof_controller_test.dart",
+      "result": "all substantive tests green; profiles_keyboard_test flaked 'did not complete' once, green in isolation x2 (known leaked-resource flake)"
+    },
+    {
+      "cmd": "flutter test test/profiles_drag_select_test.dart test/profiles_drag_select_up_test.dart",
+      "result": "green in isolation (known flake under parallel run)"
+    },
+    {
+      "cmd": "flutter test test/t10_group_editor_test.dart test/ux_parity_fix01_gen_group_ui_test.dart test/ux_parity_fix01_gen_group_guard_test.dart test/recheck01_import_snapshot_widget_test.dart test/profiles_filter_test.dart",
+      "result": "all green; two flaked 'did not complete' once and passed in isolation"
+    }
+  ],
+  "verified_assertions": {
+    "R3-PROF-08": [
+      "delay/speed show joined real values; tested-failed shows 失败 and untested shows -",
+      "subscription column shows SubRemarks (A组), never raw subid",
+      "default group = main window current group; AllGroupServers switch reveals other group",
+      "header delay sort sinks failed/untested rows",
+      "search matches remarks/address only; port no longer matches",
+      "Ctrl+A selects all visible; Enter confirms visible result",
+      "double-click confirms; Esc cancels with null",
+      "group switch prunes hidden picks; confirm result/count contain visible only"
+    ],
+    "R3-PROF-10": [
+      "group switch selects active node; else first row",
+      "saving a new node selects it (pending)",
+      "Esc stops test but keeps selection",
+      "Shift range extends from main row and keeps it as anchor across repeats",
+      "arrow key moves from main row, not first selected"
+    ]
+  },
+  "not_run": [
+    "real Windows window / FRB integration for the picker",
+    "crates/persistence changes (none made)",
+    "full workspace flutter test"
+  ]
+}

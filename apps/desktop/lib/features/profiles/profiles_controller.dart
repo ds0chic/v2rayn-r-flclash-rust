@@ -509,15 +509,45 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   /// Persist a draft through the real bridge (optimistic revision).
+  ///
+  /// A brand-new node is selected after the refresh (`_pendingSelectIndexId`
+  /// semantics, upstream `ProfilesViewModel.RefreshServersBiz:366-375`), so an
+  /// add does not leave the table without a current row (R3-PROF-10).
   c.SaveProfileResult saveDraft(c.ProfileDto draft) {
+    final isNew = draft.indexId.trim().isEmpty;
     final result = _bridge.saveProfile(draft, _bridge.profileRevision());
     if (result.ok) {
       reload();
+      if (isNew) {
+        _selectDefaultRow(pendingId: result.profile?.indexId);
+      }
       _log('save-profile', 'id=${result.profile?.indexId ?? draft.indexId}');
     } else {
       _log('save-profile-failed', result.error?.code ?? 'unknown');
     }
     return result;
+  }
+
+  /// Default the current row after a refresh that left the table non-empty:
+  /// pending (just-saved/generated) node, then the active node, then the first
+  /// row. Faithful port of upstream
+  /// `ProfilesViewModel.RefreshServersBiz:366-375`.
+  void _selectDefaultRow({String? pendingId}) {
+    final rows = state.visible;
+    if (rows.isEmpty) return;
+    final ids = rows.map((r) => r.id).toSet();
+    String? target;
+    if (pendingId != null && ids.contains(pendingId)) {
+      target = pendingId;
+    }
+    if (target == null &&
+        state.activeId != null &&
+        ids.contains(state.activeId)) {
+      target = state.activeId;
+    }
+    target ??= rows.first.id;
+    state = state.copyWith(selected: <String>{target}, primaryId: target);
+    _log('default-select', 'id=$target');
   }
 
   c.DeleteProfilesResult deleteSelected() {
@@ -660,10 +690,17 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   /// Select the subscription group shown in the node table (`null` = all).
+  ///
+  /// Switching to a non-empty group defaults the current row (active, else
+  /// first) instead of leaving the table with no selection, matching upstream
+  /// `RefreshServersBiz` (R3-PROF-10).
   void setGroupSubId(String? subId) {
     state = _recompute(
       state.copyWith(groupSubId: subId, clearGroup: subId == null),
     );
+    if (state.selected.isEmpty && state.visible.isNotEmpty) {
+      _selectDefaultRow();
+    }
     _log('group-filter', 'sub=${subId ?? "(all)"}');
   }
 
@@ -868,14 +905,22 @@ class ProfilesController extends Notifier<ProfilesState> {
   void selectRow(String id, {bool ctrl = false, bool shift = false}) {
     Set<String> next;
     if (shift) {
-      next = extendSelection(state.visible, state.selected, id);
+      // Range from the main row / anchor, not the arbitrary last set entry
+      // (R3-PROF-10). The anchor stays the current row after the extend.
+      final anchor =
+          state.primaryId ??
+          (state.selected.isEmpty ? id : state.selected.last);
+      next = extendSelection(state.visible, state.selected, anchor, id);
     } else if (ctrl) {
       next = toggleSelection(state.selected, id);
     } else {
       next = selectSingle(id);
     }
-    state = state.copyWith(selected: next, primaryId: id);
-    _log('select', 'id=$id selected=${next.length}');
+    // Shift extends from the main row, so that row stays current; a plain or
+    // Ctrl click makes the clicked row current.
+    final primary = shift ? (state.primaryId ?? id) : id;
+    state = state.copyWith(selected: next, primaryId: primary);
+    _log('select', 'id=$id selected=${next.length} primary=$primary');
   }
 
   /// Drag-select: replace the selection with the inclusive visible range
@@ -916,10 +961,16 @@ class ProfilesController extends Notifier<ProfilesState> {
     if (delta == 0) return;
     final rows = state.visible;
     if (rows.isEmpty) return;
-    var index = state.selected.isEmpty
+    // Move from the current/main row (`primaryId`), so a multi-selection
+    // advances from where the user is instead of the first selected entry
+    // (R3-PROF-10). Fall back to the last selected id, then the edges.
+    final currentId =
+        state.primaryId ??
+        (state.selected.isEmpty ? null : state.selected.last);
+    var index = currentId == null
         ? (delta > 0 ? -1 : rows.length)
-        : rows.indexWhere((r) => state.selected.contains(r.id));
-    if (index < 0 && state.selected.isNotEmpty) {
+        : rows.indexWhere((r) => r.id == currentId);
+    if (index < 0) {
       index = delta > 0 ? -1 : rows.length;
     }
     final target = (index + delta).clamp(0, rows.length - 1);
@@ -1071,12 +1122,14 @@ class ProfilesController extends Notifier<ProfilesState> {
         autofitColumns();
         return;
       case ProfileAction.escape:
-        // ACT-PROF-038: Esc stops a running test first, then clears the
-        // selection (upstream `LstProfiles_PreviewKeyDown(Escape)`).
+        // ACT-PROF-038: Esc only stops a running test; it must keep the
+        // selection (upstream `LstProfiles_PreviewKeyDown(Escape)` calls
+        // `ServerSpeedtestStop()` and nothing else, R3-PROF-10).
         if (state.speedTestRunning) {
           cancelSpeedTest();
         }
-        clearSelection();
+        _log(ProfileAction.escape, 'selection kept=${state.selected.length}');
+        _echo(ProfileAction.escape);
         return;
       case ProfileAction.tcping:
       case ProfileAction.realping:

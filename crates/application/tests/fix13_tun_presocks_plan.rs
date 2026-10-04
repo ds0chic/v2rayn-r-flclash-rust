@@ -103,14 +103,19 @@ fn tun_disabled_plan_has_no_tun_node_or_privilege() {
 }
 
 #[test]
-fn tun_enabled_without_interface_hint_is_a_structured_error() {
+fn tun_enabled_without_interface_hint_defers_until_the_core_creates_it() {
+    // R3-04: a clean host has no adapter yet. The plan must not be rejected;
+    // it carries a deferred descriptor (`tun-deferred`) whose interface index
+    // net-host fills in after the core's tun inbound creates the device. The
+    // strict `tun` node is intentionally absent.
     let engine = engine();
     save(&engine, vless_leaf("n1"));
     configure(&engine, free_port(11818), true, false);
-    let error = plan_with(&engine, "n1", &TunPlanHints::default())
-        .expect_err("missing interface index must not silently drop TUN");
-    assert_eq!(error.code, domain::codes::INVALID_ARGUMENT);
-    assert_eq!(error.field_path.as_deref(), Some("interface_index"));
+    let plan = plan_with(&engine, "n1", &TunPlanHints::default()).expect("deferred plan");
+    assert!(plan.network_policy.tun_enabled);
+    assert!(has_process(&plan, "tun-deferred"));
+    assert!(!has_process(&plan, TUN_PROCESS_ID));
+    plan.validate().expect("deferred plan must validate");
 }
 
 #[test]

@@ -158,21 +158,20 @@ fn tun_address(field: &str, cidr: &str) -> Result<TunAddress, DomainError> {
     })
 }
 
-/// Build the helper TUN descriptor from settings, or `Ok(None)` when TUN is
-/// disabled. Every failure is a structured, fielded error.
-pub fn tun_spec_from_settings(
+/// Process-node id that carries a *deferred* TUN descriptor: TUN is enabled but
+/// the adapter does not exist yet, so the core's own tun inbound must create it
+/// first. net-host discovers the interface after the core starts, then applies
+/// the address/routes through the helper (R3-04).
+pub const TUN_DEFERRED_PROCESS_ID: &str = "tun-deferred";
+
+/// Assemble the descriptor fields shared by the resolved and deferred paths.
+/// The caller decides whether the `interface_index` is final; the deferred path
+/// keeps `0` and lets net-host fill it after discovery.
+fn build_tun_spec_fields(
     item: &TunModeItem,
     hints: &TunPlanHints,
-) -> Result<Option<TunSpec>, DomainError> {
-    if !item.enable_tun {
-        return Ok(None);
-    }
-    if hints.interface_index == 0 {
-        return Err(invalid(
-            "interface_index",
-            "TUN interface index is unknown (0); refusing to build a descriptor",
-        ));
-    }
+    interface_index: u32,
+) -> Result<TunSpec, DomainError> {
     let adapter_name = if hints.adapter_name.trim().is_empty() {
         DEFAULT_TUN_ADAPTER.to_string()
     } else {
@@ -200,16 +199,61 @@ pub fn tun_spec_from_settings(
     } else {
         item.mtu as u16
     };
-    let spec = TunSpec {
+    Ok(TunSpec {
         kind: TUN_CONFIG_KIND.to_string(),
         adapter_name,
-        interface_index: hints.interface_index,
+        interface_index,
         addresses,
         mtu: Some(mtu),
         routes: hints.routes.clone(),
         route_exclude: item.route_exclude_address.clone().unwrap_or_default(),
-    };
+    })
+}
+
+/// Build the helper TUN descriptor from settings, or `Ok(None)` when TUN is
+/// disabled. Every failure is a structured, fielded error.
+///
+/// This is the *resolved* path: it requires a known interface index and is used
+/// when the adapter already exists. When the index is unknown, the caller uses
+/// [`tun_deferred_spec_from_settings`] instead (R3-04).
+pub fn tun_spec_from_settings(
+    item: &TunModeItem,
+    hints: &TunPlanHints,
+) -> Result<Option<TunSpec>, DomainError> {
+    if !item.enable_tun {
+        return Ok(None);
+    }
+    if hints.interface_index == 0 {
+        return Err(invalid(
+            "interface_index",
+            "TUN interface index is unknown (0); refusing to build a descriptor",
+        ));
+    }
+    let spec = build_tun_spec_fields(item, hints, hints.interface_index)?;
     spec.validate()?;
+    Ok(Some(spec))
+}
+
+/// Build a *deferred* TUN descriptor for the first-TUN path: TUN is enabled and
+/// the adapter does not exist yet, so the plan must not be rejected. The body
+/// carries the adapter/addresses/MTU/route-exclude with `interface_index = 0`;
+/// net-host discovers the interface (created by the core's tun inbound) and
+/// fills it in before the helper runs (R3-04).
+///
+/// Returns `Ok(None)` when TUN is disabled or the interface is already known
+/// (the resolved path applies then).
+pub fn tun_deferred_spec_from_settings(
+    item: &TunModeItem,
+    hints: &TunPlanHints,
+) -> Result<Option<TunSpec>, DomainError> {
+    if !item.enable_tun || hints.interface_index != 0 {
+        return Ok(None);
+    }
+    let mut spec = build_tun_spec_fields(item, hints, 0)?;
+    // Routes are discovered with the same adapter, so their index is pending too.
+    for route in &mut spec.routes {
+        route.interface_index = 0;
+    }
     Ok(Some(spec))
 }
 
@@ -238,6 +282,45 @@ pub fn attach_tun_to_plan(plan: &mut RuntimePlan, spec: &TunSpec) -> Result<(), 
         .nodes
         .iter_mut()
         .find(|node| node.id == TUN_PROCESS_ID)
+    {
+        Some(existing) => *existing = node,
+        None => plan.process_graph.add_process(node),
+    }
+    Ok(())
+}
+
+/// Attach a *deferred* descriptor to a plan (R3-04): TUN is on, the adapter is
+/// not created yet. Uses the distinct [`TUN_DEFERRED_PROCESS_ID`] so the strict
+/// [`tun_spec_from_plan`](runtime::tun::tun_spec_from_plan) resolver is not what
+/// net-host executes; net-host discovers the interface after the core starts and
+/// then applies the filled-in descriptor through the helper.
+///
+/// `network_policy.tun_enabled` is set so the plan truthfully records TUN, and
+/// the `Tun` privilege is requested; the body is serialized without validating
+/// the (still zero) interface index.
+pub fn attach_deferred_tun_to_plan(
+    plan: &mut RuntimePlan,
+    spec: &TunSpec,
+) -> Result<(), DomainError> {
+    let body = serde_json::to_string(spec).map_err(|e| {
+        DomainError::new(codes::INTERNAL, "error.tun_plan_encode").with_detail(e.to_string())
+    })?;
+    plan.network_policy.tun_enabled = true;
+    if !plan.privileges.contains(&RequiredPrivilege::Tun) {
+        plan.privileges.push(RequiredPrivilege::Tun);
+    }
+    let node = ProcessNode {
+        id: TUN_DEFERRED_PROCESS_ID.to_string(),
+        core_type: plan.target.core_type,
+        config: ConfigSource::Inline { body },
+        ports: Vec::new(),
+        privileges: vec![RequiredPrivilege::Tun],
+    };
+    match plan
+        .process_graph
+        .nodes
+        .iter_mut()
+        .find(|node| node.id == TUN_DEFERRED_PROCESS_ID)
     {
         Some(existing) => *existing = node,
         None => plan.process_graph.add_process(node),
@@ -414,6 +497,60 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn deferred_spec_used_when_interface_unknown() {
+        let mut zero = hints();
+        zero.interface_index = 0;
+        let spec = tun_deferred_spec_from_settings(&item(), &zero)
+            .unwrap()
+            .unwrap();
+        assert_eq!(spec.interface_index, 0, "deferred index is pending");
+        assert_eq!(spec.adapter_name, "v2rayn-tun");
+        assert_eq!(spec.kind, TUN_CONFIG_KIND);
+        // The strict resolved resolver still refuses an explicit zero index.
+        assert!(tun_spec_from_settings(&item(), &zero).is_err());
+    }
+
+    #[test]
+    fn deferred_spec_is_none_when_disabled_or_index_known() {
+        let mut off = item();
+        off.enable_tun = false;
+        let mut zero = hints();
+        zero.interface_index = 0;
+        assert_eq!(tun_deferred_spec_from_settings(&off, &zero).unwrap(), None);
+        assert_eq!(
+            tun_deferred_spec_from_settings(&item(), &hints()).unwrap(),
+            None
+        );
+    }
+
+    #[test]
+    fn deferred_attach_uses_distinct_node_and_flag() {
+        let mut zero = hints();
+        zero.interface_index = 0;
+        let spec = tun_deferred_spec_from_settings(&item(), &zero)
+            .unwrap()
+            .unwrap();
+        let mut plan = blank_plan();
+        attach_deferred_tun_to_plan(&mut plan, &spec).unwrap();
+        assert!(plan.network_policy.tun_enabled);
+        assert!(plan.privileges.contains(&RequiredPrivilege::Tun));
+        assert!(plan
+            .process_graph
+            .nodes
+            .iter()
+            .any(|node| node.id == TUN_DEFERRED_PROCESS_ID));
+        assert!(!plan
+            .process_graph
+            .nodes
+            .iter()
+            .any(|node| node.id == TUN_PROCESS_ID));
+        plan.validate().unwrap();
+        // A deferred descriptor is not a resolved one: the strict resolver
+        // must not treat it as ready work.
+        assert!(tun_spec_from_plan(&plan).is_err());
     }
 
     #[test]

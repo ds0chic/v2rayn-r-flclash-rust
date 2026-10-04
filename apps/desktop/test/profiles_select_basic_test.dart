@@ -25,8 +25,10 @@ void main() {
     await tester.pump();
     expect(readState(container).selected.length, 4);
 
+    // Esc only stops a running test; it must keep the selection (R3-PROF-10).
     await pressPlain(tester, LogicalKeyboardKey.escape);
-    expect(readState(container).selected, isEmpty);
+    expect(readState(container).selected.length, 4);
+    expect(readState(container).lastEvent?.action, 'escape');
 
     await pressWithCtrl(tester, LogicalKeyboardKey.keyA);
     expect(readState(container).selected.length, 100);

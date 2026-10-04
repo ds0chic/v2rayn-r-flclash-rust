@@ -204,9 +204,14 @@ class StatusBarView extends ConsumerWidget {
                 style: muted,
               ),
               const _Sep(),
+              // R3-09b: "今日" is the aggregate of the live per-node
+              // `ServerStatItem` today counters (upstream `StatisticsManager`
+              // semantics), not the session-cumulative proxy counter. With no
+              // node rows (no applied session / statistics disabled) it shows
+              // `--` instead of a fabricated zero.
               Text(
-                '今日 ↑${monitor.hasTraffic ? formatTraffic(monitor.proxyUp) : '--'} '
-                '↓${monitor.hasTraffic ? formatTraffic(monitor.proxyDown) : '--'}',
+                '今日 ↑${monitor.hasTodayNodes ? formatTraffic(monitor.todayUp) : '--'} '
+                '↓${monitor.hasTodayNodes ? formatTraffic(monitor.todayDown) : '--'}',
                 key: const ValueKey('status-today-traffic'),
                 style: muted,
               ),

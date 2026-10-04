@@ -55,31 +55,32 @@ void main() {
     expect(check.actionId, 'ACT-WIN-005');
     expect(check.isInvocable, isTrue);
     final site = help.submenu.firstWhere((e) => e.label == '核心网站');
-    expect(site.preservedOnly, isTrue);
-    expect(site.isInvocable, isFalse);
+    expect(site.preservedOnly, isFalse);
+    expect(site.isInvocable, isTrue);
     expect(site.actionId, 'ACT-WIN-008');
   });
 
-  test('preserved-only entries are never invocable', () {
+  test('wired desktop entries are no longer preserved-only', () {
+    const wired = <String>{
+      'ACT-MAIN-029', // 以管理员身份重启
+      'ACT-WIN-004', // UWP 回环
+      'ACT-MAIN-032', // 区域预置-默认
+      'ACT-MAIN-033', // 区域预置-俄罗斯
+      'ACT-MAIN-034', // 区域预置-伊朗
+      'ACT-WIN-008', // 核心网站
+    };
     final preserved = all.where((e) => e.preservedOnly).toList();
-    expect(preserved, isNotEmpty);
+    final preservedIds = preserved.map((e) => e.actionId).toSet();
+    expect(
+      preservedIds.intersection(wired),
+      isEmpty,
+      reason: 'wired entries must not stay preserved: $preservedIds',
+    );
     for (final entry in preserved) {
       expect(entry.isInvocable, isFalse, reason: entry.label);
     }
-    final ids = preserved.map((e) => e.actionId).toSet();
-    expect(
-      ids.containsAll(<String>{
-        'ACT-WIN-003', // 推广
-        'ACT-WIN-008', // 核心网站
-        'ACT-MAIN-029', // 以管理员身份重启
-        'ACT-WIN-004', // UWP 回环
-        'ACT-MAIN-032',
-        'ACT-MAIN-033',
-        'ACT-MAIN-034',
-      }),
-      isTrue,
-      reason: 'preserved set: $ids',
-    );
+    // 推广 is still an upstream entry with no backend yet.
+    expect(preservedIds.contains('ACT-WIN-003'), isTrue);
   });
 
   test('reload entry is invocable after the shared reload use case', () {

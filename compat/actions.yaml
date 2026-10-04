@@ -946,9 +946,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:220
   - v2rayN/ServiceLib/Manager/AppManager.cs:155
   - docs/evidence/T13.md
-  implementation_location: null
-  test_ids: []
-  status: preserved_only
+  implementation_location: "apps/desktop/lib/features/settings/settings_actions.dart (buildAdminRelaunchRequest/relaunchAsAdmin)"
+  test_ids: [r3_root_03_actions_test.dart]
+  notes: 'R3-ROOT-03（2026-10-04）：实现以管理员身份重启。当前 exe 带 runner 识别的 `rebootas` 参数、经 PowerShell `Start-Process -Verb RunAs` 提权启动（等价 ShellExecuteW runas）；用户显式点击才执行，取消/失败返回 false 并提示，不伪装成功。stub 断言 argv；main_shell.dart 接线补丁见 docs/tasks/R3-ROOT-03.md。真实提权重启需用户授权隔离实测，本轮未执行。'
+  status: implemented
 - id: ACT-MAIN-030
   name: 清除服务器统计
   domain: settings
@@ -1032,9 +1033,10 @@ items:
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:238
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:780
-  implementation_location: null
-  test_ids: []
-  status: preserved_only
+  implementation_location: "apps/desktop/lib/features/settings/settings_actions.dart (applyRegionPreset); crates/application/src/engine.rs (apply_regional_preset)"
+  test_ids: [r3_root_03_actions_test.dart, regional_preset_writes_upstream_sources_into_settings]
+  notes: 'R3-ROOT-03（2026-10-04）：入口不再 preservedOnly。默认区域重置内置 DNS/清空区域源（本地，引擎 apply_regional_preset）；合成测试断言预设内容与写入。'
+  status: implemented
 - id: ACT-MAIN-033
   name: 应用区域预设-俄罗斯
   domain: settings
@@ -1058,9 +1060,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:243
-  implementation_location: null
-  test_ids: []
-  status: preserved_only
+  implementation_location: "apps/desktop/lib/features/settings/settings_actions.dart (applyRegionPreset); crates/application/src/engine.rs (apply_regional_preset)"
+  test_ids: [r3_root_03_actions_test.dart, regional_preset_writes_upstream_sources_into_settings]
+  notes: 'R3-ROOT-03（2026-10-04）：入口不再 preservedOnly。俄罗斯预置把上游 Geo/SRS/路由模板源写入设置并对 Xray/sing-box 启用内置 DNS（离线，不联网）；远程模板待下载如实上报。'
+  status: implemented
 - id: ACT-MAIN-034
   name: 应用区域预设-伊朗
   domain: settings
@@ -1084,9 +1087,10 @@ items:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs
   evidence:
   - v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:248
-  implementation_location: null
-  test_ids: []
-  status: preserved_only
+  implementation_location: "apps/desktop/lib/features/settings/settings_actions.dart (applyRegionPreset); crates/application/src/engine.rs (apply_regional_preset)"
+  test_ids: [r3_root_03_actions_test.dart, regional_preset_writes_upstream_sources_into_settings]
+  notes: 'R3-ROOT-03（2026-10-04）：入口不再 preservedOnly。伊朗预置同俄罗斯语义（离线写入区域源 + 内置 DNS）。'
+  status: implemented
 - id: ACT-MAIN-035
   name: 重载内核
   domain: main-menu
@@ -1230,8 +1234,9 @@ items:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:251
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:253
   - docs/evidence/T13.md
-  implementation_location: crates/bridge_api/src/api/platform.rs; apps/desktop/lib/app/shell/main_shell.dart
-  test_ids: [t13_bridge_resolve_uwp_tool_reports_missing]
+  implementation_location: "crates/bridge_api/src/api/platform.rs (resolve_uwp_loopback_tool); apps/desktop/lib/features/settings/settings_actions.dart (buildLoopbackExemptionCommand)"
+  test_ids: [t13_bridge_resolve_uwp_tool_reports_missing, r3_root_03_actions_test.dart]
+  notes: 'R3-ROOT-03（2026-10-04）：入口不再 preservedOnly。按上游解析 bin/EnableLoopback.exe；同时按 CheckNetIsolation LoopbackExempt 语义构造等效命令（-a 添加 / -d 撤销，可逆提示）。本轮不实际执行任何系统回环修改（测试用记录型 stub）；真实执行需用户授权隔离实测。'
   status: implemented
 - id: ACT-WIN-005
   name: 菜单-检查更新
@@ -1340,9 +1345,10 @@ items:
   evidence:
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:431
   - v2rayN/v2rayN/Views/MainWindow.xaml.cs:448
-  implementation_location: null
-  test_ids: []
-  status: preserved_only
+  implementation_location: "apps/desktop/lib/features/settings/settings_actions.dart (coreWebsiteUrl/openCoreWebsite)"
+  test_ids: [r3_root_03_actions_test.dart]
+  notes: 'R3-ROOT-03（2026-10-04）：入口不再 preservedOnly。按上游 Global.CoreUrls 去 /releases 得到核心主页 URL，用 `cmd /c start` 交给系统浏览器打开；应用自身不发网络请求。当前菜单是单一「核心网站」入口（打开默认 Xray 主页），上游按核心动态展开多条目仍为接口缺口。'
+  status: implemented
 - id: ACT-WIN-009
   name: 系统会话结束处理
   domain: main-menu

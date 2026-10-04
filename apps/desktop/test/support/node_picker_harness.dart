@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
 import 'package:v2rayn_desktop/features/profiles/group_editor_dialog.dart';
 
 /// Synthetic stored profile for the picker (public template fields only).
@@ -59,6 +60,8 @@ Future<void> pumpNodePicker(
   bool multiSelect = true,
   List<ConfigType>? filterConfigTypes,
   bool filterExclude = false,
+  String? currentGroupSubId,
+  List<speedtest.SpeedTestResultDto>? speedResults,
   required void Function(List<String>?) onResult,
 }) async {
   tester.view.physicalSize = const Size(1400, 1024);
@@ -79,6 +82,8 @@ Future<void> pumpNodePicker(
                   multiSelect: multiSelect,
                   filterConfigTypes: filterConfigTypes,
                   filterExclude: filterExclude,
+                  currentGroupSubId: currentGroupSubId,
+                  speedResults: speedResults,
                 );
                 onResult(result);
               },

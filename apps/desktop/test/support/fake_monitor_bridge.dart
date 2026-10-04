@@ -42,6 +42,9 @@ class FakeMonitorBridge implements MonitorBridge {
   /// visible to the controller.
   contract.ErrorDto? statsError;
 
+  /// Per-node `ServerStatItem` rows returned by [statsSnapshot] (R3-09b).
+  List<m.NodeTrafficDto> statsNodes = const <m.NodeTrafficDto>[];
+
   // Recorded calls.
   final List<String> configured = <String>[];
   final Map<String, bool> pageVisibility = <String, bool>{};
@@ -79,6 +82,7 @@ class FakeMonitorBridge implements MonitorBridge {
     BigInt? proxyDownBps,
     BigInt? directUpBps,
     BigInt? directDownBps,
+    List<m.NodeTrafficDto>? nodes,
   }) {
     _traffic.add(
       m.TrafficBatchDto(
@@ -93,7 +97,7 @@ class FakeMonitorBridge implements MonitorBridge {
         proxyDownBps: proxyDownBps ?? BigInt.zero,
         directUpBps: directUpBps ?? BigInt.zero,
         directDownBps: directDownBps ?? BigInt.zero,
-        nodes: const <m.NodeTrafficDto>[],
+        nodes: nodes ?? const <m.NodeTrafficDto>[],
       ),
     );
   }
@@ -151,7 +155,7 @@ class FakeMonitorBridge implements MonitorBridge {
     proxyDown: BigInt.zero,
     directUp: BigInt.zero,
     directDown: BigInt.zero,
-    nodes: const <m.NodeTrafficDto>[],
+    nodes: statsNodes,
     error: statsError,
   );
 

@@ -859,6 +859,46 @@ List<ProfileSummary> applySpeedTestOverlay(
 /// from the wire `-1` (which also means "unknown" for an untested row).
 const int profileDelayTestFailed = -2;
 
+/// Join node-picker candidates (`ProfileDto`) with the live `ProfileExItem`
+/// speedtest results and the subscription remarks, producing table-shaped
+/// [ProfileSummary] rows. The picker's Delay/Speed/SubRemarks columns and its
+/// default `Sort` order then follow the node table instead of showing `-` and
+/// the raw `subid` (upstream `ProfilesSelectViewModel.GetProfileItemsEx`
+/// joins `ProfileItem` with `ProfileExItem`; R3-PROF-08). A candidate with no
+/// matching result keeps the "unknown" defaults.
+List<ProfileSummary> joinPickerRows(
+  List<c.ProfileDto> candidates,
+  List<speedtest.SpeedTestResultDto> results,
+  List<c.SubItemDto> subItems,
+) {
+  final remarksById = <String, String>{
+    for (final s in subItems) s.id: (s.remarks.isEmpty ? s.id : s.remarks),
+  };
+  final rows = <ProfileSummary>[
+    for (final dto in candidates)
+      ProfileSummary(
+        id: dto.indexId,
+        configType: dto.configType,
+        remarks: dto.remarks,
+        address: dto.address,
+        port: dto.port,
+        network: dto.network,
+        streamSecurity: dto.security.streamSecurity ?? '',
+        // Subscription column shows `SubRemarks`, falling back to `subid`.
+        subRemarks: remarksById[dto.subid] ?? dto.subid,
+        delay: -1,
+        speed: '-',
+        todayUp: BigInt.zero,
+        ipInfo: '-',
+        todayDown: BigInt.zero,
+        totalUp: BigInt.zero,
+        totalDown: BigInt.zero,
+        coreType: dto.coreType ?? CoreType.xray,
+      ),
+  ];
+  return applySpeedTestOverlay(rows, results);
+}
+
 /// Per-node `ServerStatItem` counters consumed by the node table, normalized to
 /// [BigInt] so the same value shape works on native (`BigInt`) and web (`int`).
 class NodeStat {

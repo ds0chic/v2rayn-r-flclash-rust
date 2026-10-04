@@ -21,12 +21,14 @@ void main() {
     controller.selectRow(a);
     expect(container.read(profilesControllerProvider).selected, contains(a));
 
+    // Switching to the non-empty group B drops hidden A selection and defaults
+    // the current row to B's only node (R3-PROF-10).
     controller.setGroupSubId('B');
     expect(
       container.read(profilesControllerProvider).selected,
       isNot(contains(a)),
     );
-    expect(container.read(profilesControllerProvider).selected, isEmpty);
+    expect(container.read(profilesControllerProvider).selected, <String>{b});
 
     controller.selectRow(b);
     controller.setGroupSubId('A');
@@ -34,7 +36,7 @@ void main() {
       container.read(profilesControllerProvider).selected,
       isNot(contains(b)),
     );
-    expect(container.read(profilesControllerProvider).selected, isEmpty);
+    expect(container.read(profilesControllerProvider).selected, <String>{a});
   });
 
   test('text filter clears a selection it hides', () {

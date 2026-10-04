@@ -1,0 +1,76 @@
+{
+  "task": "R3-PROF-11-R3-09",
+  "date": "2026-10-04",
+  "base_head": "cd141f5",
+  "upstream_frozen_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "implemented",
+  "scope": {
+    "modified_rust": [
+      "crates/application/src/custom.rs",
+      "crates/application/src/engine.rs"
+    ],
+    "added_rust_test": [
+      "crates/application/tests/r3_prof_11_reality_fingerprint.rs"
+    ],
+    "modified_dart_lib": [
+      "apps/desktop/lib/app/shell/tray_menu_model.dart",
+      "apps/desktop/lib/app/shell/desktop_integration.dart",
+      "apps/desktop/lib/app/shell/status_bar_view.dart",
+      "apps/desktop/lib/features/monitor/monitor_controller.dart"
+    ],
+    "modified_dart_test": [
+      "apps/desktop/test/support/fake_monitor_bridge.dart",
+      "apps/desktop/test/r3_09_tray_icon_today_test.dart"
+    ],
+    "untouched_forbidden": true
+  },
+  "findings": [
+    {
+      "id": "R3-PROF-11",
+      "state": "implemented",
+      "change": "apply_reality_fingerprint_default stamps the then-current CoreBasicItem.DefFingerprint onto an empty-fingerprint Reality profile on save/import (ConfigHandler.AddServerCommon:1214-1216); later default changes do not alter saved nodes",
+      "evidence": [
+        "custom.rs custom::tests 4/4 (freeze/explicit/non-reality/empty default)",
+        "r3_prof_11_reality_fingerprint.rs 4/4 (save freeze, later-change, reopen, import, explicit/non-reality)"
+      ],
+      "boundary": "codegen treats fingerprint as String, so an explicitly-empty configured default cannot be frozen; upstream default is a non-empty fingerprint"
+    },
+    {
+      "id": "R3-09a",
+      "state": "implemented",
+      "change": "trayIconResourceName maps normal/coreRunning/proxyActive/proxyPac to distinct .ico resources; _trayIconPathFor resolves with fallback tray_icon.ico -> app_icon.ico; trayIconStatus no longer ignored",
+      "evidence": [
+        "r3_09_tray_icon_today_test.dart R3-09a 2/2",
+        "recheck_rr08_tray_sync_test.dart 7/7 (no regression)"
+      ],
+      "boundary": "no per-status .ico is packaged (pubspec has no assets), so all statuses currently fall back; real tray visual pending"
+    },
+    {
+      "id": "R3-09b",
+      "state": "implemented",
+      "change": "status bar 今日 uses sum of per-node ServerStatItem today counters (monitor.statsSnapshot().nodes) instead of session-cumulative proxyUp/proxyDown; no node rows -> '--'",
+      "evidence": [
+        "r3_09_tray_icon_today_test.dart R3-09b 3/3 (aggregate, empty, widget label)",
+        "t15a_statusbar_test.dart / t13_statusbar_test.dart (no regression)"
+      ]
+    }
+  ],
+  "commands": [
+    { "cmd": "cargo fmt -p application -- --check", "result": "clean (no diff)" },
+    { "cmd": "cargo test -p application --locked --lib custom::tests", "result": "9/9 passed" },
+    { "cmd": "cargo test -p application --locked --test r3_prof_11_reality_fingerprint", "result": "4/4 passed" },
+    { "cmd": "dart format --output=none --set-exit-if-changed <changed files>", "result": "0 changed" },
+    { "cmd": "flutter analyze", "result": "No issues found!" },
+    { "cmd": "flutter test test/r3_09_tray_icon_today_test.dart", "result": "5/5 passed" },
+    { "cmd": "flutter test test/t15a_statusbar_test.dart test/t13_statusbar_test.dart test/recheck_rr08_tray_sync_test.dart test/fix15_tray_pac_test.dart test/reprof09_node_stats_test.dart", "result": "24/24 passed" }
+  ],
+  "known_flake": "none observed this round; flutter_test did not hit exit 79",
+  "constraints_respected": {
+    "port_10808_untouched": true,
+    "synthetic_nodes_only": true,
+    "no_system_proxy_registry_route_tun": true,
+    "no_external_process_kill": true,
+    "no_full_workspace_test": true,
+    "no_commit": true
+  }
+}

@@ -87,6 +87,10 @@ struct PreparedPlan {
     actual_hash: String,
     port: u16,
     tun_spec: Option<TunSpec>,
+    /// R3-04: TUN is enabled but the adapter does not exist yet. The core is
+    /// spawned first (its tun inbound creates the device), then net-host
+    /// discovers the interface and applies this descriptor through the helper.
+    deferred_tun: Option<TunSpec>,
     /// Nested process-graph nodes resolved in start order (RR-06). Each has a
     /// located executable and validated config body, ready to stage and spawn.
     sidecars: Vec<PreparedSidecar>,
@@ -215,12 +219,18 @@ pub struct Inner {
 pub type HelperLinkFactory =
     std::sync::Arc<dyn Fn(&HelperConfig) -> Box<dyn HelperLink> + Send + Sync>;
 
+/// Injectable seam for the TUN adapter lookup (R3-04). Production queries the
+/// OS; tests inject a stub so "the interface appears only after the core
+/// starts" is exercised without touching the host.
+pub type TunInterfaceDiscovery = std::sync::Arc<dyn Fn(&str) -> Option<u32> + Send + Sync>;
+
 pub struct HostState {
     pub inner: Mutex<Inner>,
     pub bus: EventBus,
     pub config: HostConfig,
     pub shutdown: Arc<Notify>,
     helper_factory: std::sync::Mutex<Option<HelperLinkFactory>>,
+    tun_discovery: std::sync::Mutex<Option<TunInterfaceDiscovery>>,
 }
 
 static SESSION_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -228,6 +238,95 @@ static SESSION_COUNTER: AtomicU64 = AtomicU64::new(0);
 fn next_operation_id() -> String {
     let seq = SESSION_COUNTER.fetch_add(1, Ordering::AcqRel) + 1;
     format!("op-{}-{}", journal::now_ms(), seq)
+}
+
+/// Process-node id carrying a deferred TUN descriptor (R3-04). Mirrors
+/// `application::tun_plan::TUN_DEFERRED_PROCESS_ID`; net-host does not depend on
+/// the application crate, so the literal is duplicated here.
+const TUN_DEFERRED_PROCESS_ID: &str = "tun-deferred";
+
+/// Parse a deferred TUN descriptor from the plan, if present. The embedded
+/// `TunSpec` still has `interface_index = 0`; net-host fills it in after the
+/// core's tun inbound creates the adapter.
+fn deferred_tun_from_plan(plan: &RuntimePlan) -> Result<Option<TunSpec>, DomainError> {
+    let Some(node) = plan
+        .process_graph
+        .nodes
+        .iter()
+        .find(|node| node.id == TUN_DEFERRED_PROCESS_ID)
+    else {
+        return Ok(None);
+    };
+    let body = match &node.config {
+        ConfigSource::Inline { body } => body,
+        ConfigSource::ControlledFile { .. } => {
+            return Err(
+                DomainError::new(domain::codes::INVALID_PLAN, "error.invalid_plan")
+                    .with_detail("`tun-deferred` descriptor must be inline"),
+            );
+        }
+    };
+    let spec: TunSpec = serde_json::from_str(body).map_err(|error| {
+        DomainError::new(domain::codes::INVALID_PLAN, "error.invalid_plan").with_detail(format!(
+            "`tun-deferred` descriptor is not valid JSON: {error}"
+        ))
+    })?;
+    Ok(Some(spec))
+}
+
+/// Bounded window for the core to create the TUN adapter (R3-04).
+fn tun_discovery_timeout() -> Duration {
+    env_ms("V2RAYN_R_TUN_DISCOVERY_TIMEOUT_MS", 15_000)
+}
+
+/// Poll interval while waiting for the TUN adapter to appear (R3-04).
+fn tun_discovery_interval() -> Duration {
+    env_ms("V2RAYN_R_TUN_DISCOVERY_INTERVAL_MS", 500)
+}
+
+/// Parse `netsh interface ipv4 show interfaces` output for the adapter's index.
+/// Mirrors `application::tun_plan::parse_interface_index` (same column layout).
+fn parse_tun_interface_index(output: &str, adapter_name: &str) -> Option<u32> {
+    let want = adapter_name.trim().to_ascii_lowercase();
+    if want.is_empty() {
+        return None;
+    }
+    for line in output.lines() {
+        let mut parts = line.split_whitespace();
+        let Some(index) = parts.next().and_then(|token| token.parse::<u32>().ok()) else {
+            continue;
+        };
+        let rest: Vec<&str> = parts.collect();
+        if rest.len() < 4 {
+            continue;
+        }
+        let name = rest[3..].join(" ");
+        if name.trim().to_ascii_lowercase() == want {
+            return Some(index);
+        }
+    }
+    None
+}
+
+/// Query the OS for an adapter's index (Windows-only; see R3-04).
+#[cfg(windows)]
+fn discover_interface_index_os(adapter_name: &str) -> Option<u32> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let output = std::process::Command::new("netsh")
+        .args(["interface", "ipv4", "show", "interfaces"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_tun_interface_index(&String::from_utf8_lossy(&output.stdout), adapter_name)
+}
+
+#[cfg(not(windows))]
+fn discover_interface_index_os(_adapter_name: &str) -> Option<u32> {
+    None
 }
 
 /// Stub-core tests opt out of the real `test_args` config check.
@@ -276,6 +375,7 @@ impl HostState {
             config,
             shutdown: Arc::new(Notify::new()),
             helper_factory: std::sync::Mutex::new(None),
+            tun_discovery: std::sync::Mutex::new(None),
         };
         // Reconcile TUN leases from a previous process. Only session dirs that
         // still carry a lease journal are touched; with no stale leases no
@@ -290,6 +390,25 @@ impl HostState {
         if let Ok(mut slot) = self.helper_factory.lock() {
             *slot = Some(factory);
         }
+    }
+
+    /// Test seam: replace the TUN adapter lookup (R3-04).
+    #[cfg(test)]
+    pub fn set_tun_discovery(&self, discovery: TunInterfaceDiscovery) {
+        if let Ok(mut slot) = self.tun_discovery.lock() {
+            *slot = Some(discovery);
+        }
+    }
+
+    /// Discover the TUN adapter's OS interface index. Production queries the OS
+    /// (`netsh`); tests override with [`set_tun_discovery`].
+    fn discover_tun_interface(&self, adapter_name: &str) -> Option<u32> {
+        if let Ok(slot) = self.tun_discovery.lock() {
+            if let Some(discovery) = slot.as_ref() {
+                return discovery(adapter_name);
+            }
+        }
+        discover_interface_index_os(adapter_name)
     }
 
     fn make_helper_link(&self) -> Box<dyn HelperLink> {
@@ -436,6 +555,94 @@ impl HostState {
         }
     }
 
+    /// Wait for the TUN adapter the core just created, then fill in its index.
+    /// R3-04: the core's own tun inbound creates the device, so discovery runs
+    /// *after* the core is spawned and is bounded by `tun_discovery_timeout`.
+    async fn resolve_deferred_tun(
+        &self,
+        operation_id: &str,
+        base: &TunSpec,
+    ) -> Result<TunSpec, DomainError> {
+        let adapter = base.adapter_name.clone();
+        let timeout = tun_discovery_timeout();
+        let interval = tun_discovery_interval();
+        let deadline = Instant::now() + timeout;
+        loop {
+            if let Some(index) = self.discover_tun_interface(&adapter) {
+                if index != 0 {
+                    let mut spec = base.clone();
+                    spec.interface_index = index;
+                    for route in &mut spec.routes {
+                        route.interface_index = index;
+                    }
+                    spec.validate()
+                        .map_err(|error| error.with_operation(operation_id))?;
+                    return Ok(spec);
+                }
+            }
+            if Instant::now() >= deadline {
+                return Err(DomainError::new(
+                    domain::codes::TIMEOUT,
+                    "error.tun_interface_timeout",
+                )
+                .with_operation(operation_id)
+                .with_field("adapter_name")
+                .with_detail(format!(
+                    "TUN adapter `{adapter}` was not created within {timeout:?}"
+                )));
+            }
+            tokio::time::sleep(interval).await;
+        }
+    }
+
+    /// Apply a fully resolved TUN descriptor through the helper and record the
+    /// lease on the inner state. Same helper contract as the pre-core path; the
+    /// caller rolls back (R3-05 scope) on any failure.
+    async fn apply_tun_spec(
+        &self,
+        operation_id: &str,
+        session_id: &str,
+        spec: TunSpec,
+    ) -> Result<(), DomainError> {
+        let run_root = self.config.run_root.clone();
+        let lease_session = session_id.to_string();
+        let mut link = self.make_helper_link();
+        let outcome = tokio::task::spawn_blocking(move || {
+            let result = tun_lease::apply_tun_lease(&run_root, &lease_session, &spec, &mut *link);
+            (link, result)
+        })
+        .await;
+        let (link, lease) = match outcome {
+            Ok((link, Ok(lease))) => (link, lease),
+            Ok((link, Err(error))) => {
+                eprintln!(
+                    "[net_host] deferred tun apply failed (dry_run={}): {:?}",
+                    link.dry_run(),
+                    link.audit()
+                );
+                return Err(error.with_operation(operation_id));
+            }
+            Err(join) => {
+                return Err(
+                    DomainError::new(domain::codes::INTERNAL, "error.tun_apply_failed")
+                        .with_operation(operation_id)
+                        .with_detail(format!("tun apply task failed: {join}")),
+                );
+            }
+        };
+        eprintln!(
+            "[net_host] deferred tun lease applied (dry_run={}): {}",
+            link.dry_run(),
+            lease.summary()
+        );
+        let mut inner = self.inner.lock().await;
+        inner.detail.tun = Some(tun_detail_from_lease(&lease));
+        inner.tun_lease = Some(lease);
+        inner.tun_session_id = Some(session_id.to_string());
+        inner.tun_link = Some(link);
+        Ok(())
+    }
+
     /// Abort a session whose freshly spawned core could not be bound into the
     /// ownership job. Without the job the core could outlive net-host, so it is
     /// killed now and the failure surfaced as a structured, fatal error.
@@ -535,7 +742,14 @@ impl HostState {
                 locator.resolve(core, plan.target.version.as_deref())?
             }
         };
-        let tun_spec = tun_spec_from_plan(plan)?;
+        // R3-04: a deferred descriptor is not resolved yet, so the strict
+        // resolver must not reject the plan for a missing `tun` node.
+        let deferred_tun = deferred_tun_from_plan(plan)?;
+        let tun_spec = if deferred_tun.is_some() {
+            None
+        } else {
+            tun_spec_from_plan(plan)?
+        };
 
         // Real config validation (`xray run -test` / `sing-box check`): a bad
         // config must fail before the old core is stopped. Stub-core tests can
@@ -557,6 +771,7 @@ impl HostState {
             actual_hash,
             port,
             tun_spec,
+            deferred_tun,
             sidecars,
         })
     }
@@ -572,7 +787,7 @@ impl HostState {
         let order = plan.process_graph.start_order()?;
         let mut prepared = Vec::new();
         for id in order {
-            if id == core_id || id == runtime::TUN_PROCESS_ID {
+            if id == core_id || id == runtime::TUN_PROCESS_ID || id == TUN_DEFERRED_PROCESS_ID {
                 continue;
             }
             let Some(node) = plan.process_graph.nodes.iter().find(|node| node.id == id) else {
@@ -836,6 +1051,7 @@ impl HostState {
             actual_hash,
             port,
             tun_spec,
+            deferred_tun,
             sidecars,
         } = prepared;
 
@@ -1063,6 +1279,27 @@ impl HostState {
                     .abort_job_assign(&operation_id, &mut child, &journal_entry, e)
                     .await;
                 return result;
+            }
+        }
+
+        // --- R3-04: first-TUN core path ---
+        // The core is now running and its tun inbound has created the adapter.
+        // Discover the interface (bounded), fill the deferred descriptor, then
+        // run the helper. Any failure rolls the whole session back through the
+        // same scope as a sidecar failure (kill core + release lease + journal).
+        if let Some(base_spec) = deferred_tun {
+            let spec = match self.resolve_deferred_tun(&operation_id, &base_spec).await {
+                Ok(spec) => spec,
+                Err(error) => {
+                    return self
+                        .rollback(&operation_id, &mut child, &session_id, error)
+                        .await;
+                }
+            };
+            if let Err(error) = self.apply_tun_spec(&operation_id, &session_id, spec).await {
+                return self
+                    .rollback(&operation_id, &mut child, &session_id, error)
+                    .await;
             }
         }
 
@@ -2538,5 +2775,178 @@ mod tests {
         assert!(inner.detail.session_id.is_none());
         drop(inner);
         let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    // -- R3-04: first TUN, interface created by the core ---------------------
+
+    /// A TUN plan that defers the helper work: the adapter does not exist yet.
+    fn deferred_tun_plan(port: u16) -> RuntimePlan {
+        use domain::runtime_plan::{ProcessNode, RequiredPrivilege};
+        use runtime::tun::{TunAddress, TunSpec, TUN_CONFIG_KIND};
+
+        let mut plan = plan_with_body("r304", "{}", port, None);
+        plan.network_policy.tun_enabled = true;
+        plan.privileges.push(RequiredPrivilege::Tun);
+        let spec = TunSpec {
+            kind: TUN_CONFIG_KIND.into(),
+            adapter_name: "v2rayn-tun".into(),
+            interface_index: 0,
+            addresses: vec![TunAddress {
+                address: "172.18.0.1".into(),
+                prefix_len: 30,
+            }],
+            mtu: Some(1280),
+            routes: vec![],
+            route_exclude: vec![],
+        };
+        plan.process_graph.add_process(ProcessNode {
+            id: TUN_DEFERRED_PROCESS_ID.into(),
+            core_type: domain::CoreType::Xray,
+            config: ConfigSource::Inline {
+                body: serde_json::to_string(&spec).unwrap(),
+            },
+            ports: vec![],
+            privileges: vec![RequiredPrivilege::Tun],
+        });
+        plan
+    }
+
+    fn set_discovery_env(timeout_ms: &str, interval_ms: &str) {
+        std::env::set_var("V2RAYN_R_TUN_DISCOVERY_TIMEOUT_MS", timeout_ms);
+        std::env::set_var("V2RAYN_R_TUN_DISCOVERY_INTERVAL_MS", interval_ms);
+    }
+
+    fn clear_discovery_env() {
+        std::env::remove_var("V2RAYN_R_TUN_DISCOVERY_TIMEOUT_MS");
+        std::env::remove_var("V2RAYN_R_TUN_DISCOVERY_INTERVAL_MS");
+    }
+
+    #[test]
+    fn r304_defers_helper_until_the_core_created_interface_is_discovered() {
+        use crate::helper_client::{FakeHelperLink, HelperLink};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        let _guard = rr10_lock();
+        let state = test_state("r304-ok");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::env::set_var("V2RAYN_R_XRAY_BIN", core_stub(&dir, "stay", "stay"));
+        set_discovery_env("2000", "10");
+        state.set_helper_factory(Arc::new(|_| {
+            let link: Box<dyn HelperLink> = Box::new(FakeHelperLink::new());
+            link
+        }));
+        // The adapter only appears after the core start: the first poll misses.
+        let calls = Arc::new(AtomicUsize::new(0));
+        let seen = calls.clone();
+        state.set_tun_discovery(Arc::new(move |_adapter| {
+            let n = seen.fetch_add(1, Ordering::SeqCst);
+            if n >= 1 {
+                Some(9)
+            } else {
+                None
+            }
+        }));
+
+        futures_block_on(state.apply_plan(deferred_tun_plan(0))).expect("first TUN starts");
+        {
+            let inner = futures_block_on(state.inner.lock());
+            assert!(inner.session.is_some(), "core session running");
+            assert_eq!(inner.detail.state, RuntimeState::Running);
+            let lease = inner.tun_lease.as_ref().expect("tun lease recorded");
+            assert_eq!(lease.spec.interface_index, 9, "discovered index applied");
+            assert!(inner.detail.tun.is_some());
+        }
+        assert!(
+            calls.load(Ordering::SeqCst) >= 2,
+            "polls until the interface appears"
+        );
+
+        futures_block_on(state.stop_managed(None));
+        let inner = futures_block_on(state.inner.lock());
+        assert!(inner.tun_lease.is_none(), "lease released on stop");
+        assert!(inner.detail.tun.is_none());
+        drop(inner);
+        clear_discovery_env();
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[test]
+    fn r304_discovery_timeout_rolls_back_without_a_lease() {
+        use crate::helper_client::{FakeHelperLink, HelperLink};
+        use std::sync::Arc;
+
+        let _guard = rr10_lock();
+        let state = test_state("r304-timeout");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::env::set_var("V2RAYN_R_XRAY_BIN", core_stub(&dir, "stay", "stay"));
+        set_discovery_env("80", "10");
+        state.set_helper_factory(Arc::new(|_| {
+            let link: Box<dyn HelperLink> = Box::new(FakeHelperLink::new());
+            link
+        }));
+        // The core never creates the adapter.
+        state.set_tun_discovery(Arc::new(|_adapter| None));
+
+        let error = futures_block_on(state.apply_plan(deferred_tun_plan(0)))
+            .expect_err("missing adapter must fail the session");
+        assert_eq!(error.code, domain::codes::TIMEOUT);
+        assert_eq!(error.message_key, "error.tun_interface_timeout");
+
+        let inner = futures_block_on(state.inner.lock());
+        assert!(inner.session.is_none(), "core killed on rollback");
+        assert!(inner.tun_lease.is_none());
+        assert!(inner.detail.tun.is_none());
+        assert_eq!(inner.detail.state, RuntimeState::Stopped);
+        drop(inner);
+        clear_discovery_env();
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[test]
+    fn r304_helper_denial_after_discovery_cleans_up() {
+        use crate::helper_client::{FakeHelperFault, FakeHelperLink, HelperLink};
+        use std::sync::Arc;
+
+        let _guard = rr10_lock();
+        let state = test_state("r304-deny");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::env::set_var("V2RAYN_R_XRAY_BIN", core_stub(&dir, "stay", "stay"));
+        set_discovery_env("500", "10");
+        state.set_helper_factory(Arc::new(|_| {
+            let link: Box<dyn HelperLink> =
+                Box::new(FakeHelperLink::with_fault(FakeHelperFault::Deny));
+            link
+        }));
+        state.set_tun_discovery(Arc::new(|_adapter| Some(9)));
+
+        let error = futures_block_on(state.apply_plan(deferred_tun_plan(0)))
+            .expect_err("helper denial must fail the session");
+        assert_eq!(error.code, crate::helper_client::E_TUN_HELPER_UNAVAILABLE);
+
+        let inner = futures_block_on(state.inner.lock());
+        assert!(inner.session.is_none());
+        assert!(inner.tun_lease.is_none());
+        assert!(inner.tun_session_id.is_none());
+        assert!(inner.tun_link.is_none());
+        assert_eq!(inner.detail.state, RuntimeState::Stopped);
+        drop(inner);
+        clear_discovery_env();
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[test]
+    fn r304_parses_netsh_adapter_index_like_the_application_side() {
+        let sample = "\r\n\
+Idx     Met    MTU          State                Name\r\n\
+---  ----------  ----------  ------------  ---------------------------\r\n\
+  1          75  4294967295  connected     Loopback Pseudo-Interface 1\r\n\
+  9          25  1500        connected     v2rayn-tun\r\n";
+        assert_eq!(parse_tun_interface_index(sample, "v2rayn-tun"), Some(9));
+        assert_eq!(parse_tun_interface_index(sample, "V2RAYN-TUN"), Some(9));
+        assert_eq!(parse_tun_interface_index(sample, "nope"), None);
     }
 }

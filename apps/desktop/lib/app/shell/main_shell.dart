@@ -274,6 +274,20 @@ class _MainShellState extends ConsumerState<MainShell> {
     action();
   }
 
+  /// ACT-MAIN-029: elevated relaunch on explicit user action only.
+  Future<void> _relaunchAsAdmin(WidgetRef ref) async {
+    final shell = ref.read(uiShellControllerProvider.notifier);
+    final ok = await relaunchAsAdmin();
+    shell.setMessage(ok ? '已请求以管理员身份重启' : '以管理员身份重启已取消或失败');
+  }
+
+  /// ACT-WIN-008: open the upstream core website in the default browser.
+  Future<void> _openCoreWebsite(WidgetRef ref) async {
+    final shell = ref.read(uiShellControllerProvider.notifier);
+    final ok = await openCoreWebsite();
+    shell.setMessage(ok ? '已在浏览器打开核心网站' : '打开核心网站失败');
+  }
+
   void _onMenuAction(BuildContext context, WidgetRef ref, AppMenuEntry entry) =>
       _onMenuActionId(context, ref, entry.actionId ?? '');
 
@@ -384,16 +398,28 @@ class _MainShellState extends ConsumerState<MainShell> {
       case 'ACT-MAIN-029':
         // F-DESKTOP-006 / ACT-MAIN-029: relaunch elevated. The actual `runas`
         // start happens in the desktop runtime only on this explicit action.
-        shell.notImplemented('以管理员身份重启', 'ACT-MAIN-029');
+        _relaunchAsAdmin(ref);
       case 'ACT-WIN-004':
-        // F-DESKTOP-005 / ACT-WIN-004: resolve the UWP loopback tool. Starting
-        // it is a user-visible side effect; report precisely what would run.
-        final ok = ref.read(platformBridgeProvider).resolveUwpLoopbackTool();
-        shell.setMessage(
-          ok
-              ? '已找到 EnableLoopback.exe（启动需用户确认）'
-              : '未找到 EnableLoopback.exe（bin 目录）',
+        // F-DESKTOP-005 / ACT-WIN-004: UWP loopback exemption. Prefer the
+        // bundled EnableLoopback.exe; otherwise report the equivalent,
+        // reversible CheckNetIsolation command without executing it.
+        final hasTool = ref
+            .read(platformBridgeProvider)
+            .resolveUwpLoopbackTool();
+        final command = buildLoopbackExemptionCommand(
+          bundledToolPath: hasTool ? 'EnableLoopback.exe' : null,
         );
+        shell.setMessage(
+          hasTool ? '已找到 EnableLoopback.exe（启动需用户确认）' : command.summary,
+        );
+      case 'ACT-MAIN-032':
+        shell.setMessage(applyRegionPreset(ref, 'Default'));
+      case 'ACT-MAIN-033':
+        shell.setMessage(applyRegionPreset(ref, 'Russia'));
+      case 'ACT-MAIN-034':
+        shell.setMessage(applyRegionPreset(ref, 'Iran'));
+      case 'ACT-WIN-008':
+        _openCoreWebsite(ref);
       case 'ACT-MAIN-030':
         // F-MONITOR-003 / ACT-MAIN-030: clear ServerStatItem rows.
         final cleared = ref

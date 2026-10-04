@@ -113,6 +113,26 @@ class MonitorState {
     }).toList();
   }
 
+  /// Today's upload/download aggregated from the live per-node `ServerStatItem`
+  /// rows (upstream `StatisticsManager` today semantics). These are the
+  /// per-node today counters the Rust monitor resets on the date rollover, not
+  /// the session-cumulative `proxyUp`/`proxyDown` rates.
+  BigInt get todayUp => _sumNodeToday((node) => node.todayUp);
+  BigInt get todayDown => _sumNodeToday((node) => node.todayDown);
+
+  /// Whether any per-node today rows are available. When false the status bar
+  /// shows `--` rather than a fabricated zero (no applied session, or
+  /// statistics disabled/still unbound).
+  bool get hasTodayNodes => nodes.isNotEmpty;
+
+  BigInt _sumNodeToday(Object? Function(m.NodeTrafficDto) pick) {
+    var total = BigInt.zero;
+    for (final node in nodes) {
+      total += _platformBytes(pick(node));
+    }
+    return total;
+  }
+
   MonitorState copyWith({
     bool? configured,
     BigInt? proxyUp,
@@ -205,6 +225,18 @@ RegExp? _compileKeyword(String pattern) {
   } on FormatException {
     return null;
   }
+}
+
+/// Normalize a `PlatformInt64` wire counter to a non-negative [BigInt] (int on
+/// native, BigInt on web; negative/unknown values clamp to zero).
+BigInt _platformBytes(Object? value) {
+  if (value is BigInt) return value.isNegative ? BigInt.zero : value;
+  if (value is int) return value > 0 ? BigInt.from(value) : BigInt.zero;
+  if (value is num) {
+    final v = value.toInt();
+    return v > 0 ? BigInt.from(v) : BigInt.zero;
+  }
+  return BigInt.zero;
 }
 
 /// Applied-session facts that justify (re)binding the Rust monitor source.

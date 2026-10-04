@@ -84,15 +84,18 @@ Set<String> toggleSelection(Set<String> current, String id) {
   return next;
 }
 
-/// Shift range selection from the anchor to the clicked id (inclusive).
+/// Shift range selection from the explicit [anchorId] (the main row /
+/// `primaryId`) to the clicked id (inclusive). The anchor is no longer derived
+/// from the arbitrary last entry of the selection set, so a multi-selection
+/// extends from the current row (R3-PROF-10).
 Set<String> extendSelection(
   List<ProfileSummary> rows,
   Set<String> current,
+  String anchorId,
   String id,
 ) {
   if (current.isEmpty) return selectSingle(id);
   final ids = rows.map((r) => r.id).toList();
-  final anchorId = current.last;
   final anchorIndex = ids.indexOf(anchorId);
   final targetIndex = ids.indexOf(id);
   if (anchorIndex < 0 || targetIndex < 0) return selectSingle(id);

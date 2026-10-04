@@ -280,6 +280,33 @@ pub fn normalize_server(mut profile: Profile) -> Profile {
     profile
 }
 
+/// Frozen `AddServerCommon` tail (`ConfigHandler.cs:1214-1216`): a Reality node
+/// saved with an empty fingerprint freezes the then-current
+/// `CoreBasicItem.DefFingerprint` into the profile, so a later default change
+/// does not retroactively alter already-saved nodes. Non-Reality nodes and
+/// nodes that already carry a fingerprint are unchanged. An empty configured
+/// default is left as-is (the upstream default is a real fingerprint).
+pub fn apply_reality_fingerprint_default(
+    mut profile: Profile,
+    def_fingerprint: Option<&str>,
+) -> Profile {
+    if profile.security.stream_security.as_deref() != Some(STREAM_SECURITY_REALITY) {
+        return profile;
+    }
+    if profile
+        .security
+        .fingerprint
+        .as_deref()
+        .is_some_and(|v| !v.trim().is_empty())
+    {
+        return profile;
+    }
+    if let Some(def) = def_fingerprint.map(str::trim).filter(|v| !v.is_empty()) {
+        profile.security.fingerprint = Some(def.to_string());
+    }
+    profile
+}
+
 /// Validate one ordinary protocol draft like its frozen `Add*Server` `-1`
 /// branches (missing/invalid credentials and enum values). Explicit errors, no
 /// silent correction.
@@ -449,5 +476,47 @@ mod tests {
         let mut p = draft();
         p.address.clear();
         assert_eq!(validate_custom(&p).unwrap_err().code, codes::FIELD_REQUIRED);
+    }
+
+    fn reality() -> Profile {
+        let mut p = Profile {
+            index_id: "reality-1".into(),
+            config_type: ConfigType::Vless,
+            remarks: "reality".into(),
+            address: "192.0.2.10".into(),
+            port: 443,
+            password: "11111111-2222-3333-4444-555555555555".into(),
+            ..Default::default()
+        };
+        p.security.stream_security = Some("reality".into());
+        p
+    }
+
+    #[test]
+    fn reality_empty_fingerprint_freezes_the_default() {
+        let stamped = apply_reality_fingerprint_default(reality(), Some("chrome"));
+        assert_eq!(stamped.security.fingerprint.as_deref(), Some("chrome"));
+    }
+
+    #[test]
+    fn reality_explicit_fingerprint_is_kept() {
+        let mut p = reality();
+        p.security.fingerprint = Some("firefox".into());
+        let stamped = apply_reality_fingerprint_default(p, Some("chrome"));
+        assert_eq!(stamped.security.fingerprint.as_deref(), Some("firefox"));
+    }
+
+    #[test]
+    fn non_reality_empty_fingerprint_is_not_stamped() {
+        let mut p = reality();
+        p.security.stream_security = Some("tls".into());
+        let stamped = apply_reality_fingerprint_default(p, Some("chrome"));
+        assert!(stamped.security.fingerprint.is_none());
+    }
+
+    #[test]
+    fn empty_default_leaves_fingerprint_untouched() {
+        let stamped = apply_reality_fingerprint_default(reality(), None);
+        assert!(stamped.security.fingerprint.is_none());
     }
 }

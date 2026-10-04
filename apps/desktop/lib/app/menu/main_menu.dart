@@ -92,32 +92,20 @@ const _settingEntries = <AppMenuEntry>[
   AppMenuEntry(label: '完整配置模板设置', actionId: 'ACT-MAIN-027'),
   AppMenuEntry(label: '全局热键设置', actionId: 'ACT-MAIN-028'),
   AppMenuEntry(label: '主题设置', actionId: 'UI-THEME-WINDOW'),
-  // ACT-MAIN-029 / ACT-WIN-004: relaunch-elevated and the UWP loopback helper
-  // entry are preserved for upstream parity. Neither backend is wired yet, so
-  // they stay disabled with the preserved tooltip.
-  AppMenuEntry(
-    label: '以管理员身份重启',
-    actionId: 'ACT-MAIN-029',
-    preservedOnly: true,
-  ),
-  AppMenuEntry(
-    label: '解除 Win10 UWP 应用回环代理限制',
-    actionId: 'ACT-WIN-004',
-    preservedOnly: true,
-  ),
+  // ACT-MAIN-029: relaunch the current exe elevated with the runner's
+  // `rebootas` marker (upstream `ProcUtils.RebootAsAdmin`). Wired in MainShell.
+  AppMenuEntry(label: '以管理员身份重启', actionId: 'ACT-MAIN-029'),
+  // ACT-WIN-004: UWP loopback exemption entry. MainShell resolves the bundled
+  // `EnableLoopback.exe` / builds the reversible `CheckNetIsolation` command.
+  AppMenuEntry(label: '解除 Win10 UWP 应用回环代理限制', actionId: 'ACT-WIN-004'),
   AppMenuEntry(label: '清除所有服务统计数据', actionId: 'ACT-MAIN-030'),
   AppMenuEntry(
     label: '区域预置设置',
     actionId: 'ACT-MAIN-032',
-    preservedOnly: true,
     submenu: <AppMenuEntry>[
-      AppMenuEntry(
-        label: '默认区域',
-        actionId: 'ACT-MAIN-032',
-        preservedOnly: true,
-      ),
-      AppMenuEntry(label: '俄罗斯', actionId: 'ACT-MAIN-033', preservedOnly: true),
-      AppMenuEntry(label: '伊朗', actionId: 'ACT-MAIN-034', preservedOnly: true),
+      AppMenuEntry(label: '默认区域', actionId: 'ACT-MAIN-032'),
+      AppMenuEntry(label: '俄罗斯', actionId: 'ACT-MAIN-033'),
+      AppMenuEntry(label: '伊朗', actionId: 'ACT-MAIN-034'),
     ],
   ),
   AppMenuEntry(label: '备份和还原', actionId: 'ACT-WIN-007'),
@@ -127,11 +115,12 @@ const _settingEntries = <AppMenuEntry>[
 ];
 
 /// 帮助 submenu. Upstream only has 检查更新 plus a separator that is filled at
-/// runtime with one `<core> 网站` entry per installed core (ACT-WIN-008); the
-/// dynamic website entries are preserved but disabled.
+/// runtime with one `<core> 网站` entry per installed core (ACT-WIN-008). The
+/// single entry opens the primary core's upstream home page through the OS
+/// handler.
 const _helpEntries = <AppMenuEntry>[
   AppMenuEntry(label: '检查更新', actionId: 'ACT-WIN-005'),
-  AppMenuEntry(label: '核心网站', actionId: 'ACT-WIN-008', preservedOnly: true),
+  AppMenuEntry(label: '核心网站', actionId: 'ACT-WIN-008'),
 ];
 
 /// Top-level menu groups in upstream order: 配置项 / 订阅分组 / 设置 / 帮助 /

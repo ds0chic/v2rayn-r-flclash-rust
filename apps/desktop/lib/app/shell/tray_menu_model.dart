@@ -287,6 +287,30 @@ TrayIconStatus trayIconStatus({
   return TrayIconStatus.normal;
 }
 
+/// Packaged tray icon resource file name for [status] (R3-09a).
+///
+/// The proxy/core/PAC combinations map to distinct files so a real Windows tray
+/// can show the applied state. Files are looked up under
+/// `data/flutter_assets/assets/`; [trayIconFallbackName] is the recognizable
+/// fallback used when the status-specific resource is not packaged.
+String trayIconResourceName(TrayIconStatus status) {
+  switch (status) {
+    case TrayIconStatus.normal:
+      return 'tray_icon.ico';
+    case TrayIconStatus.coreRunning:
+      return 'tray_icon_core.ico';
+    case TrayIconStatus.proxyActive:
+      return 'tray_icon_proxy.ico';
+    case TrayIconStatus.proxyPac:
+      return 'tray_icon_pac.ico';
+  }
+}
+
+/// Fallback icon file used when a status-specific tray resource is absent.
+/// No per-status `.ico` is packaged yet, so the application icon is the
+/// documented fallback until the assets land (visual verification pending).
+const String trayIconFallbackName = 'app_icon.ico';
+
 /// Shared, immutable tray read model (RR-08).
 ///
 /// It is the single source the tray menu is built from: the node/route

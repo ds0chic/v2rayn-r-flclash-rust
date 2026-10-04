@@ -11,6 +11,8 @@ import 'package:v2rayn_desktop/features/subs/import_persistence.dart';
 /// a save/delete is visible in the summary list (the base synthetic bridge
 /// regenerates a fixed window instead).
 class StoredBridge extends SyntheticBridgePort {
+  StoredBridge({super.count});
+
   @override
   List<ProfileSummary> fetchSummaries(int count) {
     final stored = queryAllProfiles();

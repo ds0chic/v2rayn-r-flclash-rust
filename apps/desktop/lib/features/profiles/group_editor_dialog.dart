@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
+import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
+import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_dedup.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 
 /// True for subscription-derived children, mirroring upstream
 /// `!ConfigType.IsComplexType() || Outbound` and the Rust generation path
@@ -406,10 +412,32 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
     );
   }
 
+  /// Live picker defaults from the running app: the main window's current
+  /// group (`RefreshSubscriptions` semantics) and the `ProfileExItem` speedtest
+  /// rows. Resolved lazily through the enclosing Riverpod scope, so the frozen
+  /// `showGroupEditor` call site in `profile_actions.dart` needs no change.
+  /// Pure widget tests without a scope fall back to no group / no overlay.
+  ({String? groupSubId, List<speedtest.SpeedTestResultDto> results})
+  _pickerLiveData() {
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      return (
+        groupSubId: container.read(profilesControllerProvider).groupSubId,
+        results: container.read(bridgePortProvider).speedTestResults(),
+      );
+    } catch (_) {
+      return (
+        groupSubId: null,
+        results: const <speedtest.SpeedTestResultDto>[],
+      );
+    }
+  }
+
   /// Open the multi-select node picker (upstream `ProfilesSelectWindow`:
   /// multi-select with select-all, Custom excluded) and append the chosen ids
   /// in list order, skipping duplicates.
   Future<void> _pickNodes() async {
+    final live = _pickerLiveData();
     final picked = await showNodePicker(
       context,
       candidates: _candidates,
@@ -419,6 +447,8 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
       // `SetConfigTypeFilter([EConfigType.Custom], exclude: true)`.
       filterConfigTypes: const <ConfigType>[ConfigType.custom],
       filterExclude: true,
+      currentGroupSubId: live.groupSubId,
+      speedResults: live.results,
     );
     if (picked == null || picked.isEmpty) return;
     setState(() {
@@ -700,6 +730,11 @@ List<String> groupChildIds(c.ProfilePageDto page) => <String>[
 /// the type constraint is a caller contract, not a new widget.
 ///
 /// Returns the picked `indexId`s in list order, or `null` on cancel.
+///
+/// [currentGroupSubId] preselects the main window's current group
+/// (`RefreshSubscriptions`); [speedResults] supplies the live `ProfileExItem`
+/// rows so the Delay/Speed/SubRemarks columns and the default `Sort` order
+/// follow the node table (R3-PROF-08).
 Future<List<String>?> showNodePicker(
   BuildContext context, {
   required List<c.ProfileDto> candidates,
@@ -707,6 +742,8 @@ Future<List<String>?> showNodePicker(
   bool multiSelect = true,
   List<ConfigType>? filterConfigTypes,
   bool filterExclude = false,
+  String? currentGroupSubId,
+  List<speedtest.SpeedTestResultDto>? speedResults,
 }) {
   return showDialog<List<String>>(
     context: context,
@@ -716,6 +753,8 @@ Future<List<String>?> showNodePicker(
       multiSelect: multiSelect,
       filterConfigTypes: filterConfigTypes,
       filterExclude: filterExclude,
+      currentGroupSubId: currentGroupSubId,
+      speedResults: speedResults ?? const <speedtest.SpeedTestResultDto>[],
     ),
   );
 }
@@ -726,22 +765,35 @@ class _PickerColumn {
 
   final String key;
   final String title;
-  final String Function(c.ProfileDto p) display;
+  final String Function(c.ProfileDto p, ProfileSummary? s) display;
 }
 
-String _pickerType(c.ProfileDto p) => p.configType.name;
-String _pickerRemarks(c.ProfileDto p) => p.remarks;
-String _pickerAddress(c.ProfileDto p) => p.address;
-String _pickerPort(c.ProfileDto p) => '${p.port}';
-String _pickerNetwork(c.ProfileDto p) => p.network;
-String _pickerTls(c.ProfileDto p) => p.security.streamSecurity ?? '';
-String _pickerSub(c.ProfileDto p) => p.subid;
+// Delay/Speed/SubRemarks render from the joined `ProfileSummary` (the same
+// shape and display functions as the node table), so a tested node shows its
+// real value and a failed/untested one follows the main-table rule.
+final ProfileColumn _pickerDelayColumn = defaultProfileColumns().firstWhere(
+  (c) => c.key == 'DelayVal',
+);
+final ProfileColumn _pickerSpeedColumn = defaultProfileColumns().firstWhere(
+  (c) => c.key == 'SpeedVal',
+);
+final ProfileColumn _pickerSubColumn = defaultProfileColumns().firstWhere(
+  (c) => c.key == 'SubRemarks',
+);
 
-// Delay/speed live on `ProfileExItem`, which the caller-supplied `ProfileDto`
-// candidates do not carry; the columns are present but render `-` until a
-// speedtest overlay is threaded through (interface gap, see task card).
-String _pickerDelay(c.ProfileDto p) => '-';
-String _pickerSpeed(c.ProfileDto p) => '-';
+String _pickerType(c.ProfileDto p, ProfileSummary? s) => p.configType.name;
+String _pickerRemarks(c.ProfileDto p, ProfileSummary? s) => p.remarks;
+String _pickerAddress(c.ProfileDto p, ProfileSummary? s) => p.address;
+String _pickerPort(c.ProfileDto p, ProfileSummary? s) => '${p.port}';
+String _pickerNetwork(c.ProfileDto p, ProfileSummary? s) => p.network;
+String _pickerTls(c.ProfileDto p, ProfileSummary? s) =>
+    p.security.streamSecurity ?? '';
+String _pickerSub(c.ProfileDto p, ProfileSummary? s) =>
+    s == null ? p.subid : _pickerSubColumn.display(s);
+String _pickerDelay(c.ProfileDto p, ProfileSummary? s) =>
+    s == null ? '-' : _pickerDelayColumn.display(s);
+String _pickerSpeed(c.ProfileDto p, ProfileSummary? s) =>
+    s == null ? '-' : _pickerSpeedColumn.display(s);
 
 const List<_PickerColumn> _pickerColumns = <_PickerColumn>[
   _PickerColumn('configType', '类型', _pickerType),
@@ -774,6 +826,8 @@ class _NodePickerDialog extends StatefulWidget {
     this.multiSelect = true,
     this.filterConfigTypes,
     this.filterExclude = false,
+    this.currentGroupSubId,
+    this.speedResults = const <speedtest.SpeedTestResultDto>[],
   });
 
   final List<c.ProfileDto> candidates;
@@ -781,6 +835,8 @@ class _NodePickerDialog extends StatefulWidget {
   final bool multiSelect;
   final List<ConfigType>? filterConfigTypes;
   final bool filterExclude;
+  final String? currentGroupSubId;
+  final List<speedtest.SpeedTestResultDto> speedResults;
 
   @override
   State<_NodePickerDialog> createState() => _NodePickerDialogState();
@@ -795,6 +851,32 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
   String _sortKey = '';
   bool _sortAscending = true;
   Map<String, double> _widths = <String, double>{};
+
+  /// Joined table rows (Delay/Speed/SubRemarks) keyed by `indexId`.
+  late final Map<String, ProfileSummary> _summaryById;
+  late final List<String> _persistedOrder;
+
+  /// Manual double-click detection so a single click selects immediately
+  /// instead of waiting for the double-tap recognizer's timeout, while a quick
+  /// second click on the same row still confirms (R3-PROF-08).
+  String? _lastTapId;
+  DateTime? _lastTapAt;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to the main window's current group (RefreshSubscriptions).
+    _groupSubId = widget.currentGroupSubId;
+    _persistedOrder = widget.speedResults.map((r) => r.indexId).toList();
+    _summaryById = <String, ProfileSummary>{
+      for (final s in joinPickerRows(
+        widget.candidates,
+        widget.speedResults,
+        widget.subItems ?? const <c.SubItemDto>[],
+      ))
+        s.id: s,
+    };
+  }
 
   @override
   void dispose() {
@@ -825,7 +907,9 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
 
   /// Current-group + type-filter + search + sort, mirroring
   /// `ProfilesSelectViewModel.GetProfileItemsEx` (`OrderBy(Sort)` then the
-  /// include/exclude type filter) plus the header sort.
+  /// include/exclude type filter) plus the header sort. The default order is
+  /// the persisted `ProfileExItem.Sort`; a header click routes through the
+  /// node-table [applySort] so Delay/Speed sink failed/untested rows.
   List<c.ProfileDto> get _rows {
     var list = widget.candidates;
     final types = widget.filterConfigTypes;
@@ -853,25 +937,97 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
           if (_searchHit(p, q)) p,
       ];
     }
-    if (_sortKey.isEmpty) return list;
-    final column = _pickerColumns.firstWhere((c) => c.key == _sortKey);
-    return List<c.ProfileDto>.of(list)..sort((a, b) {
-      final cmp = _compare(column, a, b);
-      return _sortAscending ? cmp : -cmp;
-    });
+    if (list.isEmpty) return list;
+    final models = <ProfileSummary>[
+      for (final p in list) _summaryById[p.indexId] ?? _fallbackSummary(p),
+    ];
+    final ordered = _sortKey.isEmpty
+        ? orderByPersistedSort(models, _persistedOrder)
+        : applySort(
+            models,
+            defaultProfileColumns(),
+            SortSpec(
+              columnKey: _pickerMainKey(_sortKey),
+              direction: _sortAscending
+                  ? SortDirection.ascending
+                  : SortDirection.descending,
+            ),
+          );
+    final byId = <String, c.ProfileDto>{for (final p in list) p.indexId: p};
+    return <c.ProfileDto>[
+      for (final m in ordered)
+        if (byId[m.id] != null) byId[m.id]!,
+    ];
   }
 
+  /// Table-shaped fallback for a candidate missing from the joined map (only
+  /// possible for a caller that bypasses [joinPickerRows]).
+  ProfileSummary _fallbackSummary(c.ProfileDto p) => ProfileSummary(
+    id: p.indexId,
+    configType: p.configType,
+    remarks: p.remarks,
+    address: p.address,
+    port: p.port,
+    network: p.network,
+    streamSecurity: p.security.streamSecurity ?? '',
+    subRemarks: p.subid,
+    delay: -1,
+    speed: '-',
+    todayUp: BigInt.zero,
+    ipInfo: '-',
+    todayDown: BigInt.zero,
+    totalUp: BigInt.zero,
+    totalDown: BigInt.zero,
+    coreType: p.coreType ?? CoreType.xray,
+  );
+
+  /// Picker column key -> node-table `ProfileColumn.key` for sorting.
+  String _pickerMainKey(String key) {
+    switch (key) {
+      case 'configType':
+        return 'ConfigType';
+      case 'remarks':
+        return 'Remarks';
+      case 'address':
+        return 'Address';
+      case 'port':
+        return 'Port';
+      case 'network':
+        return 'Network';
+      case 'security':
+        return 'StreamSecurity';
+      case 'subid':
+        return 'SubRemarks';
+      case 'delay':
+        return 'DelayVal';
+      case 'speed':
+        return 'SpeedVal';
+      default:
+        return 'Remarks';
+    }
+  }
+
+  /// Frozen `ProfilesSelectWindow` search matches `remarks`/`address` only
+  /// (upstream `ProfilesViewModel` filter), never the port (R3-PROF-08).
   bool _searchHit(c.ProfileDto p, String q) =>
       p.remarks.toLowerCase().contains(q) ||
-      p.address.toLowerCase().contains(q) ||
-      '${p.port}'.contains(q);
+      p.address.toLowerCase().contains(q);
 
-  int _compare(_PickerColumn column, c.ProfileDto a, c.ProfileDto b) {
-    if (column.key == 'port') return a.port.compareTo(b.port);
-    return column
-        .display(a)
-        .toLowerCase()
-        .compareTo(column.display(b).toLowerCase());
+  /// Drop picks that the current group/search no longer shows, so the confirm
+  /// count and result contain visible rows only (R3-PROF-08).
+  void _pruneHiddenPicks() {
+    final visible = _rows.map((p) => p.indexId).toSet();
+    _picked.removeWhere((id) => !visible.contains(id));
+    if (_pickSingle != null && !visible.contains(_pickSingle)) {
+      _pickSingle = null;
+    }
+  }
+
+  void _setGroup(String? id) {
+    setState(() {
+      _groupSubId = id;
+      _pruneHiddenPicks();
+    });
   }
 
   bool _isPicked(String id) =>
@@ -904,7 +1060,66 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
     });
   }
 
-  void _commitSearch(String value) => setState(() => _filter = value);
+  /// Ctrl+A: select every currently visible row (upstream
+  /// `menuSelectAll_Click` -> `lstProfiles.SelectAll()`), never toggling off.
+  void _selectAllVisible() {
+    if (!widget.multiSelect) return;
+    setState(() {
+      for (final p in _rows) {
+        _picked.add(p.indexId);
+      }
+    });
+  }
+
+  void _commitSearch(String value) => setState(() {
+    _filter = value;
+    _pruneHiddenPicks();
+  });
+
+  /// Number of picked rows still visible, which is what the confirm returns.
+  int get _visiblePickedCount {
+    final visible = _rows.map((p) => p.indexId).toSet();
+    if (!widget.multiSelect) {
+      return _pickSingle != null && visible.contains(_pickSingle) ? 1 : 0;
+    }
+    return _picked.where(visible.contains).length;
+  }
+
+  /// Enter / OK / double-click confirmation. A single-select picker needs a
+  /// chosen row (`SelectFinish` -> `CanOk`).
+  void _confirm() {
+    if (!widget.multiSelect && _pickSingle == null) return;
+    Navigator.of(context).pop(_result());
+  }
+
+  void _cancel() => Navigator.of(context).pop();
+
+  void _onRowTap(String id) {
+    final now = DateTime.now();
+    final last = _lastTapAt;
+    if (_lastTapId == id &&
+        last != null &&
+        now.difference(last) < const Duration(milliseconds: 300)) {
+      _lastTapId = null;
+      _lastTapAt = null;
+      _onRowDoubleTap(id);
+      return;
+    }
+    _lastTapId = id;
+    _lastTapAt = now;
+    _toggle(id);
+  }
+
+  void _onRowDoubleTap(String id) {
+    setState(() {
+      if (widget.multiSelect) {
+        _picked.add(id);
+      } else {
+        _pickSingle = id;
+      }
+    });
+    _confirm();
+  }
 
   double _widthOf(_PickerColumn column) =>
       _widths[column.key] ?? _pickerDefaultWidths[column.key]!;
@@ -917,7 +1132,10 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
     for (final column in _pickerColumns) {
       var width = _measure('${column.title} \u25B2', headerStyle);
       for (final p in rows) {
-        final w = _measure(column.display(p), cellStyle);
+        final w = _measure(
+          column.display(p, _summaryById[p.indexId]),
+          cellStyle,
+        );
         if (w > width) width = w;
       }
       updated[column.key] = (width + 16).clamp(48.0, 260.0).toDouble();
@@ -934,111 +1152,133 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
     return painter.width;
   }
 
+  /// Confirmation result in visible order; hidden picks are excluded so a
+  /// group/search change cannot submit an invisible node (R3-PROF-08).
   List<String> _result() {
+    final rows = _rows;
     if (widget.multiSelect) {
       return <String>[
-        for (final p in widget.candidates)
+        for (final p in rows)
           if (_picked.contains(p.indexId)) p.indexId,
       ];
     }
-    return _pickSingle == null ? const <String>[] : <String>[_pickSingle!];
+    final single = _pickSingle;
+    return single != null && rows.any((p) => p.indexId == single)
+        ? <String>[single]
+        : const <String>[];
   }
 
   @override
   Widget build(BuildContext context) {
     final rows = _rows;
-    return AlertDialog(
-      key: const ValueKey('group-picker'),
-      title: Text(
-        widget.multiSelect ? '选择子节点 (多选)' : '选择子节点',
-        style: const TextStyle(fontSize: 15),
-      ),
-      content: SizedBox(
-        width: 720,
-        height: 480,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
+    // Frozen `ProfilesSelectWindow` keyboard contract: Ctrl+A select-all,
+    // Enter confirm and double-click confirm; Esc cancels (R3-PROF-08).
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.keyA, control: true):
+            _selectAllVisible,
+        const SingleActivator(LogicalKeyboardKey.enter): _confirm,
+        const SingleActivator(LogicalKeyboardKey.numpadEnter): _confirm,
+        const SingleActivator(LogicalKeyboardKey.escape): _cancel,
+      },
+      child: Focus(
+        autofocus: true,
+        child: AlertDialog(
+          key: const ValueKey('group-picker'),
+          title: Text(
+            widget.multiSelect ? '选择子节点 (多选)' : '选择子节点',
+            style: const TextStyle(fontSize: 15),
+          ),
+          content: SizedBox(
+            width: 720,
+            height: 480,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                for (final group in _groups)
-                  ChoiceChip(
-                    key: ValueKey('group-pick-group-${group.$1 ?? 'all'}'),
-                    label: Text(group.$2, style: const TextStyle(fontSize: 12)),
-                    selected: _groupSubId == group.$1,
-                    onSelected: (_) => setState(() => _groupSubId = group.$1),
-                  ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    for (final group in _groups)
+                      ChoiceChip(
+                        key: ValueKey('group-pick-group-${group.$1 ?? 'all'}'),
+                        label: Text(
+                          group.$2,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        selected: _groupSubId == group.$1,
+                        onSelected: (_) => _setGroup(group.$1),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: <Widget>[
+                    SizedBox(
+                      width: 220,
+                      child: TextField(
+                        key: const ValueKey('group-pick-search'),
+                        controller: _search,
+                        style: const TextStyle(fontSize: 12),
+                        decoration: const InputDecoration(
+                          labelText: '搜索 (备注/地址)',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (v) {
+                          if (v.trim().isEmpty) _commitSearch('');
+                        },
+                        onSubmitted: _commitSearch,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      key: const ValueKey('group-pick-autofit'),
+                      onPressed: _autofit,
+                      child: const Text('自动列宽', style: TextStyle(fontSize: 12)),
+                    ),
+                    if (widget.multiSelect) ...<Widget>[
+                      const SizedBox(width: 8),
+                      TextButton(
+                        key: const ValueKey('group-pick-select-all'),
+                        onPressed: rows.isEmpty ? null : _toggleAll,
+                        child: Text(
+                          rows.isNotEmpty &&
+                                  rows.every((p) => _picked.contains(p.indexId))
+                              ? '全不选'
+                              : '全选',
+                        ),
+                      ),
+                    ],
+                    const SizedBox(width: 8),
+                    Text(
+                      '已选 $_visiblePickedCount/${rows.length}',
+                      key: const ValueKey('group-pick-count'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+                const Divider(height: 12),
+                Expanded(child: _table(rows)),
               ],
             ),
-            const SizedBox(height: 6),
-            Row(
-              children: <Widget>[
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    key: const ValueKey('group-pick-search'),
-                    controller: _search,
-                    style: const TextStyle(fontSize: 12),
-                    decoration: const InputDecoration(
-                      labelText: '搜索 (备注/地址)',
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (v) {
-                      if (v.trim().isEmpty) _commitSearch('');
-                    },
-                    onSubmitted: _commitSearch,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  key: const ValueKey('group-pick-autofit'),
-                  onPressed: _autofit,
-                  child: const Text('自动列宽', style: TextStyle(fontSize: 12)),
-                ),
-                if (widget.multiSelect) ...<Widget>[
-                  const SizedBox(width: 8),
-                  TextButton(
-                    key: const ValueKey('group-pick-select-all'),
-                    onPressed: rows.isEmpty ? null : _toggleAll,
-                    child: Text(
-                      rows.isNotEmpty &&
-                              rows.every((p) => _picked.contains(p.indexId))
-                          ? '全不选'
-                          : '全选',
-                    ),
-                  ),
-                ],
-                const SizedBox(width: 8),
-                Text(
-                  '已选 ${widget.multiSelect ? _picked.length : (_pickSingle == null ? 0 : 1)}'
-                  '/${widget.candidates.length}',
-                  key: const ValueKey('group-pick-count'),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              key: const ValueKey('group-pick-cancel'),
+              onPressed: _cancel,
+              child: const Text('取消'),
             ),
-            const Divider(height: 12),
-            Expanded(child: _table(rows)),
+            FilledButton(
+              key: const ValueKey('group-pick-ok'),
+              onPressed: widget.multiSelect || _pickSingle != null
+                  ? _confirm
+                  : null,
+              child: const Text('确定'),
+            ),
           ],
         ),
       ),
-      actions: <Widget>[
-        TextButton(
-          key: const ValueKey('group-pick-cancel'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          key: const ValueKey('group-pick-ok'),
-          onPressed: widget.multiSelect || _pickSingle != null
-              ? () => Navigator.of(context).pop(_result())
-              : null,
-          child: const Text('确定'),
-        ),
-      ],
     );
   }
 
@@ -1110,7 +1350,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
     final selected = _isPicked(p.indexId);
     return InkWell(
       key: ValueKey('group-pick-node-${p.indexId}'),
-      onTap: () => _toggle(p.indexId),
+      onTap: () => _onRowTap(p.indexId),
       child: Container(
         color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
         child: Row(
@@ -1139,7 +1379,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
                     vertical: 4,
                   ),
                   child: Text(
-                    column.display(p),
+                    column.display(p, _summaryById[p.indexId]),
                     style: const TextStyle(fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),

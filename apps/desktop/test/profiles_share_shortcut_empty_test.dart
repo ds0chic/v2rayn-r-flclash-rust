@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
 import 'support/profiles_harness.dart';
 
@@ -34,8 +35,13 @@ void main() {
     (tester) async {
       final container = await pumpApp(tester, rows: 2);
 
-      await tapRow(tester, const ValueKey('cell-syn-000000-Remarks'));
-      await pressPlain(tester, LogicalKeyboardKey.escape);
+      // R3-PROF-10: Esc keeps the selection (upstream only stops the
+      // speedtest), so a genuinely empty selection comes from an empty result
+      // set, not from clearing a non-empty list.
+      final controller = container.read(profilesControllerProvider.notifier);
+      controller.setFilter('___no_such_node___');
+      controller.submitFilter();
+      await tester.pump();
       expect(readState(container).selected, isEmpty);
 
       // Upstream `Export2ShareUrlAsync` returns silently with no selection.

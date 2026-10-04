@@ -57,10 +57,13 @@ void main() {
       expect(selection, <String>{'b'});
     });
 
-    test('shift range is inclusive and based on last anchor', () {
-      final range = extendSelection(rows, const <String>{
+    test('shift range is inclusive and anchored on the main row', () {
+      final range = extendSelection(
+        rows,
+        const <String>{'syn-000002'},
         'syn-000002',
-      }, 'syn-000005');
+        'syn-000005',
+      );
       expect(range.length, 4);
       expect(range.contains('syn-000002'), isTrue);
       expect(range.contains('syn-000005'), isTrue);

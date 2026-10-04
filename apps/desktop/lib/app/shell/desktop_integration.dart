@@ -154,12 +154,33 @@ class DesktopIntegration with WindowListener {
     }
   }
 
-  String _trayIconPath() {
+  String _trayAssetsDir() {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     return '$exeDir${Platform.pathSeparator}data'
         '${Platform.pathSeparator}flutter_assets'
-        '${Platform.pathSeparator}assets'
-        '${Platform.pathSeparator}tray_icon.ico';
+        '${Platform.pathSeparator}assets';
+  }
+
+  String _trayIconPath() =>
+      '${_trayAssetsDir()}${Platform.pathSeparator}'
+      '${trayIconResourceName(TrayIconStatus.normal)}';
+
+  /// Resolve the tray icon file for [status] (R3-09a). [TrayIconStatus] is no
+  /// longer ignored: each proxy/core/PAC combination asks for its own resource.
+  /// When that file is not packaged, fall back to the plain `tray_icon.ico`,
+  /// then to the executable-sibling `app_icon.ico`, so the tray is never left
+  /// with a stale or missing image.
+  String _trayIconPathFor(TrayIconStatus status) {
+    final sep = Platform.pathSeparator;
+    final dir = _trayAssetsDir();
+    final specific = '$dir$sep${trayIconResourceName(status)}';
+    if (File(specific).existsSync()) return specific;
+    final legacy = '$dir$sep${trayIconResourceName(TrayIconStatus.normal)}';
+    if (File(legacy).existsSync()) return legacy;
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final fallback = '$exeDir$sep$trayIconFallbackName';
+    if (File(fallback).existsSync()) return fallback;
+    return legacy;
   }
 
   Future<void> _toggleWindow() async {
@@ -185,7 +206,7 @@ class DesktopIntegration with WindowListener {
     _sync = TrayMenuSync(
       surface: _SystemTraySurface(
         _tray,
-        iconPathFor: (_) => _trayIconPath(),
+        iconPathFor: _trayIconPathFor,
         onRouting: _onTrayRouting,
         onNode: _onTrayNode,
         onAction: _onTrayAction,

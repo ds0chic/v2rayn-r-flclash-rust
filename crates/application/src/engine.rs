@@ -533,6 +533,15 @@ impl AppEngine {
             .query(&filter, sort, page)
     }
 
+    /// Current `CoreBasicItem.DefFingerprint` from the live settings tree
+    /// (frozen `AddServerCommon` reads `config.CoreBasicItem.DefFingerprint`).
+    fn default_reality_fingerprint(&self) -> Option<String> {
+        self.settings
+            .lock()
+            .map(|guard| guard.settings.core_basic_item.def_fingerprint.clone())
+            .unwrap_or(None)
+    }
+
     /// `save_profile` use case: optimistic-concurrency save.
     ///
     /// Rejects a stale `expected_revision`, validates the draft, persists it
@@ -544,6 +553,9 @@ impl AppEngine {
         draft: Profile,
         expected_revision: DesiredRevision,
     ) -> Result<(Profile, DesiredRevision), DomainError> {
+        // Read the Reality fallback default before taking the profile-revision
+        // lock, so the settings lock is never nested inside it.
+        let def_fingerprint = self.default_reality_fingerprint();
         let mut revisions = self
             .revisions
             .lock()
@@ -563,8 +575,11 @@ impl AppEngine {
         } else {
             // Ordinary protocols normalize like the frozen `Add*Server`
             // entry points; the UI defaults do not own the persisted shape
-            // (RE-PROF-07).
+            // (RE-PROF-07). The Reality fingerprint is then frozen to the
+            // current `CoreBasicItem.DefFingerprint` (R3-PROF-11).
             draft = crate::custom::normalize_server(draft);
+            draft =
+                crate::custom::apply_reality_fingerprint_default(draft, def_fingerprint.as_deref());
             crate::custom::validate_server(&draft)?;
         }
 
@@ -592,6 +607,9 @@ impl AppEngine {
         draft: Profile,
         expected_revision: DesiredRevision,
     ) -> Result<(Profile, DesiredRevision), DomainError> {
+        // See `save_profile`: read the Reality fallback default before locking
+        // the profile revisions.
+        let def_fingerprint = self.default_reality_fingerprint();
         let mut revisions = self
             .revisions
             .lock()
@@ -615,8 +633,11 @@ impl AppEngine {
             // tolerant-import contract (FIX-04/PR-09) is preserved: a node
             // with an empty credential is still persisted (honestly flagged
             // invalid) instead of silently dropped, so no credential gate runs
-            // on this path.
+            // on this path. The Reality fingerprint freeze (R3-PROF-11) still
+            // applies.
             draft = crate::custom::normalize_server(draft);
+            draft =
+                crate::custom::apply_reality_fingerprint_default(draft, def_fingerprint.as_deref());
         }
 
         let mut repo = self
@@ -2801,11 +2822,21 @@ impl AppEngine {
             resources: Vec::new(),
         };
 
-        // FIX-13: attach the real TUN descriptor only when one can be built.
-        // `tun_spec_from_settings` returns `Ok(None)` when TUN is off and a
-        // structured error when it is on but the interface hints are missing;
-        // a plan never claims `tun_enabled` without a matching `tun` node.
-        if let Some(spec) = tun_plan::tun_spec_from_settings(&settings.tun_mode_item, tun_hints)? {
+        // FIX-13 / R3-04: attach the real TUN descriptor. With a known
+        // interface the resolved descriptor goes in and net-host applies it
+        // before starting the core. On a clean host the adapter does not exist
+        // yet (the core's own tun inbound creates it): attach a *deferred*
+        // descriptor instead of rejecting the plan, and let net-host discover
+        // the interface after the core starts.
+        if settings.tun_mode_item.enable_tun && tun_hints.interface_index == 0 {
+            if let Some(spec) =
+                tun_plan::tun_deferred_spec_from_settings(&settings.tun_mode_item, tun_hints)?
+            {
+                tun_plan::attach_deferred_tun_to_plan(&mut plan, &spec)?;
+            }
+        } else if let Some(spec) =
+            tun_plan::tun_spec_from_settings(&settings.tun_mode_item, tun_hints)?
+        {
             tun_plan::attach_tun_to_plan(&mut plan, &spec)?;
         }
 
@@ -3512,6 +3543,43 @@ mod tests {
             "sidecar body is a real socks config: {body}"
         );
         assert!(!body.contains("presocks.plan.v1"));
+    }
+
+    #[test]
+    fn first_tun_without_interface_builds_a_deferred_plan() {
+        // R3-04: on a clean host the adapter does not exist yet. The plan must
+        // be built with a deferred descriptor, not rejected.
+        let engine = AppEngine::in_memory();
+        let node = synthetic_full_profile(1);
+        engine.seed(vec![node.clone()]);
+        let mut settings = engine.load_settings().unwrap().settings;
+        settings.tun_mode_item.enable_tun = true;
+        if let Some(inbound) = settings.inbound.first_mut() {
+            inbound.local_port = 11808;
+        }
+        engine
+            .save_settings(settings, engine.load_settings().unwrap().revision)
+            .unwrap();
+
+        let revision = engine.desired_revision();
+        let hints = tun_plan::TunPlanHints {
+            interface_index: 0,
+            ..Default::default()
+        };
+        let plan = engine
+            .build_runtime_plan_with_hints(&node.index_id, revision, &hints)
+            .expect("first TUN without an interface must not be rejected");
+        assert!(plan.network_policy.tun_enabled);
+        assert!(plan
+            .process_graph
+            .nodes
+            .iter()
+            .any(|candidate| candidate.id == tun_plan::TUN_DEFERRED_PROCESS_ID));
+        assert!(!plan
+            .process_graph
+            .nodes
+            .iter()
+            .any(|candidate| candidate.id == runtime::TUN_PROCESS_ID));
     }
 
     #[test]

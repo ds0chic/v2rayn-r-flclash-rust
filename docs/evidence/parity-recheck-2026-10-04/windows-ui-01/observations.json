@@ -1,0 +1,25 @@
+{
+  "dataDirIsolated": true,
+  "checks": [
+    {
+      "name": "new-node-inherits-current-group",
+      "passed": false,
+      "actual": {
+        "currentGroupId": "s-18db3536afeb45ec-0",
+        "savedSubId": "",
+        "visibleIds": []
+      }
+    },
+    {
+      "name": "switch-group-clears-hidden-selection",
+      "passed": false,
+      "actual": {
+        "currentGroupId": "s-18db3536afeb45ec-0",
+        "selectedIds": [
+          "p-18db35373b292ea8-0"
+        ],
+        "visibleIds": []
+      }
+    }
+  ]
+}

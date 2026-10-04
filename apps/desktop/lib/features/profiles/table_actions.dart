@@ -98,3 +98,19 @@ Set<String> extendSelection(
   final end = anchorIndex < targetIndex ? targetIndex : anchorIndex;
   return ids.sublist(start, end + 1).toSet();
 }
+
+/// Inclusive range selection between an explicit drag anchor and the row under
+/// the pointer (upstream WPF DataGrid press-and-drag).
+Set<String> rangeSelection(
+  List<ProfileSummary> rows,
+  String anchorId,
+  String currentId,
+) {
+  final ids = rows.map((r) => r.id).toList();
+  final anchorIndex = ids.indexOf(anchorId);
+  final currentIndex = ids.indexOf(currentId);
+  if (anchorIndex < 0 || currentIndex < 0) return selectSingle(currentId);
+  final start = anchorIndex < currentIndex ? anchorIndex : currentIndex;
+  final end = anchorIndex < currentIndex ? currentIndex : anchorIndex;
+  return ids.sublist(start, end + 1).toSet();
+}

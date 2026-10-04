@@ -685,6 +685,16 @@ class ProfilesController extends Notifier<ProfilesState> {
     _log('select', 'id=$id selected=${next.length}');
   }
 
+  /// Drag-select: replace the selection with the inclusive visible range
+  /// between the drag anchor and the row under the pointer (WPF DataGrid
+  /// press-and-drag parity).
+  void selectRange(String anchorId, String currentId) {
+    final next = rangeSelection(state.visible, anchorId, currentId);
+    if (setEquals(next, state.selected)) return;
+    state = state.copyWith(selected: next);
+    _log('select', 'range=$anchorId..$currentId selected=${next.length}');
+  }
+
   void selectAll() {
     final ids = state.visible.map((r) => r.id).toSet();
     state = state.copyWith(selected: ids);

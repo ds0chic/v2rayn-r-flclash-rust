@@ -94,6 +94,12 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   bool _ownsVertical = false;
   bool _ownsHorizontal = false;
 
+  /// Drag-select state: the row pressed when a primary-button drag started
+  /// (upstream WPF DataGrid press-and-drag range selection). Cleared on
+  /// pointer up/cancel.
+  String? _dragAnchorId;
+  bool _dragSelecting = false;
+
   @override
   void initState() {
     super.initState();
@@ -162,6 +168,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           key: _anchorBoxKey,
           behavior: HitTestBehavior.opaque,
           onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
+          onPointerUp: _onPointerUp,
+          onPointerCancel: _onPointerUp,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final widths = fittedColumnWidths(
@@ -591,6 +600,17 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       _openContextMenu(event);
       return;
     }
+    if ((event.buttons & kPrimaryButton) != 0) {
+      // Start a possible drag-select (WPF DataGrid press-and-drag). The handle
+      // column keeps its own reorder drag, so it is excluded.
+      if (event.localPosition.dx >= AppTokens.tableHandleWidth) {
+        final state = ref.read(profilesControllerProvider);
+        _dragAnchorId = _rowIdAt(event.localPosition, state.visible);
+        _dragSelecting = false;
+      } else {
+        _dragAnchorId = null;
+      }
+    }
     if (_menuController.isOpen) {
       // Close the whole menu chain for a table click, but defer the rebuild to
       // the next frame so the in-flight tap gesture still completes and selects
@@ -602,6 +622,35 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       });
     }
     _focusNode.requestFocus();
+  }
+
+  /// Row under a table-local pointer position, or null for header/empty area.
+  String? _rowIdAt(Offset local, List<ProfileSummary> rows) {
+    if (local.dy < _headerHeight) return null;
+    final offset = _vertical.hasClients ? _vertical.offset : 0.0;
+    final contentY = local.dy - _headerHeight + offset;
+    if (contentY < 0) return null;
+    final index = contentY ~/ _rowHeight;
+    if (index < 0 || index >= rows.length) return null;
+    return rows[index].id;
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    final anchorId = _dragAnchorId;
+    if (anchorId == null || (event.buttons & kPrimaryButton) == 0) return;
+    final state = ref.read(profilesControllerProvider);
+    final currentId = _rowIdAt(event.localPosition, state.visible);
+    if (currentId == null) return;
+    if (!_dragSelecting && currentId == anchorId) return;
+    _dragSelecting = true;
+    ref
+        .read(profilesControllerProvider.notifier)
+        .selectRange(anchorId, currentId);
+  }
+
+  void _onPointerUp(PointerEvent event) {
+    _dragAnchorId = null;
+    _dragSelecting = false;
   }
 
   /// Open the single context menu for the row (or the current selection when

@@ -5063,3 +5063,18 @@ remediation_implementation_records:
 # (mihomo GetMihomoCoreExes, platform-suffixed hysteria2/brook, sing-box-client alias); App keeps no
 # adapter. No CoreType enum was removed. Per-core full arguments/environment and the real two-process
 # chain remain blocked. Status: implemented (per-core params + real chain blocked).
+
+# --- R3-01/R3-07-UI/R3-10 append (2026-10-04; evidence: docs/evidence/recheck-fixes/R3-01-07-10/; tasks: docs/tasks/R3-01.md, docs/tasks/R3-PROXY-UI.md, docs/tasks/R3-10.md) ---
+# R3-01 (RR-03/F-SYSPROXY-001): PAC __PROXY__ substitution no longer reuses the WinINET named-proxy
+# string. proxy_settings_view.dart splits a dedicated PAC renderer (buildPacProxyRule) from the
+# ForcedChange server builder; the Pac path now passes "PROXY 127.0.0.1:{port};DIRECT;" (upstream
+# PacManager.cs:49) or "SOCKS5 ...;DIRECT;" for a SOCKS endpoint, instead of a bare address/template.
+# R3-07 UI: the system-proxy/PAC entry resolves the AppliedSession port (RuntimeView.ports) and the
+# protocol from the persisted Inbound that generated the plan (primaryLocalProxyInbound prefers the
+# SOCKS inbound, GetLocalPort(EInboundProtocol.socks)); SOCKS -> "socks=..." / "SOCKS5 ...", HTTP/mixed
+# -> bare string / "PROXY ...". A mode needing a live proxy with no running session reports
+# E_NO_RUNNING_SESSION. R3-10 (RR-02): RoutingController.setDefaultAndReload keeps save-then-Reload but
+# the success status now follows the applied RuntimeView (error/desired!=applied), so a failed reload is
+# not reported as "已切换默认路由并重载". No Rust change (platform/pac.rs render_pac was already correct);
+# secret never enters logs/evidence. Tests: apps/desktop/test/r3_01_07_10_test.dart (9). Status:
+# implemented; real system-proxy/PAC writes, real browser PAC execution and real reload failure not run.

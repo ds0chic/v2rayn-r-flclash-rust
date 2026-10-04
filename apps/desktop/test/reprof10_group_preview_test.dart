@@ -19,6 +19,8 @@ c.ProfileDto _node(
   String remarks, {
   String subid = 'sub-1',
   ConfigType type = ConfigType.vless,
+  String address = '192.0.2.1',
+  String password = '11111111-1111-1111-1111-111111111111',
 }) => c.ProfileDto(
   indexId: id,
   configType: type,
@@ -28,9 +30,9 @@ c.ProfileDto _node(
   isSub: true,
   displayLog: true,
   remarks: remarks,
-  address: '192.0.2.1',
+  address: address,
   port: 443,
-  password: '',
+  password: password,
   username: '',
   network: 'raw',
   security: const c.SecurityDto(),
@@ -163,6 +165,23 @@ void main() {
         ownerSubId: 'own',
       );
       expect(out.map((p) => p.indexId), <String>['a', 'b']);
+    });
+
+    test('subscription children drop invalid leaves (RE-PROF-07)', () {
+      // A tolerant import's leaves can miss a UUID or an address; upstream
+      // `GroupProfileManager` only keeps `p.IsValid()` subscription children,
+      // so the preview must skip them (matches Rust `resolve_sub_children`).
+      final all = <c.ProfileDto>[
+        _node('ok', 'HK-valid'),
+        _node('bad-uuid', 'HK-uuid', type: ConfigType.vmess, password: ''),
+        _node('bad-addr', 'HK-addr', address: ''),
+      ];
+      final out = resolveGroupPreview(
+        all: all,
+        childIds: const <String>[],
+        subChildItems: 'sub-1',
+      );
+      expect(out.map((p) => p.indexId), <String>['ok']);
     });
   });
 

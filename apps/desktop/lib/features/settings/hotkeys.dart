@@ -412,8 +412,23 @@ class HotkeyController extends Notifier<HotkeyState> {
       return false;
     }
     state = state.copyWith(bindings: bindings);
-    _paused = false;
     await registerAll();
-    return state.conflicts.isEmpty;
+    if (state.conflicts.isEmpty) {
+      // Editing is over and every combination registered: resume live dispatch.
+      _paused = false;
+      return true;
+    }
+    // A partial/failed registration keeps the window open (the caller returns
+    // false). The successful combinations must NOT fire while the editor is
+    // still recording (R3-SET-05): drop the native handlers and stay paused
+    // until the edit ends via [cancelEdit] or a later successful save.
+    _paused = true;
+    try {
+      await _registrar.unregisterAll();
+    } on Object catch (_) {
+      // Best effort: reporting the conflict is what matters.
+    }
+    state = state.copyWith(registered: const <GlobalHotkeyAction>{});
+    return false;
   }
 }

@@ -425,6 +425,38 @@ impl UpdateService {
             .await
     }
 
+    /// The releases repository a target is checked against. The application
+    /// (`v2rayN`) uses the configured own release source; every core uses its
+    /// frozen repository. `None` means no source is configured for that target
+    /// (the shipped default for the application), so the caller must report a
+    /// blocked check instead of falling back to the upstream v2rayN repo.
+    pub fn release_repo_for(&self, core: &str) -> Option<String> {
+        if core == "v2rayN" {
+            return self.app_repo.clone();
+        }
+        channel::core_spec(core).map(|spec| spec.repo.to_string())
+    }
+
+    /// The blocked application check used when no own release source is
+    /// configured (shipped default). It carries the locally installed version
+    /// but never a fabricated remote release/asset, so the UI cannot present
+    /// the upstream v2rayN release as an available self-update.
+    pub fn app_source_unconfigured_check(&self) -> CoreUpdateCheck {
+        CoreUpdateCheck {
+            core: "v2rayN".to_string(),
+            supported: false,
+            note: Some("error.update_app_source_unconfigured".to_string()),
+            installed_version: self.installed_version("v2rayN"),
+            remote_version: None,
+            has_update: false,
+            asset_name: None,
+            download_url: None,
+            expected_sha256: None,
+            dgst_url: None,
+            sig_url: None,
+        }
+    }
+
     async fn check_core_inner(
         &self,
         core: &str,
@@ -467,8 +499,19 @@ impl UpdateService {
             });
         }
         let prerelease = channel::check_pre_release(core, prerelease_requested);
-        let client = ReleasesClient::new(repo_override.unwrap_or(spec.repo))
-            .with_api_base(self.api_base.clone());
+        // The releases repository is resolved by the shared provider: an
+        // explicit override wins, otherwise the application uses its own
+        // configured source and every core its frozen repository. An
+        // unconfigured application source fails closed instead of silently
+        // querying the upstream v2rayN repo (R3-08).
+        let repo = match repo_override {
+            Some(repo) => repo.to_string(),
+            None => self.release_repo_for(core).ok_or_else(|| {
+                DomainError::new(codes::UNAVAILABLE, "error.update_app_source_unconfigured")
+                    .with_detail("no application release source is configured for this build")
+            })?,
+        };
+        let client = ReleasesClient::new(repo).with_api_base(self.api_base.clone());
         let api = CoreReleaseApi::new_with_proxy(self.timeout, proxy).map_err(update_error)?;
         let releases = api.fetch(&client).await.map_err(update_error)?;
         let release = match spec.locked_max_version {
@@ -1180,5 +1223,52 @@ mod tests {
         assert_eq!(wrong.code, codes::PERMISSION_DENIED);
         let missing = enforce_detached_signature(&verifier, artifact, None).unwrap_err();
         assert_eq!(missing.message_key, "error.update_signature_missing");
+    }
+
+    #[test]
+    fn app_and_core_checks_use_separate_repositories() {
+        // The application is dispatched to its own configured release source;
+        // every core keeps its frozen repository. This is the routing assertion
+        // the normal "check updates" list must honour (R3-08); it needs no
+        // network because it records the resolved repo per target.
+        let service = UpdateService::new(std::env::temp_dir()).with_app_repo("example/v2rayn-r");
+        assert_eq!(
+            service.release_repo_for("v2rayN").as_deref(),
+            Some("example/v2rayn-r")
+        );
+        assert_eq!(
+            service.release_repo_for("xray").as_deref(),
+            Some("XTLS/Xray-core")
+        );
+        assert_eq!(
+            service.release_repo_for("sing_box").as_deref(),
+            Some("SagerNet/sing-box")
+        );
+
+        // A build without a published self-release source must not fall back to
+        // the upstream `2dust/v2rayN` repo for the application target.
+        let unconfigured = UpdateService::new(std::env::temp_dir());
+        assert_eq!(unconfigured.release_repo_for("v2rayN"), None);
+        assert_eq!(
+            unconfigured.release_repo_for("xray").as_deref(),
+            Some("XTLS/Xray-core")
+        );
+    }
+
+    #[test]
+    fn app_source_unconfigured_check_is_blocked_without_fake_release() {
+        let service = UpdateService::new(std::env::temp_dir());
+        let check = service.app_source_unconfigured_check();
+        assert_eq!(check.core, "v2rayN");
+        assert!(!check.supported);
+        assert_eq!(
+            check.note.as_deref(),
+            Some("error.update_app_source_unconfigured")
+        );
+        // No upstream release info may be presented as an available update.
+        assert!(check.remote_version.is_none());
+        assert!(check.asset_name.is_none());
+        assert!(check.download_url.is_none());
+        assert!(!check.has_update);
     }
 }

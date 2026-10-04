@@ -876,6 +876,27 @@ pub async fn t16_check_updates(
     };
     let mut checks = Vec::new();
     for core in selected {
+        // R3-08: the application target must be checked against its own release
+        // source, never the upstream `2dust/v2rayN` repo. When this build has no
+        // source configured the row is reported explicitly blocked instead of
+        // presenting the upstream release as an available self-update.
+        if core == "v2rayN" {
+            if service.app_repo.is_none() {
+                checks.push(core_update_dto(service.app_source_unconfigured_check()));
+                continue;
+            }
+            match service.check_app_update(prerelease, proxy.as_deref()).await {
+                Ok(check) => checks.push(core_update_dto(check)),
+                Err(error) => {
+                    return UpdateReportDto {
+                        ok: false,
+                        checks,
+                        error: Some(error_dto(error)),
+                    }
+                }
+            }
+            continue;
+        }
         match service
             .check_core(&core, prerelease, proxy.as_deref())
             .await
@@ -1221,6 +1242,33 @@ mod tests {
             .block_on(t16_check_updates(vec!["xray".to_string()], false, true));
         assert!(!report.ok);
         assert_eq!(report.error.unwrap().code, codes::PROXY_UNAVAILABLE);
+    }
+
+    #[test]
+    fn check_updates_blocks_app_target_without_own_source() {
+        // No network: with no self-release source configured the application
+        // target is returned as an explicit blocked row (R3-08), never the
+        // upstream v2rayN release info.
+        if update_service().app_repo.is_some() {
+            return;
+        }
+        let report = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("current-thread runtime")
+            .block_on(t16_check_updates(vec!["v2rayN".to_string()], false, false));
+        assert!(report.ok);
+        let app = report
+            .checks
+            .iter()
+            .find(|c| c.core == "v2rayN")
+            .expect("application row present");
+        assert!(!app.supported);
+        assert_eq!(
+            app.note.as_deref(),
+            Some("error.update_app_source_unconfigured")
+        );
+        assert!(app.remote_version.is_none());
+        assert!(app.download_url.is_none());
     }
 
     #[test]

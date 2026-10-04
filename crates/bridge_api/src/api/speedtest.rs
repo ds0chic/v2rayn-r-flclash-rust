@@ -67,10 +67,11 @@ pub struct SpeedTestSupportDto {
     pub download: bool,
     pub mixed: bool,
     pub fast_real_ping: bool,
-    /// UDP latency test (RE-PROF-08). Supported on every desktop build through
-    /// a direct datagram probe; the entry stays visible and reports the reason
-    /// when the target/platform cannot answer instead of being permanently
-    /// disabled.
+    /// UDP latency test (RE-PROF-08 / R3-PROF-05). Gated on the real
+    /// node-routed capability (the SOCKS5 UDP associate probe over the test
+    /// core's local port), not the old host-direct datagram. The entry stays
+    /// visible and reports the reason when the association/target cannot
+    /// answer instead of being permanently disabled.
     pub udp: bool,
 }
 
@@ -196,19 +197,19 @@ impl SpeedTestSession for NetHostTestSession {
         })
     }
 
-    /// UDP latency test. Restricted-scope implementation: a direct datagram
-    /// round trip to the effective `UdpTestTarget` (protocol keyword or
-    /// `host:port`). It does not route through the session's SOCKS UDP
-    /// associate; node-routed UDP remains an isolated acceptance item
-    /// (RE-PROF-08).
+    /// UDP latency test through the node's temporary core: a SOCKS5 UDP
+    /// association over `session.port` (upstream `UdpTestService` +
+    /// `Socks5UdpChannel`). A host-direct datagram is never surfaced as a node
+    /// result, so a returned latency is attributable to the selected node
+    /// (R3-PROF-05).
     fn udp_ping(
         &self,
-        _session: &TestSession,
+        session: &TestSession,
         target: &str,
         timeout: Duration,
         ct: &domain::CancellationToken,
     ) -> Option<i32> {
-        application::speedtest::udp_ping(target, timeout, ct)
+        application::speedtest::udp_ping_via_socks(session.port, target, timeout, ct)
     }
 
     fn close(&self, session: TestSession) {
@@ -386,9 +387,9 @@ pub fn speedtest_configure(
     })
 }
 
-/// What this build can really do. UDP is supported by the direct loopback
-/// probe (RE-PROF-08); a failed target is reported as a structured failure,
-/// never a fake delay.
+/// What this build can really do (R3-PROF-05). UDP is gated on the real
+/// node-routed SOCKS5 UDP associate capability; a failed target is reported as
+/// a structured failure, never a fake delay.
 #[frb(sync)]
 pub fn speedtest_supported() -> SpeedTestSupportDto {
     SpeedTestSupportDto {
@@ -397,7 +398,7 @@ pub fn speedtest_supported() -> SpeedTestSupportDto {
         download: true,
         mixed: true,
         fast_real_ping: true,
-        udp: true,
+        udp: application::speedtest::udp_via_socks_supported(),
     }
 }
 
@@ -679,6 +680,19 @@ pub fn export_client_config(index_id: String) -> ExportClientConfigDto {
             }
         }
     };
+    // R3-PROF-06: a Custom profile's stored payload is the original config file.
+    // Upstream `CoreConfigHandler.GenerateClientCustomConfig` copies that file
+    // verbatim (`File.Copy`); running it through the JSON generator would wrap
+    // YAML / raw text as a quoted JSON string and corrupt it. Return the raw
+    // text byte-for-byte and keep the original file extension.
+    if matches!(profile.config_type, domain::ConfigType::Custom) {
+        return raw_custom_export(
+            &index_id,
+            &profile.address,
+            input.profile.custom_config.as_deref(),
+            core,
+        );
+    }
     let generated = match generate(core, &input) {
         Ok(generated) => generated,
         Err(error) => {
@@ -730,6 +744,54 @@ fn sanitize_export_name(index_id: &str) -> String {
         "config".to_string()
     } else {
         out
+    }
+}
+
+/// R3-PROF-06: return a Custom profile's stored config verbatim. Upstream
+/// `GenerateClientCustomConfig` copies the file (`File.Copy`), so the export
+/// text must be byte-identical and must never be re-serialized as a JSON
+/// string. A missing payload is an explicit failure (upstream
+/// `FailedGenDefaultConfiguration`), not a silent empty success.
+fn raw_custom_export(
+    index_id: &str,
+    address: &str,
+    raw: Option<&str>,
+    core: CoreType,
+) -> ExportClientConfigDto {
+    match raw {
+        Some(text) => ExportClientConfigDto {
+            ok: true,
+            text: text.to_string(),
+            core_type: core.value().to_string(),
+            file_name: custom_export_file_name(address, index_id),
+            error: None,
+        },
+        None => ExportClientConfigDto {
+            ok: false,
+            text: String::new(),
+            core_type: core.value().to_string(),
+            file_name: String::new(),
+            error: Some(
+                DomainError::new(domain::codes::NOT_FOUND, "error.custom_config_file_missing")
+                    .with_detail(address.to_string())
+                    .into(),
+            ),
+        },
+    }
+}
+
+/// A suggested file name that keeps the stored config's original extension
+/// (e.g. `.yaml`), so the save dialog does not offer a hard-coded `.json` for a
+/// raw Custom file.
+fn custom_export_file_name(address: &str, index_id: &str) -> String {
+    let stem = sanitize_export_name(index_id);
+    let ext = std::path::Path::new(address.trim())
+        .extension()
+        .and_then(|e| e.to_str())
+        .filter(|e| !e.is_empty());
+    match ext {
+        Some(ext) => format!("{stem}.{ext}"),
+        None => stem,
     }
 }
 
@@ -831,12 +893,16 @@ mod tests {
     }
 
     #[test]
-    fn udp_is_supported_by_the_direct_probe() {
+    fn udp_support_is_gated_by_the_socks_associate_path() {
         let support = speedtest_supported();
         assert!(support.tcp_ping && support.real_ping && support.download);
+        assert_eq!(
+            support.udp,
+            application::speedtest::udp_via_socks_supported()
+        );
         assert!(
             support.udp,
-            "RE-PROF-08: UDP is no longer permanently disabled"
+            "R3-PROF-05: node-routed UDP is supported on desktop"
         );
     }
 
@@ -872,5 +938,133 @@ mod tests {
             assert_eq!(h.settings.mixed_concurrency, 1);
             assert!(h.settings.ipapi_url.is_none());
         });
+    }
+
+    #[test]
+    fn raw_custom_export_preserves_bytes_and_original_extension() {
+        // R3-PROF-06: a Custom YAML/raw payload must survive the export API
+        // byte-for-byte (upstream `File.Copy`), never quoted/escaped as a JSON
+        // string, and the suggested name keeps the original extension.
+        let yaml = "mixed-port: 11980\nproxies:\n  - name: \"node\"\n    type: ss\n";
+        let dto = raw_custom_export("idx-1", "custom.yaml", Some(yaml), CoreType::Xray);
+        assert!(dto.ok);
+        assert_eq!(dto.text, yaml, "raw custom text must be byte-identical");
+        assert_eq!(dto.file_name, "idx-1.yaml");
+        assert!(
+            !dto.text.starts_with('"') && !dto.text.contains("\\n"),
+            "must not be wrapped as a JSON string"
+        );
+
+        let missing = raw_custom_export("idx-2", "missing.yaml", None, CoreType::Xray);
+        assert!(!missing.ok);
+        assert!(missing.text.is_empty());
+        assert_eq!(
+            missing.error.as_ref().map(|e| e.code.as_str()),
+            Some(domain::codes::NOT_FOUND)
+        );
+    }
+
+    /// Minimal std-only SOCKS5 UDP server: completes `UDP ASSOCIATE`, echoes the
+    /// datagram back and records the requested target. Binds TCP+UDP on the same
+    /// free port `>= 11808`.
+    fn socks_udp_server() -> (u16, std::thread::JoinHandle<()>, Arc<Mutex<Option<String>>>) {
+        use std::io::{Read, Write};
+        let (tcp, udp, port) = (11808u16..12408)
+            .find_map(|candidate| {
+                if candidate == 10_808 {
+                    return None;
+                }
+                let tcp = std::net::TcpListener::bind(("127.0.0.1", candidate)).ok()?;
+                let udp = std::net::UdpSocket::bind(("127.0.0.1", candidate)).ok()?;
+                Some((tcp, udp, candidate))
+            })
+            .expect("no free tcp+udp test port >= 11808");
+        udp.set_read_timeout(Some(Duration::from_millis(500)))
+            .expect("udp timeout");
+        let seen = Arc::new(Mutex::new(None));
+        let seen_udp = Arc::clone(&seen);
+        let handle = std::thread::spawn(move || {
+            let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let stop_udp = Arc::clone(&stop);
+            let echo_socket = udp.try_clone().expect("clone udp");
+            let echo = std::thread::spawn(move || {
+                let mut buf = [0u8; 2048];
+                while !stop_udp.load(std::sync::atomic::Ordering::SeqCst) {
+                    if let Ok((n, peer)) = echo_socket.recv_from(&mut buf) {
+                        if let Some(target) = parse_socks_udp_target(&buf[..n]) {
+                            *seen_udp.lock().unwrap() = Some(target);
+                        }
+                        let _ = echo_socket.send_to(&buf[..n], peer);
+                    }
+                }
+            });
+            if let Ok((mut control, _)) = tcp.accept() {
+                let _ = control.set_read_timeout(Some(Duration::from_secs(2)));
+                let mut greeting = [0u8; 3];
+                if control.read_exact(&mut greeting).is_ok() {
+                    let _ = control.write_all(&[0x05, 0x00]);
+                    let mut request = [0u8; 10];
+                    if control.read_exact(&mut request).is_ok() {
+                        let reply = [
+                            0x05,
+                            0x00,
+                            0x00,
+                            0x01,
+                            127,
+                            0,
+                            0,
+                            1,
+                            (port >> 8) as u8,
+                            (port & 0xff) as u8,
+                        ];
+                        let _ = control.write_all(&reply);
+                        std::thread::sleep(Duration::from_millis(400));
+                    }
+                }
+            }
+            stop.store(true, std::sync::atomic::Ordering::SeqCst);
+            let _ = echo.join();
+        });
+        (port, handle, seen)
+    }
+
+    fn parse_socks_udp_target(datagram: &[u8]) -> Option<String> {
+        if datagram.len() < 10 || datagram[2] != 0x00 || datagram[3] != 0x01 {
+            return None;
+        }
+        let port = u16::from_be_bytes([datagram[8], datagram[9]]);
+        Some(format!(
+            "{}.{}.{}.{}:{}",
+            datagram[4], datagram[5], datagram[6], datagram[7], port
+        ))
+    }
+
+    #[test]
+    fn udp_ping_routes_through_the_session_port() {
+        // R3-PROF-05: the probe must carry `session.port`, proving the old
+        // host-direct `udp_ping(target)` is no longer used for a node result.
+        let _guard = lock();
+        let (port, handle, seen) = socks_udp_server();
+        let provider = NetHostTestSession::new();
+        let session = TestSession {
+            node: TestNode {
+                index_id: "r3-prof-05".into(),
+                address: "192.0.2.1".into(),
+                port: 443,
+                config_type: domain::ConfigType::Vless.value(),
+                core_type: CoreType::Xray.value(),
+            },
+            port,
+            handle_id: "synthetic".into(),
+        };
+        let ct = domain::CancellationToken::new();
+        let delay = provider.udp_ping(&session, "192.0.2.9:11999", Duration::from_secs(2), &ct);
+        assert!(delay.is_some_and(|d| d >= 1), "delay={delay:?}");
+        let _ = handle.join();
+        assert_eq!(
+            seen.lock().unwrap().as_deref(),
+            Some("192.0.2.9:11999"),
+            "datagram must be relayed through session.port"
+        );
     }
 }

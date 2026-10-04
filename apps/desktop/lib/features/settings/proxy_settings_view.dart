@@ -2,6 +2,58 @@ import 'dart:io';
 
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 
+/// Client-facing proxy protocol of a loopback inbound, mirroring the Rust
+/// `runtime::ProxyProtocol` scheme (do not invent an HTTP inbound where the
+/// applied plan has a SOCKS one).
+enum ProxyProtocolKind { http, socks, mixed }
+
+/// A resolved local proxy endpoint: the applied port plus the protocol that
+/// determines whether the system-proxy / PAC rule must speak SOCKS or HTTP.
+class LocalProxyInbound {
+  const LocalProxyInbound({required this.port, required this.protocol});
+
+  final int port;
+  final ProxyProtocolKind protocol;
+}
+
+/// The loopback proxy inbound the system proxy should point at, mirroring
+/// upstream `AppManager.GetLocalPort(EInboundProtocol.socks)`: prefer the
+/// persisted SOCKS inbound (`Protocol` 0/1/2), otherwise the first inbound.
+/// Returns `null` when the document carries no usable inbound (the applied
+/// session port is then used with the default HTTP scheme).
+LocalProxyInbound? primaryLocalProxyInbound(Map<String, dynamic> document) {
+  final list = document['Inbound'];
+  if (list is! List) return null;
+  LocalProxyInbound? fallback;
+  for (final entry in list) {
+    if (entry is! Map) continue;
+    final port = (entry['LocalPort'] as num?)?.toInt();
+    if (port == null || port <= 0) continue;
+    final protocol = _proxyProtocolKind((entry['Protocol'] as num?)?.toInt());
+    if (protocol == ProxyProtocolKind.socks) {
+      return LocalProxyInbound(port: port, protocol: protocol);
+    }
+    fallback ??= LocalProxyInbound(port: port, protocol: protocol);
+  }
+  return fallback;
+}
+
+/// `EInboundProtocol` numeric -> protocol kind. Socks/Socks2/Socks3 (0/1/2)
+/// are SOCKS; Mixed (6) accepts HTTP; PAC/API/speedtest are internal and are
+/// never a client proxy (mapped to HTTP so they are not mistaken for SOCKS).
+ProxyProtocolKind _proxyProtocolKind(int? value) {
+  switch (value) {
+    case 0:
+    case 1:
+    case 2:
+      return ProxyProtocolKind.socks;
+    case 6:
+      return ProxyProtocolKind.mixed;
+    default:
+      return ProxyProtocolKind.http;
+  }
+}
+
 /// Pure helpers that translate the persisted `SystemProxyItem` settings fields
 /// into the arguments the platform bridge needs. Kept free of any I/O so it is
 /// trivially unit-testable and so the wiring never guesses a value.
@@ -60,6 +112,45 @@ String buildProxyServer({
       .replaceAll('{ip}', loopback)
       .replaceAll('{http_port}', '$port')
       .replaceAll('{socks_port}', '$port');
+}
+
+/// Build the `ForcedChange` named-proxy server string, protocol-aware: the
+/// advanced template (upstream `GetWindowsProxyString`) wins when set;
+/// otherwise a SOCKS endpoint uses the WinINET `socks=` form so the client is
+/// not told to speak HTTP to a SOCKS-only listener, and every other endpoint
+/// keeps upstream's bare `<loopback>:<port>`.
+String buildSystemProxyServer({
+  required int port,
+  required ProxyProtocolKind protocol,
+  String? advancedProtocol,
+  String loopback = '127.0.0.1',
+}) {
+  final template = advancedProtocol;
+  if (template != null && template.isNotEmpty) {
+    return buildProxyServer(
+      port: port,
+      advancedProtocol: template,
+      loopback: loopback,
+    );
+  }
+  if (protocol == ProxyProtocolKind.socks) {
+    return 'socks=$loopback:$port';
+  }
+  return '$loopback:$port';
+}
+
+/// Build the PAC directive substituted for `__PROXY__`, mirroring upstream
+/// `PacManager.cs:49` (`PROXY 127.0.0.1:{port};DIRECT;`) but honoring the
+/// applied protocol: a SOCKS endpoint gets the `SOCKS5` directive instead of
+/// pretending an HTTP proxy. This is deliberately separate from
+/// [buildProxyServer]: a WinINET named-proxy template is not a valid PAC rule.
+String buildPacProxyRule({
+  required int port,
+  ProxyProtocolKind protocol = ProxyProtocolKind.http,
+  String loopback = '127.0.0.1',
+}) {
+  final directive = protocol == ProxyProtocolKind.socks ? 'SOCKS5' : 'PROXY';
+  return '$directive $loopback:$port;DIRECT;';
 }
 
 /// Build the bypass/exception list, adding `<local>` when

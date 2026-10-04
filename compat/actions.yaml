@@ -5529,3 +5529,36 @@ items:
 #   the real error code instead of "没有重复节点".
 # Boundaries: synthetic controller/widget only; no real Windows window + FRB end-to-end, no real SQLite
 #   reopen; engine.delete_profiles still does not clear active (UI-level fallback only).
+
+# --- R3-01/R3-07-UI/R3-10 append (2026-10-04; evidence: docs/evidence/recheck-fixes/R3-01-07-10/) ---
+# ACT-STAT-001/002 + ACT-TRAY-005 (system proxy / PAC): PlatformController.applyModeFromConfig now
+#   builds the PAC rule with buildPacProxyRule (PROXY/SOCKS5 host:port;DIRECT;) and the ForcedChange
+#   string with the protocol-aware buildSystemProxyServer (socks= for a SOCKS endpoint); the applied
+#   port/protocol come from RuntimeView.ports + the persisted Inbound. No running session -> honest
+#   E_NO_RUNNING_SESSION. Tests: apps/desktop/test/r3_01_07_10_test.dart.
+# ACT-STAT route default (setDefaultAndReload): the status message follows the applied RuntimeView after
+#   reload; a failed/ineffective reload shows the concrete error instead of "已切换默认路由并重载". No
+#   Rust/IPC change. Test: apps/desktop/test/r3_01_07_10_test.dart.
+
+# --- R3-08/R3-PROF-06/R3-PROF-09/R3-SET-05/R3-SET-06/R3-ROOT-01 append (2026-10-04; evidence: docs/evidence/recheck-fixes/R3-MISC/; tasks: docs/tasks/R3-08.md, R3-PROF-06.md, R3-PROF-09.md, R3-SET-05.md, R3-SET-06.md, R3-ROOT-01.md) ---
+# Append only; no denominator change.
+# R3-08 (update check): t16_check_updates routes the v2rayN target through UpdateService::check_app_update
+#   (own app_repo); with no configured source it returns a blocked row (supported=false,
+#   note=error.update_app_source_unconfigured, no remote/asset) instead of the upstream 2dust/v2rayN release.
+#   release_repo_for() keeps cores on their frozen repos. Dual-repo routing asserted without network.
+# R3-PROF-06 (full-config export): speedtest::raw_custom_export returns a Custom profile's stored payload
+#   byte-for-byte (upstream File.Copy) and keeps the original extension; Dart suggests the address extension
+#   and reports Custom clipboard export as an explicit failure (upstream fileName=null -> CheckServerSettings).
+# R3-PROF-09 (cert fetch): profile_fields::fetchPeerCertPem connects to Address:Port then
+#   SecureSocket.secure(socket, host: serverName) sets SNI without a DNS lookup; loopback ClientHello
+#   fixture (port >= 11808) proves the documentation SNI is sent to the node IP. Full chain still blocked.
+# R3-SET-05 (hotkey partial failure): HotkeyController.save stays paused and drops the successful
+#   combinations' live registration when any conflict keeps the window open; cancelEdit restores on close.
+# R3-SET-06 (subs toast): main-menu/current-group toast reuses the real per-group summary
+#   (success/preserved/failed/skipped) and offers a failure-detail dialog; a partial failure is never
+#   summarized as all-success.
+# R3-ROOT-01 (F5 reload): RuntimeController.reload records a pending job while one is in flight and runs it
+#   once after (upstream _hasNextReloadJob); no active node prompts '配置项无效，请检查或重新选择'
+#   (upstream CheckServerSettings). The old busy no-op assertion is corrected.
+# Boundaries: no live app release source, no real OS hotkey, no real menu network, no real cert chain/TLS
+#   against a node, no full workspace gate, no flutter build windows.

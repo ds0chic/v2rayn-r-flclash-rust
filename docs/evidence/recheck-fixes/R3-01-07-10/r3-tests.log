@@ -1,0 +1,38 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-01 PAC renderer HTTP/mixed endpoint renders the upstream PROXY ...;DIRECT;
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-01 PAC renderer SOCKS endpoint renders a SOCKS5 directive, not a bare address
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-01 PAC renderer applyModeFromConfig(Pac) substitutes a full legal directive into pac.txt
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-07 system proxy / PAC protocol distinction primaryLocalProxyInbound prefers the SOCKS inbound
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-07 system proxy / PAC protocol distinction SOCKS endpoint drives socks= for ForcedChange and SOCKS5 for PAC
+00:00 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-07 system proxy / PAC protocol distinction HTTP/mixed endpoint keeps the bare named proxy and PROXY directive
+00:00 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-07 system proxy / PAC protocol distinction no running session reports honestly for both proxy and PAC
+00:00 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-10 routing reload honesty successful reload keeps the applied fact and reports success
+00:00 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart: R3-10 routing reload honesty failed reload saves the default but reports the concrete failure
+00:00 +9: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart
+00:00 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: tray menu model follows the upstream ContextMenu order and marks the active mode
+00:00 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: tray menu model PAC entry is Windows-only
+00:00 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: tray menu model node submenu hides above TrayMenuServersLimit
+00:00 +12: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: proxy settings view parses SystemProxyItem into a typed view
+00:00 +13: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: proxy settings view builds server with and without the advanced template
+00:00 +14: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: proxy settings view builds bypass adding <local>
+00:00 +15: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: platform controller apply records the mode and reads state back from the bridge
+00:00 +16: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: platform controller failed apply keeps the error and does not fake success
+00:00 +17: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: platform controller restore reports user conflicts without pretending a clean restore
+00:00 +18: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart: platform controller desired mode is read from the settings document
+00:00 +19: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr02_03_test.dart
+00:00 +19: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr02_03_test.dart: RR-02 default routing command setDefaultAndReload persists the default and triggers reload/apply
+00:00 +20: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr02_03_test.dart: RR-02 default routing command select stays edit-selection only and never changes the default
+00:00 +21: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr02_03_test.dart: RR-03 system proxy / PAC PAC saves SysProxyType and serves the configured pac.txt
+00:01 +22: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr02_03_test.dart: RR-03 system proxy / PAC mode without a running session reports honestly
+00:01 +23: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr02_03_test.dart: RR-03 system proxy / PAC startup restore re-applies the saved mode from the applied port
+00:01 +24: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart
+00:01 +24: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart: PAC file selection (upstream PacManager.InitText) custom path wins when configured
+00:01 +25: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart: PAC file selection (upstream PacManager.InitText) empty/missing custom path falls back to configDir/pac.txt
+00:01 +26: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart: PAC file selection (upstream PacManager.InitText) bundled default template carries the __PROXY__ placeholder
+00:01 +27: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart: PlatformController.startPacFromConfig seeds pac.txt from the default template when missing
+00:01 +28: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart: PlatformController.startPacFromConfig reads an existing pac.txt instead of reseeding
+00:01 +29: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart: PlatformController.startPacFromConfig uses the configured custom PAC path verbatim
+00:01 +30: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart: PlatformController.startPacFromConfig surfaces a structured error when the file cannot be read
+00:01 +31: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_pac_resolve_test.dart: mode persistence boundary PAC mode write preserves sibling SystemProxyItem fields
+00:01 +32: All tests passed!
+r3-tests exit=0

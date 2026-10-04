@@ -294,4 +294,48 @@ void main() {
       isTrue,
     );
   });
+
+  test('R3-SET-05 partial failure stays paused until the edit ends', () async {
+    final registrar = _FakeOsRegistrar(
+      failing: <GlobalHotkeyAction>{GlobalHotkeyAction.showForm},
+    );
+    final container = _container(registrar);
+    addTearDown(container.dispose);
+    final fired = <GlobalHotkeyAction>[];
+    container.read(hotkeyDispatchProvider).handler = fired.add;
+    final controller = container.read(hotkeyControllerProvider.notifier);
+
+    await controller.beginEdit();
+    final ok = await controller.save(const <HotkeyBinding>[
+      HotkeyBinding(
+        action: GlobalHotkeyAction.showForm,
+        control: true,
+        keyCode: 54,
+      ),
+      HotkeyBinding(
+        action: GlobalHotkeyAction.systemProxySet,
+        control: true,
+        keyCode: 53,
+      ),
+    ], () => true);
+
+    expect(ok, isFalse);
+    expect(
+      controller.isPaused,
+      isTrue,
+      reason: 'editor still open after conflict',
+    );
+    // The successful combination was registered only to detect the conflict and
+    // then dropped; it must not fire while editing continues.
+    expect(registrar.trigger, isNull);
+    registrar.pressCombo(53, control: true);
+    expect(fired, isEmpty);
+
+    // Ending the edit (cancel/close) restores the persisted bindings.
+    await controller.cancelEdit();
+    expect(controller.isPaused, isFalse);
+    expect(registrar.trigger, isNotNull);
+    registrar.pressCombo(53, control: true);
+    expect(fired, <GlobalHotkeyAction>[GlobalHotkeyAction.systemProxySet]);
+  });
 }

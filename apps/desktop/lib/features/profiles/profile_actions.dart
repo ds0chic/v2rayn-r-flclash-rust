@@ -23,15 +23,22 @@ typedef ClientConfigSavePicker = Future<String?> Function(String suggestedName);
 
 final clientConfigSavePickerProvider = Provider<ClientConfigSavePicker>((ref) {
   return (String suggestedName) async {
+    final ext = _extensionOf(suggestedName);
     final location = await getSaveLocation(
       suggestedName: suggestedName,
       acceptedTypeGroups: <XTypeGroup>[
-        const XTypeGroup(label: '配置', extensions: <String>['json']),
+        XTypeGroup(label: ext.toUpperCase(), extensions: <String>[ext]),
       ],
     );
     return location?.path;
   };
 });
+
+String _extensionOf(String name) {
+  final dot = name.lastIndexOf('.');
+  if (dot < 0 || dot == name.length - 1) return 'json';
+  return name.substring(dot + 1).toLowerCase();
+}
 
 /// Resolve the single-object command target.
 ///
@@ -46,6 +53,50 @@ String? resolveSingleTarget(ProfilesState state, String? explicit) {
   if (primary != null && primary.isNotEmpty) return primary;
   if (state.selected.length == 1) return state.selected.first;
   return null;
+}
+
+/// Config type + stored file name for a command target. Custom nodes point at
+/// their original config file through [address], which carries the real
+/// extension and marks the raw (non-generated) export path.
+({ConfigType configType, String address})? _profileInfoFor(
+  ProfilesState state,
+  String id,
+) {
+  for (final row in state.all) {
+    if (row.id == id) return (configType: row.configType, address: row.address);
+  }
+  for (final dto in state.profiles) {
+    if (dto.indexId == id) {
+      return (configType: dto.configType, address: dto.address);
+    }
+  }
+  return null;
+}
+
+/// Suggested save name for the full-config export. A Custom node keeps its
+/// original extension (upstream saves the raw file unchanged); every other
+/// node exports generated JSON as `config.json`.
+String _exportFileName(String id, {required bool isCustom, String? address}) {
+  if (!isCustom) return 'config.json';
+  final name = address?.trim() ?? '';
+  final dot = name.lastIndexOf('.');
+  if (dot >= 0 && dot < name.length - 1) {
+    return '${_sanitizeExportName(id)}.${name.substring(dot + 1).toLowerCase()}';
+  }
+  return '${_sanitizeExportName(id)}.json';
+}
+
+String _sanitizeExportName(String id) {
+  final buffer = StringBuffer();
+  for (final unit in id.codeUnits) {
+    final ch = String.fromCharCode(unit);
+    if (RegExp(r'[A-Za-z0-9_-]').hasMatch(ch)) {
+      buffer.write(ch);
+    } else {
+      buffer.write('_');
+    }
+  }
+  return buffer.isEmpty ? 'config' : buffer.toString();
 }
 
 /// Export a single node's complete client configuration.
@@ -72,6 +123,9 @@ Future<void> exportSelectedClientConfig(
     return;
   }
 
+  final info = _profileInfoFor(state, id);
+  final isCustom = info?.configType == ConfigType.custom;
+
   final bridge = ref.read(bridgePortProvider);
   final result = bridge.exportClientConfigText(id);
   if (!result.ok) {
@@ -80,13 +134,23 @@ Future<void> exportSelectedClientConfig(
   }
 
   if (toClipboard) {
+    // Upstream `Export2ClientConfigAsync(blClipboard)` passes `fileName=null`;
+    // for a Custom node `GenerateClientCustomConfig` fails with
+    // `CheckServerSettings`. A raw Custom file is not client-config text, so
+    // report the explicit failure instead of pretending a clipboard success.
+    if (isCustom) {
+      _toast(ref, '自定义配置不支持复制到剪贴板，请使用导出到文件');
+      return;
+    }
     await Clipboard.setData(ClipboardData(text: result.text));
     _toast(ref, '已复制完整配置到剪贴板');
     return;
   }
 
   final picker = ref.read(clientConfigSavePickerProvider);
-  final path = await picker('config.json');
+  final path = await picker(
+    _exportFileName(id, isCustom: isCustom, address: info?.address),
+  );
   if (path == null || path.trim().isEmpty) {
     return;
   }

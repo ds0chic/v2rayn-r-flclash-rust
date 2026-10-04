@@ -259,7 +259,7 @@ pub fn resolve_sub_children<'a>(
     let filter = compile_filter(profile).ok().flatten();
     let mut matched: Vec<&Profile> = all
         .values()
-        .filter(|p| sub_ids.contains(&p.subid) && is_eligible_child(p))
+        .filter(|p| sub_ids.contains(&p.subid) && is_eligible_child(p) && p.is_valid())
         .filter(|p| match &filter {
             Some(re) => re.is_match(&p.remarks),
             None => true,
@@ -406,6 +406,7 @@ mod tests {
             remarks: remarks.into(),
             address: "192.0.2.1".into(),
             port: 443,
+            password: "11111111-1111-1111-1111-111111111111".into(),
             ..Default::default()
         }
     }
@@ -495,5 +496,30 @@ mod tests {
             .map(|p| p.index_id.as_str())
             .collect();
         assert_eq!(resolved, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn sub_children_drop_invalid_leaves() {
+        // R3-PROF-07: a tolerant import can hold leaves missing a UUID or an
+        // address; upstream `GroupProfileManager` keeps only `p.IsValid()`
+        // subscription children, so the auto policy group must skip them.
+        let mut group = new_group(ConfigType::PolicyGroup, "g".into(), MultipleLoad::LeastPing);
+        group.index_id = "g".into();
+        group.subid = "sub-1".into();
+        group.proto_extra.sub_child_items = Some("sub-1".into());
+
+        let valid = leaf("valid", "sub-1", "HK-valid");
+        let mut missing_uuid = leaf("bad-uuid", "sub-1", "HK-uuid");
+        missing_uuid.config_type = ConfigType::Vmess;
+        missing_uuid.password = String::new();
+        let mut missing_addr = leaf("bad-addr", "sub-1", "HK-addr");
+        missing_addr.address = String::new();
+
+        let all = map(vec![valid, missing_uuid, missing_addr]);
+        let resolved: Vec<&str> = resolve_sub_children(&group, &all)
+            .iter()
+            .map(|p| p.index_id.as_str())
+            .collect();
+        assert_eq!(resolved, vec!["valid"]);
     }
 }

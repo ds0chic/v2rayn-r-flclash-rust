@@ -1332,12 +1332,25 @@ pub fn monitor_start_polling() {
 }
 
 fn poll_loop(shared: Arc<Mutex<MonitorHub>>) {
+    // R3-06: the loop must run *inside* a continuously driven async executor.
+    // The previous sync loop called `rt.block_on(src.poll())` once (an
+    // immediate in-memory snapshot) and then blocked the thread with
+    // `std::thread::sleep`. That never let the runtime poll the tasks
+    // `SingboxTrafficSource` spawns for the WS connect/pump, so sing-box
+    // statistics could stay at zero forever. Keeping the whole loop as one
+    // async future on the same current-thread runtime lets those spawned tasks
+    // run while the loop awaits its cadence timer, and hiding the UI is
+    // irrelevant because this thread is independent of the widget tree.
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
     else {
         return;
     };
+    rt.block_on(poll_loop_async(shared));
+}
+
+async fn poll_loop_async(shared: Arc<Mutex<MonitorHub>>) {
     let mut source: Option<Box<dyn StatsSource>> = None;
     loop {
         let (core, p1, p2, signature, active) = {
@@ -1357,7 +1370,10 @@ fn poll_loop(shared: Arc<Mutex<MonitorHub>>) {
             )
         };
         if !active || (p1 == 0 && p2 == 0) {
-            std::thread::sleep(Duration::from_millis(500));
+            // Drop any stale source so a stopped session's WS task is cancelled
+            // instead of accumulating against a dead endpoint.
+            source = None;
+            tokio::time::sleep(Duration::from_millis(500)).await;
             continue;
         }
         let changed = {
@@ -1370,10 +1386,10 @@ fn poll_loop(shared: Arc<Mutex<MonitorHub>>) {
             }
         };
         if changed || source.is_none() {
-            source = build_source(&rt, core, p1, p2);
+            source = build_source(core, p1, p2);
         }
         if let Some(src) = source.as_mut() {
-            if let Ok(samples) = rt.block_on(src.poll()) {
+            if let Ok(samples) = src.poll().await {
                 let generation = src.generation();
                 let today = epoch_day(now_unix());
                 let (dto, sinks) = {
@@ -1393,24 +1409,20 @@ fn poll_loop(shared: Arc<Mutex<MonitorHub>>) {
                 }
             }
         }
-        std::thread::sleep(POLL_INTERVAL);
+        tokio::time::sleep(POLL_INTERVAL).await;
     }
 }
 
-fn build_source(
-    rt: &tokio::runtime::Runtime,
-    core: CoreType,
-    state_port: u16,
-    state_port2: u16,
-) -> Option<Box<dyn StatsSource>> {
+fn build_source(core: CoreType, state_port: u16, state_port2: u16) -> Option<Box<dyn StatsSource>> {
     match core {
         CoreType::Xray | CoreType::V2fly | CoreType::V2flyV5 => {
             XrayStatsSource::new(state_port, STATS_TIMEOUT)
                 .ok()
                 .map(|s| Box::new(s) as Box<dyn StatsSource>)
         }
-        CoreType::SingBox => rt
-            .block_on(async { SingboxTrafficSource::new(TrafficConfig::new(state_port2)) })
+        // Requires the ambient runtime: the caller runs inside `poll_loop`'s
+        // `rt.block_on`, so the WS task is spawned onto the same executor.
+        CoreType::SingBox => SingboxTrafficSource::new(TrafficConfig::new(state_port2))
             .ok()
             .map(|s| Box::new(s) as Box<dyn StatsSource>),
         _ => None,
@@ -1681,5 +1693,256 @@ mod tests {
         rebind_store(&mut hub, None, || None);
         assert!(hub.store_bound);
         assert!(hub.store_error.is_none());
+    }
+
+    // -----------------------------------------------------------------------
+    // R3-06: the production hub must continuously drive the sing-box WS task.
+    //
+    // The mock here is deliberately std-only (a hand-rolled WebSocket server):
+    // `bridge_api` has no tungstennite/net dependency and the point is to drive
+    // the real `monitor_start_polling` entry, not a test-only source.
+    // -----------------------------------------------------------------------
+
+    /// Bind the first free `127.0.0.1` port `>= 11808`.
+    fn bind_floor_listener() -> std::net::TcpListener {
+        (11808u16..13000)
+            .find_map(|port| {
+                if port == 10_808 {
+                    return None;
+                }
+                std::net::TcpListener::bind(("127.0.0.1", port)).ok()
+            })
+            .expect("no free loopback port >= 11808")
+    }
+
+    struct TrafficWsServer {
+        port: u16,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        handle: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl TrafficWsServer {
+        fn start() -> Self {
+            let listener = bind_floor_listener();
+            let port = listener.local_addr().expect("ws addr").port();
+            let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let flag = std::sync::Arc::clone(&stop);
+            let handle = std::thread::spawn(move || {
+                while !flag.load(Ordering::SeqCst) {
+                    let Ok((stream, _)) = listener.accept() else {
+                        return;
+                    };
+                    let _ = serve_ws_connection(stream, &flag);
+                }
+            });
+            Self {
+                port,
+                stop,
+                handle: Some(handle),
+            }
+        }
+    }
+
+    impl Drop for TrafficWsServer {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::SeqCst);
+            // Wake the blocking `accept()` so the thread observes `stop`.
+            let _ = std::net::TcpStream::connect(("127.0.0.1", self.port));
+            if let Some(handle) = self.handle.take() {
+                let _ = handle.join();
+            }
+        }
+    }
+
+    fn serve_ws_connection(
+        mut stream: std::net::TcpStream,
+        stop: &std::sync::atomic::AtomicBool,
+    ) -> std::io::Result<()> {
+        use std::io::{Read, Write};
+        stream.set_read_timeout(Some(Duration::from_millis(200)))?;
+        stream.set_write_timeout(Some(Duration::from_millis(500)))?;
+        let mut request = Vec::new();
+        let mut buf = [0u8; 1024];
+        while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+            let n = stream.read(&mut buf)?;
+            if n == 0 || request.len() > 16 * 1024 {
+                return Ok(());
+            }
+            request.extend_from_slice(&buf[..n]);
+        }
+        let text = String::from_utf8_lossy(&request);
+        let Some(key) = text.lines().find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("sec-websocket-key")
+                .then(|| value.trim().to_string())
+        }) else {
+            return Ok(());
+        };
+        let response = format!(
+            "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {}\r\n\r\n",
+            ws_accept_key(&key)
+        );
+        stream.write_all(response.as_bytes())?;
+        stream.flush()?;
+        // Server->client frames are unmasked; push a non-zero delta forever.
+        while !stop.load(Ordering::SeqCst) {
+            if stream
+                .write_all(&ws_text_frame(r#"{"up":100,"down":200}"#))
+                .is_err()
+            {
+                return Ok(());
+            }
+            let _ = stream.flush();
+            std::thread::sleep(Duration::from_millis(60));
+        }
+        Ok(())
+    }
+
+    fn ws_text_frame(body: &str) -> Vec<u8> {
+        let payload = body.as_bytes();
+        assert!(payload.len() < 126);
+        let mut frame = Vec::with_capacity(payload.len() + 2);
+        frame.push(0x81);
+        frame.push(payload.len() as u8);
+        frame.extend_from_slice(payload);
+        frame
+    }
+
+    const WS_GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+    fn ws_accept_key(key: &str) -> String {
+        let mut data = Vec::with_capacity(key.len() + WS_GUID.len());
+        data.extend_from_slice(key.as_bytes());
+        data.extend_from_slice(WS_GUID.as_bytes());
+        base64(&sha1(&data))
+    }
+
+    #[allow(clippy::needless_range_loop)]
+    fn sha1(data: &[u8]) -> [u8; 20] {
+        let mut h: [u32; 5] = [
+            0x6745_2301,
+            0xEFCD_AB89,
+            0x98BA_DCFE,
+            0x1032_5476,
+            0xC3D2_E1F0,
+        ];
+        let bit_len = (data.len() as u64) * 8;
+        let mut msg = data.to_vec();
+        msg.push(0x80);
+        while msg.len() % 64 != 56 {
+            msg.push(0);
+        }
+        msg.extend_from_slice(&bit_len.to_be_bytes());
+        for chunk in msg.chunks(64) {
+            let mut w = [0u32; 80];
+            for i in 0..16 {
+                w[i] = u32::from_be_bytes([
+                    chunk[4 * i],
+                    chunk[4 * i + 1],
+                    chunk[4 * i + 2],
+                    chunk[4 * i + 3],
+                ]);
+            }
+            for i in 16..80 {
+                w[i] = (w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16]).rotate_left(1);
+            }
+            let (mut a, mut b, mut c, mut d, mut e) = (h[0], h[1], h[2], h[3], h[4]);
+            for (i, wi) in w.iter().enumerate() {
+                let (f, k) = match i {
+                    0..=19 => ((b & c) | ((!b) & d), 0x5A82_7999u32),
+                    20..=39 => (b ^ c ^ d, 0x6ED9_EBA1),
+                    40..=59 => ((b & c) | (b & d) | (c & d), 0x8F1B_BCDC),
+                    _ => (b ^ c ^ d, 0xCA62_C1D6),
+                };
+                let temp = a
+                    .rotate_left(5)
+                    .wrapping_add(f)
+                    .wrapping_add(e)
+                    .wrapping_add(k)
+                    .wrapping_add(*wi);
+                e = d;
+                d = c;
+                c = b.rotate_left(30);
+                b = a;
+                a = temp;
+            }
+            h[0] = h[0].wrapping_add(a);
+            h[1] = h[1].wrapping_add(b);
+            h[2] = h[2].wrapping_add(c);
+            h[3] = h[3].wrapping_add(d);
+            h[4] = h[4].wrapping_add(e);
+        }
+        let mut out = [0u8; 20];
+        for (i, word) in h.iter().enumerate() {
+            out[4 * i..4 * i + 4].copy_from_slice(&word.to_be_bytes());
+        }
+        out
+    }
+
+    fn base64(data: &[u8]) -> String {
+        const TABLE: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut out = String::new();
+        for chunk in data.chunks(3) {
+            let b = [
+                chunk[0],
+                *chunk.get(1).unwrap_or(&0),
+                *chunk.get(2).unwrap_or(&0),
+            ];
+            let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+            out.push(TABLE[((n >> 18) & 63) as usize] as char);
+            out.push(TABLE[((n >> 12) & 63) as usize] as char);
+            if chunk.len() > 1 {
+                out.push(TABLE[((n >> 6) & 63) as usize] as char);
+            } else {
+                out.push('=');
+            }
+            if chunk.len() > 2 {
+                out.push(TABLE[(n & 63) as usize] as char);
+            } else {
+                out.push('=');
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn production_hub_drives_singbox_ws_statistics() {
+        let _guard = lock();
+        setup();
+        let server = TrafficWsServer::start();
+        // `monitor_start_polling` starts the process-global thread and syncs it
+        // from the engine (no session here), so configure the hub after it.
+        monitor_start_polling();
+        monitor_configure(
+            CoreType::SingBox.value(),
+            0,
+            server.port as u32,
+            None,
+            true,
+            false,
+            200,
+        );
+        monitor_set_active_node(Some("r3-06-node".into()));
+
+        let mut observed = 0u64;
+        for _ in 0..240 {
+            observed = observed.max(stats_snapshot().proxy_up);
+            if observed > 0 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(
+            observed > 0,
+            "production hub never collected a non-zero WS delta"
+        );
+        let snap = stats_snapshot();
+        assert!(
+            snap.nodes
+                .iter()
+                .any(|n| n.index_id == "r3-06-node" && n.total_up > 0),
+            "active node did not receive the proxy attribution"
+        );
     }
 }

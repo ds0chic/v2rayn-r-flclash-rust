@@ -341,6 +341,24 @@ class RoutingController extends Notifier<RoutingState> {
     final result = setDefault(id);
     if (!result.ok) return;
     await ref.read(runtimeControllerProvider.notifier).reload();
+    // The success toast must reflect the new applied fact, not the save alone:
+    // a routing change that fails codegen/config-check is not "已重载". The
+    // upstream "save default then Reload" order is preserved either way.
+    final runtime = ref.read(runtimeControllerProvider);
+    if (runtime.error != null) {
+      state = state.copyWith(
+        status:
+            '默认路由已保存，但重载失败: ${runtime.error!.code} '
+            '(${runtime.error!.messageKey})',
+      );
+      return;
+    }
+    if (runtime.hasUnappliedChanges) {
+      state = state.copyWith(
+        status: '默认路由已保存，但重载未生效（${runtime.revisionLabel}）',
+      );
+      return;
+    }
     state = state.copyWith(status: '已切换默认路由并重载');
   }
 

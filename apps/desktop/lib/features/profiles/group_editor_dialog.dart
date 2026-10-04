@@ -36,6 +36,52 @@ bool _remarksMatch(String? filter, String remarks) {
   }
 }
 
+final RegExp _guidPattern = RegExp(
+  r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
+);
+
+/// VLESS flows accepted by `ProfileItem.IsValid()` (`Global.Flows`).
+const List<String> _vlessFlows = <String>[
+  '',
+  'xtls-rprx-vision',
+  'xtls-rprx-vision-udp443',
+];
+
+/// Dart port of `domain::Profile::is_valid` (upstream `ProfileItem.IsValid()`):
+/// complex/Outbound kinds are always valid, ordinary nodes need a usable
+/// address/port plus their protocol credentials. Subscription-derived policy
+/// group children are filtered by this so a tolerant import's invalid leaves
+/// never enter the group (upstream `GroupProfileManager` requires
+/// `p.IsValid()`), keeping the preview in sync with Rust `resolve_sub_children`
+/// (R3-PROF-07).
+bool _isProfileValid(c.ProfileDto p) {
+  final type = p.configType;
+  if (isComplexProfile(type) || type == ConfigType.outbound) return true;
+  if (p.address.trim().isEmpty || p.port < 1 || p.port > 65535) return false;
+  switch (type) {
+    case ConfigType.vmess:
+      if (!_guidPattern.hasMatch(p.password)) return false;
+      break;
+    case ConfigType.vless:
+      if (p.password.isEmpty) return false;
+      if (!_guidPattern.hasMatch(p.password) && p.password.length > 30) {
+        return false;
+      }
+      if (!_vlessFlows.contains(p.protoExtra.flow ?? '')) return false;
+      break;
+    case ConfigType.shadowsocks:
+      if (p.password.isEmpty) return false;
+      break;
+    default:
+      break;
+  }
+  final isReality =
+      (type == ConfigType.vless || type == ConfigType.trojan) &&
+      (p.security.streamSecurity ?? '').toLowerCase() == 'reality';
+  if (isReality && (p.security.publicKey ?? '').isEmpty) return false;
+  return true;
+}
+
 /// Resolve the current group/chain draft for the editor preview.
 ///
 /// Faithful Dart port of the persisted generation path
@@ -60,6 +106,7 @@ List<c.ProfileDto> resolveGroupPreview({
       for (final p in all)
         if (subIds.contains(p.subid) &&
             _isEligibleSubChild(p.configType) &&
+            _isProfileValid(p) &&
             _remarksMatch(filter, p.remarks))
           p,
     ]..sort((a, b) => a.indexId.compareTo(b.indexId));

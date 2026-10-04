@@ -350,19 +350,87 @@ Future<void> updateAllSubscriptions(
   ref.read(subsControllerProvider.notifier).reload();
   final result = await subs.update(viaProxy: viaProxy);
   ref.read(profilesControllerProvider.notifier).reload();
-  _toast(ref, _updateToast(result, viaProxy: viaProxy));
+  _toast(ref, subsUpdateSummary(result, viaProxy: viaProxy));
+  if (hasSubUpdateFailures(result) && context.mounted) {
+    await _showSubUpdateDetails(context, result);
+  }
 }
 
-String _updateToast(dynamic result, {required bool viaProxy}) {
-  if (result.ok) return '订阅更新完成：成功 ${result.success}';
+String subsUpdateSummary(c.SubUpdateResult result, {required bool viaProxy}) {
   if (result.cancelled) return '订阅更新已取消';
-  // "Via proxy" without a local endpoint never falls back to direct:
-  // say so instead of a generic failure.
-  if (result.error?.code == 'E_PROXY_UNAVAILABLE') {
-    return '经代理更新失败：本地代理不可用（E_PROXY_UNAVAILABLE），已保留旧节点';
+  if (result.entries.isEmpty) {
+    // "Via proxy" without a local endpoint never falls back to direct:
+    // say so instead of a generic failure.
+    if (result.error?.code == 'E_PROXY_UNAVAILABLE') {
+      return '经代理更新失败：本地代理不可用（E_PROXY_UNAVAILABLE），已保留旧节点';
+    }
+    final detail = result.error?.code;
+    return detail == null ? '订阅更新未成功，旧节点已保留' : '订阅更新未成功（$detail），旧节点已保留';
   }
-  final detail = result.error?.code;
-  return detail == null ? '订阅更新未成功，旧节点已保留' : '订阅更新未成功（$detail），旧节点已保留';
+  // Reuse the real per-group report so a partial failure is never summarized as
+  // an all-success (R3-SET-06).
+  final updated = result.entries.where((e) => e.status == 'updated').length;
+  final preserved = result.entries
+      .where((e) => e.status.startsWith('preserved'))
+      .length;
+  final skipped = result.entries.where((e) => e.status == 'skipped').length;
+  final failed = result.entries
+      .where((e) => e.status == 'failed' || e.status == 'preserved_error')
+      .length;
+  final parts = <String>['成功 $updated'];
+  if (preserved > 0) parts.add('保留 $preserved');
+  if (failed > 0) parts.add('失败 $failed');
+  if (skipped > 0) parts.add('跳过 $skipped');
+  return '订阅更新完成：${parts.join('，')}';
+}
+
+bool hasSubUpdateFailures(c.SubUpdateResult result) => result.entries.any(
+  (e) => e.status == 'failed' || e.status == 'preserved_error',
+);
+
+/// Show the per-group failure rows so the main-menu toast never hides a partial
+/// subscription failure behind an "all success" line (R3-SET-06).
+Future<void> _showSubUpdateDetails(
+  BuildContext context,
+  c.SubUpdateResult result,
+) async {
+  final failed = result.entries
+      .where((e) => e.status == 'failed' || e.status == 'preserved_error')
+      .toList();
+  if (failed.isEmpty) return;
+  await showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      key: const ValueKey('subs-update-failures'),
+      title: const Text('订阅更新失败详情', style: TextStyle(fontSize: 15)),
+      content: SizedBox(
+        width: 520,
+        child: ListView(
+          shrinkWrap: true,
+          children: <Widget>[
+            for (final entry in failed)
+              ListTile(
+                dense: true,
+                title: Text(
+                  entry.remarks.isEmpty ? entry.subId : entry.remarks,
+                ),
+                subtitle: Text(
+                  '${entry.status}'
+                  '${entry.code == null ? '' : ' / ${entry.code}'}'
+                  '${entry.message == null ? '' : ' — ${entry.message}'}',
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('关闭'),
+        ),
+      ],
+    ),
+  );
 }
 
 /// ACT-MAIN-022/023: update the current subscription group.
@@ -383,14 +451,11 @@ Future<void> updateCurrentGroup(
   ref.read(profilesControllerProvider.notifier).reload();
   _toast(
     ref,
-    result.ok
-        ? '订阅“${selected.remarks}”更新完成'
-        : (result.cancelled
-              ? '已取消'
-              : (result.error?.code == 'E_PROXY_UNAVAILABLE'
-                    ? '经代理更新失败：本地代理不可用（E_PROXY_UNAVAILABLE），已保留旧节点'
-                    : '更新未成功，旧节点已保留')),
+    '订阅“${selected.remarks}”：${subsUpdateSummary(result, viaProxy: viaProxy)}',
   );
+  if (hasSubUpdateFailures(result) && context.mounted) {
+    await _showSubUpdateDetails(context, result);
+  }
 }
 
 void _toast(WidgetRef ref, String message) {

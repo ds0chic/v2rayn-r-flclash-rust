@@ -1,0 +1,6 @@
+Analyzing desktop...                                            
+
+warning - The declaration '_isProfileValid' isn't referenced. Try removing the declaration of '_isProfileValid' - lib\features\profiles\group_editor_dialog.dart:57:6 - unused_element
+
+1 issue found. (ran in 4.1s)
+analyze exit=1

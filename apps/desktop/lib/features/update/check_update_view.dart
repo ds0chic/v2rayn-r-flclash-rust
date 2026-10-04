@@ -146,8 +146,11 @@ class _TargetRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final enabled = target.supported;
+    final blocked = check != null && !check!.supported;
     final label = check == null
         ? '—'
+        : blocked
+        ? _noteLabel(check!.note)
         : check!.hasUpdate
         ? '可更新 ${check!.remoteVersion ?? ''}'
         : '已是最新 ${check!.remoteVersion ?? ''}';
@@ -187,7 +190,9 @@ class _TargetRow extends StatelessWidget {
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 12,
-                color: enabled && check?.hasUpdate == true
+                color: blocked
+                    ? scheme.error
+                    : enabled && check?.hasUpdate == true
                     ? scheme.primary
                     : scheme.onSurfaceVariant,
               ),
@@ -197,6 +202,19 @@ class _TargetRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Human-readable text for a per-target check note. A missing own release
+/// source is shown as an explicit block, never as "up to date" (R3-08).
+String _noteLabel(String? note) {
+  switch (note) {
+    case 'error.update_app_source_unconfigured':
+      return '应用自身发行源未配置';
+    case 'error.update_unsupported':
+      return '不支持更新';
+    default:
+      return (note == null || note.isEmpty) ? '不可用' : note;
   }
 }
 

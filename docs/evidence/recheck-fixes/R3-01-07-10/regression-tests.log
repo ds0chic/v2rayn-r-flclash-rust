@@ -1,0 +1,42 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_statusbar_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_statusbar_test.dart: status bar shows the four system-proxy modes and applies one
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_statusbar_test.dart: status bar renders the current proxy state label
+00:00 +2: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: tray shared use cases and dynamic sync tray leaf actions map to the main window command ids
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: tray shared use cases and dynamic sync routing/nodes submenus carry live entries, respecting the limit
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: tray shared use cases and dynamic sync nodes submenu hides above the configured limit
+00:00 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: tray shared use cases and dynamic sync TrayAction exposes the shared command for a menu item
+00:00 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: system proxy mode persistence mode toggle preserves the other SystemProxyItem fields
+00:00 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: system proxy mode persistence missing group yields just the mode
+00:00 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: platform controller PAC lifecycle startPac publishes the real handle and stopPac clears it
+00:01 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: platform controller PAC lifecycle pac failure surfaces the error without faking success
+00:01 +10: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_r01_runtime_reload_test.dart
+00:01 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_r01_runtime_reload_test.dart: reload refreshes the desired revision and applies the active plan
+00:01 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_r01_runtime_reload_test.dart: reload skips apply when there is no persisted active node
+00:01 +12: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_r01_runtime_reload_test.dart: reload is a no-op while the runtime is busy
+00:01 +13: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart
+00:01 +13: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart: revision label renders desired/applied without fabricating values
+00:01 +14: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart: applied endpoint is only exposed for a running session
+00:01 +15: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart: controller records epoch/seq and flags out-of-order events
+[runtime] runtime event out of order: seq=4 <= last=5
+00:01 +16: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart: applyActive re-reads the latest desired revision before applying
+00:01 +17: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart: applyActive surfaces a structured error and never fakes success
+00:01 +18: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart: restoreActiveOnLaunch applies the persisted active node once
+00:01 +19: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart: restoreActiveOnLaunch is a no-op without an active node
+00:01 +20: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart: restoreActiveOnLaunch does not re-apply an already running session
+00:01 +21: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t18b_runtime_ui_test.dart
+00:03 +21: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t18b_runtime_ui_test.dart: apply button drives the real plan; rev mismatch shows 鏈簲鐢?00:04 +22: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t18b_runtime_ui_test.dart: failed apply keeps the structured error on screen
+00:04 +23: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t18b_runtime_ui_test.dart: hasUnappliedChanges is true only on a real mismatch
+00:04 +24: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart
+00:04 +24: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: trayIconStatus idle when nothing runs
+00:05 +25: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: trayIconStatus proxyActive when ForcedChange is applied to a running session
+00:05 +26: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: trayIconStatus coreRunning when a session runs without a forced proxy
+00:05 +27: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: trayIconStatus proxyPac when PAC is serving
+00:05 +28: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: sync applies the first model and de-duplicates repeats
+00:05 +29: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: menu checkmarks follow the same active/default state
+00:05 +30: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: business change re-syncs the node checkmark through a provider
+00:05 +31: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_statusbar_test.dart
+00:05 +31: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_statusbar_test.dart: status bar shows placeholders with no statistics data
+00:06 +32: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_statusbar_test.dart: status bar shows real proxy/direct rates from the stream
+00:06 +33: All tests passed!
+regression exit=0

@@ -1301,6 +1301,173 @@ pub fn udp_ping(target: &str, timeout: Duration, ct: &CancellationToken) -> Opti
     }
 }
 
+/// Whether this build can perform the node-routed UDP probe. This is the real
+/// capability (a SOCKS5 UDP association over the test core's local port), not
+/// the old host-direct loopback datagram; the support bit must reflect it.
+pub const fn udp_via_socks_supported() -> bool {
+    cfg!(any(
+        target_os = "windows",
+        target_os = "linux",
+        target_os = "macos"
+    ))
+}
+
+/// One UDP round trip **through the node's local SOCKS5 proxy** (the temporary
+/// test core bound to the selected node).
+///
+/// Mirrors upstream `UdpTestService.SendUdpRequestAsync` + `Socks5UdpChannel`:
+/// a TCP control connection performs a SOCKS5 `UDP ASSOCIATE`, then the probe
+/// datagram is wrapped in the SOCKS5 UDP request header and sent to the relay
+/// address. A host-direct datagram is never used, so a returned latency is
+/// attributable to the node rather than to the local machine's own UDP path.
+pub fn udp_ping_via_socks(
+    socks_port: u16,
+    target: &str,
+    timeout: Duration,
+    ct: &CancellationToken,
+) -> Option<i32> {
+    if ct.is_cancelled() {
+        return None;
+    }
+    let (host, port) = udp_target_endpoint(target)?;
+    let effective = timeout
+        .min(Duration::from_secs(5))
+        .max(Duration::from_millis(50));
+
+    let ctrl_addr = ("127.0.0.1", socks_port).to_socket_addrs().ok()?.next()?;
+    let mut ctrl = TcpStream::connect_timeout(&ctrl_addr, effective).ok()?;
+    let _ = ctrl.set_read_timeout(Some(effective));
+    let _ = ctrl.set_write_timeout(Some(effective));
+    let relay = socks5_udp_associate(&mut ctrl)?;
+    // A proxy may reply with an unspecified BND address ("pick one"); send the
+    // datagram back to the control peer in that case.
+    let relay_addr = if relay.ip().is_unspecified() {
+        ctrl_addr
+    } else {
+        relay
+    };
+
+    let udp = std::net::UdpSocket::bind(("0.0.0.0", 0)).ok()?;
+    udp.set_read_timeout(Some(effective)).ok()?;
+    let datagram = socks5_udp_datagram(&host, port, &udp_probe_payload(target))?;
+
+    let mut best: Option<i32> = None;
+    for _ in 0..2 {
+        if ct.is_cancelled() {
+            break;
+        }
+        let start = Instant::now();
+        if udp.send_to(&datagram, relay_addr).is_err() {
+            continue;
+        }
+        let mut buf = [0u8; 4096];
+        match udp.recv_from(&mut buf) {
+            Ok(_) if !ct.is_cancelled() => {
+                let ms = (start.elapsed().as_millis() as i32).max(1);
+                best = Some(best.map_or(ms, |b| b.min(ms)));
+            }
+            _ => {}
+        }
+    }
+    best
+}
+
+/// SOCKS5 `UDP ASSOCIATE` handshake. Returns the relay (`BND`) address.
+fn socks5_udp_associate(stream: &mut TcpStream) -> Option<std::net::SocketAddr> {
+    use std::io::{Read, Write};
+    // Greeting: no-auth.
+    stream.write_all(&[0x05, 0x01, 0x00]).ok()?;
+    let mut resp = [0u8; 2];
+    stream.read_exact(&mut resp).ok()?;
+    if resp != [0x05, 0x00] {
+        return None;
+    }
+    // UDP ASSOCIATE with an unspecified client endpoint (IPv4 0.0.0.0:0).
+    stream
+        .write_all(&[0x05, 0x03, 0x00, 0x01, 0, 0, 0, 0, 0, 0])
+        .ok()?;
+    let mut head = [0u8; 4];
+    stream.read_exact(&mut head).ok()?;
+    if head[0] != 0x05 || head[1] != 0x00 {
+        return None;
+    }
+    let ip = match head[3] {
+        0x01 => {
+            let mut b = [0u8; 4];
+            stream.read_exact(&mut b).ok()?;
+            std::net::IpAddr::V4(std::net::Ipv4Addr::from(b))
+        }
+        0x04 => {
+            let mut b = [0u8; 16];
+            stream.read_exact(&mut b).ok()?;
+            std::net::IpAddr::V6(std::net::Ipv6Addr::from(b))
+        }
+        0x03 => {
+            let mut len = [0u8; 1];
+            stream.read_exact(&mut len).ok()?;
+            let mut name = vec![0u8; len[0] as usize];
+            stream.read_exact(&mut name).ok()?;
+            let host = String::from_utf8(name).ok()?;
+            (host.as_str(), 0u16).to_socket_addrs().ok()?.next()?.ip()
+        }
+        _ => return None,
+    };
+    let mut port = [0u8; 2];
+    stream.read_exact(&mut port).ok()?;
+    Some(std::net::SocketAddr::new(ip, u16::from_be_bytes(port)))
+}
+
+/// Wrap a payload in a SOCKS5 UDP request header (RFC 1928 §7).
+fn socks5_udp_datagram(host: &str, port: u16, payload: &[u8]) -> Option<Vec<u8>> {
+    let mut out = vec![0x00, 0x00, 0x00]; // RSV, RSV, FRAG
+    match host.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(v4)) => {
+            out.push(0x01);
+            out.extend_from_slice(&v4.octets());
+        }
+        Ok(std::net::IpAddr::V6(v6)) => {
+            out.push(0x04);
+            out.extend_from_slice(&v6.octets());
+        }
+        Err(_) => {
+            let name = host.as_bytes();
+            if name.is_empty() || name.len() > 255 {
+                return None;
+            }
+            out.push(0x03);
+            out.push(name.len() as u8);
+            out.extend_from_slice(name);
+        }
+    }
+    out.extend_from_slice(&port.to_be_bytes());
+    out.extend_from_slice(payload);
+    Some(out)
+}
+
+/// Parse the target out of a SOCKS5 UDP datagram (test fixture helper).
+#[cfg(test)]
+fn socks5_udp_target(datagram: &[u8]) -> Option<String> {
+    if datagram.len() < 4 || datagram[2] != 0x00 {
+        return None;
+    }
+    match datagram[3] {
+        0x01 => {
+            let port = u16::from_be_bytes([*datagram.get(8)?, *datagram.get(9)?]);
+            Some(format!(
+                "{}.{}.{}.{}:{}",
+                datagram[4], datagram[5], datagram[6], datagram[7], port
+            ))
+        }
+        0x03 => {
+            let len = datagram[4] as usize;
+            let host = std::str::from_utf8(datagram.get(5..5 + len)?).ok()?;
+            let port = u16::from_be_bytes([*datagram.get(5 + len)?, *datagram.get(6 + len)?]);
+            Some(format!("{host}:{port}"))
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod re_prof_08_udp_tests {
     use super::*;
@@ -1370,6 +1537,107 @@ mod re_prof_08_udp_tests {
             None
         );
         drop(silent);
+    }
+
+    fn bind_socks_udp_pair() -> (std::net::TcpListener, std::net::UdpSocket, u16) {
+        for port in TEST_PORT_FLOOR..TEST_PORT_FLOOR + 600 {
+            if port == 10_808 {
+                continue;
+            }
+            let Ok(tcp) = std::net::TcpListener::bind(("127.0.0.1", port)) else {
+                continue;
+            };
+            let Ok(udp) = std::net::UdpSocket::bind(("127.0.0.1", port)) else {
+                continue;
+            };
+            udp.set_read_timeout(Some(Duration::from_millis(500)))
+                .expect("udp timeout");
+            return (tcp, udp, port);
+        }
+        panic!("no free tcp+udp test port >= {TEST_PORT_FLOOR}");
+    }
+
+    /// Minimal SOCKS5 UDP server: accepts one control connection, answers
+    /// `UDP ASSOCIATE` with itself as the relay, records each datagram target
+    /// and echoes it back. Proves the probe goes through `socks_port`.
+    fn serve_socks_udp(
+        tcp: std::net::TcpListener,
+        udp: std::net::UdpSocket,
+        port: u16,
+        seen: Arc<Mutex<Option<String>>>,
+    ) {
+        use std::io::{Read, Write};
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stop_udp = Arc::clone(&stop);
+        let udp_socket = udp.try_clone().expect("clone udp");
+        let echo = std::thread::spawn(move || {
+            let mut buf = [0u8; 2048];
+            while !stop_udp.load(std::sync::atomic::Ordering::SeqCst) {
+                if let Ok((n, peer)) = udp_socket.recv_from(&mut buf) {
+                    if let Some(target) = socks5_udp_target(&buf[..n]) {
+                        *seen.lock().unwrap() = Some(target);
+                    }
+                    let _ = udp_socket.send_to(&buf[..n], peer);
+                }
+            }
+        });
+
+        if let Ok((mut control, _)) = tcp.accept() {
+            let _ = control.set_read_timeout(Some(Duration::from_secs(2)));
+            let mut greeting = [0u8; 3];
+            if control.read_exact(&mut greeting).is_ok() && greeting == [0x05, 0x01, 0x00] {
+                let _ = control.write_all(&[0x05, 0x00]);
+                let mut request = [0u8; 10];
+                if control.read_exact(&mut request).is_ok() && request[1] == 0x03 {
+                    let reply = [
+                        0x05,
+                        0x00,
+                        0x00,
+                        0x01,
+                        127,
+                        0,
+                        0,
+                        1,
+                        (port >> 8) as u8,
+                        (port & 0xff) as u8,
+                    ];
+                    let _ = control.write_all(&reply);
+                    // Keep the association open while the datagram round-trips.
+                    std::thread::sleep(Duration::from_millis(400));
+                }
+            }
+        }
+        stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        let _ = echo.join();
+    }
+
+    #[test]
+    fn udp_ping_via_socks_routes_through_the_session_port() {
+        let (tcp, udp, port) = bind_socks_udp_pair();
+        let seen = Arc::new(Mutex::new(None));
+        let seen_server = Arc::clone(&seen);
+        let handle = std::thread::spawn(move || serve_socks_udp(tcp, udp, port, seen_server));
+
+        let ct = CancellationToken::new();
+        let delay = udp_ping_via_socks(port, "192.0.2.9:11999", Duration::from_secs(2), &ct);
+        assert!(delay.is_some_and(|d| d >= 1), "delay={delay:?}");
+
+        let _ = handle.join();
+        assert_eq!(
+            seen.lock().unwrap().as_deref(),
+            Some("192.0.2.9:11999"),
+            "the datagram must carry the requested target through the SOCKS relay"
+        );
+    }
+
+    #[test]
+    fn udp_via_socks_datagram_encodes_domain_targets() {
+        let datagram = socks5_udp_datagram("pool.ntp.org", 123, b"probe").expect("datagram");
+        assert_eq!(&datagram[..4], &[0x00, 0x00, 0x00, 0x03]);
+        assert_eq!(datagram[4], 12);
+        assert_eq!(&datagram[5..5 + 12], b"pool.ntp.org");
+        assert_eq!(&datagram[17..19], &123u16.to_be_bytes());
+        assert_eq!(&datagram[19..], b"probe");
     }
 
     struct LoopbackUdpSession;

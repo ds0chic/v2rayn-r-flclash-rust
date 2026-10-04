@@ -48,6 +48,9 @@ class FakePlatformBridge implements PlatformBridge {
   /// Raw text read from the file passed to the last [pacStartFromFile] call.
   String? lastPacFileText;
 
+  /// The `proxyRule` passed to the last [pacStart]/[pacStartFromFile] call.
+  String? lastPacProxyRule;
+
   /// Whether the next PAC start should fail (fault injection).
   bool failNextPac = false;
 
@@ -157,6 +160,7 @@ class FakePlatformBridge implements PlatformBridge {
     }
     pacStartCount++;
     this.pacText = pacText;
+    lastPacProxyRule = proxyRule;
     pacRunning = true;
     return const PacHandleView(
       ok: true,

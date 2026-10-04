@@ -179,17 +179,18 @@ class PlatformController extends Notifier<PlatformView> {
   }) {
     final doc = document ?? ref.read(settingsControllerProvider).document;
     final config = ProxySettingsView.fromDocument(doc);
-    final appliedPort = _appliedProxyPort();
+    final applied = _appliedProxyInbound(doc);
     switch (mode) {
       case SysProxyMode.forcedChange:
-        if (appliedPort == null) return _noRunningSession(mode, doc);
+        if (applied == null) return _noRunningSession(mode, doc);
         return _persistAndReturn(
           doc,
           mode,
           apply(
             mode: mode,
-            server: buildProxyServer(
-              port: appliedPort,
+            server: buildSystemProxyServer(
+              port: applied.port,
+              protocol: applied.protocol,
               advancedProtocol: config.advancedProtocol,
             ),
             bypass: buildProxyBypass(
@@ -199,13 +200,13 @@ class PlatformController extends Notifier<PlatformView> {
           ),
         );
       case SysProxyMode.pac:
-        if (appliedPort == null) return _noRunningSession(mode, doc);
+        if (applied == null) return _noRunningSession(mode, doc);
         final handle = startPacFromConfig(
           configDir: configDir ?? _configDir(),
           customPacPath: config.customPacPath,
-          proxyRule: buildProxyServer(
-            port: appliedPort,
-            advancedProtocol: config.advancedProtocol,
+          proxyRule: buildPacProxyRule(
+            port: applied.port,
+            protocol: applied.protocol,
           ),
         );
         if (!handle.ok) {
@@ -239,15 +240,24 @@ class PlatformController extends Notifier<PlatformView> {
     applyModeFromConfig(mode, document: document);
   }
 
-  /// The actual proxy port published by the running session, if any. The UI
-  /// must never guess this from the configured first inbound.
-  int? _appliedProxyPort() {
+  /// The actual proxy endpoint published by the running session, if any, with
+  /// its protocol. The port is the applied session port (never the configured
+  /// desired port alone); the protocol comes from the persisted inbound that
+  /// generated the applied plan, which is the only protocol fact the Dart
+  /// snapshot currently carries (see the interface gap in the task card).
+  LocalProxyInbound? _appliedProxyInbound(Map<String, dynamic> document) {
     final runtime = ref.read(runtimeControllerProvider);
     if (!runtime.isRunning) return null;
-    for (final port in runtime.ports) {
-      if (port > 0) return port;
+    final ports = runtime.ports.where((port) => port > 0).toList();
+    if (ports.isEmpty) return null;
+    final configured = primaryLocalProxyInbound(document);
+    if (configured != null && ports.contains(configured.port)) {
+      return configured;
     }
-    return null;
+    return LocalProxyInbound(
+      port: ports.first,
+      protocol: configured?.protocol ?? ProxyProtocolKind.http,
+    );
   }
 
   PlatformActionResult _persistAndReturn(

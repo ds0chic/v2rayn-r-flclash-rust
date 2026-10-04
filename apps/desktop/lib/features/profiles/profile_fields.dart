@@ -861,36 +861,38 @@ String selectCertFetchServerName({
 
 /// Fetch the peer's leaf certificate as a PEM block (`CertPemManager.GetCertPemAsync`).
 ///
-/// The handshake connects to and presents [serverName] when it is non-empty
-/// (upstream passes SNI / transport host / address in that order), so an IP
-/// address is never silently connected with the wrong certificate. `dart:io`
-/// cannot connect to one host while sending SNI for another, so the connect
-/// target is the selected name (callers use [selectCertFetchServerName]).
-/// Verification is still accepted for an expired/self-signed pinning target
-/// (upstream behavior).
+/// The connection always targets the node's real [host]:[port]; [serverName]
+/// (SNI -> transport host -> address, see [selectCertFetchServerName]) is only
+/// presented as the TLS SNI. `SecureSocket.secure(socket, host: ...)` performs
+/// no DNS lookup for `host`, so an IP Address with a virtual SNI domain reaches
+/// the node without resolving the domain (R3-PROF-09). Verification is still
+/// accepted for an expired/self-signed pinning target (upstream behavior).
 Future<String?> fetchPeerCertPem({
   required String host,
   required int port,
   String? serverName,
   Duration timeout = const Duration(seconds: 8),
 }) async {
-  final target = (serverName ?? '').trim().isEmpty
-      ? host.trim()
-      : serverName!.trim();
-  if (target.isEmpty) return null;
+  final connectHost = host.trim();
+  if (connectHost.isEmpty) return null;
+  final sni = (serverName ?? '').trim();
+  Socket? raw;
   SecureSocket? socket;
   try {
-    socket = await SecureSocket.connect(
-      target,
-      port,
-      onBadCertificate: (_) => true,
-      timeout: timeout,
-    );
+    raw = await Socket.connect(connectHost, port, timeout: timeout);
+    socket = sni.isEmpty
+        ? await SecureSocket.secure(raw, onBadCertificate: (_) => true)
+        : await SecureSocket.secure(
+            raw,
+            host: sni,
+            onBadCertificate: (_) => true,
+          );
     final der = socket.peerCertificate?.der;
     if (der == null) return null;
     return _derToPem(der);
   } finally {
     await socket?.close();
+    raw?.destroy();
   }
 }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 
 /// Single source of truth for the runtime status bar and toolbar.
@@ -16,6 +17,8 @@ class RuntimeController extends Notifier<RuntimeView> {
   StreamSubscription<RuntimeEvent>? _events;
   Timer? _debounce;
   bool _started = false;
+  bool _reloadInFlight = false;
+  bool _reloadPending = false;
   BigInt? _lastEpoch;
   BigInt? _lastSeq;
 
@@ -137,14 +140,34 @@ class RuntimeController extends Notifier<RuntimeView> {
 
   /// Shared reload use case for the F5 shortcut and the ACT-MAIN-035 menu
   /// (upstream `MainWindowViewModel.Reload`: re-read the latest desired plan and
-  /// re-apply it). Busy-protected so a reload never stomps an in-flight
-  /// apply/stop; with no persisted active node it only refreshes the snapshot.
+  /// re-apply it). A call while a reload is already running marks a pending job
+  /// that runs once after the in-flight one finishes (upstream
+  /// `_hasNextReloadJob`), so a fast double F5 never loses the last request.
+  /// With no persisted active node it refreshes and prompts the user (upstream
+  /// `NoticeManager.Enqueue(CheckServerSettings)`).
   Future<void> reload() async {
-    if (state.isBusy) return;
-    await refresh();
-    if (state.error != null) return;
-    if (_bridge.activeProfileId() == null) return;
-    await applyActive();
+    if (_reloadInFlight) {
+      _reloadPending = true;
+      return;
+    }
+    _reloadInFlight = true;
+    try {
+      await refresh();
+      if (state.error != null) return;
+      if (_bridge.activeProfileId() == null) {
+        ref
+            .read(uiShellControllerProvider.notifier)
+            .setMessage('配置项无效，请检查或重新选择');
+        return;
+      }
+      await applyActive();
+    } finally {
+      _reloadInFlight = false;
+      if (_reloadPending) {
+        _reloadPending = false;
+        await reload();
+      }
+    }
   }
 
   /// SR-03 restore-lifecycle hook: the engine exchanged storage and stopped

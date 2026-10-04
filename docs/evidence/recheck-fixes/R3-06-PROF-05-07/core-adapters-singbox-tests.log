@@ -1,0 +1,18 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
+     Running tests\stats_singbox.rs (target\debug\deps\stats_singbox-9bbaf808a3735fd5.exe)
+
+running 11 tests
+test accepts_upstream_capitalised_fields ... ok
+test default_config_targets_state_port2 ... ok
+test ignores_non_traffic_json ... ok
+test parses_delta_message ... ok
+test rejects_non_websocket_url ... ok
+test cancel_stops_a_pending_connect ... ok
+test tolerates_malformed_frames ... ok
+test accumulates_streaming_deltas ... ok
+test drop_stops_the_source ... ok
+test cancel_stops_a_live_stream ... ok
+test reconnects_with_backoff_and_keeps_accumulating ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+

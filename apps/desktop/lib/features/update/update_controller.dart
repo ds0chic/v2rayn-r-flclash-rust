@@ -179,13 +179,24 @@ class UpdateController extends Notifier<UpdateState> {
       return;
     }
     final updates = result.checks.where((c) => c.hasUpdate).length;
+    final blocked = result.checks.where((c) => !c.supported).length;
+    final String message;
+    if (updates > 0) {
+      message = blocked > 0
+          ? '发现 $updates 个可更新目标（$blocked 个无法检查）'
+          : '发现 $updates 个可更新目标';
+    } else if (blocked > 0) {
+      message = '没有可更新目标；$blocked 个目标无法检查（发行源未配置）';
+    } else {
+      message = '全部为最新版本';
+    }
     state = state.copyWith(
       busy: false,
       clearStage: true,
       checks: result.checks,
       status: UpdateStatus(
         kind: updates > 0 ? 'success' : 'info',
-        message: updates > 0 ? '发现 $updates 个可更新目标' : '全部为最新版本',
+        message: message,
       ),
     );
   }

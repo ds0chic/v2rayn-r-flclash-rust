@@ -20,6 +20,10 @@ class CountingRuntimeBridge implements RuntimeBridge {
   int snapshotCalls = 0;
   int stopCalls = 0;
 
+  /// Optional gate awaited at the start of [applyActive] so a test can hold a
+  /// reload in flight and exercise re-entrancy (R3-ROOT-01).
+  Completer<void>? applyGate;
+
   RuntimeView _view;
 
   @override
@@ -36,6 +40,8 @@ class CountingRuntimeBridge implements RuntimeBridge {
     required BigInt expectedRevision,
   }) async {
     applyCalls++;
+    final gate = applyGate;
+    if (gate != null) await gate.future;
     if (applyError != null) {
       _view = RuntimeView(error: applyError);
       return RuntimeActionResult(ok: false, error: applyError);

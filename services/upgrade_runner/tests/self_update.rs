@@ -143,6 +143,10 @@ fn service(root: &Path, port: u16) -> UpdateService {
     svc.api_base = format!("http://127.0.0.1:{port}/repos");
     svc.target = HostTarget::new(Os::Windows, PlatformArch::X64);
     svc.timeout = Duration::from_secs(10);
+    // The runner tests exercise the App self-update flow; point the app
+    // release source at the synthetic repo the mock serves (production keeps
+    // `app_repo = None` and reports `error.update_app_source_unconfigured`).
+    svc.app_repo = Some("2dust/v2rayN".into());
     svc
 }
 

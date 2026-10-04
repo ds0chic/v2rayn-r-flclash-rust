@@ -1,0 +1,25 @@
+{
+  "task": "R4-00",
+  "date": "2026-10-05",
+  "locked": {
+    "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "application_baseline_commit": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+    "package_build_commit": "73da06eb52a5989aeb31f0071b7ef03a72c4bd19",
+    "package_git_dirty": false,
+    "package_smoke_armed": false,
+    "zip_sha256": "45a702b7527843fe4344c11260d6ae2e2510700f1654880f09dfd9dceb01484c",
+    "setup_sha256": "a8fd08e29e0331ff8fb9cb15601cc5f0b1c32a7b5f52e172ad947b7e22608b64"
+  },
+  "inventory": {
+    "coverage_rows": 844,
+    "rows_without_owner": 0,
+    "rows_not_identified": 0,
+    "collections_match_manifest": true,
+    "work_packages": 35,
+    "parameter_cards": 41,
+    "execution_cards": 76
+  },
+  "production_edits": false,
+  "defects": 37,
+  "failures": []
+}

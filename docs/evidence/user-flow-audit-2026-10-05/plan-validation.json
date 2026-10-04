@@ -1,0 +1,17 @@
+{
+  "task_cards": 76,
+  "work_packages": 35,
+  "parameter_cards": 41,
+  "coverage_rows": 844,
+  "settings_fields_exactly_once": 180,
+  "required_format_labels": 13,
+  "validation_errors": [],
+  "all_primary_ids_preserved": true,
+  "test_contracts": {
+    "startup_retry_f5_busy": 3,
+    "selection_ctrl_enter": 2,
+    "dns_baseline_collision": 1,
+    "failed_as_expected_on_current_head": 6,
+    "real_native_ui_pass_claimed": false
+  }
+}

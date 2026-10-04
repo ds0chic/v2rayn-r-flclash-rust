@@ -1,0 +1,47 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/_audit_profiles_ctrl_timing_repro_test.dart
+00:00 +0: Ctrl click preserves its pointer-time modifier after early release
+UF13 ctrl +50ms selected={syn-000000} primary=syn-000000
+UF13 ctrl +400ms selected={syn-000001} primary=syn-000001
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: Set:['syn-000000', 'syn-000001']
+  Actual: Set:['syn-000001']
+   Which: does not contain 'syn-000000'
+Ctrl held at pointer-down must survive an early key release.
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/_audit_profiles_ctrl_timing_repro_test.dart:45:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/_audit_profiles_ctrl_timing_repro_test.dart line 45
+The test description was:
+  Ctrl click preserves its pointer-time modifier after early release
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:01 +0 -1: Ctrl click preserves its pointer-time modifier after early release [E]
+  Test failed. See exception logs above.
+  The test description was: Ctrl click preserves its pointer-time modifier after early release
+  
+00:01 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/_audit_profiles_ctrl_timing_repro_test.dart: Ctrl click preserves its pointer-time modifier after early release

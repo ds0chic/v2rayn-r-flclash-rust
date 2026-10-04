@@ -1,0 +1,36 @@
+{
+  "baselineCommit": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "upstreamCommit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "finding": "UF-PROF-13",
+  "evidenceLevel": "controlled_test",
+  "realWindowsTimingMeasured": false,
+  "productionSourceChanged": false,
+  "temporaryTestCopiesRemovedAfterHashCheck": true,
+  "fixture": "SyntheticBridgePort generated nodes syn-000000 and syn-000001",
+  "runtimePlatformMonitor": "explicit fake providers; no native core or host changes",
+  "cases": [
+    {
+      "source": "profiles-ctrl-timing-repro.dart",
+      "log": "profiles-ctrl-timing-repro.log",
+      "command": "flutter test test/_audit_profiles_ctrl_timing_repro_test.dart --reporter expanded",
+      "exitCode": 1,
+      "normalAssertionFailure": true,
+      "didNotComplete": false,
+      "virtualMs50": {"selected": ["syn-000000"], "primary": "syn-000000"},
+      "virtualMs400": {"selected": ["syn-000001"], "primary": "syn-000001"},
+      "expectedAfterEarlyCtrlRelease": ["syn-000000", "syn-000001"]
+    },
+    {
+      "source": "profiles-enter-timing-repro.dart",
+      "log": "profiles-enter-timing-repro.log",
+      "command": "flutter test test/_audit_profiles_enter_timing_repro_test.dart --reporter expanded",
+      "exitCode": 1,
+      "normalAssertionFailure": true,
+      "didNotComplete": false,
+      "virtualMs50": {"selected": ["syn-000000"], "primary": "syn-000000", "active": "syn-000000"},
+      "afterEnter": {"primary": "syn-000000", "active": "syn-000000"},
+      "virtualMs400": {"selected": ["syn-000001"], "primary": "syn-000001", "active": "syn-000000"},
+      "expectedEnterTarget": "syn-000001"
+    }
+  ]
+}

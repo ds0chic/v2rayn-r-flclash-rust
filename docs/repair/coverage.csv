@@ -1,0 +1,845 @@
+﻿ledger,collection,id,owner_task,previous_status,repair_status,name,source_commit,current_evidence,acceptance_scope
+features.yaml,features,F-PROFILE-001,R4-18,implemented,identified,添加基础协议节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-002,R4-18,implemented,identified,编辑节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-003,R4-18,implemented,identified,删除节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-004,R4-18,implemented,identified,复制节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-005,R4-18,implemented,identified,去重节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-006,R4-18,implemented,identified,设为默认节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-007,R4-18,identified,identified,节点移动与排序,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-008,R4-18,identified,identified,节点分组与移动到组,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-009,R4-18,implemented,identified,生成策略组（全部/按地区）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-010,R4-18,implemented,identified,移除无效节点结果,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-011,R4-18,identified,identified,分享单个节点链接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-012,R4-18,identified,identified,从剪贴板导入节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-013,R4-18,identified,identified,屏幕扫码与图片扫码导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-014,R4-18,identified,identified,节点过滤与搜索,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-015,R4-18,implemented,identified,节点列表列与实时统计展示,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-PROFILE-016,R4-18,identified,identified,批量导入多格式文本,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-001,R4-17,implemented,identified,订阅列表管理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-002,R4-17,implemented,identified,新增/编辑/删除订阅,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-003,R4-17,implemented,identified,订阅更新（全部/单组、直连/经代理）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-004,R4-17,implemented,identified,订阅自定义 HTTP Header,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-005,R4-17,implemented,identified,订阅 User-Agent,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-006,R4-17,implemented,identified,MoreUrl 附加订阅合并,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-007,R4-17,preserved_only,identified,订阅转换 ConvertTarget（本轮：字段保留-only）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-008,R4-17,implemented,identified,订阅前后置节点（本轮：持久化-only）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-009,R4-17,implemented,identified,订阅过滤与自定义内核,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-010,R4-17,implemented,identified,订阅自动更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SUB-011,R4-17,implemented,identified,订阅更新失败保留旧节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-001,R4-16,implemented,identified,单条分享链接解析,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-002,R4-16,implemented,identified,分享链接批量文本导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-003,R4-16,identified,identified,SIP008 订阅导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-004,R4-16,identified,identified,WireGuard 配置导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-005,R4-16,implemented,identified,v2rayn:// 内部协议导入导出,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-006,R4-16,identified,identified,图片二维码导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-007,R4-16,identified,identified,屏幕扫码导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-008,R4-16,implemented,identified,导出客户端配置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-009,R4-16,implemented,identified,导出分享链接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-010,R4-16,implemented,identified,导出分享二维码,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-IMPORT-011,R4-16,identified,identified,全量配置识别为 Custom,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TEST-001,R4-22,implemented,identified,TCP 延迟测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TEST-002,R4-22,implemented,identified,真实延迟测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TEST-003,R4-22,implemented,identified,UDP 测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TEST-004,R4-22,implemented,identified,下载速度测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TEST-005,R4-22,implemented,identified,混合测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TEST-006,R4-22,implemented,identified,快速真延迟,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TEST-007,R4-22,implemented,identified,测试结果排序,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TEST-008,R4-22,implemented,identified,停止测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-ROUTING-001,R4-14,implemented,identified,基础路由模式,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-ROUTING-002,R4-14,implemented,identified,路由设置与高级路由列表,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-ROUTING-003,R4-14,implemented,identified,路由规则编辑与排序,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-ROUTING-004,R4-14,implemented,identified,规则详情与出站绑定,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-ROUTING-005,R4-14,implemented,identified,外部路由模板下载,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-ROUTING-006,R4-14,implemented,identified,sing-box rule-set/srs 资源下载,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-001,R4-15,implemented,identified,简单 DNS 设置界面,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-002,R4-15,implemented,identified,原生 DNS 配置（Xray/sing-box）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-003,R4-15,implemented,identified,直连/远端/引导 DNS 预设,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-004,R4-15,implemented,identified,hosts 与预定义域名解析,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-005,R4-15,implemented,identified,FakeIP,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-006,R4-15,implemented,identified,AAAA 与绑定查询屏蔽,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-007,R4-15,implemented,identified,域名解析策略,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-008,R4-15,implemented,identified,内核 DNS 差异生成,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DNS-009,R4-15,implemented,identified,区域预设 DNS/路由,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-001,R4-21,identified,identified,内核类型选择,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-002,R4-21,implemented,identified,内置内核更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-003,R4-21,implemented,identified,应用自身更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-004,R4-21,identified,identified,仅检查更新（不下载）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-005,R4-21,implemented,identified,内核启动/停止/重载,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-006,R4-21,identified,identified,预 SOCKS 端口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-007,R4-21,identified,identified,自定义配置生成,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-008,R4-21,identified,identified,结构化配置生成,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-009,R4-21,implemented,identified,完整配置模板,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-010,R4-21,implemented,identified,Clash Mixin 合并,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-011,R4-21,implemented,identified,内核可执行文件定位,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-012,R4-21,identified,identified,Linux/macOS TUN 提权运行,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-CORE-013,R4-21,identified,identified,Geo/规则资源更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SYSPROXY-001,R4-24,implemented,identified,系统代理四种语义,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SYSPROXY-002,R4-24,implemented,identified,系统代理绕过项与高级协议,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SYSPROXY-003,R4-24,implemented,identified,PAC 本地服务,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-SYSPROXY-004,R4-24,implemented,identified,退出时恢复系统代理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TUN-001,R4-25,implemented,identified,TUN 模式开关,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TUN-002,R4-25,implemented,identified,TUN 参数（栈/MTU/自动路由/严格路由/ICMP）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TUN-003,R4-25,implemented,identified,TUN 地址与路由排除,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TUN-004,R4-25,implemented,identified,TUN DNS 与 FakeIP,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-TUN-005,R4-25,implemented,identified,Windows TUN 设备清理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-MONITOR-001,R4-23,implemented,identified,运行日志显示,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-MONITOR-002,R4-23,implemented,identified,流量统计,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-MONITOR-003,R4-23,implemented,identified,历史统计与清零,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-MONITOR-004,R4-23,implemented,identified,Clash 代理组视图,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-MONITOR-005,R4-23,implemented,identified,Clash 连接视图与断开,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-MONITOR-006,R4-23,implemented,identified,实时速度显示,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DESKTOP-001,R4-26,implemented,identified,托盘菜单与显示隐藏,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DESKTOP-002,R4-26,implemented,identified,全局热键,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DESKTOP-003,R4-26,implemented,identified,开机自启,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DESKTOP-004,R4-26,implemented,identified,关闭行为与启动隐藏,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DESKTOP-005,R4-26,implemented,identified,Windows UWP 回环设置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DESKTOP-006,R4-26,implemented,identified,管理员重启,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-DESKTOP-007,R4-26,identified,identified,单实例运行,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-APP-001,R4-29,implemented,identified,参数设置（核心/UI/系统代理/TUN/内核）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-APP-002,R4-29,implemented,identified,主题,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-APP-003,R4-29,implemented,identified,语言切换,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-APP-004,R4-29,implemented,identified,打开程序目录,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-APP-005,R4-29,implemented,identified,更新检查页面（含 prerelease 与经代理）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-APP-006,R4-29,implemented,identified,日志与临时文件清理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-APP-007,R4-29,implemented,identified,经代理检查更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-BACKUP-001,R4-28,implemented,identified,本地备份,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-BACKUP-002,R4-28,implemented,identified,本地恢复,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-BACKUP-003,R4-28,implemented,identified,WebDAV 远程备份/恢复,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-BACKUP-004,R4-28,implemented,identified,旧配置升级 V2→V3→V4,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-HELP-001,R4-30,identified,identified,帮助菜单入口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-HELP-002,R4-30,identified,identified,推广入口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,features,F-HELP-003,R4-30,identified,identified,关闭/退出,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-001,R4-18,implemented,identified,添加 VMess 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-002,R4-18,implemented,identified,添加 VLESS 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-003,R4-18,implemented,identified,添加 Shadowsocks 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-004,R4-18,implemented,identified,添加 SOCKS 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-005,R4-18,implemented,identified,添加 HTTP 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-006,R4-18,implemented,identified,添加 Trojan 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-007,R4-18,implemented,identified,添加 Hysteria2 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-008,R4-18,implemented,identified,添加 TUIC 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-009,R4-18,implemented,identified,添加 WireGuard 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-010,R4-18,implemented,identified,添加 Anytls 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-011,R4-18,implemented,identified,添加 Naive 节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-012,R4-19,implemented,identified,添加自定义配置（Custom）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-013,R4-19,implemented,identified,添加自定义出站（Custom Outbound）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-014,R4-20,implemented,identified,添加策略组（Policy Group）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-015,R4-20,implemented,identified,添加链式代理（Proxy Chain）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-016,R4-16,implemented,identified,从剪贴板批量导入服务器,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-017,R4-16,preserved_only,identified,从屏幕二维码扫描导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-018,R4-16,preserved_only,identified,从图片二维码导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-019,R4-17,implemented,identified,打开订阅设置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-020,R4-17,identified,identified,更新所有订阅（直连）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-021,R4-17,identified,identified,更新所有订阅（代理）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-022,R4-17,identified,identified,更新当前订阅组（直连）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-023,R4-17,identified,identified,更新当前订阅组（代理）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-024,R4-13,implemented,identified,打开参数设置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-025,R4-14,identified,identified,打开路由设置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-026,R4-15,identified,identified,打开 DNS 设置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-027,R4-19,implemented,identified,打开完整配置模板,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-028,R4-26,implemented,identified,打开全局热键设置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-029,R4-26,implemented,identified,以管理员身份重启,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-030,R4-23,implemented,identified,清除服务器统计,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-031,R4-28,implemented,identified,打开文件所在位置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-032,R4-34,implemented,identified,应用区域预设-默认,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-033,R4-34,implemented,identified,应用区域预设-俄罗斯,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-034,R4-34,implemented,identified,应用区域预设-伊朗,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MAIN-035,R4-01,implemented,identified,重载内核,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-001,R4-26,implemented,identified,关闭按钮-最小化到托盘,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-002,R4-26,implemented,identified,菜单-关闭（最小化到托盘）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-003,R4-30,preserved_only,identified,菜单-推广链接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-004,R4-26,implemented,identified,菜单-Win 设置 UWP 回环,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-005,R4-29,implemented,identified,菜单-检查更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-006,R4-29,preserved_only,identified,按钮-新版本提示,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-007,R4-28,implemented,identified,菜单-备份与恢复,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-008,R4-30,implemented,identified,动态生成帮助菜单项,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-009,R4-05,identified,identified,系统会话结束处理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-010,R4-26,implemented,identified,启动参数 RebootAs 与单实例,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-011,R4-26,implemented,identified,启动隐藏并恢复隐藏状态,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-WIN-012,R4-12,implemented,identified,第二实例启动时显示主窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-HOTKEY-001,R4-26,implemented,identified,全局热键-显示窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-HOTKEY-002,R4-26,implemented,identified,全局热键-清除系统代理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-HOTKEY-003,R4-26,implemented,identified,全局热键-设置系统代理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-HOTKEY-004,R4-26,implemented,identified,全局热键-不改变系统代理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-HOTKEY-005,R4-26,implemented,identified,全局热键-PAC 模式,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-HOTKEY-006,R4-26,implemented,identified,全局热键注册与触发,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-HOTKEY-007,R4-26,implemented,identified,热键录制与重置,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-001,R4-08,implemented,identified,编辑选中节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-002,R4-08,implemented,identified,删除选中节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-003,R4-08,implemented,identified,删除重复节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-004,R4-08,implemented,identified,复制选中节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-005,R4-08,implemented,identified,设为活动服务器,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-006,R4-08,implemented,identified,分享选中节点二维码,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-007,R4-08,implemented,identified,生成聚合子节点-全部,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-008,R4-08,implemented,identified,生成聚合子节点-按区域,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-009,R4-08,implemented,identified,节点上移到顶部,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-010,R4-08,implemented,identified,节点上移一位,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-011,R4-08,implemented,identified,节点下移一位,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-012,R4-08,implemented,identified,节点下移到底部,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-013,R4-08,implemented,identified,移动节点到其他分组,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-014,R4-22,implemented,identified,快速真连接延迟测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-015,R4-22,implemented,identified,混合测试（真连接+测速）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-016,R4-22,implemented,identified,TCPing 延迟测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-017,R4-22,implemented,identified,真连接延迟测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-018,R4-22,implemented,identified,UDP 测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-019,R4-22,implemented,identified,测速,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-020,R4-08,implemented,identified,按延迟排序节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-021,R4-08,implemented,identified,移除无效测试结果节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-022,R4-08,identified,identified,导出客户端配置到文件,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-023,R4-08,identified,identified,导出客户端配置到剪贴板,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-024,R4-08,identified,identified,批量导出分享链接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-025,R4-08,identified,identified,批量导出分享链接(Base64),7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-026,R4-08,identified,identified,批量导出内部链接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-027,R4-17,identified,identified,新增订阅,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-028,R4-17,identified,identified,编辑当前订阅,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-029,R4-17,identified,identified,删除当前订阅,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-030,R4-08,implemented,identified,节点行双击,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-031,R4-08,implemented,identified,点击列头排序,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-032,R4-08,implemented,identified,全选节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-033,R4-08,implemented,identified,拖动排序节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-034,R4-08,implemented,identified,右键保留已有多选,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-035,R4-08,implemented,identified,过滤器输入并回车,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-036,R4-08,identified,identified,自动调整列宽,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-037,R4-08,implemented,identified,切换订阅分组,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-038,R4-22,implemented,identified,停止测速,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-039,R4-08,identified,identified,节点选择窗口-确定,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-PROF-040,R4-08,identified,identified,节点选择窗口-全选,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-001,R4-26,implemented,identified,托盘图标左键单击-显示/隐藏主窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-002,R4-26,implemented,identified,托盘菜单-清除系统代理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-003,R4-26,implemented,identified,托盘菜单-设置系统代理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-004,R4-26,implemented,identified,托盘菜单-不改变系统代理,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-005,R4-26,implemented,identified,托盘菜单-PAC 模式,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-006,R4-26,implemented,identified,托盘菜单-切换路由,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-007,R4-26,implemented,identified,托盘菜单-切换服务器,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-008,R4-26,implemented,identified,托盘菜单-从剪贴板导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-009,R4-26,implemented,identified,托盘菜单-扫描屏幕二维码,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-010,R4-26,implemented,identified,托盘菜单-更新订阅,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-011,R4-26,implemented,identified,托盘菜单-更新订阅(走代理),7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-012,R4-26,implemented,identified,托盘菜单-复制代理命令到剪贴板,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-013,R4-26,implemented,identified,托盘菜单-退出,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-014,R4-26,implemented,identified,托盘菜单-显示/隐藏主窗口(非 Windows),7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-TRAY-015,R4-26,implemented,identified,托盘菜单-显示 GUI(非 Windows),7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-STAT-001,R4-06,implemented,identified,状态栏-系统代理下拉切换,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-STAT-002,R4-06,implemented,identified,状态栏-路由下拉切换,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-STAT-003,R4-06,implemented,identified,状态栏-TUN 模式开关,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-STAT-004,R4-06,identified,identified,状态栏-双击运行信息测试可用性,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-SUB-001,R4-17,identified,identified,订阅设置-添加订阅,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-SUB-002,R4-17,identified,identified,订阅设置-删除订阅,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-SUB-003,R4-17,identified,identified,订阅设置-编辑订阅,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-SUB-004,R4-17,identified,identified,订阅设置-分享订阅二维码,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-SUB-005,R4-17,identified,identified,订阅设置-关闭窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-SUB-006,R4-17,identified,identified,订阅自动更新（后台定时）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-SUB-007,R4-17,identified,identified,订阅编辑-选择前置/后置节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-SUB-008,R4-17,identified,identified,订阅编辑-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ROUTE-001,R4-14,identified,identified,路由设置-添加规则集,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ROUTE-002,R4-14,identified,identified,路由设置-删除规则集,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ROUTE-003,R4-14,identified,identified,路由设置-设为默认路由,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ROUTE-004,R4-14,identified,identified,路由设置-导入规则,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ROUTE-005,R4-14,implemented,identified,路由设置-修改域名解析策略,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ROUTE-006,R4-14,identified,identified,路由设置-全选规则集,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ROUTE-007,R4-14,identified,identified,路由设置-文档链接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-001,R4-14,implemented,identified,路由规则-添加规则,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-002,R4-14,implemented,identified,路由规则-删除规则,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-003,R4-14,implemented,identified,路由规则-导出选中到剪贴板,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-004,R4-14,implemented,identified,路由规则-从文件导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-005,R4-14,implemented,identified,路由规则-从剪贴板导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-006,R4-14,identified,identified,路由规则-从 URL 导入,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-007,R4-14,implemented,identified,路由规则-移动规则,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-008,R4-14,identified,identified,路由规则-编辑规则双击,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-009,R4-14,identified,identified,路由规则-全选,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-010,R4-14,implemented,identified,路由规则-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-011,R4-14,identified,identified,规则详情-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-RR-012,R4-14,identified,identified,规则详情-选择出站节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-DNS-001,R4-15,implemented,identified,DNS 设置-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-DNS-002,R4-15,implemented,identified,DNS 设置-导入默认 V2ray DNS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-DNS-003,R4-15,implemented,identified,DNS 设置-导入默认 sing-box DNS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-DNS-004,R4-15,identified,identified,DNS 设置-文档链接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-OPT-001,R4-13,implemented,identified,参数设置-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-OPT-002,R4-13,identified,identified,参数设置-浏览自定义 PAC/脚本,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-FULL-001,R4-13,identified,identified,完整配置模板-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-FULL-002,R4-13,identified,identified,完整配置模板-文档链接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-THEME-001,R4-13,identified,identified,主题设置-切换主题/字号/语言,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-CLASH-001,R4-22,identified,identified,代理组-重载,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-CLASH-002,R4-22,identified,identified,代理组-单代理延迟测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-CLASH-003,R4-22,identified,identified,代理组-整组延迟测试,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-CLASH-004,R4-22,identified,identified,代理组-设为活动节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-CLASH-005,R4-22,identified,identified,代理组-切换规则模式,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-CLASH-006,R4-22,identified,identified,连接-关闭单条连接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-CLASH-007,R4-22,identified,identified,连接-关闭全部连接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-CLASH-008,R4-22,identified,identified,连接-主机过滤,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-UPDATE-001,R4-28,implemented,identified,检查更新并下载安装,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-UPDATE-002,R4-28,implemented,identified,仅检查更新（不下载）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-UPDATE-003,R4-28,identified,identified,后台每日检查更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-UPDATE-004,R4-28,implemented,identified,切换预览版/走代理检查,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-BACKUP-001,R4-28,implemented,identified,备份-本地备份,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-BACKUP-002,R4-28,implemented,identified,备份-本地恢复,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-BACKUP-003,R4-28,implemented,identified,备份-WebDAV 检查连接,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-BACKUP-004,R4-28,implemented,identified,备份-远程备份到 WebDAV,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-BACKUP-005,R4-28,implemented,identified,备份-从 WebDAV 恢复,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MSG-001,R4-13,identified,identified,消息视图-自动刷新开关,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MSG-002,R4-13,identified,identified,消息视图-过滤表达式,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MSG-003,R4-13,identified,identified,消息视图-复制/复制全部/清空/全选,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ADDSRV-001,R4-08,identified,identified,添加/编辑节点-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ADDSRV-002,R4-08,identified,identified,添加/编辑节点-获取证书,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ADDSRV-003,R4-08,identified,identified,添加/编辑节点-生成 UUID/证书指纹,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ADDSRV-004,R4-08,implemented,identified,自定义节点-浏览/编辑/保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-GROUP-001,R4-08,identified,identified,策略组-添加子节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-GROUP-002,R4-08,identified,identified,策略组-移除子节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-GROUP-003,R4-08,identified,identified,策略组-移动子节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-GROUP-004,R4-08,identified,identified,策略组-全选子节点,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-GROUP-005,R4-08,identified,identified,策略组-预览页签刷新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-GROUP-006,R4-08,identified,identified,策略组-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-HOTKEY-008,R4-26,implemented,identified,全局热键设置-保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ADDSRV-005,R4-08,identified,identified,节点编辑-网络类型切换,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ADDSRV-006,R4-08,identified,identified,节点编辑-安全类型切换,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MISC-001,R4-08,identified,identified,分享二维码窗口-聚焦全选,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-MISC-002,R4-22,identified,identified,连接视图-自动列宽按钮,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,items,ACT-ROUTE-008,R4-14,identified,identified,路由设置-双击编辑规则集,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-001,R4-13,implemented,identified,IndexId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-002,R4-13,implemented,identified,SubIndexId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-003,R4-13,implemented,identified,CoreBasicItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-004,R4-13,implemented,identified,TunModeItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-005,R4-13,implemented,identified,KcpItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-006,R4-13,implemented,identified,GrpcItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-007,R4-13,implemented,identified,RoutingBasicItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-008,R4-13,implemented,identified,GuiItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-009,R4-13,implemented,identified,MsgUIItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-010,R4-13,implemented,identified,UiItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-011,R4-13,implemented,identified,ConstItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-012,R4-13,implemented,identified,SpeedTestItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-013,R4-13,implemented,identified,Mux4RayItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-014,R4-13,implemented,identified,Mux4SboxItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-015,R4-13,implemented,identified,HysteriaItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-016,R4-13,implemented,identified,ClashUIItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-017,R4-13,implemented,identified,SystemProxyItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-018,R4-13,implemented,identified,WebDavItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-019,R4-13,implemented,identified,CheckUpdateItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-020,R4-13,implemented,identified,Fragment4RayItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-021,R4-13,implemented,identified,Inbound,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-022,R4-13,implemented,identified,GlobalHotkeys,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-023,R4-13,implemented,identified,CoreTypeItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-024,R4-13,implemented,identified,SimpleDNSItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-025,R4-13,implemented,identified,HappyEyeballs4RayItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-026,R4-13,implemented,identified,LogEnabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-027,R4-13,implemented,identified,Loglevel,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-028,R4-13,implemented,identified,DefFingerprint,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-029,R4-13,implemented,identified,DefUserAgent,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-030,R4-13,implemented,identified,SendThrough,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-031,R4-13,implemented,identified,BindInterface,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-032,R4-13,implemented,identified,EnableFragment,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-033,R4-13,implemented,identified,EnableFinalFragment,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-034,R4-13,implemented,identified,EnableCacheFile4Sbox,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-035,R4-13,implemented,identified,LocalPort,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-036,R4-13,implemented,identified,Protocol,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-037,R4-13,implemented,identified,UdpEnabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-038,R4-13,implemented,identified,SniffingEnabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-039,R4-13,implemented,identified,DestOverride,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-040,R4-13,implemented,identified,RouteOnly,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-041,R4-13,implemented,identified,AllowLANConn,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-042,R4-13,implemented,identified,NewPort4LAN,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-043,R4-13,implemented,identified,User,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-044,R4-13,implemented,identified,Pass,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-045,R4-13,implemented,identified,SecondLocalPortEnabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-046,R4-13,implemented,identified,Mtu,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-047,R4-13,implemented,identified,Tti,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-048,R4-13,implemented,identified,UplinkCapacity,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-049,R4-13,implemented,identified,DownlinkCapacity,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-050,R4-13,implemented,identified,CwndMultiplier,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-051,R4-13,implemented,identified,MaxSendingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-052,R4-13,implemented,identified,IdleTimeout,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-053,R4-13,implemented,identified,HealthCheckTimeout,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-054,R4-13,implemented,identified,PermitWithoutStream,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-055,R4-13,implemented,identified,InitialWindowsSize,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-056,R4-13,implemented,identified,AutoRun,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-057,R4-13,implemented,identified,EnableStatistics,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-058,R4-13,implemented,identified,DisplayRealTimeSpeed,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-059,R4-13,implemented,identified,KeepOlderDedupl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-060,R4-13,implemented,identified,AutoUpdateInterval,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-061,R4-13,implemented,identified,TrayMenuServersLimit,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-062,R4-13,implemented,identified,EnableHWA,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-063,R4-13,implemented,identified,EnableLog,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-064,R4-13,implemented,identified,RootCertProvider,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-065,R4-13,implemented,identified,MainMsgFilter,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-066,R4-13,implemented,identified,AutoRefresh,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-067,R4-13,implemented,identified,EnableAutoAdjustMainLvColWidth,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-068,R4-13,implemented,identified,MainGirdHeight1,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-069,R4-13,implemented,identified,MainGirdHeight2,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-070,R4-13,implemented,identified,MainGirdOrientation,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-071,R4-13,implemented,identified,ColorPrimaryName,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-072,R4-13,implemented,identified,CurrentTheme,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-073,R4-13,implemented,identified,CurrentLanguage,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-074,R4-13,implemented,identified,CurrentFontFamily,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-075,R4-13,implemented,identified,CurrentFontSize,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-076,R4-13,implemented,identified,EnableDragDropSort,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-077,R4-13,implemented,identified,DoubleClick2Activate,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-078,R4-13,implemented,identified,AutoHideStartup,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-079,R4-13,implemented,identified,Hide2TrayWhenClose,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-080,R4-13,implemented,identified,MacOSShowInDock,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-081,R4-13,implemented,identified,MainColumnItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-082,R4-13,implemented,identified,WindowSizeItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-083,R4-13,implemented,identified,HideColumnIpInfo,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-084,R4-13,implemented,identified,SubConvertUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-085,R4-13,implemented,identified,GeoSourceUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-086,R4-13,implemented,identified,SrsSourceUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-087,R4-13,implemented,identified,RouteRulesTemplateSourceUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-088,R4-13,implemented,identified,EGlobalHotkey,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-089,R4-13,implemented,identified,Alt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-090,R4-13,implemented,identified,Control,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-091,R4-13,implemented,identified,Shift,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-092,R4-13,implemented,identified,KeyCode,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-093,R4-13,implemented,identified,ConfigType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-094,R4-13,implemented,identified,CoreType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-095,R4-13,implemented,identified,EnableTun,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-096,R4-13,implemented,identified,AutoRoute,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-097,R4-13,implemented,identified,StrictRoute,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-098,R4-13,implemented,identified,Stack,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-099,R4-13,implemented,identified,Mtu,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-100,R4-13,implemented,identified,EnableIPv6Address,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-101,R4-13,implemented,identified,IcmpRouting,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-102,R4-13,implemented,identified,EnableLegacyProtect,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-103,R4-13,implemented,identified,RouteExcludeAddress,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-104,R4-13,implemented,identified,IPv4Address,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-105,R4-13,implemented,identified,IPv6Address,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-106,R4-13,implemented,identified,SpeedTestTimeout,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-107,R4-13,implemented,identified,SpeedTestUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-108,R4-13,implemented,identified,SpeedPingTestUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-109,R4-13,implemented,identified,MixedConcurrencyCount,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-110,R4-13,implemented,identified,IPAPIUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-111,R4-13,implemented,identified,UdpTestTarget,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-112,R4-13,implemented,identified,SpeedTestPageSize,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-113,R4-13,implemented,identified,SpeedTestDelayInterval,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-114,R4-13,implemented,identified,DomainStrategy,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-115,R4-13,implemented,identified,DomainStrategy4Singbox,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-116,R4-13,implemented,identified,RoutingIndexId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-117,R4-13,implemented,identified,Name,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-118,R4-13,implemented,identified,Width,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-119,R4-13,implemented,identified,Index,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-120,R4-13,implemented,identified,Concurrency,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-121,R4-13,implemented,identified,XudpConcurrency,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-122,R4-13,implemented,identified,XudpProxyUDP443,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-123,R4-13,implemented,identified,Protocol,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-124,R4-13,implemented,identified,MaxConnections,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-125,R4-13,implemented,identified,Padding,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-126,R4-13,implemented,identified,UpMbps,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-127,R4-13,implemented,identified,DownMbps,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-128,R4-13,implemented,identified,HopInterval,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-129,R4-13,implemented,identified,EnableIPv6,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-130,R4-13,implemented,identified,EnableMixinContent,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-131,R4-13,implemented,identified,ProxiesSorting,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-132,R4-13,implemented,identified,ProxiesAutoRefresh,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-133,R4-13,implemented,identified,ProxiesRefreshInterval,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-134,R4-13,implemented,identified,ConnectionsAutoRefresh,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-135,R4-13,implemented,identified,ConnectionsRefreshInterval,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-136,R4-13,implemented,identified,ConnectionsColumnItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-137,R4-13,implemented,identified,SysProxyType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-138,R4-13,implemented,identified,SystemProxyExceptions,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-139,R4-13,implemented,identified,NotProxyLocalAddress,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-140,R4-13,implemented,identified,SystemProxyAdvancedProtocol,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-141,R4-13,implemented,identified,CustomSystemProxyPacPath,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-142,R4-13,implemented,identified,CustomSystemProxyScriptPath,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-143,R4-13,implemented,identified,Url,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-144,R4-13,implemented,identified,UserName,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-145,R4-13,implemented,identified,Password,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-146,R4-13,implemented,identified,DirName,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-147,R4-13,implemented,identified,CheckPreReleaseUpdate,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-148,R4-13,implemented,identified,UpdateViaProxy,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-149,R4-13,implemented,identified,SelectedCoreTypes,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-150,R4-13,implemented,identified,Packets,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-151,R4-13,implemented,identified,Lengths,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-152,R4-13,implemented,identified,Delays,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-153,R4-13,implemented,identified,MaxSplit,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-154,R4-13,implemented,identified,Length,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-155,R4-13,implemented,identified,Interval,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-156,R4-13,implemented,identified,TypeName,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-157,R4-13,implemented,identified,Width,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-158,R4-13,implemented,identified,Height,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-159,R4-13,implemented,identified,UseSystemHosts,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-160,R4-13,implemented,identified,AddCommonHosts,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-161,R4-13,implemented,identified,FakeIP,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-162,R4-13,implemented,identified,GlobalFakeIp,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-163,R4-13,implemented,identified,FakeIPRange,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-164,R4-13,implemented,identified,BlockBindingQuery,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-165,R4-13,implemented,identified,BlockAAAAQuery,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-166,R4-13,implemented,identified,DirectDNS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-167,R4-13,implemented,identified,RemoteDNS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-168,R4-13,implemented,identified,BootstrapDNS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-169,R4-13,implemented,identified,Strategy4Freedom,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-170,R4-13,implemented,identified,Strategy4Proxy,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-171,R4-13,implemented,identified,Strategy4ProxyDial,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-172,R4-13,implemented,identified,ServeStale,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-173,R4-13,implemented,identified,ParallelQuery,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-174,R4-13,implemented,identified,Hosts,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-175,R4-13,implemented,identified,DirectExpectedIPs,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-176,R4-13,implemented,identified,EnableHappyEyeballs,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-177,R4-13,implemented,identified,TryDelayMs,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-178,R4-13,implemented,identified,PrioritizeIPv6,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-179,R4-13,implemented,identified,Interleave,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.settings.yaml,items,FLD-CFG-180,R4-13,implemented,identified,MaxConcurrentTry,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-001,R4-27,implemented,identified,IndexId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-002,R4-27,implemented,identified,ConfigType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-003,R4-27,implemented,identified,CoreType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-004,R4-27,implemented,identified,ConfigVersion,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-005,R4-27,implemented,identified,Subid,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-006,R4-27,implemented,identified,IsSub,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-007,R4-27,implemented,identified,PreSocksPort,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-008,R4-27,implemented,identified,DisplayLog,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-009,R4-27,implemented,identified,Remarks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-010,R4-27,implemented,identified,Address,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-011,R4-27,implemented,identified,Port,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-012,R4-27,implemented,identified,Password,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-013,R4-27,implemented,identified,Username,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-014,R4-27,implemented,identified,Network,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-015,R4-27,implemented,identified,HeaderType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-016,R4-27,implemented,identified,RequestHost,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-017,R4-27,implemented,identified,Path,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-018,R4-27,implemented,identified,StreamSecurity,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-019,R4-27,implemented,identified,AllowInsecure,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-020,R4-27,implemented,identified,Sni,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-021,R4-27,implemented,identified,Alpn,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-022,R4-27,implemented,identified,Fingerprint,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-023,R4-27,implemented,identified,PublicKey,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-024,R4-27,implemented,identified,ShortId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-025,R4-27,implemented,identified,SpiderX,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-026,R4-27,implemented,identified,Mldsa65Verify,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-027,R4-27,implemented,identified,Extra,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-028,R4-27,implemented,identified,MuxEnabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-029,R4-27,implemented,identified,Cert,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-030,R4-27,implemented,identified,CertSha,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-031,R4-27,implemented,identified,EchConfigList,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-032,R4-27,implemented,identified,VerifyPeerCertByName,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-033,R4-27,implemented,identified,Finalmask,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-034,R4-27,implemented,identified,ProtoExtra,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-035,R4-27,implemented,identified,TransportExtra,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-036,R4-27,implemented,identified,Ports,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-037,R4-27,implemented,identified,AlterId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-038,R4-27,implemented,identified,Flow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-039,R4-27,implemented,identified,Id,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-040,R4-27,implemented,identified,Security,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-041,R4-27,implemented,identified,Uot,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-042,R4-27,implemented,identified,CongestionControl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-043,R4-27,implemented,identified,HttpHeaders,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-044,R4-27,implemented,identified,AlterId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-045,R4-27,implemented,identified,VmessSecurity,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-046,R4-27,implemented,identified,Flow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-047,R4-27,implemented,identified,VlessEncryption,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-048,R4-27,implemented,identified,SsMethod,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-049,R4-27,implemented,identified,WgPublicKey,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-050,R4-27,implemented,identified,WgPresharedKey,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-051,R4-27,implemented,identified,WgInterfaceAddress,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-052,R4-27,implemented,identified,WgReserved,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-053,R4-27,implemented,identified,WgMtu,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-054,R4-27,implemented,identified,WgDns,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-055,R4-27,implemented,identified,SalamanderPass,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-056,R4-27,implemented,identified,UpMbps,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-057,R4-27,implemented,identified,DownMbps,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-058,R4-27,implemented,identified,Ports,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-059,R4-27,implemented,identified,HopInterval,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-060,R4-27,implemented,identified,Hy2RealmUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-061,R4-27,implemented,identified,GeckoMinPacketSize,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-062,R4-27,implemented,identified,GeckoMaxPacketSize,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-063,R4-27,implemented,identified,InsecureConcurrency,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-064,R4-27,implemented,identified,NaiveQuic,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-065,R4-27,implemented,identified,GroupType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-066,R4-27,implemented,identified,ChildItems,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-067,R4-27,implemented,identified,SubChildItems,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-068,R4-27,implemented,identified,Filter,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-069,R4-27,implemented,identified,MultipleLoad,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-070,R4-27,implemented,identified,IsSingboxEndpoint,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-071,R4-27,implemented,identified,RawHeaderType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-072,R4-27,implemented,identified,Host,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-073,R4-27,implemented,identified,Path,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-074,R4-27,implemented,identified,XhttpMode,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-075,R4-27,implemented,identified,XhttpExtra,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-076,R4-27,implemented,identified,GrpcAuthority,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-077,R4-27,implemented,identified,GrpcServiceName,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-078,R4-27,implemented,identified,GrpcMode,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-079,R4-27,implemented,identified,KcpHeaderType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-080,R4-27,implemented,identified,KcpSeed,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-081,R4-27,implemented,identified,KcpMtu,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-082,R4-27,implemented,identified,Id,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-083,R4-27,implemented,identified,Remarks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-084,R4-27,implemented,identified,Url,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-085,R4-27,implemented,identified,MoreUrl,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-086,R4-27,implemented,identified,Enabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-087,R4-27,implemented,identified,UserAgent,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-088,R4-27,implemented,identified,RequestHeaders,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-089,R4-27,implemented,identified,Sort,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-090,R4-27,implemented,identified,Filter,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-091,R4-27,implemented,identified,AutoUpdateInterval,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-092,R4-27,implemented,identified,UpdateTime,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-093,R4-27,implemented,identified,ConvertTarget,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-094,R4-27,implemented,identified,PrevProfile,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-095,R4-27,implemented,identified,NextProfile,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-096,R4-27,implemented,identified,PreSocksPort,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-097,R4-27,implemented,identified,Memo,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-098,R4-27,implemented,identified,CustomCoreType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-099,R4-27,identified,identified,IndexId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-100,R4-27,identified,identified,ChildItems,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-101,R4-27,identified,identified,SubChildItems,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-102,R4-27,identified,identified,Filter,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-103,R4-27,identified,identified,MultipleLoad,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-104,R4-27,identified,identified,IndexId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-105,R4-27,identified,identified,Delay,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-106,R4-27,identified,identified,Speed,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-107,R4-27,identified,identified,Sort,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-108,R4-27,identified,identified,Message,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-109,R4-27,identified,identified,IpInfo,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-110,R4-27,implemented,identified,IndexId,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-111,R4-27,implemented,identified,TotalUp,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-112,R4-27,implemented,identified,TotalDown,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-113,R4-27,implemented,identified,TodayUp,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-114,R4-27,implemented,identified,TodayDown,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-115,R4-27,implemented,identified,DateNow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-116,R4-27,implemented,identified,Id,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-117,R4-27,implemented,identified,Remarks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-118,R4-27,implemented,identified,Enabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-119,R4-27,implemented,identified,CoreType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-120,R4-27,implemented,identified,UseSystemHosts,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-121,R4-27,implemented,identified,NormalDNS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-122,R4-27,implemented,identified,TunDNS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-123,R4-27,implemented,identified,DomainStrategy4Freedom,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-124,R4-27,implemented,identified,DomainDNSAddress,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-125,R4-27,implemented,identified,Id,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-126,R4-27,implemented,identified,Remarks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-127,R4-27,implemented,identified,Url,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-128,R4-27,implemented,identified,RuleSet,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-129,R4-27,implemented,identified,RuleNum,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-130,R4-27,implemented,identified,Enabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-131,R4-27,implemented,identified,Locked,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-132,R4-27,implemented,identified,CustomIcon,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-133,R4-27,implemented,identified,CustomRulesetPath4Singbox,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-134,R4-27,implemented,identified,DomainStrategy,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-135,R4-27,implemented,identified,DomainStrategy4Singbox,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-136,R4-27,implemented,identified,Sort,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-137,R4-27,implemented,identified,IsActive,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-138,R4-27,implemented,identified,Id,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-139,R4-27,implemented,identified,Type,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-140,R4-27,implemented,identified,Port,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-141,R4-27,implemented,identified,Network,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-142,R4-27,implemented,identified,InboundTag,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-143,R4-27,implemented,identified,OutboundTag,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-144,R4-27,implemented,identified,Ip,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-145,R4-27,implemented,identified,Domain,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-146,R4-27,implemented,identified,Protocol,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-147,R4-27,implemented,identified,Process,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-148,R4-27,implemented,identified,Enabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-149,R4-27,implemented,identified,Remarks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-150,R4-27,implemented,identified,RuleType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-151,R4-27,implemented,identified,Id,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-152,R4-27,implemented,identified,Remarks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-153,R4-27,implemented,identified,Enabled,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-154,R4-27,implemented,identified,CoreType,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-155,R4-27,implemented,identified,Config,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-156,R4-27,implemented,identified,TunConfig,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-157,R4-27,implemented,identified,AddProxyOnly,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,items,FLD-ENT-158,R4-27,implemented,identified,ProxyDetour,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-MAIN-004,R4-12,identified,identified,主窗口-顶部菜单/工具栏,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-MAIN-005,R4-12,identified,identified,主题快速入口控件,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-MAIN-006,R4-12,identified,identified,主窗口-底部状态栏宿主,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-MAIN-007,R4-12,identified,identified,主窗口-布局恢复与持久化,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-PROFILES-001,R4-08,identified,identified,节点视图-容器与工具栏,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-PROFILES-002,R4-08,identified,identified,节点表-列定义与默认顺序,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-PROFILES-003,R4-08,identified,identified,节点表-列状态持久化,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-PROFILES-004,R4-08,identified,identified,节点表-右键菜单,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-CLASHPROXY-001,R4-23,identified,identified,代理视图-分组与明细,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-CLASHCN-001,R4-23,identified,identified,连接表-列定义,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-CLASHCN-002,R4-23,identified,identified,连接表-列状态持久化,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-MSG-001,R4-23,identified,identified,消息视图,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-STATUSBAR-001,R4-06,identified,identified,状态栏视图,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-THEME-001,R4-12,identified,identified,主题设置控件,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-OPTSET-001,R4-12,identified,identified,参数设置窗口-Tab 结构与平台可见性,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-OPTSET-002,R4-12,identified,identified,参数设置-字体/主题/DPI/主布局方向入口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-DNSSET-001,R4-15,identified,identified,DNS 设置窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-ROUTINGSET-001,R4-14,identified,identified,路由设置窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-ROUTINGRULESET-001,R4-14,identified,identified,路由规则集窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-ROUTINGRULEDETAIL-001,R4-14,identified,identified,路由规则详情窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-SUBSET-001,R4-17,identified,identified,订阅设置窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-SUBEDIT-001,R4-17,identified,identified,订阅编辑窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-ADDSERVER-001,R4-18,identified,identified,添加/编辑节点窗口-主体,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-ADDSERVER2-001,R4-19,identified,identified,添加自定义节点窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-ADDGROUP-001,R4-20,identified,identified,添加分组节点窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-PROFILESELECT-001,R4-20,identified,identified,选择节点窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-FULLCONFIG-001,R4-19,identified,identified,完整配置模板窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-HOTKEY-001,R4-26,identified,identified,全局热键设置窗口,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-BACKUP-001,R4-28,identified,identified,备份与恢复视图,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-CHECKUPDATE-001,R4-29,identified,identified,检查更新视图,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-QRCODE-001,R4-12,identified,identified,二维码视图,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-DIALOG-WPF-001,R4-12,identified,identified,WPF 确认/错误对话框,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-MSGBOX-AVA-001,R4-12,identified,identified,Avalonia 消息框,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-JSONEDITOR-001,R4-12,identified,identified,JSON 编辑器（仅 Avalonia）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-SUDOPW-001,R4-12,identified,identified,Linux sudo 密码输入视图,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,items,LAY-WINSIZE-001,R4-12,identified,identified,窗口尺寸持久化矩阵,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-001,R4-18,identified,identified,EConfigType.VMess,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-002,R4-18,implemented,identified,EConfigType.Custom,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-003,R4-18,identified,identified,EConfigType.Shadowsocks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-004,R4-18,identified,identified,EConfigType.SOCKS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-005,R4-18,identified,identified,EConfigType.VLESS,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-006,R4-18,identified,identified,EConfigType.Trojan,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-007,R4-18,identified,identified,EConfigType.Hysteria2,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-008,R4-18,implemented,identified,EConfigType.TUIC,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-009,R4-18,identified,identified,EConfigType.WireGuard,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-010,R4-18,identified,identified,EConfigType.HTTP,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-011,R4-18,identified,identified,EConfigType.Anytls,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-012,R4-18,identified,identified,EConfigType.Naive,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-013,R4-18,implemented,identified,EConfigType.Outbound,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-014,R4-18,implemented,identified,EConfigType.PolicyGroup,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,config_types,CFG-015,R4-18,implemented,identified,EConfigType.ProxyChain,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-001,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-002,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-003,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-004,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-005,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-006,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-007,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-008,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-009,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-010,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-011,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-012,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-013,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-014,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,core_capability_matrix,CRM-015,R4-21,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-001,R4-16,identified,identified,VmessFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-002,R4-16,identified,identified,VLESSFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-003,R4-16,identified,identified,ShadowsocksFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-004,R4-16,identified,identified,SocksFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-005,R4-16,identified,identified,TrojanFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-006,R4-16,identified,identified,Hysteria2Fmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-007,R4-16,identified,identified,TuicFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-008,R4-16,identified,identified,WireguardFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-009,R4-16,identified,identified,AnytlsFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-010,R4-16,identified,identified,NaiveFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-011,R4-16,identified,identified,InnerFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-012,R4-16,identified,identified,V2rayFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-013,R4-16,identified,identified,SingboxFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-014,R4-16,identified,identified,ClashFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-015,R4-16,identified,identified,HtmlPageFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-016,R4-16,identified,identified,BaseFmt,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,fmt_formats,FMT-017,R4-16,identified,identified,FmtHandler,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,scheduled_and_background,BG-TASK-001,R4-34,identified,identified,定时任务主循环（每 1 分钟）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,scheduled_and_background,BG-TASK-002,R4-34,identified,identified,订阅自动更新任务,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,scheduled_and_background,BG-TASK-003,R4-34,identified,identified,Geo 文件自动更新任务,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,scheduled_and_background,BG-TASK-004,R4-34,identified,identified,每日更新检查任务,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,scheduled_and_background,BG-TASK-005,R4-34,identified,identified,统计采集后台循环,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,scheduled_and_background,BG-TASK-006,R4-34,identified,identified,配置持久化任务,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-001,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-002,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-003,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-004,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-005,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-006,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-007,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-008,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-009,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-010,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-011,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-012,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-013,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,existing_tests,TEST-014,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-001,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-002,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-003,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-004,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-005,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-006,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-007,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-008,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-009,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-010,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-011,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-012,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-013,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-014,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+features.yaml,enum_scan,ENUM-015,R4-00,identified,identified,,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,hotkey_scope_rules,HKR-001,R4-26,missing,identified,节点表键盘作用域（WPF ProfilesView）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,hotkey_scope_rules,HKR-002,R4-26,missing,identified,主窗口输入框聚焦时 Ctrl+V 短路,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,hotkey_scope_rules,HKR-003,R4-26,missing,identified,节点表默认按键被禁用,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,hotkey_scope_rules,HKR-004,R4-26,missing,identified,路由规则窗口按键作用域限制,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,hotkey_scope_rules,HKR-005,R4-26,missing,identified,策略组子节点表按键作用域限制,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,hotkey_scope_rules,HKR-006,R4-26,missing,identified,过滤器输入框回车刷新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,hotkey_scope_rules,HKR-007,R4-26,missing,identified,全局热键录制期间暂停注册,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,hotkey_scope_rules,HKR-008,R4-26,missing,identified,Avalonia 平台的 Ctrl/Meta 等价,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,scheduled_tasks,SCH-001,R4-34,identified,identified,订阅自动更新定时任务,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,scheduled_tasks,SCH-002,R4-34,identified,identified,配置与统计定时保存,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,scheduled_tasks,SCH-003,R4-34,identified,identified,过期文件清理与 Geo 更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,scheduled_tasks,SCH-004,R4-34,identified,identified,每日检查更新,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,scheduled_tasks,SCH-005,R4-34,identified,identified,消息视图刷新定时器,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,scheduled_tasks,SCH-006,R4-34,identified,identified,Clash 代理列表刷新定时器,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+actions.yaml,scheduled_tasks,SCH-007,R4-34,identified,identified,Clash 连接列表刷新定时器,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,migration_paths,MIG-ENT-001,R4-27,identified,identified,MigrateProfileExtra（编排入口）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,migration_paths,MIG-ENT-002,R4-27,identified,identified,MigrateProfileExtraGroupV2ToV3（组节点）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,migration_paths,MIG-ENT-003,R4-27,identified,identified,MigrateProfileExtraV2ToV3（普通节点）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,migration_paths,MIG-ENT-004,R4-27,identified,identified,MigrateProfileTransportV3ToV4（传输层）,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,migration_paths,MIG-ENT-005,R4-27,identified,identified,新建/编辑节点版本标记,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,migration_paths,MIG-ENT-006,R4-27,identified,identified,内部导入对 ConfigVersion 的强校验,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,migration_paths,MIG-ENT-007,R4-27,identified,identified,RoutingBasicItem.RoutingIndexId 迁移,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,migration_paths,MIG-ENT-008,R4-27,identified,identified,SimpleDNSItem 配置项补默认,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,reference_semantics,REF-ENT-001,R4-27,identified,identified,路由规则 OutboundTag -> 节点 Remarks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,reference_semantics,REF-ENT-002,R4-27,identified,identified,订阅 PrevProfile/NextProfile -> 节点 Remarks,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,reference_semantics,REF-ENT-003,R4-27,identified,identified,组节点 ChildItems -> 节点 IndexId 列表,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,reference_semantics,REF-ENT-004,R4-27,identified,identified,组节点 SubChildItems -> 订阅 Id + Filter 正则,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,reference_semantics,REF-ENT-005,R4-27,identified,identified,内部导入导出引用重写,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,reference_semantics,REF-ENT-006,R4-27,identified,identified,"组子项别名（自引用 ""self""）",7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,storage_tables,SubItem,R4-27,missing,identified,SubItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,storage_tables,ProfileItem,R4-27,missing,identified,ProfileItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,storage_tables,ServerStatItem,R4-27,missing,identified,ServerStatItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,storage_tables,RoutingItem,R4-27,missing,identified,RoutingItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,storage_tables,ProfileExItem,R4-27,missing,identified,ProfileExItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,storage_tables,DNSItem,R4-27,missing,identified,DNSItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,storage_tables,FullConfigTemplateItem,R4-27,missing,identified,FullConfigTemplateItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+fields.entities.yaml,storage_tables,ProfileGroupItem,R4-27,missing,identified,ProfileGroupItem,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,main_layouts,LAY-MAIN-001,R4-12,identified,identified,主窗口-水平布局,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,main_layouts,LAY-MAIN-002,R4-12,identified,identified,主窗口-垂直布局,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,main_layouts,LAY-MAIN-003,R4-12,identified,identified,主窗口-标签布局,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-001,R4-12,identified,identified,App,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-002,R4-12,identified,identified,MainWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-003,R4-12,identified,identified,ProfilesView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-004,R4-12,identified,identified,StatusBarView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-005,R4-12,identified,identified,MsgView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-006,R4-12,identified,identified,ThemeSettingView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-007,R4-12,identified,identified,ClashProxiesView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-008,R4-12,identified,identified,ClashConnectionsView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-009,R4-12,identified,identified,BackupAndRestoreView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-010,R4-12,identified,identified,CheckUpdateView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-011,R4-12,identified,identified,QrcodeView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-012,R4-12,identified,identified,AddServerWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-013,R4-12,identified,identified,AddServer2Window,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-014,R4-12,identified,identified,AddGroupServerWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-015,R4-12,identified,identified,OptionSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-016,R4-12,identified,identified,RoutingSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-017,R4-12,identified,identified,RoutingRuleSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-018,R4-12,identified,identified,RoutingRuleDetailsWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-019,R4-12,identified,identified,DNSSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-020,R4-12,identified,identified,FullConfigTemplateWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-021,R4-12,identified,identified,GlobalHotkeySettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-022,R4-12,identified,identified,SubSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-023,R4-12,identified,identified,SubEditWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-WPF-024,R4-12,identified,identified,ProfilesSelectWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-001,R4-12,identified,identified,App,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-002,R4-12,identified,identified,GlobalResources,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-003,R4-12,identified,identified,GlobalStyles,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-004,R4-12,identified,identified,MainWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-005,R4-12,identified,identified,ProfilesView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-006,R4-12,identified,identified,StatusBarView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-007,R4-12,identified,identified,MsgView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-008,R4-12,identified,identified,ThemeSettingView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-009,R4-12,identified,identified,ClashProxiesView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-010,R4-12,identified,identified,ClashConnectionsView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-011,R4-12,identified,identified,BackupAndRestoreView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-012,R4-12,identified,identified,CheckUpdateView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-013,R4-12,identified,identified,QrcodeView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-014,R4-12,identified,identified,JsonEditor,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-015,R4-12,identified,identified,SudoPasswordInputView,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-016,R4-12,identified,identified,MessageBoxDialog,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-017,R4-12,identified,identified,AddServerWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-018,R4-12,identified,identified,AddServer2Window,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-019,R4-12,identified,identified,AddGroupServerWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-020,R4-12,identified,identified,OptionSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-021,R4-12,identified,identified,RoutingSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-022,R4-12,identified,identified,RoutingRuleSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-023,R4-12,identified,identified,RoutingRuleDetailsWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-024,R4-12,identified,identified,DNSSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-025,R4-12,identified,identified,FullConfigTemplateWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-026,R4-12,identified,identified,GlobalHotkeySettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-027,R4-12,identified,identified,SubSettingWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-028,R4-12,identified,identified,SubEditWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性
+layouts.yaml,window_inventory,INV-AVA-029,R4-12,identified,identified,ProfilesSelectWindow,7d6a967c18c697f28dc6917122ed3a4993fcf336,,正常/错误/取消/重开/真实效果，按平台适用性

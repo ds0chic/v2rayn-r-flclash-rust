@@ -1,0 +1,424 @@
+{
+  "application_commit": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "identified",
+  "production_edits": false,
+  "work_packages": 35,
+  "parameter_cards": 41,
+  "coverage_rows": 844,
+  "note": "参数卡是覆盖实例，不是完成度分母；仍逐核/平台适用性执行。",
+  "inventories": {
+    "features.yaml:features": 110,
+    "actions.yaml:items": 185,
+    "fields.settings.yaml:items": 180,
+    "fields.entities.yaml:items": 158,
+    "layouts.yaml:items": 36,
+    "features.yaml:config_types": 15,
+    "features.yaml:core_capability_matrix": 15,
+    "features.yaml:fmt_formats": 17,
+    "features.yaml:scheduled_and_background": 6,
+    "features.yaml:existing_tests": 14,
+    "features.yaml:enum_scan": 15,
+    "actions.yaml:hotkey_scope_rules": 8,
+    "actions.yaml:scheduled_tasks": 7,
+    "fields.entities.yaml:migration_paths": 8,
+    "fields.entities.yaml:reference_semantics": 6,
+    "fields.entities.yaml:storage_tables": 8,
+    "layouts.yaml:main_layouts": 3,
+    "layouts.yaml:window_inventory": 53
+  },
+  "instances": [
+    {
+      "task": "R4-13.S01",
+      "parameter": "CheckUpdateItem",
+      "ledger_ids": [
+        "FLD-CFG-147",
+        "FLD-CFG-148",
+        "FLD-CFG-149"
+      ]
+    },
+    {
+      "task": "R4-13.S02",
+      "parameter": "ClashUIItem",
+      "ledger_ids": [
+        "FLD-CFG-129",
+        "FLD-CFG-130",
+        "FLD-CFG-131",
+        "FLD-CFG-132",
+        "FLD-CFG-133",
+        "FLD-CFG-134",
+        "FLD-CFG-135",
+        "FLD-CFG-136"
+      ]
+    },
+    {
+      "task": "R4-13.S03",
+      "parameter": "ConfigRoot",
+      "ledger_ids": [
+        "FLD-CFG-001",
+        "FLD-CFG-002",
+        "FLD-CFG-003",
+        "FLD-CFG-004",
+        "FLD-CFG-005",
+        "FLD-CFG-006",
+        "FLD-CFG-007",
+        "FLD-CFG-008",
+        "FLD-CFG-009",
+        "FLD-CFG-010",
+        "FLD-CFG-011",
+        "FLD-CFG-012",
+        "FLD-CFG-013",
+        "FLD-CFG-014",
+        "FLD-CFG-015",
+        "FLD-CFG-016",
+        "FLD-CFG-017",
+        "FLD-CFG-018",
+        "FLD-CFG-019",
+        "FLD-CFG-020",
+        "FLD-CFG-021",
+        "FLD-CFG-022",
+        "FLD-CFG-023",
+        "FLD-CFG-024",
+        "FLD-CFG-025"
+      ]
+    },
+    {
+      "task": "R4-13.S04",
+      "parameter": "ConstItem",
+      "ledger_ids": [
+        "FLD-CFG-084",
+        "FLD-CFG-085",
+        "FLD-CFG-086",
+        "FLD-CFG-087"
+      ]
+    },
+    {
+      "task": "R4-13.S05",
+      "parameter": "CoreBasicItem",
+      "ledger_ids": [
+        "FLD-CFG-026",
+        "FLD-CFG-027",
+        "FLD-CFG-028",
+        "FLD-CFG-029",
+        "FLD-CFG-030",
+        "FLD-CFG-031",
+        "FLD-CFG-032",
+        "FLD-CFG-033",
+        "FLD-CFG-034"
+      ]
+    },
+    {
+      "task": "R4-13.S06",
+      "parameter": "CoreTypeItem",
+      "ledger_ids": [
+        "FLD-CFG-093",
+        "FLD-CFG-094"
+      ]
+    },
+    {
+      "task": "R4-13.S07",
+      "parameter": "Fragment4RayItem",
+      "ledger_ids": [
+        "FLD-CFG-150",
+        "FLD-CFG-151",
+        "FLD-CFG-152",
+        "FLD-CFG-153",
+        "FLD-CFG-154",
+        "FLD-CFG-155"
+      ]
+    },
+    {
+      "task": "R4-13.S08",
+      "parameter": "GlobalHotkeys",
+      "ledger_ids": [
+        "FLD-CFG-088",
+        "FLD-CFG-089",
+        "FLD-CFG-090",
+        "FLD-CFG-091",
+        "FLD-CFG-092"
+      ]
+    },
+    {
+      "task": "R4-13.S09",
+      "parameter": "GrpcItem",
+      "ledger_ids": [
+        "FLD-CFG-052",
+        "FLD-CFG-053",
+        "FLD-CFG-054",
+        "FLD-CFG-055"
+      ]
+    },
+    {
+      "task": "R4-13.S10",
+      "parameter": "GuiItem",
+      "ledger_ids": [
+        "FLD-CFG-056",
+        "FLD-CFG-057",
+        "FLD-CFG-058",
+        "FLD-CFG-059",
+        "FLD-CFG-060",
+        "FLD-CFG-061",
+        "FLD-CFG-062",
+        "FLD-CFG-063",
+        "FLD-CFG-064"
+      ]
+    },
+    {
+      "task": "R4-13.S11",
+      "parameter": "HappyEyeballs4RayItem",
+      "ledger_ids": [
+        "FLD-CFG-177",
+        "FLD-CFG-178",
+        "FLD-CFG-179",
+        "FLD-CFG-180"
+      ]
+    },
+    {
+      "task": "R4-13.S12",
+      "parameter": "HysteriaItem",
+      "ledger_ids": [
+        "FLD-CFG-126",
+        "FLD-CFG-127",
+        "FLD-CFG-128"
+      ]
+    },
+    {
+      "task": "R4-13.S13",
+      "parameter": "Inbound",
+      "ledger_ids": [
+        "FLD-CFG-035",
+        "FLD-CFG-036",
+        "FLD-CFG-037",
+        "FLD-CFG-038",
+        "FLD-CFG-039",
+        "FLD-CFG-040",
+        "FLD-CFG-041",
+        "FLD-CFG-042",
+        "FLD-CFG-043",
+        "FLD-CFG-044",
+        "FLD-CFG-045"
+      ]
+    },
+    {
+      "task": "R4-13.S14",
+      "parameter": "KcpItem",
+      "ledger_ids": [
+        "FLD-CFG-046",
+        "FLD-CFG-047",
+        "FLD-CFG-048",
+        "FLD-CFG-049",
+        "FLD-CFG-050",
+        "FLD-CFG-051"
+      ]
+    },
+    {
+      "task": "R4-13.S15",
+      "parameter": "MsgUIItem",
+      "ledger_ids": [
+        "FLD-CFG-065",
+        "FLD-CFG-066"
+      ]
+    },
+    {
+      "task": "R4-13.S16",
+      "parameter": "Mux4RayItem",
+      "ledger_ids": [
+        "FLD-CFG-120",
+        "FLD-CFG-121",
+        "FLD-CFG-122"
+      ]
+    },
+    {
+      "task": "R4-13.S17",
+      "parameter": "Mux4SboxItem",
+      "ledger_ids": [
+        "FLD-CFG-123",
+        "FLD-CFG-124",
+        "FLD-CFG-125"
+      ]
+    },
+    {
+      "task": "R4-13.S18",
+      "parameter": "RoutingBasicItem",
+      "ledger_ids": [
+        "FLD-CFG-114",
+        "FLD-CFG-115",
+        "FLD-CFG-116"
+      ]
+    },
+    {
+      "task": "R4-13.S19",
+      "parameter": "SimpleDNSItem",
+      "ledger_ids": [
+        "FLD-CFG-159",
+        "FLD-CFG-160",
+        "FLD-CFG-161",
+        "FLD-CFG-162",
+        "FLD-CFG-163",
+        "FLD-CFG-164",
+        "FLD-CFG-165",
+        "FLD-CFG-166",
+        "FLD-CFG-167",
+        "FLD-CFG-168",
+        "FLD-CFG-169",
+        "FLD-CFG-170",
+        "FLD-CFG-171",
+        "FLD-CFG-172",
+        "FLD-CFG-173",
+        "FLD-CFG-174",
+        "FLD-CFG-175",
+        "FLD-CFG-176"
+      ]
+    },
+    {
+      "task": "R4-13.S20",
+      "parameter": "SpeedTestItem",
+      "ledger_ids": [
+        "FLD-CFG-106",
+        "FLD-CFG-107",
+        "FLD-CFG-108",
+        "FLD-CFG-109",
+        "FLD-CFG-110",
+        "FLD-CFG-111",
+        "FLD-CFG-112",
+        "FLD-CFG-113"
+      ]
+    },
+    {
+      "task": "R4-13.S21",
+      "parameter": "SystemProxyItem",
+      "ledger_ids": [
+        "FLD-CFG-137",
+        "FLD-CFG-138",
+        "FLD-CFG-139",
+        "FLD-CFG-140",
+        "FLD-CFG-141",
+        "FLD-CFG-142"
+      ]
+    },
+    {
+      "task": "R4-13.S22",
+      "parameter": "TunModeItem",
+      "ledger_ids": [
+        "FLD-CFG-095",
+        "FLD-CFG-096",
+        "FLD-CFG-097",
+        "FLD-CFG-098",
+        "FLD-CFG-099",
+        "FLD-CFG-100",
+        "FLD-CFG-101",
+        "FLD-CFG-102",
+        "FLD-CFG-103",
+        "FLD-CFG-104",
+        "FLD-CFG-105"
+      ]
+    },
+    {
+      "task": "R4-13.S23",
+      "parameter": "UiItem",
+      "ledger_ids": [
+        "FLD-CFG-067",
+        "FLD-CFG-068",
+        "FLD-CFG-069",
+        "FLD-CFG-070",
+        "FLD-CFG-071",
+        "FLD-CFG-072",
+        "FLD-CFG-073",
+        "FLD-CFG-074",
+        "FLD-CFG-075",
+        "FLD-CFG-076",
+        "FLD-CFG-077",
+        "FLD-CFG-078",
+        "FLD-CFG-079",
+        "FLD-CFG-080",
+        "FLD-CFG-081",
+        "FLD-CFG-082",
+        "FLD-CFG-083",
+        "FLD-CFG-117",
+        "FLD-CFG-118",
+        "FLD-CFG-119",
+        "FLD-CFG-156",
+        "FLD-CFG-157",
+        "FLD-CFG-158"
+      ]
+    },
+    {
+      "task": "R4-13.S24",
+      "parameter": "WebDavItem",
+      "ledger_ids": [
+        "FLD-CFG-143",
+        "FLD-CFG-144",
+        "FLD-CFG-145",
+        "FLD-CFG-146"
+      ]
+    },
+    {
+      "task": "R4-18.P01",
+      "parameter": "VMess"
+    },
+    {
+      "task": "R4-18.P02",
+      "parameter": "VLESS"
+    },
+    {
+      "task": "R4-18.P03",
+      "parameter": "Shadowsocks"
+    },
+    {
+      "task": "R4-18.P04",
+      "parameter": "SOCKS"
+    },
+    {
+      "task": "R4-18.P05",
+      "parameter": "HTTP"
+    },
+    {
+      "task": "R4-18.P06",
+      "parameter": "Trojan"
+    },
+    {
+      "task": "R4-18.P07",
+      "parameter": "Hysteria2"
+    },
+    {
+      "task": "R4-18.P08",
+      "parameter": "TUIC"
+    },
+    {
+      "task": "R4-18.P09",
+      "parameter": "WireGuard"
+    },
+    {
+      "task": "R4-18.P10",
+      "parameter": "AnyTLS"
+    },
+    {
+      "task": "R4-18.P11",
+      "parameter": "NaiveProxy"
+    },
+    {
+      "task": "R4-33.O01",
+      "parameter": "Windows x64/WPF"
+    },
+    {
+      "task": "R4-33.O02",
+      "parameter": "Windows ARM64/WPF"
+    },
+    {
+      "task": "R4-33.O03",
+      "parameter": "macOS x64/Avalonia"
+    },
+    {
+      "task": "R4-33.O04",
+      "parameter": "macOS ARM64/Avalonia"
+    },
+    {
+      "task": "R4-33.O05",
+      "parameter": "Linux x64/Avalonia"
+    },
+    {
+      "task": "R4-33.O06",
+      "parameter": "Linux ARM64/Avalonia"
+    }
+  ]
+}

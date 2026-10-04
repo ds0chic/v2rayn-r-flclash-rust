@@ -1,0 +1,78 @@
+{
+  "date": "2026-10-05",
+  "audited_git_commit": "77c74ed",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "method": "Read-only source and archived image review; synthetic fault-injection controller contracts; no current packaged GUI or host network validation",
+  "ledger_primary_collections": {
+    "features.yaml": {
+      "primary_collection": "features",
+      "rows": 110,
+      "status_counts": {
+        "implemented": 86,
+        "identified": 23,
+        "preserved_only": 1
+      },
+      "no_e2e_inference_from_status": true
+    },
+    "actions.yaml": {
+      "primary_collection": "items",
+      "rows": 185,
+      "status_counts": {
+        "implemented": 112,
+        "preserved_only": 4,
+        "identified": 69
+      },
+      "no_e2e_inference_from_status": true
+    },
+    "fields.settings.yaml": {
+      "primary_collection": "items",
+      "rows": 180,
+      "status_counts": {
+        "implemented": 180
+      },
+      "no_e2e_inference_from_status": true
+    },
+    "fields.entities.yaml": {
+      "primary_collection": "items",
+      "rows": 158,
+      "status_counts": {
+        "implemented": 147,
+        "identified": 11
+      },
+      "no_e2e_inference_from_status": true
+    },
+    "layouts.yaml": {
+      "primary_collection": "items",
+      "rows": 36,
+      "status_counts": {
+        "identified": 36
+      },
+      "no_e2e_inference_from_status": true
+    }
+  },
+  "other_inventories": {
+    "main_layouts": 3,
+    "window_inventory": 53,
+    "config_types": 15,
+    "core_capability_rows": 15,
+    "formats": 17
+  },
+  "contract_repro": {
+    "file": "startup-contract-repro.dart",
+    "log": "startup-contract-repro.log",
+    "assertions": 3,
+    "passed": 0,
+    "failed": 3,
+    "expected_failures_on_audited_head": true,
+    "native_library": false,
+    "host_network_changes": false
+  },
+  "production_source_edits": false,
+  "additional_controlled_repro": {
+    "selection_cases": 2,
+    "dns_cases": 1,
+    "failed_contracts": 3,
+    "real_native_ui": false,
+    "widget_virtual_time_is_not_wall_clock": true
+  }
+}

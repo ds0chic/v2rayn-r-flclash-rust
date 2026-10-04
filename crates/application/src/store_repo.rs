@@ -38,6 +38,23 @@ pub fn storage_error(error: impl std::fmt::Display) -> DomainError {
     DomainError::new(codes::INTERNAL, "error.storage").with_detail(error.to_string())
 }
 
+/// Classified storage failure: preserves the persistence layer's stable code
+/// and message key so the UI can distinguish a corrupt database, a read-only
+/// directory, a full disk or a lock conflict instead of a single opaque
+/// `error.storage` (R4-27). Transient IO/SQLite failures are retryable.
+pub fn persistence_storage_error(error: persistence::PersistenceError) -> DomainError {
+    let retryable = matches!(
+        error,
+        persistence::PersistenceError::Io(_) | persistence::PersistenceError::Sqlite(_)
+    );
+    let domain = DomainError::new(error.code(), error.message_key()).with_detail(error.to_string());
+    if retryable {
+        domain.retryable()
+    } else {
+        domain
+    }
+}
+
 /// A SQLite-backed profile repository.
 pub struct SqliteProfileRepository {
     store: Store,
@@ -46,7 +63,7 @@ pub struct SqliteProfileRepository {
 impl SqliteProfileRepository {
     /// Open (creating if needed) the database at `path`.
     pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self, DomainError> {
-        let store = Store::create(path).map_err(storage_error)?;
+        let store = Store::create(path).map_err(persistence_storage_error)?;
         Ok(Self { store })
     }
 
@@ -59,11 +76,22 @@ impl SqliteProfileRepository {
         &self.store
     }
 
-    /// Atomically replace one subscription's nodes in a single SQLite
-    /// transaction: delete the existing rows for `subid`, then upsert the
-    /// replacement set. Any failure rolls the transaction back so the old
-    /// nodes survive. `fail_after_delete` is a test-only injection that
-    /// errors after the deletes (before commit) to prove the rollback.
+    /// Atomically replace one subscription's *subscription-sourced* nodes in a
+    /// single SQLite transaction: delete the existing `Subid = subid AND
+    /// IsSub = 1` rows, then upsert the replacement set. Manual nodes in the
+    /// same group (`IsSub = 0`, e.g. a batch import) are preserved, matching
+    /// upstream `RemoveServersViaSubid(config, subid, isSub: true)`
+    /// (`ConfigHandler.cs:2246-2259`). Any failure rolls the transaction back
+    /// so the old nodes survive. `fail_after_delete` is a test-only injection
+    /// that errors after the deletes (before commit) to prove the rollback.
+    ///
+    /// After the node upsert the matched `ServerStatItem` rows are cloned from
+    /// the old identity to the new one inside the same transaction (upstream
+    /// `CloneServerStatItem`, `ConfigHandler.cs:2120-2131`), so traffic totals
+    /// follow a node whose stable id changed while its transport identity did
+    /// not. `(added, removed)` reports the replacement set size and the number
+    /// of replaced subscription rows, not the group's total (manual nodes are
+    /// not "added" by an update).
     pub fn replace_for_sub(
         &self,
         subid: &str,
@@ -71,26 +99,33 @@ impl SqliteProfileRepository {
         remove_existing: bool,
         fail_after_delete: bool,
     ) -> Result<(usize, usize), DomainError> {
-        let existing: Vec<String> = self
+        let old_profiles: Vec<Profile> = self
             .store
             .query_rows(
                 "SELECT * FROM \"ProfileItem\" WHERE \"Subid\" = ?1",
                 &[&subid],
             )
-            .map_err(storage_error)?
+            .map_err(persistence_storage_error)?
             .iter()
-            .map(|row| row.string("IndexId"))
+            .map(profile_from_row)
             .collect();
-        let removed = if remove_existing { existing.len() } else { 0 };
-        let tx = self.store.begin().map_err(storage_error)?;
-        if remove_existing {
-            for id in &existing {
-                tx.execute(
-                    "DELETE FROM \"ProfileItem\" WHERE \"IndexId\" = ?1",
-                    rusqlite::params![id],
-                )
-                .map_err(storage_error)?;
-            }
+        let to_delete: Vec<String> = if remove_existing {
+            old_profiles
+                .iter()
+                .filter(|p| p.is_sub)
+                .map(|p| p.index_id.clone())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let removed = to_delete.len();
+        let tx = self.store.begin().map_err(persistence_storage_error)?;
+        for id in &to_delete {
+            tx.execute(
+                "DELETE FROM \"ProfileItem\" WHERE \"IndexId\" = ?1",
+                rusqlite::params![id],
+            )
+            .map_err(|error| persistence_storage_error(error.into()))?;
         }
         if fail_after_delete {
             return Err(DomainError::new(codes::INTERNAL, "error.storage")
@@ -98,18 +133,37 @@ impl SqliteProfileRepository {
         }
         for profile in &profiles {
             let row = row_from_profile(profile);
-            self.store.upsert_row(&tx, &row).map_err(storage_error)?;
+            self.store
+                .upsert_row(&tx, &row)
+                .map_err(persistence_storage_error)?;
         }
-        tx.commit().map_err(storage_error)?;
-        let added = self
-            .store
-            .query_rows(
-                "SELECT * FROM \"ProfileItem\" WHERE \"Subid\" = ?1",
-                &[&subid],
-            )
-            .map_err(storage_error)?
-            .len();
-        Ok((added, removed))
+        if remove_existing {
+            for profile in &profiles {
+                let Some(old) = crate::subs::find_matched_profile(&old_profiles, profile) else {
+                    continue;
+                };
+                if old.index_id == profile.index_id {
+                    continue;
+                }
+                let stat = self
+                    .store
+                    .query_rows(
+                        "SELECT * FROM \"ServerStatItem\" WHERE \"IndexId\" = ?1",
+                        &[&old.index_id],
+                    )
+                    .map_err(persistence_storage_error)?;
+                for mut cloned in stat {
+                    cloned.table = "ServerStatItem".to_string();
+                    cloned.set("IndexId", json!(profile.index_id.clone()));
+                    self.store
+                        .upsert_row(&tx, &cloned)
+                        .map_err(persistence_storage_error)?;
+                }
+            }
+        }
+        tx.commit()
+            .map_err(|error| persistence_storage_error(error.into()))?;
+        Ok((profiles.len(), removed))
     }
 }
 
@@ -121,7 +175,7 @@ impl ProfileRepository for SqliteProfileRepository {
                 "SELECT * FROM \"ProfileItem\" WHERE \"IndexId\" = ?1",
                 &[&index_id],
             )
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(rows.first().map(profile_from_row))
     }
 
@@ -129,7 +183,7 @@ impl ProfileRepository for SqliteProfileRepository {
         let row = row_from_profile(&profile);
         self.store
             .upsert_row(self.store.connection(), &row)
-            .map_err(storage_error)
+            .map_err(persistence_storage_error)
     }
 
     fn remove(&mut self, index_id: &str) -> Result<bool, DomainError> {
@@ -139,7 +193,7 @@ impl ProfileRepository for SqliteProfileRepository {
                 "DELETE FROM \"ProfileItem\" WHERE \"IndexId\" = ?1",
                 &[&index_id],
             )
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(affected > 0)
     }
 
@@ -156,7 +210,7 @@ impl ProfileRepository for SqliteProfileRepository {
         let total = self
             .store
             .count_query(&count_sql, &count_params)
-            .map_err(storage_error)? as usize;
+            .map_err(persistence_storage_error)? as usize;
 
         let order_sql = match sort {
             ProfileSort::Remarks => " ORDER BY \"Remarks\" COLLATE NOCASE ASC, \"IndexId\" ASC",
@@ -181,7 +235,7 @@ impl ProfileRepository for SqliteProfileRepository {
         let rows = self
             .store
             .query_rows(&sql, &all_params)
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         let items: Vec<Profile> = rows.iter().map(profile_from_row).collect();
         let end = page.cursor + items.len();
         let next_cursor = if end < total { Some(end) } else { None };
@@ -210,7 +264,10 @@ impl SqliteSubRepository {
 
 impl SubRepository for SqliteSubRepository {
     fn list(&self) -> Result<Vec<SubItem>, DomainError> {
-        let rows = self.store.read_rows("SubItem").map_err(storage_error)?;
+        let rows = self
+            .store
+            .read_rows("SubItem")
+            .map_err(persistence_storage_error)?;
         let mut items: Vec<SubItem> = rows.iter().map(SubItem::from_row).collect();
         items.sort_by_key(|s| s.sort);
         Ok(items)
@@ -220,7 +277,7 @@ impl SubRepository for SqliteSubRepository {
         let rows = self
             .store
             .query_rows("SELECT * FROM \"SubItem\" WHERE \"Id\" = ?1", &[&id])
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(rows.first().map(SubItem::from_row))
     }
 
@@ -228,14 +285,14 @@ impl SubRepository for SqliteSubRepository {
         let row = item.to_row();
         self.store
             .upsert_row(self.store.connection(), &row)
-            .map_err(storage_error)
+            .map_err(persistence_storage_error)
     }
 
     fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
         let affected = self
             .store
             .execute("DELETE FROM \"SubItem\" WHERE \"Id\" = ?1", &[&id])
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(affected > 0)
     }
 
@@ -257,7 +314,10 @@ impl SqliteRoutingRepository {
 
 impl crate::routing::RoutingRepository for SqliteRoutingRepository {
     fn list(&self) -> Result<Vec<domain::RoutingProfile>, DomainError> {
-        let rows = self.store.read_rows("RoutingItem").map_err(storage_error)?;
+        let rows = self
+            .store
+            .read_rows("RoutingItem")
+            .map_err(persistence_storage_error)?;
         let mut items: Vec<domain::RoutingProfile> =
             rows.iter().map(crate::routing::routing_from_row).collect();
         items.sort_by_key(|r| r.sort);
@@ -268,7 +328,7 @@ impl crate::routing::RoutingRepository for SqliteRoutingRepository {
         let rows = self
             .store
             .query_rows("SELECT * FROM \"RoutingItem\" WHERE \"Id\" = ?1", &[&id])
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(rows.first().map(crate::routing::routing_from_row))
     }
 
@@ -276,14 +336,14 @@ impl crate::routing::RoutingRepository for SqliteRoutingRepository {
         let row = crate::routing::routing_to_row(&item);
         self.store
             .upsert_row(self.store.connection(), &row)
-            .map_err(storage_error)
+            .map_err(persistence_storage_error)
     }
 
     fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
         let affected = self
             .store
             .execute("DELETE FROM \"RoutingItem\" WHERE \"Id\" = ?1", &[&id])
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(affected > 0)
     }
 
@@ -305,7 +365,10 @@ impl SqliteDnsRepository {
 
 impl crate::dns::DnsRepository for SqliteDnsRepository {
     fn list(&self) -> Result<Vec<domain::DnsProfile>, DomainError> {
-        let rows = self.store.read_rows("DNSItem").map_err(storage_error)?;
+        let rows = self
+            .store
+            .read_rows("DNSItem")
+            .map_err(persistence_storage_error)?;
         let mut items: Vec<domain::DnsProfile> =
             rows.iter().map(crate::dns::dns_from_row).collect();
         items.sort_by(|a, b| {
@@ -321,7 +384,7 @@ impl crate::dns::DnsRepository for SqliteDnsRepository {
         let rows = self
             .store
             .query_rows("SELECT * FROM \"DNSItem\" WHERE \"Id\" = ?1", &[&id])
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(rows.first().map(crate::dns::dns_from_row))
     }
 
@@ -329,14 +392,14 @@ impl crate::dns::DnsRepository for SqliteDnsRepository {
         let row = crate::dns::dns_to_row(&item);
         self.store
             .upsert_row(self.store.connection(), &row)
-            .map_err(storage_error)
+            .map_err(persistence_storage_error)
     }
 
     fn remove(&mut self, id: &str) -> Result<bool, DomainError> {
         let affected = self
             .store
             .execute("DELETE FROM \"DNSItem\" WHERE \"Id\" = ?1", &[&id])
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(affected > 0)
     }
 
@@ -560,11 +623,16 @@ impl ProfileStore {
         match self {
             ProfileStore::Memory(repo) => {
                 let snapshot = repo.snapshot_for_sub(subid);
+                let added_count = profiles.len();
                 let mut removed = 0usize;
                 let result: Result<(usize, usize), DomainError> = (|| {
                     if remove_existing {
+                        // Only subscription-sourced rows are replaced; manual
+                        // `IsSub = false` nodes in the same group are kept
+                        // (upstream `RemoveServersViaSubid(..., isSub: true)`).
                         for id in snapshot
                             .iter()
+                            .filter(|p| p.is_sub)
                             .map(|p| p.index_id.clone())
                             .collect::<Vec<_>>()
                         {
@@ -580,21 +648,7 @@ impl ProfileStore {
                     for profile in &profiles {
                         repo.upsert(profile.clone())?;
                     }
-                    let added = repo
-                        .query(
-                            &crate::repository::ProfileFilter {
-                                subid: Some(subid.to_string()),
-                                ..Default::default()
-                            },
-                            crate::repository::ProfileSort::IndexId,
-                            crate::repository::PageRequest {
-                                cursor: 0,
-                                page_size: u32::MAX,
-                            },
-                        )?
-                        .items
-                        .len();
-                    Ok((added, removed))
+                    Ok((added_count, removed))
                 })();
                 if result.is_err() {
                     repo.restore_snapshot(subid, snapshot);
@@ -799,7 +853,7 @@ impl crate::monitor::TrafficStore for SqliteTrafficStore {
         let rows = self
             .store
             .read_rows("ServerStatItem")
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(rows.iter().map(map_traffic).collect())
     }
 
@@ -812,7 +866,9 @@ impl crate::monitor::TrafficStore for SqliteTrafficStore {
         row.set("TodayDown", json!(stat.today_down));
         row.set("DateNow", json!(stat.date_now));
         let conn = self.store.connection();
-        self.store.upsert_row(conn, &row).map_err(storage_error)
+        self.store
+            .upsert_row(conn, &row)
+            .map_err(persistence_storage_error)
     }
 
     fn remove(&mut self, index_id: &str) -> Result<(), DomainError> {
@@ -821,14 +877,14 @@ impl crate::monitor::TrafficStore for SqliteTrafficStore {
                 "DELETE FROM \"ServerStatItem\" WHERE \"IndexId\" = ?1",
                 &[&index_id],
             )
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(())
     }
 
     fn clear(&mut self) -> Result<(), DomainError> {
         self.store
             .execute("DELETE FROM \"ServerStatItem\"", &[])
-            .map_err(storage_error)?;
+            .map_err(persistence_storage_error)?;
         Ok(())
     }
 }
@@ -892,5 +948,70 @@ mod tests {
         assert_eq!(loaded.transport_extra.host.as_deref(), Some("example.com"));
         assert_eq!(loaded.security.sni.as_deref(), Some("sni.example.com"));
         assert_eq!(loaded.extra.get("HeaderType"), Some(&json!("none")));
+    }
+
+    #[test]
+    fn subscription_replace_keeps_manual_nodes_and_clones_stats() {
+        // R4-17 / D04+D05: a subscription replace only removes `IsSub = 1`
+        // rows of the group, keeps a manual `IsSub = 0` node, and clones the
+        // matched `ServerStatItem` row onto the new identity.
+        let mut repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let mut old_sub = synthetic_full_profile(10);
+        old_sub.subid = "s-A".into();
+        old_sub.is_sub = true;
+        let old_id = old_sub.index_id.clone();
+        let mut manual = synthetic_full_profile(11);
+        manual.subid = "s-A".into();
+        manual.is_sub = false;
+        manual.address = "198.51.100.99".into();
+        let manual_id = manual.index_id.clone();
+        repo.upsert(old_sub.clone()).unwrap();
+        repo.upsert(manual.clone()).unwrap();
+
+        let mut stat = RawRow::new("ServerStatItem");
+        stat.set("IndexId", json!(old_id.clone()));
+        stat.set("TotalUp", json!(111));
+        stat.set("TotalDown", json!(222));
+        stat.set("TodayUp", json!(1));
+        stat.set("TodayDown", json!(2));
+        stat.set("DateNow", json!(0));
+        repo.store()
+            .upsert_row(repo.store().connection(), &stat)
+            .unwrap();
+
+        let mut new_sub = old_sub.clone();
+        new_sub.index_id = "new-sub-id".into();
+        let (added, removed) = repo
+            .replace_for_sub("s-A", vec![new_sub.clone()], true, false)
+            .unwrap();
+        assert_eq!(added, 1, "only the replacement set counts as added");
+        assert_eq!(removed, 1, "only the IsSub=1 row is replaced");
+
+        assert!(repo.get(&manual_id).unwrap().is_some(), "manual node kept");
+        assert!(repo.get(&old_id).unwrap().is_none(), "old sub node removed");
+        assert!(
+            repo.get("new-sub-id").unwrap().is_some(),
+            "new node present"
+        );
+
+        let cloned = repo
+            .store()
+            .query_rows(
+                "SELECT * FROM \"ServerStatItem\" WHERE \"IndexId\" = ?1",
+                &[&"new-sub-id"],
+            )
+            .unwrap();
+        assert_eq!(cloned.len(), 1, "stat cloned to the new identity");
+        assert_eq!(cloned[0].i64("TotalUp"), 111);
+        assert_eq!(cloned[0].i64("TotalDown"), 222);
+        // Upstream `CloneServerStatItem` copies; the old row stays.
+        let old_stat = repo
+            .store()
+            .query_rows(
+                "SELECT * FROM \"ServerStatItem\" WHERE \"IndexId\" = ?1",
+                &[&old_id],
+            )
+            .unwrap();
+        assert_eq!(old_stat.len(), 1);
     }
 }

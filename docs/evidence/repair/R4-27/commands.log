@@ -1,0 +1,58 @@
+# R4-27 command log (HEAD ef02954)
+
+## 1. Assertion-first: pre-fix failure
+git stash push -- lib/features/profiles/ui_state_store.dart   # temporarily back to HEAD
+flutter test test/repair/r4_27_repro_test.dart
+=> Compilation failed:
+   Error: Member not found: 'FileUiStateStore.resolveDefaultPath'
+   Error: Member not found: 'FileUiStateStore.resolveLegacyPath'
+   Error: No named parameter with the name 'onError'
+   Error: No named parameter with the name 'legacyOverridePath'
+git stash pop
+
+## 2. Dart tests (post-fix)
+flutter test test/r4_27_contract_test.dart test/repair/r4_27_repro_test.dart
+=> 00:00 +9: All tests passed!  (5 contract + 4 repro)
+
+flutter analyze
+=> No issues found! (ran in 4.4s)   exit 0
+
+## 3. Rust gates
+cargo fmt --all -- --check            => exit 0
+cargo clippy --workspace --all-targets --locked -- -D warnings => exit 0
+
+cargo test -p application --lib storage_unavailable_engine_fails_closed
+=> test engine::tests::storage_unavailable_engine_fails_closed ... ok (1 passed)
+
+cargo test -p persistence --lib store::tests
+=> 8 passed; 0 failed
+   store::tests::corrupt_database_is_a_structured_sqlite_error ... ok
+   store::tests::unopenable_database_path_is_a_structured_error ... ok
+   store::tests::write_lock_conflict_is_reported_not_lost ... ok
+
+cargo test -p bridge_api --lib storage_error_snapshot_is_structured_not_empty_success
+=> test api::engine::tests::storage_error_snapshot_is_structured_not_empty_success ... ok
+
+## 4. Workspace test gate (one pre-existing unrelated failure)
+cargo test --workspace --locked
+=> test result: FAILED. 7 passed; 1 failed
+   rr07_custom_config_plan_serves_on_its_real_port  (kernel exited 0xffffffff)
+   exit 101
+Baseline check:
+git stash push -- crates/application/src/engine.rs crates/application/src/store_repo.rs crates/persistence/src/store.rs crates/bridge_api/src/api/engine.rs
+cargo test -p application --locked --test t18b_runtime_e2e rr07_custom_config_plan_serves_on_its_real_port
+=> FAILED identically (0xffffffff) => pre-existing, not an R4-27 regression
+git stash pop
+
+## 5. Release build (native/runtime-affecting Rust changes)
+flutter build windows --release
+=> Built build\windows\x64\runner\Release\v2rayn_desktop.exe   exit 0
+Note: a project net_host.exe (dist) and the user's external xray.exe were running;
+      no session records for the net_host, so none were stopped; build succeeded.
+
+## 6. Dart formatting (repo gate subset)
+dart format lib/features/profiles/ui_state_store.dart test/r4_27_contract_test.dart test/repair/r4_27_repro_test.dart
+dart format --output=none --set-exit-if-changed <same files>
+=> Formatted 3 files (0 changed); exit 0
+flutter test test/r4_27_contract_test.dart test/repair/r4_27_repro_test.dart => 9 passed
+flutter analyze => No issues found

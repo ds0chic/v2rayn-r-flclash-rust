@@ -515,4 +515,59 @@ mod tests {
         store.set_meta(conn, "k", "v").unwrap();
         assert_eq!(store.get_meta("k").unwrap(), Some("v".to_string()));
     }
+
+    #[test]
+    fn corrupt_database_is_a_structured_sqlite_error() {
+        // R4-27: a bad database is reported with its stable code, not swallowed.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("guiNDB.db");
+        std::fs::write(&path, b"this is not a sqlite database").unwrap();
+        let err = match Store::create(&path) {
+            Ok(_) => panic!("corrupt database must not open"),
+            Err(error) => error,
+        };
+        assert_eq!(err.code(), crate::error::codes::SQLITE);
+        assert!(err.to_string().contains("E_PERSIST_SQLITE"));
+    }
+
+    #[test]
+    fn unopenable_database_path_is_a_structured_error() {
+        // A directory where the database file is expected cannot be opened.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("guiNDB.db");
+        std::fs::create_dir(&path).unwrap();
+        let err = match Store::create(&path) {
+            Ok(_) => panic!("a directory cannot open as a database"),
+            Err(error) => error,
+        };
+        assert!(matches!(
+            err,
+            PersistenceError::Sqlite(_) | PersistenceError::Io(_)
+        ));
+    }
+
+    #[test]
+    fn write_lock_conflict_is_reported_not_lost() {
+        // R4-27: a lock conflict surfaces as a structured Sqlite error and the
+        // existing database stays intact.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("locked.db");
+        let holder = Store::create(&path).unwrap();
+        let writer = Store::create(&path).unwrap();
+        writer
+            .connection()
+            .busy_timeout(std::time::Duration::from_millis(25))
+            .unwrap();
+        holder
+            .connection()
+            .execute_batch("BEGIN IMMEDIATE")
+            .unwrap();
+        let mut row = RawRow::new("SubItem");
+        row.set("Id", json!("s1"));
+        let err = writer.upsert_row(writer.connection(), &row).unwrap_err();
+        assert!(matches!(err, PersistenceError::Sqlite(_)), "{err}");
+        // Releasing the lock lets the same write succeed: not a lost database.
+        holder.connection().execute_batch("ROLLBACK").unwrap();
+        assert!(writer.upsert_row(writer.connection(), &row).is_ok());
+    }
 }

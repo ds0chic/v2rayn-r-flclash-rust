@@ -1,0 +1,32 @@
+{
+  "task": "R4-06",
+  "commit": "ef02954",
+  "appBaseline": "77c74ed",
+  "armed": false,
+  "fixture": "synthetic (SyntheticBridgePort, CountingRuntimeBridge no-session, FakePlatformBridge, FakeMonitorBridge, MemoryUiStateStore)",
+  "ports": "none involved (no kernel/inbound listens; 10808 untouched)",
+  "layout": {
+    "upstream": "StatusBarView.xaml DockPanel: left ports(2-line)/TUN/sysproxy+routing, center running server/info(2-line), right proxy/direct rates(2-line)",
+    "implemented": "partitioned single strip; diagnostics moved to a details popup"
+  },
+  "contract": {
+    "file": "test/r4_06_contract_test.dart",
+    "result": "passed",
+    "covers": [
+      "identifiable/clickable partitions and dropdown affordances",
+      "readable running state/rates/stats with no session (honest placeholders)",
+      "system-proxy click routes to shared use case and reports E_NO_RUNNING_SESSION without a session",
+      "technical diagnostics moved into the details popup",
+      "no overflow / non-overlap / hittable at 100% and 125% DPI"
+    ]
+  },
+  "regression": [
+    "t13_statusbar_test.dart passed (2)",
+    "recheck_rr02_03_test.dart passed (5)",
+    "t15a_statusbar_test.dart passed (2)",
+    "t05_shell_chrome_test.dart passed",
+    "r3_visual_dpi_shell_test.dart passed (100-200% DPI matrix, all layouts)"
+  ],
+  "status": "implemented",
+  "notes": "No real screenshots/mouse/OS platform effect or TUN/system-proxy live test -> not verified."
+}

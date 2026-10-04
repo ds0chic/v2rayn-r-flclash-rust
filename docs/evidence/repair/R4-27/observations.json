@@ -1,0 +1,72 @@
+{
+  "task": "R4-27",
+  "title": "storage migration and failure recovery",
+  "status": "implemented",
+  "head": "ef02954",
+  "baseline_app": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "upstream": "7d6a967c18c697f28dc6917122ed3a4993fcf336 (v2rayN 7.25.4)",
+  "armed": false,
+  "changed_files": [
+    "apps/desktop/lib/features/profiles/ui_state_store.dart",
+    "crates/application/src/engine.rs",
+    "crates/application/src/store_repo.rs",
+    "crates/persistence/src/store.rs",
+    "crates/bridge_api/src/api/engine.rs",
+    "apps/desktop/test/r4_27_contract_test.dart",
+    "apps/desktop/test/repair/r4_27_repro_test.dart"
+  ],
+  "not_touched": [
+    "apps/desktop/lib/app/shell/main_shell.dart",
+    "apps/desktop/lib/app/app.dart",
+    "apps/desktop/lib/bridge/frb_generated.dart",
+    "apps/desktop/lib/bridge/api/**",
+    "features/subs/**",
+    "features/runtime/**",
+    "features/settings/**",
+    "features/routing/**",
+    "crates/application/src/{subs.rs,speedtest.rs,monitor.rs,backup_service.rs}",
+    "crates/updater/**",
+    "services/**"
+  ],
+  "contracts_addressed": {
+    "D20_production_no_inmemory_fallback": "crates/bridge_api/src/api/engine.rs engine()/init_engine fail closed; AppEngine::storage_unavailable",
+    "D21_ui_state_data_dir_atomic_migration_failure_visible": "ui_state_store.dart resolveDefaultPath/resolveLegacyPath, temp+rename, onError/lastWriteError",
+    "D22_errors_not_empty_dto": "persistence_storage_error classification; get_snapshot error_snapshot_dto",
+    "candidate_failure_keeps_original": "existing commit_candidate gate retained",
+    "unknown_keys_preserved": "existing raw_records retention + new UI-state unknown-key test"
+  },
+  "commands": [
+    {"cmd": "flutter test test/repair/r4_27_repro_test.dart (pre-fix, ui_state_store stashed to HEAD)", "result": "FAIL compilation (new API absent)"},
+    {"cmd": "flutter test test/r4_27_contract_test.dart test/repair/r4_27_repro_test.dart", "result": "9 passed; 0 failed"},
+    {"cmd": "flutter analyze", "result": "No issues found; exit 0"},
+    {"cmd": "cargo fmt --all -- --check", "result": "exit 0"},
+    {"cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "result": "exit 0"},
+    {"cmd": "cargo test -p application --lib storage_unavailable_engine_fails_closed", "result": "1 passed"},
+    {"cmd": "cargo test -p persistence --lib store::tests", "result": "8 passed (incl. corrupt/unopenable/lock-conflict)"},
+    {"cmd": "cargo test -p bridge_api --lib storage_error_snapshot_is_structured_not_empty_success", "result": "1 passed"},
+    {"cmd": "cargo test --workspace --locked", "result": "exit 101: pre-existing unrelated failure rr07_custom_config_plan_serves_on_its_real_port; reproduced on ef02954 with R4-27 Rust files stashed"},
+    {"cmd": "flutter build windows --release", "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe; exit 0"}
+  ],
+  "assertion_repro": {
+    "file": "apps/desktop/test/repair/r4_27_repro_test.dart",
+    "pre_fix": "failed on ef02954 (missing FileUiStateStore.resolveDefaultPath/resolveLegacyPath/onError/legacyOverridePath)",
+    "post_fix": "4/4 passed"
+  },
+  "known_issues": [
+    {
+      "id": "t18b_rr07_preexisting",
+      "test": "crates/application/tests/t18b_runtime_e2e.rs::rr07_custom_config_plan_serves_on_its_real_port",
+      "detail": "real kernel exits during startup (0xffffffff); fails identically on ef02954 with R4-27 changes stashed; not caused by this card",
+      "action": "not fixed (out of scope)"
+    },
+    {
+      "id": "frb_error_surface_gap",
+      "detail": "SnapshotDto/ProfilePageDto have no general error field and FRB must not be regenerated here; query_profiles failure cannot carry a structured error. Storage errors surface via init_engine.error and get_snapshot.runtime_error."
+    },
+    {
+      "id": "routing_dns_subs_engine_gate",
+      "detail": "those bridge modules are out of the allowed edit set; their persistence paths do not consult guard_storage yet"
+    }
+  ],
+  "ports": {"used": [], "note": "no inbound listeners; tests do not bind; 10808 untouched"}
+}

@@ -434,28 +434,42 @@ Future<void> _showSubUpdateDetails(
 }
 
 /// ACT-MAIN-022/023: update the current subscription group.
+///
+/// The target is the node page's current group (`_config.SubIndexId`), frozen
+/// before any await; the subscription-settings window's own selected row must
+/// not hijack it (D12 / UF-PROF-05). The All group passes an empty SubIndexId,
+/// so the backend updates every valid subscription (upstream
+/// `SubscriptionHandler.UpdateProcess` only narrows when the id is non-empty).
 Future<void> updateCurrentGroup(
   BuildContext context,
   WidgetRef ref, {
   required bool viaProxy,
 }) async {
-  final subsState = ref.read(subsControllerProvider);
-  final selected = subsState.selected;
-  if (selected == null) {
-    _toast(ref, '请先在订阅设置中选择一个订阅');
-    return;
-  }
-  final result = await ref
-      .read(subsControllerProvider.notifier)
-      .update(subIds: <String>[selected.id], viaProxy: viaProxy);
+  final groupSubId = ref.read(profilesControllerProvider).groupSubId;
+  final subs = ref.read(subsControllerProvider.notifier);
+  subs.reload();
+  final result = (groupSubId == null || groupSubId.isEmpty)
+      ? await subs.update(viaProxy: viaProxy)
+      : await subs.update(subIds: <String>[groupSubId], viaProxy: viaProxy);
   ref.read(profilesControllerProvider.notifier).reload();
   _toast(
     ref,
-    '订阅“${selected.remarks}”：${subsUpdateSummary(result, viaProxy: viaProxy)}',
+    '${_currentGroupLabel(ref, groupSubId)}：'
+    '${subsUpdateSummary(result, viaProxy: viaProxy)}',
   );
   if (hasSubUpdateFailures(result) && context.mounted) {
     await _showSubUpdateDetails(context, result);
   }
+}
+
+/// Human label for the captured current group: its real remarks when the
+/// subscription row still exists, otherwise the All fallback.
+String _currentGroupLabel(WidgetRef ref, String? groupSubId) {
+  if (groupSubId == null || groupSubId.isEmpty) return '全部订阅';
+  for (final item in ref.read(subsControllerProvider).items) {
+    if (item.id == groupSubId) return '订阅“${item.remarks}”';
+  }
+  return '当前订阅组';
 }
 
 void _toast(WidgetRef ref, String message) {

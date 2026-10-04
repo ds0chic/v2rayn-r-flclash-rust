@@ -44,6 +44,7 @@ tempfile = "3.27.0"
 tiny_http = "0.12"
 sha2 = "0.10.9"
 hex = "0.4.3"
+socket2 = { version = "0.6.4", features = ["all"] }
 tokio = { version = "1.53", features = ["macros", "rt-multi-thread"] }
 
 [target.'cfg(windows)'.dev-dependencies]

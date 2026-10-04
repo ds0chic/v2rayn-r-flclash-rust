@@ -41,6 +41,16 @@ pub const TEST_SMOKE_PORT: u16 = 11808;
 /// builds open real SQLite storage under the resolved data directory.
 static ENGINE: OnceLock<AppEngine> = OnceLock::new();
 
+/// Most recent production storage-open failure. Kept separate from [`ENGINE`]
+/// so a failed open is never cached as success and `init_engine`/`engine` can
+/// retry once the condition is repaired (R4-27 / D20).
+static ENGINE_FAILURE: OnceLock<Mutex<Option<DomainError>>> = OnceLock::new();
+
+/// Process-wide fail-closed engine used only when production storage cannot be
+/// opened. Every persistence/runtime use case returns the storage error instead
+/// of falling back to an in-memory database or a fake `Accepted`.
+static FAILED_ENGINE: OnceLock<AppEngine> = OnceLock::new();
+
 /// Optional data-directory override set by [`init_engine`] before first use.
 static ENGINE_DIR: OnceLock<Mutex<Option<std::path::PathBuf>>> = OnceLock::new();
 
@@ -64,29 +74,67 @@ fn engine_dir() -> &'static Mutex<Option<std::path::PathBuf>> {
     ENGINE_DIR.get_or_init(|| Mutex::new(None))
 }
 
+fn engine_failure_slot() -> &'static Mutex<Option<DomainError>> {
+    ENGINE_FAILURE.get_or_init(|| Mutex::new(None))
+}
+
+fn set_engine_failure(error: Option<DomainError>) {
+    if let Ok(mut guard) = engine_failure_slot().lock() {
+        *guard = error;
+    }
+}
+
+fn resolve_engine_dir() -> std::path::PathBuf {
+    engine_dir()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.clone())
+        .unwrap_or_else(AppEngine::default_data_dir)
+}
+
+/// Open the single process engine. Idempotent and retryable: a previous
+/// failure does not poison the slot, so a later call after the storage
+/// condition is repaired opens the real database (R4-27).
+fn initialize_engine() -> Result<(), DomainError> {
+    if ENGINE.get().is_some() {
+        return Ok(());
+    }
+    if cfg!(test) {
+        let _ = ENGINE.set(AppEngine::in_memory());
+        return Ok(());
+    }
+    let dir = resolve_engine_dir();
+    let engine = AppEngine::open(&dir)?;
+    let _ = ENGINE.set(engine);
+    set_engine_failure(None);
+    Ok(())
+}
+
+/// A fail-closed engine bound to the last storage failure. It never serves an
+/// in-memory database and never reports a fake `Accepted`.
+fn failed_engine(error: &DomainError) -> &'static AppEngine {
+    FAILED_ENGINE
+        .get_or_init(|| AppEngine::storage_unavailable(Some(resolve_engine_dir()), error.clone()))
+}
+
 pub(crate) fn engine() -> &'static AppEngine {
-    ENGINE.get_or_init(|| {
-        if cfg!(test) {
-            return AppEngine::in_memory();
-        }
-        let dir = engine_dir()
-            .lock()
-            .ok()
-            .and_then(|guard| guard.clone())
-            .unwrap_or_else(AppEngine::default_data_dir);
-        match AppEngine::open(&dir) {
-            Ok(engine) => engine,
-            Err(error) => {
-                eprintln!("v2rayn-r: failed to open storage at {dir:?}: {error}");
-                AppEngine::in_memory()
-            }
-        }
-    })
+    if let Some(engine) = ENGINE.get() {
+        return engine;
+    }
+    if let Err(error) = initialize_engine() {
+        eprintln!("v2rayn-r: storage unavailable: {error}");
+        set_engine_failure(Some(error.clone()));
+        return failed_engine(&error);
+    }
+    ENGINE.get().expect("engine initialized")
 }
 
 /// Open the application engine against an explicit data directory (tests and
 /// portable installs). Must be called before any other API for it to take
 /// effect; later calls are a no-op once the engine is live.
+///
+/// Returns `ok: false` with a structured error when production storage cannot
+/// be opened, instead of silently switching to an in-memory database (D20).
 #[frb(sync)]
 pub fn init_engine(data_dir: Option<String>) -> SimpleResult {
     if ENGINE.get().is_some() {
@@ -100,10 +148,22 @@ pub fn init_engine(data_dir: Option<String>) -> SimpleResult {
             *guard = Some(std::path::PathBuf::from(dir));
         }
     }
-    engine();
-    SimpleResult {
-        ok: true,
-        error: None,
+    match initialize_engine() {
+        Ok(()) => SimpleResult {
+            ok: true,
+            error: None,
+        },
+        Err(error) => {
+            eprintln!(
+                "v2rayn-r: failed to open storage at {:?}: {error}",
+                resolve_engine_dir()
+            );
+            set_engine_failure(Some(error.clone()));
+            SimpleResult {
+                ok: false,
+                error: Some(error_dto(error)),
+            }
+        }
     }
 }
 
@@ -440,7 +500,17 @@ fn empty_snapshot_dto() -> SnapshotDto {
 pub fn get_snapshot() -> SnapshotDto {
     match engine().snapshot() {
         Ok(s) => snapshot_to_dto(s),
-        Err(_) => empty_snapshot_dto(),
+        Err(error) => error_snapshot_dto(error),
+    }
+}
+
+/// Fail-closed snapshot: a stopped host plus the structured error, so a broken
+/// store is visible in the UI instead of an empty "all good" snapshot
+/// (D20 / D22).
+fn error_snapshot_dto(error: DomainError) -> SnapshotDto {
+    SnapshotDto {
+        runtime_error: Some(error_dto(error)),
+        ..empty_snapshot_dto()
     }
 }
 
@@ -1095,6 +1165,22 @@ mod tests {
             .map(|s| s.revisions.desired.get())
             .unwrap_or(0);
         assert!(second >= first);
+    }
+
+    #[test]
+    fn storage_error_snapshot_is_structured_not_empty_success() {
+        // R4-27 / D20+D22: a failed store must be visible as a structured
+        // error, never an empty "all good" snapshot.
+        let dto = error_snapshot_dto(
+            DomainError::new("E_PERSIST_SQLITE", "error.persist_sqlite").retryable(),
+        );
+        let error = dto.runtime_error.expect("storage error must be surfaced");
+        assert_eq!(error.code, "E_PERSIST_SQLITE");
+        assert_eq!(error.message_key, "error.persist_sqlite");
+        assert!(error.retryable);
+        assert!(!dto.host_alive);
+        assert_eq!(dto.runtime_state, domain::RuntimeState::Stopped);
+        assert_eq!(dto.profile_count, 0);
     }
 
     #[test]

@@ -1,0 +1,52 @@
+{
+  "task": "R4-08",
+  "commit": "ef02954",
+  "appBaseline": "77c74ed",
+  "armed": false,
+  "fixture": "synthetic (SyntheticBridgePort, CountingRuntimeBridge, MemoryUiStateStore, 20 rows)",
+  "ports": "none involved (no kernel/inbound listens)",
+  "reproBeforeFix": {
+    "file": "test/repair/r4_08_repro_test.dart",
+    "result": "failed",
+    "line": 54,
+    "assertion": "Ctrl held at pointer-down must survive an early key release -> selected == {syn-000000, syn-000001}",
+    "observed": "selected == {syn-000000} (B collapsed to single after early Ctrl release)"
+  },
+  "reproAfterFix": {
+    "file": "test/repair/r4_08_repro_test.dart",
+    "result": "passed",
+    "debug": [
+      "UF13 ctrl +50ms selected={syn-000000, syn-000001} primary=syn-000001",
+      "UF13 ctrl +400ms selected={syn-000000, syn-000001} primary=syn-000001",
+      "UF13 enter +50ms selected={syn-000001} primary=syn-000001 active=syn-000000",
+      "UF13 Enter accepted active=syn-000001 primary=syn-000001"
+    ]
+  },
+  "contract": {
+    "file": "test/r4_08_contract_test.dart",
+    "result": "passed",
+    "covers": [
+      "plain click immediate selection and no activation",
+      "ctrl immediate + frozen modifier after early release",
+      "single toggle per ctrl click (no double toggle)",
+      "shift immediate range from main row",
+      "fast ctrl click then Enter targets clicked row",
+      "plain click then Enter within 50ms targets clicked row",
+      "arrow navigation from main row",
+      "double click follows DoubleClick2Activate (edit/activate)"
+    ]
+  },
+  "regression": [
+    "profiles_select_basic_test.dart passed",
+    "profiles_pointer_test.dart passed",
+    "profiles_keyboard_test.dart passed",
+    "profiles_drag_select_test.dart passed",
+    "profiles_drag_select_up_test.dart passed",
+    "profiles_drag_scroll_up_test.dart passed",
+    "profiles_drag_scroll_down_test.dart passed",
+    "recheck_r3_prof10_default_selection_test.dart passed",
+    "table_actions_test.dart passed"
+  ],
+  "status": "implemented",
+  "notes": "Real OS/platform and unarmed-package acceptance not run -> not verified."
+}

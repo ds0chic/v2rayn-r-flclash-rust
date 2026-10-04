@@ -1,0 +1,43 @@
+R4-17 command log (Win11, PowerShell 7, local)
+
+# 1. Repro BEFORE the fix (intentional failure)
+$ flutter test test/repair/r4_17_repro_test.dart
+00:00 +0: update current group targets the node-page group, not the subs selection
+  Expected: ['s-A']
+    Actual: ['syn-sub-1']
+  must update the node-page current group, not subs.selected
+00:00 +0 -1: ... [E]
+00:00 +0: update current group on the All group targets every subscription
+  Expected: empty
+    Actual: ['syn-sub-1']
+00:00 +0 -2: Some tests failed. (EXIT 1)
+
+# 2. Rust unit tests (targeted)
+$ cargo test -p application --lib --locked
+test subs::tests::replace_keeps_manual_is_sub_false_in_group ... ok
+test subs::tests::subscription_candidates_are_marked_is_sub ... ok
+test subs::tests::profiles_match_uses_transport_identity ... ok
+test subs::tests::find_matched_profile_falls_back_to_remarks ... ok
+test subs::tests::remap_active_after_replace_points_to_matched_new_node ... ok
+test store_repo::tests::subscription_replace_keeps_manual_nodes_and_clones_stats ... ok
+test result: ok. 239 passed; 0 failed; 0 ignored; 0 measured; finished in 2.13s (EXIT 0)
+
+# 3. Workspace gates
+$ cargo fmt --all -- --check                       -> EXIT 0
+$ cargo clippy --workspace --all-targets --locked -- -D warnings -> EXIT 0
+$ cargo test --workspace --locked
+  only failure: application::t18b_runtime_e2e::rr07_custom_config_plan_serves_on_its_real_port
+  "kernel exited during startup: exit code: 0xffffffff"
+  (unrelated: uses save/build_runtime_plan, not R4-17 code; pinned xray binary runs: `xray.exe -version` -> Xray 26.3.27, EXIT 0)
+$ cargo test --workspace --locked -- --skip rr07_custom_config_plan_serves_on_its_real_port -> EXIT 0 (no failures)
+
+# 4. Flutter gates
+$ flutter analyze                                  -> No issues found! (EXIT 0)
+$ dart format test/r4_17_contract_test.dart test/repair/r4_17_repro_test.dart -> formatted
+$ flutter test test/r4_17_contract_test.dart test/repair/r4_17_repro_test.dart --no-pub
+00:00 +5: test/r4_17_contract_test.dart: a failed update never removes the subscription or fakes success
+00:00 +6: test/repair/r4_17_repro_test.dart: update current group targets the node-page group...
+00:01 +7: All tests passed! (EXIT 0)
+
+# Safety
+No kernel started by R4-17 tests. No 10808/宿主代理/路由/TUN/自启 touched. No user subscription/credential read.

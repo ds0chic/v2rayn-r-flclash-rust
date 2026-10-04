@@ -1,0 +1,53 @@
+{
+  "task": "R4-17",
+  "title": "订阅保护与稳定身份",
+  "status": "implemented",
+  "verified": false,
+  "armed": false,
+  "head_commit": "ef02954a6de973c8ba8ed6917f9b84dbb9560d94",
+  "upstream_commit": "7d6a967",
+  "fixtures": "synthetic_full_profile + synthetic vless URLs + in-memory sqlite",
+  "ports_used": [],
+  "changes": [
+    "crates/application/src/store_repo.rs",
+    "crates/application/src/subs.rs",
+    "crates/bridge_api/src/api/subs.rs",
+    "apps/desktop/lib/features/subs/subs_actions.dart",
+    "apps/desktop/test/r4_17_contract_test.dart",
+    "apps/desktop/test/repair/r4_17_repro_test.dart"
+  ],
+  "contracts": {
+    "D04_is_sub_retention": "implemented",
+    "D12_update_current_group_scope": "implemented",
+    "D05_active_remap_persisted": "implemented",
+    "D05_live_monitor_transfer": "blocked_interface_gap",
+    "single_commit_rollback": "implemented",
+    "all_group_empty_sub_ids": "implemented"
+  },
+  "checks": {
+    "flutter_analyze": { "exit": 0, "result": "No issues found!" },
+    "flutter_test_r4_17": { "exit": 0, "passed": 7, "failed": 0 },
+    "cargo_fmt_check": { "exit": 0 },
+    "cargo_clippy": { "exit": 0 },
+    "cargo_test_application_lib": { "exit": 0, "passed": 239, "failed": 0 },
+    "cargo_test_workspace": {
+      "exit": 101,
+      "failed": ["application::t18b_runtime_e2e::rr07_custom_config_plan_serves_on_its_real_port"],
+      "note": "unrelated runtime kernel e2e; rerun with --skip rr07... -> exit 0"
+    }
+  },
+  "repro": {
+    "pre_fix": {
+      "test": "test/repair/r4_17_repro_test.dart",
+      "failed_assertions": [
+        "Expected ['s-A'] Actual ['syn-sub-1']",
+        "Expected empty Actual ['syn-sub-1']"
+      ]
+    },
+    "post_fix": { "passed": 7 }
+  },
+  "gaps": [
+    "D05 live StatsService in-memory transfer requires engine/monitor changes (out of card scope)",
+    "no real FRB/window or real subscription run; reopen/SubIndexId scenario unverified"
+  ]
+}

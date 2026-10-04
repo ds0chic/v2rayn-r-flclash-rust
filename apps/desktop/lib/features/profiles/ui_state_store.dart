@@ -307,15 +307,64 @@ WindowGeometry? windowGeometryFromLegacy(Map<String, dynamic> legacy) {
   return geometry.isValid ? geometry : null;
 }
 
+/// Callback invoked when an atomic UI-state write fails (R4-27).
+typedef UiStateWriteErrorHandler = void Function(
+  Object error,
+  StackTrace stackTrace,
+);
+
 class FileUiStateStore extends UiStateStore {
-  FileUiStateStore({String? overridePath})
-    : _path = overridePath ?? _defaultPath();
+  FileUiStateStore({
+    String? overridePath,
+    String? legacyOverridePath,
+    this.onError,
+  }) : _path = overridePath ?? resolveDefaultPath(),
+       _legacyPath =
+           legacyOverridePath ??
+           (overridePath == null ? resolveLegacyPath() : null);
 
   final String _path;
+  final String? _legacyPath;
 
-  static String _defaultPath() {
+  /// Invoked when an atomic write fails; see also [lastWriteError].
+  final UiStateWriteErrorHandler? onError;
+
+  /// The last write failure, cleared on the next successful write. Write
+  /// failures are recorded instead of being swallowed (D21).
+  Object? lastWriteError;
+
+  /// The data-directory location, `V2RAYN_R_DATA_DIR` when set, otherwise
+  /// `%LOCALAPPDATA%\v2rayn-r\data` (mirrors `AppEngine::default_data_dir`).
+  /// Never the executable directory so a read-only program install can still
+  /// persist layout/theme preferences (D21).
+  static String resolveDefaultPath({String? dataDirOverride}) {
+    final dir = dataDirOverride ?? _defaultDataDir();
+    final sep = Platform.pathSeparator;
+    final trimmed = dir.endsWith(sep) ? dir.substring(0, dir.length - 1) : dir;
+    return '$trimmed${sep}ui_state.json';
+  }
+
+  /// Legacy pre-R4-27 location next to the executable. Read once so an
+  /// upgraded install migrates its layout state into the data directory.
+  static String resolveLegacyPath() {
     final exeDir = File(Platform.resolvedExecutable).parent.path;
     return '$exeDir${Platform.pathSeparator}ui_state.json';
+  }
+
+  static String _defaultDataDir() {
+    final env = Platform.environment;
+    final override = env['V2RAYN_R_DATA_DIR'];
+    if (override != null && override.trim().isNotEmpty) return override;
+    final local = env['LOCALAPPDATA'];
+    if (local != null && local.isNotEmpty) {
+      return '$local${Platform.pathSeparator}v2rayn-r${Platform.pathSeparator}data';
+    }
+    final home = env['HOME'];
+    if (home != null && home.isNotEmpty) {
+      return '$home${Platform.pathSeparator}.local${Platform.pathSeparator}share'
+          '${Platform.pathSeparator}v2rayn-r${Platform.pathSeparator}data';
+    }
+    return Directory.systemTemp.path;
   }
 
   @override
@@ -325,22 +374,44 @@ class FileUiStateStore extends UiStateStore {
   void saveDocument(Map<String, dynamic> data) => _write(data);
 
   Map<String, dynamic> _read() {
+    final primary = _tryRead(_path);
+    if (primary != null) return primary;
+    final legacyPath = _legacyPath;
+    if (legacyPath != null && legacyPath != _path) {
+      final legacy = _tryRead(legacyPath);
+      if (legacy != null) {
+        _write(legacy);
+        return legacy;
+      }
+    }
+    return <String, dynamic>{};
+  }
+
+  Map<String, dynamic>? _tryRead(String path) {
     try {
-      final file = File(_path);
-      if (!file.existsSync()) return <String, dynamic>{};
+      final file = File(path);
+      if (!file.existsSync()) return null;
       final decoded = jsonDecode(file.readAsStringSync());
       if (decoded is Map<String, dynamic>) return decoded;
       return <String, dynamic>{};
     } catch (_) {
-      return <String, dynamic>{};
+      return null;
     }
   }
 
+  /// Atomically persist the document: write a sibling temporary file, flush,
+  /// then rename over the target so a crash mid-write cannot corrupt the state.
   void _write(Map<String, dynamic> data) {
     try {
-      File(_path).writeAsStringSync(jsonEncode(data));
-    } catch (_) {
-      // Best-effort draft persistence; never fail the UI on I/O errors.
+      final file = File(_path);
+      file.parent.createSync(recursive: true);
+      final temp = File('$_path.tmp');
+      temp.writeAsStringSync(jsonEncode(data), flush: true);
+      temp.renameSync(_path);
+      lastWriteError = null;
+    } catch (error, stackTrace) {
+      lastWriteError = error;
+      onError?.call(error, stackTrace);
     }
   }
 

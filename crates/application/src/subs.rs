@@ -651,6 +651,120 @@ pub fn assign_candidate_ids(profiles: &mut [Profile]) {
     }
 }
 
+/// Mark every candidate as subscription-sourced (upstream
+/// `AddBatchServersCommon` sets `profileItem.IsSub = isSub`, and the refresh
+/// path always passes `isSub: true`). Manual/import nodes keep their source
+/// flag; only the refresh candidate set is forced here.
+pub fn mark_subscription_candidates(profiles: &mut [Profile]) {
+    for profile in profiles.iter_mut() {
+        profile.is_sub = true;
+    }
+}
+
+/// Upstream `ConfigHandler.CompareProfileItem` (`ConfigHandler.cs:1258-1304`):
+/// whether two nodes share the same transport identity. Empty and absent
+/// string options compare equal. `remarks` optionally participates.
+pub fn profiles_match(o: &Profile, n: &Profile, remarks: bool) -> bool {
+    fn opt_eq(a: &Option<String>, b: &Option<String>) -> bool {
+        let norm = |v: &Option<String>| v.clone().filter(|s| !s.is_empty());
+        norm(a) == norm(b)
+    }
+    fn str_eq(a: &str, b: &str) -> bool {
+        a == b || (a.is_empty() && b.is_empty())
+    }
+    let oe = &o.proto_extra;
+    let ne = &n.proto_extra;
+    let ot = &o.transport_extra;
+    let nt = &n.transport_extra;
+    if o.config_type != n.config_type
+        || !str_eq(&o.address, &n.address)
+        || o.port != n.port
+        || !str_eq(&o.password, &n.password)
+        || !str_eq(&o.username, &n.username)
+        || !opt_eq(&oe.vless_encryption, &ne.vless_encryption)
+        || !opt_eq(&oe.ss_method, &ne.ss_method)
+        || !opt_eq(&oe.vmess_security, &ne.vmess_security)
+        || !str_eq(&o.network, &n.network)
+        || !opt_eq(&ot.raw_header_type, &nt.raw_header_type)
+        || !opt_eq(&ot.host, &nt.host)
+        || !opt_eq(&ot.path, &nt.path)
+        || !opt_eq(&ot.xhttp_mode, &nt.xhttp_mode)
+        || !opt_eq(&ot.xhttp_extra, &nt.xhttp_extra)
+        || !opt_eq(&ot.grpc_authority, &nt.grpc_authority)
+        || !opt_eq(&ot.grpc_service_name, &nt.grpc_service_name)
+        || !opt_eq(&ot.grpc_mode, &nt.grpc_mode)
+        || !opt_eq(&ot.kcp_header_type, &nt.kcp_header_type)
+        || !opt_eq(&ot.kcp_seed, &nt.kcp_seed)
+    {
+        return false;
+    }
+    // Trojans ignore StreamSecurity; every other type must match it.
+    if o.config_type != ConfigType::Trojan
+        && !opt_eq(&o.security.stream_security, &n.security.stream_security)
+    {
+        return false;
+    }
+    opt_eq(&oe.flow, &ne.flow)
+        && opt_eq(&oe.salamander_pass, &ne.salamander_pass)
+        && opt_eq(&o.security.sni, &n.security.sni)
+        && opt_eq(&o.security.alpn, &n.security.alpn)
+        && opt_eq(&o.security.fingerprint, &n.security.fingerprint)
+        && opt_eq(&o.security.public_key, &n.security.public_key)
+        && opt_eq(&o.security.short_id, &n.security.short_id)
+        && opt_eq(&o.finalmask, &n.finalmask)
+        && (!remarks || o.remarks == n.remarks)
+}
+
+/// Upstream `ConfigHandler.FindMatchedProfileItem` (`ConfigHandler.cs:1317-1355`):
+/// full identity match (remarks included), then remarks, then
+/// address+port+password. `source` is the candidate set, `target` the node the
+/// caller is trying to re-locate after a replace.
+pub fn find_matched_profile<'a>(source: &'a [Profile], target: &Profile) -> Option<&'a Profile> {
+    if let Some(found) = source.iter().find(|p| profiles_match(p, target, true)) {
+        return Some(found);
+    }
+    if !target.remarks.is_empty() {
+        if let Some(found) = source.iter().find(|p| p.remarks == target.remarks) {
+            return Some(found);
+        }
+    }
+    if !target.address.is_empty() && target.port > 0 && !target.password.is_empty() {
+        return source.iter().find(|p| {
+            p.address.eq_ignore_ascii_case(&target.address)
+                && p.port == target.port
+                && p.password.eq_ignore_ascii_case(&target.password)
+        });
+    }
+    None
+}
+
+/// Re-map the persisted active node after a subscription replace, mirroring
+/// upstream `AddBatchServers` (`ConfigHandler.cs:2109-2117`): find the new node
+/// matching the old active identity and write it back as the default. When the
+/// old active did not belong to this subscription, or has no match, the active
+/// stays untouched (upstream's later `SetDefaultServer` fallback is out of this
+/// card's scope). Returns the matched new id when one was written.
+pub fn remap_active_after_replace(
+    engine: &crate::engine::AppEngine,
+    old_profiles: &[Profile],
+    new_profiles: &[Profile],
+) -> Result<Option<String>, DomainError> {
+    let Some(active_id) = engine.active_profile() else {
+        return Ok(None);
+    };
+    let Some(active) = old_profiles.iter().find(|p| p.index_id == active_id) else {
+        return Ok(None);
+    };
+    let Some(matched) = find_matched_profile(new_profiles, active) else {
+        return Ok(None);
+    };
+    let matched_id = matched.index_id.clone();
+    if matched_id != active_id {
+        engine.set_active(Some(matched_id.clone()))?;
+    }
+    Ok(Some(matched_id))
+}
+
 /// F-SUB-007 converted refresh: the candidate-first pipeline with the
 /// subscription-conversion service applied to the main URL.
 ///
@@ -756,9 +870,16 @@ async fn refresh_one_with_convert(
         Err(err) => return entry(sub_error_outcome(&err)),
     };
     assign_candidate_ids(&mut candidates);
+    mark_subscription_candidates(&mut candidates);
 
     match engine.replace_sub_profiles_at_epoch(&item.id, candidates, true, epoch) {
         Ok((added, removed)) => {
+            // Upstream `AddBatchServers` re-points the persisted default to the
+            // new node matching the old active identity (`ConfigHandler.cs`
+            // `:2109-2117`); stats transfer is done in the storage transaction.
+            if let Ok(new_profiles) = engine.profiles_by_subid(&item.id) {
+                let _ = remap_active_after_replace(engine, &existing, &new_profiles);
+            }
             let _ = engine.touch_sub_update_time(&item.id, unix_now());
             entry(SubUpdateOutcome::Updated { added, removed })
         }
@@ -1707,5 +1828,96 @@ mod tests {
         let profiles = engine.profiles_by_subid(&saved.id).unwrap();
         assert_eq!(profiles.len(), 1);
         assert!(profiles.iter().any(|p| p.index_id == "old-conv"));
+    }
+
+    // -- R4-17: IsSub retention, stable identity & active remap ---------------
+
+    #[test]
+    fn replace_keeps_manual_is_sub_false_in_group() {
+        use crate::synthetic::synthetic_full_profile;
+        let engine = crate::engine::AppEngine::in_memory();
+        let mut manual = synthetic_full_profile(1);
+        manual.subid = "s-A".into();
+        manual.is_sub = false;
+        let manual_id = manual.index_id.clone();
+        let (_saved, revision) = engine
+            .save_imported_profile(manual.clone(), domain::DesiredRevision::ZERO)
+            .unwrap();
+        let mut sub = synthetic_full_profile(2);
+        sub.subid = "s-A".into();
+        sub.is_sub = true;
+        engine.save_imported_profile(sub.clone(), revision).unwrap();
+
+        let (added, removed) = engine.replace_sub_profiles("s-A", vec![], true).unwrap();
+        assert_eq!(added, 0);
+        assert_eq!(removed, 1);
+        let remaining = engine.profiles_by_subid("s-A").unwrap();
+        assert!(
+            remaining.iter().any(|p| p.index_id == manual_id),
+            "manual IsSub=false node must survive a subscription replace"
+        );
+        assert!(!remaining.iter().any(|p| p.index_id == sub.index_id));
+    }
+
+    #[test]
+    fn subscription_candidates_are_marked_is_sub() {
+        let mut profile = Profile {
+            is_sub: false,
+            ..Default::default()
+        };
+        mark_subscription_candidates(std::slice::from_mut(&mut profile));
+        assert!(profile.is_sub);
+    }
+
+    #[test]
+    fn profiles_match_uses_transport_identity() {
+        use crate::synthetic::synthetic_full_profile;
+        let a = synthetic_full_profile(1);
+        let mut b = a.clone();
+        b.index_id = "other".into();
+        b.remarks = "renamed".into();
+        assert!(profiles_match(&a, &b, false));
+        assert!(!profiles_match(&a, &b, true), "remarks differ");
+        let mut c = b.clone();
+        c.address = "203.0.113.7".into();
+        assert!(!profiles_match(&a, &c, false), "address differs");
+    }
+
+    #[test]
+    fn find_matched_profile_falls_back_to_remarks() {
+        use crate::synthetic::synthetic_full_profile;
+        let target = synthetic_full_profile(1);
+        let mut candidate = target.clone();
+        candidate.index_id = "n-2".into();
+        candidate.address = "203.0.113.9".into();
+        candidate.port = 8443;
+        candidate.password = "different".into();
+        let found = find_matched_profile(std::slice::from_ref(&candidate), &target).unwrap();
+        assert_eq!(found.index_id, "n-2");
+    }
+
+    #[test]
+    fn remap_active_after_replace_points_to_matched_new_node() {
+        use crate::synthetic::synthetic_full_profile;
+        let engine = crate::engine::AppEngine::in_memory();
+        let mut old = synthetic_full_profile(1);
+        old.subid = "s-r".into();
+        old.is_sub = true;
+        engine
+            .save_imported_profile(old.clone(), domain::DesiredRevision::ZERO)
+            .unwrap();
+        engine.set_active(Some(old.index_id.clone())).unwrap();
+
+        let mut new = old.clone();
+        new.index_id = "new-active".into();
+        engine
+            .replace_sub_profiles("s-r", vec![new.clone()], true)
+            .unwrap();
+        let new_list = engine.profiles_by_subid("s-r").unwrap();
+
+        let mapped =
+            remap_active_after_replace(&engine, std::slice::from_ref(&old), &new_list).unwrap();
+        assert_eq!(mapped.as_deref(), Some("new-active"));
+        assert_eq!(engine.active_profile().as_deref(), Some("new-active"));
     }
 }

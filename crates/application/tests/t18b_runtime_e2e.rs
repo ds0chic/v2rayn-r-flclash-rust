@@ -38,11 +38,48 @@ fn free_port(mut base: u16) -> u16 {
             base += 1;
             continue;
         }
-        if TcpListener::bind(("127.0.0.1", base)).is_ok() {
+        if port_is_free(base) {
             return base;
         }
         base += 1;
     }
+}
+
+/// Allocate `count` distinct free ports: each allocation resumes scanning after
+/// the previous one, so repeated calls can never return the same port.
+fn free_ports(base: u16, count: usize) -> Vec<u16> {
+    let mut ports = Vec::with_capacity(count);
+    let mut next = base;
+    while ports.len() < count {
+        let port = free_port(next);
+        ports.push(port);
+        next = port + 1;
+    }
+    ports
+}
+
+/// Probe with a non-reuse bind: Rust's `TcpListener` enables `SO_REUSEADDR`
+/// on Windows, which lets it "succeed" against a port another process already
+/// holds on the wildcard address (observed with third-party services). The
+/// spawned kernel then fails with WSAEACCES, so the probe must use the same
+/// exclusivity the kernel needs.
+fn port_is_free(port: u16) -> bool {
+    use socket2::{Domain, Protocol, Socket, Type};
+    use std::net::{Ipv4Addr, SocketAddr};
+
+    for addr in [Ipv4Addr::UNSPECIFIED, Ipv4Addr::LOCALHOST] {
+        let socket = match Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)) {
+            Ok(socket) => socket,
+            Err(_) => return false,
+        };
+        // socket2 does not enable SO_REUSEADDR by default, unlike std on
+        // Windows, so this bind fails when the port is already held.
+        let target = SocketAddr::from((addr, port));
+        if socket.bind(&target.into()).is_err() {
+            return false;
+        }
+    }
+    true
 }
 
 /// Loopback origin server answering `200 t18b-ok` to any request.
@@ -141,7 +178,10 @@ impl Kernel {
                     lines[skip..].join("\n")
                 })
                 .unwrap_or_default();
-            panic!("kernel exited during startup: {status}\n--- stderr tail ---\n{tail}");
+            panic!(
+                "kernel exited during startup: {status} config={}\n--- stderr tail ---\n{tail}",
+                config.display()
+            );
         }
         Self {
             child: Some(child),
@@ -652,11 +692,12 @@ fn rr07_custom_config_plan_serves_on_its_real_port() {
     // settings base port must plan/wait/publish the *actual* port. The plan
     // body is spawned verbatim and the real port must carry traffic.
     let start = Instant::now();
-    let origin_port = free_port(11987);
+    let ports = free_ports(11987, 4);
+    let origin_port = ports[0];
+    let base_port = ports[1]; // deliberately NOT the config port
+    let custom_port = ports[2];
+    let api_port = ports[3];
     let _origin = Origin::start(origin_port);
-    let base_port = free_port(11990); // deliberately NOT the config port
-    let custom_port = free_port(11991);
-    let api_port = free_port(11992);
 
     let (_keep, engine) = engine();
     set_base_port(&engine, base_port);
@@ -696,6 +737,7 @@ fn rr07_custom_config_plan_serves_on_its_real_port() {
 
     let dir = tempfile::tempdir().expect("tempdir");
     let config = write_config(dir.path(), "custom-e2e.json", &body);
+    eprintln!("spawning kernel: config={} body={}", config.display(), body);
     let _kernel = Kernel::spawn(XRAY_EXE, &config);
     wait_port(custom_port, Duration::from_secs(20));
     let reply = socks5_get(custom_port, origin_port, None).expect("serving on real port");

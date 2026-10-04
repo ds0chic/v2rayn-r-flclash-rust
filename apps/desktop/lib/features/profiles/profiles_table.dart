@@ -525,7 +525,6 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     // Active node marker, independent from the multi-select highlight: an
     // active row keeps its own fill even when a different row is selected.
     final isActive = state.activeId == row.id;
-    final controller = ref.read(profilesControllerProvider.notifier);
     final value = column.display(row);
     final label = Text(
       value,
@@ -533,14 +532,12 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       maxLines: 1,
       style: const TextStyle(fontSize: AppTokens.fontSize),
     );
+    // Selection happens on pointer-down at the table level; this detector only
+    // distinguishes the double-click business action so the first click is not
+    // delayed by the double-tap recognizer.
     return GestureDetector(
       key: ValueKey('cell-${row.id}-${column.key}'),
       behavior: HitTestBehavior.opaque,
-      onTap: () => controller.selectRow(
-        row.id,
-        ctrl: HardwareKeyboard.instance.isControlPressed,
-        shift: HardwareKeyboard.instance.isShiftPressed,
-      ),
       onDoubleTap: () => _onDoubleTap(row),
       child: Container(
         color: selected
@@ -657,8 +654,23 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       // column keeps its own reorder drag, so it is excluded.
       if (event.localPosition.dx >= kProfilesRowHeaderWidth) {
         final state = ref.read(profilesControllerProvider);
-        _dragAnchorId = _rowIdAt(event.localPosition, state.visible);
+        final rowId = _rowIdAt(event.localPosition, state.visible);
+        _dragAnchorId = rowId;
         _dragSelecting = false;
+        if (rowId != null) {
+          // Select on pointer-down: the click takes effect immediately instead
+          // of waiting out the 300ms double-tap timeout, and the Ctrl/Shift
+          // state is captured at the event rather than read late in the
+          // delayed tap callback. The cell no longer selects on tap, so this
+          // is a single commit (no double toggle).
+          ref
+              .read(profilesControllerProvider.notifier)
+              .selectRow(
+                rowId,
+                ctrl: HardwareKeyboard.instance.isControlPressed,
+                shift: HardwareKeyboard.instance.isShiftPressed,
+              );
+        }
       } else {
         _dragAnchorId = null;
       }

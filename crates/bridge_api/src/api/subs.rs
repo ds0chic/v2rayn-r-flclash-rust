@@ -537,7 +537,14 @@ pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) 
         if profile.index_id.trim().is_empty() {
             profile.index_id = application::new_index_id();
         }
-        profile.is_sub = true;
+        // Manual batch import (node page paste/scan, upstream
+        // `AddBatchServers(..., isSub: false)` at `MainWindowViewModel.cs:484-502`)
+        // is not subscription-sourced: the node may live in a subscription
+        // group but a subscription update only replaces `IsSub = 1` rows, so
+        // this flag is what keeps the imported node alive (R4-17 / D04).
+        // Real subscription content goes through the refresh pipeline
+        // (`refresh_subscriptions_with_convert`), which marks candidates true.
+        profile.is_sub = false;
     }
     materialize_custom_configs(&mut profiles);
     let count = profiles.len() as u32;
@@ -742,6 +749,9 @@ mod tests {
         let profile = &result.profiles[0];
         assert_eq!(profile.subid, "sub-x");
         assert!(!profile.index_id.is_empty());
+        // R4-17 / D04: a manual batch import is `IsSub = false`, so an update
+        // of the group it was pasted into does not delete it.
+        assert!(!profile.is_sub);
     }
 
     #[test]

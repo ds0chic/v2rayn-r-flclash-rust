@@ -41,7 +41,7 @@ class AppTokens {
   // -- Compact desktop chrome heights ------------------------------------
   static const double menuBarHeight = 30;
   static const double toolbarHeight = 32;
-  static const double statusBarHeight = 30;
+  static const double statusBarHeight = 40;
   static const double tableHeaderHeight = 30;
   static const double tableHandleWidth = 48;
   static const double splitterThickness = 6;

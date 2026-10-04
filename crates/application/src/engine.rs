@@ -39,9 +39,9 @@ use persistence::Store;
 use crate::dns::{DnsRepository, InMemoryDnsRepository};
 use crate::routing::{InMemoryRoutingRepository, RoutingRepository};
 use crate::store_repo::{
-    storage_error, DnsStore, ProfileStore, RoutingStore, SqliteDnsRepository,
-    SqliteProfileRepository, SqliteRoutingRepository, SqliteSubRepository, SqliteTrafficStore,
-    SubStore,
+    persistence_storage_error, storage_error, DnsStore, ProfileStore, RoutingStore,
+    SqliteDnsRepository, SqliteProfileRepository, SqliteRoutingRepository, SqliteSubRepository,
+    SqliteTrafficStore, SubStore,
 };
 use crate::subs::{
     build_candidates, download_all, new_sub_id, report_to_json, sub_error_outcome, unix_now,
@@ -144,6 +144,11 @@ pub struct AppEngine {
     /// subscription commit that captured the epoch before the bump is rejected
     /// so a slow download cannot write into the swapped database (R3-SET-03).
     restore_epoch: Arc<AtomicU64>,
+    /// Set when production storage could not be opened. The engine then fails
+    /// closed: persistence and runtime use cases return this structured error
+    /// instead of silently serving an in-memory database or a fake `Accepted`
+    /// (D20). Always `None` for a successfully opened or in-memory engine.
+    storage_error: Arc<Mutex<Option<DomainError>>>,
 }
 
 impl AppEngine {
@@ -183,6 +188,7 @@ impl AppEngine {
             apply_target: Arc::new(Mutex::new(None)),
             apply_facts: Arc::new(Mutex::new(None)),
             restore_epoch: Arc::new(AtomicU64::new(0)),
+            storage_error: Arc::new(Mutex::new(None)),
         };
         engine.ensure_builtin_routing_dns();
         engine
@@ -221,12 +227,15 @@ impl AppEngine {
             .and_then(Value::as_str)
             .map(str::to_string);
 
-        let sub_store =
-            SqliteSubRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
-        let routing_store =
-            SqliteRoutingRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
-        let dns_store =
-            SqliteDnsRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+        let sub_store = SqliteSubRepository::from_store(
+            Store::open(&db_path).map_err(persistence_storage_error)?,
+        );
+        let routing_store = SqliteRoutingRepository::from_store(
+            Store::open(&db_path).map_err(persistence_storage_error)?,
+        );
+        let dns_store = SqliteDnsRepository::from_store(
+            Store::open(&db_path).map_err(persistence_storage_error)?,
+        );
         let rule_mode = config
             .get("rule_mode")
             .and_then(Value::as_str)
@@ -258,9 +267,42 @@ impl AppEngine {
             apply_target: Arc::new(Mutex::new(None)),
             apply_facts: Arc::new(Mutex::new(None)),
             restore_epoch: Arc::new(AtomicU64::new(0)),
+            storage_error: Arc::new(Mutex::new(None)),
         };
         engine.ensure_builtin_routing_dns();
         Ok(engine)
+    }
+
+    /// Build a fail-closed engine used when production storage cannot be
+    /// opened (unreadable/corrupt database, read-only directory, full disk or a
+    /// lock conflict). Every persistence and runtime use case returns
+    /// `error` instead of silently serving an in-memory database or a fake
+    /// `Accepted`; the process may retry by opening a fresh engine once the
+    /// condition is repaired (R4-27 / D20).
+    pub fn storage_unavailable(data_dir: Option<PathBuf>, error: DomainError) -> Self {
+        let mut engine = Self::with_runtime(Arc::new(NullRuntimeClient::new()));
+        engine.data_dir = data_dir;
+        if let Ok(mut guard) = engine.storage_error.lock() {
+            *guard = Some(error);
+        }
+        engine
+    }
+
+    /// The storage-open failure this engine is failing closed on, if any.
+    pub fn storage_failure(&self) -> Option<DomainError> {
+        self.storage_error
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone())
+    }
+
+    /// Returns the storage-open failure before any persistence/runtime use
+    /// case runs, so a broken store never answers as success.
+    fn guard_storage(&self) -> Result<(), DomainError> {
+        match self.storage_failure() {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 
     /// Resolve the application data directory: `V2RAYN_R_DATA_DIR` when set,
@@ -335,10 +377,15 @@ impl AppEngine {
         };
         let db_path = dir.join("guiNDB.db");
         let repo = SqliteProfileRepository::open(&db_path)?;
-        let subs = SqliteSubRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
-        let routing =
-            SqliteRoutingRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
-        let dns = SqliteDnsRepository::from_store(Store::open(&db_path).map_err(storage_error)?);
+        let subs = SqliteSubRepository::from_store(
+            Store::open(&db_path).map_err(persistence_storage_error)?,
+        );
+        let routing = SqliteRoutingRepository::from_store(
+            Store::open(&db_path).map_err(persistence_storage_error)?,
+        );
+        let dns = SqliteDnsRepository::from_store(
+            Store::open(&db_path).map_err(persistence_storage_error)?,
+        );
         let config = read_config(&dir)?;
         let desired = config
             .get("desired_revision")
@@ -514,6 +561,7 @@ impl AppEngine {
 
     /// Fetch one profile by stable id.
     pub fn profile_by_id(&self, index_id: &str) -> Result<Option<Profile>, DomainError> {
+        self.guard_storage()?;
         self.repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -527,6 +575,7 @@ impl AppEngine {
         sort: ProfileSort,
         page: PageRequest,
     ) -> Result<ProfilePage, DomainError> {
+        self.guard_storage()?;
         self.repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -553,6 +602,7 @@ impl AppEngine {
         draft: Profile,
         expected_revision: DesiredRevision,
     ) -> Result<(Profile, DesiredRevision), DomainError> {
+        self.guard_storage()?;
         // Read the Reality fallback default before taking the profile-revision
         // lock, so the settings lock is never nested inside it.
         let def_fingerprint = self.default_reality_fingerprint();
@@ -607,6 +657,7 @@ impl AppEngine {
         draft: Profile,
         expected_revision: DesiredRevision,
     ) -> Result<(Profile, DesiredRevision), DomainError> {
+        self.guard_storage()?;
         // See `save_profile`: read the Reality fallback default before locking
         // the profile revisions.
         let def_fingerprint = self.default_reality_fingerprint();
@@ -652,6 +703,7 @@ impl AppEngine {
 
     /// Delete a set of profiles. Returns how many rows were removed.
     pub fn delete_profiles(&self, ids: &[String]) -> Result<u64, DomainError> {
+        self.guard_storage()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -678,6 +730,7 @@ impl AppEngine {
     /// Returns an empty vec for the in-memory backend (no persistence). Used at
     /// startup so a reopened process sees the previous run's delay/speed/sort.
     pub fn profile_ex_all(&self) -> Result<Vec<crate::speedtest::ProfileExItem>, DomainError> {
+        self.guard_storage()?;
         let repo = self
             .repo
             .lock()
@@ -688,7 +741,7 @@ impl AppEngine {
                 let rows = sqlite
                     .store()
                     .read_rows("ProfileExItem")
-                    .map_err(storage_error)?;
+                    .map_err(persistence_storage_error)?;
                 Ok(rows
                     .iter()
                     .map(|row| {
@@ -712,6 +765,7 @@ impl AppEngine {
         &self,
         rows: &[crate::speedtest::ProfileExItem],
     ) -> Result<(), DomainError> {
+        self.guard_storage()?;
         let repo = self
             .repo
             .lock()
@@ -731,7 +785,7 @@ impl AppEngine {
             sqlite
                 .store()
                 .upsert_row(conn, &raw)
-                .map_err(storage_error)?;
+                .map_err(persistence_storage_error)?;
         }
         Ok(())
     }
@@ -810,6 +864,7 @@ impl AppEngine {
     /// return that stored name for `Profile.address`. Existing destination
     /// files are never overwritten.
     pub fn import_custom_file(&self, source: &std::path::Path) -> Result<String, DomainError> {
+        self.guard_storage()?;
         if !source.is_file() {
             return Err(DomainError::not_found(
                 "custom_file",
@@ -855,6 +910,7 @@ impl AppEngine {
 
     /// Copy a set of profiles, assigning fresh stable ids and a "(副本)" suffix.
     pub fn copy_profiles(&self, ids: &[String]) -> Result<Vec<Profile>, DomainError> {
+        self.guard_storage()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -884,6 +940,7 @@ impl AppEngine {
 
     /// Update only the remarks of one profile.
     pub fn set_remarks(&self, id: &str, remarks: String) -> Result<Profile, DomainError> {
+        self.guard_storage()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -910,6 +967,7 @@ impl AppEngine {
 
     /// Mark one profile as the active node (persisted across restarts).
     pub fn set_active(&self, id: Option<String>) -> Result<(), DomainError> {
+        self.guard_storage()?;
         let revisions = self
             .revisions
             .lock()
@@ -1377,6 +1435,7 @@ impl AppEngine {
 
     /// `load_settings` — the normalised settings tree plus revision counters.
     pub fn load_settings(&self) -> Result<LoadedSettings, DomainError> {
+        self.guard_storage()?;
         let guard = self
             .settings
             .lock()
@@ -1398,6 +1457,7 @@ impl AppEngine {
         settings: AppSettings,
         expected_revision: u64,
     ) -> Result<SaveSettingsOutcome, DomainError> {
+        self.guard_storage()?;
         let mut guard = self
             .settings
             .lock()
@@ -1572,6 +1632,7 @@ impl AppEngine {
         plan: RuntimePlan,
         expected_revision: DesiredRevision,
     ) -> Result<String, DomainError> {
+        self.guard_storage()?;
         {
             let revisions = self
                 .revisions
@@ -2879,6 +2940,7 @@ impl AppEngine {
 
     /// Assemble the current snapshot.
     pub fn snapshot(&self) -> Result<Snapshot, DomainError> {
+        self.guard_storage()?;
         let desired = self
             .revisions
             .lock()
@@ -3137,6 +3199,50 @@ mod tests {
         let err = engine.save_profile(p, DesiredRevision::ZERO).unwrap_err();
         assert_eq!(err.code, domain::codes::FIELD_RANGE);
         assert_eq!(err.field_path.as_deref(), Some("port"));
+    }
+
+    #[test]
+    fn storage_unavailable_engine_fails_closed() {
+        // R4-27 / D20: a production storage-open failure must not fall back to
+        // an in-memory database or a NullRuntime fake `Accepted`.
+        let error = DomainError::new("E_PERSIST_SQLITE", "error.persist_sqlite")
+            .with_detail("database disk image is malformed")
+            .retryable();
+        let engine = AppEngine::storage_unavailable(
+            Some(std::path::PathBuf::from("C:/nonexistent/r4_27")),
+            error,
+        );
+        let code = "E_PERSIST_SQLITE";
+        assert_eq!(
+            engine.storage_failure().map(|e| e.code),
+            Some(code.to_string())
+        );
+
+        assert_eq!(engine.snapshot().unwrap_err().code, code);
+        assert_eq!(
+            engine
+                .query_profiles(
+                    ProfileFilter::default(),
+                    ProfileSort::IndexId,
+                    PageRequest {
+                        cursor: 0,
+                        page_size: 10,
+                    },
+                )
+                .unwrap_err()
+                .code,
+            code
+        );
+        // A null-runtime engine must never fake an accepted apply.
+        assert_eq!(
+            engine
+                .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+                .unwrap_err()
+                .code,
+            code
+        );
+        assert_eq!(engine.set_active(None).unwrap_err().code, code);
+        assert_eq!(engine.profile_ex_all().unwrap_err().code, code);
     }
 
     #[test]

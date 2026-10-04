@@ -14,3 +14,13 @@
 这六项**不是完整剩余缺口清单**。[收尾摘要](README.md) 还登记路由“一键导入规则集”后端用例与多选；[T21-D](../T21-real-os.md) 记录 WinINET per-connection 推送失败、对运行中应用的即时效果未逐应用确认。两者也不能归入“仅等用户授权”。
 
 当前 Windows ZIP 已从干净源码提交 `ff45519` 构建，`dist/build-info.json` 为 `git_dirty=false`；SHA-256 `d3b4a07a09d0425c73769cdef5de447692c29c557e86b8bb2ec0171d0069048f` 与 `dist/SHA256SUMS` 一致。这纠正第三轮审查时旧包 `git_dirty=true` 的历史结论；它不提升上述未实测功能的状态。
+
+## 2026-10-05 本轮解决（Wave L/M）
+
+- 第 3 项：12 核已下载并按官方资产钉版本/hash 到 `tools/cores/cores.lock.json`；`tools/cores/session_matrix.ps1` 全矩阵 **14/14 真实回环会话**（hysteria2/overtls 用临时自签 TLS 对会话解除 blocked），逐核 version 14/14；adapter 合同按实测修正（v2fly `-config`、v2fly_v5 去 `-format jsonv5`、hysteria 工作目录）。见 `R3-CORE-MATRIX/`。
+- 第 4 项：设置与路由均已迁移为原生第二顶层窗口（owner=主窗口、模态、第二 Flutter engine、草稿回传主侧保存），HWND 探针验证两个独立窗口与关闭/重开；`flutter build windows --release` 通过。见 `R3-WPF-OPTION-WINDOW/`、`R3-WPF-ROUTING-WINDOW/`；逐事件脚本与高 DPI 真机对照仍登记。
+- 第 5 项：热键冲突已如实检测（自持 `RegisterHotKey` 探针 + 1409 语义），真机“占用→冲突→释放→成功→注销→组合空闲”全链通过。见 `SR-HOTKEY-CONFLICT/`。
+- 第 6 项：四状态托盘 ico 已生成并打包；DPI widget 矩阵 100/125/150/200%（1280×800 与 800×600）无溢出；宿主 96 DPI 真机浅/深主题与托盘图标/菜单截图完成；真机高 DPI、coreRunning/proxyActive 真机态登记为边界。见 `R3-VISUAL-DPI-TRAY/`。
+- 当前包：干净构建 `73da06e`，zip `45a702b7…`、setup `a8fd08e2…`，`git_dirty=false`。
+
+仍为外部条件/产品决策：第 1 项生产 TUN 自动路由（隔离 VM 授权）、第 2 项真实发行源自更新（发布仓库/签名资产/公钥）。

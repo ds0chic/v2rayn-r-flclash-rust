@@ -13,6 +13,7 @@ class AppMenuEntry {
     this.shortcut,
     this.enabled = true,
     this.preservedOnly = false,
+    this.separatorAfter = false,
     this.submenu = const <AppMenuEntry>[],
   });
 
@@ -23,6 +24,11 @@ class AppMenuEntry {
 
   /// Entry kept for upstream parity but not implemented; rendered disabled.
   final bool preservedOnly;
+
+  /// Upstream `MainWindow.xaml` draws a `<Separator>` after this entry within
+  /// its parent submenu (e.g. 配置项 after 扫描图片中的二维码 / 添加自定义出站 /
+  /// 添加 [HTTP]). The shell renders it (R3-WPF-Main-Chrome M8).
+  final bool separatorAfter;
   final List<AppMenuEntry> submenu;
 
   bool get isSubmenu => submenu.isNotEmpty;
@@ -46,11 +52,19 @@ const _serverEntries = <AppMenuEntry>[
     actionId: 'ACT-MAIN-017',
     shortcut: 'Ctrl+S',
   ),
-  AppMenuEntry(label: '扫描图片中的二维码', actionId: 'ACT-MAIN-018'),
+  AppMenuEntry(
+    label: '扫描图片中的二维码',
+    actionId: 'ACT-MAIN-018',
+    separatorAfter: true,
+  ),
   AppMenuEntry(label: '添加自定义配置', actionId: 'ACT-MAIN-012'),
   AppMenuEntry(label: '添加策略组', actionId: 'ACT-MAIN-014'),
   AppMenuEntry(label: '添加链式代理', actionId: 'ACT-MAIN-015'),
-  AppMenuEntry(label: '添加自定义出站', actionId: 'ACT-MAIN-013'),
+  AppMenuEntry(
+    label: '添加自定义出站',
+    actionId: 'ACT-MAIN-013',
+    separatorAfter: true,
+  ),
   AppMenuEntry(label: '添加 [VMess]', actionId: 'ACT-MAIN-001'),
   AppMenuEntry(label: '添加 [VLESS]', actionId: 'ACT-MAIN-002'),
   AppMenuEntry(label: '添加 [Shadowsocks]', actionId: 'ACT-MAIN-003'),
@@ -58,7 +72,11 @@ const _serverEntries = <AppMenuEntry>[
   AppMenuEntry(label: '添加 [Hysteria2]', actionId: 'ACT-MAIN-007'),
   AppMenuEntry(label: '添加 [WireGuard]', actionId: 'ACT-MAIN-009'),
   AppMenuEntry(label: '添加 [SOCKS]', actionId: 'ACT-MAIN-004'),
-  AppMenuEntry(label: '添加 [HTTP]', actionId: 'ACT-MAIN-005'),
+  AppMenuEntry(
+    label: '添加 [HTTP]',
+    actionId: 'ACT-MAIN-005',
+    separatorAfter: true,
+  ),
   AppMenuEntry(label: '添加 [TUIC]', actionId: 'ACT-MAIN-008'),
   AppMenuEntry(label: '添加 [Anytls]', actionId: 'ACT-MAIN-010'),
   AppMenuEntry(label: '添加 [NaïveProxy]', actionId: 'ACT-MAIN-011'),
@@ -66,7 +84,7 @@ const _serverEntries = <AppMenuEntry>[
 
 /// ACT-MAIN-019 (sub settings) and ACT-* subscription update entries.
 const _subscriptionEntries = <AppMenuEntry>[
-  AppMenuEntry(label: '订阅分组设置', actionId: 'ACT-MAIN-019'),
+  AppMenuEntry(label: '订阅分组设置', actionId: 'ACT-MAIN-019', separatorAfter: true),
   AppMenuEntry(label: '更新全部订阅 (不通过代理)', actionId: 'ACT-MAIN-020'),
   AppMenuEntry(label: '更新全部订阅 (通过代理)', actionId: 'ACT-MAIN-021'),
   AppMenuEntry(label: '更新当前订阅 (不通过代理)', actionId: 'ACT-MAIN-022'),
@@ -90,7 +108,7 @@ const _settingEntries = <AppMenuEntry>[
   AppMenuEntry(label: '路由设置', actionId: 'ACT-MAIN-025'),
   AppMenuEntry(label: 'DNS 设置', actionId: 'ACT-MAIN-026'),
   AppMenuEntry(label: '完整配置模板设置', actionId: 'ACT-MAIN-027'),
-  AppMenuEntry(label: '全局热键设置', actionId: 'ACT-MAIN-028'),
+  AppMenuEntry(label: '全局热键设置', actionId: 'ACT-MAIN-028', separatorAfter: true),
   AppMenuEntry(label: '主题设置', actionId: 'UI-THEME-WINDOW'),
   // ACT-MAIN-029: relaunch the current exe elevated with the runner's
   // `rebootas` marker (upstream `ProcUtils.RebootAsAdmin`). Wired in MainShell.
@@ -98,7 +116,11 @@ const _settingEntries = <AppMenuEntry>[
   // ACT-WIN-004: UWP loopback exemption entry. MainShell resolves the bundled
   // `EnableLoopback.exe` / builds the reversible `CheckNetIsolation` command.
   AppMenuEntry(label: '解除 Win10 UWP 应用回环代理限制', actionId: 'ACT-WIN-004'),
-  AppMenuEntry(label: '清除所有服务统计数据', actionId: 'ACT-MAIN-030'),
+  AppMenuEntry(
+    label: '清除所有服务统计数据',
+    actionId: 'ACT-MAIN-030',
+    separatorAfter: true,
+  ),
   AppMenuEntry(
     label: '区域预置设置',
     actionId: 'ACT-MAIN-032',
@@ -119,12 +141,12 @@ const _settingEntries = <AppMenuEntry>[
 /// single entry opens the primary core's upstream home page through the OS
 /// handler.
 const _helpEntries = <AppMenuEntry>[
-  AppMenuEntry(label: '检查更新', actionId: 'ACT-WIN-005'),
+  AppMenuEntry(label: '检查更新', actionId: 'ACT-WIN-005', separatorAfter: true),
   AppMenuEntry(label: '核心网站', actionId: 'ACT-WIN-008'),
 ];
 
 /// Top-level menu groups in upstream order: 配置项 / 订阅分组 / 设置 / 帮助 /
-/// 重载 / 推广 / 关闭. `关闭` maps to upstream menuClose/menuExit.
+/// 重启服务 / 推广 / 关闭. `关闭` maps to upstream menuClose/menuExit.
 final List<AppMenuEntry> mainMenuModel = <AppMenuEntry>[
   AppMenuEntry(
     label: '配置项',
@@ -142,8 +164,10 @@ final List<AppMenuEntry> mainMenuModel = <AppMenuEntry>[
     submenu: _settingEntries,
   ),
   AppMenuEntry(label: '帮助', actionId: 'UI-GROUP-HELP', submenu: _helpEntries),
-  // ACT-MAIN-035: upstream `menuReload` (重载), same use case as F5.
-  AppMenuEntry(label: '重载', actionId: 'ACT-MAIN-035', shortcut: 'F5'),
+  // ACT-MAIN-035: upstream `menuReload` (ResUI.zh-Hans "重启服务"). Upstream
+  // draws no InputGestureText, so the RC-only F5 chip is dropped; F5 still
+  // triggers the same use case through the shell shortcut.
+  AppMenuEntry(label: '重启服务', actionId: 'ACT-MAIN-035'),
   AppMenuEntry(label: '推广', actionId: 'ACT-WIN-003', preservedOnly: true),
   AppMenuEntry(label: '关闭', actionId: 'ACT-WIN-002', shortcut: 'Alt+F4'),
 ];

@@ -61,11 +61,11 @@ Finder _portField() => find.descendant(
   matching: find.byType(TextField),
 );
 
-/// FIX-08 first flow ("参数修改 → 应用"): editing a parameter then tapping
-/// 应用 persists the visible draft and applies the plan; reopening shows the
-/// saved value (upstream `SaveSettingAsync` + apply timing).
+/// FIX-08 first flow ("参数修改 → 确定"): editing a parameter then tapping
+/// 确定 (upstream's single confirm button) persists the visible draft and
+/// applies the plan; reopening shows the saved value.
 void main() {
-  testWidgets('option apply saves the visible draft then applies', (
+  testWidgets('option confirm saves the visible draft then applies', (
     tester,
   ) async {
     final container = _container();
@@ -73,7 +73,7 @@ void main() {
 
     await tester.enterText(_portField(), '11809');
     await tester.pump();
-    await tester.tap(find.text('应用'));
+    await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
     // The window closed after a successful save.

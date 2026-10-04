@@ -2234,6 +2234,7 @@ features:
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2322
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:2599
   - docs/tasks/FIX-08.md
+  - docs/tasks/R3-WPF-ROUTING.md
   status: implemented
   notes: 'FIX-08: 顶部策略按冻结对象写入全局 RoutingBasicItem（原写选中方案已改）；外部模板导入/多选等余量另卡 FIX-08C。'
 - id: F-ROUTING-003

@@ -188,7 +188,7 @@ void main() {
     }
 
     // apply mode: the dialog button (keyed), not the toolbar homonym.
-    await tester.tap(find.byKey(const ValueKey('settings-apply')));
+    await tester.tap(find.byKey(const ValueKey('settings-save')));
     await _settle(tester);
     await _settle(tester);
     await _settle(tester);

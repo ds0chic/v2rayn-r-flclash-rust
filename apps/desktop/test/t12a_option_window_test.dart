@@ -35,10 +35,16 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // FIX-16: exactly the frozen upstream TabItem set (Core / N /
-      // SystemProxy / TunMode / CoreType). KCP and HappyEyeballs are retained
-      // sections, not top-level pages.
-      for (final tab in <String>['核心基础', '显示', '系统代理', 'Tun 模式', '内核类型']) {
+      // FIX-16 / R3-WPF-Option-Labels: exactly the frozen upstream TabItem set
+      // (Core / N / SystemProxy / TunMode / CoreType). KCP and HappyEyeballs are
+      // retained sections, not top-level pages.
+      for (final tab in <String>[
+        'Core: 基础设置',
+        'v2rayN 设置',
+        '系统代理设置',
+        'Tun 模式设置',
+        'Core 类型设置',
+      ]) {
         expect(find.text(tab), findsOneWidget, reason: 'missing tab $tab');
       }
       for (final gone in <String>['KCP', 'HappyEyeballs', '测速']) {
@@ -49,10 +55,10 @@ void main() {
         );
       }
 
-      // The 显示 tab renders (guards against an int/String cast regression).
-      await tester.tap(find.text('显示'));
+      // The v2rayN settings tab renders (guards against a cast regression).
+      await tester.tap(find.text('v2rayN 设置'));
       await tester.pumpAndSettle();
-      expect(find.text('字体族 (CurrentFontFamily)'), findsOneWidget);
+      expect(find.text('当前字体 (需重启)'), findsOneWidget);
 
       Future<void> tapVisible(String label) async {
         final finder = find.text(label);
@@ -70,28 +76,30 @@ void main() {
       expect(find.byKey(const ValueKey('settings-language')), findsOneWidget);
       expect(find.byKey(const ValueKey('settings-root-cert')), findsOneWidget);
 
-      await tester.tap(find.text('核心基础'));
+      await tester.tap(find.text('Core: 基础设置'));
       await tester.pumpAndSettle();
 
-      // LAN auth linkage: NewPort4LAN appears with AllowLANConn, User/Pass with
-      // both. Linkage now lives on the Core page (upstream TabItem Core).
-      expect(find.text('为局域网使用新端口'), findsNothing);
-      await tapVisible('允许来自局域网的连接');
-      expect(find.text('为局域网使用新端口'), findsOneWidget);
-      await tapVisible('为局域网使用新端口');
-      expect(find.text('用户名 (User)'), findsOneWidget);
-      expect(find.text('密码 (Pass)'), findsOneWidget);
+      // Upstream (frozen XAML rows 8-10) renders the LAN new-port row and the
+      // auth user/pass fields unconditionally; RC previously hid them behind
+      // AllowLANConn / NewPort4LAN.
+      expect(find.text('为局域网开启新的端口'), findsOneWidget);
+      expect(find.text('认证用户名'), findsOneWidget);
+      expect(find.text('认证密码'), findsOneWidget);
+      // No raw storage keys leak into visible field labels.
+      expect(find.textContaining('(LocalPort)'), findsNothing);
+      expect(find.textContaining('(SniffingEnabled)'), findsNothing);
 
       // KCP retained section is still editable on the Core page.
-      await tester.ensureVisible(find.text('最大发送窗口 (MaxSendingWindow)'));
+      await tester.ensureVisible(find.text('最大发送窗口'));
       await tester.pumpAndSettle();
-      expect(find.text('最大发送窗口 (MaxSendingWindow)'), findsOneWidget);
+      expect(find.text('最大发送窗口'), findsOneWidget);
 
-      await tester.tap(find.text('显示'));
+      await tester.tap(find.text('v2rayN 设置'));
       await tester.pumpAndSettle();
-      // FakeIP linkage is retained on the 显示 page (upstream DNS window owner).
+      // FakeIP linkage is retained on the v2rayN settings page (upstream DNS
+      // window owner) until FIX-16B adds the DNS window.
       await tapVisible('启用 FakeIP');
-      expect(find.text('全局 FakeIP (GlobalFakeIp)'), findsOneWidget);
+      expect(find.text('全局 FakeIP'), findsOneWidget);
 
       // Cancel: the draft never reached the engine.
       await tester.tap(find.text('取消'));

@@ -186,7 +186,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
               final widths = fittedColumnWidths(
                 columns,
                 constraints.maxWidth,
-                fixedChrome: AppTokens.tableHandleWidth,
+                fixedChrome: kProfilesRowHeaderWidth,
               );
               return Stack(
                 children: <Widget>[
@@ -244,7 +244,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     int index,
     List<double> widths,
   ) {
-    final width = index == 0 ? AppTokens.tableHandleWidth : widths[index - 1];
+    final width = index == 0 ? kProfilesRowHeaderWidth : widths[index - 1];
     final grid = context.semantics.gridLine;
     return TableSpan(
       extent: FixedTableSpanExtent(width),
@@ -300,11 +300,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     List<ProfileColumn> columns,
   ) {
     if (columnIndex == 0) {
-      return Container(
-        key: const ValueKey('header-handle'),
-        alignment: Alignment.center,
-        child: const Text('#', style: TextStyle(fontWeight: FontWeight.w600)),
-      );
+      // Upstream DataGrid keeps an untitled 40px row header
+      // (`ProfilesView.xaml:113`); showing a `#` title head was an RC-only
+      // structural deviation (R3-WPF-Main-Chrome M3).
+      return Container(key: const ValueKey('header-handle'));
     }
     final column = columns[columnIndex - 1];
     final sorted =
@@ -656,7 +655,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     if ((event.buttons & kPrimaryButton) != 0) {
       // Start a possible drag-select (WPF DataGrid press-and-drag). The handle
       // column keeps its own reorder drag, so it is excluded.
-      if (event.localPosition.dx >= AppTokens.tableHandleWidth) {
+      if (event.localPosition.dx >= kProfilesRowHeaderWidth) {
         final state = ref.read(profilesControllerProvider);
         _dragAnchorId = _rowIdAt(event.localPosition, state.visible);
         _dragSelecting = false;

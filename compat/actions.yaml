@@ -5597,3 +5597,33 @@ items:
 # Boundaries: no production code changed; no real node/subscription/credential; no 10808 use;
 #   no host system-proxy/registry/route/TUN write; only script-started PIDs stopped. Suggested
 #   follow-up cards: R3-WPF-Option-Labels, R3-WPF-Routing-Structure, R3-WPF-Main-Chrome.
+
+# --- R3-WPF-Option-Labels append (2026-10-04; evidence: docs/evidence/recheck-fixes/R3-WPF-OPTION/; task: docs/tasks/R3-WPF-OPTION.md) ---
+# Append only; no denominator change; no row removed. Scope: apps/desktop option settings
+#   window visible structure/text only (window form unchanged; spun off R3-WPF-WINDOW-FORM).
+# Frozen upstream control of truth: 2dust-v2rayN-7d6a967 v2rayN/Views/OptionSettingWindow.xaml
+#   (+.cs) and ServiceLib/Resx/ResUI.zh-Hans.resx.
+# * ALIGNED (upstream): 5 TabItem headers = Core: 基础设置 / v2rayN 设置 / 系统代理设置 /
+#   Tun 模式设置 / Core 类型设置; window Title = ResUI.menuSetting (设置); button set = 确定/取消
+#   (确定 = save visible draft + apply + close; 取消 = discard draft, FIX-08 draft semantics kept).
+# * FIELD LABELS: removed RC-invented raw storage keys (LocalPort/SniffingEnabled/RouteOnly/User/
+#   Pass/LogEnabled/DefFingerprint/DefUserAgent/SysProxyType/...) and switched to resx text; added
+#   upstream-present-but-RC-missing 认证用户名/认证密码 (always rendered, XAML rows 9/10) and the
+#   default TLS fingerprint label 默认 TLS 指纹 (fingerprint); added TbSettingsSocksPortTip
+#   (Pac 端口 = +3；Xray API 端口 = +4；mihomo API 端口 = +5；). Localized the controller status key
+#   so the raw 'settings.saved' key is no longer displayed (O8); mapped to OperationSuccess /
+#   NeedRebootTips resx text.
+# * CORRECTION to R3-WPF-COMPARE O6: the frozen Core TabItem DOES contain Mux4SboxProtocol,
+#   Hysteria bandwidth, Fragment (EnableFragment/EnableFinalFragment), BindInterface, SendThrough
+#   and Mux4Ray controls (XAML rows 17-24); only the KCP page is commented out upstream. RC keeps
+#   these Core sections; KCP stays as a labelled 历史保留 section, registered as a deviation.
+# * REGISTERED follow-ups: R3-WPF-WINDOW-FORM (RC still embedded showDialog, upstream standalone
+#   window; geometry/independent-window parity deferred). RC-only retained config surfaces the frozen
+#   OptionSettingWindow does not expose (KCP; DNS FakeIP/HappyEyeballs -> DNSSettingWindow;
+#   ClashUIItem -> monitor settings) stay editable and are marked 历史保留.
+# Verified: dart format 0 changed; flutter analyze 8 items No issues; widget tests
+#   t12a_option_window / fix08_option_apply / fix08_option_cancel / fix08_option_error / fix15c /
+#   fix16b / fix16_settings_field / fix16d_layout_reachability and t21e_dialogs_responsive /
+#   fix16c_clash_ui_config / fix16e_cert_provider / fix16d_ui_state_store all pass.
+# Boundaries: no main_shell/app/frb/api/crates changes; window form unchanged; no 10808 use; no host
+#   system-proxy/registry/route/TUN write; no full workspace gate; no flutter build windows.

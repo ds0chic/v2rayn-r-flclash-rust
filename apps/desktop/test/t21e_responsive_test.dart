@@ -25,17 +25,26 @@ void main() {
   group('fitted column widths', () {
     test('key columns absorb spare width', () {
       final columns = defaultProfileColumns();
-      final widths = fittedColumnWidths(columns, 2400, fixedChrome: 48);
+      final widths = fittedColumnWidths(
+        columns,
+        2400,
+        fixedChrome: kProfilesRowHeaderWidth,
+      );
       final remarks = widths[columns.indexWhere((c) => c.key == 'Remarks')];
       expect(remarks, greaterThan(150));
     });
 
     test('narrow viewport keeps minimums and overflows for scrolling', () {
       final columns = defaultProfileColumns();
-      final widths = fittedColumnWidths(columns, 600, fixedChrome: 48);
+      final widths = fittedColumnWidths(
+        columns,
+        600,
+        fixedChrome: kProfilesRowHeaderWidth,
+      );
       final index = columns.indexWhere((c) => c.key == 'Remarks');
       expect(widths[index], columns[index].minWidth);
-      final total = widths.fold<double>(0, (a, b) => a + b) + 48;
+      final total =
+          widths.fold<double>(0, (a, b) => a + b) + kProfilesRowHeaderWidth;
       expect(total, greaterThan(600));
     });
   });

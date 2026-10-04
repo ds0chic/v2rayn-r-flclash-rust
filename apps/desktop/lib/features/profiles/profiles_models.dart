@@ -94,6 +94,11 @@ List<double> fittedColumnWidths(
   ];
 }
 
+/// Upstream `ProfilesView.xaml:113` declares a fixed 40px untitled row header
+/// (`RowHeaderWidth="40"` + `HeadersVisibility="All"`). It is not a data column;
+/// the default column set below intentionally has no `#` entry.
+const double kProfilesRowHeaderWidth = 40;
+
 /// Default column set and widths from LAY-PROFILES-002.
 List<ProfileColumn> defaultProfileColumns() => const <ProfileColumn>[
   ProfileColumn(

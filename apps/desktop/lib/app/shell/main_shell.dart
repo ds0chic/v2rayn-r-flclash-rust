@@ -611,6 +611,12 @@ class _MenuToolbarBar extends ConsumerWidget {
           ),
         );
       }
+      // Upstream MainWindow.xaml separators between root menu groups.
+      if (entry.separatorAfter) {
+        widgets.add(
+          Divider(height: 1, key: ValueKey('menu-sep-${entry.label}')),
+        );
+      }
     }
     return widgets;
   }

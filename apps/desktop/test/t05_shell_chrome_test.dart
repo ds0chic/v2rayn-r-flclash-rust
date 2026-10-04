@@ -22,7 +22,7 @@ void main() {
       expect(find.byKey(const ValueKey('split-horizontal')), findsNothing);
 
       // Menu structure/text (LAY-MAIN-004).
-      for (final label in <String>['配置项', '订阅分组', '设置', '帮助', '重载']) {
+      for (final label in <String>['配置项', '订阅分组', '设置', '帮助', '重启服务']) {
         expect(find.text(label), findsWidgets, reason: 'missing menu $label');
       }
 
@@ -42,6 +42,21 @@ void main() {
       for (final text in <String>[proxySpeed, directSpeed, runningNode]) {
         expect(text.contains('已连接'), isFalse);
       }
+
+      // R3-WPF-Main-Chrome M5: upstream status-bar wording (ResUI 本地/局域网/
+      // 启用 Tun) rather than the RC 入站/LAN/TUN labels.
+      final inbound = tester
+          .widget<Text>(find.byKey(const ValueKey('status-inbound')))
+          .data!;
+      final inboundLan = tester
+          .widget<Text>(find.byKey(const ValueKey('status-inbound-lan')))
+          .data!;
+      expect(inbound.startsWith('本地:'), isTrue, reason: inbound);
+      expect(inboundLan.startsWith('局域网:'), isTrue, reason: inboundLan);
+      expect(find.text('启用 Tun'), findsOneWidget);
+
+      // R3-WPF-Main-Chrome M3: the row header is untitled; no `#` data column.
+      expect(find.text('#'), findsNothing);
 
       // T16: 检查更新 now opens the real update window instead of reporting
       // "尚未实现". Close it so the layout assertions below still run.

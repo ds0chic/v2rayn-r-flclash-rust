@@ -51,10 +51,11 @@ void main() {
     expect(tester.takeException(), isNull);
 
     // Primary actions stay reachable (hit-testable) at the larger font.
+    // Upstream has a single 确定/取消 pair (R3-WPF-Option-Labels).
     final save = find.byKey(const ValueKey('settings-save'));
-    final apply = find.byKey(const ValueKey('settings-apply'));
+    final cancel = find.byKey(const ValueKey('settings-cancel'));
     expect(save, findsOneWidget);
-    expect(apply, findsOneWidget);
+    expect(cancel, findsOneWidget);
     await tester.ensureVisible(save);
     await tester.pump();
     await tester.tap(save, warnIfMissed: false);

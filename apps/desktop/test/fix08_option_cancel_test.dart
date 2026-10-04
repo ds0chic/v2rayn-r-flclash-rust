@@ -73,7 +73,7 @@ void main() {
     await tester.pump();
     // Toggle AutoRun on (draft only since FIX-08). The toggle lives on the
     // 显示 tab, which must be selected first.
-    await tester.tap(find.text('显示'));
+    await tester.tap(find.text('v2rayN 设置'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('autorun-toggle')));
     await tester.pumpAndSettle();

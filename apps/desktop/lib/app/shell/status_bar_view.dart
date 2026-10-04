@@ -45,18 +45,18 @@ class StatusBarView extends ConsumerWidget {
           child: Row(
             children: <Widget>[
               Text(
-                '入站 ${shell.inbound ?? '--'}',
+                '本地: ${shell.inbound ?? '--'}',
                 key: const ValueKey('status-inbound'),
                 style: muted,
               ),
               const _Sep(),
               Text(
-                'LAN ${shell.inboundLan ?? '--'}',
+                '局域网: ${shell.inboundLan ?? '--'}',
                 key: const ValueKey('status-inbound-lan'),
                 style: muted,
               ),
               const _Sep(),
-              const Text('TUN', style: TextStyle(fontSize: 11.5)),
+              const Text('启用 Tun', style: TextStyle(fontSize: 11.5)),
               Switch(
                 key: const ValueKey('tun-toggle'),
                 value: desiredTun,

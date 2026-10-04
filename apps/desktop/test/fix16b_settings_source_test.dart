@@ -57,7 +57,7 @@ void main() {
     addTearDown(container.dispose);
 
     await _pumpWindow(tester, container);
-    await tester.tap(find.text('显示'));
+    await tester.tap(find.text('v2rayN 设置'));
     await tester.pumpAndSettle();
 
     const subConvert = 'https://convert.example/sub?url={0}';
@@ -87,7 +87,7 @@ void main() {
     final reopen = _container(bridge);
     addTearDown(reopen.dispose);
     await _pumpWindow(tester, reopen);
-    await tester.tap(find.text('显示'));
+    await tester.tap(find.text('v2rayN 设置'));
     await tester.pumpAndSettle();
 
     expect(reopen.read(settingsControllerProvider).loaded, isTrue);

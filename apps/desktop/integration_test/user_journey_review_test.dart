@@ -481,7 +481,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       await tester.enterText(_portField(), '$thirdPort');
       await _screenshot(tester, evidenceDir, '09-edit-after-save');
-      await _tap(tester, 'settings-apply');
+      await _tap(tester, 'settings-save');
       await _wait(
         tester,
         () => !container.read(runtimeControllerProvider).isBusy,

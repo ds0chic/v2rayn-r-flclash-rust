@@ -6,7 +6,6 @@ import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
-import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 
 /// Upstream `DomainStrategy` candidates (Xray).
@@ -65,56 +64,70 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
   Widget build(BuildContext context) {
     final state = ref.watch(routingControllerProvider);
     final controller = ref.read(routingControllerProvider.notifier);
+    final primary = Theme.of(context).colorScheme.primary;
     return AlertDialog(
       key: const ValueKey('routing-setting-window'),
       title: const Text('路由设置', style: TextStyle(fontSize: 15)),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
-        width: 760,
-        height: 460,
+        width: 820,
+        height: 500,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            // Upstream ToolBarTray (RoutingSettingWindow.xaml:27):
+            // 添加规则集 / 一键导入规则集 sit above the strategy rows.
             Row(
               children: <Widget>[
-                const Text('域名策略', style: TextStyle(fontSize: 12)),
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  key: const ValueKey('routing-domain-strategy'),
-                  value: _strategyValue(),
-                  items: [
-                    for (final s in domainStrategyOptions)
-                      DropdownMenuItem(
-                        value: s,
-                        child: Text(
-                          s.isEmpty ? '(空)' : s,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                  ],
-                  onChanged: (v) => _saveStrategy(v ?? ''),
+                TextButton.icon(
+                  key: const ValueKey('routing-add'),
+                  onPressed: () => _openRuleset(null),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('添加规则集'),
                 ),
-                const SizedBox(width: 16),
-                const Text('域名策略 (sing-box)', style: TextStyle(fontSize: 12)),
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  key: const ValueKey('routing-domain-strategy-sbox'),
-                  value: _strategySboxValue(),
-                  items: [
-                    for (final s in domainStrategySboxOptions)
-                      DropdownMenuItem(
-                        value: s,
-                        child: Text(
-                          s.isEmpty ? '(空)' : s,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                  ],
-                  onChanged: (v) => _saveStrategySbox(v ?? ''),
+                const SizedBox(width: 4),
+                TextButton.icon(
+                  key: const ValueKey('routing-import-builtin'),
+                  onPressed: _importBuiltinRules,
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('一键导入规则集'),
                 ),
               ],
             ),
+            const Divider(height: 1),
             const SizedBox(height: 8),
+            _strategyRow(
+              context,
+              label: '域名解析策略',
+              key: const ValueKey('routing-domain-strategy'),
+              value: _strategyValue(),
+              options: domainStrategyOptions,
+              onChanged: _saveStrategy,
+            ),
+            const SizedBox(height: 4),
+            _strategyRow(
+              context,
+              label: 'sing-box 域名解析策略',
+              key: const ValueKey('routing-domain-strategy-sbox'),
+              value: _strategySboxValue(),
+              options: domainStrategySboxOptions,
+              onChanged: _saveStrategySbox,
+            ),
+            const SizedBox(height: 8),
+            // Upstream TabItem header (RoutingSettingWindow.xaml:105).
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '预定义规则集列表',
+                key: const ValueKey('routing-block-title'),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: primary,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
             const _SchemeTableHeader(),
             const Divider(height: 1),
             Expanded(
@@ -133,7 +146,8 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                           selected: item.id == state.selectedId,
                           onTap: () => controller.select(item.id),
                           onEdit: () => _openRuleset(item),
-                          onSetDefault: () => controller.setDefault(item.id),
+                          onContextMenu: (position) =>
+                              _showRowMenu(context, position, item),
                         );
                       },
                     ),
@@ -150,34 +164,11 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
           ],
         ),
       ),
+      // Upstream RoutingSettingWindow has no bottom action bar: 添加规则集
+      // lives in the toolbar and 移除所选规则 / 设为活动规则 / 全选 sit in the
+      // row context menu (MenuItems, RoutingSettingWindow.xaml:118-144). A
+      // single 关闭 remains until the window-form card replaces the dialog.
       actions: <Widget>[
-        TextButton(
-          key: const ValueKey('routing-add'),
-          onPressed: () => _openRuleset(null),
-          child: const Text('添加'),
-        ),
-        TextButton(
-          key: const ValueKey('routing-remove'),
-          onPressed: state.selectedId == null
-              ? null
-              : () => _confirmDelete(state.selectedId!),
-          child: const Text('删除'),
-        ),
-        TextButton(
-          key: const ValueKey('routing-set-default'),
-          onPressed: state.selectedId == null
-              ? null
-              : () => controller.setDefault(state.selectedId!),
-          child: const Text('设为默认'),
-        ),
-        TextButton(
-          key: const ValueKey('routing-apply'),
-          onPressed: () {
-            Navigator.pop(context);
-            ref.read(runtimeControllerProvider.notifier).applyActive();
-          },
-          child: const Text('应用'),
-        ),
         TextButton(
           key: const ValueKey('routing-close'),
           onPressed: () => Navigator.pop(context),
@@ -185,6 +176,98 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
         ),
       ],
     );
+  }
+
+  /// One strategy row: linked label (upstream `TbdomainStrategy` /
+  /// `TbdomainStrategy4Singbox`) plus a 300px combo box.
+  Widget _strategyRow(
+    BuildContext context, {
+    required String label,
+    required ValueKey<String> key,
+    required String value,
+    required List<String> options,
+    required ValueChanged<String> onChanged,
+  }) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Row(
+      children: <Widget>[
+        Text(label, style: TextStyle(fontSize: 12, color: primary)),
+        const SizedBox(width: 2),
+        Icon(Icons.link, size: 14, color: primary),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 300,
+          child: DropdownButton<String>(
+            key: key,
+            value: value,
+            isExpanded: true,
+            items: [
+              for (final s in options)
+                DropdownMenuItem(
+                  value: s,
+                  child: Text(s, style: const TextStyle(fontSize: 12)),
+                ),
+            ],
+            onChanged: (v) => onChanged(v ?? ''),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Upstream `RoutingAdvancedImportRules` -> `ConfigHandler.InitRouting`.
+  /// The Rust side exposes no re-import use case yet (registered gap), so the
+  /// button re-reads the persisted builtin schemes for now.
+  Future<void> _importBuiltinRules() async {
+    ref.read(routingControllerProvider.notifier).reload();
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)
+        ?.showSnackBar(const SnackBar(content: Text('内置规则集已刷新（导入后端用例待接入）')));
+  }
+
+  /// Upstream row `ContextMenu` (RoutingSettingWindow.xaml:118): 添加规则集 /
+  /// 移除所选规则 / 设为活动规则 / 一键导入规则集. `全选` is omitted because
+  /// the RC list is single-select (registered gap).
+  Future<void> _showRowMenu(
+    BuildContext context,
+    Offset globalPosition,
+    r.RoutingProfileDto item,
+  ) async {
+    ref.read(routingControllerProvider.notifier).select(item.id);
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final action = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(value: 'add', child: Text('添加规则集')),
+        PopupMenuItem<String>(
+          value: 'remove',
+          enabled: item.remarks.isNotEmpty,
+          child: const Text('移除所选规则'),
+        ),
+        PopupMenuItem<String>(
+          value: 'default',
+          enabled: item.remarks.isNotEmpty,
+          child: const Text('设为活动规则'),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(value: 'import', child: Text('一键导入规则集')),
+      ],
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case 'add':
+        await _openRuleset(null);
+      case 'remove':
+        await _confirmDelete(item.id);
+      case 'default':
+        ref.read(routingControllerProvider.notifier).setDefault(item.id);
+      case 'import':
+        await _importBuiltinRules();
+    }
   }
 
   /// Upstream `RoutingSettingViewModel.SaveSettingsAsync`: the top strategy
@@ -259,15 +342,17 @@ class _SchemeTableHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const style = TextStyle(fontSize: 11, color: Colors.grey);
+    // Upstream DataGrid columns (RoutingSettingWindow.xaml:157-177):
+    // Remarks(*) / Count(60) / Sort(60) / Url(*) / CustomIcon(300).
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: <Widget>[
-          Expanded(flex: 3, child: Text('备注', style: style)),
-          Expanded(child: Text('规则数', style: style)),
+          Expanded(flex: 3, child: Text('别名', style: style)),
+          Expanded(child: Text('数量', style: style)),
           Expanded(child: Text('排序', style: style)),
-          Expanded(flex: 3, child: Text('URL', style: style)),
-          Expanded(child: Text('状态', style: style)),
+          Expanded(flex: 3, child: Text('可选地址 (Url)', style: style)),
+          Expanded(flex: 2, child: Text('自定义图标', style: style)),
         ],
       ),
     );
@@ -280,26 +365,24 @@ class _SchemeRow extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.onEdit,
-    required this.onSetDefault,
+    required this.onContextMenu,
   });
 
   final r.RoutingProfileDto item;
   final bool selected;
   final VoidCallback onTap;
   final VoidCallback onEdit;
-  final VoidCallback onSetDefault;
+  final void Function(Offset globalPosition) onContextMenu;
 
   @override
   Widget build(BuildContext context) {
-    final flags = <String>[
-      if (!item.enabled) '禁用',
-      if (item.locked) '锁定',
-      if (item.isActive) '默认',
-    ].join(' ');
+    // Upstream highlights the active scheme (DataGrid DataTrigger on IsActive);
+    // the 状态 column is not part of the frozen XAML.
     return InkWell(
       key: ValueKey('routing-row-${item.id}'),
       onTap: onTap,
       onDoubleTap: onEdit,
+      onSecondaryTapDown: (details) => onContextMenu(details.globalPosition),
       child: Container(
         color: selected ? Colors.blue.withValues(alpha: 0.08) : null,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -316,7 +399,14 @@ class _SchemeRow extends StatelessWidget {
                 style: const TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ),
-            Expanded(child: Text(flags, style: const TextStyle(fontSize: 12))),
+            Expanded(
+              flex: 2,
+              child: Text(
+                item.customIcon,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ),
           ],
         ),
       ),

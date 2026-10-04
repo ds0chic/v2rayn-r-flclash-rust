@@ -141,7 +141,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       _draftInit = true;
     }
     return AlertDialog(
-      title: const Text('参数设置', style: TextStyle(fontSize: 15)),
+      // Upstream `OptionSettingWindow` Title = ResUI.menuSetting (设置).
+      title: const Text('设置', style: TextStyle(fontSize: 15)),
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       content: SizedBox(
         width: 720,
@@ -153,12 +154,15 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               labelStyle: const TextStyle(fontSize: 12),
+              // Frozen `OptionSettingWindow.xaml` TabItem headers:
+              // TbSettingsCore / TbSettingsN / TbSettingsSystemproxy /
+              // TbSettingsTunMode / TbSettingsCoreType.
               tabs: const <Tab>[
-                Tab(text: '核心基础'),
-                Tab(text: '显示'),
-                Tab(text: '系统代理'),
-                Tab(text: 'Tun 模式'),
-                Tab(text: '内核类型'),
+                Tab(text: 'Core: 基础设置'),
+                Tab(text: 'v2rayN 设置'),
+                Tab(text: '系统代理设置'),
+                Tab(text: 'Tun 模式设置'),
+                Tab(text: 'Core 类型设置'),
               ],
             ),
             if (_error != null)
@@ -176,7 +180,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               Padding(
                 padding: const EdgeInsets.all(4),
                 child: Text(
-                  state.status!,
+                  _statusText(state.status!),
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
@@ -196,25 +200,45 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         ),
       ),
       actions: <Widget>[
+        // Upstream `OptionSettingWindow` has a single 确定/取消 pair (btnSave /
+        // btnCancel). FIX-08 draft semantics are preserved: 确定 saves the
+        // visible draft and applies the real plan; 取消 discards the draft
+        // without touching storage. A save error keeps the window open with the
+        // error shown and never reports success or applies a stale document.
+        FilledButton(
+          key: const ValueKey('settings-save'),
+          onPressed: () => _save(applyAfter: true),
+          child: const Text('确定'),
+        ),
         TextButton(
+          key: const ValueKey('settings-cancel'),
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
-        // FIX-08: 应用 saves the visible draft first, then applies the real
-        // plan. A save error keeps the window open with the error shown and
-        // never reports success or applies a stale document.
-        FilledButton.tonal(
-          key: const ValueKey('settings-apply'),
-          onPressed: () => _save(applyAfter: true),
-          child: const Text('应用'),
-        ),
-        FilledButton(
-          key: const ValueKey('settings-save'),
-          onPressed: () => _save(),
-          child: const Text('保存'),
-        ),
       ],
     );
+  }
+
+  /// The controller reports status as stable message keys; the window must
+  /// never render a raw key like `settings.saved` (R3-WPF-Option-Labels / O8).
+  /// Text follows the frozen resx (OperationSuccess / NeedRebootTips).
+  static String _statusText(String key) {
+    switch (key) {
+      case 'settings.saved_need_app_restart':
+        return '操作成功。请点击设置菜单重启应用。';
+      case 'settings.saved_need_core_restart':
+        return '操作成功，请重启服务';
+      case 'settings.saved_need_next_launch':
+        return '操作成功，下次启动生效';
+      case 'settings.saved':
+        return '操作成功';
+      case 'error.settings_load_failed':
+        return '读取配置失败';
+      case 'error.settings_save_failed':
+        return '保存配置失败';
+      default:
+        return key.startsWith('error.') ? '操作失败，请检查并重试' : '操作成功';
+    }
   }
 
   /// Upstream `OptionSettingViewModel.SaveSettingAsync` rejects a non-numeric
@@ -347,89 +371,126 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       SettingsSection(
         title: '本地监听',
         child: <Widget>[
+          // Frozen XAML row 0: TbSettingsSocksPort.
           SettingsNumberField(
             key: const ValueKey('settings-local-port'),
-            label: '本地端口 (LocalPort)',
+            label: '本地混合监听端口',
             value: _int(inbound, 'LocalPort'),
             onChanged: (v) => _set('Inbound', 'LocalPort', v),
           ),
+          // Frozen XAML row 0, column 2: TbSettingsSocksPortTip (O4).
+          const Padding(
+            padding: EdgeInsets.only(left: 172, bottom: 2),
+            child: Text(
+              'Pac 端口 = +3；Xray API 端口 = +4；mihomo API 端口 = +5；',
+              style: TextStyle(fontSize: 11),
+            ),
+          ),
+          // Frozen XAML row 2: TbSettingsSecondLocalPortEnabled.
           SettingsCheckbox(
-            label: '第二本地端口',
+            label: '开启第二个本地监听端口',
             value: _bool(inbound, 'SecondLocalPortEnabled'),
             onChanged: (v) => _set('Inbound', 'SecondLocalPortEnabled', v),
           ),
+          // Frozen XAML row 3: TbSettingsUdpEnabled.
           SettingsCheckbox(
-            label: 'UDP 转发',
+            label: '开启 UDP',
             value: _bool(inbound, 'UdpEnabled'),
             onChanged: (v) => _set('Inbound', 'UdpEnabled', v),
           ),
+          // Frozen XAML row 4: TbSettingsSniffingEnabled.
           SettingsCheckbox(
-            label: '嗅探 (SniffingEnabled)',
+            label: '开启流量探测',
             value: _bool(inbound, 'SniffingEnabled'),
             onChanged: (v) => _set('Inbound', 'SniffingEnabled', v),
           ),
-          if (_bool(inbound, 'SniffingEnabled')) ...<Widget>[
-            Wrap(
-              spacing: 8,
+          // Frozen XAML row 5: TbSettingsDestOverride. Upstream shows the chip
+          // list unconditionally (not gated on 开启流量探测).
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                for (final option in <String>['http', 'tls', 'quic'])
-                  FilterChip(
-                    label: Text(option, style: const TextStyle(fontSize: 11)),
-                    selected: _list(inbound, 'DestOverride').contains(option),
-                    onSelected: (on) {
-                      final next = _list(inbound, 'DestOverride');
-                      if (on) {
-                        next.add(option);
-                      } else {
-                        next.remove(option);
-                      }
-                      _set('Inbound', 'DestOverride', next);
-                    },
+                const SizedBox(
+                  width: 168,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 2),
+                    child: Text('流量探测类型', style: TextStyle(fontSize: 12)),
                   ),
+                ),
+                Expanded(
+                  child: Wrap(
+                    spacing: 8,
+                    children: <Widget>[
+                      for (final option in <String>['http', 'tls', 'quic'])
+                        FilterChip(
+                          label: Text(
+                            option,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                          selected: _list(
+                            inbound,
+                            'DestOverride',
+                          ).contains(option),
+                          onSelected: (on) {
+                            final next = _list(inbound, 'DestOverride');
+                            if (on) {
+                              next.add(option);
+                            } else {
+                              next.remove(option);
+                            }
+                            _set('Inbound', 'DestOverride', next);
+                          },
+                        ),
+                    ],
+                  ),
+                ),
               ],
             ),
-            SettingsCheckbox(
-              label: '仅路由 (RouteOnly)',
-              value: _bool(inbound, 'RouteOnly'),
-              onChanged: (v) => _set('Inbound', 'RouteOnly', v),
-            ),
-          ],
+          ),
+          // Frozen XAML row 6: TbSettingsRouteOnly.
+          SettingsCheckbox(
+            label: '仅限路由 (routeOnly)',
+            value: _bool(inbound, 'RouteOnly'),
+            onChanged: (v) => _set('Inbound', 'RouteOnly', v),
+          ),
+          // Frozen XAML row 7: TbSettingsAllowLAN.
           SettingsCheckbox(
             label: '允许来自局域网的连接',
             value: _bool(inbound, 'AllowLANConn'),
             onChanged: (v) => _set('Inbound', 'AllowLANConn', v),
           ),
-          if (_bool(inbound, 'AllowLANConn'))
-            SettingsCheckbox(
-              label: '为局域网使用新端口',
-              value: _bool(inbound, 'NewPort4LAN'),
-              onChanged: (v) => _set('Inbound', 'NewPort4LAN', v),
-            ),
-          if (_bool(inbound, 'AllowLANConn') &&
-              _bool(inbound, 'NewPort4LAN')) ...[
-            SettingsTextField(
-              label: '用户名 (User)',
-              value: _str(inbound, 'User'),
-              onChanged: (v) => _set('Inbound', 'User', v),
-            ),
-            SettingsTextField(
-              label: '密码 (Pass)',
-              value: _str(inbound, 'Pass'),
-              onChanged: (v) => _set('Inbound', 'Pass', v),
-            ),
-          ],
+          // Frozen XAML row 8: TbSettingsNewPort4LAN. Upstream renders it
+          // unconditionally; only the User/Pass edits are disabled until set.
+          SettingsCheckbox(
+            label: '为局域网开启新的端口',
+            value: _bool(inbound, 'NewPort4LAN'),
+            onChanged: (v) => _set('Inbound', 'NewPort4LAN', v),
+          ),
+          // Frozen XAML rows 9/10: TbSettingsUser / TbSettingsPass. Upstream
+          // renders both unconditionally (O5: they were missing from RC).
+          SettingsTextField(
+            label: '认证用户名',
+            value: _str(inbound, 'User'),
+            onChanged: (v) => _set('Inbound', 'User', v),
+          ),
+          SettingsTextField(
+            label: '认证密码',
+            value: _str(inbound, 'Pass'),
+            onChanged: (v) => _set('Inbound', 'Pass', v),
+          ),
         ],
       ),
       SettingsSection(
         title: '日志与指纹',
         child: <Widget>[
           SettingsCheckbox(
-            label: '启用日志 (LogEnabled)',
+            label: '启用日志存到文件',
             value: _bool(core, 'LogEnabled'),
             onChanged: (v) => _set('CoreBasicItem', 'LogEnabled', v),
           ),
           SettingsDropdown<String>(
-            label: '日志等级 (Loglevel)',
+            label: '日志等级',
             value: _str(core, 'Loglevel'),
             items: _items(<(String, String)>[
               ('debug', 'debug'),
@@ -441,14 +502,21 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('CoreBasicItem', 'Loglevel', v),
           ),
           SettingsTextField(
-            label: '默认指纹 (DefFingerprint)',
+            label: '默认 TLS 指纹 (fingerprint)',
             value: _str(core, 'DefFingerprint'),
             onChanged: (v) => _set('CoreBasicItem', 'DefFingerprint', v),
           ),
           SettingsTextField(
-            label: '默认 UA (DefUserAgent)',
+            label: '用户代理 (User-Agent)',
             value: _str(core, 'DefUserAgent'),
             onChanged: (v) => _set('CoreBasicItem', 'DefUserAgent', v),
+          ),
+          const Padding(
+            padding: EdgeInsets.only(left: 172, bottom: 2),
+            child: Text(
+              '仅对 raw/http、ws、gRPC、xhttp 生效',
+              style: TextStyle(fontSize: 11),
+            ),
           ),
         ],
       ),
@@ -456,12 +524,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '出站绑定',
         child: <Widget>[
           SettingsTextField(
-            label: 'SendThrough',
+            label: '本地出站地址 (SendThrough)',
             value: _str(core, 'SendThrough'),
             onChanged: (v) => _set('CoreBasicItem', 'SendThrough', v),
           ),
           SettingsTextField(
-            label: 'BindInterface',
+            label: '绑定网口',
             value: _str(core, 'BindInterface'),
             onChanged: (v) => _set('CoreBasicItem', 'BindInterface', v),
           ),
@@ -471,17 +539,17 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '多路复用 (Mux)',
         child: <Widget>[
           SettingsNumberField(
-            label: 'Ray 并发 (Concurrency)',
+            label: 'Xray Mux concurrency',
             value: _int(_group('Mux4RayItem'), 'Concurrency'),
             onChanged: (v) => _set('Mux4RayItem', 'Concurrency', v),
           ),
           SettingsNumberField(
-            label: 'Ray XUDP 并发',
+            label: 'Xray Mux XUDP concurrency',
             value: _int(_group('Mux4RayItem'), 'XudpConcurrency'),
             onChanged: (v) => _set('Mux4RayItem', 'XudpConcurrency', v),
           ),
           SettingsDropdown<String>(
-            label: 'Ray XUDP 443 代理',
+            label: 'Xray Mux XUDP proxy UDP443',
             value: _str(_group('Mux4RayItem'), 'XudpProxyUDP443'),
             items: _items(<(String, String)>[
               ('reject', 'reject'),
@@ -490,7 +558,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('Mux4RayItem', 'XudpProxyUDP443', v),
           ),
           SettingsDropdown<String>(
-            label: 'sing-box 协议 (Mux4SboxProtocol)',
+            label: 'sing-box Mux 多路复用协议',
             value: _str(_group('Mux4SboxItem'), 'Protocol'),
             items: _items(<(String, String)>[
               ('h2mux', 'h2mux'),
@@ -501,7 +569,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('Mux4SboxItem', 'Protocol', v),
           ),
           SettingsCheckbox(
-            label: 'sing-box 缓存文件 (EnableCacheFile4Sbox)',
+            label: '启用 sing-box (规则集文件) 的缓存文件',
             value: _bool(core, 'EnableCacheFile4Sbox'),
             onChanged: (v) => _set('CoreBasicItem', 'EnableCacheFile4Sbox', v),
           ),
@@ -521,7 +589,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('HysteriaItem', 'DownMbps', v),
           ),
           SettingsNumberField(
-            label: 'Hop 间隔 (HopInterval)',
+            label: 'Hop 间隔',
             value: _int(_group('HysteriaItem'), 'HopInterval'),
             onChanged: (v) => _set('HysteriaItem', 'HopInterval', v),
           ),
@@ -531,12 +599,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '分片 (Fragment)',
         child: <Widget>[
           SettingsCheckbox(
-            label: '启用分片 (EnableFragment)',
+            label: '启用分片 (Fragment)',
             value: _bool(core, 'EnableFragment'),
             onChanged: (v) => _set('CoreBasicItem', 'EnableFragment', v),
           ),
           SettingsDropdown<String>(
-            label: '分片包 (Packets)',
+            label: '分片包类型',
             value: _str(_group('Fragment4RayItem'), 'Packets'),
             items: _items(<(String, String)>[
               ('tlshello', 'tlshello'),
@@ -549,7 +617,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('Fragment4RayItem', 'Packets', v),
           ),
           SettingsTextField(
-            label: '长度 (Lengths，逗号分隔)',
+            label: '分片长度 (逗号分隔)',
             value: _list(_group('Fragment4RayItem'), 'Lengths').join(','),
             width: 320,
             onChanged: (v) => _set(
@@ -559,7 +627,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             ),
           ),
           SettingsTextField(
-            label: '延迟 (Delays，逗号分隔)',
+            label: '分片间隔 (逗号分隔)',
             value: _list(_group('Fragment4RayItem'), 'Delays').join(','),
             width: 320,
             onChanged: (v) => _set(
@@ -569,12 +637,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             ),
           ),
           SettingsTextField(
-            label: 'MaxSplit',
+            label: '最大分片数',
             value: _str(_group('Fragment4RayItem'), 'MaxSplit'),
             onChanged: (v) => _set('Fragment4RayItem', 'MaxSplit', v),
           ),
           SettingsCheckbox(
-            label: '最终分片 (EnableFinalFragment)',
+            label: '启用末端分片',
             value: _bool(core, 'EnableFinalFragment'),
             onChanged: (v) => _set('CoreBasicItem', 'EnableFinalFragment', v),
           ),
@@ -604,12 +672,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('KcpItem', 'DownlinkCapacity', v),
           ),
           SettingsNumberField(
-            label: '拥塞窗口倍数 (CwndMultiplier)',
+            label: '拥塞窗口倍数',
             value: _int(_group('KcpItem'), 'CwndMultiplier'),
             onChanged: (v) => _set('KcpItem', 'CwndMultiplier', v),
           ),
           SettingsNumberField(
-            label: '最大发送窗口 (MaxSendingWindow)',
+            label: '最大发送窗口',
             value: _int(_group('KcpItem'), 'MaxSendingWindow'),
             onChanged: (v) => _set('KcpItem', 'MaxSendingWindow', v),
           ),
@@ -626,38 +694,38 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '显示',
         child: <Widget>[
           SettingsCheckbox(
-            label: '启用统计 (EnableStatistics，需重启应用)',
+            label: '启用流量统计 (需重启)',
             value: _bool(gui, 'EnableStatistics'),
             onChanged: (v) => _set('GuiItem', 'EnableStatistics', v),
           ),
           SettingsCheckbox(
-            label: '显示实时速率 (DisplayRealTimeSpeed，需重启应用)',
+            label: '显示实时速度 (需重启)',
             value: _bool(gui, 'DisplayRealTimeSpeed'),
             onChanged: (v) => _set('GuiItem', 'DisplayRealTimeSpeed', v),
           ),
           SettingsCheckbox(
-            label: '保留旧的重组结果 (KeepOlderDedupl)',
+            label: '去重时保留序号较小的项',
             value: _bool(gui, 'KeepOlderDedupl'),
             onChanged: (v) => _set('GuiItem', 'KeepOlderDedupl', v),
           ),
           SettingsCheckbox(
-            label: '自动调整列宽 (EnableAutoAdjustMainLvColWidth)',
+            label: '自动调整配置列宽在更新订阅后',
             value: _bool(ui, 'EnableAutoAdjustMainLvColWidth'),
             onChanged: (v) =>
                 _set('UiItem', 'EnableAutoAdjustMainLvColWidth', v),
           ),
           SettingsCheckbox(
-            label: '隐藏 IP 信息 (HideColumnIpInfo)',
+            label: '隐藏 IP 信息',
             value: _bool(ui, 'HideColumnIpInfo'),
             onChanged: (v) => _set('UiItem', 'HideColumnIpInfo', v),
           ),
           SettingsCheckbox(
-            label: '双击激活节点 (DoubleClick2Activate)',
+            label: '主界面双击设为活动',
             value: _bool(ui, 'DoubleClick2Activate'),
             onChanged: (v) => _set('UiItem', 'DoubleClick2Activate', v),
           ),
           SettingsDropdown<String>(
-            label: '主界面布局',
+            label: '主界面布局方向 (需重启)',
             value:
                 _str(ui, 'MainGirdOrientation') ??
                 _int(ui, 'MainGirdOrientation')?.toString(),
@@ -678,34 +746,34 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '窗口与托盘',
         child: <Widget>[
           SettingsCheckbox(
-            label: '关闭时隐藏到托盘 (Hide2TrayWhenClose)',
+            label: '关闭窗口时隐藏至托盘',
             value: _bool(ui, 'Hide2TrayWhenClose'),
             onChanged: (v) => _set('UiItem', 'Hide2TrayWhenClose', v),
           ),
           SettingsCheckbox(
-            label: '启动时自动隐藏 (AutoHideStartup)',
+            label: '启动后隐藏窗口',
             value: _bool(ui, 'AutoHideStartup'),
             onChanged: (v) => _set('UiItem', 'AutoHideStartup', v),
           ),
           // Upstream binds this row to IsMacOS visibility; keep the same gate.
           if (Platform.isMacOS)
             SettingsCheckbox(
-              label: '在 Dock 中显示 (MacOSShowInDock)',
+              label: 'macOS 在 Dock 栏中显示 (需重启)',
               value: _bool(ui, 'MacOSShowInDock'),
               onChanged: (v) => _set('UiItem', 'MacOSShowInDock', v),
             ),
           SettingsCheckbox(
-            label: '拖放排序 (EnableDragDropSort，需重启应用)',
+            label: '启用配置拖放排序 (需重启)',
             value: _bool(ui, 'EnableDragDropSort'),
             onChanged: (v) => _set('UiItem', 'EnableDragDropSort', v),
           ),
           SettingsNumberField(
-            label: '托盘节点数上限 (TrayMenuServersLimit)',
+            label: '托盘右键菜单配置展示数量限制',
             value: _int(gui, 'TrayMenuServersLimit'),
             onChanged: (v) => _set('GuiItem', 'TrayMenuServersLimit', v),
           ),
           SettingsNumberField(
-            label: '自动更新间隔 (AutoUpdateInterval)',
+            label: '自动更新 Geo 文件的间隔 (小时)',
             value: _int(gui, 'AutoUpdateInterval'),
             onChanged: (v) => _set('GuiItem', 'AutoUpdateInterval', v),
           ),
@@ -715,7 +783,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           // Cancel never touches host autostart.
           SettingsCheckbox(
             key: const ValueKey('autorun-toggle'),
-            label: '开机自启 (AutoRun)',
+            label: '开机启动 (可能会不成功)',
             value: _bool(gui, 'AutoRun'),
             onChanged: (v) => _set('GuiItem', 'AutoRun', v),
           ),
@@ -725,18 +793,18 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '字体与语言',
         child: <Widget>[
           SettingsTextField(
-            label: '字体族 (CurrentFontFamily)',
+            label: '当前字体 (需重启)',
             value: _str(ui, 'CurrentFontFamily'),
             onChanged: (v) => _set('UiItem', 'CurrentFontFamily', v),
           ),
           SettingsNumberField(
-            label: '字号 (CurrentFontSize)',
+            label: '字体大小',
             value: _int(ui, 'CurrentFontSize'),
             onChanged: (v) => _set('UiItem', 'CurrentFontSize', v),
           ),
           SettingsDropdown<String>(
             key: const ValueKey('settings-language'),
-            label: '语言 (CurrentLanguage，需重启应用)',
+            label: '语言 (需重启)',
             value: _str(ui, 'CurrentLanguage') ?? 'zh-Hans',
             items: _items(<(String, String)>[
               ('中文简体', 'zh-Hans'),
@@ -757,35 +825,35 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '测速',
         child: <Widget>[
           SettingsNumberField(
-            label: '测速超时 (SpeedTestTimeout)',
+            label: '测速单个超时值',
             value: _int(_group('SpeedTestItem'), 'SpeedTestTimeout'),
             onChanged: (v) => _set('SpeedTestItem', 'SpeedTestTimeout', v),
           ),
           SettingsNumberField(
-            label: '并发数 (MixedConcurrencyCount)',
+            label: '多线程测试时的并发数量',
             value: _int(_group('SpeedTestItem'), 'MixedConcurrencyCount'),
             onChanged: (v) => _set('SpeedTestItem', 'MixedConcurrencyCount', v),
           ),
           SettingsTextField(
-            label: '测速 URL',
+            label: '测速文件地址',
             value: _str(_group('SpeedTestItem'), 'SpeedTestUrl'),
             width: 360,
             onChanged: (v) => _set('SpeedTestItem', 'SpeedTestUrl', v),
           ),
           SettingsTextField(
-            label: 'Ping URL',
+            label: '真连接测试地址',
             value: _str(_group('SpeedTestItem'), 'SpeedPingTestUrl'),
             width: 360,
             onChanged: (v) => _set('SpeedTestItem', 'SpeedPingTestUrl', v),
           ),
           SettingsTextField(
-            label: 'UDP 测试目标 (UdpTestTarget)',
+            label: 'UDP 测试地址',
             value: _str(_group('SpeedTestItem'), 'UdpTestTarget'),
             width: 320,
             onChanged: (v) => _set('SpeedTestItem', 'UdpTestTarget', v),
           ),
           SettingsTextField(
-            label: 'IP API URL',
+            label: '当前连接信息测试地址',
             value: _str(_group('SpeedTestItem'), 'IPAPIUrl'),
             width: 320,
             onChanged: (v) => _set('SpeedTestItem', 'IPAPIUrl', v),
@@ -797,28 +865,28 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         child: <Widget>[
           SettingsTextField(
             key: const ValueKey('settings-sub-convert-url'),
-            label: '订阅转换 (SubConvertUrl)',
+            label: '订阅转换网址 (可选)',
             value: _str(_group('ConstItem'), 'SubConvertUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'SubConvertUrl', v),
           ),
           SettingsTextField(
             key: const ValueKey('settings-geo-source-url'),
-            label: 'Geo 文件来源 (GeoSourceUrl)',
+            label: 'Geo 文件来源 (可选)',
             value: _str(_group('ConstItem'), 'GeoSourceUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'GeoSourceUrl', v),
           ),
           SettingsTextField(
             key: const ValueKey('settings-srs-source-url'),
-            label: 'SRS 文件来源 (SrsSourceUrl)',
+            label: 'sing-box ruleset 文件来源 (可选)',
             value: _str(_group('ConstItem'), 'SrsSourceUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'SrsSourceUrl', v),
           ),
           SettingsTextField(
             key: const ValueKey('settings-route-rules-source-url'),
-            label: '路由规则来源 (RouteRulesTemplateSourceUrl)',
+            label: '路由规则集来源 (可选)',
             value: _str(_group('ConstItem'), 'RouteRulesTemplateSourceUrl'),
             width: 360,
             onChanged: (v) =>
@@ -826,13 +894,13 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           ),
           SettingsCheckbox(
             key: const ValueKey('settings-enable-hwa'),
-            label: '硬件加速 (EnableHWA，需重启应用)',
+            label: '启用硬件加速 (需重启)',
             value: _bool(gui, 'EnableHWA'),
             onChanged: (v) => _set('GuiItem', 'EnableHWA', v),
           ),
           SettingsDropdown<String>(
             key: const ValueKey('settings-root-cert'),
-            label: '根证书来源 (RootCertProvider)',
+            label: '根证书提供者',
             value: _str(gui, 'RootCertProvider') ?? 'system',
             items: _items(<(String, String)>[
               ('系统 (system)', 'system'),
@@ -856,33 +924,33 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           ),
           if (_bool(_group('SimpleDNSItem'), 'FakeIP'))
             SettingsCheckbox(
-              label: '全局 FakeIP (GlobalFakeIp)',
+              label: '全局 FakeIP',
               value: _bool(_group('SimpleDNSItem'), 'GlobalFakeIp'),
               onChanged: (v) => _set('SimpleDNSItem', 'GlobalFakeIp', v),
             ),
           SettingsCheckbox(
-            label: '启用 Happy Eyeballs (EnableHappyEyeballs)',
+            label: '启用 Happy Eyeballs',
             value: _bool(_group('SimpleDNSItem'), 'EnableHappyEyeballs'),
             onChanged: (v) => _set('SimpleDNSItem', 'EnableHappyEyeballs', v),
           ),
           SettingsNumberField(
-            label: '尝试延迟 (TryDelayMs)',
+            label: '尝试延迟',
             value: _int(_group('HappyEyeballs4RayItem'), 'TryDelayMs'),
             onChanged: (v) => _set('HappyEyeballs4RayItem', 'TryDelayMs', v),
           ),
           SettingsCheckbox(
-            label: '优先 IPv6 (PrioritizeIPv6)',
+            label: '优先 IPv6',
             value: _bool(_group('HappyEyeballs4RayItem'), 'PrioritizeIPv6'),
             onChanged: (v) =>
                 _set('HappyEyeballs4RayItem', 'PrioritizeIPv6', v),
           ),
           SettingsNumberField(
-            label: '交错 (Interleave)',
+            label: '交错',
             value: _int(_group('HappyEyeballs4RayItem'), 'Interleave'),
             onChanged: (v) => _set('HappyEyeballs4RayItem', 'Interleave', v),
           ),
           SettingsNumberField(
-            label: '最大并发尝试 (MaxConcurrentTry)',
+            label: '最大并发尝试',
             value: _int(_group('HappyEyeballs4RayItem'), 'MaxConcurrentTry'),
             onChanged: (v) =>
                 _set('HappyEyeballs4RayItem', 'MaxConcurrentTry', v),
@@ -895,38 +963,38 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '历史保留（原版 Clash UI 设置）',
         child: <Widget>[
           SettingsCheckbox(
-            label: '启用 IPv6 (ClashUIItem.EnableIPv6)',
+            label: '启用 IPv6',
             value: _bool(_group('ClashUIItem'), 'EnableIPv6'),
             onChanged: (v) => _set('ClashUIItem', 'EnableIPv6', v),
           ),
           SettingsCheckbox(
-            label: '合并 Mixin (EnableMixinContent)',
+            label: '合并 Mixin',
             value: _bool(_group('ClashUIItem'), 'EnableMixinContent'),
             onChanged: (v) => _set('ClashUIItem', 'EnableMixinContent', v),
           ),
           SettingsDropdown<int>(
-            label: '代理排序 (ProxiesSorting)',
+            label: '代理排序',
             value: _int(_group('ClashUIItem'), 'ProxiesSorting'),
             items: _items(<(String, int)>[('延迟', 0), ('名称', 1)]),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesSorting', v),
           ),
           SettingsCheckbox(
-            label: '代理自动刷新 (ProxiesAutoRefresh)',
+            label: '代理自动刷新',
             value: _bool(_group('ClashUIItem'), 'ProxiesAutoRefresh'),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesAutoRefresh', v),
           ),
           SettingsNumberField(
-            label: '代理刷新间隔 (ProxiesRefreshInterval)',
+            label: '代理刷新间隔',
             value: _int(_group('ClashUIItem'), 'ProxiesRefreshInterval'),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesRefreshInterval', v),
           ),
           SettingsCheckbox(
-            label: '连接自动刷新 (ConnectionsAutoRefresh)',
+            label: '连接自动刷新',
             value: _bool(_group('ClashUIItem'), 'ConnectionsAutoRefresh'),
             onChanged: (v) => _set('ClashUIItem', 'ConnectionsAutoRefresh', v),
           ),
           SettingsNumberField(
-            label: '连接刷新间隔 (ConnectionsRefreshInterval)',
+            label: '连接刷新间隔',
             value: _int(_group('ClashUIItem'), 'ConnectionsRefreshInterval'),
             onChanged: (v) =>
                 _set('ClashUIItem', 'ConnectionsRefreshInterval', v),
@@ -941,7 +1009,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     return _scroll(<Widget>[
       SettingsNote('系统代理的实际读写 (WinINET/WinHTTP) 属于 T13；本页仅保存配置。'),
       SettingsDropdown<int>(
-        label: '系统代理类型 (SysProxyType)',
+        label: '系统代理类型',
         value: _int(proxy, 'SysProxyType'),
         items: _items(<(String, int)>[
           ('清除', 0),
@@ -952,31 +1020,31 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         onChanged: (v) => _set('SystemProxyItem', 'SysProxyType', v),
       ),
       SettingsCheckbox(
-        label: '忽略本地地址 (NotProxyLocalAddress)',
+        label: '请勿将代理服务器用于本地 (Intranet) 地址',
         value: _bool(proxy, 'NotProxyLocalAddress'),
         onChanged: (v) => _set('SystemProxyItem', 'NotProxyLocalAddress', v),
       ),
       SettingsTextField(
-        label: '例外列表 (SystemProxyExceptions)',
+        label: '例外',
         value: _str(proxy, 'SystemProxyExceptions'),
         width: 320,
         onChanged: (v) => _set('SystemProxyItem', 'SystemProxyExceptions', v),
       ),
       SettingsTextField(
-        label: '高级协议 (SystemProxyAdvancedProtocol)',
+        label: '高级代理设置，协议选择 (可选)',
         value: _str(proxy, 'SystemProxyAdvancedProtocol'),
         onChanged: (v) =>
             _set('SystemProxyItem', 'SystemProxyAdvancedProtocol', v),
       ),
       SettingsTextField(
-        label: 'PAC 路径 (CustomSystemProxyPacPath)',
+        label: '自定义 PAC 文件路径',
         value: _str(proxy, 'CustomSystemProxyPacPath'),
         width: 320,
         onChanged: (v) =>
             _set('SystemProxyItem', 'CustomSystemProxyPacPath', v),
       ),
       SettingsTextField(
-        label: 'PAC 脚本路径 (CustomSystemProxyScriptPath)',
+        label: '自定义系统代理脚本文件路径',
         value: _str(proxy, 'CustomSystemProxyScriptPath'),
         width: 320,
         onChanged: (v) =>
@@ -990,22 +1058,22 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     return _scroll(<Widget>[
       SettingsNote('TUN 模式的实际启用 (虚拟网卡/路由) 属于 T13；本页仅保存配置。'),
       SettingsCheckbox(
-        label: '启用 Tun (EnableTun，需重启内核)',
+        label: '启用 Tun',
         value: _bool(tun, 'EnableTun'),
         onChanged: (v) => _set('TunModeItem', 'EnableTun', v),
       ),
       SettingsCheckbox(
-        label: '自动路由 (AutoRoute)',
+        label: '自动路由',
         value: _bool(tun, 'AutoRoute'),
         onChanged: (v) => _set('TunModeItem', 'AutoRoute', v),
       ),
       SettingsCheckbox(
-        label: '严格路由 (StrictRoute)',
+        label: '严格路由',
         value: _bool(tun, 'StrictRoute'),
         onChanged: (v) => _set('TunModeItem', 'StrictRoute', v),
       ),
       SettingsDropdown<String>(
-        label: '协议栈 (Stack)',
+        label: '协议栈',
         value: _str(tun, 'Stack'),
         items: _items(<(String, String)>[
           ('gvisor', 'gvisor'),
@@ -1020,7 +1088,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         onChanged: (v) => _set('TunModeItem', 'Mtu', v),
       ),
       SettingsDropdown<String>(
-        label: 'ICMP 路由 (IcmpRouting)',
+        label: 'ICMP 路由策略',
         value: _str(tun, 'IcmpRouting'),
         items: _items(<(String, String)>[
           ('rule', 'rule'),
@@ -1032,17 +1100,17 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         onChanged: (v) => _set('TunModeItem', 'IcmpRouting', v),
       ),
       SettingsCheckbox(
-        label: '启用 IPv6 地址 (EnableIPv6Address)',
+        label: '启用 IPv6',
         value: _bool(tun, 'EnableIPv6Address'),
         onChanged: (v) => _set('TunModeItem', 'EnableIPv6Address', v),
       ),
       SettingsCheckbox(
-        label: '旧版保护 (EnableLegacyProtect)',
+        label: '旧版 TUN 保护',
         value: _bool(tun, 'EnableLegacyProtect'),
         onChanged: (v) => _set('TunModeItem', 'EnableLegacyProtect', v),
       ),
       SettingsTextField(
-        label: '路由排除地址 (逗号分隔)',
+        label: '路由排除地址',
         value: _list(tun, 'RouteExcludeAddress').join(','),
         width: 320,
         onChanged: (v) => _set(
@@ -1052,12 +1120,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         ),
       ),
       SettingsTextField(
-        label: 'IPv4 地址 (IPv4Address)',
+        label: 'Ipv4 地址',
         value: _str(tun, 'IPv4Address'),
         onChanged: (v) => _set('TunModeItem', 'IPv4Address', v),
       ),
       SettingsTextField(
-        label: 'IPv6 地址 (IPv6Address)',
+        label: 'Ipv6 地址',
         value: _str(tun, 'IPv6Address'),
         onChanged: (v) => _set('TunModeItem', 'IPv6Address', v),
       ),
@@ -1070,7 +1138,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       SettingsNote('内核类型按协议选择 (ConfigType → CoreType)；仅覆盖上游有下拉框的 8 项。'),
       for (final entry in _coreTypeControls)
         SettingsDropdown<int>(
-          label: '${entry.label} (${entry.configType})',
+          label: entry.label,
           value: _coreTypeValue(items, entry.configType),
           items: _items(_coreTypes.map((c) => (c.$1, c.$2)).toList()),
           onChanged: (v) => setState(() {
@@ -1127,16 +1195,17 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     });
   }
 
+  // Frozen `OptionSettingWindow.xaml` CoreType tab row labels.
   static const List<({String label, int configType})> _coreTypeControls =
       <({String label, int configType})>[
         (label: 'VMess', configType: 1),
-        (label: 'Custom', configType: 2),
+        (label: 'Custom Pre', configType: 2),
         (label: 'Shadowsocks', configType: 3),
-        (label: 'SOCKS', configType: 4),
+        (label: 'Socks', configType: 4),
         (label: 'VLESS', configType: 5),
         (label: 'Trojan', configType: 6),
         (label: 'Hysteria2', configType: 7),
-        (label: 'WireGuard', configType: 9),
+        (label: 'Wireguard', configType: 9),
       ];
 
   static const List<(String, int)> _coreTypes = <(String, int)>[

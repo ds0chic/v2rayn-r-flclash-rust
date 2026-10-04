@@ -1,0 +1,25 @@
+R3-WPF-ROUTING evidence — command log (2026-10-04, repo HEAD f9ebe29)
+
+$ dart format lib/features/routing/routing_windows.dart test/r3_wpf_routing_structure_test.dart
+Formatted lib/features/routing/routing_windows.dart
+Formatted test/r3_wpf_routing_structure_test.dart
+Formatted 2 files (2 changed) in 0.03 seconds.
+
+$ flutter analyze lib/features/routing test/r3_wpf_routing_structure_test.dart
+Analyzing 2 items...
+No issues found! (ran in 4.1s)
+
+$ flutter test test/r3_wpf_routing_structure_test.dart test/t11_routing_test.dart test/fix08_routing_draft_test.dart test/fix08c_routing_draft_test.dart
+  r3_wpf_routing_structure_test.dart: renders the upstream title, toolbar, block title and columns
+  r3_wpf_routing_structure_test.dart: row context menu mirrors the upstream DataGrid context menu
+  t11_routing_test.dart: 6 tests
+  fix08_routing_draft_test.dart: 2 tests
+  fix08c_routing_draft_test.dart: 3 tests
+00:05 +13: All tests passed!
+
+$ flutter test test/t21e_dialogs_responsive_test.dart
+00:00 +0: windows render without overflow at 1000x700 - did not complete [E]
+# flaky: re-run with expanded reporter
+
+$ flutter test test/t21e_dialogs_responsive_test.dart --reporter expanded
+00:01 +1: All tests passed!

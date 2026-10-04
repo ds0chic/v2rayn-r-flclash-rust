@@ -1,0 +1,65 @@
+# R3-WPF-MAIN-CHROME test run log
+
+Date: 2026-10-04
+Repo HEAD: f9ebe29
+Toolchain: C:\Users\Colby\toolchains\flutter\bin\flutter.bat (Flutter 3.47.5)
+Workdir: apps/desktop
+
+## dart format (changed files only)
+
+$ dart format lib\features\profiles\profiles_models.dart lib\features\profiles\profiles_table.dart lib\app\menu\main_menu.dart lib\app\shell\status_bar_view.dart test\r3_wpf_main_chrome_test.dart test\t05_shell_chrome_test.dart test\t17_menu_structure_test.dart
+Formatted lib\features\profiles\profiles_table.dart
+Formatted lib\app\menu\main_menu.dart
+Formatted test\r3_wpf_main_chrome_test.dart
+Formatted 7 files (3 changed) in 0.04 seconds.
+EXIT=0
+
+## flutter analyze
+
+$ flutter analyze
+Analyzing desktop...
+No issues found! (ran in 3.4s)
+EXIT=0
+
+## flutter test (targeted set)
+
+$ flutter test test\r3_wpf_main_chrome_test.dart test\t17_menu_structure_test.dart test\profiles_models_test.dart test\t13_statusbar_test.dart test\context_menu_model_test.dart --reporter compact
+00:01 r3_wpf_main_chrome_test.dart: M3 default column set has no # entry ... passed
+00:01 r3_wpf_main_chrome_test.dart: M2 reload root entry uses upstream label 重启服务 without F5 chip ... passed
+00:01 r3_wpf_main_chrome_test.dart: M8 submenu separators match MainWindow.xaml ... passed
+00:01 r3_wpf_main_chrome_test.dart: M8 separator positions follow upstream entry boundaries ... passed
+00:01 t17_menu_structure_test.dart: top-level menu order matches the upstream layout ... passed
+00:01 t17_menu_structure_test.dart: 30 main-menu action ids are reachable ... passed
+00:01 t17_menu_structure_test.dart: help submenu keeps 检查更新 and dynamic core-website entry ... passed
+00:01 t17_menu_structure_test.dart: wired desktop entries are no longer preserved-only ... passed
+00:01 t17_menu_structure_test.dart: reload entry is invocable ... passed
+00:01 t17_menu_structure_test.dart: implemented entries stay invocable ... passed
+00:02 profiles_models_test.dart: default column set matches LAY-PROFILES-002 ... passed
+00:02 profiles_models_test.dart: filter ... passed (x2)
+00:02 profiles_models_test.dart: sort by delay sinks failed rows ... passed
+00:02 profiles_models_test.dart: SortSpec toggles two-way ... passed
+00:02 profiles_models_test.dart: formatBytes ... passed
+00:02 profiles_models_test.dart: synthetic source yields 10k rows ... passed
+00:03 t13_statusbar_test.dart: shows the four system-proxy modes and applies one ... passed
+00:03 t13_statusbar_test.dart: renders the current proxy state label ... passed
+00:03 context_menu_model_test.dart: entries match LAY-PROFILES-004 / ACT-PROF-* ... passed
+00:03 context_menu_model_test.dart: restores the frozen upstream 17-root / 4-separator structure ... passed
+00:03 +21: All tests passed!
+EXIT=0
+
+## flutter test (shell chrome, full app render)
+
+$ flutter test test\t05_shell_chrome_test.dart --reporter compact
+00:04 +1: shell chrome: status bar, menu, three layouts, split persistence
+00:04 +1: All tests passed!
+EXIT=0
+
+## flutter test (responsive / fitted column widths, updated to kProfilesRowHeaderWidth)
+
+Attempt 1 (known flutter_tester "did not complete" flake, no assertion failure):
+00:03 +2: shell adapts without overflow at all supported sizes - did not complete [E]
+EXIT=1
+Attempt 2 (retry):
+00:03 +3: shell adapts without overflow at all supported sizes ... passed
+00:03 +3: All tests passed!
+EXIT=0

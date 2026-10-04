@@ -1979,3 +1979,27 @@ t17_screenshot_evidence:
 #   registered (wiring pending): window_manager Loaded/Closed binding (FIX-16D-2),
 #     connections_view consumer (FIX-16C-2), guiNConfig WindowSizeItem/MainColumnItem FRB bridge
 # evidence: docs/evidence/UX-PARITY-FIX-16D/README.md, observations.json
+
+# --- R3-WPF-MAIN-CHROME append (2026-10, visible-structure parity; original rows above unchanged) ---
+# LAY-PROFILES-002 / LAY-STATUSBAR-001 / LAY-MAIN-004 (M2/M3/M5/M8):
+#   M3 (LAY-PROFILES-002): upstream has NO `#` data column; leftmost is an untitled
+#     `RowHeaderWidth="40" HeadersVisibility="All"` row header (ProfilesView.xaml:113).
+#     RC removed the `#` header text and adopted kProfilesRowHeaderWidth=40
+#     (apps/desktop/lib/features/profiles/profiles_models.dart,
+#      apps/desktop/lib/features/profiles/profiles_table.dart). Default column set
+#     stays the 14 upstream ExName keys; `#` was never in it.
+#   M5 (LAY-STATUSBAR-001): status bar wording aligned to ResUI.zh-Hans:
+#     入站->本地:, LAN->局域网:, TUN->启用 Tun (apps/desktop/lib/app/shell/status_bar_view.dart).
+#     Partition: speeds stay right; runtime 今日/revision/epoch/counts registered as
+#     intentional RC enhancements.
+#   M8 (LAY-MAIN-004): AppMenuEntry.separatorAfter added and marked per MainWindow.xaml
+#     (配置项 3 / 订阅分组 1 / 设置 2 / 帮助 1); rendering patch for main_shell is in
+#     docs/evidence/recheck-fixes/R3-WPF-MAIN-CHROME/README.md §3a (not yet landed).
+#   M2: root menu 重载 -> 重启服务 (ResUI.menuReload), F5 chip dropped (upstream has no
+#     InputGestureText); ACT-MAIN-035 unchanged.
+#   M1/M4/M6/M7 (theme-follows-system, runtime 应用/停止, layout-selector, empty state,
+#     info tabs) registered as intentional enhancements, not silent structural drift.
+#   non-regression: node right-click menu 17-root / 4-separator contract untouched
+#     (test/context_menu_model_test.dart green).
+# evidence: docs/tasks/R3-WPF-MAIN-CHROME.md,
+#   docs/evidence/recheck-fixes/R3-WPF-MAIN-CHROME/{README.md,test-run.log}

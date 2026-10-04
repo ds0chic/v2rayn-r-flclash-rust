@@ -58,7 +58,7 @@ Future<void> _pumpOption(
 }
 
 Future<void> _openDisplayTabAndToggle(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(Tab, '显示'));
+  await tester.tap(find.widgetWithText(Tab, 'v2rayN 设置'));
   await tester.pumpAndSettle();
   await tester.ensureVisible(find.byKey(const ValueKey('autorun-toggle')));
   await tester.pumpAndSettle();

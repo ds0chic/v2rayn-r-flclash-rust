@@ -207,6 +207,20 @@ RegExp? _compileKeyword(String pattern) {
   }
 }
 
+/// Applied-session facts that justify (re)binding the Rust monitor source.
+///
+/// A `RuntimeView` that only advanced its event sequence (heartbeat) or carried
+/// a log line keeps the same signature, so the poller never rebuilds its source
+/// for unrelated churn. `state`/`ports`/`sessionId` cover the applied core,
+/// endpoint and stop/switch; statistics toggles are applied inside the Rust
+/// `sync_from_engine_session` signature.
+String monitorSessionSignature(RuntimeView view) => <String>[
+  view.state,
+  view.sessionId ?? '',
+  view.ports.join(','),
+  view.appliedRevision?.toString() ?? '',
+].join('|');
+
 final monitorControllerProvider =
     NotifierProvider<MonitorController, MonitorState>(MonitorController.new);
 
@@ -215,6 +229,7 @@ class MonitorController extends Notifier<MonitorState> {
   StreamSubscription<m.LogBatchDto>? _logSub;
   final Set<String> _visiblePages = <String>{};
   bool _logsPageVisible = false;
+  String? _lastSessionSig;
 
   MonitorBridge get _bridge => ref.read(monitorBridgeProvider);
 
@@ -238,7 +253,15 @@ class MonitorController extends Notifier<MonitorState> {
 
   /// Push the applied-session facts into the Rust monitor and, when a session
   /// is actually applied, load the current snapshot and subscribe to streams.
+  ///
+  /// Only a real applied-session change re-syncs: an unrelated `RuntimeView`
+  /// update (heartbeat sequence, log line, error text) leaves the signature
+  /// unchanged and never triggers `monitorStartPolling`, so the Rust poller
+  /// keeps its source instead of rebuilding (and resetting) it.
   void syncRuntimeSession(RuntimeView view) {
+    final signature = monitorSessionSignature(view);
+    if (signature == _lastSessionSig) return;
+    _lastSessionSig = signature;
     _bridge.syncSession();
     if (!view.hasAppliedEndpoint) return;
     refreshStats();
@@ -532,6 +555,10 @@ class MonitorController extends Notifier<MonitorState> {
       generation: snap.generation,
       nodes: snap.nodes,
       configured: true,
+      // A failed ServerStatItem store bind/load is visible here (and retried on
+      // the next applied-session change) instead of being silently dropped.
+      error: snap.error?.code,
+      clearError: snap.error == null,
     );
   }
 }

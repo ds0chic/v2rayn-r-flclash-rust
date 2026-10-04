@@ -5044,6 +5044,7 @@ items:
   implementation_location: null
   test_ids: []
   status: identified
+  notes: "RE-PROF-12 (2026-10-04, implemented)：草稿证书辅助按上游 SNI→transportHost→address 顺序选择握手名（profile_fields.dart selectCertFetchServerName），fetchPeerCertPem 以该名连接而非裸 IP；『获取证书链』如实返回 PeerCertChainResult.leafOnly（dart:io 仅暴露叶子，完整链 blocked，不再显示『已获取证书链』）；certSha256Thumbprint/certShaFromChain 捕获非法 base64 的 FormatException 返回 null，无有效证书时不更新 CertSha、不抛异常（对齐 CertPemManager.GetCertSha256Thumbprint 的 catch）。Dart 12 用例通过（docs/evidence/recheck-fixes/RE-PROF-12-MON/）。未做真实 TLS 端口实机握手与完整链，保持 implemented。"
 - id: ACT-ADDSRV-003
   name: 添加/编辑节点-生成 UUID/证书指纹
   domain: profiles
@@ -5472,3 +5473,29 @@ items:
 # autofit-columns toolbar action real (ProfileAction.autofitColumns -> autofitColumns, persisted);
 # node-table filter timing aligned to ServerFilterChanged (Enter/clear) with remarks/address scope.
 # Active-node visual marker independent from selection. No FRB change.
+
+# --- RR-08 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RR-08-REPROF11/; task: docs/tasks/RR-08.md) ---
+# Tray menu is now driven by a shared immutable read model (TrayReadModel) built from the five
+# controllers; DesktopIntegration subscribes via ref.listenManual to profiles/routing/platform/runtime/
+# settings and re-applies on every business/runtime/config change (not only startup/tray click).
+# Node checkmark = profiles.activeId, routing checkmark = routing item.isActive (same active/default
+# source). Tray icon status derived from desiredMode + coreRunning + pacRunning (TrayIconStatus).
+# TrayMenuSync dedupes identical models; async node/proxy apply re-syncs through the listener.
+# Real system tray click / multi icon assets not yet verified (registered gap).
+
+# --- RE-PROF-11 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RR-08-REPROF11/; task: docs/tasks/RE-PROF-11.md) ---
+# ProfilesSelectWindow contract restored in showNodePicker: current-group switch, remarks/address search
+# (Enter commits, clear refreshes immediately), columns type/remarks/address/port/network/TLS/subscription/
+# delay/speed, header click sort toggle, auto column width, single/multi-select return, cancel.
+# ConfigType include/exclude (FilterConfigTypes/FilterExclude/SetConfigTypeFilter) is now a caller contract
+# (filterConfigTypes/filterExclude); AddGroupServer callers pass [Custom] exclude:true. WPF top bar only
+# shows group/search/autofit, so no new on-screen type-filter widget was added. Group editor existing
+# children gained multi-select batch removal (ChildRemoveAsync iterates SelectedChildren).
+# Gap: picker delay/speed columns need the ProfileEx/speedtest overlay threaded through ProfileDto callers.
+# No FRB change.
+
+# --- RR-06 append (2026-10-04; evidence: docs/evidence/recheck-fixes/RR-05-06/; task: docs/tasks/RR-06.md) ---
+# Multi-process runtime apply now follows the plan's process_graph start_order: sidecar (pre-SOCKS)
+# starts first, the shared SOCKS port is awaited, then the main core starts; stop is the reverse order.
+# No new UI action; this realises the topology already emitted by FIX-13. Real GUI-driven multi-core
+# run not yet verified on this host.

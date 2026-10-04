@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 
@@ -44,6 +45,17 @@ class TraySubEntry {
   final String id;
   final String label;
   final bool checked;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TraySubEntry &&
+          other.id == id &&
+          other.label == label &&
+          other.checked == checked;
+
+  @override
+  int get hashCode => Object.hash(id, label, checked);
 }
 
 enum TrayItemKind {
@@ -242,3 +254,134 @@ class TrayCommandDelegateHolder {
 final trayCommandDelegateProvider = Provider<TrayCommandDelegateHolder>(
   (ref) => TrayCommandDelegateHolder(),
 );
+
+/// Live tray icon state derived from the shared proxy/core read model (RR-08 /
+/// upstream `DispatcherRefreshIconInteraction`): the icon reflects whether a
+/// managed core session is running and which system-proxy mode is applied.
+enum TrayIconStatus {
+  /// No managed session: the idle icon.
+  normal,
+
+  /// A core session is running without a forced system proxy.
+  coreRunning,
+
+  /// `自动配置系统代理` (ForcedChange) is applied to a running session.
+  proxyActive,
+
+  /// The PAC server is serving the configured PAC script.
+  proxyPac,
+}
+
+/// Derive the tray icon status from the same proxy/core state the status bar
+/// and main window read, so the tray never shows a stale icon (RR-08).
+TrayIconStatus trayIconStatus({
+  required SysProxyMode mode,
+  required bool coreRunning,
+  required bool pacRunning,
+}) {
+  if (mode == SysProxyMode.pac && pacRunning) return TrayIconStatus.proxyPac;
+  if (coreRunning && mode == SysProxyMode.forcedChange) {
+    return TrayIconStatus.proxyActive;
+  }
+  if (coreRunning) return TrayIconStatus.coreRunning;
+  return TrayIconStatus.normal;
+}
+
+/// Shared, immutable tray read model (RR-08).
+///
+/// It is the single source the tray menu is built from: the node/route
+/// checkmarks come from the controllers' active/default selection and the icon
+/// status comes from the applied proxy/core state, so the tray and the main
+/// window cannot diverge. Equality lets [TrayMenuSync] skip redundant OS
+/// updates.
+@immutable
+class TrayReadModel {
+  const TrayReadModel({
+    required this.desiredMode,
+    required this.pacVisible,
+    required this.routings,
+    required this.nodes,
+    required this.serversLimit,
+    required this.coreRunning,
+    required this.pacRunning,
+  });
+
+  final SysProxyMode desiredMode;
+  final bool pacVisible;
+  final List<TraySubEntry> routings;
+  final List<TraySubEntry> nodes;
+  final int serversLimit;
+  final bool coreRunning;
+  final bool pacRunning;
+
+  TrayIconStatus get iconStatus => trayIconStatus(
+    mode: desiredMode,
+    coreRunning: coreRunning,
+    pacRunning: pacRunning,
+  );
+
+  List<TrayMenuItem> buildMenu() => trayMenuModel(
+    currentMode: desiredMode,
+    pacVisible: pacVisible,
+    routings: routings,
+    nodes: nodes,
+    serversLimit: serversLimit,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TrayReadModel &&
+          other.desiredMode == desiredMode &&
+          other.pacVisible == pacVisible &&
+          listEquals(other.routings, routings) &&
+          listEquals(other.nodes, nodes) &&
+          other.serversLimit == serversLimit &&
+          other.coreRunning == coreRunning &&
+          other.pacRunning == pacRunning;
+
+  @override
+  int get hashCode => Object.hash(
+    desiredMode,
+    pacVisible,
+    Object.hashAll(routings),
+    Object.hashAll(nodes),
+    serversLimit,
+    coreRunning,
+    pacRunning,
+  );
+}
+
+/// OS-facing tray sink. The release app wraps `SystemTray`; tests inject a
+/// recording implementation, so the sync contract is verifiable without a real
+/// tray click (RR-08).
+abstract class TraySurface {
+  Future<void> applyMenu(List<TrayMenuItem> items);
+  Future<void> applyIcon(TrayIconStatus status);
+}
+
+/// Keeps the tray menu and icon continuously in sync with the shared
+/// [TrayReadModel] (RR-08).
+///
+/// Every business / runtime / configuration change pushes a fresh read model;
+/// an unchanged model is a no-op, so the menu is not rebuilt on unrelated
+/// rebuilds. The first model is always applied.
+class TrayMenuSync {
+  TrayMenuSync({required this.surface});
+
+  final TraySurface surface;
+  TrayReadModel? _last;
+
+  /// The last applied model (test/diagnostics seam).
+  TrayReadModel? get last => _last;
+
+  /// Forget the last model so the next [update] re-applies unconditionally.
+  void reset() => _last = null;
+
+  Future<void> update(TrayReadModel model) async {
+    if (_last != null && _last! == model) return;
+    _last = model;
+    await surface.applyMenu(model.buildMenu());
+    await surface.applyIcon(model.iconStatus);
+  }
+}

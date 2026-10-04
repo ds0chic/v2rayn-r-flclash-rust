@@ -93,6 +93,11 @@ impl CoreLocator {
                 }
                 searched.push(base.display().to_string());
             }
+            // Candidate fallback (`CoreInfo.CoreExes`): try every alternate
+            // name inside the pinned version dir or any core subdirectory.
+            if let Some(candidate) = find_candidate_exe(&layout, core, pinned, &*adapter) {
+                return Ok(candidate);
+            }
         }
 
         Err(
@@ -147,6 +152,41 @@ pub fn default_managed_cores_root() -> PathBuf {
     PathBuf::from("v2rayn-r-data").join("cores")
 }
 
+/// Scan a core directory (pinned version dir or the core dir plus its
+/// immediate version subdirectories) for any candidate executable name.
+fn find_candidate_exe(
+    layout: &CoreInstallLayout,
+    core: CoreType,
+    pinned: Option<&str>,
+    adapter: &dyn CoreAdapter,
+) -> Option<PathBuf> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    match pinned {
+        Some(version) => dirs.push(layout.version_dir(core, version)),
+        None => {
+            let base = layout.core_dir(core);
+            if let Ok(entries) = std::fs::read_dir(&base) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        dirs.push(path);
+                    }
+                }
+            }
+            dirs.push(base);
+        }
+    }
+    for dir in dirs {
+        for name in adapter.exe_names() {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
 fn ancestor_core_roots() -> Vec<PathBuf> {
     let mut starts: Vec<PathBuf> = Vec::new();
     if let Ok(exe) = std::env::current_exe() {
@@ -179,8 +219,15 @@ fn ancestor_core_roots() -> Vec<PathBuf> {
 /// How a core is invoked and observed.
 pub trait CoreAdapter: Send + Sync {
     fn core_type(&self) -> CoreType;
-    /// Executable file name including extension.
+    /// Canonical executable file name including extension.
     fn exe_name(&self) -> &'static str;
+    /// Candidate executable names, canonical first. Mirrors upstream
+    /// `CoreInfo.CoreExes`; the locator scans a version directory for each in
+    /// order so e.g. `sing-box-client`/`sing-box` and the platform-suffixed
+    /// hysteria/brook binaries resolve the same way as the frozen 7.25.4 table.
+    fn exe_names(&self) -> Vec<&'static str> {
+        vec![self.exe_name()]
+    }
     /// Arguments to run with a config file.
     fn run_args(&self, config: &Path) -> Vec<OsString>;
     /// Arguments for a config check that exits without binding anything.
@@ -239,6 +286,14 @@ impl CoreAdapter for SingBoxAdapter {
         }
     }
 
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["sing-box-client.exe", "sing-box.exe"]
+        } else {
+            vec!["sing-box-client", "sing-box"]
+        }
+    }
+
     fn run_args(&self, config: &Path) -> Vec<OsString> {
         vec!["run".into(), "-c".into(), config.as_os_str().to_os_string()]
     }
@@ -256,12 +311,427 @@ impl CoreAdapter for SingBoxAdapter {
     }
 }
 
-/// Resolve the adapter for a core type.
+/// v2fly (v4) adapter: upstream `Arguments = "{0}"`, `VersionArg = "-version"`.
+/// Config validation falls back to a non-binding version probe until a
+/// per-core check flag is verified (registered blocked).
+pub struct V2flyAdapter;
+
+impl CoreAdapter for V2flyAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::V2fly
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "v2ray.exe"
+        } else {
+            "v2ray"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["v2ray.exe"]
+        } else {
+            vec!["v2ray"]
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec![config.as_os_str().to_os_string()]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["-version".into()]
+    }
+}
+
+/// v2fly v5 adapter: `run -c {0} -format jsonv5`.
+pub struct V2flyV5Adapter;
+
+impl CoreAdapter for V2flyV5Adapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::V2flyV5
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "v2ray.exe"
+        } else {
+            "v2ray"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["v2ray.exe"]
+        } else {
+            vec!["v2ray"]
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec![
+            "run".into(),
+            "-c".into(),
+            config.as_os_str().to_os_string(),
+            "-format".into(),
+            "jsonv5".into(),
+        ]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["version".into()]
+    }
+}
+
+/// mihomo adapter: `-f {0}`, `VersionArg = "-v"`.
+pub struct MihomoAdapter;
+
+impl CoreAdapter for MihomoAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::Mihomo
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "mihomo-windows-amd64-v1.exe"
+        } else {
+            "mihomo-linux-amd64-v1"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        // Mirrors `CoreInfoManager.GetMihomoCoreExes()` (+ `.exe` on Windows).
+        if cfg!(windows) {
+            vec![
+                "mihomo-windows-amd64-v1.exe",
+                "mihomo-windows-amd64-compatible.exe",
+                "mihomo-windows-amd64.exe",
+                "mihomo-windows-arm64.exe",
+                "clash.exe",
+                "mihomo.exe",
+            ]
+        } else {
+            vec![
+                "mihomo-linux-amd64-v1",
+                "mihomo-linux-amd64",
+                "mihomo-linux-arm64",
+                "mihomo-linux-riscv64",
+                "mihomo-linux-loong64-abi2",
+                "clash",
+                "mihomo",
+            ]
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        // Upstream `Arguments = "-f {0}" + PortableMode() -d <bin dir>`.
+        vec![
+            "-f".into(),
+            config.as_os_str().to_os_string(),
+            "-d".into(),
+            config
+                .parent()
+                .unwrap_or_else(|| Path::new("."))
+                .as_os_str()
+                .to_os_string(),
+        ]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["-v".into()]
+    }
+}
+
+/// hysteria adapter: upstream `Arguments = ""`.
+pub struct HysteriaAdapter;
+
+impl CoreAdapter for HysteriaAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::Hysteria
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "hysteria.exe"
+        } else {
+            "hysteria"
+        }
+    }
+    fn run_args(&self, _config: &Path) -> Vec<OsString> {
+        Vec::new()
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["-v".into()]
+    }
+}
+
+/// naiveproxy adapter: candidate `naive`/`naiveproxy`, `Arguments = "{0}"`.
+pub struct NaiveProxyAdapter;
+
+impl CoreAdapter for NaiveProxyAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::NaiveProxy
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "naive.exe"
+        } else {
+            "naive"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["naive.exe", "naiveproxy.exe"]
+        } else {
+            vec!["naive", "naiveproxy"]
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec![config.as_os_str().to_os_string()]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["--version".into()]
+    }
+}
+
+/// tuic adapter: candidates `tuic-client`/`tuic`, `-c {0}`.
+pub struct TuicAdapter;
+
+impl CoreAdapter for TuicAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::Tuic
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "tuic-client.exe"
+        } else {
+            "tuic-client"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["tuic-client.exe", "tuic.exe"]
+        } else {
+            vec!["tuic-client", "tuic"]
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec!["-c".into(), config.as_os_str().to_os_string()]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["--version".into()]
+    }
+}
+
+/// juicity adapter: candidates `juicity-client`/`juicity`, `run -c {0}`.
+pub struct JuicityAdapter;
+
+impl CoreAdapter for JuicityAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::Juicity
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "juicity-client.exe"
+        } else {
+            "juicity-client"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["juicity-client.exe", "juicity.exe"]
+        } else {
+            vec!["juicity-client", "juicity"]
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec!["run".into(), "-c".into(), config.as_os_str().to_os_string()]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["--version".into()]
+    }
+}
+
+/// hysteria2 adapter: platform-suffixed binaries, upstream `Arguments = ""`.
+pub struct Hysteria2Adapter;
+
+impl CoreAdapter for Hysteria2Adapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::Hysteria2
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "hysteria-windows-amd64.exe"
+        } else {
+            "hysteria-linux-amd64"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["hysteria-windows-amd64.exe", "hysteria.exe"]
+        } else {
+            vec!["hysteria-linux-amd64", "hysteria"]
+        }
+    }
+    fn run_args(&self, _config: &Path) -> Vec<OsString> {
+        Vec::new()
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["version".into()]
+    }
+}
+
+/// brook adapter: platform-suffixed binaries, upstream `Arguments = " {0}"`.
+pub struct BrookAdapter;
+
+impl CoreAdapter for BrookAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::Brook
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "brook_windows_amd64.exe"
+        } else {
+            "brook_linux_amd64"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["brook_windows_amd64.exe", "brook.exe"]
+        } else {
+            vec!["brook_linux_amd64", "brook"]
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec![config.as_os_str().to_os_string()]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["--version".into()]
+    }
+}
+
+/// overtls adapter: candidates `overtls-bin`/`overtls`, `-r client -c {0}`.
+pub struct OverTlsAdapter;
+
+impl CoreAdapter for OverTlsAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::OverTls
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "overtls-bin.exe"
+        } else {
+            "overtls-bin"
+        }
+    }
+    fn exe_names(&self) -> Vec<&'static str> {
+        if cfg!(windows) {
+            vec!["overtls-bin.exe", "overtls.exe"]
+        } else {
+            vec!["overtls-bin", "overtls"]
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec![
+            "-r".into(),
+            "client".into(),
+            "-c".into(),
+            config.as_os_str().to_os_string(),
+        ]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["--version".into()]
+    }
+}
+
+/// shadowquic adapter: `-c {0}`.
+pub struct ShadowQuicAdapter;
+
+impl CoreAdapter for ShadowQuicAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::ShadowQuic
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "shadowquic.exe"
+        } else {
+            "shadowquic"
+        }
+    }
+    fn run_args(&self, config: &Path) -> Vec<OsString> {
+        vec!["-c".into(), config.as_os_str().to_os_string()]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["--version".into()]
+    }
+}
+
+/// mieru adapter: `run`, config delivered via `MIERU_CONFIG_JSON_FILE`.
+pub struct MieruAdapter;
+
+impl CoreAdapter for MieruAdapter {
+    fn core_type(&self) -> CoreType {
+        CoreType::Mieru
+    }
+    fn exe_name(&self) -> &'static str {
+        if cfg!(windows) {
+            "mieru.exe"
+        } else {
+            "mieru"
+        }
+    }
+    fn run_args(&self, _config: &Path) -> Vec<OsString> {
+        vec!["run".into()]
+    }
+    fn test_args(&self, _config: &Path) -> Vec<OsString> {
+        self.version_args()
+    }
+    fn version_args(&self) -> Vec<OsString> {
+        vec!["version".into()]
+    }
+}
+
+/// Resolve the adapter for a core type. `App` (the v2rayN self-update
+/// identity) has no proxy adapter; every `CoreType::PROXY_CORES` entry does.
 pub fn adapter_for(core: CoreType) -> Option<Box<dyn CoreAdapter>> {
     match core {
         CoreType::Xray => Some(Box::new(XrayAdapter)),
         CoreType::SingBox => Some(Box::new(SingBoxAdapter)),
-        _ => None,
+        CoreType::V2fly => Some(Box::new(V2flyAdapter)),
+        CoreType::V2flyV5 => Some(Box::new(V2flyV5Adapter)),
+        CoreType::Mihomo => Some(Box::new(MihomoAdapter)),
+        CoreType::Hysteria => Some(Box::new(HysteriaAdapter)),
+        CoreType::NaiveProxy => Some(Box::new(NaiveProxyAdapter)),
+        CoreType::Tuic => Some(Box::new(TuicAdapter)),
+        CoreType::Juicity => Some(Box::new(JuicityAdapter)),
+        CoreType::Hysteria2 => Some(Box::new(Hysteria2Adapter)),
+        CoreType::Brook => Some(Box::new(BrookAdapter)),
+        CoreType::OverTls => Some(Box::new(OverTlsAdapter)),
+        CoreType::ShadowQuic => Some(Box::new(ShadowQuicAdapter)),
+        CoreType::Mieru => Some(Box::new(MieruAdapter)),
+        CoreType::App => None,
     }
 }
 
@@ -289,8 +759,58 @@ mod tests {
     }
 
     #[test]
-    fn unknown_core_has_no_adapter() {
-        assert!(adapter_for(CoreType::Mihomo).is_none());
+    fn app_identity_has_no_adapter_but_every_proxy_core_does() {
+        assert!(adapter_for(CoreType::App).is_none());
+        for core in CoreType::PROXY_CORES {
+            assert!(
+                adapter_for(core).is_some(),
+                "missing adapter for {}",
+                core.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn candidate_exe_names_mirror_frozen_core_info() {
+        let singbox = adapter_for(CoreType::SingBox).unwrap();
+        assert!(singbox
+            .exe_names()
+            .iter()
+            .any(|n| n.starts_with("sing-box")));
+        let naive = adapter_for(CoreType::NaiveProxy).unwrap();
+        assert!(naive.exe_names().iter().any(|n| n.starts_with("naive")));
+        let hysteria2 = adapter_for(CoreType::Hysteria2).unwrap();
+        assert!(hysteria2.exe_names().iter().any(|n| n.contains("hysteria")));
+    }
+
+    #[test]
+    fn candidate_fallback_finds_alternate_exe_name() {
+        let root = temp_root("candidates");
+        let dir = root
+            .join(CoreInstallLayout::dir_name(CoreType::NaiveProxy))
+            .join("v1.0.0");
+        std::fs::create_dir_all(&dir).unwrap();
+        // Canonical name is absent; the alternate upstream name resolves.
+        let alternate = if cfg!(windows) {
+            "naiveproxy.exe"
+        } else {
+            "naiveproxy"
+        };
+        std::fs::write(dir.join(alternate), b"stub").unwrap();
+        let locator = CoreLocator::with_roots(vec![root.clone()], None);
+        let picked = locator
+            .resolve(CoreType::NaiveProxy, Some("v1.0.0"))
+            .unwrap();
+        assert!(picked.ends_with(alternate));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn mihomo_run_args_use_config_flag() {
+        let adapter = MihomoAdapter;
+        let args = adapter.run_args(Path::new("C:/run/config.json"));
+        assert_eq!(args[0], "-f");
+        assert_eq!(args[1], "C:/run/config.json");
     }
 
     fn temp_root(tag: &str) -> PathBuf {

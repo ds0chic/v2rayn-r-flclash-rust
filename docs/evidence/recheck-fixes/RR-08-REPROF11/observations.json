@@ -1,0 +1,71 @@
+{
+  "round": "2026-10-04",
+  "start_head": "cbf4fa7",
+  "tasks": ["RR-08", "RE-PROF-11"],
+  "status": {
+    "RR-08": "implemented",
+    "RE-PROF-11": "implemented"
+  },
+  "verified_by": "widget/unit tests with injected recording tray surface and synthetic profiles; no real OS tray click; no WPF reference run",
+  "rr08": {
+    "read_model": "TrayReadModel(desiredMode,pacVisible,routings,nodes,serversLimit,coreRunning,pacRunning)",
+    "sync": "TrayMenuSync dedupes identical models; TraySurface.applyMenu/applyIcon",
+    "subscriptions": [
+      "profilesControllerProvider",
+      "routingControllerProvider",
+      "platformControllerProvider",
+      "runtimeControllerProvider",
+      "settingsControllerProvider"
+    ],
+    "icon_status_enum": ["normal", "coreRunning", "proxyActive", "proxyPac"],
+    "checked_sources": "routing item.isActive; node id == profiles.activeId",
+    "post_apply_refresh": "provider listener re-syncs after async activate/apply; immediate _syncTray on tray click",
+    "tests": [
+      "recheck_rr08_tray_sync_test.dart: 7 passed"
+    ]
+  },
+  "reprof11": {
+    "picker_contract": [
+      "current group switch",
+      "remarks/address search (Enter commit, clear immediate)",
+      "columns type/remarks/address/port/network/TLS/subscription/delay/speed",
+      "header click sort toggle",
+      "auto column width",
+      "single/multi select return",
+      "cancel returns null",
+      "caller ConfigType include/exclude"
+    ],
+    "group_child_batch_remove": "selectedChildren set; removeWhere; disabled with empty selection",
+    "tests": [
+      "recheck_reprof11_node_picker_test.dart: 1 passed",
+      "recheck_reprof11_picker_type_exclude_test.dart: 1 passed",
+      "recheck_reprof11_picker_type_include_test.dart: 1 passed",
+      "recheck_reprof11_picker_multi_test.dart: 1 passed",
+      "recheck_reprof11_picker_single_test.dart: 1 passed",
+      "recheck_reprof11_picker_cancel_test.dart: 1 passed",
+      "recheck_reprof11_child_batch_remove_test.dart: 1 passed"
+    ]
+  },
+  "regression": {
+    "t10_group_editor_test.dart": "6 passed (retry; native leak on first run)",
+    "fix03_special_editors_test.dart": "7 passed (retry)",
+    "reprof10_group_preview_test.dart": "8 passed (retry)",
+    "fix03c_proxy_chain_editor_test.dart": "7 passed",
+    "fix15_tray_pac_test.dart": "8 passed",
+    "t13_platform_models_test.dart": "10 passed",
+    "recheck_rr02_03_test.dart": "5 passed",
+    "flutter_analyze": "No issues found"
+  },
+  "gaps": [
+    "no real system tray click / multi icon assets",
+    "picker delay/speed columns render '-' (no ProfileEx overlay in candidate ProfileDto)",
+    "picker group labels degrade to subid text when subItems absent"
+  ],
+  "safety": {
+    "port_10808": "untouched",
+    "system_proxy": "unchanged",
+    "registry_routes_tun": "unchanged",
+    "user_credentials": "not read",
+    "git_commit": "none"
+  }
+}

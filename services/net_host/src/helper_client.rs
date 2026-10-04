@@ -62,11 +62,17 @@ impl Default for HelperConfig {
 impl HelperConfig {
     pub fn from_env() -> Self {
         let dry_run = runtime::tun::dry_run_from_env(&std::env::args().collect::<Vec<_>>());
+        // Packaged installs place `privileged_helper.exe` next to
+        // `net_host.exe`; discovering it here lets a plain RC auto-launch the
+        // helper (and generate a token) with no user-set environment.
+        let bin = std::env::var_os("V2RAYN_R_HELPER_BIN")
+            .map(PathBuf::from)
+            .or_else(default_helper_bin);
         Self {
             pipe_name: std::env::var("V2RAYN_R_HELPER_PIPE")
                 .unwrap_or_else(|_| ipc_contract::HELPER_PIPE_NAME.to_string()),
             token: std::env::var("V2RAYN_R_HELPER_TOKEN").unwrap_or_default(),
-            bin: std::env::var_os("V2RAYN_R_HELPER_BIN").map(PathBuf::from),
+            bin,
             auto_launch: std::env::var_os("V2RAYN_R_HELPER_NO_AUTOLAUNCH").is_none(),
             allowed_run_roots: std::env::var("V2RAYN_R_HELPER_RUN_ROOTS")
                 .ok()
@@ -80,6 +86,63 @@ impl HelperConfig {
                 .unwrap_or_default(),
             dry_run,
         }
+    }
+
+    /// The token net-host presents and (when it launches the helper) passes on
+    /// the helper command line. When the operator did not configure one and the
+    /// helper may be auto-launched, a per-process token is generated so a plain
+    /// RC does not require `V2RAYN_R_HELPER_TOKEN` on the user's environment. A
+    /// pre-existing helper with a different token is rejected by the handshake
+    /// rather than silently trusted.
+    pub fn effective_token(&self) -> Option<String> {
+        if !self.token.trim().is_empty() {
+            return Some(self.token.clone());
+        }
+        if self.auto_launch && self.bin.is_some() {
+            return Some(generated_helper_token().to_string());
+        }
+        None
+    }
+}
+
+/// The packaged helper next to this executable, when it exists. Windows-only
+/// install shape (`net_host.exe` + `privileged_helper.exe` in one directory).
+fn default_helper_bin() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        let exe = std::env::current_exe().ok()?;
+        let candidate = exe.parent()?.join("privileged_helper.exe");
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+/// Process-stable generated helper token (never logged). Derived from the
+/// net-host pid plus a monotonic clock reading; uniqueness is sufficient for a
+/// local, same-user named-pipe handshake.
+fn generated_helper_token() -> &'static str {
+    static TOKEN: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    TOKEN.get_or_init(|| {
+        let identity = runtime::current_identity();
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_nanos())
+            .unwrap_or(0);
+        format!("nh-{:x}-{:x}", identity.pid, nanos)
+    })
+}
+
+/// Quote a helper launch argument for `ShellExecuteW` when it contains spaces.
+#[cfg(windows)]
+fn quote_arg(value: &str) -> String {
+    if value.is_empty() {
+        "\"\"".to_string()
+    } else if value.contains(' ') {
+        format!("\"{value}\"")
+    } else {
+        value.to_string()
     }
 }
 
@@ -510,7 +573,7 @@ impl PipeHelperLink {
         let identity = runtime::current_identity();
         SessionIdentity {
             protocol_version: HELPER_PROTOCOL_VERSION,
-            session_token: self.config.token.clone(),
+            session_token: self.config.effective_token().unwrap_or_default(),
             peer_pid: identity.pid,
             peer_created_at_ms: identity.created_at_ms,
         }
@@ -520,9 +583,10 @@ impl PipeHelperLink {
         if self.conn.is_some() {
             return Ok(());
         }
-        if self.config.token.is_empty() {
-            return Err(tun_helper_denied("helper token is not configured"));
-        }
+        let token = self
+            .config
+            .effective_token()
+            .ok_or_else(|| tun_helper_denied("helper token is not configured"))?;
         if let Ok(file) = open_pipe(&self.config.pipe_name) {
             self.conn = Some(PipeHelperConn {
                 file,
@@ -539,7 +603,7 @@ impl PipeHelperLink {
             .bin
             .clone()
             .ok_or_else(|| tun_helper_unavailable("helper executable is not configured"))?;
-        launch_helper(&bin, &self.config)?;
+        launch_helper(&bin, &self.config, &token)?;
         let deadline = std::time::Instant::now() + Duration::from_secs(10);
         loop {
             if let Ok(file) = open_pipe(&self.config.pipe_name) {
@@ -662,29 +726,88 @@ fn open_pipe(pipe_name: &str) -> std::io::Result<std::fs::File> {
         .open(pipe_name)
 }
 
+/// Launch the helper elevated through UAC (`runas`). The token and allowed run
+/// roots travel as command-line arguments (the helper also still honors the
+/// legacy environment variables), so a plain RC no longer needs the operator to
+/// export them. A user cancel (Windows error 1223) is a structured denial and
+/// leaves no half-started helper behind; any other `ShellExecuteW` failure is an
+/// unavailable-helper error. The caller never falls back to an unelevated path.
 #[cfg(windows)]
-fn launch_helper(bin: &std::path::Path, config: &HelperConfig) -> Result<(), DomainError> {
-    let mut command = std::process::Command::new(bin);
-    command
-        .arg("--serve")
-        .env("V2RAYN_R_HELPER_TOKEN", &config.token)
-        .env(
-            "V2RAYN_R_HELPER_RUN_ROOTS",
-            config.allowed_run_roots.join(";"),
-        )
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
+fn launch_helper(
+    bin: &std::path::Path,
+    config: &HelperConfig,
+    token: &str,
+) -> Result<(), DomainError> {
+    let params = format!(
+        "--serve --token {} --run-roots {}",
+        quote_arg(token),
+        quote_arg(&config.allowed_run_roots.join(";")),
+    );
+    match elevation::shell_execute_runas(bin.as_os_str(), std::ffi::OsStr::new(&params)) {
+        Ok(()) => Ok(()),
+        Err(code) if elevation::is_user_cancelled(code) => Err(tun_helper_denied(
+            "TUN helper elevation was cancelled by the user",
+        )),
+        Err(code) => Err(tun_helper_unavailable(format!(
+            "failed to elevate TUN helper (ShellExecuteW code {code})"
+        ))),
     }
-    command
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| tun_helper_unavailable(format!("failed to launch helper: {e}")))
+}
+
+/// Direct `ShellExecuteW` binding (shell32). Avoids adding a UI-shell feature
+/// to the `windows` crate just for the `runas` verb.
+#[cfg(windows)]
+mod elevation {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+
+    /// `ShellExecuteW` returns an `HINSTANCE`; values `<= 32` are error codes.
+    pub const ERROR_CANCELLED: isize = 1223;
+    const SW_HIDE: i32 = 0;
+
+    #[link(name = "shell32")]
+    extern "system" {
+        fn ShellExecuteW(
+            hwnd: *mut core::ffi::c_void,
+            operation: *const u16,
+            file: *const u16,
+            parameters: *const u16,
+            directory: *const u16,
+            show: i32,
+        ) -> *mut core::ffi::c_void;
+    }
+
+    fn wide(value: &OsStr) -> Vec<u16> {
+        value.encode_wide().chain(std::iter::once(0)).collect()
+    }
+
+    /// Whether a `ShellExecuteW` result is a user-cancelled UAC prompt.
+    pub fn is_user_cancelled(code: isize) -> bool {
+        code == ERROR_CANCELLED
+    }
+
+    /// Launch `file` elevated with the `runas` verb. Returns the raw
+    /// `ShellExecuteW` error code on failure (UAC cancel = 1223).
+    pub fn shell_execute_runas(file: &OsStr, parameters: &OsStr) -> Result<(), isize> {
+        let operation = wide(OsStr::new("runas"));
+        let file = wide(file);
+        let parameters = wide(parameters);
+        let result = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                operation.as_ptr(),
+                file.as_ptr(),
+                parameters.as_ptr(),
+                std::ptr::null(),
+                SW_HIDE,
+            )
+        } as isize;
+        if result <= 32 {
+            Err(result)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -692,6 +815,38 @@ mod tests {
     use super::*;
     use ipc_contract::AddressFamily;
     use runtime::tun::{TunAddress, TunRoute, TUN_CONFIG_KIND};
+
+    #[test]
+    fn effective_token_generation_requires_autolaunch() {
+        let mut config = HelperConfig {
+            pipe_name: "p".into(),
+            token: String::new(),
+            bin: Some(std::path::PathBuf::from("helper.exe")),
+            auto_launch: true,
+            allowed_run_roots: vec![],
+            dry_run: false,
+        };
+        assert!(config.effective_token().is_some());
+        config.auto_launch = false;
+        assert!(config.effective_token().is_none());
+        config.token = "explicit".into();
+        assert_eq!(config.effective_token().as_deref(), Some("explicit"));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn elevation_cancel_maps_to_user_cancelled() {
+        assert!(elevation::is_user_cancelled(elevation::ERROR_CANCELLED));
+        assert!(!elevation::is_user_cancelled(5));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn quote_arg_wraps_spaces() {
+        assert_eq!(quote_arg("abc"), "abc");
+        assert_eq!(quote_arg("a b"), "\"a b\"");
+        assert_eq!(quote_arg(""), "\"\"");
+    }
 
     fn spec() -> TunSpec {
         TunSpec {

@@ -1,0 +1,22 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.38s
+     Running unittests src\lib.rs (target\debug\deps\application-7735c105c4c3edff.exe)
+
+running 15 tests
+test tun_plan::tests::explicit_index_wins_over_discovery ... ok
+test tun_plan::tests::disabled_tun_builds_nothing ... ok
+test tun_plan::tests::bare_ip_is_rejected_with_field ... ok
+test tun_plan::tests::bad_route_exclude_is_rejected ... ok
+test tun_plan::tests::explicit_ipv4_cidr_is_used ... ok
+test tun_plan::tests::attach_rejects_invalid_spec ... ok
+test tun_plan::tests::missing_ipv4_falls_back_to_upstream_default ... ok
+test tun_plan::tests::nonpositive_mtu_falls_back_to_1280 ... ok
+test tun_plan::tests::zero_interface_index_is_rejected ... ok
+test tun_plan::tests::ipv6_included_only_when_enabled_with_address ... ok
+test tun_plan::tests::attach_round_trips_through_plan_and_is_idempotent ... ok
+test tun_plan::tests::parse_handles_adapter_names_with_spaces ... ok
+test tun_plan::tests::out_of_range_mtu_is_rejected ... ok
+test tun_plan::tests::parse_missing_or_blank_adapter_is_none ... ok
+test tun_plan::tests::parse_finds_adapter_by_name_and_skips_header ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 196 filtered out; finished in 0.00s
+

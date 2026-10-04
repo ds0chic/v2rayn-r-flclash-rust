@@ -267,6 +267,33 @@ pub fn generate(core: CoreType, input: &CodegenInput) -> Result<GeneratedConfigs
     }
 }
 
+/// Generate a real pre-SOCKS sidecar config: a plain SOCKS listener on
+/// `listen:port`, produced by the frozen generators rather than a plan
+/// descriptor. Mirrors upstream `CoreManager.CoreStartPreService` ->
+/// `CoreConfigHandler.GenerateClientConfig(preContext, ...)`, where the
+/// pre-context node is the synthesized SOCKS `ProfileItem` from
+/// `ConfigHandler.GetPreSocksItem`.
+pub fn generate_pre_socks_config(
+    core: CoreType,
+    listen: &str,
+    port: u16,
+) -> Result<GeneratedConfigs, CodegenError> {
+    let profile = CodegenProfile {
+        index_id: "pre-socks".to_string(),
+        config_type: CodegenConfigType::Socks,
+        remarks: "pre-socks".to_string(),
+        address: listen.to_string(),
+        port: port as i32,
+        ..Default::default()
+    };
+    let mut input = CodegenInput::default();
+    input
+        .profiles
+        .insert(profile.index_id.clone(), profile.clone());
+    input.profile = profile;
+    generate(core, &input)
+}
+
 /// Map the persisted settings tree onto generator settings (T11).
 ///
 /// Ports/paths come from `opts`; everything else is projected from

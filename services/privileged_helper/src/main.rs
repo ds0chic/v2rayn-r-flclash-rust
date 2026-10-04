@@ -23,18 +23,33 @@ async fn main() -> std::io::Result<()> {
     };
     use privileged_helper::windows::{client_sid, current_user_sid_string, WindowsBackend};
 
-    if !std::env::args().any(|arg| arg == "--serve") {
+    let args: Vec<String> = std::env::args().collect();
+    if !args.iter().any(|arg| arg == "--serve") {
         eprintln!(
-            "privileged_helper: helper daemon; run with --serve and V2RAYN_R_HELPER_TOKEN set"
+            "privileged_helper: helper daemon; run with --serve and a token \
+             (--token or V2RAYN_R_HELPER_TOKEN)"
         );
         return Ok(());
     }
-    let token = std::env::var("V2RAYN_R_HELPER_TOKEN").unwrap_or_default();
+    let arg_value = |flag: &str| -> Option<String> {
+        args.iter()
+            .position(|arg| arg == flag)
+            .and_then(|index| args.get(index + 1))
+            .cloned()
+            .filter(|value| !value.is_empty())
+    };
+    // The elevated launch passes the token/root list as arguments because
+    // `ShellExecuteW`/UAC does not forward the launching environment; the
+    // legacy environment variables remain accepted for service-style setups.
+    let token = arg_value("--token")
+        .or_else(|| std::env::var("V2RAYN_R_HELPER_TOKEN").ok())
+        .unwrap_or_default();
     if token.is_empty() {
-        eprintln!("privileged_helper: V2RAYN_R_HELPER_TOKEN is required");
+        eprintln!("privileged_helper: a helper token is required (--token)");
         return Ok(());
     }
-    let allowed_run_roots: Vec<String> = std::env::var("V2RAYN_R_HELPER_RUN_ROOTS")
+    let allowed_run_roots: Vec<String> = arg_value("--run-roots")
+        .or_else(|| std::env::var("V2RAYN_R_HELPER_RUN_ROOTS").ok())
         .unwrap_or_default()
         .split(';')
         .map(str::trim)

@@ -118,6 +118,10 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   c.ErrorDto? _serverError;
   bool _submitting = false;
 
+  /// Existing children selected for batch removal (upstream
+  /// `AddGroupServerViewModel.ChildRemoveAsync` iterates `SelectedChildren`).
+  final Set<String> _selectedChildren = <String>{};
+
   static const List<ConfigType> _groupTypes = <ConfigType>[
     ConfigType.policyGroup,
     ConfigType.proxyChain,
@@ -359,7 +363,16 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   /// multi-select with select-all, Custom excluded) and append the chosen ids
   /// in list order, skipping duplicates.
   Future<void> _pickNodes() async {
-    final picked = await showNodePicker(context, candidates: _candidates);
+    final picked = await showNodePicker(
+      context,
+      candidates: _candidates,
+      subItems: widget.subItems,
+      multiSelect: true,
+      // Upstream `AddGroupServerViewModel.AddChildAsync`:
+      // `SetConfigTypeFilter([EConfigType.Custom], exclude: true)`.
+      filterConfigTypes: const <ConfigType>[ConfigType.custom],
+      filterExclude: true,
+    );
     if (picked == null || picked.isEmpty) return;
     setState(() {
       final taken = _childIds.toSet();
@@ -370,6 +383,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
   }
 
   Widget _addRow() {
+    final selectedCount = _selectedChildren.length;
     return Row(
       children: <Widget>[
         OutlinedButton.icon(
@@ -377,6 +391,21 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
           onPressed: _candidates.isEmpty ? null : _pickNodes,
           icon: const Icon(Icons.add, size: 16),
           label: const Text('选择节点... (多选)', style: TextStyle(fontSize: 12)),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          key: const ValueKey('group-remove-selected'),
+          onPressed: selectedCount == 0
+              ? null
+              : () => setState(() {
+                  _childIds.removeWhere(_selectedChildren.contains);
+                  _selectedChildren.clear();
+                }),
+          icon: const Icon(Icons.delete_outline, size: 16),
+          label: Text(
+            '移除选中 ($selectedCount)',
+            style: const TextStyle(fontSize: 12),
+          ),
         ),
         const SizedBox(width: 8),
         Text(
@@ -397,9 +426,22 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
       }
     }
     final index = _childIds.indexOf(id);
+    final selected = _selectedChildren.contains(id);
     return ListTile(
       key: ValueKey('group-child-$id'),
       dense: true,
+      selected: selected,
+      leading: Checkbox(
+        key: ValueKey('group-child-select-$id'),
+        value: selected,
+        visualDensity: VisualDensity.compact,
+        onChanged: (_) => setState(() {
+          if (!_selectedChildren.add(id)) _selectedChildren.remove(id);
+        }),
+      ),
+      onTap: () => setState(() {
+        if (!_selectedChildren.add(id)) _selectedChildren.remove(id);
+      }),
       title: Text(
         profile == null ? id : _labelOf(profile),
         style: const TextStyle(fontSize: 12),
@@ -426,7 +468,10 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
             tooltip: '移除',
             iconSize: 16,
             visualDensity: VisualDensity.compact,
-            onPressed: () => setState(() => _childIds.remove(id)),
+            onPressed: () => setState(() {
+              _childIds.remove(id);
+              _selectedChildren.remove(id);
+            }),
             icon: const Icon(Icons.close, size: 14),
           ),
         ],
@@ -594,26 +639,101 @@ List<String> groupChildIds(c.ProfilePageDto page) => <String>[
   for (final p in page.items) p.indexId,
 ];
 
-/// Multi-select node picker for group children.
+/// Node picker for group children / external callers, mirroring the frozen
+/// `ProfilesSelectWindow` + `ProfilesSelectViewModel` (RE-PROF-11).
 ///
-/// Mirrors upstream `ProfilesSelectWindow` as used by
-/// `AddGroupServerViewModel.AddChildAsync`: multi-select with select-all over
-/// the eligible candidates (Custom already filtered out by the caller).
+/// Restores the upstream contract: a current-group switch, a remarks/address
+/// search box, the profile columns (type/remarks/address/port/transport/TLS/
+/// subscription/delay/speed), click-to-sort headers, an auto-column-width
+/// button, and single- or multi-select results. Callers can constrain the
+/// candidate set by `ConfigType` include/exclude, exactly like
+/// `ProfilesSelectViewModel.SetConfigTypeFilter`
+/// (`AddGroupServerViewModel.AddChildAsync` passes `[Custom]` with
+/// `exclude: true`). The WPF window has no on-screen type-filter control, so
+/// the type constraint is a caller contract, not a new widget.
+///
 /// Returns the picked `indexId`s in list order, or `null` on cancel.
 Future<List<String>?> showNodePicker(
   BuildContext context, {
   required List<c.ProfileDto> candidates,
+  List<c.SubItemDto>? subItems,
+  bool multiSelect = true,
+  List<ConfigType>? filterConfigTypes,
+  bool filterExclude = false,
 }) {
   return showDialog<List<String>>(
     context: context,
-    builder: (context) => _NodePickerDialog(candidates: candidates),
+    builder: (context) => _NodePickerDialog(
+      candidates: candidates,
+      subItems: subItems,
+      multiSelect: multiSelect,
+      filterConfigTypes: filterConfigTypes,
+      filterExclude: filterExclude,
+    ),
   );
 }
 
+/// One `ProfilesSelectWindow` DataGrid column (`MyDGTextColumn`).
+class _PickerColumn {
+  const _PickerColumn(this.key, this.title, this.display);
+
+  final String key;
+  final String title;
+  final String Function(c.ProfileDto p) display;
+}
+
+String _pickerType(c.ProfileDto p) => p.configType.name;
+String _pickerRemarks(c.ProfileDto p) => p.remarks;
+String _pickerAddress(c.ProfileDto p) => p.address;
+String _pickerPort(c.ProfileDto p) => '${p.port}';
+String _pickerNetwork(c.ProfileDto p) => p.network;
+String _pickerTls(c.ProfileDto p) => p.security.streamSecurity ?? '';
+String _pickerSub(c.ProfileDto p) => p.subid;
+
+// Delay/speed live on `ProfileExItem`, which the caller-supplied `ProfileDto`
+// candidates do not carry; the columns are present but render `-` until a
+// speedtest overlay is threaded through (interface gap, see task card).
+String _pickerDelay(c.ProfileDto p) => '-';
+String _pickerSpeed(c.ProfileDto p) => '-';
+
+const List<_PickerColumn> _pickerColumns = <_PickerColumn>[
+  _PickerColumn('configType', '类型', _pickerType),
+  _PickerColumn('remarks', '备注', _pickerRemarks),
+  _PickerColumn('address', '地址', _pickerAddress),
+  _PickerColumn('port', '端口', _pickerPort),
+  _PickerColumn('network', '传输', _pickerNetwork),
+  _PickerColumn('security', 'TLS', _pickerTls),
+  _PickerColumn('subid', '订阅', _pickerSub),
+  _PickerColumn('delay', '延迟', _pickerDelay),
+  _PickerColumn('speed', '速度', _pickerSpeed),
+];
+
+const Map<String, double> _pickerDefaultWidths = <String, double>{
+  'configType': 70,
+  'remarks': 140,
+  'address': 180,
+  'port': 60,
+  'network': 80,
+  'security': 70,
+  'subid': 90,
+  'delay': 60,
+  'speed': 60,
+};
+
 class _NodePickerDialog extends StatefulWidget {
-  const _NodePickerDialog({required this.candidates});
+  const _NodePickerDialog({
+    required this.candidates,
+    this.subItems,
+    this.multiSelect = true,
+    this.filterConfigTypes,
+    this.filterExclude = false,
+  });
 
   final List<c.ProfileDto> candidates;
+  final List<c.SubItemDto>? subItems;
+  final bool multiSelect;
+  final List<ConfigType>? filterConfigTypes;
+  final bool filterExclude;
 
   @override
   State<_NodePickerDialog> createState() => _NodePickerDialogState();
@@ -621,80 +741,240 @@ class _NodePickerDialog extends StatefulWidget {
 
 class _NodePickerDialogState extends State<_NodePickerDialog> {
   final Set<String> _picked = <String>{};
+  final TextEditingController _search = TextEditingController();
+  String? _groupSubId;
+  String? _pickSingle;
+  String _filter = '';
+  String _sortKey = '';
+  bool _sortAscending = true;
+  Map<String, double> _widths = <String, double>{};
 
-  String _labelOf(c.ProfileDto p) =>
-      p.remarks.isEmpty ? p.indexId : '${p.remarks} [${p.configType.name}]';
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  /// Group choices (upstream `RefreshSubscriptions` puts `AllGroupServers`
+  /// first). Derived from [subItems] when given, otherwise from the candidate
+  /// `subid`s so callers without a subscription list still get a switch.
+  List<(String?, String)> get _groups {
+    final result = <(String?, String)>[(null, '全部分组')];
+    final items = widget.subItems;
+    if (items != null) {
+      for (final s in items) {
+        result.add((s.id, s.remarks.isEmpty ? s.id : s.remarks));
+      }
+    } else {
+      final seen = <String>{};
+      for (final p in widget.candidates) {
+        if (seen.add(p.subid)) {
+          result.add((p.subid, p.subid.isEmpty ? '(无分组)' : p.subid));
+        }
+      }
+    }
+    return result;
+  }
+
+  /// Current-group + type-filter + search + sort, mirroring
+  /// `ProfilesSelectViewModel.GetProfileItemsEx` (`OrderBy(Sort)` then the
+  /// include/exclude type filter) plus the header sort.
+  List<c.ProfileDto> get _rows {
+    var list = widget.candidates;
+    final types = widget.filterConfigTypes;
+    if (types != null && types.isNotEmpty) {
+      list = widget.filterExclude
+          ? <c.ProfileDto>[
+              for (final p in list)
+                if (!types.contains(p.configType)) p,
+            ]
+          : <c.ProfileDto>[
+              for (final p in list)
+                if (types.contains(p.configType)) p,
+            ];
+    }
+    if (_groupSubId != null) {
+      list = <c.ProfileDto>[
+        for (final p in list)
+          if (p.subid == _groupSubId) p,
+      ];
+    }
+    final q = _filter.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      list = <c.ProfileDto>[
+        for (final p in list)
+          if (_searchHit(p, q)) p,
+      ];
+    }
+    if (_sortKey.isEmpty) return list;
+    final column = _pickerColumns.firstWhere((c) => c.key == _sortKey);
+    return List<c.ProfileDto>.of(list)..sort((a, b) {
+      final cmp = _compare(column, a, b);
+      return _sortAscending ? cmp : -cmp;
+    });
+  }
+
+  bool _searchHit(c.ProfileDto p, String q) =>
+      p.remarks.toLowerCase().contains(q) ||
+      p.address.toLowerCase().contains(q) ||
+      '${p.port}'.contains(q);
+
+  int _compare(_PickerColumn column, c.ProfileDto a, c.ProfileDto b) {
+    if (column.key == 'port') return a.port.compareTo(b.port);
+    return column
+        .display(a)
+        .toLowerCase()
+        .compareTo(column.display(b).toLowerCase());
+  }
+
+  bool _isPicked(String id) =>
+      widget.multiSelect ? _picked.contains(id) : _pickSingle == id;
+
+  void _toggle(String id) {
+    setState(() {
+      if (widget.multiSelect) {
+        if (!_picked.add(id)) _picked.remove(id);
+      } else {
+        _pickSingle = _pickSingle == id ? null : id;
+      }
+    });
+  }
+
+  void _toggleAll() {
+    final rows = _rows;
+    final allPicked =
+        rows.isNotEmpty && rows.every((p) => _picked.contains(p.indexId));
+    setState(() {
+      if (allPicked) {
+        for (final p in rows) {
+          _picked.remove(p.indexId);
+        }
+      } else {
+        for (final p in rows) {
+          _picked.add(p.indexId);
+        }
+      }
+    });
+  }
+
+  void _commitSearch(String value) => setState(() => _filter = value);
+
+  double _widthOf(_PickerColumn column) =>
+      _widths[column.key] ?? _pickerDefaultWidths[column.key]!;
+
+  void _autofit() {
+    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
+    const cellStyle = TextStyle(fontSize: 12);
+    final rows = _rows;
+    final updated = <String, double>{};
+    for (final column in _pickerColumns) {
+      var width = _measure('${column.title} \u25B2', headerStyle);
+      for (final p in rows) {
+        final w = _measure(column.display(p), cellStyle);
+        if (w > width) width = w;
+      }
+      updated[column.key] = (width + 16).clamp(48.0, 260.0).toDouble();
+    }
+    setState(() => _widths = updated);
+  }
+
+  double _measure(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+    )..layout();
+    return painter.width;
+  }
+
+  List<String> _result() {
+    if (widget.multiSelect) {
+      return <String>[
+        for (final p in widget.candidates)
+          if (_picked.contains(p.indexId)) p.indexId,
+      ];
+    }
+    return _pickSingle == null ? const <String>[] : <String>[_pickSingle!];
+  }
 
   @override
   Widget build(BuildContext context) {
-    final allPicked =
-        widget.candidates.isNotEmpty &&
-        _picked.length == widget.candidates.length;
+    final rows = _rows;
     return AlertDialog(
       key: const ValueKey('group-picker'),
-      title: const Text('选择子节点 (多选)', style: TextStyle(fontSize: 15)),
+      title: Text(
+        widget.multiSelect ? '选择子节点 (多选)' : '选择子节点',
+        style: const TextStyle(fontSize: 15),
+      ),
       content: SizedBox(
-        width: 480,
-        height: 420,
+        width: 720,
+        height: 480,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: <Widget>[
+                for (final group in _groups)
+                  ChoiceChip(
+                    key: ValueKey('group-pick-group-${group.$1 ?? 'all'}'),
+                    label: Text(group.$2, style: const TextStyle(fontSize: 12)),
+                    selected: _groupSubId == group.$1,
+                    onSelected: (_) => setState(() => _groupSubId = group.$1),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
             Row(
               children: <Widget>[
-                TextButton(
-                  key: const ValueKey('group-pick-select-all'),
-                  onPressed: widget.candidates.isEmpty
-                      ? null
-                      : () => setState(() {
-                          if (allPicked) {
-                            _picked.clear();
-                          } else {
-                            _picked
-                              ..clear()
-                              ..addAll(widget.candidates.map((p) => p.indexId));
-                          }
-                        }),
-                  child: Text(allPicked ? '全不选' : '全选'),
+                SizedBox(
+                  width: 220,
+                  child: TextField(
+                    key: const ValueKey('group-pick-search'),
+                    controller: _search,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: const InputDecoration(
+                      labelText: '搜索 (备注/地址)',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) {
+                      if (v.trim().isEmpty) _commitSearch('');
+                    },
+                    onSubmitted: _commitSearch,
+                  ),
                 ),
                 const SizedBox(width: 8),
+                OutlinedButton(
+                  key: const ValueKey('group-pick-autofit'),
+                  onPressed: _autofit,
+                  child: const Text('自动列宽', style: TextStyle(fontSize: 12)),
+                ),
+                if (widget.multiSelect) ...<Widget>[
+                  const SizedBox(width: 8),
+                  TextButton(
+                    key: const ValueKey('group-pick-select-all'),
+                    onPressed: rows.isEmpty ? null : _toggleAll,
+                    child: Text(
+                      rows.isNotEmpty &&
+                              rows.every((p) => _picked.contains(p.indexId))
+                          ? '全不选'
+                          : '全选',
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 8),
                 Text(
-                  '已选 ${_picked.length}/${widget.candidates.length}',
+                  '已选 ${widget.multiSelect ? _picked.length : (_pickSingle == null ? 0 : 1)}'
+                  '/${widget.candidates.length}',
                   key: const ValueKey('group-pick-count'),
                   style: const TextStyle(fontSize: 12),
                 ),
               ],
             ),
-            const Divider(height: 8),
-            Expanded(
-              child: widget.candidates.isEmpty
-                  ? const Center(
-                      child: Text(
-                        '没有可选节点',
-                        key: ValueKey('group-pick-empty'),
-                        style: TextStyle(fontSize: 12),
-                      ),
-                    )
-                  : ListView(
-                      children: <Widget>[
-                        for (final p in widget.candidates)
-                          CheckboxListTile(
-                            key: ValueKey('group-pick-node-${p.indexId}'),
-                            dense: true,
-                            title: Text(
-                              _labelOf(p),
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                            value: _picked.contains(p.indexId),
-                            onChanged: (v) => setState(() {
-                              if (v == true) {
-                                _picked.add(p.indexId);
-                              } else {
-                                _picked.remove(p.indexId);
-                              }
-                            }),
-                          ),
-                      ],
-                    ),
-            ),
+            const Divider(height: 12),
+            Expanded(child: _table(rows)),
           ],
         ),
       ),
@@ -706,13 +986,121 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
         ),
         FilledButton(
           key: const ValueKey('group-pick-ok'),
-          onPressed: () => Navigator.of(context).pop(<String>[
-            for (final p in widget.candidates)
-              if (_picked.contains(p.indexId)) p.indexId,
-          ]),
+          onPressed: widget.multiSelect || _pickSingle != null
+              ? () => Navigator.of(context).pop(_result())
+              : null,
           child: const Text('确定'),
         ),
       ],
+    );
+  }
+
+  Widget _table(List<c.ProfileDto> rows) {
+    final totalWidth =
+        32 + _pickerColumns.fold<double>(0, (sum, c) => sum + _widthOf(c));
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: totalWidth,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _headerRow(),
+            const Divider(height: 1),
+            Expanded(
+              child: rows.isEmpty
+                  ? const Center(
+                      child: Text(
+                        '没有可选节点',
+                        key: ValueKey('group-pick-empty'),
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: rows.length,
+                      itemBuilder: (context, index) => _row(rows[index]),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _headerRow() {
+    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
+    return Row(
+      children: <Widget>[
+        const SizedBox(width: 32),
+        for (final column in _pickerColumns)
+          InkWell(
+            key: ValueKey('group-pick-sort-${column.key}'),
+            onTap: () => setState(() {
+              if (_sortKey == column.key) {
+                _sortAscending = !_sortAscending;
+              } else {
+                _sortKey = column.key;
+                _sortAscending = true;
+              }
+            }),
+            child: SizedBox(
+              width: _widthOf(column),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Text(
+                  '${column.title}'
+                  '${_sortKey == column.key ? (_sortAscending ? ' ▲' : ' ▼') : ''}',
+                  style: style,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _row(c.ProfileDto p) {
+    final selected = _isPicked(p.indexId);
+    return InkWell(
+      key: ValueKey('group-pick-node-${p.indexId}'),
+      onTap: () => _toggle(p.indexId),
+      child: Container(
+        color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
+        child: Row(
+          children: <Widget>[
+            SizedBox(
+              width: 32,
+              child: widget.multiSelect
+                  ? Checkbox(
+                      value: selected,
+                      visualDensity: VisualDensity.compact,
+                      onChanged: (_) => _toggle(p.indexId),
+                    )
+                  : Icon(
+                      selected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                      size: 16,
+                    ),
+            ),
+            for (final column in _pickerColumns)
+              SizedBox(
+                width: _widthOf(column),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    column.display(p),
+                    style: const TextStyle(fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

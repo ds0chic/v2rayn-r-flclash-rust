@@ -9,11 +9,12 @@
 //! harness drive the hub through the `#[frb(ignore)]` helpers so no socket or
 //! process is created.
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use application::monitor::{epoch_day, LogService, StatsService};
+use application::monitor::{epoch_day, LogService, StatsService, TrafficStore};
 use application::{ClashApiService, InMemoryTrafficStore};
 use core_adapters::clash_api::ClashApiClient;
 use core_adapters::log_stream::{LogLevel, LogLine};
@@ -32,6 +33,10 @@ const STATS_TIMEOUT: Duration = Duration::from_secs(5);
 const CLASH_TIMEOUT: Duration = Duration::from_secs(5);
 /// Poll cadence (plan §14: traffic at 1 Hz).
 const POLL_INTERVAL: Duration = Duration::from_millis(1_000);
+/// Stable code surfaced when the persistent `ServerStatItem` store cannot be
+/// opened or loaded; a later sync retries while it stays unbound.
+const STORE_BIND_ERROR_CODE: &str = "E_MONITOR_STORE";
+const STORE_BIND_ERROR_KEY: &str = "error.monitor.store_bind_failed";
 
 // ---------------------------------------------------------------------------
 // DTOs
@@ -290,8 +295,18 @@ struct MonitorHub {
     /// the upstream default in [`ClashApiService`].
     delay_test_url: Option<String>,
     /// Whether the persistent `ServerStatItem` store has been bound to the
-    /// engine's data directory (idempotent; only attempted once).
+    /// engine's data directory (cleared if a bind fails so it is retried).
     store_bound: bool,
+    /// The engine data dir the current store is bound to. A change (engine
+    /// swap / restore to a different data dir) forces a rebind.
+    store_dir: Option<PathBuf>,
+    /// Last store open/load failure, surfaced through `stats_snapshot().error`.
+    store_error: Option<ErrorDto>,
+    /// Applied-session signature `(core, state_port, state_port2, active node,
+    /// enable_statistics, display_real_time_speed)`. Only a real change forces
+    /// the poller to rebuild its `StatsSource`; unrelated RuntimeView churn
+    /// (log lines, heartbeat seq) never does.
+    session_sig: Option<(i32, u16, u16, Option<String>, bool, bool)>,
     epoch: u64,
     seq: u64,
 }
@@ -315,6 +330,9 @@ impl MonitorHub {
             clash_base_override: None,
             delay_test_url: None,
             store_bound: false,
+            store_dir: None,
+            store_error: None,
+            session_sig: None,
             epoch: 1,
             seq: 0,
         }
@@ -400,6 +418,7 @@ pub fn monitor_configure(
         h.stats.set_enabled(enable_statistics);
         h.stats.set_display_speed(display_real_time_speed);
         h.source_sig = None;
+        h.session_sig = None;
         SimpleResult {
             ok: true,
             error: None,
@@ -441,7 +460,7 @@ pub fn stats_snapshot() -> StatsSnapshotDto {
             direct_up: direct.up,
             direct_down: direct.down,
             nodes: h.node_dtos(),
-            error: None,
+            error: h.store_error.clone(),
         }
     })
 }
@@ -1196,29 +1215,92 @@ static SEQ_COUNTER: OnceLock<AtomicU64> = OnceLock::new();
 /// collecting the old session; hiding a page never reaches this path.
 fn sync_from_engine_session(h: &mut MonitorHub) {
     let engine = crate::api::engine::engine();
+    let store_dir = engine.data_dir().map(PathBuf::from);
     match engine.monitor_session() {
         Some(session) => {
             let (enabled, speed) = engine.monitor_settings();
+            // Only a real applied-session change (core / endpoint ports /
+            // statistics toggle / active node) forces a source rebuild; an
+            // unrelated RuntimeView churn (heartbeat seq, log lines) leaves
+            // `source_sig` untouched so the poller keeps its source.
+            let signature = (
+                session.core.value(),
+                session.state_port,
+                session.state_port2,
+                session.active_index_id.clone(),
+                enabled,
+                speed,
+            );
+            if h.session_sig.as_ref() != Some(&signature) {
+                h.session_sig = Some(signature);
+                h.source_sig = None;
+            }
             h.core = session.core;
             h.state_port = session.state_port;
             h.state_port2 = session.state_port2;
-            h.source_sig = None;
             h.stats.set_active_index(session.active_index_id);
             h.stats.set_enabled(enabled);
             h.stats.set_display_speed(speed);
-            if !h.store_bound {
-                if let Some(store) = engine.traffic_store() {
-                    h.stats.set_store(store);
-                    let _ = h.stats.load();
-                }
-                h.store_bound = true;
-            }
         }
         None => {
             h.state_port = 0;
             h.state_port2 = 0;
             h.source_sig = None;
+            h.session_sig = None;
             h.stats.set_active_index(None);
+        }
+    }
+    rebind_store(h, store_dir, || engine.traffic_store());
+}
+
+/// Bind (or re-bind) the persistent `ServerStatItem` store.
+///
+/// A failed open/load is never silently reported as bound: the error is kept
+/// in `store_error` (surfaced through `stats_snapshot().error`) and
+/// `store_bound` stays `false` so a later sync retries. A change of engine data
+/// dir (engine swap / restore) drops the old binding and forces a fresh one.
+fn rebind_store(
+    h: &mut MonitorHub,
+    store_dir: Option<PathBuf>,
+    open: impl FnOnce() -> Option<Box<dyn TrafficStore>>,
+) {
+    if h.store_dir != store_dir {
+        h.store_dir = store_dir.clone();
+        h.store_bound = false;
+        h.store_error = None;
+        h.stats.set_store(Box::new(InMemoryTrafficStore::new()));
+    }
+    if h.store_bound {
+        return;
+    }
+    if store_dir.is_none() {
+        // In-memory engine: there is no persistent store to bind or retry.
+        h.store_bound = true;
+        h.store_error = None;
+        return;
+    }
+    match open() {
+        Some(store) => {
+            h.stats.set_store(store);
+            match h.stats.load() {
+                Ok(()) => {
+                    h.store_bound = true;
+                    h.store_error = None;
+                }
+                Err(e) => {
+                    h.store_error = Some(ErrorDto::from(e));
+                }
+            }
+        }
+        None => {
+            h.store_error = Some(ErrorDto {
+                code: STORE_BIND_ERROR_CODE.to_string(),
+                message_key: STORE_BIND_ERROR_KEY.to_string(),
+                field_path: None,
+                retryable: true,
+                operation_id: None,
+                detail: None,
+            });
         }
     }
 }
@@ -1556,5 +1638,38 @@ mod tests {
         assert_eq!(page.refresh_interval_ms, 3_000);
         let page = set_page_visible("unknown".to_string(), true);
         assert!(!page.visible);
+    }
+
+    #[test]
+    fn store_bind_failure_is_visible_and_retryable() {
+        let _guard = lock();
+        let mut hub = MonitorHub::new();
+        let dir_a = PathBuf::from("synthetic-data-a");
+        let dir_b = PathBuf::from("synthetic-data-b");
+
+        // Open failure: not reported as bound, error visible, retried later.
+        rebind_store(&mut hub, Some(dir_a.clone()), || None);
+        assert!(!hub.store_bound);
+        assert_eq!(
+            hub.store_error.as_ref().map(|e| e.code.as_str()),
+            Some(STORE_BIND_ERROR_CODE)
+        );
+
+        // A retry with a working store binds and clears the error.
+        rebind_store(&mut hub, Some(dir_a), || {
+            Some(Box::new(InMemoryTrafficStore::new()) as Box<dyn TrafficStore>)
+        });
+        assert!(hub.store_bound);
+        assert!(hub.store_error.is_none());
+
+        // Changing the engine data dir drops the old binding and re-attempts.
+        rebind_store(&mut hub, Some(dir_b), || None);
+        assert!(!hub.store_bound);
+        assert!(hub.store_error.is_some());
+
+        // An in-memory engine needs no store and must not loop forever.
+        rebind_store(&mut hub, None, || None);
+        assert!(hub.store_bound);
+        assert!(hub.store_error.is_none());
     }
 }

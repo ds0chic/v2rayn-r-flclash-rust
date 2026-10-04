@@ -418,14 +418,35 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       _showSnack('请先填写有效的地址与端口');
       return;
     }
-    final serverName = (_draft.sni ?? '').trim().isEmpty
-        ? (_draft.host ?? '').trim()
-        : _draft.sni!.trim();
+    // Upstream `FetchCert`/`FetchCertChain`: SNI -> transport host -> address.
+    final serverName = selectCertFetchServerName(
+      sni: _draft.sni,
+      transportHost: _draft.host,
+      address: host,
+    );
     try {
+      if (chain) {
+        final result = await fetchPeerCertChainPem(
+          host: host,
+          port: port,
+          serverName: serverName,
+        );
+        if (!mounted) return;
+        if (result == null) {
+          _showSnack('未能获取证书');
+          return;
+        }
+        setState(() {
+          _draft.cert = result.pem;
+          _syncCertSha();
+        });
+        _showSnack(result.leafOnly ? '已获取证书（仅叶子；该平台无法获取完整链）' : '已获取证书链');
+        return;
+      }
       final pem = await fetchPeerCertPem(
         host: host,
         port: port,
-        serverName: serverName.isEmpty ? null : serverName,
+        serverName: serverName,
       );
       if (!mounted) return;
       if (pem == null) {
@@ -436,7 +457,7 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
         _draft.cert = pem;
         _syncCertSha();
       });
-      _showSnack(chain ? '已获取证书链' : '已获取证书');
+      _showSnack('已获取证书');
     } on Object catch (e) {
       if (!mounted) return;
       _showSnack('获取证书失败: $e');

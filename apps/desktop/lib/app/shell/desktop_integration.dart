@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
@@ -7,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:v2rayn_desktop/app/shell/tray_menu_model.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/hotkeys.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
@@ -45,6 +47,14 @@ class DesktopIntegration with WindowListener {
   final WidgetRef ref;
   final SystemTray _tray = SystemTray();
   bool _started = false;
+
+  /// Shared-read-model tray sync (RR-08). Null until [start] wires it.
+  TrayMenuSync? _sync;
+
+  /// Provider subscriptions that push every business/runtime/config change
+  /// into [_sync]; closed on [removeListener].
+  final List<ProviderSubscription<Object?>> _subscriptions =
+      <ProviderSubscription<Object?>>[];
 
   PlatformController get _platform =>
       ref.read(platformControllerProvider.notifier);
@@ -91,7 +101,8 @@ class DesktopIntegration with WindowListener {
     ref.read(hotkeyControllerProvider.notifier).loadFromSettings();
     await ref.read(hotkeyControllerProvider.notifier).registerAll();
     await _initTray();
-    await _refreshTrayMenu();
+    _bindTraySync();
+    await _syncTray();
     // AutoHideStartup (FLD-CFG-078 / upstream `MainWindow` ctor sets
     // `WindowState.Minimized`, `OnLoaded` calls `ShowHideWindow(false)`): a
     // launch with the field on must never surface the window, only the tray.
@@ -166,77 +177,76 @@ class DesktopIntegration with WindowListener {
     await windowManager.hide();
   }
 
-  /// Rebuild the tray context menu from the ledger model. Dynamic submenus
-  /// (routing/nodes) are added from the current controllers.
-  Future<void> _refreshTrayMenu() async {
+  /// Subscribe the tray to the shared read model (RR-08), so the menu/icon
+  /// follow every business / runtime / configuration change instead of only
+  /// startup and an immediate tray click. `listenManual` is the documented
+  /// out-of-`build` seam for a non-widget integration object.
+  void _bindTraySync() {
+    _sync = TrayMenuSync(
+      surface: _SystemTraySurface(
+        _tray,
+        iconPathFor: (_) => _trayIconPath(),
+        onRouting: _onTrayRouting,
+        onNode: _onTrayNode,
+        onAction: _onTrayAction,
+      ),
+    );
+    void resync() {
+      // The listener runs synchronously on the provider change; the OS tray
+      // calls are async, so push them off the notification without awaiting.
+      unawaited(_syncTray());
+    }
+
+    _subscriptions.addAll(<ProviderSubscription<Object?>>[
+      ref.listenManual(profilesControllerProvider, (_, _) => resync()),
+      ref.listenManual(routingControllerProvider, (_, _) => resync()),
+      ref.listenManual(platformControllerProvider, (_, _) => resync()),
+      ref.listenManual(runtimeControllerProvider, (_, _) => resync()),
+      ref.listenManual(settingsControllerProvider, (_, _) => resync()),
+    ]);
+  }
+
+  /// Build the shared tray read model and apply it (RR-08).
+  ///
+  /// Node and route checkmarks come from the same active/default state the main
+  /// window reads; the icon status comes from the applied proxy/core state. The
+  /// sync de-duplicates, so an unrelated rebuild never touches the OS tray.
+  Future<void> _syncTray() async {
+    final sync = _sync;
+    if (sync == null) return;
     final platform = ref.read(platformControllerProvider);
-    final document = ref.read(settingsControllerProvider).document;
     final routing = ref.read(routingControllerProvider);
     final profiles = ref.read(profilesControllerProvider);
-    final model = trayMenuModel(
-      currentMode: platform.desiredMode,
-      pacVisible: Platform.isWindows,
-      routings: <TraySubEntry>[
-        for (final item in routing.items)
-          TraySubEntry(
-            id: item.id,
-            label: item.remarks.isEmpty ? item.id : item.remarks,
-            // The checkmark follows the default (active) routing, not the
-            // editor's selection (upstream `StatusBarViewModel.SelectedRouting`
-            // is bound to `IsActive`).
-            checked: item.isActive,
-          ),
-      ],
-      nodes: <TraySubEntry>[
-        for (final p in profiles.all)
-          TraySubEntry(
-            id: p.id,
-            label: p.remarks.isEmpty ? p.id : p.remarks,
-            checked: p.id == profiles.activeId,
-          ),
-      ],
-      serversLimit: _trayServersLimit(document),
+    final runtime = ref.read(runtimeControllerProvider);
+    final document = ref.read(settingsControllerProvider).document;
+    await sync.update(
+      TrayReadModel(
+        desiredMode: platform.desiredMode,
+        pacVisible: Platform.isWindows,
+        routings: <TraySubEntry>[
+          for (final item in routing.items)
+            TraySubEntry(
+              id: item.id,
+              label: item.remarks.isEmpty ? item.id : item.remarks,
+              // The checkmark follows the default (active) routing, not the
+              // editor's selection (upstream `StatusBarViewModel.SelectedRouting`
+              // is bound to `IsActive`).
+              checked: item.isActive,
+            ),
+        ],
+        nodes: <TraySubEntry>[
+          for (final p in profiles.all)
+            TraySubEntry(
+              id: p.id,
+              label: p.remarks.isEmpty ? p.id : p.remarks,
+              checked: p.id == profiles.activeId,
+            ),
+        ],
+        serversLimit: _trayServersLimit(document),
+        coreRunning: runtime.isRunning,
+        pacRunning: platform.pacRunning,
+      ),
     );
-    final items = <MenuItemBase>[];
-    for (final entry in model) {
-      if (entry.separatorBefore) items.add(MenuSeparator());
-      switch (entry.kind) {
-        case TrayItemKind.routingSubmenu:
-          items.add(
-            SubMenu(
-              label: entry.label,
-              children: <MenuItemBase>[
-                for (final c in entry.children)
-                  MenuItem(
-                    label: c.checked ? '✓ ${c.label}' : c.label,
-                    onClicked: () => _onTrayRouting(c.id),
-                  ),
-              ],
-            ),
-          );
-        case TrayItemKind.serversSubmenu:
-          items.add(
-            SubMenu(
-              label: entry.label,
-              children: <MenuItemBase>[
-                for (final c in entry.children)
-                  MenuItem(
-                    label: c.checked ? '✓ ${c.label}' : c.label,
-                    onClicked: () => _onTrayNode(c.id),
-                  ),
-              ],
-            ),
-          );
-        case TrayItemKind.item:
-          items.add(
-            MenuItem(
-              label: entry.checked ? '✓ ${entry.label}' : entry.label,
-              onClicked: () => _onTrayAction(entry),
-            ),
-          );
-      }
-    }
-    await _tray.setContextMenu(items);
   }
 
   void _onTrayAction(TrayMenuItem entry) {
@@ -269,7 +279,7 @@ class DesktopIntegration with WindowListener {
     } else {
       _platform.setMessage('切换节点 ($id) 尚未接入');
     }
-    _refreshTrayMenu();
+    unawaited(_syncTray());
   }
 
   void _onTrayRouting(String id) {
@@ -279,7 +289,7 @@ class DesktopIntegration with WindowListener {
     } else {
       _platform.setMessage('切换路由 ($id) 尚未接入');
     }
-    _refreshTrayMenu();
+    unawaited(_syncTray());
   }
 
   /// Apply a system-proxy mode through the shared command so the tray, the
@@ -289,7 +299,7 @@ class DesktopIntegration with WindowListener {
   /// resynced.
   void _applyProxyMode(SysProxyMode mode) {
     _platform.applyModeFromConfig(mode);
-    _refreshTrayMenu();
+    unawaited(_syncTray());
   }
 
   /// Route an OS hotkey press into the same entry points as the tray/menus
@@ -348,8 +358,13 @@ class DesktopIntegration with WindowListener {
     await windowManager.destroy();
   }
 
-  /// Detach the window listener on teardown.
+  /// Detach the window listener and stop the tray read-model subscriptions.
   void removeListener() {
+    for (final sub in _subscriptions) {
+      sub.close();
+    }
+    _subscriptions.clear();
+    _sync = null;
     windowManager.removeListener(this);
   }
 
@@ -360,6 +375,85 @@ class DesktopIntegration with WindowListener {
     return ref
         .read(platformBridgeProvider)
         .setAutostart(name: name, enabled: enabled, exe: exePath, args: '');
+  }
+}
+
+/// Real tray surface (RR-08): translates the ledger menu model into
+/// `system_tray` items and pushes the icon path for the derived status. It is
+/// the only place the plugin is touched; tests use a recording surface instead.
+class _SystemTraySurface implements TraySurface {
+  _SystemTraySurface(
+    this._tray, {
+    required this.iconPathFor,
+    required this.onRouting,
+    required this.onNode,
+    required this.onAction,
+  });
+
+  final SystemTray _tray;
+  final String Function(TrayIconStatus status) iconPathFor;
+  final void Function(String id) onRouting;
+  final void Function(String id) onNode;
+  final void Function(TrayMenuItem entry) onAction;
+  TrayIconStatus? _iconStatus;
+
+  @override
+  Future<void> applyMenu(List<TrayMenuItem> model) async {
+    final items = <MenuItemBase>[];
+    for (final entry in model) {
+      if (entry.separatorBefore) items.add(MenuSeparator());
+      switch (entry.kind) {
+        case TrayItemKind.routingSubmenu:
+          items.add(
+            SubMenu(
+              label: entry.label,
+              children: <MenuItemBase>[
+                for (final c in entry.children)
+                  MenuItem(
+                    label: c.checked ? '✓ ${c.label}' : c.label,
+                    onClicked: () => onRouting(c.id),
+                  ),
+              ],
+            ),
+          );
+        case TrayItemKind.serversSubmenu:
+          items.add(
+            SubMenu(
+              label: entry.label,
+              children: <MenuItemBase>[
+                for (final c in entry.children)
+                  MenuItem(
+                    label: c.checked ? '✓ ${c.label}' : c.label,
+                    onClicked: () => onNode(c.id),
+                  ),
+              ],
+            ),
+          );
+        case TrayItemKind.item:
+          items.add(
+            MenuItem(
+              label: entry.checked ? '✓ ${entry.label}' : entry.label,
+              onClicked: () => onAction(entry),
+            ),
+          );
+      }
+    }
+    try {
+      await _tray.setContextMenu(items);
+    } on Object catch (e) {
+      debugPrint('[desktop] tray menu update failed: $e');
+    }
+  }
+
+  @override
+  Future<void> applyIcon(TrayIconStatus status) async {
+    if (_iconStatus == status) return;
+    _iconStatus = status;
+    try {
+      await _tray.setImage(iconPathFor(status));
+    } on Object catch (e) {
+      debugPrint('[desktop] tray icon update failed: $e');
+    }
   }
 }
 

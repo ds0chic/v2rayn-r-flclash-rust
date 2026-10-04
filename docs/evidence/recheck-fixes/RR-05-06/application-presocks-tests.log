@@ -1,0 +1,13 @@
+   Compiling runtime v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\runtime)
+   Compiling application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.19s
+     Running unittests src\lib.rs (target\debug\deps\application-7735c105c4c3edff.exe)
+
+running 4 tests
+test custom::tests::rejects_bad_pre_socks_port ... ok
+test engine::tests::pre_socks_custom_default_core_uses_core_type_binding ... ok
+test engine::tests::pre_socks_custom_falls_back_to_xray_without_binding ... ok
+test engine::tests::pre_socks_legacy_sidecar_uses_base_port_and_real_socks_config ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 207 filtered out; finished in 0.01s
+

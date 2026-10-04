@@ -819,9 +819,14 @@ String? certSha256Thumbprint(String pemBlock) {
       .substring(header + 5, endMarker)
       .replaceAll(RegExp(r'\s'), '');
   if (body.isEmpty) return null;
-  // A malformed body cannot be decoded; upstream returns empty and the caller
-  // leaves the SHA untouched.
-  final bytes = base64.decode(body);
+  // A malformed body (bad characters / bad padding) cannot be decoded; upstream
+  // catches this and returns empty so the caller leaves CertSha untouched.
+  final List<int> bytes;
+  try {
+    bytes = base64.decode(body);
+  } on FormatException {
+    return null;
+  }
   final digest = _sha256(bytes);
   return digest.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
 }
@@ -840,22 +845,43 @@ String? certShaFromChain(String pem) {
   return shas.join(',');
 }
 
+/// Pick the handshake server name for the certificate helpers, mirroring
+/// upstream `AddServerViewModel.FetchCert`: SNI -> transport host -> address.
+String selectCertFetchServerName({
+  String? sni,
+  String? transportHost,
+  required String address,
+}) {
+  final explicit = sni?.trim() ?? '';
+  if (explicit.isNotEmpty) return explicit;
+  final transport = transportHost?.trim() ?? '';
+  if (transport.isNotEmpty) return transport;
+  return address.trim();
+}
+
 /// Fetch the peer's leaf certificate as a PEM block (`CertPemManager.GetCertPemAsync`).
 ///
-/// `dart:io` exposes only the leaf certificate; the chain variant below reuses
-/// it and callers keep the leaf-only limitation. Never bypasses verification on
-/// purpose for the host, but accepts the handshake so an expired/self-signed
-/// pinning target can still be inspected (upstream behavior).
+/// The handshake connects to and presents [serverName] when it is non-empty
+/// (upstream passes SNI / transport host / address in that order), so an IP
+/// address is never silently connected with the wrong certificate. `dart:io`
+/// cannot connect to one host while sending SNI for another, so the connect
+/// target is the selected name (callers use [selectCertFetchServerName]).
+/// Verification is still accepted for an expired/self-signed pinning target
+/// (upstream behavior).
 Future<String?> fetchPeerCertPem({
   required String host,
   required int port,
   String? serverName,
   Duration timeout = const Duration(seconds: 8),
 }) async {
+  final target = (serverName ?? '').trim().isEmpty
+      ? host.trim()
+      : serverName!.trim();
+  if (target.isEmpty) return null;
   SecureSocket? socket;
   try {
     socket = await SecureSocket.connect(
-      host,
+      target,
       port,
       onBadCertificate: (_) => true,
       timeout: timeout,
@@ -868,18 +894,36 @@ Future<String?> fetchPeerCertPem({
   }
 }
 
-/// Fetch the certificate chain as concatenated PEM. `dart:io` only returns the
-/// leaf, so this matches [fetchPeerCertPem] on this platform.
-Future<String?> fetchPeerCertChainPem({
+/// Result of a chain fetch. `dart:io` exposes only the leaf certificate, so
+/// [leafOnly] is always true on this platform; the UI must not report a full
+/// chain (upstream `GetCertChainPemAsync` is blocked here).
+class PeerCertChainResult {
+  const PeerCertChainResult({required this.pem, required this.leafOnly});
+
+  final String pem;
+  final bool leafOnly;
+}
+
+/// Wrap one fetched PEM as a chain result. Only the leaf is available from
+/// `dart:io`, so [leafOnly] is always true here.
+PeerCertChainResult? peerCertChainResult(String? leaf) =>
+    leaf == null ? null : PeerCertChainResult(pem: leaf, leafOnly: true);
+
+/// Fetch the certificate chain. `dart:io` only returns the leaf, so this is
+/// explicitly reported as [PeerCertChainResult.leafOnly]; a complete chain is
+/// blocked on this platform rather than faked.
+Future<PeerCertChainResult?> fetchPeerCertChainPem({
   required String host,
   required int port,
   String? serverName,
   Duration timeout = const Duration(seconds: 8),
-}) => fetchPeerCertPem(
-  host: host,
-  port: port,
-  serverName: serverName,
-  timeout: timeout,
+}) async => peerCertChainResult(
+  await fetchPeerCertPem(
+    host: host,
+    port: port,
+    serverName: serverName,
+    timeout: timeout,
+  ),
 );
 
 String _derToPem(List<int> der) {

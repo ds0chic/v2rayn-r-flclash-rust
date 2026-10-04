@@ -37,11 +37,13 @@ pub const DEFAULT_TUN_MTU_FALLBACK: u16 = 1280;
 
 /// Env overrides for the TUN helper hints during isolated/dry-run runs.
 ///
-/// The TUN adapter is created by the core; the OS interface index is normally
-/// discovered after the core starts (tracked as the FIX-13 discovery blocker).
-/// These variables let an isolated run provide the adapter/index explicitly so
-/// the plan -> helper -> core chain can be exercised without a real adapter.
-/// An unset or non-numeric index stays `0`, which the builder rejects loudly.
+/// The OS interface index is discovered from the live adapter name (controlled
+/// `netsh interface ipv4 show interfaces` query on Windows) instead of being a
+/// mandatory operator variable. `V2RAYN_R_TUN_ADAPTER` selects/relabels the
+/// adapter and `V2RAYN_R_TUN_INTERFACE_INDEX` remains an explicit override for
+/// isolated runs and tests whose adapter does not exist yet. Discovery is
+/// best-effort: an unknown adapter stays `0`, which the builder rejects loudly
+/// rather than guessing an index. Real device creation stays a blocked path.
 pub fn tun_hints_from_env() -> TunPlanHints {
     let mut hints = TunPlanHints::default();
     if let Ok(name) = std::env::var("V2RAYN_R_TUN_ADAPTER") {
@@ -49,12 +51,70 @@ pub fn tun_hints_from_env() -> TunPlanHints {
             hints.adapter_name = name;
         }
     }
-    if let Ok(index) = std::env::var("V2RAYN_R_TUN_INTERFACE_INDEX") {
-        if let Ok(parsed) = index.trim().parse::<u32>() {
-            hints.interface_index = parsed;
+    let explicit = std::env::var("V2RAYN_R_TUN_INTERFACE_INDEX")
+        .ok()
+        .and_then(|value| value.trim().parse::<u32>().ok())
+        .unwrap_or(0);
+    hints.interface_index = resolve_interface_index(&hints.adapter_name, explicit);
+    hints
+}
+
+/// Resolve the interface index: an explicit non-zero override wins, otherwise
+/// the adapter is discovered from the OS. `0` means "unknown" and is rejected
+/// by [`tun_spec_from_settings`].
+pub fn resolve_interface_index(adapter_name: &str, explicit: u32) -> u32 {
+    if explicit != 0 {
+        return explicit;
+    }
+    discover_interface_index(adapter_name).unwrap_or(0)
+}
+
+/// Query the OS for the index of `adapter_name` (case-insensitive). On Windows
+/// this parses the controlled `netsh interface ipv4 show interfaces` output;
+/// other platforms return `None` (the helper/backend is Windows-only in T14).
+#[cfg(windows)]
+pub fn discover_interface_index(adapter_name: &str) -> Option<u32> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let output = std::process::Command::new("netsh")
+        .args(["interface", "ipv4", "show", "interfaces"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_interface_index(&String::from_utf8_lossy(&output.stdout), adapter_name)
+}
+
+#[cfg(not(windows))]
+pub fn discover_interface_index(_adapter_name: &str) -> Option<u32> {
+    None
+}
+
+/// Parse `netsh interface ipv4 show interfaces` output for the row whose Name
+/// column equals `adapter_name`. Layout: `Idx Met MTU State Name...`; the name
+/// may contain spaces. Pure and unit-testable with mock output.
+pub fn parse_interface_index(output: &str, adapter_name: &str) -> Option<u32> {
+    let want = adapter_name.trim().to_ascii_lowercase();
+    if want.is_empty() {
+        return None;
+    }
+    for line in output.lines() {
+        let mut parts = line.split_whitespace();
+        let Some(index) = parts.next().and_then(|token| token.parse::<u32>().ok()) else {
+            continue;
+        };
+        let rest: Vec<&str> = parts.collect();
+        if rest.len() < 4 {
+            continue;
+        }
+        let name = rest[3..].join(" ");
+        if name.trim().to_ascii_lowercase() == want {
+            return Some(index);
         }
     }
-    hints
+    None
 }
 
 /// Operator hints that settings alone cannot provide: the OS interface index
@@ -363,5 +423,41 @@ mod tests {
         let mut plan = blank_plan();
         assert!(attach_tun_to_plan(&mut plan, &bad).is_err());
         assert!(!plan.network_policy.tun_enabled);
+    }
+
+    /// Real `netsh interface ipv4 show interfaces` shape (English Win11).
+    const NETSH_SAMPLE: &str = "\r\n\
+Idx     Met    MTU          State                Name\r\n\
+---  ----------  ----------  ------------  ---------------------------\r\n\
+  1          75  4294967295  connected     Loopback Pseudo-Interface 1\r\n\
+  7          35  1500        disconnected  Wi-Fi\r\n\
+  9          25  1500        connected     v2rayn-tun\r\n";
+
+    #[test]
+    fn parse_finds_adapter_by_name_and_skips_header() {
+        assert_eq!(parse_interface_index(NETSH_SAMPLE, "v2rayn-tun"), Some(9));
+        assert_eq!(parse_interface_index(NETSH_SAMPLE, "V2RAYN-TUN"), Some(9));
+        assert_eq!(parse_interface_index(NETSH_SAMPLE, "Wi-Fi"), Some(7));
+    }
+
+    #[test]
+    fn parse_missing_or_blank_adapter_is_none() {
+        assert_eq!(parse_interface_index(NETSH_SAMPLE, "nope"), None);
+        assert_eq!(parse_interface_index(NETSH_SAMPLE, ""), None);
+        assert_eq!(parse_interface_index("garbage\nnot a table", "x"), None);
+    }
+
+    #[test]
+    fn parse_handles_adapter_names_with_spaces() {
+        let sample = "  4   10   1500  connected  My TUN Adapter Name\r\n";
+        assert_eq!(
+            parse_interface_index(sample, "my tun adapter name"),
+            Some(4)
+        );
+    }
+
+    #[test]
+    fn explicit_index_wins_over_discovery() {
+        assert_eq!(resolve_interface_index("v2rayn-tun", 42), 42);
     }
 }

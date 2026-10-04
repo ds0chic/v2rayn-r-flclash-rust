@@ -1,0 +1,35 @@
+===== test\recheck_reprof11_node_picker_test.dart =====
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_reprof11_node_picker_test.dart
+00:00 +0: renders chrome, then group/search/sort/autofit respond
+00:00 +1: All tests passed!
+exit=0
+===== test\recheck_reprof11_picker_type_exclude_test.dart =====
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_reprof11_picker_type_exclude_test.dart
+00:00 +0: exclude filter hides the constrained type
+00:00 +1: All tests passed!
+exit=0
+===== test\recheck_reprof11_picker_type_include_test.dart =====
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_reprof11_picker_type_include_test.dart
+00:00 +0: include filter keeps only the listed type
+00:00 +1: All tests passed!
+exit=0
+===== test\recheck_reprof11_picker_multi_test.dart =====
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_reprof11_picker_multi_test.dart
+00:00 +0: select-all confirms in candidate order
+00:00 +1: All tests passed!
+exit=0
+===== test\recheck_reprof11_picker_single_test.dart =====
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_reprof11_picker_single_test.dart
+00:00 +0: single-select returns one row
+00:00 +1: All tests passed!
+exit=0
+===== test\recheck_reprof11_picker_cancel_test.dart =====
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_reprof11_picker_cancel_test.dart
+00:00 +0: cancel returns null
+00:00 +1: All tests passed!
+exit=0
+===== test\recheck_reprof11_child_batch_remove_test.dart =====
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_reprof11_child_batch_remove_test.dart
+00:00 +0: selecting children enables and runs batch removal
+00:00 +1: All tests passed!
+exit=0

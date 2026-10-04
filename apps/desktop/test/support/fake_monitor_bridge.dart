@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:v2rayn_desktop/bridge/api/contract.dart' as contract;
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
 
@@ -20,6 +21,7 @@ class FakeMonitorBridge implements MonitorBridge {
     this.clashModes = const <String>['Rule', 'Global', 'Direct'],
     this.modeFails = false,
     this.closeAllFails = false,
+    this.statsError,
   }) : proxies = proxies ?? <m.ClashProxyDto>[],
        connections = connections ?? <m.ClashConnectionDto>[],
        logs = List<m.LogLineDto>.of(initialLogs ?? const <m.LogLineDto>[]);
@@ -35,6 +37,10 @@ class FakeMonitorBridge implements MonitorBridge {
   bool modeFails;
   bool closeAllFails;
   String? delayUrl;
+
+  /// When set, [statsSnapshot] reports it so a store bind/load failure is
+  /// visible to the controller.
+  contract.ErrorDto? statsError;
 
   // Recorded calls.
   final List<String> configured = <String>[];
@@ -146,6 +152,7 @@ class FakeMonitorBridge implements MonitorBridge {
     directUp: BigInt.zero,
     directDown: BigInt.zero,
     nodes: const <m.NodeTrafficDto>[],
+    error: statsError,
   );
 
   @override

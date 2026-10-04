@@ -103,9 +103,7 @@ Flutter（apps/desktop，逐文件顺序运行，全部 exit 0）：
 
 分别 **1/1、1/1、4/4、6/6**，共 **12** 个 fake bridge/registrar 用例。没有执行真实宿主热键注册。
 
-A→B→A 附加 harness 位于临时目录（未加入仓库）：
-
-`C:/Users/Colby/AppData/Local/Temp/v2rayn-round3-import-a2e0169ca887428c893b43fb9b2bc2dd/repro.rs`
+A→B→A 附加 harness 已归档为 [round3-settings-repro.rs](./round3-settings-repro.rs)，仅合成数据。它最初在 `C:/Users/Colby/AppData/Local/Temp/v2rayn-round3-import-a2e0169ca887428c893b43fb9b2bc2dd/repro.rs` 编译/执行；归档副本与执行源相同，便于 Temp 清理后仍可复现。下述临时路径/rlib 哈希是本轮执行记录；重建时使用归档源码及新编译产物路径。
 
 可重复步骤：创建全新临时目录下的 A、B、live；用 `Store::create` 与 `persistence::UPSTREAM_TABLES` 建两个合成上游 DB，分别插入唯一 Custom ProfileItem（IndexId=node-a/node-b，ConfigType=2，ConfigVersion=4，Address=custom.json，无凭据）；A guiNConfig 的 IndexId=node-a、UIItem.CurrentTheme=Dark，B 为 node-b/Light；各写 `config/custom.json` 为 `{"outbounds":[{"protocol":"freedom"}]}`。对同一个 BackupService(live) 依次 import_upstream(A)、import_upstream(B)、import_upstream(A)，每次使用独立 work 目录。查询 ProfileItem 总数、live guiNConfig 的主题与 active_index_id，再按 active_index_id 查询对应 ProfileItem 数。原临时目录已含运行输出数据，再跑请传**新的**临时目录参数。
 
@@ -126,4 +124,4 @@ A_again=AlreadyImported; theme_after_A_again=Light; active_exists=0
 
 未运行：真实 Flutter/FRB 的部分成功订阅下载、原版 ZIP 选择器及恢复后真正核心启动、slow download 与恢复并发、K→恢复 J 的原生注册刷新、部分热键注册冲突后的继续录制、macOS/Linux。SR-04 的 restore_previous/rollback_database 仍忽略 fs 失败（`backup_service.rs:811`、`:830`），with_rollback_note 无条件称已回滚（`:611`）；本轮验证的是三个既定前向失败点在临时目录成功回滚，**没有验证回滚本身失败**。reopen 失败后恢复 UI 的“已保留现有配置”文案也不等价于实际磁盘未交换（`backup_controller.dart:189`，`backup_service.rs:582`）。这些需作为故障验收边界保留，不能用通过数覆盖。
 
-未重算旧 800 行完成率，未改变台账分母。本轮唯一仓库交付是本报告。
+未重算旧 800 行完成率，未改变台账分母。本轮仓库交付仅本报告及合成重现 harness。

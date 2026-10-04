@@ -23,5 +23,5 @@
 - `flutter analyze`：0 issue；`cargo fmt --all -- --check`：通过。当前外部未提交的拖选改动随时在变化，门禁是运行时快照。
 - `cargo clippy --workspace --all-targets --locked -- -D warnings`：通过；`cargo test --workspace --locked`：exit 0，所有非 ignored 测试通过。测试通过只证明现有断言成立；预 SOCKS 启动顺序等与冻结源码相反的断言仍需纠正。
 - `flutter test test/recheck_r01_runtime_reload_test.dart -r expanded`：3/3通过；其中一项正验证上述 busy no-op，**通过不等于原版合同对齐**。
-- `profiles_selection_test.dart` 整文件第一次与 `flutter analyze` 并行，且运行中有人拆分/修改测试文件，出现 `did not complete`；该结果不作稳定产品结论。之后按旧的三个用例分别单进程顺序跑均通过。新增自动滚动测试仍在外部编辑中，本报告未认定其状态。
+- `profiles_selection_test.dart` 整文件第一次与 `flutter analyze` 并行，且运行中有人拆分/修改测试文件，出现 `did not complete`；该结果不作稳定产品结论。之后按旧的三个用例分别单进程顺序跑均通过。外部拆分文件稳定后，`profiles_select_basic_test.dart`、`profiles_drag_select_test.dart`、`profiles_drag_select_up_test.dart`、`profiles_drag_scroll_down_test.dart`、`profiles_drag_scroll_up_test.dart` 各自单进程顺序运行，**5/5 exit 0**。这些断言验证当前未提交工作树的鼠标框选/边缘滚动，不是已打包 RC 的证据；未对原版双窗口真实手势逐事件比较。
 - 未运行宿主系统代理、TUN/UAC、安装器卸载、真实远端升级、原版窗口或完整 Flutter 门禁。只有合成数据，未触碰 10808 和用户秘密。

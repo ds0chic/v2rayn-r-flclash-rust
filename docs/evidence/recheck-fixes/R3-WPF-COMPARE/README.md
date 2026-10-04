@@ -120,3 +120,12 @@
 2. 立卡 `R3-WPF-Routing-Structure`（R1–R4）。
 3. 立卡 `R3-WPF-Main-Chrome`（M2/M3/M5/M8，确认 M1 主题与 M4 额外按钮取舍）。
 4. 后续如需逐事件对照，需稳定的 Light 证据运行与菜单逐项展开脚本；TUN/系统代理/内核效果按项目约束在隔离环境单独验收。
+
+## 8. Wave K 后重拍（最终包 ff45519）
+
+三张 RC 截图（`rc-main.png` / `rc-option.png` / `rc-routing.png`）已用最终包（build-info `git_commit=ff45519`、`git_dirty=false`、zip sha256 `d3b4a07a…`）经同一 `capture_rc.ps1` 隔离重拍；上表 O/R/M 差异中以下项已在 Wave K 修复（见 `R3-WPF-OPTION/`、`R3-WPF-ROUTING/`、`R3-WPF-MAIN-CHROME/`）：
+
+- 设置窗口：标题「设置」、五页 `Core: 基础设置 / v2rayN 设置 / 系统代理设置 / Tun 模式设置 / Core 类型设置`、`确定/取消`、无裸 key（`settings.saved` 已本地化）、补 `认证用户名/认证密码` 与 `默认 TLS 指纹`；KCP 标历史保留。
+- 路由窗口：`预定义规则集列表` 标题、顶部 `添加规则集/一键导入规则集`、列头 `别名/数量/排序/可选地址 (Url)/自定义图标`、去掉非上游 `状态` 列。
+- 主窗口：行头 40px 无 `#`、状态栏 `本地/局域网/启用 Tun`、根菜单分隔线（`main_shell.dart:614-619` 已渲染）、`重启服务` 命名。
+- 仍为有意增强（不回退）：M1 主题跟随系统、M4 `运行时 应用/停止`、M6 空态、M7 底部信息区；窗口形态（内嵌 dialog）登记 `R3-WPF-WINDOW-FORM`。

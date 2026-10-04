@@ -1993,8 +1993,8 @@ t17_screenshot_evidence:
 #     Partition: speeds stay right; runtime 今日/revision/epoch/counts registered as
 #     intentional RC enhancements.
 #   M8 (LAY-MAIN-004): AppMenuEntry.separatorAfter added and marked per MainWindow.xaml
-#     (配置项 3 / 订阅分组 1 / 设置 2 / 帮助 1); rendering patch for main_shell is in
-#     docs/evidence/recheck-fixes/R3-WPF-MAIN-CHROME/README.md §3a (not yet landed).
+#     (配置项 3 / 订阅分组 1 / 设置 2 / 帮助 1); rendering landed in
+#     main_shell.dart:614-619 (root menu divider rendering).
 #   M2: root menu 重载 -> 重启服务 (ResUI.menuReload), F5 chip dropped (upstream has no
 #     InputGestureText); ACT-MAIN-035 unchanged.
 #   M1/M4/M6/M7 (theme-follows-system, runtime 应用/停止, layout-selector, empty state,

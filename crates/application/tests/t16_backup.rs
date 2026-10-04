@@ -8,6 +8,45 @@ use std::path::{Path, PathBuf};
 use application::BackupService;
 use persistence::Store;
 
+fn write_synthetic_upstream_db(path: &Path) {
+    let store = Store::create(path).expect("create upstream db");
+    let conn = store.connection();
+    for table in persistence::UPSTREAM_TABLES {
+        conn.execute_batch(&table.create_sql())
+            .expect("upstream table");
+    }
+    conn.execute(
+        "INSERT INTO ProfileItem \
+         (IndexId, ConfigType, ConfigVersion, Subid, Remarks, Address, Security, Id) \
+         VALUES ('node-custom', 2, 4, '', 'custom', 'custom.json', '', '')",
+        [],
+    )
+    .expect("insert custom profile");
+    drop(store);
+}
+
+fn build_upstream_zip(zip_path: &Path, config: &str, db: &Path, resources: &[(&str, &[u8])]) {
+    let file = std::fs::File::create(zip_path).expect("zip file");
+    let mut writer = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+    writer
+        .start_file("guiConfigs/guiNConfig.json", options)
+        .expect("config member");
+    writer.write_all(config.as_bytes()).expect("config bytes");
+    let db_bytes = std::fs::read(db).expect("read source db");
+    writer
+        .start_file("guiConfigs/guiNDB.db", options)
+        .expect("db member");
+    writer.write_all(&db_bytes).expect("db bytes");
+    for (relative, bytes) in resources {
+        writer
+            .start_file(format!("guiConfigs/{relative}"), options)
+            .expect("resource member");
+        writer.write_all(bytes).expect("resource bytes");
+    }
+    writer.finish().expect("finish zip");
+}
+
 fn seed_data_dir(dir: &Path, remarks: &str) {
     let db = dir.join("guiNDB.db");
     let store = Store::create(&db).expect("create db");
@@ -320,4 +359,203 @@ fn upstream_import_activates_config_and_active_id() {
         engine.active_profile().as_deref(),
         Some(expected_active.as_str())
     );
+}
+
+#[test]
+fn upstream_import_installs_resources_and_generates_file_node() {
+    let work = tempfile::tempdir().expect("work");
+    let src_db = work.path().join("source-guiNDB.db");
+    write_synthetic_upstream_db(&src_db);
+
+    let custom: &[u8] = br#"{"outbounds":[{"tag":"custom-out","protocol":"freedom"}]}"#;
+    let pac: &[u8] = b"function FindProxyForURL(){}";
+    let script: &[u8] = b"// upstream script";
+    let zip_path = work.path().join("upstream.zip");
+    build_upstream_zip(
+        &zip_path,
+        r#"{"IndexId":"node-custom","SubIndexId":"","UIItem":{"CurrentTheme":"Dark"},"BrandNewRootItem":{"x":1}}"#,
+        &src_db,
+        &[
+            ("config/custom.json", custom),
+            ("pac.txt", pac),
+            ("scripts/check.js", script),
+        ],
+    );
+
+    let data = work.path().join("data");
+    std::fs::create_dir_all(&data).expect("data");
+    let service = BackupService::new(&data);
+    let report = service
+        .import_upstream(&zip_path, &work.path().join("import-work"), 7)
+        .expect("import");
+    assert!(
+        matches!(report.status, persistence::ImportStatus::Imported),
+        "status: {:?}",
+        report.status
+    );
+
+    // Resources land at their live-relative paths with matching hashes.
+    let live_custom = data.join("config/custom.json");
+    assert!(live_custom.is_file(), "config/custom.json not installed");
+    assert_eq!(
+        persistence::hash::sha256_file(&live_custom).expect("hash live"),
+        persistence::hash::sha256_hex(custom)
+    );
+    assert!(data.join("pac.txt").is_file(), "pac.txt not installed");
+    assert!(
+        data.join("scripts/check.js").is_file(),
+        "nested script not installed"
+    );
+    // The database/config members are not duplicated as resources.
+    assert!(!data.join("guiNConfig.json.tmp-restore").exists());
+
+    // Reopen: the file-type active node generates from the live file content.
+    let engine = application::AppEngine::open(&data).expect("open engine");
+    let active = engine.active_profile().expect("active profile");
+    let expected = persistence::hash::derived_id(
+        "profile",
+        &format!("{}:node-custom", report.source_fingerprint),
+    );
+    assert_eq!(active, expected);
+    let input = engine
+        .build_codegen_input(
+            &active,
+            domain::CoreType::Xray,
+            &application::codegen::CodegenOptions::default(),
+        )
+        .expect("codegen input");
+    let text = input.profile.custom_config.as_deref().unwrap_or("");
+    assert!(
+        text.contains("custom-out"),
+        "custom config not resolved from the live file: {text}"
+    );
+}
+
+#[test]
+fn config_activation_failure_rolls_back_committed_import() {
+    let work = tempfile::tempdir().expect("work");
+    let data = work.path().join("data");
+    std::fs::create_dir_all(&data).expect("data");
+    {
+        let store = Store::create(data.join("guiNDB.db")).expect("target db");
+        store
+            .connection()
+            .execute(
+                "INSERT INTO SubItem (Id, Remarks) VALUES ('old', 'existing')",
+                [],
+            )
+            .expect("seed row");
+    }
+    // Force `activate_upstream_config` to fail: the live config path is a
+    // directory, so `write_json_atomic` cannot replace it.
+    std::fs::create_dir(data.join("guiNConfig.json")).expect("blocking dir");
+
+    let src_db = work.path().join("source-guiNDB.db");
+    write_synthetic_upstream_db(&src_db);
+    let zip_path = work.path().join("upstream.zip");
+    build_upstream_zip(
+        &zip_path,
+        r#"{"IndexId":"node-custom"}"#,
+        &src_db,
+        &[("config/custom.json", b"{\"a\":1}")],
+    );
+
+    let service = BackupService::new(&data);
+    let result = service.import_upstream(&zip_path, &work.path().join("import-work"), 7);
+    assert!(result.is_err(), "activation should have failed");
+
+    // Database rolled back to the pre-import row, resources not installed.
+    let store = Store::open(data.join("guiNDB.db")).expect("open rolled-back db");
+    assert_eq!(store.count_rows("SubItem").expect("count"), 1);
+    let remark: String = store
+        .connection()
+        .query_row("SELECT Remarks FROM SubItem LIMIT 1", [], |r| r.get(0))
+        .expect("remark");
+    assert_eq!(remark, "existing");
+    assert!(!data.join("config/custom.json").exists());
+}
+
+#[test]
+fn resource_install_failure_rolls_back_config_and_database() {
+    let work = tempfile::tempdir().expect("work");
+    let data = work.path().join("data");
+    std::fs::create_dir_all(&data).expect("data");
+    {
+        let store = Store::create(data.join("guiNDB.db")).expect("target db");
+        store
+            .connection()
+            .execute(
+                "INSERT INTO SubItem (Id, Remarks) VALUES ('old', 'existing')",
+                [],
+            )
+            .expect("seed row");
+    }
+    std::fs::write(data.join("guiNConfig.json"), r#"{"IndexId":"old-config"}"#)
+        .expect("old config");
+    // Block the resource destination: `config` is a regular file, so the nested
+    // `config/custom.json` copy cannot create its parent directory.
+    std::fs::write(data.join("config"), b"blocker").expect("blocker");
+
+    let src_db = work.path().join("source-guiNDB.db");
+    write_synthetic_upstream_db(&src_db);
+    let zip_path = work.path().join("upstream.zip");
+    build_upstream_zip(
+        &zip_path,
+        r#"{"IndexId":"node-custom"}"#,
+        &src_db,
+        &[("config/custom.json", b"{\"a\":1}")],
+    );
+
+    let service = BackupService::new(&data);
+    let result = service.import_upstream(&zip_path, &work.path().join("import-work"), 7);
+    assert!(result.is_err(), "resource install should have failed");
+
+    let store = Store::open(data.join("guiNDB.db")).expect("open rolled-back db");
+    assert_eq!(store.count_rows("SubItem").expect("count"), 1);
+    let remark: String = store
+        .connection()
+        .query_row("SELECT Remarks FROM SubItem LIMIT 1", [], |r| r.get(0))
+        .expect("remark");
+    assert_eq!(remark, "existing");
+    let config = std::fs::read_to_string(data.join("guiNConfig.json")).expect("config");
+    assert_eq!(config, r#"{"IndexId":"old-config"}"#);
+}
+
+#[test]
+fn restore_prior_config_snapshot_failure_rolls_back_database() {
+    let src = tempfile::tempdir().expect("src");
+    seed_data_dir(src.path(), "source");
+    std::fs::write(
+        src.path().join("guiNConfig.json"),
+        r#"{"IndexId":"source"}"#,
+    )
+    .expect("src config");
+    let service = BackupService::new(src.path());
+    let parent = tempfile::tempdir().expect("bundle parent");
+    let bundle_root = parent.path().join("bundle");
+    service.create_local(&bundle_root, 1).expect("backup");
+
+    let target = tempfile::tempdir().expect("target");
+    seed_data_dir(target.path(), "existing");
+    std::fs::write(
+        target.path().join("guiNConfig.json"),
+        r#"{"IndexId":"existing"}"#,
+    )
+    .expect("existing config");
+    // Make the prior-config snapshot fail: the sibling path is a directory.
+    std::fs::create_dir(target.path().join("guiNConfig.json.restore-prev")).expect("blocking dir");
+
+    let target_service = BackupService::new(target.path());
+    let result = target_service.restore(&bundle_root, &target.path().join("work"));
+    assert!(result.is_err(), "prior snapshot should have failed");
+
+    let store = Store::open(target.path().join("guiNDB.db")).expect("open rolled-back db");
+    assert_eq!(store.count_rows("SubItem").expect("count"), 1);
+    let remark: String = store
+        .connection()
+        .query_row("SELECT Remarks FROM SubItem LIMIT 1", [], |r| r.get(0))
+        .expect("remark");
+    assert_eq!(remark, "existing");
+    let config = std::fs::read_to_string(target.path().join("guiNConfig.json")).expect("config");
+    assert_eq!(config, r#"{"IndexId":"existing"}"#);
 }

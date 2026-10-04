@@ -53,8 +53,9 @@ class _MainShellState extends ConsumerState<MainShell> {
       ref.read(trayCommandDelegateProvider).value = TrayCommandDelegate(
         onSharedCommand: (command) => _onMenuActionId(context, ref, command),
         onSelectNode: (id) => profile_actions.activateProfileById(ref, id),
-        onSelectRouting: (id) =>
-            ref.read(routingControllerProvider.notifier).select(id),
+        onSelectRouting: (id) => ref
+            .read(routingControllerProvider.notifier)
+            .setDefaultAndReload(id),
       );
       final open = Platform.environment['V2RAYN_R_OPEN_SUBS'];
       if (open == '1' || open == 'true') {

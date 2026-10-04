@@ -6,6 +6,7 @@ import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 class ProfileAction {
   static const selectAll = 'select-all';
   static const copy = 'copy';
+  static const exportShareUrl = 'export-share-url';
   static const edit = 'edit';
   static const share = 'share';
   static const tcping = 'tcping';
@@ -43,7 +44,7 @@ String? actionForKey({
   if (ctrl) {
     final mapping = <LogicalKeyboardKey, String>{
       LogicalKeyboardKey.keyA: ProfileAction.selectAll,
-      LogicalKeyboardKey.keyC: ProfileAction.copy,
+      LogicalKeyboardKey.keyC: ProfileAction.exportShareUrl,
       LogicalKeyboardKey.keyD: ProfileAction.edit,
       LogicalKeyboardKey.keyF: ProfileAction.share,
       LogicalKeyboardKey.keyO: ProfileAction.tcping,

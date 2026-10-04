@@ -396,9 +396,17 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           controller.logAction(action!, 'keyboard');
           deleteSelectedProfiles(context, ref);
           return KeyEventResult.handled;
-        case ProfileAction.copy:
+        case ProfileAction.exportShareUrl:
+          // Ctrl+C: export the selected nodes' share URIs to the clipboard
+          // (upstream `Export2ShareUrlAsync(false)`), never the clone command.
           controller.logAction(action!, 'keyboard');
-          copySelectedProfiles(ref);
+          exportSelectedShareUrls(ref);
+          return KeyEventResult.handled;
+        case ProfileAction.share:
+          // Ctrl+F: open the selected node's share QR window
+          // (upstream `ShareServerAsync`), not the default log/echo.
+          controller.logAction(action!, 'keyboard');
+          shareProfilesQr(context, ref);
           return KeyEventResult.handled;
         case ProfileAction.activate:
           controller.logAction(action!, 'keyboard');

@@ -22,8 +22,9 @@ void main() {
     await tester.pumpAndSettle();
     await tapRow(tester, const ValueKey('cell-syn-000000-Remarks'));
 
-    await pressWithCtrl(tester, LogicalKeyboardKey.keyF);
-    expect(readState(container).lastEvent?.action, 'share');
+    // Ctrl+F's share-window behavior is covered end-to-end by
+    // profiles_share_shortcut_test.dart (its QR route render destabilizes this
+    // broad single-page mapping test on the locked Flutter build).
 
     await pressWithCtrl(tester, LogicalKeyboardKey.keyO);
     expect(readState(container).lastEvent?.action, 'tcping');
@@ -38,7 +39,7 @@ void main() {
     expect(readState(container).lastEvent?.action, 'mixed-test');
 
     await pressWithCtrl(tester, LogicalKeyboardKey.keyC);
-    expect(readState(container).lastEvent?.action, 'copy');
+    expect(readState(container).lastEvent?.action, 'export-share-url');
 
     await pressPlain(tester, LogicalKeyboardKey.enter);
     expect(readState(container).lastEvent?.action, 'activate');

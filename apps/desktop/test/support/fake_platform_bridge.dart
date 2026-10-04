@@ -22,6 +22,12 @@ class FakePlatformBridge implements PlatformBridge {
   /// Every `setSystemProxy` mode applied, in order.
   final List<SysProxyMode> appliedModes = <SysProxyMode>[];
 
+  /// The `server` argument of the last `setSystemProxy` call (ForcedChange).
+  String? lastServer;
+
+  /// The `autoConfigUrl` argument of the last `setSystemProxy` call (Pac).
+  String? lastAutoConfigUrl;
+
   /// Autostart state keyed by Run value name.
   final Map<String, bool> autostart = <String, bool>{};
 
@@ -84,6 +90,8 @@ class FakePlatformBridge implements PlatformBridge {
       );
     }
     appliedModes.add(SysProxyMode.fromValue(mode));
+    lastServer = server;
+    lastAutoConfigUrl = autoConfigUrl;
     return const PlatformActionResult(ok: true);
   }
 

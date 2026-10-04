@@ -9,7 +9,6 @@ import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/tun_toggle.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
-import 'package:v2rayn_desktop/features/settings/proxy_settings_view.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
@@ -81,7 +80,7 @@ class StatusBarView extends ConsumerWidget {
                 key: const ValueKey('system-proxy-selector'),
                 tooltip: '系统代理',
                 onSelected: (mode) =>
-                    _applyMode(context, ref, platformController, mode),
+                    platformController.applyModeFromConfig(mode),
                 itemBuilder: (context) => <PopupMenuEntry<SysProxyMode>>[
                   for (final mode in SysProxyMode.values)
                     PopupMenuItem<SysProxyMode>(
@@ -125,7 +124,7 @@ class StatusBarView extends ConsumerWidget {
               PopupMenuButton<String>(
                 key: const ValueKey('routing-selector'),
                 tooltip: '路由',
-                onSelected: routingController.setDefault,
+                onSelected: routingController.setDefaultAndReload,
                 itemBuilder: (context) => <PopupMenuEntry<String>>[
                   if (routing.items.isEmpty)
                     const PopupMenuItem<String>(
@@ -299,52 +298,6 @@ String _activeSchemeLabel(RoutingState routing) {
     if (item.isActive) return item.remarks;
   }
   return routing.items.isEmpty ? '--' : routing.items.first.remarks;
-}
-
-/// Apply a system-proxy mode through the real bridge, computing the named
-/// proxy / PAC URL from the persisted settings and the running inbound port.
-void _applyMode(
-  BuildContext context,
-  WidgetRef ref,
-  PlatformController controller,
-  SysProxyMode mode,
-) {
-  // The settings document holds exceptions / advanced protocol / PAC path.
-  final settings = ref.read(settingsControllerProvider);
-  final config = ProxySettingsView.fromDocument(settings.document);
-  final basePort = _firstInboundPort(settings.document);
-  final server = buildProxyServer(
-    port: basePort,
-    advancedProtocol: config.advancedProtocol,
-  );
-  final bypass = buildProxyBypass(
-    exceptions: config.exceptions,
-    notProxyLocalAddress: config.notProxyLocalAddress,
-  );
-  switch (mode) {
-    case SysProxyMode.pac:
-      // PAC URL is only known once the PAC server is running; a real apply
-      // happens from the settings/exit wiring which owns the PAC lifecycle.
-      controller.setMessage('PAC 模式需要先启动 PAC 服务（设置/系统代理）');
-    case SysProxyMode.unchanged:
-      controller.apply(mode: mode);
-    case SysProxyMode.forcedClear:
-      controller.apply(mode: mode);
-    case SysProxyMode.forcedChange:
-      controller.apply(mode: mode, server: server, bypass: bypass);
-  }
-}
-
-/// The first inbound `LocalPort` from the settings document (the base port).
-int _firstInboundPort(Map<String, dynamic> document) {
-  final inbound = document['Inbound'];
-  if (inbound is List && inbound.isNotEmpty) {
-    final first = inbound.first;
-    if (first is Map<String, dynamic>) {
-      return (first['LocalPort'] as num?)?.toInt() ?? 10808;
-    }
-  }
-  return 10808;
 }
 
 class _Sep extends StatelessWidget {

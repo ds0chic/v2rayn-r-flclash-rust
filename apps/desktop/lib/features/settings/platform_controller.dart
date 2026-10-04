@@ -1,8 +1,11 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/proxy_settings_view.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 
 /// Riverpod controller for the T13 system-proxy / PAC / autostart surface.
 ///
@@ -156,6 +159,136 @@ class PlatformController extends Notifier<PlatformView> {
       clearPacPort: handle.port == null,
       error: handle.error,
     );
+  }
+
+  /// Unified system-proxy mode command shared by the status bar, the tray and
+  /// the startup restore (upstream `StatusBarViewModel.SetListenerType` +
+  /// `ChangeSystemProxyAsync`, and `MainWindowViewModel.LoadCore` ->
+  /// `UpdateSysProxy`).
+  ///
+  /// The proxy/PAC address prefers the actual applied session port carried by
+  /// the runtime status; a mode that needs a live proxy reports honestly when
+  /// there is no running session instead of pretending it applied. The
+  /// `SysProxyType` is persisted in every case so a reopen keeps the selection,
+  /// and PAC is served from the real `pac.txt` / custom script via
+  /// [startPacFromConfig].
+  PlatformActionResult applyModeFromConfig(
+    SysProxyMode mode, {
+    Map<String, dynamic>? document,
+    String? configDir,
+  }) {
+    final doc = document ?? ref.read(settingsControllerProvider).document;
+    final config = ProxySettingsView.fromDocument(doc);
+    final appliedPort = _appliedProxyPort();
+    switch (mode) {
+      case SysProxyMode.forcedChange:
+        if (appliedPort == null) return _noRunningSession(mode, doc);
+        return _persistAndReturn(
+          doc,
+          mode,
+          apply(
+            mode: mode,
+            server: buildProxyServer(
+              port: appliedPort,
+              advancedProtocol: config.advancedProtocol,
+            ),
+            bypass: buildProxyBypass(
+              exceptions: config.exceptions,
+              notProxyLocalAddress: config.notProxyLocalAddress,
+            ),
+          ),
+        );
+      case SysProxyMode.pac:
+        if (appliedPort == null) return _noRunningSession(mode, doc);
+        final handle = startPacFromConfig(
+          configDir: configDir ?? _configDir(),
+          customPacPath: config.customPacPath,
+          proxyRule: buildProxyServer(
+            port: appliedPort,
+            advancedProtocol: config.advancedProtocol,
+          ),
+        );
+        if (!handle.ok) {
+          _persistMode(doc, mode);
+          return PlatformActionResult(ok: false, error: handle.error);
+        }
+        return _persistAndReturn(
+          doc,
+          mode,
+          apply(mode: mode, autoConfigUrl: state.pacUrl),
+        );
+      case SysProxyMode.forcedClear:
+        stopPac();
+        return _persistAndReturn(doc, mode, apply(mode: mode));
+      case SysProxyMode.unchanged:
+        return _persistAndReturn(doc, mode, apply(mode: mode));
+    }
+  }
+
+  /// RR-03 startup restore: after the core restore, re-apply the persisted
+  /// `SysProxyType` (upstream `MainWindowViewModel.LoadCore` -> `UpdateSysProxy`).
+  /// `Unchanged` only reads the backend state back; the other modes reconcile
+  /// the system proxy / PAC so a reopen keeps the saved effect.
+  void restoreAppliedModeOnLaunch() {
+    final document = ref.read(settingsControllerProvider).document;
+    final mode = desiredModeFromSettings(document);
+    if (mode == SysProxyMode.unchanged) {
+      refresh(mode);
+      return;
+    }
+    applyModeFromConfig(mode, document: document);
+  }
+
+  /// The actual proxy port published by the running session, if any. The UI
+  /// must never guess this from the configured first inbound.
+  int? _appliedProxyPort() {
+    final runtime = ref.read(runtimeControllerProvider);
+    if (!runtime.isRunning) return null;
+    for (final port in runtime.ports) {
+      if (port > 0) return port;
+    }
+    return null;
+  }
+
+  PlatformActionResult _persistAndReturn(
+    Map<String, dynamic> document,
+    SysProxyMode mode,
+    PlatformActionResult result,
+  ) {
+    _persistMode(document, mode);
+    return result;
+  }
+
+  PlatformActionResult _noRunningSession(
+    SysProxyMode mode,
+    Map<String, dynamic> document,
+  ) {
+    _persistMode(document, mode);
+    state = state.copyWith(
+      desiredMode: mode,
+      error: const PlatformErrorView(
+        code: 'E_NO_RUNNING_SESSION',
+        messageKey: 'error.sysproxy_no_running_session',
+      ),
+      clearMessage: false,
+      message: '系统代理未应用：当前没有运行中的代理会话，请先运行节点',
+    );
+    return const PlatformActionResult(ok: false);
+  }
+
+  void _persistMode(Map<String, dynamic> document, SysProxyMode mode) {
+    ref
+        .read(settingsControllerProvider.notifier)
+        .saveGroup('SystemProxyItem', systemProxyItemWithMode(document, mode));
+  }
+
+  /// Upstream `Utils.GetConfigPath()`: `<dataDir>/config`.
+  String _configDir() {
+    final dataDir = ref.read(bridgePortProvider).dataDir();
+    if (dataDir.isEmpty) return 'config';
+    final last = dataDir[dataDir.length - 1];
+    if (last == '/' || last == r'\') return '${dataDir}config';
+    return '$dataDir${Platform.pathSeparator}config';
   }
 
   /// Restore only the fields this process still owns.

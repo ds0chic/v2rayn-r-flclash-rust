@@ -4982,3 +4982,26 @@ remediation_implementation_records:
     - docs/evidence/recheck-fixes/RR-01/README.md
     status: implemented
     note: RR-01 P1. Engine cores root (<data>/cores or V2RAYN_R_CORES_DIR) is forwarded by NetHostClient to the launched net-host as V2RAYN_R_CORES_ROOT; net-host CoreLocator gives that explicit root absolute priority, defaults to <data>/cores to match AppEngine::default_data_dir, and only uses tools/cores as a dev fallback that is disabled when an explicit root exists. Install (update_service::install_core_from_dir via t16 cores_root) and run resolve through the same CoreInstallLayout and same root. FIX-12 CoreInstallLayout semantics and PGP verification unchanged. Verified with temp data dir install->CoreLocator resolution, captured child env, and an opt-in real xray spawn from a temporary cores root (exe path starts_with temp root).
+
+  - id: RR-02
+    name: default routing command used by tray and status bar (not the editor selection)
+    implementation_location: apps/desktop/lib/features/routing/routing_controller.dart (setDefaultAndReload) + apps/desktop/lib/app/shell/status_bar_view.dart (routing-selector) + apps/desktop/lib/app/shell/desktop_integration.dart (tray checked=isActive)
+    test_ids:
+    - apps/desktop/test/recheck_rr02_03_test.dart
+    evidence:
+    - docs/evidence/recheck-fixes/RR-02-03/README.md
+    - docs/tasks/RR-02.md
+    status: implemented
+    note: RR-02 P1. Unified set-default-routing business command persists RoutingItem.IsActive and then triggers RuntimeController.reload at the original timing (upstream StatusBarViewModel.RoutingSelectedChangedAsync -> ReloadRequested). Both the tray routing menu and the status bar default-routing selector call it; the tray checkmark now reads IsActive instead of selectedId; RoutingController.select remains edit-selection only. Frozen main_shell.dart wiring patch recorded in docs/tasks/RR-02.md. No Rust/IPC change.
+
+  - id: RR-03
+    name: one system-proxy/PAC command across status bar, tray and reopen restore
+    implementation_location: apps/desktop/lib/features/settings/platform_controller.dart (applyModeFromConfig/restoreAppliedModeOnLaunch/_appliedProxyPort) + apps/desktop/lib/app/shell/status_bar_view.dart + apps/desktop/lib/app/shell/desktop_integration.dart
+    test_ids:
+    - apps/desktop/test/recheck_rr02_03_test.dart
+    - apps/desktop/test/t13_statusbar_test.dart
+    evidence:
+    - docs/evidence/recheck-fixes/RR-02-03/README.md
+    - docs/tasks/RR-03.md
+    status: implemented
+    note: RR-03 P1. Status bar, tray and hotkeys route through PlatformController.applyModeFromConfig; PAC goes through startPacFromConfig (real pac.txt/custom script, no inline minimal template); the proxy/PAC address prefers the actual AppliedSession ports from RuntimeView and a mode needing a live proxy reports E_NO_RUNNING_SESSION instead of faking success; SysProxyType is persisted in every case. Normal launch re-applies the saved mode after restoreActiveOnLaunch (upstream MainWindowViewModel.LoadCore -> UpdateSysProxy) via the frozen app.dart patch. Ownership exit restore (restoreOnExit) unchanged. Host system-proxy/PAC writes not run this round; platform state verified with the synthetic bridge.

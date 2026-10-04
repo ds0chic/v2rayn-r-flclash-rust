@@ -13,7 +13,10 @@ void main() {
 
     test('ctrl shortcuts', () {
       expect(map(LogicalKeyboardKey.keyA, ctrl: true), ProfileAction.selectAll);
-      expect(map(LogicalKeyboardKey.keyC, ctrl: true), ProfileAction.copy);
+      expect(
+        map(LogicalKeyboardKey.keyC, ctrl: true),
+        ProfileAction.exportShareUrl,
+      );
       expect(map(LogicalKeyboardKey.keyD, ctrl: true), ProfileAction.edit);
       expect(map(LogicalKeyboardKey.keyF, ctrl: true), ProfileAction.share);
       expect(map(LogicalKeyboardKey.keyO, ctrl: true), ProfileAction.tcping);

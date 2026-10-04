@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/app/shell/main_shell.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
@@ -102,6 +103,11 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
       // persisted as active, apply it once on launch. This is the production
       // path and does not depend on any test environment variable.
       await controller.restoreActiveOnLaunch();
+      // Upstream `LoadCore` -> `UpdateSysProxy`: re-apply the persisted proxy
+      // mode/PAC after the core is restored, so a saved mode actually resumes.
+      ref
+          .read(platformControllerProvider.notifier)
+          .restoreAppliedModeOnLaunch();
       // Subscription auto-update scheduler (upstream `TaskManager`): a normal
       // launch starts it; due downloads run in the background.
       _subs = ref.read(subsControllerProvider.notifier);

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 
 final routingControllerProvider =
     NotifierProvider<RoutingController, RoutingState>(RoutingController.new);
@@ -328,6 +329,19 @@ class RoutingController extends Notifier<RoutingState> {
       state = state.copyWith(status: result.error?.messageKey ?? '切换失败');
     }
     return result;
+  }
+
+  /// Unified "set default routing" business command (upstream
+  /// `StatusBarViewModel.RoutingSelectedChangedAsync`): persist the default
+  /// scheme, then trigger the runtime reload at the same moment the original
+  /// publishes `ReloadRequested`. The tray routing menu and the status bar
+  /// call this; [select] stays the edit-selection command and never changes
+  /// the default.
+  Future<void> setDefaultAndReload(String id) async {
+    final result = setDefault(id);
+    if (!result.ok) return;
+    await ref.read(runtimeControllerProvider.notifier).reload();
+    state = state.copyWith(status: '已切换默认路由并重载');
   }
 
   r.RoutingDtoResult moveRule(String routingId, int index, int direction) {

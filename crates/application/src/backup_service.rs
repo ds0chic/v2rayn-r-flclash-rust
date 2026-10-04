@@ -14,7 +14,7 @@ use persistence::backup::{
     self, ArchiveRecognition, BackupManifest, BackupVerification, ResourceEntry, RestoreReport,
     CONFIG_FILE_NAME, DB_FILE_NAME, MANIFEST_NAME,
 };
-use persistence::hash::derived_id;
+use persistence::hash::{derived_id, sha256_file};
 use persistence::store::table_counts;
 use persistence::{
     import_from_path, ConfigDocument, ImportOptions, ImportReport, ImportStatus, PersistenceError,
@@ -132,7 +132,15 @@ impl BackupService {
         let mut config_prior: Option<PathBuf> = None;
         let bundled_config = root.join(CONFIG_FILE_NAME);
         if bundled_config.is_file() {
-            config_prior = backup_previous(&config_path)?;
+            // Establishing the config rollback copy can fail; the database is
+            // already swapped, so undo it before reporting the failure.
+            match backup_previous(&config_path) {
+                Ok(prior) => config_prior = prior,
+                Err(error) => {
+                    rollback_database(&self.db_path(), report.target_backup.as_deref());
+                    return Err(error);
+                }
+            }
             if let Err(error) = copy_atomic(&bundled_config, &config_path) {
                 restore_previous(&config_path, config_prior.as_deref());
                 rollback_database(&self.db_path(), report.target_backup.as_deref());
@@ -220,9 +228,95 @@ impl BackupService {
             report.status,
             ImportStatus::Imported | ImportStatus::AlreadyImported
         ) {
-            self.activate_upstream_config(&report.source_fingerprint)?;
+            // Two-phase close: the candidate database is already committed, so
+            // any later failure must undo it together with the config and every
+            // resource written after it.
+            if let Err(error) = self.activate_and_install(
+                path,
+                work_dir,
+                &report.source_fingerprint,
+                report.target_backup.as_deref(),
+            ) {
+                return Err(with_rollback_note(error));
+            }
         }
         Ok(report)
+    }
+
+    /// Close a committed upstream import: write the activated config and
+    /// install every upstream resource (whole `guiConfigs/` directory content
+    /// except the database and config). On any failure the committed candidate
+    /// database (`db_backup`), the live config and the already-written
+    /// resources are rolled back to the pre-import state.
+    fn activate_and_install(
+        &self,
+        source: &Path,
+        work_dir: &Path,
+        fingerprint: &str,
+        db_backup: Option<&str>,
+    ) -> Result<(), DomainError> {
+        // Stage from the read-only source first so a staging failure never
+        // leaves the committed database dangling.
+        let staged = match stage_upstream_resources(source, work_dir) {
+            Ok(staged) => staged,
+            Err(error) => {
+                rollback_database(&self.db_path(), db_backup);
+                return Err(error);
+            }
+        };
+        let config_path = self.data_dir.join(CONFIG_FILE_NAME);
+        let config_prior = match backup_previous(&config_path) {
+            Ok(prior) => prior,
+            Err(error) => {
+                rollback_database(&self.db_path(), db_backup);
+                return Err(error);
+            }
+        };
+        if let Err(error) = self.activate_upstream_config(fingerprint) {
+            restore_previous(&config_path, config_prior.as_deref());
+            rollback_database(&self.db_path(), db_backup);
+            return Err(error);
+        }
+        if let Err(error) = self.install_staged_resources(&staged) {
+            restore_previous(&config_path, config_prior.as_deref());
+            rollback_database(&self.db_path(), db_backup);
+            return Err(error);
+        }
+        if let Some(prior) = config_prior {
+            let _ = std::fs::remove_file(prior);
+        }
+        Ok(())
+    }
+
+    /// Copy staged resources into the live data directory with per-file hash
+    /// verification. Only paths that came from the source are written; no
+    /// unrelated live file is deleted. Returns the number installed.
+    fn install_staged_resources(&self, staged: &[StagedResource]) -> Result<usize, DomainError> {
+        let mut applied: Vec<(PathBuf, Option<PathBuf>)> = Vec::new();
+        for resource in staged {
+            let dest = self.data_dir.join(&resource.relative_path);
+            let prior = match backup_previous(&dest) {
+                Ok(prior) => prior,
+                Err(error) => {
+                    rollback_previous(&applied);
+                    return Err(error);
+                }
+            };
+            match copy_verified(&resource.staged_path, &dest) {
+                Ok(()) => applied.push((dest, prior)),
+                Err(error) => {
+                    restore_previous(&dest, prior.as_deref());
+                    rollback_previous(&applied);
+                    return Err(error);
+                }
+            }
+        }
+        for (_, prior) in &applied {
+            if let Some(prior) = prior {
+                let _ = std::fs::remove_file(prior);
+            }
+        }
+        Ok(applied.len())
     }
 
     /// Apply the `upstream_config` recorded by the last import to the live
@@ -300,6 +394,154 @@ impl BackupService {
         manifests.sort_by_key(|manifest| std::cmp::Reverse(manifest.created_at));
         Ok(manifests)
     }
+}
+
+/// One upstream resource extracted under the import work directory, keyed by
+/// its forward-slash path relative to the live data directory.
+struct StagedResource {
+    relative_path: String,
+    staged_path: PathBuf,
+}
+
+/// Stage every upstream resource from `source` (a directory or a `guiConfigs/`
+/// ZIP) into `<work_dir>/resources`. The database and `guiNConfig.json` members
+/// are excluded: they have their own commit path. Directory and archive members
+/// resolve to the same live-relative path, so `guiConfigs/config/custom.json`
+/// lands at `<data>/config/custom.json`.
+fn stage_upstream_resources(
+    source: &Path,
+    work_dir: &Path,
+) -> Result<Vec<StagedResource>, DomainError> {
+    let staging = work_dir.join("resources");
+    if staging.exists() {
+        std::fs::remove_dir_all(&staging).map_err(|e| internal(e.to_string()))?;
+    }
+    std::fs::create_dir_all(&staging).map_err(|e| internal(e.to_string()))?;
+    let mut staged = Vec::new();
+    if source.is_dir() {
+        let mut stack = vec![source.to_path_buf()];
+        while let Some(current) = stack.pop() {
+            let entries = std::fs::read_dir(&current).map_err(|e| internal(e.to_string()))?;
+            for entry in entries {
+                let entry = entry.map_err(|e| internal(e.to_string()))?;
+                let path = entry.path();
+                let file_type = entry.file_type().map_err(|e| internal(e.to_string()))?;
+                if file_type.is_dir() {
+                    stack.push(path);
+                    continue;
+                }
+                if !file_type.is_file() {
+                    continue;
+                }
+                let relative = path
+                    .strip_prefix(source)
+                    .map_err(|_| internal("resource escaped source"))?
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                stage_file(&relative, &path, &staging, &mut staged)?;
+            }
+        }
+    } else {
+        let file = std::fs::File::open(source).map_err(|e| internal(e.to_string()))?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|e| internal(e.to_string()))?;
+        for index in 0..archive.len() {
+            let mut entry = archive
+                .by_index(index)
+                .map_err(|e| internal(e.to_string()))?;
+            if entry.is_dir() {
+                continue;
+            }
+            let raw = entry.name().replace('\\', "/");
+            let Some(relative) = sanitize_upstream_relative(&raw) else {
+                continue;
+            };
+            let staged_path = staging.join(&relative);
+            if let Some(parent) = staged_path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| internal(e.to_string()))?;
+            }
+            let mut out =
+                std::fs::File::create(&staged_path).map_err(|e| internal(e.to_string()))?;
+            std::io::copy(&mut entry, &mut out).map_err(|e| internal(e.to_string()))?;
+            staged.push(StagedResource {
+                relative_path: relative,
+                staged_path,
+            });
+        }
+    }
+    staged.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+    Ok(staged)
+}
+
+/// Stage one directory resource; the reserved database/config names are skipped.
+fn stage_file(
+    relative: &str,
+    source: &Path,
+    staging: &Path,
+    staged: &mut Vec<StagedResource>,
+) -> Result<(), DomainError> {
+    let Some(relative) = sanitize_upstream_relative(relative) else {
+        return Ok(());
+    };
+    let staged_path = staging.join(&relative);
+    if let Some(parent) = staged_path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| internal(e.to_string()))?;
+    }
+    std::fs::copy(source, &staged_path).map_err(|e| internal(e.to_string()))?;
+    staged.push(StagedResource {
+        relative_path: relative,
+        staged_path,
+    });
+    Ok(())
+}
+
+/// Normalize an upstream member path to a live-relative path and reject
+/// anything that could escape the data directory. `guiConfigs/` (the upstream
+/// top-level wrapper) is stripped. The database and config themselves are not
+/// resources.
+fn sanitize_upstream_relative(raw: &str) -> Option<String> {
+    let normalized = raw.replace('\\', "/");
+    let trimmed = normalized.trim_start_matches("./").trim_start_matches('/');
+    let relative = trimmed
+        .strip_prefix("guiConfigs/")
+        .unwrap_or(trimmed)
+        .trim_start_matches('/');
+    if relative.is_empty()
+        || relative == DB_FILE_NAME
+        || relative == CONFIG_FILE_NAME
+        || relative.contains("..")
+        || relative.contains(':')
+    {
+        return None;
+    }
+    Some(relative.to_string())
+}
+
+/// Copy `src` over `dest` atomically and verify the written bytes hash-match
+/// the source. A mismatch removes the destination.
+fn copy_verified(src: &Path, dest: &Path) -> Result<(), DomainError> {
+    let expected = sha256_file(src).map_err(|e| internal(e.to_string()))?;
+    copy_atomic(src, dest)?;
+    let actual = sha256_file(dest).map_err(|e| internal(e.to_string()))?;
+    if expected != actual {
+        let _ = std::fs::remove_file(dest);
+        return Err(internal(format!(
+            "resource hash mismatch for {}",
+            dest.display()
+        )));
+    }
+    Ok(())
+}
+
+/// Attach the actual post-commit outcome to a two-phase import failure so the
+/// UI can never claim "no data modified" when a rollback happened.
+fn with_rollback_note(mut error: DomainError) -> DomainError {
+    let note =
+        "import failed after commit; database/config/resources rolled back to pre-import state";
+    error.detail = Some(match error.detail {
+        Some(detail) => format!("{detail}; {note}"),
+        None => note.to_string(),
+    });
+    error
 }
 
 /// Every regular file under `data_dir` (excluding the database, the config,

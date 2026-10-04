@@ -1,0 +1,83 @@
+{
+  "task": "RE-PROF-03",
+  "status": "implemented",
+  "date": "2026-10-04",
+  "start_head": "eeb2932",
+  "upstream": {
+    "repo": "2dust/v2rayN",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "refs": [
+      "v2rayN/Views/ProfilesView.xaml.cs:220-246 Ctrl+C->Export2ShareUrlAsync(false), Ctrl+F->ShareServerAsync",
+      "ServiceLib/ViewModels/ProfilesViewModel.cs:799-830 Export2ShareUrlAsync batch+silent-empty",
+      "ServiceLib/ViewModels/ProfilesViewModel.cs:593-608 ShareServerAsync primary + PleaseSelectServer"
+    ]
+  },
+  "files_changed": [
+    "apps/desktop/lib/features/profiles/table_actions.dart",
+    "apps/desktop/lib/features/profiles/profiles_table.dart",
+    "apps/desktop/lib/features/profiles/profile_actions.dart",
+    "apps/desktop/test/table_actions_test.dart",
+    "apps/desktop/test/profiles_keyboard_test.dart",
+    "apps/desktop/test/profiles_share_shortcut_test.dart",
+    "apps/desktop/test/profiles_share_shortcut_empty_test.dart",
+    "docs/tasks/RE-PROF-03.md"
+  ],
+  "mapping": {
+    "ctrl_c": "ProfileAction.exportShareUrl -> exportSelectedShareUrls (Clipboard share URIs, no clone)",
+    "ctrl_f": "ProfileAction.share -> shareProfilesQr (profile-share-qr dialog)",
+    "menu_copy": "ProfileAction.copy -> copySelectedProfiles (unchanged clone semantics)"
+  },
+  "action_ids": {
+    "ACT-PROF-024": "batch export share links (Ctrl+C)",
+    "ACT-PROF-006": "share selected node QR (Ctrl+F)",
+    "ACT-PROF-004": "clone selected node (menu only, preserved)"
+  },
+  "commands": [
+    {
+      "cmd": "dart format --output=none --set-exit-if-changed <changed files>",
+      "exit": 0,
+      "result": "0 changed"
+    },
+    {
+      "cmd": "flutter analyze lib/features/profiles test/profiles_share_shortcut_test.dart test/profiles_share_shortcut_empty_test.dart test/table_actions_test.dart test/profiles_keyboard_test.dart",
+      "exit": 0,
+      "result": "No issues found (5 items)"
+    },
+    {
+      "cmd": "flutter test test/table_actions_test.dart",
+      "exit": 0,
+      "result": "6/6 passed"
+    },
+    {
+      "cmd": "flutter test test/profiles_share_shortcut_test.dart",
+      "exit": 0,
+      "result": "1/1 passed"
+    },
+    {
+      "cmd": "flutter test test/profiles_share_shortcut_empty_test.dart",
+      "exit": 0,
+      "result": "1/1 passed"
+    },
+    {
+      "cmd": "flutter test test/profiles_keyboard_test.dart",
+      "exit": 0,
+      "result": "1/1 passed (two prior exit 79 native crashes, retried; removed QR route render from this broad test)"
+    }
+  ],
+  "not_run": [
+    "flutter build windows --release",
+    "full flutter test",
+    "real Windows window integration test"
+  ],
+  "gaps": [
+    "ProfilesState has no upstream SelectedProfile primary concept; Ctrl+F uses the single-item shareProfilesQr, so multi-select diverges from upstream primary-item behavior.",
+    "compat/actions.yaml notes not appended (15-file read budget); follow-up suggested for ACT-PROF-024/ACT-PROF-006/ACT-PROF-004."
+  ],
+  "constraints_respected": {
+    "no_10808": true,
+    "no_system_proxy_registry_route_tun": true,
+    "synthetic_clipboard_and_nodes": true,
+    "work_outputs_readonly": true,
+    "no_git_add_commit": true
+  }
+}

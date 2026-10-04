@@ -2901,6 +2901,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart
   test_ids: [t13_models_tray_menu_model_order_and_active_mode, t13_statusbar_shows_four_modes_and_applies_one]
   status: implemented
+  notes: 'RR-03 2026-10-04: 托盘四模式改走 PlatformController.applyModeFromConfig（与状态栏/启动恢复同一命令）；保存 SystemProxyItem.SysProxyType，PAC 走 startPacFromConfig（实际 pac.txt/自定义脚本），地址优先 AppliedSession 实际 proxy 端口；无运行会话时明确提示不假装生效。新增 apps/desktop/test/recheck_rr02_03_test.dart。crates/、work/、outputs/ 未改。'
 - id: ACT-TRAY-003
   name: 托盘菜单-设置系统代理
   domain: tray
@@ -2930,6 +2931,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart
   test_ids: [t13_models_tray_menu_model_order_and_active_mode]
   status: implemented
+  notes: 'RR-03 2026-10-04: 托盘设置系统代理改走 PlatformController.applyModeFromConfig，地址优先运行会话实际 proxy 端口，模式保存 SystemProxyItem.SysProxyType；无运行会话时明确提示。见 apps/desktop/test/recheck_rr02_03_test.dart。'
 - id: ACT-TRAY-004
   name: 托盘菜单-不改变系统代理
   domain: tray
@@ -2959,6 +2961,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart
   test_ids: [t13_models_tray_menu_model_order_and_active_mode]
   status: implemented
+  notes: 'RR-03 2026-10-04: 托盘不改变系统代理改走 PlatformController.applyModeFromConfig，保存 SystemProxyItem.SysProxyType（Unchanged 不写系统代理）。见 apps/desktop/test/recheck_rr02_03_test.dart。'
 - id: ACT-TRAY-005
   name: 托盘菜单-PAC 模式
   domain: tray
@@ -2989,6 +2992,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart
   test_ids: [t13_models_tray_menu_pac_entry_is_windows_only]
   status: implemented
+  notes: 'RR-03 2026-10-04: 托盘 PAC 改走 PlatformController.applyModeFromConfig -> startPacFromConfig（实际 pac.txt/自定义脚本，不再用极简模板），地址优先 AppliedSession 实际 proxy 端口；模式持久化。见 apps/desktop/test/recheck_rr02_03_test.dart。'
 - id: ACT-TRAY-006
   name: 托盘菜单-切换路由
   domain: tray
@@ -3019,6 +3023,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart
   test_ids: []
   status: implemented
+  notes: 'RR-02 2026-10-04: 托盘路由切换改调 RoutingController.setDefaultAndReload（持久化默认路由后按原版时机 Reload/apply，对齐 StatusBarViewModel.RoutingSelectedChangedAsync），勾选改按 RoutingItem.IsActive；编辑选中 select 语义保留。main_shell.dart 接线属冻结文件，补丁见 docs/tasks/RR-02.md。新增测试 apps/desktop/test/recheck_rr02_03_test.dart。'
 - id: ACT-TRAY-007
   name: 托盘菜单-切换服务器
   domain: tray
@@ -3315,6 +3320,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/status_bar_view.dart
   test_ids: [t13_statusbar_shows_four_modes_and_applies_one, t13_statusbar_renders_state_label]
   status: implemented
+  notes: 'RR-03 2026-10-04: 状态栏系统代理下拉改走 PlatformController.applyModeFromConfig，与托盘/启动恢复同一命令；保存 SystemProxyItem.SysProxyType，PAC 走 startPacFromConfig（实际 pac.txt/自定义脚本），地址优先 AppliedSession 实际 proxy 端口；无运行会话时明确提示不假装生效。t13_statusbar_test 已按新合同补运行会话；新增 apps/desktop/test/recheck_rr02_03_test.dart。'
 - id: ACT-STAT-002
   name: 状态栏-路由下拉切换
   domain: statusbar
@@ -3343,6 +3349,7 @@ items:
   implementation_location: apps/desktop/lib/app/shell/status_bar_view.dart
   test_ids: []
   status: implemented
+  notes: 'RR-02 2026-10-04: 状态栏路由下拉改调 RoutingController.setDefaultAndReload（默认路由持久化 + Reload/apply），不再只改编辑选中；勾选显示继续按 IsActive。见 docs/tasks/RR-02.md 与 apps/desktop/test/recheck_rr02_03_test.dart。'
 - id: ACT-STAT-003
   name: 状态栏-TUN 模式开关
   domain: statusbar

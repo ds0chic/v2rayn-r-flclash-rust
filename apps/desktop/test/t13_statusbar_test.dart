@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/app/shell/status_bar_view.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 
+import 'support/counting_runtime_bridge.dart';
+import 'support/fake_monitor_bridge.dart';
 import 'support/fake_platform_bridge.dart';
 
 void main() {
@@ -20,19 +25,33 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final bridge = FakePlatformBridge(initialMode: SysProxyMode.unchanged);
+    final runtime = CountingRuntimeBridge(
+      initial: const RuntimeView(
+        state: 'Running',
+        hostAlive: true,
+        ports: <int>[11808],
+      ),
+    );
+    final monitor = FakeMonitorBridge();
+    addTearDown(monitor.disposeStreams);
     final container = ProviderContainer(
       overrides: [
         bridgePortProvider.overrideWithValue(SyntheticBridgePort(count: 3)),
         uiStateStoreProvider.overrideWithValue(MemoryUiStateStore()),
         profileRowCountProvider.overrideWithValue(3),
         platformBridgeProvider.overrideWithValue(bridge),
+        runtimeBridgeProvider.overrideWithValue(runtime),
+        monitorBridgeProvider.overrideWithValue(monitor),
       ],
     );
     addTearDown(container.dispose);
-    // Seed the desired mode + refresh the live state.
+    // Seed the desired mode + refresh the live state. RR-03: a proxy mode that
+    // needs a live endpoint resolves it from the running session, so the test
+    // starts with an applied runtime snapshot.
     container
         .read(platformControllerProvider.notifier)
         .refresh(SysProxyMode.unchanged);
+    await container.read(runtimeControllerProvider.notifier).refresh();
 
     await tester.pumpWidget(
       UncontrolledProviderScope(

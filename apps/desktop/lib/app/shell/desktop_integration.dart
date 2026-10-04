@@ -181,7 +181,10 @@ class DesktopIntegration with WindowListener {
           TraySubEntry(
             id: item.id,
             label: item.remarks.isEmpty ? item.id : item.remarks,
-            checked: item.id == routing.selectedId,
+            // The checkmark follows the default (active) routing, not the
+            // editor's selection (upstream `StatusBarViewModel.SelectedRouting`
+            // is bound to `IsActive`).
+            checked: item.isActive,
           ),
       ],
       nodes: <TraySubEntry>[
@@ -279,47 +282,13 @@ class DesktopIntegration with WindowListener {
     _refreshTrayMenu();
   }
 
-  /// Apply a system-proxy mode exactly as the status bar does: manage the PAC
-  /// lifecycle for `Pac`, stop it when leaving PAC, persist the mode so a
-  /// reopen keeps it (RT-14), then resync the tray.
+  /// Apply a system-proxy mode through the shared command so the tray, the
+  /// status bar and the startup restore use one code path (RT-14): the proxy /
+  /// PAC address comes from the actual applied session, PAC is served from the
+  /// real `pac.txt` / custom script, the mode is persisted, then the tray is
+  /// resynced.
   void _applyProxyMode(SysProxyMode mode) {
-    final controller = _platform;
-    final document = ref.read(settingsControllerProvider).document;
-    final config = ProxySettingsView.fromDocument(document);
-    final server = buildProxyServer(
-      port: _firstInboundPort(document),
-      advancedProtocol: config.advancedProtocol,
-    );
-    switch (mode) {
-      case SysProxyMode.forcedChange:
-        controller.apply(
-          mode: mode,
-          server: server,
-          bypass: buildProxyBypass(
-            exceptions: config.exceptions,
-            notProxyLocalAddress: config.notProxyLocalAddress,
-          ),
-        );
-      case SysProxyMode.pac:
-        if (config.customPacPath != null) {
-          controller.startPacFromFile(
-            pacPath: config.customPacPath!,
-            proxyRule: server,
-          );
-        } else {
-          controller.startPac(pacText: _defaultPacScript, proxyRule: server);
-        }
-        controller.apply(
-          mode: mode,
-          autoConfigUrl: ref.read(platformControllerProvider).pacUrl,
-        );
-      case SysProxyMode.forcedClear:
-        controller.stopPac();
-        controller.apply(mode: mode);
-      case SysProxyMode.unchanged:
-        controller.apply(mode: mode);
-    }
-    _persistProxyMode(mode);
+    _platform.applyModeFromConfig(mode);
     _refreshTrayMenu();
   }
 
@@ -340,13 +309,6 @@ class DesktopIntegration with WindowListener {
     }
   }
 
-  void _persistProxyMode(SysProxyMode mode) {
-    final document = ref.read(settingsControllerProvider).document;
-    ref
-        .read(settingsControllerProvider.notifier)
-        .saveGroup('SystemProxyItem', systemProxyItemWithMode(document, mode));
-  }
-
   int _trayServersLimit(Map<String, dynamic> document) {
     final gui = document['GuiItem'];
     if (gui is Map<String, dynamic>) {
@@ -354,22 +316,6 @@ class DesktopIntegration with WindowListener {
       if (value != null) return value;
     }
     return 0;
-  }
-
-  /// Minimal loopback PAC script; the backend substitutes `__PROXY__` with the
-  /// live proxy rule. Reading the full upstream `pac.txt` is a follow-up.
-  static const String _defaultPacScript =
-      'function FindProxyForURL(url, host) { return "__PROXY__"; }';
-
-  int _firstInboundPort(Map<String, dynamic> document) {
-    final inbound = document['Inbound'];
-    if (inbound is List && inbound.isNotEmpty) {
-      final first = inbound.first;
-      if (first is Map<String, dynamic>) {
-        return (first['LocalPort'] as num?)?.toInt() ?? 10808;
-      }
-    }
-    return 10808;
   }
 
   /// Window listener: intercept the close button and hide to tray instead

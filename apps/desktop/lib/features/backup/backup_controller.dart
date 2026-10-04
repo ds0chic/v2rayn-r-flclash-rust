@@ -245,7 +245,7 @@ class BackupController extends Notifier<BackupState> {
         .read(bridgePortProvider)
         .t16BackupImportUpstream(path.trim());
     if (!result.ok) {
-      _status('error', '导入失败（未修改现有数据）', detail: _detail(result.error));
+      _status('error', '导入失败', detail: _detail(result.error));
       return;
     }
     _status(

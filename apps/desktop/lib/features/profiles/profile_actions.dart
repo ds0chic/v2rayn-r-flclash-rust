@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
@@ -205,6 +206,28 @@ Future<void> copySelectedProfiles(WidgetRef ref) async {
   final controller = ref.read(profilesControllerProvider.notifier);
   final result = controller.copySelected();
   _toast(ref, result.ok ? '已复制 ${result.copies.length} 个节点' : '复制失败');
+}
+
+/// Ctrl+C in the node table: copy the selected nodes' share URIs to the
+/// clipboard, mirroring upstream `ProfilesViewModel.Export2ShareUrlAsync(false)`
+/// (ACT-PROF-024). This is deliberately *not* [copySelectedProfiles], which is
+/// the `复制` clone command (ACT-PROF-004) and must keep its row-creating
+/// semantics.
+///
+/// Upstream batch-exports every selected node, and returns silently with no
+/// selection (`GetProfileItems(true)` null), so an empty selection never
+/// changes the clipboard nor shows a message.
+Future<void> exportSelectedShareUrls(WidgetRef ref) async {
+  final state = ref.read(profilesControllerProvider);
+  if (state.selected.isEmpty) return;
+  final bridge = ref.read(bridgePortProvider);
+  final result = await bridge.exportProfiles(state.selected.toList(), 'share');
+  if (!result.ok) {
+    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    return;
+  }
+  await Clipboard.setData(ClipboardData(text: result.text));
+  _toast(ref, '已导出 ${result.count} 个节点到剪贴板');
 }
 
 /// Rename the single selected node.

@@ -17,6 +17,7 @@
 //! when an explicit async method is invoked.
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use core_adapters::clash_api::{
@@ -139,7 +140,10 @@ pub struct StatsService {
     active_index_id: Option<String>,
     enabled: bool,
     display_speed: bool,
-    store: Box<dyn TrafficStore>,
+    /// Persistence boundary shared with the poller's off-lock flush (D25). The
+    /// store has its own mutex so disk I/O never runs while the monitor hub lock
+    /// is held.
+    store: Arc<Mutex<Box<dyn TrafficStore>>>,
 }
 
 impl StatsService {
@@ -158,7 +162,7 @@ impl StatsService {
             active_index_id: None,
             enabled,
             display_speed,
-            store,
+            store: Arc::new(Mutex::new(store)),
         }
     }
 
@@ -195,13 +199,18 @@ impl StatsService {
     /// SQLite `ServerStatItem` store for a persistent data directory; the
     /// caller is responsible for a follow-up [`Self::load`].
     pub fn set_store(&mut self, store: Box<dyn TrafficStore>) {
-        self.store = store;
+        self.store = Arc::new(Mutex::new(store));
     }
 
     /// Load persisted `ServerStatItem` rows into memory.
     pub fn load(&mut self) -> Result<(), DomainError> {
+        let loaded = self
+            .store
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .load()?;
         self.nodes.clear();
-        for stat in self.store.load()? {
+        for stat in loaded {
             self.date_now = self.date_now.max(stat.date_now);
             self.nodes.insert(stat.index_id.clone(), stat);
         }
@@ -353,13 +362,24 @@ impl StatsService {
     }
 
     /// Persist every in-memory node row. Called after a successful apply so the
-    /// store mirrors memory.
+    /// store mirrors memory. Prefer [`persist_rows`] via [`Self::store_handle`]
+    /// so the hub lock is not held across disk I/O.
     pub fn flush_store(&mut self) -> Result<(), DomainError> {
-        let rows: Vec<TrafficStats> = self.nodes.values().cloned().collect();
-        for row in rows {
-            self.store.upsert(&row)?;
-        }
-        Ok(())
+        let rows = self.snapshot_rows();
+        persist_rows(&self.store, &rows)
+    }
+
+    /// A cheap in-memory copy of every per-node row, for persisting off the
+    /// shared hub lock.
+    pub fn snapshot_rows(&self) -> Vec<TrafficStats> {
+        self.nodes.values().cloned().collect()
+    }
+
+    /// A cloneable handle to the persistence boundary so the poller can write
+    /// rows after releasing the hub lock (D25). UI reads never need this handle,
+    /// so a slow disk cannot block them behind the hub lock.
+    pub fn store_handle(&self) -> Arc<Mutex<Box<dyn TrafficStore>>> {
+        Arc::clone(&self.store)
     }
 
     /// `ClearAllServerStatistics`: remove every row and persist the clear.
@@ -367,14 +387,31 @@ impl StatsService {
         self.nodes.clear();
         self.session_proxy = BucketTotals::default();
         self.session_direct = BucketTotals::default();
-        self.store.clear()
+        self.store.lock().unwrap_or_else(|p| p.into_inner()).clear()
     }
 
     /// Clear one node's counters.
     pub fn clear_node(&mut self, index_id: &str) -> Result<(), DomainError> {
         self.nodes.remove(index_id);
-        self.store.remove(index_id)
+        self.store
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .remove(index_id)
     }
+}
+
+/// Persist rows through a [`StatsService`] store handle without holding the
+/// monitor hub lock. The single poller calls this sequentially (bounded), and a
+/// failure is returned so the caller can surface it and retry next tick.
+pub fn persist_rows(
+    handle: &Mutex<Box<dyn TrafficStore>>,
+    rows: &[TrafficStats],
+) -> Result<(), DomainError> {
+    let mut store = handle.lock().unwrap_or_else(|p| p.into_inner());
+    for row in rows {
+        store.upsert(row)?;
+    }
+    Ok(())
 }
 
 fn bump(value: u64) -> i64 {
@@ -885,7 +922,40 @@ mod tests {
         assert_eq!(service.nodes().count(), 1);
         service.clear_all().unwrap();
         assert_eq!(service.nodes().count(), 0);
-        assert_eq!(service.store.load().unwrap().len(), 0);
+        assert_eq!(
+            service
+                .store
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .load()
+                .unwrap()
+                .len(),
+            0
+        );
+    }
+
+    #[test]
+    fn persist_rows_writes_through_store_handle_without_the_service() {
+        let mut service = StatsService::new(Box::new(InMemoryTrafficStore::new()), true, true);
+        service.set_active_index(Some("n1".into()));
+        let now = Instant::now();
+        service.apply(&[sample("proxy", 0, 0)], 0, 7, now);
+        service.apply(&[sample("proxy", 5, 8)], 0, 7, now + Duration::from_secs(2));
+        let handle = service.store_handle();
+        let rows = service.snapshot_rows();
+        assert_eq!(rows.len(), 1);
+        // The disk write only needs the shared store handle, not the service or
+        // the monitor hub lock (D25): dropping the service still persists.
+        drop(service);
+        persist_rows(&handle, &rows).unwrap();
+        let reloaded = handle
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .load()
+            .unwrap();
+        assert_eq!(reloaded.len(), 1);
+        assert_eq!(reloaded[0].index_id, "n1");
+        assert_eq!(reloaded[0].today_up, 5);
     }
 
     #[test]

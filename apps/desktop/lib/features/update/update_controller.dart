@@ -61,6 +61,7 @@ class UpdateState {
     this.checks = const <c.CoreUpdateDto>[],
     this.status,
     this.lastSpec,
+    this.missingCores = const <String>[],
   });
 
   final List<c.UpdateTargetDto> targets;
@@ -72,6 +73,10 @@ class UpdateState {
   final List<c.CoreUpdateDto> checks;
   final UpdateStatus? status;
   final c.ExternalSpecDto? lastSpec;
+
+  /// Cores the runtime reported missing (`error.core_not_found`, plan §3.7).
+  /// A non-empty list drives the window's explicit install/repair entry.
+  final List<String> missingCores;
 
   bool get canApply =>
       !busy && checks.any((check) => check.supported && check.hasUpdate);
@@ -94,6 +99,7 @@ class UpdateState {
     List<c.CoreUpdateDto>? checks,
     UpdateStatus? status,
     c.ExternalSpecDto? lastSpec,
+    List<String>? missingCores,
   }) => UpdateState(
     targets: targets ?? this.targets,
     selected: selected ?? this.selected,
@@ -104,6 +110,7 @@ class UpdateState {
     checks: checks ?? this.checks,
     status: status ?? this.status,
     lastSpec: lastSpec ?? this.lastSpec,
+    missingCores: missingCores ?? this.missingCores,
   );
 }
 
@@ -248,6 +255,72 @@ class UpdateController extends Notifier<UpdateState> {
       ),
     );
   }
+
+  /// Seed the cores the runtime just reported missing so the window offers an
+  /// immediate install/repair entry (plan §3.7). No update call is made here;
+  /// the user's button drives the existing T16 check+apply pipeline.
+  void seedMissingCores(List<String> cores) {
+    state = state.copyWith(
+      missingCores: List<String>.unmodifiable(
+        cores.where((core) => core.trim().isNotEmpty),
+      ),
+    );
+  }
+
+  /// Install/repair exactly [cores] through the existing T16 check+apply
+  /// pipeline. A failure is surfaced verbatim and the missing list is kept so
+  /// the user can retry; success is never fabricated.
+  Future<void> installCores(List<String> cores) async {
+    if (state.busy || cores.isEmpty) return;
+    state = state.copyWith(
+      busy: true,
+      stage: '正在安装/修复内核…',
+      checks: const <c.CoreUpdateDto>[],
+    );
+    final check = await ref
+        .read(bridgePortProvider)
+        .t16CheckUpdates(cores, state.prerelease, state.viaProxy);
+    if (!check.ok) {
+      state = state.copyWith(
+        busy: false,
+        clearStage: true,
+        status: UpdateStatus(
+          kind: 'error',
+          message: '检查更新失败',
+          detail: _detail(check.error),
+        ),
+      );
+      return;
+    }
+    state = state.copyWith(checks: check.checks, stage: '正在下载并安装内核…');
+    final apply = await ref
+        .read(bridgePortProvider)
+        .t16ApplyCoreUpdate(cores, state.prerelease, state.viaProxy);
+    if (!apply.ok) {
+      state = state.copyWith(
+        busy: false,
+        clearStage: true,
+        status: UpdateStatus(
+          kind: 'error',
+          message: '内核安装失败，可重试',
+          detail: _detail(apply.error),
+        ),
+      );
+      return;
+    }
+    state = state.copyWith(
+      busy: false,
+      clearStage: true,
+      missingCores: const <String>[],
+      status: UpdateStatus(
+        kind: 'success',
+        message: '已安装 ${apply.applied.length} 个内核，可再次启动',
+      ),
+    );
+  }
+
+  Future<void> installMissingCores() =>
+      installCores(List<String>.of(state.missingCores));
 
   /// Stage the application update, then actually launch the external runner
   /// and exit so it can replace the flat install root and relaunch (RR-04).

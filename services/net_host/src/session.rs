@@ -334,6 +334,47 @@ fn skip_config_check() -> bool {
     std::env::var_os("V2RAYN_R_SKIP_CONFIG_CHECK").is_some()
 }
 
+/// Hard deadline for the core's own `test_args` validation. A core whose
+/// precheck hangs must not keep a managed child alive after the client gives up
+/// (D28); the client-side 60s IPC limit cannot stop it.
+fn config_check_timeout() -> Duration {
+    env_ms("V2RAYN_R_CONFIG_CHECK_TIMEOUT_MS", 30_000)
+}
+
+/// How a bounded precheck child finished.
+enum RunBoundedError {
+    Spawn(String),
+    Timeout,
+}
+
+/// Run a project-owned child to completion within a hard deadline. The child is
+/// `kill_on_drop`, so cancelling the await on expiry terminates it instead of
+/// leaking a blocked precheck process. net-host owns this child directly; no
+/// process is matched or killed by name.
+async fn run_bounded_output(
+    exe: &Path,
+    args: &[std::ffi::OsString],
+    limit: Duration,
+) -> Result<std::process::Output, RunBoundedError> {
+    let mut command = Command::new(exe);
+    command
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    match tokio::time::timeout(limit, command.output()).await {
+        Ok(Ok(output)) => Ok(output),
+        Ok(Err(e)) => Err(RunBoundedError::Spawn(e.to_string())),
+        Err(_) => Err(RunBoundedError::Timeout),
+    }
+}
+
 /// Structured error for a core that could not be bound into the ownership job.
 /// Non-retryable: the caller must not keep an unowned core alive.
 fn job_assign_failed(operation_id: &str, detail: impl Into<String>) -> DomainError {
@@ -857,26 +898,12 @@ impl HostState {
         })?;
         let args: Vec<std::ffi::OsString> = adapter.test_args(&path);
         let exe = exe.to_path_buf();
-        let result = tokio::task::spawn_blocking(move || {
-            let mut command = std::process::Command::new(&exe);
-            command
-                .args(args)
-                .stdin(Stdio::null())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped());
-            #[cfg(windows)]
-            {
-                use std::os::windows::process::CommandExt;
-                const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-                command.creation_flags(CREATE_NO_WINDOW);
-            }
-            command.output()
-        })
-        .await;
+        let limit = config_check_timeout();
+        let result = run_bounded_output(&exe, &args, limit).await;
         let _ = std::fs::remove_file(&path);
         match result {
-            Ok(Ok(output)) if output.status.success() => Ok(()),
-            Ok(Ok(output)) => {
+            Ok(output) if output.status.success() => Ok(()),
+            Ok(output) => {
                 let mut text = String::from_utf8_lossy(&output.stderr).into_owned();
                 text.push_str(&String::from_utf8_lossy(&output.stdout));
                 let tail = text
@@ -895,16 +922,19 @@ impl HostState {
                         .with_detail(format!("core config check failed: {tail}")),
                 )
             }
-            Ok(Err(e)) => Err(DomainError::new(
+            Err(RunBoundedError::Spawn(detail)) => Err(DomainError::new(
                 domain::codes::UNAVAILABLE,
                 "error.core_spawn_failed",
             )
-            .with_detail(format!("config check spawn failed: {e}"))),
-            Err(join) => Err(DomainError::new(
-                domain::codes::INTERNAL,
-                "error.config_check_failed",
+            .with_detail(format!("config check spawn failed: {detail}"))),
+            Err(RunBoundedError::Timeout) => Err(DomainError::new(
+                domain::codes::TIMEOUT,
+                "error.config_check_timeout",
             )
-            .with_detail(format!("config check task failed: {join}"))),
+            .with_field("config")
+            .with_detail(format!(
+                "core config check exceeded {limit:?} and the managed process was terminated"
+            ))),
         }
     }
 
@@ -2345,6 +2375,9 @@ mod tests {
         std::fs::create_dir_all(&root).unwrap();
         std::env::set_var("V2RAYN_R_XRAY_BIN", "C:\\Windows\\System32\\cmd.exe");
         std::env::set_var("V2RAYN_R_SKIP_CONFIG_CHECK", "1");
+        // The env binary override is dev-only (plan §3.7); the stub-core
+        // harness is exactly that.
+        std::env::set_var("V2RAYN_R_DEV_MODE", "1");
         let config = HostConfig {
             pipe_name: r"\\.\pipe\v2rayn-r-test-nonexistent".into(),
             run_root: root,
@@ -2448,6 +2481,33 @@ mod tests {
             .build()
             .unwrap()
             .block_on(future)
+    }
+
+    /// D28: a hanging precheck child is terminated by the deadline instead of
+    /// keeping the config check (and the UI) blocked past the client timeout.
+    #[test]
+    fn config_check_deadline_terminates_a_hung_child() {
+        #[cfg(windows)]
+        {
+            let root = std::env::var("SystemRoot").unwrap_or_else(|_| "C:/Windows".to_string());
+            let ping = PathBuf::from(root).join("System32").join("ping.exe");
+            if !ping.is_file() {
+                return;
+            }
+            let args = vec![
+                std::ffi::OsString::from("-n"),
+                std::ffi::OsString::from("30"),
+                std::ffi::OsString::from("127.0.0.1"),
+            ];
+            let start = Instant::now();
+            let result =
+                futures_block_on(run_bounded_output(&ping, &args, Duration::from_millis(300)));
+            assert!(matches!(result, Err(RunBoundedError::Timeout)));
+            assert!(
+                start.elapsed() < Duration::from_secs(5),
+                "the deadline must terminate the managed child promptly"
+            );
+        }
     }
 
     /// Write a `.cmd` core stub: `"stay"` pings for a long time (stays alive,

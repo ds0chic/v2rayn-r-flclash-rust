@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1173096677;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 687271821;
 
 // Section: executor
 
@@ -4744,13 +4744,47 @@ fn wire__crate__api__t16__t16_apply_core_update_impl(
     )
 }
 fn wire__crate__api__t16__t16_backup_import_upstream_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "t16_backup_import_upstream",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_path = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::t16::t16_backup_import_upstream(api_path))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__t16__t16_backup_import_upstream_merge_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
 ) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
-            debug_name: "t16_backup_import_upstream",
+            debug_name: "t16_backup_import_upstream_merge",
             port: None,
             mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
         },
@@ -4767,22 +4801,24 @@ fn wire__crate__api__t16__t16_backup_import_upstream_impl(
             let api_path = <String>::sse_decode(&mut deserializer);
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
-                let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_import_upstream(api_path))?;
+                let output_ok =
+                    Ok::<_, ()>(crate::api::t16::t16_backup_import_upstream_merge(api_path))?;
                 std::result::Result::Ok(output_ok)
             })())
         },
     )
 }
 fn wire__crate__api__t16__t16_backup_list_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "t16_backup_list",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
         move || {
             let message = unsafe {
@@ -4796,23 +4832,26 @@ fn wire__crate__api__t16__t16_backup_list_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_parent = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_list(api_parent))?;
-                std::result::Result::Ok(output_ok)
-            })())
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_list(api_parent))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
         },
     )
 }
 fn wire__crate__api__t16__t16_backup_local_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "t16_backup_local",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
         move || {
             let message = unsafe {
@@ -4826,23 +4865,26 @@ fn wire__crate__api__t16__t16_backup_local_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_dest_root = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_local(api_dest_root))?;
-                std::result::Result::Ok(output_ok)
-            })())
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_local(api_dest_root))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
         },
     )
 }
 fn wire__crate__api__t16__t16_backup_recognize_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "t16_backup_recognize",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
         move || {
             let message = unsafe {
@@ -4856,23 +4898,26 @@ fn wire__crate__api__t16__t16_backup_recognize_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_path = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_recognize(api_path))?;
-                std::result::Result::Ok(output_ok)
-            })())
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_recognize(api_path))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
         },
     )
 }
 fn wire__crate__api__t16__t16_backup_restore_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "t16_backup_restore",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
         move || {
             let message = unsafe {
@@ -4886,23 +4931,27 @@ fn wire__crate__api__t16__t16_backup_restore_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_bundle_dir = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_restore(api_bundle_dir))?;
-                std::result::Result::Ok(output_ok)
-            })())
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::t16::t16_backup_restore(api_bundle_dir))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
         },
     )
 }
 fn wire__crate__api__t16__t16_backup_verify_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
     data_len_: i32,
-) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
         flutter_rust_bridge::for_generated::TaskInfo {
             debug_name: "t16_backup_verify",
-            port: None,
-            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
         },
         move || {
             let message = unsafe {
@@ -4916,10 +4965,13 @@ fn wire__crate__api__t16__t16_backup_verify_impl(
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
             let api_bundle_dir = <String>::sse_decode(&mut deserializer);
             deserializer.end();
-            transform_result_sse::<_, ()>((move || {
-                let output_ok = Ok::<_, ()>(crate::api::t16::t16_backup_verify(api_bundle_dir))?;
-                std::result::Result::Ok(output_ok)
-            })())
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::t16::t16_backup_verify(api_bundle_dir))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
         },
     )
 }
@@ -9590,20 +9642,31 @@ fn pde_ffi_dispatcher_primary_impl(
             wire__crate__api__t16__t16_apply_app_update_spec_impl(port, ptr, rust_vec_len, data_len)
         }
         146 => wire__crate__api__t16__t16_apply_core_update_impl(port, ptr, rust_vec_len, data_len),
-        153 => wire__crate__api__t16__t16_check_updates_impl(port, ptr, rust_vec_len, data_len),
-        158 => wire__crate__api__t16__t16_webdav_backup_impl(port, ptr, rust_vec_len, data_len),
-        159 => wire__crate__api__t16__t16_webdav_check_impl(port, ptr, rust_vec_len, data_len),
-        162 => wire__crate__api__t16__t16_webdav_list_impl(port, ptr, rust_vec_len, data_len),
-        163 => wire__crate__api__t16__t16_webdav_restore_impl(port, ptr, rust_vec_len, data_len),
-        164 => wire__crate__api__contract__transport_extra_dto_default_impl(
+        147 => wire__crate__api__t16__t16_backup_import_upstream_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        165 => wire__crate__api__monitor__update_clash_mode_impl(port, ptr, rust_vec_len, data_len),
-        166 => wire__crate__api__subs__update_subscription_impl(port, ptr, rust_vec_len, data_len),
-        167 => wire__crate__api__subs__update_subscriptions_impl(port, ptr, rust_vec_len, data_len),
+        149 => wire__crate__api__t16__t16_backup_list_impl(port, ptr, rust_vec_len, data_len),
+        150 => wire__crate__api__t16__t16_backup_local_impl(port, ptr, rust_vec_len, data_len),
+        151 => wire__crate__api__t16__t16_backup_recognize_impl(port, ptr, rust_vec_len, data_len),
+        152 => wire__crate__api__t16__t16_backup_restore_impl(port, ptr, rust_vec_len, data_len),
+        153 => wire__crate__api__t16__t16_backup_verify_impl(port, ptr, rust_vec_len, data_len),
+        154 => wire__crate__api__t16__t16_check_updates_impl(port, ptr, rust_vec_len, data_len),
+        159 => wire__crate__api__t16__t16_webdav_backup_impl(port, ptr, rust_vec_len, data_len),
+        160 => wire__crate__api__t16__t16_webdav_check_impl(port, ptr, rust_vec_len, data_len),
+        163 => wire__crate__api__t16__t16_webdav_list_impl(port, ptr, rust_vec_len, data_len),
+        164 => wire__crate__api__t16__t16_webdav_restore_impl(port, ptr, rust_vec_len, data_len),
+        165 => wire__crate__api__contract__transport_extra_dto_default_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        166 => wire__crate__api__monitor__update_clash_mode_impl(port, ptr, rust_vec_len, data_len),
+        167 => wire__crate__api__subs__update_subscription_impl(port, ptr, rust_vec_len, data_len),
+        168 => wire__crate__api__subs__update_subscriptions_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -9749,28 +9812,27 @@ fn pde_ffi_dispatcher_sync_impl(
         142 => wire__crate__api__engine__subscriber_count_impl(ptr, rust_vec_len, data_len),
         143 => wire__crate__api__platform__sysproxy_mode_value_impl(ptr, rust_vec_len, data_len),
         144 => wire__crate__api__platform__sysproxy_type_valid_impl(ptr, rust_vec_len, data_len),
-        147 => wire__crate__api__t16__t16_backup_import_upstream_impl(ptr, rust_vec_len, data_len),
-        148 => wire__crate__api__t16__t16_backup_list_impl(ptr, rust_vec_len, data_len),
-        149 => wire__crate__api__t16__t16_backup_local_impl(ptr, rust_vec_len, data_len),
-        150 => wire__crate__api__t16__t16_backup_recognize_impl(ptr, rust_vec_len, data_len),
-        151 => wire__crate__api__t16__t16_backup_restore_impl(ptr, rust_vec_len, data_len),
-        152 => wire__crate__api__t16__t16_backup_verify_impl(ptr, rust_vec_len, data_len),
-        154 => wire__crate__api__t16__t16_cleanup_logs_tmp_impl(ptr, rust_vec_len, data_len),
-        155 => wire__crate__api__t16__t16_get_core_versions_impl(ptr, rust_vec_len, data_len),
-        156 => wire__crate__api__t16__t16_open_config_dir_impl(ptr, rust_vec_len, data_len),
-        157 => wire__crate__api__t16__t16_update_targets_impl(ptr, rust_vec_len, data_len),
-        160 => wire__crate__api__t16__t16_webdav_config_get_impl(ptr, rust_vec_len, data_len),
-        161 => wire__crate__api__t16__t16_webdav_config_save_impl(ptr, rust_vec_len, data_len),
-        168 => {
-            wire__crate__api__settings__validate_current_settings_impl(ptr, rust_vec_len, data_len)
-        }
-        169 => wire__crate__api__platform__validate_custom_proxy_script_impl(
+        148 => wire__crate__api__t16__t16_backup_import_upstream_merge_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        170 => wire__crate__api__subs__validate_sub_item_impl(ptr, rust_vec_len, data_len),
-        171 => wire__crate__api__subs__write_export_file_impl(ptr, rust_vec_len, data_len),
+        155 => wire__crate__api__t16__t16_cleanup_logs_tmp_impl(ptr, rust_vec_len, data_len),
+        156 => wire__crate__api__t16__t16_get_core_versions_impl(ptr, rust_vec_len, data_len),
+        157 => wire__crate__api__t16__t16_open_config_dir_impl(ptr, rust_vec_len, data_len),
+        158 => wire__crate__api__t16__t16_update_targets_impl(ptr, rust_vec_len, data_len),
+        161 => wire__crate__api__t16__t16_webdav_config_get_impl(ptr, rust_vec_len, data_len),
+        162 => wire__crate__api__t16__t16_webdav_config_save_impl(ptr, rust_vec_len, data_len),
+        169 => {
+            wire__crate__api__settings__validate_current_settings_impl(ptr, rust_vec_len, data_len)
+        }
+        170 => wire__crate__api__platform__validate_custom_proxy_script_impl(
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        171 => wire__crate__api__subs__validate_sub_item_impl(ptr, rust_vec_len, data_len),
+        172 => wire__crate__api__subs__write_export_file_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

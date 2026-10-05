@@ -39,13 +39,22 @@ impl CoreLocator {
             Some(root) => roots.push(root.clone()),
             None => roots.push(default_managed_cores_root()),
         }
-        // Dev-only fallback: never reachable once the app forwarded a root.
-        if explicit.is_none() {
+        // Development fallbacks (the repository `tools/cores` tree and the
+        // `V2RAYN_R_XRAY_BIN` override) are honored only in an explicit
+        // development mode. A packaged run must resolve the managed install
+        // root and never silently pick up a checkout or a stray env binary
+        // (plan §3.7).
+        let dev = dev_mode_enabled();
+        if explicit.is_none() && dev {
             roots.extend(ancestor_core_roots());
         }
         Self {
             roots,
-            xray_override: std::env::var_os("V2RAYN_R_XRAY_BIN").map(PathBuf::from),
+            xray_override: dev
+                .then(|| std::env::var_os("V2RAYN_R_XRAY_BIN"))
+                .flatten()
+                .filter(|value| !value.is_empty())
+                .map(PathBuf::from),
         }
     }
 
@@ -67,7 +76,7 @@ impl CoreLocator {
         if core == CoreType::Xray {
             if let Some(path) = &self.xray_override {
                 if path.is_file() {
-                    return Ok(path.clone());
+                    return validate_core_exe(path).map(|()| path.clone());
                 }
             }
         }
@@ -75,29 +84,60 @@ impl CoreLocator {
         let exe = adapter.exe_name();
         let pinned = version.map(|v| v.trim()).filter(|v| !v.is_empty());
         let mut searched = Vec::new();
+        let mut invalid: Vec<String> = Vec::new();
         for root in &self.roots {
             let layout = CoreInstallLayout::new(root);
             let base = layout.core_dir(core);
             if !base.is_dir() {
                 continue;
             }
+            let mut candidates: Vec<PathBuf> = Vec::new();
             if let Some(version) = pinned {
                 let candidate = layout.version_dir(core, version).join(exe);
                 if candidate.is_file() {
-                    return Ok(candidate);
+                    candidates.push(candidate);
+                } else {
+                    searched.push(candidate.display().to_string());
                 }
-                searched.push(candidate.display().to_string());
+            } else if let Some(candidate) = layout.resolve_exe(core, None) {
+                candidates.push(candidate);
             } else {
-                if let Some(candidate) = layout.resolve_exe(core, None) {
-                    return Ok(candidate);
-                }
                 searched.push(base.display().to_string());
             }
             // Candidate fallback (`CoreInfo.CoreExes`): try every alternate
             // name inside the pinned version dir or any core subdirectory.
             if let Some(candidate) = find_candidate_exe(&layout, core, pinned, &*adapter) {
-                return Ok(candidate);
+                if !candidates.contains(&candidate) {
+                    candidates.push(candidate);
+                }
             }
+            // A located file that cannot possibly run (empty / corrupt) is not
+            // a usable core: keep searching the other roots, but if nothing
+            // valid turns up report the readable `error.core_invalid` so the UI
+            // routes the user to the install/update entry.
+            for candidate in candidates {
+                match validate_core_exe(&candidate) {
+                    Ok(()) => return Ok(candidate),
+                    Err(error) => invalid.push(
+                        error
+                            .detail
+                            .clone()
+                            .unwrap_or_else(|| candidate.display().to_string()),
+                    ),
+                }
+            }
+        }
+
+        if !invalid.is_empty() {
+            return Err(
+                DomainError::new(domain::codes::NOT_FOUND, "error.core_invalid")
+                    .with_field("core")
+                    .with_detail(format!(
+                        "{} executable is present but not runnable: {}",
+                        core.as_str(),
+                        invalid.join(", ")
+                    )),
+            );
         }
 
         Err(
@@ -150,6 +190,38 @@ pub fn default_managed_cores_root() -> PathBuf {
             .join("cores");
     }
     PathBuf::from("v2rayn-r-data").join("cores")
+}
+
+/// Explicit development mode. Enables the repository `tools/cores` fallback and
+/// the `V2RAYN_R_XRAY_BIN` override; the packaged application never sets it.
+pub fn dev_mode_enabled() -> bool {
+    std::env::var_os("V2RAYN_R_DEV_MODE").is_some_and(|value| !value.is_empty())
+}
+
+/// Reject a located executable that could never run. Upstream only checks
+/// `File.Exists`; a zero-byte (failed/partial) download would otherwise be
+/// treated as a located core and fail later with a confusing spawn error. The
+/// readable `error.core_invalid` instead sends the user to the install/update
+/// entry. Other corruption is caught by the core's real `test_args` check.
+fn validate_core_exe(path: &Path) -> Result<(), DomainError> {
+    let meta = std::fs::metadata(path).map_err(|e| {
+        DomainError::new(domain::codes::NOT_FOUND, "error.core_invalid")
+            .with_field("core")
+            .with_detail(format!("{}: {e}", path.display()))
+    })?;
+    if meta.len() == 0 {
+        return Err(
+            DomainError::new(domain::codes::NOT_FOUND, "error.core_invalid")
+                .with_field("core")
+                .with_detail(format!("{} is empty (0 bytes)", path.display())),
+        );
+    }
+    // A non-empty-but-corrupt core is caught by the core's own `test_args`
+    // config check before the old session is stopped; that error is readable
+    // and retryable (`error.config_check_failed`). The locator only rejects the
+    // unambiguous empty file so a failed/partial download cannot be treated as
+    // a located core.
+    Ok(())
 }
 
 /// Scan a core directory (pinned version dir or the core dir plus its
@@ -841,7 +913,7 @@ mod tests {
         } else {
             "naiveproxy"
         };
-        std::fs::write(dir.join(alternate), b"stub").unwrap();
+        std::fs::write(dir.join(alternate), core_stub()).unwrap();
         let locator = CoreLocator::with_roots(vec![root.clone()], None);
         let picked = locator
             .resolve(CoreType::NaiveProxy, Some("v1.0.0"))
@@ -956,6 +1028,68 @@ mod tests {
         root
     }
 
+    /// A tiny stand-in executable. On Windows it carries the `MZ` header so the
+    /// locator's corrupt-core check accepts it.
+    fn core_stub() -> &'static [u8] {
+        if cfg!(windows) {
+            b"MZstub"
+        } else {
+            b"stub"
+        }
+    }
+
+    fn write_core(root: &Path, version: &str, bytes: &[u8]) -> PathBuf {
+        let exe = if cfg!(windows) { "xray.exe" } else { "xray" };
+        let dir = root.join("xray").join(version);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join(exe);
+        std::fs::write(&path, bytes).unwrap();
+        path
+    }
+
+    #[test]
+    fn zero_byte_core_is_reported_invalid() {
+        let root = temp_root("zero-byte");
+        write_core(&root, "v1.0.0", b"");
+        let locator = CoreLocator::with_roots(vec![root.clone()], None);
+        let err = locator.resolve(CoreType::Xray, None).unwrap_err();
+        assert_eq!(err.message_key, "error.core_invalid");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn resolve_handles_a_managed_root_with_spaces() {
+        let root = temp_root("managed cores root");
+        write_core(&root, "v1.0.0", core_stub());
+        let locator = CoreLocator::with_roots(vec![root.clone()], None);
+        let picked = locator.resolve(CoreType::Xray, None).unwrap();
+        assert!(picked.to_string_lossy().contains("managed cores root"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn dev_fallback_and_xray_override_require_dev_mode() {
+        let _guard = ENV_GUARD.lock().unwrap();
+        let root = temp_root("dev-gate");
+        let override_exe = root.join(if cfg!(windows) { "xray.exe" } else { "xray" });
+        std::fs::write(&override_exe, core_stub()).unwrap();
+        let override_str = override_exe.to_string_lossy().into_owned();
+        let _env = EnvScope::set(&[
+            ("V2RAYN_R_XRAY_BIN", Some(&override_str)),
+            ("V2RAYN_R_DEV_MODE", None),
+            ("V2RAYN_R_CORES_ROOT", Some("C:/managed/cores")),
+        ]);
+        let locator = CoreLocator::from_env();
+        assert!(
+            locator.xray_override.is_none(),
+            "the dev binary override must be ignored outside dev mode"
+        );
+        std::env::set_var("V2RAYN_R_DEV_MODE", "1");
+        let dev = CoreLocator::from_env();
+        assert!(dev.xray_override.is_some());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn resolve_prefers_highest_version_then_pinned() {
         let root = temp_root("versions");
@@ -963,7 +1097,7 @@ mod tests {
         for version in ["v1.0.0", "v2.0.0"] {
             let dir = root.join("xray").join(version);
             std::fs::create_dir_all(&dir).unwrap();
-            std::fs::write(dir.join(exe), b"stub").unwrap();
+            std::fs::write(dir.join(exe), core_stub()).unwrap();
         }
         let locator = CoreLocator::with_roots(vec![root.clone()], None);
         // Unpinned: highest sorted version wins.
@@ -979,7 +1113,7 @@ mod tests {
     fn resolve_override_wins_and_missing_is_not_found() {
         let root = temp_root("override");
         let override_exe = root.join("custom-xray.exe");
-        std::fs::write(&override_exe, b"stub").unwrap();
+        std::fs::write(&override_exe, core_stub()).unwrap();
         let locator = CoreLocator::with_roots(vec![root.join("empty")], Some(override_exe.clone()));
         assert_eq!(locator.resolve(CoreType::Xray, None).unwrap(), override_exe);
 

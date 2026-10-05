@@ -5083,3 +5083,17 @@ remediation_implementation_records:
 # not reported as "已切换默认路由并重载". No Rust change (platform/pac.rs render_pac was already correct);
 # secret never enters logs/evidence. Tests: apps/desktop/test/r3_01_07_10_test.dart (9). Status:
 # implemented; real system-proxy/PAC writes, real browser PAC execution and real reload failure not run.
+
+# R4-03 (2026-10-05, D28 缺核恢复与配置校验有界). Coverage rows unaffected; no
+# denominator change. core_adapters/runtime locator: default managed cores root
+# <data>/cores matches AppEngine::managed_cores_root (RR-01); tools/cores dev
+# fallback and V2RAYN_R_XRAY_BIN are now gated behind explicit V2RAYN_R_DEV_MODE;
+# a zero-byte located core returns readable error.core_invalid. net_host precheck
+# run_config_check now runs through run_bounded_output (tokio child kill_on_drop
+# + deadline, default V2RAYN_R_CONFIG_CHECK_TIMEOUT_MS=30000, error
+# error.config_check_timeout) so a hung core test_args no longer leaks a managed
+# child past the client timeout (D28). Missing-core UI: check_update_view adds a
+# missing-cores banner + install-missing button driving the existing T16
+# check/apply flow, failure visible and retryable. Evidence:
+# docs/evidence/repair/R4-03/. Status: implemented; real GUI missing-core ->
+# install -> retry and armed-package end-to-end not run.

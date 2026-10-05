@@ -4,7 +4,18 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/update/update_controller.dart';
 
 /// Open the check-update window (ACT-WIN-005, F-APP-005/007, F-CORE-002/003).
-Future<void> showCheckUpdateWindow(BuildContext context, WidgetRef ref) {
+///
+/// [missingCores] lets a caller (e.g. a runtime `error.core_not_found`) open
+/// the same window with the install/repair entry already visible; the existing
+/// call sites keep working with the default empty list (plan §3.7).
+Future<void> showCheckUpdateWindow(
+  BuildContext context,
+  WidgetRef ref, {
+  List<String> missingCores = const <String>[],
+}) {
+  if (missingCores.isNotEmpty) {
+    ref.read(updateControllerProvider.notifier).seedMissingCores(missingCores);
+  }
   return showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -61,6 +72,41 @@ class CheckUpdateView extends ConsumerWidget {
                 ),
               ],
             ),
+            if (state.missingCores.isNotEmpty) ...<Widget>[
+              Container(
+                key: const ValueKey('update-missing-cores'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                color: scheme.errorContainer,
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        '缺少内核：${state.missingCores.join("、")}。安装后即可再次启动。',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onErrorContainer,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      key: const ValueKey('update-install-missing-btn'),
+                      onPressed: state.busy
+                          ? null
+                          : controller.installMissingCores,
+                      child: const Text(
+                        '安装缺失内核',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+            ],
             const Divider(height: 8),
             Expanded(
               child: ListView.builder(

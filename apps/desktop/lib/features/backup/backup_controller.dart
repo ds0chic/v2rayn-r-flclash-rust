@@ -96,6 +96,22 @@ class BackupController extends Notifier<BackupState> {
         : '${error.code} / ${error.messageKey}: ${error.detail}';
   }
 
+  /// Bounded cancellation (R4-10): bumping the generation makes any in-flight
+  /// backup/restore/import result stale, so it is discarded instead of
+  /// committing after a cancel. Work already handed to Rust may still finish;
+  /// the outcome is never shown as a success.
+  int _generation = 0;
+
+  bool _isCurrent(int generation) => generation == _generation;
+
+  void cancel() {
+    _generation++;
+    if (state.busy) {
+      state = state.copyWith(busy: false);
+      _status('info', '已取消');
+    }
+  }
+
   /// WebDAV failures are mapped to a concrete branch (401/403, 404, timeout,
   /// unreachable). The code is kept so the branch stays diagnosable; remote
   /// status text never carries credentials.
@@ -115,8 +131,8 @@ class BackupController extends Notifier<BackupState> {
     return '$base: $branch';
   }
 
-  void reloadBundles(String parent) {
-    final result = ref.read(bridgePortProvider).t16BackupList(parent);
+  Future<void> reloadBundles(String parent) async {
+    final result = await ref.read(bridgePortProvider).t16BackupList(parent);
     if (result.error != null) {
       _status('error', '列出备份失败', detail: _detail(result.error));
       return;
@@ -124,12 +140,18 @@ class BackupController extends Notifier<BackupState> {
     state = state.copyWith(bundles: result.items);
   }
 
-  void localBackup(String destRoot) {
+  Future<void> localBackup(String destRoot) async {
     if (destRoot.trim().isEmpty) {
       _status('error', '请输入备份目标目录');
       return;
     }
-    final result = ref.read(bridgePortProvider).t16BackupLocal(destRoot.trim());
+    final gen = ++_generation;
+    state = state.copyWith(busy: true);
+    final result = await ref
+        .read(bridgePortProvider)
+        .t16BackupLocal(destRoot.trim());
+    if (!_isCurrent(gen)) return;
+    state = state.copyWith(busy: false);
     if (!result.ok) {
       _status('error', '本地备份失败', detail: _detail(result.error));
       return;
@@ -188,7 +210,13 @@ class BackupController extends Notifier<BackupState> {
 
   Future<bool> _restoreBundlePath(String bundleDir) async {
     final schedulerWasRunning = _schedulerWasRunning();
-    final result = ref.read(bridgePortProvider).t16BackupRestore(bundleDir);
+    final gen = ++_generation;
+    state = state.copyWith(busy: true);
+    final result = await ref
+        .read(bridgePortProvider)
+        .t16BackupRestore(bundleDir);
+    if (!_isCurrent(gen)) return false;
+    state = state.copyWith(busy: false);
     if (!result.ok) {
       _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
       _restartScheduler(schedulerWasRunning);
@@ -224,7 +252,11 @@ class BackupController extends Notifier<BackupState> {
 
   Future<void> _restoreArchivePath(String path) async {
     final bridge = ref.read(bridgePortProvider);
-    final recognition = bridge.t16BackupRecognize(path);
+    final gen = ++_generation;
+    state = state.copyWith(busy: true);
+    final recognition = await bridge.t16BackupRecognize(path);
+    if (!_isCurrent(gen)) return;
+    state = state.copyWith(busy: false);
     if (recognition.error != null) {
       _status('error', '无法读取备份文件（现有配置未修改）', detail: _detail(recognition.error));
       return;
@@ -234,7 +266,11 @@ class BackupController extends Notifier<BackupState> {
       return;
     }
     final schedulerWasRunning = _schedulerWasRunning();
-    final result = bridge.t16BackupImportUpstream(path);
+    final gen2 = ++_generation;
+    state = state.copyWith(busy: true);
+    final result = await bridge.t16BackupImportUpstream(path);
+    if (!_isCurrent(gen2)) return;
+    state = state.copyWith(busy: false);
     if (!result.ok) {
       _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
       _restartScheduler(schedulerWasRunning);
@@ -269,12 +305,14 @@ class BackupController extends Notifier<BackupState> {
     await restoreBundle(root);
   }
 
-  void recognize(String path) {
+  Future<void> recognize(String path) async {
     if (path.trim().isEmpty) {
       _status('error', '请输入要识别的 ZIP 路径');
       return;
     }
-    final result = ref.read(bridgePortProvider).t16BackupRecognize(path.trim());
+    final result = await ref
+        .read(bridgePortProvider)
+        .t16BackupRecognize(path.trim());
     if (result.error != null) {
       _status('error', '识别失败', detail: _detail(result.error));
       return;
@@ -293,9 +331,13 @@ class BackupController extends Notifier<BackupState> {
       return;
     }
     final schedulerWasRunning = _schedulerWasRunning();
-    final result = ref
+    final gen = ++_generation;
+    state = state.copyWith(busy: true);
+    final result = await ref
         .read(bridgePortProvider)
         .t16BackupImportUpstream(path.trim());
+    if (!_isCurrent(gen)) return;
+    state = state.copyWith(busy: false);
     if (!result.ok) {
       _status('error', '导入失败', detail: _detail(result.error));
       _restartScheduler(schedulerWasRunning);

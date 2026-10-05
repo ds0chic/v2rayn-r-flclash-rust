@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `action_from_value`, `action_value`, `default_core`, `dto`, `ensure_profile_ex_loaded`, `flush_profile_ex`, `from_ex`, `hub`, `new`, `new`, `open_reserved`, `profile_to_node`, `sanitize_export_name`, `with_hub`
+// These functions are ignored because they are not marked as `pub`: `action_from_value`, `action_value`, `custom_export_file_name`, `default_core`, `dto`, `ensure_profile_ex_loaded`, `flush_profile_ex`, `from_ex`, `hub`, `new`, `new`, `open_reserved`, `profile_to_node`, `raw_custom_export`, `sanitize_export_name`, `with_hub`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `NetHostTestSession`, `SpeedTestHub`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `close`, `download`, `open`, `real_ping`, `udp_ping`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `apply_speedtest_result_for_test`, `reset_speedtest_for_test`
@@ -34,9 +34,9 @@ SimpleResult speedtestConfigure({
   delayIntervalSecs: delayIntervalSecs,
 );
 
-/// What this build can really do. UDP is supported by the direct loopback
-/// probe (RE-PROF-08); a failed target is reported as a structured failure,
-/// never a fake delay.
+/// What this build can really do (R3-PROF-05). UDP is gated on the real
+/// node-routed SOCKS5 UDP associate capability; a failed target is reported as
+/// a structured failure, never a fake delay.
 SpeedTestSupportDto speedtestSupported() =>
     RustLib.instance.api.crateApiSpeedtestSpeedtestSupported();
 
@@ -257,10 +257,11 @@ class SpeedTestSupportDto {
   final bool mixed;
   final bool fastRealPing;
 
-  /// UDP latency test (RE-PROF-08). Supported on every desktop build through
-  /// a direct datagram probe; the entry stays visible and reports the reason
-  /// when the target/platform cannot answer instead of being permanently
-  /// disabled.
+  /// UDP latency test (RE-PROF-08 / R3-PROF-05). Gated on the real
+  /// node-routed capability (the SOCKS5 UDP associate probe over the test
+  /// core's local port), not the old host-direct datagram. The entry stays
+  /// visible and reports the reason when the association/target cannot
+  /// answer instead of being permanently disabled.
   final bool udp;
 
   const SpeedTestSupportDto({

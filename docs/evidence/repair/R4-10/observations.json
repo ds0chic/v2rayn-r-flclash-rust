@@ -1,0 +1,87 @@
+{
+  "task": "R4-10",
+  "title": "异步桥与慢I/O",
+  "status": "implemented",
+  "baseline": {
+    "head": "3426a1a",
+    "app_baseline": "77c74ed",
+    "upstream_frozen": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "armed": false
+  },
+  "constraints": {
+    "ports_used": [],
+    "port_10808_touched": false,
+    "host_proxy_registry_route_tun_touched": false,
+    "user_credentials_read": false,
+    "unrelated_processes_killed": false
+  },
+  "defects": {
+    "D10": "api/t16.rs backup/verify/restore/import/recognize were #[frb(sync)] and ran file copy + hash + DB lifecycle on the UI isolate",
+    "D25": "bridge_api/src/api/monitor.rs:1396-1399 flushed ServerStatItem rows under the shared hub lock",
+    "D08": "bridge_port full sync read + profiles 150ms reload (owned by R4-09/R4-22; registered as gap)"
+  },
+  "changes": {
+    "rust": [
+      "crates/application/src/monitor.rs: StatsService.store becomes Arc<Mutex<Box<dyn TrafficStore>>>; added snapshot_rows/store_handle/persist_rows; load/flush_store/clear_all/clear_node use the store mutex; new unit test persist_rows_writes_through_store_handle_without_the_service",
+      "crates/bridge_api/src/api/monitor.rs: poll loop clones rows under the hub lock and runs persist_rows after releasing it; flush failure written to store_error (surfaced via stats_snapshot().error)",
+      "crates/bridge_api/src/api/t16.rs: removed #[frb(sync)] from t16_backup_local/list/verify/recognize/import_upstream and t16_backup_restore (async FRB); signatures unchanged"
+    ],
+    "dart": [
+      "apps/desktop/lib/bridge/bridge_port.dart: 6 t16Backup* abstract methods return Future; FrbBridgePort uses Future<T>.sync (compiles before and after FRB regen); SyntheticBridgePort made async",
+      "apps/desktop/lib/features/backup/backup_controller.dart: reloadBundles/localBackup/recognize now Future and await; local backup/restore/import set busy and use a generation guard; added cancel() that discards stale results"
+    ],
+    "tests": [
+      "apps/desktop/test/r4_10_contract_test.dart: 4 contract assertions (async seam, awaited list commit, slow-backup frame+cancel, readable retryable failure)",
+      "apps/desktop/test/fix14b_backup_restore_test.dart, sr02_04_backup_import_test.dart, sr03_restore_lifecycle_test.dart: bridge overrides updated to Future"
+    ]
+  },
+  "must_pass_scenarios": {
+    "io_db_hash_ipc_off_ui": "t16 backup/verify/recognize/restore/import are async FRB; monitor flush off the shared hub lock (rust test)",
+    "sync_only_short_memory": "remaining t16 sync funcs are cleanup/open/versions; profiles big reads remain sync and are registered as R4-09/R4-22 gap",
+    "monitor_flush_off_shared_lock": "poll loop persists after releasing the hub lock; persist_rows_writes_through_store_handle_without_the_service drops the service and still writes",
+    "slow_task_frames_and_cancel": "widget test: gated slow bridge, ListView scrolls, cancel discards the late result",
+    "bounded_worker_failure_retryable": "single existing poll thread, sequential flush, no new thread/task; failure recorded and retried; widget test 4 proves readable + retry",
+    "frb_regen_no_diff": "pending integrator regeneration (documented); Dart seam already Future-shaped"
+  },
+  "commands": [
+    { "cmd": "flutter analyze", "cwd": "apps/desktop", "exit": 0, "result": "No issues found!" },
+    { "cmd": "flutter test test/r4_10_contract_test.dart", "cwd": "apps/desktop", "exit": 0, "result": "All tests passed (4)" },
+    { "cmd": "flutter test test/fix14b_backup_restore_test.dart test/sr02_04_backup_import_test.dart test/sr03_restore_lifecycle_test.dart test/fix14_backup_activate_test.dart test/fix14c_webdav_backup_test.dart test/t16_backup_test.dart test/r3_set_restore_test.dart", "cwd": "apps/desktop", "exit": 0, "result": "All tests passed (24)" },
+    { "cmd": "dart format --output=none --set-exit-if-changed <changed dart files>", "cwd": "apps/desktop", "exit": 0, "result": "0 changed" },
+    { "cmd": "cargo fmt --all -- --check", "cwd": ".", "exit": 0, "result": "clean" },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "cwd": ".", "exit": 0, "result": "Finished, no warnings" },
+    { "cmd": "cargo test --workspace --locked", "cwd": ".", "exit": 0, "result": "all test result: ok" },
+    { "cmd": "flutter build windows --release", "cwd": "apps/desktop", "exit": 0, "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe" }
+  ],
+  "unverified": [
+    "real slow-disk/many-row GUI scroll and cancel end-to-end",
+    "real SQLite/file backup latency measurement under the gate",
+    "post-regen asynchronous runtime behavior (until the integrator regenerates FRB)"
+  ],
+  "interface_gaps": [
+    {
+      "provider": "crates/bridge_api source / FRB integrator",
+      "caller": "crates/bridge_api/src/frb_generated.rs and apps/desktop/lib/bridge/frb_generated*.dart + api/t16.dart",
+      "input_output": "6 t16_backup_* functions changed from sync to async (Future)",
+      "error": "generated files are stale until regenerated; runtime stays sync before regen",
+      "effective_point": "after flutter_rust_bridge_codegen generate the heavy I/O leaves the UI isolate",
+      "action": "integrator regenerates once; second run must be no-diff"
+    },
+    {
+      "provider": "apps/desktop/lib/bridge/bridge_port.dart.fetchSummaries/queryAllProfiles",
+      "caller": "profiles_controller (build/reload/150ms poll)",
+      "input_output": "full-table sync read on the UI isolate",
+      "error": "not async yet",
+      "effective_point": "D08 read path",
+      "action": "owned by R4-09/R4-22 (summary/page/incremental); do not duplicate"
+    },
+    {
+      "provider": "crates/bridge_api monitor_start_polling/rebind_store",
+      "caller": "Dart monitor start after apply",
+      "input_output": "sync FRB; stats.load() reads the whole ServerStatItem table under the hub lock",
+      "error": "bind-time full read still on the UI call path",
+      "effective_point": "first bind / engine swap",
+      "action": "follow-up under R4-23/R4-10"
+    }
+  ]
+}

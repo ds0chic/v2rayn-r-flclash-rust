@@ -1,0 +1,46 @@
+{
+  "task": "R4-03",
+  "title": "缺核恢复与配置校验有界",
+  "head_before": "3426a1a336967d58aa0c7d6a4c7717398ab3e516",
+  "date": "2026-10-05",
+  "armed": false,
+  "platform": "Windows 11 25H2 x64",
+  "toolchain": {
+    "flutter": "3.47.5 stable (Dart 3.13.4)",
+    "rust": "1.98.1 stable-x86_64-pc-windows-msvc"
+  },
+  "safety": {
+    "touched_10808": false,
+    "host_proxy_registry_modified": false,
+    "tun_route_autostart_modified": false,
+    "user_secrets_read": false,
+    "fixtures": "synthetic only",
+    "stopped_processes": "none (no repo-held session record)"
+  },
+  "contract": {
+    "managed_cores_root_default": true,
+    "dev_fallback_requires_dev_mode": true,
+    "empty_core_rejected": "error.core_invalid",
+    "corrupt_core": "error.config_check_failed (no false Running; old session kept)",
+    "space_path_resolves": true,
+    "port_conflict_readable": "preflight_port before old session stop",
+    "precheck_deadline": "V2RAYN_R_CONFIG_CHECK_TIMEOUT_MS default 30000; kill_on_drop child",
+    "precheck_timeout_error": "error.config_check_timeout",
+    "retry_after_repair": "locator re-resolves per precheck; R4-01 retry path",
+    "missing_core_ui": "check_update_view 'update-missing-cores' + 'update-install-missing-btn'"
+  },
+  "commands": [
+    { "cmd": "cargo fmt --all -- --check", "exit": 0 },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "exit": 0 },
+    { "cmd": "cargo test --workspace --locked", "exit": 0, "note": "244 application + net_host 63; one pre-existing env-race flake on retry" },
+    { "cmd": "flutter analyze", "exit": 0 },
+    { "cmd": "flutter test test/r4_03_contract_test.dart", "exit": 0, "tests": 3 },
+    { "cmd": "flutter test test/t16_update_test.dart", "exit": 0, "tests": 7 },
+    { "cmd": "flutter build windows --release", "exit": 0 }
+  ],
+  "run": {
+    "real_gui_missing_core_repair": "not run",
+    "installed_package_end_to_end": "not verified",
+    "os_effect": "not applicable"
+  }
+}

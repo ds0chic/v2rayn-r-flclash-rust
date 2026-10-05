@@ -1,0 +1,64 @@
+R4-10 command log (Windows PowerShell 7)
+baseline HEAD 3426a1a, app 77c74ed, upstream 7d6a967, armed=false
+No ports listened for tests/build; 10808 untouched; no host proxy/registry/route/TUN/autostart change.
+
+[1] cargo fmt --all
+    exit 0
+
+[2] cargo fmt --all -- --check
+    exit 0 (clean)
+
+[3] cargo clippy -p application -p bridge_api --all-targets --locked -- -D warnings
+    exit 0 (Finished)
+
+[4] cargo test -p application -p bridge_api --locked --no-fail-fast
+    application: 244 passed / 1 failed (update_service::tests::install_layout_is_resolved_by_runtime_locator)
+    bridge_api: passed
+    NOTE: this failure came from the concurrent R4-03 agent's uncommitted
+    crates/runtime/src/adapter.rs MZ/runnable check while the application test
+    still staged a non-MZ stub. Not caused by R4-10.
+
+[5] flutter analyze (apps/desktop)   [first run, concurrent agent r4_03 test present]
+    error test\r4_03_contract_test.dart:43 Undefined name 'bridgePortProvider'
+    (untracked file by the concurrent R4-03 agent; missing import)
+
+[6] dart analyze lib\bridge\bridge_port.dart lib\features\backup\backup_controller.dart
+    test\r4_10_contract_test.dart test\fix14b_backup_restore_test.dart
+    test\sr02_04_backup_import_test.dart test\sr03_restore_lifecycle_test.dart
+    No issues found! (exit 0)
+
+[7] dart format --output=none --set-exit-if-changed <changed dart files>
+    1 changed (r4_10_contract_test.dart); applied; re-check 0 changed (exit 0)
+
+[8] flutter test test\r4_10_contract_test.dart
+    +4: All tests passed! (exit 0)
+
+[9] flutter test test\fix14b_backup_restore_test.dart test\sr02_04_backup_import_test.dart
+    test\sr03_restore_lifecycle_test.dart test\fix14_backup_activate_test.dart
+    test\fix14c_webdav_backup_test.dart test\t16_backup_test.dart test\r3_set_restore_test.dart
+    +24: All tests passed! (exit 0)
+
+[10] cargo clippy --workspace --all-targets --locked -- -D warnings
+    exit 0 (Finished, no warnings)
+
+[11] cargo test --workspace --locked --no-fail-fast   [during concurrent edits]
+    all crates ok except application lib (same R4-03 cross-crate stub failure)
+
+[12] flutter build windows --release (apps/desktop)
+    Built build\windows\x64\runner\Release\v2rayn_desktop.exe (exit 0)
+    Pre-check: no v2rayn_desktop instance; net_host PID 32340 runs from dist\ (unrelated), not started/killed.
+
+[13] cargo test -p application --locked install_layout_is_resolved_by_runtime_locator
+    exit 0 (concurrent R4-03 agent converged its stub; failure cleared)
+
+[14] flutter analyze (apps/desktop)   [re-run after concurrent agent fixed import]
+    No issues found! (exit 0)
+
+[15] cargo test --workspace --locked
+    all test result: ok (exit 0); includes monitor::tests::persist_rows_writes_through_store_handle_without_the_service
+    and clear_all_empties_memory_and_store.
+
+[16] cargo test -p application --locked monitor::
+    test result: ok. 18 passed; 0 failed (exit 0)
+
+Cleanup: nothing started by R4-10; no listeners; no processes killed.

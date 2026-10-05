@@ -1348,6 +1348,21 @@ mod tests {
         panic!("no free loopback port in 11808..11950");
     }
 
+    /// A port that is guaranteed to be refused: bound, then released. The scan
+    /// starts above the range `bind_test_listener` uses so a parallel test
+    /// cannot immediately re-bind the released port and turn the "dead"
+    /// endpoint alive (observed as a cross-test flake).
+    async fn dead_endpoint_port() -> u16 {
+        for port in 21000..21100u16 {
+            if let Ok(listener) = tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
+                let resolved = listener.local_addr().unwrap().port();
+                drop(listener);
+                return resolved;
+            }
+        }
+        panic!("no free loopback port in 21000..21100");
+    }
+
     /// A one-shot loopback HTTP server returning `body`, bound at `>= 11808`.
     async fn spawn_sub_server(body: &'static str) -> String {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1425,10 +1440,9 @@ mod tests {
 
     #[tokio::test]
     async fn scheduler_pass_reports_unavailable_endpoint_not_fake_success() {
-        // Probe a free port, then release it so the TCP connect is refused.
-        let listener = bind_test_listener().await;
-        let port = listener.local_addr().unwrap().port();
-        drop(listener);
+        // A port released from a disjoint high range so the TCP connect is
+        // reliably refused even with parallel tests binding 11808..11950.
+        let port = dead_endpoint_port().await;
         let engine = crate::engine::AppEngine::in_memory();
         let saved = engine
             .save_sub_item(synthetic_sub(
@@ -1459,9 +1473,7 @@ mod tests {
         let vless =
             "vless://11111111-1111-1111-1111-111111111111@example.com:443?encryption=none#sr01";
         let ok_url = spawn_sub_server(vless).await;
-        let dead = bind_test_listener().await;
-        let dead_port = dead.local_addr().unwrap().port();
-        drop(dead);
+        let dead_port = dead_endpoint_port().await;
         let engine = crate::engine::AppEngine::in_memory();
         engine
             .save_sub_item(SubItem {

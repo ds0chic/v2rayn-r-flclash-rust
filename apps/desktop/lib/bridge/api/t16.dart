@@ -13,29 +13,44 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
 // These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`
 
-/// `backup_local` — write a versioned bundle under `dest_root`.
-BackupResultDto t16BackupLocal({required String destRoot}) =>
+/// `backup_local` — write a versioned bundle under `dest_root`. Async: copies
+/// files and hashes the database, so it must not run on the UI isolate.
+Future<BackupResultDto> t16BackupLocal({required String destRoot}) =>
     RustLib.instance.api.crateApiT16T16BackupLocal(destRoot: destRoot);
 
-/// `backup_list` — bundles directly under `parent`.
-BackupListDto t16BackupList({required String parent}) =>
+/// `backup_list` — bundles directly under `parent`. Async: directory scan.
+Future<BackupListDto> t16BackupList({required String parent}) =>
     RustLib.instance.api.crateApiT16T16BackupList(parent: parent);
 
-/// `backup_verify` — verify a bundle without writing anything.
-VerificationDto t16BackupVerify({required String bundleDir}) =>
+/// `backup_verify` — verify a bundle without writing anything. Async: reads the
+/// whole bundle and re-hashes it.
+Future<VerificationDto> t16BackupVerify({required String bundleDir}) =>
     RustLib.instance.api.crateApiT16T16BackupVerify(bundleDir: bundleDir);
 
-/// `backup_restore` — verify then restore a bundle.
-RestoreResultDto t16BackupRestore({required String bundleDir}) =>
+/// `backup_restore` — verify then restore a bundle. Async: DB lifecycle swap +
+/// file I/O.
+Future<RestoreResultDto> t16BackupRestore({required String bundleDir}) =>
     RustLib.instance.api.crateApiT16T16BackupRestore(bundleDir: bundleDir);
 
-/// `backup_recognize` — recognise an upstream or project archive.
-RecognitionDto t16BackupRecognize({required String path}) =>
+/// `backup_recognize` — recognise an upstream or project archive. Async: reads
+/// the archive directory/central directory.
+Future<RecognitionDto> t16BackupRecognize({required String path}) =>
     RustLib.instance.api.crateApiT16T16BackupRecognize(path: path);
 
-/// `backup_import_upstream` — import a directory/ZIP via the T04 candidate flow.
-ImportSummaryDto t16BackupImportUpstream({required String path}) =>
+/// `backup_import_upstream` — restore a directory/ZIP via the T04 candidate
+/// flow with replace semantics (the upstream `guiNDB.db` becomes the database).
+/// Async: DB lifecycle swap + file I/O.
+Future<ImportSummaryDto> t16BackupImportUpstream({required String path}) =>
     RustLib.instance.api.crateApiT16T16BackupImportUpstream(path: path);
+
+/// `backup_import_upstream_merge` — the explicitly named migration/merge
+/// import that appends the source rows to the live database (R3-SET-02).
+///
+/// Registered as an independent entry; the checked-in `frb_generated` bindings
+/// are not regenerated, so the UI restore path stays on
+/// [`t16_backup_import_upstream`] (replace).
+ImportSummaryDto t16BackupImportUpstreamMerge({required String path}) =>
+    RustLib.instance.api.crateApiT16T16BackupImportUpstreamMerge(path: path);
 
 /// `webdav_config_get` — the persisted `WebDavItem` (secret not logged).
 WebDavConfigResultDto t16WebdavConfigGet() =>

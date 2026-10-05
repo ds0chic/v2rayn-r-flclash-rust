@@ -41,14 +41,14 @@ class _LifecycleBridge extends SyntheticBridgePort {
   }
 
   @override
-  c.RestoreResultDto t16BackupRestore(String bundleDir) {
+  Future<c.RestoreResultDto> t16BackupRestore(String bundleDir) async {
     // Simulate the Rust lifecycle stopping the scheduler before the swap.
     schedulerRunning = false;
     return super.t16BackupRestore(bundleDir);
   }
 
   @override
-  c.ImportSummaryDto t16BackupImportUpstream(String path) {
+  Future<c.ImportSummaryDto> t16BackupImportUpstream(String path) async {
     schedulerRunning = false;
     return super.t16BackupImportUpstream(path);
   }

@@ -81,7 +81,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1173096677;
+  int get rustContentHash => 687271821;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -533,17 +533,27 @@ abstract class RustLibApi extends BaseApi {
     required bool viaProxy,
   });
 
-  ImportSummaryDto crateApiT16T16BackupImportUpstream({required String path});
+  Future<ImportSummaryDto> crateApiT16T16BackupImportUpstream({
+    required String path,
+  });
 
-  BackupListDto crateApiT16T16BackupList({required String parent});
+  ImportSummaryDto crateApiT16T16BackupImportUpstreamMerge({
+    required String path,
+  });
 
-  BackupResultDto crateApiT16T16BackupLocal({required String destRoot});
+  Future<BackupListDto> crateApiT16T16BackupList({required String parent});
 
-  RecognitionDto crateApiT16T16BackupRecognize({required String path});
+  Future<BackupResultDto> crateApiT16T16BackupLocal({required String destRoot});
 
-  RestoreResultDto crateApiT16T16BackupRestore({required String bundleDir});
+  Future<RecognitionDto> crateApiT16T16BackupRecognize({required String path});
 
-  VerificationDto crateApiT16T16BackupVerify({required String bundleDir});
+  Future<RestoreResultDto> crateApiT16T16BackupRestore({
+    required String bundleDir,
+  });
+
+  Future<VerificationDto> crateApiT16T16BackupVerify({
+    required String bundleDir,
+  });
 
   Future<UpdateReportDto> crateApiT16T16CheckUpdates({
     required List<String> cores,
@@ -4668,17 +4678,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  ImportSummaryDto crateApiT16T16BackupImportUpstream({required String path}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<ImportSummaryDto> crateApiT16T16BackupImportUpstream({
+    required String path,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(path, serializer);
-          return pdeCallFfi(
+          pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
             funcId: 147,
-          )!;
+            port: port_,
+          );
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_import_summary_dto,
@@ -4698,17 +4711,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  BackupListDto crateApiT16T16BackupList({required String parent}) {
+  ImportSummaryDto crateApiT16T16BackupImportUpstreamMerge({
+    required String path,
+  }) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(parent, serializer);
+          sse_encode_String(path, serializer);
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
             funcId: 148,
           )!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_import_summary_dto,
+          decodeErrorData: null,
+        ),
+        constMeta: kCrateApiT16T16BackupImportUpstreamMergeConstMeta,
+        argValues: [path],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiT16T16BackupImportUpstreamMergeConstMeta =>
+      const TaskConstMeta(
+        debugName: "t16_backup_import_upstream_merge",
+        argNames: ["path"],
+      );
+
+  @override
+  Future<BackupListDto> crateApiT16T16BackupList({required String parent}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(parent, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 149,
+            port: port_,
+          );
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_backup_list_dto,
@@ -4725,17 +4771,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       const TaskConstMeta(debugName: "t16_backup_list", argNames: ["parent"]);
 
   @override
-  BackupResultDto crateApiT16T16BackupLocal({required String destRoot}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<BackupResultDto> crateApiT16T16BackupLocal({
+    required String destRoot,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(destRoot, serializer);
-          return pdeCallFfi(
+          pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 149,
-          )!;
+            funcId: 150,
+            port: port_,
+          );
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_backup_result_dto,
@@ -4754,17 +4803,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
-  RecognitionDto crateApiT16T16BackupRecognize({required String path}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<RecognitionDto> crateApiT16T16BackupRecognize({required String path}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(path, serializer);
-          return pdeCallFfi(
+          pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 150,
-          )!;
+            funcId: 151,
+            port: port_,
+          );
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_recognition_dto,
@@ -4784,17 +4834,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  RestoreResultDto crateApiT16T16BackupRestore({required String bundleDir}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<RestoreResultDto> crateApiT16T16BackupRestore({
+    required String bundleDir,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(bundleDir, serializer);
-          return pdeCallFfi(
+          pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 151,
-          )!;
+            funcId: 152,
+            port: port_,
+          );
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_restore_result_dto,
@@ -4814,17 +4867,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       );
 
   @override
-  VerificationDto crateApiT16T16BackupVerify({required String bundleDir}) {
-    return handler.executeSync(
-      SyncTask(
-        callFfi: () {
+  Future<VerificationDto> crateApiT16T16BackupVerify({
+    required String bundleDir,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(bundleDir, serializer);
-          return pdeCallFfi(
+          pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 152,
-          )!;
+            funcId: 153,
+            port: port_,
+          );
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_verification_dto,
@@ -4858,7 +4914,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 153,
+            funcId: 154,
             port: port_,
           );
         },
@@ -4887,7 +4943,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 154,
+            funcId: 155,
           )!;
         },
         codec: SseCodec(
@@ -4913,7 +4969,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 155,
+            funcId: 156,
           )!;
         },
         codec: SseCodec(
@@ -4939,7 +4995,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 156,
+            funcId: 157,
           )!;
         },
         codec: SseCodec(
@@ -4965,7 +5021,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 157,
+            funcId: 158,
           )!;
         },
         codec: SseCodec(
@@ -4994,7 +5050,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 158,
+            funcId: 159,
             port: port_,
           );
         },
@@ -5024,7 +5080,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 159,
+            funcId: 160,
             port: port_,
           );
         },
@@ -5051,7 +5107,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 160,
+            funcId: 161,
           )!;
         },
         codec: SseCodec(
@@ -5082,7 +5138,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 161,
+            funcId: 162,
           )!;
         },
         codec: SseCodec(
@@ -5114,7 +5170,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 162,
+            funcId: 163,
             port: port_,
           );
         },
@@ -5144,7 +5200,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 163,
+            funcId: 164,
             port: port_,
           );
         },
@@ -5171,7 +5227,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 164,
+            funcId: 165,
             port: port_,
           );
         },
@@ -5204,7 +5260,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 165,
+            funcId: 166,
             port: port_,
           );
         },
@@ -5236,7 +5292,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 166,
+            funcId: 167,
             port: port_,
           );
         },
@@ -5271,7 +5327,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 167,
+            funcId: 168,
             port: port_,
           );
         },
@@ -5301,7 +5357,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 168,
+            funcId: 169,
           )!;
         },
         codec: SseCodec(
@@ -5332,7 +5388,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 169,
+            funcId: 170,
           )!;
         },
         codec: SseCodec(
@@ -5362,7 +5418,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 170,
+            funcId: 171,
           )!;
         },
         codec: SseCodec(
@@ -5393,7 +5449,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           return pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 171,
+            funcId: 172,
           )!;
         },
         codec: SseCodec(

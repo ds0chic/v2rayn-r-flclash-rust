@@ -12,7 +12,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
 class _FailingImportBridge extends SyntheticBridgePort {
   @override
-  c.ImportSummaryDto t16BackupImportUpstream(String path) {
+  Future<c.ImportSummaryDto> t16BackupImportUpstream(String path) async {
     t16Calls.add('backup_import:$path');
     return c.ImportSummaryDto(
       ok: false,

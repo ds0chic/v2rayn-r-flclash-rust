@@ -14,7 +14,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use application::monitor::{epoch_day, LogService, StatsService, TrafficStore};
+use application::monitor::{epoch_day, persist_rows, LogService, StatsService, TrafficStore};
 use application::{ClashApiService, InMemoryTrafficStore};
 use core_adapters::clash_api::ClashApiClient;
 use core_adapters::log_stream::{LogLevel, LogLine};
@@ -1392,16 +1392,32 @@ async fn poll_loop_async(shared: Arc<Mutex<MonitorHub>>) {
             if let Ok(samples) = src.poll().await {
                 let generation = src.generation();
                 let today = epoch_day(now_unix());
-                let (dto, sinks) = {
+                // D25: the hub lock only updates memory and clones the rows to
+                // persist; the SQLite write runs after the lock is released so a
+                // slow disk cannot block `stats_snapshot`/`get_logs` or the UI.
+                let (dto, sinks, flush) = {
                     let mut h = shared.lock().unwrap_or_else(|p| p.into_inner());
                     let update = h.stats.apply(&samples, generation, today, Instant::now());
                     if update.applied {
-                        let _ = h.stats.flush_store();
-                        (Some(h.traffic_dto()), h.traffic_subscribers.clone())
+                        let rows = h.stats.snapshot_rows();
+                        let handle = h.stats.store_handle();
+                        (
+                            Some(h.traffic_dto()),
+                            h.traffic_subscribers.clone(),
+                            Some((handle, rows)),
+                        )
                     } else {
-                        (None, Vec::new())
+                        (None, Vec::new(), None)
                     }
                 };
+                if let Some((handle, rows)) = flush {
+                    if let Err(error) = persist_rows(&handle, &rows) {
+                        // Bounded single poller: record the failure readably and
+                        // retry on the next applied snapshot, never silently drop.
+                        let mut h = shared.lock().unwrap_or_else(|p| p.into_inner());
+                        h.store_error = Some(ErrorDto::from(error));
+                    }
+                }
                 if let Some(dto) = dto {
                     for sink in sinks {
                         let _ = sink.add(dto.clone());

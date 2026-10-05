@@ -30,7 +30,7 @@ class _FakePicker implements BackupPicker {
 /// corrupted-archive path observable without touching the shared fake.
 class _FailingImportBridge extends SyntheticBridgePort {
   @override
-  c.ImportSummaryDto t16BackupImportUpstream(String path) {
+  Future<c.ImportSummaryDto> t16BackupImportUpstream(String path) async {
     t16Calls.add('backup_import:$path');
     return c.ImportSummaryDto(
       ok: false,

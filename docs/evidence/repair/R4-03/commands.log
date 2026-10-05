@@ -1,0 +1,42 @@
+# R4-03 command log (2026-10-05, HEAD 3426a1a, armed=false)
+# All runs: Windows PowerShell 7. No 10808 / host proxy / registry / route / TUN / autostart touched.
+
+> cargo fmt --all -- --check
+FMT_EXIT=0
+
+> cargo clippy --workspace --all-targets --locked -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s)
+CLIPPY_EXIT=0
+
+> cargo test --workspace --locked
+    ... running 244 tests (application), 63 tests (net_host), ...
+    test result: ok. (all suites)
+TEST_EXIT=0
+# Note: one run hit a pre-existing shared-env race in net_host session tests
+# (V2RAYN_R_XRAY_BIN clobbered by parallel tests); immediate re-run passed.
+# A transient LNK1104 on the net_host test exe also cleared on re-run.
+
+> cargo test -p runtime -p net_host --locked
+    test session::tests::config_check_deadline_terminates_a_hung_child ... ok
+    test session::tests::rr10_failed_switch_restores_previous_session ... ok (isolated)
+    test result: ok.
+
+> flutter analyze   (workdir apps/desktop)
+Analyzing desktop...
+No issues found! (ran in 3.0s)
+
+> flutter test test/r4_03_contract_test.dart   (workdir apps/desktop)
+00:00 +0: no missing core keeps the install entry hidden
+00:00 +1: a missing core exposes an install entry that runs the update flow
+00:00 +2: a failed install stays visible and retryable
+00:00 +3: All tests passed!
+
+> flutter test test/t16_update_test.dart   (workdir apps/desktop)
+00:00 +7: All tests passed!
+# (Running both files in one invocation produced the known flaky
+#  "did not complete" exit; each file passes on its own.)
+
+> flutter build windows --release   (workdir apps/desktop)
+Building Windows application...                                     8.7s
+Built build\windows\x64\runner\Release\v2rayn_desktop.exe
+BUILD_EXIT=0

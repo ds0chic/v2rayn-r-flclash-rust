@@ -9,12 +9,15 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `profile_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `snapshot_to_dto`, `subscribers`, `test_only_smoke_body`, `transport_from_dto`, `transport_to_dto`
+// These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine_failure_slot`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `error_snapshot_dto`, `failed_engine`, `initialize_engine`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `profile_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `resolve_engine_dir`, `security_from_dto`, `security_to_dto`, `seq_counter`, `set_engine_failure`, `snapshot_to_dto`, `subscribers`, `test_only_smoke_body`, `transport_from_dto`, `transport_to_dto`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `t18b_test_only_smoke_config_json`
 
 /// Open the application engine against an explicit data directory (tests and
 /// portable installs). Must be called before any other API for it to take
 /// effect; later calls are a no-op once the engine is live.
+///
+/// Returns `ok: false` with a structured error when production storage cannot
+/// be opened, instead of silently switching to an in-memory database (D20).
 SimpleResult initEngine({String? dataDir}) =>
     RustLib.instance.api.crateApiEngineInitEngine(dataDir: dataDir);
 

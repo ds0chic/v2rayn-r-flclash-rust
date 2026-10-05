@@ -108,8 +108,8 @@ fn manifest_dto(manifest: &BackupManifest, root: Option<&Path>) -> BackupManifes
     }
 }
 
-/// `backup_local` — write a versioned bundle under `dest_root`.
-#[frb(sync)]
+/// `backup_local` — write a versioned bundle under `dest_root`. Async: copies
+/// files and hashes the database, so it must not run on the UI isolate.
 pub fn t16_backup_local(dest_root: String) -> BackupResultDto {
     let service = match backup_service() {
         Ok(service) => service,
@@ -138,8 +138,7 @@ pub fn t16_backup_local(dest_root: String) -> BackupResultDto {
     }
 }
 
-/// `backup_list` — bundles directly under `parent`.
-#[frb(sync)]
+/// `backup_list` — bundles directly under `parent`. Async: directory scan.
 pub fn t16_backup_list(parent: String) -> BackupListDto {
     match BackupService::list(Path::new(&parent)) {
         Ok(items) => BackupListDto {
@@ -153,8 +152,8 @@ pub fn t16_backup_list(parent: String) -> BackupListDto {
     }
 }
 
-/// `backup_verify` — verify a bundle without writing anything.
-#[frb(sync)]
+/// `backup_verify` — verify a bundle without writing anything. Async: reads the
+/// whole bundle and re-hashes it.
 pub fn t16_backup_verify(bundle_dir: String) -> VerificationDto {
     let service = match backup_service() {
         Ok(service) => service,
@@ -180,8 +179,8 @@ pub fn t16_backup_verify(bundle_dir: String) -> VerificationDto {
     }
 }
 
-/// `backup_restore` — verify then restore a bundle.
-#[frb(sync)]
+/// `backup_restore` — verify then restore a bundle. Async: DB lifecycle swap +
+/// file I/O.
 pub fn t16_backup_restore(bundle_dir: String) -> RestoreResultDto {
     let service = match backup_service() {
         Ok(service) => service,
@@ -230,8 +229,8 @@ pub fn t16_backup_restore(bundle_dir: String) -> RestoreResultDto {
     }
 }
 
-/// `backup_recognize` — recognise an upstream or project archive.
-#[frb(sync)]
+/// `backup_recognize` — recognise an upstream or project archive. Async: reads
+/// the archive directory/central directory.
 pub fn t16_backup_recognize(path: String) -> RecognitionDto {
     let service = match backup_service() {
         Ok(service) => service,
@@ -268,7 +267,7 @@ pub fn t16_backup_recognize(path: String) -> RecognitionDto {
 
 /// `backup_import_upstream` — restore a directory/ZIP via the T04 candidate
 /// flow with replace semantics (the upstream `guiNDB.db` becomes the database).
-#[frb(sync)]
+/// Async: DB lifecycle swap + file I/O.
 pub fn t16_backup_import_upstream(path: String) -> ImportSummaryDto {
     let service = match backup_service() {
         Ok(service) => service,

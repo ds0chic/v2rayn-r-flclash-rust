@@ -269,18 +269,23 @@ abstract class BridgePort {
   c.SimpleResult applyProfileOrder(List<String> orderedIds);
 
   // -- T16 backup / WebDAV / update surface ------------------------------
+  //
+  // D10/R4-10: the backup bundle paths copy files, hash the DB and swap the
+  // database lifecycle. They are async so that work runs off the UI isolate;
+  // `Future.sync` keeps this compilable both before and after the FRB
+  // regenerator flips the Rust source from `#[frb(sync)]` to async.
 
-  c.BackupResultDto t16BackupLocal(String destRoot);
+  Future<c.BackupResultDto> t16BackupLocal(String destRoot);
 
-  c.BackupListDto t16BackupList(String parent);
+  Future<c.BackupListDto> t16BackupList(String parent);
 
-  c.VerificationDto t16BackupVerify(String bundleDir);
+  Future<c.VerificationDto> t16BackupVerify(String bundleDir);
 
-  c.RestoreResultDto t16BackupRestore(String bundleDir);
+  Future<c.RestoreResultDto> t16BackupRestore(String bundleDir);
 
-  c.RecognitionDto t16BackupRecognize(String path);
+  Future<c.RecognitionDto> t16BackupRecognize(String path);
 
-  c.ImportSummaryDto t16BackupImportUpstream(String path);
+  Future<c.ImportSummaryDto> t16BackupImportUpstream(String path);
 
   c.WebDavConfigResultDto t16WebdavConfigGet();
 
@@ -720,28 +725,36 @@ class FrbBridgePort implements BridgePort {
   // -- T16 backup / WebDAV / update (FRB) --------------------------------
 
   @override
-  c.BackupResultDto t16BackupLocal(String destRoot) =>
-      t16.t16BackupLocal(destRoot: destRoot);
+  Future<c.BackupResultDto> t16BackupLocal(String destRoot) =>
+      Future<c.BackupResultDto>.sync(
+        () => t16.t16BackupLocal(destRoot: destRoot),
+      );
 
   @override
-  c.BackupListDto t16BackupList(String parent) =>
-      t16.t16BackupList(parent: parent);
+  Future<c.BackupListDto> t16BackupList(String parent) =>
+      Future<c.BackupListDto>.sync(() => t16.t16BackupList(parent: parent));
 
   @override
-  c.VerificationDto t16BackupVerify(String bundleDir) =>
-      t16.t16BackupVerify(bundleDir: bundleDir);
+  Future<c.VerificationDto> t16BackupVerify(String bundleDir) =>
+      Future<c.VerificationDto>.sync(
+        () => t16.t16BackupVerify(bundleDir: bundleDir),
+      );
 
   @override
-  c.RestoreResultDto t16BackupRestore(String bundleDir) =>
-      t16.t16BackupRestore(bundleDir: bundleDir);
+  Future<c.RestoreResultDto> t16BackupRestore(String bundleDir) =>
+      Future<c.RestoreResultDto>.sync(
+        () => t16.t16BackupRestore(bundleDir: bundleDir),
+      );
 
   @override
-  c.RecognitionDto t16BackupRecognize(String path) =>
-      t16.t16BackupRecognize(path: path);
+  Future<c.RecognitionDto> t16BackupRecognize(String path) =>
+      Future<c.RecognitionDto>.sync(() => t16.t16BackupRecognize(path: path));
 
   @override
-  c.ImportSummaryDto t16BackupImportUpstream(String path) =>
-      t16.t16BackupImportUpstream(path: path);
+  Future<c.ImportSummaryDto> t16BackupImportUpstream(String path) =>
+      Future<c.ImportSummaryDto>.sync(
+        () => t16.t16BackupImportUpstream(path: path),
+      );
 
   @override
   c.WebDavConfigResultDto t16WebdavConfigGet() => t16.t16WebdavConfigGet();
@@ -2860,7 +2873,7 @@ class SyntheticBridgePort implements BridgePort {
   );
 
   @override
-  c.BackupResultDto t16BackupLocal(String destRoot) {
+  Future<c.BackupResultDto> t16BackupLocal(String destRoot) async {
     t16Calls.add('backup_local:$destRoot');
     return c.BackupResultDto(
       ok: true,
@@ -2870,13 +2883,13 @@ class SyntheticBridgePort implements BridgePort {
   }
 
   @override
-  c.BackupListDto t16BackupList(String parent) {
+  Future<c.BackupListDto> t16BackupList(String parent) async {
     t16Calls.add('backup_list:$parent');
     return c.BackupListDto(items: <c.BackupManifestDto>[_manifest(parent)]);
   }
 
   @override
-  c.VerificationDto t16BackupVerify(String bundleDir) {
+  Future<c.VerificationDto> t16BackupVerify(String bundleDir) async {
     t16Calls.add('backup_verify:$bundleDir');
     final broken = bundleDir.contains('broken');
     return c.VerificationDto(
@@ -2887,7 +2900,7 @@ class SyntheticBridgePort implements BridgePort {
   }
 
   @override
-  c.RestoreResultDto t16BackupRestore(String bundleDir) {
+  Future<c.RestoreResultDto> t16BackupRestore(String bundleDir) async {
     t16Calls.add('backup_restore:$bundleDir');
     if (bundleDir.contains('broken')) {
       return const c.RestoreResultDto(
@@ -2910,7 +2923,7 @@ class SyntheticBridgePort implements BridgePort {
   }
 
   @override
-  c.RecognitionDto t16BackupRecognize(String path) {
+  Future<c.RecognitionDto> t16BackupRecognize(String path) async {
     t16Calls.add('backup_recognize:$path');
     return const c.RecognitionDto(
       isUpstream: true,
@@ -2922,7 +2935,7 @@ class SyntheticBridgePort implements BridgePort {
   }
 
   @override
-  c.ImportSummaryDto t16BackupImportUpstream(String path) {
+  Future<c.ImportSummaryDto> t16BackupImportUpstream(String path) async {
     t16Calls.add('backup_import:$path');
     return c.ImportSummaryDto(
       ok: true,

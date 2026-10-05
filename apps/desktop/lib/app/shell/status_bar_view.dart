@@ -11,6 +11,8 @@ import 'package:v2rayn_desktop/features/runtime/tun_toggle.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Bottom status bar (compat/layouts.yaml LAY-STATUSBAR-001).
@@ -43,11 +45,11 @@ class StatusBarView extends ConsumerWidget {
     final left = <Widget>[
       _twoLine(
         _statusText(
-          '本地: ${shell.inbound ?? '--'}',
+          '${context.tr('statusLocal')}: ${shell.inbound ?? '--'}',
           key: const ValueKey('status-inbound'),
         ),
         _statusText(
-          '局域网: ${shell.inboundLan ?? '--'}',
+          '${context.tr('statusLan')}: ${shell.inboundLan ?? '--'}',
           key: const ValueKey('status-inbound-lan'),
         ),
       ),
@@ -55,11 +57,14 @@ class StatusBarView extends ConsumerWidget {
       Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Text('启用 Tun', style: TextStyle(fontSize: 11.5)),
+          Text(
+            context.tr('TbEnableTunAs'),
+            style: const TextStyle(fontSize: 11.5),
+          ),
           Switch(
             key: const ValueKey('tun-toggle'),
             value: desiredTun,
-            onChanged: (value) => _onTunToggle(ref, value),
+            onChanged: (value) => _onTunToggle(context, ref, value),
           ),
           // FIX-13: the desired flag is persisted to `TunModeItem.EnableTun`
           // and then the real plan is re-applied. The actual label is read from
@@ -67,7 +72,7 @@ class StatusBarView extends ConsumerWidget {
           // switch off) reads 未启用; a helper refusal reads 失败已回滚; a live
           // runtime reads 已请求(未验证).
           _statusText(
-            '实际: ${tunActualLabel(desiredTun, runtime)}',
+            '${context.tr('statusActual')}: ${tunActualLabel(desiredTun, runtime)}',
             key: const ValueKey('tun-actual'),
           ),
         ],
@@ -78,7 +83,7 @@ class StatusBarView extends ConsumerWidget {
       // never fabricated from the click.
       PopupMenuButton<SysProxyMode>(
         key: const ValueKey('system-proxy-selector'),
-        tooltip: '系统代理',
+        tooltip: context.tr('menuSystemproxy'),
         onSelected: (mode) => platformController.applyModeFromConfig(mode),
         itemBuilder: (context) => <PopupMenuEntry<SysProxyMode>>[
           for (final mode in SysProxyMode.values)
@@ -92,7 +97,7 @@ class StatusBarView extends ConsumerWidget {
         ],
         child: _SelectorFace(
           child: _statusText(
-            '系统代理: ${platform.desiredMode.label} (${platform.stateLabel})',
+            '${context.tr('menuSystemproxy')}: ${platform.desiredMode.label} (${platform.stateLabel})',
             key: const ValueKey('status-sysproxy'),
           ),
         ),
@@ -102,7 +107,7 @@ class StatusBarView extends ConsumerWidget {
       // through the routing controller).
       PopupMenuButton<String>(
         key: const ValueKey('routing-mode-selector'),
-        tooltip: '路由模式',
+        tooltip: context.tr('menuRulemode'),
         onSelected: routingController.setRuleMode,
         itemBuilder: (context) => <PopupMenuEntry<String>>[
           for (final mode in ['Rule', 'Global', 'Direct'])
@@ -114,20 +119,27 @@ class StatusBarView extends ConsumerWidget {
               ),
             ),
         ],
-        child: _SelectorFace(child: _statusText('路由模式: ${routing.ruleMode}')),
+        child: _SelectorFace(
+          child: _statusText(
+            '${context.tr('menuRulemode')}: ${routing.ruleMode}',
+          ),
+        ),
       ),
       const SizedBox(width: 6),
       // Active routing scheme (upstream cmbRoutings2): switch default.
       PopupMenuButton<String>(
         key: const ValueKey('routing-selector'),
-        tooltip: '路由',
+        tooltip: context.tr('menuRouting'),
         onSelected: routingController.setDefaultAndReload,
         itemBuilder: (context) => <PopupMenuEntry<String>>[
           if (routing.items.isEmpty)
-            const PopupMenuItem<String>(
+            PopupMenuItem<String>(
               value: '',
               enabled: false,
-              child: Text('(无路由配置)', style: TextStyle(fontSize: 12)),
+              child: Text(
+                context.tr('statusRoutingEmpty'),
+                style: const TextStyle(fontSize: 12),
+              ),
             ),
           for (final item in routing.items)
             PopupMenuItem<String>(
@@ -139,7 +151,9 @@ class StatusBarView extends ConsumerWidget {
             ),
         ],
         child: _SelectorFace(
-          child: _statusText('路由: ${_activeSchemeLabel(routing)}'),
+          child: _statusText(
+            '${context.tr('menuRouting')}: ${_activeSchemeLabel(routing)}',
+          ),
         ),
       ),
     ];
@@ -148,11 +162,11 @@ class StatusBarView extends ConsumerWidget {
     // `txtRunningServerDisplay` / `txtRunningInfoDisplay`.
     final center = _twoLine(
       _statusText(
-        '节点: ${runtime.statusLabel}',
+        '${context.tr('statusNode')}: ${runtime.statusLabel}',
         key: const ValueKey('running-node'),
       ),
       _statusText(
-        _runningSummary(runtime),
+        _runningSummary(context, runtime),
         key: const ValueKey('running-info'),
       ),
     );
@@ -161,12 +175,12 @@ class StatusBarView extends ConsumerWidget {
     final right = <Widget>[
       _twoLine(
         _statusText(
-          '代理 ↑${monitor.hasTraffic ? formatRate(monitor.proxyUpBps) : '--'} '
+          '${context.tr('statusProxySpeed')} ↑${monitor.hasTraffic ? formatRate(monitor.proxyUpBps) : '--'} '
           '↓${monitor.hasTraffic ? formatRate(monitor.proxyDownBps) : '--'}',
           key: const ValueKey('status-proxy-speed'),
         ),
         _statusText(
-          '直连 ↑${monitor.hasTraffic ? formatRate(monitor.directUpBps) : '--'} '
+          '${context.tr('statusDirectSpeed')} ↑${monitor.hasTraffic ? formatRate(monitor.directUpBps) : '--'} '
           '↓${monitor.hasTraffic ? formatRate(monitor.directDownBps) : '--'}',
           key: const ValueKey('status-direct-speed'),
         ),
@@ -177,7 +191,7 @@ class StatusBarView extends ConsumerWidget {
       // `ServerStatItem` today counters (upstream `StatisticsManager`
       // semantics). With no node rows it shows `--` instead of a fake zero.
       _statusText(
-        '今日 ↑${monitor.hasTodayNodes ? formatTraffic(monitor.todayUp) : '--'} '
+        '${context.tr('statusToday')} ↑${monitor.hasTodayNodes ? formatTraffic(monitor.todayUp) : '--'} '
         '↓${monitor.hasTodayNodes ? formatTraffic(monitor.todayDown) : '--'}',
         key: const ValueKey('status-today-traffic'),
       ),
@@ -185,7 +199,7 @@ class StatusBarView extends ConsumerWidget {
       // Technical diagnostics moved out of the action row into a details popup.
       PopupMenuButton<void>(
         key: const ValueKey('status-details'),
-        tooltip: '运行详情',
+        tooltip: context.tr('statusRunningDetails'),
         itemBuilder: (context) => <PopupMenuEntry<void>>[
           PopupMenuItem<void>(
             enabled: false,
@@ -194,17 +208,17 @@ class StatusBarView extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  '运行时: ${runtime.state} '
+                  '${context.tr('statusRuntime')}: ${runtime.state} '
                   'host=${runtime.hostAlive ? 'alive' : 'down'} '
                   'PID=${runtime.pid ?? '--'} '
-                  '端口=${runtime.ports.isEmpty ? '--' : runtime.ports.join(',')}',
+                  '${context.tr('statusPorts')}=${runtime.ports.isEmpty ? '--' : runtime.ports.join(',')}',
                   key: const ValueKey('runtime-info'),
                   style: const TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   runtime.hasUnappliedChanges
-                      ? '${runtime.revisionLabel} (未应用)'
+                      ? '${runtime.revisionLabel} (${context.tr('statusUnapplied')})'
                       : runtime.revisionLabel,
                   key: const ValueKey('runtime-revision'),
                   style: const TextStyle(fontSize: 12),
@@ -226,8 +240,11 @@ class StatusBarView extends ConsumerWidget {
             ),
           ),
         ],
-        child: const _SelectorFace(
-          child: Text('详情', style: TextStyle(fontSize: 11.5)),
+        child: _SelectorFace(
+          child: Text(
+            context.tr('statusDetails'),
+            style: const TextStyle(fontSize: 11.5),
+          ),
         ),
       ),
     ];
@@ -235,19 +252,24 @@ class StatusBarView extends ConsumerWidget {
     final messages = <Widget>[
       if (runtime.error != null)
         _statusText(
-          '错误 ${runtime.error!.code}: ${runtime.error!.messageKey}',
+          // R4-30: bridge errors render as a readable cause + action; the stable
+          // code stays available in the details popup, never as the headline.
+          context.errorKeyText(runtime.error!.messageKey),
           key: const ValueKey('runtime-error'),
           color: scheme.error,
         ),
       if (platform.error != null)
         _statusText(
-          '系统代理错误 ${platform.error!.code}',
+          ErrorLocalizer.withCode(
+            context.errorKeyText(platform.error!.messageKey),
+            platform.error!.code,
+          ),
           key: const ValueKey('status-sysproxy-error'),
           color: scheme.error,
         ),
       if (platform.conflicts.isNotEmpty)
         _statusText(
-          '系统代理冲突 ${platform.conflicts.map((c) => c.field).join(',')}',
+          '${context.tr('menuSystemproxy')} ${platform.conflicts.map((c) => c.field).join(',')}',
           key: const ValueKey('status-sysproxy-conflict'),
           color: scheme.error,
         ),
@@ -322,9 +344,9 @@ Widget _twoLine(
   );
 }
 
-String _runningSummary(RuntimeView runtime) {
+String _runningSummary(BuildContext context, RuntimeView runtime) {
   final ports = runtime.ports.isEmpty ? '--' : runtime.ports.join(',');
-  return '${runtime.state} · 端口 $ports';
+  return '${runtime.state} · ${context.tr('statusPorts')} $ports';
 }
 
 /// Bordered selector face with a visible dropdown arrow, so the status-bar
@@ -362,7 +384,16 @@ bool _desiredTun(Map<String, dynamic> document) {
 /// real plan. A failed save leaves the running session untouched and reports
 /// the failure; a denied/absent elevation helper surfaces through the runtime
 /// error and is never rendered as success.
-Future<void> _onTunToggle(WidgetRef ref, bool value) async {
+Future<void> _onTunToggle(
+  BuildContext context,
+  WidgetRef ref,
+  bool value,
+) async {
+  // Resolve the language before any await; the toggle does not touch the
+  // BuildContext across async gaps (avoids the use_build_context lint and a
+  // stale element).
+  final l10n = context.l10n;
+  final localizer = ErrorLocalizer(l10n);
   final settings = ref.read(settingsControllerProvider.notifier);
   final shell = ref.read(uiShellControllerProvider.notifier);
   final result = await toggleTunDesired(
@@ -377,7 +408,8 @@ Future<void> _onTunToggle(WidgetRef ref, bool value) async {
       final saved = settings.saveDocument(document);
       if (!saved.ok) {
         shell.setMessage(
-          'TUN 保存失败: ${saved.error?.messageKey ?? 'error.settings_save_failed'}',
+          '${l10n.t('settingsSaveFailed')}: '
+          '${localizer.error(BridgeErrorView(saved.error!))}',
         );
       }
       return saved.ok;
@@ -389,9 +421,11 @@ Future<void> _onTunToggle(WidgetRef ref, bool value) async {
   if (value && runtime.error != null) {
     // UAC/helper refusal or a missing privileged helper: the setting is saved
     // but the runtime was not switched to TUN. Report honestly.
-    shell.setMessage('TUN 授权被拒绝或 helper 不可用，运行状态未改变');
+    shell.setMessage(l10n.t('tunDenied'));
   } else {
-    shell.setMessage(value ? 'TUN 已保存并应用' : 'TUN 已关闭并应用');
+    shell.setMessage(
+      value ? l10n.t('tunSavedEnabled') : l10n.t('tunSavedDisabled'),
+    );
   }
 }
 

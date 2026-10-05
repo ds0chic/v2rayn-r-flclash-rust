@@ -1,0 +1,35 @@
+{
+  "task": "R4-18.P07",
+  "protocol": "Hysteria2",
+  "status": "implemented",
+  "baseline_app_head": "db3371a",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "AddServerWindow.xaml.cs:102-112 Hysteria2 bindings",
+    "AddServerWindow.xaml.cs:238-244 gridTransport collapsed, tls only",
+    "ConfigHandler.cs:769-836 AddHysteria2Server",
+    "custom.rs:195-206 normalize_server Hysteria2"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p07_repro_test.dart",
+    "failed": 2,
+    "failed_names": [
+      "P07 Hysteria2 keeps TLS (upstream shows the TLS grid)",
+      "P07 Hysteria2 editor hides the collapsed transport grid"
+    ]
+  },
+  "after_fix": {
+    "repro": "PASS 2/2",
+    "contract": "PASS 4/4",
+    "analyze_scoped": "No issues found"
+  },
+  "not_run": [
+    "real FRB + SQLite reopen",
+    "synthetic core handshake",
+    "screenshot"
+  ]
+}

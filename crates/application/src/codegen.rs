@@ -400,6 +400,35 @@ pub fn settings_from_app(settings: &domain::AppSettings, opts: &CodegenOptions) 
     base
 }
 
+/// Map the persisted tree onto the mihomo merge options
+/// (`CoreConfigClashService.GenerateClientCustomConfig`).
+///
+/// This is the consumer for `ClashUIItem.EnableIPv6` (FLD-CFG-129) and
+/// `ClashUIItem.EnableMixinContent` (FLD-CFG-130), which gate the `ipv6`
+/// rewrite and the user-Mixin merge respectively. The remaining `ClashUIItem`
+/// fields (`ProxiesSorting`/`ProxiesAutoRefresh`/`*RefreshInterval`/
+/// `ConnectionsColumnItem`) are UI refresh/column preferences consumed by the
+/// Clash proxies/connections views, not by config generation.
+pub fn mixin_options_from_app(
+    settings: &domain::AppSettings,
+    opts: &CodegenOptions,
+) -> crate::mixin::MixinOptions {
+    let inbound = settings.inbound.first();
+    crate::mixin::MixinOptions {
+        local_port: opts.local_port,
+        state_port2: opts.state_port2,
+        log_level: settings
+            .core_basic_item
+            .loglevel
+            .clone()
+            .unwrap_or_else(|| "warning".into()),
+        allow_lan: inbound.map(|item| item.allow_lan_conn).unwrap_or(false),
+        ipv6: settings.clash_ui_item.enable_ipv6,
+        tun_enabled: settings.tun_mode_item.enable_tun,
+        mixin_enabled: settings.clash_ui_item.enable_mixin_content,
+    }
+}
+
 /// Kernel inbound protocol token for a stored `Inbound.Protocol` (FLD-CFG-036).
 ///
 /// Upstream `V2rayInboundService.BuildInbound` marks the user inbound as
@@ -814,5 +843,273 @@ mod tests {
             singbox.main["experimental"]["cache_file"]["enabled"],
             serde_json::json!(true)
         );
+    }
+
+    // R4-13.S02: ClashUIItem.EnableIPv6 / EnableMixinContent reach the mihomo
+    // merge options and really change the merged YAML.
+    #[test]
+    fn r4_13_s02_clash_ui_item_reaches_mihomo_merge() {
+        let mut settings = domain::AppSettings::default();
+        settings.clash_ui_item.enable_ipv6 = true;
+        settings.clash_ui_item.enable_mixin_content = true;
+        settings.inbound[0].allow_lan_conn = true;
+        let opts = mixin_options_from_app(&settings, &CodegenOptions::default());
+        assert!(opts.ipv6, "EnableIPv6 must reach the mihomo merge");
+        assert!(
+            opts.mixin_enabled,
+            "EnableMixinContent gates the Mixin merge"
+        );
+        assert!(opts.allow_lan, "Inbound.AllowLANConn reaches allow-lan");
+        assert_eq!(opts.local_port, 11808, "never the live 10808 port");
+
+        let base = "port: 7890\nmode: rule\n";
+        let mixin = "rules:\n  - MATCH,DIRECT\n";
+        let on = crate::mixin::generate_mihomo(base, Some(mixin), None, &opts).unwrap();
+        assert!(on.contains("ipv6: true"), "{on}");
+        assert!(on.contains("MATCH,DIRECT"), "{on}");
+
+        settings.clash_ui_item.enable_mixin_content = false;
+        let off = mixin_options_from_app(&settings, &CodegenOptions::default());
+        let off_yaml = crate::mixin::generate_mihomo(base, Some(mixin), None, &off).unwrap();
+        assert!(
+            !off_yaml.contains("MATCH,DIRECT"),
+            "a saved EnableMixinContent=false must skip the Mixin merge: {off_yaml}"
+        );
+    }
+
+    // R4-13.S06: CoreTypeItem rows reach the per-config-type core selection.
+    #[test]
+    fn r4_13_s06_core_type_item_reaches_core_selection() {
+        let mut settings = domain::AppSettings::default();
+        assert_eq!(settings.core_for(ConfigType::Vless), CoreType::Xray);
+        settings.init_core_type_items();
+        if let Some(items) = settings.core_type_item.as_mut() {
+            if let Some(row) = items
+                .iter_mut()
+                .find(|b| b.config_type == ConfigType::Vless)
+            {
+                row.core_type = CoreType::SingBox;
+            }
+        }
+        assert_eq!(settings.core_for(ConfigType::Vless), CoreType::SingBox);
+        assert_eq!(settings.core_for(ConfigType::Vmess), CoreType::Xray);
+    }
+
+    // R4-13.S09: GrpcItem reaches the xray/sing-box gRPC transport settings.
+    #[test]
+    fn r4_13_s09_grpc_item_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        settings.grpc_item.idle_timeout = Some(11);
+        settings.grpc_item.health_check_timeout = Some(7);
+        settings.grpc_item.permit_without_stream = Some(true);
+        settings.grpc_item.initial_windows_size = Some(65535);
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(cs.grpc.idle_timeout, Some(11));
+        assert_eq!(cs.grpc.health_check_timeout, Some(7));
+        assert_eq!(cs.grpc.permit_without_stream, Some(true));
+        assert_eq!(cs.grpc.initial_windows_size, Some(65535));
+    }
+
+    // R4-13.S10: GuiItem statistics/speed reach the generator's experimental
+    // statistics consumer.
+    #[test]
+    fn r4_13_s10_gui_item_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        settings.gui_item.enable_statistics = true;
+        settings.gui_item.display_real_time_speed = true;
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert!(cs.gui.enable_statistics);
+        assert!(cs.gui.display_real_time_speed);
+    }
+
+    // R4-13.S11: HappyEyeballs4RayItem reaches the xray DNS happy-eyeballs block.
+    #[test]
+    fn r4_13_s11_happy_eyeballs_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        settings.happy_eyeballs4_ray_item.try_delay_ms = Some(300);
+        settings.happy_eyeballs4_ray_item.prioritize_ipv6 = Some(true);
+        settings.happy_eyeballs4_ray_item.interleave = Some(2);
+        settings.happy_eyeballs4_ray_item.max_concurrent_try = Some(3);
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(cs.happy_eyeballs4_ray.try_delay_ms, Some(300));
+        assert_eq!(cs.happy_eyeballs4_ray.prioritize_ipv6, Some(true));
+        assert_eq!(cs.happy_eyeballs4_ray.interleave, Some(2));
+        assert_eq!(cs.happy_eyeballs4_ray.max_concurrent_try, Some(3));
+    }
+
+    // R4-13.S12: HysteriaItem reaches the hysteria2 up/down/hop parameters.
+    #[test]
+    fn r4_13_s12_hysteria_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        settings.hysteria_item.up_mbps = 55;
+        settings.hysteria_item.down_mbps = 66;
+        settings.hysteria_item.hop_interval = 42;
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(cs.hysteria.up_mbps, Some(55));
+        assert_eq!(cs.hysteria.down_mbps, Some(66));
+        assert_eq!(cs.hysteria.hop_interval, 42);
+    }
+
+    // R4-13.S13: every Inbound listener field except the caller-owned local
+    // port reaches the generated inbound settings.
+    #[test]
+    fn r4_13_s13_inbound_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        let inbound = &mut settings.inbound[0];
+        inbound.second_local_port_enabled = true;
+        inbound.allow_lan_conn = true;
+        inbound.new_port4_lan = true;
+        inbound.user = "u".into();
+        inbound.pass = "p".into();
+        inbound.udp_enabled = false;
+        inbound.sniffing_enabled = false;
+        inbound.dest_override = Some(vec!["tls".into()]);
+        inbound.route_only = true;
+        inbound.protocol = domain::InboundProtocol::Mixed;
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert!(cs.inbound.second_local_port_enabled);
+        assert!(cs.inbound.allow_lan_conn);
+        assert!(cs.inbound.new_port4_lan);
+        assert_eq!(cs.inbound.user, "u");
+        assert_eq!(cs.inbound.pass, "p");
+        assert!(!cs.inbound.udp_enabled);
+        assert!(!cs.inbound.sniffing_enabled);
+        assert_eq!(cs.inbound.dest_override, vec!["tls".to_string()]);
+        assert!(cs.inbound.route_only);
+        assert_eq!(cs.inbound.protocol, "mixed");
+    }
+
+    // R4-13.S14: KcpItem reaches the xray kcp transport and clamps cwnd.
+    #[test]
+    fn r4_13_s14_kcp_item_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        settings.kcp_item.mtu = 1400;
+        settings.kcp_item.tti = 40;
+        settings.kcp_item.uplink_capacity = 15;
+        settings.kcp_item.downlink_capacity = 90;
+        settings.kcp_item.cwnd_multiplier = 3;
+        settings.kcp_item.max_sending_window = 1024;
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(cs.kcp.mtu, 1400);
+        assert_eq!(cs.kcp.tti, 40);
+        assert_eq!(cs.kcp.uplink_capacity, 15);
+        assert_eq!(cs.kcp.downlink_capacity, 90);
+        assert_eq!(cs.kcp.cwnd_multiplier, 3);
+        assert_eq!(cs.kcp.max_sending_window, 1024);
+
+        settings.kcp_item.cwnd_multiplier = 0;
+        let clamped = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(clamped.kcp.cwnd_multiplier, 1, "cwnd >= 1 correction");
+    }
+
+    // R4-13.S16: Mux4RayItem reaches the xray mux, with frozen null fallbacks.
+    #[test]
+    fn r4_13_s16_mux4_ray_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        settings.mux4_ray_item.concurrency = Some(4);
+        settings.mux4_ray_item.xudp_concurrency = Some(9);
+        settings.mux4_ray_item.xudp_proxy_udp443 = Some("skip".into());
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(cs.mux4_ray.concurrency, 4);
+        assert_eq!(cs.mux4_ray.xudp_concurrency, 9);
+        assert_eq!(cs.mux4_ray.xudp_proxy_udp443, "skip");
+
+        settings.mux4_ray_item.concurrency = None;
+        settings.mux4_ray_item.xudp_concurrency = None;
+        settings.mux4_ray_item.xudp_proxy_udp443 = None;
+        let fallback = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(fallback.mux4_ray.concurrency, 8);
+        assert_eq!(fallback.mux4_ray.xudp_concurrency, 16);
+        assert_eq!(fallback.mux4_ray.xudp_proxy_udp443, "reject");
+    }
+
+    // R4-13.S17: Mux4SboxItem reaches the sing-box mux.
+    #[test]
+    fn r4_13_s17_mux4_sbox_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        settings.mux4_sbox_item.protocol = Some("smux".into());
+        settings.mux4_sbox_item.max_connections = 12;
+        settings.mux4_sbox_item.padding = Some(true);
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(cs.mux4_sbox.protocol, "smux");
+        assert_eq!(cs.mux4_sbox.max_connections, 12);
+        assert_eq!(cs.mux4_sbox.padding, Some(true));
+
+        settings.mux4_sbox_item.protocol = None;
+        let fallback = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(fallback.mux4_sbox.protocol, "h2mux");
+    }
+
+    // R4-13.S18: RoutingBasicItem reaches the xray/sing-box routing strategy.
+    #[test]
+    fn r4_13_s18_routing_basic_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        settings.routing_basic_item.domain_strategy = Some("IPIfNonMatch".into());
+        settings.routing_basic_item.domain_strategy4_singbox = Some("prefer_ipv4".into());
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(cs.routing_basic.domain_strategy, "IPIfNonMatch");
+        assert_eq!(
+            cs.routing_basic.domain_strategy4_singbox.as_deref(),
+            Some("prefer_ipv4")
+        );
+
+        settings.routing_basic_item.domain_strategy = None;
+        let fallback = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(fallback.routing_basic.domain_strategy, "AsIs");
+    }
+
+    // R4-13.S19: SimpleDNSItem reaches the generator's SimpleDns block.
+    #[test]
+    fn r4_13_s19_simple_dns_reaches_codegen() {
+        let mut settings = domain::AppSettings::default();
+        let simple = &mut settings.simple_dns_item;
+        simple.direct_dns = Some("1.1.1.1".into());
+        simple.remote_dns = Some("https://dns.example/dns-query".into());
+        simple.bootstrap_dns = Some("8.8.8.8".into());
+        simple.fake_ip = Some(true);
+        simple.global_fake_ip = Some(false);
+        simple.fake_ip_range = Some("198.18.0.0/15".into());
+        simple.serve_stale = Some(true);
+        simple.parallel_query = Some(true);
+        simple.enable_happy_eyeballs = Some(true);
+        let dns = dns_to_codegen(None, &settings.simple_dns_item, BTreeMap::new(), Vec::new());
+        assert_eq!(dns.simple.direct_dns.as_deref(), Some("1.1.1.1"));
+        assert_eq!(
+            dns.simple.remote_dns.as_deref(),
+            Some("https://dns.example/dns-query")
+        );
+        assert_eq!(dns.simple.bootstrap_dns.as_deref(), Some("8.8.8.8"));
+        assert!(dns.simple.fake_ip);
+        assert_eq!(dns.simple.global_fake_ip, Some(false));
+        assert_eq!(dns.simple.fake_ip_range.as_deref(), Some("198.18.0.0/15"));
+        assert!(dns.simple.serve_stale);
+        assert!(dns.simple.parallel_query);
+        assert!(dns.simple.enable_happy_eyeballs);
+    }
+
+    // R4-13.S20: SpeedTestItem reaches the speedtest engine parameters with the
+    // upstream corrections (<10 timeout/concurrency and blank URL fallbacks).
+    #[test]
+    fn r4_13_s20_speed_test_reaches_engine() {
+        let item = domain::SpeedTestItem {
+            speed_test_timeout: 3,
+            mixed_concurrency_count: 2,
+            speed_test_url: Some("   ".into()),
+            speed_ping_test_url: Some("  ".into()),
+            udp_test_target: Some("ntp:pool.ntp.org".into()),
+            speed_test_page_size: Some(5),
+            speed_test_delay_interval: Some(2),
+            ..Default::default()
+        };
+        let st = crate::speedtest::SpeedTestSettings::from_item(&item);
+        assert_eq!(st.timeout.as_secs(), 10, "timeout correction >= 10");
+        assert_eq!(st.mixed_concurrency, 10, "concurrency correction >= 10");
+        assert!(
+            !st.speed_test_url.trim().is_empty(),
+            "blank URL falls back to the frozen default"
+        );
+        assert_eq!(st.page_size, 5);
+        assert_eq!(st.delay_interval.as_secs(), 2);
+        assert_eq!(st.udp_test_target.as_deref(), Some("ntp:pool.ntp.org"));
     }
 }

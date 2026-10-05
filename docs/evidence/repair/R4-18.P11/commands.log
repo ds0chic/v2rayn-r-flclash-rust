@@ -1,0 +1,13 @@
+# R4-18.P11 commands (working dir apps/desktop unless noted)
+
+flutter test test/repair/r4_18_p11_repro_test.dart   # pre-fix: +0 -2 (missing congestionControl, network shown)
+flutter test test/repair/r4_18_p11_repro_test.dart   # post-fix: +2 All tests passed!
+flutter test test/r4_18_p11_contract_test.dart       # +4 All tests passed!
+flutter analyze lib/features/profiles test/r4_18_p11_contract_test.dart test/repair/r4_18_p11_repro_test.dart
+# -> No issues found!
+
+# Rust gates (repo root)
+cargo fmt --all -- --check           # PASS
+cargo clippy --workspace --all-targets --locked -- -D warnings   # PASS
+cargo test --workspace --locked      # FAIL (pre-existing parallel port contention)
+flutter build windows --release      # FAIL (main_shell.dart, other agent)

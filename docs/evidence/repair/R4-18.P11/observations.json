@@ -1,0 +1,37 @@
+{
+  "task": "R4-18.P11",
+  "protocol": "Naive",
+  "status": "implemented",
+  "baseline_app_head": "db3371a",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "AddServerWindow.xaml.cs:134-141 Naive bindings",
+    "Global.cs:615-621 NaiveCongestionControls",
+    "AddServerWindow.xaml.cs:275-286 gridTransport/Finalmask collapsed",
+    "ConfigHandler.cs:971-993 AddNaiveServer",
+    "custom.rs:236-246 normalize_server Naive",
+    "singbox/outbound.rs:499-516 Naive outbound"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p11_repro_test.dart",
+    "failed": 2,
+    "failed_names": [
+      "P11 Naive exposes the upstream congestion-control field",
+      "P11 Naive editor shows congestion and hides transport"
+    ]
+  },
+  "after_fix": {
+    "repro": "PASS 2/2",
+    "contract": "PASS 4/4",
+    "analyze_scoped": "No issues found"
+  },
+  "not_run": [
+    "real FRB + SQLite reopen",
+    "synthetic core handshake",
+    "screenshot"
+  ]
+}

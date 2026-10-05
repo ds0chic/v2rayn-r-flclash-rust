@@ -1,0 +1,139 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart
+test/repair/r4_30_repro_test.dart:19:8: Error: Error when reading 'lib/shared/l10n/error_localizer.dart': 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆?import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+       ^
+test/repair/r4_30_repro_test.dart:20:8: Error: Error when reading 'lib/shared/l10n/l10n.dart': 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆?import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
+       ^
+test/repair/r4_30_repro_test.dart:21:8: Error: Error when reading 'lib/shared/l10n/l10n_context.dart': 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆?import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
+       ^
+test/repair/r4_30_repro_test.dart:22:8: Error: Error when reading 'lib/shared/l10n/strings.g.dart': 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆?import 'package:v2rayn_desktop/shared/l10n/strings.g.dart';
+       ^
+test/repair/r4_30_repro_test.dart:28:16: Error: Method not found: 'L10n'.
+    const en = L10n('en');
+               ^^^^
+test/repair/r4_30_repro_test.dart:29:16: Error: Method not found: 'L10n'.
+    const zh = L10n('zh-Hans');
+               ^^^^
+test/repair/r4_30_repro_test.dart:40:16: Error: Method not found: 'L10n'.
+    const zh = L10n('zh-Hans');
+               ^^^^
+test/repair/r4_30_repro_test.dart:46:16: Error: Method not found: 'L10n'.
+    const zh = L10n('zh-Hans');
+               ^^^^
+test/repair/r4_30_repro_test.dart:47:23: Error: Method not found: 'ErrorLocalizer'.
+    final localizer = ErrorLocalizer(zh);
+                      ^^^^^^^^^^^^^^
+test/repair/r4_30_repro_test.dart:61:30: Error: Undefined name 'kL10nLanguages'.
+      for (final language in kL10nLanguages) {
+                             ^^^^^^^^^^^^^^
+test/repair/r4_30_repro_test.dart:62:26: Error: Method not found: 'L10n'.
+        final resolved = L10n(language).t(key!);
+                         ^^^^
+test/repair/r4_30_repro_test.dart:86:44: Error: Couldn't find constructor 'L10n'.
+    final localizer = ErrorLocalizer(const L10n('en'));
+                                           ^^^^
+test/repair/r4_30_repro_test.dart:86:23: Error: Method not found: 'ErrorLocalizer'.
+    final localizer = ErrorLocalizer(const L10n('en'));
+                      ^^^^^^^^^^^^^^
+test/repair/r4_30_repro_test.dart:95:11: Error: Undefined name 'kL10nDelegate'.
+          kL10nDelegate,
+          ^^^^^^^^^^^^^
+test/repair/r4_30_repro_test.dart:116:13: Error: Undefined name 'productLanguageProvider'.
+            productLanguageProvider.overrideWithValue(language),
+            ^^^^^^^^^^^^^^^^^^^^^^^
+test/repair/r4_30_repro_test.dart:121:15: Error: Undefined name 'kL10nDelegate'.
+              kL10nDelegate,
+              ^^^^^^^^^^^^^
+test/repair/r4_30_repro_test.dart:59:25: Error: The getter 'l10nKey' isn't defined for the type 'AppMenuEntry'.
+ - 'AppMenuEntry' is from 'package:v2rayn_desktop/app/menu/main_menu.dart' ('lib/app/menu/main_menu.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'l10nKey'.
+      final key = entry.l10nKey;
+                        ^^^^^^^
+test/repair/r4_30_repro_test.dart:99:46: Error: The method 'tr' isn't defined for the type 'BuildContext'.
+ - 'BuildContext' is from 'package:flutter/src/widgets/framework.dart' ('../../../../../../toolchains/flutter/packages/flutter/lib/src/widgets/framework.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'tr'.
+          builder: (context) => Text(context.tr('menuSetting')),
+                                             ^^
+test/repair/r4_30_repro_test.dart:125:50: Error: The method 'tr' isn't defined for the type 'BuildContext'.
+ - 'BuildContext' is from 'package:flutter/src/widgets/framework.dart' ('../../../../../../toolchains/flutter/packages/flutter/lib/src/widgets/framework.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'tr'.
+              builder: (context) => Text(context.tr('menuReload')),
+                                                 ^^
+00:00 +0 -1: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart [E]
+  Failed to load "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart":
+  Compilation failed for testPath=C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart: test/repair/r4_30_repro_test.dart:19:8: Error: Error when reading 'lib/shared/l10n/error_localizer.dart': 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆?  import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+         ^
+  test/repair/r4_30_repro_test.dart:20:8: Error: Error when reading 'lib/shared/l10n/l10n.dart': 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆?  import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
+         ^
+  test/repair/r4_30_repro_test.dart:21:8: Error: Error when reading 'lib/shared/l10n/l10n_context.dart': 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆?  import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
+         ^
+  test/repair/r4_30_repro_test.dart:22:8: Error: Error when reading 'lib/shared/l10n/strings.g.dart': 绯荤粺鎵句笉鍒版寚瀹氱殑璺緞銆?  import 'package:v2rayn_desktop/shared/l10n/strings.g.dart';
+         ^
+  test/repair/r4_30_repro_test.dart:28:16: Error: Method not found: 'L10n'.
+      const en = L10n('en');
+                 ^^^^
+  test/repair/r4_30_repro_test.dart:29:16: Error: Method not found: 'L10n'.
+      const zh = L10n('zh-Hans');
+                 ^^^^
+  test/repair/r4_30_repro_test.dart:40:16: Error: Method not found: 'L10n'.
+      const zh = L10n('zh-Hans');
+                 ^^^^
+  test/repair/r4_30_repro_test.dart:46:16: Error: Method not found: 'L10n'.
+      const zh = L10n('zh-Hans');
+                 ^^^^
+  test/repair/r4_30_repro_test.dart:47:23: Error: Method not found: 'ErrorLocalizer'.
+      final localizer = ErrorLocalizer(zh);
+                        ^^^^^^^^^^^^^^
+  test/repair/r4_30_repro_test.dart:61:30: Error: Undefined name 'kL10nLanguages'.
+        for (final language in kL10nLanguages) {
+                               ^^^^^^^^^^^^^^
+  test/repair/r4_30_repro_test.dart:62:26: Error: Method not found: 'L10n'.
+          final resolved = L10n(language).t(key!);
+                           ^^^^
+  test/repair/r4_30_repro_test.dart:86:44: Error: Couldn't find constructor 'L10n'.
+      final localizer = ErrorLocalizer(const L10n('en'));
+                                             ^^^^
+  test/repair/r4_30_repro_test.dart:86:23: Error: Method not found: 'ErrorLocalizer'.
+      final localizer = ErrorLocalizer(const L10n('en'));
+                        ^^^^^^^^^^^^^^
+  test/repair/r4_30_repro_test.dart:95:11: Error: Undefined name 'kL10nDelegate'.
+            kL10nDelegate,
+            ^^^^^^^^^^^^^
+  test/repair/r4_30_repro_test.dart:116:13: Error: Undefined name 'productLanguageProvider'.
+              productLanguageProvider.overrideWithValue(language),
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  test/repair/r4_30_repro_test.dart:121:15: Error: Undefined name 'kL10nDelegate'.
+                kL10nDelegate,
+                ^^^^^^^^^^^^^
+  test/repair/r4_30_repro_test.dart:59:25: Error: The getter 'l10nKey' isn't defined for the type 'AppMenuEntry'.
+   - 'AppMenuEntry' is from 'package:v2rayn_desktop/app/menu/main_menu.dart' ('lib/app/menu/main_menu.dart').
+  Try correcting the name to the name of an existing getter, or defining a getter or field named 'l10nKey'.
+        final key = entry.l10nKey;
+                          ^^^^^^^
+  test/repair/r4_30_repro_test.dart:99:46: Error: The method 'tr' isn't defined for the type 'BuildContext'.
+   - 'BuildContext' is from 'package:flutter/src/widgets/framework.dart' ('../../../../../../toolchains/flutter/packages/flutter/lib/src/widgets/framework.dart').
+  Try correcting the name to the name of an existing method, or defining a method named 'tr'.
+            builder: (context) => Text(context.tr('menuSetting')),
+                                               ^^
+  test/repair/r4_30_repro_test.dart:125:50: Error: The method 'tr' isn't defined for the type 'BuildContext'.
+   - 'BuildContext' is from 'package:flutter/src/widgets/framework.dart' ('../../../../../../toolchains/flutter/packages/flutter/lib/src/widgets/framework.dart').
+  Try correcting the name to the name of an existing method, or defining a method named 'tr'.
+                builder: (context) => Text(context.tr('menuReload')),
+                                                   ^^
+  .
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart

@@ -7,6 +7,7 @@ import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
 import 'package:v2rayn_desktop/features/settings/settings_window_host.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 
 /// Option settings window (LAY-OPTSET-001/002).
 ///
@@ -86,7 +87,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       if (document.isEmpty) {
         setState(() {
           _loadFailed = true;
-          _error = '读取配置失败';
+          _error = 'error.settings_load_failed';
         });
         return;
       }
@@ -102,7 +103,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       if (!mounted) return;
       setState(() {
         _loadFailed = true;
-        _error = '读取配置失败';
+        _error = 'error.settings_load_failed';
       });
     }
   }
@@ -187,7 +188,9 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 Text(
-                  _error ?? '读取配置失败',
+                  _error == null
+                      ? context.tr('settingsLoadFailed')
+                      : context.messageText(_error!),
                   key: const ValueKey('settings-load-error'),
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
@@ -195,7 +198,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 FilledButton(
                   key: const ValueKey('settings-load-retry'),
                   onPressed: _retryLoadSnapshot,
-                  child: const Text('重试'),
+                  child: Text(context.tr('retry')),
                 ),
               ],
             ),
@@ -215,19 +218,19 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           // Frozen `OptionSettingWindow.xaml` TabItem headers:
           // TbSettingsCore / TbSettingsN / TbSettingsSystemproxy /
           // TbSettingsTunMode / TbSettingsCoreType.
-          tabs: const <Tab>[
-            Tab(text: 'Core: 基础设置'),
-            Tab(text: 'v2rayN 设置'),
-            Tab(text: '系统代理设置'),
-            Tab(text: 'Tun 模式设置'),
-            Tab(text: 'Core 类型设置'),
+          tabs: <Tab>[
+            Tab(text: context.tr('TbSettingsCore')),
+            Tab(text: context.tr('TbSettingsN')),
+            Tab(text: context.tr('TbSettingsSystemproxy')),
+            Tab(text: context.tr('TbSettingsTunMode')),
+            Tab(text: context.tr('TbSettingsCoreType')),
           ],
         ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.all(4),
             child: Text(
-              _error!,
+              context.messageText(_error!),
               style: TextStyle(
                 fontSize: 11,
                 color: Theme.of(context).colorScheme.error,
@@ -238,7 +241,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           Padding(
             padding: const EdgeInsets.all(4),
             child: Text(
-              _statusText(state.status!),
+              context.messageText(state.status!),
               style: const TextStyle(fontSize: 11),
             ),
           ),
@@ -266,12 +269,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       FilledButton(
         key: const ValueKey('settings-save'),
         onPressed: () => _save(applyAfter: true),
-        child: const Text('确定'),
+        child: Text(context.tr('TbConfirm')),
       ),
       TextButton(
         key: const ValueKey('settings-cancel'),
         onPressed: _cancel,
-        child: const Text('取消'),
+        child: Text(context.tr('TbCancel')),
       ),
     ];
 
@@ -317,7 +320,10 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
 
     return AlertDialog(
       // Upstream `OptionSettingWindow` Title = ResUI.menuSetting (设置).
-      title: const Text('设置', style: TextStyle(fontSize: 15)),
+      title: Text(
+        context.tr('menuSetting'),
+        style: const TextStyle(fontSize: 15),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       content: SizedBox(width: 720, height: 520, child: tabColumn),
       actions: actions,
@@ -334,28 +340,6 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     Navigator.of(context).pop();
   }
 
-  /// The controller reports status as stable message keys; the window must
-  /// never render a raw key like `settings.saved` (R3-WPF-Option-Labels / O8).
-  /// Text follows the frozen resx (OperationSuccess / NeedRebootTips).
-  static String _statusText(String key) {
-    switch (key) {
-      case 'settings.saved_need_app_restart':
-        return '操作成功。请点击设置菜单重启应用。';
-      case 'settings.saved_need_core_restart':
-        return '操作成功，请重启服务';
-      case 'settings.saved_need_next_launch':
-        return '操作成功，下次启动生效';
-      case 'settings.saved':
-        return '操作成功';
-      case 'error.settings_load_failed':
-        return '读取配置失败';
-      case 'error.settings_save_failed':
-        return '保存配置失败';
-      default:
-        return key.startsWith('error.') ? '操作失败，请检查并重试' : '操作成功';
-    }
-  }
-
   /// Upstream `OptionSettingViewModel.SaveSettingAsync` rejects a non-numeric
   /// or out-of-range local port and malformed fragment ranges before touching
   /// storage.
@@ -363,19 +347,19 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     final inbound = _inboundListener();
     final port = (inbound['LocalPort'] as num?)?.toInt();
     if (port == null || port <= 0 || port >= 65536) {
-      return '请填写本地监听端口';
+      return 'validate.local_port';
     }
     final fragment = _group('Fragment4RayItem');
     for (final key in <String>['Lengths', 'Delays']) {
       for (final range in _list(fragment, key)) {
-        if (!_isValidRange(range)) return '请填写正确的分片参数';
+        if (!_isValidRange(range)) return 'validate.fragment';
       }
     }
     final maxSplit = _str(fragment, 'MaxSplit');
     if (maxSplit != null && maxSplit.isNotEmpty) {
       final value = int.tryParse(maxSplit);
       if (value == null || value < 0 || value > 10000) {
-        return '请填写正确的分片参数';
+        return 'validate.fragment';
       }
     }
     return null;
@@ -413,7 +397,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       // R4-12/D34: without a successfully read snapshot there is no valid draft
       // to persist; refuse instead of writing defaults over the real settings.
       if (_loadFailed || !_draftInit) {
-        setState(() => _error = '读取配置失败，无法保存');
+        setState(() => _error = 'error.settings_load_failed');
         return;
       }
       // Independent-window path: the main engine owns persistence and applies
@@ -435,7 +419,9 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           );
         }
       } else {
-        setState(() => _error = outcome.message ?? '保存配置失败');
+        setState(
+          () => _error = outcome.message ?? 'error.settings_save_failed',
+        );
       }
       return;
     }
@@ -451,7 +437,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     if (outcome.ok) {
       Navigator.of(context).pop();
     } else {
-      setState(() => _error = outcome.message ?? '操作失败，请检查并重试');
+      setState(() => _error = outcome.message ?? 'error.settings_save_failed');
     }
   }
 

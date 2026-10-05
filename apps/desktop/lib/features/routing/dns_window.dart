@@ -8,6 +8,7 @@ import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/dns_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 
 /// The DNS settings window (upstream `DNSSettingWindow`, LAY-DNSSET-001,
 /// F-DNS-001/002). Four tabs: basic / advanced / custom Xray / custom
@@ -289,7 +290,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     final state = ref.watch(dnsControllerProvider);
     return AlertDialog(
       key: const ValueKey('dns-setting-window'),
-      title: const Text('DNS 设置', style: TextStyle(fontSize: 15)),
+      title: Text(context.tr('TbDNS'), style: const TextStyle(fontSize: 15)),
       contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       content: SizedBox(
         width: 720,
@@ -299,11 +300,11 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             TabBar(
               controller: _tabs,
               labelStyle: const TextStyle(fontSize: 13),
-              tabs: const [
-                Tab(text: '基础 DNS'),
-                Tab(text: '高级 DNS'),
-                Tab(text: '自定义 DNS (Xray)'),
-                Tab(text: '自定义 DNS (sing-box)'),
+              tabs: <Tab>[
+                Tab(text: context.tr('dnsBasicTab')),
+                Tab(text: context.tr('dnsAdvancedTab')),
+                Tab(text: context.tr('dnsCustomXrayTab')),
+                Tab(text: context.tr('dnsCustomSingboxTab')),
               ],
             ),
             Expanded(
@@ -357,15 +358,27 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             ),
             Row(
               children: <Widget>[
-                const Text('区域预设', style: TextStyle(fontSize: 12)),
+                Text(
+                  context.tr('dnsRegionPreset'),
+                  style: const TextStyle(fontSize: 12),
+                ),
                 const SizedBox(width: 8),
                 DropdownButton<String>(
                   key: const ValueKey('dns-preset'),
                   value: _preset,
-                  items: const [
-                    DropdownMenuItem(value: 'Default', child: Text('默认区域')),
-                    DropdownMenuItem(value: 'Russia', child: Text('俄罗斯')),
-                    DropdownMenuItem(value: 'Iran', child: Text('伊朗')),
+                  items: <DropdownMenuItem<String>>[
+                    DropdownMenuItem(
+                      value: 'Default',
+                      child: Text(context.tr('menuRegionalPresetsDefault')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Russia',
+                      child: Text(context.tr('menuRegionalPresetsRussia')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Iran',
+                      child: Text(context.tr('menuRegionalPresetsIran')),
+                    ),
                   ],
                   onChanged: (v) => setState(() => _preset = v ?? 'Default'),
                 ),
@@ -373,12 +386,14 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                 TextButton(
                   key: const ValueKey('dns-apply-preset'),
                   onPressed: _applyPreset,
-                  child: const Text('应用预设'),
+                  child: Text(context.tr('dnsApplyPreset')),
                 ),
                 if (state.pendingUrls.isNotEmpty)
                   Expanded(
                     child: Text(
-                      '${state.pendingUrls.length} 个远程模板待下载（未联网）',
+                      context.trf('dnsPendingUrls', <Object?>[
+                        state.pendingUrls.length,
+                      ]),
                       style: const TextStyle(
                         fontSize: 11,
                         color: Colors.orange,
@@ -391,7 +406,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  state.status!,
+                  context.messageText(state.status!),
                   key: const ValueKey('dns-status'),
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
@@ -403,17 +418,17 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
         TextButton(
           key: const ValueKey('dns-cancel'),
           onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+          child: Text(context.tr('TbCancel')),
         ),
         TextButton(
           key: const ValueKey('dns-apply'),
           onPressed: () => _save(applyAfter: true),
-          child: const Text('应用'),
+          child: Text(context.tr('TbApply')),
         ),
         FilledButton(
           key: const ValueKey('dns-save'),
           onPressed: _save,
-          child: const Text('保存'),
+          child: Text(context.tr('TbSave')),
         ),
       ],
     );
@@ -425,10 +440,26 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
       padding: const EdgeInsets.only(top: 8),
       child: Column(
         children: <Widget>[
-          _field('直连 DNS', _direct, const ValueKey('dns-direct')),
-          _field('远端 DNS', _remote, const ValueKey('dns-remote')),
-          _field('引导 DNS', _bootstrap, const ValueKey('dns-bootstrap')),
-          _field('FakeIP 段', _fakeIpRange, const ValueKey('dns-fakeip-range')),
+          _field(
+            context.tr('dnsDirectDns'),
+            _direct,
+            const ValueKey('dns-direct'),
+          ),
+          _field(
+            context.tr('dnsRemoteDns'),
+            _remote,
+            const ValueKey('dns-remote'),
+          ),
+          _field(
+            context.tr('dnsBootstrapDns'),
+            _bootstrap,
+            const ValueKey('dns-bootstrap'),
+          ),
+          _field(
+            context.tr('dnsFakeIpRange'),
+            _fakeIpRange,
+            const ValueKey('dns-fakeip-range'),
+          ),
           _switch('使用系统 hosts', _useSystemHosts, (v) {
             setState(() => _useSystemHosts = v);
           }, const ValueKey('dns-use-system-hosts')),
@@ -454,12 +485,12 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             setState(() => _happyEyeballs = v);
           }, const ValueKey('dns-happy-eyeballs')),
           if (!_simpleDnsEnabled)
-            const Padding(
-              padding: EdgeInsets.only(top: 4),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
               child: Text(
-                '双核自定义 DNS 均已启用，普通 DNS 设置已禁用。',
-                key: ValueKey('dns-simple-disabled-hint'),
-                style: TextStyle(fontSize: 11, color: Colors.orange),
+                context.tr('dnsDisabledHint'),
+                key: const ValueKey('dns-simple-disabled-hint'),
+                style: const TextStyle(fontSize: 11, color: Colors.orange),
               ),
             ),
         ],

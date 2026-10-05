@@ -1,0 +1,35 @@
+{
+  "task": "R4-18.P08",
+  "protocol": "TUIC",
+  "status": "implemented",
+  "baseline_app_head": "db3371a",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "AddServerWindow.xaml.cs:114-118 TUIC bindings",
+    "AddServerWindow.xaml.cs:246-255 gridTransport/Finalmask collapsed",
+    "Global.cs:608-613 TuicCongestionControls",
+    "ConfigHandler.cs:847-881 AddTuicServer",
+    "custom.rs:207-228 normalize_server Tuic"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p08_repro_test.dart",
+    "failed": 1,
+    "failed_names": [
+      "P08 TUIC editor hides the collapsed transport grid"
+    ]
+  },
+  "after_fix": {
+    "repro": "PASS 2/2",
+    "contract": "PASS 4/4",
+    "analyze_scoped": "No issues found"
+  },
+  "not_run": [
+    "real FRB + SQLite reopen",
+    "synthetic core handshake",
+    "screenshot"
+  ]
+}

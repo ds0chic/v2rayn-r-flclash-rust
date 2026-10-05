@@ -1,0 +1,36 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: language infrastructure kSupportedLanguages matches the frozen ResUI resx set
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: language infrastructure localeForLanguage produces the script-qualified code
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: language infrastructure resource table covers every listed language for every key
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: language infrastructure missing translation falls back to English, then to the key
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: menu and status bar switch with the locale menu labels resolve per active locale
+00:00 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: menu and status bar switch with the locale changing UiShellState.language persists and reapplies
+00:00 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: readable error feedback (no raw keys) bridge error keys localize for every supported language
+00:00 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: readable error feedback (no raw keys) unknown error keys degrade to readable generic text
+00:00 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: readable error feedback (no raw keys) bridge ErrorDto localizes via the adapter
+00:00 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: readable error feedback (no raw keys) runtime/platform error projections localize
+00:00 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: readable error feedback (no raw keys) window status keys localize, never a raw key (Wave K no regression)
+00:00 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: readable error feedback (no raw keys) validation keys localize
+00:00 +12: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: readable error feedback (no raw keys) status bar shows a readable runtime error, not a key
+00:00 +13: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart: menu key provenance every menu entry resolves for all 9 languages (en fallback allowed)
+00:00 +14: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart
+00:00 +14: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart: R4-30 repro: product text resolves through the frozen ResUI keys
+00:00 +15: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart: R4-30 repro: missing translation falls back to English, never a key
+00:00 +16: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart: R4-30 repro: bridge error key localizes to cause + action
+00:00 +17: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart: R4-30 repro: every menu entry carries a resolvable resource key
+00:01 +18: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart: R4-30 repro: status bar never renders a raw error key
+00:01 +19: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart: R4-30 repro: provider language drives product text
+00:01 +20: All tests passed!

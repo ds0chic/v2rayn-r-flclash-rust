@@ -1,0 +1,35 @@
+{
+  "task": "R4-18.P09",
+  "protocol": "WireGuard",
+  "status": "implemented",
+  "baseline_app_head": "db3371a",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "AddServerWindow.xaml.cs:120-128 WireGuard bindings",
+    "AddServerWindow.xaml.cs:257-264 gridTls and gridTransport collapsed",
+    "ConfigHandler.cs:891-933 AddWireguardServer",
+    "custom.rs:247-260 normalize_server WireGuard (wg_mtu=1280)",
+    "singbox/outbound.rs:735-766 fill_endpoint"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p09_repro_test.dart",
+    "failed": 1,
+    "failed_names": [
+      "P09 WireGuard editor hides TLS and transport grids"
+    ]
+  },
+  "after_fix": {
+    "repro": "PASS 1/1",
+    "contract": "PASS 4/4",
+    "analyze_scoped": "No issues found"
+  },
+  "not_run": [
+    "real FRB + SQLite reopen",
+    "synthetic core handshake",
+    "screenshot"
+  ]
+}

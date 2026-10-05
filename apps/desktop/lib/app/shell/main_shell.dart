@@ -29,6 +29,8 @@ import 'package:v2rayn_desktop/features/subs/scan_image_qr.dart';
 import 'package:v2rayn_desktop/features/subs/scan_screen_qr.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/widgets/horizontal_toolbar.dart';
 
 /// Main window shell: top menu/toolbar, three grid layouts, bottom status bar.
@@ -274,18 +276,31 @@ class _MainShellState extends ConsumerState<MainShell> {
     action();
   }
 
+  /// The active product-language resource lookup, sourced from persisted UI
+  /// state. Used where only a [WidgetRef] is in scope (menu action helpers).
+  static L10n _l10n(WidgetRef ref) =>
+      L10n(ref.read(uiShellControllerProvider).language ?? 'en');
+
   /// ACT-MAIN-029: elevated relaunch on explicit user action only.
   Future<void> _relaunchAsAdmin(WidgetRef ref) async {
     final shell = ref.read(uiShellControllerProvider.notifier);
     final ok = await relaunchAsAdmin();
-    shell.setMessage(ok ? '已请求以管理员身份重启' : '以管理员身份重启已取消或失败');
+    shell.setMessage(
+      ok
+          ? _l10n(ref).t('actionRelaunchRequested')
+          : _l10n(ref).t('actionRelaunchFailed'),
+    );
   }
 
   /// ACT-WIN-008: open the upstream core website in the default browser.
   Future<void> _openCoreWebsite(WidgetRef ref) async {
     final shell = ref.read(uiShellControllerProvider.notifier);
     final ok = await openCoreWebsite();
-    shell.setMessage(ok ? '已在浏览器打开核心网站' : '打开核心网站失败');
+    shell.setMessage(
+      ok
+          ? _l10n(ref).t('actionCoreWebsiteOpened')
+          : _l10n(ref).t('actionCoreWebsiteFailed'),
+    );
   }
 
   void _onMenuAction(BuildContext context, WidgetRef ref, AppMenuEntry entry) =>
@@ -410,7 +425,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           bundledToolPath: hasTool ? 'EnableLoopback.exe' : null,
         );
         shell.setMessage(
-          hasTool ? '已找到 EnableLoopback.exe（启动需用户确认）' : command.summary,
+          hasTool ? context.tr('actionUwpToolFound') : command.summary,
         );
       case 'ACT-MAIN-032':
         shell.setMessage(applyRegionPreset(ref, 'Default'));
@@ -425,7 +440,11 @@ class _MainShellState extends ConsumerState<MainShell> {
         final cleared = ref
             .read(monitorControllerProvider.notifier)
             .clearStats();
-        shell.setMessage(cleared ? '已清除所有服务统计数据' : '清除统计失败');
+        shell.setMessage(
+          cleared
+              ? context.tr('actionStatsCleared')
+              : context.tr('actionStatsClearFailed'),
+        );
       case 'ACT-MAIN-031':
         ref.read(backupControllerProvider.notifier).openConfigDir();
       case 'ACT-WIN-005':
@@ -442,16 +461,24 @@ class _MainShellState extends ConsumerState<MainShell> {
         if (integration != null) {
           integration.hideToTray();
         } else {
-          shell.setMessage('已请求最小化到托盘 (ACT-WIN-002)');
+          shell.setMessage(context.tr('actionHideToTrayRequested'));
         }
       case 'ACT-MAIN-035':
         ref.read(runtimeControllerProvider.notifier).reload();
       default:
         final entry = _findMenuEntry(actionId);
         if (entry != null && entry.preservedOnly) {
-          shell.setMessage('${AppMenuEntry.preservedTooltip}: ${entry.label}');
+          shell.setMessage(
+            context.trf('actionPreservedOnly', <Object?>[
+              entry.labelFor(context.l10n),
+            ]),
+          );
         } else {
-          shell.notImplemented(entry?.label ?? actionId, actionId);
+          shell.setMessage(
+            context.trf('actionNotImplemented', <Object?>[
+              entry?.labelFor(context.l10n) ?? actionId,
+            ]),
+          );
         }
     }
   }
@@ -475,7 +502,7 @@ class _MenuToolbarBar extends ConsumerWidget {
             child: HorizontalToolbar(
               child: MenuBar(
                 children: <Widget>[
-                  for (final group in mainMenuModel) _topLevel(group),
+                  for (final group in mainMenuModel) _topLevel(context, group),
                 ],
               ),
             ),
@@ -484,7 +511,7 @@ class _MenuToolbarBar extends ConsumerWidget {
           const _RuntimeToolbar(),
           PopupMenuButton<AppLayoutMode>(
             key: const ValueKey('layout-selector'),
-            tooltip: '主界面布局',
+            tooltip: context.tr('uiColumns'),
             initialValue: shell.layout,
             onSelected: controller.setLayout,
             itemBuilder: (context) => <PopupMenuEntry<AppLayoutMode>>[
@@ -495,7 +522,10 @@ class _MenuToolbarBar extends ConsumerWidget {
                     children: <Widget>[
                       Icon(mode.icon, size: 16),
                       const SizedBox(width: 8),
-                      Text(mode.label, style: const TextStyle(fontSize: 12)),
+                      Text(
+                        _layoutLabel(context, mode),
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ],
                   ),
                 ),
@@ -507,7 +537,7 @@ class _MenuToolbarBar extends ConsumerWidget {
                   Icon(shell.layout.icon, size: 16),
                   const SizedBox(width: 4),
                   Text(
-                    shell.layout.label,
+                    _layoutLabel(context, shell.layout),
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
@@ -516,7 +546,7 @@ class _MenuToolbarBar extends ConsumerWidget {
           ),
           IconButton(
             key: const ValueKey('theme-toggle'),
-            tooltip: '切换浅色/深色',
+            tooltip: context.tr('uiTheme'),
             iconSize: 18,
             onPressed: controller.toggleTheme,
             icon: Icon(
@@ -534,9 +564,14 @@ class _MenuToolbarBar extends ConsumerWidget {
               padding: const EdgeInsets.only(right: 8, left: 4),
               child: OutlinedButton(
                 key: const ValueKey('btn-new-update'),
-                onPressed: () =>
-                    controller.notImplemented('有更新', 'ACT-WIN-006'),
-                child: const Text('有更新', style: TextStyle(fontSize: 12)),
+                onPressed: () => controller.notImplemented(
+                  context.tr('NewUpdate'),
+                  'ACT-WIN-006',
+                ),
+                child: Text(
+                  context.tr('NewUpdate'),
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ),
           ),
@@ -545,8 +580,8 @@ class _MenuToolbarBar extends ConsumerWidget {
     );
   }
 
-  Widget _topLevel(AppMenuEntry entry) {
-    if (entry.isSubmenu) return _submenu(entry);
+  Widget _topLevel(BuildContext context, AppMenuEntry entry) {
+    if (entry.isSubmenu) return _submenu(context, entry);
     return _tooltip(
       entry,
       MenuItemButton(
@@ -560,7 +595,7 @@ class _MenuToolbarBar extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Text(
-                entry.label,
+                entry.labelFor(context.l10n),
                 style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
               if (entry.shortcut != null) ...<Widget>[
@@ -577,26 +612,26 @@ class _MenuToolbarBar extends ConsumerWidget {
     );
   }
 
-  Widget _submenu(AppMenuEntry entry) {
+  Widget _submenu(BuildContext context, AppMenuEntry entry) {
     return SubmenuButton(
       key: ValueKey('menu-${entry.label}'),
-      menuChildren: _menuChildren(entry.submenu),
+      menuChildren: _menuChildren(context, entry.submenu),
       child: Text(
-        entry.label,
+        entry.labelFor(context.l10n),
         style: const TextStyle(fontSize: AppTokens.fontSize),
       ),
     );
   }
 
-  List<Widget> _menuChildren(List<AppMenuEntry> entries) {
+  List<Widget> _menuChildren(BuildContext context, List<AppMenuEntry> entries) {
     final widgets = <Widget>[];
     for (final entry in entries) {
       if (entry.isSubmenu) {
         widgets.add(
           SubmenuButton(
             key: ValueKey('menu-item-${entry.label}'),
-            menuChildren: _menuChildren(entry.submenu),
-            child: _menuItemLabel(entry),
+            menuChildren: _menuChildren(context, entry.submenu),
+            child: _menuItemLabel(context, entry),
           ),
         );
       } else {
@@ -606,7 +641,7 @@ class _MenuToolbarBar extends ConsumerWidget {
             MenuItemButton(
               key: ValueKey('menu-item-${entry.label}'),
               onPressed: entry.isInvocable ? () => onAction(entry) : null,
-              child: _menuItemLabel(entry),
+              child: _menuItemLabel(context, entry),
             ),
           ),
         );
@@ -631,11 +666,14 @@ class _MenuToolbarBar extends ConsumerWidget {
     return Tooltip(message: message, child: child);
   }
 
-  Widget _menuItemLabel(AppMenuEntry entry) {
+  Widget _menuItemLabel(BuildContext context, AppMenuEntry entry) {
     return Row(
       children: <Widget>[
         Expanded(
-          child: Text(entry.label, style: const TextStyle(fontSize: 12)),
+          child: Text(
+            entry.labelFor(context.l10n),
+            style: const TextStyle(fontSize: 12),
+          ),
         ),
         if (entry.shortcut != null)
           Padding(
@@ -647,6 +685,19 @@ class _MenuToolbarBar extends ConsumerWidget {
           ),
       ],
     );
+  }
+}
+
+/// Localized label for a grid layout mode (upstream UI-only toggles, no ResUI
+/// key; the resource table carries the frozen Chinese plus translations).
+String _layoutLabel(BuildContext context, AppLayoutMode mode) {
+  switch (mode) {
+    case AppLayoutMode.horizontal:
+      return context.tr('uiLayoutHorizontal');
+    case AppLayoutMode.vertical:
+      return context.tr('uiLayoutVertical');
+    case AppLayoutMode.tab:
+      return context.tr('uiLayoutTab');
   }
 }
 
@@ -664,14 +715,14 @@ class _RuntimeToolbar extends ConsumerWidget {
       children: <Widget>[
         Text(
           runtime.hasUnappliedChanges
-              ? '运行时: ${runtime.state} (未应用)'
-              : '运行时: ${runtime.state}',
+              ? '${context.tr('statusRuntime')}: ${runtime.state} (${context.tr('statusUnapplied')})'
+              : '${context.tr('statusRuntime')}: ${runtime.state}',
           key: const ValueKey('runtime-state-chip'),
           style: const TextStyle(fontSize: 12),
         ),
         const SizedBox(width: 8),
         Tooltip(
-          message: '启动选中节点；未选择时启动默认节点',
+          message: context.tr('uiStartTooltip'),
           child: FilledButton.tonal(
             key: const ValueKey('runtime-start'),
             onPressed: runtime.isBusy
@@ -686,16 +737,22 @@ class _RuntimeToolbar extends ConsumerWidget {
                     );
                     profile_actions.startProfileExplicit(ref, targetId: target);
                   },
-            child: const Text('启动', style: TextStyle(fontSize: 12)),
+            child: Text(
+              context.tr('uiStart'),
+              style: const TextStyle(fontSize: 12),
+            ),
           ),
         ),
         const SizedBox(width: 6),
         Tooltip(
-          message: '停止由本应用启动的内核会话',
+          message: context.tr('uiStopTooltip'),
           child: OutlinedButton(
             key: const ValueKey('runtime-stop'),
             onPressed: controller.stop,
-            child: const Text('停止', style: TextStyle(fontSize: 12)),
+            child: Text(
+              context.tr('uiStop'),
+              style: const TextStyle(fontSize: 12),
+            ),
           ),
         ),
         const SizedBox(width: 8),

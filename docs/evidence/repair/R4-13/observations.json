@@ -1,0 +1,24 @@
+{
+  "task": "R4-13",
+  "batch": "2026-10-05 review S02/S03/S04/S06/S08 + S09-S20",
+  "head_start": "db3371a",
+  "armed": false,
+  "ports": {"live_proxy": 10808, "tests": "in-memory synthetic, no listener"},
+  "rust_consumer_tests": [
+    "codegen::tests::r4_13_s02_clash_ui_item_reaches_mihomo_merge",
+    "codegen::tests::r4_13_s06_core_type_item_reaches_core_selection",
+    "codegen::tests::r4_13_s09_grpc_item_reaches_codegen",
+    "codegen::tests::r4_13_s10_gui_item_reaches_codegen",
+    "codegen::tests::r4_13_s11_happy_eyeballs_reaches_codegen",
+    "codegen::tests::r4_13_s12_hysteria_reaches_codegen",
+    "codegen::tests::r4_13_s13_inbound_reaches_codegen",
+    "codegen::tests::r4_13_s14_kcp_item_reaches_codegen",
+    "codegen::tests::r4_13_s16_mux4_ray_reaches_codegen",
+    "codegen::tests::r4_13_s17_mux4_sbox_reaches_codegen",
+    "codegen::tests::r4_13_s18_routing_basic_reaches_codegen",
+    "codegen::tests::r4_13_s19_simple_dns_reaches_codegen",
+    "codegen::tests::r4_13_s20_speed_test_reaches_engine"
+  ],
+  "dart_tests": "test/r4_13_s02..s20_contract_test.dart (35 cases)",
+  "build_blocker": "flutter build windows --release failed on lib/app/shell/main_shell.dart (undefined context) due to a concurrent edit by another agent; the file is forbidden to this card"
+}

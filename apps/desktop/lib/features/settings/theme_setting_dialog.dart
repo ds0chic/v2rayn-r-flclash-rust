@@ -15,10 +15,32 @@ import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 class ThemeSettingDialog extends ConsumerStatefulWidget {
   const ThemeSettingDialog({super.key});
 
-  static Future<void> show(BuildContext context) => showDialog<void>(
-    context: context,
-    builder: (_) => const ThemeSettingDialog(),
-  );
+  static Future<void> show(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = showDialog<void>(
+      context: context,
+      builder: (_) => const ThemeSettingDialog(),
+    );
+    // R4-30 / UFS-17: this dialog persists the language itself, so a language
+    // change applies live (`applyThemeSelection`) and the dialog closes so the
+    // user sees the shell rebuilt in the new language. The listener is optional;
+    // a scope-less harness simply keeps the dialog open.
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      var last = container.read(uiShellControllerProvider).language;
+      final sub = container.listen<UiShellState>(uiShellControllerProvider, (
+        previous,
+        next,
+      ) {
+        if (next.language != last) {
+          last = next.language;
+          navigator.maybePop();
+        }
+      });
+      route.whenComplete(sub.close);
+    } catch (_) {}
+    return route;
+  }
 
   @override
   ConsumerState<ThemeSettingDialog> createState() => _ThemeSettingDialogState();

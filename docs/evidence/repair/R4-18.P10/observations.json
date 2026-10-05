@@ -1,0 +1,35 @@
+{
+  "task": "R4-18.P10",
+  "protocol": "Anytls",
+  "status": "implemented",
+  "baseline_app_head": "db3371a",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "AddServerWindow.xaml.cs:130-132 Anytls password only",
+    "AddServerWindow.xaml.cs:266-273 gridTransport collapsed, reality added",
+    "ConfigHandler.cs:943-961 AddAnytlsServer",
+    "custom.rs:229-235 normalize_server Anytls"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p10_repro_test.dart",
+    "failed": 2,
+    "failed_names": [
+      "P10 AnyTLS keeps TLS and Reality (upstream adds Reality)",
+      "P10 AnyTLS editor keeps TLS and hides transport"
+    ]
+  },
+  "after_fix": {
+    "repro": "PASS 2/2",
+    "contract": "PASS 4/4",
+    "analyze_scoped": "No issues found"
+  },
+  "not_run": [
+    "real FRB + SQLite reopen",
+    "synthetic core handshake",
+    "screenshot"
+  ]
+}

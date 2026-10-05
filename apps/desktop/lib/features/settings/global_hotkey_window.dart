@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/settings/hotkey_keycodec.dart';
+import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/settings/hotkeys.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
@@ -17,10 +18,31 @@ import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
 class GlobalHotkeyWindow extends ConsumerStatefulWidget {
   const GlobalHotkeyWindow({super.key});
 
-  static Future<void> show(BuildContext context) => showDialog<void>(
-    context: context,
-    builder: (_) => const GlobalHotkeyWindow(),
-  );
+  /// R4-30 / UFS-17: the dialog builds its strings once, so a language change
+  /// while it is open closes it; the user reopens it in the new language. The
+  /// listener is optional; a scope-less harness simply keeps the dialog open.
+  static Future<void> show(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = showDialog<void>(
+      context: context,
+      builder: (_) => const GlobalHotkeyWindow(),
+    );
+    try {
+      final container = ProviderScope.containerOf(context, listen: false);
+      var last = container.read(uiShellControllerProvider).language;
+      final sub = container.listen<UiShellState>(uiShellControllerProvider, (
+        previous,
+        next,
+      ) {
+        if (next.language != last) {
+          last = next.language;
+          navigator.maybePop();
+        }
+      });
+      route.whenComplete(sub.close);
+    } catch (_) {}
+    return route;
+  }
 
   @override
   ConsumerState<GlobalHotkeyWindow> createState() => _GlobalHotkeyWindowState();

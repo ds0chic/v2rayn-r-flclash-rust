@@ -65,12 +65,28 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
     // Clamp a persisted network (e.g. synthetic "tcp") to the protocol's set.
     final networks = ProfileCapabilities.allowedNetworks(_draft.configType);
     if (!networks.contains(_draft.network)) _draft.network = 'raw';
-    // Upstream `AddTuicServer` forces TLS when the imported value is empty;
-    // never touch a non-empty (imported) value so a remarks-only save stays
-    // lossless.
-    if (_draft.configType == ConfigType.tuic &&
+    // Upstream `AddHysteria2Server`/`AddTuicServer`/`AddAnytlsServer`/
+    // `AddNaiveServer` force `Global.StreamSecurity` ("tls") when the imported
+    // value is empty; never touch a non-empty (imported) value so a remarks-only
+    // save stays lossless.
+    if (const <ConfigType>{
+          ConfigType.hysteria2,
+          ConfigType.tuic,
+          ConfigType.anytls,
+          ConfigType.naive,
+        }.contains(_draft.configType) &&
         (_draft.streamSecurity == null || _draft.streamSecurity!.isEmpty)) {
       _draft.streamSecurity = 'tls';
+    }
+    // Upstream `AddTuicServer` defaults ALPN to "h3".
+    if (_draft.configType == ConfigType.tuic &&
+        (_draft.alpn?.isEmpty ?? true)) {
+      _draft.alpn = 'h3';
+    }
+    // Upstream `AddWireguardServer` defaults MTU to `Global.TunMtus.First()`.
+    if (_draft.configType == ConfigType.wireGuard &&
+        (_draft.wgMtu == null || _draft.wgMtu! <= 0)) {
+      _draft.wgMtu = 1280;
     }
     // Upstream `AddServerViewModel` fills protocol defaults on every open:
     // VMess empty security -> Global.DefaultSecurity ("auto"); VLESS empty
@@ -112,23 +128,29 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
                   '协议',
                   protocolFields(_draft.configType, coreType: _draft.coreType),
                 ),
-                _section(theme, '传输', <FieldSpec>[
-                  _networkField(),
-                  ...transportFields(_draft.network),
-                ]),
-                _section(
-                  theme,
-                  'TLS / Reality',
-                  securityFields(
-                    _draft.streamSecurity,
-                    finalmask: ProfileCapabilities.supportsFinalmask(
-                      _draft.configType,
-                    ),
-                    realityAllowed: ProfileCapabilities.supportsReality(
-                      _draft.configType,
+                // Upstream collapses `gridTransport` for Hysteria2/TUIC/
+                // WireGuard/Anytls/Naive.
+                if (ProfileCapabilities.supportsTransport(_draft.configType))
+                  _section(theme, '传输', <FieldSpec>[
+                    _networkField(),
+                    ...transportFields(_draft.network),
+                  ]),
+                // Upstream collapses `gridTls` only for WireGuard.
+                if (ProfileCapabilities.supportsTls(_draft.configType) ||
+                    ProfileCapabilities.supportsReality(_draft.configType))
+                  _section(
+                    theme,
+                    'TLS / Reality',
+                    securityFields(
+                      _draft.streamSecurity,
+                      finalmask: ProfileCapabilities.supportsFinalmask(
+                        _draft.configType,
+                      ),
+                      realityAllowed: ProfileCapabilities.supportsReality(
+                        _draft.configType,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

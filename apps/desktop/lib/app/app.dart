@@ -12,6 +12,7 @@ import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// When overridden to `true`, the bootstrap applies the persisted runtime plan
@@ -25,28 +26,38 @@ class V2rayNRApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shell = ref.watch(uiShellControllerProvider);
-    return MaterialApp(
-      title: AppWindowMetrics.title,
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(
-        Brightness.light,
-        accentName: shell.accentName,
-        fontFamily: shell.fontFamily,
-        fontSize: shell.fontSize,
-        zebraEnabled: shell.zebraStriping,
+    // Bind the active product language for every `L10n.of` consumer (sub-windows
+    // and direct harnesses that nest their own scope read this override too).
+    return ProviderScope(
+      overrides: [productLanguageProvider.overrideWithValue(shell.language)],
+      child: MaterialApp(
+        title: AppWindowMetrics.title,
+        debugShowCheckedModeBanner: false,
+        theme: buildAppTheme(
+          Brightness.light,
+          accentName: shell.accentName,
+          fontFamily: shell.fontFamily,
+          fontSize: shell.fontSize,
+          zebraEnabled: shell.zebraStriping,
+        ),
+        darkTheme: buildAppTheme(
+          Brightness.dark,
+          accentName: shell.accentName,
+          fontFamily: shell.fontFamily,
+          fontSize: shell.fontSize,
+          zebraEnabled: shell.zebraStriping,
+        ),
+        themeMode: shell.themeMode,
+        locale: localeForLanguage(shell.language),
+        supportedLocales: kSupportedLanguages,
+        localizationsDelegates: const <LocalizationsDelegate<dynamic>>[
+          // R4-30: product resource bundle (frozen ResUI keys). Must come before
+          // the Material delegates so `L10n.of(context)` resolves the active code.
+          kL10nDelegate,
+          ...GlobalMaterialLocalizations.delegates,
+        ],
+        home: const _RuntimeBootstrap(child: MainShell()),
       ),
-      darkTheme: buildAppTheme(
-        Brightness.dark,
-        accentName: shell.accentName,
-        fontFamily: shell.fontFamily,
-        fontSize: shell.fontSize,
-        zebraEnabled: shell.zebraStriping,
-      ),
-      themeMode: shell.themeMode,
-      locale: localeForLanguage(shell.language),
-      supportedLocales: kSupportedLanguages,
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      home: const _RuntimeBootstrap(child: MainShell()),
     );
   }
 }

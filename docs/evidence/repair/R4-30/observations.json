@@ -1,0 +1,84 @@
+{
+  "task": "R4-30",
+  "title": "完整语言和错误反馈 (full language and error feedback)",
+  "date": "2026-10-05",
+  "repo_head": "db3371a06ad8b6d0b45b4be82e9d815179323fdd",
+  "frozen_upstream": {
+    "project": "v2rayN",
+    "version": "7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "resource_root": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Resx/"
+  },
+  "status": "implemented",
+  "verified": false,
+  "armed": false,
+  "platform": "win32",
+  "notes": [
+    "Synthetic/in-memory widget + unit tests only; no native library, kernel, port, host proxy/TUN/registry or user data touched.",
+    "Port 10808 never used; no listener opened by this card's tests.",
+    "Release build produced build/windows/x64/runner/Release/v2rayn_desktop.exe; no project instance held the exe lock.",
+    "Real DPI/RTL screenshot matrix and real sub-engine locale binding are NOT verified here (see gaps)."
+  ],
+  "commands": [
+    {
+      "cmd": "flutter analyze",
+      "exit": 1,
+      "result": "The only issue is a pre-existing unused import in test/repair/r4_18_p09_repro_test.dart (another card's file, untouched). No R4-30 warning/error."
+    },
+    {
+      "cmd": "flutter test test/r4_30_contract_test.dart",
+      "exit": 0,
+      "result": "14/14 passed"
+    },
+    {
+      "cmd": "flutter test test/repair/r4_30_repro_test.dart",
+      "exit": 0,
+      "result": "6/6 passed (pre-fix: exit 1, compile/behavior failure; see repro-prefix.log)"
+    },
+    {
+      "cmd": "flutter test test/r4_30_contract_test.dart test/repair/r4_30_repro_test.dart",
+      "exit": 0,
+      "result": "20/20 passed"
+    },
+    {
+      "cmd": "flutter build windows --release",
+      "exit": 0,
+      "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe"
+    },
+    {
+      "cmd": "flutter test (full suite)",
+      "exit": 1,
+      "result": "768 passed, 2 pending; all 49 failures were the documented batch 'did not complete' flakes with zero real assertion failures; affected files pass when run alone."
+    }
+  ],
+  "language_set": ["zh-Hans", "zh-Hant", "en", "fa", "fr", "ru", "hu", "id", "az"],
+  "error_key_families": [
+    "bridge ErrorDto.messageKey (error.*)",
+    "window status keys (settings.saved*)",
+    "runtime/platform error projections (code+messageKey)",
+    "validation keys (validate.*)"
+  ],
+  "gaps": [
+    {
+      "id": "GAP-R4-30-01",
+      "provider": "apps/desktop/lib/features/settings/option_setting_window_entry.dart (off-limits)",
+      "caller": "sub-engine settings window",
+      "issue": "The independent settings-window engine does not bind productLanguageProvider or register kL10nDelegate, so it renders the scope-less zh-Hans default instead of the main window's active language. UFS-13/D36 owns the sub-engine presentation config.",
+      "impact": "Sub-window language does not follow the main setting until R4-11/R4-12 wire the presentation snapshot."
+    },
+    {
+      "id": "GAP-R4-30-02",
+      "provider": "apps/desktop/lib/features/settings/settings_controller.dart + settings_actions.dart (off-limits)",
+      "caller": "option_setting_window in-process/host save outcome",
+      "issue": "SettingsApplyOutcome.message and SettingsEditorOutcome.message embed the raw error.messageKey inside Chinese human text (e.g. '配置已保存，但应用失败：error.runtime_timeout'); the window cannot fully de-keyify a composed message without changing the producer.",
+      "impact": "The composed apply-failure banner still contains an embedded contract token; headline is readable, token would need producer-side localization."
+    },
+    {
+      "id": "GAP-R4-30-03",
+      "provider": "main_menu.dart label field",
+      "caller": "menu rendering/tests",
+      "issue": "AppMenuEntry.label keeps the frozen zh-Hans source string for stable test keys; only labelFor(l10n) returns the localized text.",
+      "impact": "None functionally; documented so a future card does not treat label as the visible text."
+    }
+  ]
+}

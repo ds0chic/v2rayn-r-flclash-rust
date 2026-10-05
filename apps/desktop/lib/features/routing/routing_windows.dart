@@ -10,6 +10,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Upstream `DomainStrategy` candidates (Xray).
@@ -71,7 +72,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
     final primary = Theme.of(context).colorScheme.primary;
     return AlertDialog(
       key: const ValueKey('routing-setting-window'),
-      title: const Text('路由设置', style: TextStyle(fontSize: 15)),
+      title: Text(
+        context.tr('menuRoutingSetting'),
+        style: const TextStyle(fontSize: 15),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
         width: 820,
@@ -87,14 +91,14 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                   key: const ValueKey('routing-add'),
                   onPressed: () => _openRuleset(null),
                   icon: const Icon(Icons.add, size: 16),
-                  label: const Text('添加规则集'),
+                  label: Text(context.tr('menuRoutingAdvancedAdd')),
                 ),
                 const SizedBox(width: 4),
                 TextButton.icon(
                   key: const ValueKey('routing-import-builtin'),
                   onPressed: _importBuiltinRules,
                   icon: const Icon(Icons.download, size: 16),
-                  label: const Text('一键导入规则集'),
+                  label: Text(context.tr('menuRoutingAdvancedImportRules')),
                 ),
               ],
             ),
@@ -122,7 +126,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                '预定义规则集列表',
+                context.tr('TbRoutingTabRuleList'),
                 key: const ValueKey('routing-block-title'),
                 style: TextStyle(
                   fontSize: 13,
@@ -136,9 +140,9 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
             const Divider(height: 1),
             Expanded(
               child: state.items.isEmpty
-                  ? const Center(
-                      key: ValueKey('routing-empty'),
-                      child: Text('暂无路由方案'),
+                  ? Center(
+                      key: const ValueKey('routing-empty'),
+                      child: Text(context.tr('statusRoutingEmpty')),
                     )
                   : ListView.builder(
                       key: const ValueKey('routing-list'),
@@ -160,7 +164,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  state.status!,
+                  context.messageText(state.status!),
                   key: const ValueKey('routing-status'),
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
@@ -176,7 +180,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
         TextButton(
           key: const ValueKey('routing-close'),
           onPressed: () => Navigator.pop(context),
-          child: const Text('关闭'),
+          child: Text(context.tr('menuClose')),
         ),
       ],
     );
@@ -253,19 +257,25 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
         Offset.zero & overlay.size,
       ),
       items: <PopupMenuEntry<String>>[
-        const PopupMenuItem<String>(value: 'add', child: Text('添加规则集')),
+        PopupMenuItem<String>(
+          value: 'add',
+          child: Text(context.tr('menuRoutingAdvancedAdd')),
+        ),
         PopupMenuItem<String>(
           value: 'remove',
           enabled: item.remarks.isNotEmpty,
-          child: const Text('移除所选规则'),
+          child: Text(context.tr('menuRoutingAdvancedRemove')),
         ),
         PopupMenuItem<String>(
           value: 'default',
           enabled: item.remarks.isNotEmpty,
-          child: const Text('设为活动规则'),
+          child: Text(context.tr('menuRoutingAdvancedSetDefault')),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem<String>(value: 'import', child: Text('一键导入规则集')),
+        PopupMenuItem<String>(
+          value: 'import',
+          child: Text(context.tr('menuRoutingAdvancedImportRules')),
+        ),
       ],
     );
     if (!mounted || action == null) return;
@@ -2254,14 +2264,14 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                       key: const ValueKey('routing-add'),
                       onPressed: () => _openSchemeEditor(null),
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('添加规则集'),
+                      label: Text(context.tr('menuRoutingAdvancedAdd')),
                     ),
                     const SizedBox(width: 4),
                     TextButton.icon(
                       key: const ValueKey('routing-import-builtin'),
                       onPressed: _importBuiltin,
                       icon: const Icon(Icons.download, size: 16),
-                      label: const Text('一键导入规则集'),
+                      label: Text(context.tr('menuRoutingAdvancedImportRules')),
                     ),
                   ],
                 ),
@@ -2286,7 +2296,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    '预定义规则集列表',
+                    context.tr('TbRoutingTabRuleList'),
                     key: const ValueKey('routing-block-title'),
                     style: TextStyle(
                       fontSize: 13,
@@ -2300,9 +2310,9 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                 const Divider(height: 1),
                 Expanded(
                   child: _schemes.isEmpty
-                      ? const Center(
-                          key: ValueKey('routing-empty'),
-                          child: Text('暂无路由方案'),
+                      ? Center(
+                          key: const ValueKey('routing-empty'),
+                          child: Text(context.tr('statusRoutingEmpty')),
                         )
                       : ListView.builder(
                           key: const ValueKey('routing-list'),
@@ -2432,20 +2442,29 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
         Offset.zero & overlay.size,
       ),
       items: <PopupMenuEntry<String>>[
-        const PopupMenuItem<String>(value: 'add', child: Text('添加规则集')),
+        PopupMenuItem<String>(
+          value: 'add',
+          child: Text(context.tr('menuRoutingAdvancedAdd')),
+        ),
         PopupMenuItem<String>(
           value: 'remove',
           enabled: _selectedIds.isNotEmpty,
-          child: const Text('移除所选规则'),
+          child: Text(context.tr('menuRoutingAdvancedRemove')),
         ),
         PopupMenuItem<String>(
           value: 'default',
           enabled: item.remarks.isNotEmpty,
-          child: const Text('设为活动规则'),
+          child: Text(context.tr('menuRoutingAdvancedSetDefault')),
         ),
         const PopupMenuDivider(),
-        const PopupMenuItem<String>(value: 'selectAll', child: Text('全选')),
-        const PopupMenuItem<String>(value: 'import', child: Text('一键导入规则集')),
+        PopupMenuItem<String>(
+          value: 'selectAll',
+          child: Text(context.tr('menuSelectAll')),
+        ),
+        PopupMenuItem<String>(
+          value: 'import',
+          child: Text(context.tr('menuRoutingAdvancedImportRules')),
+        ),
       ],
     );
     if (!mounted || action == null) return;

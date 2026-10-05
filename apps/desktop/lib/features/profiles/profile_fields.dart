@@ -102,13 +102,29 @@ class ProfileCapabilities {
     }
   }
 
+  /// Upstream keeps the TLS grid for VMess/VLESS/Trojan/Shadowsocks/SOCKS/HTTP
+  /// and for Hysteria2/TUIC/Anytls/Naive. WireGuard is the only protocol whose
+  /// `gridTls` is collapsed, so it has no stream security.
   static bool supportsTls(ConfigType t) =>
       t == ConfigType.vmess ||
       t == ConfigType.vless ||
       t == ConfigType.trojan ||
       t == ConfigType.shadowsocks ||
       t == ConfigType.socks ||
-      t == ConfigType.http;
+      t == ConfigType.http ||
+      t == ConfigType.hysteria2 ||
+      t == ConfigType.tuic ||
+      t == ConfigType.anytls ||
+      t == ConfigType.naive;
+
+  /// Upstream `AddServerWindow.InitializeData` collapses `gridTransport` for
+  /// Hysteria2/TUIC/WireGuard/Anytls/Naive (transport is forced to `raw`/empty).
+  static bool supportsTransport(ConfigType t) =>
+      t != ConfigType.hysteria2 &&
+      t != ConfigType.tuic &&
+      t != ConfigType.wireGuard &&
+      t != ConfigType.anytls &&
+      t != ConfigType.naive;
 
   /// Upstream `AddServerWindow.SetStreamSecurity` builds the security list as
   /// `["", tls]` and appends `reality` only for VLESS, Trojan and Anytls.
@@ -178,6 +194,9 @@ const _vmessSecurities = <String>[
   'none',
   'zero',
 ];
+
+/// Upstream `Global.NaiveCongestionControls` (Naive `cmbCongestionControl12`).
+const _naiveCongestionControls = <String>['bbr', 'bbr2', 'cubic', 'reno'];
 
 const _fingerprints = <String>[
   'chrome',
@@ -500,17 +519,25 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
           (d, v) => d.password = v ?? '',
           required: true,
         ),
-        _int(
-          'insecureConcurrency',
-          '并发数',
-          (d) => d.insecureConcurrency,
-          (d, v) => d.insecureConcurrency = v,
-        ),
         _bool(
           'naiveQuic',
           '启用 QUIC',
           (d) => d.naiveQuic,
           (d, v) => d.naiveQuic = v,
+        ),
+        // Upstream `cmbCongestionControl12` -> `Global.NaiveCongestionControls`.
+        _drop(
+          'congestionControl',
+          '拥塞控制算法',
+          (d) => d.congestionControl,
+          (d, v) => d.congestionControl = v,
+          _naiveCongestionControls,
+        ),
+        _int(
+          'insecureConcurrency',
+          '并发数',
+          (d) => d.insecureConcurrency,
+          (d, v) => d.insecureConcurrency = v,
         ),
         _bool('uot', 'UDP over TCP', (d) => d.uot, (d, v) => d.uot = v),
       ];

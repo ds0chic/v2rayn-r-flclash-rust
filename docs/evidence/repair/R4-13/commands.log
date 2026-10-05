@@ -1,0 +1,15 @@
+# R4-13 evidence commands (2026-10-05)
+
+Repo HEAD at start: db3371a (clean). Runner: Windows 11, Flutter 3.47.5, Rust 1.98.1.
+
+| command | cwd | result |
+|---|---|---|
+| `dart format test/r4_13_s*.dart test/support/r4_13_settings_support.dart` | apps/desktop | formatted |
+| `flutter analyze` | apps/desktop | PASS (No issues found!) at first run; a later run fails only on `lib/app/shell/main_shell.dart` (concurrent edit by another agent; forbidden file) |
+| `flutter test test/r4_13_s02..s20_contract_test.dart` | apps/desktop | PASS 35/35 |
+| `cargo fmt --all -- --check` | repo | PASS |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | repo | PASS |
+| `cargo test --workspace --locked` | repo | PASS (one `updater` mock-port AddrInUse flake, passes on retry) |
+| `flutter build windows --release` | apps/desktop | FAIL: `main_shell.dart` undefined `context` (concurrent edit by another agent; file forbidden to this card) |
+
+Ports: no test bound 10808; all fixtures are in-memory/synthetic (no listener, no host proxy/TUN/registry).

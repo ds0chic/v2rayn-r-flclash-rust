@@ -1,0 +1,27 @@
+# R4-18.P07 commands (working dir apps/desktop unless noted)
+
+# pre-fix reproduction
+flutter test test/repair/r4_18_p07_repro_test.dart
+# -> 00:01 +0 -2: Some tests failed. (2 failing)
+
+# post-fix reproduction
+flutter test test/repair/r4_18_p07_repro_test.dart
+# -> 00:00 +2: All tests passed!
+
+# contract
+flutter test test/r4_18_p07_contract_test.dart
+# -> 00:01 +4: All tests passed!
+
+# scoped analyze
+flutter analyze lib/features/profiles test/r4_18_p07_contract_test.dart test/repair/r4_18_p07_repro_test.dart
+# -> No issues found!
+
+# formatting
+dart format lib/features/profiles/profile_fields.dart lib/features/profiles/profile_editor_dialog.dart
+# -> unchanged (already formatted)
+
+# Rust gates (repo root)
+cargo fmt --all -- --check           # PASS
+cargo clippy --workspace --all-targets --locked -- -D warnings   # PASS
+cargo test --workspace --locked      # FAIL (pre-existing parallel port contention, see R4-18.md)
+flutter build windows --release      # FAIL (main_shell.dart compile errors, other agent)

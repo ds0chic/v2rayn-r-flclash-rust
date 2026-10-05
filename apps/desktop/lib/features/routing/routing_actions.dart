@@ -90,6 +90,18 @@ Future<RoutingEditorOutcome> _applyRoutingDraft(
   WidgetRef ref,
   String draftJson,
 ) async {
+  // R4-12/D31: the independent window relays each original upstream commit
+  // action as its own transactional use case. A payload carrying `kind` is an
+  // incremental action, not the whole-window draft.
+  Object? raw;
+  try {
+    raw = jsonDecode(draftJson);
+  } catch (_) {
+    raw = null;
+  }
+  if (raw is Map && raw['kind'] is String) {
+    return _applyRoutingAction(ref, raw.cast<String, dynamic>());
+  }
   final decoded = decodeRoutingDraft(draftJson);
   if (decoded == null) {
     return const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
@@ -137,6 +149,54 @@ Future<RoutingEditorOutcome> _applyRoutingDraft(
     await ref.read(runtimeControllerProvider.notifier).reload();
   }
   return const RoutingEditorOutcome(ok: true);
+}
+
+/// One transactional original-upstream routing action relayed from the
+/// independent window (R4-12/D31). Each case persists on its own; a failure
+/// returns an error and leaves the window open without rolling back earlier
+/// completed actions.
+Future<RoutingEditorOutcome> _applyRoutingAction(
+  WidgetRef ref,
+  Map<String, dynamic> action,
+) async {
+  final controller = ref.read(routingControllerProvider.notifier);
+  switch (action['kind']) {
+    case 'saveScheme':
+      final rawScheme = action['scheme'];
+      if (rawScheme is! Map) {
+        return const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
+      }
+      final scheme = routingSchemeFromJson(rawScheme.cast<String, dynamic>());
+      final result = controller.save(scheme.profile);
+      if (!result.ok) {
+        return RoutingEditorOutcome(
+          ok: false,
+          message: _routingErrorMessage(result.error?.messageKey),
+        );
+      }
+      await ref.read(runtimeControllerProvider.notifier).reload();
+      return const RoutingEditorOutcome(ok: true);
+    case 'deleteScheme':
+      controller.delete(action['id'] as String? ?? '');
+      await ref.read(runtimeControllerProvider.notifier).reload();
+      return const RoutingEditorOutcome(ok: true);
+    case 'setDefault':
+      await controller.setDefaultAndReload(action['id'] as String? ?? '');
+      return const RoutingEditorOutcome(ok: true);
+    case 'strategy':
+      final settings = ref.read(settingsControllerProvider.notifier);
+      final group = Map<String, dynamic>.of(
+        ref.read(settingsControllerProvider).group('RoutingBasicItem'),
+      );
+      group['DomainStrategy'] = action['domainStrategy'] as String? ?? '';
+      group['DomainStrategy4Singbox'] =
+          action['domainStrategySbox'] as String? ?? '';
+      settings.saveGroup('RoutingBasicItem', group);
+      await ref.read(runtimeControllerProvider.notifier).reload();
+      return const RoutingEditorOutcome(ok: true);
+    default:
+      return const RoutingEditorOutcome(ok: false, message: '未知的路由操作');
+  }
 }
 
 String _routingErrorMessage(String? key) {

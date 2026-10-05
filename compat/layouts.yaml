@@ -41,6 +41,8 @@ main_layouts:
   - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:122
   status: identified
   implementation_location: null
+  r4_12_status: implemented
+  r4_12_evidence: apps/desktop/lib/app/shell/main_shell.dart:192-220; apps/desktop/lib/app/shell/side_tabs.dart:13-24; apps/desktop/test/r4_12_contract_test.dart
 - mode: vertical
   id: LAY-MAIN-002
   name: 主窗口-垂直布局
@@ -82,6 +84,8 @@ main_layouts:
   notes: WPF 用 materialDesign NavigationRail TabControl + PackIcon 图标头；Avalonia 仅 TabStripPlacement=Left 纯文本头。
   status: identified
   implementation_location: null
+  r4_12_status: implemented
+  r4_12_evidence: apps/desktop/lib/app/shell/main_shell.dart:221-247; apps/desktop/lib/app/shell/ui_shell_controller.dart:8-25,219-249; apps/desktop/test/r4_12_contract_test.dart
 - mode: tab
   id: LAY-MAIN-003
   name: 主窗口-标签布局
@@ -113,9 +117,11 @@ main_layouts:
   - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:147
   - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:148
   - v2rayN/v2rayN.Desktop/Views/MainWindow.axaml:149
-  notes: Tab 模式下 profiles 是第一个 TabItem；Avalonia 的 tabClashConnections2 无单独 IsVisible 绑定（UpdateLayout:444-445 仅对 proxies2/connections2 绑定 ShowClashUI）。
+  notes: Tab 模式下 profiles 是第一个 TabItem；Avalonia 的 tabClashConnections2 无独立 IsVisible 绑定（UpdateLayout:444-445 仅对 proxies2/connections2 绑定 ShowClashUI）。
   status: identified
   implementation_location: null
+  r4_12_status: implemented
+  r4_12_evidence: apps/desktop/lib/app/shell/main_shell.dart:248-257; apps/desktop/lib/app/shell/side_tabs.dart:63-74; apps/desktop/test/r4_12_contract_test.dart
 window_inventory:
 - id: INV-WPF-001
   name: App

@@ -1417,12 +1417,32 @@ class RoutingEditorOutcome {
   final String? message;
 }
 
+/// Thrown when the routing window cannot read its starting snapshot from the
+/// main engine. R4-12/D34: a failed read must surface as an error, never as an
+/// empty snapshot whose 确定 would delete every persisted routing scheme.
+class RoutingEditorLoadException implements Exception {
+  const RoutingEditorLoadException([this.message = '读取路由设置失败']);
+
+  final String message;
+
+  @override
+  String toString() => 'RoutingEditorLoadException: $message';
+}
+
 /// Persistence/close seam for the routing window. The desktop implementation
 /// talks to the main window through the native host; tests use a fake.
 abstract class RoutingEditorHost {
   Future<RoutingEditorSnapshot> loadSnapshot();
   Future<RoutingEditorOutcome> save(RoutingDraft draft);
   Future<void> close();
+}
+
+/// R4-12/D31: optional capability for hosts that relay one original upstream
+/// commit action (strategy change, scheme/sub-editor 确定, delete, set-default)
+/// so it persists immediately, instead of being deferred to the whole-window
+/// 确定/取消 draft model. Hosts without it keep the legacy draft path.
+abstract class RoutingCommitHost {
+  Future<RoutingEditorOutcome> commit(String actionJson);
 }
 
 Map<String, dynamic> routingRuleToJson(r.RoutingRuleDto rule) =>
@@ -1645,7 +1665,7 @@ class RoutingWindowHost {
 /// Routing-window side of the native host. Runs in the second Flutter engine,
 /// which has no Rust bridge handle; every mutation is relayed to the main
 /// engine, which performs the actual save.
-class NativeRoutingEditorHost implements RoutingEditorHost {
+class NativeRoutingEditorHost implements RoutingEditorHost, RoutingCommitHost {
   NativeRoutingEditorHost() {
     _ready = _init();
   }
@@ -1657,14 +1677,16 @@ class NativeRoutingEditorHost implements RoutingEditorHost {
   late final Future<void> _ready;
   int _nextId = 1;
   String _snapshotJson = '{}';
+  bool _loadFailed = false;
 
   Future<void> _init() async {
     _channel.setMethodCallHandler(_handle);
     for (var attempt = 0; attempt < 50; attempt++) {
       try {
         final value = await _channel.invokeMethod<String>('ready');
-        if (value != null && value.isNotEmpty) {
+        if (value != null && value.isNotEmpty && value != '{}') {
           _snapshotJson = value;
+          _loadFailed = false;
           return;
         }
       } on MissingPluginException {
@@ -1674,12 +1696,17 @@ class NativeRoutingEditorHost implements RoutingEditorHost {
       }
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
+    _loadFailed = true;
   }
 
   @override
   Future<RoutingEditorSnapshot> loadSnapshot() async {
     await _ready;
-    return decodeRoutingSnapshot(_snapshotJson);
+    final raw = _snapshotJson.trim();
+    if (_loadFailed || raw.isEmpty || raw == '{}') {
+      throw const RoutingEditorLoadException('读取路由设置失败');
+    }
+    return decodeRoutingSnapshot(raw);
   }
 
   @override
@@ -1695,6 +1722,26 @@ class NativeRoutingEditorHost implements RoutingEditorHost {
     } catch (_) {
       _pending.remove(id);
       return const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
+    }
+    return completer.future;
+  }
+
+  @override
+  Future<RoutingEditorOutcome> commit(String actionJson) async {
+    // Reuses the existing saveDraft/saveOutcome channel round-trip; the main
+    // engine dispatches on the embedded `kind` field (see
+    // routing_actions._applyRoutingAction). No native protocol change needed.
+    final id = _nextId++;
+    final completer = Completer<RoutingEditorOutcome>();
+    _pending[id] = completer;
+    try {
+      await _channel.invokeMethod<void>('saveDraft', <String, dynamic>{
+        'id': id,
+        'draft': actionJson,
+      });
+    } catch (_) {
+      _pending.remove(id);
+      return const RoutingEditorOutcome(ok: false, message: '提交路由更改失败');
     }
     return completer.future;
   }
@@ -1782,6 +1829,7 @@ class RoutingEditorWindow extends StatefulWidget {
 
 class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
   bool _loading = true;
+  bool _loadFailed = false;
   String? _error;
   String? _status;
   bool _busy = false;
@@ -1808,15 +1856,50 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
         _outboundTags = snapshot.outboundTags;
         _selectedId = _schemes.isEmpty ? null : _schemes.first.profile.id;
         _loading = false;
+        _loadFailed = false;
         _error = null;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loading = false;
+        _loadFailed = true;
         _error = '读取路由设置失败';
       });
     }
+  }
+
+  void _retryLoad() {
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+      _error = null;
+    });
+    _load();
+  }
+
+  /// R4-12/D31: relay one upstream commit action through the host. On a host
+  /// that supports it the edit is persisted immediately and is NOT undone by a
+  /// later whole-window 取消; on a legacy/fake host the local draft is kept and
+  /// the whole-window 确定 still persists it.
+  Future<void> _commitAction(Map<String, dynamic> action) async {
+    final Object host = widget.host;
+    if (host is! RoutingCommitHost) {
+      // Legacy/fake host: keep the change in the local draft; the whole-window
+      // 确定 still persists it.
+      if (mounted) setState(() => _status = '有未保存的更改');
+      return;
+    }
+    final outcome = await host.commit(jsonEncode(action));
+    if (!mounted) return;
+    setState(() {
+      if (outcome.ok) {
+        _error = null;
+        _status = '已保存';
+      } else {
+        _status = '有未保存的更改';
+      }
+    });
   }
 
   Future<void> _openSchemeEditor(RoutingSchemeSnapshot? existing) async {
@@ -1863,7 +1946,12 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
             )
             .toList();
       }
-      _status = '有未保存的更改';
+    });
+    // Sub-editor 确定 commits immediately (upstream `SaveSettingsAsync`), so a
+    // later whole-window 取消 cannot discard it.
+    await _commitAction(<String, dynamic>{
+      'kind': 'saveScheme',
+      'scheme': routingSchemeToJson(edited),
     });
   }
 
@@ -1907,11 +1995,11 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
       if (_selectedId == id) {
         _selectedId = _schemes.isEmpty ? null : _schemes.first.profile.id;
       }
-      _status = '有未保存的更改';
     });
+    await _commitAction(<String, dynamic>{'kind': 'deleteScheme', 'id': id});
   }
 
-  void _setDefault(String id) {
+  Future<void> _setDefault(String id) async {
     setState(() {
       _schemes = _schemes
           .map(
@@ -1921,18 +2009,24 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
             ),
           )
           .toList();
-      _status = '有未保存的更改';
     });
+    await _commitAction(<String, dynamic>{'kind': 'setDefault', 'id': id});
   }
 
-  void _onStrategyChanged(String value, {required bool sbox}) {
+  /// Strategy changes persist immediately (upstream `RoutingSettingViewModel.
+  /// SaveSettingsAsync`), not on whole-window 确定.
+  Future<void> _onStrategyChanged(String value, {required bool sbox}) async {
     setState(() {
       if (sbox) {
         _domainStrategySbox = value;
       } else {
         _domainStrategy = value;
       }
-      _status = '有未保存的更改';
+    });
+    await _commitAction(<String, dynamic>{
+      'kind': 'strategy',
+      'domainStrategy': _domainStrategy,
+      'domainStrategySbox': _domainStrategySbox,
     });
   }
 
@@ -1945,7 +2039,8 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
   }
 
   Future<void> _ok() async {
-    if (_busy) return;
+    // R4-12/D34: never persist a whole draft built from a failed read.
+    if (_busy || _loadFailed) return;
     setState(() => _busy = true);
     final outcome = await widget.host.save(
       RoutingDraft(
@@ -1973,6 +2068,30 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_loadFailed) {
+      // A failed read must not offer 确定: the local list is empty and saving it
+      // would delete every persisted routing scheme (R4-12/D34).
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                _error ?? '读取路由设置失败',
+                key: const ValueKey('routing-load-error'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                key: const ValueKey('routing-load-retry'),
+                onPressed: _retryLoad,
+                child: const Text('重试'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
@@ -2179,7 +2298,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
       case 'remove':
         await _deleteScheme(item.id);
       case 'default':
-        _setDefault(item.id);
+        await _setDefault(item.id);
       case 'import':
         await _importBuiltin();
     }

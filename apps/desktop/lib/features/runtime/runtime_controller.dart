@@ -13,15 +13,70 @@ import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 final runtimeControllerProvider =
     NotifierProvider<RuntimeController, RuntimeView>(RuntimeController.new);
 
+/// A coalescing command intent. Apply intents merge by target (last wins);
+/// stop intents merge into one. Waiters are completed together with the
+/// superseding command so a coalesced caller never hangs (R4-04).
+class _RuntimeCommand {
+  _RuntimeCommand.apply(String? target, DateTime now)
+    : isStop = false,
+      targetId = target,
+      enqueuedAt = now;
+
+  _RuntimeCommand.stop(DateTime now)
+    : isStop = true,
+      targetId = null,
+      enqueuedAt = now;
+
+  final bool isStop;
+  String? targetId;
+  final DateTime enqueuedAt;
+  final List<Completer<void>> waiters = <Completer<void>>[];
+
+  void merge(_RuntimeCommand other) {
+    targetId = other.targetId;
+    waiters.addAll(other.waiters);
+  }
+
+  void complete() {
+    final pending = List<Completer<void>>.of(waiters);
+    waiters.clear();
+    for (final waiter in pending) {
+      if (!waiter.isCompleted) waiter.complete();
+    }
+  }
+}
+
 class RuntimeController extends Notifier<RuntimeView> {
   StreamSubscription<RuntimeEvent>? _events;
   Timer? _debounce;
   bool _started = false;
   bool _reloadInFlight = false;
   bool _reloadPending = false;
-  int _pendingCommands = 0;
   BigInt? _lastEpoch;
   BigInt? _lastSeq;
+
+  /// In-flight refresh future; concurrent [refresh] calls share it instead of
+  /// stacking snapshots on the shared IPC lock (R4-04 refresh merge).
+  Future<void>? _refreshFuture;
+  bool _refreshPending = false;
+
+  /// Monotonic generation advanced when a command starts or an external epoch
+  /// change is observed while idle. A snapshot/result tagged with an older
+  /// generation is dropped rather than overwriting current state (R4-04).
+  int _stateGeneration = 0;
+
+  _RuntimeCommand? _activeCommand;
+  _RuntimeCommand? _pendingApply;
+  _RuntimeCommand? _pendingStop;
+  bool _pumping = false;
+  int _staleResponsesDropped = 0;
+
+  /// Bound on how long a queued command may wait before execution; the same
+  /// deadline spans queue time and execution (R4-04 D07).
+  Duration commandDeadline = const Duration(minutes: 2);
+
+  /// Injectable clock so tests can assert the queue deadline deterministically.
+  DateTime Function() clock = DateTime.now;
 
   /// Diagnostics: whether normal-launch restore found a persisted active node
   /// and invoked apply. Not part of the read model.
@@ -82,6 +137,10 @@ class RuntimeController extends Notifier<RuntimeView> {
         warning = 'runtime event gap: seq=$seq after $previousSeq';
       }
     } else if (previousEpoch != null && epoch != previousEpoch) {
+      // An epoch change while no command is in flight means the session
+      // changed underneath us; stale snapshots/results from the old epoch must
+      // not overwrite the new state (R4-04).
+      if (_activeCommand == null) _stateGeneration++;
       debugPrint('[runtime] event epoch changed: $previousEpoch -> $epoch');
     }
     _lastEpoch = epoch;
@@ -98,17 +157,78 @@ class RuntimeController extends Notifier<RuntimeView> {
     }
   }
 
-  Future<void> refresh() async {
-    final pending = _pendingCommands > 0;
+  /// True while a command is active or queued. Exposed through the read model,
+  /// never confused with the backend's own Starting/Running fact.
+  bool get _commandBusy =>
+      _activeCommand != null || _pendingApply != null || _pendingStop != null;
+
+  int get _pendingCount =>
+      (_activeCommand != null ? 1 : 0) +
+      (_pendingApply != null ? 1 : 0) +
+      (_pendingStop != null ? 1 : 0);
+
+  void _publishCommandState() {
+    state = state.copyWith(
+      commandPending: _commandBusy,
+      pendingCommands: _pendingCount,
+      staleResponsesDropped: _staleResponsesDropped,
+    );
+  }
+
+  /// Load the latest snapshot. Concurrent calls are merged onto one in-flight
+  /// request (a storm of event refreshes cannot stack on the IPC lock), and a
+  /// response that lost a race against a newer generation is dropped.
+  Future<void> refresh() {
+    final inFlight = _refreshFuture;
+    if (inFlight != null) {
+      _refreshPending = true;
+      return inFlight;
+    }
+    final future = _runRefreshLoop();
+    _refreshFuture = future;
+    return future;
+  }
+
+  Future<void> _runRefreshLoop() async {
     try {
-      final snapshot = await _bridge.snapshot();
-      state = snapshot.copyWith(
-        epoch: _lastEpoch,
-        lastSeq: _lastSeq,
-        commandPending: pending,
-      );
-    } on Object catch (e) {
-      state = state.copyWith(error: _bridgeError(e), commandPending: pending);
+      var passes = 0;
+      do {
+        if (passes++ >= 4) break;
+        _refreshPending = false;
+        final generation = _stateGeneration;
+        final epochAtStart = _lastEpoch;
+        try {
+          final snapshot = await _bridge.snapshot();
+          final stale =
+              generation != _stateGeneration ||
+              (_activeCommand == null && epochAtStart != _lastEpoch);
+          if (stale) {
+            _staleResponsesDropped++;
+            _refreshPending = true;
+            continue;
+          }
+          state = snapshot.copyWith(
+            epoch: _lastEpoch,
+            lastSeq: _lastSeq,
+            commandPending: _commandBusy,
+            pendingCommands: _pendingCount,
+            staleResponsesDropped: _staleResponsesDropped,
+          );
+        } on Object catch (e) {
+          if (generation != _stateGeneration) {
+            _staleResponsesDropped++;
+            continue;
+          }
+          state = state.copyWith(
+            error: _bridgeError(e),
+            commandPending: _commandBusy,
+            pendingCommands: _pendingCount,
+            staleResponsesDropped: _staleResponsesDropped,
+          );
+        }
+      } while (_refreshPending);
+    } finally {
+      _refreshFuture = null;
     }
   }
 
@@ -124,14 +244,112 @@ class RuntimeController extends Notifier<RuntimeView> {
   /// local persisted revision when the snapshot itself failed. A failed apply
   /// keeps its structured error visible; the follow-up snapshot never overwrites
   /// it with a fake success.
-  Future<void> applyActive({String? targetId}) async {
-    _pendingCommands++;
-    state = state.copyWith(clearError: true, commandPending: true);
+  Future<void> applyActive({String? targetId}) {
+    final command = _RuntimeCommand.apply(targetId, clock());
+    final waiter = Completer<void>();
+    command.waiters.add(waiter);
+    final queued = _pendingApply;
+    if (queued == null) {
+      _pendingApply = command;
+    } else {
+      queued.merge(command);
+    }
+    // Local pending is visible synchronously, before any await: the UI shows
+    // "requesting" immediately without claiming the backend is running.
+    state = state.copyWith(
+      clearError: true,
+      commandPending: true,
+      pendingCommands: _pendingCount,
+      reconcileNeeded: false,
+    );
+    unawaited(_pumpCommands());
+    return waiter.future;
+  }
+
+  /// Serialize and bound command execution. At most one command runs while one
+  /// apply and one stop may wait, so the queue never grows without limit.
+  Future<void> _pumpCommands() async {
+    if (_pumping) return;
+    _pumping = true;
+    try {
+      while (_pendingApply != null || _pendingStop != null) {
+        final next = _pendingApply ?? _pendingStop;
+        if (identical(next, _pendingApply)) {
+          _pendingApply = null;
+        } else {
+          _pendingStop = null;
+        }
+        _activeCommand = next;
+        _publishCommandState();
+
+        if (clock().difference(next!.enqueuedAt) > commandDeadline) {
+          // The queue deadline (which includes waiting) expired: reject the
+          // stale intent instead of executing it late.
+          state = state.copyWith(
+            error: const RuntimeErrorView(
+              code: 'E_TIMEOUT',
+              messageKey: 'error.runtime_timeout',
+              detail: 'command expired while queued',
+            ),
+          );
+          next.complete();
+          _activeCommand = null;
+          _publishCommandState();
+          continue;
+        }
+
+        await _executeCommand(next);
+        _activeCommand = null;
+        _publishCommandState();
+      }
+    } finally {
+      _pumping = false;
+      _publishCommandState();
+    }
+  }
+
+  Future<void> _executeCommand(_RuntimeCommand command) async {
+    if (command.isStop) {
+      _stateGeneration++;
+      final generation = _stateGeneration;
+      try {
+        final result = await _bridge.stop();
+        if (generation != _stateGeneration) {
+          _noteStaleResponse();
+          return;
+        }
+        if (result.ok) {
+          await refresh();
+          return;
+        }
+        if (_isUnknownOutcome(result.error)) {
+          // Outcome unknown (timeout/disconnect): reconcile from truth instead
+          // of reporting a success or a definitive failure.
+          await refresh();
+          state = state.copyWith(error: result.error, reconcileNeeded: true);
+          return;
+        }
+        state = state.copyWith(error: result.error ?? _unknownError());
+      } on Object catch (e) {
+        if (generation != _stateGeneration) {
+          _noteStaleResponse();
+          return;
+        }
+        state = state.copyWith(error: _bridgeError(e));
+      } finally {
+        command.complete();
+      }
+      return;
+    }
+
+    _stateGeneration++;
+    final generation = _stateGeneration;
     try {
       await refresh();
       final explicit = _explicitBridge;
       final revision =
           state.desiredRevision ?? explicit?.desiredRevision() ?? BigInt.zero;
+      final targetId = command.targetId;
       final result = targetId == null
           ? await _bridge.applyActive(expectedRevision: revision)
           : await (explicit?.applyTarget(
@@ -139,6 +357,10 @@ class RuntimeController extends Notifier<RuntimeView> {
                   expectedRevision: revision,
                 ) ??
                 _bridge.applyActive(expectedRevision: revision));
+      if (generation != _stateGeneration) {
+        _noteStaleResponse();
+        return;
+      }
       if (!result.ok) {
         // Keep the structured error; do not let the follow-up snapshot (which
         // reports Stopped) erase the reason apply failed.
@@ -147,11 +369,26 @@ class RuntimeController extends Notifier<RuntimeView> {
       }
       await refresh();
     } on Object catch (e) {
+      if (generation != _stateGeneration) {
+        _noteStaleResponse();
+        return;
+      }
       state = state.copyWith(error: _bridgeError(e));
     } finally {
-      _pendingCommands = _pendingCommands > 0 ? _pendingCommands - 1 : 0;
-      state = state.copyWith(commandPending: _pendingCommands > 0);
+      command.complete();
     }
+  }
+
+  void _noteStaleResponse() {
+    _staleResponsesDropped++;
+    state = state.copyWith(staleResponsesDropped: _staleResponsesDropped);
+  }
+
+  bool _isUnknownOutcome(RuntimeErrorView? error) {
+    if (error == null) return false;
+    return error.code == 'E_TIMEOUT' ||
+        error.code == 'E_UNAVAILABLE' ||
+        error.code == 'E_BRIDGE';
   }
 
   /// Normal-startup restore: apply the persisted active node once, unless the
@@ -212,17 +449,23 @@ class RuntimeController extends Notifier<RuntimeView> {
     await applyActive();
   }
 
-  Future<void> stop() async {
-    try {
-      final result = await _bridge.stop();
-      if (!result.ok) {
-        state = state.copyWith(error: result.error ?? _unknownError());
-        return;
-      }
-      await refresh();
-    } on Object catch (e) {
-      state = state.copyWith(error: _bridgeError(e));
+  Future<void> stop() {
+    final command = _RuntimeCommand.stop(clock());
+    final waiter = Completer<void>();
+    command.waiters.add(waiter);
+    final queued = _pendingStop;
+    if (queued == null) {
+      _pendingStop = command;
+    } else {
+      queued.merge(command);
     }
+    state = state.copyWith(
+      commandPending: true,
+      pendingCommands: _pendingCount,
+      reconcileNeeded: false,
+    );
+    unawaited(_pumpCommands());
+    return waiter.future;
   }
 
   RuntimeErrorView _bridgeError(Object e) => RuntimeErrorView(

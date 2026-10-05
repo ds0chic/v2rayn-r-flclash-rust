@@ -52,6 +52,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
   late final TabController _tabs = TabController(length: 5, vsync: this);
   Map<String, dynamic> _draft = <String, dynamic>{};
   bool _draftInit = false;
+  bool _loadFailed = false;
   String? _error;
 
   @override
@@ -77,17 +78,43 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     });
   }
 
-  /// Seed the draft from the snapshot supplied by the main window.
+  /// Seed the draft from the snapshot supplied by the main window. R4-12/D34:
+  /// a failed or empty read stays an error state. The window must never present
+  /// a defaults-only draft that 确定 could write over the real settings.
   Future<void> _loadHostSnapshot() async {
-    final document = await widget.host!.loadSnapshot();
-    if (!mounted) return;
+    try {
+      final document = await widget.host!.loadSnapshot();
+      if (!mounted) return;
+      if (document.isEmpty) {
+        setState(() {
+          _loadFailed = true;
+          _error = '读取配置失败';
+        });
+        return;
+      }
+      setState(() {
+        // Fill missing/null scalar fields with the upstream defaults so a
+        // partial snapshot renders the canonical value instead of a CLR
+        // zero/blank (and a literal `null` can never leak into the draft).
+        _draft = mergeWithSettingsDefaults(document);
+        _draftInit = true;
+        _loadFailed = false;
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _loadFailed = true;
+        _error = '读取配置失败';
+      });
+    }
+  }
+
+  void _retryLoadSnapshot() {
     setState(() {
-      // Fill missing/null scalar fields with the upstream defaults so a partial
-      // snapshot renders the canonical value instead of a CLR zero/blank (and a
-      // literal `null` can never leak into the persisted draft).
-      _draft = mergeWithSettingsDefaults(document);
-      _draftInit = true;
+      _loadFailed = false;
+      _error = null;
     });
+    _loadHostSnapshot();
   }
 
   @override
@@ -173,6 +200,28 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       _draftInit = true;
     }
     if (widget.host != null && !_draftInit) {
+      if (_loadFailed) {
+        return Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  _error ?? '读取配置失败',
+                  key: const ValueKey('settings-load-error'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                const SizedBox(height: 8),
+                FilledButton(
+                  key: const ValueKey('settings-load-retry'),
+                  onPressed: _retryLoadSnapshot,
+                  child: const Text('重试'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
@@ -381,6 +430,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     }
     final host = widget.host;
     if (host != null) {
+      // R4-12/D34: without a successfully read snapshot there is no valid draft
+      // to persist; refuse instead of writing defaults over the real settings.
+      if (_loadFailed || !_draftInit) {
+        setState(() => _error = '读取配置失败，无法保存');
+        return;
+      }
       // Independent-window path: the main engine owns persistence and applies
       // the real plan; this engine only forwards the draft. A failed save keeps
       // the window open with the error shown.

@@ -1,0 +1,30 @@
+# R4-12 command log
+# HEAD cbce523, app baseline 77c74ed, armed=false
+# Shell: Windows PowerShell 7, Flutter C:\Users\Colby\toolchains\flutter\bin\flutter.bat
+# workdir: apps/desktop
+
+[1] flutter analyze
+    exit 0
+    "No issues found! (ran in 4.0s)"
+
+[2] flutter test test/r4_12_contract_test.dart
+    exit 0
+    "00:01 +8: All tests passed!"
+    # 8 cases: 3 layouts x2 (mode + orientation state source), shell structure,
+    # settings read-failure x2, routing read-failure, sub-editor immediate commit,
+    # strategy immediate commit
+
+[3] flutter test test/r3_wpf_routing_window_test.dart test/r3_wpf_option_window_test.dart \
+        test/r4_01_contract_test.dart test/r4_02_contract_test.dart test/r4_11_contract_test.dart
+    exit 0
+    "00:06 +31: All tests passed!"
+    # whole-window 确定/取消, R4-01/02 runtime lines, R4-11 settings all green
+
+[4] flutter build windows --release
+    not run
+    reason: no native runner/host change (commit reuses the existing
+            saveDraft/saveOutcome channel); build would take the exe lock
+            without a native change to validate.
+
+# Environment: no native library loaded, no core started, no port listened,
+# 10808 untouched, no system proxy/route/TUN/registry/autostart changes.

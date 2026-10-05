@@ -100,6 +100,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   String? _dragAnchorId;
   bool _dragSelecting = false;
 
+  /// Guards against scheduling the close-on-scroll twice in one frame.
+  bool _scrollCloseScheduled = false;
+
   /// Edge auto-scroll while drag-selecting beyond the viewport (-1 up, +1
   /// down). The timer scrolls one third of a row per frame and extends the
   /// range to the row entering the viewport, matching the WPF DataGrid.
@@ -125,6 +128,19 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     if (_ownsVertical) _vertical.dispose();
     if (_ownsHorizontal) _horizontal.dispose();
     super.dispose();
+  }
+
+  /// Close the open menu whenever the table's vertical offset changes (wheel,
+  /// keyboard, drag, programmatic). Deferred a frame so a layout in progress
+  /// does not close mid-scroll.
+  void _onViewportScroll() {
+    if (_menuController.isOpen && !_scrollCloseScheduled) {
+      _scrollCloseScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollCloseScheduled = false;
+        if (mounted && _menuController.isOpen) _closeMenuChain();
+      });
+    }
   }
 
   /// Window lifecycle (UX-CTX-03): a lost/inactive window must not leave the
@@ -190,28 +206,34 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
               );
               return Stack(
                 children: <Widget>[
-                  TableView.builder(
-                    verticalDetails: ScrollableDetails.vertical(
-                      controller: _vertical,
-                    ),
-                    horizontalDetails: ScrollableDetails.horizontal(
-                      controller: _horizontal,
-                    ),
-                    pinnedRowCount: 1,
-                    pinnedColumnCount: 1,
-                    columnCount: columns.length + 1,
-                    rowCount: rows.length + 1,
-                    columnBuilder: (index) =>
-                        _buildColumnSpan(context, index, widths),
-                    rowBuilder: (index) => _buildRowSpan(index, context),
-                    cellBuilder: (context, vicinity) => TableViewCell(
-                      child: _buildCell(
-                        context,
-                        vicinity,
-                        state,
-                        columns,
-                        rows,
-                        dragSortEnabled,
+                  NotificationListener<ScrollNotification>(
+                    onNotification: (n) {
+                      _onViewportScroll();
+                      return false;
+                    },
+                    child: TableView.builder(
+                      verticalDetails: ScrollableDetails.vertical(
+                        controller: _vertical,
+                      ),
+                      horizontalDetails: ScrollableDetails.horizontal(
+                        controller: _horizontal,
+                      ),
+                      pinnedRowCount: 1,
+                      pinnedColumnCount: 1,
+                      columnCount: columns.length + 1,
+                      rowCount: rows.length + 1,
+                      columnBuilder: (index) =>
+                          _buildColumnSpan(context, index, widths),
+                      rowBuilder: (index) => _buildRowSpan(index, context),
+                      cellBuilder: (context, vicinity) => TableViewCell(
+                        child: _buildCell(
+                          context,
+                          vicinity,
+                          state,
+                          columns,
+                          rows,
+                          dragSortEnabled,
+                        ),
                       ),
                     ),
                   ),
@@ -815,11 +837,20 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       controller.handleRightTap(rowId);
     }
     final snapshot = ref.read(profilesControllerProvider);
+    // Freeze the single-object primary at open time. A data row under the
+    // pointer is the target; a header/empty trigger keeps the session's existing
+    // current row (upstream DataGrid.ContextMenu preserves it) instead of
+    // dropping a multi-selection's main row to null, which let a later live-state
+    // change silently retarget the command (UF-PROF-10 / R4-07).
+    final captured = snapshot.primaryId;
+    final primaryId =
+        rowId ??
+        ((captured != null && snapshot.selected.contains(captured))
+            ? captured
+            : (snapshot.selected.length == 1 ? snapshot.selected.first : null));
     final command = CommandContext(
       targetIds: snapshot.selected.toList(),
-      primaryId:
-          rowId ??
-          (snapshot.selected.length == 1 ? snapshot.selected.first : null),
+      primaryId: primaryId,
       groupSubId: snapshot.groupSubId,
       menuOpenPosition: local,
       viewContext: region,
@@ -848,6 +879,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       _menuFocusIndex = -1;
       _activeRootEntries = const <ContextMenuEntry>[];
     });
+    // Closing a session returns keyboard focus to the table so shortcuts keep
+    // working and no overlay focus is leaked (R4-07 focus-return contract).
+    if (!_focusNode.hasFocus) _focusNode.requestFocus();
   }
 
   /// Inject the live subscription-group list into the `移至订阅分组` submenu.
@@ -1102,18 +1136,23 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
         return;
       }
     }
-    // A captured single-object target (edit/share/activate/export) must still
-    // be visible; a filter that hides it refuses the command instead of
-    // silently retargeting to the live selection (R3-PROF-02). Commands that
-    // do not consume a node primary (group generation, batch, results) are not
-    // gated by this.
+    // A captured single-object target (edit/share/activate/export) must itself
+    // be frozen and visible. A session that captured a batch but no primary is
+    // refused instead of falling back to whatever row is live now; a captured
+    // primary that a later refresh/filter hid is refused the same way
+    // (R3-PROF-02 / UF-PROF-10). The no-selection full-config export
+    // (`command.hasTargets == false`) legitimately falls through to the active
+    // node (RE-PROF-08), so it is not gated here.
     final targetId = command?.primaryId;
-    if (_usesPrimaryTarget(entry.kind) &&
-        targetId != null &&
-        !profiles.isVisibleTarget(targetId)) {
-      _closeMenuChain();
-      shell.setMessage('操作目标已失效，请重新选择节点');
-      return;
+    if (_usesPrimaryTarget(entry.kind)) {
+      final noFrozenPrimary =
+          command != null && command.hasTargets && targetId == null;
+      if (noFrozenPrimary ||
+          (targetId != null && !profiles.isVisibleTarget(targetId))) {
+        _closeMenuChain();
+        shell.setMessage('操作目标已失效，请重新选择节点');
+        return;
+      }
     }
     _menuController.close();
     _menuFocusIndex = -1;

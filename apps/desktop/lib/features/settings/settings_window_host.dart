@@ -17,6 +17,18 @@ class SettingsEditorOutcome {
   final String? message;
 }
 
+/// Thrown when the settings editor cannot read its starting snapshot from the
+/// main engine. R4-12/D34: a read failure must surface as an error, never as an
+/// empty document that 确定 could persist over the real settings.
+class SettingsEditorLoadException implements Exception {
+  const SettingsEditorLoadException([this.message = '读取配置失败']);
+
+  final String message;
+
+  @override
+  String toString() => 'SettingsEditorLoadException: $message';
+}
+
 /// Persistence/close seam for the option settings UI. The real desktop
 /// implementation talks to the main window through the native host; tests use
 /// an in-memory fake.
@@ -97,17 +109,20 @@ class NativeSettingsEditorHost implements SettingsEditorHost {
   late final Future<void> _ready;
   int _nextId = 1;
   String _snapshotJson = '{}';
+  bool _loadFailed = false;
 
   /// Fetches the snapshot from the native host. The host installs its channel
   /// handler right after the window is created, so retry briefly on the
-  /// start-up race.
+  /// start-up race. R4-12/D34: exhausting the retries is a hard read failure,
+  /// not a valid empty document.
   Future<void> _init() async {
     _channel.setMethodCallHandler(_handle);
     for (var attempt = 0; attempt < 50; attempt++) {
       try {
         final value = await _channel.invokeMethod<String>('ready');
-        if (value != null && value.isNotEmpty) {
+        if (value != null && value.isNotEmpty && value != '{}') {
           _snapshotJson = value;
+          _loadFailed = false;
           return;
         }
       } on MissingPluginException {
@@ -117,16 +132,23 @@ class NativeSettingsEditorHost implements SettingsEditorHost {
       }
       await Future<void>.delayed(const Duration(milliseconds: 20));
     }
+    _loadFailed = true;
   }
 
   @override
   Future<Map<String, dynamic>> loadSnapshot() async {
     await _ready;
+    final raw = _snapshotJson.trim();
+    if (_loadFailed || raw.isEmpty || raw == '{}') {
+      throw const SettingsEditorLoadException('读取配置失败');
+    }
     try {
-      final decoded = jsonDecode(_snapshotJson);
-      if (decoded is Map<String, dynamic>) return decoded;
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic> && decoded.isNotEmpty) {
+        return decoded;
+      }
     } catch (_) {}
-    return <String, dynamic>{};
+    throw const SettingsEditorLoadException('读取配置失败');
   }
 
   @override

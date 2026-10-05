@@ -1,0 +1,103 @@
+{
+  "task": "R4-04",
+  "title": "命令队列与迟到响应",
+  "status": "implemented",
+  "baseline": {
+    "head": "cbce523",
+    "app_baseline": "77c74ed",
+    "upstream_frozen": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "armed": false
+  },
+  "constraints": {
+    "ports_used": [],
+    "port_10808_touched": false,
+    "host_proxy_registry_route_tun_touched": false,
+    "user_credentials_read": false,
+    "unrelated_processes_killed": false
+  },
+  "defects": {
+    "D06": "pending not immediately exposed; apply had no unified in-flight merge",
+    "D07": "net_host_client locked req_mutex before recv_timeout; queue time outside total deadline; timed-out worker not cancelled by that code",
+    "D37": "apply job terminal lifecycle ambiguous"
+  },
+  "changes": {
+    "rust": [
+      "crates/application/src/net_host_client.rs: RequestGate (single slot + Condvar, queue-inclusive deadline, worker-owned release, active/spawned counters) replacing req_mutex; NetHostClient::request_worker_counts(); 4 new unit tests"
+    ],
+    "dart": [
+      "apps/desktop/lib/features/runtime/runtime_controller.dart: bounded coalescing command queue, queue-inclusive commandDeadline, refresh in-flight merge, generation-based stale-response eviction, unknown-outcome reconcile",
+      "apps/desktop/lib/features/runtime/runtime_bridge.dart: RuntimeView pendingCommands/staleResponsesDropped/reconcileNeeded (additive)"
+    ],
+    "tests": [
+      "apps/desktop/test/r4_04_contract_test.dart: 6 contract assertions"
+    ]
+  },
+  "must_pass_scenarios": {
+    "local_pending_visible_no_fake_running": "covered by dart test 1",
+    "queue_bounded": "covered by dart test 2 (max 1 active + 1 apply + 1 stop; coalesced)",
+    "deadline_includes_queue": "covered by rust request_slot_deadline_includes_queue_wait + dart test 3",
+    "refresh_merge": "covered by dart test 4",
+    "stale_session_response_eviction": "covered by dart test 5",
+    "no_accumulated_workers_after_timeout": "covered by rust request_slot_does_not_accumulate_workers",
+    "unknown_outcome_reconcile": "covered by dart test 6"
+  },
+  "commands": [
+    {
+      "cmd": "flutter analyze",
+      "cwd": "apps/desktop",
+      "exit": 0,
+      "result": "No issues found!"
+    },
+    {
+      "cmd": "flutter test test/r4_04_contract_test.dart",
+      "cwd": "apps/desktop",
+      "exit": 0,
+      "result": "All tests passed (6)"
+    },
+    {
+      "cmd": "flutter test test/r4_01_contract_test.dart test/r4_02_contract_test.dart test/r4_08_contract_test.dart test/r4_27_contract_test.dart test/t18b_runtime_ui_test.dart",
+      "cwd": "apps/desktop",
+      "exit": "0 (reran r4_08/t18b individually after parallel flake)",
+      "result": "all passed"
+    },
+    {
+      "cmd": "cargo fmt --all -- --check",
+      "cwd": ".",
+      "exit": 0,
+      "result": "clean"
+    },
+    {
+      "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+      "cwd": ".",
+      "exit": 0,
+      "result": "Finished, no warnings"
+    },
+    {
+      "cmd": "cargo test --workspace --locked",
+      "cwd": ".",
+      "exit": 0,
+      "result": "all test result: ok; new net_host_client tests pass"
+    },
+    {
+      "cmd": "flutter build windows --release",
+      "cwd": "apps/desktop",
+      "exit": 0,
+      "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe"
+    }
+  ],
+  "unverified": [
+    "real GUI consecutive start/stop/retry end-to-end",
+    "Windows real named-pipe 60s timeout worker-leak run",
+    "release frame-time quantification"
+  ],
+  "interface_gaps": [
+    {
+      "provider": "net_host (ipc_contract IpcOperation::GetOperation) / bridge_api",
+      "caller": "apps/desktop runtime_controller",
+      "input_output": "operation_id -> OperationStatus (job state/cancel/error)",
+      "error": "not exposed through bridge_api/FRB",
+      "effective_point": "reconcile after unknown outcome currently only via snapshot",
+      "action": "register for integrator; do not bypass"
+    }
+  ]
+}

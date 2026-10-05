@@ -1,0 +1,60 @@
+{
+  "task": "R4-12",
+  "head": "cbce523",
+  "app_baseline": "77c74ed",
+  "armed": false,
+  "fixture": "MemoryUiStateStore + in-memory settings/routing hosts",
+  "kernel": "none",
+  "ports_touched": [],
+  "system_changes": "none (no proxy/route/TUN/registry/autostart)",
+  "main_layouts": {
+    "LAY-MAIN-001_horizontal": "implemented",
+    "LAY-MAIN-002_vertical": "implemented",
+    "LAY-MAIN-003_tab": "implemented",
+    "state_source": "UiItem.MainGirdOrientation (0/1/2)",
+    "reopen_persistence": "verified_by_test"
+  },
+  "window_inventory": {
+    "total": 53,
+    "implemented": 3,
+    "embedded_dialog": 12,
+    "not_applicable": 38,
+    "not_implemented": 0
+  },
+  "existing_independent_windows": {
+    "OptionSettingWindow": {
+      "owner": true,
+      "modal": true,
+      "geometry": "1000x700 @ (120,120)",
+      "revision": "gap (no openingRevision)",
+      "dpi": "unverified",
+      "theme": "gap (fixed light)"
+    },
+    "RoutingSettingWindow": {
+      "owner": true,
+      "modal": true,
+      "geometry": "1000x700 @ (120,120)",
+      "revision": "gap (no openingRevision)",
+      "dpi": "unverified",
+      "theme": "gap (fixed light)"
+    }
+  },
+  "contracts": {
+    "read_failure_no_empty_draft": "implemented (widget test)",
+    "sub_editor_immediate_commit_not_overridden": "implemented (widget test)",
+    "whole_window_ok_cancel": "unaffected (regression tests pass)"
+  },
+  "commands": [
+    { "cmd": "flutter analyze", "exit": 0, "result": "No issues found" },
+    { "cmd": "flutter test test/r4_12_contract_test.dart", "exit": 0, "result": "8/8 passed" },
+    { "cmd": "flutter test r3_wpf_routing_window_test.dart r3_wpf_option_window_test.dart r4_01_contract_test.dart r4_02_contract_test.dart r4_11_contract_test.dart", "exit": 0, "result": "31/31 passed" },
+    { "cmd": "flutter build windows --release", "exit": null, "result": "not run (no native runner change; exe lock avoided)" }
+  ],
+  "status": "implemented",
+  "unverified": [
+    "real Windows dual-engine windows",
+    "real FRB/SQLite persistence",
+    "DPI/theme/font matrix",
+    "native failure injection"
+  ]
+}

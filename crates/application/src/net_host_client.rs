@@ -18,9 +18,9 @@
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use domain::event::EventEpoch;
@@ -49,6 +49,82 @@ fn trace(message: impl AsRef<str>) {
     }
 }
 
+/// Serializes control requests and bounds them to one outstanding worker.
+///
+/// The previous design held a plain `Mutex` only on the caller's stack: on
+/// timeout the caller released it while its blocking reader thread stayed
+/// alive, so repeated timeouts accumulated workers (D07). This gate keeps the
+/// slot owned until the worker actually reports back, and acquisition itself is
+/// bounded by the request deadline, so queue time counts toward the total.
+struct RequestGate {
+    busy: Mutex<bool>,
+    cv: Condvar,
+    /// Workers currently inside `run_request` (observable, never > 1).
+    active_workers: AtomicUsize,
+    /// Cumulative workers spawned (observable; a leak shows as growth).
+    spawned_workers: AtomicUsize,
+}
+
+impl RequestGate {
+    fn new() -> Self {
+        Self {
+            busy: Mutex::new(false),
+            cv: Condvar::new(),
+            active_workers: AtomicUsize::new(0),
+            spawned_workers: AtomicUsize::new(0),
+        }
+    }
+
+    /// Take the single request slot or fail once `deadline` passes. A previous
+    /// timed-out worker that has not finished still owns the slot, so no second
+    /// worker is started behind it.
+    fn acquire(&self, deadline: Instant) -> Result<(), DomainError> {
+        let mut busy = self
+            .busy
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        while *busy {
+            let now = Instant::now();
+            if now >= deadline {
+                return Err(timeout_error("queued request"));
+            }
+            let (guard, _) = self
+                .cv
+                .wait_timeout(busy, deadline - now)
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            busy = guard;
+        }
+        *busy = true;
+        Ok(())
+    }
+
+    fn record_spawn(&self) {
+        self.spawned_workers.fetch_add(1, Ordering::AcqRel);
+        self.active_workers.fetch_add(1, Ordering::AcqRel);
+    }
+
+    /// Release the slot after the worker finished (or never started).
+    fn release(&self) {
+        if let Ok(mut busy) = self.busy.lock() {
+            *busy = false;
+            self.cv.notify_one();
+        }
+    }
+
+    fn record_finish(&self) {
+        self.active_workers.fetch_sub(1, Ordering::AcqRel);
+        self.release();
+    }
+
+    fn active_workers(&self) -> usize {
+        self.active_workers.load(Ordering::Acquire)
+    }
+
+    fn spawned_workers(&self) -> usize {
+        self.spawned_workers.load(Ordering::Acquire)
+    }
+}
+
 struct Shared {
     pipe_name: String,
     auto_launch: bool,
@@ -56,8 +132,8 @@ struct Shared {
     /// `V2RAYN_R_CORES_ROOT`, so install (`UpdateService`) and run
     /// (`CoreLocator`) share one root with no user-set environment.
     cores_root: Mutex<Option<PathBuf>>,
-    /// Serializes control requests so at most one request connection is live.
-    req_mutex: Mutex<()>,
+    /// Serializes control requests and owns the single in-flight worker.
+    gate: RequestGate,
     /// Serializes net-host launches across the event and control paths.
     launch_mutex: Mutex<()>,
     sink: Arc<Mutex<Option<EventSink>>>,
@@ -98,7 +174,7 @@ impl NetHostClient {
                 pipe_name: pipe_name.into(),
                 auto_launch: std::env::var_os("V2RAYN_R_NO_AUTOLAUNCH").is_none(),
                 cores_root: Mutex::new(None),
-                req_mutex: Mutex::new(()),
+                gate: RequestGate::new(),
                 launch_mutex: Mutex::new(()),
                 sink: Arc::new(Mutex::new(None)),
                 events_started: AtomicBool::new(false),
@@ -137,6 +213,15 @@ impl NetHostClient {
             .lock()
             .ok()
             .and_then(|slot| slot.clone())
+    }
+
+    /// `(active, spawned)` control-request workers. `active` never exceeds one
+    /// by construction; `spawned` is cumulative so a timeout leak is visible.
+    pub fn request_worker_counts(&self) -> (usize, usize) {
+        (
+            self.shared.gate.active_workers(),
+            self.shared.gate.spawned_workers(),
+        )
     }
 
     fn request(
@@ -274,22 +359,34 @@ fn do_request(
     operation: IpcOperation,
     timeout: Duration,
 ) -> Result<(IpcResult, RuntimeDetail), DomainError> {
-    let _guard = shared
-        .req_mutex
-        .lock()
-        .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+    // The queue wait and the response wait share one deadline (D07): a request
+    // stuck behind another command cannot spend `timeout` twice.
+    let deadline = Instant::now() + timeout;
+    shared.gate.acquire(deadline)?;
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        shared.gate.release();
+        return Err(timeout_error("request"));
+    }
     trace("do_request: dispatching");
     let (tx, rx) = mpsc::channel();
     let worker = Arc::clone(shared);
-    std::thread::Builder::new()
+    shared.gate.record_spawn();
+    let spawn = std::thread::Builder::new()
         .name("net-host-request".into())
         .spawn(move || {
             let result = run_request(&worker, operation);
             let _ = tx.send(result);
-        })
-        .map_err(|e| unavailable(format!("spawn request thread failed: {e}")))?;
+            // Release the slot only when the (possibly blocking) worker is
+            // truly done, so a timed-out caller never lets a second worker in.
+            worker.gate.record_finish();
+        });
+    if let Err(e) = spawn {
+        shared.gate.record_finish();
+        return Err(unavailable(format!("spawn request thread failed: {e}")));
+    }
 
-    match rx.recv_timeout(timeout) {
+    match rx.recv_timeout(remaining) {
         Ok(result) => result,
         Err(RecvTimeoutError::Timeout) => Err(timeout_error("request")),
         Err(RecvTimeoutError::Disconnected) => Err(unavailable("net-host request thread died")),
@@ -652,5 +749,49 @@ mod tests {
         apply_launch_env(&mut command, &client.shared);
         let has_root = command.get_envs().any(|(k, _)| k == "V2RAYN_R_CORES_ROOT");
         assert!(!has_root, "no root means no forwarded env var");
+    }
+
+    #[test]
+    fn request_slot_deadline_includes_queue_wait() {
+        let gate = RequestGate::new();
+        gate.acquire(Instant::now() + Duration::from_secs(1))
+            .expect("first acquisition is free");
+        let error = gate
+            .acquire(Instant::now() + Duration::from_millis(20))
+            .expect_err("a held slot must time out, not wait unbounded");
+        assert_eq!(error.code, domain::codes::TIMEOUT);
+        gate.release();
+        gate.acquire(Instant::now() + Duration::from_secs(1))
+            .expect("slot is reusable after release");
+    }
+
+    #[test]
+    fn request_slot_does_not_accumulate_workers() {
+        let gate = RequestGate::new();
+        gate.acquire(Instant::now() + Duration::from_secs(1))
+            .unwrap();
+        gate.record_spawn();
+        assert_eq!(gate.active_workers(), 1);
+        assert_eq!(gate.spawned_workers(), 1);
+        // While the first worker is outstanding the slot stays held: a second
+        // request must not spawn behind it.
+        assert!(gate
+            .acquire(Instant::now() + Duration::from_millis(10))
+            .is_err());
+        assert_eq!(
+            gate.spawned_workers(),
+            1,
+            "a timed-out request must not spawn a second worker"
+        );
+        gate.record_finish();
+        assert_eq!(gate.active_workers(), 0);
+        gate.acquire(Instant::now() + Duration::from_secs(1))
+            .unwrap();
+    }
+
+    #[test]
+    fn net_host_client_exposes_worker_counts() {
+        let client = NetHostClient::with_pipe("\\\\.\\pipe\\rr01-test-counts");
+        assert_eq!(client.request_worker_counts(), (0, 0));
     }
 }

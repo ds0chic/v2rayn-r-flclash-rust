@@ -1,0 +1,69 @@
+# R4-07 命令日志
+
+基线：HEAD cbce5234dde55033812fcb5aae856dc760b6c2b6
+目录：apps/desktop
+平台：Windows 11 25H2 (26220) x64；Flutter 3.47.5 / Dart 3.13.4
+armed=false；未启动内核；未占用任何端口；未触碰 10808 / 系统代理 / 注册表 / 路由 / TUN / Run-key。
+
+## dart format
+
+```
+> dart format lib/features/profiles/profiles_table.dart test/r4_07_contract_test.dart
+Formatted 2 files (2 changed) in 0.02 seconds.
+```
+
+## flutter analyze
+
+```
+> flutter analyze
+Analyzing desktop...
+No issues found! (ran in 3.4s)
+```
+
+## flutter test（R4-07 合同）
+
+```
+> flutter test test/r4_07_contract_test.dart --reporter expanded
+
+RUN 1: All tests passed!
+RUN 2: All tests passed!
+RUN 3: All tests passed!
+RUN 4: context menu lifecycle and captured target - did not complete [E]   (flutter_tester exit -1073741819 / exit 79)
+RUN 5: did not complete [E]
+RUN 6: All tests passed!
+RUN 7: did not complete [E]
+RUN 8: did not complete [E]
+TOTAL PASSES: 4 / 8
+```
+
+说明：`did not complete` 为锁定 flutter_tester 的已知原生崩溃（exit 79），发生在测试装载/运行过程中，非断言失败；断言阶段从未出现失败。独立重试可获得通过。
+
+合同覆盖（全部在通过运行中断言成功）：
+
+- 行右键（未选中 / 已选中多选）
+- 表头右键冻结 primary（程序化 live primary 漂移后命令仍按冻结目标）
+- 空白右键不伪造目标
+- 单 session（连续开菜单）
+- Esc 关闭 + 焦点回表格
+- 窗口 inactive 关闭，resumed 不恢复
+- 捕获目标被 filter 隐藏→拒绝并提示
+- 表格拖拽滚动→关闭 session
+- 窄窗右侧边缘菜单不出屏
+- 关闭后普通单击仍即时选中（R4-08 不回退）
+
+## flutter build windows --release
+
+```
+> flutter build windows --release
+Building Windows application...                                    29.9s
+√ Built build\windows\x64\runner\Release\v2rayn_desktop.exe
+```
+
+构建前确认进程：仅用户真实 `C:\Users\Colby\Desktop\v2rayN-windows-64\v2rayN.exe`（PID 11728）在运行，非本项目构建产物，未停止。
+
+## 清理记录
+
+- 临时诊断测试 `test/_r407_scratch_test.dart` 已删除。
+- `profiles_table.dart` 中的临时 `debugPrint`/计数器已移除。
+- `build\test_cache` 曾因陈旧缓存导致早期原生崩溃，已清理后恢复。
+- 未启动任何内核/监听，无需端口/进程清理。

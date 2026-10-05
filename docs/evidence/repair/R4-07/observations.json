@@ -1,0 +1,74 @@
+{
+  "task": "R4-07",
+  "title": "右键生命周期与目标快照",
+  "repo": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn",
+  "base_head": "cbce5234dde55033812fcb5aae856dc760b6c2b6",
+  "upstream": {
+    "project": "v2rayN",
+    "version": "7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "files": [
+      "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ProfilesView.xaml",
+      "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ProfilesView.xaml.cs"
+    ],
+    "contextmenu": "ProfilesView.xaml:121-262",
+    "preview_keydown": "ProfilesView.xaml.cs:220-293"
+  },
+  "armed": false,
+  "kernel_started": false,
+  "port_10808_touched": false,
+  "system_proxy_touched": false,
+  "registry_touched": false,
+  "route_tun_autostart_touched": false,
+  "fixture": {
+    "bridge": "SyntheticBridgePort",
+    "store": "MemoryUiStateStore",
+    "rows": 20,
+    "ids": "syn-000000..syn-000019",
+    "secrets": "none (synthetic)"
+  },
+  "evidence_level": ["source_confirmed", "controlled_test"],
+  "real_ui": false,
+  "real_core_effect": false,
+  "changed_files": [
+    "apps/desktop/lib/features/profiles/profiles_table.dart",
+    "apps/desktop/test/r4_07_contract_test.dart",
+    "docs/evidence/repair/R4-07/README.md",
+    "docs/evidence/repair/R4-07/observations.json"
+  ],
+  "also_touched_for_build_unblock": [
+    {
+      "file": "apps/desktop/lib/features/routing/routing_windows.dart",
+      "owner": "R4-12",
+      "change": "final host = widget.host -> final Object host = widget.host (defensive, one line)",
+      "reason": "another agent's in-flight edit left RoutingEditorHost without commit; whole-repo analyze/test/build failed"
+    }
+  ],
+  "scenarios": [
+    {"id": "row-right-click-unselected", "expected": "selection replaced with the row; command acts on it", "result": "pass"},
+    {"id": "row-right-click-selected", "expected": "multi-selection preserved; primary=row; command acts on primary", "result": "pass"},
+    {"id": "header-right-click-frozen-primary", "expected": "keeps selection and frozen primary even after live primary drift", "result": "pass"},
+    {"id": "empty-right-click", "expected": "no target fabricated; selected empty; primary null", "result": "pass"},
+    {"id": "single-session", "expected": "only one menu session at a time", "result": "pass"},
+    {"id": "escape-focus-return", "expected": "Esc closes chain and returns table focus (Enter hits table)", "result": "pass"},
+    {"id": "lifecycle-close", "expected": "inactive closes; resumed does not restore", "result": "pass"},
+    {"id": "stale-target-refused", "expected": "hidden captured target refused with visible message, no run", "result": "pass"},
+    {"id": "scroll-close", "expected": "table drag/scroll closes the single session", "result": "pass"},
+    {"id": "edge-positioning", "expected": "menu stays inside a narrow window", "result": "pass"},
+    {"id": "coordinate-in-window", "expected": "roomy open inside window bounds", "result": "pass"},
+    {"id": "r4-08-no-regression", "expected": "plain click still selects immediately", "result": "pass"}
+  ],
+  "commands": [
+    {"cmd": "flutter analyze", "cwd": "apps/desktop", "result": "No issues found! (ran in 3.4s)"},
+    {"cmd": "flutter test test/r4_07_contract_test.dart --reporter expanded", "cwd": "apps/desktop", "result": "All tests passed! (intermittent engine exit 79; 4/8 runs passed, no assertion failures)"},
+    {"cmd": "flutter build windows --release", "cwd": "apps/desktop", "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe (29.9s)"}
+  ],
+  "known_flakiness": "locked flutter_tester occasionally segfaults (exit code 79 / -1073741819) before completion; independent retry passes",
+  "not_done": [
+    "real_ui multi-DPI / real mouse wheel / real focus-loss",
+    "upstream submenu Esc-to-parent exact WPF semantics",
+    "real_core_effect (not applicable to this card: no kernel start)"
+  ],
+  "blockers": [],
+  "status": "implemented"
+}

@@ -39,6 +39,9 @@ class RuntimeView {
     this.lastSeq,
     this.sequenceWarning,
     this.commandPending = false,
+    this.pendingCommands = 0,
+    this.staleResponsesDropped = 0,
+    this.reconcileNeeded = false,
   });
 
   final String state;
@@ -56,6 +59,20 @@ class RuntimeView {
   /// backend has not reported its own transition yet. This is a UI command
   /// state, never a substitute for the net-host Running/Starting fact (R4-01).
   final bool commandPending;
+
+  /// Observable command-queue depth (active + queued, coalesced). Bounded by
+  /// construction: one active command plus one coalesced apply and one
+  /// coalesced stop (R4-04).
+  final int pendingCommands;
+
+  /// Count of late snapshot/command responses dropped because a newer command
+  /// or session generation had already advanced (R4-04 stale-response eviction).
+  final int staleResponsesDropped;
+
+  /// True after a command whose outcome is unknown (timeout/disconnected) was
+  /// reconciled from a fresh snapshot instead of being reported as a success or
+  /// a definitive failure (R4-04).
+  final bool reconcileNeeded;
 
   /// Last event epoch observed by the controller (event stream only; the
   /// snapshot does not carry it). Used to detect a reconnecting/restarted host.
@@ -118,6 +135,9 @@ class RuntimeView {
     BigInt? lastSeq,
     String? sequenceWarning,
     bool? commandPending,
+    int? pendingCommands,
+    int? staleResponsesDropped,
+    bool? reconcileNeeded,
   }) {
     return RuntimeView(
       state: state,
@@ -134,6 +154,10 @@ class RuntimeView {
       lastSeq: lastSeq ?? this.lastSeq,
       sequenceWarning: sequenceWarning ?? this.sequenceWarning,
       commandPending: commandPending ?? this.commandPending,
+      pendingCommands: pendingCommands ?? this.pendingCommands,
+      staleResponsesDropped:
+          staleResponsesDropped ?? this.staleResponsesDropped,
+      reconcileNeeded: reconcileNeeded ?? this.reconcileNeeded,
     );
   }
 }

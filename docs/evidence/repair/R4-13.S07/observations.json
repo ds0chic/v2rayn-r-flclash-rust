@@ -1,0 +1,61 @@
+{
+  "task": "R4-13.S07",
+  "group": "Fragment4RayItem",
+  "instance_status": "verified_config_consumer",
+  "coordinator": "R4-13",
+  "base_commit": "a2968923bb7354d7b099c9a1999c380d74179ff9",
+  "upstream": {
+    "version": "v2rayN 7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "path": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/"
+  },
+  "armed": false,
+  "constraints_honored": {
+    "port_10808_untouched": true,
+    "host_proxy_registry_route_tun_autostart_untouched": true,
+    "no_user_credentials": true,
+    "work_outputs_readonly": true,
+    "worktree_other_agent_changes_untouched": true
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_13_s07_repro_test.dart",
+    "sha256": "4A5AD4834ACC99E7A11A07CA6FE14C74381B0E2EE09C17E929694B84347866E6",
+    "pre_fix": {
+      "result": "fail",
+      "detail": "empty Lengths kept [] instead of legacy ['100-200']",
+      "log": "_prefix_repro.log",
+      "log_sha256": "B2224026EF0597A29F79778BDD1B36AD634FBB17224B729527AD0D08503C0109"
+    },
+    "post_fix": {
+      "result": "pass",
+      "detail": "contract 4/4, repro 1/1 (run as separate single files)",
+      "log": "_postfix_tests.log",
+      "log_sha256": "6A326FD6F156368F9A21FC99AA768BBC917E65D8D798080D5721DFBE807FFB9B"
+    }
+  },
+  "contract_test": {
+    "file": "apps/desktop/test/r4_13_s07_contract_test.dart",
+    "sha256": "FCC28EE5AA0707D227D002F81426EF0A143E2E7CC565BD10CB64A0AD9877CD26",
+    "cases": [
+      "legacy Length/Interval seed empty fragment lists",
+      "empty lists without legacy get the frozen defaults 50-100 / 10-20",
+      "a non-empty list is never overwritten by the legacy scalar",
+      "promoted fragment lists persist and are visible on reopen"
+    ]
+  },
+  "consumer": "crates/config_codegen/src/xray/config.rs::fragment_mask (domain apply_load_defaults already promotes legacy fields)",
+  "fields": ["FLD-CFG-150", "FLD-CFG-151", "FLD-CFG-152", "FLD-CFG-153", "FLD-CFG-154", "FLD-CFG-155"],
+  "commands": [
+    { "cmd": "flutter analyze", "result": "本卡文件零告警（仓库另有 R4-18 代理 2 条告警）" },
+    { "cmd": "flutter test test/r4_13_s07_contract_test.dart", "result": "All tests passed (4/4)" },
+    { "cmd": "flutter test test/repair/r4_13_s07_repro_test.dart", "result": "All tests passed (1/1)" }
+  ],
+  "blocked": [
+    "real kernel fragment egress not exercised in an isolated environment"
+  ],
+  "other_instances": {
+    "S05_CoreBasicItem": "verified_codegen_consumer",
+    "S01_CheckUpdateItem": "verified (this batch)",
+    "rest": "pending_or_blocked"
+  }
+}

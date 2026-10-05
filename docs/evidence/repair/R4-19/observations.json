@@ -1,0 +1,66 @@
+{
+  "task": "R4-19",
+  "title": "自定义模板Mixin",
+  "status": "implemented",
+  "armed": false,
+  "kernel_started": false,
+  "ports_listened": [],
+  "forbidden_ports_touched": false,
+  "host_proxy_modified": false,
+  "fixtures": "synthetic-only (TEST-NET 192.0.2.0/24, synthetic uuid/keys)",
+  "baseline": {
+    "repo_head": "a296892",
+    "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5"
+  },
+  "defects": [
+    {
+      "id": "R4-19-D1",
+      "severity": "P1",
+      "area": "config_codegen/singbox",
+      "upstream_ref": "SingboxConfigTemplateService.cs:106-141",
+      "summary": "sing-box 模板合并顺序与上游相反：模板 outbounds/endpoints 应在前，生成追加在后；现实现为生成在前。",
+      "fix": "crates/config_codegen/src/singbox/config.rs::full_config_template",
+      "status": "fixed",
+      "repro": "crates/config_codegen/tests/r4_19_template_merge.rs (2 cases failed pre-fix)"
+    },
+    {
+      "id": "R4-19-D2",
+      "severity": "P2",
+      "area": "apps/desktop template window",
+      "upstream_ref": "FullConfigTemplateViewModel.cs:75-89 (save then close; error visible)",
+      "summary": "onSave 抛异常时未捕获，_submitting 卡在 true，保存/取消永久禁用，错误不可读、不可重试。",
+      "fix": "apps/desktop/lib/features/profiles/template_window.dart::_save",
+      "status": "fixed",
+      "repro": "apps/desktop/test/repair/r4_19_repro_test.dart (failed pre-fix)"
+    }
+  ],
+  "upstream_conclusions": {
+    "xray": "generated outbounds first, template appended; balancer rewrite + append; observatory subjectSelector union; ProxyDetour non-private only",
+    "singbox": "template outbounds/endpoints first, generated appended; AddProxyOnly skips direct/block; ProxyDetour non-private only",
+    "mihomo_mixin": "mixin.rs merge semantics match CoreConfigClashService.MixinContent; runtime consumption for enable_mixin_content still unwired (registered gap)"
+  },
+  "commands": [
+    { "cmd": "cargo fmt --all -- --check", "exit": 0 },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "exit": 0 },
+    { "cmd": "cargo test --workspace --locked", "exit": 0 },
+    { "cmd": "flutter test test/r4_19_contract_test.dart test/repair/r4_19_repro_test.dart --concurrency=1", "exit": 0, "passed": 7 },
+    { "cmd": "flutter analyze", "exit": 1, "note": "2 unrelated warnings in R4-18 test files; task files clean" },
+    { "cmd": "flutter build windows --release", "exit": 0 }
+  ],
+  "unverified": [
+    "real kernel start/reopen reading the generated template config",
+    "real PreSocks / statistics endpoints runtime effect",
+    "mihomo enable_mixin_content runtime consumption"
+  ],
+  "modified_files": [
+    "crates/config_codegen/src/singbox/config.rs",
+    "crates/config_codegen/tests/singbox_template_custom.rs",
+    "crates/config_codegen/tests/r4_19_template_merge.rs",
+    "apps/desktop/lib/features/profiles/template_window.dart",
+    "apps/desktop/test/r4_19_contract_test.dart",
+    "apps/desktop/test/repair/r4_19_repro_test.dart",
+    "docs/repair/tasks/R4-19.md",
+    "docs/evidence/repair/R4-19/*"
+  ]
+}

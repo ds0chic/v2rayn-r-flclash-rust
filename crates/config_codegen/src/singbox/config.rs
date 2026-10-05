@@ -242,14 +242,20 @@ pub(crate) fn full_config_template(
         ));
     };
 
-    // Frozen T08 contract §5: generated outbounds first (AddProxyOnly skips
-    // direct/block), template outbounds appended after.
+    // Upstream `SingboxConfigTemplateService.ApplyFullConfigTemplate:106-125`:
+    // the template's own `outbounds` array is the base and the generated
+    // outbounds are appended AFTER it (AddProxyOnly skips direct/block). This
+    // differs from the Xray service, which emits the generated outbounds first.
+    let mut merged: Vec<Value> = template_map
+        .get("outbounds")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     let generated_outbounds = main
         .get("outbounds")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
-    let mut merged: Vec<Value> = Vec::new();
     for mut outbound in generated_outbounds {
         let server_type = outbound
             .get("type")
@@ -275,19 +281,22 @@ pub(crate) fn full_config_template(
         }
         merged.push(outbound);
     }
-    if let Some(template_outbounds) = template_map.get("outbounds").and_then(Value::as_array) {
-        merged.extend(template_outbounds.iter().cloned());
-    }
     template_map.insert("outbounds".into(), Value::Array(merged));
 
-    // endpoints: generated endpoints are appended to the template's endpoints.
+    // Upstream :127-141: generated endpoints are appended to the template's
+    // `endpoints` array (template first). The key is only rewritten when the
+    // generated set is non-empty.
     let generated_endpoints = main
         .get("endpoints")
         .and_then(Value::as_array)
         .cloned()
         .unwrap_or_default();
     if !generated_endpoints.is_empty() {
-        let mut endpoint_merged: Vec<Value> = Vec::new();
+        let mut endpoint_merged: Vec<Value> = template_map
+            .get("endpoints")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
         for mut endpoint in generated_endpoints {
             if endpoint.get("detour").is_none() {
                 if let Some(detour) = template.proxy_detour.as_deref().filter(|s| !s.is_empty()) {
@@ -297,9 +306,6 @@ pub(crate) fn full_config_template(
                 }
             }
             endpoint_merged.push(endpoint);
-        }
-        if let Some(template_endpoints) = template_map.get("endpoints").and_then(Value::as_array) {
-            endpoint_merged.extend(template_endpoints.iter().cloned());
         }
         template_map.insert("endpoints".into(), Value::Array(endpoint_merged));
     }

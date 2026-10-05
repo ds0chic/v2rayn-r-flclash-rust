@@ -1,0 +1,32 @@
+{
+  "task": "R4-18.P06",
+  "protocol": "Trojan",
+  "status": "implemented",
+  "baseline_app_head": "a296892",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "AddServerWindow.xaml.cs:96-98 Trojan cmbFlow6 -> Flow",
+    "AddServerWindow.xaml.cs:234 Trojan reality",
+    "Global.cs:323 Flows",
+    "AddServerViewModel.cs:374-378 password required",
+    "V2rayOutboundService.cs:166-177 Trojan outbound"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p06_repro_test.dart",
+    "failed_names": [
+      "P06 Trojan exposes the upstream Flow field",
+      "P06 Trojan editor renders and saves Flow"
+    ]
+  },
+  "after_fix": {
+    "repro": "PASS 2/2",
+    "contract": "PASS 4/4",
+    "analyze": "No issues found",
+    "cargo_gates": "PASS"
+  },
+  "not_run": ["real FRB + SQLite reopen", "synthetic core handshake", "screenshot"]
+}

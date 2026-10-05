@@ -1,0 +1,12 @@
+# R4-18.P06 Trojan command log (synthetic only)
+
+# Pre-fix: flutter test test/repair/r4_18_p06_repro_test.dart -r expanded
+#   -> EXIT=1, 2 failed:
+#      P06 Trojan exposes the upstream Flow field  (Expected length 1, Actual [])
+#      P06 Trojan editor renders and saves Flow    (Found 0 widgets key 'field-flow')
+# After fix:
+#   flutter test test/repair/r4_18_p06_repro_test.dart  -> PASS 2/2
+#   flutter test test/r4_18_p06_contract_test.dart      -> PASS 4/4
+#   flutter analyze (scoped)                             -> No issues found
+#   cargo fmt/clippy/test --workspace                    -> EXIT=0
+#   flutter build windows --release                      -> EXIT=0

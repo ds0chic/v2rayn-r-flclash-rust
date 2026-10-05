@@ -1,0 +1,25 @@
+# R4-13.S01 command log (condensed)
+repo=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn
+HEAD=a2968923bb7354d7b099c9a1999c380d74179ff9
+
+# pre-fix (git stash push -- apps/desktop/lib/features/update/update_controller.dart)
+flutter test test/repair/r4_13_s01_repro_test.dart --reporter expanded
+  -> 2 failed (persisted CheckUpdateItem ignored; toggles not persisted)   [see _prefix_repro.log]
+# git stash pop
+
+flutter test test/r4_13_s01_contract_test.dart --reporter expanded
+  -> All tests passed (4/4)
+flutter test test/repair/r4_13_s01_repro_test.dart --reporter expanded
+  -> All tests passed (2/2)   [see _postfix_tests.log]
+
+flutter test test/t16_update_test.dart --reporter compact
+  -> All tests passed (7/7)
+flutter test test/r4_03_contract_test.dart --reporter compact
+  -> All tests passed (3/3)
+flutter test test/r4_05_contract_test.dart test/recheck_rr04_app_update_test.dart test/r3_08_update_source_test.dart --reporter compact
+  -> All tests passed
+
+flutter analyze
+  -> 2 issues, both in r4_18_p0*_contract_test.dart (concurrent R4-18 agent; unused_import). No issue in R4-13.S01 files.
+
+# Rust: no Rust source changed by this instance; cargo gates not re-run here.

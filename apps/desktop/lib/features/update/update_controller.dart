@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 
 final updateControllerProvider =
     NotifierProvider<UpdateController, UpdateState>(UpdateController.new);
@@ -56,7 +58,7 @@ class UpdateState {
     required this.targets,
     this.selected = const <String>{},
     this.prerelease = false,
-    this.viaProxy = false,
+    this.viaProxy = true,
     this.busy = false,
     this.stage,
     this.checks = const <c.CoreUpdateDto>[],
@@ -127,13 +129,63 @@ class UpdateController extends Notifier<UpdateState> {
   @override
   UpdateState build() {
     final targets = ref.read(bridgePortProvider).t16UpdateTargets();
+    // Upstream `CheckUpdateViewModel.Init`: the two toggles and the selected
+    // core list are seeded from the persisted `CheckUpdateItem`, with the
+    // C# defaults `UpdateViaProxy=true` and `SelectedCoreTypes=null` (=> all
+    // selected, `UpdateService.cs:119`).
+    final persisted = _readPersistedCheckUpdate();
+    final selectedTypes = persisted['SelectedCoreTypes'];
     return UpdateState(
       targets: targets,
       selected: <String>{
         for (final target in targets)
-          if (target.supported) target.core,
+          if (target.supported &&
+              (selectedTypes is! List ||
+                  selectedTypes
+                      .map((type) => type.toString())
+                      .contains(target.core)))
+            target.core,
       },
+      prerelease: persisted['CheckPreReleaseUpdate'] == true,
+      viaProxy: persisted['UpdateViaProxy'] != false,
     );
+  }
+
+  /// The persisted `CheckUpdateItem` group, read from the storage owner (the
+  /// stored `guiNConfig.json`) so a saved/reopened value drives the check.
+  Map<String, dynamic> _readPersistedCheckUpdate() {
+    try {
+      final loaded = ref.read(bridgePortProvider).getSettings();
+      if (!loaded.ok || loaded.settingsJson.isEmpty) {
+        return const <String, dynamic>{};
+      }
+      final decoded = jsonDecode(loaded.settingsJson);
+      if (decoded is Map<String, dynamic>) {
+        final group = decoded['CheckUpdateItem'];
+        if (group is Map<String, dynamic>) return group;
+      }
+    } catch (_) {}
+    return const <String, dynamic>{};
+  }
+
+  /// Persist the current toggles/selection into the `CheckUpdateItem` group.
+  /// Upstream writes these back on every change
+  /// (`CheckUpdateViewModel.OnCheckPreReleaseUpdateChanged` -> `SaveConfig`),
+  /// so reopening the window restores them instead of resetting to defaults.
+  void _persistCheckUpdate() {
+    try {
+      final notifier = ref.read(settingsControllerProvider.notifier);
+      if (!ref.read(settingsControllerProvider).loaded) {
+        notifier.load();
+      }
+      notifier.saveGroup('CheckUpdateItem', <String, dynamic>{
+        'CheckPreReleaseUpdate': state.prerelease,
+        'UpdateViaProxy': state.viaProxy,
+        'SelectedCoreTypes': state.selected.toList()..sort(),
+      });
+    } catch (_) {
+      // No settings backend (bare widget test): keep the in-memory state.
+    }
   }
 
   void toggleCore(String core, bool selected) {
@@ -144,11 +196,18 @@ class UpdateController extends Notifier<UpdateState> {
       next.remove(core);
     }
     state = state.copyWith(selected: next);
+    _persistCheckUpdate();
   }
 
-  void setPrerelease(bool value) => state = state.copyWith(prerelease: value);
+  void setPrerelease(bool value) {
+    state = state.copyWith(prerelease: value);
+    _persistCheckUpdate();
+  }
 
-  void setViaProxy(bool value) => state = state.copyWith(viaProxy: value);
+  void setViaProxy(bool value) {
+    state = state.copyWith(viaProxy: value);
+    _persistCheckUpdate();
+  }
 
   List<String> get _selectedCores => state.targets
       .where(

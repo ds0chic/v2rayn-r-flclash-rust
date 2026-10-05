@@ -68,13 +68,13 @@ void main() {
   testWidgets('via-proxy check without a local port is structured', (
     tester,
   ) async {
+    // Upstream `CheckUpdateItem.UpdateViaProxy` defaults true, so the check is
+    // already proxied; no local port is available -> structured error.
     final bridge = SyntheticBridgePort()..proxyAvailable = false;
     final container = makeContainer(bridge);
     addTearDown(container.dispose);
     await pumpUpdate(tester, container);
 
-    await tester.tap(find.byKey(const ValueKey('update-via-proxy')));
-    await tester.pump();
     await tester.tap(find.byKey(const ValueKey('update-check-only-btn')));
     await tester.pumpAndSettle();
 
@@ -99,7 +99,7 @@ void main() {
     expect(
       bridge.t16Calls.any(
         (call) =>
-            call.startsWith('check_updates:') && call.endsWith(':true:false'),
+            call.startsWith('check_updates:') && call.endsWith(':true:true'),
       ),
       isTrue,
     );
@@ -109,7 +109,7 @@ void main() {
   testWidgets('check-update applies core updates and reports counts', (
     tester,
   ) async {
-    final bridge = SyntheticBridgePort();
+    final bridge = SyntheticBridgePort()..proxyAvailable = true;
     final container = makeContainer(bridge);
     addTearDown(container.dispose);
     await pumpUpdate(tester, container);

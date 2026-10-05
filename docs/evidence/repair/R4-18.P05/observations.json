@@ -1,0 +1,30 @@
+{
+  "task": "R4-18.P05",
+  "protocol": "HTTP",
+  "status": "implemented",
+  "baseline_app_head": "a296892",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "AddServerWindow.xaml.cs:203 security list base (no reality for HTTP)",
+    "AddServerViewModel.cs:390-394 HttpHeadersJson must parse",
+    "V2rayOutboundService.cs:125-146 headers parse + auth rule"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p05_repro_test.dart",
+    "failed_names": [
+      "P05 HTTP security list excludes Reality",
+      "P05 invalid HTTP headers JSON is rejected"
+    ]
+  },
+  "after_fix": {
+    "repro": "PASS 2/2",
+    "contract": "PASS 3/3",
+    "analyze": "No issues found",
+    "cargo_gates": "PASS"
+  },
+  "not_run": ["real FRB + SQLite reopen", "synthetic core handshake", "screenshot"]
+}

@@ -28,10 +28,11 @@ fn singbox_template_injection() {
     let generated = generate_singbox(&input).expect("template");
     let main = &generated.main;
     assert_eq!(string_at(main, "/log/level"), "debug");
-    // generated first, template appended (frozen T08 contract §5).
-    assert_eq!(string_at(main, "/outbounds/0/tag"), "proxy");
-    assert_eq!(string_at(main, "/outbounds/0/detour"), "corp-detour");
-    assert_eq!(string_at(main, "/outbounds/1/tag"), "template-socks");
+    // Upstream `SingboxConfigTemplateService`: template outbounds first, then
+    // the generated outbounds appended (opposite of the Xray service).
+    assert_eq!(string_at(main, "/outbounds/0/tag"), "template-socks");
+    assert_eq!(string_at(main, "/outbounds/1/tag"), "proxy");
+    assert_eq!(string_at(main, "/outbounds/1/detour"), "corp-detour");
     let tags: Vec<String> = main["outbounds"]
         .as_array()
         .unwrap()

@@ -1,0 +1,23 @@
+# R4-18.P01 VMess command log (synthetic only; no kernel/network/10808)
+
+# Pre-fix reproduction (production files temporarily stashed so the repro runs
+# against the unmodified code):
+#   git stash push -- apps/desktop/lib/features/profiles/profile_fields.dart apps/desktop/lib/features/profiles/profile_editor_dialog.dart
+#   cd apps/desktop
+#   flutter test test/repair/r4_18_p01_repro_test.dart -r expanded
+# Result: EXIT=1, 2 failed:
+#   P01 VMess security list/order and Reality capability
+#     Expected: ['aes-128-gcm','chacha20-poly1305','auto','none','zero']
+#     Actual:   ['auto','aes-128-gcm','chacha20-poly1305','none','zero']
+#   P01 new VMess save defaults security=auto and alterId unset
+#     Expected: 'auto'  Actual: null
+#   git stash pop
+
+# After fix:
+#   flutter test test/repair/r4_18_p01_repro_test.dart        -> PASS 2/2
+#   flutter test test/r4_18_p01_contract_test.dart            -> PASS 4/4
+#   flutter analyze <changed lib + 12 R4-18 tests>            -> No issues found
+#   cargo fmt --all -- --check                                -> EXIT=0
+#   cargo clippy --workspace --all-targets --locked -- -D warnings -> EXIT=0
+#   cargo test --workspace --locked                           -> EXIT=0
+#   flutter build windows --release                           -> EXIT=0

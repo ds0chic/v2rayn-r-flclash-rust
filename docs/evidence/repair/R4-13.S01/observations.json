@@ -1,0 +1,70 @@
+{
+  "task": "R4-13.S01",
+  "group": "CheckUpdateItem",
+  "instance_status": "verified_check_request_consumer",
+  "coordinator": "R4-13",
+  "base_commit": "a2968923bb7354d7b099c9a1999c380d74179ff9",
+  "upstream": {
+    "version": "v2rayN 7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "path": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/"
+  },
+  "armed": false,
+  "constraints_honored": {
+    "port_10808_untouched": true,
+    "host_proxy_registry_route_tun_autostart_untouched": true,
+    "no_user_credentials": true,
+    "work_outputs_readonly": true,
+    "worktree_other_agent_changes_untouched": true
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_13_s01_repro_test.dart",
+    "sha256": "11BFA37F58AAE1C72B27194BF715BA477D70AFE63C3DC57A2DE5579722490F88",
+    "pre_fix": {
+      "result": "fail",
+      "detail": "2/2 failed: persisted CheckUpdateItem ignored (prerelease false) and toggles not persisted",
+      "log": "_prefix_repro.log",
+      "log_sha256": "16F1C03C144DD1963E4CF6B59C1CD5BA3F5681B70989874997D502216DCDE70B"
+    },
+    "post_fix": {
+      "result": "pass",
+      "detail": "contract 4/4, repro 2/2 (run as separate single files)",
+      "log": "_postfix_tests.log",
+      "log_sha256": "E2ECF9760A793BCB47D373E85F7DA2EFE414C9F8076F8BDA3908669E6686B0D2"
+    }
+  },
+  "contract_test": {
+    "file": "apps/desktop/test/r4_13_s01_contract_test.dart",
+    "sha256": "7BE92CDA8F56050B7C6B0E1C920D2DF9430A6D2726BDEC811C0E33C8D6ADB307",
+    "cases": [
+      "persisted CheckUpdateItem seeds prerelease/viaProxy/selection",
+      "missing CheckUpdateItem falls back to upstream defaults (UpdateViaProxy=true, all supported)",
+      "toggleCore persists SelectedCoreTypes for the next open",
+      "the update check consumer receives the persisted parameters"
+    ]
+  },
+  "consumer": "bridge.t16CheckUpdates(cores, prerelease, viaProxy) recorded via SyntheticBridgePort.t16Calls",
+  "fields": ["FLD-CFG-147", "FLD-CFG-148", "FLD-CFG-149"],
+  "regression_tests": [
+    "test/t16_update_test.dart (7/7)",
+    "test/r4_03_contract_test.dart (3/3)",
+    "test/r4_05_contract_test.dart",
+    "test/recheck_rr04_app_update_test.dart",
+    "test/r3_08_update_source_test.dart"
+  ],
+  "commands": [
+    { "cmd": "flutter analyze", "result": "本卡文件零告警；仓库另有 R4-18 代理 2 条 unused_import 告警，非本卡" },
+    { "cmd": "flutter test test/r4_13_s01_contract_test.dart", "result": "All tests passed (4/4)" },
+    { "cmd": "flutter test test/repair/r4_13_s01_repro_test.dart", "result": "All tests passed (2/2)" },
+    { "cmd": "flutter test test/t16_update_test.dart", "result": "All tests passed (7/7)" },
+    { "cmd": "flutter test test/r4_03_contract_test.dart", "result": "All tests passed (3/3)" }
+  ],
+  "blocked": [
+    "real GitHub release check / kernel download not exercised in an isolated environment"
+  ],
+  "other_instances": {
+    "S05_CoreBasicItem": "verified_codegen_consumer",
+    "S07_Fragment4RayItem": "verified (this batch)",
+    "rest": "pending_or_blocked"
+  }
+}

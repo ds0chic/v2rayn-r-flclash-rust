@@ -1,0 +1,15 @@
+# R4-13.S07 command log (condensed)
+repo=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn
+HEAD=a2968923bb7354d7b099c9a1999c380d74179ff9
+
+# pre-fix (git stash push -- apps/desktop/lib/features/settings/settings_defaults.dart)
+flutter test test/repair/r4_13_s07_repro_test.dart --reporter expanded
+  -> 1 failed (Lengths [] vs legacy ['100-200'])   [see _prefix_repro.log]
+# git stash pop
+
+flutter test test/r4_13_s07_contract_test.dart --reporter expanded
+  -> All tests passed (4/4)
+flutter test test/repair/r4_13_s07_repro_test.dart --reporter expanded
+  -> All tests passed (1/1)   [see _postfix_tests.log]
+
+# Rust: no Rust source changed by this instance; cargo gates not re-run here.

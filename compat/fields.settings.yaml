@@ -5486,6 +5486,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CheckUpdateItem.CheckPreReleaseUpdate
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s01_contract_test.dart (CheckUpdateItem seeds prerelease/viaProxy/selection; t16CheckUpdates receives persisted params; toggle persists)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:245
   - v2rayN/ServiceLib/Manager/TaskManager.cs:137
@@ -5519,6 +5521,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CheckUpdateItem.UpdateViaProxy
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s01_contract_test.dart (default true seeded from storage, persisted on toggle, forwarded to t16CheckUpdates)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:246
   - v2rayN/ServiceLib/Manager/TaskManager.cs:137
@@ -5552,6 +5556,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CheckUpdateItem.SelectedCoreTypes
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s01_contract_test.dart (null=>all supported; explicit list filters; toggle persists for reopen)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:247
   - v2rayN/ServiceLib/Services/UpdateService.cs:119
@@ -5596,6 +5602,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: Fragment4RayItem.Packets
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s07_contract_test.dart (Fragment4RayItem load-parity merge + save->reopen; codegen fragment_mask consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:253
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:170
@@ -5636,6 +5644,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: Fragment4RayItem.Lengths
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s07_contract_test.dart (legacy Length seeds empty Lengths; non-empty preserved)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:254
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:181
@@ -5675,6 +5685,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: Fragment4RayItem.Delays
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s07_contract_test.dart (legacy Interval seeds empty Delays; non-empty preserved)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:255
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:185
@@ -5712,6 +5724,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: Fragment4RayItem.MaxSplit
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s07_contract_test.dart (Fragment4RayItem save->reopen keeps MaxSplit default)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:256
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:172
@@ -5746,6 +5760,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: Fragment4RayItem.Length
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s07_contract_test.dart (legacy Length promoted into Lengths on load, mirroring ConfigHandler.LoadConfig)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:260
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:183
@@ -5778,6 +5794,8 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: Fragment4RayItem.Interval
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s07_contract_test.dart (legacy Interval promoted into Delays on load, mirroring ConfigHandler.LoadConfig)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:261
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:187

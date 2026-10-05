@@ -110,8 +110,11 @@ class ProfileCapabilities {
       t == ConfigType.socks ||
       t == ConfigType.http;
 
+  /// Upstream `AddServerWindow.SetStreamSecurity` builds the security list as
+  /// `["", tls]` and appends `reality` only for VLESS, Trojan and Anytls.
+  /// VMess is intentionally not a Reality protocol.
   static bool supportsReality(ConfigType t) =>
-      t == ConfigType.vmess || t == ConfigType.vless || t == ConfigType.trojan;
+      t == ConfigType.vless || t == ConfigType.trojan || t == ConfigType.anytls;
 
   /// Upstream `AddServerWindow` `togmuxEnabled` bindings: VMess/Shadowsocks/
   /// VLESS/Trojan only.
@@ -167,10 +170,11 @@ const _ssMethodsSingBox = <String>[
   'xchacha20',
 ];
 
+/// Upstream `Global.VmessSecurities` order (AddServerWindow `cmbSecurity`).
 const _vmessSecurities = <String>[
-  'auto',
   'aes-128-gcm',
   'chacha20-poly1305',
+  'auto',
   'none',
   'zero',
 ];
@@ -198,6 +202,11 @@ const _headerTypes = <String>[
   'dtls',
   'wireguard',
 ];
+
+/// Upstream `AppManager.GetShadowsocksSecurities`: the Shadowsocks method list
+/// depends on the selected core (Xray vs sing-box).
+List<String> shadowsocksMethods(CoreType? coreType) =>
+    coreType == CoreType.singBox ? _ssMethodsSingBox : _ssMethodsXray;
 
 /// Protocol-specific fields for one of the 11 basic protocol kinds.
 ///
@@ -261,9 +270,7 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
         ),
       ];
     case ConfigType.shadowsocks:
-      final methods = coreType == CoreType.singBox
-          ? _ssMethodsSingBox
-          : _ssMethodsXray;
+      final methods = shadowsocksMethods(coreType);
       return <FieldSpec>[
         _drop(
           'ssMethod',
@@ -332,6 +339,15 @@ List<FieldSpec> protocolFields(ConfigType t, {CoreType? coreType}) {
           (d) => d.password,
           (d, v) => d.password = v ?? '',
           required: true,
+        ),
+        // Upstream `AddServerWindow.xaml.cs` binds `cmbFlow6` -> Flow for
+        // Trojan (list `Global.Flows`), same options as VLESS.
+        _drop(
+          'flow',
+          '流控 Flow',
+          (d) => d.flow,
+          (d, v) => d.flow = v,
+          const <String>['', 'xtls-rprx-vision', 'xtls-rprx-vision-udp443'],
         ),
         _bool(
           'muxEnabled',
@@ -590,6 +606,7 @@ List<FieldSpec> transportFields(String network) {
 List<FieldSpec> securityFields(
   String? streamSecurity, {
   bool finalmask = false,
+  bool realityAllowed = true,
 }) {
   final isReality = streamSecurity == 'reality';
   return <FieldSpec>[
@@ -598,7 +615,9 @@ List<FieldSpec> securityFields(
       '传输安全',
       (d) => d.streamSecurity,
       (d, v) => d.streamSecurity = v,
-      const <String>['', 'tls', 'reality'],
+      realityAllowed
+          ? const <String>['', 'tls', 'reality']
+          : const <String>['', 'tls'],
     ),
     _drop(
       'allowInsecure',

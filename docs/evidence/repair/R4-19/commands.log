@@ -1,0 +1,41 @@
+# R4-19 command log (Windows PowerShell 7)
+
+## 1. Rust repro-first (revert source fix, keep new tests)
+$ git stash push -- crates/config_codegen/src/singbox/config.rs
+$ cargo test -p config_codegen --locked --test r4_19_template_merge
+  -> FAILED. 2 failed; 4 passed
+     - singbox_template_outbounds_precede_generated
+     - singbox_template_endpoints_precede_generated
+$ git stash pop
+
+## 2. Rust after fix
+$ cargo test -p config_codegen --locked --test r4_19_template_merge --test singbox_template_custom
+  -> r4_19_template_merge: 6 passed; 0 failed
+  -> singbox_template_custom: 4 passed; 0 failed
+
+## 3. Dart repro-first (revert template_window fix)
+$ git stash push -- apps/desktop/lib/features/profiles/template_window.dart
+$ flutter test test/repair/r4_19_repro_test.dart
+  -> FAILED: "a thrown save failure must be shown, not swallowed"
+$ git stash pop
+
+## 4. Dart after fix
+$ flutter test test/r4_19_contract_test.dart test/repair/r4_19_repro_test.dart --concurrency=1
+  -> 00:02 +7: All tests passed!
+
+## 5. Release gates
+$ cargo fmt --all -- --check
+  -> exit 0
+$ cargo clippy --workspace --all-targets --locked -- -D warnings
+  -> exit 0
+$ cargo test --workspace --locked
+  -> exit 0 (every suite "test result: ok")
+$ flutter analyze
+  -> 2 issues (unused_import), both in test/r4_18_p01_contract_test.dart and
+     test/r4_18_p02_contract_test.dart (R4-18, not R4-19 files). Task files clean.
+$ flutter build windows --release
+  -> Built build\windows\x64\runner\Release\v2rayn_desktop.exe (51.3s)
+
+## Instance-lock pre-check
+Get-Process v2rayN -> Path C:\Users\Colby\Desktop\v2rayN-windows-64\v2rayN.exe
+  (upstream user app, not this project's build; no release-exe lock). Not terminated.

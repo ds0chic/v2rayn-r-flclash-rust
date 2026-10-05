@@ -1,0 +1,28 @@
+{
+  "task": "R4-18.P02",
+  "protocol": "VLESS",
+  "status": "implemented",
+  "baseline_app_head": "a296892",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "AddServerViewModel.cs:309 empty VlessEncryption -> Global.None (none)",
+    "AddServerViewModel.cs:303 Flow default empty -> null",
+    "AddServerWindow.xaml.cs:228 VLESS reality",
+    "V2rayOutboundService.cs:153 encryption"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p02_repro_test.dart",
+    "failed_names": ["P02 new VLESS save defaults encryption=none"]
+  },
+  "after_fix": {
+    "repro": "PASS 2/2",
+    "contract": "PASS 3/3",
+    "analyze": "No issues found",
+    "cargo_gates": "PASS"
+  },
+  "not_run": ["real FRB + SQLite reopen", "synthetic core handshake", "screenshot"]
+}

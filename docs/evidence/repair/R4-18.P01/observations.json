@@ -1,0 +1,42 @@
+{
+  "task": "R4-18.P01",
+  "protocol": "VMess",
+  "status": "implemented",
+  "baseline_app_head": "a296892",
+  "review_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixtures": "synthetic-only",
+  "ports_used": [],
+  "dirty_10808": false,
+  "upstream_refs": [
+    "Global.cs:49 DefaultSecurity=auto",
+    "Global.cs:267 VmessSecurities order",
+    "AddServerViewModel.cs:308 empty VmessSecurity -> DefaultSecurity",
+    "AddServerViewModel.cs:423 AlterId>0 else null",
+    "AddServerWindow.xaml.cs:203/228/234/271 reality list"
+  ],
+  "repro_before_fix": {
+    "command": "flutter test test/repair/r4_18_p01_repro_test.dart",
+    "passed": 0,
+    "failed": 2,
+    "failed_names": [
+      "P01 VMess security list/order and Reality capability",
+      "P01 new VMess save defaults security=auto and alterId unset"
+    ]
+  },
+  "after_fix": {
+    "repro": "PASS 2/2",
+    "contract": "PASS 4/4",
+    "analyze": "No issues found",
+    "cargo_fmt": "PASS",
+    "cargo_clippy": "PASS",
+    "cargo_test_workspace": "PASS",
+    "flutter_build_windows_release": "PASS"
+  },
+  "not_run": [
+    "real FRB + SQLite reopen",
+    "synthetic core handshake",
+    "screenshot"
+  ]
+}

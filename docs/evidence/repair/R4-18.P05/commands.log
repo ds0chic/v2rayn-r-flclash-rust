@@ -1,0 +1,13 @@
+# R4-18.P05 HTTP command log (synthetic only)
+
+# Pre-fix: flutter test test/repair/r4_18_p05_repro_test.dart -r expanded
+#   -> EXIT=1, 2 failed:
+#      P05 HTTP security list excludes Reality (found 'reality')
+#      P05 invalid HTTP headers JSON is rejected
+#         Expected text "JSON 格式无效" Actual Found 0 widgets
+# After fix:
+#   flutter test test/repair/r4_18_p05_repro_test.dart  -> PASS 2/2
+#   flutter test test/r4_18_p05_contract_test.dart      -> PASS 3/3
+#   flutter analyze (scoped)                             -> No issues found
+#   cargo fmt/clippy/test --workspace                    -> EXIT=0
+#   flutter build windows --release                      -> EXIT=0

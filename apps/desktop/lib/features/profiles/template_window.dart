@@ -283,7 +283,16 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
             ? null
             : state.proxyDetour.text.trim(),
       );
-      final result = widget.onSave(item);
+      g.TemplateDtoResult result;
+      try {
+        result = widget.onSave(item);
+      } catch (error) {
+        setState(() {
+          _submitting = false;
+          _serverError = '${entry.$2}: 保存失败 ($error)';
+        });
+        return;
+      }
       if (!result.ok) {
         setState(() {
           _submitting = false;

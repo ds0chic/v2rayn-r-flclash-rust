@@ -1,0 +1,12 @@
+# R4-18.P03 Shadowsocks command log (synthetic only)
+
+# Pre-fix: flutter test test/repair/r4_18_p03_repro_test.dart -r expanded
+#   -> EXIT=1, 2 failed:
+#      P03 Shadowsocks security list excludes Reality  (found 'reality')
+#      P03 SS method unsupported by the selected core is rejected (onSave called)
+# After fix:
+#   flutter test test/repair/r4_18_p03_repro_test.dart  -> PASS 2/2
+#   flutter test test/r4_18_p03_contract_test.dart      -> PASS 4/4
+#   flutter analyze (scoped)                             -> No issues found
+#   cargo fmt/clippy/test --workspace                    -> EXIT=0
+#   flutter build windows --release                      -> EXIT=0

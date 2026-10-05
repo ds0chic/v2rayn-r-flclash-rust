@@ -1,0 +1,11 @@
+# R4-18.P02 VLESS command log (synthetic only)
+
+# Pre-fix: repro fails
+#   flutter test test/repair/r4_18_p02_repro_test.dart -r expanded
+#   -> EXIT=1: "P02 new VLESS save defaults encryption=none" Expected 'none' Actual null
+# After fix:
+#   flutter test test/repair/r4_18_p02_repro_test.dart   -> PASS 2/2
+#   flutter test test/r4_18_p02_contract_test.dart       -> PASS 3/3
+#   flutter analyze (scoped)                              -> No issues found
+#   cargo fmt/clippy/test --workspace                     -> EXIT=0
+#   flutter build windows --release                       -> EXIT=0

@@ -40,6 +40,9 @@ class _UpdateBridge extends SyntheticBridgePort {
 }
 
 ProviderContainer _makeContainer(_UpdateBridge bridge) {
+  // Upstream `CheckUpdateItem.UpdateViaProxy` defaults true; this synthetic
+  // scenario models a reachable local proxy so the check/apply pipeline runs.
+  bridge.proxyAvailable = true;
   final container = ProviderContainer(
     overrides: [bridgePortProvider.overrideWithValue(bridge)],
   );

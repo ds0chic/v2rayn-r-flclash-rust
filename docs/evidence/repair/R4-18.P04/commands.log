@@ -1,0 +1,10 @@
+# R4-18.P04 SOCKS command log (synthetic only)
+
+# Pre-fix: flutter test test/repair/r4_18_p04_repro_test.dart
+#   -> EXIT=1: P04 SOCKS security list excludes Reality (found 'reality')
+# After fix:
+#   flutter test test/repair/r4_18_p04_repro_test.dart  -> PASS 1/1
+#   flutter test test/r4_18_p04_contract_test.dart      -> PASS 3/3
+#   flutter analyze (scoped)                             -> No issues found
+#   cargo fmt/clippy/test --workspace                    -> EXIT=0
+#   flutter build windows --release                      -> EXIT=0

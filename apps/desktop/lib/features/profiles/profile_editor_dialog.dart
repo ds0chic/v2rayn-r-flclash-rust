@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -70,6 +72,18 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
         (_draft.streamSecurity == null || _draft.streamSecurity!.isEmpty)) {
       _draft.streamSecurity = 'tls';
     }
+    // Upstream `AddServerViewModel` fills protocol defaults on every open:
+    // VMess empty security -> Global.DefaultSecurity ("auto"); VLESS empty
+    // encryption -> Global.None ("none"). Imported/edited nodes get the same
+    // treatment, so a save never persists a blank security/encryption.
+    if (_draft.configType == ConfigType.vmess &&
+        (_draft.vmessSecurity?.isEmpty ?? true)) {
+      _draft.vmessSecurity = 'auto';
+    }
+    if (_draft.configType == ConfigType.vless &&
+        (_draft.vlessEncryption?.isEmpty ?? true)) {
+      _draft.vlessEncryption = 'none';
+    }
   }
 
   @override
@@ -108,6 +122,9 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
                   securityFields(
                     _draft.streamSecurity,
                     finalmask: ProfileCapabilities.supportsFinalmask(
+                      _draft.configType,
+                    ),
+                    realityAllowed: ProfileCapabilities.supportsReality(
                       _draft.configType,
                     ),
                   ),
@@ -528,6 +545,24 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
         spec.key == 'publicKey' &&
         text.isEmpty) {
       return 'Reality 必填';
+    }
+    if (spec.key == 'ssMethod' &&
+        _draft.configType == ConfigType.shadowsocks &&
+        text.isNotEmpty &&
+        !shadowsocksMethods(_draft.coreType).contains(text)) {
+      return '当前内核不支持该加密方式';
+    }
+    // Upstream `AddServerViewModel.SaveServerAsync`: non-empty HTTP headers
+    // must parse as JSON, otherwise the save is rejected (the codegen would
+    // otherwise silently drop an unparsable header string).
+    if (spec.key == 'httpHeaders' &&
+        _draft.configType == ConfigType.http &&
+        text.isNotEmpty) {
+      try {
+        jsonDecode(text);
+      } on FormatException {
+        return 'JSON 格式无效';
+      }
     }
     return null;
   }

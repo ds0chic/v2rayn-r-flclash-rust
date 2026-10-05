@@ -253,6 +253,10 @@ Map<String, dynamic> defaultSettingsJson() => <String, dynamic>{
 Map<String, dynamic> mergeWithSettingsDefaults(Map<String, dynamic> loaded) {
   final defaults = defaultSettingsJson();
   final merged = _deepCopyMap(loaded);
+  // Upstream `ConfigHandler.LoadConfig` migrates the pre-7.x fragment scalars
+  // into the list fields before the generic defaults layer runs, so an empty
+  // list still reflects the user's stored `Length`/`Interval`.
+  _promoteFragmentLegacy(merged);
   for (final entry in defaults.entries) {
     final key = entry.key;
     final fallback = entry.value;
@@ -273,6 +277,34 @@ Map<String, dynamic> mergeWithSettingsDefaults(Map<String, dynamic> loaded) {
     }
   }
   return merged;
+}
+
+/// Upstream `ConfigHandler.LoadConfig:181-187`: when `Fragment4RayItem.Lengths`
+/// (or `Delays`) is empty, it is seeded from the legacy `Length` (or
+/// `Interval`) scalar, falling back to the frozen `50-100` / `10-20`. Applied
+/// before the generic defaults merge so a stored legacy value is not shadowed
+/// by the canonical list default.
+void _promoteFragmentLegacy(Map<String, dynamic> document) {
+  final fragment = document['Fragment4RayItem'];
+  if (fragment is! Map) return;
+  final map = fragment is Map<String, dynamic>
+      ? fragment
+      : Map<String, dynamic>.from(fragment);
+  final lengths = map['Lengths'];
+  if (lengths is! List || lengths.isEmpty) {
+    final legacy = map['Length'];
+    map['Lengths'] = <dynamic>[
+      if (legacy is String && legacy.trim().isNotEmpty) legacy else '50-100',
+    ];
+  }
+  final delays = map['Delays'];
+  if (delays is! List || delays.isEmpty) {
+    final legacy = map['Interval'];
+    map['Delays'] = <dynamic>[
+      if (legacy is String && legacy.trim().isNotEmpty) legacy else '10-20',
+    ];
+  }
+  if (!identical(map, fragment)) document['Fragment4RayItem'] = map;
 }
 
 Map<String, dynamic> _mergeMaps(

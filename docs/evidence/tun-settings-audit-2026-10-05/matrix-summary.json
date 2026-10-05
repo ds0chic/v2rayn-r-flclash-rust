@@ -1,0 +1,49 @@
+{
+  "ledger_entries": 180,
+  "leaf_entries": 155,
+  "containers": 23,
+  "internal_state": 2,
+  "unique_ids": 180,
+  "missing_ids": [],
+  "duplicate_ids": [],
+  "by_status": {
+    "preserved_only": 2,
+    "implemented": 125,
+    "identified": 34,
+    "blocked": 19
+  },
+  "leaf_by_status": {
+    "implemented": 102,
+    "identified": 34,
+    "blocked": 19
+  },
+  "by_group": {
+    "Config": 25,
+    "CoreBasicItem": 9,
+    "Inbound": 11,
+    "KcpItem": 6,
+    "GrpcItem": 4,
+    "GUIItem": 9,
+    "MsgUIItem": 2,
+    "UIItem": 17,
+    "ConstItem": 4,
+    "KeyEventItem": 5,
+    "CoreTypeItem": 2,
+    "TunModeItem": 11,
+    "SpeedTestItem": 8,
+    "RoutingBasicItem": 3,
+    "ColumnItem": 3,
+    "Mux4RayItem": 3,
+    "Mux4SboxItem": 3,
+    "HysteriaItem": 3,
+    "ClashUIItem": 8,
+    "SystemProxyItem": 6,
+    "WebDavItem": 4,
+    "CheckUpdateItem": 3,
+    "Fragment4RayItem": 6,
+    "WindowSizeItem": 3,
+    "SimpleDNSItem": 18,
+    "HappyEyeballs4RayItem": 4
+  },
+  "note": "Static review coverage, not a completion percentage or successful real-world effect count."
+}

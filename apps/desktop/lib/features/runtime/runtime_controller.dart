@@ -244,7 +244,10 @@ class RuntimeController extends Notifier<RuntimeView> {
   /// local persisted revision when the snapshot itself failed. A failed apply
   /// keeps its structured error visible; the follow-up snapshot never overwrites
   /// it with a fake success.
-  Future<void> applyActive({String? targetId}) {
+  ///
+  /// Returns true only when the submitted plan really applied; a void
+  /// completion is not an applied result (AUD-ROOT-02 / TUN-A03).
+  Future<bool> applyActive({String? targetId}) async {
     final command = _RuntimeCommand.apply(targetId, clock());
     final waiter = Completer<void>();
     command.waiters.add(waiter);
@@ -263,7 +266,8 @@ class RuntimeController extends Notifier<RuntimeView> {
       reconcileNeeded: false,
     );
     unawaited(_pumpCommands());
-    return waiter.future;
+    await waiter.future;
+    return state.error == null;
   }
 
   /// Serialize and bound command execution. At most one command runs while one

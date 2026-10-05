@@ -1,0 +1,12 @@
+   Compiling tun_audit_repro v0.0.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\tun-settings-audit-2026-10-05\tun-contract-repro)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.25s
+     Running `target/tun-audit-repro\debug\tun_audit_repro.exe`
+synthetic-only: tokio duplex + FakeBackend; no socket, WindowsBackend or OS write
+default idle/request timeout: 5000ms
+before idle: interfaces=[7], elevated_core_running=true
+after 5010ms idle: interfaces=[], elevated_core_running=false, stopped_handles=[1000]
+REPRODUCED: an open idle helper connection cleans its live TUN lease and kills the elevated core
+TUN provider: node=Xray, protocol="tun", type=null, name="v2rayn-tun", interface_name=null
+TUN provider: node=pre-socks, protocol=null, type="tun", name=null, interface_name="v2rayn-tun"
+legacy-protect TUN provider count=2 (frozen upstream expects 1)
+REPRODUCED: legacy protect leaves both the main Xray and pre-SOCKS sing-box configured as TUN providers

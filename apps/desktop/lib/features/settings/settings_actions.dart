@@ -24,10 +24,13 @@ Future<void> openOptionSettingWindow(
   try {
     ref.read(settingsControllerProvider.notifier).load();
   } catch (_) {}
-  final snapshot = ref.read(settingsControllerProvider.notifier).draft();
+  final settings = ref.read(settingsControllerProvider.notifier);
+  final snapshot = settings.draft();
+  final snapshotRevision = ref.read(settingsControllerProvider).revision;
   final opened = await OptionWindowHost.instance.open(
     snapshot: snapshot,
-    onSave: (draftJson) => _applyOptionDraft(ref, draftJson),
+    onSave: (draftJson) =>
+        _applyOptionDraft(ref, draftJson, snapshotRevision),
   );
   if (!opened && context.mounted) {
     ScaffoldMessenger.maybeOf(context)
@@ -38,10 +41,13 @@ Future<void> openOptionSettingWindow(
 /// Persist a draft relayed from the settings window through the same path the
 /// in-process dialog uses: optimistic save, autostart sync, then await the real
 /// plan apply. The result distinguishes persistence from application so a
-/// failure is shown to the user instead of being reported as success.
+/// failure is shown to the user instead of being reported as success. The
+/// draft must submit the revision captured when the window opened
+/// (AUD-DESK-02), so an older draft cannot overwrite newer edits.
 Future<SettingsEditorOutcome> _applyOptionDraft(
   WidgetRef ref,
   String draftJson,
+  int snapshotRevision,
 ) async {
   Map<String, dynamic> draft;
   try {
@@ -55,7 +61,7 @@ Future<SettingsEditorOutcome> _applyOptionDraft(
   }
   final outcome = await ref
       .read(settingsControllerProvider.notifier)
-      .saveAndApply(draft);
+      .saveAndApply(draft, expectedRevision: snapshotRevision);
   final notice = outcome.ok && outcome.statusKey != null
       ? SettingsController.statusMessageFor(outcome.statusKey!)
       : null;

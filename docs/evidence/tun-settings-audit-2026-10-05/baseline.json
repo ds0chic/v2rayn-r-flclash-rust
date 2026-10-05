@@ -1,0 +1,16 @@
+{
+  "head": "672e666677a9a1e055e38aa99bd0293f90183d9e",
+  "upstream": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "scope": "current HEAD plus preexisting working changes; no production source edited",
+  "preexisting_working_files": {
+    "crates/application/src/codegen.rs": "654d88c92d7c9b8af0db18405ca4615f857df3bbb60aee106282cedbc3fb7be2",
+    "dist/SHA256SUMS": "257dad633ea47a8843ecc0011b7d7271ac797a560359d984b168d4fe2d5a937a",
+    "dist/build-info.json": "ceff88ebd3fbfb01edfa765eca1f75df054131ef4a9e4c231cb2b7a53ee8c508",
+    "services/net_host/src/helper_client.rs": "9bb09e35a7d03febcaecb4c2c14c919e0c1619589d2171a9479a1b65e9a33117",
+    "services/net_host/src/session.rs": "4ac179f29f52e3aa6f05ca1b79e79d31f4fdb0cc94253efc169fbc3881741943",
+    "services/privileged_helper/src/main.rs": "796eec00fd0cbb17f3603dbf56180146a632b990c539bdb4d21920a199451cf7",
+    "services/privileged_helper/src/windows.rs": "cac12952f7abff85e767130b0ed0e7eda178541c64c21a2ac2c6242cccffb9c9",
+    "docs/evidence/repair/R4-32/host-proxy-incident-2026-10-05.md": "8834f7ef5a13ac74ec6bfc09570d21529fa7fbb8e8a3abcf022a871e107cf2bc"
+  },
+  "execution": "synthetic-only fault injection and pure configuration generation; no OS proxy/TUN/route/Run-key writes"
+}

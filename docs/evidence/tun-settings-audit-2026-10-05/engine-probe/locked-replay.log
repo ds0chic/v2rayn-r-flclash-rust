@@ -1,0 +1,24 @@
+   Compiling settings_engine_audit_probe v0.0.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\tun-settings-audit-2026-10-05\engine-probe)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.83s
+     Running `target\debug\settings_engine_audit_probe.exe`
+{
+  "scope": "pure settings validation/config generation plus dedicated synthetic scratch config writes; no socket, core, OS platform or helper invocation",
+  "happy_eyeballs_switch_false_still_emits_object": true,
+  "happy_eyeballs_switch_toggle_config_identical": true,
+  "upstream_valid_max_split_range_1_3_rejected": {
+    "code": "E_FIELD_FORMAT",
+    "field": "Fragment4RayItem.MaxSplit"
+  },
+  "trailing_comma_exclusion_rejected_after_ui_split": {
+    "code": "E_INVALID_PLAN",
+    "detail": "route_exclude[1] is invalid: E_INVALID_ARGUMENT [error.helper_malformed]"
+  },
+  "desired_ipv6_enabled_generated_tun_routes": [
+    "0.0.0.0/0"
+  ],
+  "projected_global_ipv6_context": false,
+  "projected_protected_core_count": 0,
+  "unavailable_storage_load_blocked": true,
+  "unavailable_storage_group_save_returned_ok": true,
+  "unavailable_storage_group_save_created_gui_config": true
+}

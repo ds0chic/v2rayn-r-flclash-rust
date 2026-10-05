@@ -587,7 +587,7 @@ abstract class RustLibApi extends BaseApi {
   });
 
   Future<UpdateReportDto> crateApiT16T16CheckUpdates({
-    required List<String> cores,
+    List<String>? cores,
     required bool prerelease,
     required bool viaProxy,
   });
@@ -5229,7 +5229,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<UpdateReportDto> crateApiT16T16CheckUpdates({
-    required List<String> cores,
+    List<String>? cores,
     required bool prerelease,
     required bool viaProxy,
   }) {
@@ -5237,7 +5237,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       NormalTask(
         callFfi: (port_) {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_list_String(cores, serializer);
+          sse_encode_opt_list_String(cores, serializer);
           sse_encode_bool(prerelease, serializer);
           sse_encode_bool(viaProxy, serializer);
           pdeCallFfi(

@@ -416,17 +416,17 @@ Future<void> _onTunToggle(
     },
     apply: () => ref.read(runtimeControllerProvider.notifier).applyActive(),
   );
-  if (!result.ok) return;
-  final runtime = ref.read(runtimeControllerProvider);
-  if (value && runtime.error != null) {
-    // UAC/helper refusal or a missing privileged helper: the setting is saved
-    // but the runtime was not switched to TUN. Report honestly.
-    shell.setMessage(l10n.t('tunDenied'));
-  } else {
-    shell.setMessage(
-      value ? l10n.t('tunSavedEnabled') : l10n.t('tunSavedDisabled'),
-    );
+  if (!result.ok) {
+    if (result.error == 'error.tun_apply_failed') {
+      // The setting is saved but the runtime refused the plan (UAC/helper
+      // refusal or a failed apply): report honestly, never as success.
+      shell.setMessage(l10n.t('tunDenied'));
+    }
+    return;
   }
+  shell.setMessage(
+    value ? l10n.t('tunSavedEnabled') : l10n.t('tunSavedDisabled'),
+  );
 }
 
 String _activeSchemeLabel(RoutingState routing) {

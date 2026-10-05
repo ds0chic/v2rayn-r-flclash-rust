@@ -3,10 +3,12 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
+import 'package:v2rayn_desktop/bridge/api/contract.dart' as contract;
 import 'package:v2rayn_desktop/bridge/api/settings.dart' as settings;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
+import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 
 /// Riverpod view of the persisted `guiNConfig.json` settings document.
@@ -19,6 +21,7 @@ import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 class SettingsViewState {
   const SettingsViewState({
     this.loaded = false,
+    this.loadFailed = false,
     this.revision = 0,
     this.document = const <String, dynamic>{},
     this.groupRevisions = const <String, int>{},
@@ -29,6 +32,10 @@ class SettingsViewState {
   });
 
   final bool loaded;
+
+  /// A load attempt ran and failed. Saving on top of a failed load would
+  /// persist defaults over the real stored config (AUD-ROOT-03).
+  final bool loadFailed;
   final int revision;
   final Map<String, dynamic> document;
   final Map<String, int> groupRevisions;
@@ -46,6 +53,7 @@ class SettingsViewState {
 
   SettingsViewState copyWith({
     bool? loaded,
+    bool? loadFailed,
     int? revision,
     Map<String, dynamic>? document,
     Map<String, int>? groupRevisions,
@@ -56,6 +64,7 @@ class SettingsViewState {
   }) {
     return SettingsViewState(
       loaded: loaded ?? this.loaded,
+      loadFailed: loadFailed ?? this.loadFailed,
       revision: revision ?? this.revision,
       document: document ?? this.document,
       groupRevisions: groupRevisions ?? this.groupRevisions,
@@ -103,56 +112,104 @@ class SettingsController extends Notifier<SettingsViewState> {
   @override
   SettingsViewState build() => const SettingsViewState();
 
+  /// Revision captured when a draft was created, keyed by draft identity. A
+  /// save must submit the revision the editor started from, not whatever the
+  /// controller has advanced to since (AUD-DESK-02).
+  final Map<int, int> _draftRevisions = <int, int>{};
+
+  /// Last autostart value confirmed written to the OS, or null while unknown.
+  /// A persisted `AutoRun` value is not proof the Run key write succeeded, so a
+  /// failed write must be retried on the next save (AUD-DESK-01).
+  bool? _autostartApplied;
+
   /// Load once from the engine. Safe to call repeatedly.
   SettingsViewState load() {
     settings.SettingsLoadDto result;
     try {
       result = ref.read(bridgePortProvider).getSettings();
     } catch (_) {
-      // No native library (pure widget tests): keep the local defaults.
-      final doc = defaultSettingsJson();
-      state = SettingsViewState(loaded: true, revision: 0, document: doc);
-      _applyImmediate(doc);
+      // A missing/broken bridge is a load failure, never an editable default
+      // document (AUD-ROOT-03): saving defaults would overwrite the real
+      // stored config. Tests that need a document inject it explicitly.
+      state = state.copyWith(
+        loaded: false,
+        loadFailed: true,
+        status: 'error.settings_load_failed',
+      );
       return state;
     }
     if (!result.ok || result.settingsJson.isEmpty) {
       state = state.copyWith(
         loaded: false,
+        loadFailed: true,
         status: result.error?.messageKey ?? 'error.settings_load_failed',
       );
       return state;
     }
-    final document = _decode(result.settingsJson);
+    final document = _tryDecode(result.settingsJson);
+    if (document == null) {
+      state = state.copyWith(
+        loaded: false,
+        loadFailed: true,
+        status: 'error.settings_load_failed',
+      );
+      return state;
+    }
     state = SettingsViewState(
       loaded: true,
+      loadFailed: false,
       revision: result.revision.toInt(),
       document: document,
       groupRevisions: _decodeGroupRevisions(result.groupRevisionsJson),
     );
+    _autostartApplied = _documentAutoRun(document);
     _applyImmediate(document);
     return state;
   }
 
-  /// A deep copy of the current document, safe to edit in a dialog.
-  Map<String, dynamic> draft() => _deepCopy(state.document);
+  /// A deep copy of the current document, safe to edit in a dialog. The copy
+  /// remembers the revision it was taken from so [saveDocument] can submit it.
+  Map<String, dynamic> draft() {
+    final copy = _deepCopy(state.document);
+    _draftRevisions[identityHashCode(copy)] = state.revision;
+    return copy;
+  }
+
+  int _revisionFor(Map<String, dynamic> draft, int? expectedRevision) =>
+      expectedRevision ??
+      _draftRevisions[identityHashCode(draft)] ??
+      state.revision;
 
   /// Persist the whole document with the optimistic revision check.
-  settings.SaveSettingsResult saveDocument(Map<String, dynamic> draft) {
+  ///
+  /// [expectedRevision] overrides the captured draft revision (used by the
+  /// independent settings window, whose draft crosses a JSON boundary).
+  settings.SaveSettingsResult saveDocument(
+    Map<String, dynamic> draft, {
+    int? expectedRevision,
+  }) {
+    if (!state.loaded || state.loadFailed) return _notLoadedSaveFailure();
     _normalizeCoreBasicBindings(draft);
     _normalizeRootCertProvider(draft);
     final result = ref
         .read(bridgePortProvider)
-        .saveSettingsJson(jsonEncode(draft), state.revision);
+        .saveSettingsJson(jsonEncode(draft), _revisionFor(draft, expectedRevision));
     if (result.ok) {
+      final newRevision = result.newRevision?.toInt() ?? state.revision;
       state = state.copyWith(
         loaded: true,
-        revision: result.newRevision?.toInt() ?? state.revision,
+        revision: newRevision,
         document: _deepCopy(draft),
         status: _statusFor(result),
         needsCoreRestart: result.restartCoreFields.isNotEmpty,
         needsAppRestart: result.restartAppFields.isNotEmpty,
         needsNextLaunch: result.nextLaunchFields.isNotEmpty,
       );
+      _draftRevisions[identityHashCode(draft)] = newRevision;
+      // A whole save advances every group counter in the engine; refresh the
+      // authoritative revisions so the next group save is not stale
+      // (AUD-ROOT-01).
+      _refreshAuthoritativeRevisions();
       _applyImmediate(draft);
     } else {
       state = state.copyWith(
@@ -162,8 +219,42 @@ class SettingsController extends Notifier<SettingsViewState> {
     return result;
   }
 
+  void _refreshAuthoritativeRevisions() {
+    try {
+      final result = ref.read(bridgePortProvider).getSettings();
+      if (!result.ok || result.settingsJson.isEmpty) return;
+      final document = _tryDecode(result.settingsJson);
+      if (document == null) return;
+      state = state.copyWith(
+        revision: result.revision.toInt(),
+        document: document,
+        groupRevisions: _decodeGroupRevisions(result.groupRevisionsJson),
+      );
+      _applyImmediate(document);
+    } catch (_) {
+      // The save already succeeded; a failed re-read keeps the local view.
+    }
+  }
+
+  static settings.SaveSettingsResult _notLoadedSaveFailure() =>
+      settings.SaveSettingsResult(
+        ok: false,
+        changes: const [],
+        restartCoreFields: const [],
+        restartAppFields: const [],
+        nextLaunchFields: const [],
+        error: const contract.ErrorDto(
+          code: 'E_SETTINGS_NOT_LOADED',
+          messageKey: 'error.settings_load_failed',
+          retryable: false,
+        ),
+      );
+
   /// Replace one top-level group (used by the theme/hotkey windows).
   settings.SaveSettingsResult saveGroup(String group, Object? value) {
+    // A failed load must block any mutation; a never-loaded controller only
+    // ever writes a group patch that the engine still revision-checks.
+    if (state.loadFailed) return _notLoadedSaveFailure();
     final groupRevision = state.groupRevisions[group] ?? 0;
     final result = ref
         .read(bridgePortProvider)
@@ -201,9 +292,12 @@ class SettingsController extends Notifier<SettingsViewState> {
   /// whose apply (or autostart write) fails returns `ok: false` with `saved:
   /// true` and a user-facing message; the persisted value is still visible on
   /// reopen, but the result is never faked as a full success.
-  Future<SettingsApplyOutcome> saveAndApply(Map<String, dynamic> draft) async {
+  Future<SettingsApplyOutcome> saveAndApply(
+    Map<String, dynamic> draft, {
+    int? expectedRevision,
+  }) async {
     final previousAutoRun = _documentAutoRun(state.document);
-    final result = saveDocument(draft);
+    final result = saveDocument(draft, expectedRevision: expectedRevision);
     if (!result.ok) {
       return SettingsApplyOutcome(
         ok: false,
@@ -213,20 +307,27 @@ class SettingsController extends Notifier<SettingsViewState> {
       );
     }
 
+    // Autostart must be retried until the OS write is confirmed: a persisted
+    // `AutoRun` value is not proof the Run key exists (AUD-DESK-01).
     var autostartFailed = false;
-    if (_draftAutoRun(draft) != previousAutoRun) {
-      autostartFailed = !_writeAutostart(_draftAutoRun(draft));
+    final desiredAutoRun = _draftAutoRun(draft);
+    if (desiredAutoRun != previousAutoRun ||
+        _autostartApplied != desiredAutoRun) {
+      final written = _writeAutostart(desiredAutoRun);
+      autostartFailed = !written;
+      if (written) _autostartApplied = desiredAutoRun;
     }
 
     final statusKey = _statusKeyFor(result);
     var applied = false;
     String? applyMessage;
     try {
-      await ref.read(runtimeControllerProvider.notifier).applyActive();
-      final error = ref.read(runtimeControllerProvider).error;
-      applied = error == null;
+      applied = await ref
+          .read(runtimeControllerProvider.notifier)
+          .applyActive();
       if (!applied) {
-        applyMessage = '配置已保存，但应用失败：${error.messageKey}';
+        final error = ref.read(runtimeControllerProvider).error;
+        applyMessage = '配置已保存，但应用失败：${error?.messageKey ?? 'unknown'}';
       }
     } on Object catch (e) {
       applyMessage = '配置已保存，但应用失败：$e';
@@ -242,6 +343,37 @@ class SettingsController extends Notifier<SettingsViewState> {
         statusKey: statusKey,
       );
     }
+
+    // Platform stage: the persisted system-proxy mode is part of this
+    // operation; a failure keeps "saved, platform not applied" visible and
+    // retryable instead of reporting a full success (AUD-ROOT-05 /
+    // AUD-DESK-03). Driven through the platform controller's static hook: a
+    // direct provider read here would close a dependency cycle with the
+    // controller's own settings listener.
+    String? platformMessage;
+    try {
+      final platformResult = PlatformController.applySavedMode(draft);
+      if (platformResult != null && !platformResult.ok) {
+        final key =
+            platformResult.error?.messageKey ??
+            platformResult.error?.code ??
+            'unknown';
+        platformMessage = '配置已保存，但系统代理应用失败：$key';
+      }
+    } on Object catch (e) {
+      platformMessage = '配置已保存，但系统代理应用失败：$e';
+    }
+    if (platformMessage != null) {
+      ref.read(uiShellControllerProvider.notifier).setMessage(platformMessage);
+      return SettingsApplyOutcome(
+        ok: false,
+        saved: true,
+        applied: true,
+        message: platformMessage,
+        statusKey: statusKey,
+      );
+    }
+
     if (autostartFailed) {
       const message = '配置已保存，但开机自启写入失败';
       ref.read(uiShellControllerProvider.notifier).setMessage(message);
@@ -382,12 +514,12 @@ class SettingsController extends Notifier<SettingsViewState> {
     return 'settings.saved';
   }
 
-  static Map<String, dynamic> _decode(String raw) {
+  static Map<String, dynamic>? _tryDecode(String raw) {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is Map<String, dynamic>) return decoded;
     } catch (_) {}
-    return defaultSettingsJson();
+    return null;
   }
 
   static Map<String, int> _decodeGroupRevisions(String raw) {

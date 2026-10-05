@@ -1,0 +1,15 @@
+[package]
+name = "tun_audit_repro"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+privileged_helper = { path = "../../../../services/privileged_helper" }
+ipc_contract = { path = "../../../../crates/ipc_contract" }
+application = { path = "../../../../crates/application" }
+domain = { path = "../../../../crates/domain" }
+serde_json = "1"
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "io-util", "time"] }

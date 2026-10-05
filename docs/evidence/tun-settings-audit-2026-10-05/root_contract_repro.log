@@ -1,0 +1,48 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/tun-settings-audit-2026-10-05/root_contract_repro_test.dart
+00:00 +0: whole save must refresh group revisions before next group save
+00:00 +0 -1: whole save must refresh group revisions before next group save [E]
+  Expected: true
+    Actual: <false>
+  a group save after successful whole save must not use stale revision
+  
+  package:matcher                                                                       expect
+  package:flutter_test/src/widget_tester.dart 473:18                                    expect
+  ..\..\docs\evidence\tun-settings-audit-2026-10-05\root_contract_repro_test.dart 53:5  main.<fn>
+  
+00:00 +0 -1: TUN toggle must not report applied when runtime rejected the plan
+00:00 +0 -2: TUN toggle must not report applied when runtime rejected the plan [E]
+  Expected: false
+    Actual: <true>
+  void completion is not an applied result
+  
+  package:matcher                                                                       expect
+  package:flutter_test/src/widget_tester.dart 473:18                                    expect
+  ..\..\docs\evidence\tun-settings-audit-2026-10-05\root_contract_repro_test.dart 66:5  main.<fn>
+  
+00:00 +0 -2: settings load exception must not make defaults a successful load
+00:00 +0 -3: settings load exception must not make defaults a successful load [E]
+  Expected: false
+    Actual: <true>
+  loading failed; an editable default draft is not the stored config
+  
+  package:matcher                                                                       expect
+  package:flutter_test/src/widget_tester.dart 473:18                                    expect
+  ..\..\docs\evidence\tun-settings-audit-2026-10-05\root_contract_repro_test.dart 74:5  main.<fn>
+  
+00:00 +0 -3: settings apply must include system proxy failure in its outcome
+00:00 +0 -4: settings apply must include system proxy failure in its outcome [E]
+  Expected: false
+    Actual: <true>
+  the system proxy consumer failed even though the core apply succeeded
+  
+  package:matcher                                                                       expect
+  package:flutter_test/src/widget_tester.dart 473:18                                    expect
+  ..\..\docs\evidence\tun-settings-audit-2026-10-05\root_contract_repro_test.dart 91:5  main.<fn>
+  
+00:00 +0 -4: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/tun-settings-audit-2026-10-05/root_contract_repro_test.dart: TUN toggle must not report applied when runtime rejected the plan
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/tun-settings-audit-2026-10-05/root_contract_repro_test.dart: settings apply must include system proxy failure in its outcome
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/tun-settings-audit-2026-10-05/root_contract_repro_test.dart: settings load exception must not make defaults a successful load
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/tun-settings-audit-2026-10-05/root_contract_repro_test.dart: whole save must refresh group revisions before next group save

@@ -86,9 +86,11 @@ Future<RestoreResultDto> t16WebdavRestore({required WebDavConfigDto cfg}) =>
 List<UpdateTargetDto> t16UpdateTargets() =>
     RustLib.instance.api.crateApiT16T16UpdateTargets();
 
-/// `check_updates` — check the selected cores (empty = all built-ins).
+/// `check_updates` — check the selected cores. Upstream contract: `null`
+/// means every built-in target, an empty list means none (the user unchecked
+/// every row) and is never expanded back to all.
 Future<UpdateReportDto> t16CheckUpdates({
-  required List<String> cores,
+  List<String>? cores,
   required bool prerelease,
   required bool viaProxy,
 }) => RustLib.instance.api.crateApiT16T16CheckUpdates(

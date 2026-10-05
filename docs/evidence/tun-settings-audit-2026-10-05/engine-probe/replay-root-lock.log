@@ -1,0 +1,26 @@
+   Compiling domain v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\domain)
+   Compiling core_adapters v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\core_adapters)
+   Compiling platform v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\platform)
+   Compiling config_codegen v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\config_codegen)
+   Compiling ipc_contract v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\ipc_contract)
+   Compiling persistence v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\persistence)
+   Compiling subscriptions v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\subscriptions)
+   Compiling updater v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\updater)
+   Compiling runtime v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\runtime)
+   Compiling application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+   Compiling settings_engine_audit_probe v0.0.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\tun-settings-audit-2026-10-05\engine-probe)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 13.41s
+     Running `target\debug\settings_engine_audit_probe.exe`
+{
+  "scope": "pure settings validation and config generation; no socket, core, OS or helper invocation",
+  "happy_eyeballs_switch_false_still_emits_object": true,
+  "happy_eyeballs_switch_toggle_config_identical": true,
+  "upstream_valid_max_split_range_1_3_rejected": {
+    "code": "E_FIELD_FORMAT",
+    "field": "Fragment4RayItem.MaxSplit"
+  },
+  "trailing_comma_exclusion_rejected_after_ui_split": {
+    "code": "E_INVALID_PLAN",
+    "detail": "route_exclude[1] is invalid: E_INVALID_ARGUMENT [error.helper_malformed]"
+  }
+}

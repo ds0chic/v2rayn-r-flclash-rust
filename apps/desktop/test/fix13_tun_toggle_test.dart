@@ -16,6 +16,7 @@ void main() {
         persist: (_) => false,
         apply: () async {
           applied = true;
+          return true;
         },
       );
       expect(result.ok, isFalse);
@@ -31,6 +32,7 @@ void main() {
         persist: (_) => true,
         apply: () async {
           applied = true;
+          return true;
         },
       );
       expect(result.ok, isTrue);
@@ -50,11 +52,23 @@ void main() {
         apply: () async {
           expect(persisted, isFalse);
           applied = true;
+          return true;
         },
       );
       expect(result.ok, isTrue);
       expect(persisted, isFalse);
       expect(applied, isTrue);
+    });
+
+    test('rejected apply is not reported as applied', () async {
+      final result = await toggleTunDesired(
+        enabled: true,
+        persist: (_) => true,
+        apply: () async => false,
+      );
+      expect(result.ok, isFalse);
+      expect(result.runtimeApplied, isFalse);
+      expect(result.error, 'error.tun_apply_failed');
     });
   });
 

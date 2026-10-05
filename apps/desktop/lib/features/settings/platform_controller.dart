@@ -26,8 +26,34 @@ class PlatformController extends Notifier<PlatformView> {
   /// Identity of the last applied system-proxy state (see [_syncKey]).
   String? _lastAppliedSyncKey;
 
+  /// The controller of the most recently built container, or null. The settings
+  /// save path drives the platform stage through [applySavedMode]; reading the
+  /// provider from inside the settings notifier would close a dependency cycle
+  /// with this controller's settings listener.
+  static PlatformController? _active;
+
+  /// Apply the persisted mode for [document] through the active controller.
+  /// Returns null when no platform controller has been built (pure storage
+  /// tests), so the caller can skip the platform stage honestly.
+  static PlatformActionResult? applySavedMode(
+    Map<String, dynamic> document, {
+    bool silent = true,
+  }) {
+    final active = _active;
+    if (active == null) return null;
+    return active.applyModeFromConfig(
+      active.desiredModeFromSettings(document),
+      document: document,
+      silent: silent,
+    );
+  }
+
   @override
   PlatformView build() {
+    _active = this;
+    ref.onDispose(() {
+      if (identical(_active, this)) _active = null;
+    });
     // Upstream `MainWindowViewModel.LoadCore` -> `SysProxyHandler.UpdateSysProxy`:
     // every successful apply re-points the selected system proxy / PAC at the
     // newly published endpoint. The listener is the production wiring; the

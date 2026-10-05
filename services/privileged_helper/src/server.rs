@@ -46,6 +46,12 @@ pub struct HelperServerConfig {
     pub allowed_run_roots: Vec<String>,
     /// Per-request read timeout.
     pub request_timeout: Duration,
+    /// Idle keep-alive bound for an open session. A connected client (e.g.
+    /// net-host owning an elevated TUN core) may hold the session without
+    /// requests for minutes; only a dead pipe, `Shutdown` or this bound ends
+    /// it. Must be far larger than [`Self::request_timeout`] so an idle
+    /// session never reclaims its active lease (TUN-A01).
+    pub idle_timeout: Duration,
     /// Disconnected-session cleanup policy.
     pub lease_policy: LeasePolicy,
 }
@@ -58,6 +64,7 @@ impl Default for HelperServerConfig {
             require_sid_match: false,
             allowed_run_roots: Vec::new(),
             request_timeout: Duration::from_millis(ipc_contract::IPC_REQUEST_TIMEOUT_MS),
+            idle_timeout: Duration::from_secs(24 * 60 * 60),
             lease_policy: LeasePolicy::CleanOwned,
         }
     }
@@ -479,7 +486,11 @@ where
         }
     }
 
-    let timeout_duration = server.config.request_timeout;
+    // A connected session stays alive while the client is silent: the bound
+    // here is the long idle keep-alive, not the per-request timeout. Using the
+    // request timeout would tear down an idle session after ~5s and stop its
+    // owned elevated core (TUN-A01).
+    let timeout_duration = server.config.idle_timeout;
     loop {
         match tokio::time::timeout(timeout_duration, read_frame(&mut reader)).await {
             Err(_) => {
@@ -564,6 +575,35 @@ mod tests {
                 entries: vec![valid_entry()],
             },
         }
+    }
+
+    #[tokio::test]
+    async fn idle_session_survives_past_the_request_timeout() {
+        // TUN-A01: an idle but connected session must keep its lease. The old
+        // code reused `request_timeout` as the read bound and tore the session
+        // (and its elevated cores) down after ~5s of silence.
+        let backend = Arc::new(FakeBackend::new());
+        let server = Arc::new(HelperServer::new(
+            backend,
+            HelperServerConfig {
+                lease_policy: LeasePolicy::CleanOwned,
+                request_timeout: Duration::from_millis(50),
+                idle_timeout: Duration::from_secs(60),
+                ..HelperServerConfig::default()
+            },
+        ));
+        let (client, server_stream) = tokio::io::duplex(1024);
+        let lease = ConnectionLease::new("s-idle");
+        let task = tokio::spawn(async move {
+            let _ = serve_connection(server_stream, server, lease, None).await;
+        });
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(
+            !task.is_finished(),
+            "an idle session must stay open past the per-request timeout"
+        );
+        drop(client);
+        let _ = tokio::time::timeout(Duration::from_secs(5), task).await;
     }
 
     #[test]

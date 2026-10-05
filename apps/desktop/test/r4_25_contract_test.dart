@@ -28,7 +28,10 @@ void main() {
             order.add('persist:$enabled');
             return true;
           },
-          apply: () async => order.add('apply'),
+          apply: () async {
+            order.add('apply');
+            return true;
+          },
         );
         expect(order, ['persist:true', 'apply']);
         expect(result.ok, isTrue);
@@ -44,7 +47,10 @@ void main() {
           order.add('persist:$enabled');
           return true;
         },
-        apply: () async => order.add('apply'),
+        apply: () async {
+          order.add('apply');
+          return true;
+        },
       );
       expect(order, ['persist:false', 'apply']);
       expect(result.ok, isTrue);
@@ -59,7 +65,10 @@ void main() {
         final result = await toggleTunDesired(
           enabled: true,
           persist: (_) => false,
-          apply: () async => applied = true,
+          apply: () async {
+            applied = true;
+            return true;
+          },
         );
         expect(result.ok, isFalse);
         expect(result.runtimeApplied, isFalse);

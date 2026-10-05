@@ -5322,7 +5322,7 @@ fn wire__crate__api__t16__t16_check_updates_impl(
             };
             let mut deserializer =
                 flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_cores = <Vec<String>>::sse_decode(&mut deserializer);
+            let api_cores = <Option<Vec<String>>>::sse_decode(&mut deserializer);
             let api_prerelease = <bool>::sse_decode(&mut deserializer);
             let api_via_proxy = <bool>::sse_decode(&mut deserializer);
             deserializer.end();

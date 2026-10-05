@@ -844,9 +844,11 @@ pub fn t16_update_targets() -> Vec<UpdateTargetDto> {
         .collect()
 }
 
-/// `check_updates` — check the selected cores (empty = all built-ins).
+/// `check_updates` — check the selected cores. Upstream contract: `null`
+/// means every built-in target, an empty list means none (the user unchecked
+/// every row) and is never expanded back to all.
 pub async fn t16_check_updates(
-    cores: Vec<String>,
+    cores: Option<Vec<String>>,
     prerelease: bool,
     via_proxy: bool,
 ) -> UpdateReportDto {
@@ -866,13 +868,12 @@ pub async fn t16_check_updates(
     }
     remember_update_flags(prerelease, proxy.clone());
     let service = update_service();
-    let selected = if cores.is_empty() {
-        application::BUILTIN_TARGETS
+    let selected = match cores {
+        None => application::BUILTIN_TARGETS
             .iter()
             .map(|c| (*c).to_string())
-            .collect::<Vec<_>>()
-    } else {
-        cores
+            .collect::<Vec<_>>(),
+        Some(list) => list,
     };
     let mut checks = Vec::new();
     for core in selected {
@@ -1322,7 +1323,11 @@ mod tests {
         let report = tokio::runtime::Builder::new_current_thread()
             .build()
             .expect("current-thread runtime")
-            .block_on(t16_check_updates(vec!["xray".to_string()], false, true));
+            .block_on(t16_check_updates(
+                Some(vec!["xray".to_string()]),
+                false,
+                true,
+            ));
         assert!(!report.ok);
         assert_eq!(report.error.unwrap().code, codes::PROXY_UNAVAILABLE);
     }
@@ -1338,7 +1343,11 @@ mod tests {
         let report = tokio::runtime::Builder::new_current_thread()
             .build()
             .expect("current-thread runtime")
-            .block_on(t16_check_updates(vec!["v2rayN".to_string()], false, false));
+            .block_on(t16_check_updates(
+                Some(vec!["v2rayN".to_string()]),
+                false,
+                false,
+            ));
         assert!(report.ok);
         let app = report
             .checks
@@ -1352,6 +1361,19 @@ mod tests {
         );
         assert!(app.remote_version.is_none());
         assert!(app.download_url.is_none());
+    }
+
+    #[test]
+    fn check_updates_empty_selection_checks_nothing() {
+        // Upstream contract (AUD-DESK-12): an empty selection means the user
+        // unchecked every row and must be checked as nothing; only `None`
+        // (not provided) means all built-ins. No network is touched here.
+        let report = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("current-thread runtime")
+            .block_on(t16_check_updates(Some(Vec::new()), false, false));
+        assert!(report.ok);
+        assert!(report.checks.is_empty());
     }
 
     #[test]

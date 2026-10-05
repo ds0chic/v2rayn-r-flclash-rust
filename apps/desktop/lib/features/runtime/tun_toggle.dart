@@ -22,11 +22,12 @@ class TunToggleResult {
 /// Extracted as a pure seam so widget tests can cover the persist-failure and
 /// authorization/cancel branches without a native bridge. The persist callback
 /// must return true only after the settings actually saved; [apply] is invoked
-/// only when it did.
+/// only when it did and must report whether the plan really applied — a void
+/// completion is not an applied result (AUD-ROOT-02 / TUN-A03).
 Future<TunToggleResult> toggleTunDesired({
   required bool enabled,
   required bool Function(bool enabled) persist,
-  required Future<void> Function() apply,
+  required Future<bool> Function() apply,
 }) async {
   if (!persist(enabled)) {
     return const TunToggleResult(
@@ -34,7 +35,14 @@ Future<TunToggleResult> toggleTunDesired({
       error: 'error.settings_save_failed',
     );
   }
-  await apply();
+  final applied = await apply();
+  if (!applied) {
+    return const TunToggleResult(
+      ok: false,
+      error: 'error.tun_apply_failed',
+      runtimeApplied: false,
+    );
+  }
   return const TunToggleResult(ok: true, runtimeApplied: true);
 }
 

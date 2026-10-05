@@ -136,7 +136,7 @@ extern "system" {
 }
 
 /// A raw `SOCKADDR_INET`-sized buffer.
-#[repr(C)]
+#[repr(C, align(4))]
 #[derive(Clone, Copy)]
 pub struct SockaddrInet {
     pub family: u16,
@@ -172,20 +172,27 @@ pub struct MibIpForwardRow2 {
 }
 
 /// Local mirror of the subset of `MIB_UNICASTIPADDRESS_ROW` the helper sets.
+///
+/// Field order and padding must match the SDK struct exactly: `Address` comes
+/// first, `SkipAsSource` follows `OnLinkPrefixLength`, and the trailing
+/// `CreationTimeStamp` keeps the size at 80 bytes. A wrong order makes
+/// `CreateUnicastIpAddressEntry` read a garbage interface index and fail with
+/// `ERROR_INVALID_PARAMETER (87)`.
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct MibUnicastIpAddressRow {
+    pub address: SockaddrInet,
     pub interface_luid: u64,
     pub interface_index: u32,
-    pub address: SockaddrInet,
     pub prefix_origin: u32,
     pub suffix_origin: u32,
     pub valid_lifetime: u32,
     pub preferred_lifetime: u32,
     pub on_link_prefix_length: u8,
-    pub prefix_length: u8,
+    pub skip_as_source: u8,
     pub dad_state: u32,
     pub scope_id: u32,
+    pub creation_time_stamp: i64,
 }
 
 #[repr(C)]
@@ -331,7 +338,7 @@ fn unicast_row(
     row.interface_index = interface_index;
     row.address = sockaddr_from_ip(&parsed);
     row.on_link_prefix_length = prefix;
-    row.prefix_length = prefix;
+    row.skip_as_source = 0;
     row.valid_lifetime = u32::MAX;
     row.preferred_lifetime = u32::MAX;
     Ok(row)

@@ -1682,6 +1682,9 @@ impl AppEngine {
         patch: Value,
         expected_revision: u64,
     ) -> Result<SaveSettingsOutcome, DomainError> {
+        // Same store guard as `save_settings`: a broken store must never
+        // answer a group save as success (AUD-ROOT-04).
+        self.guard_storage()?;
         let mut guard = self
             .settings
             .lock()
@@ -2919,8 +2922,24 @@ impl AppEngine {
             .ok_or_else(|| DomainError::not_found("profile", target_id))?;
         let core = self.resolve_target_core(&target)?;
         let opts = self.runtime_codegen_options();
-        let (input, chain_warnings) =
+        let (mut input, chain_warnings) =
             self.build_codegen_input_with_warnings(target_id, core, &opts)?;
+        // TUN-A02: with the LegacyProtect topology the front sing-box service
+        // owns the TUN device, so the main core must not generate a second tun
+        // provider (upstream runs exactly one). Suppress the main config's tun
+        // inbound only when a pre-SOCKS sidecar will carry it; a sing-box main
+        // core without a sidecar keeps its own tun.
+        let sidecar_owns_tun = {
+            let settings = self
+                .settings
+                .lock()
+                .map(|guard| guard.settings.clone())
+                .unwrap_or_default();
+            Self::pre_socks_of(&settings, &target, core).is_some()
+        };
+        if sidecar_owns_tun && input.settings.tun.enabled {
+            input.settings.tun.enabled = false;
+        }
         let mut generated = crate::codegen::generate(core, &input).map_err(|error| {
             DomainError::new(domain::codes::INVALID_PLAN, "error.codegen_failed")
                 .with_detail(error.to_string())
@@ -4255,6 +4274,40 @@ mod tests {
             "sidecar body is a real socks config: {body}"
         );
         assert!(!body.contains("presocks.plan.v1"));
+        // TUN-A02: exactly one TUN provider. The sidecar carries the tun
+        // inbound; the main Xray config must not declare a second one.
+        let sidecar_json: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert!(
+            sidecar_json["inbounds"]
+                .as_array()
+                .expect("sidecar inbounds")
+                .iter()
+                .any(|entry| entry["type"] == "tun"),
+            "sidecar owns the tun inbound"
+        );
+        let main_node = plan
+            .process_graph
+            .nodes
+            .iter()
+            .find(|candidate| candidate.id == CoreType::Xray.as_str())
+            .expect("main core node");
+        let main_body = match &main_node.config {
+            ConfigSource::Inline { body } => body.clone(),
+            _ => panic!("inline main config"),
+        };
+        let main_json: serde_json::Value = serde_json::from_str(&main_body).unwrap();
+        let main_has_tun = main_json["inbounds"]
+            .as_array()
+            .map(|inbounds| {
+                inbounds
+                    .iter()
+                    .any(|entry| entry["type"] == "tun" || entry["protocol"] == "tun")
+            })
+            .unwrap_or(false);
+        assert!(
+            !main_has_tun,
+            "the main core must not declare a second tun provider: {main_body}"
+        );
     }
 
     #[test]

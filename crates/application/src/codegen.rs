@@ -420,6 +420,10 @@ pub fn settings_from_app(settings: &domain::AppSettings, opts: &CodegenOptions) 
     }
     let tun = &settings.tun_mode_item;
     base.tun.enabled = tun.enable_tun;
+    // The generated core config and the net-host deferred discovery must agree
+    // on one adapter name; otherwise the adapter is created under the core's
+    // default name and discovery can never match it (TUN would time out).
+    base.tun.name = Some(crate::tun_plan::DEFAULT_TUN_ADAPTER.to_string());
     base.tun.mtu = tun.mtu;
     base.tun.ipv4_address = tun.ipv4_address.clone();
     base.tun.enable_ipv6_address = tun.enable_ipv6_address;
@@ -1045,6 +1049,9 @@ mod tests {
         assert_eq!(tun["auto_route"], serde_json::json!(false));
         assert_eq!(tun["strict_route"], serde_json::json!(true));
         assert_eq!(tun["stack"], serde_json::json!("system"));
+        // The adapter name is shared with net-host deferred discovery; a
+        // divergent name makes TUN discovery time out.
+        assert_eq!(tun["interface_name"], serde_json::json!("v2rayn-tun"));
 
         let xray = generate(CoreType::Xray, &input).unwrap();
         let xray_inbounds = xray.main["inbounds"].as_array().expect("inbounds array");
@@ -1052,7 +1059,10 @@ mod tests {
             .iter()
             .find(|i| i["protocol"] == serde_json::json!("tun"))
             .expect("xray tun inbound");
-        assert_eq!(xray_tun["settings"]["name"], serde_json::json!("xray_tun"));
+        assert_eq!(
+            xray_tun["settings"]["name"],
+            serde_json::json!("v2rayn-tun")
+        );
     }
 
     // R4-13.S02: ClashUIItem.EnableIPv6 / EnableMixinContent reach the mihomo

@@ -23,8 +23,8 @@ use std::io::{Read, Write};
 
 use domain::{codes, DomainError};
 use ipc_contract::{
-    HelperError, HelperOp, HelperRequest, HelperResponse, HelperResult, SessionIdentity,
-    HELPER_PROTOCOL_VERSION,
+    ElevatedCoreSpec, HelperError, HelperOp, HelperRequest, HelperResponse, HelperResult,
+    SessionIdentity, HELPER_PROTOCOL_VERSION,
 };
 #[cfg(test)]
 use ipc_contract::{RouteEntry, TunAddressConfig};
@@ -209,6 +209,24 @@ pub trait HelperLink: Send {
     /// Clean an owned lease. Must be safe to call repeatedly.
     fn cleanup(&mut self, lease: &TunLease) -> Result<(), DomainError>;
 
+    /// Start a core elevated through the helper (`RunElevatedCore`). Required
+    /// for a Wintun-creating TUN core: a normal-privilege spawn cannot create
+    /// the adapter. Returns `(helper handle, pid)`.
+    fn run_core(&mut self, spec: &ElevatedCoreSpec) -> Result<(u64, u32), DomainError> {
+        let _ = spec;
+        Err(tun_helper_unavailable(
+            "this link cannot run elevated cores",
+        ))
+    }
+
+    /// Stop a core previously started through this link. Idempotent.
+    fn stop_core(&mut self, handle: u64) -> Result<(), DomainError> {
+        let _ = handle;
+        Err(tun_helper_unavailable(
+            "this link cannot stop elevated cores",
+        ))
+    }
+
     /// In-memory audit of intended/actual operations (redacted).
     fn audit(&self) -> Vec<String> {
         Vec::new()
@@ -272,6 +290,8 @@ struct FakeHelperState {
     apply_count: u32,
     cleanup_count: u32,
     cleaned: bool,
+    elevated_cores: Vec<ElevatedCoreSpec>,
+    next_core_handle: u64,
 }
 
 /// In-memory helper used by unit tests. It records every operation and can be
@@ -425,6 +445,35 @@ impl HelperLink for FakeHelperLink {
     fn audit(&self) -> Vec<String> {
         self.lock().ops.clone()
     }
+
+    fn run_core(&mut self, spec: &ElevatedCoreSpec) -> Result<(u64, u32), DomainError> {
+        match self.fault {
+            Some(FakeHelperFault::Deny) => return Err(tun_helper_denied("fake helper denied")),
+            Some(FakeHelperFault::Timeout) => {
+                return Err(tun_helper_unavailable("fake helper timed out").retryable())
+            }
+            Some(FakeHelperFault::Disconnect) => {
+                return Err(tun_helper_unavailable("fake helper disconnected"))
+            }
+            _ => {}
+        }
+        let mut state = self.lock();
+        state
+            .ops
+            .push(format!("run_elevated_core core={}", spec.core));
+        state.next_core_handle += 1;
+        let handle = state.next_core_handle;
+        state.elevated_cores.push(spec.clone());
+        Ok((handle, 4242))
+    }
+
+    fn stop_core(&mut self, handle: u64) -> Result<(), DomainError> {
+        let mut state = self.lock();
+        state
+            .ops
+            .push(format!("stop_elevated_core handle={handle}"));
+        Ok(())
+    }
 }
 
 /// Dry-run link: records what *would* happen and never touches a helper or the
@@ -481,6 +530,20 @@ impl HelperLink for DryRunHelperLink {
                 "dry_run:remove_routes count={} then reset_tun_address if={}",
                 lease.route_count, lease.interface_index
             ));
+        }
+        Ok(())
+    }
+
+    fn run_core(&mut self, spec: &ElevatedCoreSpec) -> Result<(u64, u32), DomainError> {
+        if let Ok(mut ops) = self.ops.lock() {
+            ops.push(format!("dry_run:run_elevated_core core={}", spec.core));
+        }
+        Ok((0, 0))
+    }
+
+    fn stop_core(&mut self, handle: u64) -> Result<(), DomainError> {
+        if let Ok(mut ops) = self.ops.lock() {
+            ops.push(format!("dry_run:stop_elevated_core handle={handle}"));
         }
         Ok(())
     }
@@ -716,6 +779,24 @@ impl HelperLink for PipeHelperLink {
         self.conn = None;
         Ok(())
     }
+
+    fn run_core(&mut self, spec: &ElevatedCoreSpec) -> Result<(u64, u32), DomainError> {
+        match self.call(HelperOp::RunElevatedCore { spec: spec.clone() })? {
+            HelperResult::CoreStarted { handle, pid } => Ok((handle, pid)),
+            _ => Err(tun_apply_failed(
+                "helper returned an unexpected result for RunElevatedCore",
+            )),
+        }
+    }
+
+    fn stop_core(&mut self, handle: u64) -> Result<(), DomainError> {
+        match self.call(HelperOp::StopElevatedCore { handle })? {
+            HelperResult::CoreStopped { .. } => Ok(()),
+            _ => Err(tun_apply_failed(
+                "helper returned an unexpected result for StopElevatedCore",
+            )),
+        }
+    }
 }
 
 #[cfg(windows)]
@@ -815,6 +896,37 @@ mod tests {
     use super::*;
     use ipc_contract::AddressFamily;
     use runtime::tun::{TunAddress, TunRoute, TUN_CONFIG_KIND};
+
+    #[test]
+    fn fake_helper_records_elevated_core_lifecycle() {
+        let mut link = FakeHelperLink::new();
+        let spec = ElevatedCoreSpec {
+            core: "sing-box".into(),
+            exe_path: r"C:\run\s1\processes\pre-socks\sing-box.exe".into(),
+            args: vec!["run".into(), "-c".into(), "config.json".into()],
+            run_dir: r"C:\run\s1\processes\pre-socks".into(),
+        };
+        let (handle, pid) = link.run_core(&spec).expect("run_core");
+        assert_eq!(handle, 1);
+        assert_eq!(pid, 4242);
+        link.stop_core(handle).expect("stop_core");
+        let ops = link.ops();
+        assert!(ops.iter().any(|op| op == "run_elevated_core core=sing-box"));
+        assert!(ops.iter().any(|op| op == "stop_elevated_core handle=1"));
+    }
+
+    #[test]
+    fn fake_helper_denies_elevated_core_on_fault() {
+        let mut link = FakeHelperLink::with_fault(FakeHelperFault::Deny);
+        let spec = ElevatedCoreSpec {
+            core: "sing-box".into(),
+            exe_path: r"C:\run\s1\sing-box.exe".into(),
+            args: vec![],
+            run_dir: r"C:\run\s1".into(),
+        };
+        let error = link.run_core(&spec).expect_err("denied");
+        assert_eq!(error.code, E_TUN_HELPER_UNAVAILABLE);
+    }
 
     #[test]
     fn effective_token_generation_requires_autolaunch() {

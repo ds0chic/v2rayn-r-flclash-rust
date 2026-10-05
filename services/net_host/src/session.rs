@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use domain::event::{EventKind, RuntimeStateChanged};
 use domain::runtime_plan::ConfigSource;
-use domain::{DomainError, RuntimePlan, RuntimeState};
+use domain::{CoreType, DomainError, RuntimePlan, RuntimeState};
 use ipc_contract::{OperationStatus, RecoveryStage, RecoveryStatus, RuntimeSnapshot};
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -64,6 +64,15 @@ impl HostConfig {
                     .map(|l| PathBuf::from(l).join("v2rayn-r").join("run"))
             })
             .unwrap_or_else(|| PathBuf::from("run"));
+        let mut helper = HelperConfig::from_env();
+        // A TUN session stages its elevated core under the run root; the helper
+        // rejects `RunElevatedCore` outside every allowed root, so the
+        // packaged default (no env override) must still allow this run root.
+        if helper.allowed_run_roots.is_empty() {
+            helper
+                .allowed_run_roots
+                .push(run_root.to_string_lossy().into_owned());
+        }
         Self {
             pipe_name: std::env::var("V2RAYN_R_PIPE")
                 .unwrap_or_else(|_| NET_HOST_PIPE_NAME.to_string()),
@@ -72,7 +81,7 @@ impl HostConfig {
             heartbeat_interval: env_ms("V2RAYN_R_HEARTBEAT_MS", 2_000),
             readiness_timeout: env_ms("V2RAYN_R_READY_TIMEOUT_MS", 20_000),
             readiness_interval: env_ms("V2RAYN_R_READY_INTERVAL_MS", 500),
-            helper: HelperConfig::from_env(),
+            helper,
         }
     }
 }
@@ -104,27 +113,45 @@ struct PreparedSidecar {
     exe: PathBuf,
     body: String,
     port: u16,
+    /// The node's config carries a TUN inbound, so it must run elevated
+    /// through the helper (a normal spawn cannot create the Wintun adapter).
+    elevated: bool,
 }
 
 /// One additional managed process in the plan's [`ProcessGraph`] (RR-06):
 /// today the pre-SOCKS / LegacyProtect sidecar, distinguished so its logs are
-/// labeled and it can be stopped in reverse start order.
+/// labeled and it can be stopped in reverse start order. A sidecar is either a
+/// normal child process owned by net-host, or an elevated process owned by the
+/// helper session kept open in `helper`.
 pub struct SidecarSession {
-    pub child: tokio::process::Child,
+    pub child: Option<tokio::process::Child>,
     /// Owns the sidecar's Job Object; dropping it (on stop or session drop)
     /// guarantees the sidecar tree dies even if net-host is hard-killed.
-    pub _job: JobGuard,
+    pub _job: Option<JobGuard>,
+    /// Helper session that owns an elevated sidecar. Kept open for the whole
+    /// session so the helper lease keeps owning the process; the pipe drop on
+    /// cleanup triggers the helper's `CleanOwned` stop.
+    pub helper: Option<Box<dyn HelperLink>>,
+    pub handle: Option<u64>,
 }
 
 impl SidecarSession {
     async fn terminate_and_wait(&mut self, grace: Duration) {
-        let _ = self.child.start_kill();
-        match tokio::time::timeout(grace, self.child.wait()).await {
-            Ok(_) => {}
-            Err(_) => {
-                let _ = self.child.kill().await;
+        if let (Some(link), Some(handle)) = (self.helper.as_mut(), self.handle) {
+            let _ = link.stop_core(handle);
+            self.helper = None;
+            self.handle = None;
+        }
+        if let Some(child) = self.child.as_mut() {
+            let _ = child.start_kill();
+            match tokio::time::timeout(grace, child.wait()).await {
+                Ok(_) => {}
+                Err(_) => {
+                    let _ = child.kill().await;
+                }
             }
         }
+        self._job = None;
     }
 }
 
@@ -332,6 +359,38 @@ fn discover_interface_index_os(_adapter_name: &str) -> Option<u32> {
 /// Stub-core tests opt out of the real `test_args` config check.
 fn skip_config_check() -> bool {
     std::env::var_os("V2RAYN_R_SKIP_CONFIG_CHECK").is_some()
+}
+
+/// Whether a generated core config declares a TUN inbound (sing-box
+/// `{"type":"tun"}`). Such a node creates the Wintun adapter and must run
+/// elevated; the check is structural, never a substring match.
+fn body_has_tun_inbound(body: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(body)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("inbounds")
+                .and_then(serde_json::Value::as_array)
+                .map(|inbounds| {
+                    inbounds
+                        .iter()
+                        .any(|entry| entry.get("type").and_then(|t| t.as_str()) == Some("tun"))
+                })
+        })
+        .unwrap_or(false)
+}
+
+/// Helper core id for the elevated-core allow-list. `CoreType::as_str` uses
+/// project tokens (`sing_box`), while the helper allow-list uses the upstream
+/// executable names (`sing-box`); this maps between them.
+fn elevated_core_id(core: CoreType) -> Option<&'static str> {
+    match core {
+        CoreType::Xray => Some("xray"),
+        CoreType::SingBox => Some("sing-box"),
+        CoreType::Mihomo => Some("mihomo"),
+        CoreType::V2fly | CoreType::V2flyV5 => Some("v2fly"),
+        _ => None,
+    }
 }
 
 /// Hard deadline for the core's own `test_args` validation. A core whose
@@ -892,12 +951,14 @@ impl HostState {
                 self.run_config_check(&*adapter, &node_exe, &node_body, &node_hash)
                     .await?;
             }
+            let elevated = plan.network_policy.tun_enabled && body_has_tun_inbound(&node_body);
             prepared.push(PreparedSidecar {
                 id: node.id.clone(),
                 adapter,
                 exe: node_exe,
                 body: node_body,
                 port: node_port,
+                elevated,
             });
         }
         Ok(prepared)
@@ -1338,27 +1399,6 @@ impl HostState {
             }
         }
 
-        // --- R3-04: first-TUN core path ---
-        // The core is now running and its tun inbound has created the adapter.
-        // Discover the interface (bounded), fill the deferred descriptor, then
-        // run the helper. Any failure rolls the whole session back through the
-        // same scope as a sidecar failure (kill core + release lease + journal).
-        if let Some(base_spec) = deferred_tun {
-            let spec = match self.resolve_deferred_tun(&operation_id, &base_spec).await {
-                Ok(spec) => spec,
-                Err(error) => {
-                    return self
-                        .rollback(&operation_id, &mut child, &session_id, error)
-                        .await;
-                }
-            };
-            if let Err(error) = self.apply_tun_spec(&operation_id, &session_id, spec).await {
-                return self
-                    .rollback(&operation_id, &mut child, &session_id, error)
-                    .await;
-            }
-        }
-
         // Stream stdout/stderr to the session log, with bounded memory, and
         // forward each line as a `log_line` event (T15a minimal change) so the
         // application log pipeline does not have to tail the file.
@@ -1401,7 +1441,7 @@ impl HostState {
                 // runs the same failure cleanup scope as the core branches:
                 // stop the started sidecars, kill the main core, release the
                 // TUN lease and finalize the journal.
-                let sidecar_sessions = match self
+                let mut sidecar_sessions = match self
                     .start_sidecars(&operation_id, &session_id, sidecars)
                     .await
                 {
@@ -1412,6 +1452,29 @@ impl HostState {
                             .await;
                     }
                 };
+                // --- R3-04: deferred TUN path, after the TUN-providing
+                // sidecar is up. The sidecar's tun inbound creates the adapter
+                // (elevated through the helper); only then can discovery match
+                // the interface. Any failure stops the sidecars, kills the
+                // main core, releases the lease and finalizes the journal.
+                if let Some(base_spec) = deferred_tun {
+                    let spec = match self.resolve_deferred_tun(&operation_id, &base_spec).await {
+                        Ok(spec) => spec,
+                        Err(error) => {
+                            self.stop_sidecars(&mut sidecar_sessions).await;
+                            return self
+                                .rollback(&operation_id, &mut child, &session_id, error)
+                                .await;
+                        }
+                    };
+                    if let Err(error) = self.apply_tun_spec(&operation_id, &session_id, spec).await
+                    {
+                        self.stop_sidecars(&mut sidecar_sessions).await;
+                        return self
+                            .rollback(&operation_id, &mut child, &session_id, error)
+                            .await;
+                    }
+                }
                 let session = Session {
                     session_id: session_id.clone(),
                     plan_id: plan.plan_id.clone(),
@@ -1524,6 +1587,93 @@ impl HostState {
         Ok(started)
     }
 
+    /// Start a TUN-providing sidecar elevated through the helper. The core
+    /// executable and its runtime DLLs are staged inside the controlled
+    /// sidecar directory (the helper requires `exe_parent == run_dir` and
+    /// `run_dir` under an allowed root), then the helper session stays open for
+    /// the sidecar's lifetime so the lease keeps owning the process.
+    async fn start_elevated_sidecar(
+        &self,
+        operation_id: &str,
+        sidecar: &PreparedSidecar,
+        sidecar_dir: &std::path::Path,
+        sidecar_config: &std::path::Path,
+    ) -> Result<SidecarSession, DomainError> {
+        let core_id = elevated_core_id(sidecar.adapter.core_type()).ok_or_else(|| {
+            DomainError::new(domain::codes::INVALID_PLAN, "error.core_not_supported").with_detail(
+                format!(
+                    "core {} cannot run elevated for TUN",
+                    sidecar.adapter.core_type().as_str()
+                ),
+            )
+        })?;
+        let exe_name = sidecar.exe.file_name().ok_or_else(|| {
+            DomainError::new(domain::codes::INVALID_PLAN, "error.plan_unsupported")
+                .with_detail("sidecar executable has no file name")
+        })?;
+        let staged_exe = sidecar_dir.join(exe_name);
+        std::fs::copy(&sidecar.exe, &staged_exe).map_err(|e| {
+            DomainError::new(domain::codes::INTERNAL, "error.stage_failed")
+                .with_operation(operation_id)
+                .with_detail(format!("stage elevated core failed: {e}"))
+        })?;
+        // Runtime DLLs (wintun.dll for sing-box) must sit next to the staged
+        // executable; copy the sibling runtime files but never archives/logs.
+        if let Some(parent) = sidecar.exe.parent() {
+            if let Ok(entries) = std::fs::read_dir(parent) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if !path.is_file() {
+                        continue;
+                    }
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.eq_ignore_ascii_case(&exe_name.to_string_lossy()) {
+                        continue;
+                    }
+                    let lower = name_str.to_ascii_lowercase();
+                    if lower.ends_with(".zip") || lower.ends_with(".log") {
+                        continue;
+                    }
+                    let _ = std::fs::copy(&path, sidecar_dir.join(&name));
+                }
+            }
+        }
+        let args: Vec<String> = sidecar
+            .adapter
+            .run_args(sidecar_config)
+            .iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        let spec = ipc_contract::ElevatedCoreSpec {
+            core: core_id.to_string(),
+            exe_path: staged_exe.to_string_lossy().into_owned(),
+            args,
+            run_dir: sidecar_dir.to_string_lossy().into_owned(),
+        };
+        // The helper launch (UAC) and pipe handshake block; keep them off the
+        // async worker.
+        let mut link = self.make_helper_link();
+        let spec_for_task = spec.clone();
+        let (link, outcome) = tokio::task::spawn_blocking(move || {
+            let result = link.run_core(&spec_for_task);
+            (link, result)
+        })
+        .await
+        .map_err(|join| {
+            DomainError::new(domain::codes::INTERNAL, "error.tun_apply_failed")
+                .with_operation(operation_id)
+                .with_detail(format!("elevated core task failed: {join}"))
+        })?;
+        let (handle, _pid) = outcome.map_err(|error| error.with_operation(operation_id))?;
+        Ok(SidecarSession {
+            child: None,
+            _job: None,
+            helper: Some(link),
+            handle: Some(handle),
+        })
+    }
+
     /// Stage, spawn and readiness-probe one sidecar. The sidecar is bound into
     /// the kill-on-close job exactly like the main core.
     async fn start_one_sidecar(
@@ -1546,6 +1696,11 @@ impl HostState {
                 .with_operation(operation_id)
                 .with_detail(format!("write sidecar config failed: {e}"))
         })?;
+        if sidecar.elevated {
+            return self
+                .start_elevated_sidecar(operation_id, sidecar, &sidecar_dir, &sidecar_config)
+                .await;
+        }
         let sidecar_log = sidecar_dir.join("core.log");
         let mut command = Command::new(&sidecar.exe);
         command
@@ -1611,8 +1766,10 @@ impl HostState {
             );
         }
         let mut session = SidecarSession {
-            child,
-            _job: sidecar_job,
+            child: Some(child),
+            _job: Some(sidecar_job),
+            helper: None,
+            handle: None,
         };
         // Wait for the sidecar to accept the same SOCKS greeting the main core
         // accepts (`WaitForProxyPort` upstream). A TUN-only sidecar reports
@@ -2372,6 +2529,31 @@ mod tests {
             None => std::env::remove_var(key),
         }
         assert!(!HostConfig::from_env().helper.dry_run);
+    }
+
+    #[test]
+    fn tun_inbound_detection_is_structural() {
+        assert!(body_has_tun_inbound(
+            r#"{"inbounds":[{"type":"socks"},{"type":"tun","interface_name":"v2rayn-tun"}]}"#
+        ));
+        assert!(!body_has_tun_inbound(r#"{"inbounds":[{"type":"socks"}]}"#));
+        assert!(!body_has_tun_inbound("not json"));
+        assert!(!body_has_tun_inbound(r#"{"inbounds":[]}"#));
+    }
+
+    #[test]
+    fn elevated_core_ids_match_the_helper_allowlist() {
+        for (core, expected) in [
+            (CoreType::Xray, "xray"),
+            (CoreType::SingBox, "sing-box"),
+            (CoreType::Mihomo, "mihomo"),
+            (CoreType::V2fly, "v2fly"),
+        ] {
+            let id = elevated_core_id(core).expect("mapped");
+            assert_eq!(id, expected);
+            assert!(ipc_contract::is_allowed_core_name(id));
+        }
+        assert!(elevated_core_id(CoreType::Hysteria2).is_none());
     }
 
     #[test]

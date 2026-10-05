@@ -57,14 +57,17 @@ async fn main() -> std::io::Result<()> {
         .map(str::to_string)
         .collect();
 
-    let backend = Arc::new(WindowsBackend::new(allowed_run_roots));
+    let backend = Arc::new(WindowsBackend::new(allowed_run_roots.clone()));
     let config = HelperServerConfig {
         session_token: token,
         expected_sid: current_user_sid_string().ok(),
         require_sid_match: true,
+        // Dispatch validates `RunElevatedCore` against this list; the backend
+        // keeps its own copy for execution. Both must carry the parsed roots.
+        allowed_run_roots: allowed_run_roots.clone(),
         request_timeout: Duration::from_millis(IPC_REQUEST_TIMEOUT_MS),
+        idle_timeout: Duration::from_secs(24 * 60 * 60),
         lease_policy: LeasePolicy::CleanOwned,
-        ..HelperServerConfig::default()
     };
     let server = Arc::new(HelperServer::new(backend, config));
     let session_counter = AtomicU64::new(1);

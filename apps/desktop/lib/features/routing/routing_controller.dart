@@ -404,6 +404,35 @@ class RoutingController extends Notifier<RoutingState> {
     return result;
   }
 
+  /// R4-14: `一键导入规则集` (upstream `ConfigHandler.InitRouting(config, true)`).
+  /// An empty routing id routes the backend to the built-in advanced import
+  /// (append the three built-in schemes); per-profile imports always carry a
+  /// real id.
+  r.RoutingRulesTextResult importBuiltin() {
+    final result = ref
+        .read(bridgePortProvider)
+        .importRoutingRules('', '', true);
+    if (result.ok) {
+      reload();
+      state = state.copyWith(status: '已导入内置规则集（${result.ruleCount} 条规则）');
+    } else {
+      state = state.copyWith(
+        status: _builtinImportError(result.error?.messageKey),
+      );
+    }
+    return result;
+  }
+
+  static String _builtinImportError(String? key) {
+    if (key == 'error.routing_external_template') {
+      return '已配置外部模板地址，无法离线导入；请检查模板 URL 后重试';
+    }
+    if (key == 'error.routing_rules_empty') {
+      return '导入失败：模板中没有可用规则';
+    }
+    return '导入内置规则集失败';
+  }
+
   r.RoutingRulesTextResult exportRules(String routingId, List<String> ids) =>
       ref.read(bridgePortProvider).exportRoutingRules(routingId, ids);
 

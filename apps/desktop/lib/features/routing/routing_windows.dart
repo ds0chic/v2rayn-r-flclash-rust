@@ -220,13 +220,20 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
   }
 
   /// Upstream `RoutingAdvancedImportRules` -> `ConfigHandler.InitRouting`.
-  /// The Rust side exposes no re-import use case yet (registered gap), so the
-  /// button re-reads the persisted builtin schemes for now.
+  /// Runs the real backend import (append the three built-in schemes) and
+  /// reports the imported rule count, or the explicit error, in the window.
   Future<void> _importBuiltinRules() async {
-    ref.read(routingControllerProvider.notifier).reload();
+    final result = ref.read(routingControllerProvider.notifier).importBuiltin();
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(const SnackBar(content: Text('内置规则集已刷新（导入后端用例待接入）')));
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (result.ok) {
+      messenger?.showSnackBar(
+        SnackBar(content: Text('已导入内置规则集（${result.ruleCount} 条规则）')),
+      );
+    } else {
+      final status = ref.read(routingControllerProvider).status;
+      messenger?.showSnackBar(SnackBar(content: Text(status ?? '导入内置规则集失败')));
+    }
   }
 
   /// Upstream row `ContextMenu` (RoutingSettingWindow.xaml:118): 添加规则集 /
@@ -1409,12 +1416,17 @@ class RoutingEditorSnapshot {
 
 /// Outcome of persisting a routing draft through the main engine.
 class RoutingEditorOutcome {
-  const RoutingEditorOutcome({required this.ok, this.message});
+  const RoutingEditorOutcome({required this.ok, this.message, this.schemes});
 
   final bool ok;
 
   /// User-facing error text; only set when [ok] is false.
   final String? message;
+
+  /// R4-14: schemes created by a backend action (currently the built-in
+  /// import) so the independent window can show them without a protocol
+  /// round-trip. Only set on success.
+  final List<RoutingSchemeSnapshot>? schemes;
 }
 
 /// Thrown when the routing window cannot read its starting snapshot from the
@@ -1575,6 +1587,22 @@ List<RoutingSchemeSnapshot> _decodeRoutingSchemes(Map<String, dynamic> map) =>
         if (entry is Map) routingSchemeFromJson(entry.cast<String, dynamic>()),
     ];
 
+/// R4-14: serialize schemes relayed back with a commit outcome (built-in
+/// import). Decode with [decodeRoutingSchemes]; an invalid payload is empty.
+String encodeRoutingSchemes(List<RoutingSchemeSnapshot> schemes) =>
+    jsonEncode({'schemes': schemes.map(routingSchemeToJson).toList()});
+
+List<RoutingSchemeSnapshot> decodeRoutingSchemes(String text) {
+  Object? decoded;
+  try {
+    decoded = jsonDecode(text);
+  } catch (_) {
+    return const <RoutingSchemeSnapshot>[];
+  }
+  if (decoded is! Map) return const <RoutingSchemeSnapshot>[];
+  return _decodeRoutingSchemes(decoded.cast<String, dynamic>());
+}
+
 /// Decoded routing draft (`{schemes, domainStrategy, domainStrategy4Singbox}`).
 class RoutingDraftDecoded {
   const RoutingDraftDecoded({
@@ -1657,6 +1685,8 @@ class RoutingWindowHost {
       'id': id,
       'ok': outcome.ok,
       'message': outcome.message,
+      if (outcome.schemes != null)
+        'schemes': encodeRoutingSchemes(outcome.schemes!),
     });
     return null;
   }
@@ -1759,10 +1789,14 @@ class NativeRoutingEditorHost implements RoutingEditorHost, RoutingCommitHost {
     final id = args['id'] as int?;
     final completer = id == null ? null : _pending.remove(id);
     if (completer != null && !completer.isCompleted) {
+      final schemesJson = args['schemes'] as String?;
       completer.complete(
         RoutingEditorOutcome(
           ok: args['ok'] == true,
           message: args['message'] as String?,
+          schemes: schemesJson == null
+              ? null
+              : decodeRoutingSchemes(schemesJson),
         ),
       );
     }
@@ -1835,6 +1869,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
   bool _busy = false;
   List<RoutingSchemeSnapshot> _schemes = const <RoutingSchemeSnapshot>[];
   String? _selectedId;
+  final Set<String> _selectedIds = <String>{};
   String _domainStrategy = '';
   String _domainStrategySbox = '';
   List<String> _outboundTags = const <String>[];
@@ -1878,28 +1913,92 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     _load();
   }
 
-  /// R4-12/D31: relay one upstream commit action through the host. On a host
-  /// that supports it the edit is persisted immediately and is NOT undone by a
-  /// later whole-window 取消; on a legacy/fake host the local draft is kept and
-  /// the whole-window 确定 still persists it.
-  Future<void> _commitAction(Map<String, dynamic> action) async {
+  /// R4-12/D31: relay one upstream commit action through the host. The edit is
+  /// persisted immediately and is NOT undone by a later whole-window 取消. The
+  /// local draft is mutated only after the host reports success (R4-14), so a
+  /// failed write/apply never changes in-memory state; on failure the error is
+  /// shown and the window stays open.
+  Future<void> _commitAction(
+    Map<String, dynamic> action, {
+    VoidCallback? onSuccess,
+  }) async {
     final Object host = widget.host;
     if (host is! RoutingCommitHost) {
       // Legacy/fake host: keep the change in the local draft; the whole-window
       // 确定 still persists it.
-      if (mounted) setState(() => _status = '有未保存的更改');
+      if (mounted) {
+        setState(() {
+          _status = '有未保存的更改';
+          onSuccess?.call();
+        });
+      }
       return;
     }
     final outcome = await host.commit(jsonEncode(action));
     if (!mounted) return;
+    if (!outcome.ok) {
+      setState(() {
+        _status = null;
+        _error = outcome.message ?? '保存路由设置失败';
+      });
+      return;
+    }
     setState(() {
-      if (outcome.ok) {
-        _error = null;
-        _status = '已保存';
-      } else {
-        _status = '有未保存的更改';
+      _error = null;
+      _status = '已保存';
+      final imported = outcome.schemes;
+      if (imported != null && imported.isNotEmpty) {
+        final ids = imported.map((s) => s.profile.id).toSet();
+        _schemes = <RoutingSchemeSnapshot>[
+          ..._schemes.where((s) => !ids.contains(s.profile.id)),
+          ...imported,
+        ]..sort((a, b) => a.profile.sort.compareTo(b.profile.sort));
+        _selectedIds.addAll(ids);
+        _selectedId ??= _schemes.isEmpty ? null : _schemes.first.profile.id;
       }
+      onSuccess?.call();
     });
+  }
+
+  /// Row click: plain click selects one; Ctrl toggles; Shift extends the range
+  /// from the primary row (upstream `SelectedSources` + Ctrl/Shift semantics).
+  void _onRowTap(String id) {
+    final keyboard = HardwareKeyboard.instance;
+    final ctrl = keyboard.isControlPressed || keyboard.isMetaPressed;
+    final shift = keyboard.isShiftPressed;
+    setState(() {
+      if (ctrl) {
+        if (!_selectedIds.add(id)) _selectedIds.remove(id);
+      } else if (shift && _selectedId != null) {
+        final ids = _schemes.map((s) => s.profile.id).toList();
+        final anchor = ids.indexOf(_selectedId!);
+        final target = ids.indexOf(id);
+        if (anchor >= 0 && target >= 0) {
+          final lo = anchor < target ? anchor : target;
+          final hi = anchor < target ? target : anchor;
+          _selectedIds.addAll(ids.sublist(lo, hi + 1));
+        }
+      } else {
+        _selectedIds
+          ..clear()
+          ..add(id);
+      }
+      _selectedId = id;
+    });
+  }
+
+  void _selectAll() {
+    setState(() {
+      _selectedIds
+        ..clear()
+        ..addAll(_schemes.map((s) => s.profile.id));
+      _selectedId ??= _schemes.isEmpty ? null : _schemes.first.profile.id;
+    });
+  }
+
+  void _setDefaultSelected() {
+    final id = _selectedId;
+    if (id != null) _setDefault(id);
   }
 
   Future<void> _openSchemeEditor(RoutingSchemeSnapshot? existing) async {
@@ -1909,60 +2008,73 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
       _outboundTags,
     );
     if (edited == null || !mounted) return;
-    setState(() {
-      if (existing == null) {
-        final id = edited.profile.id.isEmpty
-            ? 'new-${DateTime.now().microsecondsSinceEpoch}'
-            : edited.profile.id;
-        final profile = r.RoutingProfileDto(
-          id: id,
-          remarks: edited.profile.remarks,
-          url: edited.profile.url,
-          ruleSet: edited.profile.ruleSet,
-          ruleNum: edited.profile.ruleNum,
-          enabled: edited.profile.enabled,
-          locked: edited.profile.locked,
-          customIcon: edited.profile.customIcon,
-          customRulesetPath4Singbox: edited.profile.customRulesetPath4Singbox,
-          domainStrategy: edited.profile.domainStrategy,
-          domainStrategy4Singbox: edited.profile.domainStrategy4Singbox,
-          sort: edited.profile.sort,
-          isActive: _schemes.isEmpty,
-        );
-        _schemes = <RoutingSchemeSnapshot>[
-          ..._schemes,
-          RoutingSchemeSnapshot(profile: profile, rules: edited.rules),
-        ];
-        _selectedId = id;
-      } else {
-        _schemes = _schemes
-            .map(
-              (s) => s.profile.id == existing.profile.id
-                  ? RoutingSchemeSnapshot(
-                      profile: edited.profile,
-                      rules: edited.rules,
-                    )
-                  : s,
-            )
-            .toList();
-      }
-    });
     // Sub-editor 确定 commits immediately (upstream `SaveSettingsAsync`), so a
-    // later whole-window 取消 cannot discard it.
-    await _commitAction(<String, dynamic>{
-      'kind': 'saveScheme',
-      'scheme': routingSchemeToJson(edited),
-    });
+    // later whole-window 取消 cannot discard it. The local list is updated only
+    // after the host confirms the write+apply (R4-14).
+    await _commitAction(
+      <String, dynamic>{
+        'kind': 'saveScheme',
+        'scheme': routingSchemeToJson(edited),
+      },
+      onSuccess: () {
+        if (existing == null) {
+          final profile = r.RoutingProfileDto(
+            id: edited.profile.id,
+            remarks: edited.profile.remarks,
+            url: edited.profile.url,
+            ruleSet: edited.profile.ruleSet,
+            ruleNum: edited.profile.ruleNum,
+            enabled: edited.profile.enabled,
+            locked: edited.profile.locked,
+            customIcon: edited.profile.customIcon,
+            customRulesetPath4Singbox: edited.profile.customRulesetPath4Singbox,
+            domainStrategy: edited.profile.domainStrategy,
+            domainStrategy4Singbox: edited.profile.domainStrategy4Singbox,
+            sort: edited.profile.sort,
+            isActive: _schemes.isEmpty,
+          );
+          _schemes = <RoutingSchemeSnapshot>[
+            ..._schemes,
+            RoutingSchemeSnapshot(profile: profile, rules: edited.rules),
+          ];
+          _selectedId = profile.id;
+          _selectedIds.add(profile.id);
+        } else {
+          _schemes = _schemes
+              .map(
+                (s) => s.profile.id == existing.profile.id
+                    ? RoutingSchemeSnapshot(
+                        profile: edited.profile,
+                        rules: edited.rules,
+                      )
+                    : s,
+              )
+              .toList();
+        }
+      },
+    );
   }
 
-  Future<void> _deleteScheme(String id) async {
+  /// Delete every selected scheme (upstream `RoutingAdvancedRemoveAsync`
+  /// iterates `SelectedSources`). Each delete is committed on its own and
+  /// checked; the in-memory list changes only after all writes succeed.
+  Future<void> _deleteSelected() async {
+    final ids = _selectedIds.isEmpty
+        ? <String>[?_selectedId]
+        : _selectedIds.toList();
+    await _deleteSchemes(ids);
+  }
+
+  Future<void> _deleteSchemes(List<String> ids) async {
+    if (ids.isEmpty) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除路由方案', style: TextStyle(fontSize: 14)),
-        content: const Text('确定删除选中的路由方案吗？'),
+        content: Text('确定删除选中的 ${ids.length} 个路由方案吗？'),
         actions: <Widget>[
           TextButton(
+            key: const ValueKey('routing-delete-cancel'),
             onPressed: () => Navigator.pop(context, false),
             child: const Text('取消'),
           ),
@@ -1975,15 +2087,36 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    final wasActive = _schemes.any(
-      (s) => s.profile.id == id && s.profile.isActive,
-    );
+    final target = ids.toSet();
+    final Object host = widget.host;
+    if (host is RoutingCommitHost) {
+      for (final id in target) {
+        final outcome = await host.commit(
+          jsonEncode(<String, dynamic>{'kind': 'deleteScheme', 'id': id}),
+        );
+        if (!outcome.ok) {
+          if (mounted) {
+            setState(() {
+              _status = null;
+              _error = outcome.message ?? '删除路由方案失败';
+            });
+          }
+          return;
+        }
+      }
+    }
+    if (!mounted) return;
     setState(() {
-      _schemes = _schemes.where((s) => s.profile.id != id).toList();
+      final wasActive = _schemes.any(
+        (s) => target.contains(s.profile.id) && s.profile.isActive,
+      );
+      _schemes = _schemes.where((s) => !target.contains(s.profile.id)).toList();
+      _selectedIds.removeAll(target);
       if (_schemes.isNotEmpty && wasActive) {
+        final firstId = _schemes.first.profile.id;
         _schemes = _schemes
             .map(
-              (s) => s.profile.id == _schemes.first.profile.id
+              (s) => s.profile.id == firstId
                   ? RoutingSchemeSnapshot(
                       profile: _copyProfile(s.profile, isActive: true),
                       rules: s.rules,
@@ -1992,50 +2125,56 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
             )
             .toList();
       }
-      if (_selectedId == id) {
+      if (_selectedId != null && target.contains(_selectedId)) {
         _selectedId = _schemes.isEmpty ? null : _schemes.first.profile.id;
       }
+      _error = null;
+      _status = '已删除';
     });
-    await _commitAction(<String, dynamic>{'kind': 'deleteScheme', 'id': id});
   }
 
   Future<void> _setDefault(String id) async {
-    setState(() {
-      _schemes = _schemes
-          .map(
-            (s) => RoutingSchemeSnapshot(
-              profile: _copyProfile(s.profile, isActive: s.profile.id == id),
-              rules: s.rules,
-            ),
-          )
-          .toList();
-    });
-    await _commitAction(<String, dynamic>{'kind': 'setDefault', 'id': id});
+    await _commitAction(
+      <String, dynamic>{'kind': 'setDefault', 'id': id},
+      onSuccess: () {
+        _schemes = _schemes
+            .map(
+              (s) => RoutingSchemeSnapshot(
+                profile: _copyProfile(s.profile, isActive: s.profile.id == id),
+                rules: s.rules,
+              ),
+            )
+            .toList();
+      },
+    );
   }
 
   /// Strategy changes persist immediately (upstream `RoutingSettingViewModel.
   /// SaveSettingsAsync`), not on whole-window 确定.
   Future<void> _onStrategyChanged(String value, {required bool sbox}) async {
-    setState(() {
-      if (sbox) {
-        _domainStrategySbox = value;
-      } else {
-        _domainStrategy = value;
-      }
-    });
-    await _commitAction(<String, dynamic>{
-      'kind': 'strategy',
-      'domainStrategy': _domainStrategy,
-      'domainStrategySbox': _domainStrategySbox,
-    });
+    final nextStrategy = sbox ? _domainStrategy : value;
+    final nextSbox = sbox ? value : _domainStrategySbox;
+    await _commitAction(
+      <String, dynamic>{
+        'kind': 'strategy',
+        'domainStrategy': nextStrategy,
+        'domainStrategySbox': nextSbox,
+      },
+      onSuccess: () {
+        if (sbox) {
+          _domainStrategySbox = value;
+        } else {
+          _domainStrategy = value;
+        }
+      },
+    );
   }
 
+  /// Upstream `ConfigHandler.InitRouting(config, true)`: append the built-in
+  /// routing schemes through the backend use case. The relay returns the
+  /// imported schemes so the list updates without a protocol round-trip.
   Future<void> _importBuiltin() async {
-    // Upstream `ConfigHandler.InitRouting(config, true)`; the Rust import use
-    // case is a registered gap, so this is surfaced honestly.
-    if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)
-        ?.showSnackBar(const SnackBar(content: Text('内置规则集已刷新（导入后端用例待接入）')));
+    await _commitAction(<String, dynamic>{'kind': 'importBuiltin'});
   }
 
   Future<void> _ok() async {
@@ -2096,6 +2235,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     return CallbackShortcuts(
       bindings: <ShortcutActivator, VoidCallback>{
         const SingleActivator(LogicalKeyboardKey.escape): _cancel,
+        const SingleActivator(LogicalKeyboardKey.keyA, control: true):
+            _selectAll,
+        const SingleActivator(LogicalKeyboardKey.delete): _deleteSelected,
+        const SingleActivator(LogicalKeyboardKey.enter): _setDefaultSelected,
       },
       child: Focus(
         autofocus: true,
@@ -2168,10 +2311,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                             final scheme = _schemes[index];
                             return _SchemeRow(
                               item: scheme.profile,
-                              selected: scheme.profile.id == _selectedId,
-                              onTap: () => setState(
-                                () => _selectedId = scheme.profile.id,
+                              selected: _selectedIds.contains(
+                                scheme.profile.id,
                               ),
+                              onTap: () => _onRowTap(scheme.profile.id),
                               onEdit: () => _openSchemeEditor(scheme),
                               onContextMenu: (position) => _showRowMenu(
                                 context,
@@ -2267,7 +2410,20 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     Offset globalPosition,
     r.RoutingProfileDto item,
   ) async {
-    setState(() => _selectedId = item.id);
+    final keyboard = HardwareKeyboard.instance;
+    final ctrl = keyboard.isControlPressed || keyboard.isMetaPressed;
+    setState(() {
+      // Right-click on a selected row keeps the multi-selection; on an
+      // unselected row it becomes the single selection.
+      if (!ctrl && !_selectedIds.contains(item.id)) {
+        _selectedIds
+          ..clear()
+          ..add(item.id);
+      } else {
+        _selectedIds.add(item.id);
+      }
+      _selectedId = item.id;
+    });
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final action = await showMenu<String>(
       context: context,
@@ -2279,7 +2435,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
         const PopupMenuItem<String>(value: 'add', child: Text('添加规则集')),
         PopupMenuItem<String>(
           value: 'remove',
-          enabled: item.remarks.isNotEmpty,
+          enabled: _selectedIds.isNotEmpty,
           child: const Text('移除所选规则'),
         ),
         PopupMenuItem<String>(
@@ -2288,6 +2444,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
           child: const Text('设为活动规则'),
         ),
         const PopupMenuDivider(),
+        const PopupMenuItem<String>(value: 'selectAll', child: Text('全选')),
         const PopupMenuItem<String>(value: 'import', child: Text('一键导入规则集')),
       ],
     );
@@ -2296,9 +2453,11 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
       case 'add':
         await _openSchemeEditor(null);
       case 'remove':
-        await _deleteScheme(item.id);
+        await _deleteSelected();
       case 'default':
         await _setDefault(item.id);
+      case 'selectAll':
+        _selectAll();
       case 'import':
         await _importBuiltin();
     }
@@ -2691,7 +2850,9 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
     }
     final existing = widget.scheme?.profile;
     final profile = r.RoutingProfileDto(
-      id: existing?.id ?? '',
+      // A new scheme carries a stable id before it is committed, so the relayed
+      // save and the window's local list agree on the row identity.
+      id: existing?.id ?? 'rt-${DateTime.now().microsecondsSinceEpoch}',
       remarks: _remarks.text.trim(),
       url: _url.text.trim(),
       ruleSet: RoutingController.rulesToRuleSetJson(_rules),

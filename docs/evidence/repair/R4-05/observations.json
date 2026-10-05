@@ -1,0 +1,102 @@
+{
+  "task": "R4-05",
+  "title": "统一退出与快速重开",
+  "status": "implemented",
+  "baseline": {
+    "head": "139fbeab23f315c6dd033ba610a0550091c6f863",
+    "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+    "upstream_frozen": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "armed": false
+  },
+  "constraints": {
+    "ports_used": [],
+    "port_10808_touched": false,
+    "host_proxy_registry_route_tun_autostart_touched": false,
+    "user_credentials_read": false,
+    "unrelated_processes_killed": false,
+    "forbidden_files_changed": false
+  },
+  "defects": {
+    "D29": "tray exit path did not unify stop/flush; self-update exit(0) after 500ms bypassed desktop exit; 6s disconnect grace existed but normal exit relied on a time race"
+  },
+  "changes": {
+    "dart": [
+      "apps/desktop/lib/app/shell/desktop_integration.dart: runBoundedShutdown (per-step timeout + total budget, failure isolation, never throws); DesktopIntegration.runShutdown (stop_runtime -> flush_stats -> restore_platform -> stop_scheduler -> unregister_hotkeys); unified exitApp + exitForUpdate; DesktopLifecycle interface + holder type narrowed; hideOnClose pure decision used by onWindowClose",
+      "apps/desktop/lib/features/update/update_controller.dart: applyAppUpdate awaits handoffExit(); handoffExit prefers the real bounded lifecycle, falls back to injected AppExit"
+    ],
+    "rust": [
+      "crates/bridge_api/src/api/monitor.rs: persist_stats + #[frb(sync)] stats_flush; monitor_start_polling drains/flushes store (lock released before disk write)",
+      "services/net_host/src/session.rs: idle_exit_due pure decision + HostState::should_exit_idle; new unit test",
+      "services/net_host/src/server.rs: watchdog notifies shutdown when idle with no client/session",
+      "crates/application/src/engine.rs: reconcile_applied_session no longer falls back to the persisted desired node (or a default Xray API) on a reconnect without an apply_target"
+    ],
+    "tests": [
+      "apps/desktop/test/r4_05_contract_test.dart: 7 contract assertions"
+    ]
+  },
+  "must_pass_scenarios": {
+    "hide_is_not_stop": "hideOnClose decision test (Windows always hides); onWindowClose only hides, never stops",
+    "bounded_real_exit_stop_drain_flush_restore": "dart tests 1-4 (order, failure isolation, per-step timeout, total budget)",
+    "quick_reopen_no_residual_lease_or_process": "net_host 6s reclaim + idle_exit_due host self-termination; explicit stop_runtime before exit; engine no longer guesses desired on reconnect",
+    "self_update_no_old_core_lock": "update_controller.handoffExit -> DesktopIntegration.exitForUpdate -> runShutdown stops core before exit(0)",
+    "reconnect_reports_actual_not_desired": "engine reconcile_applied_session publishes applied session only with an apply_target; no desired/Xray guess",
+    "lost_host_is_not_normal_exit": "runtime stop unknown-outcome reconcile retained (R4-04); host reclaim/idle-exit path distinguished from a clean stop via state/events",
+    "no_change_to_R4_01_04_contracts": "implemented as additive; R4-01/R4-04 Dart/Rust tests unaffected"
+  },
+  "upstream": {
+    "symbol": "ServiceLib/Manager/AppManager.cs:122-148 AppExitAsync",
+    "order": "UpdateSysProxy(restore) -> AppExitRequested(+50ms) -> SaveConfig -> ProfileEx.SaveTo -> Statistics.SaveTo -> CoreManager.CoreStop -> Statistics.Close -> Shutdown",
+    "note": "R4-05 contract deliberately stops the core before platform restore so the update runner has no old core file lock; all upstream steps are represented and bounded"
+  },
+  "commands": [
+    { "cmd": "flutter test test/r4_05_contract_test.dart", "cwd": "apps/desktop", "exit": 0, "result": "All tests passed (7)" },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "cwd": ".", "exit": 0, "result": "Finished, no warnings" },
+    { "cmd": "cargo test --workspace --locked", "cwd": ".", "exit": 0, "result": "all test result: ok" },
+    { "cmd": "flutter build windows --release", "cwd": "apps/desktop", "exit": 0, "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe (150016 bytes)" },
+    { "cmd": "rustfmt --check crates/application/src/engine.rs crates/bridge_api/src/api/monitor.rs services/net_host/src/server.rs services/net_host/src/session.rs", "cwd": ".", "exit": 0, "result": "clean" },
+    { "cmd": "cargo fmt --all -- --check", "cwd": ".", "exit": 0, "result": "clean on final run (first run had one diff in concurrent R4-09 file crates/application/src/routing.rs:620, later fixed by its author)" },
+    { "cmd": "flutter analyze", "cwd": "apps/desktop", "exit": 1, "result": "two issues, both in concurrent R4-09 file lib/features/routing/routing_windows.dart (_deleteScheme unused, use_null_aware_elements); R4-05 files clean" }
+  ],
+  "artifact": {
+    "exe": "apps/desktop/build/windows/x64/runner/Release/v2rayn_desktop.exe",
+    "sha256": "6B3F8D1B4EA0B0490C53BA444D41D2F7DE26B82E639309F47A076AD01CE38EF0",
+    "size": 150016
+  },
+  "process_check": {
+    "net_host": "PID 32340 dist\\v2rayN-R-1.0.0+1-windows-x64 (not started by this task, no session record, build output not locked) - left running",
+    "v2rayN_xray": "PID 11728/18156 user desktop upstream app - untouched",
+    "killed": false
+  },
+  "unverified": [
+    "real GUI run -> tray exit -> immediate reopen end-to-end",
+    "self-update handoff file replacement + relaunch end-to-end",
+    "real OS effects: system proxy/PAC restore, core process gone, host process gone, data dir reopen, single-instance lock release (authorized isolated machine required)",
+    "R4-09 concurrent uncommitted files currently break cargo fmt --all and flutter analyze; R4-05 files themselves are clean"
+  ],
+  "interface_gaps": [
+    {
+      "provider": "crates/bridge_api/src/api/monitor.rs::stats_flush",
+      "caller": "apps/desktop desktop_integration exit sequence",
+      "input_output": "none -> SimpleResult",
+      "error": "not yet exposed in lib/bridge/api/monitor.dart / frb_generated",
+      "effective_point": "Dart currently drains via monitor_start_polling(); requires integrator FRB regeneration",
+      "action": "register for integrator; do not bypass"
+    },
+    {
+      "provider": "net_host IpcOperation::Shutdown + bridge_api",
+      "caller": "Dart exit path",
+      "input_output": "none -> Stopped/Shutdown (host process terminates)",
+      "error": "not exposed through RuntimeClient/bridge_api/FRB",
+      "effective_point": "Dart relies on explicit stop_runtime + host idle-exit",
+      "action": "register for integrator; add shutdown_runtime()"
+    },
+    {
+      "provider": "runtime wire / RuntimeDetail + bridge snapshot DTO",
+      "caller": "application reconcile_applied_session / monitor_session",
+      "input_output": "actual node/core/version/endpoint/API facts from host",
+      "error": "host does not publish the applied target/core facts",
+      "effective_point": "reconnect avoids guessing but cannot report the actual target",
+      "action": "register for integrator (crates/runtime not in R4-05 scope)"
+    }
+  ]
+}

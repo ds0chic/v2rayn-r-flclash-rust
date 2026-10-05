@@ -4,9 +4,14 @@
 // `tester.view.devicePixelRatio` is the scale and `tester.view.physicalSize`
 // is the physical monitor pixel count, so the logical layout size stays
 // `physical / dpr`. This file is intentionally not named `*_test.dart`.
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:v2rayn_desktop/app/shell/main_shell.dart';
+import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
+
+import 'profiles_harness.dart';
 
 /// Fails when the frame produced an overflow/exception or clipped a paragraph.
 ///
@@ -84,3 +89,69 @@ void applyDpi(WidgetTester tester, double scale, Size logical) {
 String dpiLabel(double scale, Size logical) =>
     '${logical.width.toInt()}x${logical.height.toInt()} '
     '@${(scale * 100).round()}%';
+
+/// One shell DPI case per file: build the real [MainShell] once, then sweep the
+/// supported logical sizes and all three layouts at [scale]. The 100% file also
+/// asserts the 800x600 control floor. Splitting by scale keeps each
+/// flutter_tester process light enough to avoid the locked engine's
+/// post-heavy-build segfault (see docs/evidence/T01.md).
+Future<void> runShellDpiCase(WidgetTester tester, double scale) async {
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  final container = makeContainer(rows: 6);
+  addTearDown(container.dispose);
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: const MaterialApp(home: MainShell()),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 20));
+
+  final shell = container.read(uiShellControllerProvider.notifier);
+  for (final logical in kLogicalSizes) {
+    applyDpi(tester, scale, logical);
+    for (final layout in AppLayoutMode.values) {
+      shell.setLayout(layout);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      expectNoLayoutProblems(
+        tester,
+        'main shell ${dpiLabel(scale, logical)} ${layout.name}',
+        // Node-table data cells ellipsize by design; chrome is checked below.
+        ignoreText: (text) => true,
+      );
+      expectChromeNotTruncated(
+        tester,
+        'main shell ${dpiLabel(scale, logical)} ${layout.name}',
+      );
+    }
+  }
+
+  if (scale != 1.0) return;
+  // Toolbar / status-bar controls stay hittable at the logical floor.
+  applyDpi(tester, 1.0, const Size(800, 600));
+  shell.setLayout(AppLayoutMode.vertical);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 20));
+  for (final key in <String>[
+    'layout-selector',
+    'theme-toggle',
+    'filter-field',
+    'status-proxy-speed',
+    'status-inbound',
+    'tun-toggle',
+  ]) {
+    final finder = find.byKey(ValueKey<String>(key));
+    expect(finder, findsWidgets, reason: 'missing $key at 800x600');
+    await tester.ensureVisible(finder.first);
+    await tester.pump();
+    expect(
+      finder.hitTestable(),
+      findsWidgets,
+      reason: 'unreachable $key at 800x600',
+    );
+  }
+}

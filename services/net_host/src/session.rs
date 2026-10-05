@@ -500,6 +500,22 @@ impl HostState {
         )
     }
 
+    /// Whether the host has been idle long enough to terminate itself so a real
+    /// exit leaves no residual service process. Never true while a managed
+    /// session, TUN lease or test session is outstanding: the core tree must be
+    /// gone first, so this can only run after the reclaim path.
+    pub async fn should_exit_idle(&self) -> bool {
+        let inner = self.inner.lock().await;
+        idle_exit_due(
+            inner.session.is_some(),
+            inner.tun_lease.is_some(),
+            inner.test_sessions.len(),
+            inner.active_connections,
+            inner.no_client_since,
+            self.config.disconnect_grace,
+        )
+    }
+
     /// Snapshot of runtime facts for an IPC `GetSnapshot`.
     pub async fn ipc_snapshot(&self) -> RuntimeSnapshot {
         let inner = self.inner.lock().await;
@@ -2193,6 +2209,38 @@ fn reclaim_due(
         .unwrap_or(false)
 }
 
+/// Minimum idle time before the host terminates itself. Longer than the lease
+/// reclaim grace so a quick reopen within the NSI same-version window still
+/// reuses the process; short enough that a real exit leaves no residual
+/// service.
+const IDLE_EXIT_MIN: Duration = Duration::from_secs(15);
+
+/// Pure idle-exit decision (unit-testable without a process or runtime).
+///
+/// The host terminates itself only after every client is gone for at least
+/// `max(grace, IDLE_EXIT_MIN)` and no managed session, TUN lease or test
+/// session remains. A running core keeps it alive regardless of the client.
+fn idle_exit_due(
+    has_session: bool,
+    has_tun_lease: bool,
+    test_sessions: usize,
+    active_connections: usize,
+    no_client_since: Option<Instant>,
+    grace: Duration,
+) -> bool {
+    if has_session || has_tun_lease || test_sessions > 0 || active_connections > 0 {
+        return false;
+    }
+    let threshold = if grace > IDLE_EXIT_MIN {
+        grace
+    } else {
+        IDLE_EXIT_MIN
+    };
+    no_client_since
+        .map(|since| since.elapsed() >= threshold)
+        .unwrap_or(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2224,6 +2272,40 @@ mod tests {
         let long_ago = Instant::now() - Duration::from_millis(7000);
         assert!(base(true, 0, Some(long_ago)));
         assert!(!base(true, 0, None));
+    }
+
+    fn idle(
+        has_session: bool,
+        has_tun_lease: bool,
+        test_sessions: usize,
+        active: usize,
+        no_client_since: Option<Instant>,
+    ) -> bool {
+        idle_exit_due(
+            has_session,
+            has_tun_lease,
+            test_sessions,
+            active,
+            no_client_since,
+            Duration::from_millis(6000),
+        )
+    }
+
+    #[test]
+    fn idle_exit_requires_no_client_and_no_work_after_min() {
+        let min_ago = Instant::now() - IDLE_EXIT_MIN - Duration::from_secs(1);
+        let short_ago = Instant::now() - Duration::from_secs(7);
+        // No client, no work, idle long enough -> exit.
+        assert!(idle(false, false, 0, 0, Some(min_ago)));
+        // Only just past the reclaim grace, not the idle minimum yet.
+        assert!(!idle(false, false, 0, 0, Some(short_ago)));
+        // A connected client or outstanding work always keeps it alive.
+        assert!(!idle(false, false, 0, 1, Some(min_ago)));
+        assert!(!idle(true, false, 0, 0, Some(min_ago)));
+        assert!(!idle(false, true, 0, 0, Some(min_ago)));
+        assert!(!idle(false, false, 1, 0, Some(min_ago)));
+        // Never had a client -> stay up.
+        assert!(!idle(false, false, 0, 0, None));
     }
 
     #[test]

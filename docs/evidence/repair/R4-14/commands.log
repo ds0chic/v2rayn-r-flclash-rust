@@ -1,0 +1,48 @@
+# R4-14 command log
+# HEAD 139fbea, app baseline 77c74ed, upstream 7d6a967, armed=false
+# Shell: Windows PowerShell 7. Flutter C:\Users\Colby\toolchains\flutter\bin\flutter.bat
+# Rust   C:\Users\Colby\.cargo\bin\cargo.exe
+# workdir: repo root unless noted
+
+[1] cargo fmt --all -- --check
+    exit 0
+    "FMT OK"   # after `cargo fmt --all`
+    # reformatted crates/application/src/routing.rs test assertion only
+
+[2] cargo clippy --workspace --all-targets --locked -- -D warnings
+    exit 0
+    "Finished `dev` profile ... in 5.59s"
+
+[3] cargo test --workspace --locked
+    exit 0
+    # application: 6 routing tests incl. builtin_import_appends_without_touching_default
+    # bridge_api: r4_14_import_tests
+    #   import_builtin_routing_appends_three_schemes ... ok
+    #   import_builtin_routing_rejects_external_template ... ok
+    # all other workspace suites "0 failed"
+
+[4] flutter analyze
+    exit 0
+    "No issues found! (ran in 3.4s)"
+
+[5] flutter test test/r4_14_contract_test.dart
+    exit 0
+    "00:01 +5: All tests passed!"
+    # cases:
+    #  1. import button commits '"kind":"importBuiltin"' and shows V4- schemes
+    #  2. failed commit leaves list unchanged, shows routing-error
+    #  3. Ctrl+A + Delete removes all selected via per-scheme delete commits
+    #  4. sub-editor 确定 commits immediately; 取消 saveCalls==0 closeCalls==1
+    #  5. strategy change commits immediately
+
+[6] flutter build windows --release
+    exit 0
+    "Building Windows application... 46.9s"
+    "√ Built build\windows\x64\runner\Release\v2rayn_desktop.exe"
+    # no project exe was running / holding the lock before the build
+
+# Environment: no native library loaded, no core started, no port listened,
+# 10808 untouched, no system proxy/route/TUN/registry/autostart change.
+# Note: other agents held concurrent edits in the shared worktree during this
+# run (engine.rs, profiles/*, monitor, R4-05, R4-09); this card touched only
+# its allowed files.

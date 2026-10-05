@@ -1014,4 +1014,47 @@ mod tests {
             .unwrap();
         assert_eq!(old_stat.len(), 1);
     }
+
+    #[test]
+    fn paging_follows_cursor_over_ten_thousand_rows() {
+        // R4-09 / D09: a store larger than one page must be read through the
+        // real cursor without truncation or a fabricated end-of-list.
+        let repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let total = 10_000usize;
+        let profiles: Vec<Profile> = (0..total)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i as u32 + 1);
+                p.subid = "bulk".to_string();
+                p
+            })
+            .collect();
+        let (added, _) = repo.replace_for_sub("bulk", profiles, true, false).unwrap();
+        assert_eq!(added, total);
+
+        let page_size = 500u32;
+        let mut cursor = 0usize;
+        let mut seen = 0usize;
+        let mut pages = 0usize;
+        loop {
+            let page = repo
+                .query(
+                    &crate::repository::ProfileFilter::default(),
+                    crate::repository::ProfileSort::IndexId,
+                    crate::repository::PageRequest { cursor, page_size },
+                )
+                .unwrap();
+            assert!(page.items.len() <= page_size as usize, "page stays bounded");
+            seen += page.items.len();
+            pages += 1;
+            match page.next_cursor {
+                Some(next) => {
+                    assert!(next > cursor, "cursor must advance");
+                    cursor = next;
+                }
+                None => break,
+            }
+        }
+        assert_eq!(seen, total, "every row is read, none truncated");
+        assert!(pages > 1, "large store is read in bounded pages");
+    }
 }

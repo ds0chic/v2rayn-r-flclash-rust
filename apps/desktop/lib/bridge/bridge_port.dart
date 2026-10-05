@@ -41,7 +41,37 @@ abstract class BridgePort {
   List<ProfileSummary> fetchSummaries(int count);
 
   /// Every profile currently stored, used by the editor and batch actions.
+  ///
+  /// Implementations must follow the store's real cursor across bounded pages;
+  /// a store larger than one page is never truncated (D09).
   List<c.ProfileDto> queryAllProfiles();
+
+  /// One bounded page of node-table summaries through the real Rust cursor.
+  /// [pageSize] must stay bounded; the store's own `nextCursor` is surfaced
+  /// unchanged (no fabricated end-of-list).
+  ProfileSummaryPage querySummaryPage({
+    int cursor = 0,
+    int pageSize = kProfileQueryPageSize,
+    String? text,
+    String? subid,
+  });
+
+  /// Every node-table summary assembled by following [querySummaryPage]'s real
+  /// cursor to exhaustion, so a store larger than one page is never truncated.
+  List<ProfileSummary> queryAllSummaries({String? text, String? subid});
+
+  /// One structural read of the profile store (ordered base rows + full DTOs
+  /// from the same pass). Used by reload so it does not query the table twice.
+  ProfileSnapshot fetchProfileSnapshot(
+    int count, {
+    String? text,
+    String? subid,
+  });
+
+  /// Re-join the live speedtest result + statistics overlay onto [base] without
+  /// re-reading the profile table. This is the speedtest poll path, so the
+  /// 150 ms cadence never re-runs the full summary query (D08).
+  List<ProfileSummary> applyLiveOverlay(List<ProfileSummary> base);
 
   /// One full profile by stable id, if present.
   c.ProfileDto? getProfile(String id);
@@ -357,43 +387,103 @@ class FrbBridgePort implements BridgePort {
 
   @override
   List<ProfileSummary> fetchSummaries(int count) {
-    // Read back the persisted display order (`ProfileExItem.Sort`) so a
-    // reload, a speedtest poll or a reopen no longer falls back to the
-    // `queryAllProfiles` index-id order. The result store's list order already
-    // encodes `Sort`; ids never ordered keep their profile order (appended).
+    final snapshot = fetchProfileSnapshot(count);
+    return applyLiveOverlay(snapshot.summaries);
+  }
+
+  @override
+  ProfileSummaryPage querySummaryPage({
+    int cursor = 0,
+    int pageSize = kProfileQueryPageSize,
+    String? text,
+    String? subid,
+  }) {
+    final page = engine.queryProfiles(
+      filter: c.ProfileFilterDto(
+        text: text,
+        configTypes: const [],
+        subid: subid,
+      ),
+      sort: c.ProfileSortDto.indexId,
+      cursor: BigInt.from(cursor),
+      pageSize: pageSize,
+    );
+    return ProfileSummaryPage(
+      items: page.items.map(dtoToSummary).toList(growable: false),
+      total: page.total.toInt(),
+      nextCursor: page.nextCursor?.toInt(),
+    );
+  }
+
+  @override
+  List<ProfileSummary> queryAllSummaries({String? text, String? subid}) {
+    final out = <ProfileSummary>[];
+    var cursor = 0;
+    for (;;) {
+      final page = querySummaryPage(cursor: cursor, text: text, subid: subid);
+      out.addAll(page.items);
+      final next = page.nextCursor;
+      if (next == null || next <= cursor || page.items.isEmpty) break;
+      cursor = next;
+    }
+    return out;
+  }
+
+  @override
+  ProfileSnapshot fetchProfileSnapshot(
+    int count, {
+    String? text,
+    String? subid,
+  }) {
+    // One cursor-following read of the stored profiles; the persisted display
+    // order (`ProfileExItem.Sort`) is applied from the same pass, so a reload
+    // never falls back to index-id order and never reads the table twice.
+    final profiles = queryAllProfiles();
     final results = speedTestResults();
-    final rows = orderByPersistedSort(
-      queryAllProfiles().map(dtoToSummary).toList(),
+    final summaries = orderByPersistedSort(
+      profiles.map(dtoToSummary).toList(),
       results.map((r) => r.indexId).toList(),
     );
+    return ProfileSnapshot(summaries: summaries, profiles: profiles);
+  }
+
+  @override
+  List<ProfileSummary> applyLiveOverlay(List<ProfileSummary> base) {
     // Join the live monitor `ServerStatItem` rows onto the table
     // (upstream `ProfilesViewModel.GetProfileItemsEx`: join on IndexId). The
     // snapshot is a read-only view of the background statistics collection, so
     // reading it never pauses collection or depends on page visibility.
     // Upstream shows no traffic at all when statistics are disabled, so the
     // overlay is skipped in that case instead of fabricating zero rows.
+    final results = speedTestResults();
     final stats = monitor.statsSnapshot();
-    return applySpeedTestOverlay(
-      stats.enabled
-          ? applyNodeStatsOverlay(rows, stats.nodes.map(nodeStatFromDto))
-          : rows,
-      results,
-    );
+    final rows = stats.enabled
+        ? applyNodeStatsOverlay(base, stats.nodes.map(nodeStatFromDto))
+        : base;
+    return applySpeedTestOverlay(rows, results);
   }
 
   @override
   List<c.ProfileDto> queryAllProfiles() {
-    final page = engine.queryProfiles(
-      filter: const c.ProfileFilterDto(
-        text: null,
-        configTypes: [],
-        subid: null,
-      ),
-      sort: c.ProfileSortDto.indexId,
-      cursor: BigInt.zero,
-      pageSize: 100000,
-    );
-    return page.items;
+    final out = <c.ProfileDto>[];
+    var cursor = 0;
+    for (;;) {
+      final page = engine.queryProfiles(
+        filter: const c.ProfileFilterDto(
+          text: null,
+          configTypes: [],
+          subid: null,
+        ),
+        sort: c.ProfileSortDto.indexId,
+        cursor: BigInt.from(cursor),
+        pageSize: kProfileQueryPageSize,
+      );
+      out.addAll(page.items);
+      final next = page.nextCursor?.toInt();
+      if (next == null || next <= cursor || page.items.isEmpty) break;
+      cursor = next;
+    }
+    return out;
   }
 
   @override
@@ -1035,6 +1125,7 @@ class SyntheticBridgePort implements BridgePort {
 
   final int count;
   List<ProfileSummary>? _rows;
+  int _summaryCount = 0;
   final List<c.ProfileDto> _profiles = <c.ProfileDto>[];
   bool _seeded = false;
   int _revision = 0;
@@ -1106,6 +1197,7 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   List<ProfileSummary> generate(int count) {
+    _summaryCount = count;
     _rows = List<ProfileSummary>.generate(count, _build);
     return _rows!;
   }
@@ -1183,7 +1275,67 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   List<ProfileSummary> fetchSummaries(int count) {
-    var rows = orderByPersistedSort(generate(count), _persistedOrder);
+    final snapshot = fetchProfileSnapshot(count);
+    return applyLiveOverlay(snapshot.summaries);
+  }
+
+  @override
+  ProfileSummaryPage querySummaryPage({
+    int cursor = 0,
+    int pageSize = kProfileQueryPageSize,
+    String? text,
+    String? subid,
+  }) {
+    // Synthetic equivalent of the Rust cursor: slice the generated base rows
+    // and expose a real (not fabricated) next cursor at each page boundary.
+    final rows = fetchSummaries(_summaryCount);
+    final start = cursor < 0 ? 0 : cursor;
+    if (start >= rows.length) {
+      return ProfileSummaryPage(
+        items: const <ProfileSummary>[],
+        total: rows.length,
+        nextCursor: null,
+      );
+    }
+    final end = (start + pageSize).clamp(start, rows.length);
+    return ProfileSummaryPage(
+      items: rows.sublist(start, end),
+      total: rows.length,
+      nextCursor: end < rows.length ? end : null,
+    );
+  }
+
+  @override
+  List<ProfileSummary> queryAllSummaries({String? text, String? subid}) {
+    final out = <ProfileSummary>[];
+    var cursor = 0;
+    for (;;) {
+      final page = querySummaryPage(cursor: cursor, text: text, subid: subid);
+      out.addAll(page.items);
+      final next = page.nextCursor;
+      if (next == null || next <= cursor || page.items.isEmpty) break;
+      cursor = next;
+    }
+    return out;
+  }
+
+  @override
+  ProfileSnapshot fetchProfileSnapshot(
+    int count, {
+    String? text,
+    String? subid,
+  }) {
+    _ensureProfiles();
+    final summaries = orderByPersistedSort(generate(count), _persistedOrder);
+    return ProfileSnapshot(
+      summaries: summaries,
+      profiles: List<c.ProfileDto>.of(_profiles),
+    );
+  }
+
+  @override
+  List<ProfileSummary> applyLiveOverlay(List<ProfileSummary> base) {
+    var rows = base;
     if (statsEnabled) {
       rows = applyNodeStatsOverlay(rows, _nodeStats.values);
     }

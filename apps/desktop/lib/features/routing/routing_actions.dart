@@ -126,15 +126,24 @@ Future<RoutingEditorOutcome> _applyRoutingDraft(
   }
   for (final item in current) {
     if (!draftIds.contains(item.id)) {
-      controller.delete(item.id);
+      final result = controller.delete(item.id);
+      if (!result.ok) {
+        return _actionError(result.error?.messageKey);
+      }
     }
   }
   final settings = ref.read(settingsControllerProvider.notifier);
-  settings.saveGroup('RoutingBasicItem', <String, dynamic>{
-    ...ref.read(settingsControllerProvider).group('RoutingBasicItem'),
-    'DomainStrategy': decoded.domainStrategy,
-    'DomainStrategy4Singbox': decoded.domainStrategySbox,
-  });
+  final settingsResult = settings.saveGroup(
+    'RoutingBasicItem',
+    <String, dynamic>{
+      ...ref.read(settingsControllerProvider).group('RoutingBasicItem'),
+      'DomainStrategy': decoded.domainStrategy,
+      'DomainStrategy4Singbox': decoded.domainStrategySbox,
+    },
+  );
+  if (!settingsResult.ok) {
+    return const RoutingEditorOutcome(ok: false, message: '保存路由策略失败');
+  }
   String? previousActive;
   for (final item in current) {
     if (item.isActive) {
@@ -144,17 +153,19 @@ Future<RoutingEditorOutcome> _applyRoutingDraft(
   }
   final activeChanged = activeId.isNotEmpty && activeId != previousActive;
   if (activeChanged && current.any((e) => e.id == activeId)) {
-    await controller.setDefaultAndReload(activeId);
-  } else {
-    await ref.read(runtimeControllerProvider.notifier).reload();
+    final result = controller.setDefault(activeId);
+    if (!result.ok) {
+      return _actionError(result.error?.messageKey);
+    }
   }
-  return const RoutingEditorOutcome(ok: true);
+  return _reloadAfterCommit(ref);
 }
 
 /// One transactional original-upstream routing action relayed from the
-/// independent window (R4-12/D31). Each case persists on its own; a failure
-/// returns an error and leaves the window open without rolling back earlier
-/// completed actions.
+/// independent window (R4-12/D31, R4-14). Each case persists on its own and
+/// only reports success after the write *and* the reload outcome are known; a
+/// failure returns an error and the caller must leave its in-memory state
+/// unchanged.
 Future<RoutingEditorOutcome> _applyRoutingAction(
   WidgetRef ref,
   Map<String, dynamic> action,
@@ -169,20 +180,21 @@ Future<RoutingEditorOutcome> _applyRoutingAction(
       final scheme = routingSchemeFromJson(rawScheme.cast<String, dynamic>());
       final result = controller.save(scheme.profile);
       if (!result.ok) {
-        return RoutingEditorOutcome(
-          ok: false,
-          message: _routingErrorMessage(result.error?.messageKey),
-        );
+        return _actionError(result.error?.messageKey);
       }
-      await ref.read(runtimeControllerProvider.notifier).reload();
-      return const RoutingEditorOutcome(ok: true);
+      return _reloadAfterCommit(ref);
     case 'deleteScheme':
-      controller.delete(action['id'] as String? ?? '');
-      await ref.read(runtimeControllerProvider.notifier).reload();
-      return const RoutingEditorOutcome(ok: true);
+      final result = controller.delete(action['id'] as String? ?? '');
+      if (!result.ok) {
+        return _actionError(result.error?.messageKey);
+      }
+      return _reloadAfterCommit(ref);
     case 'setDefault':
-      await controller.setDefaultAndReload(action['id'] as String? ?? '');
-      return const RoutingEditorOutcome(ok: true);
+      final result = controller.setDefault(action['id'] as String? ?? '');
+      if (!result.ok) {
+        return _actionError(result.error?.messageKey);
+      }
+      return _reloadAfterCommit(ref);
     case 'strategy':
       final settings = ref.read(settingsControllerProvider.notifier);
       final group = Map<String, dynamic>.of(
@@ -191,18 +203,73 @@ Future<RoutingEditorOutcome> _applyRoutingAction(
       group['DomainStrategy'] = action['domainStrategy'] as String? ?? '';
       group['DomainStrategy4Singbox'] =
           action['domainStrategySbox'] as String? ?? '';
-      settings.saveGroup('RoutingBasicItem', group);
-      await ref.read(runtimeControllerProvider.notifier).reload();
-      return const RoutingEditorOutcome(ok: true);
+      final result = settings.saveGroup('RoutingBasicItem', group);
+      if (!result.ok) {
+        return const RoutingEditorOutcome(ok: false, message: '保存路由策略失败');
+      }
+      return _reloadAfterCommit(ref);
+    case 'importBuiltin':
+      final before = ref
+          .read(routingControllerProvider)
+          .items
+          .map((item) => item.id)
+          .toSet();
+      final result = controller.importBuiltin();
+      if (!result.ok) {
+        return _actionError(result.error?.messageKey);
+      }
+      final reload = await _reloadAfterCommit(ref);
+      if (!reload.ok) return reload;
+      final bridge = ref.read(bridgePortProvider);
+      final imported = <RoutingSchemeSnapshot>[
+        for (final item in ref.read(routingControllerProvider).items)
+          if (!before.contains(item.id))
+            RoutingSchemeSnapshot(
+              profile: item,
+              rules: bridge.listRoutingRules(item.id).rules,
+            ),
+      ];
+      return RoutingEditorOutcome(ok: true, schemes: imported);
     default:
       return const RoutingEditorOutcome(ok: false, message: '未知的路由操作');
   }
 }
 
+/// Reload the runtime after a successful routing write and report whether the
+/// change actually took effect, so a codegen/check failure is never shown as a
+/// successful commit (upstream closes `IsModified` → Reload).
+Future<RoutingEditorOutcome> _reloadAfterCommit(WidgetRef ref) async {
+  await ref.read(runtimeControllerProvider.notifier).reload();
+  final runtime = ref.read(runtimeControllerProvider);
+  if (runtime.error != null) {
+    return RoutingEditorOutcome(
+      ok: false,
+      message:
+          '已保存，但重载失败: ${runtime.error!.code} (${runtime.error!.messageKey})',
+    );
+  }
+  if (runtime.hasUnappliedChanges) {
+    return RoutingEditorOutcome(
+      ok: false,
+      message: '已保存，但重载未生效（${runtime.revisionLabel}）',
+    );
+  }
+  return const RoutingEditorOutcome(ok: true);
+}
+
+RoutingEditorOutcome _actionError(String? key) =>
+    RoutingEditorOutcome(ok: false, message: _routingErrorMessage(key));
+
 String _routingErrorMessage(String? key) {
   switch (key) {
     case 'error.routing_delete_failed':
       return '删除路由方案失败';
+    case 'error.routing_external_template':
+      return '已配置外部模板地址，无法离线导入；请检查模板 URL 后重试';
+    case 'error.routing_rules_empty':
+      return '导入失败：模板中没有可用规则';
+    case 'error.routing_rules_invalid':
+      return '导入失败：规则模板无法解析';
     case 'error.routing_save_failed':
     default:
       return '保存路由设置失败';

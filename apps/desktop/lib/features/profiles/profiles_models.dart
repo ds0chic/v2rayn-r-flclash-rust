@@ -1,3 +1,4 @@
+import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 
 /// Column model for the 14-column profile table (LAY-PROFILES-002).
@@ -403,4 +404,36 @@ int _compare(Object? a, Object? b) {
   final sa = a?.toString() ?? '';
   final sb = b?.toString() ?? '';
   return sa.compareTo(sb);
+}
+
+/// Bounded page size used when following the real Rust profile cursor. A large
+/// store is read in windows instead of one sibling `pageSize = 100000` request
+/// that silently dropped the store's own cursor (D09).
+const int kProfileQueryPageSize = 500;
+
+/// One page of node-table summaries from a real cursor query. Mirrors the Rust
+/// `ProfilePageDto`: [nextCursor] is whatever the store really returned (`null`
+/// means exhausted), never a fabricated end-of-list.
+class ProfileSummaryPage {
+  const ProfileSummaryPage({
+    required this.items,
+    required this.total,
+    this.nextCursor,
+  });
+
+  final List<ProfileSummary> items;
+  final int total;
+  final int? nextCursor;
+
+  bool get hasMore => nextCursor != null;
+}
+
+/// One structural read of the profile store: the ordered node-table base rows
+/// (before the live speedtest/statistics overlay) plus the full DTOs from the
+/// same pass, so a refresh does not query the table twice.
+class ProfileSnapshot {
+  const ProfileSnapshot({required this.summaries, required this.profiles});
+
+  final List<ProfileSummary> summaries;
+  final List<c.ProfileDto> profiles;
 }

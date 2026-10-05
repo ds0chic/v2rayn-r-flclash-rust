@@ -1,0 +1,88 @@
+{
+  "task": "R4-09",
+  "title": "真实数据分页与增量",
+  "status": "implemented",
+  "commit": "139fbea",
+  "armed": false,
+  "kernel": "none",
+  "ports_touched": [],
+  "host_proxy_modified": false,
+  "credentials_used": false,
+  "fixtures": [
+    "synthetic ProfileSummary/ProfileDto (dart)",
+    "crates/application/src/synthetic.rs synthetic_full_profile"
+  ],
+  "defects": {
+    "D08": {
+      "before": "bridge_port.dart fetchSummaries queryAllProfiles + controller queryAllProfiles = two full reads; 150ms poll calls reload()",
+      "after": "fetchProfileSnapshot = one cursor read (base rows + DTOs); poll uses applyLiveOverlay on cached base only"
+    },
+    "D09": {
+      "before": "queryAllProfiles pageSize=100000, nextCursor dropped",
+      "after": "cursor-following loop with kProfileQueryPageSize=500; querySummaryPage surfaces real nextCursor"
+    }
+  },
+  "new_bridge_surface": [
+    "ProfileSummaryPage querySummaryPage({cursor,pageSize,text,subid})",
+    "List<ProfileSummary> queryAllSummaries({text,subid})",
+    "ProfileSnapshot fetchProfileSnapshot(count,{text,subid})",
+    "List<ProfileSummary> applyLiveOverlay(base)"
+  ],
+  "frb_regen_required": false,
+  "commands": [
+    {
+      "cmd": "flutter analyze",
+      "exit": 1,
+      "result": "2 issues only in lib/features/routing/routing_windows.dart (R4-14 owner, forbidden to edit)"
+    },
+    {
+      "cmd": "flutter analyze lib/bridge/bridge_port.dart lib/features/profiles/profiles_models.dart lib/features/profiles/profiles_controller.dart test/r4_09_contract_test.dart",
+      "exit": 0,
+      "result": "No issues found!"
+    },
+    {
+      "cmd": "flutter test test/r4_09_contract_test.dart",
+      "exit": 0,
+      "result": "7 passed, 0 failed"
+    },
+    {
+      "cmd": "cargo fmt --all -- --check",
+      "exit": 0,
+      "result": "no diff"
+    },
+    {
+      "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+      "exit": 0,
+      "result": "Finished, no errors/warnings"
+    },
+    {
+      "cmd": "cargo test --workspace --locked",
+      "exit": 101,
+      "result": "only crates/application/tests/t18b_runtime_e2e.rs 2 real-core/local-service e2e failed; new store_repo paging test ok"
+    },
+    {
+      "cmd": "flutter build windows --release",
+      "exit": null,
+      "result": "not run"
+    }
+  ],
+  "contract_tests": {
+    "real_cursor_bounded_page": "pass",
+    "no_truncation_over_100k": "pass",
+    "single_full_read_on_reload": "pass",
+    "group_filter_sort_no_reread": "pass",
+    "poll_incremental_results_not_lost": "pass",
+    "stale_search_dropped": "pass",
+    "page_boundary_selection_range": "pass",
+    "rust_10k_paging_no_truncation": "pass"
+  },
+  "blockers": [
+    "full flutter analyze exit 1 due to concurrent R4-14 routing_windows.dart warnings (not owned)",
+    "t18b_runtime_e2e real-core tests fail without xray/local service (not caused by R4-09)",
+    "flutter build windows --release not run"
+  ],
+  "gaps": [
+    "row-level virtualization data window (load only visible page) not implemented; rendering already virtualized",
+    "100k/100k+ only exercised through a virtual paged fake in Dart; Rust store test covers 10k"
+  ]
+}

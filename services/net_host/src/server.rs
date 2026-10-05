@@ -243,6 +243,14 @@ pub async fn watchdog(state: Arc<HostState>) {
                 .bus
                 .emit_named("heartbeat", json!({"host": "net_host"}));
         }
+        // R4-05: once every client is gone and no core/lease/test session
+        // remains, terminate so a real exit leaves no residual service. A
+        // reopened GUI within the idle window still reuses this process.
+        if state.should_exit_idle().await {
+            eprintln!("[net_host] idle with no client/session; shutting down");
+            state.shutdown.notify_one();
+            break;
+        }
     }
 }
 

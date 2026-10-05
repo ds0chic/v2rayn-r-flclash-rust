@@ -400,13 +400,92 @@ pub fn move_routing_rule(routing_id: String, index: u32, direction: i32) -> Rout
     }
 }
 
+/// `import_builtin_routing` — upstream `ConfigHandler.InitRouting(config, true)`
+/// built-in branch: append the three built-in routing schemes.
+///
+/// An explicitly configured external template (`ConstItem.
+/// RouteRulesTemplateSourceUrl`) cannot be fetched from a synchronous call, so
+/// it is reported as an explicit error and no scheme is written, instead of
+/// silently importing built-ins and pretending success.
+#[frb(sync)]
+pub fn import_builtin_routing() -> RoutingRulesTextResult {
+    if let Ok(loaded) = engine().load_settings() {
+        if let Some(url) =
+            application::dns::effective_routing_template_source(&loaded.settings.const_item)
+        {
+            return RoutingRulesTextResult {
+                ok: false,
+                text: String::new(),
+                rule_count: 0,
+                error: Some(err_dto(
+                    DomainError::new(
+                        domain::codes::UNAVAILABLE,
+                        "error.routing_external_template",
+                    )
+                    .with_detail(url),
+                )),
+            };
+        }
+    }
+    let existing = match engine().list_routings() {
+        Ok(items) => items,
+        Err(e) => {
+            return RoutingRulesTextResult {
+                ok: false,
+                text: String::new(),
+                rule_count: 0,
+                error: Some(err_dto(e)),
+            };
+        }
+    };
+    let profiles = application::routing::builtin_import_profiles(&existing);
+    if profiles.is_empty() {
+        return RoutingRulesTextResult {
+            ok: false,
+            text: String::new(),
+            rule_count: 0,
+            error: Some(err_dto(DomainError::new(
+                domain::codes::INTERNAL,
+                "error.routing_rules_empty",
+            ))),
+        };
+    }
+    let mut total = 0u32;
+    for profile in profiles {
+        match engine().save_routing(profile) {
+            Ok(saved) => total += saved.rule_num.max(0) as u32,
+            Err(e) => {
+                return RoutingRulesTextResult {
+                    ok: false,
+                    text: String::new(),
+                    rule_count: total,
+                    error: Some(err_dto(e)),
+                };
+            }
+        }
+    }
+    RoutingRulesTextResult {
+        ok: true,
+        text: String::new(),
+        rule_count: total,
+        error: None,
+    }
+}
+
 /// `import_routing_rules` — parse text and append/replace on the profile.
+///
+/// R4-14: an empty `routing_id` is the `一键导入规则集` entry point
+/// (`ConfigHandler.InitRouting(config, true)`); per-profile imports always carry
+/// a real id, so the empty-id branch cannot collide with them.
 #[frb(sync)]
 pub fn import_routing_rules(
     routing_id: String,
     text: String,
     replace: bool,
 ) -> RoutingRulesTextResult {
+    if routing_id.trim().is_empty() {
+        return import_builtin_routing();
+    }
     match engine().import_routing_rules(&routing_id, &text, replace) {
         Ok(saved) => RoutingRulesTextResult {
             ok: true,
@@ -506,5 +585,73 @@ pub fn set_rule_mode(mode: String) -> SimpleResult {
             ok: false,
             error: Some(err_dto(e)),
         },
+    }
+}
+
+#[cfg(test)]
+mod r4_14_import_tests {
+    use super::*;
+
+    /// R4-14: `一键导入规则集` appends the three built-in schemes without
+    /// touching the active/default scheme, and an empty-id
+    /// `import_routing_rules` routes to the same use case.
+    #[test]
+    fn import_builtin_routing_appends_three_schemes() {
+        let _guard = crate::api::engine::engine_test_lock();
+        let loaded = engine().load_settings().expect("load");
+        let mut settings = loaded.settings;
+        settings.const_item.route_rules_template_source_url = None;
+        engine()
+            .save_settings(settings, loaded.revision)
+            .expect("clear template");
+        let before = list_routings();
+        let before_len = before.items.len();
+        let before_active = before
+            .items
+            .iter()
+            .find(|item| item.is_active)
+            .map(|item| item.id.clone());
+
+        let result = import_routing_rules(String::new(), String::new(), true);
+        assert!(result.ok, "unexpected: {:?}", result.error.map(|e| e.code));
+        assert!(result.rule_count > 0);
+
+        let after = list_routings();
+        assert_eq!(after.items.len(), before_len + 3);
+        let after_active = after
+            .items
+            .iter()
+            .find(|item| item.is_active)
+            .map(|item| item.id.clone());
+        assert_eq!(after_active, before_active);
+    }
+
+    /// An external template URL cannot be fetched synchronously: the import is
+    /// an explicit error and writes nothing.
+    #[test]
+    fn import_builtin_routing_rejects_external_template() {
+        let _guard = crate::api::engine::engine_test_lock();
+        let loaded = engine().load_settings().expect("load");
+        let mut settings = loaded.settings;
+        settings.const_item.route_rules_template_source_url =
+            Some("https://example.invalid/routing.json".to_string());
+        engine()
+            .save_settings(settings, loaded.revision)
+            .expect("set template");
+        let before = list_routings().items.len();
+        let result = import_builtin_routing();
+        assert!(!result.ok);
+        assert_eq!(
+            result.error.as_ref().map(|e| e.message_key.as_str()),
+            Some("error.routing_external_template")
+        );
+        assert_eq!(list_routings().items.len(), before);
+        // Restore the default so later tests see an unset template.
+        let loaded = engine().load_settings().expect("reload");
+        let mut settings = loaded.settings;
+        settings.const_item.route_rules_template_source_url = None;
+        engine()
+            .save_settings(settings, loaded.revision)
+            .expect("restore");
     }
 }

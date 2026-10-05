@@ -469,6 +469,34 @@ pub fn stats_snapshot() -> StatsSnapshotDto {
     })
 }
 
+/// Drain the in-memory statistics rows into the persistent store.
+///
+/// The rows and the store handle are copied under the hub lock, then the write
+/// happens after the lock is released (the same D25 seam the poller uses) so a
+/// slow disk cannot block `stats_snapshot`/`get_logs`.
+fn persist_stats(h: &MonitorHub) -> Result<(), domain::DomainError> {
+    persist_rows(&h.stats.store_handle(), &h.stats.snapshot_rows())
+}
+
+/// Flush the statistics store before a real exit (R4-05).
+///
+/// A reopen must see the final counters instead of losing the last interval.
+/// A store failure is returned as a structured error, never reported as a
+/// successful flush.
+#[frb(sync)]
+pub fn stats_flush() -> SimpleResult {
+    match with_hub(|h| persist_stats(h)) {
+        Ok(()) => SimpleResult {
+            ok: true,
+            error: None,
+        },
+        Err(e) => SimpleResult {
+            ok: false,
+            error: Some(domain_error(e)),
+        },
+    }
+}
+
 /// `ClearAllServerStatistics`: clear memory + persisted rows.
 #[frb(sync)]
 pub fn clear_stats() -> SimpleResult {
@@ -1322,7 +1350,16 @@ fn rebind_store(
 /// session's ports.
 #[frb(sync)]
 pub fn monitor_start_polling() {
-    with_hub(|h| sync_from_engine_session(h));
+    // R4-05: a stop/switch clears the session; drain the in-memory rows into
+    // the persistent store before the UI exits so the last interval survives a
+    // reopen. A store failure is recorded readably, never hidden.
+    let flush = with_hub(|h| {
+        sync_from_engine_session(h);
+        persist_stats(h)
+    });
+    if let Err(error) = flush {
+        with_hub(|h| h.store_error = Some(ErrorDto::from(error)));
+    }
     POLL_STARTED.get_or_init(|| {
         let shared = Arc::clone(hub());
         let _ = std::thread::Builder::new()

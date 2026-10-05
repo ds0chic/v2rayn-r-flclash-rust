@@ -330,6 +330,15 @@ class ProfilesController extends Notifier<ProfilesState> {
   int _seq = 0;
   Timer? _testPoller;
 
+  /// Ordered base rows (before the live speedtest/statistics overlay) from the
+  /// last structural read. The 150 ms poll re-applies the overlay onto this
+  /// cached base instead of re-reading the whole profile table (D08).
+  List<ProfileSummary> _baseSummaries = const <ProfileSummary>[];
+
+  /// Latest accepted table-query generation. A newer reload/search bumps it so
+  /// a late (older) page result can never overwrite a newer one.
+  int _queryGeneration = 0;
+
   /// Node ids covered by the last started speedtest job; used to summarize the
   /// run when it settles (progress rows alone are not a completion verdict).
   List<String> _speedTestTargets = const <String>[];
@@ -342,7 +351,9 @@ class ProfilesController extends Notifier<ProfilesState> {
   @override
   ProfilesState build() {
     final count = ref.read(profileRowCountProvider);
-    final rows = _bridge.fetchSummaries(count);
+    final snapshot = _bridge.fetchProfileSnapshot(count);
+    _baseSummaries = snapshot.summaries;
+    final rows = _bridge.applyLiveOverlay(snapshot.summaries);
     final columns = _applyStoredLayout(defaultProfileColumns());
     ref.onDispose(() => _testPoller?.cancel());
     return ProfilesState(
@@ -355,7 +366,7 @@ class ProfilesController extends Notifier<ProfilesState> {
       doubleClick2Activate: false,
       rustCount: _bridge.rustProfileCount(),
       columns: columns,
-      profiles: _bridge.queryAllProfiles(),
+      profiles: snapshot.profiles,
       activeId: _bridge.getActiveProfile(),
     );
   }
@@ -367,7 +378,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   void _startTestPolling() {
     _testPoller?.cancel();
     _testPoller = Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      reload();
+      _refreshLive();
       if (_bridge.speedTestActiveJobs() == 0) {
         timer.cancel();
         _testPoller = null;
@@ -516,17 +527,47 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// hidden nodes from another group into the visible set (PR-18).
   void reload() {
     final count = ref.read(profileRowCountProvider);
-    final rows = _bridge.fetchSummaries(count);
+    // One structural read of the store: the ordered base rows and the full
+    // DTOs come from the same cursor-following pass, so a reload no longer
+    // queries the whole table twice (D08/D09).
+    final snapshot = _bridge.fetchProfileSnapshot(count);
+    _baseSummaries = snapshot.summaries;
+    final rows = _bridge.applyLiveOverlay(snapshot.summaries);
     final active = _bridge.getActiveProfile();
+    _queryGeneration++;
     state = _recompute(
       state.copyWith(
         all: rows,
-        profiles: _bridge.queryAllProfiles(),
+        profiles: snapshot.profiles,
         activeId: active,
         clearActive: active == null,
       ),
     );
     _log('reload', 'profiles=${state.profiles.length} rows=${rows.length}');
+  }
+
+  /// Incremental refresh used by the speedtest poll: re-join the live result +
+  /// statistics overlay onto the cached base rows without re-reading the
+  /// profile table. Results are read fresh every tick, so none are lost.
+  void _refreshLive() {
+    if (_baseSummaries.isEmpty) {
+      reload();
+      return;
+    }
+    final rows = _bridge.applyLiveOverlay(_baseSummaries);
+    state = _recompute(state.copyWith(all: rows));
+  }
+
+  /// Async search entry with a generation guard: a newer query bumps the
+  /// generation, so an older in-flight result is dropped instead of
+  /// overwriting the latest one (the "old search must not cover new results"
+  /// contract). The bridge read itself stays synchronous; the guard is what
+  /// makes a future async page loader safe.
+  Future<void> search(String query) async {
+    final generation = ++_queryGeneration;
+    await Future<void>.value();
+    if (generation != _queryGeneration) return;
+    state = _recompute(state.copyWith(filter: query, filterInput: query));
   }
 
   /// Persist a draft through the real bridge (optimistic revision).
@@ -888,6 +929,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// `ServerFilterChanged`, which only refreshes on clear, plus Enter submit
   /// ([updateFilterInput]/[submitFilter]).
   void setFilter(String value) {
+    _queryGeneration++;
     state = _recompute(state.copyWith(filter: value, filterInput: value));
   }
 
@@ -899,6 +941,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// `RefreshServers`). Clearing the box refreshes immediately.
   void updateFilterInput(String value) {
     if (value.trim().isEmpty) {
+      _queryGeneration++;
       state = _recompute(state.copyWith(filter: '', filterInput: value));
       _log('refresh', 'filter="" -> ${state.visible.length}');
       return;
@@ -909,6 +952,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// Commit the pending filter-box text (Enter). The query is applied to the
   /// current group through the same [applyFilter] used by every refresh.
   void submitFilter() {
+    _queryGeneration++;
     state = _recompute(state.copyWith(filter: state.filterInput));
     _log('refresh', 'filter="${state.filter}" -> ${state.visible.length}');
   }

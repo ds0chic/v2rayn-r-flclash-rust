@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:system_tray/system_tray.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:v2rayn_desktop/app/shell/tray_menu_model.dart';
+import 'package:v2rayn_desktop/bridge/api/monitor.dart' as monitor;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
@@ -36,17 +37,87 @@ class CloseBehavior {
   }
 }
 
+/// One bounded step of the real-exit sequence.
+typedef ShutdownStep = Future<void> Function();
+
+/// Outcome of a bounded shutdown. Failures are reported, never thrown.
+class ShutdownReport {
+  ShutdownReport();
+
+  /// Steps that completed within their timeout, in order.
+  final List<String> completed = <String>[];
+
+  /// Step name -> human-readable failure reason (thrown or timed out).
+  final Map<String, String> failures = <String, String>{};
+
+  bool get ok => failures.isEmpty;
+}
+
+/// Run [steps] in order with a per-step timeout and a total budget.
+///
+/// A step that throws or times out is recorded and the sequence continues, so
+/// platform ownership (system proxy / PAC) is still restored even when the core
+/// stop failed. Once [totalBudget] is spent the remaining steps are marked
+/// skipped instead of hanging. This never throws.
+Future<ShutdownReport> runBoundedShutdown(
+  List<MapEntry<String, ShutdownStep>> steps, {
+  Duration stepTimeout = const Duration(seconds: 5),
+  Duration totalBudget = const Duration(seconds: 15),
+  DateTime Function()? clock,
+}) async {
+  final now = clock ?? DateTime.now;
+  final report = ShutdownReport();
+  final started = now();
+  for (final step in steps) {
+    if (now().difference(started) >= totalBudget) {
+      report.failures[step.key] = 'skipped: shutdown budget exhausted';
+      continue;
+    }
+    try {
+      await step.value().timeout(stepTimeout);
+      report.completed.add(step.key);
+    } on TimeoutException {
+      report.failures[step.key] =
+          'timeout after ${stepTimeout.inMilliseconds}ms';
+    } on Object catch (e) {
+      report.failures[step.key] = e.toString();
+    }
+  }
+  return report;
+}
+
+/// Lifecycle surface the app exposes to exit/hand-off callers. Kept narrow so a
+/// test double can stand in for the real tray/window integration.
+abstract class DesktopLifecycle {
+  Future<void> hideToTray();
+  Future<void> exitApp();
+  Future<void> exitForUpdate();
+  void removeListener();
+}
+
 /// The real desktop integration: tray icon + menu, window show/hide, global
 /// hotkeys, autostart and exit restore.
 ///
 /// Instantiated only by the release app's bootstrap (never in widget tests), so
 /// every plugin call here is a real OS interaction gated behind a user action.
-class DesktopIntegration with WindowListener {
+class DesktopIntegration with WindowListener implements DesktopLifecycle {
   DesktopIntegration(this.ref);
 
   final WidgetRef ref;
   final SystemTray _tray = SystemTray();
   bool _started = false;
+
+  /// Per-step bound and overall budget of the real-exit sequence (R4-05).
+  Duration shutdownStepTimeout = const Duration(seconds: 5);
+  Duration shutdownTotalBudget = const Duration(seconds: 15);
+
+  /// Statistics drain/flush hook. Production wires the Rust monitor drain;
+  /// tests inject a recorder. A null hook means "no flush available", which is
+  /// reported as a skipped step rather than silently treated as flushed.
+  Future<void> Function()? flushStats;
+
+  bool _exiting = false;
+  bool _updateExiting = false;
 
   /// Shared-read-model tray sync (RR-08). Null until [start] wires it.
   TrayMenuSync? _sync;
@@ -116,6 +187,14 @@ class DesktopIntegration with WindowListener {
   /// decision, not a live toggle.
   static bool shouldHideOnStartup(Map<String, dynamic> document) =>
       CloseBehavior.fromDocument(document).autoHideStartup;
+
+  /// Whether the window close button hides to the tray. Hiding is never a stop
+  /// (ROOT-04 / RT-13 / ACT-WIN-001): Windows WPF always hides; other platforms
+  /// follow the `Hide2TrayWhenClose` opt-in. `true` means hide, not quit.
+  static bool hideOnClose({
+    required bool isWindows,
+    required bool hide2TrayWhenClose,
+  }) => isWindows || hide2TrayWhenClose;
 
   /// Hide the already-created window. The Win32 embedder shows the window from
   /// its first-frame callback, so hide once now (tray already exists) and again
@@ -195,6 +274,9 @@ class DesktopIntegration with WindowListener {
 
   /// ACT-WIN-002: the 关闭 menu entry hides the window to the tray (the same
   /// semantics as the window close button when `Hide2TrayWhenClose` is on).
+  ///
+  /// Hiding is never a stop: the managed core and platform state keep running.
+  @override
   Future<void> hideToTray() async {
     await windowManager.hide();
   }
@@ -354,33 +436,95 @@ class DesktopIntegration with WindowListener {
   /// (ACT-WIN-001 / upstream `MainWindow_Closing` `e.Cancel = true`).
   @override
   void onWindowClose() async {
-    // Windows WPF: X always hides to tray. Other platforms follow the Avalonia
-    // `Hide2TrayWhenClose` opt-in (ROOT-04 / RT-13).
-    if (Platform.isWindows) {
-      await windowManager.hide();
-      return;
-    }
     final behavior = CloseBehavior.fromDocument(
       ref.read(settingsControllerProvider).document,
     );
-    if (behavior.hide2TrayWhenClose) {
+    if (hideOnClose(
+      isWindows: Platform.isWindows,
+      hide2TrayWhenClose: behavior.hide2TrayWhenClose,
+    )) {
+      // Hiding keeps the core and platform state running: a close button is
+      // never a real exit (only the tray/菜单 exit path stops/restores).
       await windowManager.hide();
     } else {
       await windowManager.destroy();
     }
   }
 
-  /// Exit path (ACT-TRAY-013 / ACT-WIN-002): restore the system proxy per field,
-  /// then quit.
-  Future<void> exitApp() async {
+  /// Statistics drain on exit. The Rust monitor sync + flush persists the last
+  /// interval so a reopen reads the final counters instead of losing them.
+  Future<void> _defaultFlushStats() async {
+    monitor.monitorStartPolling();
+  }
+
+  /// The one real-exit sequence (ACT-TRAY-013 / ACT-WIN-002 / R4-05):
+  /// stop the managed core, drain/flush statistics, restore platform ownership
+  /// (system proxy + PAC), stop the subscription scheduler and unregister
+  /// hotkeys. Every step is bounded; a failure is reported, never hidden.
+  ///
+  /// Order follows the R4-05 contract: stop -> drain -> flush -> platform
+  /// restore, so a handed-off runner never inherits a core that still holds
+  /// files, and the system proxy is not left pointing at a dead endpoint.
+  Future<ShutdownReport> runShutdown() {
     final mode = ref.read(platformControllerProvider).desiredMode;
-    _platform.stopPac();
-    _platform.restoreOnExit(mode);
-    await ref.read(hotkeyControllerProvider.notifier).unregisterAll();
+    final flush = flushStats ?? _defaultFlushStats;
+    return runBoundedShutdown(
+      <MapEntry<String, ShutdownStep>>[
+        MapEntry('stop_runtime', () async {
+          await ref.read(runtimeControllerProvider.notifier).stop();
+        }),
+        MapEntry('flush_stats', () async {
+          await flush();
+        }),
+        MapEntry('restore_platform', () async {
+          _platform.stopPac();
+          _platform.restoreOnExit(mode);
+        }),
+        MapEntry('stop_scheduler', () async {
+          ref.read(bridgePortProvider).stopSubScheduler();
+        }),
+        MapEntry('unregister_hotkeys', () async {
+          await ref.read(hotkeyControllerProvider.notifier).unregisterAll();
+        }),
+      ],
+      stepTimeout: shutdownStepTimeout,
+      totalBudget: shutdownTotalBudget,
+    );
+  }
+
+  /// Exit path (ACT-TRAY-013 / ACT-WIN-002): the bounded real-exit sequence
+  /// then destroy the window. An incomplete cleanup is surfaced, not swallowed.
+  @override
+  Future<void> exitApp() async {
+    if (_exiting) return;
+    _exiting = true;
+    final report = await runShutdown();
+    if (!report.ok) {
+      debugPrint('[desktop] exit cleanup incomplete: ${report.failures}');
+      _platform.setMessage('退出清理未完成: ${report.failures.keys.join(', ')}');
+    }
     await windowManager.destroy();
   }
 
+  /// Self-update hand-off (R4-05): run the same bounded shutdown so the core is
+  /// stopped and statistics are flushed before the runner replaces files, then
+  /// exit the process the runner waits on. A cleanup failure is logged and the
+  /// exit still proceeds (the runner's result is the user-visible signal).
+  @override
+  Future<void> exitForUpdate() async {
+    if (_updateExiting) return;
+    _updateExiting = true;
+    final report = await runShutdown();
+    if (!report.ok) {
+      debugPrint(
+        '[desktop] update handoff cleanup incomplete: ${report.failures}',
+      );
+    }
+    exit(0);
+  }
+
   /// Detach the window listener and stop the tray read-model subscriptions.
+  @override
   void removeListener() {
     for (final sub in _subscriptions) {
       sub.close();
@@ -484,7 +628,7 @@ class _SystemTraySurface implements TraySurface {
 /// real OS action read it and fall back to an honest status message when the
 /// holder is empty.
 class DesktopIntegrationHolder {
-  DesktopIntegration? value;
+  DesktopLifecycle? value;
 }
 
 final desktopIntegrationProvider = Provider<DesktopIntegrationHolder>(

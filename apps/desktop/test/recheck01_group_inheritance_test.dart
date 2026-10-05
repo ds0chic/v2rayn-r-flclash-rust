@@ -4,6 +4,7 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
 import 'package:v2rayn_desktop/features/subs/import_persistence.dart';
 
@@ -18,6 +19,23 @@ class StoredBridge extends SyntheticBridgePort {
     final stored = queryAllProfiles();
     if (stored.isEmpty) return super.fetchSummaries(count);
     return stored.map(dtoToSummary).toList();
+  }
+
+  /// R4-09: the controller now reads the store through the paged snapshot
+  /// seam; keep the same "stored profiles win over generated rows" contract
+  /// for saved/imported nodes.
+  @override
+  ProfileSnapshot fetchProfileSnapshot(
+    int count, {
+    String? text,
+    String? subid,
+  }) {
+    final stored = queryAllProfiles();
+    if (stored.isEmpty) return super.fetchProfileSnapshot(count);
+    return ProfileSnapshot(
+      summaries: stored.map(dtoToSummary).toList(),
+      profiles: stored,
+    );
   }
 }
 

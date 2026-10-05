@@ -1,0 +1,37 @@
+{
+  "task": "R4-14",
+  "head": "139fbea",
+  "app_baseline": "77c74ed",
+  "armed": false,
+  "fixture": "in-memory RoutingEditorHost/CommitHost widget fakes + in-memory engine (cargo unit tests)",
+  "kernel": "none",
+  "ports_touched": [],
+  "system_changes": "none (no proxy/route/TUN/registry/autostart; 127.0.0.1:10808 untouched)",
+  "upstream": {
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "RoutingSettingViewModel": "strategy auto-save on change; sub-editor dialog true -> RefreshRoutingItems + IsModified; remove/setDefault/import -> refresh + IsModified; IsModified drives Reload on close",
+    "ConfigHandler.InitRouting(config,true)": "builtin branch appends V4- whitelist/blacklist/global; external branch downloads RouteRulesTemplateSourceUrl and falls back to builtin; advanced import never changes the default scheme"
+  },
+  "deliverables": {
+    "commit_points_restored": "R4-12 retained: sub-editor 确定 / strategy change commit immediately; the independent window relays each as its own transactional use case; closing no longer needs to flush a whole draft because every commit already reloads",
+    "builtin_import_real": "implemented: bridge import_routing_rules with an empty routing id -> import_builtin_routing -> application::routing::builtin_import_profiles -> engine.save_routing; wired in the embedded button and the independent window importBuiltin action; imported schemes relayed back and shown",
+    "transactional_commits": "implemented: save/delete/setDefault/strategy/import check the write result and the reload outcome; the window mutates local state only after success, a failed write/apply leaves in-memory state unchanged and shows the error",
+    "multi_select": "independent window: Ctrl/Shift row selection, Ctrl+A, Delete, Enter(Set default), 全选 menu, multi-delete via per-scheme commits; embedded fallback dialog still single-select (gap logged)",
+    "fix08c_non_regression": "import/export camelCase + Custom exclusion untouched; RoutingController.parseImportedRuleDtos/rulesToRuleSetJson unchanged"
+  },
+  "commands": [
+    { "cmd": "cargo fmt --all -- --check", "exit": 0, "result": "clean (formatted first)" },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "exit": 0, "result": "no warnings" },
+    { "cmd": "cargo test --workspace --locked", "exit": 0, "result": "all crates green; new application routing + bridge r4_14 tests pass" },
+    { "cmd": "flutter analyze", "exit": 0, "result": "No issues found" },
+    { "cmd": "flutter test test/r4_14_contract_test.dart", "exit": 0, "result": "5/5 passed" },
+    { "cmd": "flutter build windows --release", "exit": 0, "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe" }
+  ],
+  "status": "implemented",
+  "gaps": [
+    "FRB regeneration required to expose a dedicated import_builtin_routing binding directly in Dart; currently reached through import_routing_rules with an empty routing id, and no generated file was edited",
+    "embedded fallback RoutingSettingWindow remains single-select; multi-select is implemented only in the independent top-level window",
+    "external RouteRulesTemplateSourceUrl import returns an explicit offline error; the async fetch path is left for the interface integrator",
+    "real platform effect (codegen + core + traffic) not run: OS-side effect unverified"
+  ]
+}

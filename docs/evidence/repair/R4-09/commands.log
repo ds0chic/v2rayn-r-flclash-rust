@@ -1,0 +1,31 @@
+# R4-09 command log (Windows PowerShell 7, 2026-10-05)
+
+flutter analyze
+  -> EXIT=1; only lib/features/routing/routing_windows.dart:2061 unused_element,
+     :2070 use_null_aware_elements (R4-14 routing owner; R4-09 forbidden to edit).
+
+flutter analyze lib/bridge/bridge_port.dart lib/features/profiles/profiles_models.dart lib/features/profiles/profiles_controller.dart test/r4_09_contract_test.dart
+  -> No issues found! EXIT=0
+
+flutter test test/r4_09_contract_test.dart
+  -> 00:00 +7: All tests passed! (7 passed, 0 failed)
+
+cargo fmt --all -- --check
+  -> no output (no diff) EXIT=0
+
+cargo clippy --workspace --all-targets --locked -- -D warnings
+  -> Finished `dev` profile ... EXIT=0 (no errors/warnings)
+
+cargo test -p application paging_follows_cursor_over_ten_thousand_rows --locked
+  -> test store_repo::tests::paging_follows_cursor_over_ten_thousand_rows ... ok
+  -> test result: ok. 1 passed; 0 failed (finished in 2.00s)
+
+cargo test --workspace --locked
+  -> all pass except crates/application/tests/t18b_runtime_e2e.rs:
+     FAILED routing_domain_rule_direct_vs_block_differs (t18b_runtime_e2e.rs:573)
+     FAILED xray_socks_and_http_outbounds_reach_local_service (t18b_runtime_e2e.rs:483)
+     error: test failed, to rerun pass `-p application --test t18b_runtime_e2e`
+     (real xray core / local service required; unrelated to R4-09)
+
+flutter build windows --release
+  -> NOT RUN (full analyze not green due to R4-14 file; build would fail on it)

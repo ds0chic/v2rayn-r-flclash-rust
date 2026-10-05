@@ -226,6 +226,27 @@ pub async fn fetch_rules_text(
         .map(|d| d.body)
 }
 
+/// Plan the `一键导入规则集` advanced import (upstream
+/// `ConfigHandler.InitBuiltinRouting(config, true)`).
+///
+/// The advanced import appends the three built-in schemes instead of
+/// short-circuiting on an existing store, and never changes the active/default
+/// scheme. Sorts continue after the current maximum; every profile gets a fresh
+/// id and fresh rule ids through [`normalize_routing`].
+pub fn builtin_import_profiles(existing: &[RoutingProfile]) -> Vec<RoutingProfile> {
+    let base = existing.len() as i32;
+    domain::routing::builtin_profiles()
+        .into_iter()
+        .enumerate()
+        .filter_map(|(offset, (mut profile, _))| {
+            profile.id = new_routing_id();
+            profile.sort = base + offset as i32 + 1;
+            profile.is_active = false;
+            normalize_routing(profile).ok()
+        })
+        .collect()
+}
+
 /// Import rules from text with replace/append semantics.
 /// Returns the merged rule list (unsaved; the caller persists the profile).
 pub fn merge_imported_rules(
@@ -578,6 +599,43 @@ mod tests {
         assert_eq!(back[0].domain, Some(vec!["geosite:cn".to_string()]));
         assert_eq!(back[0].rule_type, Some(domain::RuleType::Routing));
         assert_ne!(back[0].id, rules[0].id);
+    }
+
+    #[test]
+    fn builtin_import_appends_without_touching_default() {
+        let existing = vec![
+            RoutingProfile {
+                id: "old-1".into(),
+                remarks: "custom".into(),
+                sort: 1,
+                is_active: true,
+                ..Default::default()
+            },
+            RoutingProfile {
+                id: "old-2".into(),
+                remarks: "custom-2".into(),
+                sort: 2,
+                ..Default::default()
+            },
+        ];
+        let imported = builtin_import_profiles(&existing);
+        assert_eq!(imported.len(), 3);
+        assert_eq!(imported[0].remarks, domain::routing::BUILTIN_WHITE_REMARKS);
+        assert_eq!(imported[1].remarks, domain::routing::BUILTIN_BLACK_REMARKS);
+        assert_eq!(imported[2].remarks, domain::routing::BUILTIN_GLOBAL_REMARKS);
+        // Sorts continue after the current maximum (upstream `maxSort = items.Count`).
+        assert_eq!(imported[0].sort, 3);
+        assert_eq!(imported[1].sort, 4);
+        assert_eq!(imported[2].sort, 5);
+        // Advanced import never promotes a scheme to default.
+        assert!(imported.iter().all(|p| !p.is_active));
+        // Fresh ids and rules are filled by `normalize_routing`.
+        assert!(imported.iter().all(|p| !p.id.trim().is_empty()));
+        assert!(imported.iter().all(|p| p.rule_num > 0));
+        for profile in &imported {
+            let rules = domain::routing::parse_rules(profile).unwrap();
+            assert!(rules.iter().all(|r| !r.id.trim().is_empty()));
+        }
     }
 
     #[test]

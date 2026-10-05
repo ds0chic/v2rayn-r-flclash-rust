@@ -7,6 +7,7 @@ import 'package:v2rayn_desktop/bridge/api/settings.dart' as settings;
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/backup/backup_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 
@@ -57,6 +58,18 @@ class _LifecycleBridge extends SyntheticBridgePort {
   List<c.ProfileDto> queryAllProfiles() {
     profileReloads += 1;
     return super.queryAllProfiles();
+  }
+
+  /// R4-09: the controller reads the store through the paged snapshot seam;
+  /// count it as a profile reload too so the lifecycle contract stays covered.
+  @override
+  ProfileSnapshot fetchProfileSnapshot(
+    int count, {
+    String? text,
+    String? subid,
+  }) {
+    profileReloads += 1;
+    return super.fetchProfileSnapshot(count, text: text, subid: subid);
   }
 
   @override

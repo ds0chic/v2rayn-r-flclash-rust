@@ -1750,16 +1750,23 @@ impl AppEngine {
                 let Some(port) = snapshot.ports.first().copied() else {
                     return;
                 };
-                let active = self
+                // R4-05: only a target this engine actually applied counts as
+                // the applied target. A fresh engine reconnecting to an already
+                // running net-host has no apply_target; inventing the persisted
+                // desired node (or a default Xray API) would mislabel the actual
+                // session, so publish no applied session instead.
+                let Some(active) = self
                     .apply_target
                     .lock()
                     .ok()
                     .and_then(|guard| guard.clone())
-                    .or_else(|| self.active_profile());
+                else {
+                    return;
+                };
                 if let Ok(mut guard) = self.applied_session.lock() {
                     *guard = Some(AppliedSession {
                         session_id: snapshot.session_id.clone(),
-                        active_index_id: active,
+                        active_index_id: Some(active),
                         proxy_port: Some(port),
                         applied_revision: snapshot.applied_revision,
                     });

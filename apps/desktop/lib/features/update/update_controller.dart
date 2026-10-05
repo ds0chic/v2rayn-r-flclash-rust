@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
@@ -389,7 +390,24 @@ class UpdateController extends Notifier<UpdateState> {
       lastSpec: spec,
       status: const UpdateStatus(kind: 'success', message: '已启动更新程序，应用将退出'),
     );
-    // Runner waits on this PID, replaces files, then relaunches.
-    _exitApp();
+    // Runner waits on this PID, replaces files, then relaunches. Prefer the
+    // real desktop lifecycle so the core is stopped and stats flushed before
+    // the hand-off; fall back to the injected exit in tests / no-integration.
+    await handoffExit();
+  }
+
+  /// Exit after a successful runner hand-off.
+  ///
+  /// When the real desktop integration is present it runs the bounded shutdown
+  /// first (stop core -> drain/flush -> platform restore) so the runner does
+  /// not replace files behind a live core holding them, then exits. Otherwise
+  /// the injected [AppExit] is used unchanged.
+  Future<void> handoffExit() async {
+    final integration = ref.read(desktopIntegrationProvider).value;
+    if (integration != null) {
+      await integration.exitForUpdate();
+    } else {
+      _exitApp();
+    }
   }
 }

@@ -55,7 +55,21 @@ RoutingDtoResult moveRoutingRule({
   direction: direction,
 );
 
+/// `import_builtin_routing` — upstream `ConfigHandler.InitRouting(config, true)`
+/// built-in branch: append the three built-in routing schemes.
+///
+/// An explicitly configured external template (`ConstItem.
+/// RouteRulesTemplateSourceUrl`) cannot be fetched from a synchronous call, so
+/// it is reported as an explicit error and no scheme is written, instead of
+/// silently importing built-ins and pretending success.
+RoutingRulesTextResult importBuiltinRouting() =>
+    RustLib.instance.api.crateApiRoutingImportBuiltinRouting();
+
 /// `import_routing_rules` — parse text and append/replace on the profile.
+///
+/// R4-14: an empty `routing_id` is the `一键导入规则集` entry point
+/// (`ConfigHandler.InitRouting(config, true)`); per-profile imports always carry
+/// a real id, so the empty-id branch cannot collide with them.
 RoutingRulesTextResult importRoutingRules({
   required String routingId,
   required String text,

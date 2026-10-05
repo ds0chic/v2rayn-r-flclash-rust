@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_clash`, `build_source`, `clash_config`, `clash_error`, `domain_error`, `hub`, `ingest_runtime_event`, `join_host_port`, `level_from_value`, `level_value`, `lines_from_envelope`, `new`, `next_seq`, `node_dtos`, `not_supported`, `now_unix`, `poll_loop_async`, `poll_loop`, `rebind_store`, `sync_from_engine_session`, `traffic_dto`, `with_hub`
+// These functions are ignored because they are not marked as `pub`: `build_clash`, `build_source`, `clash_config`, `clash_error`, `domain_error`, `hub`, `ingest_runtime_event`, `join_host_port`, `level_from_value`, `level_value`, `lines_from_envelope`, `new`, `next_seq`, `node_dtos`, `not_supported`, `now_unix`, `persist_stats`, `poll_loop_async`, `poll_loop`, `rebind_store`, `sync_from_engine_session`, `traffic_dto`, `with_hub`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ClashConfig`, `MonitorHub`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `ingest_log_text_for_test`, `ingest_stats_for_test`, `inject_log_batch_for_test`, `log_subscriber_count_for_test`, `reset_monitor_for_test`, `set_clash_base_for_test`, `take_seq`, `traffic_subscriber_count_for_test`
@@ -46,6 +46,13 @@ bool monitorEnabled() => RustLib.instance.api.crateApiMonitorMonitorEnabled();
 /// Current statistics snapshot.
 StatsSnapshotDto statsSnapshot() =>
     RustLib.instance.api.crateApiMonitorStatsSnapshot();
+
+/// Flush the statistics store before a real exit (R4-05).
+///
+/// A reopen must see the final counters instead of losing the last interval.
+/// A store failure is returned as a structured error, never reported as a
+/// successful flush.
+SimpleResult statsFlush() => RustLib.instance.api.crateApiMonitorStatsFlush();
 
 /// `ClearAllServerStatistics`: clear memory + persisted rows.
 SimpleResult clearStats() => RustLib.instance.api.crateApiMonitorClearStats();

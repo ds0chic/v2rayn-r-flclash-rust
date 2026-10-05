@@ -126,6 +126,21 @@ Future<ImportResult> importFromText({
   deduplicate: deduplicate,
 );
 
+/// `commit_import_text` — single-transaction persistence of an already-parsed
+/// import (R4-16). The input is the DTO list produced by
+/// [`preview_import_text`] plus the target `subid`; every profile is written in
+/// one `replace_sub_profiles` transaction (including the no-group case, where
+/// `subid` is `None`/empty) so there is no per-line fallback and no second
+/// parse. Semantics match `parse_import`: `IsSub = false`, ids assigned, subid
+/// stamped; per-line parse issues are reported by the preview, not here.
+ImportResult commitImportText({
+  required List<ProfileDto> profiles,
+  String? subid,
+}) => RustLib.instance.api.crateApiSubsCommitImportText(
+  profiles: profiles,
+  subid: subid,
+);
+
 /// `parse_share_uri` — resolve a single line without persisting it.
 UriParseResult parseShareUri({required String line}) =>
     RustLib.instance.api.crateApiSubsParseShareUri(line: line);

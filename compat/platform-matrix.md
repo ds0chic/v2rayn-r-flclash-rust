@@ -224,3 +224,21 @@
 adapter 修正（`crates/runtime/src/adapter.rs`）：v2fly `-config`/`-test -config`；v2fly_v5 `run -c`/`test -c`（去掉真实二进制拒绝的 `-format jsonv5`）；hysteria/hysteria2 `working_dir`=配置目录。补测后 runtime 58 passed、net_host 62 passed。hysteria2/overtls 仅“合成回环无服务器最小会话”blocked，version 探针均通过；接口缺口（env 无法表达 exe 目录、`run_config_check` 不注入 env/workdir）已登记在任务卡与证据 README。
 
 **追加更正（2026-10-05）：** 上表 218/220 行的 `blocked（会话）` 已解除。在 `$TEMP` 用锁定 hysteria2 的 `cert` 生成临时自签 PEM（只记 cert sha256/pin，不落私钥），hysteria2 显式 `server -c` 起 UDP 监听、overtls `-r server -c` 起 TCP 监听，客户端按 adapter 合同连接后经 SOCKS5 发真实 HTTP GET 到本地目标（回体 `HY2-OK`/`OV-OK`）；并各跑“指向关闭端口”的失败探针（hysteria2 握手超时 exit 1、overtls `ConnectionRefused` exit 1）。`tools/cores/session_matrix.ps1` 会话结果 14 ok / 0 blocked，全部按 PID 清理无残留。证据：`docs/evidence/recheck-fixes/R3-CORE-MATRIX/`（`per-core.json`、`logs/session-results.json`）。overtls `--help` 证实本地 `-r server` 角色存在，adapter 仍只实现 client 角色，合同未变。
+
+### 6.4 R4-33 六平台实例登记回填（2026-10-05，HEAD `8651e19`，仅追加）
+
+本节为 R4-33 追加，不删除或降低任何既有分母；逐实例证据见
+`docs/evidence/repair/R4-33/`（总表 `platform-matrix.md`）与 `R4-33.O01..O06/`。
+
+| 实例 | 平台 | 状态 | 已实现（既有证据） | 阻塞原因 | 解除条件 |
+|---|---|---|---|---|---|
+| O01 | Windows x64/WPF | blocked | 构建+打包冒烟（T20）、14 核真实会话（R3-CORE-MATRIX）、真机系统代理/自启/helper 路由/TUN 适配器(auto_route=false)（T21-real-os） | R4-32 交付回归未完成（`docs/evidence/repair/R4-32/` 仅部分构建日志，缺 README/observations/门禁/哈希）；真实 auto-route TUN 未实测 | 交付 R4-32 全门禁；授权隔离 VM 跑真实 auto-route TUN |
+| O02 | Windows ARM64/WPF | blocked | Rust 交叉 `check` 5/5 本机复跑 exit 0 | Flutter Windows ARM64 目标 CLI 不支持（exit 64） | ARM64 主机 + 支持 ARM64 的 Flutter Windows 引擎 |
+| O03 | macOS x64/Avalonia | blocked | 无 | 无 Apple 硬件/Xcode SDK | Apple 硬件/CI runner + Xcode |
+| O04 | macOS ARM64/Avalonia | blocked | 无 | 同上 | Apple Silicon + Xcode |
+| O05 | Linux x64/Avalonia | blocked | 无 | 无 WSL 分发（exit 50）/无 docker | `wsl --install` 或 Docker + Linux 依赖 |
+| O06 | Linux ARM64/Avalonia | blocked | 无 | 同 O05 + 无 ARM64 工具链 | 同 O05 + `gcc-aarch64-linux-gnu` / ARM64 主机 |
+
+本机命令：`cargo check ... --target aarch64-pc-windows-msvc` exit 0（5/5）；
+`flutter build windows --target-platform=windows-arm64` exit 64；`wsl --status` exit 50。
+额外架构（Windows x86、Linux riscv64/loong64）差异照旧保留（§2、§5），不由本轮降低。

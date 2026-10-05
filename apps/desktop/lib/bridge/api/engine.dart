@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine_failure_slot`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `error_snapshot_dto`, `failed_engine`, `initialize_engine`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `profile_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `resolve_engine_dir`, `security_from_dto`, `security_to_dto`, `seq_counter`, `set_engine_failure`, `snapshot_to_dto`, `subscribers`, `test_only_smoke_body`, `transport_from_dto`, `transport_to_dto`
+// These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine_failure_slot`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `error_snapshot_dto`, `failed_engine`, `initialize_engine`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `operation_status_dto`, `profile_dto`, `profile_from_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `resolve_engine_dir`, `resource_report_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `set_engine_failure`, `snapshot_to_dto`, `subscribers`, `test_only_smoke_body`, `transport_from_dto`, `transport_to_dto`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `t18b_test_only_smoke_config_json`
 
 /// Open the application engine against an explicit data directory (tests and
@@ -129,6 +129,29 @@ Future<StopRuntimeResult> stopRuntime() =>
 /// `cancel_job` — idempotent cancellation.
 CancelResult cancelJob({required String jobId}) =>
     RustLib.instance.api.crateApiEngineCancelJob(jobId: jobId);
+
+/// `get_operation` — structured, read-only status of a prior runtime operation
+/// (R4-04 reconcile). `found: false` plus a structured error when the operation
+/// is unknown; function existence is never a substitute for runtime status.
+Future<OperationStatusDto> getOperation({required String operationId}) =>
+    RustLib.instance.api.crateApiEngineGetOperation(operationId: operationId);
+
+/// `applied_inbound` — the applied inbound proxy protocol + bound port of the
+/// running session (R4-24). `None`/`None` when nothing is applied; never
+/// derived from the desired selection and never carrying credentials.
+AppliedInboundDto appliedInbound() =>
+    RustLib.instance.api.crateApiEngineAppliedInbound();
+
+/// `resource_auto_update_now` — force one Geo/SRS resource pass now (R4-34),
+/// ignoring the hourly cadence, and return its structured outcome.
+Future<ResourceUpdateReportDto> resourceAutoUpdateNow() =>
+    RustLib.instance.api.crateApiEngineResourceAutoUpdateNow();
+
+/// `resource_update_status` — the most recent resource pass outcome (R4-34).
+/// When no pass has run yet it reports `ok: true` with `due: false`, never a
+/// fabricated download.
+ResourceUpdateReportDto resourceUpdateStatus() =>
+    RustLib.instance.api.crateApiEngineResourceUpdateStatus();
 
 /// `subscribe_events` — FRB stream of events. On subscribe the current
 /// epoch/seq is sent first so a reconnecting UI can detect gaps.

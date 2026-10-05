@@ -5,6 +5,7 @@
 // modelled explicitly so the controller's generation/cancel contract is
 // observable. It is not a stand-in for the real FRB/SQLite path.
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
+import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
@@ -31,6 +32,10 @@ class R422Bridge extends SyntheticBridgePort {
   /// When set, the next [startSpeedTest] reports a structured failure.
   String? failStartCode;
 
+  /// R4-31 seam: force [fetchProfileSnapshot] to return an empty structural
+  /// read so the live poll's empty-base behaviour is observable.
+  bool returnEmptySnapshots = false;
+
   @override
   ProfileSnapshot fetchProfileSnapshot(
     int count, {
@@ -38,6 +43,12 @@ class R422Bridge extends SyntheticBridgePort {
     String? subid,
   }) {
     snapshotCalls++;
+    if (returnEmptySnapshots) {
+      return const ProfileSnapshot(
+        summaries: <ProfileSummary>[],
+        profiles: <c.ProfileDto>[],
+      );
+    }
     return super.fetchProfileSnapshot(count, text: text, subid: subid);
   }
 

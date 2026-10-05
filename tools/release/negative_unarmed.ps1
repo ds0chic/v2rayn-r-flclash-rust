@@ -115,22 +115,33 @@ $appPid = $p.Id
 $appStarted = $null
 try { $appStarted = (Get-Process -Id $appPid).StartTime.ToUniversalTime().ToString('o') } catch {}
 
-# Bounded observation window.
+# Bounded observation window. A listener only counts if it belongs to the app
+# tree; an unrelated parallel process bound to 11808 must not fail this test.
 $deadline = (Get-Date).AddSeconds($RunSec)
 $portEverSeen = $false
+$portOwnersSeen = [System.Collections.Generic.List[int]]::new()
+$externalPortOwners = [System.Collections.Generic.List[int]]::new()
 while ((Get-Date) -lt $deadline) {
   if (-not (Get-Process -Id $appPid -ErrorAction SilentlyContinue)) { break }
-  if ([bool](Get-NetTCPConnection -LocalPort 11808 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1)) { $portEverSeen = $true }
+  $owners = @(Get-NetTCPConnection -LocalPort 11808 -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique)
+  if ($owners.Count -gt 0) {
+    $tree = @($appPid) + @(Get-DescendantPids -RootPid $appPid)
+    foreach ($o in $owners) {
+      $portOwnersSeen.Add([int]$o) | Out-Null
+      if ($tree -contains [int]$o) { $portEverSeen = $true }
+      else { $externalPortOwners.Add([int]$o) | Out-Null }
+    }
+  }
   Start-Sleep -Milliseconds 500
 }
+$portOwnersSeen = @($portOwnersSeen | Sort-Object -Unique)
+$externalPortOwners = @($externalPortOwners | Sort-Object -Unique)
 
 $desc = @(Get-DescendantPids -RootPid $appPid)
 $children = @($desc | ForEach-Object { Describe-Pid $_ } | Where-Object { $_ })
 $coreChildren = @($desc | Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -match 'xray|sing-box' })
 $netHostChildren = @($desc | Where-Object { (Get-Process -Id $_ -ErrorAction SilentlyContinue).ProcessName -match 'net_host' })
-$port11808 = [bool](Get-NetTCPConnection -LocalPort 11808 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1)
-$portEverSeen = $portEverSeen -or $port11808
-
 $journals = @()
 foreach ($f in (Get-ChildItem -Path $run -Recurse -Filter 'journal.json' -ErrorAction SilentlyContinue)) {
   try { $j = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json; $journals += [ordered]@{ file = $f.FullName; stage = $j.stage; port = $j.port } } catch {}
@@ -138,6 +149,7 @@ foreach ($f in (Get-ChildItem -Path $run -Recurse -Filter 'journal.json' -ErrorA
 $coreLogs = @(Get-ChildItem -Path $run -Recurse -Filter 'core.log' -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
 $appliedJournal = @($journals | Where-Object { $_.stage -eq 'applied' })
 $benchFiles = @(Get-ChildItem -Path $bench -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+$port11808 = [bool](Get-NetTCPConnection -LocalPort 11808 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1)
 
 # Graceful stop, bounded.
 $null = $p.CloseMainWindow()
@@ -167,6 +179,8 @@ $result = [ordered]@{
   core_descendant = ($coreChildren.Count -gt 0)
   port11808 = $port11808
   port11808_ever_seen = $portEverSeen
+  port11808_owners_seen = $portOwnersSeen
+  port11808_external_owners = $externalPortOwners
   journal = $journals
   core_logs = $coreLogs
   t18_bench_output = $benchFiles

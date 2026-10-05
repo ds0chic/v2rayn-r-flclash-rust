@@ -1,0 +1,20 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_32_contract_test.dart
+00:00 +0: release build defaults to unarmed (no SMOKE_ARMED define)
+00:00 +1: self-update helper ships under the runner name the updater launches
+00:00 +2: installer version and output name track the pubspec version
+00:00 +3: uninstall never recursively deletes the whole install root
+00:00 +4: delivery scripts never listen on the live 10808
+00:00 +5: All tests passed!

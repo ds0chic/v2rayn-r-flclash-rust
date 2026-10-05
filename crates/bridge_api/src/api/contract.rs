@@ -639,3 +639,61 @@ pub struct CoreVersionsDto {
     pub items: Vec<InstalledCoreDto>,
     pub error: Option<ErrorDto>,
 }
+
+// -- interface-gap read-only DTOs (R4-04 / R4-24 / R4-29 / R4-34) -----------
+
+/// Read-only status of a prior runtime operation (R4-04 reconcile). `found`
+/// distinguishes "no such operation" from a status whose state is not-yet-run.
+#[derive(Clone)]
+pub struct OperationStatusDto {
+    pub found: bool,
+    pub operation_id: String,
+    pub job_id: Option<String>,
+    pub state: JobState,
+    pub cancel: Option<CancelOutcome>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Applied inbound proxy protocol + bound port of the running session (R4-24).
+/// Carries no authentication/secret fields by construction.
+#[derive(Clone)]
+pub struct AppliedInboundDto {
+    /// `http` / `socks` / `mixed`, or `None` when nothing is applied.
+    pub protocol: Option<String>,
+    /// Actual bound local proxy port, when known.
+    pub port: Option<u16>,
+}
+
+/// One failed resource download (R4-34).
+#[derive(Clone)]
+pub struct ResourceFailureDto {
+    pub url: String,
+    pub code: String,
+    pub detail: String,
+}
+
+/// Structured outcome of a Geo/SRS resource pass (R4-34).
+#[derive(Clone)]
+pub struct ResourceUpdateReportDto {
+    pub ok: bool,
+    pub due: bool,
+    pub attempted: u32,
+    pub downloaded: Vec<String>,
+    pub failed: Vec<ResourceFailureDto>,
+    pub error: Option<ErrorDto>,
+}
+
+/// Read-only relaunch command the external upgrade runner executes (R4-29).
+#[derive(Clone)]
+pub struct AppRestartCommandDto {
+    pub program: String,
+    pub working_dir: String,
+}
+
+/// Result of rolling back a staged application upgrade (R4-29).
+#[derive(Clone)]
+pub struct AppRollbackResultDto {
+    pub ok: bool,
+    pub restored: Option<String>,
+    pub error: Option<ErrorDto>,
+}

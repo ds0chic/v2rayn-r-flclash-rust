@@ -15,7 +15,7 @@ use domain::{CancellationToken, ConfigType, DomainError, Profile};
 use flutter_rust_bridge::frb;
 
 use crate::api::contract::{
-    DeleteSubsResult, ErrorDto, ImportResult, JobDto, ParseIssueDto, ShareExportResult,
+    DeleteSubsResult, ErrorDto, ImportResult, JobDto, ParseIssueDto, ProfileDto, ShareExportResult,
     SimpleResult, SubItemDto, SubItemDtoResult, SubUpdateResult, SubsPageDto, UriParseResult,
 };
 use crate::api::engine::{emit_control, engine, error_dto, job_view_dto, profile_dto};
@@ -630,6 +630,55 @@ pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) 
     }
 }
 
+/// `commit_import_text` — single-transaction persistence of an already-parsed
+/// import (R4-16). The input is the DTO list produced by
+/// [`preview_import_text`] plus the target `subid`; every profile is written in
+/// one `replace_sub_profiles` transaction (including the no-group case, where
+/// `subid` is `None`/empty) so there is no per-line fallback and no second
+/// parse. Semantics match `parse_import`: `IsSub = false`, ids assigned, subid
+/// stamped; per-line parse issues are reported by the preview, not here.
+#[frb(sync)]
+pub fn commit_import_text(profiles: Vec<ProfileDto>, subid: Option<String>) -> ImportResult {
+    if profiles.is_empty() {
+        return parse_error_result(&[]);
+    }
+    let sub = subid.unwrap_or_default();
+    let mut parsed: Vec<domain::Profile> = profiles
+        .into_iter()
+        .map(crate::api::engine::profile_from_dto)
+        .collect();
+    for profile in &mut parsed {
+        if profile.subid.is_empty() {
+            profile.subid = sub.clone();
+        }
+        if profile.index_id.trim().is_empty() {
+            profile.index_id = application::new_index_id();
+        }
+        profile.is_sub = false;
+    }
+    let count = parsed.len() as u32;
+    if let Err(error) = engine().replace_sub_profiles(&sub, parsed.clone(), false) {
+        return ImportResult {
+            ok: false,
+            imported: 0,
+            profiles: Vec::new(),
+            errors: Vec::new(),
+            error: Some(error_dto(error)),
+        };
+    }
+    emit_control(
+        "profiles_imported",
+        serde_json::json!({ "sub_id": sub, "imported": count, "deduplicated": 0 }),
+    );
+    ImportResult {
+        ok: true,
+        imported: count,
+        profiles: parsed.into_iter().map(profile_dto).collect(),
+        errors: Vec::new(),
+        error: None,
+    }
+}
+
 /// `parse_share_uri` — resolve a single line without persisting it.
 #[frb(sync)]
 pub fn parse_share_uri(line: String) -> UriParseResult {
@@ -850,6 +899,36 @@ mod tests {
         assert_eq!(matching.len(), 1, "exactly one row inserted");
         assert!(!matching[0].is_sub);
         let _ = engine().delete_sub_items(&[sub.to_string()]);
+    }
+
+    #[test]
+    fn commit_import_text_no_group_is_single_transaction() {
+        // R4-16 gap: with no group the commit must still land in one storage
+        // transaction instead of a per-line fallback.
+        let _guard = crate::api::engine::engine_test_lock();
+        let text = "vless://11111111-aaaa-bbbb-cccc-111111111111@a.example:443?encryption=none#a\n\
+                    vless://22222222-aaaa-bbbb-cccc-222222222222@b.example:443?encryption=none#b";
+        let preview = preview_import_text(text.to_string(), None);
+        assert!(preview.ok, "{:?}", preview.error.map(|e| e.code));
+        assert_eq!(preview.imported, 2);
+        let before = engine().profile_count();
+        // Preview is parse-only; the commit is the write.
+        assert_eq!(engine().profile_count(), before);
+        let committed = commit_import_text(preview.profiles, None);
+        assert!(committed.ok, "{:?}", committed.error.map(|e| e.code));
+        assert_eq!(committed.imported, 2);
+        assert_eq!(engine().profile_count(), before + 2);
+        for profile in &committed.profiles {
+            let stored = engine()
+                .profile_by_id(&profile.index_id)
+                .unwrap()
+                .expect("committed profile persisted");
+            assert!(
+                !stored.is_sub,
+                "manual import is never subscription-sourced"
+            );
+            assert_eq!(stored.subid, "");
+        }
     }
 
     #[test]

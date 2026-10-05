@@ -1,0 +1,16 @@
+PS> $env:CC_aarch64_pc_windows_msvc="C:\Program Files\LLVM\bin\clang.exe"
+PS> $env:AR_aarch64_pc_windows_msvc="C:\Program Files\LLVM\bin\llvm-ar.exe"
+PS> cargo check -p domain -p config_codegen -p ipc_contract -p subscriptions -p updater --target aarch64-pc-windows-msvc --locked
+    Compiling ring v0.17.14
+    Checking domain v0.1.0 (crates/domain)
+    Checking config_codegen v0.1.0 (crates/config_codegen)
+    Checking ipc_contract v0.1.0 (crates/ipc_contract)
+    Compiling rustls v0.23.38
+    Checking rustls-webpki v0.103.12
+    Checking tokio-rustls v0.26.4
+    Checking hyper-rustls v0.27.9
+    Checking reqwest v0.12.28
+    Checking subscriptions v0.1.0 (crates/subscriptions)
+    Checking updater v0.1.0 (crates/updater)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.50s
+EXIT=0

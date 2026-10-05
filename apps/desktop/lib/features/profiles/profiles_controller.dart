@@ -572,13 +572,43 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// Incremental refresh used by the speedtest poll: re-join the live result +
   /// statistics overlay onto the cached base rows without re-reading the
   /// profile table. Results are read fresh every tick, so none are lost.
+  ///
+  /// The poll never performs a structural full read: a node added/removed while
+  /// a run is active is picked up by the event-driven [reload], which also
+  /// refreshes `_baseSummaries`. An idle tick whose overlay produced the same
+  /// values skips the O(n log n) filter+sort instead of rebuilding the whole
+  /// read model every 150 ms (D08); a real result/statistics change still
+  /// rebuilds.
   void _refreshLive() {
-    if (_baseSummaries.isEmpty) {
-      reload();
-      return;
-    }
+    if (_baseSummaries.isEmpty) return;
     final rows = _bridge.applyLiveOverlay(_baseSummaries);
+    if (_overlayUnchanged(rows, state.all)) return;
     state = _recompute(state.copyWith(all: rows));
+  }
+
+  /// Cheap value check of the fields [BridgePort.applyLiveOverlay] can change.
+  /// A tick with no new delay/speed/IP/statistics must not churn the table.
+  static bool _overlayUnchanged(
+    List<ProfileSummary> next,
+    List<ProfileSummary> previous,
+  ) {
+    if (identical(next, previous)) return true;
+    if (next.length != previous.length) return false;
+    for (var i = 0; i < next.length; i++) {
+      final a = next[i];
+      final b = previous[i];
+      if (a.id != b.id ||
+          a.delay != b.delay ||
+          a.speed != b.speed ||
+          a.ipInfo != b.ipInfo ||
+          a.todayUp != b.todayUp ||
+          a.todayDown != b.todayDown ||
+          a.totalUp != b.totalUp ||
+          a.totalDown != b.totalDown) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Async search entry with a generation guard: a newer query bumps the

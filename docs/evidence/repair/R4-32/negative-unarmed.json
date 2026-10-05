@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "method": "tools/release/negative_unarmed.ps1",
+  "zip": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64.zip",
+  "package": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_neg_5e9d63326f57400c870d5e2613c07d2f\\extract\\v2rayN-R-1.0.0+1-windows-x64",
+  "package_smoke_armed": false,
+  "pid": 21344,
+  "pid_start_time_utc": "2026-10-05T09:55:27.2025865Z",
+  "env": {
+    "V2RAYN_R_T18_SCENARIO": "startup",
+    "V2RAYN_R_NET_HOST": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_neg_5e9d63326f57400c870d5e2613c07d2f\\extract\\v2rayN-R-1.0.0+1-windows-x64\\net_host.exe",
+    "V2RAYN_R_XRAY_BIN": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\cores\\xray\\v26.3.27\\xray.exe",
+    "V2RAYN_R_DATA_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_neg_5e9d63326f57400c870d5e2613c07d2f\\data",
+    "V2RAYN_R_T18_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_neg_5e9d63326f57400c870d5e2613c07d2f\\bench",
+    "V2RAYN_R_T18_ROWS": "100",
+    "V2RAYN_R_AUTO_SMOKE": "1",
+    "V2RAYN_R_RUN_ROOT": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_neg_5e9d63326f57400c870d5e2613c07d2f\\run",
+    "V2RAYN_R_T18_TAG": "negative-unarmed",
+    "V2RAYN_R_AUTOSTART": "1",
+    "V2RAYN_R_PIPE": "\\\\.\\pipe\\t20negd259eaf7ece147d39472f0f47b511214",
+    "V2RAYN_R_T18_BENCH": "1"
+  },
+  "run_seconds": 35,
+  "children": [
+    {
+      "pid": 16648,
+      "name": "net_host",
+      "start_time_utc": "2026-10-05T09:55:28.4461097Z"
+    },
+    {
+      "pid": 14232,
+      "name": "conhost",
+      "start_time_utc": "2026-10-05T09:55:28.4648384Z"
+    }
+  ],
+  "net_host_descendant": true,
+  "core_descendant": false,
+  "port11808": false,
+  "port11808_ever_seen": false,
+  "port11808_owners_seen": [],
+  "port11808_external_owners": [],
+  "journal": [],
+  "core_logs": [],
+  "t18_bench_output": [],
+  "result": "PASS: official package ignored all automation env vars (no core, no 11808, no applied journal, no core.log, no bench output)",
+  "cleanup": {
+    "stopped": [
+      16648
+    ],
+    "self_alive_after": false
+  },
+  "port_11808_after": false,
+  "work_root": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_neg_5e9d63326f57400c870d5e2613c07d2f"
+}

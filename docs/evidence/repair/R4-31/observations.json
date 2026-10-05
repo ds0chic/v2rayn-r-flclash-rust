@@ -1,0 +1,70 @@
+{
+  "task": "R4-31",
+  "title": "真实负载性能稳定",
+  "head": "8651e19",
+  "worktree_note": "dirty with concurrent uncommitted edits from other task agents; not touched by this card",
+  "armed": false,
+  "changes_scope": "dart_only",
+  "rust_changed": false,
+  "changed_files": [
+    "apps/desktop/lib/features/profiles/profiles_controller.dart",
+    "apps/desktop/test/r4_31_contract_test.dart",
+    "apps/desktop/test/repair/r4_31_repro_test.dart",
+    "apps/desktop/test/support/fake_monitor_bridge.dart",
+    "apps/desktop/test/support/r4_22_bridge.dart"
+  ],
+  "defect": {
+    "id": "R4-31-POLL-CHURN",
+    "where": "ProfilesController._refreshLive",
+    "before": "every 150ms tick rebuilt the node-table read model (full filter+sort + new list) and, on an empty cached base, ran a full structural reload() every tick",
+    "after": "empty base returns without structural read; overlay-unchanged tick skips _recompute and keeps the same read model"
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_31_repro_test.dart",
+    "pre_fix_result": {
+      "idle_tick_same_read_model": false,
+      "empty_base_snapshot_calls": {"baseline": 2, "after_350ms": 4}
+    },
+    "post_fix_result": "all 2 pass"
+  },
+  "contract": {
+    "file": "apps/desktop/test/r4_31_contract_test.dart",
+    "cases": 5,
+    "result": "pass",
+    "covers": [
+      "idle poll tick keeps same read model",
+      "changed result still rebuilds (no regression)",
+      "poller settles and releases tracked jobs",
+      "no duplicate stream subscriptions across 50 page/session changes",
+      "log read model bounded under 50k-line flood"
+    ]
+  },
+  "commands": {
+    "flutter_analyze": "pass (No issues found)",
+    "flutter_test_r4_31_contract": "pass 5/5",
+    "flutter_test_r4_31_repro_pre_fix": "fail 2/2 (expected)",
+    "flutter_test_r4_31_repro_post_fix": "pass 2/2",
+    "regression_group": "r4_22_contract, r4_22_repro, r4_09, r4_10, t15b: pass 35/35",
+    "dart_format": "applied to changed files",
+    "flutter_build_windows_release": "BLOCKED: bridge_api error[E0425] cannot find type ProfileDto (unrelated concurrent Rust edits); no project exe lock present"
+  },
+  "baseline_reference_only": {
+    "source": "benchmarks/T18/summary.json (historical synthetic bridge, not a pass evidence)",
+    "scroll_10000_build_p95_us": 21783,
+    "scroll_50000_build_p95_us": 36924,
+    "idle_working_set_mb_10000_rows": {"p50": 178.76, "max": 190.75}
+  },
+  "unverified": [
+    "unarmed release + real synthetic SQLite 10k/100k",
+    "p95/p99 feedback/frame/search/first-frame/IPC queue measured separately",
+    "24h sustained load and 500 node switches",
+    "real slow-disk / slow-host monitor lock wait quantified"
+  ],
+  "constraints_respected": {
+    "port_10808": "not touched",
+    "host_proxy_registry_route_tun_autostart": "not touched",
+    "credentials": "synthetic data only",
+    "work_outputs": "read-only",
+    "compat": "no changes"
+  }
+}

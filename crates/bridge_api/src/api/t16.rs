@@ -13,11 +13,12 @@ use domain::{codes, CancellationToken, DomainError};
 use flutter_rust_bridge::frb;
 
 use crate::api::contract::{
-    AppliedCoreDto, ApplyCoreResultDto, BackupListDto, BackupManifestDto, BackupResultDto,
-    CleanupResultDto, CoreUpdateDto, CoreVersionsDto, EntityCountDto, ErrorDto, ExternalSpecDto,
-    ImportSummaryDto, InstalledCoreDto, RecognitionDto, RestoreResultDto, SimpleResult,
-    UpdateReportDto, UpdateTargetDto, VerificationDto, WebDavCheckDto, WebDavConfigDto,
-    WebDavConfigResultDto, WebDavEntryDto, WebDavListDto, WebDavOpDto,
+    AppRestartCommandDto, AppRollbackResultDto, AppliedCoreDto, ApplyCoreResultDto, BackupListDto,
+    BackupManifestDto, BackupResultDto, CleanupResultDto, CoreUpdateDto, CoreVersionsDto,
+    EntityCountDto, ErrorDto, ExternalSpecDto, ImportSummaryDto, InstalledCoreDto, RecognitionDto,
+    RestoreResultDto, SimpleResult, UpdateReportDto, UpdateTargetDto, VerificationDto,
+    WebDavCheckDto, WebDavConfigDto, WebDavConfigResultDto, WebDavEntryDto, WebDavListDto,
+    WebDavOpDto,
 };
 use crate::api::engine::{engine, error_dto};
 
@@ -1016,13 +1017,27 @@ pub async fn t16_apply_core_update(
 
 /// `apply_app_update_spec` — stage the application update and return the
 /// external-upgrade spec. No process is started.
-pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
+async fn app_update_spec_inner(prerelease: bool, via_proxy: bool) -> ExternalSpecDto {
     let service = update_service();
-    let flags = last_update_flags();
-    let check = match service
-        .check_app_update(flags.prerelease, flags.proxy.as_deref())
-        .await
+    let proxy = via_proxy.then(|| engine().local_proxy_url()).flatten();
+    if via_proxy
+        && proxy
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .is_none()
     {
+        return ExternalSpecDto {
+            ok: false,
+            helper_exe: None,
+            source: None,
+            install_root: None,
+            wait_for_pid: 0,
+            args: Vec::new(),
+            error: Some(proxy_unavailable()),
+        };
+    }
+    let check = match service.check_app_update(prerelease, proxy.as_deref()).await {
         Ok(check) => check,
         Err(error) => {
             return ExternalSpecDto {
@@ -1081,7 +1096,7 @@ pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
         download_url,
         expected_sha256: check.expected_sha256,
         dgst_url: check.dgst_url,
-        proxy: flags.proxy.clone(),
+        proxy: proxy.clone(),
     };
     let helper = service.app_layout().runner_exe();
     let token = CancellationToken::new();
@@ -1215,6 +1230,53 @@ pub fn t16_get_core_versions() -> CoreVersionsDto {
     }
 }
 
+/// `apply_app_update_spec_with_flags` — parameterized self-update staging
+/// (R4-29): the `prerelease` / `via_proxy` selection is passed explicitly
+/// instead of being read from a process-global "last check" slot.
+pub async fn t16_apply_app_update_spec_with_flags(
+    prerelease: bool,
+    via_proxy: bool,
+) -> ExternalSpecDto {
+    app_update_spec_inner(prerelease, via_proxy).await
+}
+
+/// Backward-compatible no-arg entry point retained until the FRB bindings are
+/// regenerated; it reuses the last recorded check selection (R4-29 gap).
+pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
+    let flags = last_update_flags();
+    app_update_spec_inner(flags.prerelease, flags.proxy.is_some()).await
+}
+
+/// `rollback_app_upgrade` — restore the `app.previous` payload kept by the last
+/// external replacement (R4-29). No network; file effects stay inside the
+/// install root.
+#[frb(sync)]
+pub fn t16_rollback_app_upgrade() -> AppRollbackResultDto {
+    match update_service().rollback_app_upgrade() {
+        Ok(path) => AppRollbackResultDto {
+            ok: true,
+            restored: Some(path.to_string_lossy().into_owned()),
+            error: None,
+        },
+        Err(error) => AppRollbackResultDto {
+            ok: false,
+            restored: None,
+            error: Some(error_dto(error)),
+        },
+    }
+}
+
+/// `app_restart_command` — the relaunch command the external upgrade runner
+/// executes after a replacement (R4-29). Constructed only; never spawned here.
+#[frb(sync)]
+pub fn t16_app_restart_command() -> AppRestartCommandDto {
+    let command = update_service().app_restart_command();
+    AppRestartCommandDto {
+        program: command.program.to_string_lossy().into_owned(),
+        working_dir: command.working_dir.to_string_lossy().into_owned(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1290,6 +1352,43 @@ mod tests {
         );
         assert!(app.remote_version.is_none());
         assert!(app.download_url.is_none());
+    }
+
+    #[test]
+    fn app_update_spec_with_flags_via_proxy_without_port_is_structured() {
+        // R4-29: the parameterized entry point must reject "via proxy" with no
+        // known local endpoint before any network/verify step.
+        let _guard = crate::api::engine::engine_test_lock();
+        engine().set_local_proxy_port(None);
+        let spec = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("current-thread runtime")
+            .block_on(t16_apply_app_update_spec_with_flags(false, true));
+        assert!(!spec.ok);
+        assert_eq!(spec.error.unwrap().code, codes::PROXY_UNAVAILABLE);
+    }
+
+    #[test]
+    fn app_restart_command_is_exposed() {
+        let command = t16_app_restart_command();
+        assert!(!command.program.is_empty());
+        assert!(!command.working_dir.is_empty());
+    }
+
+    #[test]
+    fn rollback_without_previous_is_structured_not_found() {
+        // No real install root is touched: a fresh temp layout has no
+        // `app.previous`, so the rollback path reports a structured error.
+        let root = std::env::temp_dir().join(format!("r4-29-rollback-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::create_dir_all(&root);
+        let service =
+            application::UpdateService::new(root.join("cores")).with_app_install_root(root.clone());
+        let error = service
+            .rollback_app_upgrade()
+            .expect_err("no previous payload");
+        assert_eq!(error.code, codes::CONFLICT);
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

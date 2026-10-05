@@ -1,0 +1,19 @@
+{
+  "instance": "R4-33.O04",
+  "platform": "macOS ARM64 / Avalonia",
+  "commit": "8651e19d1049d69e27951c98e4884560d56f4c97",
+  "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "armed": false,
+  "status": "blocked",
+  "built": false,
+  "run": false,
+  "blocked_reason": "host is Windows x64, no Apple hardware/Xcode SDK",
+  "unlock_conditions": ["Apple Silicon host or arm64 macOS CI runner with Xcode CLT, Flutter 3.47.5, Rust aarch64-apple-darwin"],
+  "min_steps": [
+    "cargo build --workspace --release --locked",
+    "flutter build macos --release",
+    "install/run GUI; cores/proxy/TUN permission/window/hotkey/traffic",
+    "screenshots + package content + hashes"
+  ],
+  "commands_run": ["Get-Command xcode-select -> not found"]
+}

@@ -34,7 +34,9 @@ use runtime::{
     ServerFrame, LEN_PREFIX_BYTES, NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
 };
 
-use crate::runtime_client::{ApplyOutcome, EventSink, RuntimeClient, RuntimeSnapshot, TunStatus};
+use crate::runtime_client::{
+    ApplyOutcome, EventSink, OperationStatusView, RuntimeClient, RuntimeSnapshot, TunStatus,
+};
 
 /// How long to wait for a freshly launched net-host to accept a connection.
 const LAUNCH_WAIT: Duration = Duration::from_secs(10);
@@ -285,6 +287,26 @@ impl RuntimeClient for NetHostClient {
             IpcResult::Snapshot(snapshot) => Ok(map_snapshot(&snapshot, &detail)),
             IpcResult::Error(error) => Err(error),
             other => Err(unexpected("snapshot", &other)),
+        }
+    }
+
+    fn operation_status(&self, operation_id: &str) -> Result<OperationStatusView, DomainError> {
+        let (result, _detail) = self.request(
+            IpcOperation::GetOperation {
+                operation_id: operation_id.to_string(),
+            },
+            Duration::from_millis(IPC_REQUEST_TIMEOUT_MS),
+        )?;
+        match result {
+            IpcResult::Operation(status) => Ok(OperationStatusView {
+                operation_id: status.operation_id,
+                job_id: status.job_id.map(|id| id.0),
+                state: status.state,
+                cancel: status.cancel,
+                error: status.error,
+            }),
+            IpcResult::Error(error) => Err(error),
+            other => Err(unexpected("operation_status", &other)),
         }
     }
 

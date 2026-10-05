@@ -1,0 +1,16 @@
+[17:57:41] first_run: started pid=22676
+[17:57:44] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\repair\R4-32\r4-32-first-run.png (1200x800)
+[17:57:44] first_run: window=True guiNDB=True guiNConfig=True
+[17:57:53] first_run: force-stopped owned pid tree
+[17:57:55] reopen: started pid=18876
+[17:57:57] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\repair\R4-32\r4-32-reopen.png (1200x800)
+[17:57:57] reopen: window=True guiNDB=True guiNConfig=True
+[17:58:06] reopen: force-stopped owned pid tree
+[17:58:08] ui_update_hook: started pid=13356
+[17:58:11] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\repair\R4-32\r4-32-update-window.png (1200x800)
+[17:58:11] ui_update_hook: window=True guiNDB=True guiNConfig=True
+[17:58:19] ui_update_hook: force-stopped owned pid tree
+[17:58:21] ui_backup_hook: started pid=29084
+[17:58:24] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\repair\R4-32\r4-32-backup-window.png (1200x800)
+[17:58:24] ui_backup_hook: window=True guiNDB=True guiNConfig=True
+[17:58:32] ui_backup_hook: force-stopped owned pid tree

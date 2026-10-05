@@ -1,0 +1,42 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/AppData/Local/Temp/opencode/r4_32_clean/apps/desktop/integration_test/ux_parity_fix07_active_test.dart
+Building Windows application...                                 
+Get-Item : 閹靛彞绗夐崚浼淬€?C:\Users\Colby\AppData閵?
+閹碘偓閸︺劋缍呯純?C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\windows\flutter\ephemeral\.plugin_symlinks\bri
+dge_api\cargokit\cmake\resolve_symlinks.ps1:25 鐎涙顑? 17
++         $item = Get-Item $realPath
++                 ~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\Users\Colby\AppData:String) [Get-Item], IOException
+    + FullyQualifiedErrorId : ItemNotFound,Microsoft.PowerShell.Commands.GetItemCommand
+
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\ZERO_CHECK.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\plugins\bridge_api\bridge_api_cargokit.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\flutter\flutter_assemble.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\flutter\flutter_wrapper_plugin.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\plugins\file_selector_windows\file_selector_windows_plugin.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\flutter\flutter_wrapper_app.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\plugins\hotkey_manager_windows\hotkey_manager_windows_plugin.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\plugins\screen_retriever_windows\screen_retriever_windows_plugin.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\plugins\system_tray\system_tray_plugin.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\plugins\window_manager\window_manager_plugin.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\runner\v2rayn_desktop.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\ALL_BUILD.vcxproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(548,5): warning MSB8029: 涓棿鐩綍鎴栬緭鍑虹洰褰曟棤娉曢┗鐣欏湪涓存椂鐩綍涓嬶紝鍥犱负杩欏彲鑳戒細瀵艰嚧澧為噺鐢熸垚鍑虹幇闂銆?[C:\Users\Colby\AppData\Local\Temp\opencode\r4_32_clean\apps\desktop\build\windows\x64\INSTALL.vcxproj]
+Building Windows application...                                    17.9s
+鉁?Built build\windows\x64\runner\Debug\v2rayn_desktop.exe
+00:00 +0: FIX-07 set active persists and restores on reopen
+[runtime] runtime event gap: seq=4 after 1
+00:03 +1: (tearDownAll)
+00:03 +1: All tests passed!

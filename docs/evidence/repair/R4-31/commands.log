@@ -1,0 +1,48 @@
+R4-31 command log (2026-10-05, HEAD 8651e19)
+
+Workdir: apps/desktop
+Runner: C:\Users\Colby\toolchains\flutter\bin\flutter.bat (3.47.5)
+Rust: not changed by this card -> cargo fmt/clippy/test not run.
+
+[1] flutter analyze
+    -> No issues found! (ran in 3.6s)
+
+[2] flutter test test/r4_31_contract_test.dart -r expanded
+    -> 00:01 +5: All tests passed!
+
+[3] flutter test test/repair/r4_31_repro_test.dart -r expanded   (temporarily reverted fix)
+    -> 00:00 +0 -1: an idle poll tick must not rebuild the node table read model [E]
+         Expected: true
+           Actual: <false>
+       the poll must not run a structural full read on every empty-base tick [E]
+         Expected: <2>
+           Actual: <4>
+       -> 2 tests failed (expected, pre-fix)
+
+[4] restore fix; flutter test test/repair/r4_31_repro_test.dart test/r4_31_contract_test.dart
+    -> 00:03 +7: All tests passed!
+
+[5] dart format lib/features/profiles/profiles_controller.dart test/r4_31_contract_test.dart test/repair/r4_31_repro_test.dart test/support/r4_22_bridge.dart test/support/fake_monitor_bridge.dart
+    -> Formatted 4 files (2 changed)   [r4_31_contract_test.dart, r4_31_repro_test.dart]
+
+[6] regression group:
+    flutter test test/r4_31_contract_test.dart test/repair/r4_31_repro_test.dart \
+      test/r4_22_contract_test.dart test/repair/r4_22_repro_test.dart \
+      test/r4_09_contract_test.dart test/r4_10_contract_test.dart test/t15b_speedtest_test.dart
+    -> 00:10 +35: All tests passed!
+
+    (note: one earlier grouped run hit a transient loader failure on r4_22_contract;
+     re-run alone and in the group both pass 8/8 and 35/35 respectively.)
+
+[7] pre-build lock check
+    Get-Process v2rayn_desktop  -> none running
+    Test-Path apps/desktop/build/windows/x64/runner/Release/v2rayn_desktop.exe -> True (unlocked)
+
+[8] flutter build windows --release
+    -> SEVERE: warning: unused import: `JobState` (application lib)
+    -> SEVERE: error[E0425]: cannot find type `ProfileDto` in this scope
+    -> error : could not compile `bridge_api` (lib) due to 1 previous error
+    -> Build process failed. (41.2s)
+    Cause: unrelated uncommitted Rust edits in the shared worktree
+    (crates/bridge_api/src/api/*, crates/application/src/engine.rs), not this card.
+    This card changed no Rust file (git diff --stat confirms dart-only).

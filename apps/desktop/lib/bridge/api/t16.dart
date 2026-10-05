@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `app_install_root`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `last_update_flags`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `remember_update_flags`, `update_flags`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
+// These functions are ignored because they are not marked as `pub`: `app_install_root`, `app_update_spec_inner`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `last_update_flags`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `remember_update_flags`, `update_flags`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UpdateFlags`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
 // These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`
@@ -109,11 +109,6 @@ Future<ApplyCoreResultDto> t16ApplyCoreUpdate({
   viaProxy: viaProxy,
 );
 
-/// `apply_app_update_spec` — stage the application update and return the
-/// external-upgrade spec. No process is started.
-Future<ExternalSpecDto> t16ApplyAppUpdateSpec() =>
-    RustLib.instance.api.crateApiT16T16ApplyAppUpdateSpec();
-
 /// `cleanup_logs_tmp` — manual trigger of the 1h Test / 7d log+temp cleanup.
 CleanupResultDto t16CleanupLogsTmp() =>
     RustLib.instance.api.crateApiT16T16CleanupLogsTmp();
@@ -125,3 +120,30 @@ SimpleResult t16OpenConfigDir() =>
 /// `get_core_versions` — read-only probe of installed core directories.
 CoreVersionsDto t16GetCoreVersions() =>
     RustLib.instance.api.crateApiT16T16GetCoreVersions();
+
+/// `apply_app_update_spec_with_flags` — parameterized self-update staging
+/// (R4-29): the `prerelease` / `via_proxy` selection is passed explicitly
+/// instead of being read from a process-global "last check" slot.
+Future<ExternalSpecDto> t16ApplyAppUpdateSpecWithFlags({
+  required bool prerelease,
+  required bool viaProxy,
+}) => RustLib.instance.api.crateApiT16T16ApplyAppUpdateSpecWithFlags(
+  prerelease: prerelease,
+  viaProxy: viaProxy,
+);
+
+/// Backward-compatible no-arg entry point retained until the FRB bindings are
+/// regenerated; it reuses the last recorded check selection (R4-29 gap).
+Future<ExternalSpecDto> t16ApplyAppUpdateSpec() =>
+    RustLib.instance.api.crateApiT16T16ApplyAppUpdateSpec();
+
+/// `rollback_app_upgrade` — restore the `app.previous` payload kept by the last
+/// external replacement (R4-29). No network; file effects stay inside the
+/// install root.
+AppRollbackResultDto t16RollbackAppUpgrade() =>
+    RustLib.instance.api.crateApiT16T16RollbackAppUpgrade();
+
+/// `app_restart_command` — the relaunch command the external upgrade runner
+/// executes after a replacement (R4-29). Constructed only; never spawned here.
+AppRestartCommandDto t16AppRestartCommand() =>
+    RustLib.instance.api.crateApiT16T16AppRestartCommand();

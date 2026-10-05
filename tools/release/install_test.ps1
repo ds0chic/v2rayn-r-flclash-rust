@@ -27,7 +27,8 @@ param(
   [string]$EvidenceDir = '',
   [string]$TestRoot = '',
   [int]$WindowWaitSec = 90,
-  [switch]$SkipCompile
+  [switch]$SkipCompile,
+  [switch]$CompileOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -184,6 +185,32 @@ try {
   $result.setup_exe = (Resolve-Path -LiteralPath $SetupExe).Path
   $result.setup_sha256 = (Get-FileHash -LiteralPath $SetupExe -Algorithm SHA256).Hash.ToLowerInvariant()
   Log "setup=$($result.setup_exe) sha256=$($result.setup_sha256)"
+
+  if ($CompileOnly) {
+    # Static-only delivery check: the installer compiles and the source stage
+    # carries the flat layout the .iss packages. No host install/uninstall is
+    # ever performed in this mode (R4-32 hard constraint).
+    $stageDir = Join-Path $DistDir 'v2rayN-R-1.0.0+1-windows-x64'
+    $stageExpected = @(
+      'v2rayn_desktop.exe', 'bridge_api.dll', 'net_host.exe',
+      'privileged_helper.exe', 'v2rayN-upgrade.exe', 'build-info.json',
+      'CORE-NOTES.txt', 'data\app.so', 'data\flutter_assets\AssetManifest.bin'
+    )
+    $stageMissing = @($stageExpected | Where-Object {
+        -not (Test-Path -LiteralPath (Join-Path $stageDir $_))
+      })
+    $result.layout.expected = $stageExpected
+    $result.layout.missing = $stageMissing
+    $result.layout.present = @($stageExpected | Where-Object {
+        Test-Path -LiteralPath (Join-Path $stageDir $_)
+      })
+    $result.layout.ok = ($stageMissing.Count -eq 0)
+    $result.limitations += 'compile-only: no real install/uninstall performed on the host'
+    $result.ok = $result.layout.ok
+    Log "compile-only layout ok=$($result.layout.ok) missing=$($stageMissing -join ',')"
+    Write-Host "T21_INSTALL_COMPILE_ONLY ok=$($result.ok)"
+    return
+  }
 
   # --- silent install --------------------------------------------------------
   $installArgs = @(

@@ -1,0 +1,29 @@
+{
+  "instance": "R4-33.O02",
+  "platform": "Windows ARM64 / WPF",
+  "commit": "8651e19d1049d69e27951c98e4884560d56f4c97",
+  "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "armed": false,
+  "status": "blocked",
+  "rust_cross_check": {
+    "packages": ["domain", "config_codegen", "ipc_contract", "subscriptions", "updater"],
+    "target": "aarch64-pc-windows-msvc",
+    "result": "5/5 exit 0 (Finished dev profile in 10.50s)",
+    "note": "check only; not linked, not run"
+  },
+  "flutter_windows_arm64": {
+    "cmd": "flutter build windows --release --target-platform=windows-arm64",
+    "result": "Could not find an option named \"--target-platform\". exit 64",
+    "supported": false
+  },
+  "blocked_reason": "pinned Flutter Windows desktop engine/CLI has no ARM64 target; needs ARM64 host + engine",
+  "unlock_conditions": [
+    "ARM64 host with Flutter Windows ARM64 engine, produce and install/run GUI",
+    "run cores/proxy/TUN permission/window/hotkey/traffic with screenshots"
+  ],
+  "commands_run": [
+    "cargo check -p domain -p config_codegen -p ipc_contract -p subscriptions -p updater --target aarch64-pc-windows-msvc --locked",
+    "rustup target list --installed",
+    "flutter build windows --release --target-platform=windows-arm64"
+  ]
+}

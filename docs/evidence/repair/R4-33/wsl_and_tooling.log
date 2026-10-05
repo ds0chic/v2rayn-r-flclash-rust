@@ -1,0 +1,9 @@
+PS> wsl --status
+未安装用于 Linux 的 Windows 子系统。可通过运行 wsl.exe --install 进行安装。
+EXIT=50
+
+PS> wsl -l -v
+未安装用于 Linux 的 Windows 子系统。可通过运行 wsl.exe --install 进行安装。
+
+PS> Get-Command docker   -> (not found)
+PS> Get-Command xcode-select -> (not found)

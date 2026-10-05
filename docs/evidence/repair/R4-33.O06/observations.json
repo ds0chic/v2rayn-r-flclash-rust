@@ -1,0 +1,19 @@
+{
+  "instance": "R4-33.O06",
+  "platform": "Linux ARM64 / Avalonia",
+  "commit": "8651e19d1049d69e27951c98e4884560d56f4c97",
+  "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "armed": false,
+  "status": "blocked",
+  "built": false,
+  "run": false,
+  "blocked_reason": "no WSL distro, no docker, no ARM64 Linux toolchain/host",
+  "unlock_conditions": ["O05 Linux environment", "gcc-aarch64-linux-gnu or ARM64 host; Rust aarch64-unknown-linux-gnu"],
+  "min_steps": [
+    "cargo build --workspace --release --locked",
+    "flutter build linux --release",
+    "install/run GUI; cores/proxy/TUN permission/window/hotkey/traffic",
+    "screenshots + package content + hashes"
+  ],
+  "commands_run": ["wsl --status (exit 50)", "Get-Command docker -> not found"]
+}

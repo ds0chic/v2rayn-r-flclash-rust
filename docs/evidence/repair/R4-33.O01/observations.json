@@ -1,0 +1,35 @@
+{
+  "instance": "R4-33.O01",
+  "platform": "Windows x64 / WPF",
+  "commit": "8651e19d1049d69e27951c98e4884560d56f4c97",
+  "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "armed": false,
+  "status": "blocked",
+  "partially_implemented": true,
+  "applicable_flows": {
+    "gui_build": "verified (build scope)",
+    "packaged_launch_data_dir_window": "verified (packaged smoke scope)",
+    "proxy_apply_chain": "verified (V2RAYN_R_AUTO_SMOKE equivalent path)",
+    "cores": "verified (14 cores, R3-CORE-MATRIX)",
+    "real_os_proxy_autostart_helper_route_tun_adapter_no_autoroute": "verified (T21-real-os, safe scope)",
+    "real_auto_route_tun_global_takeover": "blocked",
+    "gui_mouse_click_driven_apply": "unverified",
+    "r4_32_delivery_regression": "blocked (incomplete: only build logs present, no README/observations/gates/hash)",
+    "signing_installer_autoupdate_dpi": "not run"
+  },
+  "evidence_refs": [
+    "docs/evidence/T20.md",
+    "docs/evidence/T21-real-os.md",
+    "docs/evidence/recheck-fixes/R3-CORE-MATRIX/",
+    "compat/platform-matrix.md#6.2"
+  ],
+  "blocked_reasons": [
+    "R4-32 package delivery regression incomplete (docs/evidence/repair/R4-32/ has build logs but no README/observations/gates/hash)",
+    "real auto-route TUN / global takeover requires authorized isolated VM"
+  ],
+  "unlock_conditions": [
+    "deliver R4-32 with full gates and evidence",
+    "authorized isolated VM: UI-driven auto-route TUN open/close/crash-sleep recovery with adapter+route+lease+journal cleanup assertions"
+  ],
+  "commands_run": []
+}

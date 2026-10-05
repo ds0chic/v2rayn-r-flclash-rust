@@ -1,0 +1,6 @@
+PS> flutter build windows --release --target-platform=windows-arm64   # cwd: apps/desktop
+Could not find an option named "--target-platform".
+
+Run 'flutter -h' (or 'flutter <command> -h') for available flutter commands and options.
+
+EXIT=64

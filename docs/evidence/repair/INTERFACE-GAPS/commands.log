@@ -1,0 +1,32 @@
+# INTERFACE-GAPS commands.log (2026-10-05)
+# cwd: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn
+# cargo: C:\Users\Colby\.cargo\bin\cargo.exe
+
+> cargo check --workspace --locked
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.67s
+(首个错误曾出现：application unused JobState；bridge_api subs ProfileDto 未导入 -> 已修)
+
+> cargo clippy --workspace --all-targets --locked -- -D warnings
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.07s
+(中间曾报 clippy::question_mark、bridge_api test profile_count 未导入 -> 已修)
+
+> cargo fmt --all -- --check
+(无输出，格式干净)
+
+> cargo test -p application -p bridge_api -p ipc_contract --locked
+bridge_api lib: FAILED 1 (rollback_without_previous_is_structured_not_found 期望 E_NOT_FOUND，实际 E_CONFLICT)
+-> 修正断言为 codes::CONFLICT（updater rollback 无 previous 返回 InstallConflict）后通过
+
+> cargo test -p bridge_api --locked api::t16::tests::rollback_without_previous_is_structured_not_found
+test result: ok. 1 passed; 0 failed
+
+> cargo test --workspace --locked
+EXIT=0
+application lib: 278 passed; 0 failed
+bridge_api lib: 76 passed; 0 failed
+net_host (bin) tests: 64 passed; 0 failed
+其余各 crate/集成/文档测试全部 ok（详见输出；0 failed）
+注: 输出含 "ERROR: Input redirection is not supported" 为 net_host 某测试夹具副作用，测试仍 ok，EXIT=0。
+
+# 端口/安全：未使用 10808；auto_update_now 单测仅绑定 127.0.0.1 的 OS 临时端口；
+# 未修改宿主系统代理/注册表/路由/TUN/自启；未读取用户凭据。

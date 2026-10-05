@@ -28,7 +28,8 @@ use crate::repository::{
     ProfileRepository, ProfileSort, RevisionStore, SubRepository,
 };
 use crate::runtime_client::{
-    AppliedSession, ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
+    AppliedSession, ApplyOutcome, EventSink, NullRuntimeClient, OperationStatusView, RuntimeClient,
+    RuntimeSnapshot,
 };
 use crate::settings::{
     apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,
@@ -136,6 +137,9 @@ pub struct AppEngine {
     /// never blocks the subscription scheduler; started/stopped together with
     /// it, matching upstream `TaskManager`.
     resource_scheduler: Arc<Mutex<Option<ResourceScheduler>>>,
+    /// Structured outcome of the most recent Geo/SRS resource pass (R4-34), so
+    /// the UI can read the last result without re-running a download.
+    last_resource_report: Arc<Mutex<Option<ResourceUpdateReport>>>,
     /// The local socks/mixed port of the running session, when known.
     local_proxy_port: Arc<Mutex<Option<u16>>>,
     /// The applied-session fact (FIX-07): published only while net-host
@@ -328,6 +332,7 @@ impl AppEngine {
             runtime,
             sub_scheduler: Arc::new(Mutex::new(None)),
             resource_scheduler: Arc::new(Mutex::new(None)),
+            last_resource_report: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
@@ -408,6 +413,7 @@ impl AppEngine {
             runtime,
             sub_scheduler: Arc::new(Mutex::new(None)),
             resource_scheduler: Arc::new(Mutex::new(None)),
+            last_resource_report: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
@@ -1884,6 +1890,32 @@ impl AppEngine {
             .and_then(|guard| guard.clone())
     }
 
+    /// The applied inbound proxy protocol (`http` / `socks` / `mixed`) of the
+    /// running session, or `None` when nothing is applied (R4-24). Never
+    /// derived from the desired selection; no credentials are exposed.
+    pub fn applied_inbound_protocol(&self) -> Option<String> {
+        self.applied_session()?;
+        let scheme = self
+            .apply_facts
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone())
+            .map(|facts| facts.scheme)?;
+        Some(scheme.as_str().to_string())
+    }
+
+    /// The actual bound local proxy port of the running session, if known.
+    pub fn applied_inbound_port(&self) -> Option<u16> {
+        self.applied_session()
+            .and_then(|session| session.proxy_port)
+    }
+
+    /// Read the structured status of a prior runtime operation (R4-04
+    /// reconcile). Read-only passthrough to the runtime client.
+    pub fn operation_status(&self, operation_id: &str) -> Result<OperationStatusView, DomainError> {
+        self.runtime.operation_status(operation_id)
+    }
+
     /// Reconcile the applied-session fact from a fresh runtime snapshot.
     ///
     /// Only a `Running` session with a bound port publishes an endpoint; a
@@ -3170,10 +3202,46 @@ impl AppEngine {
         now_hours: u64,
         cancellation: &CancellationToken,
     ) -> Result<ResourceUpdateReport, DomainError> {
+        self.run_resource_pass_inner(bin_dir, now_hours, false, cancellation)
+            .await
+    }
+
+    /// Force one Geo/SRS resource pass now (R4-34), ignoring the hourly
+    /// cadence, and record the outcome for [`Self::last_resource_report`].
+    /// Used by the manual "update resources now" entry point.
+    pub async fn auto_update_now(&self) -> Result<ResourceUpdateReport, DomainError> {
+        let bin_dir = self
+            .data_dir
+            .as_ref()
+            .map(|dir| dir.join("bin"))
+            .ok_or_else(|| {
+                DomainError::new(domain::codes::UNAVAILABLE, "error.engine_not_persistent")
+            })?;
+        let cancellation = CancellationToken::new();
+        self.run_resource_pass_inner(&bin_dir, 1, true, &cancellation)
+            .await
+    }
+
+    /// The most recent resource pass outcome, or `None` when none ran yet.
+    pub fn last_resource_report(&self) -> Option<ResourceUpdateReport> {
+        self.last_resource_report
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone())
+    }
+
+    async fn run_resource_pass_inner(
+        &self,
+        bin_dir: &Path,
+        now_hours: u64,
+        force: bool,
+        cancellation: &CancellationToken,
+    ) -> Result<ResourceUpdateReport, DomainError> {
         self.guard_storage()?;
         let loaded = self.load_settings()?;
         let interval = loaded.settings.gui_item.auto_update_interval;
-        if interval <= 0 || now_hours == 0 || !now_hours.is_multiple_of(interval as u64) {
+        if !force && (interval <= 0 || now_hours == 0 || !now_hours.is_multiple_of(interval as u64))
+        {
             return Ok(ResourceUpdateReport::default());
         }
         let requests = build_resource_requests(&loaded.settings.const_item, bin_dir);
@@ -3224,6 +3292,9 @@ impl AppEngine {
                     });
                 }
             }
+        }
+        if let Ok(mut guard) = self.last_resource_report.lock() {
+            *guard = Some(report.clone());
         }
         Ok(report)
     }
@@ -3549,6 +3620,36 @@ mod tests {
             std::fs::read_to_string(dir.path().join("srss").join("geosite-google.srs")).unwrap(),
             "SYNTHETIC-GEO"
         );
+    }
+
+    #[tokio::test]
+    async fn auto_update_now_forces_pass_and_records_status() {
+        let listener = bind_test_listener();
+        let port = listener.local_addr().unwrap().port();
+        let requests = 2 + DEFAULT_SRS_GEOSITE.len();
+        let server = serve_files(listener, requests, "SYNTHETIC-GEO");
+
+        let dir = tempfile::tempdir().unwrap();
+        let engine =
+            AppEngine::open_with_runtime(dir.path(), Arc::new(NullRuntimeClient::new())).unwrap();
+        assert!(engine.last_resource_report().is_none());
+        // interval=0 would skip a scheduled pass; the manual "update now" must
+        // still run (R4-34).
+        set_resource_sources(
+            &engine,
+            0,
+            Some(format!("http://127.0.0.1:{port}/{{0}}.dat")),
+            Some(format!("http://127.0.0.1:{port}/rule-set/{{1}}.srs")),
+        );
+        let report = engine.auto_update_now().await.unwrap();
+        assert!(report.due);
+        assert!(report.ok(), "failures: {:?}", report.failed);
+        assert_eq!(report.downloaded.len(), requests);
+        server.join().unwrap();
+        let last = engine
+            .last_resource_report()
+            .expect("status must record the last pass");
+        assert_eq!(last.downloaded.len(), requests);
     }
 
     #[tokio::test]
@@ -4257,6 +4358,30 @@ mod tests {
         let applied = engine.applied_session().unwrap();
         assert_eq!(applied.active_index_id, Some(a.index_id.clone()));
         assert_eq!(applied.proxy_port, Some(11811));
+    }
+
+    #[test]
+    fn applied_inbound_facts_report_protocol_and_port_only_when_running() {
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let p = synthetic_full_profile(1);
+        engine.seed(vec![p.clone()]);
+        engine.set_active(Some(p.index_id.clone())).unwrap();
+        // Nothing applied yet: no fabricated protocol/port.
+        assert_eq!(engine.applied_inbound_protocol(), None);
+        assert_eq!(engine.applied_inbound_port(), None);
+        engine
+            .apply_runtime(tiny_plan(), DesiredRevision::new(engine.desired_revision()))
+            .unwrap();
+        runtime.mark_running_with("s-inbound", vec![11813], AppliedRevision::new(0));
+        engine.snapshot().unwrap();
+        assert_eq!(engine.applied_inbound_protocol().as_deref(), Some("mixed"));
+        assert_eq!(engine.applied_inbound_port(), Some(11813));
+        // A stop withdraws both facts.
+        runtime.set_state(RuntimeState::Stopped);
+        engine.snapshot().unwrap();
+        assert_eq!(engine.applied_inbound_protocol(), None);
+        assert_eq!(engine.applied_inbound_port(), None);
     }
 
     #[test]

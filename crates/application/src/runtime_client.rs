@@ -7,7 +7,8 @@
 use std::sync::Arc;
 
 use domain::{
-    AppliedRevision, CancelOutcome, DomainError, EventEnvelope, JobId, RuntimePlan, RuntimeState,
+    AppliedRevision, CancelOutcome, DomainError, EventEnvelope, JobId, JobState, RuntimePlan,
+    RuntimeState,
 };
 use serde::{Deserialize, Serialize};
 
@@ -86,6 +87,19 @@ pub struct AppliedSession {
     pub applied_revision: AppliedRevision,
 }
 
+/// Structured, read-only status of a prior runtime operation (R4-04
+/// reconcile). Decoupled from the IPC wire type so `application` stays free of
+/// the ipc crate; the UI uses it to reconcile after a queue timeout instead of
+/// assuming a command was lost.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OperationStatusView {
+    pub operation_id: String,
+    pub job_id: Option<String>,
+    pub state: JobState,
+    pub cancel: Option<CancelOutcome>,
+    pub error: Option<DomainError>,
+}
+
 /// Outcome of an `apply` request.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApplyOutcome {
@@ -99,6 +113,14 @@ pub enum ApplyOutcome {
 pub trait RuntimeClient: Send + Sync {
     /// Read the current runtime snapshot.
     fn snapshot(&self) -> Result<RuntimeSnapshot, DomainError>;
+
+    /// Read the structured status of a prior operation/job (R4-04 reconcile).
+    ///
+    /// The default is a structured not-found error so an in-memory client can
+    /// never fabricate a tracked operation.
+    fn operation_status(&self, operation_id: &str) -> Result<OperationStatusView, DomainError> {
+        Err(DomainError::not_found("operation", operation_id))
+    }
 
     /// Submit an immutable plan. Results are delivered via the event stream.
     fn apply(&self, plan: &RuntimePlan) -> Result<ApplyOutcome, DomainError>;

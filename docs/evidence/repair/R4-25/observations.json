@@ -1,0 +1,64 @@
+{
+  "task": "R4-25",
+  "title": "生产TUN和拒绝恢复",
+  "commit": "8651e19d1049d69e27951c98e4884560d56f4c97",
+  "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "armed": false,
+  "fixture": "synthetic",
+  "kernel": "none",
+  "network": "none",
+  "host_tun_route_written": false,
+  "forbidden_port_10808_used": false,
+  "ports_listened": [],
+  "status": "implemented",
+  "real_os_effect": "blocked",
+  "prereq_evidence": {
+    "R4-12": "settings/layout load-failure protection",
+    "R4-24": "applied endpoint reconcile",
+    "R3-04": "core-created TUN interface discovery -> helper",
+    "R3-05": "helper-success then failure unified cleanup"
+  },
+  "changed_files": [
+    "apps/desktop/test/r4_25_contract_test.dart",
+    "docs/repair/tasks/R4-25.md",
+    "docs/evidence/repair/R4-25/README.md",
+    "docs/evidence/repair/R4-25/observations.json",
+    "docs/evidence/repair/R4-25/flutter_analyze.log",
+    "docs/evidence/repair/R4-25/flutter_test_r4_25.log"
+  ],
+  "commands": [
+    {
+      "cmd": "flutter analyze",
+      "cwd": "apps/desktop",
+      "result": "No issues found! (ran in 3.7s)"
+    },
+    {
+      "cmd": "flutter test test/r4_25_contract_test.dart",
+      "cwd": "apps/desktop",
+      "result": "All tests passed (8/8)"
+    }
+  ],
+  "rust_changed": false,
+  "cargo_commands_run": [],
+  "native_build_run": false,
+  "blocked": [
+    "real auto-route TUN / global takeover on authorized isolated VM",
+    "real DNS / IPv6 / route-exclude effect on isolated VM",
+    "real helper authorization/denial session",
+    "crash/sleep recovery with real adapter cleanup",
+    "persist-state rollback on apply failure across real FRB/SQLite"
+  ],
+  "blocked_unlock_conditions": {
+    "real_auto_route_tun": "authorized isolated VM/host with snapshot rollback + admin/UAC + real sing-box TUN device",
+    "helper_real_session": "same isolated environment",
+    "lease_through_frb": "interface integrator adds read-only redacted lease fields to SnapshotDto and regenerates FRB"
+  },
+  "interface_gap": {
+    "id": "tun-lease-through-frb",
+    "provider": "crates/bridge_api/src/api/engine.rs SnapshotDto",
+    "consumer": "FrbRuntimeBridge._toView -> RuntimeView -> tunActualLabel",
+    "io": "add read-only tun_lease_present, optional tun_adapter/tun_interface_index/tun_route_count; no credentials",
+    "error": "none (read-only); missing keeps 已请求(未验证)",
+    "effect_point": "snapshot after each successful apply"
+  }
+}

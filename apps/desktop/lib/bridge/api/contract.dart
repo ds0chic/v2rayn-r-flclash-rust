@@ -9,7 +9,47 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ApplyRuntimeRequest`, `RevisionDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+
+/// Read-only relaunch command the external upgrade runner executes (R4-29).
+class AppRestartCommandDto {
+  final String program;
+  final String workingDir;
+
+  const AppRestartCommandDto({required this.program, required this.workingDir});
+
+  @override
+  int get hashCode => program.hashCode ^ workingDir.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppRestartCommandDto &&
+          runtimeType == other.runtimeType &&
+          program == other.program &&
+          workingDir == other.workingDir;
+}
+
+/// Result of rolling back a staged application upgrade (R4-29).
+class AppRollbackResultDto {
+  final bool ok;
+  final String? restored;
+  final ErrorDto? error;
+
+  const AppRollbackResultDto({required this.ok, this.restored, this.error});
+
+  @override
+  int get hashCode => ok.hashCode ^ restored.hashCode ^ error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppRollbackResultDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          restored == other.restored &&
+          error == other.error;
+}
 
 /// One applied core update.
 class AppliedCoreDto {
@@ -41,6 +81,29 @@ class AppliedCoreDto {
           version == other.version &&
           installedDir == other.installedDir &&
           keptPrevious == other.keptPrevious;
+}
+
+/// Applied inbound proxy protocol + bound port of the running session (R4-24).
+/// Carries no authentication/secret fields by construction.
+class AppliedInboundDto {
+  /// `http` / `socks` / `mixed`, or `None` when nothing is applied.
+  final String? protocol;
+
+  /// Actual bound local proxy port, when known.
+  final int? port;
+
+  const AppliedInboundDto({this.protocol, this.port});
+
+  @override
+  int get hashCode => protocol.hashCode ^ port.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppliedInboundDto &&
+          runtimeType == other.runtimeType &&
+          protocol == other.protocol &&
+          port == other.port;
 }
 
 /// Result of applying core updates.
@@ -762,6 +825,47 @@ class JobDto {
           errorMessageKey == other.errorMessageKey;
 }
 
+/// Read-only status of a prior runtime operation (R4-04 reconcile). `found`
+/// distinguishes "no such operation" from a status whose state is not-yet-run.
+class OperationStatusDto {
+  final bool found;
+  final String operationId;
+  final String? jobId;
+  final JobState state;
+  final CancelOutcome? cancel;
+  final ErrorDto? error;
+
+  const OperationStatusDto({
+    required this.found,
+    required this.operationId,
+    this.jobId,
+    required this.state,
+    this.cancel,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      found.hashCode ^
+      operationId.hashCode ^
+      jobId.hashCode ^
+      state.hashCode ^
+      cancel.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OperationStatusDto &&
+          runtimeType == other.runtimeType &&
+          found == other.found &&
+          operationId == other.operationId &&
+          jobId == other.jobId &&
+          state == other.state &&
+          cancel == other.cancel &&
+          error == other.error;
+}
+
 /// A located per-item parse failure.
 class ParseIssueDto {
   final String code;
@@ -1158,6 +1262,71 @@ class RecoveryDto {
           stage == other.stage &&
           restored == other.restored &&
           pending == other.pending;
+}
+
+/// One failed resource download (R4-34).
+class ResourceFailureDto {
+  final String url;
+  final String code;
+  final String detail;
+
+  const ResourceFailureDto({
+    required this.url,
+    required this.code,
+    required this.detail,
+  });
+
+  @override
+  int get hashCode => url.hashCode ^ code.hashCode ^ detail.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ResourceFailureDto &&
+          runtimeType == other.runtimeType &&
+          url == other.url &&
+          code == other.code &&
+          detail == other.detail;
+}
+
+/// Structured outcome of a Geo/SRS resource pass (R4-34).
+class ResourceUpdateReportDto {
+  final bool ok;
+  final bool due;
+  final int attempted;
+  final List<String> downloaded;
+  final List<ResourceFailureDto> failed;
+  final ErrorDto? error;
+
+  const ResourceUpdateReportDto({
+    required this.ok,
+    required this.due,
+    required this.attempted,
+    required this.downloaded,
+    required this.failed,
+    this.error,
+  });
+
+  @override
+  int get hashCode =>
+      ok.hashCode ^
+      due.hashCode ^
+      attempted.hashCode ^
+      downloaded.hashCode ^
+      failed.hashCode ^
+      error.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ResourceUpdateReportDto &&
+          runtimeType == other.runtimeType &&
+          ok == other.ok &&
+          due == other.due &&
+          attempted == other.attempted &&
+          downloaded == other.downloaded &&
+          failed == other.failed &&
+          error == other.error;
 }
 
 /// Result of restoring a bundle.

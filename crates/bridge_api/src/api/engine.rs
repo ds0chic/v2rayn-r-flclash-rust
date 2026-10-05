@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use application::{AppEngine, EventSink, PageRequest, ProfileFilter, ProfileSort};
 use domain::event::{EventEnvelope, EventEpoch, EventKind, EventSeq};
-use domain::job::JobId;
+use domain::job::{JobId, JobState};
 use domain::revision::DesiredRevision;
 #[cfg(test)]
 use domain::runtime_plan::{
@@ -23,10 +23,11 @@ use domain::{DomainError, MultipleLoad, Profile, ProtocolExtra, SecurityParams, 
 use serde_json::Value;
 
 use crate::api::contract::{
-    ApplyRuntimeResult, CancelResult, CapabilityDto, CopyProfilesResult, CustomFileResult,
-    DeleteProfilesResult, ErrorDto, EventEnvelopeDto, JobDto, ProfileDto, ProfileFilterDto,
-    ProfilePageDto, ProfileSortDto, ProtocolExtraDto, RecoveryDto, SaveProfileResult, SecurityDto,
-    SimpleResult, SnapshotDto, StopRuntimeResult, TransportExtraDto,
+    AppliedInboundDto, ApplyRuntimeResult, CancelResult, CapabilityDto, CopyProfilesResult,
+    CustomFileResult, DeleteProfilesResult, ErrorDto, EventEnvelopeDto, JobDto, OperationStatusDto,
+    ProfileDto, ProfileFilterDto, ProfilePageDto, ProfileSortDto, ProtocolExtraDto, RecoveryDto,
+    ResourceFailureDto, ResourceUpdateReportDto, SaveProfileResult, SecurityDto, SimpleResult,
+    SnapshotDto, StopRuntimeResult, TransportExtraDto,
 };
 
 use crate::frb_generated::StreamSink;
@@ -876,6 +877,108 @@ pub(crate) fn profile_dto(profile: Profile) -> ProfileDto {
     profile_to_dto(profile)
 }
 
+/// Public alias of the DTO -> domain mapper for other API modules (import
+/// commit takes already-parsed DTOs and must persist them without reparsing).
+pub(crate) fn profile_from_dto(dto: ProfileDto) -> Profile {
+    dto_to_profile(dto)
+}
+
+/// `get_operation` — structured, read-only status of a prior runtime operation
+/// (R4-04 reconcile). `found: false` plus a structured error when the operation
+/// is unknown; function existence is never a substitute for runtime status.
+pub fn get_operation(operation_id: String) -> OperationStatusDto {
+    match engine().operation_status(&operation_id) {
+        Ok(view) => operation_status_dto(view),
+        Err(error) => OperationStatusDto {
+            found: false,
+            operation_id,
+            job_id: None,
+            state: JobState::Failed,
+            cancel: None,
+            error: Some(error_dto(error)),
+        },
+    }
+}
+
+fn operation_status_dto(
+    view: application::runtime_client::OperationStatusView,
+) -> OperationStatusDto {
+    OperationStatusDto {
+        found: true,
+        operation_id: view.operation_id,
+        job_id: view.job_id,
+        state: view.state,
+        cancel: view.cancel,
+        error: view.error.map(ErrorDto::from),
+    }
+}
+
+/// `applied_inbound` — the applied inbound proxy protocol + bound port of the
+/// running session (R4-24). `None`/`None` when nothing is applied; never
+/// derived from the desired selection and never carrying credentials.
+#[frb(sync)]
+pub fn applied_inbound() -> AppliedInboundDto {
+    AppliedInboundDto {
+        protocol: engine().applied_inbound_protocol(),
+        port: engine().applied_inbound_port(),
+    }
+}
+
+fn resource_report_dto(
+    report: application::engine::ResourceUpdateReport,
+) -> ResourceUpdateReportDto {
+    ResourceUpdateReportDto {
+        ok: report.ok(),
+        due: report.due,
+        attempted: report.attempted as u32,
+        downloaded: report.downloaded,
+        failed: report
+            .failed
+            .into_iter()
+            .map(|failure| ResourceFailureDto {
+                url: failure.url,
+                code: failure.code,
+                detail: failure.detail,
+            })
+            .collect(),
+        error: None,
+    }
+}
+
+/// `resource_auto_update_now` — force one Geo/SRS resource pass now (R4-34),
+/// ignoring the hourly cadence, and return its structured outcome.
+pub async fn resource_auto_update_now() -> ResourceUpdateReportDto {
+    match engine().auto_update_now().await {
+        Ok(report) => resource_report_dto(report),
+        Err(error) => ResourceUpdateReportDto {
+            ok: false,
+            due: false,
+            attempted: 0,
+            downloaded: Vec::new(),
+            failed: Vec::new(),
+            error: Some(error_dto(error)),
+        },
+    }
+}
+
+/// `resource_update_status` — the most recent resource pass outcome (R4-34).
+/// When no pass has run yet it reports `ok: true` with `due: false`, never a
+/// fabricated download.
+#[frb(sync)]
+pub fn resource_update_status() -> ResourceUpdateReportDto {
+    match engine().last_resource_report() {
+        Some(report) => resource_report_dto(report),
+        None => ResourceUpdateReportDto {
+            ok: true,
+            due: false,
+            attempted: 0,
+            downloaded: Vec::new(),
+            failed: Vec::new(),
+            error: None,
+        },
+    }
+}
+
 /// Public alias of the job DTO mapper for other API modules.
 pub(crate) fn job_view_dto(job: application::JobView) -> JobDto {
     job_dto(job)
@@ -1187,5 +1290,58 @@ mod tests {
     fn event_kind_str_is_stable() {
         assert_eq!(EventKind::LogBatch.as_str(), "log_batch");
         assert_eq!(EventKind::Other("custom".into()).as_str(), "custom");
+    }
+
+    #[test]
+    fn get_operation_unknown_reports_structured_not_found() {
+        let _guard = engine_test_lock();
+        let dto = get_operation("no-such-operation".into());
+        assert!(!dto.found);
+        assert_eq!(dto.operation_id, "no-such-operation");
+        assert_eq!(
+            dto.error.expect("structured error").code,
+            domain::codes::NOT_FOUND
+        );
+    }
+
+    #[test]
+    fn operation_status_dto_maps_view() {
+        let view = application::runtime_client::OperationStatusView {
+            operation_id: "op-1".into(),
+            job_id: Some("job-1".into()),
+            state: JobState::Compensating,
+            cancel: Some(domain::job::CancelOutcome::Compensating),
+            error: None,
+        };
+        let dto = operation_status_dto(view);
+        assert!(dto.found);
+        assert_eq!(dto.operation_id, "op-1");
+        assert_eq!(dto.job_id.as_deref(), Some("job-1"));
+        assert_eq!(dto.state, JobState::Compensating);
+        assert_eq!(dto.cancel, Some(domain::job::CancelOutcome::Compensating));
+        assert!(dto.error.is_none());
+    }
+
+    #[test]
+    fn applied_inbound_is_empty_before_apply() {
+        let _guard = engine_test_lock();
+        let dto = applied_inbound();
+        assert_eq!(dto.protocol, None);
+        assert_eq!(dto.port, None);
+    }
+
+    #[test]
+    fn resource_update_status_empty_and_auto_update_needs_store() {
+        let _guard = engine_test_lock();
+        let status = resource_update_status();
+        assert!(status.ok);
+        assert!(!status.due);
+        assert_eq!(status.attempted, 0);
+        let report = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("current-thread runtime")
+            .block_on(resource_auto_update_now());
+        assert!(!report.ok);
+        assert_eq!(report.error.unwrap().code, domain::codes::UNAVAILABLE);
     }
 }

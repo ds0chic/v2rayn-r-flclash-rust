@@ -133,10 +133,7 @@ async fn handle_connection(pipe: NamedPipeServer, state: Arc<HostState>) {
                 let _ = send_result(&tx, &request_id, IpcResult::Stopped).await;
             }
             IpcOperation::GetOperation { operation_id } => {
-                let status = {
-                    let inner = state.inner.lock().await;
-                    inner.operations.get(&operation_id).cloned()
-                };
+                let status = state.operation_status(&operation_id).await;
                 let result = match status {
                     Some(status) => IpcResult::Operation(Box::new(status)),
                     None => IpcResult::Error(DomainError::not_found("operation", &operation_id)),

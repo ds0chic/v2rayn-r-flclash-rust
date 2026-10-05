@@ -63,6 +63,8 @@ class FakeMonitorBridge implements MonitorBridge {
   int clearLogsCount = 0;
   int clashProxiesCount = 0;
   int clashConnectionsCount = 0;
+  int subscribeTrafficCount = 0;
+  int subscribeLogsCount = 0;
   int? lastMinLevel;
   int setLogFilterCalls = 0;
   bool? lastCollectingPaused;
@@ -172,7 +174,10 @@ class FakeMonitorBridge implements MonitorBridge {
   }
 
   @override
-  Stream<m.TrafficBatchDto> subscribeTraffic() => _traffic.stream;
+  Stream<m.TrafficBatchDto> subscribeTraffic() {
+    subscribeTrafficCount++;
+    return _traffic.stream;
+  }
 
   @override
   m.LogPageDto getLogs(int offset, int limit) => m.LogPageDto(
@@ -209,7 +214,10 @@ class FakeMonitorBridge implements MonitorBridge {
   }
 
   @override
-  Stream<m.LogBatchDto> subscribeLogs() => _logController.stream;
+  Stream<m.LogBatchDto> subscribeLogs() {
+    subscribeLogsCount++;
+    return _logController.stream;
+  }
 
   @override
   m.PageVisibilityDto setPageVisible(String page, bool visible) {

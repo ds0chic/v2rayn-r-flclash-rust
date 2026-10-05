@@ -384,6 +384,16 @@ fn job_assign_failed(operation_id: &str, detail: impl Into<String>) -> DomainErr
 }
 
 impl HostState {
+    /// Read-only lookup of a recorded operation's structured status (R4-04).
+    pub async fn operation_status(&self, operation_id: &str) -> Option<OperationStatus> {
+        self.inner
+            .lock()
+            .await
+            .operations
+            .get(operation_id)
+            .cloned()
+    }
+
     pub fn new(config: HostConfig) -> Self {
         let recovery = journal::recover_stale(&config.run_root);
         let recovery_status = if recovery.needed {

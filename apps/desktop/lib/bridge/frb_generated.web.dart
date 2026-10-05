@@ -66,10 +66,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  AppRestartCommandDto dco_decode_app_restart_command_dto(dynamic raw);
+
+  @protected
+  AppRollbackResultDto dco_decode_app_rollback_result_dto(dynamic raw);
+
+  @protected
   AppliedChangeDto dco_decode_applied_change_dto(dynamic raw);
 
   @protected
   AppliedCoreDto dco_decode_applied_core_dto(dynamic raw);
+
+  @protected
+  AppliedInboundDto dco_decode_applied_inbound_dto(dynamic raw);
 
   @protected
   ApplyCoreResultDto dco_decode_apply_core_result_dto(dynamic raw);
@@ -94,6 +103,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool dco_decode_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CancelOutcome dco_decode_box_autoadd_cancel_outcome(dynamic raw);
 
   @protected
   CoreType dco_decode_box_autoadd_core_type(dynamic raw);
@@ -413,6 +425,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<ProxyOwnershipDto> dco_decode_list_proxy_ownership_dto(dynamic raw);
 
   @protected
+  List<ResourceFailureDto> dco_decode_list_resource_failure_dto(dynamic raw);
+
+  @protected
   List<RestoreActionDto> dco_decode_list_restore_action_dto(dynamic raw);
 
   @protected
@@ -473,6 +488,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NodeTrafficDto dco_decode_node_traffic_dto(dynamic raw);
 
   @protected
+  OperationStatusDto dco_decode_operation_status_dto(dynamic raw);
+
+  @protected
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
@@ -482,6 +500,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool? dco_decode_opt_box_autoadd_bool(dynamic raw);
+
+  @protected
+  CancelOutcome? dco_decode_opt_box_autoadd_cancel_outcome(dynamic raw);
 
   @protected
   CoreType? dco_decode_opt_box_autoadd_core_type(dynamic raw);
@@ -604,6 +625,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RegionalPresetResult dco_decode_regional_preset_result(dynamic raw);
+
+  @protected
+  ResourceFailureDto dco_decode_resource_failure_dto(dynamic raw);
+
+  @protected
+  ResourceUpdateReportDto dco_decode_resource_update_report_dto(dynamic raw);
 
   @protected
   RestoreActionDto dco_decode_restore_action_dto(dynamic raw);
@@ -831,10 +858,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  AppRestartCommandDto sse_decode_app_restart_command_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  AppRollbackResultDto sse_decode_app_rollback_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   AppliedChangeDto sse_decode_applied_change_dto(SseDeserializer deserializer);
 
   @protected
   AppliedCoreDto sse_decode_applied_core_dto(SseDeserializer deserializer);
+
+  @protected
+  AppliedInboundDto sse_decode_applied_inbound_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   ApplyCoreResultDto sse_decode_apply_core_result_dto(
@@ -867,6 +909,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool sse_decode_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CancelOutcome sse_decode_box_autoadd_cancel_outcome(
+    SseDeserializer deserializer,
+  );
 
   @protected
   CoreType sse_decode_box_autoadd_core_type(SseDeserializer deserializer);
@@ -1258,6 +1305,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<ResourceFailureDto> sse_decode_list_resource_failure_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<RestoreActionDto> sse_decode_list_restore_action_dto(
     SseDeserializer deserializer,
   );
@@ -1342,6 +1394,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NodeTrafficDto sse_decode_node_traffic_dto(SseDeserializer deserializer);
 
   @protected
+  OperationStatusDto sse_decode_operation_status_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
@@ -1351,6 +1408,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   bool? sse_decode_opt_box_autoadd_bool(SseDeserializer deserializer);
+
+  @protected
+  CancelOutcome? sse_decode_opt_box_autoadd_cancel_outcome(
+    SseDeserializer deserializer,
+  );
 
   @protected
   CoreType? sse_decode_opt_box_autoadd_core_type(SseDeserializer deserializer);
@@ -1493,6 +1555,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RegionalPresetResult sse_decode_regional_preset_result(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ResourceFailureDto sse_decode_resource_failure_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  ResourceUpdateReportDto sse_decode_resource_update_report_dto(
     SseDeserializer deserializer,
   );
 
@@ -1779,6 +1851,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_app_restart_command_dto(
+    AppRestartCommandDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_app_rollback_result_dto(
+    AppRollbackResultDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_applied_change_dto(
     AppliedChangeDto self,
     SseSerializer serializer,
@@ -1787,6 +1871,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_applied_core_dto(
     AppliedCoreDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_applied_inbound_dto(
+    AppliedInboundDto self,
     SseSerializer serializer,
   );
 
@@ -1828,6 +1918,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_box_autoadd_bool(bool self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_box_autoadd_cancel_outcome(
+    CancelOutcome self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_box_autoadd_core_type(
@@ -2349,6 +2445,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_resource_failure_dto(
+    List<ResourceFailureDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_restore_action_dto(
     List<RestoreActionDto> self,
     SseSerializer serializer,
@@ -2457,6 +2559,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_operation_status_dto(
+    OperationStatusDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
@@ -2467,6 +2575,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_bool(bool? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_opt_box_autoadd_cancel_outcome(
+    CancelOutcome? self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_opt_box_autoadd_core_type(
@@ -2654,6 +2768,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_regional_preset_result(
     RegionalPresetResult self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_resource_failure_dto(
+    ResourceFailureDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_resource_update_report_dto(
+    ResourceUpdateReportDto self,
     SseSerializer serializer,
   );
 

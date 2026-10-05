@@ -176,6 +176,14 @@ pub struct OperationStatus {
     pub error: Option<DomainError>,
 }
 
+impl OperationStatus {
+    /// Read-only: whether the operation reached a terminal state, so a caller
+    /// reconciling after a timeout knows it can stop polling.
+    pub fn is_terminal(&self) -> bool {
+        self.state.is_terminal()
+    }
+}
+
 /// Errors from IPC framing/validation, kept separate from domain errors.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -360,5 +368,28 @@ mod tests {
         let json = serde_json::to_string(&status).unwrap();
         let back: OperationStatus = serde_json::from_str(&json).unwrap();
         assert_eq!(status, back);
+        assert!(!status.is_terminal());
+    }
+
+    #[test]
+    fn operation_status_terminal_is_read_only() {
+        let done = OperationStatus {
+            operation_id: "op2".into(),
+            job_id: None,
+            state: JobState::Done,
+            cancel: None,
+            error: None,
+        };
+        assert!(done.is_terminal());
+        let failed = OperationStatus {
+            state: JobState::Failed,
+            ..done.clone()
+        };
+        assert!(failed.is_terminal());
+        let running = OperationStatus {
+            state: JobState::Running,
+            ..done
+        };
+        assert!(!running.is_terminal());
     }
 }

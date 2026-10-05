@@ -1,0 +1,47 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/t21e_import_test.dart
+Building Windows application...                                    15.5s
+✓ Built build\windows\x64\runner\Debug\v2rayn_desktop.exe
+00:00 +0: clipboard import and subscription guidance survive the real menu + bridge
+[runtime] runtime event gap: seq=377 after 0
+T21E STATUS DUMP: [配置项, 订阅分组, 设置, 帮助, 重启服务, 推广, 关闭, Alt+F4, 运行时: Stopped, 启动, 停止, 垂直布局, 有更新, 全部, 过滤器，按回车执行, 类型, 别名, 地址, 端口, 传输协议, TLS, 订阅分组, 延迟 (ms), 速度 (MB/s), 今日上传, IP 信息, 今日下载, 总上传, 总下载, 1, 2, 3, 4, vless, one, a.example, 443, raw, , , -, -, 0 B, -, 0 B, 0 B, 0 B, vmess, two, b.example, 443, ws, , , -, -, 0 B, -, 0 B, 0 B, 0 B, trojan, three, c.example, 443, raw, tls, , -, -, 0 B, -, 0 B, 0 B, 0 B, shadowsocks, four, d.example, 8388, , , , -, -, 0 B, -, 0 B, 0 B, 0 B, 信息, 当前代理, 当前连接, 过滤, Trace+, 自动刷新, 自动滚动, 暂停采集, 复制全部, 清空, 暂无内核日志, 内核运行时将在此显示真实输出, 本地: --, 局域网: --, |, 启用 Tun, 实际: 未启用, |, 系统代理: 清除系统代理 (未启用), 路由模式: Rule, 路由: V4-绕过大陆(Whitelist), 节点: 未运行, Stopped · 端口 --, 代理 ↑0 B/s ↓0 B/s, 直连 ↑0 B/s ↓0 B/s, |, 今日 ↑-- ↓--, |, 详情, |, 系统代理: 清除系统代理]
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+no import status message appeared
+
+When the exception was thrown, this was the stack:
+#0      _pumpUntil (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/t21e_import_test.dart:34:3)
+<asynchronous suspension>
+#1      main.<anonymous closure> (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/t21e_import_test.dart:100:5)
+<asynchronous suspension>
+#2      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#3      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  clipboard import and subscription guidance survive the real menu + bridge
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:34 +0 -1: clipboard import and subscription guidance survive the real menu + bridge [E]
+  Test failed. See exception logs above.
+  The test description was: clipboard import and subscription guidance survive the real menu + bridge
+  
+00:34 +0 -1: (tearDownAll)
+00:34 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/integration_test/t21e_import_test.dart: clipboard import and subscription guidance survive the real menu + bridge

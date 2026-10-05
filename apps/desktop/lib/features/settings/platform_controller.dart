@@ -65,10 +65,12 @@ class PlatformController extends Notifier<PlatformView> {
   /// no automated path mutates the host proxy or the Run key.
   void enableRealBackend() => _bridge.initBackend('windows');
 
-  /// Read the current state for the given desired mode.
-  PlatformView refresh(SysProxyMode desiredMode) {
+  /// Read the current state for the given desired mode. A background
+  /// read-back (`silent`) must not leave a persistent status message that
+  /// shadows later user feedback (import toasts, etc.).
+  PlatformView refresh(SysProxyMode desiredMode, {bool silent = false}) {
     final view = _bridge.getSystemProxyState(desiredMode.value);
-    state = view;
+    state = silent ? view.copyWith(clearMessage: true) : view;
     return view;
   }
 
@@ -88,6 +90,7 @@ class PlatformController extends Notifier<PlatformView> {
     String? server,
     String? bypass,
     String? autoConfigUrl,
+    bool silent = false,
   }) {
     final result = _bridge.setSystemProxy(
       mode: mode.value,
@@ -98,12 +101,16 @@ class PlatformController extends Notifier<PlatformView> {
     if (!result.ok) {
       state = state.copyWith(
         error: result.error,
-        message: '系统代理应用失败: ${result.error?.code ?? 'unknown'}',
+        message: silent ? null : '系统代理应用失败: ${result.error?.code ?? 'unknown'}',
+        clearMessage: silent,
       );
       return result;
     }
     final view = _bridge.getSystemProxyState(mode.value);
-    state = view.copyWith(message: '系统代理: ${mode.label}');
+    state = view.copyWith(
+      message: silent ? null : '系统代理: ${mode.label}',
+      clearMessage: silent,
+    );
     return result;
   }
 
@@ -215,6 +222,7 @@ class PlatformController extends Notifier<PlatformView> {
     SysProxyMode mode, {
     Map<String, dynamic>? document,
     String? configDir,
+    bool silent = false,
   }) {
     final doc = document ?? ref.read(settingsControllerProvider).document;
     // Record the target state *before* applying: persisting the mode updates
@@ -227,6 +235,7 @@ class PlatformController extends Notifier<PlatformView> {
       mode,
       document: doc,
       configDir: configDir,
+      silent: silent,
     );
     if (!result.ok && _lastAppliedSyncKey == key) {
       // Failed attempts must not dedupe a later retry.
@@ -239,13 +248,16 @@ class PlatformController extends Notifier<PlatformView> {
     SysProxyMode mode, {
     Map<String, dynamic>? document,
     String? configDir,
+    bool silent = false,
   }) {
     final doc = document ?? ref.read(settingsControllerProvider).document;
     final config = ProxySettingsView.fromDocument(doc);
     final applied = _appliedProxyInbound(doc);
     switch (mode) {
       case SysProxyMode.forcedChange:
-        if (applied == null) return _noRunningSession(mode, doc);
+        if (applied == null) {
+          return _noRunningSession(mode, doc, silent: silent);
+        }
         return _persistAndReturn(
           doc,
           mode,
@@ -260,10 +272,13 @@ class PlatformController extends Notifier<PlatformView> {
               exceptions: config.exceptions,
               notProxyLocalAddress: config.notProxyLocalAddress,
             ),
+            silent: silent,
           ),
         );
       case SysProxyMode.pac:
-        if (applied == null) return _noRunningSession(mode, doc);
+        if (applied == null) {
+          return _noRunningSession(mode, doc, silent: silent);
+        }
         final handle = startPacFromConfig(
           configDir: configDir ?? _configDir(),
           customPacPath: config.customPacPath,
@@ -279,13 +294,13 @@ class PlatformController extends Notifier<PlatformView> {
         return _persistAndReturn(
           doc,
           mode,
-          apply(mode: mode, autoConfigUrl: state.pacUrl),
+          apply(mode: mode, autoConfigUrl: state.pacUrl, silent: silent),
         );
       case SysProxyMode.forcedClear:
         stopPac();
-        return _persistAndReturn(doc, mode, apply(mode: mode));
+        return _persistAndReturn(doc, mode, apply(mode: mode, silent: silent));
       case SysProxyMode.unchanged:
-        return _persistAndReturn(doc, mode, apply(mode: mode));
+        return _persistAndReturn(doc, mode, apply(mode: mode, silent: silent));
     }
   }
 
@@ -297,10 +312,12 @@ class PlatformController extends Notifier<PlatformView> {
     final document = ref.read(settingsControllerProvider).document;
     final mode = desiredModeFromSettings(document);
     if (mode == SysProxyMode.unchanged) {
-      refresh(mode);
+      refresh(mode, silent: true);
       return;
     }
-    applyModeFromConfig(mode, document: document);
+    // Background restore: a missing session must not leave a stale status
+    // message that would hide later user feedback (import toasts, etc.).
+    applyModeFromConfig(mode, document: document, silent: true);
   }
 
   /// Upstream `LoadCore` -> `UpdateSysProxy` reconciliation. A new applied
@@ -315,7 +332,7 @@ class PlatformController extends Notifier<PlatformView> {
     final key = '${runtime.sessionId}:${runtime.proxyPort}';
     if (key == _lastAppliedSessionKey) return;
     _lastAppliedSessionKey = key;
-    syncAppliedMode();
+    syncAppliedMode(silent: true);
   }
 
   /// Re-apply the persisted mode against the actual applied endpoint. Shared by
@@ -323,12 +340,12 @@ class PlatformController extends Notifier<PlatformView> {
   /// upstream `UpdateSysProxy`; the other modes either reconcile the host
   /// proxy/PAC or report the no-running-session fact honestly. Re-applying the
   /// same (mode, session, endpoint) triple is a no-op.
-  void syncAppliedMode() {
+  void syncAppliedMode({bool silent = false}) {
     final document = ref.read(settingsControllerProvider).document;
     final mode = desiredModeFromSettings(document);
     if (mode == SysProxyMode.unchanged) return;
     if (_lastAppliedSyncKey == _syncKey(mode, document)) return;
-    applyModeFromConfig(mode, document: document);
+    applyModeFromConfig(mode, document: document, silent: silent);
   }
 
   /// Identity of one applied system-proxy state: mode plus the actual applied
@@ -375,9 +392,11 @@ class PlatformController extends Notifier<PlatformView> {
 
   PlatformActionResult _noRunningSession(
     SysProxyMode mode,
-    Map<String, dynamic> document,
-  ) {
+    Map<String, dynamic> document, {
+    bool silent = false,
+  }) {
     _persistMode(document, mode);
+    if (silent) return const PlatformActionResult(ok: false);
     state = state.copyWith(
       desiredMode: mode,
       error: const PlatformErrorView(

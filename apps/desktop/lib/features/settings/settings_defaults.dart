@@ -240,3 +240,72 @@ Map<String, dynamic> defaultSettingsJson() => <String, dynamic>{
     'MaxConcurrentTry': 4,
   },
 };
+
+/// Fill a loaded settings [document] with missing/`null` defaults.
+///
+/// Mirrors the upstream `ConfigHandler.LoadConfig` field-default layer so a
+/// partial snapshot (or an explicit `null` written by the C# serializer) still
+/// renders the canonical default instead of a CLR zero/blank value. Scalar
+/// fields whose canonical default is `null` (e.g. `DefFingerprint`) are left
+/// untouched: `null` is meaningful there. Present non-null values always win,
+/// so this never overwrites stored data. Lists/maps are merged recursively; a
+/// present list is kept as-is (inbound/hotkey/core-type rows are user data).
+Map<String, dynamic> mergeWithSettingsDefaults(Map<String, dynamic> loaded) {
+  final defaults = defaultSettingsJson();
+  final merged = _deepCopyMap(loaded);
+  for (final entry in defaults.entries) {
+    final key = entry.key;
+    final fallback = entry.value;
+    final current = merged[key];
+    if (fallback is Map && fallback.isNotEmpty) {
+      final base = current is Map<String, dynamic>
+          ? current
+          : current is Map
+          ? Map<String, dynamic>.from(current)
+          : <String, dynamic>{};
+      merged[key] = _mergeMaps(base, Map<String, dynamic>.from(fallback));
+      continue;
+    }
+    // A null/missing scalar falls back only when the canonical default is a
+    // concrete non-null value; a null default stays null.
+    if ((current == null) && fallback != null) {
+      merged[key] = _deepCopyValue(fallback);
+    }
+  }
+  return merged;
+}
+
+Map<String, dynamic> _mergeMaps(
+  Map<String, dynamic> base,
+  Map<String, dynamic> defaults,
+) {
+  final out = _deepCopyMap(base);
+  for (final entry in defaults.entries) {
+    final current = out[entry.key];
+    final fallback = entry.value;
+    if (fallback is Map && fallback.isNotEmpty) {
+      final nested = current is Map<String, dynamic>
+          ? current
+          : current is Map
+          ? Map<String, dynamic>.from(current)
+          : <String, dynamic>{};
+      out[entry.key] = _mergeMaps(nested, Map<String, dynamic>.from(fallback));
+      continue;
+    }
+    if (current == null && fallback != null) {
+      out[entry.key] = _deepCopyValue(fallback);
+    }
+  }
+  return out;
+}
+
+Map<String, dynamic> _deepCopyMap(Map<String, dynamic> source) =>
+    source.map((k, v) => MapEntry(k, _deepCopyValue(v)));
+
+Object? _deepCopyValue(Object? value) {
+  if (value is Map) {
+    return value.map((k, v) => MapEntry(k.toString(), _deepCopyValue(v)));
+  }
+  if (value is List) return value.map(_deepCopyValue).toList();
+  return value;
+}

@@ -38,6 +38,7 @@ class RuntimeView {
     this.epoch,
     this.lastSeq,
     this.sequenceWarning,
+    this.commandPending = false,
   });
 
   final String state;
@@ -50,6 +51,11 @@ class RuntimeView {
   final RuntimeErrorView? error;
   final BigInt? desiredRevision;
   final BigInt? appliedRevision;
+
+  /// True while a local command (apply/reload/stop) is being submitted but the
+  /// backend has not reported its own transition yet. This is a UI command
+  /// state, never a substitute for the net-host Running/Starting fact (R4-01).
+  final bool commandPending;
 
   /// Last event epoch observed by the controller (event stream only; the
   /// snapshot does not carry it). Used to detect a reconnecting/restarted host.
@@ -75,7 +81,11 @@ class RuntimeView {
       desiredRevision != appliedRevision;
 
   bool get isRunning => state == 'Running';
+
+  /// Busy covers both the backend's own transition states and a command this
+  /// UI has submitted but whose transition has not arrived yet.
   bool get isBusy =>
+      commandPending ||
       state == 'Validating' ||
       state == 'Preparing' ||
       state == 'Starting' ||
@@ -107,6 +117,7 @@ class RuntimeView {
     BigInt? epoch,
     BigInt? lastSeq,
     String? sequenceWarning,
+    bool? commandPending,
   }) {
     return RuntimeView(
       state: state,
@@ -122,6 +133,7 @@ class RuntimeView {
       epoch: epoch ?? this.epoch,
       lastSeq: lastSeq ?? this.lastSeq,
       sequenceWarning: sequenceWarning ?? this.sequenceWarning,
+      commandPending: commandPending ?? this.commandPending,
     );
   }
 }
@@ -170,7 +182,24 @@ abstract class RuntimeBridge {
   Stream<RuntimeEvent> events();
 }
 
-class FrbRuntimeBridge implements RuntimeBridge {
+/// Optional capability for a bridge that can apply an explicit frozen target
+/// and report the local persisted desired revision (R4-02).
+///
+/// Kept separate from [RuntimeBridge] so existing test doubles that only model
+/// the default command keep compiling; the real FRB bridge and the R4-02 test
+/// doubles implement it.
+abstract class ExplicitTargetRuntimeBridge {
+  Future<RuntimeActionResult> applyTarget({
+    required String targetId,
+    required BigInt expectedRevision,
+  });
+
+  /// Desired revision from local persisted state, used only as a fallback when
+  /// the snapshot read itself failed. Never fabricated.
+  BigInt desiredRevision();
+}
+
+class FrbRuntimeBridge implements RuntimeBridge, ExplicitTargetRuntimeBridge {
   const FrbRuntimeBridge();
 
   @override
@@ -189,8 +218,21 @@ class FrbRuntimeBridge implements RuntimeBridge {
     // Empty target id resolves to the persisted active node on the Rust
     // side; a missing node or generator failure returns a structured error
     // (never a hardcoded smoke config).
+    return _apply('', expectedRevision);
+  }
+
+  @override
+  Future<RuntimeActionResult> applyTarget({
+    required String targetId,
+    required BigInt expectedRevision,
+  }) => _apply(targetId, expectedRevision);
+
+  Future<RuntimeActionResult> _apply(
+    String targetId,
+    BigInt expectedRevision,
+  ) async {
     final result = await rust.applyRuntime(
-      targetId: '',
+      targetId: targetId,
       expectedRevision: expectedRevision,
     );
     return RuntimeActionResult(
@@ -199,6 +241,9 @@ class FrbRuntimeBridge implements RuntimeBridge {
       error: _error(result.error),
     );
   }
+
+  @override
+  BigInt desiredRevision() => rust.profileRevision();
 
   @override
   Future<RuntimeActionResult> stop() async {

@@ -48,6 +48,7 @@ class SettingsTextField extends StatefulWidget {
     required this.onChanged,
     this.hint,
     this.width = 240,
+    this.enabled = true,
   });
 
   final String label;
@@ -55,6 +56,10 @@ class SettingsTextField extends StatefulWidget {
   final ValueChanged<String?> onChanged;
   final String? hint;
   final double width;
+
+  /// Upstream gates some text boxes on a linked toggle (e.g.
+  /// `togNewPort4LAN` -> `txtuser.IsEnabled`); a disabled box keeps its value.
+  final bool enabled;
 
   @override
   State<SettingsTextField> createState() => _SettingsTextFieldState();
@@ -94,6 +99,7 @@ class _SettingsTextFieldState extends State<SettingsTextField> {
             width: widget.width,
             child: TextField(
               controller: _controller,
+              enabled: widget.enabled,
               decoration: InputDecoration(
                 isDense: true,
                 border: const OutlineInputBorder(),

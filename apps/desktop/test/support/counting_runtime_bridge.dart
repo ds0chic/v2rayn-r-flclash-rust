@@ -7,7 +7,8 @@ import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 /// Used by the RE-PROF-02 / R-01 recheck tests to assert that saving/removing
 /// the active node (and only the active node) re-applies the plan, and that the
 /// F5 reload goes through the same path.
-class CountingRuntimeBridge implements RuntimeBridge {
+class CountingRuntimeBridge
+    implements RuntimeBridge, ExplicitTargetRuntimeBridge {
   CountingRuntimeBridge({
     this.activeId = 'synthetic-active',
     RuntimeView? initial,
@@ -19,6 +20,11 @@ class CountingRuntimeBridge implements RuntimeBridge {
   int applyCalls = 0;
   int snapshotCalls = 0;
   int stopCalls = 0;
+
+  /// The explicit target id passed to the last apply command, or null when the
+  /// default (empty) target path was used. Lets a test prove the button froze
+  /// the intended node (R4-02).
+  String? lastTargetId;
 
   /// Optional gate awaited at the start of [applyActive] so a test can hold a
   /// reload in flight and exercise re-entrancy (R3-ROOT-01).
@@ -39,6 +45,22 @@ class CountingRuntimeBridge implements RuntimeBridge {
   Future<RuntimeActionResult> applyActive({
     required BigInt expectedRevision,
   }) async {
+    return _recordApply(null, expectedRevision);
+  }
+
+  @override
+  Future<RuntimeActionResult> applyTarget({
+    required String targetId,
+    required BigInt expectedRevision,
+  }) async {
+    return _recordApply(targetId, expectedRevision);
+  }
+
+  Future<RuntimeActionResult> _recordApply(
+    String? targetId,
+    BigInt expectedRevision,
+  ) async {
+    lastTargetId = targetId;
     applyCalls++;
     final gate = applyGate;
     if (gate != null) await gate.future;
@@ -64,4 +86,7 @@ class CountingRuntimeBridge implements RuntimeBridge {
 
   @override
   Stream<RuntimeEvent> events() => const Stream<RuntimeEvent>.empty();
+
+  @override
+  BigInt desiredRevision() => _view.desiredRevision ?? BigInt.zero;
 }

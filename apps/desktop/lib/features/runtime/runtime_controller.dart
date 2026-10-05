@@ -19,6 +19,7 @@ class RuntimeController extends Notifier<RuntimeView> {
   bool _started = false;
   bool _reloadInFlight = false;
   bool _reloadPending = false;
+  int _pendingCommands = 0;
   BigInt? _lastEpoch;
   BigInt? _lastSeq;
 
@@ -36,6 +37,11 @@ class RuntimeController extends Notifier<RuntimeView> {
   }
 
   RuntimeBridge get _bridge => ref.read(runtimeBridgeProvider);
+
+  ExplicitTargetRuntimeBridge? get _explicitBridge =>
+      _bridge is ExplicitTargetRuntimeBridge
+      ? _bridge as ExplicitTargetRuntimeBridge
+      : null;
 
   /// Subscribe to runtime events and load the initial snapshot once.
   Future<void> start() async {
@@ -93,28 +99,46 @@ class RuntimeController extends Notifier<RuntimeView> {
   }
 
   Future<void> refresh() async {
+    final pending = _pendingCommands > 0;
     try {
       final snapshot = await _bridge.snapshot();
-      state = snapshot.copyWith(epoch: _lastEpoch, lastSeq: _lastSeq);
+      state = snapshot.copyWith(
+        epoch: _lastEpoch,
+        lastSeq: _lastSeq,
+        commandPending: pending,
+      );
     } on Object catch (e) {
-      state = state.copyWith(error: _bridgeError(e));
+      state = state.copyWith(error: _bridgeError(e), commandPending: pending);
     }
   }
 
   /// Apply the real persisted plan for the active node.
   ///
-  /// The desired revision is re-read from a fresh snapshot immediately before
-  /// apply (upstream `SetDefaultServer` -> `Reload` semantics), so a save that
-  /// happened after the last snapshot is not rejected as `E_REVISION_STALE`.
-  /// A failed apply keeps its structured error visible; the follow-up snapshot
-  /// never overwrites it with a fake success.
-  Future<void> applyActive() async {
-    state = state.copyWith(clearError: true);
-    await refresh();
-    if (state.error != null) return;
-    final revision = state.desiredRevision ?? BigInt.zero;
+  /// When [targetId] is given it is the explicit target frozen at click time
+  /// (R4-02); otherwise the persisted default node is used (F5/restore).
+  ///
+  /// A historical snapshot error is feedback, not a veto: the user repaired the
+  /// cause and a new command must be submitted (R4-01 / D02). The desired
+  /// revision is re-read from a fresh snapshot immediately before apply
+  /// (upstream `SetDefaultServer` -> `Reload` semantics), falling back to the
+  /// local persisted revision when the snapshot itself failed. A failed apply
+  /// keeps its structured error visible; the follow-up snapshot never overwrites
+  /// it with a fake success.
+  Future<void> applyActive({String? targetId}) async {
+    _pendingCommands++;
+    state = state.copyWith(clearError: true, commandPending: true);
     try {
-      final result = await _bridge.applyActive(expectedRevision: revision);
+      await refresh();
+      final explicit = _explicitBridge;
+      final revision =
+          state.desiredRevision ?? explicit?.desiredRevision() ?? BigInt.zero;
+      final result = targetId == null
+          ? await _bridge.applyActive(expectedRevision: revision)
+          : await (explicit?.applyTarget(
+                  targetId: targetId,
+                  expectedRevision: revision,
+                ) ??
+                _bridge.applyActive(expectedRevision: revision));
       if (!result.ok) {
         // Keep the structured error; do not let the follow-up snapshot (which
         // reports Stopped) erase the reason apply failed.
@@ -124,6 +148,9 @@ class RuntimeController extends Notifier<RuntimeView> {
       await refresh();
     } on Object catch (e) {
       state = state.copyWith(error: _bridgeError(e));
+    } finally {
+      _pendingCommands = _pendingCommands > 0 ? _pendingCommands - 1 : 0;
+      state = state.copyWith(commandPending: _pendingCommands > 0);
     }
   }
 
@@ -133,7 +160,9 @@ class RuntimeController extends Notifier<RuntimeView> {
   Future<void> restoreActiveOnLaunch() async {
     if (_bridge.activeProfileId() == null) return;
     await refresh();
-    if (state.isRunning || state.error != null) return;
+    // A historical run error must not block the launch restore; only an
+    // already-running session makes it a no-op.
+    if (state.isRunning) return;
     restoreAttempted = true;
     await applyActive();
   }
@@ -153,7 +182,8 @@ class RuntimeController extends Notifier<RuntimeView> {
     _reloadInFlight = true;
     try {
       await refresh();
-      if (state.error != null) return;
+      // A historical snapshot/run error must not veto the reload: the reload
+      // re-reads the latest plan and submits the new attempt (R4-01 / D02).
       if (_bridge.activeProfileId() == null) {
         ref
             .read(uiShellControllerProvider.notifier)

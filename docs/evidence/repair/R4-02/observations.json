@@ -1,0 +1,78 @@
+{
+  "task": "R4-02",
+  "title": "显式启动目标与默认合同",
+  "status": "implemented",
+  "baseline": {
+    "head": "b0ce43162ab7d60d37f171625f4f5d70de88ae90",
+    "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+    "upstream_frozen": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "armed": false
+  },
+  "contract_items": [
+    {
+      "id": "R4-02.1a",
+      "requirement": "no active / A active+B selected / multi-select primary=B / no target",
+      "evidence": "test/r4_02_contract_test.dart scenarios; prepareStartTarget precedence",
+      "state": "verified_synthetic"
+    },
+    {
+      "id": "R4-02.1b",
+      "requirement": "top Start uses the target frozen at click time; plain click only selects",
+      "evidence": "main_shell runtime-start reads resolveSingleTarget at click; plain-click test asserts activeId unchanged and applyCalls==0",
+      "state": "verified_synthetic"
+    },
+    {
+      "id": "R4-02.1c",
+      "requirement": "F5 / restart still reloads the default node",
+      "evidence": "reload -> applyActive() with empty target; test asserts lastTargetId==null and active unchanged",
+      "state": "verified_synthetic"
+    },
+    {
+      "id": "R4-02.2",
+      "requirement": "ID change bumps revision and a persist failure leaves no fake in-memory active",
+      "evidence": "Rust engine::tests::active_set_bumps_desired_only_when_the_id_changes and active_set_persist_failure_does_not_leave_a_fake_active; Dart _FailSetActiveBridge test",
+      "state": "verified_rust_and_synthetic"
+    },
+    {
+      "id": "R4-02.3",
+      "requirement": "default recovery follows upstream (delete/invalid fallback not regressed)",
+      "evidence": "nextActiveAfterRemoval unchanged; prepareStartTarget reuses same Port>0 precedence; recheck02_active_apply_test passes",
+      "state": "verified_synthetic"
+    },
+    {
+      "id": "R4-02.4",
+      "requirement": "does not change R4-08 selection/keyboard contract; same-active default idempotent",
+      "evidence": "no touch to profiles_table/selection; activateProfileDetailed same-active stays a no-op (applied=false)",
+      "state": "preserved"
+    }
+  ],
+  "commands": [
+    {"cmd": "flutter analyze", "result": "No issues found!"},
+    {"cmd": "flutter test test/repair/r4_01_repro_test.dart test/r4_01_contract_test.dart test/r4_02_contract_test.dart", "result": "All tests passed (18)"},
+    {"cmd": "cargo test -p application --lib active_set", "result": "active_set_* pass"},
+    {"cmd": "cargo fmt/clippy/test workspace", "result": "pass (test single-threaded EXIT=0)"},
+    {"cmd": "flutter build windows --release", "result": "Built v2rayn_desktop.exe"}
+  ],
+  "changed_files": [
+    "apps/desktop/lib/features/runtime/runtime_bridge.dart",
+    "apps/desktop/lib/features/runtime/runtime_controller.dart",
+    "apps/desktop/lib/features/profiles/profile_actions.dart",
+    "apps/desktop/lib/features/profiles/profiles_controller.dart",
+    "apps/desktop/lib/app/shell/main_shell.dart",
+    "crates/application/src/engine.rs",
+    "apps/desktop/test/support/counting_runtime_bridge.dart",
+    "apps/desktop/test/t18b_runtime_ui_test.dart",
+    "apps/desktop/test/r4_01_contract_test.dart",
+    "apps/desktop/test/r4_02_contract_test.dart",
+    "apps/desktop/test/repair/r4_01_repro_test.dart"
+  ],
+  "not_run": [
+    "real GUI: A running -> select B -> top Start starts B; F5 keeps default A"
+  ],
+  "constraints_respected": {
+    "ports": "no listener",
+    "forbidden_modules": "app.dart, frb_generated, bridge/api, settings/**, routing/**, subs/**, monitor/**, profiles_table/models/fields/editor untouched",
+    "user_secrets": "none",
+    "processes": "none stopped"
+  }
+}

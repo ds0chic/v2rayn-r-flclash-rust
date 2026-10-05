@@ -1,0 +1,60 @@
+{
+  "task": "R4-11",
+  "commit": "b0ce431",
+  "appBaseline": "77c74ed",
+  "upstream": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "fixture": "synthetic (SyntheticBridgePort, MemoryUiStateStore); no native lib, no kernel, no port, no user data",
+  "ports": "none involved (no kernel/inbound/OS effect)",
+  "reproBeforeFix": {
+    "file": "test/repair/r4_11_repro_test.dart",
+    "cases": [
+      {
+        "name": "GlobalFakeIp only visible when FakeIP is on",
+        "result": "failed",
+        "assertion": "find.byKey('fakeip-toggle') findsOneWidget",
+        "observed": "Found 0 widgets with key <'fakeip-toggle'>"
+      },
+      {
+        "name": "null/empty group falls back to upstream defaults",
+        "result": "failed",
+        "assertion": "EnableCacheFile4Sbox checkbox value == true",
+        "observed": "false (empty CoreBasicItem rendered CLR false); TrayMenuServersLimit rendered blank instead of 20",
+        "method": "temporarily reverted option_setting_window.dart to '_draft = document'"
+      }
+    ]
+  },
+  "reproAfterFix": {
+    "file": "test/repair/r4_11_repro_test.dart",
+    "result": "passed",
+    "cases": [
+      "GlobalFakeIp only visible when FakeIP is on",
+      "null/empty group falls back to upstream defaults"
+    ]
+  },
+  "contract": {
+    "file": "test/r4_11_contract_test.dart",
+    "result": "passed",
+    "covers": [
+      "mergeWithSettingsDefaults: present value wins, missing int/bool/string backfills, canonical null default stays null",
+      "edit-save-reopen: port 11888 persisted (settingsRevision 1), reopen reads back 11888",
+      "edit-cancel: settingsRevision 0, port stays 10808",
+      "invalid port 70000: window stays open, no save (range 1..65535)",
+      "User/Pass disabled until NewPort4LAN enabled (upstream txtuser/txtpass.IsEnabled)"
+    ]
+  },
+  "fieldGroups": {
+    "CoreBasicItem": "端到端完成：missing/null 回填 (EnableCacheFile4Sbox=true, Loglevel=warning)，UI→保存→重开一致，取消不落库。evidence: r4_11_contract_test.dart",
+    "Inbound": "端到端完成：LocalPort 范围 1..65535 校验+保存重开；NewPort4LAN→User/Pass 联动。evidence: r4_11_contract_test.dart",
+    "GuiItem": "缺失回填 TrayMenuServersLimit=20。evidence: r4_11_contract_test.dart / r4_11_repro_test.dart",
+    "SimpleDNSItem(FakeIP/GlobalFakeIp)": "可见联动。evidence: r4_11_repro_test.dart",
+    "Profiles TLS/Reality": "字段联动与必填校验源码核对，未跑独立 widget 合同测试（登记为 implemented，未 verified）",
+    "Routing/DNS": "字段表单/候选与原版核对，未新增字段行为改动（登记为未运行）"
+  },
+  "notVerified": [
+    "真实 Windows 窗口交互",
+    "真实 FRB + SQLite 持久化",
+    "真实内核/平台效果",
+    "DPI/字体矩阵"
+  ]
+}

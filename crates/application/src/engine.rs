@@ -966,12 +966,15 @@ impl AppEngine {
     }
 
     /// Mark one profile as the active node (persisted across restarts).
+    ///
+    /// Upstream `ConfigHandler.SetDefaultServer` is idempotent: re-selecting the
+    /// current default changes nothing and must not advance the revision.
+    /// Switching to a different node advances the desired revision so the UI can
+    /// show "saved, not applied" even when apply later fails (R4-02 / D27).
+    /// A persist failure rolls the in-memory active id and revision back, so a
+    /// broken store never leaves a fake active node behind.
     pub fn set_active(&self, id: Option<String>) -> Result<(), DomainError> {
         self.guard_storage()?;
-        let revisions = self
-            .revisions
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         if let Some(target) = &id {
             let repo = self
                 .repo
@@ -981,11 +984,31 @@ impl AppEngine {
                 return Err(DomainError::not_found("profile", target));
             }
         }
+        let previous_active = self
+            .active
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .clone();
+        if previous_active == id {
+            return Ok(());
+        }
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let previous_desired = revisions.desired();
+        revisions.bump();
         *self
             .active
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))? = id;
-        self.persist_config(&revisions)?;
+        if let Err(error) = self.persist_config(&revisions) {
+            if let Ok(mut guard) = self.active.lock() {
+                *guard = previous_active;
+            }
+            *revisions = crate::repository::RevisionStore::with_desired(previous_desired);
+            return Err(error);
+        }
         Ok(())
     }
 
@@ -3236,7 +3259,7 @@ mod tests {
         // A null-runtime engine must never fake an accepted apply.
         assert_eq!(
             engine
-                .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+                .apply_runtime(tiny_plan(), DesiredRevision::new(engine.desired_revision()),)
                 .unwrap_err()
                 .code,
             code
@@ -3323,7 +3346,7 @@ mod tests {
         let runtime = std::sync::Arc::new(NullRuntimeClient::new());
         let engine = AppEngine::with_runtime(runtime.clone());
         let op = engine
-            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .apply_runtime(tiny_plan(), DesiredRevision::new(engine.desired_revision()))
             .unwrap();
         assert!(op.contains("plan-test"));
         assert!(runtime.last_plan().is_some());
@@ -3401,6 +3424,38 @@ mod tests {
     }
 
     #[test]
+    fn active_set_bumps_desired_only_when_the_id_changes() {
+        let engine = AppEngine::in_memory();
+        let a = synthetic_full_profile(1);
+        let b = synthetic_full_profile(2);
+        engine.seed(vec![a.clone(), b.clone()]);
+        assert_eq!(engine.desired_revision(), 0);
+        engine.set_active(Some(a.index_id.clone())).unwrap();
+        assert_eq!(engine.desired_revision(), 1, "a new default bumps desired");
+        // Re-selecting the same default is upstream-idempotent: no bump.
+        engine.set_active(Some(a.index_id.clone())).unwrap();
+        assert_eq!(engine.desired_revision(), 1);
+        engine.set_active(Some(b.index_id.clone())).unwrap();
+        assert_eq!(engine.desired_revision(), 2, "switching bumps desired");
+    }
+
+    #[test]
+    fn active_set_persist_failure_does_not_leave_a_fake_active() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine =
+            AppEngine::open_with_runtime(dir.path(), Arc::new(NullRuntimeClient::new())).unwrap();
+        let a = synthetic_full_profile(1);
+        engine.seed(vec![a.clone()]);
+        // Force the atomic config write to fail: the temp path is a directory.
+        std::fs::create_dir(dir.path().join("guiNConfig.json.tmp")).unwrap();
+        let error = engine.set_active(Some(a.index_id.clone())).unwrap_err();
+        assert_eq!(error.code, domain::codes::INTERNAL);
+        assert_eq!(error.message_key, "error.storage");
+        assert_eq!(engine.active_profile(), None, "no fake in-memory active");
+        assert_eq!(engine.desired_revision(), 0, "revision rolled back");
+    }
+
+    #[test]
     fn desired_active_does_not_publish_endpoint_until_running() {
         let runtime = std::sync::Arc::new(NullRuntimeClient::new());
         let engine = AppEngine::with_runtime(runtime);
@@ -3421,7 +3476,7 @@ mod tests {
         engine.seed(vec![p.clone()]);
         engine.set_active(Some(p.index_id.clone())).unwrap();
         engine
-            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .apply_runtime(tiny_plan(), DesiredRevision::new(engine.desired_revision()))
             .unwrap();
         // The apply failed: net-host reports Degraded with no usable port.
         runtime.set_state(RuntimeState::Degraded);
@@ -3438,7 +3493,7 @@ mod tests {
         engine.seed(vec![p.clone()]);
         engine.set_active(Some(p.index_id.clone())).unwrap();
         engine
-            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .apply_runtime(tiny_plan(), DesiredRevision::new(engine.desired_revision()))
             .unwrap();
         runtime.mark_running_with("s-1", vec![11810], AppliedRevision::new(0));
         engine.snapshot().unwrap();
@@ -3471,7 +3526,7 @@ mod tests {
         assert!(engine.monitor_session().is_none());
 
         engine
-            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .apply_runtime(tiny_plan(), DesiredRevision::new(engine.desired_revision()))
             .unwrap();
         runtime.mark_running_with("s-1", vec![11810], AppliedRevision::new(0));
         engine.snapshot().unwrap();
@@ -3742,7 +3797,7 @@ mod tests {
         engine.seed(vec![a.clone(), b.clone()]);
         engine.set_active(Some(a.index_id.clone())).unwrap();
         engine
-            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .apply_runtime(tiny_plan(), DesiredRevision::new(engine.desired_revision()))
             .unwrap();
         runtime.mark_running_with("s-1", vec![11811], AppliedRevision::new(0));
         engine.snapshot().unwrap();
@@ -3762,7 +3817,7 @@ mod tests {
         engine.seed(vec![p.clone()]);
         engine.set_active(Some(p.index_id.clone())).unwrap();
         engine
-            .apply_runtime(tiny_plan(), DesiredRevision::ZERO)
+            .apply_runtime(tiny_plan(), DesiredRevision::new(engine.desired_revision()))
             .unwrap();
         runtime.mark_running_with("s-old", vec![11812], AppliedRevision::new(0));
         engine.snapshot().unwrap();

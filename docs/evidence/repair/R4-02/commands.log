@@ -1,0 +1,26 @@
+# R4-02 command log (actual)
+
+flutter analyze
+  No issues found!
+flutter test test/repair/r4_01_repro_test.dart test/r4_01_contract_test.dart test/r4_02_contract_test.dart
+  All tests passed (18).
+cargo test -p application --lib engine::tests
+  41 passed; 0 failed
+cargo test -p application --lib active_set
+  active_set_bumps_desired_only_when_the_id_changes ... ok
+  active_set_persist_failure_does_not_leave_a_fake_active ... ok
+cargo fmt --all -- --check
+  (no output)
+cargo clippy --workspace --all-targets --locked -- -D warnings
+  Finished dev profile
+cargo test --workspace --locked -- --test-threads=1
+  EXIT=0
+flutter build windows --release
+  Built build\windows\x64\runner\Release\v2rayn_desktop.exe
+
+# R4-02 behavior assertions (test/r4_02_contract_test.dart, 11 tests):
+#   plain single click only selects; no active + B selected; A active + B
+#   selected starts B; multi-select primary=B; explicit frozen target wins;
+#   no selection -> default; no active -> recovery candidate; no profiles ->
+#   no target; persist failure leaves no fake active; F5 uses default;
+#   top Start applies exactly the frozen target.

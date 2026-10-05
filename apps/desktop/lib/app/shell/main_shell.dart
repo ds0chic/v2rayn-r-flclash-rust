@@ -671,11 +671,22 @@ class _RuntimeToolbar extends ConsumerWidget {
         ),
         const SizedBox(width: 8),
         Tooltip(
-          message: '应用当前节点与设置/路由/DNS 的真实内核配置',
+          message: '启动选中节点；未选择时启动默认节点',
           child: FilledButton.tonal(
             key: const ValueKey('runtime-start'),
-            onPressed: runtime.isBusy ? null : controller.applyActive,
-            child: const Text('应用', style: TextStyle(fontSize: 12)),
+            onPressed: runtime.isBusy
+                ? null
+                : () {
+                    // Freeze the explicit target at click time: a later
+                    // selection change must not redirect this command (R4-02).
+                    final state = ref.read(profilesControllerProvider);
+                    final target = profile_actions.resolveSingleTarget(
+                      state,
+                      null,
+                    );
+                    profile_actions.startProfileExplicit(ref, targetId: target);
+                  },
+            child: const Text('启动', style: TextStyle(fontSize: 12)),
           ),
         ),
         const SizedBox(width: 6),

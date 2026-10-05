@@ -1,0 +1,60 @@
+{
+  "task": "R4-01",
+  "title": "启动重试与真实运行事实",
+  "status": "implemented",
+  "baseline": {
+    "head": "b0ce43162ab7d60d37f171625f4f5d70de88ae90",
+    "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+    "upstream_frozen": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "armed": false
+  },
+  "contract_items": [
+    {
+      "id": "R4-01.1",
+      "requirement": "root three failing contracts (audit startup-contract-repro) turn green",
+      "evidence": "test/repair/r4_01_repro_test.dart: 3/3 pass after fix; 3/3 fail before fix (git stash of runtime_bridge/controller/counting bridge)",
+      "state": "verified_synthetic"
+    },
+    {
+      "id": "R4-01.2",
+      "requirement": "historical snapshot.error must not veto a new command",
+      "evidence": "runtime_controller.applyActive/reload removed the refresh-then-return-on-error gate; repro tests assert applyCalls==2",
+      "state": "verified_synthetic"
+    },
+    {
+      "id": "R4-01.3",
+      "requirement": "errors are not converted to an empty DTO; applied target/revision/hash trustworthy",
+      "evidence": "api/engine.rs get_snapshot -> error_snapshot_dto (D22); reconcile_applied_session requires Running+port; existing tests storage_unavailable_engine_fails_closed, failed_candidate_does_not_publish_endpoint",
+      "state": "verified_source_and_tests"
+    },
+    {
+      "id": "R4-01.4",
+      "requirement": "same-active no-op never reports a successful run",
+      "evidence": "activateProfileDetailed returns persisted=true,applied=false,noop=true; test/r4_01_contract_test.dart asserts applied==false",
+      "state": "verified_synthetic"
+    },
+    {
+      "id": "R4-01.5",
+      "requirement": "failure keeps flags; a failed apply shows a message and keeps the running old session",
+      "evidence": "controller returns before refresh on failure; contract test asserts isRunning/sessionId/ports preserved; startProfileExplicit toasts failure",
+      "state": "verified_synthetic"
+    }
+  ],
+  "commands": [
+    {"cmd": "flutter analyze", "result": "No issues found!"},
+    {"cmd": "flutter test test/repair/r4_01_repro_test.dart test/r4_01_contract_test.dart test/r4_02_contract_test.dart", "result": "All tests passed (18)"},
+    {"cmd": "cargo fmt --all -- --check", "result": "pass"},
+    {"cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "result": "pass"},
+    {"cmd": "cargo test --workspace --locked -- --test-threads=1", "result": "EXIT=0, 105 ok binaries"},
+    {"cmd": "flutter build windows --release", "result": "Built v2rayn_desktop.exe"}
+  ],
+  "not_run": [
+    "real no-core -> core install -> same-GUI retry to Running (no armed package, no managed core started)"
+  ],
+  "constraints_respected": {
+    "ports": "no listener; tests use synthetic bridges only",
+    "system_proxy_registry_route_tun_autostart": "untouched",
+    "user_secrets": "none read or written",
+    "processes": "none stopped; an unrelated dist net_host process was left running"
+  }
+}

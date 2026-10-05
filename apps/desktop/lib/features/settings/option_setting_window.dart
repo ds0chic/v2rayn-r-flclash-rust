@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
 import 'package:v2rayn_desktop/features/settings/settings_window_host.dart';
 
@@ -81,7 +82,10 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     final document = await widget.host!.loadSnapshot();
     if (!mounted) return;
     setState(() {
-      _draft = document;
+      // Fill missing/null scalar fields with the upstream defaults so a partial
+      // snapshot renders the canonical value instead of a CLR zero/blank (and a
+      // literal `null` can never leak into the persisted draft).
+      _draft = mergeWithSettingsDefaults(document);
       _draftInit = true;
     });
   }
@@ -163,7 +167,9 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     // a tab built (and created a group map) before load finished, which silently
     // replaced the stored values with defaults on reopen.
     if (widget.host == null && !_draftInit && state.loaded) {
-      _draft = ref.read(settingsControllerProvider.notifier).draft();
+      _draft = mergeWithSettingsDefaults(
+        ref.read(settingsControllerProvider.notifier).draft(),
+      );
       _draftInit = true;
     }
     if (widget.host != null && !_draftInit) {
@@ -562,15 +568,19 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('Inbound', 'NewPort4LAN', v),
           ),
           // Frozen XAML rows 9/10: TbSettingsUser / TbSettingsPass. Upstream
-          // renders both unconditionally (O5: they were missing from RC).
+          // renders both unconditionally (O5: they were missing from RC) but
+          // binds `togNewPort4LAN` to `txtuser.IsEnabled`/`txtpass.IsEnabled`,
+          // so the auth fields are editable only when the LAN port is enabled.
           SettingsTextField(
             label: '认证用户名',
             value: _str(inbound, 'User'),
+            enabled: _bool(inbound, 'NewPort4LAN'),
             onChanged: (v) => _set('Inbound', 'User', v),
           ),
           SettingsTextField(
             label: '认证密码',
             value: _str(inbound, 'Pass'),
+            enabled: _bool(inbound, 'NewPort4LAN'),
             onChanged: (v) => _set('Inbound', 'Pass', v),
           ),
         ],
@@ -1012,12 +1022,16 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '历史保留（原版为独立 DNS 设置窗口）',
         child: <Widget>[
           SettingsCheckbox(
+            key: const ValueKey('fakeip-toggle'),
             label: '启用 FakeIP',
             value: _bool(_group('SimpleDNSItem'), 'FakeIP'),
             onChanged: (v) => _set('SimpleDNSItem', 'FakeIP', v),
           ),
+          // Upstream `DNSSettingWindow` reveals GlobalFakeIp only while FakeIP
+          // is checked; hiding it is a visible field linkage.
           if (_bool(_group('SimpleDNSItem'), 'FakeIP'))
             SettingsCheckbox(
+              key: const ValueKey('global-fakeip-toggle'),
               label: '全局 FakeIP',
               value: _bool(_group('SimpleDNSItem'), 'GlobalFakeIp'),
               onChanged: (v) => _set('SimpleDNSItem', 'GlobalFakeIp', v),

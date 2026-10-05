@@ -1020,6 +1020,9 @@ items:
   unresolved: []
   notes: 枚举来源 Global.LogLevels(Global.cs:527)。
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/test/r4_11_contract_test.dart (mergeWithSettingsDefaults fills missing Loglevel=warning)
+  - apps/desktop/test/repair/r4_11_repro_test.dart (partial snapshot backfills warning)
 - id: FLD-CFG-028
   name: DefFingerprint
   display_key: ResUI.TbSettingsDefFingerprint
@@ -1299,6 +1302,9 @@ items:
   unresolved: []
   notes: 属性初始化即有效默认（LoadConfig 未覆盖）。
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/test/r4_11_contract_test.dart (missing bool renders true default)
+  - apps/desktop/test/repair/r4_11_repro_test.dart (empty CoreBasicItem -> checked true)
 - id: FLD-CFG-035
   name: LocalPort
   display_key: ResUI.TbSettingsSocksPort
@@ -1342,6 +1348,8 @@ items:
   unresolved: []
   notes: AppManager.GetLocalPort 缺省回退 10808。
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/test/r4_11_contract_test.dart (range 1..65535 rejects 70000 with window open; save/reopen persists)
 - id: FLD-CFG-036
   name: Protocol
   display_key: null
@@ -1620,6 +1628,8 @@ items:
   - 审计整改：CLR 缺省 false；ConfigHandler 新建 Inbound 未显式初始化该字段（A03）。
   notes: 同时控制设置窗口 txtuser/txtpass 可用性（OptionSettingWindow.xaml.cs:71-72）。
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/test/r4_11_contract_test.dart (User/Pass disabled until NewPort4LAN on)
 - id: FLD-CFG-043
   name: User
   display_key: ResUI.TbSettingsUser
@@ -2314,6 +2324,9 @@ items:
   unresolved: []
   notes: null
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/test/r4_11_contract_test.dart (missing int renders upstream default 20)
+  - apps/desktop/test/repair/r4_11_repro_test.dart (empty GuiItem backfills 20)
 - id: FLD-CFG-062
   name: EnableHWA
   display_key: ResUI.TbSettingsEnableHWA
@@ -5954,6 +5967,8 @@ items:
   unresolved: []
   notes: FakeIP 开启时 xray 入站会追加 fakedns destOverride。
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/test/repair/r4_11_repro_test.dart (GlobalFakeIp hidden unless FakeIP on)
 - id: FLD-CFG-162
   name: GlobalFakeIp
   display_key: null
@@ -5994,6 +6009,8 @@ items:
   unresolved: []
   notes: InitBuiltinSimpleDNS 也写 true。
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/test/repair/r4_11_repro_test.dart (revealed by linked FakeIP toggle)
 - id: FLD-CFG-163
   name: FakeIPRange
   display_key: null

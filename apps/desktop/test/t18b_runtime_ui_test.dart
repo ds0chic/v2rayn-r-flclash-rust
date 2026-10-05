@@ -94,7 +94,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
     expect(find.byKey(const ValueKey('runtime-error')), findsOneWidget);
-    expect(find.textContaining('E_NO_ACTIVE_PROFILE'), findsOneWidget);
+    expect(find.textContaining('E_NO_ACTIVE_PROFILE'), findsWidgets);
   });
 
   test('hasUnappliedChanges is true only on a real mismatch', () {

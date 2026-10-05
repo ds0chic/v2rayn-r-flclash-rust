@@ -830,6 +830,9 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:310
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:409
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/lib/features/profiles/profile_fields.dart securityFields (reality-only fields gated on streamSecurity==reality)
+  - apps/desktop/lib/features/profiles/profile_editor_dialog.dart _validate (publicKey required when reality)
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-019
@@ -959,6 +962,8 @@ items:
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxOutboundService.cs:469
   - v2rayN/ServiceLib/Handler/Builder/NodeValidator.cs:152
   status: implemented
+  r4_11_evidence:
+  - apps/desktop/lib/features/profiles/profile_editor_dialog.dart (required only when reality selected; hidden otherwise)
   unresolved:
   - 审计整改：系统筛查（A03）：仅有 initializer/消费方证据，未见加载/迁移/初始化追踪。
 - id: FLD-ENT-024

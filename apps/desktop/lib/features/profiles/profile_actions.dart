@@ -342,14 +342,71 @@ String? nextActiveAfterRemoval(ProfilesState state) {
 /// any other node (the table reload already happened in `saveDraft`).
 Future<void> applyAfterEditIfActive(WidgetRef ref, String editedId) async {
   if (ref.read(profilesControllerProvider).activeId != editedId) return;
-  await _applyRuntime(ref);
+  await _applyRuntime(ref, targetId: editedId);
 }
 
 /// Run the shared runtime apply and report whether it succeeded. A failed
 /// apply keeps its structured error in the runtime state (never a fake ok).
-Future<bool> _applyRuntime(WidgetRef ref) async {
-  await ref.read(runtimeControllerProvider.notifier).applyActive();
+/// [targetId] freezes the node the apply must use; null uses the default node.
+Future<bool> _applyRuntime(WidgetRef ref, {String? targetId}) async {
+  await ref
+      .read(runtimeControllerProvider.notifier)
+      .applyActive(targetId: targetId);
   return ref.read(runtimeControllerProvider).error == null;
+}
+
+/// Explicit start / retry for the top toolbar (R4-02).
+///
+/// The caller freezes the intended target at click time ([targetId]). When it
+/// is absent the persisted default (or the upstream default-recovery fallback)
+/// is used; a plain single click never reaches here. A changed id is persisted
+/// as the active node first (which bumps the Rust desired revision) and only
+/// then is that exact target applied. A persist failure leaves the previous
+/// active untouched and reports a visible error instead of a fake run.
+Future<ActivationOutcome> startProfileExplicit(
+  WidgetRef ref, {
+  String? targetId,
+}) async {
+  final controller = ref.read(profilesControllerProvider.notifier);
+  final prep = controller.prepareStartTarget(frozenTargetId: targetId);
+  if (prep.target == null) {
+    _toast(ref, '请先选择节点或设置活动节点');
+    return const ActivationOutcome(persisted: false, applied: false);
+  }
+  if (!prep.persisted) {
+    _toast(
+      ref,
+      '启动失败：无法保存活动节点'
+      '${prep.errorCode == null ? '' : '（${prep.errorCode}）'}',
+    );
+    return ActivationOutcome(
+      persisted: false,
+      applied: false,
+      applyErrorCode: prep.errorCode,
+    );
+  }
+  controller.logAction(
+    ProfileAction.activate,
+    'id=${prep.target} explicit-start',
+  );
+  final applied = await _applyRuntime(ref, targetId: prep.target);
+  final outcome = ActivationOutcome(
+    persisted: true,
+    applied: applied,
+    applyErrorCode: applied
+        ? null
+        : ref.read(runtimeControllerProvider).error?.code,
+  );
+  if (applied) {
+    _toast(ref, '已启动节点');
+  } else {
+    _toast(
+      ref,
+      '启动失败，仍运行旧会话'
+      '${outcome.applyErrorCode == null ? '' : '（${outcome.applyErrorCode}）'}',
+    );
+  }
+  return outcome;
 }
 
 /// Clone the selection.
@@ -491,11 +548,16 @@ class ActivationOutcome {
     required this.persisted,
     required this.applied,
     this.applyErrorCode,
+    this.noop = false,
   });
 
   final bool persisted;
   final bool applied;
   final String? applyErrorCode;
+
+  /// True for the upstream-idempotent "already the active node" no-op. It must
+  /// never be reported as a successful run (R4-01 / D03).
+  final bool noop;
 
   bool get fullyOk => persisted && applied;
 }
@@ -504,15 +566,16 @@ class ActivationOutcome {
 ///
 /// Shared by the table command and the tray node submenu (RT-11) so both run
 /// the same use case. Re-selecting the active node is a no-op, mirroring
-/// upstream `SetDefaultServer`. Returns the detailed outcome so callers can tell
-/// a rejected persist from a failed runtime apply.
+/// upstream `SetDefaultServer`, but it reports [ActivationOutcome.noop] instead
+/// of pretending a run happened. Returns the detailed outcome so callers can
+/// tell a rejected persist from a failed runtime apply.
 Future<ActivationOutcome> activateProfileDetailed(
   WidgetRef ref,
   String id,
 ) async {
   final controller = ref.read(profilesControllerProvider.notifier);
   if (ref.read(profilesControllerProvider).activeId == id) {
-    return const ActivationOutcome(persisted: true, applied: true);
+    return const ActivationOutcome(persisted: true, applied: false, noop: true);
   }
   final result = controller.setActive(id);
   if (!result.ok) {
@@ -523,7 +586,7 @@ Future<ActivationOutcome> activateProfileDetailed(
     );
   }
   controller.logAction(ProfileAction.activate, 'id=$id');
-  final applied = await _applyRuntime(ref);
+  final applied = await _applyRuntime(ref, targetId: id);
   return ActivationOutcome(
     persisted: true,
     applied: applied,

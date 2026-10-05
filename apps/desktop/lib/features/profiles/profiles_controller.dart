@@ -118,6 +118,27 @@ class DedupOutcome {
   final String? errorMessageKey;
 }
 
+/// Outcome of resolving the explicit-start target (R4-02).
+///
+/// [target] is the node the toolbar must apply, frozen at click time. When the
+/// resolved target differed from the persisted default, [changed] is true and
+/// it has already been persisted (with a desired-revision bump on the Rust
+/// side). A persist failure leaves the previous default untouched and reports
+/// [errorCode] instead.
+class StartTargetOutcome {
+  const StartTargetOutcome({
+    required this.target,
+    required this.persisted,
+    this.changed = false,
+    this.errorCode,
+  });
+
+  final String? target;
+  final bool persisted;
+  final bool changed;
+  final String? errorCode;
+}
+
 /// Effective configuration for one speedtest run.
 ///
 /// Values are read from the persisted `SpeedTestItem` at start time (so a
@@ -586,6 +607,60 @@ class ProfilesController extends Notifier<ProfilesState> {
       _log('set-active', 'id=${id ?? "(none)"}');
     }
     return result;
+  }
+
+  /// Resolve the explicit-start target frozen at click time (R4-02).
+  ///
+  /// Precedence mirrors [resolveSingleTarget]: explicit context target, then
+  /// the independent current row, then a lone selection, then the persisted
+  /// default, then the upstream `ConfigHandler.SetDefaultServer` fallback. A
+  /// different target is persisted first; the caller then applies exactly
+  /// [StartTargetOutcome.target]. This never claims a run and never leaves a
+  /// fake in-memory active on a rejected persist.
+  StartTargetOutcome prepareStartTarget({String? frozenTargetId}) {
+    final explicit = frozenTargetId?.trim();
+    String? target;
+    if (explicit != null && explicit.isNotEmpty) {
+      target = explicit;
+    } else if (state.primaryId != null && state.primaryId!.isNotEmpty) {
+      target = state.primaryId;
+    } else if (state.selected.length == 1) {
+      target = state.selected.first;
+    }
+    target ??= state.activeId;
+    target ??= _defaultRecoverableActive();
+    if (target == null) {
+      return const StartTargetOutcome(target: null, persisted: false);
+    }
+    if (state.activeId == target) {
+      return StartTargetOutcome(target: target, persisted: true);
+    }
+    final result = setActive(target);
+    if (!result.ok) {
+      return StartTargetOutcome(
+        target: target,
+        persisted: false,
+        errorCode: result.error?.code,
+      );
+    }
+    return StartTargetOutcome(target: target, persisted: true, changed: true);
+  }
+
+  /// Upstream `ConfigHandler.SetDefaultServer` fallback after a missing or
+  /// invalid default: first `Port > 0` node of the current visible list that
+  /// still exists in the store, else the first stored `Port > 0` node.
+  String? _defaultRecoverableActive() {
+    final stored = <String, c.ProfileDto>{
+      for (final p in state.profiles) p.indexId: p,
+    };
+    for (final row in state.visible) {
+      final profile = stored[row.id];
+      if (profile != null && profile.port > 0) return row.id;
+    }
+    for (final profile in state.profiles) {
+      if (profile.port > 0) return profile.indexId;
+    }
+    return null;
   }
 
   List<ProfileColumn> _applyStoredLayout(List<ProfileColumn> defaults) {

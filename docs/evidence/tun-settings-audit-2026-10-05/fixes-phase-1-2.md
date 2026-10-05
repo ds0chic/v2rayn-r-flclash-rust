@@ -23,7 +23,7 @@
 |---|---|---|
 | TUN-A01 | helper 空闲回收不再用请求超时：新增 `idle_timeout`（默认 24h），空闲会话不再 5s 后清理租约/停止提权内核；仅管道断开/Shutdown/超长空闲结束 | `services/privileged_helper/src/{server.rs,main.rs}` + 回归测试 `idle_session_survives_past_the_request_timeout` |
 | TUN-A02 | LegacyProtect 拓扑只保留一个 TUN provider：主核配置不再生成 tun 入站（sidecar sing-box 独占）；主核为 sing-box 且无 sidecar 时保留自身 tun | `crates/application/src/engine.rs` + 断言并入 `pre_socks_legacy_sidecar_uses_base_port_and_real_socks_config` |
-| TUN-A03 | 见 Phase 1（toggle 不再假成功） | — |
+| TUN-A03 | 见 Phase 1（toggle 不再假成功）；真实租约事实已贯穿 FRB：`SnapshotDto.runtime_tun`（adapter/if/route_count/dry_run）→ Dart `RuntimeView.tun` → 标签显示 `已启用 (v2rayn-tun if=N)`，无租约才显示 `已请求(未验证)` | `crates/bridge_api/src/api/{contract.rs,engine.rs}`、`apps/desktop/lib/features/runtime/{runtime_bridge.dart,tun_toggle.dart}` |
 | 附加 | TUN 适配器名统一 `v2rayn-tun`（codegen 与 net-host 发现一致）；net-host 提权 sidecar 启动（helper `RunElevatedCore` + 受控目录 staging）；helper `MIB_UNICASTIPADDRESS_ROW` 镜像字段序/对齐修正（`CreateUnicastIpAddressEntry` 87 修复）；helper `HelperServerConfig.allowed_run_roots` 由 `--run-roots` 正确填充 | `codegen.rs`、`services/net_host/src/{session.rs,helper_client.rs}`、`services/privileged_helper/src/{main.rs,windows.rs}` |
 
 真机观察（受控，未改宿主路由）：提权 sidecar 启动、`v2rayn-tun` 适配器创建、helper 地址写入成功（租约 `dry_run=false`，if=84）。

@@ -69,10 +69,23 @@ pub struct SnapshotDto {
     pub runtime_config_sha256: Option<String>,
     pub runtime_operation_id: Option<String>,
     pub runtime_error: Option<ErrorDto>,
+    /// Actual TUN lease facts reported by net-host; `None` when the running
+    /// plan has no TUN lease (TUN-A03: the UI must read the real state, never
+    /// the desired switch).
+    pub runtime_tun: Option<RuntimeTunDto>,
     pub active_jobs: Vec<JobDto>,
     pub capabilities: Vec<CapabilityDto>,
     pub recovery: RecoveryDto,
     pub profile_count: u64,
+}
+
+/// Live TUN lease facts (adapter, interface, route count, dry-run flag).
+#[derive(Clone)]
+pub struct RuntimeTunDto {
+    pub adapter_name: String,
+    pub interface_index: u32,
+    pub route_count: u32,
+    pub dry_run: bool,
 }
 
 /// Error DTO carrying the stable contract fields.

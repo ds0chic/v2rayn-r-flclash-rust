@@ -47,12 +47,17 @@ Future<TunToggleResult> toggleTunDesired({
 }
 
 /// Actual TUN state read from the live runtime snapshot, never from the desired
-/// switch. The bridge carries no per-lease TUN facts, so only what the snapshot
-/// proves is shown: a helper refusal reads 失败已回滚; a stopped runtime reads
-/// 未启用 even when the switch is on; a live runtime reads 已请求(未验证).
+/// switch. The snapshot carries the real lease facts (adapter/interface), so a
+/// live lease reads 已启用; a helper refusal reads 失败已回滚; a stopped runtime
+/// reads 未启用 even when the switch is on; a running plan without a lease
+/// reads 已请求(未验证).
 String tunActualLabel(bool desired, RuntimeView runtime) {
   if (!desired) return '未启用';
   if (runtime.error?.code == 'E_TUN_HELPER_UNAVAILABLE') return '失败已回滚';
   if (!runtime.isRunning) return '未启用';
+  final tun = runtime.tun;
+  if (tun != null) {
+    return '已启用 (${tun.adapterName} if=${tun.interfaceIndex})';
+  }
   return '已请求(未验证)';
 }

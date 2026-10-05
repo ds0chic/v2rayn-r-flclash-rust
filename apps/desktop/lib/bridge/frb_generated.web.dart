@@ -151,6 +151,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RoutingProfileDto dco_decode_box_autoadd_routing_profile_dto(dynamic raw);
 
   @protected
+  RuntimeTunDto dco_decode_box_autoadd_runtime_tun_dto(dynamic raw);
+
+  @protected
   SettingsDto dco_decode_box_autoadd_settings_dto(dynamic raw);
 
   @protected
@@ -547,6 +550,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RuntimeTunDto? dco_decode_opt_box_autoadd_runtime_tun_dto(dynamic raw);
+
+  @protected
   SettingsDto? dco_decode_opt_box_autoadd_settings_dto(dynamic raw);
 
   @protected
@@ -673,6 +679,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RuntimeState dco_decode_runtime_state(dynamic raw);
+
+  @protected
+  RuntimeTunDto dco_decode_runtime_tun_dto(dynamic raw);
 
   @protected
   SaveProfileResult dco_decode_save_profile_result(dynamic raw);
@@ -965,6 +974,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RoutingProfileDto sse_decode_box_autoadd_routing_profile_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  RuntimeTunDto sse_decode_box_autoadd_runtime_tun_dto(
     SseDeserializer deserializer,
   );
 
@@ -1465,6 +1479,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  RuntimeTunDto? sse_decode_opt_box_autoadd_runtime_tun_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SettingsDto? sse_decode_opt_box_autoadd_settings_dto(
     SseDeserializer deserializer,
   );
@@ -1621,6 +1640,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   RuntimeState sse_decode_runtime_state(SseDeserializer deserializer);
+
+  @protected
+  RuntimeTunDto sse_decode_runtime_tun_dto(SseDeserializer deserializer);
 
   @protected
   SaveProfileResult sse_decode_save_profile_result(
@@ -1994,6 +2016,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_routing_profile_dto(
     RoutingProfileDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_runtime_tun_dto(
+    RuntimeTunDto self,
     SseSerializer serializer,
   );
 
@@ -2652,6 +2680,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_runtime_tun_dto(
+    RuntimeTunDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_settings_dto(
     SettingsDto? self,
     SseSerializer serializer,
@@ -2860,6 +2894,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_runtime_state(RuntimeState self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_runtime_tun_dto(RuntimeTunDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_save_profile_result(

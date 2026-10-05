@@ -26,8 +26,8 @@ use crate::api::contract::{
     AppliedInboundDto, ApplyRuntimeResult, CancelResult, CapabilityDto, CopyProfilesResult,
     CustomFileResult, DeleteProfilesResult, ErrorDto, EventEnvelopeDto, JobDto, OperationStatusDto,
     ProfileDto, ProfileFilterDto, ProfilePageDto, ProfileSortDto, ProtocolExtraDto, RecoveryDto,
-    ResourceFailureDto, ResourceUpdateReportDto, SaveProfileResult, SecurityDto, SimpleResult,
-    SnapshotDto, StopRuntimeResult, TransportExtraDto,
+    ResourceFailureDto, ResourceUpdateReportDto, RuntimeTunDto, SaveProfileResult, SecurityDto,
+    SimpleResult, SnapshotDto, StopRuntimeResult, TransportExtraDto,
 };
 
 use crate::frb_generated::StreamSink;
@@ -445,6 +445,12 @@ fn snapshot_to_dto(s: application::Snapshot) -> SnapshotDto {
         runtime_config_sha256: s.runtime_config_sha256,
         runtime_operation_id: s.runtime_operation_id,
         runtime_error: s.runtime_error.map(ErrorDto::from),
+        runtime_tun: s.tun.map(|tun| RuntimeTunDto {
+            adapter_name: tun.adapter_name,
+            interface_index: tun.interface_index,
+            route_count: tun.route_count,
+            dry_run: tun.dry_run,
+        }),
         active_jobs: s.active_jobs.into_iter().map(job_dto).collect(),
         capabilities: s
             .capabilities
@@ -480,6 +486,7 @@ fn empty_snapshot_dto() -> SnapshotDto {
         runtime_config_sha256: None,
         runtime_operation_id: None,
         runtime_error: None,
+        runtime_tun: None,
         active_jobs: Vec::new(),
         capabilities: Vec::new(),
         recovery: RecoveryDto {

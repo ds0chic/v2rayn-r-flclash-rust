@@ -9,7 +9,7 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ApplyRuntimeRequest`, `RevisionDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
 
 /// Read-only relaunch command the external upgrade runner executes (R4-29).
 class AppRestartCommandDto {
@@ -1365,6 +1365,38 @@ class RestoreResultDto {
           error == other.error;
 }
 
+/// Live TUN lease facts (adapter, interface, route count, dry-run flag).
+class RuntimeTunDto {
+  final String adapterName;
+  final int interfaceIndex;
+  final int routeCount;
+  final bool dryRun;
+
+  const RuntimeTunDto({
+    required this.adapterName,
+    required this.interfaceIndex,
+    required this.routeCount,
+    required this.dryRun,
+  });
+
+  @override
+  int get hashCode =>
+      adapterName.hashCode ^
+      interfaceIndex.hashCode ^
+      routeCount.hashCode ^
+      dryRun.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RuntimeTunDto &&
+          runtimeType == other.runtimeType &&
+          adapterName == other.adapterName &&
+          interfaceIndex == other.interfaceIndex &&
+          routeCount == other.routeCount &&
+          dryRun == other.dryRun;
+}
+
 /// Result of `save_profile`: either the saved profile or a field error.
 class SaveProfileResult {
   final bool ok;
@@ -1531,6 +1563,11 @@ class SnapshotDto {
   final String? runtimeConfigSha256;
   final String? runtimeOperationId;
   final ErrorDto? runtimeError;
+
+  /// Actual TUN lease facts reported by net-host; `None` when the running
+  /// plan has no TUN lease (TUN-A03: the UI must read the real state, never
+  /// the desired switch).
+  final RuntimeTunDto? runtimeTun;
   final List<JobDto> activeJobs;
   final List<CapabilityDto> capabilities;
   final RecoveryDto recovery;
@@ -1549,6 +1586,7 @@ class SnapshotDto {
     this.runtimeConfigSha256,
     this.runtimeOperationId,
     this.runtimeError,
+    this.runtimeTun,
     required this.activeJobs,
     required this.capabilities,
     required this.recovery,
@@ -1569,6 +1607,7 @@ class SnapshotDto {
       runtimeConfigSha256.hashCode ^
       runtimeOperationId.hashCode ^
       runtimeError.hashCode ^
+      runtimeTun.hashCode ^
       activeJobs.hashCode ^
       capabilities.hashCode ^
       recovery.hashCode ^
@@ -1591,6 +1630,7 @@ class SnapshotDto {
           runtimeConfigSha256 == other.runtimeConfigSha256 &&
           runtimeOperationId == other.runtimeOperationId &&
           runtimeError == other.runtimeError &&
+          runtimeTun == other.runtimeTun &&
           activeJobs == other.activeJobs &&
           capabilities == other.capabilities &&
           recovery == other.recovery &&

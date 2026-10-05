@@ -100,5 +100,20 @@ void main() {
       );
       expect(tunActualLabel(true, runtime), '已请求(未验证)');
     });
+
+    test('live lease reads the real adapter fact', () {
+      const runtime = RuntimeView(
+        state: 'Running',
+        ports: [11900],
+        sessionId: 's-1',
+        tun: RuntimeTunView(
+          adapterName: 'v2rayn-tun',
+          interfaceIndex: 84,
+          routeCount: 0,
+          dryRun: false,
+        ),
+      );
+      expect(tunActualLabel(true, runtime), '已启用 (v2rayn-tun if=84)');
+    });
   });
 }

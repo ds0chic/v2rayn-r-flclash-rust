@@ -8156,6 +8156,19 @@ impl SseDecode for Option<crate::api::routing::RoutingProfileDto> {
     }
 }
 
+impl SseDecode for Option<crate::api::contract::RuntimeTunDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::contract::RuntimeTunDto>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::api::settings::SettingsDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -8947,6 +8960,22 @@ impl SseDecode for crate::api::mirrors::RuntimeState {
     }
 }
 
+impl SseDecode for crate::api::contract::RuntimeTunDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_adapterName = <String>::sse_decode(deserializer);
+        let mut var_interfaceIndex = <u32>::sse_decode(deserializer);
+        let mut var_routeCount = <u32>::sse_decode(deserializer);
+        let mut var_dryRun = <bool>::sse_decode(deserializer);
+        return crate::api::contract::RuntimeTunDto {
+            adapter_name: var_adapterName,
+            interface_index: var_interfaceIndex,
+            route_count: var_routeCount,
+            dry_run: var_dryRun,
+        };
+    }
+}
+
 impl SseDecode for crate::api::contract::SaveProfileResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -9280,6 +9309,8 @@ impl SseDecode for crate::api::contract::SnapshotDto {
         let mut var_runtimeOperationId = <Option<String>>::sse_decode(deserializer);
         let mut var_runtimeError =
             <Option<crate::api::contract::ErrorDto>>::sse_decode(deserializer);
+        let mut var_runtimeTun =
+            <Option<crate::api::contract::RuntimeTunDto>>::sse_decode(deserializer);
         let mut var_activeJobs = <Vec<crate::api::contract::JobDto>>::sse_decode(deserializer);
         let mut var_capabilities =
             <Vec<crate::api::contract::CapabilityDto>>::sse_decode(deserializer);
@@ -9298,6 +9329,7 @@ impl SseDecode for crate::api::contract::SnapshotDto {
             runtime_config_sha256: var_runtimeConfigSha256,
             runtime_operation_id: var_runtimeOperationId,
             runtime_error: var_runtimeError,
+            runtime_tun: var_runtimeTun,
             active_jobs: var_activeJobs,
             capabilities: var_capabilities,
             recovery: var_recovery,
@@ -12868,6 +12900,29 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<crate::api::mirrors::RuntimeSt
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::contract::RuntimeTunDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.adapter_name.into_into_dart().into_dart(),
+            self.interface_index.into_into_dart().into_dart(),
+            self.route_count.into_into_dart().into_dart(),
+            self.dry_run.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::contract::RuntimeTunDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::contract::RuntimeTunDto>
+    for crate::api::contract::RuntimeTunDto
+{
+    fn into_into_dart(self) -> crate::api::contract::RuntimeTunDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::contract::SaveProfileResult {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -13196,6 +13251,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::contract::SnapshotDto {
             self.runtime_config_sha256.into_into_dart().into_dart(),
             self.runtime_operation_id.into_into_dart().into_dart(),
             self.runtime_error.into_into_dart().into_dart(),
+            self.runtime_tun.into_into_dart().into_dart(),
             self.active_jobs.into_into_dart().into_dart(),
             self.capabilities.into_into_dart().into_dart(),
             self.recovery.into_into_dart().into_dart(),
@@ -15586,6 +15642,16 @@ impl SseEncode for Option<crate::api::routing::RoutingProfileDto> {
     }
 }
 
+impl SseEncode for Option<crate::api::contract::RuntimeTunDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::contract::RuntimeTunDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::api::settings::SettingsDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -16114,6 +16180,16 @@ impl SseEncode for crate::api::mirrors::RuntimeState {
     }
 }
 
+impl SseEncode for crate::api::contract::RuntimeTunDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.adapter_name, serializer);
+        <u32>::sse_encode(self.interface_index, serializer);
+        <u32>::sse_encode(self.route_count, serializer);
+        <bool>::sse_encode(self.dry_run, serializer);
+    }
+}
+
 impl SseEncode for crate::api::contract::SaveProfileResult {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -16314,6 +16390,7 @@ impl SseEncode for crate::api::contract::SnapshotDto {
         <Option<String>>::sse_encode(self.runtime_config_sha256, serializer);
         <Option<String>>::sse_encode(self.runtime_operation_id, serializer);
         <Option<crate::api::contract::ErrorDto>>::sse_encode(self.runtime_error, serializer);
+        <Option<crate::api::contract::RuntimeTunDto>>::sse_encode(self.runtime_tun, serializer);
         <Vec<crate::api::contract::JobDto>>::sse_encode(self.active_jobs, serializer);
         <Vec<crate::api::contract::CapabilityDto>>::sse_encode(self.capabilities, serializer);
         <crate::api::contract::RecoveryDto>::sse_encode(self.recovery, serializer);

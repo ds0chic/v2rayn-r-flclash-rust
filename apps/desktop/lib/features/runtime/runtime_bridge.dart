@@ -22,6 +22,21 @@ class RuntimeErrorView {
       detail == null ? '$code ($messageKey)' : '$code ($messageKey): $detail';
 }
 
+/// Live TUN lease facts from the runtime snapshot (never the desired switch).
+class RuntimeTunView {
+  const RuntimeTunView({
+    required this.adapterName,
+    required this.interfaceIndex,
+    required this.routeCount,
+    required this.dryRun,
+  });
+
+  final String adapterName;
+  final int interfaceIndex;
+  final int routeCount;
+  final bool dryRun;
+}
+
 /// A read model of the runtime, assembled only from snapshot/events.
 class RuntimeView {
   const RuntimeView({
@@ -35,6 +50,7 @@ class RuntimeView {
     this.error,
     this.desiredRevision,
     this.appliedRevision,
+    this.tun,
     this.epoch,
     this.lastSeq,
     this.sequenceWarning,
@@ -54,6 +70,11 @@ class RuntimeView {
   final RuntimeErrorView? error;
   final BigInt? desiredRevision;
   final BigInt? appliedRevision;
+
+  /// Live TUN lease facts reported by net-host, or null when the running plan
+  /// has no TUN lease. The UI reads this instead of the desired switch
+  /// (TUN-A03); it is never synthesized from settings.
+  final RuntimeTunView? tun;
 
   /// True while a local command (apply/reload/stop) is being submitted but the
   /// backend has not reported its own transition yet. This is a UI command
@@ -131,6 +152,8 @@ class RuntimeView {
   RuntimeView copyWith({
     RuntimeErrorView? error,
     bool clearError = false,
+    RuntimeTunView? tun,
+    bool clearTun = false,
     BigInt? epoch,
     BigInt? lastSeq,
     String? sequenceWarning,
@@ -150,6 +173,7 @@ class RuntimeView {
       error: clearError ? null : (error ?? this.error),
       desiredRevision: desiredRevision,
       appliedRevision: appliedRevision,
+      tun: clearTun ? null : (tun ?? this.tun),
       epoch: epoch ?? this.epoch,
       lastSeq: lastSeq ?? this.lastSeq,
       sequenceWarning: sequenceWarning ?? this.sequenceWarning,
@@ -319,6 +343,14 @@ class FrbRuntimeBridge implements RuntimeBridge, ExplicitTargetRuntimeBridge {
       error: _error(snap.runtimeError),
       desiredRevision: snap.desiredRevision,
       appliedRevision: snap.appliedRevision,
+      tun: snap.runtimeTun == null
+          ? null
+          : RuntimeTunView(
+              adapterName: snap.runtimeTun!.adapterName,
+              interfaceIndex: snap.runtimeTun!.interfaceIndex,
+              routeCount: snap.runtimeTun!.routeCount,
+              dryRun: snap.runtimeTun!.dryRun,
+            ),
     );
   }
 

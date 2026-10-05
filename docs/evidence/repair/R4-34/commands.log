@@ -1,0 +1,39 @@
+R4-34 command log (run 2026-10-05, HEAD 06f61f6; Windows PowerShell 7)
+
+[1] flutter test test/repair/r4_34_repro_test.dart   (PRE-FIX)
+    exit != 0
+    test/repair/r4_34_repro_test.dart: Error: Method not found: 'resourceAutoUpdatePlan'.
+    test/repair/r4_34_repro_test.dart: Error: Method not found: 'resourcePassDue'.
+    00:00 +0 -1: Some tests failed.
+    Failing tests: .../test/repair/r4_34_repro_test.dart (loading)
+    -> captured to repro-prefix.log
+
+[2] flutter test test/repair/r4_34_repro_test.dart test/r4_34_contract_test.dart   (POST-FIX)
+    00:00 +9: All tests passed!
+
+[3] cargo fmt --all -- --check
+    exit 0 (no output)
+
+[4] cargo clippy --workspace --all-targets --locked -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.05s
+    exit 0 (no warnings)
+
+[5] cargo test -p application --lib --locked resource
+    running 6 tests
+    engine::tests::resource_pass_skips_when_interval_disabled ... ok
+    engine::tests::resource_pass_not_due_on_non_multiple_hour ... ok
+    engine::tests::resource_pass_downloads_due_geo_from_local_endpoint ... ok
+    engine::tests::resource_scheduler_stops_without_residue ... ok
+    engine::tests::starting_sub_scheduler_also_starts_resource_task ... ok
+    engine::tests::resource_pass_failure_is_structured_and_preserves_old_file ... ok
+    test result: ok. 6 passed; 0 failed
+
+[6] cargo test --workspace --locked
+    all test binaries: `test result: ok`, 0 failed
+
+[7] flutter analyze
+    No issues found! (ran in 3.3s)
+
+[8] flutter build windows --release
+    NOT RUN: no bridge_api/frb_generated change was made, so the card's
+    conditional build gate does not apply.

@@ -1,0 +1,27 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 PAC renderer HTTP endpoint renders the upstream PROXY ...;DIRECT;
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 PAC renderer SOCKS endpoint renders SOCKS5, never a bare HTTP rule
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 applied endpoint reconciliation a new applied session re-points the mode at the applied port
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 applied endpoint reconciliation protocol is only trusted when its port matches the applied port
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 applied endpoint reconciliation no running session reports honestly and applies nothing
+00:00 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 applied endpoint reconciliation unchanged mode is a no-op on reconciliation
+00:00 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 PAC file selection and failure visibility custom PAC path wins and its content is served verbatim
+00:00 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 PAC file selection and failure visibility PAC failure keeps the previous state and surfaces the error
+00:00 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 exit restore ownership external edits are preserved and reported, not overwritten
+00:00 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_24_contract_test.dart: R4-24 exit restore ownership a clean restore reports the restored message
+00:00 +10: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_24_repro_test.dart
+00:00 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_24_repro_test.dart: apply success re-points the selected mode at the actual applied endpoint
+00:00 +11: All tests passed!

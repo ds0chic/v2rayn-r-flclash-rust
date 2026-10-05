@@ -5097,3 +5097,14 @@ remediation_implementation_records:
 # check/apply flow, failure visible and retryable. Evidence:
 # docs/evidence/repair/R4-03/. Status: implemented; real GUI missing-core ->
 # install -> retry and armed-package end-to-end not run.
+#
+# R4-34 (2026-10-05, HEAD 06f61f6) append-only note: BG-TASK-001 (1-minute
+# scheduler loop) and BG-TASK-003 (Geo files auto-update) are now implemented in
+# crates/application/src/engine.rs (`ResourceScheduler` + `run_resource_pass`,
+# hour-gated by GuiItem.AutoUpdateInterval; started/stopped with the existing
+# subscription scheduler). BG-TASK-002/SCH-001/002 remain preserved_only
+# (FIX-09D). BG-TASK-004 / SCH-004 (daily check-update) remain blocked. SCH-003
+# is implemented for Geo .dat + the upstream default geosite SRS set; DNS-derived
+# SRS and other/route/cert/SubConvert consumers remain blocked. Real remote
+# download and real GUI reopen unverified. Evidence: docs/evidence/repair/R4-34/.
+

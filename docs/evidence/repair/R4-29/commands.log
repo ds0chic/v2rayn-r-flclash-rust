@@ -1,0 +1,50 @@
+R4-29 command log (HEAD 06f61f697415e3dda108b2c390c7b188cb71ba6f)
+Windows PowerShell 7 + Flutter 3.47.5 + Rust 1.98.1. No 10808; loopback ports OS-assigned.
+
+# 1. repro BEFORE fix (must fail)
+[cwd apps/desktop] flutter test test/repair/r4_29_repro_test.dart
+  -> 2 failed (uncaught bridge exception; busy latched). See repro-before-fix.log.
+
+# 2. repro AFTER fix
+[cwd apps/desktop] flutter test test/repair/r4_29_repro_test.dart
+  -> 00:00 +2: All tests passed!
+
+# 3. Flutter analyze
+[cwd apps/desktop] flutter analyze
+  -> after removing one unnecessary import: "No issues found!" (exit 0)
+
+# 4. required Dart tests
+[cwd apps/desktop] flutter test test/r4_29_contract_test.dart test/repair/r4_29_repro_test.dart
+  -> +10: All tests passed!
+[cwd apps/desktop] flutter test test/t16_update_test.dart          -> +7 All tests passed!
+[cwd apps/desktop] flutter test test/r3_08_update_source_test.dart -> +1 All tests passed!
+[cwd apps/desktop] flutter test test/recheck_rr04_app_update_test.dart -> +4 All tests passed!
+
+# 5. Rust updater tests
+cargo test -p updater --test r4_29_release_chain --locked -> 1 passed
+cargo test -p updater --locked                            -> all passed (exit 0)
+cargo test -p application --test t16_update --locked      -> 6 passed
+
+# 6. workspace Rust tests
+cargo test --workspace --locked -> exit 0 (all suites + doc-tests ok)
+
+# 7. fmt / clippy scoped to this card's package
+cargo fmt -p updater -- --check                              -> clean
+cargo clippy -p updater --all-targets --locked -- -D warnings -> clean (exit 0)
+
+# 8. workspace fmt/clippy (EXTERNAL interference only)
+cargo fmt --all -- --check
+  -> diffs ONLY in crates/application/src/engine.rs (R4-34, concurrent, forbidden file)
+cargo clippy --workspace --all-targets --locked -- -D warnings
+  -> 5 errors, all in crates/application/src/engine.rs (R4-34, concurrent, forbidden file)
+
+# 9. release packaging consistency (synthetic stage)
+pwsh -File tools/release/recheck_r4_29_release_asserts.ps1
+  -> PASS stage name v2rayN-R-1.0.0+1-windows-x64
+  -> PASS build-info version=1.0.0 pubspec=1.0.0+1
+  -> PASS flat exes: v2rayn_desktop.exe, v2rayN-upgrade.exe
+  -> R4_29_RELEASE_ASSERTS ok=true
+
+# 10. native/release build
+[cwd apps/desktop] flutter build windows --release
+  -> Built build\windows\x64\runner\Release\v2rayn_desktop.exe

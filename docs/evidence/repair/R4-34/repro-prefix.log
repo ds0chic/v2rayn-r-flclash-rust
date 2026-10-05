@@ -1,0 +1,31 @@
+R4-34 repro pre-fix log (captured 2026-10-05, HEAD 06f61f6)
+Command: flutter test test/repair/r4_34_repro_test.dart
+Result: exit != 0 (expected failing-first)
+
+      final plan = resourceAutoUpdatePlan(settingsWith(interval: 0));
+                   ^^^^^^^^^^^^^^^^^^^^^^
+  test/repair/r4_34_repro_test.dart:30:12: Error: Method not found: 'resourcePassDue'.
+      expect(resourcePassDue(plan, 1), isFalse);
+             ^^^^^^^^^^^^^^^^
+  test/repair/r4_34_repro_test.dart:34:18: Error: Method not found: 'resourceAutoUpdatePlan'.
+      final plan = resourceAutoUpdatePlan(settingsWith(interval: 3));
+                   ^^^^^^^^^^^^^^^^^^^^^^
+  test/repair/r4_34_repro_test.dart:35:12: Error: Method not found: 'resourcePassDue'.
+      expect(resourcePassDue(plan, 1), isFalse);
+             ^^^^^^^^^^^^^^^^
+  test/repair/r4_34_repro_test.dart:36:12: Error: Method not found: 'resourcePassDue'.
+      expect(resourcePassDue(plan, 3), isTrue);
+             ^^^^^^^^^^^^^^^^
+  test/repair/r4_34_repro_test.dart:37:12: Error: Method not found: 'resourcePassDue'.
+      expect(resourcePassDue(plan, 6), isTrue);
+             ^^^^^^^^^^^^^^^^
+  test/repair/r4_34_repro_test.dart:38:12: Error: Method not found: 'resourcePassDue'.
+      expect(resourcePassDue(plan, 7), isFalse);
+             ^^^^^^^^^^^^^^^^
+  .
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  .../apps/desktop/test/repair/r4_34_repro_test.dart: loading .../r4_34_repro_test.dart
+
+POST-FIX: flutter test test/repair/r4_34_repro_test.dart -> 3/3 pass.

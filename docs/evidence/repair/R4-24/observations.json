@@ -1,0 +1,60 @@
+{
+  "task": "R4-24",
+  "title": "代理PAC与applied端点",
+  "commit": "06f61f697415e3dda108b2c390c7b188cb71ba6f",
+  "armed": false,
+  "fixture": "synthetic",
+  "kernel": "none",
+  "network": "none",
+  "host_proxy_written": false,
+  "ports_used": [11808, 11809, 11810],
+  "forbidden_port_10808_used": false,
+  "status": "implemented",
+  "blocked": [
+    "real WinINET system-proxy/PAC read/write on an authorized isolated machine",
+    "four-mode live effect, per-apply immediate effect, ownership recovery on real OS"
+  ],
+  "changed_files": [
+    "apps/desktop/lib/features/settings/platform_controller.dart",
+    "apps/desktop/test/r4_24_contract_test.dart",
+    "apps/desktop/test/repair/r4_24_repro_test.dart",
+    "docs/repair/tasks/R4-24.md",
+    "docs/evidence/repair/R4-24/README.md",
+    "docs/evidence/repair/R4-24/observations.json",
+    "docs/evidence/repair/R4-24/prefix_repro_failure.log",
+    "docs/evidence/repair/R4-24/flutter_analyze.log",
+    "docs/evidence/repair/R4-24/flutter_test_r4_24.log"
+  ],
+  "commands": [
+    {
+      "cmd": "flutter analyze",
+      "result": "No issues found!"
+    },
+    {
+      "cmd": "flutter test test/r4_24_contract_test.dart test/repair/r4_24_repro_test.dart",
+      "result": "All tests passed (11/11)"
+    },
+    {
+      "cmd": "flutter test test/repair/r4_24_repro_test.dart (pre-fix, stashed production file)",
+      "result": "FAIL: Expected contains forcedChange, Actual []"
+    },
+    {
+      "cmd": "flutter test test/r3_01_07_10_test.dart test/fix15_tray_pac_test.dart test/fix15c_pac_resolve_test.dart test/recheck_rr02_03_test.dart test/t13_platform_models_test.dart",
+      "result": "All passed (no regression)"
+    },
+    {
+      "cmd": "dart format --output=none --set-exit-if-changed (changed files)",
+      "result": "clean after formatting"
+    }
+  ],
+  "rust_changed": false,
+  "cargo_commands_run": [],
+  "native_build_run": false,
+  "interface_gap": {
+    "provider": "crates/bridge_api/src/api/engine.rs SnapshotDto / new read-only endpoint DTO",
+    "consumer": "FrbRuntimeBridge._toView -> RuntimeView; PlatformController._appliedProxyInbound",
+    "io": "add read-only applied_inbound_protocol (HTTP/SOCKS/Mixed) and optional applied_inbound_port; no auth/secret",
+    "error": "none (read-only); missing falls back to HTTP default",
+    "effect_point": "snapshot after each successful apply"
+  }
+}

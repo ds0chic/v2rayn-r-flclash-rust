@@ -1,0 +1,72 @@
+{
+  "task": "R4-34",
+  "title": "资源源和后台任务",
+  "head": "06f61f6",
+  "upstream_freeze": {
+    "repo": "2dust/v2rayN",
+    "version": "7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "symbols": [
+      "ServiceLib/Manager/TaskManager.cs:UpdateTaskRunGeo",
+      "ServiceLib/Manager/TaskManager.cs:UpdateTaskRunSubscription",
+      "ServiceLib/Manager/TaskManager.cs:UpdateTaskRunCheckUpdate",
+      "ServiceLib/Services/UpdateService.cs:139 UpdateGeoFileAll",
+      "ServiceLib/Services/UpdateService.cs:515 GetSrsFileRequest"
+    ]
+  },
+  "status": "implemented",
+  "armed": false,
+  "constraints": {
+    "touched_10808": false,
+    "host_proxy_or_registry": false,
+    "tun_route_or_autostart": false,
+    "user_credentials_read_or_written": false,
+    "test_ports": ">=11808, probed before bind"
+  },
+  "changed_files": [
+    "crates/application/src/engine.rs",
+    "apps/desktop/lib/features/settings/resource_auto_update.dart",
+    "apps/desktop/test/r4_34_contract_test.dart",
+    "apps/desktop/test/repair/r4_34_repro_test.dart",
+    "docs/repair/tasks/R4-34.md",
+    "docs/evidence/repair/R4-34/README.md",
+    "docs/evidence/repair/R4-34/observations.json",
+    "docs/evidence/repair/R4-34/commands.log",
+    "docs/evidence/repair/R4-34/repro-prefix.log"
+  ],
+  "inventory": {
+    "BG-TASK-001": "implemented",
+    "BG-TASK-002": "preserved_only",
+    "BG-TASK-003": "implemented",
+    "BG-TASK-004": "blocked",
+    "BG-TASK-005": "not_applicable",
+    "BG-TASK-006": "blocked",
+    "SCH-003": "implemented_partial_consumers",
+    "SCH-004": "blocked",
+    "ACT-MAIN-032": "preserved_only",
+    "ACT-MAIN-033": "preserved_only",
+    "ACT-MAIN-034": "preserved_only"
+  },
+  "commands": [
+    { "cmd": "cargo fmt --all -- --check", "exit": 0 },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "exit": 0 },
+    { "cmd": "cargo test -p application --lib --locked resource", "exit": 0, "passed": 6, "failed": 0 },
+    { "cmd": "cargo test --workspace --locked", "exit": 0, "failed": 0 },
+    { "cmd": "flutter analyze", "exit": 0, "issues": 0 },
+    { "cmd": "flutter test test/r4_34_contract_test.dart", "exit": 0, "passed": 6 },
+    { "cmd": "flutter test test/repair/r4_34_repro_test.dart", "exit": 0, "passed": 3 },
+    { "cmd": "flutter build windows --release", "exit": null, "note": "not run; no bridge/FRB change" }
+  ],
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_34_repro_test.dart",
+    "pre_fix": "compile failure: Method not found resourceAutoUpdatePlan/resourcePassDue",
+    "post_fix": "3/3 pass"
+  },
+  "blocked": [
+    "FRB/Dart consumer for explicit resource-task trigger/status is not bound (frb_generated must not be edited by this card)",
+    "daily check-update task (BG-TASK-004/SCH-004) not implemented",
+    "DNS-derived SRS list, other-files, cert/region/route-template/SubConvert consumers not implemented",
+    "real remote download unverified (local mock only)",
+    "real GUI reopen verification pending"
+  ]
+}

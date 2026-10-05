@@ -1,0 +1,60 @@
+{
+  "task": "R4-29",
+  "title": "本项目发行与升级（自身更新）",
+  "status": "implemented",
+  "head": "06f61f697415e3dda108b2c390c7b188cb71ba6f",
+  "armed": false,
+  "environment": {
+    "os": "Windows 11 x64",
+    "shell": "PowerShell 7",
+    "flutter": "3.47.5",
+    "rust": "1.98.1",
+    "frb_generated_touched": false
+  },
+  "safety": {
+    "port_10808_used": false,
+    "loopback_ports": "OS-assigned ephemeral (tiny_http :0)",
+    "host_proxy_registry_route_tun_startup_changed": false,
+    "real_install_uninstall_selfreplace": false,
+    "host_restart": false,
+    "user_credentials_read_or_written": false
+  },
+  "user_flow": "check this project's package (synthetic release metadata+asset) -> PGP verify -> exit hand-off to external runner (stage -> replace -> .previous rollback -> restart command) or reject and keep current install",
+  "artifacts": [
+    "apps/desktop/test/r4_29_contract_test.dart",
+    "apps/desktop/test/repair/r4_29_repro_test.dart",
+    "crates/updater/tests/r4_29_release_chain.rs",
+    "tools/release/recheck_r4_29_release_asserts.ps1"
+  ],
+  "scenarios": [
+    {"id": "blocked-source", "expected": "explicit block, no fake upstream v2rayN release", "result": "verified", "evidence": "r4_29_contract_test.dart; r3_08_update_source_test.dart"},
+    {"id": "runner-handoff", "expected": "spec CLI (--plan/--result/--pid/--restart-exe/--restart-cwd) handed to runner, cwd=install root, exit once", "result": "verified", "evidence": "r4_29_contract_test.dart; recheck_rr04_app_update_test.dart"},
+    {"id": "pgp-verify-full-chain", "expected": "download -> PGP verify (synthetic trust root) -> stage -> overlay -> app.previous -> rollback -> restart command; tampered/wrong/missing signature rejected", "result": "verified", "evidence": "r4_29_release_chain.rs"},
+    {"id": "signature-failure", "expected": "reject, no launch, no exit, no success", "result": "verified", "evidence": "r4_29_contract_test.dart"},
+    {"id": "digest-mismatch", "expected": "reject, current install untouched", "result": "verified", "evidence": "r4_29_contract_test.dart; t16_update.rs"},
+    {"id": "busy-exception", "expected": "thrown bridge call completes, busy cleared, error shown", "result": "verified", "evidence": "r4_29_repro_test.dart (failed before fix -> passed after)"},
+    {"id": "release-naming-consistency", "expected": "stage/zip name and both build-info JSONs consistent with pubspec; runner name matches DEFAULT_RUNNER_NAME", "result": "verified", "evidence": "recheck_r4_29_release_asserts.ps1"}
+  ],
+  "commands": {
+    "flutter_analyze": "No issues found",
+    "flutter_test_r4_29": "10 passed",
+    "flutter_test_t16_update": "7 passed",
+    "flutter_test_r3_08": "1 passed",
+    "flutter_test_recheck_rr04": "4 passed",
+    "cargo_test_updater_chain": "1 passed",
+    "cargo_test_updater": "passed",
+    "cargo_test_workspace": "exit 0",
+    "cargo_fmt_updater": "clean",
+    "cargo_clippy_updater": "clean",
+    "release_asserts": "R4_29_RELEASE_ASSERTS ok=true",
+    "flutter_build_windows_release": "Built v2rayn_desktop.exe"
+  },
+  "blocked": [
+    {"id": "real-release-source", "reason": "UpdateService.app_repo defaults to None (product decision); check_app_update returns error.update_app_source_unconfigured; no fabricated GitHub endpoint, no upstream C# package substituted"},
+    {"id": "forward-prerelease-proxy-to-app-spec", "provider": "crates/bridge_api/src/api/t16.rs", "consumer": "update_controller.applyAppUpdate", "expected_input": "(prerelease, via_proxy)", "effective_point": "app update check/stage", "reason": "t16_apply_app_update_spec has no parameters; fixing needs FRB regeneration (forbidden in this card)"},
+    {"id": "surface-restart-command-and-rollback", "provider": "crates/application/src/update_service.rs", "consumer": "apps/desktop/lib/features/update", "reason": "app_restart_command()/rollback_app_upgrade() exist Rust-side but ExternalSpecDto carries neither and UI exposes no rollback entry; needs new FRB function+DTO"}
+  ],
+  "external_interference": {
+    "note": "Concurrent R4-34 subagent is editing crates/application/src/engine.rs and apps/desktop/lib/features/settings/platform_controller.dart in the shared worktree; cargo fmt --all --check and workspace clippy -D warnings fail only on engine.rs (a file this card may not modify)."
+  }
+}

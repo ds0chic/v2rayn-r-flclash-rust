@@ -1,0 +1,22 @@
+# R4-24 repro, run against the pre-fix tree
+# Procedure: git stash push -- apps/desktop/lib/features/settings/platform_controller.dart
+#            flutter test test/repair/r4_24_repro_test.dart
+#            git stash pop
+# Result: FAIL (the fix is what turns it green)
+
+00:00 +0: loading test/repair/r4_24_repro_test.dart
+00:00 +0: apply success re-points the selected mode at the actual applied endpoint
+00:00 +0 -1: apply success re-points the selected mode at the actual applied endpoint [E]
+  Expected: contains SysProxyMode:<SysProxyMode.forcedChange>
+    Actual: []
+     Which: does not contain SysProxyMode:<SysProxyMode.forcedChange>
+  a new applied session must re-run UpdateSysProxy
+
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\repair\r4_24_repro_test.dart 99:7              main.<fn>
+
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  test/repair/r4_24_repro_test.dart: apply success re-points the selected mode at the actual applied endpoint

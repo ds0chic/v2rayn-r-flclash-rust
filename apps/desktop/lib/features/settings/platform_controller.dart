@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/proxy_settings_view.dart';
@@ -16,8 +17,22 @@ final platformControllerProvider =
     NotifierProvider<PlatformController, PlatformView>(PlatformController.new);
 
 class PlatformController extends Notifier<PlatformView> {
+  /// Applied-session key (`sessionId:port`) of the last `UpdateSysProxy`
+  /// reconciliation. A plain snapshot refresh of the same session must not
+  /// rewrite the host proxy again; only a new applied endpoint does.
+  String? _lastAppliedSessionKey;
+
   @override
-  PlatformView build() => const PlatformView();
+  PlatformView build() {
+    // Upstream `MainWindowViewModel.LoadCore` -> `SysProxyHandler.UpdateSysProxy`:
+    // every successful apply re-points the selected system proxy / PAC at the
+    // newly published endpoint. The listener is the production wiring; the
+    // status-bar menu and launch restore call the same use case directly.
+    ref.listen<RuntimeView>(runtimeControllerProvider, (_, next) {
+      _onRuntimeChanged(next);
+    });
+    return const PlatformView();
+  }
 
   PlatformBridge get _bridge => ref.read(platformBridgeProvider);
 
@@ -240,24 +255,50 @@ class PlatformController extends Notifier<PlatformView> {
     applyModeFromConfig(mode, document: document);
   }
 
+  /// Upstream `LoadCore` -> `UpdateSysProxy` reconciliation. A new applied
+  /// session (id or port) re-applies the persisted mode against the actual
+  /// endpoint; the same session is a no-op. No applied session clears the
+  /// dedupe key so the next real session reconciles again.
+  void _onRuntimeChanged(RuntimeView runtime) {
+    if (!runtime.hasAppliedEndpoint) {
+      _lastAppliedSessionKey = null;
+      return;
+    }
+    final key = '${runtime.sessionId}:${runtime.proxyPort}';
+    if (key == _lastAppliedSessionKey) return;
+    _lastAppliedSessionKey = key;
+    syncAppliedMode();
+  }
+
+  /// Re-apply the persisted mode against the actual applied endpoint. Shared by
+  /// the runtime listener and tests. `Unchanged` stays a no-op, mirroring
+  /// upstream `UpdateSysProxy`; the other modes either reconcile the host
+  /// proxy/PAC or report the no-running-session fact honestly.
+  void syncAppliedMode() {
+    final document = ref.read(settingsControllerProvider).document;
+    final mode = desiredModeFromSettings(document);
+    if (mode == SysProxyMode.unchanged) return;
+    applyModeFromConfig(mode, document: document);
+  }
+
   /// The actual proxy endpoint published by the running session, if any, with
-  /// its protocol. The port is the applied session port (never the configured
-  /// desired port alone); the protocol comes from the persisted inbound that
-  /// generated the applied plan, which is the only protocol fact the Dart
-  /// snapshot currently carries (see the interface gap in the task card).
+  /// its protocol. The port is always the applied session port (never the
+  /// configured desired port); the protocol is taken from the persisted inbound
+  /// only when that inbound's port matches the applied port, otherwise the
+  /// default HTTP scheme is assumed instead of mislabeling the listener.
   LocalProxyInbound? _appliedProxyInbound(Map<String, dynamic> document) {
     final runtime = ref.read(runtimeControllerProvider);
     if (!runtime.isRunning) return null;
-    final ports = runtime.ports.where((port) => port > 0).toList();
-    if (ports.isEmpty) return null;
-    final configured = primaryLocalProxyInbound(document);
-    if (configured != null && ports.contains(configured.port)) {
-      return configured;
-    }
-    return LocalProxyInbound(
-      port: ports.first,
-      protocol: configured?.protocol ?? ProxyProtocolKind.http,
+    final appliedPort = runtime.ports.firstWhere(
+      (port) => port > 0,
+      orElse: () => 0,
     );
+    if (appliedPort <= 0) return null;
+    final configured = primaryLocalProxyInbound(document);
+    final protocol = (configured != null && configured.port == appliedPort)
+        ? configured.protocol
+        : ProxyProtocolKind.http;
+    return LocalProxyInbound(port: appliedPort, protocol: protocol);
   }
 
   PlatformActionResult _persistAndReturn(

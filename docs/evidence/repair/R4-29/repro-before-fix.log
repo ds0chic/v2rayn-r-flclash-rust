@@ -1,0 +1,20 @@
+# R4-29 repro BEFORE the fix (captured from the actual run)
+
+Command:
+  flutter test test/repair/r4_29_repro_test.dart   (cwd apps/desktop)
+
+Result: 2 failed (exceptions escaped the controller and busy latched true).
+
+00:00 +0 -1: a thrown spec call completes, reports an error and clears busy [E]
+  Bad state: native bridge exploded during app update spec
+  test\repair\r4_29_repro_test.dart 28:7                                _FlakyUpdateBridge.t16ApplyAppUpdateSpec
+  package:v2rayn_desktop/features/update/update_controller.dart 393:53  UpdateController.applyAppUpdate
+  test\repair\r4_29_repro_test.dart 78:33                               main.<fn>
+
+00:00 +0 -2: a thrown check call completes, reports an error and clears busy [E]
+  Bad state: native bridge exploded during update check
+  test\repair\r4_29_repro_test.dart 40:7                                _FlakyUpdateBridge.t16CheckUpdates
+  package:v2rayn_desktop/features/update/update_controller.dart 235:10  UpdateController.checkOnly
+  test\repair\r4_29_repro_test.dart 97:33                               main.<fn>
+
+00:00 +0 -2: Some tests failed.

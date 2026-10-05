@@ -8,6 +8,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use domain::runtime_plan::{
     ConfigSource, ContentHash, NetworkPolicy, OutboundGraph, PortRequest, PortTransport,
@@ -35,8 +36,12 @@ use crate::settings::{
 };
 use crate::snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
 use persistence::Store;
+use updater::download::{DownloadRequest, DownloaderOptions, FileDownloader};
+use updater::UpdateError;
 
-use crate::dns::{DnsRepository, InMemoryDnsRepository};
+use crate::dns::{
+    effective_geo_source, effective_srs_source, DnsRepository, InMemoryDnsRepository,
+};
 use crate::routing::{InMemoryRoutingRepository, RoutingRepository};
 use crate::store_repo::{
     persistence_storage_error, storage_error, DnsStore, ProfileStore, RoutingStore,
@@ -127,6 +132,10 @@ pub struct AppEngine {
     jobs: JobManager,
     runtime: Arc<dyn RuntimeClient>,
     sub_scheduler: Arc<Mutex<Option<SubScheduler>>>,
+    /// Cooperative Geo/SRS resource task (R4-34). Runs on its own thread so it
+    /// never blocks the subscription scheduler; started/stopped together with
+    /// it, matching upstream `TaskManager`.
+    resource_scheduler: Arc<Mutex<Option<ResourceScheduler>>>,
     /// The local socks/mixed port of the running session, when known.
     local_proxy_port: Arc<Mutex<Option<u16>>>,
     /// The applied-session fact (FIX-07): published only while net-host
@@ -151,8 +160,143 @@ pub struct AppEngine {
     storage_error: Arc<Mutex<Option<DomainError>>>,
 }
 
+// ---------------------------------------------------------------------------
+// R4-34: Geo/SRS resource task (upstream `TaskManager.UpdateTaskRunGeo`).
+// ---------------------------------------------------------------------------
+
+/// One remote resource file to keep up to date.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceRequest {
+    pub url: String,
+    pub target: PathBuf,
+}
+
+/// A download that did not succeed. The previous file is left untouched and no
+/// success is reported.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResourceFailure {
+    pub url: String,
+    pub code: String,
+    pub detail: String,
+}
+
+/// Outcome of one resource pass. `due == false` means the cadence did not fire.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ResourceUpdateReport {
+    pub due: bool,
+    pub attempted: usize,
+    pub downloaded: Vec<String>,
+    pub failed: Vec<ResourceFailure>,
+}
+
+impl ResourceUpdateReport {
+    /// Readable aggregate: a pass with any failure is not `ok`.
+    pub fn ok(&self) -> bool {
+        self.failed.is_empty()
+    }
+}
+
+/// Default geosite rule-set names appended by upstream
+/// `UpdateService.GetSrsFileAllRequest`.
+pub const DEFAULT_SRS_GEOSITE: [&str; 4] = ["google", "cn", "geolocation-cn", "category-ads-all"];
+
+fn srs_request(template: &str, kind: &str, name: &str, bin_dir: &Path) -> ResourceRequest {
+    let file = format!("{kind}-{name}");
+    ResourceRequest {
+        url: template.replace("{0}", kind).replace("{1}", &file),
+        target: bin_dir.join("srss").join(format!("{file}.srs")),
+    }
+}
+
+/// Build the Geo `.dat` + SRS download set from the stored sources.
+///
+/// `GeoSourceUrl` / `SrsSourceUrl` are the effective templates (the upstream
+/// built-in when unset). Targets mirror upstream `Utils.GetBinPath`:
+/// `<bin>/<name>.dat` and `<bin>/srss/<type>-<name>.srs`.
+pub fn build_resource_requests(
+    const_item: &domain::ConstItem,
+    bin_dir: &Path,
+) -> Vec<ResourceRequest> {
+    let geo_template = effective_geo_source(const_item);
+    let srs_template = effective_srs_source(const_item);
+    let mut requests = Vec::new();
+    for name in ["geoip", "geosite"] {
+        requests.push(ResourceRequest {
+            url: geo_template.replace("{0}", name),
+            target: bin_dir.join(format!("{name}.dat")),
+        });
+    }
+    for name in DEFAULT_SRS_GEOSITE {
+        requests.push(srs_request(&srs_template, "geosite", name, bin_dir));
+    }
+    requests
+}
+
+/// Cooperative periodic Geo resource task. Owns a thread + a current-thread
+/// Tokio runtime; `stop()` wakes the loop immediately (channel), so no timer
+/// survives a stop.
+struct ResourceScheduler {
+    stop_tx: std::sync::mpsc::Sender<()>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl ResourceScheduler {
+    fn start(engine: AppEngine, bin_dir: PathBuf, tick: Duration) -> Self {
+        let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
+        let handle = std::thread::spawn(move || {
+            let runtime = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(runtime) => runtime,
+                Err(_) => return,
+            };
+            let mut ticks: u64 = 0;
+            loop {
+                match stop_rx.recv_timeout(tick) {
+                    Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+                    Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                }
+                ticks += 1;
+                // Upstream runs the Geo pass once per hour tick and only when
+                // `hours % AutoUpdateInterval == 0`. The daily check-update slot
+                // is registered separately; see docs/evidence/repair/R4-34.
+                if ticks.is_multiple_of(60) {
+                    let cancel = CancellationToken::new();
+                    let _ =
+                        runtime.block_on(engine.run_resource_pass(&bin_dir, ticks / 60, &cancel));
+                }
+            }
+        });
+        Self {
+            stop_tx,
+            handle: Some(handle),
+        }
+    }
+
+    fn stop(&self) {
+        let _ = self.stop_tx.send(());
+    }
+
+    #[cfg(test)]
+    fn is_finished(&self) -> bool {
+        self.handle
+            .as_ref()
+            .map(std::thread::JoinHandle::is_finished)
+            .unwrap_or(true)
+    }
+}
+
+impl Drop for ResourceScheduler {
+    fn drop(&mut self) {
+        // Wake the loop and detach rather than join: joining could delay process
+        // exit on an in-flight download, which FIX-09D forbids.
+        let _ = self.stop_tx.send(());
+        let _ = self.handle.take();
+    }
+}
+
 impl AppEngine {
-    /// Build an engine with a Null runtime client (T02 default, used by tests).
     pub fn in_memory() -> Self {
         Self::with_runtime(Arc::new(NullRuntimeClient::new()))
     }
@@ -183,6 +327,7 @@ impl AppEngine {
             jobs: JobManager::new(),
             runtime,
             sub_scheduler: Arc::new(Mutex::new(None)),
+            resource_scheduler: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
@@ -262,6 +407,7 @@ impl AppEngine {
             jobs: JobManager::new(),
             runtime,
             sub_scheduler: Arc::new(Mutex::new(None)),
+            resource_scheduler: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
@@ -2940,21 +3086,32 @@ impl AppEngine {
         report_to_json(report)
     }
     /// Start the background subscription scheduler (idempotent).
+    ///
+    /// Starting it also starts the Geo resource task (R4-34), matching upstream
+    /// `TaskManager` which drives both from one periodic loop. The existing
+    /// subscription semantics are unchanged.
     pub fn start_sub_scheduler(&self, interval: std::time::Duration, max_items: usize) -> bool {
-        let mut guard = match self.sub_scheduler.lock() {
-            Ok(guard) => guard,
-            Err(_) => return false,
-        };
-        if guard.is_some() {
-            return true;
+        {
+            let mut guard = match self.sub_scheduler.lock() {
+                Ok(guard) => guard,
+                Err(_) => return false,
+            };
+            if guard.is_none() {
+                *guard = Some(SubScheduler::start(self.clone(), interval, max_items));
+            }
         }
-        *guard = Some(SubScheduler::start(self.clone(), interval, max_items));
+        self.start_resource_scheduler(interval);
         true
     }
 
-    /// Stop the scheduler gracefully. Never blocks process exit.
+    /// Stop the schedulers gracefully. Never blocks process exit.
     pub fn stop_sub_scheduler(&self) {
         if let Ok(mut guard) = self.sub_scheduler.lock() {
+            if let Some(scheduler) = guard.take() {
+                scheduler.stop();
+            }
+        }
+        if let Ok(mut guard) = self.resource_scheduler.lock() {
             if let Some(scheduler) = guard.take() {
                 scheduler.stop();
             }
@@ -2966,6 +3123,109 @@ impl AppEngine {
             .lock()
             .map(|guard| guard.is_some())
             .unwrap_or(false)
+    }
+
+    /// Start the Geo resource task (idempotent). Only a persisted engine with a
+    /// data directory can download; an in-memory engine has nowhere to land.
+    pub fn start_resource_scheduler(&self, tick: std::time::Duration) -> bool {
+        let Some(bin_dir) = self.data_dir.as_ref().map(|dir| dir.join("bin")) else {
+            return false;
+        };
+        match self.resource_scheduler.lock() {
+            Ok(mut guard) => {
+                if guard.is_some() {
+                    return true;
+                }
+                *guard = Some(ResourceScheduler::start(self.clone(), bin_dir, tick));
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// Stop the Geo resource task, waking the loop immediately.
+    pub fn stop_resource_scheduler(&self) {
+        if let Ok(mut guard) = self.resource_scheduler.lock() {
+            if let Some(scheduler) = guard.take() {
+                scheduler.stop();
+            }
+        }
+    }
+
+    pub fn resource_scheduler_running(&self) -> bool {
+        self.resource_scheduler
+            .lock()
+            .map(|guard| guard.is_some())
+            .unwrap_or(false)
+    }
+
+    /// One resource pass at a caller-supplied "hours since start" (upstream
+    /// `TaskManager.UpdateTaskRunGeo`). The virtual clock is injected so the
+    /// cadence is testable. Each file is staged to `<target>.part` and only
+    /// renamed on success, so a failed download never clobbers the previous
+    /// file and never reports success.
+    pub async fn run_resource_pass(
+        &self,
+        bin_dir: &Path,
+        now_hours: u64,
+        cancellation: &CancellationToken,
+    ) -> Result<ResourceUpdateReport, DomainError> {
+        self.guard_storage()?;
+        let loaded = self.load_settings()?;
+        let interval = loaded.settings.gui_item.auto_update_interval;
+        if interval <= 0 || now_hours == 0 || !now_hours.is_multiple_of(interval as u64) {
+            return Ok(ResourceUpdateReport::default());
+        }
+        let requests = build_resource_requests(&loaded.settings.const_item, bin_dir);
+        let (via_proxy, proxy_url) = crate::subs::scheduler_proxy_choice(self.local_proxy_url());
+        let options = DownloaderOptions {
+            proxy: if via_proxy { proxy_url } else { None },
+            ..DownloaderOptions::default()
+        };
+        let downloader = FileDownloader::new(options).map_err(|e| {
+            DomainError::new(domain::codes::INTERNAL, "error.resource_downloader")
+                .with_detail(e.to_string())
+        })?;
+        let mut report = ResourceUpdateReport {
+            due: true,
+            attempted: requests.len(),
+            ..Default::default()
+        };
+        for request in requests {
+            if cancellation.is_cancelled() {
+                break;
+            }
+            let staging = request.target.with_extension("part");
+            let download = DownloadRequest::new(request.url.clone(), staging.clone());
+            match downloader.download(&download, cancellation).await {
+                Ok(done) => match std::fs::rename(&done.path, &request.target) {
+                    Ok(()) => report
+                        .downloaded
+                        .push(request.target.to_string_lossy().into_owned()),
+                    Err(error) => {
+                        let _ = std::fs::remove_file(&staging);
+                        report.failed.push(ResourceFailure {
+                            url: request.url,
+                            code: "error.resource_install".to_string(),
+                            detail: error.to_string(),
+                        });
+                    }
+                },
+                Err(UpdateError::Cancelled) => {
+                    let _ = std::fs::remove_file(&staging);
+                    break;
+                }
+                Err(error) => {
+                    let _ = std::fs::remove_file(&staging);
+                    report.failed.push(ResourceFailure {
+                        url: request.url,
+                        code: "error.resource_download".to_string(),
+                        detail: error.to_string(),
+                    });
+                }
+            }
+        }
+        Ok(report)
     }
 
     /// Assemble the current snapshot.
@@ -3188,6 +3448,189 @@ mod tests {
     use super::*;
     use crate::synthetic::synthetic_full_profile;
     use domain::*;
+
+    // -- R4-34 resource task ------------------------------------------------
+
+    /// Bind a loopback test port at `>= 11808` (never 10808).
+    fn bind_test_listener() -> std::net::TcpListener {
+        for port in 11808..11908u16 {
+            if let Ok(listener) = std::net::TcpListener::bind(("127.0.0.1", port)) {
+                return listener;
+            }
+        }
+        panic!("no free test port >= 11808");
+    }
+
+    /// Serve `count` requests with a fixed body, then exit.
+    fn serve_files(
+        listener: std::net::TcpListener,
+        count: usize,
+        body: &'static str,
+    ) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            for _ in 0..count {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    break;
+                };
+                let mut buf = [0u8; 1024];
+                let _ = stream.read(&mut buf);
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\n\
+                     Content-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = stream.write_all(header.as_bytes());
+                let _ = stream.write_all(body.as_bytes());
+            }
+        })
+    }
+
+    fn set_resource_sources(
+        engine: &AppEngine,
+        interval: i32,
+        geo: Option<String>,
+        srs: Option<String>,
+    ) {
+        let revision = engine.load_settings().unwrap().revision;
+        let mut settings = engine.load_settings().unwrap().settings;
+        settings.gui_item.auto_update_interval = interval;
+        settings.const_item.geo_source_url = geo;
+        settings.const_item.srs_source_url = srs;
+        engine.save_settings(settings, revision).unwrap();
+    }
+
+    #[tokio::test]
+    async fn resource_pass_skips_when_interval_disabled() {
+        let engine = AppEngine::in_memory();
+        let dir = tempfile::tempdir().unwrap();
+        let report = engine
+            .run_resource_pass(dir.path(), 1, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(!report.due);
+        assert_eq!(report.attempted, 0);
+    }
+
+    #[tokio::test]
+    async fn resource_pass_downloads_due_geo_from_local_endpoint() {
+        let listener = bind_test_listener();
+        let port = listener.local_addr().unwrap().port();
+        let requests = 2 + DEFAULT_SRS_GEOSITE.len();
+        let server = serve_files(listener, requests, "SYNTHETIC-GEO");
+
+        let engine = AppEngine::in_memory();
+        let dir = tempfile::tempdir().unwrap();
+        set_resource_sources(
+            &engine,
+            1,
+            Some(format!("http://127.0.0.1:{port}/{{0}}.dat")),
+            Some(format!("http://127.0.0.1:{port}/rule-set/{{1}}.srs")),
+        );
+
+        let report = engine
+            .run_resource_pass(dir.path(), 1, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(report.due, "now_hours=1 with interval=1 must fire");
+        assert!(report.failed.is_empty(), "failures: {:?}", report.failed);
+        assert_eq!(report.downloaded.len(), requests);
+        server.join().unwrap();
+
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("geoip.dat")).unwrap(),
+            "SYNTHETIC-GEO"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("geosite.dat")).unwrap(),
+            "SYNTHETIC-GEO"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("srss").join("geosite-google.srs")).unwrap(),
+            "SYNTHETIC-GEO"
+        );
+    }
+
+    #[tokio::test]
+    async fn resource_pass_not_due_on_non_multiple_hour() {
+        let engine = AppEngine::in_memory();
+        let dir = tempfile::tempdir().unwrap();
+        set_resource_sources(
+            &engine,
+            3,
+            Some("https://mirror.example/{0}.dat".to_string()),
+            None,
+        );
+        let report = engine
+            .run_resource_pass(dir.path(), 5, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(!report.due, "5 is not a multiple of 3");
+    }
+
+    #[tokio::test]
+    async fn resource_pass_failure_is_structured_and_preserves_old_file() {
+        let engine = AppEngine::in_memory();
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("geoip.dat"), "OLD-GEO").unwrap();
+        set_resource_sources(
+            &engine,
+            1,
+            Some("http://127.0.0.1:9/{0}.dat".to_string()),
+            Some("http://127.0.0.1:9/rule-set/{1}.srs".to_string()),
+        );
+
+        let report = engine
+            .run_resource_pass(dir.path(), 1, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(report.due);
+        assert!(!report.ok(), "a failed download must not report success");
+        assert!(report.downloaded.is_empty());
+        assert_eq!(report.failed.len(), report.attempted);
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("geoip.dat")).unwrap(),
+            "OLD-GEO",
+            "a failed download must not clobber the previous file"
+        );
+        assert!(
+            !dir.path().join("geoip.part").exists(),
+            "staging file must be cleaned up"
+        );
+    }
+
+    #[tokio::test]
+    async fn resource_scheduler_stops_without_residue() {
+        let engine = AppEngine::in_memory();
+        let dir = tempfile::tempdir().unwrap();
+        let scheduler =
+            ResourceScheduler::start(engine, dir.path().to_path_buf(), Duration::from_millis(5));
+        std::thread::sleep(Duration::from_millis(30));
+        scheduler.stop();
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while !scheduler.is_finished() && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            scheduler.is_finished(),
+            "resource scheduler must exit on stop"
+        );
+    }
+
+    #[tokio::test]
+    async fn starting_sub_scheduler_also_starts_resource_task() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = AppEngine::open(dir.path()).unwrap();
+        assert!(!engine.resource_scheduler_running());
+        engine.start_sub_scheduler(Duration::from_millis(5), 10);
+        assert!(
+            engine.resource_scheduler_running(),
+            "the resource task must start with the subscription scheduler"
+        );
+        engine.stop_sub_scheduler();
+        assert!(!engine.resource_scheduler_running());
+        assert!(!engine.sub_scheduler_running());
+    }
 
     fn tiny_plan() -> RuntimePlan {
         RuntimePlan {

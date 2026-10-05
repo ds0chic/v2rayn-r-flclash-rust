@@ -223,6 +223,29 @@ class UpdateController extends Notifier<UpdateState> {
         : '${error.code} / ${error.messageKey}: ${error.detail}';
   }
 
+  /// Run a bridge call, converting a thrown/native exception into a reported
+  /// error and clearing `busy` so the window never latches (R4-29/D23). A
+  /// normal `ok=false` result is *not* an exception and is handled by callers.
+  Future<T?> _bridgeCall<T>(
+    Future<T> Function() call,
+    String failureMessage,
+  ) async {
+    try {
+      return await call();
+    } catch (error) {
+      state = state.copyWith(
+        busy: false,
+        clearStage: true,
+        status: UpdateStatus(
+          kind: 'error',
+          message: failureMessage,
+          detail: error.toString(),
+        ),
+      );
+      return null;
+    }
+  }
+
   Future<void> checkOnly() async {
     if (state.busy) return;
     state = state.copyWith(
@@ -230,9 +253,13 @@ class UpdateController extends Notifier<UpdateState> {
       stage: '正在检查更新…',
       checks: const <c.CoreUpdateDto>[],
     );
-    final result = await ref
-        .read(bridgePortProvider)
-        .t16CheckUpdates(_selectedCores, state.prerelease, state.viaProxy);
+    final result = await _bridgeCall(
+      () => ref
+          .read(bridgePortProvider)
+          .t16CheckUpdates(_selectedCores, state.prerelease, state.viaProxy),
+      '检查更新失败',
+    );
+    if (result == null) return;
     if (!result.ok) {
       state = state.copyWith(
         busy: false,
@@ -275,9 +302,13 @@ class UpdateController extends Notifier<UpdateState> {
       stage: '正在检查更新…',
       checks: const <c.CoreUpdateDto>[],
     );
-    final check = await ref
-        .read(bridgePortProvider)
-        .t16CheckUpdates(_selectedCores, state.prerelease, state.viaProxy);
+    final check = await _bridgeCall(
+      () => ref
+          .read(bridgePortProvider)
+          .t16CheckUpdates(_selectedCores, state.prerelease, state.viaProxy),
+      '检查更新失败',
+    );
+    if (check == null) return;
     if (!check.ok) {
       state = state.copyWith(
         busy: false,
@@ -291,9 +322,13 @@ class UpdateController extends Notifier<UpdateState> {
       return;
     }
     state = state.copyWith(checks: check.checks, stage: '正在下载并安装内核更新…');
-    final apply = await ref
-        .read(bridgePortProvider)
-        .t16ApplyCoreUpdate(_selectedCores, state.prerelease, state.viaProxy);
+    final apply = await _bridgeCall(
+      () => ref
+          .read(bridgePortProvider)
+          .t16ApplyCoreUpdate(_selectedCores, state.prerelease, state.viaProxy),
+      '内核更新失败',
+    );
+    if (apply == null) return;
     if (!apply.ok) {
       state = state.copyWith(
         busy: false,
@@ -337,9 +372,13 @@ class UpdateController extends Notifier<UpdateState> {
       stage: '正在安装/修复内核…',
       checks: const <c.CoreUpdateDto>[],
     );
-    final check = await ref
-        .read(bridgePortProvider)
-        .t16CheckUpdates(cores, state.prerelease, state.viaProxy);
+    final check = await _bridgeCall(
+      () => ref
+          .read(bridgePortProvider)
+          .t16CheckUpdates(cores, state.prerelease, state.viaProxy),
+      '检查更新失败',
+    );
+    if (check == null) return;
     if (!check.ok) {
       state = state.copyWith(
         busy: false,
@@ -353,9 +392,13 @@ class UpdateController extends Notifier<UpdateState> {
       return;
     }
     state = state.copyWith(checks: check.checks, stage: '正在下载并安装内核…');
-    final apply = await ref
-        .read(bridgePortProvider)
-        .t16ApplyCoreUpdate(cores, state.prerelease, state.viaProxy);
+    final apply = await _bridgeCall(
+      () => ref
+          .read(bridgePortProvider)
+          .t16ApplyCoreUpdate(cores, state.prerelease, state.viaProxy),
+      '内核安装失败，可重试',
+    );
+    if (apply == null) return;
     if (!apply.ok) {
       state = state.copyWith(
         busy: false,
@@ -390,7 +433,11 @@ class UpdateController extends Notifier<UpdateState> {
   Future<void> applyAppUpdate() async {
     if (state.busy) return;
     state = state.copyWith(busy: true, stage: '正在准备应用自身更新…');
-    final spec = await ref.read(bridgePortProvider).t16ApplyAppUpdateSpec();
+    final spec = await _bridgeCall(
+      () => ref.read(bridgePortProvider).t16ApplyAppUpdateSpec(),
+      '应用更新不可用',
+    );
+    if (spec == null) return;
     if (!spec.ok) {
       state = state.copyWith(
         busy: false,

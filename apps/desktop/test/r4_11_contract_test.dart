@@ -10,14 +10,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
+
+import 'support/synthetic_runtime_bridge.dart';
 
 ProviderContainer _container() {
   final container = ProviderContainer(
     overrides: [
       bridgePortProvider.overrideWithValue(SyntheticBridgePort()),
+      // R4-13: the in-process 确定 now awaits the real plan apply, so the
+      // runtime seam must be present for a successful save to close.
+      runtimeBridgeProvider.overrideWithValue(SyntheticRuntimeBridge()),
       uiStateStoreProvider.overrideWithValue(MemoryUiStateStore()),
       profileRowCountProvider.overrideWithValue(4),
     ],

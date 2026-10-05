@@ -13,9 +13,9 @@ import 'package:v2rayn_desktop/features/subs/sub_setting_window.dart';
 
 /// ACT-MAIN-016: import share links from the clipboard (F-IMPORT-001/002/005).
 ///
-/// The real bridge parses but does not persist a `subid`-less import (see
-/// [persistImportedProfiles]); when the payload is a subscription URL instead
-/// of a share link the user is offered the real subscription add/update path.
+/// The import runs through the R4-16 parse/preview + single-commit pipeline
+/// ([_importPipeline]); when the payload is a subscription URL instead of a
+/// share link the user is offered the real subscription add/update path.
 Future<void> importFromClipboard(BuildContext context, WidgetRef ref) async {
   // Snapshot the current group before any await: upstream passes
   // `_config.SubIndexId` at command time, so a group switch during parsing
@@ -27,29 +27,14 @@ Future<void> importFromClipboard(BuildContext context, WidgetRef ref) async {
     _toast(ref, '剪贴板为空，没有可导入的分享链接');
     return;
   }
-  final bridge = ref.read(bridgePortProvider);
-  final result = await bridge.importFromText(
+  if (!context.mounted) return;
+  await _importPipeline(
+    context,
+    ref,
     text,
-    subid: groupSubId,
-    deduplicate: true,
+    groupSubId: groupSubId,
+    sourceLabel: '剪贴板',
   );
-  if (result.ok && result.profiles.isNotEmpty) {
-    final persisted = persistImportedProfiles(
-      bridge,
-      result.profiles,
-      subid: groupSubId,
-    );
-    ref.read(profilesControllerProvider.notifier).reload();
-    _toast(ref, _importSuccessToast(persisted, result));
-    return;
-  }
-  final urls = extractSubscriptionUrls(text);
-  if (urls.isNotEmpty) {
-    if (!context.mounted) return;
-    await _offerAddSubscription(context, ref, urls);
-    return;
-  }
-  _toast(ref, describeImportFailure(result));
 }
 
 /// ACT-MAIN-016 fallback: import from a pasted multi-line text dialog.
@@ -94,8 +79,8 @@ Future<void> importFromTextDialog(BuildContext context, WidgetRef ref) async {
 }
 
 /// Shared share-text import pipeline (ACT-MAIN-016 paste dialog, FIX-05 image
-/// QR scan). Parses through `importFromText`, persists each parsed profile
-/// (which carries no `subid`), refreshes the node table, and falls back to the
+/// QR scan). Snapshots the group, runs the parse/preview phase and then the
+/// single commit, refreshes the node table, and falls back to the
 /// subscription-add offer when the payload is only subscription URLs.
 Future<void> importShareText(
   BuildContext context,
@@ -107,22 +92,42 @@ Future<void> importShareText(
   // Same contract as the clipboard entry: snapshot the group once at command
   // start so paste/scan both inherit the visible group.
   final groupSubId = ref.read(profilesControllerProvider).groupSubId;
-  final bridge = ref.read(bridgePortProvider);
-  final result = await bridge.importFromText(
+  await _importPipeline(
+    context,
+    ref,
     text,
-    subid: groupSubId,
-    deduplicate: true,
+    groupSubId: groupSubId,
+    sourceLabel: sourceLabel,
   );
-  if (result.ok && result.profiles.isNotEmpty) {
-    final persisted = persistImportedProfiles(
+}
+
+/// Parse/preview then a single commit (R4-16).
+///
+/// Phase 1 [previewImport] decodes the payload without persisting anything; on
+/// a usable preview phase 2 [commitImport] binds the frozen [groupSubId] and
+/// writes the whole batch exactly once. A preview that only yields standalone
+/// subscription URLs is offered to the subscription add path, and an
+/// unrecognisable payload surfaces a classified failure.
+Future<void> _importPipeline(
+  BuildContext context,
+  WidgetRef ref,
+  String text, {
+  required String? groupSubId,
+  required String sourceLabel,
+}) async {
+  final bridge = ref.read(bridgePortProvider);
+  final preview = await previewImport(bridge, text);
+  if (preview.ok) {
+    final persisted = await commitImport(
       bridge,
-      result.profiles,
+      text,
+      preview,
       subid: groupSubId,
     );
     ref.read(profilesControllerProvider.notifier).reload();
     _toast(
       ref,
-      _importSuccessToast(persisted, result, sourceLabel: sourceLabel),
+      _importSuccessToast(persisted, preview, sourceLabel: sourceLabel),
     );
     return;
   }
@@ -132,20 +137,20 @@ Future<void> importShareText(
     await _offerAddSubscription(context, ref, urls);
     return;
   }
-  _toast(ref, describeImportFailure(result));
+  _toast(ref, describeImportFailure(preview.result));
 }
 
 String _importSuccessToast(
   PersistImportedResult persisted,
-  c.ImportResult result, {
+  ImportPreview preview, {
   String sourceLabel = '剪贴板',
 }) {
   final parts = <String>['已从$sourceLabel导入 ${persisted.saved} 个节点'];
   if (persisted.hasFailures) {
     parts.add('${persisted.failed} 个保存失败（${persisted.firstErrorCode ?? "未知"}）');
   }
-  if (result.errors.isNotEmpty) {
-    parts.add('${result.errors.length} 行未识别');
+  if (preview.errors.isNotEmpty) {
+    parts.add('${preview.errors.length} 行未识别');
   }
   return parts.join('，');
 }

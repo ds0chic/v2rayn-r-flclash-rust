@@ -1,0 +1,50 @@
+R4-16 命令日志 (working dir: repo root unless noted; Flutter tests run in apps/desktop)
+======================================================================================
+
+# 1. 修复前复现（必失败）
+[apps/desktop] flutter test test/repair/r4_16_repro_test.dart --reporter expanded
+  -> EXIT=1
+  -> TestFailure: Expected: <0>, Actual: <2>  ("no Rust batch + Dart per-row double write")
+     at r4_16_repro_test.dart:104
+
+# 2. 修复后契约 + 复现 + 快照
+[apps/desktop] flutter test test/repair/r4_16_repro_test.dart test/r4_16_contract_test.dart test/recheck01_import_snapshot_widget_test.dart --reporter expanded
+  -> EXIT=0, All tests passed (11/11)
+
+# 3. 既有导入回归
+[apps/desktop] flutter test test/t21e_import_ux_test.dart test/t09_import_export_test.dart test/t21e_import_forms_test.dart test/ux_parity_fix04b_config_import_test.dart test/ux_parity_fix04_inner_test.dart test/recheck01_group_inheritance_test.dart
+  -> EXIT=0, All tests passed (21/21)
+
+# 4. 静态分析（本卡范围）
+[apps/desktop] flutter analyze lib/features/subs test/r4_16_contract_test.dart test/repair/r4_16_repro_test.dart test/recheck01_import_snapshot_widget_test.dart
+  -> EXIT=0, No issues found!
+
+# 5. 静态分析（整仓）— 被非本卡阻塞
+[apps/desktop] flutter analyze
+  -> EXIT=1, 2 issues
+     error test/r4_13_s05_contract_test.dart:77:40 undefined_method 'saveAndApply' on SettingsController
+     error test/r4_13_s05_contract_test.dart:116:38 undefined_method 'saveAndApply' on SettingsController
+  -> R4-13.S05 未实现；features/settings/** 属 R4-16 禁改范围，登记为阻塞
+
+# 6. Rust 门禁
+cargo fmt --all -- --check
+  -> EXIT=0
+cargo clippy --workspace --all-targets --locked -- -D warnings
+  -> EXIT=0, Finished dev profile in ~4s
+cargo test --workspace --locked
+  -> EXIT=0
+cargo test -p bridge_api --locked -- import
+  -> EXIT=0, 12 passed / 53 filtered
+     api::subs::tests::preview_import_does_not_persist ... ok
+     api::subs::tests::manual_import_keeps_duplicates_without_dedup ... ok
+     api::subs::tests::commit_import_persists_once_and_is_not_sub ... ok
+
+# 7. Release 构建
+# 构建前进程检查：Get-Process | ? Path -like *v2rayn-flclash-rust-v2rayn*
+#   -> 仅 dist/... 下 net_host（非构建目标），未终止任何进程
+[apps/desktop] flutter build windows --release
+  -> EXIT=0, Built build\windows\x64\runner\Release\v2rayn_desktop.exe (47.2s)
+
+# 未运行
+#   flutter test test/t21e_import_real_bridge_test.dart  (需 bridge_api.dll；旧接缝)
+#   17 格式逐条矩阵 / 真实重开互通 / Windows 集成场景

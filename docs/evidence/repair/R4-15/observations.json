@@ -1,0 +1,76 @@
+{
+  "task": "R4-15",
+  "title": "DNS草稿保护与Reload",
+  "status": "implemented",
+  "repo_head": "841accdeab3147a8f97d0f80720bedfa388a6c86",
+  "app_audit_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "upstream_refs": {
+    "save_then_close": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/DNSSettingViewModel.cs:195-196",
+    "mainwindow_reload_on_success": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/MainWindowViewModel.cs:613-620"
+  },
+  "armed": false,
+  "kernel_started": false,
+  "ports_listened": false,
+  "host_proxy_registry_route_tun_touched": false,
+  "credentials_read": false,
+  "defects": {
+    "D17": {
+      "title": "DNS save did not trigger upstream Reload for applyAfter=false",
+      "fix": "dns_window._save now calls runtimeController.reload() on successful normal save",
+      "assertion": "test/r4_15_contract_test.dart: normal save (applyAfter=false) triggers the upstream reload",
+      "pre_fix": "FAIL Expected 'Running' Actual 'Stopped'",
+      "post_fix": "PASS"
+    },
+    "D18": {
+      "title": "DNS draft baseline keyed by shared text content, cross-field equal value lost edit",
+      "fix": "baseline keyed by TextEditingController identity; compare each field's own original value; bool baseline advanced after sync",
+      "assertion": "test/repair/r4_15_repro_test.dart + test/r4_15_contract_test.dart collision case",
+      "pre_fix": "FAIL Expected '8.8.8.8' Actual '1.1.1.1' (matches audit log)",
+      "post_fix": "PASS"
+    }
+  },
+  "files_changed": [
+    "apps/desktop/lib/features/routing/dns_window.dart",
+    "apps/desktop/lib/features/routing/dns_controller.dart",
+    "apps/desktop/test/r4_15_contract_test.dart",
+    "apps/desktop/test/repair/r4_15_repro_test.dart",
+    "docs/repair/tasks/R4-15.md",
+    "docs/evidence/repair/R4-15/README.md",
+    "docs/evidence/repair/R4-15/observations.json",
+    "docs/evidence/repair/R4-15/commands.log"
+  ],
+  "commands": [
+    {"cmd": "git stash push -- dns_window.dart dns_controller.dart", "result": "pre-fix baseline for repro"},
+    {"cmd": "flutter test test/repair/r4_15_repro_test.dart --plain-name 'audit dirty DNS equal to other baseline survives preset'", "result": "exit 1 (Expected 8.8.8.8 / Actual 1.1.1.1)"},
+    {"cmd": "flutter test test/r4_15_contract_test.dart", "result": "exit 1 (D17 + D18 fail; 3 pass)"},
+    {"cmd": "git stash pop", "result": "fix restored"},
+    {"cmd": "dart format <changed dart files>", "result": "exit 0"},
+    {"cmd": "flutter analyze", "result": "exit 0, No issues found"},
+    {"cmd": "flutter test test/r4_15_contract_test.dart test/repair/r4_15_repro_test.dart", "result": "exit 0, 10/10"},
+    {"cmd": "flutter test test/fix08_dns_draft_test.dart test/fix08b_dns_apply_test.dart test/t11_dns_test.dart", "result": "exit 0, 12/12"}
+  ],
+  "rust_changed": false,
+  "cargo_commands_run": false,
+  "external_concurrent_writer_blocker": {
+    "files": [
+      "apps/desktop/lib/features/settings/settings_actions.dart",
+      "apps/desktop/lib/features/settings/settings_controller.dart",
+      "apps/desktop/lib/features/subs/import_persistence.dart",
+      "apps/desktop/lib/features/subs/subs_actions.dart",
+      "apps/desktop/test/repair/r4_16_repro_test.dart"
+    ],
+    "note": "Another writer edited forbidden-to-R4-15 settings/subs files concurrently. Intermediate full-tree flutter analyze failed in those files only (last: info use_build_context_synchronously at lib/features/subs/subs_actions.dart:31). Left untouched. Scoped analyze of R4-15 files is clean; initial full-tree analyze right after the R4-15 fix (before those edits) was clean.",
+    "scoped_analyze": "flutter analyze lib/features/routing test/r4_15_contract_test.dart test/repair/r4_15_repro_test.dart -> exit 0, No issues found"
+  },
+  "not_run": [
+    "flutter test (full suite)",
+    "flutter build windows --release",
+    "real Windows DNS window interaction",
+    "real FRB/SQLite + kernel parse effect",
+    "DPI / OS effect matrix"
+  ],
+  "known_gaps": [
+    "DNS multi-row IO partial write (settings-audit candidate 3) still sequential, not transactional"
+  ]
+}

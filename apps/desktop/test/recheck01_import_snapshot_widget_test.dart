@@ -27,7 +27,19 @@ class DelayedImportBridge extends SyntheticBridgePort {
   }) async {
     receivedSubids.add(subid);
     await _gate.future;
-    return super.importFromText(text, subid: subid, deduplicate: deduplicate);
+    final result = await super.importFromText(
+      text,
+      subid: subid,
+      deduplicate: deduplicate,
+    );
+    // Model the real Rust batch commit: with a group the backend inserts the
+    // rows itself (R4-16), instead of the Dart per-row fallback.
+    if (subid != null && subid.isNotEmpty && result.ok) {
+      for (final profile in result.profiles) {
+        super.saveImportedProfile(profile, super.profileRevision());
+      }
+    }
+    return result;
   }
 }
 
@@ -92,7 +104,9 @@ void main() {
     await tester.pumpAndSettle();
     await pending;
 
-    expect(bridge.receivedSubids, <String?>['sub-A']);
+    // Preview (no group) then the single group commit, both bound to the
+    // snapshot taken when the command started.
+    expect(bridge.receivedSubids, <String?>[null, 'sub-A']);
     final saved = bridge.queryAllProfiles().firstWhere(
       (p) => p.remarks == 'synthetic',
     );

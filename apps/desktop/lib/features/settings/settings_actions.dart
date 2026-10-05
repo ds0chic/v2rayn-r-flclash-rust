@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/dns.dart' as dns;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
-import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/global_hotkey_window.dart';
-import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_window_host.dart';
 import 'package:v2rayn_desktop/features/settings/theme_setting_dialog.dart';
@@ -38,7 +36,9 @@ Future<void> openOptionSettingWindow(
 }
 
 /// Persist a draft relayed from the settings window through the same path the
-/// in-process dialog used: optimistic save, autostart sync, then re-apply.
+/// in-process dialog uses: optimistic save, autostart sync, then await the real
+/// plan apply. The result distinguishes persistence from application so a
+/// failure is shown to the user instead of being reported as success.
 Future<SettingsEditorOutcome> _applyOptionDraft(
   WidgetRef ref,
   String draftJson,
@@ -53,61 +53,16 @@ Future<SettingsEditorOutcome> _applyOptionDraft(
   } catch (_) {
     return const SettingsEditorOutcome(ok: false, message: '保存配置失败');
   }
-  final controller = ref.read(settingsControllerProvider.notifier);
-  final previousAutoRun = _documentAutoRun(
-    ref.read(settingsControllerProvider).document,
+  final outcome = await ref
+      .read(settingsControllerProvider.notifier)
+      .saveAndApply(draft);
+  final notice = outcome.ok && outcome.statusKey != null
+      ? SettingsController.statusMessageFor(outcome.statusKey!)
+      : null;
+  return SettingsEditorOutcome(
+    ok: outcome.ok,
+    message: outcome.ok ? notice : outcome.message,
   );
-  final result = controller.saveDocument(draft);
-  if (!result.ok) {
-    return SettingsEditorOutcome(
-      ok: false,
-      message: _saveErrorMessage(result.error?.messageKey),
-    );
-  }
-  // Upstream writes autostart only after the config save succeeded, and only
-  // the saved value takes effect; an unchanged value never touches the Run key.
-  if (_draftAutoRun(draft) != previousAutoRun) {
-    _writeAutostart(ref, _draftAutoRun(draft));
-  }
-  ref.read(runtimeControllerProvider.notifier).applyActive();
-  return const SettingsEditorOutcome(ok: true);
-}
-
-bool _documentAutoRun(Map<String, dynamic> document) {
-  final gui = document['GuiItem'];
-  return gui is Map && gui['AutoRun'] == true;
-}
-
-bool _draftAutoRun(Map<String, dynamic> draft) {
-  final gui = draft['GuiItem'];
-  return gui is Map && gui['AutoRun'] == true;
-}
-
-bool _writeAutostart(WidgetRef ref, bool enabled) {
-  try {
-    final bridge = ref.read(platformBridgeProvider);
-    final exe = Platform.resolvedExecutable;
-    final name = bridge.autostartValueName(exe);
-    return bridge.setAutostart(
-      name: name,
-      enabled: enabled,
-      exe: exe,
-      args: '',
-    );
-  } on Object {
-    return false;
-  }
-}
-
-String _saveErrorMessage(String? key) {
-  switch (key) {
-    case 'error.settings_load_failed':
-      return '读取配置失败';
-    case 'error.settings_save_failed':
-      return '保存配置失败';
-    default:
-      return '操作失败，请检查并重试';
-  }
 }
 
 /// Open the theme setting window (immediate apply + persist).

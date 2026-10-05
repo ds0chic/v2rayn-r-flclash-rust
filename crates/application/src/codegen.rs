@@ -773,4 +773,46 @@ mod tests {
         assert!(text.contains("192.0.2.55"), "{text}");
         assert!(text.contains("\"outbounds\""), "{text}");
     }
+
+    #[test]
+    fn core_basic_item_reaches_generated_config() {
+        // R4-13.S05: every CoreBasicItem field is projected onto the generator
+        // settings and consumed by the real xray/sing-box output, so a saved
+        // change is not "save only".
+        let mut settings = domain::AppSettings::default();
+        settings.core_basic_item.loglevel = Some("debug".into());
+        settings.core_basic_item.log_enabled = true;
+        settings.core_basic_item.enable_fragment = true;
+        settings.core_basic_item.enable_final_fragment = true;
+        settings.core_basic_item.enable_cache_file4_sbox = true;
+
+        let codegen_settings = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(codegen_settings.core_basic.loglevel, "debug");
+        assert!(codegen_settings.core_basic.log_enabled);
+        assert!(codegen_settings.core_basic.enable_fragment);
+        assert!(codegen_settings.core_basic.enable_final_fragment);
+        assert!(codegen_settings.core_basic.enable_cache_file4_sbox);
+
+        let active = leaf("core-basic", "192.0.2.9");
+        let mut input = build_input(
+            &active,
+            std::slice::from_ref(&active),
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        input.settings = codegen_settings;
+
+        let xray = generate(CoreType::Xray, &input).unwrap();
+        assert_eq!(xray.main["log"]["loglevel"], serde_json::json!("debug"));
+        assert!(xray.main["log"]["error"].is_string());
+
+        let singbox = generate(CoreType::SingBox, &input).unwrap();
+        assert_eq!(singbox.main["log"]["level"], serde_json::json!("debug"));
+        assert_eq!(
+            singbox.main["experimental"]["cache_file"]["enabled"],
+            serde_json::json!(true)
+        );
+    }
 }

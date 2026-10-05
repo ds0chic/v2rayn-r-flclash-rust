@@ -963,6 +963,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.LogEnabled
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:6
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:38
@@ -1010,6 +1014,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.Loglevel
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:8
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:41
@@ -1063,6 +1071,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.DefFingerprint
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:10
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:317
@@ -1105,6 +1117,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.DefUserAgent
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:12
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayOutboundService.cs:307
@@ -1143,6 +1159,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.SendThrough
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:14
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayConfigTemplateService.cs:261
@@ -1181,6 +1201,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.BindInterface
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:16
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/V2rayConfigTemplateService.cs:227
@@ -1221,6 +1245,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.EnableFragment
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:18
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:59
@@ -1259,6 +1287,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.EnableFinalFragment
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:20
   - v2rayN/ServiceLib/Services/CoreConfig/V2ray/CoreConfigV2rayService.cs:63
@@ -1295,6 +1327,10 @@ items:
   source_commit: 7d6a967c18c697f28dc6917122ed3a4993fcf336
   source_file: v2rayN/ServiceLib/Models/Configs/ConfigItems.cs
   source_symbol: CoreBasicItem.EnableCacheFile4Sbox
+  r4_13_evidence:
+  - apps/desktop/test/r4_13_s05_contract_test.dart (CoreBasicItem save->DB/JSON->reopen->await real apply; failure visible; restart notice)
+  - apps/desktop/test/repair/r4_13_s05_repro_test.dart (pre-fix apply failure closed as success; now stays open + visible)
+  - crates/application/src/codegen.rs::core_basic_item_reaches_generated_config (settings_from_app projection + xray/sing-box consumer)
   evidence:
   - v2rayN/ServiceLib/Models/Configs/ConfigItems.cs:22
   - v2rayN/ServiceLib/Services/CoreConfig/Singbox/SingboxStatisticService.cs:16

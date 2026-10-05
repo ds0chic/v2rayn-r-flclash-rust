@@ -9,7 +9,8 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `materialize_custom_configs`, `register_sub_job`, `remember_sub_report`, `render_export`, `sanitize_index_id`, `spawn_sub_update`, `sub_jobs`, `sub_reports`, `sub_to_dto`
+// These functions are ignored because they are not marked as `pub`: `content_stem`, `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `materialize_custom_configs`, `parse_error_result`, `parse_import`, `parse_issue_dto`, `register_sub_job`, `remember_sub_report`, `render_export`, `spawn_sub_update`, `sub_jobs`, `sub_reports`, `sub_to_dto`
+// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ParsedImport`
 
 /// `list_sub_items` — every subscription ordered by `Sort`.
 SubsPageDto listSubItems() => RustLib.instance.api.crateApiSubsListSubItems();
@@ -97,11 +98,24 @@ bool subSchedulerRunning() =>
 JobDto? jobView({required String jobId}) =>
     RustLib.instance.api.crateApiSubsJobView(jobId: jobId);
 
-/// `import_from_text` — parse share URIs / base64 / inner URIs from text.
+/// `preview_import_text` — parse/preview without persisting (R4-16).
 ///
-/// `subid` non-empty attaches the imported nodes to that subscription;
-/// `deduplicate` applies the upstream `KeepOlderDedupl` collapse. Returns the
-/// imported profiles plus located per-line errors (F-IMPORT-001/002/005).
+/// Decodes and normalises the payload but never touches SQLite and never writes
+/// config files; the caller previews the result and then commits through
+/// [`import_from_text`] (or a future single-transaction `commit_import_text`).
+/// The binding is pending the next FRB regeneration.
+ImportResult previewImportText({required String text, String? subid}) => RustLib
+    .instance
+    .api
+    .crateApiSubsPreviewImportText(text: text, subid: subid);
+
+/// `import_from_text` — parse share URIs / base64 / inner URIs, then commit.
+///
+/// `subid` non-empty attaches the imported nodes to that subscription and
+/// inserts them in one `replace_sub_profiles(..., remove_existing: false)`
+/// transaction; `deduplicate` applies the upstream `KeepOlderDedupl` collapse.
+/// Returns the imported profiles plus located per-line errors
+/// (F-IMPORT-001/002/005).
 Future<ImportResult> importFromText({
   required String text,
   String? subid,

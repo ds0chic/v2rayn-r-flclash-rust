@@ -63,6 +63,71 @@ PersistImportedResult persistImportedProfiles(
   );
 }
 
+/// A parse-only import result: the profiles are decoded but **nothing** is in
+/// the database yet. The commit phase ([commitImport]) performs the single
+/// write.
+class ImportPreview {
+  const ImportPreview(this.result);
+
+  /// The raw backend parse result (profiles plus located per-line issues).
+  final c.ImportResult result;
+
+  bool get ok => result.ok && result.profiles.isNotEmpty;
+  List<c.ProfileDto> get profiles => result.profiles;
+  List<c.ParseIssueDto> get errors => result.errors;
+  int get imported => result.imported;
+}
+
+/// Parse/preview phase (R4-16): nothing is persisted.
+///
+/// The backend is called with no group so the shared `import_from_text` path
+/// never runs `replace_sub_profiles`; a preview therefore never touches SQLite.
+/// `deduplicate: false` mirrors upstream `AddBatchServersCommon`, which only
+/// collapses duplicates when `isSub` (`arrData.Distinct()` is guarded by
+/// `if (isSub)`); a manual paste/scan must keep duplicate entries.
+Future<ImportPreview> previewImport(BridgePort bridge, String text) async =>
+    ImportPreview(
+      await bridge.importFromText(text, subid: null, deduplicate: false),
+    );
+
+/// Commit phase (R4-16): persist the batch exactly once.
+///
+/// With a non-empty group snapshot the backend batch path binds every row to
+/// the group and inserts them in one transaction; the Dart side must **not**
+/// re-save each row, otherwise the import is written twice (batch + per-row,
+/// UF-PROF-08).
+///
+/// Without a group there is currently no single-transaction batch entry point
+/// (a `commit_import_text` binding is pending FRB regeneration), so the only
+/// available primitive is the FIX-04 `saveImportedProfile` per row; the rows
+/// stay ungrouped.
+Future<PersistImportedResult> commitImport(
+  BridgePort bridge,
+  String text,
+  ImportPreview preview, {
+  String? subid,
+}) async {
+  final groupSubId = (subid != null && subid.isNotEmpty) ? subid : null;
+  if (groupSubId != null) {
+    final result = await bridge.importFromText(
+      text,
+      subid: groupSubId,
+      deduplicate: false,
+    );
+    if (result.ok && result.profiles.isNotEmpty) {
+      return PersistImportedResult(saved: result.imported, failed: 0);
+    }
+    // The backend transaction either fully applies or not at all; a failed
+    // commit leaves no partial rows (upstream `InsertAllAsync`).
+    return PersistImportedResult(
+      saved: 0,
+      failed: preview.profiles.length,
+      firstErrorCode: result.error?.code,
+    );
+  }
+  return persistImportedProfiles(bridge, preview.profiles);
+}
+
 /// Copy [profile] with its owning subscription replaced by [subid].
 c.ProfileDto _withSubId(c.ProfileDto p, String subid) => c.ProfileDto(
   indexId: p.indexId,

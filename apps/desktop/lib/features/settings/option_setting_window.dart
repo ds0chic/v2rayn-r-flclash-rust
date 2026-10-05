@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
-import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
@@ -140,24 +138,6 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       }
       _error = null;
     });
-  }
-
-  /// Persist `GuiItem.AutoRun` via the platform bridge and write/clear the Run
-  /// key. Returns true only when the write succeeded.
-  bool _applyAutostartWrite(bool enabled) {
-    try {
-      final bridge = ref.read(platformBridgeProvider);
-      final exe = Platform.resolvedExecutable;
-      final name = bridge.autostartValueName(exe);
-      return bridge.setAutostart(
-        name: name,
-        enabled: enabled,
-        exe: exe,
-        args: '',
-      );
-    } on Object {
-      return false;
-    }
   }
 
   Map<String, dynamic> _inboundListener() {
@@ -442,58 +422,53 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       final outcome = await host.save(_draft);
       if (!mounted) return;
       if (outcome.ok) {
+        // R4-13: carry the restart/apply notice back to the user before the
+        // window closes instead of silently reporting success.
+        final messenger = ScaffoldMessenger.maybeOf(context);
         await host.close();
+        if (outcome.message != null) {
+          messenger?.showSnackBar(
+            SnackBar(
+              content: Text(outcome.message!),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       } else {
         setState(() => _error = outcome.message ?? '保存配置失败');
       }
       return;
     }
-    final previousAutoRun = _loadedAutoRun();
-    final result = ref
-        .read(settingsControllerProvider.notifier)
-        .saveDocument(_draft);
-    if (result.ok) {
-      // Upstream writes autostart only after the config save succeeded, and
-      // only the saved value takes effect. Skip the host write entirely when
-      // the value did not change (evidence runs must not touch the Run key).
-      final savedAutoRun = _bool(_group('GuiItem'), 'AutoRun');
-      if (savedAutoRun != previousAutoRun) {
-        _syncAutostart(savedAutoRun);
-      }
-      // Core-affecting fields stay dormant until the plan is re-applied:
-      // keep the dialog open so the 未应用 hint + 应用 entry are visible,
-      // unless this *is* the apply path.
-      if (result.restartCoreFields.isNotEmpty && !applyAfter) {
-        setState(() {});
-        return;
-      }
-      if (!mounted) return;
+    // In-process path: the controller persists the draft, syncs autostart and
+    // awaits the real plan apply. The outcome distinguishes "已保存" from
+    // "已应用" so an apply failure stays visible instead of a fake success.
+    final outcome = applyAfter
+        ? await ref
+              .read(settingsControllerProvider.notifier)
+              .saveAndApply(_draft)
+        : _saveOnly();
+    if (!mounted) return;
+    if (outcome.ok) {
       Navigator.of(context).pop();
-      if (applyAfter) {
-        ref.read(runtimeControllerProvider.notifier).applyActive();
-      }
     } else {
-      setState(() => _error = result.error?.messageKey ?? 'error.save_failed');
+      setState(() => _error = outcome.message ?? '操作失败，请检查并重试');
     }
   }
 
-  bool _loadedAutoRun() {
-    final document = ref.read(settingsControllerProvider).document;
-    final gui = document['GuiItem'];
-    if (gui is Map<String, dynamic>) return gui['AutoRun'] == true;
-    return false;
-  }
-
-  /// Write/clear the Run key for the saved value and report honestly.
-  /// Only runs after a successful settings save, never on toggle or cancel.
-  void _syncAutostart(bool enabled) {
-    final ok = _applyAutostartWrite(enabled);
-    if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(
-        content: Text(ok ? '开机自启已更新' : '开机自启写入失败'),
-        duration: const Duration(seconds: 2),
-      ),
+  /// Legacy save-only path (used when [applyAfter] is false): persists the
+  /// draft and reports the restart hint without driving the runtime apply.
+  SettingsApplyOutcome _saveOnly() {
+    final result = ref
+        .read(settingsControllerProvider.notifier)
+        .saveDocument(_draft);
+    return SettingsApplyOutcome(
+      ok: result.ok,
+      saved: result.ok,
+      applied: false,
+      message: result.ok
+          ? null
+          : (result.error?.messageKey ?? 'error.settings_save_failed'),
+      statusKey: result.ok ? 'settings.saved' : null,
     );
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -67,10 +68,13 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
   late TextEditingController _sboxTun;
   String _preset = 'Default';
 
-  // Last value synced from storage per field. A field whose live text differs
-  // from this baseline has an unsaved user edit, so a preset refresh must not
-  // overwrite it (draft isolation across pages).
-  final Map<String, String> _textBaseline = <String, String>{};
+  // Last value synced from storage per field, keyed by controller identity.
+  // A field whose live text differs from its *own* baseline has an unsaved user
+  // edit, so a preset refresh must not overwrite it (draft isolation across
+  // pages). Keying by field (not by shared text) means two fields with the same
+  // stored value can never collide (R4-15/D18).
+  final Map<TextEditingController, String> _textBaseline =
+      <TextEditingController, String>{};
   final Map<String, bool> _boolBaseline = <String, bool>{};
 
   @override
@@ -148,7 +152,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
 
   void _text(TextEditingController controller, String value) {
     controller.text = value;
-    _textBaseline[controller.text] = value;
+    _textBaseline[controller] = value;
   }
 
   void _flag(String key, bool value) {
@@ -165,14 +169,22 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     final sbox = state.forCore(CoreType.singBox);
 
     void syncText(TextEditingController controller, String value) {
-      if (_textBaseline[controller.text] == controller.text) {
+      if (_textBaseline[controller] == controller.text) {
         controller.text = value;
-        _textBaseline[value] = value;
+        _textBaseline[controller] = value;
       }
     }
 
-    bool syncFlag(String key, bool current, bool value) =>
-        _boolBaseline[key] == current ? value : current;
+    // An untouched boolean takes the freshly stored value; a field the user
+    // toggled keeps its draft. Syncing a field also advances its baseline so a
+    // later refresh compares against the new stored value (R4-15/D18).
+    bool syncFlag(String key, bool current, bool value) {
+      if (_boolBaseline[key] == current) {
+        _boolBaseline[key] = value;
+        return value;
+      }
+      return current;
+    }
 
     syncText(_direct, simple?.directDns ?? '');
     syncText(_remote, simple?.remoteDns ?? '');
@@ -807,13 +819,20 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     if (!mounted) return;
     // Rebuilt the simple draft from the live fields; keep the fields that
     // custom DNS owns (custom-enable toggle + use-system-hosts) in sync.
+    final runtime = ref.read(runtimeControllerProvider.notifier);
     setState(() {
       _xrayEnabled = state.forCore(CoreType.xray)?.enabled ?? _xrayEnabled;
       _sboxEnabled = state.forCore(CoreType.singBox)?.enabled ?? _sboxEnabled;
     });
     Navigator.pop(context);
+    // Upstream `DNSSettingViewModel.SaveSettingAsync` closes on success and the
+    // main window's `DNSSettingAsync` then calls `Reload()`; every successful
+    // save must trigger that reload, not only the project-specific 应用 button
+    // (R4-15/D17).
     if (applyAfter) {
-      ref.read(runtimeControllerProvider.notifier).applyActive();
+      unawaited(runtime.applyActive());
+    } else {
+      unawaited(runtime.reload());
     }
   }
 }

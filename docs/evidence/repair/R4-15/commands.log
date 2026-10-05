@@ -1,0 +1,77 @@
+# R4-15 command log (apps/desktop)
+
+## 0. pre-state
+$ git status --short ; git rev-parse HEAD
+ M apps/desktop/lib/features/routing/dns_controller.dart
+ M apps/desktop/lib/features/routing/dns_window.dart
+?? apps/desktop/test/r4_15_contract_test.dart
+?? apps/desktop/test/repair/r4_15_repro_test.dart
+841accdeab3147a8f97d0f80720bedfa388a6c86
+
+## 1. pre-fix baseline (stash lib fix, keep new tests)
+$ git stash push -- apps/desktop/lib/features/routing/dns_window.dart apps/desktop/lib/features/routing/dns_controller.dart
+Saved working directory and index state WIP on main: 841accd ...
+
+### repro test (pre-fix) -> FAIL as audit
+$ flutter test test/repair/r4_15_repro_test.dart --plain-name "audit dirty DNS equal to other baseline survives preset" --reporter expanded
+Expected: '8.8.8.8'
+  Actual: '1.1.1.1'
+Failing tests:
+  .../test/repair/r4_15_repro_test.dart: audit dirty DNS equal to other baseline survives preset
+EXIT=1
+
+### contract test (pre-fix) -> D17 + D18 FAIL
+$ flutter test test/r4_15_contract_test.dart --reporter expanded
+R4-15/D18: ... Expected: '8.8.8.8' Actual: '1.1.1.1' [E]
+R4-15/D17: ... Expected: 'Running' Actual: 'Stopped' [E]
+00:01 +3 -2: Some tests failed.
+EXIT=1
+
+## 2. restore fix
+$ git stash pop
+Dropped refs/stash@{0} (0e6fb6ee11f258d1d926e7440cd1c0ef17158bed)
+
+## 3. format + analyze
+$ dart format lib/features/routing/dns_window.dart lib/features/routing/dns_controller.dart test/r4_15_contract_test.dart test/repair/r4_15_repro_test.dart
+Formatted test/r4_15_contract_test.dart
+Formatted 4 files (1 changed) in 0.02 seconds.
+EXIT=0
+
+$ flutter analyze
+Analyzing desktop...
+No issues found! (ran in 3.2s)
+EXIT=0
+
+## 4. post-fix new tests -> PASS
+$ flutter test test/r4_15_contract_test.dart test/repair/r4_15_repro_test.dart --reporter expanded
+00:02 +10: All tests passed!
+EXIT=0
+
+## 5. regression: existing DNS tests -> PASS
+$ flutter test test/fix08_dns_draft_test.dart test/fix08b_dns_apply_test.dart test/t11_dns_test.dart --reporter expanded
+00:05 +12: All tests passed!
+EXIT=0
+
+## 6. Rust
+No crates/** change -> cargo fmt/clippy/test not applicable this card.
+
+## 7. External concurrent-writer blocker (not R4-15)
+During this card another writer modified settings/subs files in the same worktree:
+  M apps/desktop/lib/features/settings/settings_actions.dart
+  M apps/desktop/lib/features/settings/settings_controller.dart
+  M apps/desktop/lib/features/subs/import_persistence.dart
+  M apps/desktop/lib/features/subs/subs_actions.dart
+  ?? apps/desktop/test/repair/r4_16_repro_test.dart
+These are outside R4-15's allowed files (features/subs/** and features/settings/** are
+forbidden to this task) and were left untouched.
+
+Intermediate full-tree `flutter analyze` failed twice purely in those files:
+  1) lib/features/settings/option_setting_window.dart:455 undefined runtimeControllerProvider
+     + :472 undefined _applyAutostartWrite; subs_actions.dart:31 info.  EXIT=1
+  2) after their partial fix, only: lib/features/subs/subs_actions.dart:31
+     use_build_context_synchronously (info).  EXIT=1
+Scoped gate for this card's files:
+$ flutter analyze lib/features/routing test/r4_15_contract_test.dart test/repair/r4_15_repro_test.dart
+No issues found! (ran in 3.9s)  EXIT=0
+Initial full-tree `flutter analyze` immediately after the R4-15 fix (before the
+concurrent edits landed) was clean: "No issues found!".

@@ -13,7 +13,9 @@ class SettingsEditorOutcome {
 
   final bool ok;
 
-  /// User-facing error text; only set when [ok] is false.
+  /// User-facing text. When [ok] is false it is the error to keep the window
+  /// open with; when [ok] is true it may carry a non-fatal notice (e.g. the
+  /// "needs restart" hint) for the window to surface before it closes.
   final String? message;
 }
 

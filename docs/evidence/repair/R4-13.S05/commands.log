@@ -1,0 +1,61 @@
+# R4-13.S05 command log (2026-10-05)
+
+Repo: C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn
+HEAD during execution: 841accdeab3147a8f97d0f80720bedfa388a6c86
+Toolchains: flutter 3.47.5 (C:\Users\Colby\toolchains\flutter\bin\flutter.bat), rust (C:\Users\Colby\.cargo\bin\cargo.exe)
+
+[pre-fix repro]  (settings lib files temporarily stashed to HEAD; stash popped after)
+  cmd(cwd apps/desktop): flutter test test/repair/r4_13_s05_repro_test.dart --reporter expanded
+  result: FAIL  (00:00 +0 -1)
+  detail: Expected exactly one matching candidate / Actual Found 0 widgets with key <'settings-save'>;
+          "a failed apply must not close the window as a success"
+  log: _prefix_repro.log
+
+[format]
+  cmd(cwd apps/desktop): dart format lib/features/settings/... test/r4_13_s05_contract_test.dart test/repair/r4_13_s05_repro_test.dart
+  result: formatted / clean
+
+[analyze]
+  cmd(cwd apps/desktop): flutter analyze
+  result: No issues found! (ran in 3.2s)
+
+[post-fix tests]  (single file each; multi-file batch is flaky in this repo)
+  cmd(cwd apps/desktop): flutter test test/r4_13_s05_contract_test.dart --reporter expanded
+  result: All tests passed! (00:00 +3)
+  cmd(cwd apps/desktop): flutter test test/repair/r4_13_s05_repro_test.dart --reporter expanded
+  result: All tests passed! (00:01 +1)
+  log: _postfix_tests.log
+
+[existing settings regression sanity] (each run individually; known batch flakiness ignored)
+  r4_11_contract_test.dart        -> All tests passed (after adding runtimeBridgeProvider override)
+  repair/r4_11_repro_test.dart    -> All tests passed
+  fix08_option_apply_test.dart    -> All tests passed
+  fix08_option_error_test.dart    -> All tests passed
+  fix08_option_cancel_test.dart   -> All tests passed
+  fix16_settings_field_test.dart  -> All tests passed
+  t12a_option_window_test.dart    -> All tests passed
+  r3_wpf_option_window_test.dart  -> All tests passed (5/5)
+  r4_12_contract_test.dart        -> All tests passed (8/8)
+
+[rust fmt]
+  cmd(cwd repo): cargo fmt --all -- --check
+  result: pass (no output)
+
+[rust clippy]
+  cmd(cwd repo): cargo clippy --workspace --all-targets --locked -- -D warnings
+  result: Finished dev profile, no warnings
+
+[rust tests]
+  cmd(cwd repo): cargo test --workspace --locked
+  result: EXIT=0; test result: ok x105; test result: FAILED x0; panicked x0
+  targeted: cargo test -p application --locked core_basic_item_reaches
+            -> test codegen::tests::core_basic_item_reaches_generated_config ... ok
+
+[windows release build]
+  precheck: Get-Process v2rayn-friendly -> only user's upstream v2rayN.exe (Desktop\v2rayN-windows-64), not this project; not killed
+  cmd(cwd apps/desktop): flutter build windows --release
+  result: Built build\windows\x64\runner\Release\v2rayn_desktop.exe
+
+[cleanup]
+  git stash list -> empty (pre-fix stash popped)
+  no process started; no listener created; host proxy/registry/route/TUN/autostart untouched

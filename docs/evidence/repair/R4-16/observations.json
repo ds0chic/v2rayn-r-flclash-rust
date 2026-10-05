@@ -1,0 +1,73 @@
+{
+  "task": "R4-16",
+  "title": "导入导出单次提交",
+  "base_commit": "841accd",
+  "app_review_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "armed": false,
+  "environment": {
+    "os": "Windows 11 25H2 (build 26220) x64",
+    "flutter": "3.47.5",
+    "dart": "3.13.4",
+    "rust": "1.98.1 stable-x86_64-pc-windows-msvc"
+  },
+  "port_policy": {
+    "listeners_started": [],
+    "ports_probed": [],
+    "note": "no network/listener in this round; 127.0.0.1:10808 untouched"
+  },
+  "fixtures": "synthetic share URIs / synthetic ProfileDto / synthetic JSON only",
+  "findings": [
+    {
+      "id": "UF-PROF-08",
+      "severity": "P1",
+      "status": "implemented",
+      "issue": "group paste/scan import committed by Rust batch AND re-saved per row on Dart (one batch + N saves)",
+      "fix": "previewImport (subid=null, parse-only) then commitImport (single Rust batch when grouped; FIX-04 per-row fallback when ungrouped)",
+      "repro": "test/repair/r4_16_repro_test.dart (FAIL pre-fix saveImportedCalls=2, PASS post-fix=0)"
+    },
+    {
+      "id": "R4-16-source-rules",
+      "status": "implemented",
+      "issue": "manual import passed deduplicate:true; upstream AddBatchServersCommon only Distinct()s when isSub",
+      "fix": "manual path passes deduplicate:false; is_sub=false kept in parse_import; group snapshot frozen at command start"
+    },
+    {
+      "id": "R4-16-parse-commit-separation",
+      "status": "implemented",
+      "detail": "preview_import_text (Rust, parse-only, no persist/no materialize) + import_from_text (single commit); Dart previewImport/commitImport"
+    },
+    {
+      "id": "R4-16-materialize-idempotency",
+      "status": "implemented",
+      "detail": "materialize_custom_configs names files by FNV-1a content hash so preview+commit re-parse reuses one file (no orphans)"
+    },
+    {
+      "id": "R4-16-17-formats",
+      "status": "not_verified",
+      "detail": "17-format per-item matrix (import -> reopen -> export -> re-import) not run this round"
+    },
+    {
+      "id": "R4-16-real-frb-reopen",
+      "status": "not_verified",
+      "detail": "bridge_api.dll reopen interop not run; field round-trip only at DTO/synthetic level"
+    },
+    {
+      "id": "R4-16-ungrouped-single-transaction",
+      "status": "blocked",
+      "detail": "no single-transaction bridge entry for ungrouped profiles; commit_import_text binding pending FRB regeneration (interface integrator)"
+    }
+  ],
+  "commands": [
+    {"cmd": "flutter test test/repair/r4_16_repro_test.dart (pre-fix)", "result": "FAIL saveImportedCalls=2"},
+    {"cmd": "flutter test test/repair/r4_16_repro_test.dart test/r4_16_contract_test.dart test/recheck01_import_snapshot_widget_test.dart", "result": "PASS 11/11"},
+    {"cmd": "flutter test <6 import regression suites>", "result": "PASS 21/21"},
+    {"cmd": "cargo fmt --all -- --check", "result": "PASS exit 0"},
+    {"cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "result": "PASS exit 0"},
+    {"cmd": "cargo test --workspace --locked", "result": "PASS exit 0"},
+    {"cmd": "cargo test -p bridge_api -- import", "result": "PASS 12/12"},
+    {"cmd": "flutter analyze (scoped)", "result": "PASS No issues"},
+    {"cmd": "flutter analyze (repo-wide)", "result": "BLOCKED by pre-existing R4-13 test errors (SettingsController.saveAndApply), out of R4-16 scope"},
+    {"cmd": "flutter build windows --release", "result": "PASS build/windows/x64/runner/Release/v2rayn_desktop.exe"}
+  ]
+}

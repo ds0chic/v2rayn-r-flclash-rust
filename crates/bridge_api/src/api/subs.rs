@@ -448,7 +448,12 @@ fn materialize_custom_configs(profiles: &mut [Profile]) {
             continue;
         };
         let ext = subscriptions::detect_config_extension(&raw);
-        let name = format!("{}{}", sanitize_index_id(&profile.index_id), ext);
+        // Name by content, not by the freshly minted `IndexId`: the
+        // preview+commit pipeline parses the same payload twice (once to
+        // preview, once to commit), and a content-addressed file is reused
+        // instead of leaving an orphan behind. Identical configs share a file
+        // (their content is byte-for-byte the same).
+        let name = format!("import-{}{}", content_stem(&raw), ext);
         let (dir, stored) = match &data_dir {
             Some(base) => (base.join("config"), name.clone()),
             None => {
@@ -471,58 +476,68 @@ fn materialize_custom_configs(profiles: &mut [Profile]) {
     }
 }
 
-fn sanitize_index_id(index_id: &str) -> String {
-    let cleaned: String = index_id
-        .chars()
-        .filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_')
-        .collect();
-    if cleaned.is_empty() {
-        application::new_index_id()
-    } else {
-        cleaned
+/// Stable FNV-1a content digest used to name materialized config files.
+fn content_stem(raw: &str) -> String {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in raw.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
+/// Result of the shared import decode: profiles plus located per-line issues.
+struct ParsedImport {
+    profiles: Vec<Profile>,
+    errors: Vec<subscriptions::ParseIssue>,
+    deduped: usize,
+}
+
+fn parse_issue_dto(e: &subscriptions::ParseIssue) -> ParseIssueDto {
+    ParseIssueDto {
+        code: e.code.clone(),
+        message: e.message.clone(),
+        item_index: e.item_index.map(|i| i as u32),
+        byte_offset: e.byte_offset.map(|o| o as u64),
     }
 }
 
-/// `import_from_text` — parse share URIs / base64 / inner URIs from text.
+fn parse_error_result(errors: &[subscriptions::ParseIssue]) -> ImportResult {
+    ImportResult {
+        ok: false,
+        imported: 0,
+        profiles: Vec::new(),
+        errors: errors.iter().map(parse_issue_dto).collect(),
+        error: Some(ErrorDto {
+            code: domain::codes::FIELD_FORMAT.to_string(),
+            message_key: "error.import_nothing".to_string(),
+            field_path: None,
+            retryable: false,
+            operation_id: None,
+            detail: None,
+        }),
+    }
+}
+
+/// Shared import decode used by both the preview and the commit entry points.
 ///
-/// `subid` non-empty attaches the imported nodes to that subscription;
-/// `deduplicate` applies the upstream `KeepOlderDedupl` collapse. Returns the
-/// imported profiles plus located per-line errors (F-IMPORT-001/002/005).
-pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) -> ImportResult {
+/// `materialize` writes complete-config payloads to disk; the preview phase
+/// passes `false` so a proactive preview never leaves files behind.
+fn parse_import(
+    text: &str,
+    subid: Option<&str>,
+    deduplicate: bool,
+    materialize: bool,
+) -> ParsedImport {
     let parsed = subscriptions::parse_content(
-        &text,
+        text,
         subscriptions::ContentHint::Auto,
         &subscriptions::ParseOptions {
-            subid: subid.clone().unwrap_or_default(),
+            subid: subid.unwrap_or_default().to_string(),
             max_items: MAX_IMPORT_ITEMS,
             ..subscriptions::ParseOptions::default()
         },
     );
-    if parsed.profiles.is_empty() {
-        return ImportResult {
-            ok: false,
-            imported: 0,
-            profiles: Vec::new(),
-            errors: parsed
-                .errors
-                .iter()
-                .map(|e| ParseIssueDto {
-                    code: e.code.clone(),
-                    message: e.message.clone(),
-                    item_index: e.item_index.map(|i| i as u32),
-                    byte_offset: e.byte_offset.map(|o| o as u64),
-                })
-                .collect(),
-            error: Some(ErrorDto {
-                code: domain::codes::FIELD_FORMAT.to_string(),
-                message_key: "error.import_nothing".to_string(),
-                field_path: None,
-                retryable: false,
-                operation_id: None,
-                detail: None,
-            }),
-        };
-    }
     let mut profiles = parsed.profiles;
     let mut deduped = 0usize;
     if deduplicate {
@@ -532,7 +547,7 @@ pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) 
     }
     for profile in &mut profiles {
         if profile.subid.is_empty() {
-            profile.subid = subid.clone().unwrap_or_default();
+            profile.subid = subid.unwrap_or_default().to_string();
         }
         if profile.index_id.trim().is_empty() {
             profile.index_id = application::new_index_id();
@@ -546,7 +561,50 @@ pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) 
         // (`refresh_subscriptions_with_convert`), which marks candidates true.
         profile.is_sub = false;
     }
-    materialize_custom_configs(&mut profiles);
+    if materialize {
+        materialize_custom_configs(&mut profiles);
+    }
+    ParsedImport {
+        profiles,
+        errors: parsed.errors,
+        deduped,
+    }
+}
+
+/// `preview_import_text` — parse/preview without persisting (R4-16).
+///
+/// Decodes and normalises the payload but never touches SQLite and never writes
+/// config files; the caller previews the result and then commits through
+/// [`import_from_text`] (or a future single-transaction `commit_import_text`).
+/// The binding is pending the next FRB regeneration.
+#[frb(sync)]
+pub fn preview_import_text(text: String, subid: Option<String>) -> ImportResult {
+    let parsed = parse_import(&text, subid.as_deref(), false, false);
+    if parsed.profiles.is_empty() {
+        return parse_error_result(&parsed.errors);
+    }
+    ImportResult {
+        ok: true,
+        imported: parsed.profiles.len() as u32,
+        profiles: parsed.profiles.into_iter().map(profile_dto).collect(),
+        errors: parsed.errors.iter().map(parse_issue_dto).collect(),
+        error: None,
+    }
+}
+
+/// `import_from_text` — parse share URIs / base64 / inner URIs, then commit.
+///
+/// `subid` non-empty attaches the imported nodes to that subscription and
+/// inserts them in one `replace_sub_profiles(..., remove_existing: false)`
+/// transaction; `deduplicate` applies the upstream `KeepOlderDedupl` collapse.
+/// Returns the imported profiles plus located per-line errors
+/// (F-IMPORT-001/002/005).
+pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) -> ImportResult {
+    let parsed = parse_import(&text, subid.as_deref(), deduplicate, true);
+    if parsed.profiles.is_empty() {
+        return parse_error_result(&parsed.errors);
+    }
+    let profiles = parsed.profiles;
     let count = profiles.len() as u32;
     if let Some(sub) = subid.filter(|s| !s.is_empty()) {
         if let Err(error) = engine().replace_sub_profiles(&sub, profiles.clone(), false) {
@@ -560,23 +618,14 @@ pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) 
         }
         emit_control(
             "profiles_imported",
-            serde_json::json!({ "sub_id": sub, "imported": count, "deduplicated": deduped }),
+            serde_json::json!({ "sub_id": sub, "imported": count, "deduplicated": parsed.deduped }),
         );
     }
     ImportResult {
         ok: true,
         imported: count,
         profiles: profiles.into_iter().map(profile_dto).collect(),
-        errors: parsed
-            .errors
-            .iter()
-            .map(|e| ParseIssueDto {
-                code: e.code.clone(),
-                message: e.message.clone(),
-                item_index: e.item_index.map(|i| i as u32),
-                byte_offset: e.byte_offset.map(|o| o as u64),
-            })
-            .collect(),
+        errors: parsed.errors.iter().map(parse_issue_dto).collect(),
         error: None,
     }
 }
@@ -752,6 +801,55 @@ mod tests {
         // R4-17 / D04: a manual batch import is `IsSub = false`, so an update
         // of the group it was pasted into does not delete it.
         assert!(!profile.is_sub);
+    }
+
+    #[test]
+    fn preview_import_does_not_persist() {
+        // R4-16: the preview phase must never touch SQLite, even when a group
+        // is supplied, so it can safely run before the user confirms.
+        let _guard = crate::api::engine::engine_test_lock();
+        let sub = "sub-r416-preview";
+        let before = engine().profiles_by_subid(sub).unwrap_or_default().len();
+        let text = "vless://11111111-1111-1111-1111-111111111111@preview.example:443?encryption=none#preview";
+        let result = preview_import_text(text.to_string(), Some(sub.into()));
+        assert!(result.ok, "{:?}", result.error.map(|e| e.code));
+        assert_eq!(result.imported, 1);
+        let after = engine().profiles_by_subid(sub).unwrap_or_default().len();
+        assert_eq!(after, before, "preview must not persist profiles");
+        let _ = engine().delete_sub_items(&[sub.to_string()]);
+    }
+
+    #[test]
+    fn manual_import_keeps_duplicates_without_dedup() {
+        // Upstream `AddBatchServersCommon` applies `Distinct()` only when
+        // `isSub`; a manual paste/scan (`isSub: false`) keeps duplicates.
+        let text = "vless://11111111-1111-1111-1111-111111111111@dup.example:443?encryption=none#dup\n\
+                    vless://11111111-1111-1111-1111-111111111111@dup.example:443?encryption=none#dup";
+        let manual = import_from_text(text.to_string(), None, false);
+        assert!(manual.ok);
+        assert_eq!(manual.imported, 2, "manual batch import keeps duplicates");
+        let collapsed = import_from_text(text.to_string(), None, true);
+        assert_eq!(collapsed.imported, 1, "explicit dedup collapses duplicates");
+    }
+
+    #[test]
+    fn commit_import_persists_once_and_is_not_sub() {
+        // R4-16: with a group, `import_from_text` is the single batch commit;
+        // every row is inserted once, bound to the group and flagged
+        // `IsSub = false` so a later subscription refresh does not delete it.
+        let _guard = crate::api::engine::engine_test_lock();
+        let sub = "sub-r416-commit";
+        let _ = engine().delete_sub_items(&[sub.to_string()]);
+        let text = "vless://11111111-2222-3333-4444-555555555555@commit.example:443?encryption=none#commit";
+        let result = import_from_text(text.to_string(), Some(sub.into()), false);
+        assert!(result.ok, "{:?}", result.error.map(|e| e.code));
+        assert_eq!(result.imported, 1);
+        assert!(!result.profiles[0].is_sub);
+        let stored = engine().profiles_by_subid(sub).unwrap_or_default();
+        let matching: Vec<_> = stored.iter().filter(|p| p.remarks == "commit").collect();
+        assert_eq!(matching.len(), 1, "exactly one row inserted");
+        assert!(!matching[0].is_sub);
+        let _ = engine().delete_sub_items(&[sub.to_string()]);
     }
 
     #[test]

@@ -73,7 +73,7 @@ class DnsController extends Notifier<DnsState> {
     final result = ref.read(bridgePortProvider).saveDns(draft);
     if (result.ok) {
       reload();
-      state = state.copyWith(status: 'DNS 配置已保存（未应用，点“应用”生效）');
+      state = state.copyWith(status: 'DNS 配置已保存（保存成功即按原版重载）');
     } else {
       state = state.copyWith(status: result.error?.messageKey ?? '保存失败');
     }
@@ -97,7 +97,7 @@ class DnsController extends Notifier<DnsState> {
         .saveSimpleDns(draft, state.revision);
     if (result.ok) {
       reload();
-      state = state.copyWith(status: 'DNS 设置已保存（未应用，点“应用”生效）');
+      state = state.copyWith(status: 'DNS 设置已保存（保存成功即按原版重载）');
     } else {
       state = state.copyWith(status: result.error?.messageKey ?? '保存失败');
     }

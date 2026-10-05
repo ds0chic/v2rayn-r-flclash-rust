@@ -1,0 +1,56 @@
+# R4-16 matrix 命令日志（2026-10-05，matrix 子代理）
+# 起点 HEAD a95897f；真实桥 target/debug/bridge_api.dll (2026/10/5 15:22)
+# 全部命令在 repo 根 / apps/desktop 执行，未占用任何端口，未触碰 10808。
+
+## cargo test -p subscriptions --locked
+# PASS。unittests 67 / download 11 / fmt_roundtrip 23 / parity_original_inner 9
+# / parse_pipeline 13 / r4_16_matrix 18；0 failed。
+SUB_TEST_EXIT=0
+
+## cargo fmt --all -- --check
+CHECK_EXIT=0
+
+## cargo clippy -p subscriptions --all-targets --locked -- -D warnings
+SCOPE_CLIPPY_EXIT=0
+
+## cargo clippy --workspace --all-targets --locked -- -D warnings
+# BLOCKED（并行卡，非本卡）：
+#   error[E0433]: cannot find type `HashMap` in this scope
+#     --> crates\bridge_api\src\api\speedtest.rs:303:32
+#   error[E0425]: cannot find value ... (同文件)
+#   error: could not compile `bridge_api` (lib) due to 2 previous errors
+WS_CLIPPY_EXIT=101
+
+## flutter test test/r4_16_matrix_test.dart
+# 00:00 +1: All tests passed!
+# 17 行逐格式 + 合同守卫（preview 不落库 / 坏行 / 手工不去重 / 文件不可写）全过。
+
+## flutter test test/t21e_import_real_bridge_test.dart
+# 00:04 +1: All tests passed!
+# （关闭 R4-16 原缺口 #2：真实 FRB + SQLite subid-less 导入可见性）
+
+## flutter analyze lib/features/subs test/r4_16_matrix_test.dart
+# No issues found! (ran in 4.3s)
+
+## flutter analyze  (整仓)  [首轮]
+# BLOCKED（并行卡文件，非本卡）：
+#   warning lib\features\settings\platform_controller.dart:50 unused_element _systemProxyUnchanged
+#   error   test\r4_22_contract_test.dart:41,45,49,53 undefined_getter speedTestGeneration
+#   warning test\r4_23_contract_test.dart:11 unused_import runtime_controller.dart
+
+## 最终重试（并行卡修复后）
+
+### cargo clippy --workspace --all-targets --locked -- -D warnings
+# Finished `dev` profile ... in 0.79s
+WS_CLIPPY_EXIT=0
+
+### cargo test --workspace --locked
+# 全部 test result: ok（含 subscriptions 67+11+23+9+13+18）；WS_TEST_EXIT=0
+# 首轮 application --test t15_monitor 为瞬态失败；单跑与重跑均 2/2 通过。
+
+### flutter analyze  (整仓)
+# No issues found! (ran in 4.8s)
+
+### flutter test test/r4_16_matrix_test.dart  [重试]
+# 00:02 +1: All tests passed!  （首轮一次 exit-79 类瞬态：did not complete / No tests were found，重试通过）
+

@@ -263,11 +263,26 @@ class MonitorController extends Notifier<MonitorState> {
   bool _logsPageVisible = false;
   String? _lastSessionSig;
 
+  /// Bumped whenever the applied session changes (switch or stop). An async
+  /// Clash read started under an older generation is dropped instead of
+  /// overwriting the new session's read model (D25 late-response eviction).
+  int _sessionGeneration = 0;
+  bool _disposed = false;
+
+  /// In-flight Clash reads, coalesced so an auto-refresh timer cannot stack
+  /// overlapping requests whose slow responses arrive out of order.
+  Future<void>? _connectionsInFlight;
+  Future<void>? _proxiesInFlight;
+  int _connectionsRequest = 0;
+  int _proxiesRequest = 0;
+  int _modeRequest = 0;
+
   MonitorBridge get _bridge => ref.read(monitorBridgeProvider);
 
   @override
   MonitorState build() {
     ref.onDispose(() {
+      _disposed = true;
       _trafficSub?.cancel();
       _logSub?.cancel();
     });
@@ -294,7 +309,27 @@ class MonitorController extends Notifier<MonitorState> {
     final signature = monitorSessionSignature(view);
     if (signature == _lastSessionSig) return;
     _lastSessionSig = signature;
+    // A new applied session (core switch or stop) makes every in-flight read
+    // from the previous session stale. Advance the generation, invalidate the
+    // request tokens and drop the coalesced futures so their late responses are
+    // discarded instead of clobbering the new session's read model (D25).
+    _sessionGeneration++;
+    _connectionsRequest++;
+    _proxiesRequest++;
+    _modeRequest++;
+    _connectionsInFlight = null;
+    _proxiesInFlight = null;
     _bridge.syncSession();
+    // Never show the previous session's Clash read model under the new one.
+    // Per-node today rows and the log ring are session-independent and stay.
+    state = state.copyWith(
+      connections: const <m.ClashConnectionDto>[],
+      proxies: const <m.ClashProxyDto>[],
+      proxyDelays: const <String, int>{},
+      clearConnectionsMessage: true,
+      clearProxiesMessage: true,
+      clearClashMode: true,
+    );
     if (!view.hasAppliedEndpoint) return;
     refreshStats();
     _ensureStreams();
@@ -410,38 +445,83 @@ class MonitorController extends Notifier<MonitorState> {
     if (page == 'logs') _reloadLogs();
   }
 
-  Future<void> refreshProxies() async {
-    final result = await _bridge.clashProxies();
-    state = state.copyWith(
-      clashSupported: result.supported,
-      proxies: result.items,
-      proxiesMessage: result.supported
-          ? null
-          : (result.message ?? '当前内核不提供 Clash API'),
-      clearProxiesMessage: result.supported && result.message == null,
-      error: result.error?.code,
-      clearError: result.error == null,
-    );
+  /// Refresh the Clash proxy list. Concurrent calls (e.g. the auto-refresh
+  /// timer firing while a slow read is in flight) share one request.
+  Future<void> refreshProxies() => _fetchProxies(coalesce: true);
+
+  Future<void> _fetchProxies({required bool coalesce}) {
+    if (coalesce) {
+      final pending = _proxiesInFlight;
+      if (pending != null) return pending;
+    }
+    final generation = _sessionGeneration;
+    final request = ++_proxiesRequest;
+    final future = _bridge.clashProxies().then((result) {
+      if (_disposed ||
+          generation != _sessionGeneration ||
+          request != _proxiesRequest) {
+        return;
+      }
+      state = state.copyWith(
+        clashSupported: result.supported,
+        proxies: result.items,
+        proxiesMessage: result.supported
+            ? null
+            : (result.message ?? '当前内核不提供 Clash API'),
+        clearProxiesMessage: result.supported && result.message == null,
+        error: result.error?.code,
+        clearError: result.error == null,
+      );
+    });
+    _proxiesInFlight = future;
+    return future.whenComplete(() {
+      if (identical(_proxiesInFlight, future)) _proxiesInFlight = null;
+    });
   }
 
-  Future<void> refreshConnections() async {
-    final result = await _bridge.clashConnections();
-    state = state.copyWith(
-      clashSupported: result.supported,
-      connections: result.items,
-      connectionsUpload: result.uploadTotal,
-      connectionsDownload: result.downloadTotal,
-      connectionsMessage: result.supported
-          ? null
-          : (result.message ?? '当前内核不提供 Clash API'),
-      clearConnectionsMessage: result.supported && result.message == null,
-      error: result.error?.code,
-      clearError: result.error == null,
-    );
+  Future<void> refreshConnections() => _fetchConnections(coalesce: true);
+
+  Future<void> _fetchConnections({required bool coalesce}) {
+    if (coalesce) {
+      final pending = _connectionsInFlight;
+      if (pending != null) return pending;
+    }
+    final generation = _sessionGeneration;
+    final request = ++_connectionsRequest;
+    final future = _bridge.clashConnections().then((result) {
+      if (_disposed ||
+          generation != _sessionGeneration ||
+          request != _connectionsRequest) {
+        return;
+      }
+      state = state.copyWith(
+        clashSupported: result.supported,
+        connections: result.items,
+        connectionsUpload: result.uploadTotal,
+        connectionsDownload: result.downloadTotal,
+        connectionsMessage: result.supported
+            ? null
+            : (result.message ?? '当前内核不提供 Clash API'),
+        clearConnectionsMessage: result.supported && result.message == null,
+        error: result.error?.code,
+        clearError: result.error == null,
+      );
+    });
+    _connectionsInFlight = future;
+    return future.whenComplete(() {
+      if (identical(_connectionsInFlight, future)) _connectionsInFlight = null;
+    });
   }
 
   Future<void> refreshClashMode() async {
+    final generation = _sessionGeneration;
+    final request = ++_modeRequest;
     final result = await _bridge.clashModeState();
+    if (_disposed ||
+        generation != _sessionGeneration ||
+        request != _modeRequest) {
+      return;
+    }
     state = state.copyWith(
       clashSupported: result.supported,
       clashMode: result.mode,
@@ -480,20 +560,25 @@ class MonitorController extends Notifier<MonitorState> {
 
   Future<bool> selectProxy(String group, String name) async {
     final result = await _bridge.selectClashProxy(group, name);
-    if (result.ok) await refreshProxies();
+    if (result.ok) await _fetchProxies(coalesce: false);
     return result.ok;
   }
 
   Future<int> testProxy(String name) async {
+    final generation = _sessionGeneration;
     final result = await _bridge.clashProxyDelay(name);
-    final delays = Map<String, int>.of(state.proxyDelays)
-      ..[result.name] = result.delay;
-    state = state.copyWith(proxyDelays: delays);
+    if (!_disposed && generation == _sessionGeneration) {
+      final delays = Map<String, int>.of(state.proxyDelays)
+        ..[result.name] = result.delay;
+      state = state.copyWith(proxyDelays: delays);
+    }
     return result.delay;
   }
 
   Future<void> testGroup(String group) async {
+    final generation = _sessionGeneration;
     final result = await _bridge.clashGroupDelay(group);
+    if (_disposed || generation != _sessionGeneration) return;
     final delays = Map<String, int>.of(state.proxyDelays);
     for (final item in result.items) {
       delays[item.name] = item.delay;
@@ -503,13 +588,13 @@ class MonitorController extends Notifier<MonitorState> {
 
   Future<bool> closeConnection(String id) async {
     final result = await _bridge.closeClashConnection(id);
-    if (result.ok) await refreshConnections();
+    if (result.ok) await _fetchConnections(coalesce: false);
     return result.ok;
   }
 
   Future<bool> closeAllConnections() async {
     final result = await _bridge.closeAllClashConnections();
-    if (result.ok) await refreshConnections();
+    if (result.ok) await _fetchConnections(coalesce: false);
     return result.ok;
   }
 

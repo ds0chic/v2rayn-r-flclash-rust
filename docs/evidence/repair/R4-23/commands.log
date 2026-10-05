@@ -1,0 +1,57 @@
+R4-23 command log (Windows PowerShell 7)
+baseline HEAD a95897f, app 77c74ed, upstream 7d6a967, armed=false
+No port listened for tests/build except ephemeral local mocks bound to the first free port >= 11808 (bind_floor_listener; 10808 excluded).
+No host system proxy / registry / route / TUN / autostart change. No user credentials read. No unrelated process killed.
+
+[1] git ref
+    HEAD a95897f48bcbac8a83632c4ab6d448653d5d8d66
+    (worktree also had concurrent edits by other agents: profiles/settings/update/subscriptions/speedtest etc.)
+
+[2] repro BEFORE fix (controller temporarily reverted via git stash push -- apps/desktop/lib/features/monitor/monitor_controller.dart)
+    flutter test test/repair/r4_23_repro_test.dart
+    -> 2 failed:
+       - a late connection read from a replaced session is dropped: Expected empty, Actual had ClashConnectionDto
+       - overlapping refreshConnections share one in-flight request: Expected 1, Actual 2
+    git stash pop  (controller fix restored)
+
+[3] flutter test test/r4_23_contract_test.dart test/repair/r4_23_repro_test.dart
+    -> All tests passed (12)
+
+[4] flutter analyze
+    -> No issues found (ran in 3.8s)
+    (an earlier run flagged one unused import in the new test; removed)
+
+[5] dart format --output=none --set-exit-if-changed lib/features/monitor/monitor_controller.dart test/r4_23_contract_test.dart test/repair/r4_23_repro_test.dart test/support/fake_monitor_bridge.dart
+    -> Formatted 4 files (0 changed); exit 0
+
+[6] cargo fmt --all -- --check
+    -> exit 0 (clean)
+
+[7] cargo clippy --workspace --all-targets --locked -- -D warnings
+    -> Finished `dev` profile ... exit 0
+
+[8] cargo test -p bridge_api --locked clash_connections_mock_lists_and_closes_over_floor_port
+    -> 1 passed; 0 failed (67 filtered out)
+    mock: std-only HTTP server on bind_floor_listener port; GET /connections, DELETE /connections/c1, DELETE /connections/
+
+[9] cargo test --workspace --locked
+    -> exit 0; all test result: ok
+    NOTE: an earlier full run had one flaky failure
+      application::tests::t18b_runtime_e2e::settings_port_change_and_auth_apply_to_listener
+      ("socks auth offered") while other agents built/tests ran concurrently.
+      Re-run alone: 1 passed. Re-run full workspace: exit 0. Not caused by R4-23 (monitor-only changes).
+
+[10] flutter build windows --release
+     -> Built build\windows\x64\runner\Release\v2rayn_desktop.exe (exit 0)
+
+External transient breakage (not R4-23):
+  - apps/desktop/lib/features/profiles/profiles_controller.dart had undefined _speedTestGeneration while another agent edited (resolved).
+  - crates/bridge_api/src/api/speedtest.rs was missing `use std::collections::HashMap` while another agent edited (resolved 16:06:32).
+Both blocked compilation temporarily; no changes made to those files by R4-23.
+
+[11] monitor regression batch
+     flutter test test/fix11_monitor_session_test.dart test/fix11b_clash_panel_test.dart test/fix11c_logs_test.dart test/rr_mon_rebind_test.dart test/t15a_connections_test.dart test/t15a_logs_test.dart test/t15a_proxies_test.dart test/t15a_statusbar_test.dart
+     run 1: 30 passed then t15a_logs_test "clear button..." did not complete (parallel-isolate load)
+     flutter test test/t15a_logs_test.dart (alone): 5 passed
+     run 2 (same batch): 31 passed, All tests passed
+     -> earlier non-completion was load flakiness, not a regression

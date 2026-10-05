@@ -1,0 +1,48 @@
+{
+  "task": "R4-13.S21",
+  "group": "SystemProxyItem",
+  "instance_status": "implemented_storage_plus_applied_reconcile",
+  "coordinator": "R4-13",
+  "base_commit": "a95897f48bcbac8a83632c4ab6d448653d5d8d66",
+  "upstream": {
+    "version": "v2rayN 7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "path": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/"
+  },
+  "armed": false,
+  "constraints_honored": {
+    "port_10808_untouched": true,
+    "host_proxy_registry_route_tun_autostart_untouched": true,
+    "no_user_credentials": true,
+    "work_outputs_readonly": true,
+    "worktree_other_agent_changes_untouched": true
+  },
+  "fix": {
+    "file": "apps/desktop/lib/features/settings/platform_controller.dart",
+    "detail": "settings-change listener reconciles the persisted SysProxyType when a real endpoint is applied (upstream SaveSetting->Reload->UpdateSysProxy)"
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_13_s21_repro_test.dart",
+    "pre_fix": {
+      "result": "fail",
+      "assertion": "Expected: contains SysProxyMode.forcedChange / Actual: [SysProxyMode.forcedClear]"
+    },
+    "post_fix": { "result": "pass" }
+  },
+  "contract_test": {
+    "file": "apps/desktop/test/r4_13_s21_contract_test.dart",
+    "cases": 5,
+    "result": "pass"
+  },
+  "commands": [
+    { "cmd": "flutter analyze (scoped to changed files)", "result": "No issues found" },
+    { "cmd": "flutter test test/r4_13_s21_contract_test.dart", "result": "All tests passed (5/5)" },
+    { "cmd": "flutter test test/repair/r4_13_s21_repro_test.dart", "result": "pre-fix fail, post-fix pass" },
+    { "cmd": "cargo fmt --all -- --check", "result": "exit 0 (whole workspace)" },
+    { "cmd": "cargo clippy -p application --all-targets --locked -- -D warnings", "result": "pass" }
+  ],
+  "blocked": [
+    "real WinINET/registry write/read and four-mode ownership restore not exercised (no authorized isolated VM; hard constraint forbids writing the host system proxy)"
+  ],
+  "fields": ["FLD-CFG-137", "FLD-CFG-138", "FLD-CFG-139", "FLD-CFG-140", "FLD-CFG-141", "FLD-CFG-142"]
+}

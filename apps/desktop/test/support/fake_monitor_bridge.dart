@@ -42,6 +42,12 @@ class FakeMonitorBridge implements MonitorBridge {
   /// visible to the controller.
   contract.ErrorDto? statsError;
 
+  /// Optional gates awaited by [clashConnections]/[clashProxies]. A test holds
+  /// these to keep a read in flight while the applied session changes (R4-23
+  /// late-response eviction / in-flight coalescing).
+  Future<void>? connectionsGate;
+  Future<void>? proxiesGate;
+
   /// Per-node `ServerStatItem` rows returned by [statsSnapshot] (R3-09b).
   List<m.NodeTrafficDto> statsNodes = const <m.NodeTrafficDto>[];
 
@@ -253,6 +259,8 @@ class FakeMonitorBridge implements MonitorBridge {
   @override
   Future<m.ClashProxiesDto> clashProxies() async {
     clashProxiesCount++;
+    final gate = proxiesGate;
+    if (gate != null) await gate;
     if (!clashApiSupported) {
       return m.ClashProxiesDto(
         ok: false,
@@ -334,6 +342,8 @@ class FakeMonitorBridge implements MonitorBridge {
   @override
   Future<m.ClashConnectionsDto> clashConnections() async {
     clashConnectionsCount++;
+    final gate = connectionsGate;
+    if (gate != null) await gate;
     if (!clashApiSupported) {
       return m.ClashConnectionsDto(
         ok: false,

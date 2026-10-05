@@ -1,0 +1,56 @@
+# R4-21 command log (Windows 11 x64 25H2, 2026-10-05)
+# Flutter: C:\Users\Colby\toolchains\flutter\bin\flutter.bat
+# Rust:    C:\Users\Colby\.cargo\bin\cargo.exe
+# All workdirs under the repo root unless noted (Flutter app: apps/desktop).
+
+[1] cargo fmt --all -- --check
+    exit 0 (no diff)
+
+[2] cargo clippy --workspace --all-targets --locked -- -D warnings
+    Finished `dev` profile ... (exit 0)
+
+[3] cargo test --workspace --locked
+    all suites "test result: ok", exit 0
+
+[4] cargo test -p application --locked --lib update_service
+    running 10 tests
+    test update_service::tests::entry_matrix_lists_every_frozen_proxy_core ... ok
+    test update_service::tests::every_manual_core_has_a_runtime_adapter ... ok
+    test update_service::tests::check_core_labels_a_manual_core_without_network ... ok
+    ... test result: ok. 10 passed; 0 failed
+
+[5] cargo test -p runtime --locked --lib
+    test result: ok. 62 passed; 0 failed
+
+[6] cargo test -p bridge_api --locked --lib t16
+    test api::t16::tests::update_targets_list_builtins_with_caps ... ok
+    test result: ok. 4 passed; 0 failed
+
+[7] flutter analyze   (workdir apps/desktop)
+    No issues found! (ran in 4.3s), exit 0
+
+[8] flutter test test/r4_21_contract_test.dart   (workdir apps/desktop)
+    matrix lists 14 proxy cores; auto enabled, manual labelled ... ok
+    missing xray+mihomo install via normal entry then clear ... ok
+    failed install is readable and retryable, then succeeds ... ok
+    All tests passed! (3 tests)
+
+[9] flutter test test/repair/r4_21_repro_test.dart   (workdir apps/desktop)
+    # post-fix
+    every frozen proxy core is listed and manual cores read as manual ... ok
+    All tests passed!
+    # pre-fix demonstration (UI label temporarily reverted to old behavior)
+    Expected: at least one matching candidate
+      Actual: Found 0 widgets with text "需手动安装"
+    Some tests failed. exit 1
+
+[10] flutter build windows --release   (workdir apps/desktop)
+     Building Windows application... 9.4s
+     Built build\windows\x64\runner\Release\v2rayn_desktop.exe   exit 0
+
+[11] doc/evidence/repair/R4-21/run_local_install_launch.ps1
+     xray   proxy_port=21809 listened=true proxied_ok=true proxied_status=200 proxied_body=R4-21-OK
+     mihomo proxy_port=21810 listened=true proxied_ok=true proxied_status=200 proxied_body=R4-21-OK
+     stopped: all started PIDs => stopped=true
+     port_10808_used=false
+     (full JSON: local-install-launch.json)

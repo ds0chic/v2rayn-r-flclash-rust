@@ -192,6 +192,10 @@ class _TargetRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final enabled = target.supported;
+    // R4-21: a core with no in-app download asset is "manual" — installable by
+    // dropping the binary into the managed cores directory — and must be shown
+    // as such instead of being conflated with a genuinely unsupported target.
+    final manual = target.note == 'error.update_manual';
     final blocked = check != null && !check!.supported;
     final label = check == null
         ? '—'
@@ -200,6 +204,11 @@ class _TargetRow extends StatelessWidget {
         : check!.hasUpdate
         ? '可更新 ${check!.remoteVersion ?? ''}'
         : '已是最新 ${check!.remoteVersion ?? ''}';
+    final statusText = enabled
+        ? label
+        : manual
+        ? '需手动安装'
+        : '不支持更新';
     return Opacity(
       opacity: enabled ? 1 : 0.5,
       child: Row(
@@ -232,12 +241,14 @@ class _TargetRow extends StatelessWidget {
           SizedBox(
             width: 150,
             child: Text(
-              enabled ? label : '不支持更新',
+              statusText,
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 12,
                 color: blocked
                     ? scheme.error
+                    : manual
+                    ? scheme.tertiary
                     : enabled && check?.hasUpdate == true
                     ? scheme.primary
                     : scheme.onSurfaceVariant,
@@ -257,6 +268,8 @@ String _noteLabel(String? note) {
   switch (note) {
     case 'error.update_app_source_unconfigured':
       return '应用自身发行源未配置';
+    case 'error.update_manual':
+      return '需手动安装';
     case 'error.update_unsupported':
       return '不支持更新';
     default:

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,9 @@ class PlatformController extends Notifier<PlatformView> {
   /// rewrite the host proxy again; only a new applied endpoint does.
   String? _lastAppliedSessionKey;
 
+  /// Identity of the last applied system-proxy state (see [_syncKey]).
+  String? _lastAppliedSyncKey;
+
   @override
   PlatformView build() {
     // Upstream `MainWindowViewModel.LoadCore` -> `SysProxyHandler.UpdateSysProxy`:
@@ -31,8 +35,28 @@ class PlatformController extends Notifier<PlatformView> {
     ref.listen<RuntimeView>(runtimeControllerProvider, (_, next) {
       _onRuntimeChanged(next);
     });
+    // R4-13.S21: upstream `OptionSettingViewModel.SaveSettingAsync` ->
+    // `MainWindowViewModel.Reload` -> `LoadCore` -> `UpdateSysProxy` re-points
+    // the selected system proxy whenever the persisted `SystemProxyItem`
+    // changes, even when the applied session does not. Only reconcile while a
+    // real endpoint is applied; a save with no live session keeps the selection
+    // for the next launch restore.
+    ref.listen<SettingsViewState>(settingsControllerProvider, (prev, next) {
+      if (_systemProxyUnchanged(prev?.document, next.document)) return;
+      if (!ref.read(runtimeControllerProvider).hasAppliedEndpoint) return;
+      syncAppliedMode();
+    });
     return const PlatformView();
   }
+
+  /// Whether the persisted `SystemProxyItem` is byte-identical between two
+  /// settings documents (drives the settings-save reconciliation above).
+  static bool _systemProxyUnchanged(
+    Map<String, dynamic>? before,
+    Map<String, dynamic> after,
+  ) =>
+      jsonEncode(before?['SystemProxyItem']) ==
+      jsonEncode(after['SystemProxyItem']);
 
   PlatformBridge get _bridge => ref.read(platformBridgeProvider);
 
@@ -193,6 +217,30 @@ class PlatformController extends Notifier<PlatformView> {
     String? configDir,
   }) {
     final doc = document ?? ref.read(settingsControllerProvider).document;
+    // Record the target state *before* applying: persisting the mode updates
+    // the settings state synchronously, which re-enters the settings listener
+    // while this call is still in flight. Without the pre-registration that
+    // listener would apply the same state a second time (R4-13.S21 + R4-24).
+    final key = _syncKey(mode, doc);
+    _lastAppliedSyncKey = key;
+    final result = _applyModeFromConfigInner(
+      mode,
+      document: doc,
+      configDir: configDir,
+    );
+    if (!result.ok && _lastAppliedSyncKey == key) {
+      // Failed attempts must not dedupe a later retry.
+      _lastAppliedSyncKey = null;
+    }
+    return result;
+  }
+
+  PlatformActionResult _applyModeFromConfigInner(
+    SysProxyMode mode, {
+    Map<String, dynamic>? document,
+    String? configDir,
+  }) {
+    final doc = document ?? ref.read(settingsControllerProvider).document;
     final config = ProxySettingsView.fromDocument(doc);
     final applied = _appliedProxyInbound(doc);
     switch (mode) {
@@ -273,12 +321,27 @@ class PlatformController extends Notifier<PlatformView> {
   /// Re-apply the persisted mode against the actual applied endpoint. Shared by
   /// the runtime listener and tests. `Unchanged` stays a no-op, mirroring
   /// upstream `UpdateSysProxy`; the other modes either reconcile the host
-  /// proxy/PAC or report the no-running-session fact honestly.
+  /// proxy/PAC or report the no-running-session fact honestly. Re-applying the
+  /// same (mode, session, endpoint) triple is a no-op.
   void syncAppliedMode() {
     final document = ref.read(settingsControllerProvider).document;
     final mode = desiredModeFromSettings(document);
     if (mode == SysProxyMode.unchanged) return;
+    if (_lastAppliedSyncKey == _syncKey(mode, document)) return;
     applyModeFromConfig(mode, document: document);
+  }
+
+  /// Identity of one applied system-proxy state: mode plus the actual applied
+  /// session endpoint (never the desired port). Used to dedupe the explicit
+  /// command, the settings-save listener and the runtime listener. The protocol
+  /// is deliberately not part of the key: an explicit command may carry an
+  /// override document whose inbound differs from the provider document while
+  /// still describing the same applied endpoint, and a protocol change always
+  /// arrives with a new session/port (runtime listener).
+  String _syncKey(SysProxyMode mode, Map<String, dynamic> document) {
+    final runtime = ref.read(runtimeControllerProvider);
+    final applied = _appliedProxyInbound(document);
+    return '${mode.value}:${runtime.sessionId ?? '-'}:${applied?.port ?? '-'}';
   }
 
   /// The actual proxy endpoint published by the running session, if any, with

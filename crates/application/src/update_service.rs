@@ -16,7 +16,7 @@ use updater::app_upgrade::{
     apply_app_upgrade, rollback_app_upgrade, AppInstallLayout, AppRestartCommand, AppUpgradeOutcome,
 };
 use updater::arch::{binary_matches, detect_target, HostTarget};
-use updater::channel::{self, CoreSpec};
+use updater::channel;
 use updater::download::{DownloadRequest, DownloaderOptions, FileDownloader};
 use updater::fetch::CoreReleaseApi;
 use updater::install::{
@@ -110,26 +110,63 @@ fn default_app_exe_name() -> String {
         })
 }
 
-/// Built-in update targets, in upstream order (`GetCheckUpdateCoreTypes`).
+/// Built-in auto-update targets, in upstream order
+/// (`CoreInfoManager.GetCheckUpdateCoreTypes`). These are the only rows the
+/// check/apply pipeline may download; every other proxy core is manual (R4-21).
 pub const BUILTIN_TARGETS: &[&str] = &["v2rayN", "xray", "mihomo", "sing_box"];
 
-/// Every core the UI lists, including ones this build does not update. The
-/// unsupported entries are shown disabled with a note (`is_check_update_supported`).
-pub const UI_TARGETS: &[&str] = &[
-    "v2rayN",
-    "xray",
-    "mihomo",
-    "sing_box",
-    "v2fly",
-    "hysteria2",
-    "tuic",
-    "naiveproxy",
-    "juicity",
-    "brook",
-    "overtls",
-    "shadowquic",
-    "mieru",
-];
+/// The 14 frozen proxy cores (R3-CORE-MATRIX) in the update pipeline's key
+/// spelling, derived from the runtime adapter list so the UI matrix can never
+/// silently omit one.
+pub fn proxy_update_cores() -> Vec<&'static str> {
+    domain::CoreType::PROXY_CORES
+        .iter()
+        .map(|core| runtime::adapter::update_core_key(*core))
+        .collect()
+}
+
+/// Every row the update window lists: the application identity plus all 14
+/// proxy cores, regardless of whether they can be auto-updated.
+pub fn ui_targets() -> Vec<&'static str> {
+    let mut targets = vec!["v2rayN"];
+    targets.extend(proxy_update_cores());
+    targets
+}
+
+/// How a row's install/update path is exposed by the ordinary UI entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CoreEntryKind {
+    /// In-app download+verify+install through the check-update pipeline.
+    Auto,
+    /// Upstream `CoreInfoManager` defines no `DownloadUrl*` for it, so there is
+    /// no in-app download; the user places the binary under the managed cores
+    /// directory by hand. The selection/runtime path still works once present.
+    Manual,
+    /// The ordinary entry is unavailable for a concrete reason (see the note).
+    Blocked,
+}
+
+/// Classify one core row. `Auto` mirrors [`updater::channel::is_check_update_supported`];
+/// any other proxy core with a frozen spec is `Manual`; anything else (an
+/// unknown key, or a packaged-application self-update) is `Blocked`.
+pub fn core_entry_kind(core: &str, packaged: bool) -> CoreEntryKind {
+    if channel::is_check_update_supported(core, packaged) {
+        CoreEntryKind::Auto
+    } else if core != "v2rayN" && runtime::adapter::core_type_for_update_key(core).is_some() {
+        CoreEntryKind::Manual
+    } else {
+        CoreEntryKind::Blocked
+    }
+}
+
+/// The human-facing message key for a row's entry state (R4-21).
+pub fn core_entry_note(kind: CoreEntryKind) -> Option<&'static str> {
+    match kind {
+        CoreEntryKind::Auto => None,
+        CoreEntryKind::Manual => Some("error.update_manual"),
+        CoreEntryKind::Blocked => Some("error.update_unsupported"),
+    }
+}
 
 /// Map an updater failure onto the shared domain error contract.
 pub fn update_error(err: UpdateError) -> DomainError {
@@ -163,26 +200,27 @@ pub struct UpdateTargetInfo {
 }
 
 /// Every target the UI lists, plus an explicit note when it is disabled
-/// (packaged installation or a core this build does not update).
+/// (manual install or packaged installation).
 pub fn builtin_targets(packaged: bool) -> Vec<UpdateTargetInfo> {
-    UI_TARGETS
-        .iter()
-        .map(|core| target_info(core, channel::core_spec(core).as_ref(), packaged))
+    ui_targets()
+        .into_iter()
+        .map(|core| target_info(core, packaged))
         .collect()
 }
 
-fn target_info(core: &str, spec: Option<&CoreSpec>, packaged: bool) -> UpdateTargetInfo {
-    let supported = channel::is_check_update_supported(core, packaged);
-    let note = if !supported {
-        Some("error.update_unsupported".to_string())
-    } else {
-        None
-    };
+fn target_info(core: &str, packaged: bool) -> UpdateTargetInfo {
+    let kind = core_entry_kind(core, packaged);
+    let supported = kind == CoreEntryKind::Auto;
+    let note = core_entry_note(kind).map(str::to_string);
+    let spec = channel::core_spec(core);
     UpdateTargetInfo {
         core: core.to_string(),
-        repo: spec.map(|spec| spec.repo.to_string()).unwrap_or_default(),
+        // `core_spec` only describes the four auto targets, so the repository
+        // slug comes from the full `Global.CoreUrls` table; a manual row still
+        // points the user at the right release page.
+        repo: channel::core_url_slug(core).unwrap_or_default().to_string(),
         supported,
-        prerelease_capable: spec.map(|spec| spec.prerelease_capable).unwrap_or(false),
+        prerelease_capable: spec.map(|s| s.prerelease_capable).unwrap_or(false),
         max_version: channel::max_allowed_version(core).map(|v| v.to_standard_string(None)),
         note,
     }
@@ -355,16 +393,13 @@ impl UpdateService {
     pub fn installed_cores(&self) -> Vec<InstalledCore> {
         let layout = CoreInstallLayout::new(&self.cores_root);
         let mut out = Vec::new();
-        for core in BUILTIN_TARGETS {
-            if *core == "v2rayN" {
-                continue;
-            }
+        for core in proxy_update_cores() {
             let dir_name = Self::core_dir_name(core);
             let root = layout.core_dir_str(core);
             if let Ok(text) = std::fs::read_to_string(root.join(INSTALL_MANIFEST_NAME)) {
                 if let Ok(manifest) = serde_json::from_str::<InstallManifest>(&text) {
                     out.push(InstalledCore {
-                        core: (*core).to_string(),
+                        core: core.to_string(),
                         dir: dir_name.to_string(),
                         version: manifest.version.clone(),
                         executable: find_executable(&root)
@@ -384,7 +419,7 @@ impl UpdateService {
                     continue;
                 };
                 out.push(InstalledCore {
-                    core: (*core).to_string(),
+                    core: core.to_string(),
                     dir: dir_name.to_string(),
                     version: version.to_standard_string(None),
                     executable: find_executable(&entry.path())
@@ -468,10 +503,14 @@ impl UpdateService {
         let spec = match channel::core_spec(core) {
             Some(spec) => spec,
             None => {
+                // A runnable core with no update-channel spec (the 11 manual
+                // cores) is reported as manual; an unknown key stays blocked.
+                let note = core_entry_note(core_entry_kind(core, self.packaged))
+                    .unwrap_or("error.update_unsupported");
                 return Ok(CoreUpdateCheck {
                     core: core.to_string(),
                     supported: false,
-                    note: Some("error.update_unsupported".to_string()),
+                    note: Some(note.to_string()),
                     installed_version: installed,
                     remote_version: None,
                     has_update: false,
@@ -480,14 +519,19 @@ impl UpdateService {
                     expected_sha256: None,
                     dgst_url: None,
                     sig_url: None,
-                })
+                });
             }
         };
         if !channel::is_check_update_supported(core, self.packaged) {
+            // R4-21: a runnable core with no in-app download asset is reported
+            // as manual (never as a fake update); a packaged self-update or an
+            // unknown key stays explicitly unsupported.
+            let note = core_entry_note(core_entry_kind(core, self.packaged))
+                .unwrap_or("error.update_unsupported");
             return Ok(CoreUpdateCheck {
                 core: core.to_string(),
                 supported: false,
-                note: Some("error.update_unsupported".to_string()),
+                note: Some(note.to_string()),
                 installed_version: installed,
                 remote_version: None,
                 has_update: false,
@@ -1268,6 +1312,73 @@ mod tests {
         // No upstream release info may be presented as an available update.
         assert!(check.remote_version.is_none());
         assert!(check.asset_name.is_none());
+        assert!(check.download_url.is_none());
+        assert!(!check.has_update);
+    }
+
+    #[test]
+    fn entry_matrix_lists_every_frozen_proxy_core() {
+        let targets = builtin_targets(false);
+        let cores: Vec<&str> = targets.iter().map(|t| t.core.as_str()).collect();
+        // no silent omission: all 14 proxy cores plus the application row.
+        assert_eq!(cores.len(), 15, "{cores:?}");
+        for expected in [
+            "v2fly",
+            "v2fly_v5",
+            "xray",
+            "sing_box",
+            "mihomo",
+            "hysteria",
+            "naiveproxy",
+            "tuic",
+            "juicity",
+            "hysteria2",
+            "brook",
+            "overtls",
+            "shadowquic",
+            "mieru",
+        ] {
+            assert!(cores.contains(&expected), "matrix omitted {expected}");
+        }
+        assert!(cores.contains(&"v2rayN"));
+
+        let auto: Vec<&str> = targets
+            .iter()
+            .filter(|t| t.supported)
+            .map(|t| t.core.as_str())
+            .collect();
+        assert_eq!(auto, vec!["v2rayN", "xray", "mihomo", "sing_box"]);
+        // Every manual row carries the manual note, never "up to date".
+        for core in ["v2fly_v5", "hysteria", "tuic", "mieru"] {
+            let row = targets.iter().find(|t| t.core == core).unwrap();
+            assert!(!row.supported, "{core} unexpectedly auto");
+            assert_eq!(row.note.as_deref(), Some("error.update_manual"));
+        }
+    }
+
+    #[test]
+    fn every_manual_core_has_a_runtime_adapter() {
+        for core in proxy_update_cores() {
+            let kind = core_entry_kind(core, false);
+            assert_ne!(kind, CoreEntryKind::Blocked, "{core} is blocked");
+            let core_type = runtime::adapter::core_type_for_update_key(core)
+                .unwrap_or_else(|| panic!("no adapter authority for {core}"));
+            assert!(
+                runtime::adapter::adapter_for(core_type).is_some(),
+                "no adapter for {core}"
+            );
+        }
+    }
+
+    #[test]
+    fn check_core_labels_a_manual_core_without_network() {
+        let service = UpdateService::new(std::env::temp_dir());
+        let check = one_shot_runtime()
+            .block_on(service.check_core("hysteria", false, None))
+            .unwrap();
+        assert_eq!(check.core, "hysteria");
+        assert!(!check.supported);
+        assert_eq!(check.note.as_deref(), Some("error.update_manual"));
         assert!(check.download_url.is_none());
         assert!(!check.has_update);
     }

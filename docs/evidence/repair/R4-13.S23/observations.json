@@ -1,0 +1,43 @@
+{
+  "task": "R4-13.S23",
+  "group": "UiItem",
+  "instance_status": "implemented_storage_state_source_dpi",
+  "coordinator": "R4-13",
+  "base_commit": "a95897f48bcbac8a83632c4ab6d448653d5d8d66",
+  "upstream": {
+    "version": "v2rayN 7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "path": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/"
+  },
+  "armed": false,
+  "constraints_honored": {
+    "port_10808_untouched": true,
+    "host_proxy_registry_route_tun_autostart_untouched": true,
+    "no_user_credentials": true,
+    "work_outputs_readonly": true,
+    "worktree_other_agent_changes_untouched": true
+  },
+  "contract_test": {
+    "file": "apps/desktop/test/r4_13_s23_contract_test.dart",
+    "cases": 3,
+    "result": "pass"
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_13_s23_repro_test.dart",
+    "result": "pass (state-source + 150% DPI regression guard; no in-scope defect found)"
+  },
+  "dpi_matrix": {
+    "device_pixel_ratios": [1.0, 1.5],
+    "logical_sizes": ["1280x800", "800x600"],
+    "layouts": ["horizontal", "vertical", "tab"]
+  },
+  "commands": [
+    { "cmd": "flutter analyze (scoped to changed files)", "result": "No issues found" },
+    { "cmd": "flutter test test/r4_13_s23_contract_test.dart", "result": "All tests passed (3/3)" },
+    { "cmd": "flutter test test/repair/r4_13_s23_repro_test.dart", "result": "All tests passed (2/2)" }
+  ],
+  "blocked": [
+    "MainGirdHeight1/2 live resize wiring is in lib/app/shell/ui_shell_controller.dart, owned by R4-12 and outside this instance's file ownership; registered as an interface hand-off"
+  ],
+  "fields": ["FLD-CFG-067", "FLD-CFG-068", "FLD-CFG-069", "FLD-CFG-070", "FLD-CFG-071", "FLD-CFG-072", "FLD-CFG-073", "FLD-CFG-074", "FLD-CFG-075", "FLD-CFG-076", "FLD-CFG-077", "FLD-CFG-078", "FLD-CFG-079", "FLD-CFG-080", "FLD-CFG-081", "FLD-CFG-082", "FLD-CFG-083", "FLD-CFG-117", "FLD-CFG-118", "FLD-CFG-119", "FLD-CFG-156", "FLD-CFG-157", "FLD-CFG-158"]
+}

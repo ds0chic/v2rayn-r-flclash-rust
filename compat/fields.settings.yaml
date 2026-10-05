@@ -257,7 +257,7 @@ items:
   - v2rayN/ServiceLib/Models/Configs/Config.cs:16
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:90
   unresolved: []
-  notes: 容器属性；子字段见 FLD-CFG-095..105。
+  notes: 容器属性；子字段见 FLD-CFG-095..105。（R4-13.S22 达 implemented：11 字段保存→重开 + 生成链 `codegen.rs::r4_13_s22_tun_fields_reach_generated_config`→sing-box/xray TUN inbound；真实设备 blocked。）
   status: implemented
 - id: FLD-CFG-005
   name: KcpItem
@@ -449,7 +449,7 @@ items:
   - v2rayN/ServiceLib/Models/Configs/Config.cs:22
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:104
   unresolved: []
-  notes: 容器属性；子字段见 FLD-CFG-067..083。
+  notes: 容器属性；子字段见 FLD-CFG-067..083。（R4-13.S23 达 implemented：三布局/窗口/列状态源保存重开 + 100/150% DPI 矩阵；实时主区高度接线归 R4-12，blocked。）
   status: implemented
 - id: FLD-CFG-011
   name: ConstItem
@@ -673,7 +673,7 @@ items:
   - v2rayN/ServiceLib/Models/Configs/Config.cs:29
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:165
   unresolved: []
-  notes: 容器属性；SysProxyType 由状态栏菜单写入，其余由设置窗口写入。
+  notes: 容器属性；SysProxyType 由状态栏菜单写入，其余由设置窗口写入。（R4-13.S21 达 implemented：四模式/PAC 字段保存→重开 + 保存后 applied 对账不回退；真实 WinINET 写读 blocked。）
   status: implemented
 - id: FLD-CFG-018
   name: WebDavItem
@@ -705,7 +705,7 @@ items:
   - v2rayN/ServiceLib/Models/Configs/Config.cs:30
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:166
   unresolved: []
-  notes: 容器属性；在备份/恢复窗口编辑。
+  notes: 容器属性；在备份/恢复窗口编辑。（R4-13.S24 达 implemented：4 字段保存→重开 + T16 `t16WebdavConfigSave/Get` 经 backup controller 消费；真实 TLS blocked。）
   status: implemented
 - id: FLD-CFG-019
   name: CheckUpdateItem

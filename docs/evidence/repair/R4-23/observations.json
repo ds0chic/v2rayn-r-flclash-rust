@@ -1,0 +1,74 @@
+{
+  "task": "R4-23",
+  "title": "monitor connections/logs/statistics",
+  "status": "implemented",
+  "baseline": {
+    "head": "a95897f",
+    "app_baseline": "77c74ed",
+    "upstream_frozen": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "armed": false
+  },
+  "constraints": {
+    "ports_used": [],
+    "port_10808_touched": false,
+    "host_proxy_registry_route_tun_touched": false,
+    "user_credentials_read": false,
+    "unrelated_processes_killed": false,
+    "test_port_floor": ">=11808 via bind_floor_listener"
+  },
+  "defects": {
+    "D25": "MonitorController async Clash reads had no applied-session version eviction; connections auto-refresh timer stacked in-flight requests, so slow/out-of-order responses overwrote the new session's read model"
+  },
+  "changes": {
+    "dart": [
+      "apps/desktop/lib/features/monitor/monitor_controller.dart: added _sessionGeneration + per-kind request tokens + in-flight coalescing for refreshConnections/refreshProxies/refreshClashMode; syncRuntimeSession advances the generation and clears the old session's connections/proxies/proxyDelays/mode; close/close-all/select force a fresh read; testProxy/testGroup drop results from a replaced session",
+      "apps/desktop/test/support/fake_monitor_bridge.dart: added connectionsGate/proxiesGate to hold a read in flight across a session switch"
+    ],
+    "rust": [
+      "crates/bridge_api/src/api/monitor.rs: added test clash_connections_mock_lists_and_closes_over_floor_port plus a std-only local Clash HTTP mock on a bind_floor_listener port; verifies GET /connections mapping, DELETE /connections/{id}, DELETE /connections/. No production Rust logic changed; no #[frb] signature changed"
+    ],
+    "tests": [
+      "apps/desktop/test/r4_23_contract_test.dart: 10 contract assertions",
+      "apps/desktop/test/repair/r4_23_repro_test.dart: 2 repro assertions (failed before fix)"
+    ]
+  },
+  "must_pass_scenarios": {
+    "collect_vs_scroll_pause": "contract: collection pause and scroll pause are independent; rust log_filter_and_pause",
+    "connections_real_api": "rust mock test on floor port; contract close uses real bridge + refresh",
+    "late_response_session_eviction": "repro + contract late read tests",
+    "flush_outside_shared_lock": "preserved from R4-10 (persist_rows after hub lock released)",
+    "belongs_to_actual_target": "preserved: engine monitor_session() from applied_session + apply_facts",
+    "hidden_page_keeps_collecting": "contract hidden page test; fix11c hidden page test",
+    "statistics_reopen": "contract session-independent node rows; rust bound_sqlite_store_persists_and_reloads_server_stat_items",
+    "stats_row_nonzero_r3_06": "rust production_hub_drives_singbox_ws_statistics; contract hasTodayNodes/todayUp",
+    "bind_failure_visible_retryable_rr_mon_rebind": "contract store bind error clear-on-retry; rust store_bind_failure_is_visible_and_retryable"
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_23_repro_test.dart",
+    "before_fix": "2 failed (stale session-A connection applied to session B; 2 overlapping requests not coalesced)",
+    "after_fix": "2 passed",
+    "method": "temporarily git stash the controller change, run, then git stash pop"
+  },
+  "commands": [
+    { "cmd": "flutter test test/repair/r4_23_repro_test.dart (pre-fix)", "result": "2 failed, exit != 0" },
+    { "cmd": "flutter test test/r4_23_contract_test.dart test/repair/r4_23_repro_test.dart", "result": "All tests passed (12)" },
+    { "cmd": "flutter analyze", "result": "No issues found" },
+    { "cmd": "dart format --output=none --set-exit-if-changed <4 files>", "result": "0 changed" },
+    { "cmd": "cargo fmt --all -- --check", "result": "clean" },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "result": "Finished, no warnings" },
+    { "cmd": "cargo test --workspace --locked", "result": "EXIT=0, all ok" },
+    { "cmd": "cargo test -p bridge_api --locked clash_connections_mock_lists_and_closes_over_floor_port", "result": "1 passed" },
+    { "cmd": "flutter build windows --release", "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe" }
+  ],
+  "not_verified": [
+    "real mihomo/sing-box Clash API and real close side effects",
+    "slow-disk GUI frame/command p95/p99",
+    "local mock only proves request paths + DTO mapping"
+  ],
+  "external_churn": {
+    "profiles_controller.dart": "temporarily broke compilation while another agent edited; resolved",
+    "bridge_api/src/api/speedtest.rs": "temporarily missing HashMap import (other agent); resolved at 16:06:32",
+    "t18b_runtime_e2e socks auth": "flaky under parallel load, passes alone (EXIT=0)"
+  },
+  "frb_regen_required": false
+}

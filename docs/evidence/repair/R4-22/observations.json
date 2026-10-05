@@ -1,0 +1,133 @@
+{
+  "task": "R4-22",
+  "title": "测速范围取消和代际",
+  "status": "implemented",
+  "commit": "a95897f",
+  "armed": false,
+  "kernel": "none",
+  "ports_touched": [],
+  "host_proxy_modified": false,
+  "routes_touched": false,
+  "tun_touched": false,
+  "autostart_touched": false,
+  "credentials_used": false,
+  "fixtures": [
+    "test/support/r4_22_bridge.dart synthetic BridgePort with controllable jobs/results",
+    "crates/application/src/speedtest.rs unit fixtures",
+    "apps/desktop/test/r4_22_contract_test.dart / test/repair/r4_22_repro_test.dart"
+  ],
+  "defects": {
+    "UF-PROF-12_D08_D33": {
+      "before": "cancel stopped the poller and bound only state.speedTestJobId (latest); results measured before the runner exited were never read; starting/superseding a run left older job results able to overwrite newer ones; no per-run generation.",
+      "after": "Rust per-node result_generation + begin_job_results/apply_job_batch evict late old-generation batches; Dart controller tracks _speedTestGeneration and every real job id (_activeSpeedTestJobs), cancel binds all jobs (upstream ExitLoop), settle poller reads the final overlay and never summarizes a cancelled run as completed."
+    }
+  },
+  "new_bridge_surface": [],
+  "frb_regen_required": false,
+  "changed_files": [
+    "crates/application/src/speedtest.rs",
+    "crates/bridge_api/src/api/speedtest.rs",
+    "apps/desktop/lib/features/profiles/profiles_controller.dart",
+    "apps/desktop/test/support/r4_22_bridge.dart",
+    "apps/desktop/test/r4_22_contract_test.dart",
+    "apps/desktop/test/repair/r4_22_repro_test.dart",
+    "docs/repair/tasks/R4-22.md",
+    "docs/evidence/repair/R4-22/**"
+  ],
+  "commands": [
+    {
+      "cmd": "flutter analyze",
+      "cwd": "apps/desktop",
+      "exit": 1,
+      "result": "2 warnings only in concurrent agents' new test files (test/r4_16_matrix_test.dart:65 unused_element, test/r4_23_contract_test.dart:11 unused_import); owned files clean"
+    },
+    {
+      "cmd": "dart format --output=none --set-exit-if-changed lib/features/profiles/profiles_controller.dart test/support/r4_22_bridge.dart test/repair/r4_22_repro_test.dart test/r4_22_contract_test.dart",
+      "cwd": "apps/desktop",
+      "exit": 0,
+      "result": "0 changed"
+    },
+    {
+      "cmd": "flutter test test/r4_22_contract_test.dart",
+      "cwd": "apps/desktop",
+      "exit": 0,
+      "result": "8 passed, 0 failed"
+    },
+    {
+      "cmd": "flutter test test/repair/r4_22_repro_test.dart (pre-fix controller)",
+      "cwd": "apps/desktop",
+      "exit": 1,
+      "result": "2 failed: result lost after cancel (expected 27, actual 113); stop cancelled only latest job ['r422-job-2'] vs both"
+    },
+    {
+      "cmd": "flutter test test/repair/r4_22_repro_test.dart (post-fix)",
+      "cwd": "apps/desktop",
+      "exit": 0,
+      "result": "2 passed"
+    },
+    {
+      "cmd": "flutter test test/r4_09_contract_test.dart test/t15b_speedtest_test.dart test/reprof04_sort_readback_test.dart test/fix10b_profile_order_test.dart test/re_prof_08_export_udp_test.dart test/ux_test01_speedtest_feedback_test.dart",
+      "cwd": "apps/desktop",
+      "exit": 0,
+      "result": "35 passed, 0 failed"
+    },
+    {
+      "cmd": "cargo fmt --all -- --check",
+      "exit": 0,
+      "result": "no diff"
+    },
+    {
+      "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings",
+      "exit": 0,
+      "result": "Finished, no errors/warnings"
+    },
+    {
+      "cmd": "cargo test -p application --locked speedtest",
+      "exit": 0,
+      "result": "30 passed"
+    },
+    {
+      "cmd": "cargo test -p bridge_api --locked speedtest",
+      "exit": 0,
+      "result": "10 passed (incl. new generation-guard tests)"
+    },
+    {
+      "cmd": "cargo test --workspace --locked",
+      "exit": 101,
+      "result": "one unrelated flaky net_host test failed under parallel load (session::tests::r305_sidecar_failure_after_helper_releases_tun_lease); passes in isolation"
+    },
+    {
+      "cmd": "cargo test -p net_host --locked r305_sidecar_failure_after_helper_releases_tun_lease",
+      "exit": 0,
+      "result": "1 passed (flaky/timing, unrelated)"
+    },
+    {
+      "cmd": "flutter build windows --release",
+      "cwd": "apps/desktop",
+      "exit": 0,
+      "result": "Built build\\windows\\x64\\runner\\Release\\v2rayn_desktop.exe"
+    }
+  ],
+  "contract_tests": {
+    "repro_result_not_lost_after_cancel": "fail_before/pass_after",
+    "repro_stop_cancels_all_jobs": "fail_before/pass_after",
+    "generation_advances_on_start_and_cancel": "pass",
+    "completed_run_summarizes_frozen_scope": "pass",
+    "cancelled_rerun_not_stale_success": "pass",
+    "sort_persists_and_poll_does_not_revert": "pass",
+    "group_filter_sort_no_store_reread": "pass",
+    "scope_mixed_visible_selection_selected": "pass",
+    "udp_unsupported_explicit_not_faked": "pass",
+    "start_failure_readable_and_retryable": "pass",
+    "rust_late_old_generation_evicted": "pass",
+    "rust_start_clears_stale_delay": "pass"
+  },
+  "blockers": [
+    "full flutter analyze exit 1 due to concurrent agents' new test files (r4_16_matrix_test.dart, r4_23_contract_test.dart), not owned",
+    "cargo test --workspace one unrelated flaky net_host sidecar test under parallel load; passes in isolation"
+  ],
+  "gaps": [
+    "Real TCP/realping/download/UDP over a real core and isolated OS effects not exercised this session (no real kernel/environment); marked 未验证",
+    "UDP node-session path (R3-PROF-05) untouched and not re-run against a real core"
+  ]
+}

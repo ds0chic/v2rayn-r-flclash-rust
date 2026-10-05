@@ -994,6 +994,67 @@ mod tests {
         );
     }
 
+    #[test]
+    fn r4_13_s22_tun_fields_reach_generated_config() {
+        // R4-13.S22: every `TunModeItem` routing/KCP field is projected onto the
+        // generator settings and consumed by the real sing-box / xray TUN
+        // inbound, so a saved change is not "save only".
+        let mut settings = domain::AppSettings::default();
+        settings.tun_mode_item.enable_tun = true;
+        settings.tun_mode_item.auto_route = false;
+        settings.tun_mode_item.strict_route = true;
+        settings.tun_mode_item.stack = Some("system".into());
+        settings.tun_mode_item.icmp_routing = Some("direct".into());
+        settings.tun_mode_item.mtu = 1400;
+        settings.tun_mode_item.ipv4_address = Some("172.18.0.1/30".into());
+        settings.tun_mode_item.enable_ipv6_address = true;
+        settings.tun_mode_item.ipv6_address = Some("fd00::1/64".into());
+        settings.tun_mode_item.route_exclude_address = Some(vec!["10.0.0.0/8".into()]);
+
+        let codegen_settings = settings_from_app(&settings, &CodegenOptions::default());
+        assert!(codegen_settings.tun.enabled);
+        assert_eq!(codegen_settings.tun.mtu, 1400);
+        assert!(!codegen_settings.tun.auto_route);
+        assert!(codegen_settings.tun.strict_route);
+        assert_eq!(codegen_settings.tun.stack.as_deref(), Some("system"));
+        assert_eq!(codegen_settings.tun.icmp_routing.as_deref(), Some("direct"));
+        assert_eq!(
+            codegen_settings.tun.route_exclude_address,
+            vec!["10.0.0.0/8".to_string()]
+        );
+        assert!(codegen_settings.tun.enable_ipv6_address);
+
+        let active = leaf("tun-fields", "192.0.2.10");
+        let mut input = build_input(
+            &active,
+            std::slice::from_ref(&active),
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        input.settings = codegen_settings;
+
+        let singbox = generate(CoreType::SingBox, &input).unwrap();
+        let inbounds = singbox.main["inbounds"].as_array().expect("inbounds array");
+        let tun = inbounds
+            .iter()
+            .find(|i| i["type"] == serde_json::json!("tun"))
+            .expect("sing-box tun inbound");
+        assert_eq!(tun["mtu"], serde_json::json!(1400));
+        assert_eq!(tun["auto_route"], serde_json::json!(false));
+        assert_eq!(tun["strict_route"], serde_json::json!(true));
+        assert_eq!(tun["stack"], serde_json::json!("system"));
+
+        let xray = generate(CoreType::Xray, &input).unwrap();
+        let xray_inbounds = xray.main["inbounds"].as_array().expect("inbounds array");
+        let xray_tun = xray_inbounds
+            .iter()
+            .find(|i| i["protocol"] == serde_json::json!("tun"))
+            .expect("xray tun inbound");
+        assert_eq!(xray_tun["settings"]["name"], serde_json::json!("xray_tun"));
+    }
+
     // R4-13.S02: ClashUIItem.EnableIPv6 / EnableMixinContent reach the mihomo
     // merge options and really change the merged YAML.
     #[test]

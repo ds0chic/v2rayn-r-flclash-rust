@@ -1,0 +1,55 @@
+{
+  "task": "R4-21",
+  "title": "十四内核普通入口矩阵 / 缺核安装恢复",
+  "head_before": "a95897f",
+  "date": "2026-10-05",
+  "armed": false,
+  "platform": "Windows 11 25H2 x64",
+  "toolchain": {
+    "flutter": "3.47.5 stable (Dart 3.13.4)",
+    "rust": "1.98.1 stable-x86_64-pc-windows-msvc"
+  },
+  "safety": {
+    "touched_10808": false,
+    "host_proxy_registry_modified": false,
+    "tun_route_autostart_modified": false,
+    "user_secrets_read": false,
+    "fixtures": "synthetic only",
+    "stopped_processes": "only PIDs this harness started (xray/mihomo/synthetic-http), verified stopped=true"
+  },
+  "matrix": {
+    "frozen_proxy_cores": 14,
+    "app_rows": 1,
+    "auto": ["v2rayN", "xray", "mihomo", "sing_box"],
+    "manual": ["v2fly", "v2fly_v5", "hysteria", "hysteria2", "naiveproxy", "tuic", "juicity", "brook", "overtls", "shadowquic", "mieru"],
+    "blocked": [],
+    "bug_before": "UI_TARGETS omitted hysteria and v2fly_v5; every non-auto row labelled error.update_unsupported",
+    "note_keys": { "manual": "error.update_manual", "unsupported": "error.update_unsupported" }
+  },
+  "contract": {
+    "ordinary_entry_matrix_complete": true,
+    "manual_core_label_ui": "check_update_view renders 需手动安装 (was 不支持更新)",
+    "missing_core_install": "seedMissingCores -> installMissingCores drives T16 check+apply",
+    "install_failure_retryable": "error surfaced verbatim, missing banner kept, retry succeeds",
+    "real_core_e2e": "xray + mihomo: synthetic install into temp managed root -> real launch -> proxied local synthetic HTTP GET = R4-21-OK"
+  },
+  "commands": [
+    { "cmd": "cargo fmt --all -- --check", "exit": 0 },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "exit": 0 },
+    { "cmd": "cargo test --workspace --locked", "exit": 0 },
+    { "cmd": "cargo test -p application --locked --lib update_service", "exit": 0, "tests": 10 },
+    { "cmd": "cargo test -p runtime --locked --lib", "exit": 0, "tests": 62 },
+    { "cmd": "cargo test -p bridge_api --locked --lib t16", "exit": 0, "tests": 4 },
+    { "cmd": "flutter analyze", "exit": 0, "note": "No issues found" },
+    { "cmd": "flutter test test/r4_21_contract_test.dart", "exit": 0, "tests": 3 },
+    { "cmd": "flutter test test/repair/r4_21_repro_test.dart", "exit": 0, "tests": 1, "pre_fix": "exit 1 (需手动安装 not found)" },
+    { "cmd": "flutter build windows --release", "exit": 0 },
+    { "cmd": "docs/evidence/repair/R4-21/run_local_install_launch.ps1", "exit": 0, "xray": "proxied_ok=true", "mihomo": "proxied_ok=true", "port_10808_used": false }
+  ],
+  "run": {
+    "real_gui_armed_clickthrough": "not run (no armed packaged instance; a repo dist net_host and the user's desktop v2rayN/xray were running and were left untouched)",
+    "gui_widget_flow": "verified (flutter test)",
+    "real_core_launch_http": "verified (script harness)",
+    "os_effect": "not applicable"
+  }
+}

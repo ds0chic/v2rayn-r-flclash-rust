@@ -364,6 +364,27 @@ impl ProfileExStore {
         // Intentionally empty: statistics live in `monitor::StatsService`.
     }
 
+    /// Clear the test result of `ids` to an untested "Speedtesting" state at the
+    /// start of a run (upstream `GetClearItem` -> `SetTestResultAsync(...)`
+    /// with `ResUI.Speedtesting`). A stale measured delay from a previous run
+    /// must never be counted as this run's success, so a cancelled run that
+    /// never measured a node leaves it unknown instead of falsely successful
+    /// (R4-22). The persisted display `sort` and best-effort `ip_info` survive.
+    pub fn clear_test_results_for(&mut self, ids: &[String]) {
+        for id in ids {
+            let entry = self
+                .rows
+                .entry(id.clone())
+                .or_insert_with(|| ProfileExItem {
+                    index_id: id.clone(),
+                    ..Default::default()
+                });
+            entry.delay = 0;
+            entry.speed = 0.0;
+            entry.message = "Speedtesting".to_string();
+        }
+    }
+
     pub fn clear(&mut self) {
         self.rows.clear();
     }
@@ -731,6 +752,11 @@ pub struct SpeedTestJob {
     pub token: CancellationToken,
     pub kind: SpeedTestAction,
     pub snapshot: Arc<SpeedTestSnapshot>,
+    /// Monotonic run generation. A result batch may only overwrite a node's
+    /// stored result from an equal-or-newer generation, so a late batch from a
+    /// cancelled/superseded run can never clobber a newer run's measurement
+    /// (R4-22).
+    pub generation: u64,
 }
 
 /// Registry of in-flight speedtest jobs. The bridge owns one per process.
@@ -752,6 +778,7 @@ impl SpeedTestJobs {
             token: CancellationToken::new(),
             kind,
             snapshot: Arc::new(snapshot),
+            generation: n as u64,
         };
         if let Ok(mut map) = self.inner.lock() {
             map.insert(job.job_id.as_str().to_string(), job.clone());
@@ -2682,6 +2709,44 @@ mod tests {
         assert!(!jobs.cancel(job.job_id.as_str()));
         jobs.finish(job.job_id.as_str());
         assert_eq!(jobs.active_count(), 0);
+    }
+
+    #[test]
+    fn jobs_assign_a_strictly_increasing_generation() {
+        // R4-22: the run generation is monotonic so a newer run always wins and
+        // a late batch from an older run can be rejected.
+        let jobs = SpeedTestJobs::new();
+        let snap = SpeedTestSnapshot {
+            source_revision: 1,
+            nodes: nodes(&["a"]),
+        };
+        let first = jobs.start(SpeedTestAction::Tcping, snap.clone());
+        let second = jobs.start(SpeedTestAction::Tcping, snap);
+        assert!(second.generation > first.generation);
+        assert_eq!(first.generation, 1);
+        assert_eq!(second.generation, 2);
+    }
+
+    #[test]
+    fn clear_test_results_resets_stale_success_but_keeps_sort() {
+        // R4-22: starting a run clears the target's previous measured delay so a
+        // cancelled run cannot report a stale success, while the persisted
+        // `sort` (and best-effort ip_info) is preserved.
+        let mut store = ProfileExStore::new();
+        store.apply(&SpeedTestResult::delay("a", 123));
+        store.apply(&{
+            let mut r = SpeedTestResult::delay("b", 45);
+            r.ip_info = Some("203.0.113.7".into());
+            r
+        });
+        store.set_sort("a", 10);
+        store.clear_test_results_for(&["a".to_string()]);
+        let a = store.get("a").unwrap();
+        assert_eq!(a.delay, 0, "stale delay must be cleared");
+        assert_eq!(a.message, "Speedtesting");
+        assert_eq!(a.sort, 10, "persisted order survives the clear");
+        // A node outside the run is untouched.
+        assert_eq!(store.get("b").unwrap().delay, 45);
     }
 
     #[test]

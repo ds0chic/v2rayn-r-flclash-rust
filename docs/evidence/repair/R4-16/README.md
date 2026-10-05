@@ -1,6 +1,7 @@
 # R4-16 导入导出单次提交 — 证据
 
-状态：implemented（部分场景未运行 / 未实测，见“缺口”）。
+状态：verified（17 格式逐条 matrix 与真实数据目录重开互通已实测，见“本轮追加（2026-10-05）”；
+无组单事务桥入口 `commit_import_text` 仍缺，见“缺口”）。
 
 ## 固定基线 / 环境
 
@@ -59,3 +60,20 @@
 - 整合者生成 FRB 绑定：暴露 `preview_import_text` 与新增单事务 `commit_import_text(profiles, subid)`，令 Dart 无组导入也走单事务且避免组提交二次解析。
 - R4-17（IsSub 删除范围）需与本卡衔接：确认订阅替换只删 `is_sub=1`，手工 `is_sub=false` 节点留存。
 - 建立 17 格式逐条 matrix 夹具（合成），补真实数据目录重开与跨进程导出再导入证据。
+
+## 本轮追加（2026-10-05，matrix 子代理）
+
+起点 HEAD `a95897f`。详见 [matrix.md](matrix.md) 与 [matrix-commands.log](matrix-commands.log)。
+
+- 新增 `crates/subscriptions/tests/r4_16_matrix.rs`（18 tests）：FMT-001..FMT-017 纯解析层 import→export→re-import，
+  含 SIP008 / hy2 realm / WireGuard .conf / inner / v2ray / sing-box / Clash 未知键 / HTML 检测 / 分发 registry。
+- 新增 `apps/desktop/test/r4_16_matrix_test.dart`：真实 `bridge_api.dll` + 临时 SQLite 数据目录，
+  `importFromText(subid)` 单事务落库 → `queryProfiles` 重开读回 → share/inner/full 导出 → 再导入，
+  逐格式断言字段/未知键一致；并守卫 preview 不落库 / 坏行定位 / 手工不去重 / 文件不可写。
+- 修复 matrix 暴露的 IPv6 解析不一致：新增 `fmt::base::host_addr()` 剥离 `host_str()` 的 `[]`，
+  10 个 codec 统一使用；`fields` 归一为等价默认（空串=null、`security=none`=缺省、vmess `aid=0`=缺省）。
+- `flutter test test/t21e_import_real_bridge_test.dart` 通过（关闭缺口 #2）。
+- 原缺口 1（17 格式逐条）与缺口 2（真实 FRB 重开互通）关闭；缺口 3（无组单事务 `commit_import_text`）保留。
+- 门禁（全部 PASS）：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、
+  `cargo test --workspace --locked`、`flutter test test/r4_16_matrix_test.dart`、`flutter test test/t21e_import_real_bridge_test.dart`、
+  `flutter analyze`（整仓）。首轮工作区/整仓门禁曾被并行卡在改文件瞬时阻塞，重试（并行卡修复后）全部通过。

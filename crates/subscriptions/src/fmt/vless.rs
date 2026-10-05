@@ -12,7 +12,7 @@ pub fn parse(input: &str) -> Result<Profile, SubError> {
         config_type: ConfigType::Vless,
         ..Profile::default()
     };
-    item.address = url.host_str().unwrap_or_default().to_string();
+    item.address = base::host_addr(&url);
     item.port = url.port().map(i32::from).unwrap_or(0);
     item.remarks = url_decode(url.fragment().unwrap_or(""));
     let mut raw_user = url.username().to_string();

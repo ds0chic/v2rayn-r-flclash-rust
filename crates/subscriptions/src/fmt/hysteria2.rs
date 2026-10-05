@@ -61,7 +61,7 @@ impl HyRealm {
         Some(HyRealm {
             is_http,
             token: url_decode(&raw_user),
-            rendezvous_host: url.host_str().unwrap_or_default().to_string(),
+            rendezvous_host: base::host_addr(&url),
             rendezvous_port: url.port().map(i32::from).unwrap_or(default_port),
             realm_name: url.path().trim_start_matches('/').to_string(),
             stun_list,
@@ -115,7 +115,7 @@ pub fn parse(input: &str) -> Result<Profile, SubError> {
         config_type: ConfigType::Hysteria2,
         ..Profile::default()
     };
-    item.address = url.host_str().unwrap_or_default().to_string();
+    item.address = base::host_addr(&url);
     // `port()` is `None` only when the port was omitted or empty; an explicit
     // `:0` stays 0 and is rejected later by validation.
     item.port = url.port().map(i32::from).unwrap_or(443);

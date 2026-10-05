@@ -1998,4 +1998,141 @@ mod tests {
             "active node did not receive the proxy attribution"
         );
     }
+
+    // -----------------------------------------------------------------------
+    // R4-23: the connection list must come from a real Clash HTTP controller
+    // (here a local mock on a port >= 11808), and closing a connection must hit
+    // the same API with the id.
+    // -----------------------------------------------------------------------
+
+    const CONN_JSON: &str = r#"{"downloadTotal":200,"uploadTotal":100,"connections":[{"id":"c1","upload":10,"download":20,"start":"2026-10-05T00:00:00Z","chains":["PROXY","DIRECT"],"rule":"MATCH","metadata":{"host":"example.com","network":"tcp","type":"HTTP","sourceIP":"127.0.0.1","sourcePort":"12345","destinationIP":"127.0.0.1","destinationPort":"443","processPath":"C:/app.exe"}}]}"#;
+
+    struct ClashHttpMock {
+        port: u16,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        closed: std::sync::Arc<Mutex<Vec<String>>>,
+        handle: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl ClashHttpMock {
+        fn start() -> Self {
+            let listener = bind_floor_listener();
+            let port = listener.local_addr().expect("clash mock addr").port();
+            let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let closed = std::sync::Arc::new(Mutex::new(Vec::new()));
+            let flag = std::sync::Arc::clone(&stop);
+            let closed_out = std::sync::Arc::clone(&closed);
+            let handle = std::thread::spawn(move || {
+                while !flag.load(Ordering::SeqCst) {
+                    let Ok((mut stream, _)) = listener.accept() else {
+                        return;
+                    };
+                    let _ = serve_clash_http(&mut stream, &closed_out);
+                }
+            });
+            Self {
+                port,
+                stop,
+                closed,
+                handle: Some(handle),
+            }
+        }
+
+        fn base(&self) -> String {
+            format!("http://127.0.0.1:{}", self.port)
+        }
+    }
+
+    impl Drop for ClashHttpMock {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::SeqCst);
+            let _ = std::net::TcpStream::connect(("127.0.0.1", self.port));
+            if let Some(handle) = self.handle.take() {
+                let _ = handle.join();
+            }
+        }
+    }
+
+    fn serve_clash_http(
+        stream: &mut std::net::TcpStream,
+        closed: &Mutex<Vec<String>>,
+    ) -> std::io::Result<()> {
+        use std::io::{Read, Write};
+        stream.set_read_timeout(Some(Duration::from_millis(500)))?;
+        stream.set_write_timeout(Some(Duration::from_millis(500)))?;
+        let mut request = Vec::new();
+        let mut buf = [0u8; 512];
+        while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+            let n = stream.read(&mut buf)?;
+            if n == 0 || request.len() > 16 * 1024 {
+                return Ok(());
+            }
+            request.extend_from_slice(&buf[..n]);
+        }
+        let text = String::from_utf8_lossy(&request);
+        let line = text.lines().next().unwrap_or_default().to_string();
+        let mut parts = line.split_whitespace();
+        let method = parts.next().unwrap_or_default();
+        let path = parts.next().unwrap_or_default();
+        let (status, body) = match (method, path) {
+            ("GET", "/connections") => ("200 OK", CONN_JSON.to_string()),
+            ("DELETE", p) if p.starts_with("/connections") => {
+                let id = p.trim_start_matches("/connections").trim_matches('/');
+                if !id.is_empty() {
+                    closed
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .push(id.to_string());
+                }
+                ("204 No Content", String::new())
+            }
+            _ => ("404 Not Found", String::new()),
+        };
+        let response = format!(
+            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        stream.write_all(response.as_bytes())?;
+        stream.flush()?;
+        Ok(())
+    }
+
+    #[test]
+    fn clash_connections_mock_lists_and_closes_over_floor_port() {
+        let _guard = lock();
+        setup();
+        let mock = ClashHttpMock::start();
+        assert!(mock.port >= 11808 && mock.port != 10_808);
+
+        monitor_configure(CoreType::SingBox.value(), 0, 0, None, true, false, 2_000);
+        set_clash_base_for_test(Some(mock.base()));
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime");
+
+        let conns = rt.block_on(clash_connections());
+        assert!(conns.ok && conns.supported);
+        assert_eq!(conns.upload_total, 100);
+        assert_eq!(conns.download_total, 200);
+        assert_eq!(conns.items.len(), 1);
+        assert_eq!(conns.items[0].id, "c1");
+        assert_eq!(conns.items[0].host.as_deref(), Some("example.com"));
+        assert_eq!(conns.items[0].chains, vec!["PROXY", "DIRECT"]);
+
+        let closed = rt.block_on(close_clash_connection("c1".to_string()));
+        assert!(closed.ok);
+        assert_eq!(
+            mock.closed
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_slice(),
+            ["c1"]
+        );
+
+        let all = rt.block_on(close_all_clash_connections());
+        assert!(all.ok);
+        set_clash_base_for_test(None);
+    }
 }

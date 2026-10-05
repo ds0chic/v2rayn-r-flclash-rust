@@ -148,7 +148,7 @@ fn parse_sip002(input: &str) -> Result<Option<Profile>, SubError> {
     let mut item = Profile {
         config_type: ConfigType::Shadowsocks,
         remarks: url_decode(url.fragment().unwrap_or("")),
-        address: url.host_str().unwrap_or_default().to_string(),
+        address: base::host_addr(&url),
         port: url.port().map(i32::from).unwrap_or(0),
         ..Profile::default()
     };

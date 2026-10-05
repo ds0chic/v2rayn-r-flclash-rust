@@ -191,6 +191,7 @@ class ProfilesState {
     this.speedTestRunning = false,
     this.speedTestStage = '',
     this.speedTestMessage,
+    this.speedTestGeneration = 0,
     this.orderMessage,
   });
 
@@ -246,6 +247,11 @@ class ProfilesState {
   final String speedTestStage;
   final String? speedTestMessage;
 
+  /// Monotonic speedtest run generation. Bumped on every start and cancel so a
+  /// poller/completion belonging to an older run can be detected and dropped
+  /// instead of settling or summarizing a newer run (R4-22).
+  final int speedTestGeneration;
+
   /// Last drag/header/result order-persistence failure, shown in the status
   /// line (`ProfileExItem.Sort` write). Cleared by the next successful write.
   final String? orderMessage;
@@ -284,6 +290,7 @@ class ProfilesState {
     bool? speedTestRunning,
     String? speedTestStage,
     String? speedTestMessage,
+    int? speedTestGeneration,
     String? orderMessage,
     bool clearOrderMessage = false,
     bool clearSpeedTestJob = false,
@@ -314,6 +321,7 @@ class ProfilesState {
       speedTestRunning: speedTestRunning ?? this.speedTestRunning,
       speedTestStage: speedTestStage ?? this.speedTestStage,
       speedTestMessage: speedTestMessage ?? this.speedTestMessage,
+      speedTestGeneration: speedTestGeneration ?? this.speedTestGeneration,
       orderMessage: clearOrderMessage
           ? null
           : (orderMessage ?? this.orderMessage),
@@ -330,6 +338,9 @@ class ProfilesController extends Notifier<ProfilesState> {
   int _seq = 0;
   Timer? _testPoller;
 
+  /// Monotonic speedtest run generation (see [ProfilesState.speedTestGeneration]).
+  int _speedTestGeneration = 0;
+
   /// Ordered base rows (before the live speedtest/statistics overlay) from the
   /// last structural read. The 150 ms poll re-applies the overlay onto this
   /// cached base instead of re-reading the whole profile table (D08).
@@ -339,9 +350,11 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// a late (older) page result can never overwrite a newer one.
   int _queryGeneration = 0;
 
-  /// Node ids covered by the last started speedtest job; used to summarize the
-  /// run when it settles (progress rows alone are not a completion verdict).
-  List<String> _speedTestTargets = const <String>[];
+  /// Job ids of every run started but not yet confirmed finished. Upstream
+  /// `SpeedtestService.ExitLoop` cancels *all* in-flight runs, so the controller
+  /// tracks each real job id (never just the latest) and a Stop binds to all of
+  /// them instead of leaking an unstoppable job (R4-22).
+  final Set<String> _activeSpeedTestJobs = <String>{};
 
   /// Direction for "按测试结果排序" (DelayVal). Upstream reuses the header sort
   /// toggle, so repeated invocations flip ascending/descending. Failed and
@@ -371,26 +384,36 @@ class ProfilesController extends Notifier<ProfilesState> {
     );
   }
 
-  /// While a job runs, poll the Rust `ProfileExItem` store and refresh the
-  /// table. The Rust side still coalesces results into 50-100 ms batches; the
-  /// UI simply reads the closure at a bounded cadence and never fabricates a
+  /// While a run is active, poll the Rust `ProfileExItem` store and refresh the
+  /// table. The Rust side still coalesces results into 50-100 ms batches; the UI
+  /// simply reads the closure at a bounded cadence and never fabricates a
   /// percentage.
-  void _startTestPolling() {
+  ///
+  /// The poller captures the run [generation] and its [targets]. A tick whose
+  /// generation is no longer current (a newer start/cancel bumped the counter)
+  /// stops without touching state, so a stale poller can neither settle nor
+  /// summarize a newer run (R4-22). [targets] is the exact frozen scope of that
+  /// run, so the completion verdict never summarizes another run's nodes.
+  void _startTestPolling(int generation, List<String> targets) {
     _testPoller?.cancel();
     _testPoller = Timer.periodic(const Duration(milliseconds: 150), (timer) {
+      if (generation != _speedTestGeneration) {
+        timer.cancel();
+        if (identical(_testPoller, timer)) _testPoller = null;
+        return;
+      }
       _refreshLive();
       if (_bridge.speedTestActiveJobs() == 0) {
         timer.cancel();
-        _testPoller = null;
+        if (identical(_testPoller, timer)) _testPoller = null;
+        _activeSpeedTestJobs.clear();
         final cancelled = state.speedTestStage == 'SpeedtestingStop';
         state = state.copyWith(
           speedTestRunning: false,
           speedTestStage: cancelled
               ? 'SpeedtestingStop'
               : 'SpeedtestingCompleted',
-          speedTestMessage: cancelled
-              ? '已停止测速'
-              : _summarizeSpeedTest(_speedTestTargets),
+          speedTestMessage: cancelled ? '已停止测速' : _summarizeSpeedTest(targets),
         );
       }
     });
@@ -1393,6 +1416,10 @@ class ProfilesController extends Notifier<ProfilesState> {
       return const c.SimpleResult(ok: true);
     }
 
+    // Bump the run generation before the bridge call so the new run owns the
+    // poller: any older poller self-cancels on its next tick and can no longer
+    // settle or summarize this run (R4-22).
+    final generation = ++_speedTestGeneration;
     final result = _bridge.startSpeedTest(kind, ids);
     if (!result.ok) {
       final code = result.error?.code ?? 'unknown';
@@ -1404,6 +1431,7 @@ class ProfilesController extends Notifier<ProfilesState> {
         speedTestRunning: false,
         speedTestStage: 'SpeedtestingFailed',
         speedTestMessage: message,
+        speedTestGeneration: generation,
         clearSpeedTestJob: true,
       );
       _log('speedtest-start-failed', code);
@@ -1412,7 +1440,9 @@ class ProfilesController extends Notifier<ProfilesState> {
     }
 
     final started = result.jobId != null;
-    _speedTestTargets = started ? scopeIds : const <String>[];
+    if (started) {
+      _activeSpeedTestJobs.add(result.jobId!);
+    }
     state = state.copyWith(
       speedTestJobId: result.jobId,
       speedTestKind: kind,
@@ -1423,33 +1453,48 @@ class ProfilesController extends Notifier<ProfilesState> {
                 ? '正在测试当前列表 ${scopeIds.length} 个节点'
                 : '正在测试选中 ${scopeIds.length} 个节点')
           : '没有可测试节点',
+      speedTestGeneration: generation,
       clearSpeedTestJob: !started,
     );
     _log(
       action,
       'kind=$kind ids=${ids.length} scope=${scopeIds.length} '
-      'job=${result.jobId ?? "-"}',
+      'job=${result.jobId ?? "-"} gen=$generation',
     );
     _echo(action);
     if (started) {
-      _startTestPolling();
+      // The Rust start already cleared the run's stale results; read them once
+      // now so the table shows "no result yet" without waiting a poll tick.
+      _refreshLive();
+      _startTestPolling(generation, scopeIds);
     }
     return const c.SimpleResult(ok: true);
   }
 
   void cancelSpeedTest() {
-    final jobId = state.speedTestJobId;
-    if (jobId == null) return;
-    _bridge.cancelSpeedTest(jobId);
-    _testPoller?.cancel();
-    _testPoller = null;
+    // Upstream `SpeedtestService.ExitLoop` cancels every in-flight run, so the
+    // stop binds to all tracked real job ids, never just the latest one.
+    final jobs = _activeSpeedTestJobs.toSet();
+    if (jobs.isEmpty) return;
+    // Invalidate the current polling generation before cancelling so the old
+    // poller cannot settle the run while the runner is still winding down.
+    final generation = ++_speedTestGeneration;
+    for (final jobId in jobs) {
+      _bridge.cancelSpeedTest(jobId);
+    }
+    _activeSpeedTestJobs.clear();
     state = state.copyWith(
       speedTestRunning: false,
       speedTestStage: 'SpeedtestingStop',
       speedTestMessage: '已停止测速',
+      speedTestGeneration: generation,
     );
-    _log('speedtest-stop', 'job=$jobId');
+    _log('speedtest-stop', 'jobs=${jobs.length} gen=$generation');
     _echo(ProfileAction.stopTest);
+    // Keep a bounded settle poller until every real job reports zero, doing a
+    // final overlay read so results measured before the runner actually exits
+    // are never lost; a cancelled run is never summarized as completed.
+    _startTestPolling(generation, const <String>[]);
   }
 
   /// `按测试结果移除无效` (ACT-PROF-021 / PR-11 / RE-PROF-06): really delete the

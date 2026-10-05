@@ -1225,10 +1225,32 @@ mod tests {
         let singbox = targets.iter().find(|t| t.core == "sing_box").unwrap();
         assert!(singbox.supported);
         assert_eq!(singbox.max_version.as_deref(), Some("1.14.4294967295"));
-        // Unsupported cores are still listed, disabled, with a note.
+        // R4-21: every frozen proxy core is listed. Cores with no in-app
+        // download asset are shown disabled as manual, never omitted.
+        for core in [
+            "v2fly",
+            "v2fly_v5",
+            "xray",
+            "sing_box",
+            "mihomo",
+            "hysteria",
+            "naiveproxy",
+            "tuic",
+            "juicity",
+            "hysteria2",
+            "brook",
+            "overtls",
+            "shadowquic",
+            "mieru",
+        ] {
+            assert!(
+                targets.iter().any(|t| t.core == core),
+                "target list omitted {core}"
+            );
+        }
         let tuic = targets.iter().find(|t| t.core == "tuic").unwrap();
         assert!(!tuic.supported);
-        assert_eq!(tuic.note.as_deref(), Some("error.update_unsupported"));
+        assert_eq!(tuic.note.as_deref(), Some("error.update_manual"));
     }
 
     #[test]

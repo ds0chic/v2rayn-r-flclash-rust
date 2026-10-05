@@ -165,6 +165,41 @@ pub fn core_dir(core: CoreType) -> &'static str {
     CoreInstallLayout::dir_name(core)
 }
 
+/// The update-pipeline key for a core type.
+///
+/// The updater identifies cores with the lowercase `Global.CoreUrls` keys
+/// (`updater::channel::CORE_URLS`); `CoreType::as_str()` preserves upstream's
+/// capitalized `Xray`. The ordinary install/update entry matrix maps through
+/// here so it can never omit or mis-name a core the runtime has an adapter for
+/// (R4-21).
+pub const fn update_core_key(core: CoreType) -> &'static str {
+    match core {
+        CoreType::V2fly => "v2fly",
+        CoreType::Xray => "xray",
+        CoreType::V2flyV5 => "v2fly_v5",
+        CoreType::Mihomo => "mihomo",
+        CoreType::Hysteria => "hysteria",
+        CoreType::NaiveProxy => "naiveproxy",
+        CoreType::Tuic => "tuic",
+        CoreType::SingBox => "sing_box",
+        CoreType::Juicity => "juicity",
+        CoreType::Hysteria2 => "hysteria2",
+        CoreType::Brook => "brook",
+        CoreType::OverTls => "overtls",
+        CoreType::ShadowQuic => "shadowquic",
+        CoreType::Mieru => "mieru",
+        CoreType::App => "v2rayN",
+    }
+}
+
+/// Reverse of [`update_core_key`] for the proxy cores.
+pub fn core_type_for_update_key(key: &str) -> Option<CoreType> {
+    CoreType::PROXY_CORES
+        .iter()
+        .copied()
+        .find(|core| update_core_key(*core) == key)
+}
+
 /// The managed cores root for the current user, mirroring
 /// `application::AppEngine::default_data_dir()` (`<data>/cores`) so the runtime
 /// and the update pipeline resolve the same directory even before the app has
@@ -885,6 +920,22 @@ mod tests {
                 core.as_str()
             );
         }
+    }
+
+    #[test]
+    fn update_core_key_round_trips_every_proxy_core() {
+        assert_eq!(update_core_key(CoreType::Xray), "xray");
+        assert_eq!(update_core_key(CoreType::SingBox), "sing_box");
+        assert_eq!(update_core_key(CoreType::App), "v2rayN");
+        for core in CoreType::PROXY_CORES {
+            let key = update_core_key(core);
+            assert_eq!(
+                core_type_for_update_key(key),
+                Some(core),
+                "update key {key} does not map back"
+            );
+        }
+        assert!(core_type_for_update_key("v2rayN").is_none());
     }
 
     #[test]

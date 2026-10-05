@@ -9,7 +9,7 @@
 //! last batch stream. Batches are pushed through an FRB [`StreamSink`]; the
 //! worker thread is joined-by-token (cancel is cooperative at safe points).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -285,6 +285,10 @@ struct SpeedTestHub {
     subscribers: Vec<StreamSink<SpeedTestBatchDto>>,
     /// Whether the persisted `ProfileExItem` table has been loaded once.
     loaded: bool,
+    /// Per-node run generation of the last accepted result. A batch from an
+    /// older generation may never overwrite a node already claimed by a newer
+    /// run (R4-22), so a late response from a cancelled job is evicted.
+    result_generation: HashMap<String, u64>,
 }
 
 impl SpeedTestHub {
@@ -296,8 +300,44 @@ impl SpeedTestHub {
             source_revision: 0,
             subscribers: Vec::new(),
             loaded: false,
+            result_generation: HashMap::new(),
         }
     }
+}
+
+/// Claim a run's node set: clear its stale results and record the run's
+/// generation so no older in-flight run can write them afterwards.
+fn begin_job_results(h: &mut SpeedTestHub, generation: u64, ids: &[String]) {
+    h.results.clear_test_results_for(ids);
+    for id in ids {
+        h.result_generation.insert(id.clone(), generation);
+    }
+}
+
+/// Apply one job's result batch under the generation guard. A result is
+/// accepted only when its generation is at least the node's last accepted
+/// generation; accepted nodes are stamped with the (possibly newer) run.
+/// Returns the accepted results (in input order) for the FRB stream.
+fn apply_job_batch(
+    h: &mut SpeedTestHub,
+    generation: u64,
+    batch: &[SpeedTestResult],
+) -> Vec<SpeedTestResult> {
+    let mut accepted = Vec::with_capacity(batch.len());
+    for result in batch {
+        let current = h
+            .result_generation
+            .get(&result.index_id)
+            .copied()
+            .unwrap_or(0);
+        if generation >= current {
+            h.result_generation
+                .insert(result.index_id.clone(), generation);
+            accepted.push(result.clone());
+        }
+    }
+    h.results.apply_all(&accepted);
+    accepted
 }
 
 /// Load the persisted `ProfileExItem` table into the hub exactly once.
@@ -488,11 +528,17 @@ pub fn speedtest_start(kind: i32, index_ids: Vec<String>) -> SpeedTestStartDto {
                 nodes: test_nodes.clone(),
             },
         );
+        // Clear the run's stale results under its generation; an older
+        // in-flight run can no longer write these node ids (R4-22).
+        ensure_profile_ex_loaded(h);
+        let ids: Vec<String> = test_nodes.iter().map(|n| n.index_id.clone()).collect();
+        begin_job_results(h, job.generation, &ids);
         (h.settings.clone(), job)
     });
 
     let job_id = job.job_id.as_str().to_string();
     let job_id_out = job_id.clone();
+    let job_generation = job.generation;
     let total = test_nodes.len() as u32;
     let token = job.token.clone();
     let kind_value = action_value(action);
@@ -503,13 +549,13 @@ pub fn speedtest_start(kind: i32, index_ids: Vec<String>) -> SpeedTestStartDto {
         .spawn(move || {
             let job_id_for_batch = job_id.clone();
             let outcome = runner.run(action, &test_nodes, &token, |batch| {
-                let dtos: Vec<SpeedTestResultDto> = batch.iter().map(dto).collect();
                 with_hub(|h| {
-                    h.results.apply_all(batch);
+                    let accepted = apply_job_batch(h, job_generation, batch);
+                    let dtos: Vec<SpeedTestResultDto> = accepted.iter().map(dto).collect();
                     let dto = SpeedTestBatchDto {
                         job_id: job_id_for_batch.clone(),
                         kind: kind_value,
-                        results: dtos.clone(),
+                        results: dtos,
                         done: false,
                         cancelled: false,
                     };
@@ -890,6 +936,47 @@ mod tests {
         let flipped = vec!["b".to_string(), "a".to_string(), "c".to_string()];
         assert!(speedtest_apply_profile_order(flipped).ok);
         assert_eq!(ids(), vec!["b", "a", "c"], "direction toggle read-back");
+    }
+
+    #[test]
+    fn late_old_generation_batch_cannot_overwrite_a_newer_run() {
+        // R4-22: run 2 claims nodes a/b and measures a=50; a late batch from run
+        // 1 (generation 1) is evicted instead of clobbering the newer result,
+        // while a node no run claimed is still filled by the older run.
+        let mut h = SpeedTestHub::new();
+        let ids = vec!["a".to_string(), "b".to_string()];
+        begin_job_results(&mut h, 2, &ids);
+
+        let accepted_new = apply_job_batch(&mut h, 2, &[SpeedTestResult::delay("a", 50)]);
+        assert_eq!(accepted_new.len(), 1);
+        assert_eq!(h.results.get("a").unwrap().delay, 50);
+
+        let accepted_old = apply_job_batch(&mut h, 1, &[SpeedTestResult::delay("a", 7)]);
+        assert!(accepted_old.is_empty(), "stale generation must be dropped");
+        assert_eq!(
+            h.results.get("a").unwrap().delay,
+            50,
+            "newer result survives"
+        );
+
+        let unclaimed = apply_job_batch(&mut h, 1, &[SpeedTestResult::delay("c", 9)]);
+        assert_eq!(unclaimed.len(), 1, "an unclaimed node is not lost");
+        assert_eq!(h.results.get("c").unwrap().delay, 9);
+    }
+
+    #[test]
+    fn starting_a_run_clears_stale_delay_before_measuring() {
+        // R4-22: a stage-2 run clearing a/b must not leave a stage-1 success in
+        // place; a cancelled run therefore reports "unknown", never fake success.
+        let mut h = SpeedTestHub::new();
+        apply_job_batch(&mut h, 1, &[SpeedTestResult::delay("a", 88)]);
+        assert_eq!(h.results.get("a").unwrap().delay, 88);
+        begin_job_results(&mut h, 2, &["a".to_string()]);
+        assert_eq!(
+            h.results.get("a").unwrap().delay,
+            0,
+            "stale success is cleared at the next run start"
+        );
     }
 
     #[test]

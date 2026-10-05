@@ -1,0 +1,41 @@
+{
+  "task": "R4-13.S22",
+  "group": "TunModeItem",
+  "instance_status": "implemented_storage_plus_codegen",
+  "coordinator": "R4-13",
+  "base_commit": "a95897f48bcbac8a83632c4ab6d448653d5d8d66",
+  "upstream": {
+    "version": "v2rayN 7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "path": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/"
+  },
+  "armed": false,
+  "constraints_honored": {
+    "port_10808_untouched": true,
+    "host_proxy_registry_route_tun_autostart_untouched": true,
+    "no_user_credentials": true,
+    "work_outputs_readonly": true,
+    "worktree_other_agent_changes_untouched": true
+  },
+  "rust_codegen_assertion": "crates/application/src/codegen.rs::tests::r4_13_s22_tun_fields_reach_generated_config",
+  "contract_test": {
+    "file": "apps/desktop/test/r4_13_s22_contract_test.dart",
+    "cases": 2,
+    "result": "pass"
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_13_s22_repro_test.dart",
+    "result": "pass (regression guard; generation half proven by the Rust test)"
+  },
+  "commands": [
+    { "cmd": "flutter analyze (scoped to changed files)", "result": "No issues found" },
+    { "cmd": "flutter test test/r4_13_s22_contract_test.dart", "result": "All tests passed (2/2)" },
+    { "cmd": "flutter test test/repair/r4_13_s22_repro_test.dart", "result": "All tests passed (1/1)" },
+    { "cmd": "cargo test -p application r4_13_s22_tun_fields_reach_generated_config --locked", "result": "1 passed" },
+    { "cmd": "cargo test -p application --locked", "result": "exit 0, 0 FAILED" }
+  ],
+  "blocked": [
+    "real TUN device creation / auto-route / route+DNS+IPv6 / crash-sleep recovery requires an authorized isolated VM (R4-25); not exercised here"
+  ],
+  "fields": ["FLD-CFG-095", "FLD-CFG-096", "FLD-CFG-097", "FLD-CFG-098", "FLD-CFG-099", "FLD-CFG-100", "FLD-CFG-101", "FLD-CFG-102", "FLD-CFG-103", "FLD-CFG-104", "FLD-CFG-105"]
+}

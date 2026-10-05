@@ -1,0 +1,38 @@
+{
+  "task": "R4-13.S24",
+  "group": "WebDavItem",
+  "instance_status": "implemented_storage_plus_t16_consume",
+  "coordinator": "R4-13",
+  "base_commit": "a95897f48bcbac8a83632c4ab6d448653d5d8d66",
+  "upstream": {
+    "version": "v2rayN 7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "path": "work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/"
+  },
+  "armed": false,
+  "constraints_honored": {
+    "port_10808_untouched": true,
+    "host_proxy_registry_route_tun_autostart_untouched": true,
+    "no_user_credentials": true,
+    "work_outputs_readonly": true,
+    "worktree_other_agent_changes_untouched": true
+  },
+  "contract_test": {
+    "file": "apps/desktop/test/r4_13_s24_contract_test.dart",
+    "cases": 3,
+    "result": "pass"
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_13_s24_repro_test.dart",
+    "result": "pass (field reopen + stale-revision regression guard; no in-scope defect found)"
+  },
+  "commands": [
+    { "cmd": "flutter analyze (scoped to changed files)", "result": "No issues found" },
+    { "cmd": "flutter test test/r4_13_s24_contract_test.dart", "result": "All tests passed (3/3)" },
+    { "cmd": "flutter test test/repair/r4_13_s24_repro_test.dart", "result": "All tests passed (1/1)" }
+  ],
+  "blocked": [
+    "real TLS/WebDAV endpoint and real Windows restart end-to-end not exercised (no synthetic remote); secrets are never written to evidence or logs"
+  ],
+  "fields": ["FLD-CFG-143", "FLD-CFG-144", "FLD-CFG-145", "FLD-CFG-146"]
+}

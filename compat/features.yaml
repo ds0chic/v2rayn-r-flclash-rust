@@ -566,7 +566,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/VmessFmt.cs:20
   - v2rayN/ServiceLib/Handler/Fmt/VmessFmt.cs:152
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:13
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-002
   name: VLESSFmt
   kind: 分享链接 Resolve/ToUri
@@ -575,7 +577,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs:5
   - v2rayN/ServiceLib/Handler/Fmt/VLESSFmt.cs:37
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:17
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-003
   name: ShadowsocksFmt
   kind: 分享链接 + SIP008 订阅解析
@@ -585,7 +589,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/ShadowsocksFmt.cs:26
   - v2rayN/ServiceLib/Handler/Fmt/ShadowsocksFmt.cs:281
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1920
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-004
   name: SocksFmt
   kind: socks/socks5/socks4 分享链接
@@ -594,7 +600,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/SocksFmt.cs:5
   - v2rayN/ServiceLib/Handler/Fmt/SocksFmt.cs:24
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:56
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-005
   name: TrojanFmt
   kind: 分享链接 Resolve/ToUri
@@ -603,7 +611,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/TrojanFmt.cs:7
   - v2rayN/ServiceLib/Handler/Fmt/TrojanFmt.cs:38
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:16
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-006
   name: Hysteria2Fmt
   kind: 分享链接 + Realm + 全量配置
@@ -614,7 +624,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/Hysteria2Fmt.cs:77
   - v2rayN/ServiceLib/Handler/Fmt/Hysteria2Fmt.cs:119
   - v2rayN/ServiceLib/Handler/Fmt/Hysteria2Fmt.cs:59
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-007
   name: TuicFmt
   kind: 分享链接 Resolve/ToUri
@@ -623,7 +635,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/TuicFmt.cs:5
   - v2rayN/ServiceLib/Handler/Fmt/TuicFmt.cs:45
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:19
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-008
   name: WireguardFmt
   kind: 分享链接 + wg 配置解析
@@ -633,7 +647,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/WireguardFmt.cs:58
   - v2rayN/ServiceLib/Handler/Fmt/WireguardFmt.cs:113
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1947
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-009
   name: AnytlsFmt
   kind: 分享链接 Resolve/ToUri
@@ -642,7 +658,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/AnytlsFmt.cs:5
   - v2rayN/ServiceLib/Handler/Fmt/AnytlsFmt.cs:36
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:21
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-010
   name: NaiveFmt
   kind: naive+https / naive+quic 分享链接
@@ -651,7 +669,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/NaiveFmt.cs:5
   - v2rayN/ServiceLib/Handler/Fmt/NaiveFmt.cs:57
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:92
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-011
   name: InnerFmt
   kind: v2rayn:// 内部 URI 导入导出
@@ -661,7 +681,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/InnerFmt.cs:98
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1977
   - v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs:832
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-012
   name: V2rayFmt
   kind: v2ray 全量/出站 JSON 识别为 Custom/Outbound
@@ -671,7 +693,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/V2rayFmt.cs:11
   - v2rayN/ServiceLib/Handler/Fmt/V2rayFmt.cs:111
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1715
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-013
   name: SingboxFmt
   kind: sing-box 全量/出站 JSON 识别为 Custom/Outbound
@@ -680,7 +704,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/SingboxFmt.cs:5
   - v2rayN/ServiceLib/Handler/Fmt/SingboxFmt.cs:11
   - v2rayN/ServiceLib/Handler/ConfigHandler.cs:1732
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-014
   name: ClashFmt
   kind: Clash YAML 全量识别为 mihomo Custom
@@ -688,14 +714,18 @@ fmt_formats:
   evidence:
   - v2rayN/ServiceLib/Handler/Fmt/ClashFmt.cs:5
   - v2rayN/ServiceLib/Handler/Fmt/ClashFmt.cs:7
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-015
   name: HtmlPageFmt
   kind: 订阅返回 HTML 页面检测
   entry: AddBatchServers 格式识别
   evidence:
   - v2rayN/ServiceLib/Handler/Fmt/HtmlPageFmt.cs:5
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 - id: FMT-016
   name: BaseFmt
   kind: 分享链接公共基类（查询串、传输、IPv6 处理）
@@ -704,7 +734,9 @@ fmt_formats:
   - v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs:20
   - v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs:197
   - v2rayN/ServiceLib/Handler/Fmt/BaseFmt.cs:330
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: not_applicable
 - id: FMT-017
   name: FmtHandler
   kind: 分享 URI 统一入口与协议分发
@@ -712,7 +744,9 @@ fmt_formats:
   evidence:
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:7
   - v2rayN/ServiceLib/Handler/Fmt/FmtHandler.cs:35
-  status: identified
+  - docs/evidence/repair/R4-16/matrix.md
+  - crates/subscriptions/tests/r4_16_matrix.rs
+  status: verified
 features:
 - id: F-PROFILE-001
   name: 添加基础协议节点
@@ -5107,4 +5141,16 @@ remediation_implementation_records:
 # is implemented for Geo .dat + the upstream default geosite SRS set; DNS-derived
 # SRS and other/route/cert/SubConvert consumers remain blocked. Real remote
 # download and real GUI reopen unverified. Evidence: docs/evidence/repair/R4-34/.
+#
+# R4-21 (2026-10-05, HEAD a95897f) append-only note: the ordinary install/update
+# entry now lists all 14 frozen proxy cores (derived from CoreType::PROXY_CORES
+# via runtime::adapter::update_core_key) plus the application row, instead of the
+# previous 13-row UI_TARGETS that silently omitted hysteria and v2fly_v5.
+# application::CoreEntryKind classifies auto (xray/mihomo/sing_box) vs manual (the
+# other 11; note error.update_manual, upstream defines no DownloadUrl*) vs blocked
+# (none among the 14). check_update_view renders manual rows as "需手动安装".
+# Missing-core install/retry for xray+mihomo verified at widget level; real
+# synthetic install -> launch -> local synthetic HTTP GET verified by
+# docs/evidence/repair/R4-21/run_local_install_launch.ps1 (R4-21-OK, 10808 unused).
+# Armed GUI click-through not run. Evidence: docs/evidence/repair/R4-21/.
 

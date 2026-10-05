@@ -1,0 +1,66 @@
+# R4-22 command log (2026-10-05, commit a95897f, dirty tree w/ parallel agents)
+
+# --- pre-fix repro evidence (controller temporarily reverted via git stash) ---
+# git stash push -- apps/desktop/lib/features/profiles/profiles_controller.dart
+$ flutter test test/repair/r4_22_repro_test.dart -r expanded
+00:00 +0 -1: cancel keeps the real job binding and a result measured before the runner exits is not lost [E]
+  Expected: <27>
+    Actual: <113>
+00:00 +0 -2: stop cancels every in-flight run, not just the latest job id [E]
+  Expected: contains all of ['r422-job-1', 'r422-job-2']
+    Actual: ['r422-job-2']
+00:00 +0 -2: Some tests failed.
+# git stash pop
+
+# --- post-fix ---
+$ flutter analyze            # cwd apps/desktop   EXIT=1
+warning - The declaration '_sip008' isn't referenced - test\r4_16_matrix_test.dart:65:8 - unused_element
+warning - Unused import: '...runtime_controller.dart' - test\r4_23_contract_test.dart:11:8 - unused_import
+2 issues found.
+# both files belong to concurrent agents; owned files have no issues.
+
+$ dart format --output=none --set-exit-if-changed lib/features/profiles/profiles_controller.dart test/support/r4_22_bridge.dart test/repair/r4_22_repro_test.dart test/r4_22_contract_test.dart
+Formatted 4 files (0 changed)   EXIT=0
+
+$ flutter test test/r4_22_contract_test.dart
+00:01 +8: All tests passed!
+
+$ flutter test test/repair/r4_22_repro_test.dart
+00:00 +2: All tests passed!
+
+$ flutter test test/r4_09_contract_test.dart test/t15b_speedtest_test.dart test/reprof04_sort_readback_test.dart test/fix10b_profile_order_test.dart test/re_prof_08_export_udp_test.dart test/ux_test01_speedtest_feedback_test.dart
+00:08 +35: All tests passed!
+
+$ cargo fmt --all -- --check
+EXIT=0
+
+$ cargo clippy -p application -p bridge_api --all-targets --locked -- -D warnings
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.11s   EXIT=0
+
+$ cargo clippy --workspace --all-targets --locked -- -D warnings
+Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.70s   EXIT=0
+
+$ cargo test -p application --locked speedtest
+test result: ok. 30 passed; 0 failed
+
+$ cargo test -p bridge_api --locked speedtest
+test api::speedtest::tests::late_old_generation_batch_cannot_overwrite_a_newer_run ... ok
+test api::speedtest::tests::starting_a_run_clears_stale_delay_before_measuring ... ok
+test result: ok. 10 passed; 0 failed
+
+$ cargo test --workspace --locked
+test result: FAILED. 63 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 28.61s
+thread 'session::tests::r305_sidecar_failure_after_helper_releases_tun_lease' panicked at services\net_host\src\session.rs:2904:62:
+  sidecar must fail: "op-1791188102704-7"
+error: test failed, to rerun pass `-p net_host --bin net_host`
+
+$ cargo test -p net_host --locked r305_sidecar_failure_after_helper_releases_tun_lease
+test result: ok. 1 passed; 0 failed; finished in 2.12s
+# -> flaky under parallel load; net_host untouched by R4-22
+
+$ flutter build windows --release      # cwd apps/desktop
+Building Windows application...   68.5s
+Built build\windows\x64\runner\Release\v2rayn_desktop.exe   EXIT=0
+
+# Safety: no build-output exe held by this task; 10808 not touched; no host proxy/route/TUN/autostart change.
+# The running net_host (dist) and user v2rayN/xray processes were left untouched (no session record).

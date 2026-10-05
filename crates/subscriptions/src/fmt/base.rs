@@ -77,6 +77,18 @@ pub fn set_allow_insecure(item: &mut Profile, enabled: bool) {
     };
 }
 
+/// `Url::host_str` keeps the `[]` around an IPv6 literal, but the stored
+/// `Address` (and [`crate::util::bracket_ipv6`] on emit) expects the bare host.
+/// Strip one enclosing pair so import -> export -> re-import stays
+/// field-consistent for IPv6 nodes.
+pub fn host_addr(url: &url::Url) -> String {
+    let host = url.host_str().unwrap_or_default();
+    host.strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host)
+        .to_string()
+}
+
 /// Build `...@host:port?query#remark`. `user_info` is percent-encoded here, so
 /// callers pass the raw value.
 pub fn build_uri(

@@ -1,0 +1,57 @@
+{
+  "task": "R4-21",
+  "generated": "2026-10-05T16:16:54",
+  "cores": [
+    {
+      "core": "xray",
+      "version": "26.3.27",
+      "managed_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4-21-cores-ad96cbd7\\xray\\26.3.27",
+      "args": [
+        "run",
+        "-c",
+        "{cfg}"
+      ],
+      "proxy_port": 21809,
+      "listened": true,
+      "proxied_ok": true,
+      "proxied_body": "R4-21-OK",
+      "proxied_status": 200,
+      "proxied_error": null,
+      "pid": 38600
+    },
+    {
+      "core": "mihomo",
+      "version": "1.19.32",
+      "managed_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4-21-cores-ad96cbd7\\mihomo\\1.19.32",
+      "args": [
+        "-f",
+        "{cfg}",
+        "-d",
+        "{dir}"
+      ],
+      "proxy_port": 21810,
+      "listened": true,
+      "proxied_ok": true,
+      "proxied_body": "R4-21-OK",
+      "proxied_status": 200,
+      "proxied_error": null,
+      "pid": 10556
+    }
+  ],
+  "bound_port_10808": false,
+  "stopped": [
+    {
+      "pid": 23408,
+      "stopped": true
+    },
+    {
+      "pid": 38600,
+      "stopped": true
+    },
+    {
+      "pid": 10556,
+      "stopped": true
+    }
+  ],
+  "port_10808_used": false
+}

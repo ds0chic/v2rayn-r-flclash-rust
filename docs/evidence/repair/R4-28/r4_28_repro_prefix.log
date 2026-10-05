@@ -1,0 +1,45 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_28_repro_test.dart
+00:00 +0: a thrown WebDAV check completes, reports an error and clears busy
+00:00 +0 -1: a thrown WebDAV check completes, reports an error and clears busy [E]
+  Bad state: native bridge exploded at http://127.0.0.1:11818
+  test\repair\r4_28_repro_test.dart 29:7                                _FlakyBridge.t16WebdavCheck
+  package:v2rayn_desktop/features/backup/backup_controller.dart 375:55  BackupController.webdavCheck
+  test\repair\r4_28_repro_test.dart 75:34                               main.<fn>
+  
+00:00 +0 -1: a thrown local backup completes, reports and clears busy
+00:00 +0 -2: a thrown local backup completes, reports and clears busy [E]
+  Bad state: disk copy failed
+  test\repair\r4_28_repro_test.dart 38:7  _FlakyBridge.t16BackupLocal
+  
+00:00 +0 -2: cancel during a slow remote backup discards the late result
+00:00 +0 -3: cancel during a slow remote backup discards the late result [E]
+  Expected: '宸插彇娑?
+    Actual: '杩滅▼澶囦唤瀹屾垚锛?024 瀛楄妭'
+     Which: is different.
+            Expected: 宸插彇娑?              Actual: 杩滅▼澶囦唤瀹屾垚锛?02 ...
+                      ^
+             Differ at offset 0
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\repair\r4_28_repro_test.dart 113:5             main.<fn>
+  
+00:00 +0 -3: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_28_repro_test.dart: a thrown WebDAV check completes, reports an error and clears busy
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_28_repro_test.dart: a thrown local backup completes, reports and clears busy
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_28_repro_test.dart: cancel during a slow remote backup discards the late result

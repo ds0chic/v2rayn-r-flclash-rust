@@ -53,6 +53,31 @@ const List<String> _vlessFlows = <String>[
   'xtls-rprx-vision-udp443',
 ];
 
+/// Shadowsocks methods accepted by `ProfileItem.IsValid()`
+/// (`Global.SsSecuritiesInSingbox`, `domain::profile::SS_METHODS_SINGBOX`). A
+/// missing/other method makes the node invalid, so a subscription child using it
+/// is dropped from the group exactly like the Rust generation consumer.
+const List<String> _ssMethodsSingbox = <String>[
+  'aes-256-gcm',
+  'aes-192-gcm',
+  'aes-128-gcm',
+  'chacha20-ietf-poly1305',
+  'xchacha20-ietf-poly1305',
+  'none',
+  '2022-blake3-aes-128-gcm',
+  '2022-blake3-aes-256-gcm',
+  '2022-blake3-chacha20-poly1305',
+  'aes-128-ctr',
+  'aes-192-ctr',
+  'aes-256-ctr',
+  'aes-128-cfb',
+  'aes-192-cfb',
+  'aes-256-cfb',
+  'rc4-md5',
+  'chacha20-ietf',
+  'xchacha20',
+];
+
 /// Dart port of `domain::Profile::is_valid` (upstream `ProfileItem.IsValid()`):
 /// complex/Outbound kinds are always valid, ordinary nodes need a usable
 /// address/port plus their protocol credentials. Subscription-derived policy
@@ -77,6 +102,9 @@ bool _isProfileValid(c.ProfileDto p) {
       break;
     case ConfigType.shadowsocks:
       if (p.password.isEmpty) return false;
+      if (!_ssMethodsSingbox.contains(p.protoExtra.ssMethod ?? '')) {
+        return false;
+      }
       break;
     default:
       break;

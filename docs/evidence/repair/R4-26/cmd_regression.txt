@@ -1,0 +1,91 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_09_tray_icon_today_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_09_tray_icon_today_test.dart: R3-09a tray icon resource mapping every status maps to a distinct resource file
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_09_tray_icon_today_test.dart: R3-09a tray icon resource mapping a recognizable fallback resource is declared
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_09_tray_icon_today_test.dart: R3-09b today traffic semantics today aggregates node ServerStatItem values, not the session counter
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_09_tray_icon_today_test.dart: R3-09b today traffic semantics no node rows => no today value (no session / disabled)
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_09_tray_icon_today_test.dart: R3-09b today traffic semantics status bar shows the node today sum, not session cumulative
+00:01 +5: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart
+00:02 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: trayIconStatus idle when nothing runs
+00:02 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: trayIconStatus proxyActive when ForcedChange is applied to a running session
+00:02 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: trayIconStatus coreRunning when a session runs without a forced proxy
+00:02 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: trayIconStatus proxyPac when PAC is serving
+00:02 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: sync applies the first model and de-duplicates repeats
+00:02 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: menu checkmarks follow the same active/default state
+00:02 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr08_tray_sync_test.dart: business change re-syncs the node checkmark through a provider
+00:02 +12: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart
+00:04 +12: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter known WPF Key values map to the upstream virtual keys
+00:04 +13: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter VK round-trips back to the persisted WPF Key
+00:04 +14: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter WPF Key resolves to a registerable Flutter physical key
+00:04 +15: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter unsupported keys never guess
+00:04 +16: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: HotkeyKeyCodec WPF Key <-> VK <-> Flutter modifier detection matches the recording rule
+00:04 +17: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: hotkey dispatch registered trigger reaches the shell dispatcher
+00:04 +18: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: hotkey dispatch a failed persist does not re-register or dispatch
+00:04 +19: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_hotkey_test.dart: hotkey window recording a modifier does not terminate recording, then key sets WPF Key
+00:04 +20: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_hotkey_test.dart
+00:05 +20: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_hotkey_test.dart: hotkey window records a combo and persists it
+00:06 +21: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart
+00:06 +21: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey binding model unbound correspondence and label
+00:06 +22: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey binding model parses and serializes the KeyEventItem shape
+00:06 +23: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey controller registerAll accepts valid bindings and reports conflicts
+00:06 +24: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey controller conflict is surfaced, not swallowed
+00:06 +25: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: hotkey controller save rejects when persist fails
+00:06 +26: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart: close behavior parses UiItem close flags
+00:06 +27: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart
+00:07 +27: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-06 groupHotkeyBindings same combo with two actions collapses to one registration
+00:07 +28: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-06 groupHotkeyBindings different combos stay separate, duplicates collapse, unbound skipped
+00:07 +29: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-06 one registration dispatches every action of the combo
+00:07 +30: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-05 open pauses the old binding, records it without firing, cancel restores
+00:07 +31: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-05 save registers the new combo and dispatches it
+00:07 +32: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: SR-06 a failed registration keeps the window open
+00:07 +33: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/sr05_sr06_hotkey_test.dart: R3-SET-05 partial failure stays paused until the edit ends
+00:07 +34: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_autostart_timing_test.dart
+00:08 +34: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_autostart_timing_test.dart: enabling AutoRun writes the Run key only on save
+00:09 +35: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_autostart_timing_test.dart: saving an unchanged AutoRun never touches the Run key
+00:10 +36: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_autostart_timing_test.dart: disabling a saved AutoRun clears the Run key on save
+00:11 +37: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart
+00:11 +37: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: tray shared use cases and dynamic sync tray leaf actions map to the main window command ids
+00:11 +38: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: tray shared use cases and dynamic sync routing/nodes submenus carry live entries, respecting the limit
+00:11 +39: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: tray shared use cases and dynamic sync nodes submenu hides above the configured limit
+00:11 +40: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: tray shared use cases and dynamic sync TrayAction exposes the shared command for a menu item
+00:11 +41: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: system proxy mode persistence mode toggle preserves the other SystemProxyItem fields
+00:11 +42: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: system proxy mode persistence missing group yields just the mode
+00:11 +43: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: platform controller PAC lifecycle startPac publishes the real handle and stopPac clears it
+00:11 +44: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart: platform controller PAC lifecycle pac failure surfaces the error without faking success
+00:11 +45: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart
+00:11 +45: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart: bounded real-exit sequence runs stop -> flush -> platform restore in contract order
+00:11 +46: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart: bounded real-exit sequence a failed stop does not skip platform restore
+00:11 +47: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart: bounded real-exit sequence a hanging step is bounded by the per-step timeout
+00:11 +48: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart: bounded real-exit sequence the total budget skips remaining steps instead of hanging
+00:11 +49: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart: hide is not a stop Windows close always hides; opt-in hides elsewhere
+00:11 +50: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart: self-update hand-off prefers the bounded desktop lifecycle when present
+00:11 +51: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart: self-update hand-off falls back to the injected exit without an integration
+00:11 +52: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart
+00:12 +52: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: parse/preview previewImport persists nothing and passes manual dedup=false
+00:12 +53: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: parse/preview bad lines keep the valid rows and locate the failure
+00:12 +54: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: commit group commit is one batch write and no per-row write
+00:12 +55: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: commit no-group commit uses the per-row FIX-04 fallback
+00:12 +56: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: commit a failed batch commit is not half-written
+00:12 +57: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: commit cancel before commit persists nothing
+00:12 +58: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: field round-trip and export interop unknown extraJson survives the preview unchanged
+00:12 +59: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: field round-trip and export interop imported nodes export to a share list that re-imports
+00:12 +60: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart: field round-trip and export interop a failed file export is a readable structured error
+00:12 +61: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_statusbar_test.dart
+00:12 +61: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_statusbar_test.dart: status bar shows the four system-proxy modes and applies one
+00:13 +62: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_statusbar_test.dart: status bar renders the current proxy state label
+00:13 +63: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_statusbar_test.dart
+00:13 +63: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_statusbar_test.dart: status bar shows placeholders with no statistics data
+00:14 +64: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_statusbar_test.dart: status bar shows real proxy/direct rates from the stream
+00:15 +65: All tests passed!

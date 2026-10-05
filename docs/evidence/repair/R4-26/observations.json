@@ -1,0 +1,81 @@
+{
+  "task": "R4-26",
+  "title": "托盘热键自启动作",
+  "status": "implemented",
+  "date": "2026-10-05",
+  "armed": false,
+  "repo_head": "7e9a4b49de8c287abc920b5a3eff1c1b2cb74a1b",
+  "app_baseline": "77c74ed8e5ae8ddffbeca0812e4998a09bbd9bc5",
+  "upstream": {
+    "project": "v2rayN",
+    "version": "7.25.4",
+    "commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336"
+  },
+  "environment": {
+    "os": "Windows 11 25H2 (build 26220) x64",
+    "flutter": "3.47.5",
+    "dart": "3.13.4",
+    "dpi": "not_exercised",
+    "kernel": "none",
+    "fixtures": "synthetic only"
+  },
+  "changed_files": [
+    "apps/desktop/lib/app/shell/tray_menu_model.dart",
+    "apps/desktop/lib/app/shell/desktop_integration.dart",
+    "apps/desktop/lib/features/settings/hotkeys.dart",
+    "apps/desktop/test/r4_26_contract_test.dart",
+    "apps/desktop/test/repair/r4_26_repro_test.dart"
+  ],
+  "defects_addressed": {
+    "D30": "ACT-TRAY-012 copy-proxy-command dispatch missing; tray icon used desired mode instead of applied facts"
+  },
+  "commands": [
+    { "cmd": "flutter analyze", "result": "0 issues" },
+    { "cmd": "dart format --output=none --set-exit-if-changed (5 files)", "result": "0 changed" },
+    { "cmd": "flutter test test/r4_26_contract_test.dart test/repair/r4_26_repro_test.dart --reporter expanded", "result": "20/20 passed" },
+    { "cmd": "flutter test <12 tray/hotkey/status/exit regression files> --reporter expanded", "result": "65/65 passed" },
+    { "cmd": "flutter build windows --release", "result": "succeeded; build/windows/x64/runner/Release/v2rayn_desktop.exe (62.6s)" },
+    { "cmd": "flutter test --reporter compact (full suite)", "result": "+813 ~2 -3; 3 did-not-complete are known batch engine flakiness, all 5 implicated files pass in isolation" }
+  ],
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_26_repro_test.dart",
+    "assertion": "a hotkey fired while the editor is paused must not run its saved action",
+    "pre_fix": "FAIL: Expected empty / Actual [GlobalHotkeyAction.systemProxySet]",
+    "pre_fix_log": "cmd_repro_prefix.txt",
+    "post_fix": "PASS"
+  },
+  "contract_coverage": [
+    "buildProxyCommandText Windows set / POSIX export six lines",
+    "resolveTrayProxyCommand honest failure with no running session / no applied port",
+    "port prefers configured only when actually applied",
+    "appliedSysProxyMode from enabled/server/pacRunning facts",
+    "TrayReadModel iconMode applied vs desired; R3-09 fallback intact",
+    "node/route checkmarks from default selection",
+    "sharedCommandForTrayAction mapping for 008-011; 002-007/012/013 tray-only",
+    "groupHotkeyBindings same-combo grouping + de-dup",
+    "PluginHotkeyRegistrar one registration dispatches all actions in order",
+    "HotkeyController pause dispatch gate + cancel resume",
+    "unregisterAll best-effort",
+    "hideOnClose / shouldHideOnStartup no-regress"
+  ],
+  "blocked": [
+    "Real Windows global hotkey RegisterHotKey occupancy/failure/dispatch requires an authorized isolated machine; covered here only by fake registrar/probe.",
+    "Real OS clipboard write not exercised on host; command text verified by pure function, no command executed.",
+    "Autostart Run-key write/failure feedback not executed (no host registry write); FIX-15C semantics only regression-tested.",
+    "Real system-proxy/PAC/TUN host effects not exercised (no host writes).",
+    "DPI/multi-monitor visual verification not performed."
+  ],
+  "not_run": [
+    "cargo workspace gates (no Rust changes)",
+    "real OS hotkey / clipboard / Run-key / system-proxy / TUN"
+  ],
+  "constraints_honored": {
+    "port_10808": "untouched (no listener; ports used only as synthetic strings, 11808/11809)",
+    "host_proxy_registry_route_tun": "untouched",
+    "run_key_autostart": "untouched",
+    "user_secrets": "none read or written",
+    "work_outputs": "read-only",
+    "compat": "not modified"
+  },
+  "next_step_prereq": "Authorized isolated-machine run of 15 tray / 9 hotkey actions with real clipboard, Run-key and hotkey occupancy before promoting to verified."
+}

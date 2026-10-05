@@ -1,0 +1,36 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: ACT-TRAY-012 copy proxy command (D30 / UFS-15) builds the exact upstream Windows `set` command text
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: ACT-TRAY-012 copy proxy command (D30 / UFS-15) uses POSIX `export` syntax off Windows
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: ACT-TRAY-012 copy proxy command (D30 / UFS-15) no running session is an honest failure, never a wrong port
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: ACT-TRAY-012 copy proxy command (D30 / UFS-15) running session with no applied port is an honest failure
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: ACT-TRAY-012 copy proxy command (D30 / UFS-15) prefers the configured port only when it is actually applied
+00:00 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: ACT-TRAY-012 copy proxy command (D30 / UFS-15) tray menu still carries the copy item in upstream order
+00:00 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: tray icon follows applied facts, not the desired mode a failed apply does not show a proxy icon
+00:00 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: tray icon follows applied facts, not the desired mode an actually applied forced proxy shows proxyActive
+00:00 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: tray icon follows applied facts, not the desired mode a serving PAC server shows proxyPac
+00:00 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: tray icon follows applied facts, not the desired mode model without an applied mode keeps the R3-09 mapping (no regress)
+00:00 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: tray icon follows applied facts, not the desired mode node/route checkmarks come from the default selection
+00:00 +11: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: tray leaf dispatch mapping clipboard / scan / subscription actions map to shared commands
+00:00 +12: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: tray leaf dispatch mapping proxy-mode / routing / node / copy / exit are tray-only
+00:00 +13: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: hotkey same-combo grouping + dispatch chain groups one combo with its ordered, de-duplicated actions
+00:00 +14: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: hotkey same-combo grouping + dispatch chain one OS registration dispatches every bound action in order
+00:00 +15: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: hotkey pause is a dispatch gate a combo fired while editing does not run its saved action
+00:00 +16: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: hotkey pause is a dispatch gate unregisterAll is best-effort and never throws
+00:00 +17: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: hide / startup regressions (R4-05 / FIX-15C) Windows close always hides; hide is not a stop
+00:00 +18: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart: hide / startup regressions (R4-05 / FIX-15C) AutoHideStartup is a launch-only decision
+00:00 +19: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_26_repro_test.dart
+00:00 +19: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_26_repro_test.dart: a hotkey fired while the editor is paused must not run its action
+00:00 +20: All tests passed!

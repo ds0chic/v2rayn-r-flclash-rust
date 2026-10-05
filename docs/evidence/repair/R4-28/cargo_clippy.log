@@ -1,0 +1,6 @@
+    Blocking waiting for file lock on build directory
+    Checking config_codegen v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\config_codegen)
+    Checking application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+    Checking bridge_api v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\bridge_api)
+    Checking upgrade_runner v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\upgrade_runner)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.94s

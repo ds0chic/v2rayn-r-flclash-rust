@@ -537,12 +537,23 @@ class HotkeyController extends Notifier<HotkeyState> {
   /// reaches the same window/proxy entry points as the menus (RT-12).
   Future<HotkeyState> registerAll() async {
     final handler = ref.read(hotkeyDispatchProvider).handler;
+    // Dispatch gate (upstream `HotkeyManager.OnThreadPreProcessMessage` checks
+    // `IsPause` before invoking the bound actions). A combo that fires between
+    // `beginEdit`'s async unregister and its completion — or during the brief
+    // re-register of a partial save — must not run its saved action while the
+    // editor owns the keyboard.
+    final dispatch = handler == null
+        ? null
+        : (GlobalHotkeyAction action) {
+            if (_paused) return;
+            handler(action);
+          };
     Set<GlobalHotkeyAction> accepted;
     List<String> failures;
     try {
       (accepted, failures) = await _registrar.register(
         groupHotkeyBindings(state.bindings),
-        onTriggered: handler,
+        onTriggered: dispatch,
       );
     } on Object catch (e) {
       // No native plugin (widget tests) or registrar crash: report honestly.

@@ -213,6 +213,118 @@ List<TrayNodeEntry> trayNodeEntries({
   return nodes;
 }
 
+/// Upstream `Global.Loopback` and the HTTP / SOCKS5 URL schemes the copied
+/// proxy environment lines use.
+const String proxyCommandHost = '127.0.0.1';
+const String proxyCommandHttpScheme = 'http://';
+const String proxyCommandSocks5Scheme = 'socks5://';
+
+/// The six proxy environment lines upstream
+/// `StatusBarViewModel.CopyProxyCmdToClipboard` writes to the clipboard.
+///
+/// `windows` selects the Windows `cmd` `set` syntax; otherwise POSIX `export`.
+/// [port] must be the actual applied local proxy port (never the configured
+/// desired port), so a command copied before the proxy is applied is not
+/// silently wrong.
+String buildProxyCommandText({
+  required int port,
+  required bool windows,
+  String host = proxyCommandHost,
+}) {
+  final cmd = windows ? 'set' : 'export';
+  final address = '$host:$port';
+  final buffer = StringBuffer()
+    ..writeln('$cmd http_proxy=$proxyCommandHttpScheme$address')
+    ..writeln('$cmd https_proxy=$proxyCommandHttpScheme$address')
+    ..writeln('$cmd all_proxy=$proxyCommandSocks5Scheme$address')
+    ..writeln('')
+    ..writeln('$cmd HTTP_PROXY=$proxyCommandHttpScheme$address')
+    ..writeln('$cmd HTTPS_PROXY=$proxyCommandHttpScheme$address')
+    ..writeln('$cmd ALL_PROXY=$proxyCommandSocks5Scheme$address');
+  return buffer.toString();
+}
+
+/// Resolve the local proxy port a copied command may use.
+///
+/// Returns null when no session is running or no applied port is known, so the
+/// tray reports an honest failure instead of encoding a desired-only port.
+/// [configuredPort] is the persisted primary local-proxy port; it is preferred
+/// only when the running session actually published it.
+int? proxyCommandPort({
+  required bool coreRunning,
+  required List<int> appliedPorts,
+  int? configuredPort,
+}) {
+  if (!coreRunning) return null;
+  final ports = appliedPorts.where((port) => port > 0).toList();
+  if (ports.isEmpty) return null;
+  if (configuredPort != null && ports.contains(configuredPort)) {
+    return configuredPort;
+  }
+  return ports.first;
+}
+
+/// Outcome of the tray "复制代理命令到剪贴板" action (ACT-TRAY-012 / D30).
+class TrayProxyCommandOutcome {
+  const TrayProxyCommandOutcome({
+    required this.ok,
+    this.text,
+    required this.message,
+  });
+
+  final bool ok;
+
+  /// Exact clipboard text when [ok]; null on failure.
+  final String? text;
+
+  /// User-visible result written to the shared message surface.
+  final String message;
+}
+
+/// Resolve ACT-TRAY-012 against the actual applied session facts. Never
+/// fabricates a command for a session that is not running.
+TrayProxyCommandOutcome resolveTrayProxyCommand({
+  required bool coreRunning,
+  required List<int> appliedPorts,
+  required bool windows,
+  int? configuredPort,
+  String host = proxyCommandHost,
+}) {
+  final port = proxyCommandPort(
+    coreRunning: coreRunning,
+    appliedPorts: appliedPorts,
+    configuredPort: configuredPort,
+  );
+  if (port == null) {
+    return const TrayProxyCommandOutcome(
+      ok: false,
+      message: '复制代理命令失败：当前没有运行中的代理会话',
+    );
+  }
+  return TrayProxyCommandOutcome(
+    ok: true,
+    text: buildProxyCommandText(port: port, windows: windows, host: host),
+    message: '已复制代理命令到剪贴板',
+  );
+}
+
+/// The system-proxy mode actually applied to the host, derived from the
+/// platform read model's *facts* ([PlatformView.enabled] / server /
+/// [PlatformView.pacRunning] / autoConfigUrl) rather than the persisted desired
+/// selection. `null` = nothing applied, so the tray icon never shows a proxy
+/// state merely because a mode is desired (R4-26 / D30).
+SysProxyMode? appliedSysProxyMode(PlatformView platform) {
+  final pacUrl = platform.autoConfigUrl;
+  final pacServing = platform.pacRunning && pacUrl != null && pacUrl.isNotEmpty;
+  if (pacServing) return SysProxyMode.pac;
+  final server = platform.server;
+  if (platform.enabled && server != null && server.isNotEmpty) {
+    return SysProxyMode.forcedChange;
+  }
+  if (pacUrl != null && pacUrl.isNotEmpty) return SysProxyMode.pac;
+  return null;
+}
+
 /// Outcome of a tray click, so the shell can route it to the shared use case or
 /// the tray-only behavior (proxy mode / exit / window toggle).
 class TrayAction {
@@ -328,6 +440,7 @@ class TrayReadModel {
     required this.serversLimit,
     required this.coreRunning,
     required this.pacRunning,
+    this.iconMode,
   });
 
   final SysProxyMode desiredMode;
@@ -338,8 +451,13 @@ class TrayReadModel {
   final bool coreRunning;
   final bool pacRunning;
 
+  /// The system-proxy mode that is *actually applied*, when the caller can
+  /// derive it from platform facts. Falls back to [desiredMode] for callers
+  /// that only model the selection, so the R3-09 four-state mapping is intact.
+  final SysProxyMode? iconMode;
+
   TrayIconStatus get iconStatus => trayIconStatus(
-    mode: desiredMode,
+    mode: iconMode ?? desiredMode,
     coreRunning: coreRunning,
     pacRunning: pacRunning,
   );
@@ -362,7 +480,8 @@ class TrayReadModel {
           listEquals(other.nodes, nodes) &&
           other.serversLimit == serversLimit &&
           other.coreRunning == coreRunning &&
-          other.pacRunning == pacRunning;
+          other.pacRunning == pacRunning &&
+          other.iconMode == iconMode;
 
   @override
   int get hashCode => Object.hash(
@@ -373,6 +492,7 @@ class TrayReadModel {
     serversLimit,
     coreRunning,
     pacRunning,
+    iconMode,
   );
 }
 

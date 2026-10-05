@@ -1,0 +1,58 @@
+# R4-20 command log (repo HEAD 7e9a4b4; windows pwsh7; Flutter/Cargo locked paths)
+
+## 1. Repro (before fix) -- fails as expected
+> flutter test test/repair/r4_20_repro_test.dart --reporter expanded
+  00:00 +0 -1: subscription preview drops a Shadowsocks child with an unsupported method [E]
+    Expected: ['ok', 'ss-aes']
+      Actual: ['ok', 'ss-aes', 'ss-null', 'ss-plain']
+  Failing tests:
+    test/repair/r4_20_repro_test.dart
+
+## 2. Fix applied (Dart group_editor_dialog._isProfileValid + Rust resolution + cycle guard)
+
+## 3. Repro (after fix)
+> flutter test test/repair/r4_20_repro_test.dart
+  00:00 +1: All tests passed!
+
+## 4. Contract
+> flutter test test/r4_20_contract_test.dart --reporter expanded
+  00:00 +5: save persists the draft child order and sub source
+  00:00 +6: cancel after edits persists nothing
+  00:00 +7: All tests passed!
+
+## 5. Existing group regression
+> flutter test reprof10_group_preview_test.dart t10_group_editor_test.dart t10_groups_panel_test.dart ux_space01_group_flow_test.dart ux_parity_fix01_gen_group_ui_test.dart ux_parity_fix01_gen_group_guard_test.dart recheck01_group_inheritance_test.dart
+  00:13 +24: All tests passed!   FT_EXIT=0
+
+## 6. Dart analyze
+> flutter analyze
+  No issues found! (ran in 4.3s)
+
+## 7. Rust gates
+> cargo fmt --all -- --check
+  FMT_EXIT=0
+> cargo clippy --workspace --all-targets --locked -- -D warnings
+  Finished dev profile ... CLIPPY_EXIT=0
+> cargo test --workspace --locked
+  TEST_EXIT=0 (all suites ok; no failures)
+> cargo test -p application --lib r4_20
+  test codegen::tests::r4_20_missing_explicit_child_reports_readable_dangling ... ok
+  test codegen::tests::r4_20_sub_child_proxy_chain_generates_detour_order ... ok
+  test codegen::tests::r4_20_sub_child_policy_group_resolves_subscription_children ... ok
+  test result: ok. 3 passed
+> cargo test -p config_codegen --test r4_20_groups
+  singbox_group_cycle_reports_readable_error ... ok
+  xray_group_cycle_reports_readable_error ... ok
+  nested_group_without_cycle_still_generates ... ok
+  test result: ok. 3 passed
+
+## 8. Release build (config/native change)
+> Get-Process | ? ProcessName -match 'v2rayn|clash|xray|sing-box'
+  v2rayN.exe (C:\Users\Colby\Desktop\v2rayN-windows-64)    <- user's live app, untouched
+  xray.exe   (C:\Users\Colby\Desktop\v2rayN-windows-64\bin) <- user's live core, untouched
+> flutter build windows --release
+  Building Windows application... 10.2s
+  Built build\windows\x64\runner\Release\v2rayn_desktop.exe   BUILD_EXIT=0
+
+## Cleanup
+No kernel process started; no listener; no system proxy / registry / TUN / route / Run-key change.

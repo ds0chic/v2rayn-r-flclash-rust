@@ -34,6 +34,26 @@ fn push_diagnostic(diagnostic: Diagnostic) {
     DIAGNOSTIC_SINK.with(|sink| sink.borrow_mut().push(diagnostic));
 }
 
+// Group/chain nesting recursion stack. A corrupted store can contain a cycle
+// (save-time `validate_group` normally prevents it); generation must report a
+// readable error instead of recursing until the stack overflows.
+thread_local! {
+    static GROUP_RECURSION: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+}
+
+struct GroupRecursionGuard(String);
+
+impl Drop for GroupRecursionGuard {
+    fn drop(&mut self) {
+        GROUP_RECURSION.with(|stack| {
+            let pos = stack.borrow().iter().rposition(|id| id == &self.0);
+            if let Some(pos) = pos {
+                stack.borrow_mut().remove(pos);
+            }
+        });
+    }
+}
+
 pub(crate) fn child_items(node: &CodegenProfile) -> Option<Vec<String>> {
     string2_list_opt(node.proto_extra.child_items.as_ref())
 }
@@ -93,6 +113,17 @@ fn build_group_proxy_outbounds(
     node: &CodegenProfile,
     base_tag: &str,
 ) -> Result<BuiltOutbounds, CodegenError> {
+    let guarded = !node.index_id.is_empty();
+    if guarded {
+        if GROUP_RECURSION.with(|stack| stack.borrow().iter().any(|id| id == &node.index_id)) {
+            return Err(CodegenError::invalid_reference(
+                format!("group cycle detected through `{}`", node.remarks),
+                "profile.protoExtra.childItems",
+            ));
+        }
+        GROUP_RECURSION.with(|stack| stack.borrow_mut().push(node.index_id.clone()));
+    }
+    let _guard = guarded.then(|| GroupRecursionGuard(node.index_id.clone()));
     match node.config_type {
         ConfigType::PolicyGroup => build_outbounds_list(input, node, base_tag),
         ConfigType::ProxyChain => build_chain_outbounds_list(input, node, base_tag),

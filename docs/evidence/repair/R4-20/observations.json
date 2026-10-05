@@ -1,0 +1,60 @@
+{
+  "task": "R4-20",
+  "title": "策略组和代理链",
+  "head": "7e9a4b49de8c287abc920b5a3eff1c1b2cb74a1b",
+  "status": "implemented",
+  "real_kernel_path": "blocked",
+  "armed": false,
+  "port_10808": "untouched (owned by user's Desktop v2rayN/xray; not started/stopped)",
+  "test_ports": "none (no kernel listener started)",
+  "upstream": {
+    "frozen_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+    "files": [
+      "ServiceLib/Manager/GroupProfileManager.cs",
+      "ServiceLib/Handler/ConfigHandler.cs"
+    ],
+    "semantics": {
+      "child_order": "GetSubChildProfileItems (SubChildItems+Filter, IsValid + !IsComplexType||Outbound) then GetSelectedChildProfileItems (ChildItems order)",
+      "chain": "ChildItems reversed; xray dialerProxy / sing-box detour",
+      "cycle": "HasCycle at save time"
+    }
+  },
+  "changed_files": [
+    "apps/desktop/lib/features/profiles/group_editor_dialog.dart",
+    "crates/application/src/codegen.rs",
+    "crates/config_codegen/src/xray/outbound.rs",
+    "crates/config_codegen/src/singbox/outbound.rs",
+    "apps/desktop/test/repair/r4_20_repro_test.dart",
+    "apps/desktop/test/r4_20_contract_test.dart",
+    "crates/config_codegen/tests/r4_20_groups.rs"
+  ],
+  "scenarios": {
+    "five_modes_dispatch": "preserved (FIX-03/03C not regressed)",
+    "sub_child_policy_group": "verified at config layer (balancer/observatory generated)",
+    "proxy_chain_order": "verified (dialerProxy/detour reversed; R4-19 template merge green)",
+    "region_generation_filter": "verified",
+    "nested_group": "verified (no false cycle)",
+    "cycle": "verified readable invalid_reference error",
+    "dangling_reference": "verified readable dangling_reference error",
+    "cross_subscription_id_change": "verified (subid+filter independent of IndexId)",
+    "cancel_no_write": "verified (widget contract)",
+    "save_reopen_preview_consistency": "verified at Dart preview layer"
+  },
+  "commands": [
+    {"cmd": "flutter analyze", "result": "No issues found", "exit": 0},
+    {"cmd": "flutter test test/repair/r4_20_repro_test.dart", "before": "FAIL (actual included ss-null, ss-plain)", "after": "1 passed", "exit": 0},
+    {"cmd": "flutter test test/r4_20_contract_test.dart", "result": "7 passed", "exit": 0},
+    {"cmd": "flutter test <7 existing group test files>", "result": "24 passed", "exit": 0},
+    {"cmd": "cargo fmt --all -- --check", "result": "clean", "exit": 0},
+    {"cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "result": "clean", "exit": 0},
+    {"cmd": "cargo test --workspace --locked", "result": "all green", "exit": 0},
+    {"cmd": "cargo test -p application --lib r4_20", "result": "3 passed", "exit": 0},
+    {"cmd": "cargo test -p config_codegen --test r4_20_groups", "result": "3 passed", "exit": 0},
+    {"cmd": "flutter build windows --release", "result": "Built v2rayn_desktop.exe", "exit": 0}
+  ],
+  "unverified": [
+    "real kernel generated-config request path / policy switch (needs authorized isolated env, ports >= 11808)",
+    "real chain traffic order at runtime",
+    "compat ledger status promotion (append-only; pending runtime evidence)"
+  ]
+}

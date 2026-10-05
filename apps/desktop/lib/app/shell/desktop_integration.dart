@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:system_tray/system_tray.dart';
@@ -323,9 +324,15 @@ class DesktopIntegration with WindowListener implements DesktopLifecycle {
     final profiles = ref.read(profilesControllerProvider);
     final runtime = ref.read(runtimeControllerProvider);
     final document = ref.read(settingsControllerProvider).document;
+    // The radio checkmarks keep the persisted selection (upstream
+    // `SystemProxySelected`), while the tray icon follows the mode that is
+    // actually applied to the host, so a failed apply cannot leave a "wish"
+    // proxy icon (R4-26 / D30).
+    final appliedMode = appliedSysProxyMode(platform);
     await sync.update(
       TrayReadModel(
         desiredMode: platform.desiredMode,
+        iconMode: appliedMode ?? SysProxyMode.unchanged,
         pacVisible: Platform.isWindows,
         routings: <TraySubEntry>[
           for (final item in routing.items)
@@ -364,6 +371,11 @@ class DesktopIntegration with WindowListener implements DesktopLifecycle {
         exitApp();
       case 'ACT-TRAY-001':
         _toggleWindow();
+      case 'ACT-TRAY-012':
+        // D30: the copy-proxy-command tray item had no dispatch. It is a
+        // tray-only action (no main-menu equivalent), so it is handled here
+        // against the actual applied session port.
+        unawaited(_copyProxyCommandToClipboard());
       default:
         // Shared main-window use cases (RT-11); else report honestly.
         final command = sharedCommandForTrayAction(entry.actionId);
@@ -404,6 +416,26 @@ class DesktopIntegration with WindowListener implements DesktopLifecycle {
   void _applyProxyMode(SysProxyMode mode) {
     _platform.applyModeFromConfig(mode);
     unawaited(_syncTray());
+  }
+
+  /// ACT-TRAY-012 / UFS-15 / D30: copy the six proxy environment lines built
+  /// from the actual applied session port. A missing session reports an honest
+  /// failure instead of copying a wrong (desired-only) port.
+  Future<void> _copyProxyCommandToClipboard() async {
+    final runtime = ref.read(runtimeControllerProvider);
+    final document = ref.read(settingsControllerProvider).document;
+    final outcome = resolveTrayProxyCommand(
+      coreRunning: runtime.isRunning,
+      appliedPorts: runtime.ports,
+      configuredPort: primaryLocalProxyInbound(document)?.port,
+      windows: Platform.isWindows,
+    );
+    if (!outcome.ok || outcome.text == null) {
+      _platform.setMessage(outcome.message);
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: outcome.text!));
+    _platform.setMessage(outcome.message);
   }
 
   /// Route an OS hotkey press into the same entry points as the tray/menus

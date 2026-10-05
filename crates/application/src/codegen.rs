@@ -5,7 +5,7 @@
 //! T07/T08 notes list as caller responsibility: profile-set projection, resolved
 //! ports/paths and the custom-outbound content map read by the engine.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use config_codegen::input::{
     CodegenDns, CodegenInput, CodegenProfile, CodegenRouting, CodegenSettings, CodegenTemplate,
@@ -214,6 +214,14 @@ pub fn build_input(
     template: Option<CodegenTemplate>,
     opts: &CodegenOptions,
 ) -> CodegenInput {
+    let mut all_map: HashMap<String, Profile> = all
+        .iter()
+        .cloned()
+        .map(|p| (p.index_id.clone(), p))
+        .collect();
+    all_map
+        .entry(active.index_id.clone())
+        .or_insert_with(|| active.clone());
     let mut profiles: BTreeMap<String, CodegenProfile> = BTreeMap::new();
     for profile in all {
         let custom = if matches!(
@@ -227,10 +235,9 @@ pub fn build_input(
         } else {
             None
         };
-        profiles.insert(
-            profile.index_id.clone(),
-            to_codegen_profile(profile, custom),
-        );
+        let mut projected = to_codegen_profile(profile, custom);
+        apply_resolved_children(&mut projected, profile, &all_map);
+        profiles.insert(profile.index_id.clone(), projected);
     }
     // RT-08: a file-type Custom/Outbound active node has no inline
     // `customConfigText`; its verbatim payload is resolved from `Address` by
@@ -247,8 +254,10 @@ pub fn build_input(
     } else {
         None
     };
+    let mut active_projected = to_codegen_profile(active, active_custom);
+    apply_resolved_children(&mut active_projected, active, &all_map);
     CodegenInput {
-        profile: to_codegen_profile(active, active_custom),
+        profile: active_projected,
         profiles,
         custom_outbound_content: outbound_contents,
         settings: opts.settings(),
@@ -257,6 +266,42 @@ pub fn build_input(
         template,
         ..Default::default()
     }
+}
+
+/// Fill a group's effective generation `ChildItems`: subscription children
+/// (`SubChildItems` + `Filter`, upstream `GetSubChildProfileItems`) first, then
+/// the explicit ordered `ChildItems` (upstream `GetSelectedChildProfileItems`).
+///
+/// The generator itself only understands explicit child ids, so this bridge
+/// resolves the subscription source with the same `application::groups`
+/// semantics used for validation/preview. Resolved subscription children are
+/// always existing ids; an explicit id that no longer resolves is kept so the
+/// generator still reports a readable dangling-reference error instead of
+/// silently dropping the reference.
+fn apply_resolved_children(
+    projected: &mut CodegenProfile,
+    profile: &Profile,
+    all: &HashMap<String, Profile>,
+) {
+    if !crate::groups::is_group(profile.config_type) {
+        return;
+    }
+    let mut ids: Vec<String> = crate::groups::resolve_sub_children(profile, all)
+        .into_iter()
+        .map(|child| child.index_id.clone())
+        .collect();
+    for id in crate::groups::child_index_ids(profile) {
+        if !ids.iter().any(|existing| existing == &id) {
+            ids.push(id);
+        }
+    }
+    projected.proto_extra.child_items = if ids.is_empty() {
+        None
+    } else {
+        Some(ids.join(","))
+    };
+    projected.proto_extra.sub_child_items = None;
+    projected.proto_extra.filter = None;
 }
 
 /// Run the structured generator for `core`.
@@ -780,6 +825,110 @@ mod tests {
         );
         assert_eq!(outbounds[2]["tag"], serde_json::json!("chain-proxy-2-c1"));
         assert!(outbounds[2].get("detour").is_none());
+    }
+
+    #[test]
+    fn r4_20_sub_child_policy_group_resolves_subscription_children() {
+        // R4-20: an auto/region policy group stores its source in
+        // `SubChildItems` + `Filter`, not in `ChildItems`. Generation must
+        // resolve the subscription children (upstream
+        // `GetSubChildProfileItemsByProtocolExtra`) or the group emits no
+        // balancer at all.
+        let mut group = crate::groups::new_group_all("sub-1", "All nodes".into());
+        group.index_id = "group-all".into();
+        let mut hk = leaf("h1", "192.0.2.31");
+        hk.remarks = "HK-1".into();
+        hk.subid = "sub-1".into();
+        let mut us = leaf("u1", "192.0.2.32");
+        us.remarks = "US-1".into();
+        us.subid = "sub-1".into();
+        let mut other = leaf("o1", "192.0.2.33");
+        other.subid = "sub-2".into();
+        let all = vec![group.clone(), hk, us, other];
+        let input = build_input(
+            &group,
+            &all,
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        assert_eq!(
+            input.profile.proto_extra.child_items.as_deref(),
+            Some("h1,u1"),
+            "subscription children resolve in index-id order"
+        );
+        let generated = generate(CoreType::Xray, &input).unwrap();
+        let text = serde_json::to_string(&generated.main).unwrap();
+        assert!(text.contains("192.0.2.31"), "{text}");
+        assert!(text.contains("192.0.2.32"), "{text}");
+        assert!(
+            !text.contains("192.0.2.33"),
+            "another subscription's node must be dropped: {text}"
+        );
+        assert_eq!(
+            generated.main["routing"]["balancers"][0]["tag"],
+            serde_json::json!("proxy-balancer")
+        );
+    }
+
+    #[test]
+    fn r4_20_sub_child_proxy_chain_generates_detour_order() {
+        let mut chain = crate::groups::new_group(
+            ConfigType::ProxyChain,
+            "chain".into(),
+            MultipleLoad::LeastPing,
+        );
+        chain.index_id = "chain-1".into();
+        chain.subid = "sub-1".into();
+        chain.proto_extra.sub_child_items = Some("sub-1".into());
+        let mut c1 = leaf("c1", "192.0.2.11");
+        c1.remarks = "c1".into();
+        c1.subid = "sub-1".into();
+        let mut c2 = leaf("c2", "192.0.2.12");
+        c2.remarks = "c2".into();
+        c2.subid = "sub-1".into();
+        let all = vec![chain.clone(), c1, c2];
+        let input = build_input(
+            &chain,
+            &all,
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        let generated = generate(CoreType::Xray, &input).unwrap();
+        let outbounds = generated.main["outbounds"].as_array().unwrap();
+        assert_eq!(outbounds[0]["tag"], serde_json::json!("proxy"));
+        assert_eq!(
+            outbounds[0]["settings"]["address"],
+            serde_json::json!("192.0.2.12")
+        );
+        assert_eq!(
+            outbounds[0]["streamSettings"]["sockopt"]["dialerProxy"],
+            serde_json::json!("chain-proxy-1-c1")
+        );
+        assert_eq!(outbounds[1]["tag"], serde_json::json!("chain-proxy-1-c1"));
+    }
+
+    #[test]
+    fn r4_20_missing_explicit_child_reports_readable_dangling() {
+        let mut group =
+            crate::groups::new_group(ConfigType::PolicyGroup, "g".into(), MultipleLoad::LeastPing);
+        group.index_id = "g".into();
+        group.proto_extra.child_items = Some("missing".into());
+        let all = vec![group.clone()];
+        let input = build_input(
+            &group,
+            &all,
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        let err = generate(CoreType::Xray, &input).unwrap_err();
+        assert_eq!(err.code, "dangling_reference");
+        assert!(err.message.contains("missing"), "{}", err.message);
     }
 
     #[test]

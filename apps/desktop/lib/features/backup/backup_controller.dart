@@ -96,6 +96,14 @@ class BackupController extends Notifier<BackupState> {
         : '${error.code} / ${error.messageKey}: ${error.detail}';
   }
 
+  /// D23: a thrown bridge/native exception must be readable and must never
+  /// latch the window busy. The raw text is truncated; credentials are never
+  /// added by this layer.
+  String _errorText(Object error) {
+    final text = error.toString();
+    return text.length > 300 ? '${text.substring(0, 300)}…' : text;
+  }
+
   /// Bounded cancellation (R4-10): bumping the generation makes any in-flight
   /// backup/restore/import result stale, so it is discarded instead of
   /// committing after a cancel. Work already handed to Rust may still finish;
@@ -103,6 +111,17 @@ class BackupController extends Notifier<BackupState> {
   int _generation = 0;
 
   bool _isCurrent(int generation) => generation == _generation;
+
+  /// Single in-flight operation per window (R4-10/R4-28 task drain): a second
+  /// click while an operation is running is rejected instead of racing the
+  /// engine's database swap.
+  bool _rejectWhileBusy(String message) {
+    if (state.busy) {
+      _status('info', message);
+      return true;
+    }
+    return false;
+  }
 
   void cancel() {
     _generation++;
@@ -132,12 +151,24 @@ class BackupController extends Notifier<BackupState> {
   }
 
   Future<void> reloadBundles(String parent) async {
-    final result = await ref.read(bridgePortProvider).t16BackupList(parent);
-    if (result.error != null) {
-      _status('error', '列出备份失败', detail: _detail(result.error));
-      return;
+    if (_rejectWhileBusy('已有操作进行中')) return;
+    final gen = ++_generation;
+    state = state.copyWith(busy: true);
+    try {
+      final result = await ref.read(bridgePortProvider).t16BackupList(parent);
+      if (!_isCurrent(gen)) return;
+      if (result.error != null) {
+        _status('error', '列出备份失败', detail: _detail(result.error));
+        return;
+      }
+      state = state.copyWith(bundles: result.items);
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', '列出备份失败', detail: _errorText(error));
+      }
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    state = state.copyWith(bundles: result.items);
   }
 
   Future<void> localBackup(String destRoot) async {
@@ -145,23 +176,31 @@ class BackupController extends Notifier<BackupState> {
       _status('error', '请输入备份目标目录');
       return;
     }
+    if (_rejectWhileBusy('已有操作进行中')) return;
     final gen = ++_generation;
     state = state.copyWith(busy: true);
-    final result = await ref
-        .read(bridgePortProvider)
-        .t16BackupLocal(destRoot.trim());
-    if (!_isCurrent(gen)) return;
-    state = state.copyWith(busy: false);
-    if (!result.ok) {
-      _status('error', '本地备份失败', detail: _detail(result.error));
-      return;
+    try {
+      final result = await ref
+          .read(bridgePortProvider)
+          .t16BackupLocal(destRoot.trim());
+      if (!_isCurrent(gen)) return;
+      if (!result.ok) {
+        _status('error', '本地备份失败', detail: _detail(result.error));
+        return;
+      }
+      state = state.copyWith(
+        bundles: result.manifest == null
+            ? state.bundles
+            : <c.BackupManifestDto>[result.manifest!, ...state.bundles],
+      );
+      _status('success', '本地备份完成：${result.root ?? destRoot}');
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', '本地备份失败', detail: _errorText(error));
+      }
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    state = state.copyWith(
-      bundles: result.manifest == null
-          ? state.bundles
-          : <c.BackupManifestDto>[result.manifest!, ...state.bundles],
-    );
-    _status('success', '本地备份完成：${result.root ?? destRoot}');
   }
 
   /// Whether the subscription scheduler was running before a restore; used to
@@ -208,28 +247,66 @@ class BackupController extends Notifier<BackupState> {
   Future<void> _resyncRuntime() =>
       ref.read(runtimeControllerProvider.notifier).resyncAfterRestore();
 
-  Future<bool> _restoreBundlePath(String bundleDir) async {
-    final schedulerWasRunning = _schedulerWasRunning();
-    final gen = ++_generation;
-    state = state.copyWith(busy: true);
-    final result = await ref
-        .read(bridgePortProvider)
-        .t16BackupRestore(bundleDir);
-    if (!_isCurrent(gen)) return false;
-    state = state.copyWith(busy: false);
-    if (!result.ok) {
-      _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
+  /// Best-effort post-failure bookkeeping so a secondary reload error can never
+  /// escape the guarded operation and latch the window.
+  Future<void> _afterFailedSwap(bool schedulerWasRunning) async {
+    try {
       _restartScheduler(schedulerWasRunning);
       _refreshWindowState();
       await _resyncRuntime();
+    } catch (error) {
+      _status('error', '恢复失败后的状态刷新异常', detail: _errorText(error));
+    }
+  }
+
+  /// Best-effort post-success reload; a reload failure must not be reported as
+  /// a restore failure (the on-disk swap already committed) but must stay
+  /// visible.
+  Future<bool> _afterSuccessfulSwap(
+    bool schedulerWasRunning,
+    String message,
+  ) async {
+    try {
+      await _reloadProviders();
+      _restartScheduler(schedulerWasRunning);
+      _refreshWindowState();
+      _status('success', message);
+      await _resyncRuntime();
+      return true;
+    } catch (error) {
+      _status('error', '恢复已写入但重新加载失败', detail: _errorText(error));
       return false;
     }
-    await _reloadProviders();
-    _restartScheduler(schedulerWasRunning);
-    _refreshWindowState();
-    _status('success', '本地恢复完成（节点/分组/主题/运行会话已重载）：${result.message}');
-    await _resyncRuntime();
-    return true;
+  }
+
+  Future<bool> _restoreBundlePath(String bundleDir) async {
+    if (_rejectWhileBusy('已有操作进行中')) return false;
+    final schedulerWasRunning = _schedulerWasRunning();
+    final gen = ++_generation;
+    state = state.copyWith(busy: true);
+    try {
+      final result = await ref
+          .read(bridgePortProvider)
+          .t16BackupRestore(bundleDir);
+      if (!_isCurrent(gen)) return false;
+      if (!result.ok) {
+        _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
+        await _afterFailedSwap(schedulerWasRunning);
+        return false;
+      }
+      return await _afterSuccessfulSwap(
+        schedulerWasRunning,
+        '本地恢复完成（节点/分组/主题/运行会话已重载）：${result.message}',
+      );
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', '本地恢复失败（已保留现有配置）', detail: _errorText(error));
+        await _afterFailedSwap(schedulerWasRunning);
+      }
+      return false;
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
+    }
   }
 
   Future<void> restoreBundle(String bundleDir) async {
@@ -251,38 +328,44 @@ class BackupController extends Notifier<BackupState> {
   }
 
   Future<void> _restoreArchivePath(String path) async {
+    if (_rejectWhileBusy('已有操作进行中')) return;
     final bridge = ref.read(bridgePortProvider);
     final gen = ++_generation;
     state = state.copyWith(busy: true);
-    final recognition = await bridge.t16BackupRecognize(path);
-    if (!_isCurrent(gen)) return;
-    state = state.copyWith(busy: false);
-    if (recognition.error != null) {
-      _status('error', '无法读取备份文件（现有配置未修改）', detail: _detail(recognition.error));
-      return;
+    try {
+      final recognition = await bridge.t16BackupRecognize(path);
+      if (!_isCurrent(gen)) return;
+      if (recognition.error != null) {
+        _status(
+          'error',
+          '无法读取备份文件（现有配置未修改）',
+          detail: _detail(recognition.error),
+        );
+        return;
+      }
+      if (!recognition.isUpstream) {
+        _status('error', '不是可恢复的备份文件（缺少配置或数据库，现有配置未修改）');
+        return;
+      }
+      final schedulerWasRunning = _schedulerWasRunning();
+      final result = await bridge.t16BackupImportUpstream(path);
+      if (!_isCurrent(gen)) return;
+      if (!result.ok) {
+        _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
+        await _afterFailedSwap(schedulerWasRunning);
+        return;
+      }
+      await _afterSuccessfulSwap(
+        schedulerWasRunning,
+        '本地恢复完成（节点/分组/主题/运行会话已重载）：${result.status}',
+      );
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', '本地恢复失败（已保留现有配置）', detail: _errorText(error));
+      }
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    if (!recognition.isUpstream) {
-      _status('error', '不是可恢复的备份文件（缺少配置或数据库，现有配置未修改）');
-      return;
-    }
-    final schedulerWasRunning = _schedulerWasRunning();
-    final gen2 = ++_generation;
-    state = state.copyWith(busy: true);
-    final result = await bridge.t16BackupImportUpstream(path);
-    if (!_isCurrent(gen2)) return;
-    state = state.copyWith(busy: false);
-    if (!result.ok) {
-      _status('error', '本地恢复失败（已保留现有配置）', detail: _detail(result.error));
-      _restartScheduler(schedulerWasRunning);
-      _refreshWindowState();
-      await _resyncRuntime();
-      return;
-    }
-    await _reloadProviders();
-    _restartScheduler(schedulerWasRunning);
-    _refreshWindowState();
-    _status('success', '本地恢复完成（节点/分组/主题/运行会话已重载）：${result.status}');
-    await _resyncRuntime();
   }
 
   /// Pick a project bundle directory with the native dialog and restore it via
@@ -310,19 +393,29 @@ class BackupController extends Notifier<BackupState> {
       _status('error', '请输入要识别的 ZIP 路径');
       return;
     }
-    final result = await ref
-        .read(bridgePortProvider)
-        .t16BackupRecognize(path.trim());
-    if (result.error != null) {
-      _status('error', '识别失败', detail: _detail(result.error));
-      return;
+    if (_rejectWhileBusy('已有操作进行中')) return;
+    final gen = ++_generation;
+    state = state.copyWith(busy: true);
+    try {
+      final result = await ref
+          .read(bridgePortProvider)
+          .t16BackupRecognize(path.trim());
+      if (!_isCurrent(gen)) return;
+      if (result.error != null) {
+        _status('error', '识别失败', detail: _detail(result.error));
+        return;
+      }
+      _status(
+        'info',
+        result.isUpstream
+            ? '识别为原版备份（${result.layout}），配置=${result.hasConfig}，数据库=${result.hasDb}'
+            : '不是可识别的原版备份',
+      );
+    } catch (error) {
+      if (_isCurrent(gen)) _status('error', '识别失败', detail: _errorText(error));
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    _status(
-      'info',
-      result.isUpstream
-          ? '识别为原版备份（${result.layout}），配置=${result.hasConfig}，数据库=${result.hasDb}'
-          : '不是可识别的原版备份',
-    );
   }
 
   Future<void> importUpstream(String path) async {
@@ -330,123 +423,185 @@ class BackupController extends Notifier<BackupState> {
       _status('error', '请输入要导入的 ZIP 路径');
       return;
     }
+    if (_rejectWhileBusy('已有操作进行中')) return;
     final schedulerWasRunning = _schedulerWasRunning();
     final gen = ++_generation;
     state = state.copyWith(busy: true);
-    final result = await ref
-        .read(bridgePortProvider)
-        .t16BackupImportUpstream(path.trim());
-    if (!_isCurrent(gen)) return;
-    state = state.copyWith(busy: false);
-    if (!result.ok) {
-      _status('error', '导入失败', detail: _detail(result.error));
-      _restartScheduler(schedulerWasRunning);
-      _refreshWindowState();
-      await _resyncRuntime();
-      return;
+    try {
+      final result = await ref
+          .read(bridgePortProvider)
+          .t16BackupImportUpstream(path.trim());
+      if (!_isCurrent(gen)) return;
+      if (!result.ok) {
+        _status('error', '导入失败', detail: _detail(result.error));
+        await _afterFailedSwap(schedulerWasRunning);
+        return;
+      }
+      await _afterSuccessfulSwap(
+        schedulerWasRunning,
+        '导入完成：${result.status}，导入 ${result.importedRows} 行（节点/分组/主题/运行会话已重载）',
+      );
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', '导入失败', detail: _errorText(error));
+      }
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    await _reloadProviders();
-    _restartScheduler(schedulerWasRunning);
-    _refreshWindowState();
-    _status(
-      'success',
-      '导入完成：${result.status}，导入 ${result.importedRows} 行（节点/分组/主题/运行会话已重载）',
-    );
-    await _resyncRuntime();
   }
 
   void saveWebdav(c.WebDavConfigDto config) {
-    final result = ref
-        .read(bridgePortProvider)
-        .t16WebdavConfigSave(config, state.webdavRevision);
-    if (!result.ok) {
-      _status('error', '保存 WebDAV 配置失败', detail: _detail(result.error));
-      return;
+    try {
+      final result = ref
+          .read(bridgePortProvider)
+          .t16WebdavConfigSave(config, state.webdavRevision);
+      if (!result.ok) {
+        _status('error', '保存 WebDAV 配置失败', detail: _detail(result.error));
+        return;
+      }
+      state = state.copyWith(
+        webdav: result.config ?? config,
+        webdavRevision: result.revision.toInt(),
+      );
+      _status('success', 'WebDAV 配置已保存');
+    } catch (error) {
+      _status('error', '保存 WebDAV 配置失败', detail: _errorText(error));
     }
-    state = state.copyWith(
-      webdav: result.config ?? config,
-      webdavRevision: result.revision.toInt(),
-    );
-    _status('success', 'WebDAV 配置已保存');
   }
 
   Future<void> webdavCheck(c.WebDavConfigDto config) async {
+    if (_rejectWhileBusy('已有操作进行中')) return;
+    final gen = ++_generation;
     state = state.copyWith(busy: true);
-    final result = await ref.read(bridgePortProvider).t16WebdavCheck(config);
-    state = state.copyWith(busy: false);
-    if (!result.ok) {
-      _status('error', 'WebDAV 连接失败', detail: _webdavDetail(result.error));
-      return;
+    try {
+      final result = await ref.read(bridgePortProvider).t16WebdavCheck(config);
+      if (!_isCurrent(gen)) return;
+      if (!result.ok) {
+        _status('error', 'WebDAV 连接失败', detail: _webdavDetail(result.error));
+        return;
+      }
+      _status(
+        'success',
+        result.createdDir ? 'WebDAV 已连接（已创建目录）' : 'WebDAV 连接正常',
+      );
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', 'WebDAV 连接失败', detail: _errorText(error));
+      }
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    _status('success', result.createdDir ? 'WebDAV 已连接（已创建目录）' : 'WebDAV 连接正常');
   }
 
   Future<void> webdavList(c.WebDavConfigDto config) async {
+    if (_rejectWhileBusy('已有操作进行中')) return;
+    final gen = ++_generation;
     state = state.copyWith(busy: true);
-    final result = await ref.read(bridgePortProvider).t16WebdavList(config);
-    state = state.copyWith(busy: false);
-    if (!result.ok) {
-      _status('error', '列出远程目录失败', detail: _webdavDetail(result.error));
-      return;
+    try {
+      final result = await ref.read(bridgePortProvider).t16WebdavList(config);
+      if (!_isCurrent(gen)) return;
+      if (!result.ok) {
+        _status('error', '列出远程目录失败', detail: _webdavDetail(result.error));
+        return;
+      }
+      state = state.copyWith(remotes: result.items);
+      _status('success', '远程目录：${result.items.length} 项');
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', '列出远程目录失败', detail: _errorText(error));
+      }
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    state = state.copyWith(remotes: result.items);
-    _status('success', '远程目录：${result.items.length} 项');
   }
 
   Future<void> webdavBackup(c.WebDavConfigDto config) async {
+    if (_rejectWhileBusy('已有操作进行中')) return;
+    final gen = ++_generation;
     state = state.copyWith(busy: true);
-    final bridge = ref.read(bridgePortProvider);
-    final result = await bridge.t16WebdavBackup(config);
-    if (!result.ok) {
-      state = state.copyWith(busy: false);
-      _status('error', '远程备份失败', detail: _webdavDetail(result.error));
-      return;
+    try {
+      final bridge = ref.read(bridgePortProvider);
+      final result = await bridge.t16WebdavBackup(config);
+      if (!_isCurrent(gen)) return;
+      if (!result.ok) {
+        _status('error', '远程备份失败', detail: _webdavDetail(result.error));
+        return;
+      }
+      // The upload only succeeds when the PUT was accepted; surface the file
+      // that is now actually on the remote so "上传 -> 远端出现" is visible.
+      final remote = await bridge.t16WebdavList(config);
+      if (!_isCurrent(gen)) return;
+      final entries = remote.ok ? remote.items : state.remotes;
+      state = state.copyWith(remotes: entries);
+      _status('success', '远程备份完成：${result.bytes} 字节');
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', '远程备份失败', detail: _errorText(error));
+      }
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    // The upload only succeeds when the PUT was accepted; surface the file that
-    // is now actually on the remote so "上传 -> 远端出现" is visible.
-    final remote = await bridge.t16WebdavList(config);
-    final entries = remote.ok ? remote.items : state.remotes;
-    state = state.copyWith(busy: false, remotes: entries);
-    _status('success', '远程备份完成：${result.bytes} 字节');
   }
 
   Future<void> webdavRestore(c.WebDavConfigDto config) async {
+    if (_rejectWhileBusy('已有操作进行中')) return;
+    final gen = ++_generation;
     state = state.copyWith(busy: true);
     final schedulerWasRunning = _schedulerWasRunning();
-    final result = await ref.read(bridgePortProvider).t16WebdavRestore(config);
-    state = state.copyWith(busy: false);
-    if (!result.ok) {
-      _status('error', '远程恢复失败（已保留现有配置）', detail: _webdavDetail(result.error));
-      _restartScheduler(schedulerWasRunning);
-      _refreshWindowState();
-      await _resyncRuntime();
-      return;
+    try {
+      final result = await ref
+          .read(bridgePortProvider)
+          .t16WebdavRestore(config);
+      if (!_isCurrent(gen)) return;
+      if (!result.ok) {
+        _status(
+          'error',
+          '远程恢复失败（已保留现有配置）',
+          detail: _webdavDetail(result.error),
+        );
+        await _afterFailedSwap(schedulerWasRunning);
+        return;
+      }
+      await _afterSuccessfulSwap(
+        schedulerWasRunning,
+        '远程恢复完成（节点/分组/主题/运行会话已重载）：${result.message}',
+      );
+    } catch (error) {
+      if (_isCurrent(gen)) {
+        _status('error', '远程恢复失败（已保留现有配置）', detail: _errorText(error));
+        await _afterFailedSwap(schedulerWasRunning);
+      }
+    } finally {
+      if (_isCurrent(gen)) state = state.copyWith(busy: false);
     }
-    await _reloadProviders();
-    _restartScheduler(schedulerWasRunning);
-    _refreshWindowState();
-    _status('success', '远程恢复完成（节点/分组/主题/运行会话已重载）：${result.message}');
-    await _resyncRuntime();
   }
 
   void openConfigDir() {
-    final result = ref.read(bridgePortProvider).t16OpenConfigDir();
-    _status(
-      result.ok ? 'success' : 'error',
-      result.ok ? '已打开配置目录' : '无法打开配置目录',
-      detail: result.ok ? null : _detail(result.error),
-    );
+    try {
+      final result = ref.read(bridgePortProvider).t16OpenConfigDir();
+      _status(
+        result.ok ? 'success' : 'error',
+        result.ok ? '已打开配置目录' : '无法打开配置目录',
+        detail: result.ok ? null : _detail(result.error),
+      );
+    } catch (error) {
+      _status('error', '无法打开配置目录', detail: _errorText(error));
+    }
   }
 
   void cleanupLogsTmp() {
-    final result = ref.read(bridgePortProvider).t16CleanupLogsTmp();
-    if (!result.ok) {
-      _status('error', '清理失败', detail: _detail(result.error));
-      return;
+    try {
+      final result = ref.read(bridgePortProvider).t16CleanupLogsTmp();
+      if (!result.ok) {
+        _status('error', '清理失败', detail: _detail(result.error));
+        return;
+      }
+      _status(
+        'success',
+        '已清理 ${result.deleted} 个文件（${result.bytes} 字节），跳过 ${result.skipped} 个',
+      );
+    } catch (error) {
+      _status('error', '清理失败', detail: _errorText(error));
     }
-    _status(
-      'success',
-      '已清理 ${result.deleted} 个文件（${result.bytes} 字节），跳过 ${result.skipped} 个',
-    );
   }
 }

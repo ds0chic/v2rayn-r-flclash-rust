@@ -1,0 +1,88 @@
+{
+  "task": "R4-28",
+  "title": "备份WebDAV与恢复",
+  "status": "implemented",
+  "baseline_head": "7e9a4b49de8c287abc920b5a3eff1c1b2cb74a1b",
+  "armed": false,
+  "scope": {
+    "production_changed": [
+      "apps/desktop/lib/features/backup/backup_controller.dart"
+    ],
+    "tests_added": [
+      "apps/desktop/test/r4_28_contract_test.dart",
+      "apps/desktop/test/repair/r4_28_repro_test.dart"
+    ],
+    "rust_changed": false,
+    "frb_generated_changed": false,
+    "forbidden_touched": false,
+    "port_10808_touched": false,
+    "host_proxy_registry_route_tun_touched": false,
+    "credentials_used": "synthetic only; local loopback mock"
+  },
+  "defect": {
+    "id": "D23",
+    "desc": "async backup/webdav controller lacked unified catch/finally; webdav ops ignored cancel generation; bridge exceptions latched busy forever and late cancelled results were committed",
+    "fixed_by": [
+      "try/catch/finally around every await with generation-guarded busy reset",
+      "generation guard added to webdavCheck/webdavList/webdavBackup/webdavRestore/recognize/reloadBundles",
+      "single in-flight operation (task drain)",
+      "reload failure after a committed swap surfaced, not disguised as restore failure",
+      "best-effort failure bookkeeping cannot escape and latch busy"
+    ]
+  },
+  "repro": {
+    "file": "apps/desktop/test/repair/r4_28_repro_test.dart",
+    "before_fix": { "result": "3/3 failed", "log": "r4_28_repro_prefix.log" },
+    "after_fix": { "result": "3/3 passed", "log": "r4_28_repro_postfix.log" }
+  },
+  "contract": {
+    "file": "apps/desktop/test/r4_28_contract_test.dart",
+    "result": "9/9 passed",
+    "log": "r4_28_contract.log",
+    "covers": [
+      "async bridge seam",
+      "local backup commits manifest, clears busy",
+      "failed local restore keeps previous bundles and reports error",
+      "webdav 401/404/timeout/unreachable branch mapping without credentials",
+      "failed upload is an error and skips remote listing",
+      "successful upload refreshes remote listing",
+      "thrown webdav restore clears busy, retry succeeds",
+      "cancel discards late upload, window stays usable",
+      "second concurrent operation rejected (task drain)"
+    ]
+  },
+  "regression": {
+    "cmd": "flutter test t16_backup_test.dart fix14c_webdav_backup_test.dart sr02_04_backup_import_test.dart sr03_restore_lifecycle_test.dart fix14_backup_activate_test.dart fix14b_backup_restore_test.dart r4_10_contract_test.dart -r compact",
+    "result": "27/27 passed",
+    "note": "first batch run showed fix14b 'did not complete' under concurrent cargo load; isolated and re-batch runs passed -> transient resource flakiness, not a logic regression"
+  },
+  "commands": [
+    { "cmd": "flutter analyze", "result": "2 errors in lib/app/shell/tray_menu_model.dart (other subagent in-flight, out of scope)", "log": "flutter_analyze_full.log" },
+    { "cmd": "flutter analyze lib/features/backup test/r4_28_contract_test.dart test/repair/r4_28_repro_test.dart", "result": "No issues found", "log": "flutter_analyze_scoped.log" },
+    { "cmd": "flutter test test/repair/r4_28_repro_test.dart -r expanded", "result": "3 passed (post-fix)", "log": "r4_28_repro_postfix.log" },
+    { "cmd": "flutter test test/r4_28_contract_test.dart -r expanded", "result": "9 passed", "log": "r4_28_contract.log" },
+    { "cmd": "cargo fmt --all -- --check", "result": "exit 0", "log": "cargo_fmt.log" },
+    { "cmd": "cargo clippy --workspace --all-targets --locked -- -D warnings", "result": "exit 0", "log": "cargo_clippy.log" },
+    { "cmd": "cargo test --workspace --locked", "result": "exit 0, all passed", "log": "cargo_test.log" },
+    { "cmd": "flutter build windows --release", "result": "not run: no bridge/native change in R4-28; full build blocked by other subagent in-flight tray_menu_model.dart", "log": null }
+  ],
+  "rust_webdav_evidence": {
+    "file": "crates/application/tests/t16_webdav.rs",
+    "changed": false,
+    "covers": [
+      "check/list/upload/download roundtrip",
+      "mkcol when dir missing",
+      "401 classified without credentials",
+      "download 404",
+      "upload 500 retryable E_UNAVAILABLE",
+      "slow server E_TIMEOUT",
+      "guiConfigs upstream layout upload/download/recognize"
+    ],
+    "port_policy": "probe 11808..11900, direct no-proxy"
+  },
+  "blocked": [
+    "real TLS WebDAV endpoint / real network: blocked (no isolated real endpoint; synthetic credentials only)",
+    "real Windows end-to-end reopen (backup -> restore -> process reopen -> theme/group/node/hotkey/runtime): not exercised",
+    "dedicated disconnect branch: mapped to E_UNAVAILABLE, no separate case"
+  ]
+}

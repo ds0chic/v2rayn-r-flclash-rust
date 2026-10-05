@@ -1,0 +1,37 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_28_repro_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_28_repro_test.dart: a thrown WebDAV check completes, reports an error and clears busy
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_28_repro_test.dart: a thrown local backup completes, reports and clears busy
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_28_repro_test.dart: cancel during a slow remote backup discards the late result
+00:00 +3: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_28_contract_test.dart
+test/r4_28_contract_test.dart:56:29: Error: Required named parameter 'items' must be provided.
+      return c.WebDavListDto(ok: false, error: error);
+                            ^
+lib/bridge/api/contract.dart:1966:9: Context: Found this candidate, but the arguments don't match.
+  const WebDavListDto({required this.ok, required this.items, this.error});
+        ^^^^^^^^^^^^^
+00:00 +3 -1: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_28_contract_test.dart [E]
+  Failed to load "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_28_contract_test.dart":
+  Compilation failed for testPath=C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_28_contract_test.dart: test/r4_28_contract_test.dart:56:29: Error: Required named parameter 'items' must be provided.
+        return c.WebDavListDto(ok: false, error: error);
+                              ^
+  lib/bridge/api/contract.dart:1966:9: Context: Found this candidate, but the arguments don't match.
+    const WebDavListDto({required this.ok, required this.items, this.error});
+          ^^^^^^^^^^^^^
+  .
+00:00 +3 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_28_contract_test.dart: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_28_contract_test.dart

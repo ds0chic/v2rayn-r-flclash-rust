@@ -101,15 +101,18 @@ impl PendingCleanup {
 }
 
 /// Whether a cleanup error means "already gone" and may converge like
-/// success. Today that is only `E_NOT_FOUND` (the helper's `UnknownHandle`
-/// maps there): removing routes or resetting an adapter that no longer exists
-/// is idempotent. Every other error — backend failure, unreachable helper,
-/// permission refusal — keeps the journal for retry; a permission error is
-/// never swallowed into success (CP-04).
+/// success. That is `E_NOT_FOUND` (the helper's `UnknownHandle` maps there,
+/// and the fake `CleanupAlreadyGone` fault reports it): removing routes or
+/// resetting an adapter that no longer exists is idempotent. Every other
+/// error — backend failure, unreachable helper, permission refusal — keeps
+/// the journal for retry; a permission error is never swallowed into success
+/// (CP-04).
 ///
-/// A02 follow-up: the helper will report an explicit per-resource
-/// `AlreadyGone` in `ReleaseOwnedResources`; until then only `E_NOT_FOUND`
-/// converges here and nothing else is treated as absent.
+/// The helper's explicit per-resource `AlreadyGone` result (helper protocol
+/// v2) is normalized to success one layer below, in
+/// [`crate::helper_client::map_cleanup_result`] and the pipe link cleanup:
+/// both `AlreadyGone` and `E_NOT_FOUND` clear the journal and any pending
+/// record here.
 pub fn is_already_absent(error: &DomainError) -> bool {
     error.code == codes::NOT_FOUND
 }
@@ -819,6 +822,54 @@ mod tests {
         let mut gone = AlreadyAbsentLink;
         cleanup_tun_lease(&root, "s1", &lease, &mut gone)
             .expect("already-absent is idempotent success");
+        assert!(read_tun_journal(&root, "s1").is_none());
+        assert!(read_pending_cleanup(&root, "s1").is_none());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_cleanup_already_gone_fault_converges_like_success() {
+        use crate::helper_client::FakeHelperFault;
+        let root = temp_root("sp08-gone-fault");
+        let mut apply_link = FakeHelperLink::new();
+        let lease = apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        let mut gone = FakeHelperLink::with_fault(FakeHelperFault::CleanupAlreadyGone);
+        cleanup_tun_lease(&root, "s1", &lease, &mut gone)
+            .expect("AlreadyGone is a successful cleanup confirmation");
+        assert!(read_tun_journal(&root, "s1").is_none());
+        assert!(read_pending_cleanup(&root, "s1").is_none());
+        assert!(list_pending_cleanup(&root).is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_reconcile_already_gone_fault_counts_cleaned() {
+        use crate::helper_client::FakeHelperFault;
+        let root = temp_root("sp08-gone-reconcile");
+        let mut apply_link = FakeHelperLink::new();
+        apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        drop(apply_link);
+        let mut gone = FakeHelperLink::with_fault(FakeHelperFault::CleanupAlreadyGone);
+        let report = reconcile_stale_tun(&root, &mut gone);
+        assert_eq!((report.scanned, report.cleaned, report.pending), (1, 1, 0));
+        assert!(read_tun_journal(&root, "s1").is_none());
+        assert!(read_pending_cleanup(&root, "s1").is_none());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_retry_after_failure_converges_on_already_gone() {
+        use crate::helper_client::FakeHelperFault;
+        let root = temp_root("sp08-retry-gone");
+        let mut apply_link = FakeHelperLink::new();
+        let lease = apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        let mut failing = FailingCleanupLink;
+        cleanup_tun_lease(&root, "s1", &lease, &mut failing).unwrap_err();
+        assert!(read_tun_journal(&root, "s1").is_some());
+        // The resources disappeared out of band; the retry converges via the
+        // AlreadyGone confirmation instead of staying pending.
+        let mut gone = FakeHelperLink::with_fault(FakeHelperFault::CleanupAlreadyGone);
+        retry_tun_cleanup(&root, "s1", &mut gone).expect("retry converges on AlreadyGone");
         assert!(read_tun_journal(&root, "s1").is_none());
         assert!(read_pending_cleanup(&root, "s1").is_none());
         let _ = std::fs::remove_dir_all(&root);

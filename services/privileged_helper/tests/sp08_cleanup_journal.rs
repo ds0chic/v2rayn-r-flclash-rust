@@ -192,6 +192,87 @@ fn sp08_failed_core_stop_retains_handle() {
 }
 
 #[test]
+fn sp08_cleanup_already_gone_releases_journal_and_closes() {
+    // Routes already absent: no failure retained, lease closes.
+    let fake = Arc::new(FakeBackend::new().already_gone_on(FakeOp::RemoveRoutes));
+    let server = server_with(fake);
+    let mut lease = ConnectionLease::new("sp08-gone-routes");
+    let response = server.handle(
+        &mut lease,
+        &request(HelperOp::AddRoutes {
+            entries: vec![v4_route()],
+        }),
+    );
+    assert!(matches!(
+        response.result,
+        HelperResult::RoutesAdded { count: 1 }
+    ));
+    let failures = server.on_disconnect(&mut lease);
+    assert!(
+        failures.is_empty(),
+        "AlreadyGone is success, not a retained failure"
+    );
+    assert_eq!(lease.owned_route_count(), 0);
+    assert_eq!(lease.pending_cleanup_count(), 0);
+    assert!(lease.is_closed());
+    assert_eq!(lease.journal_snapshot().len(), 1);
+    assert!(lease
+        .journal_snapshot()
+        .iter()
+        .all(|entry| entry.state == privileged_helper::journal::JournalState::Released));
+}
+
+#[test]
+fn sp08_tun_reset_already_gone_releases_journal_and_closes() {
+    let fake = Arc::new(FakeBackend::new().already_gone_on(FakeOp::ResetTunAddress));
+    let server = server_with(fake);
+    let mut lease = ConnectionLease::new("sp08-gone-tun");
+    let response = server.handle(
+        &mut lease,
+        &request(HelperOp::SetTunAdapterAddress {
+            config: tun_config(7),
+        }),
+    );
+    assert!(matches!(
+        response.result,
+        HelperResult::TunAddressSet { interface_index: 7 }
+    ));
+    let failures = server.on_disconnect(&mut lease);
+    assert!(failures.is_empty());
+    assert_eq!(lease.owned_tun_count(), 0);
+    assert_eq!(lease.pending_cleanup_count(), 0);
+    assert!(lease.is_closed());
+}
+
+#[test]
+fn sp08_retry_after_failure_converges_on_already_gone() {
+    // Fault injection still works: fail first, then the resource disappears
+    // out of band and the retry converges via AlreadyGone.
+    let fake = Arc::new(FakeBackend::new().fail_on(
+        FakeOp::RemoveRoutes,
+        HelperError::Backend {
+            detail: "injected route removal failure".into(),
+        },
+    ));
+    let server = server_with(fake.clone());
+    let mut lease = ConnectionLease::new("sp08-retry-gone");
+    server.handle(
+        &mut lease,
+        &request(HelperOp::AddRoutes {
+            entries: vec![v4_route()],
+        }),
+    );
+    assert_eq!(server.on_disconnect(&mut lease).len(), 1);
+    assert!(!lease.is_closed());
+    fake.clear_failure();
+    fake.set_already_gone(FakeOp::RemoveRoutes, true);
+    assert!(server.retry_cleanup(&mut lease).is_empty());
+    assert_eq!(lease.owned_route_count(), 0);
+    assert_eq!(lease.pending_cleanup_count(), 0);
+    assert!(lease.is_closed());
+}
+
+#[test]
 fn sp08_partial_failure_releases_only_confirmed_resources() {
     let fake = Arc::new(FakeBackend::new().fail_on(
         FakeOp::ResetTunAddress,

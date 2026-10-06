@@ -24,7 +24,7 @@ use windows::Win32::System::Threading::{
     GetExitCodeProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 
-use crate::backend::{CoreExit, HelperBackend, StartedCore};
+use crate::backend::{CoreExit, HelperBackend, RouteRemovalOutcome, StartedCore, TunResetOutcome};
 
 pub use crate::pipe_security::{current_user_sid_string, PipeSecurity};
 
@@ -381,6 +381,16 @@ impl WindowsBackend {
     }
 }
 
+/// `DeleteIpForwardEntry2` / `DeleteUnicastIpAddressEntry` status for
+/// "the entry was already absent" (WinError.h `ERROR_NOT_FOUND`). SP-08
+/// maps exactly this code to the idempotent `AlreadyGone` outcome; every
+/// other non-zero status stays a backend failure and retains the journal.
+const ERROR_NOT_FOUND_STATUS: u32 = 1168;
+
+fn is_not_found_status(status: u32) -> bool {
+    status == ERROR_NOT_FOUND_STATUS
+}
+
 impl HelperBackend for WindowsBackend {
     fn is_elevated(&self) -> bool {
         unsafe { IsUserAnAdmin() != 0 }
@@ -400,18 +410,28 @@ impl HelperBackend for WindowsBackend {
         Ok(entries.len() as u32)
     }
 
-    fn remove_routes(&self, entries: &[RouteEntry]) -> Result<u32, HelperError> {
+    fn remove_routes(&self, entries: &[RouteEntry]) -> Result<RouteRemovalOutcome, HelperError> {
         validate_route_entries(entries)?;
+        let mut removed = 0u32;
+        let mut gone = 0u32;
         for entry in entries {
             let row = forward_row(entry)?;
             let status = unsafe { DeleteIpForwardEntry2(&row) };
-            if status != 0 {
+            if status == 0 {
+                removed += 1;
+            } else if is_not_found_status(status) {
+                gone += 1;
+            } else {
                 return Err(HelperError::Backend {
                     detail: format!("DeleteIpForwardEntry2 failed with code {status}"),
                 });
             }
         }
-        Ok(entries.len() as u32)
+        if removed == 0 && gone > 0 {
+            Ok(RouteRemovalOutcome::AlreadyGone)
+        } else {
+            Ok(RouteRemovalOutcome::Removed(removed))
+        }
     }
 
     fn set_tun_address(&self, config: &TunAddressConfig) -> Result<(), HelperError> {
@@ -432,32 +452,44 @@ impl HelperBackend for WindowsBackend {
         Ok(())
     }
 
-    fn reset_tun_address(&self, interface_index: u32) -> Result<(), HelperError> {
+    fn reset_tun_address(&self, interface_index: u32) -> Result<TunResetOutcome, HelperError> {
         // SP-08: only drop the registry record after the OS confirms the
-        // removal. A failed delete keeps the stored config so a retry still
-        // knows exactly which addresses remain owned.
+        // removal (or confirms the addresses were already absent). A failed
+        // delete keeps the stored config so a retry still knows exactly which
+        // addresses remain owned; an `AlreadyGone` delete drops it like a
+        // success because the desired end state holds.
         let stored = self
             .tun
             .lock()
             .expect("tun registry poisoned")
             .get(&interface_index)
             .cloned();
-        if let Some(config) = stored {
-            for address in &config.addresses {
-                let row = unicast_row(interface_index, &address.address, address.prefix_len)?;
-                let status = unsafe { DeleteUnicastIpAddressEntry(&row) };
-                if status != 0 {
-                    return Err(HelperError::Backend {
-                        detail: format!("DeleteUnicastIpAddressEntry failed with code {status}"),
-                    });
-                }
+        let Some(config) = stored else {
+            return Ok(TunResetOutcome::AlreadyGone);
+        };
+        let mut gone = 0u32;
+        for address in &config.addresses {
+            let row = unicast_row(interface_index, &address.address, address.prefix_len)?;
+            let status = unsafe { DeleteUnicastIpAddressEntry(&row) };
+            if status == 0 {
+                continue;
+            } else if is_not_found_status(status) {
+                gone += 1;
+            } else {
+                return Err(HelperError::Backend {
+                    detail: format!("DeleteUnicastIpAddressEntry failed with code {status}"),
+                });
             }
-            self.tun
-                .lock()
-                .expect("tun registry poisoned")
-                .remove(&interface_index);
         }
-        Ok(())
+        self.tun
+            .lock()
+            .expect("tun registry poisoned")
+            .remove(&interface_index);
+        if gone as usize == config.addresses.len() && !config.addresses.is_empty() {
+            Ok(TunResetOutcome::AlreadyGone)
+        } else {
+            Ok(TunResetOutcome::Reset)
+        }
     }
 
     fn run_elevated_core(&self, spec: &ElevatedCoreSpec) -> Result<StartedCore, HelperError> {

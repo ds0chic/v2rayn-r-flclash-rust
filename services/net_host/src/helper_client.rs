@@ -302,6 +302,39 @@ pub fn map_helper_error(error: HelperError) -> DomainError {
     }
 }
 
+/// Whether a helper result is the explicit `AlreadyGone` idempotency
+/// confirmation (helper protocol v2 `HelperResult::AlreadyGone`).
+pub fn is_already_gone_result(result: &HelperResult) -> bool {
+    matches!(result, HelperResult::AlreadyGone { .. })
+}
+
+/// Whether a helper result confirms a cleanup (SP-08).
+///
+/// `RoutesRemoved` is the removed path; `AlreadyGone` is the idempotent
+/// already-absent confirmation from helper protocol v2. Both mean the
+/// desired end state holds, so the caller clears the journal and any pending
+/// record. Every other result is not a cleanup confirmation.
+pub fn is_cleanup_confirmed(result: &HelperResult) -> bool {
+    matches!(result, HelperResult::RoutesRemoved { .. }) || is_already_gone_result(result)
+}
+
+/// Map one helper cleanup call result onto the net-host outcome.
+///
+/// `Ok` results that confirm the cleanup (`RoutesRemoved`, `AlreadyGone`)
+/// become `Ok`; an `E_NOT_FOUND` error (the helper's `UnknownHandle` mapping)
+/// also converges like success for the same reason; any other error is
+/// returned unchanged so the journal stays for retry.
+pub fn map_cleanup_result(result: Result<HelperResult, DomainError>) -> Result<(), DomainError> {
+    match result {
+        Ok(confirmed) if is_cleanup_confirmed(&confirmed) => Ok(()),
+        Ok(unexpected) => Err(tun_apply_failed(format!(
+            "helper returned an unexpected cleanup result: {unexpected:?}"
+        ))),
+        Err(error) if error.code == codes::NOT_FOUND => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
 /// Fault injection for the in-memory helper used by tests.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg(test)]
@@ -320,6 +353,12 @@ pub enum FakeHelperFault {
     /// SP-08: apply succeeds, but every cleanup reports the helper
     /// unreachable (retryable). Resources are left intact.
     CleanupUnavailable,
+    /// SP-08 follow-up: apply succeeds, but every cleanup reports the helper
+    /// confirmed the resources were already absent (`E_NOT_FOUND`, the
+    /// host-side image of helper `AlreadyGone`). The fake clears its own
+    /// resources like the OS would, so the journal/pending convergence path
+    /// is exercised without a pipe.
+    CleanupAlreadyGone,
 }
 
 #[derive(Debug, Default)]
@@ -592,6 +631,17 @@ impl HelperLink for FakeHelperLink {
             return Err(
                 tun_helper_unavailable("fake helper unreachable during cleanup").retryable(),
             );
+        }
+        if self.fault == Some(FakeHelperFault::CleanupAlreadyGone) {
+            // The helper confirmed absence: drop the fake-owned resources
+            // like the OS would, then report `E_NOT_FOUND` so the
+            // `is_already_absent` convergence path is exercised.
+            state.ops.push("cleanup already_gone".into());
+            state.routes.clear();
+            state.tun = None;
+            state.cleanup_count += 1;
+            state.cleaned = true;
+            return Err(DomainError::not_found("tun_lease", "already-gone"));
         }
         if state.cleaned {
             return Ok(());
@@ -1079,10 +1129,11 @@ impl HelperLink for PipeHelperLink {
             // journal stays so the cleanup is retried; dropping the local
             // connection still lets the helper's disconnect path run, but the
             // caller only reports success once a cleanup is confirmed (or the
-            // resources are proven already-absent). Per-resource confirmation
-            // needs the A02 `ReleaseOwnedResources` report; until then any
-            // `Err` keeps the lease pending.
-            if let Err(error) = self.call(HelperOp::RemoveRoutes { entries }) {
+            // resources are proven already-absent via `AlreadyGone` /
+            // `E_NOT_FOUND`). The TUN reset runs on the helper disconnect
+            // path, where `AlreadyGone` likewise releases the journal.
+            let result = self.call(HelperOp::RemoveRoutes { entries });
+            if let Err(error) = map_cleanup_result(result) {
                 self.conn = None;
                 return Err(error);
             }
@@ -1515,6 +1566,43 @@ mod tests {
             .code,
             codes::UNAVAILABLE
         );
+    }
+
+    #[test]
+    fn sp08_already_gone_result_is_a_cleanup_confirmation() {
+        assert!(is_already_gone_result(&HelperResult::AlreadyGone {
+            resource: "route 0.0.0.0/0".into(),
+        }));
+        assert!(is_cleanup_confirmed(&HelperResult::AlreadyGone {
+            resource: "tun if=9".into(),
+        }));
+        assert!(is_cleanup_confirmed(&HelperResult::RoutesRemoved {
+            count: 1
+        }));
+        assert!(!is_already_gone_result(&HelperResult::RoutesRemoved {
+            count: 1
+        }));
+        assert!(!is_cleanup_confirmed(&HelperResult::Shutdown));
+        assert!(map_cleanup_result(Ok(HelperResult::AlreadyGone {
+            resource: "route 0.0.0.0/0".into(),
+        }))
+        .is_ok());
+        assert!(map_cleanup_result(Ok(HelperResult::RoutesRemoved { count: 1 })).is_ok());
+        assert!(map_cleanup_result(Err(DomainError::not_found("tun_lease", "s1"))).is_ok());
+        assert!(map_cleanup_result(Err(tun_apply_failed("boom"))).is_err());
+    }
+
+    #[test]
+    fn sp08_fake_already_gone_cleanup_reports_not_found_and_clears_state() {
+        let mut link = FakeHelperLink::with_fault(FakeHelperFault::CleanupAlreadyGone);
+        let lease = link.apply(&spec()).unwrap();
+        let error = link
+            .cleanup(&lease)
+            .expect_err("AlreadyGone surfaces as not-found");
+        assert_eq!(error.code, domain::codes::NOT_FOUND);
+        assert_eq!(link.cleanup_attempts(), 1);
+        assert!(!link.has_tun(), "an absent resource stays absent");
+        assert_eq!(link.route_count(), 0);
     }
 
     #[test]

@@ -155,6 +155,74 @@ fn remove_routes_records() {
 }
 
 #[test]
+fn sp08_remove_routes_reports_removed_vs_already_gone() {
+    // Removed path: backend confirms removal.
+    let fake = Arc::new(FakeBackend::new());
+    let server = server_with(fake.clone(), LeasePolicy::CleanOwned);
+    let mut removed_lease = lease("s-gone-removed");
+    server.handle(
+        &mut removed_lease,
+        &request(HelperOp::AddRoutes {
+            entries: vec![v4_route()],
+        }),
+    );
+    let response = server.handle(
+        &mut removed_lease,
+        &request(HelperOp::RemoveRoutes {
+            entries: vec![v4_route()],
+        }),
+    );
+    assert!(
+        matches!(response.result, HelperResult::RoutesRemoved { count: 1 }),
+        "backend removal must report RoutesRemoved"
+    );
+    assert_eq!(removed_lease.owned_route_count(), 0);
+    assert_eq!(removed_lease.pending_cleanup_count(), 0);
+    let last = server
+        .audit()
+        .records()
+        .last()
+        .expect("audit record")
+        .clone();
+    assert_eq!(last.operation, "remove_routes");
+    assert_eq!(last.outcome, privileged_helper::AuditOutcome::Ok);
+
+    // AlreadyGone path: backend confirms the routes were already absent.
+    let gone = Arc::new(FakeBackend::new().already_gone_on(FakeOp::RemoveRoutes));
+    let gone_server = server_with(gone.clone(), LeasePolicy::CleanOwned);
+    let mut gone_lease = lease("s-gone-absent");
+    gone_server.handle(
+        &mut gone_lease,
+        &request(HelperOp::AddRoutes {
+            entries: vec![v4_route()],
+        }),
+    );
+    let response = gone_server.handle(
+        &mut gone_lease,
+        &request(HelperOp::RemoveRoutes {
+            entries: vec![v4_route()],
+        }),
+    );
+    match response.result {
+        HelperResult::AlreadyGone { resource } => {
+            assert!(resource.contains("0.0.0.0/0"), "resource carries the label");
+        }
+        other => panic!("expected AlreadyGone, got {other:?}"),
+    }
+    assert_eq!(gone_lease.owned_route_count(), 0);
+    assert_eq!(gone_lease.pending_cleanup_count(), 0);
+    let last = gone_server
+        .audit()
+        .records()
+        .last()
+        .expect("audit record")
+        .clone();
+    assert_eq!(last.operation, "remove_routes");
+    assert_eq!(last.outcome, privileged_helper::AuditOutcome::Ok);
+    assert!(last.summary.contains("already_gone"));
+}
+
+#[test]
 fn set_tun_records() {
     let fake = Arc::new(FakeBackend::new());
     let server = server_with(fake.clone(), LeasePolicy::CleanOwned);

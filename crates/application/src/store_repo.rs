@@ -1682,6 +1682,277 @@ mod tests {
         }
     }
 
+    // ---- SP-21 continuation: real-SQLite file-backed scale proof ----
+    //
+    // The prep tests above run against `:memory:` through `query_page`
+    // directly. These tests prove the real end-to-end path: a file-backed
+    // SQLite database (WAL, synthetic rows only, no network) read through
+    // the background `AsyncPageWorker` connection at 10k and 100k rows,
+    // covering page/cursor walks, ID tie ordering, revision-stale cursors,
+    // cancel, and cross-page select-all (the full id set, exactly once).
+
+    fn sp21_seed_file_db(path: &std::path::Path, total: usize, same_remarks: bool) -> Vec<String> {
+        let repo = SqliteProfileRepository::open(path).unwrap();
+        let profiles: Vec<Profile> = (0..total)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i as u32 + 1);
+                p.index_id = format!("sp21-scale-{i:07}");
+                if same_remarks {
+                    p.remarks = "sp21-same-remarks".to_string();
+                }
+                p.subid = "sp21-scale".to_string();
+                p
+            })
+            .collect();
+        let expected: Vec<String> = profiles.iter().map(|p| p.index_id.clone()).collect();
+        let (added, _) = repo
+            .replace_for_sub("sp21-scale", profiles, true, false)
+            .unwrap();
+        assert_eq!(added, total);
+        expected
+    }
+
+    fn sp21_worker_walk_all(
+        worker: &AsyncPageWorker,
+        revision: u64,
+        generation: u64,
+        page_size: u32,
+    ) -> (Vec<String>, usize) {
+        use super::AsyncPageRequest;
+        use crate::repository::{ProfileFilter, ProfileSort};
+        let mut cursor = 0usize;
+        let mut seen: Vec<String> = Vec::new();
+        let mut pages = 0usize;
+        loop {
+            let mut handle = worker.submit(
+                AsyncPageRequest {
+                    filter: ProfileFilter::default(),
+                    sort: ProfileSort::Remarks,
+                    cursor,
+                    page_size,
+                    expected_revision: revision,
+                    generation,
+                },
+                CancellationToken::new(),
+            );
+            let page = handle
+                .wait(std::time::Duration::from_secs(120))
+                .expect("bounded page arrives")
+                .expect("page query succeeds");
+            assert!(page.items.len() <= page_size as usize, "page stays bounded");
+            assert_eq!(page.dataset_revision, revision);
+            assert_eq!(page.generation, generation);
+            seen.extend(page.items.iter().map(|p| p.index_id.clone()));
+            pages += 1;
+            match page.next_cursor {
+                Some(next) => {
+                    assert!(next > cursor, "cursor must advance");
+                    cursor = next;
+                }
+                None => break,
+            }
+        }
+        (seen, pages)
+    }
+
+    #[test]
+    fn sp21_real_sqlite_10k_worker_walk_covers_every_row_once() {
+        use std::sync::Arc;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sp21-scale-10k.db");
+        let total = 10_000usize;
+        let mut expected = sp21_seed_file_db(&path, total, false);
+        expected.sort();
+
+        let pager = Arc::new(ProfilePageQuery::new());
+        pager.notify_mutated();
+        let worker = AsyncPageWorker::open_readonly(&path, pager.clone()).unwrap();
+        let revision = pager.dataset_revision();
+        let generation = pager.next_generation();
+
+        let timer = std::time::Instant::now();
+        let (seen, pages) = sp21_worker_walk_all(&worker, revision, generation, 500);
+        let elapsed = timer.elapsed();
+        println!(
+            "SP21 real-sqlite 10k worker walk rows={total} pages={pages} elapsed_ms={}",
+            elapsed.as_millis()
+        );
+
+        // Cross-page select-all: the walked id set is exactly the store,
+        // every row once, none missing, none repeated.
+        let mut seen_sorted = seen;
+        seen_sorted.sort();
+        assert_eq!(seen_sorted, expected, "every row exactly once");
+        assert!(pages > 1, "large store is read in bounded pages");
+        drop(worker);
+    }
+
+    #[test]
+    fn sp21_real_sqlite_100k_worker_walk_covers_every_row_once() {
+        use std::sync::Arc;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sp21-scale-100k.db");
+        let total = 100_000usize;
+        let mut expected = sp21_seed_file_db(&path, total, false);
+        expected.sort();
+
+        let pager = Arc::new(ProfilePageQuery::new());
+        pager.notify_mutated();
+        let worker = AsyncPageWorker::open_readonly(&path, pager.clone()).unwrap();
+        let revision = pager.dataset_revision();
+        let generation = pager.next_generation();
+
+        let timer = std::time::Instant::now();
+        let (seen, pages) = sp21_worker_walk_all(&worker, revision, generation, 500);
+        let elapsed = timer.elapsed();
+        println!(
+            "SP21 real-sqlite 100k worker walk rows={total} pages={pages} elapsed_ms={}",
+            elapsed.as_millis()
+        );
+
+        let mut seen_sorted = seen;
+        seen_sorted.sort();
+        assert_eq!(seen_sorted, expected, "every row exactly once");
+        assert!(pages > 1, "large store is read in bounded pages");
+        drop(worker);
+    }
+
+    #[test]
+    fn sp21_real_sqlite_id_tiebreak_is_stable_across_worker_pages() {
+        use std::sync::Arc;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sp21-scale-tie.db");
+        // Equal sort keys: page order must fall back to `IndexId` on every
+        // worker page, not just within one page.
+        let expected = sp21_seed_file_db(&path, 5_000, true);
+
+        let pager = Arc::new(ProfilePageQuery::new());
+        pager.notify_mutated();
+        let worker = AsyncPageWorker::open_readonly(&path, pager.clone()).unwrap();
+        let (seen, _) = sp21_worker_walk_all(
+            &worker,
+            pager.dataset_revision(),
+            pager.next_generation(),
+            500,
+        );
+        let mut sorted = expected.clone();
+        sorted.sort();
+        assert_eq!(seen, sorted, "equal keys fall back to IndexId order");
+        drop(worker);
+    }
+
+    #[test]
+    fn sp21_real_sqlite_worker_stale_revision_and_cancel() {
+        use super::{AsyncPageError, AsyncPageRequest};
+        use crate::repository::{ProfileFilter, ProfileSort};
+        use std::sync::Arc;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sp21-scale-rev.db");
+        sp21_seed_file_db(&path, 2_000, false);
+
+        let pager = Arc::new(ProfilePageQuery::new());
+        pager.notify_mutated();
+        let worker = AsyncPageWorker::open_readonly(&path, pager.clone()).unwrap();
+        let revision = pager.dataset_revision();
+        let generation = pager.next_generation();
+
+        // First worker page succeeds and reports a cursor.
+        let mut first = worker.submit(
+            AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor: 0,
+                page_size: 500,
+                expected_revision: revision,
+                generation,
+            },
+            CancellationToken::new(),
+        );
+        let page = first
+            .wait(std::time::Duration::from_secs(120))
+            .expect("bounded page arrives")
+            .expect("first page succeeds");
+        let cursor = page.next_cursor.expect("more pages remain");
+
+        // A committed write bumps the dataset revision; the old cursor must
+        // fail loudly on the real file instead of skipping/repeating rows.
+        let mut writer = SqliteProfileRepository::open(&path).unwrap();
+        let mut extra = synthetic_full_profile(999_001);
+        extra.index_id = "sp21-scale-added".to_string();
+        extra.subid = "sp21-scale".to_string();
+        writer.upsert(extra).unwrap();
+        drop(writer);
+        pager.notify_mutated();
+
+        let mut stale = worker.submit(
+            AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor,
+                page_size: 500,
+                expected_revision: revision,
+                generation,
+            },
+            CancellationToken::new(),
+        );
+        match stale
+            .wait(std::time::Duration::from_secs(120))
+            .expect("worker answers")
+        {
+            Err(AsyncPageError::StaleCursor { expected, actual }) => {
+                assert_eq!(expected, revision);
+                assert_eq!(actual, pager.dataset_revision());
+            }
+            other => panic!("expected StaleCursor, got {other:?}"),
+        }
+
+        // A pre-cancelled token surfaces without a page on the real file.
+        let cancelled_token = CancellationToken::new();
+        cancelled_token.cancel();
+        let mut cancelled = worker.submit(
+            AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor: 0,
+                page_size: 500,
+                expected_revision: pager.dataset_revision(),
+                generation,
+            },
+            cancelled_token,
+        );
+        assert_eq!(
+            cancelled
+                .wait(std::time::Duration::from_secs(120))
+                .expect("worker answers"),
+            Err(AsyncPageError::Cancelled)
+        );
+
+        // `cancel()` on the handle is synchronous and the late result is
+        // discarded instead of delivered.
+        let mut late = worker.submit(
+            AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor: 0,
+                page_size: 500,
+                expected_revision: pager.dataset_revision(),
+                generation,
+            },
+            CancellationToken::new(),
+        );
+        let timer = std::time::Instant::now();
+        late.cancel();
+        assert!(
+            timer.elapsed() < std::time::Duration::from_secs(1),
+            "cancel stays immediately responsive"
+        );
+        drop(worker);
+        match late.wait(std::time::Duration::from_secs(30)) {
+            Err(AsyncPageError::Cancelled) | Ok(_) => {}
+            other => panic!("cancelled query must not deliver a live page, got {other:?}"),
+        }
+    }
+
     #[test]
     fn sp21_async_page_size_is_bounded() {
         use super::{AsyncPageRequest, ProfilePageQuery, ASYNC_PAGE_MAX_SIZE};

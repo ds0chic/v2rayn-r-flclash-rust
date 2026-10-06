@@ -183,9 +183,18 @@ fn sp24_fragment_packets_lengths_delays() {
 }
 
 // FLD-CFG-153: wire takes the first int of a range string ("1-3" -> 1).
+// Upstream `int.TryParse` tolerates surrounding whitespace, so padded forms
+// wire the same first int ("1 - 3" -> 1).
 #[test]
 fn sp24_fragment_max_split_range_takes_first() {
-    for (raw, wire) in [("1-3", 1), ("2-5", 2), ("7", 7), ("", 0)] {
+    for (raw, wire) in [
+        ("1-3", 1),
+        ("2-5", 2),
+        ("7", 7),
+        ("", 0),
+        ("1 - 3", 1),
+        (" 2 ", 2),
+    ] {
         let mut s = settings();
         s.core_basic.enable_fragment = true;
         s.fragment4_ray.max_split = Some(raw.into());

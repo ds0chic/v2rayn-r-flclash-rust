@@ -255,10 +255,13 @@ pub(crate) fn fragment_mask(item: &crate::input::Fragment4Ray) -> Value {
         .clone()
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "0".into());
+    // Upstream `BuildFragmentsMasks`: `Split('-')` then `int.TryParse` on the
+    // first segment, which tolerates surrounding whitespace, so trim before
+    // parsing (`"1 - 3"` wires 1, like upstream; untrimmed it would wire 0).
     let max_split = max_split_text
         .split('-')
         .next()
-        .and_then(|s| s.parse::<i32>().ok())
+        .and_then(|s| s.trim().parse::<i32>().ok())
         .unwrap_or(0);
     json!({
         "type": "fragment",

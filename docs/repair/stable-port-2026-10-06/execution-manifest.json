@@ -292,8 +292,8 @@
       "upstream_symbols": "TUN adapter/route/DNS源；runtime TUN journal",
       "status": "identified",
       "instance_required": false,
-      "evidence": "docs/evidence/stable-port/SP-08/README.md（helper 侧）、docs/evidence/stable-port/SP-08/HOST_SIDE.md（host 侧 A03）",
-      "note": "helper 侧与 host 侧均 implemented（host：失败保 journal+pending 可重试、不假成功，net_host 109/0；Pipe cleanup 错误传播）；跨层 UI（N-H1 待 SP-00）与隔离机真实收敛未验，卡整体保持 identified"
+      "evidence": "docs/evidence/stable-port/SP-08/README.md（helper 侧）、docs/evidence/stable-port/SP-08/HOST_SIDE.md（host 侧 A03）、docs/evidence/stable-port/SP-08/ALREADY-GONE.md（AlreadyGone 端到端）",
+      "note": "helper 侧与 host 侧均 implemented，AlreadyGone 端到端已接线（helper RemoveRoutes/ResetTun AlreadyGone 释放 journal，net_host 经 map_cleanup_result/E_NOT_FOUND 收敛；privileged_helper 定向全绿，net_host 134/0）；跨层 UI（N-H1 待 SP-00）与隔离机真实收敛未验，卡整体保持 identified"
     },
     {
       "id": "SP-09",
@@ -722,7 +722,9 @@
       "test_scope": "异步FRB page/cursor/cancel/selection allpages",
       "upstream_symbols": "GetProfileItemsEx/Sort；store_repo分页查询",
       "status": "identified",
-      "instance_required": false
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-21/README.md",
+      "note": "2026-10-07 SP-21 continuation (uncommitted): real-SQLite file-backed worker scale proof landed (10k walk 670ms/20p, 100k walk 26636ms/200p, page 500, Remarks sort; tie/stale/cancel/select-all via worker; Rust sp21_* 12/12, application lib 346/0, persistence 74/0, fmt/clippy green) + profiles-list UI consumes existing querySummaryPage cursor API (reloadPaged incremental+yield+generation/cancel/revision-restart, selectAllAcrossPages, cancel wired into group/filter/sort entries; Dart 10/10, analyze clean). QueryProfilesPageAsync FRB entry still a registered gap (SP-00) + real-GUI timer/interaction sampling pending SP-31 → stays identified, not verified"
     },
     {
       "id": "SP-22",
@@ -819,7 +821,8 @@
       "test_scope": "Happy enabled、MaxSplit1-3合法与wire下界",
       "upstream_symbols": "V2rayOutboundService.cs、TryParseMaxSplit、CSV字段source",
       "status": "identified",
-      "instance_required": true
+      "instance_required": true,
+      "note": "2026-10-07 SP-24 continuation (uncommitted): UI MaxSplit TryParseMaxSplit parity + Happy gate + String2List split parity, fragment_mask wire trim; Dart sp_24 widget 5/5 + config_codegen/application green, fmt/clippy/analyze clean. Formal UI->FRB->save->restart->xray/mihomo verify->reopen still unverified; G-07/G-13-rest/TUN-session blocked. Status stays identified for integrator promotion"
     },
     {
       "id": "SP-25",

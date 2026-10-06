@@ -372,13 +372,24 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       }
     }
     final maxSplit = _str(fragment, 'MaxSplit');
-    if (maxSplit != null && maxSplit.isNotEmpty) {
-      final value = int.tryParse(maxSplit);
-      if (value == null || value < 0 || value > 10000) {
-        return 'validate.fragment';
-      }
+    // Upstream `OptionSettingViewModel.SaveSettingAsync` accepts a blank or
+    // `Utils.TryParseMaxSplit(input, 0, 10000)` value (single int or
+    // `from-to` range); an integer-only check wrongly rejects `1-3` (SP-24).
+    if (maxSplit != null &&
+        maxSplit.isNotEmpty &&
+        !_isValidMaxSplit(maxSplit)) {
+      return 'validate.fragment';
     }
     return null;
+  }
+
+  /// Upstream `Utils.String2List`: comma split that drops zero-length
+  /// entries (`RemoveEmptyEntries`), so a trailing comma stores no phantom
+  /// item. Whitespace-only entries are kept (upstream does not trim them);
+  /// they fail the range validators instead, like upstream.
+  static List<String> _splitList(String? raw) {
+    if (raw == null) return <String>[];
+    return raw.split(',').where((s) => s.isNotEmpty).toList();
   }
 
   /// Upstream `Utils.TryParseRange`: a single positive integer or `a-b`.
@@ -391,8 +402,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       return value != null && value >= 0;
     }
     if (parts.length == 2) {
-      final start = int.tryParse(parts[0]);
-      final end = int.tryParse(parts[1]);
+      final start = int.tryParse(parts[0].trim());
+      final end = int.tryParse(parts[1].trim());
       return start != null &&
           end != null &&
           start >= 0 &&
@@ -400,6 +411,21 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           start <= end;
     }
     return false;
+  }
+
+  /// Upstream `Utils.TryParseMaxSplit(input, 0, 10000)`: blank is accepted,
+  /// otherwise one `int` or a `from-to` pair with both ends inside
+  /// `[0, 10000]` and `from <= to` (`int.TryParse` tolerates surrounding
+  /// whitespace, so each part is trimmed before parsing).
+  static bool _isValidMaxSplit(String raw) {
+    if (raw.trim().isEmpty) return true;
+    final parts = raw.split('-');
+    if (parts.length > 2) return false;
+    final from = int.tryParse(parts[0].trim());
+    if (from == null) return false;
+    final to = parts.length == 2 ? int.tryParse(parts[1].trim()) : from;
+    if (to == null) return false;
+    return from >= 0 && to <= 10000 && from <= to;
   }
 
   Future<void> _save({bool applyAfter = false}) async {
@@ -753,26 +779,21 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('Fragment4RayItem', 'Packets', v),
           ),
           SettingsTextField(
+            key: const ValueKey('fragment-lengths'),
             label: '分片长度 (逗号分隔)',
             value: _list(_group('Fragment4RayItem'), 'Lengths').join(','),
             width: 320,
-            onChanged: (v) => _set(
-              'Fragment4RayItem',
-              'Lengths',
-              v == null ? <String>[] : v.split(','),
-            ),
+            onChanged: (v) =>
+                _set('Fragment4RayItem', 'Lengths', _splitList(v)),
           ),
           SettingsTextField(
             label: '分片间隔 (逗号分隔)',
             value: _list(_group('Fragment4RayItem'), 'Delays').join(','),
             width: 320,
-            onChanged: (v) => _set(
-              'Fragment4RayItem',
-              'Delays',
-              v == null ? <String>[] : v.split(','),
-            ),
+            onChanged: (v) => _set('Fragment4RayItem', 'Delays', _splitList(v)),
           ),
           SettingsTextField(
+            key: const ValueKey('fragment-maxsplit'),
             label: '最大分片数',
             value: _str(_group('Fragment4RayItem'), 'MaxSplit'),
             onChanged: (v) => _set('Fragment4RayItem', 'MaxSplit', v),
@@ -1069,32 +1090,43 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               onChanged: (v) => _set('SimpleDNSItem', 'GlobalFakeIp', v),
             ),
           SettingsCheckbox(
+            key: const ValueKey('happy-eyeballs-toggle'),
             label: '启用 Happy Eyeballs',
             value: _bool(_group('SimpleDNSItem'), 'EnableHappyEyeballs'),
             onChanged: (v) => _set('SimpleDNSItem', 'EnableHappyEyeballs', v),
           ),
-          SettingsNumberField(
-            label: '尝试延迟',
-            value: _int(_group('HappyEyeballs4RayItem'), 'TryDelayMs'),
-            onChanged: (v) => _set('HappyEyeballs4RayItem', 'TryDelayMs', v),
-          ),
-          SettingsCheckbox(
-            label: '优先 IPv6',
-            value: _bool(_group('HappyEyeballs4RayItem'), 'PrioritizeIPv6'),
-            onChanged: (v) =>
-                _set('HappyEyeballs4RayItem', 'PrioritizeIPv6', v),
-          ),
-          SettingsNumberField(
-            label: '交错',
-            value: _int(_group('HappyEyeballs4RayItem'), 'Interleave'),
-            onChanged: (v) => _set('HappyEyeballs4RayItem', 'Interleave', v),
-          ),
-          SettingsNumberField(
-            label: '最大并发尝试',
-            value: _int(_group('HappyEyeballs4RayItem'), 'MaxConcurrentTry'),
-            onChanged: (v) =>
-                _set('HappyEyeballs4RayItem', 'MaxConcurrentTry', v),
-          ),
+          // Upstream `V2rayDnsService.FillSockoptDomainStrategy` only emits
+          // the `happyEyeballs` block while the toggle is on, so the retained
+          // parameter editors follow the same gate (values are kept while
+          // hidden, mirroring the FakeIP/GlobalFakeIp linkage above).
+          if (_bool(_group('SimpleDNSItem'), 'EnableHappyEyeballs')) ...[
+            SettingsNumberField(
+              key: const ValueKey('happy-try-delay'),
+              label: '尝试延迟',
+              value: _int(_group('HappyEyeballs4RayItem'), 'TryDelayMs'),
+              onChanged: (v) => _set('HappyEyeballs4RayItem', 'TryDelayMs', v),
+            ),
+            SettingsCheckbox(
+              key: const ValueKey('happy-prioritize-ipv6'),
+              label: '优先 IPv6',
+              value: _bool(_group('HappyEyeballs4RayItem'), 'PrioritizeIPv6'),
+              onChanged: (v) =>
+                  _set('HappyEyeballs4RayItem', 'PrioritizeIPv6', v),
+            ),
+            SettingsNumberField(
+              key: const ValueKey('happy-interleave'),
+              label: '交错',
+              value: _int(_group('HappyEyeballs4RayItem'), 'Interleave'),
+              onChanged: (v) => _set('HappyEyeballs4RayItem', 'Interleave', v),
+            ),
+            SettingsNumberField(
+              key: const ValueKey('happy-max-concurrent'),
+              label: '最大并发尝试',
+              value: _int(_group('HappyEyeballs4RayItem'), 'MaxConcurrentTry'),
+              onChanged: (v) =>
+                  _set('HappyEyeballs4RayItem', 'MaxConcurrentTry', v),
+            ),
+          ],
         ],
       ),
       // ClashUIItem has no OptionSettingWindow control upstream; the monitor
@@ -1250,14 +1282,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         onChanged: (v) => _set('TunModeItem', 'EnableLegacyProtect', v),
       ),
       SettingsTextField(
+        key: const ValueKey('tun-route-exclude'),
         label: '路由排除地址',
         value: _list(tun, 'RouteExcludeAddress').join(','),
         width: 320,
-        onChanged: (v) => _set(
-          'TunModeItem',
-          'RouteExcludeAddress',
-          v == null ? <String>[] : v.split(','),
-        ),
+        onChanged: (v) =>
+            _set('TunModeItem', 'RouteExcludeAddress', _splitList(v)),
       ),
       SettingsTextField(
         label: 'Ipv4 地址',

@@ -20,7 +20,9 @@ mod pipe_security;
 pub mod windows;
 
 pub use audit::{AuditLog, AuditOutcome, AuditRecord};
-pub use backend::{FakeBackend, FakeCall, FakeOp, HelperBackend, StartedCore};
+pub use backend::{
+    FakeBackend, FakeCall, FakeOp, HelperBackend, RouteRemovalOutcome, StartedCore, TunResetOutcome,
+};
 pub use journal::{
     core_label, route_label, tun_label, JournalEntry, JournalKind, JournalState, ResourceJournal,
 };

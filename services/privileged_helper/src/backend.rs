@@ -27,18 +27,40 @@ pub struct CoreExit {
     pub exit_code: Option<i32>,
 }
 
+/// Outcome of a route-removal backend call (SP-08).
+///
+/// `AlreadyGone` means the OS confirmed the entries were already absent
+/// (`ERROR_NOT_FOUND` on Windows); the desired end state holds, so the
+/// caller releases the journal record instead of retaining a failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RouteRemovalOutcome {
+    Removed(u32),
+    AlreadyGone,
+}
+
+/// Outcome of a TUN-address reset backend call (SP-08). Same contract as
+/// [`RouteRemovalOutcome`]: `AlreadyGone` is success, not failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TunResetOutcome {
+    Reset,
+    AlreadyGone,
+}
+
 /// The finite privileged operation set the server may invoke.
 pub trait HelperBackend: Send + Sync {
     /// Whether the current process token is elevated.
     fn is_elevated(&self) -> bool;
     /// Add route entries; returns the number applied.
     fn add_routes(&self, entries: &[RouteEntry]) -> Result<u32, HelperError>;
-    /// Remove route entries; returns the number removed.
-    fn remove_routes(&self, entries: &[RouteEntry]) -> Result<u32, HelperError>;
+    /// Remove route entries. `AlreadyGone` reports the OS confirmed the
+    /// entries were already absent (idempotent success).
+    fn remove_routes(&self, entries: &[RouteEntry]) -> Result<RouteRemovalOutcome, HelperError>;
     /// Assign addresses (and optional MTU) to a TUN adapter.
     fn set_tun_address(&self, config: &TunAddressConfig) -> Result<(), HelperError>;
     /// Remove addresses previously assigned to an interface index.
-    fn reset_tun_address(&self, interface_index: u32) -> Result<(), HelperError>;
+    /// `AlreadyGone` reports the OS confirmed the addresses were already
+    /// absent (idempotent success).
+    fn reset_tun_address(&self, interface_index: u32) -> Result<TunResetOutcome, HelperError>;
     /// Start an allow-listed core elevated.
     fn run_elevated_core(&self, spec: &ElevatedCoreSpec) -> Result<StartedCore, HelperError>;
     /// Stop a previously started core; idempotent for known handles.
@@ -104,6 +126,9 @@ struct FakeState {
     next_pid: u32,
     fail_op: Option<FakeOp>,
     fail_error: Option<HelperError>,
+    /// SP-08: operations that report `AlreadyGone` instead of success, so
+    /// dispatch/cleanup idempotency is exercised without the OS.
+    already_gone: BTreeSet<FakeOp>,
     /// Attempts per operation, including fault-injected failures (SP-08):
     /// proves a retry really re-attempted the retained resource.
     attempts: BTreeMap<FakeOp, u32>,
@@ -154,6 +179,32 @@ impl FakeBackend {
         let mut state = self.lock();
         state.fail_op = None;
         state.fail_error = None;
+    }
+
+    /// Report `AlreadyGone` for one operation (SP-08 idempotency simulation).
+    /// Builder form, mirroring [`Self::fail_on`].
+    pub fn already_gone_on(mut self, op: FakeOp) -> Self {
+        self.inner
+            .get_mut()
+            .expect("fresh mutex")
+            .already_gone
+            .insert(op);
+        self
+    }
+
+    /// Switch `AlreadyGone` simulation mid-test.
+    pub fn set_already_gone(&self, op: FakeOp, gone: bool) {
+        let mut state = self.lock();
+        if gone {
+            state.already_gone.insert(op);
+        } else {
+            state.already_gone.remove(&op);
+        }
+    }
+
+    /// Clear every `AlreadyGone` simulation.
+    pub fn clear_already_gone(&self) {
+        self.lock().already_gone.clear();
     }
 
     /// Attempts for one operation, including failed ones.
@@ -233,11 +284,14 @@ impl HelperBackend for FakeBackend {
         Ok(entries.len() as u32)
     }
 
-    fn remove_routes(&self, entries: &[RouteEntry]) -> Result<u32, HelperError> {
+    fn remove_routes(&self, entries: &[RouteEntry]) -> Result<RouteRemovalOutcome, HelperError> {
         let mut state = self.lock();
         Self::check_fail(&mut state, FakeOp::RemoveRoutes)?;
         state.calls.push(FakeCall::RemoveRoutes(entries.to_vec()));
-        Ok(entries.len() as u32)
+        if state.already_gone.contains(&FakeOp::RemoveRoutes) {
+            return Ok(RouteRemovalOutcome::AlreadyGone);
+        }
+        Ok(RouteRemovalOutcome::Removed(entries.len() as u32))
     }
 
     fn set_tun_address(&self, config: &TunAddressConfig) -> Result<(), HelperError> {
@@ -248,12 +302,15 @@ impl HelperBackend for FakeBackend {
         Ok(())
     }
 
-    fn reset_tun_address(&self, interface_index: u32) -> Result<(), HelperError> {
+    fn reset_tun_address(&self, interface_index: u32) -> Result<TunResetOutcome, HelperError> {
         let mut state = self.lock();
         Self::check_fail(&mut state, FakeOp::ResetTunAddress)?;
         state.tun.remove(&interface_index);
         state.calls.push(FakeCall::ResetTunAddress(interface_index));
-        Ok(())
+        if state.already_gone.contains(&FakeOp::ResetTunAddress) {
+            return Ok(TunResetOutcome::AlreadyGone);
+        }
+        Ok(TunResetOutcome::Reset)
     }
 
     fn run_elevated_core(&self, spec: &ElevatedCoreSpec) -> Result<StartedCore, HelperError> {

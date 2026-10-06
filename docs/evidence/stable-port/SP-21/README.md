@@ -1,7 +1,84 @@
 # SP-21 准备与数据层证据（ identifies / 部分 implemented，未完成 ）
 
-卡状态：**identified**（准备与数据层部分 implemented；完整卡未完成，不伪造完成）。
-基线：`92d46dd`。本次不 commit。
+卡状态：**identified**（数据层 + UI 消费层部分 implemented；完整卡未完成，不伪造完成）。
+基线：`92d46dd`。本次不 commit（worktree 保持 uncommitted，与其它并行卡共存）。
+
+## 2026-10-07 continuation（本次）
+
+### 新增 Rust 真实 SQLite 规模证明（`crates/application/src/store_repo.rs`）
+
+prep 测试走 `:memory:` 直调 `query_page`；本次新增 4 个文件型 SQLite
+（WAL、合成行、无网络）经后台 `AsyncPageWorker` 连接的测试：
+
+- `sp21_real_sqlite_10k_worker_walk_covers_every_row_once`：10k 行全量
+  worker walk（500 行/页，20 页），断言有界页/cursor 推进/无重复遗漏。
+- `sp21_real_sqlite_100k_worker_walk_covers_every_row_once`：100k 行全量
+  worker walk（500 行/页，200 页），同上。
+- `sp21_real_sqlite_id_tiebreak_is_stable_across_worker_pages`：5000 行同
+  Remarks 经 worker 跨页，断言全程 `IndexId` 回退序。
+- `sp21_real_sqlite_worker_stale_revision_and_cancel`：真实文件上首
+  页→写提交→旧 revision 下一页得 `StaleCursor`；预取消 token 得
+  `Cancelled`；`QueryHandle::cancel()` 同步 `<1s` 且迟到结果丢弃。
+- 跨页全选 = walk 收集的 id 全集恰为库全集（10k/100k 两 walk 内断言，
+  排序后逐项相等）。
+
+### 新增 UI 消费接线（仅 `apps/desktop/lib/features/profiles/**`，未碰 FRB）
+
+- `ProfilesController.reloadPaged({pageSize})`：经既有
+  `BridgePort.querySummaryPage` 游标 API 的增量结构加载；页间让出事件循环
+  （timer/输入/取消可插入）、generation 守卫（迟到页丢弃）、revision 变化
+  重查（上限 5 次防活锁）、逐页发布 + `pagedLoading` 标志（owner generation
+  持有，supersede 不串旗、cancel 无后继时自清）。
+- `ProfilesController.selectAllAcrossPages({pageSize})`：游标走完后取
+  walked ∩ 当前 view（与 Ctrl+A 同语义，窗口化后仍正确）；取消/过期保持原
+  选择不动。
+- 取消真接线：`setGroupSubId` / `resyncGroupFromSubs` / `setFilter` /
+  `updateFilterInput`（clear）/ `submitFilter` / `sortBy` / `sortByResult` /
+  `search` / `reload` 均 bump `_pagePager` generation —— 组切换/筛选/排序
+  在同步语义不变下取消在途 paged walk（widget 无需改动，chips/filter/sort
+  本就走这些入口）。
+- `test/sp21_paged_load_test.dart`：6 用例（全量流/取消丢弃/世代取代/
+  组切换取消/跨页全选/跨页全选取消保持）。
+- 结构读本就走真实游标：`reload()` 经 `queryAllProfiles` 跟随
+  `engine.queryProfiles` 游标到 exhaust（D09）；本次是其异步消费形态。
+
+### 本次定向检查
+
+| 命令 | 结果 |
+|---|---|
+| `cargo fmt -p persistence -p application -- --check` | 通过（0 diff） |
+| `cargo clippy -p persistence -p application --all-targets --locked -- -D warnings` | 通过 exit 0 |
+| `cargo test -p persistence -p application --locked` | 通过：application lib **346 passed / 0 failed**（含 12 个 `sp21_*`），persistence lib 74/0，全部集成 target 0 failed |
+| `cargo test -p application --locked --lib sp21_ -- --nocapture` | 12/12 通过 |
+| `dart format --output=none --set-exit-if-changed lib/features/profiles test/sp21_paged_load_test.dart test/sp21_async_page_test.dart` | 通过（0 changed） |
+| `flutter analyze` | **No issues found** |
+| `flutter test test/sp21_paged_load_test.dart test/sp21_async_page_test.dart` | **10/10 通过**（新 6 + 旧 4） |
+| 回归（逐文件独立进程） | `profiles_filter`、`r4_09`、`recheck_r3_prof_controller`、`t05_profiles_ui`、`t06a_controller`、`profiles_keyboard`、`ux_space01_entries`、`r4_22`、`fix10b_profile_order`、`context_menu_move`、`t10_groups_panel`、`ux_space01_group_flow`、`t15b_speedtest`、`recheck05_hidden_selection`、`recheck_r3_prof10`、`re_prof_06_scope` 全绿（`profiles_filter`、`t10_groups_panel` 在多文件同进程批跑时各出现 1 次未完成，单文件重跑通过，系已知 flutter_tester 进程不稳定，非本卡回归） |
+
+### 真实查询耗时（真实 SQLite 文件，合成行，无网络；debug 测试二进制）
+
+walk = 按 `Remarks` 稳定排序、500 行/页、经 `AsyncPageWorker`
+submit/wait 逐页跟到尾（无重复/遗漏已断言）。计时只含 walk（seed 在前，
+单事务批量写入，不计入；DTO/overlay 不在 walk 内）。
+
+| 规模 | 页大小 | 页数 | 全量 worker walk 耗时 | 折合单页 |
+|---|---|---|---|---|
+| 10k | 500 | 20 | **670ms** | ~34ms |
+| 100k | 500 | 200 | **26636ms** | ~133ms |
+
+命令：`cargo test -p application --locked --lib sp21_real_sqlite_ -- --nocapture`
+（`SP21 real-sqlite …` 行）。本次走 worker 通道且为文件库，反而快于 prep
+的 `:memory:` 直调（10k 1247ms / 100k 29423ms，主因是 prep 全量 walk  harness
+写法与排序/COUNT 开销不同，见下）——两组数都是 debug harness 测量，不作
+生产性能宣称。
+
+对照与说明（沿用 prep 结论）：生产价值不在全量 walk 更快，而在调用方只
+等待有界单页、查询跑在后台 worker 连接（WAL 并发读，不持 writer 连接）、
+取消同步返回、迟到/过期结果丢弃。100k 全量 walk 的 OFFSET 线性增长 +
+逐页全表排序仍是 O(pages × n log n) harness 写法；keyset 游标与 total
+轻量化仍是后续优化项（已登记，不属本卡独立范围）。
+
+## prep 记录（保留）
 
 ## 范围
 
@@ -91,7 +168,11 @@ sp21_async_pages_cover_full_dataset -- --nocapture`（`SP21 walk …` 行）。
 
 ## 未完成 / 不宣称
 
-- FRB `QueryProfilesPageAsync` 真实接线（SP-00 整合者）。
-- 完整 UI 接线（SP-16 在途：A06）：虚拟滚动只取可视页、overlay 增量、
-  跨页全选、迟到丢弃的界面证据。
-- 本卡状态保持 identified；待阻塞解除、10k/100k 实测、SP-16 接线后复评。
+- FRB `QueryProfilesPageAsync` 真实接线（SP-00 整合者；`bridge_api`/`FRB`
+  文件本卡按约束未碰，缺口登记沿用 prep 的签名/错误/取消/游标合同建议）。
+- DTO/编辑器侧仍走既有同步 `queryAllProfiles` 跟随读；`reloadPaged` 完成页
+  后一次取全量 DTO（窗口化 + 后台 worker 直供 DTO 需上述 FRB 缺口）。
+- 完整 UI 接线（SP-16 在途）：虚拟滚动只取可视窗、overlay 增量、真实
+  100k 下 UI timer/交互可用采样（待 SP-31 release GUI 实测；本次只在合成
+  桥上证明页间让出 + 取消语义）。
+- 本卡状态保持 identified；待阻塞解除、FRB 接线、SP-16/SP-31 实测后复评。

@@ -302,6 +302,7 @@ class ProfilesState {
     this.speedTestMessage,
     this.speedTestGeneration = 0,
     this.orderMessage,
+    this.pagedLoading = false,
   });
 
   final List<ProfileSummary> all;
@@ -365,6 +366,11 @@ class ProfilesState {
   /// line (`ProfileExItem.Sort` write). Cleared by the next successful write.
   final String? orderMessage;
 
+  /// True while an incremental [reloadPaged] walk is streaming pages. Query-
+  /// changing entries (group switch, filter commit, sort) cancel the walk, so
+  /// the flag also proves no stale page can settle after a newer query.
+  final bool pagedLoading;
+
   int get selectedCount => selected.length;
   int get totalCount => all.length;
   TableEvent? get lastEvent => events.isEmpty ? null : events.last;
@@ -403,6 +409,7 @@ class ProfilesState {
     String? orderMessage,
     bool clearOrderMessage = false,
     bool clearSpeedTestJob = false,
+    bool? pagedLoading,
   }) {
     return ProfilesState(
       all: all ?? this.all,
@@ -434,6 +441,7 @@ class ProfilesState {
       orderMessage: clearOrderMessage
           ? null
           : (orderMessage ?? this.orderMessage),
+      pagedLoading: pagedLoading ?? this.pagedLoading,
     );
   }
 }
@@ -464,6 +472,11 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// integrator); this pager already owns the generation/cancel/cursor
   /// contract the async loader will use.
   final AsyncProfilePager _pagePager = AsyncProfilePager();
+
+  /// Generation that currently owns `ProfilesState.pagedLoading`. A superseded
+  /// walk must not clear a newer walk's flag; a cancelled walk with no
+  /// successor clears its own.
+  int _pagedLoadOwner = 0;
 
   /// Job ids of every run started but not yet confirmed finished. Upstream
   /// `SpeedtestService.ExitLoop` cancels *all* in-flight runs, so the controller
@@ -706,6 +719,7 @@ class ProfilesController extends Notifier<ProfilesState> {
     final rows = _bridge.applyLiveOverlay(snapshot.summaries);
     final active = _bridge.getActiveProfile();
     _queryGeneration++;
+    _pagePager.nextGeneration();
     state = _recompute(
       state.copyWith(
         all: rows,
@@ -766,6 +780,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// makes a future async page loader safe.
   Future<void> search(String query) async {
     final generation = ++_queryGeneration;
+    _pagePager.nextGeneration();
     await Future<void>.value();
     if (generation != _queryGeneration) return;
     state = _recompute(state.copyWith(filter: query, filterInput: query));
@@ -778,6 +793,125 @@ class ProfilesController extends Notifier<ProfilesState> {
     _queryGeneration++;
     _pagePager.cancelCurrentQuery();
     _log('cancel-page-query', 'generation=$_queryGeneration');
+  }
+
+  /// Incremental structural load through the existing bounded
+  /// [BridgePort.querySummaryPage] cursor API (SP-21 UI consumption).
+  ///
+  /// Unlike [reload] (one synchronous full read), pages stream in with an
+  /// event-loop yield between them, so the UI timer and input stay responsive
+  /// while a large store loads. The walk is generation-guarded: a newer
+  /// [reloadPaged]/[selectAllAcrossPages] or any query-changing entry (which
+  /// bumps [_pagePager] via [cancelProfilePageQuery] or the mutators below)
+  /// makes late pages resolve to nothing instead of overwriting the latest
+  /// view. A revision change under the cursor restarts the walk from zero
+  /// instead of skipping or repeating rows.
+  ///
+  /// The full DTO set (editor + batch actions) still comes from the existing
+  /// cursor-following [BridgePort.queryAllProfiles] once the summaries land;
+  /// a true background-worker page source needs the `QueryProfilesPageAsync`
+  /// FRB entry (registered gap, SP-00 integrator).
+  Future<void> reloadPaged({int pageSize = 200}) async {
+    final size = pageSize.clamp(1, 2000);
+    final generation = _pagePager.nextGeneration();
+    var expectedRevision = _bridge.profileRevision();
+    var cursor = 0;
+    var restarts = 0;
+    final rows = <ProfileSummary>[];
+    state = state.copyWith(pagedLoading: true);
+    _pagedLoadOwner = generation;
+    try {
+      for (;;) {
+        if (!_pagePager.isCurrent(generation)) return;
+        final page = _bridge.querySummaryPage(cursor: cursor, pageSize: size);
+        if (!_pagePager.isCurrent(generation)) return;
+        final currentRevision = _bridge.profileRevision();
+        if (currentRevision != expectedRevision) {
+          if (cursor == 0) {
+            expectedRevision = currentRevision;
+          } else {
+            restarts++;
+            if (restarts > 5) return;
+            expectedRevision = currentRevision;
+            cursor = 0;
+            rows.clear();
+            continue;
+          }
+        }
+        rows.addAll(page.items);
+        _baseSummaries = List<ProfileSummary>.of(rows);
+        state = _recompute(
+          state.copyWith(
+            all: _bridge.applyLiveOverlay(_baseSummaries),
+            pagedLoading: true,
+          ),
+        );
+        final next = page.nextCursor;
+        if (next == null || next <= cursor || page.items.isEmpty) break;
+        cursor = next;
+        // Yield so the UI timer, pointer input and a cancel land between
+        // pages instead of after the whole store.
+        await Future<void>.delayed(Duration.zero);
+      }
+      if (!_pagePager.isCurrent(generation)) return;
+      final profiles = _bridge.queryAllProfiles();
+      if (!_pagePager.isCurrent(generation)) return;
+      final active = _bridge.getActiveProfile();
+      _queryGeneration++;
+      state = _recompute(
+        state.copyWith(
+          all: _bridge.applyLiveOverlay(_baseSummaries),
+          profiles: profiles,
+          activeId: active,
+          clearActive: active == null,
+          rustCount: _bridge.rustProfileCount(),
+          pagedLoading: false,
+        ),
+      );
+      _log('reload-paged', 'profiles=${profiles.length} rows=${rows.length}');
+    } finally {
+      if (state.pagedLoading && _pagedLoadOwner == generation) {
+        state = state.copyWith(pagedLoading: false);
+      }
+    }
+  }
+
+  /// Cross-page select-all through the real cursor (SP-21 UI consumption).
+  ///
+  /// Walks [BridgePort.querySummaryPage] to exhaustion and selects the walked
+  /// ids restricted to the current view, so the outcome matches Ctrl+A once
+  /// the table is windowed instead of trusting whatever window happens to be
+  /// loaded. Generation-guarded and cancellable like [reloadPaged]: a newer
+  /// query leaves the previous selection untouched.
+  Future<Set<String>> selectAllAcrossPages({int pageSize = 500}) async {
+    final size = pageSize.clamp(1, 2000);
+    final generation = _pagePager.nextGeneration();
+    final walked = <String>{};
+    var cursor = 0;
+    for (;;) {
+      if (!_pagePager.isCurrent(generation)) return state.selected;
+      final page = _bridge.querySummaryPage(cursor: cursor, pageSize: size);
+      if (!_pagePager.isCurrent(generation)) return state.selected;
+      walked.addAll(page.items.map((r) => r.id));
+      final next = page.nextCursor;
+      if (next == null || next <= cursor || page.items.isEmpty) break;
+      cursor = next;
+      await Future<void>.delayed(Duration.zero);
+    }
+    if (!_pagePager.isCurrent(generation)) return state.selected;
+    final visible = state.visible.map((r) => r.id).toSet();
+    final ids = walked.where(visible.contains).toSet();
+    final primary = state.primaryId != null && ids.contains(state.primaryId)
+        ? state.primaryId
+        : (ids.isEmpty ? null : state.visible.first.id);
+    state = state.copyWith(
+      selected: ids,
+      primaryId: primary,
+      clearPrimary: primary == null,
+    );
+    _log(ProfileAction.selectAll, 'selected=${ids.length} across-pages');
+    _echo(ProfileAction.selectAll);
+    return ids;
   }
 
   /// Persist a draft through the real bridge (optimistic revision).
@@ -1065,6 +1199,7 @@ class ProfilesController extends Notifier<ProfilesState> {
     state = _recompute(
       state.copyWith(groupSubId: normalized, clearGroup: normalized == null),
     );
+    _pagePager.nextGeneration();
     if (state.selected.isEmpty && state.visible.isNotEmpty) {
       _selectDefaultRow();
     }
@@ -1093,6 +1228,7 @@ class ProfilesController extends Notifier<ProfilesState> {
     state = _recompute(
       state.copyWith(groupSubId: restored, clearGroup: restored == null),
     );
+    _pagePager.nextGeneration();
     if (state.selected.isEmpty && state.visible.isNotEmpty) {
       _selectDefaultRow();
     }
@@ -1209,6 +1345,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// ([updateFilterInput]/[submitFilter]).
   void setFilter(String value) {
     _queryGeneration++;
+    _pagePager.nextGeneration();
     state = _recompute(state.copyWith(filter: value, filterInput: value));
   }
 
@@ -1221,6 +1358,7 @@ class ProfilesController extends Notifier<ProfilesState> {
   void updateFilterInput(String value) {
     if (value.trim().isEmpty) {
       _queryGeneration++;
+      _pagePager.nextGeneration();
       state = _recompute(state.copyWith(filter: '', filterInput: value));
       _log('refresh', 'filter="" -> ${state.visible.length}');
       return;
@@ -1232,12 +1370,14 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// current group through the same [applyFilter] used by every refresh.
   void submitFilter() {
     _queryGeneration++;
+    _pagePager.nextGeneration();
     state = _recompute(state.copyWith(filter: state.filterInput));
     _log('refresh', 'filter="${state.filter}" -> ${state.visible.length}');
   }
 
   void sortBy(String key) {
     final sort = state.sort.next(key);
+    _pagePager.nextGeneration();
     // Frozen `ConfigHandler.SortServers` sorts `ProfileModels(subId, "")`: the
     // whole current group, ignoring the live text filter. The persisted `Sort`
     // therefore covers hidden rows too, while the table still shows the
@@ -1287,6 +1427,7 @@ class ProfilesController extends Notifier<ProfilesState> {
     // `applySort` sinks failed/untested (`<= 0`) delays in both directions.
     final ascending = _resultSortAscending;
     _resultSortAscending = !ascending;
+    _pagePager.nextGeneration();
     final sort = SortSpec(
       columnKey: 'DelayVal',
       direction: ascending ? SortDirection.ascending : SortDirection.descending,

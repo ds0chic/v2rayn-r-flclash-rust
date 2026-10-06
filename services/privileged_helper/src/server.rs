@@ -18,7 +18,7 @@ use ipc_contract::{
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::audit::{AuditLog, AuditOutcome};
-use crate::backend::{HelperBackend, StartedCore};
+use crate::backend::{HelperBackend, RouteRemovalOutcome, StartedCore, TunResetOutcome};
 use crate::journal::{
     core_label, route_label, tun_label, JournalEntry, JournalKind, ResourceJournal,
 };
@@ -351,7 +351,7 @@ impl<B: HelperBackend> HelperServer<B> {
             }
             HelperOp::RemoveRoutes { entries } => {
                 validate_route_entries(entries)?;
-                let count = self.backend.remove_routes(entries)?;
+                let outcome = self.backend.remove_routes(entries)?;
                 lease.routes.retain(|owned| !entries.contains(owned));
                 for entry in entries {
                     lease.journal.mark_released(
@@ -359,10 +359,21 @@ impl<B: HelperBackend> HelperServer<B> {
                         &route_label(&entry.destination, entry.interface_index),
                     );
                 }
-                Ok((
-                    HelperResult::RoutesRemoved { count },
-                    format!("remove_routes count={}", entries.len()),
-                ))
+                match outcome {
+                    RouteRemovalOutcome::Removed(count) => Ok((
+                        HelperResult::RoutesRemoved { count },
+                        format!("remove_routes count={}", entries.len()),
+                    )),
+                    RouteRemovalOutcome::AlreadyGone => {
+                        let resource = gone_resource_for_routes(entries);
+                        Ok((
+                            HelperResult::AlreadyGone {
+                                resource: resource.clone(),
+                            },
+                            format!("remove_routes already_gone resource={resource}"),
+                        ))
+                    }
+                }
             }
             HelperOp::SetTunAdapterAddress { config } => {
                 validate_tun_address(config)?;
@@ -576,12 +587,15 @@ impl<B: HelperBackend> HelperServer<B> {
         }
     }
 
-    /// Reset owned TUN addresses one interface at a time.
+    /// Reset owned TUN addresses one interface at a time. An `AlreadyGone`
+    /// backend confirmation releases the journal record like a success: the
+    /// desired end state holds, so no failure is retained and the lease may
+    /// close.
     fn release_tun_addresses(&self, lease: &mut ConnectionLease, failures: &mut Vec<HelperError>) {
         let interfaces = std::mem::take(&mut lease.tun_interfaces);
         for interface_index in interfaces {
             match self.backend.reset_tun_address(interface_index) {
-                Ok(()) => {
+                Ok(TunResetOutcome::Reset) | Ok(TunResetOutcome::AlreadyGone) => {
                     lease
                         .journal
                         .mark_released(JournalKind::TunAddress, &tun_label(interface_index));
@@ -600,13 +614,14 @@ impl<B: HelperBackend> HelperServer<B> {
     }
 
     /// Remove owned routes one entry at a time so a single failure retains
-    /// exactly its own entry while confirmed entries release.
+    /// exactly its own entry while confirmed entries release. An `AlreadyGone`
+    /// confirmation releases the entry: absent is the desired end state.
     fn release_routes(&self, lease: &mut ConnectionLease, failures: &mut Vec<HelperError>) {
         let routes = std::mem::take(&mut lease.routes);
         for entry in routes {
             let label = route_label(&entry.destination, entry.interface_index);
             match self.backend.remove_routes(std::slice::from_ref(&entry)) {
-                Ok(_) => {
+                Ok(RouteRemovalOutcome::Removed(_)) | Ok(RouteRemovalOutcome::AlreadyGone) => {
                     lease.journal.mark_released(JournalKind::Route, &label);
                 }
                 Err(error) => {
@@ -639,6 +654,21 @@ fn op_name(operation: &HelperOp) -> &'static str {
         HelperOp::GetLeaseStatus { .. } => "get_lease_status",
         HelperOp::PollCoreExits { .. } => "poll_core_exits",
         HelperOp::Shutdown => "shutdown",
+    }
+}
+
+/// Bounded resource label for an `AlreadyGone` batch response. Single-entry
+/// batches carry the exact route label; multi-entry batches carry the count
+/// plus the first label so the audit trail stays bounded and redacted.
+fn gone_resource_for_routes(entries: &[RouteEntry]) -> String {
+    match entries {
+        [only] => route_label(&only.destination, only.interface_index),
+        [first, ..] => format!(
+            "routes count={} first={}",
+            entries.len(),
+            route_label(&first.destination, first.interface_index)
+        ),
+        [] => "routes count=0".to_string(),
     }
 }
 

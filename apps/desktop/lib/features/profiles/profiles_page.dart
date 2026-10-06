@@ -127,6 +127,12 @@ class _Toolbar extends ConsumerWidget {
             icon: Icons.add,
             onPressed: () => openAddSub(context, ref),
           ),
+          _IconTool(
+            keyId: 'toolbar-sub-delete',
+            tooltip: '删除当前订阅',
+            icon: Icons.delete_outlined,
+            onPressed: () => deleteCurrentSub(context, ref),
+          ),
           const SizedBox(
             width: AppTokens.toolbarGroupFilterGap - AppTokens.toolbarIconGap,
           ),

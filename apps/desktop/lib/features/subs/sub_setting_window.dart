@@ -4,6 +4,48 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/features/subs/sub_edit_window.dart';
 import 'package:v2rayn_desktop/features/subs/sub_share_dialog.dart';
+import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
+
+/// 订阅设置窗删除：先确认后删除（上游 `SubSettingViewModel.DeleteSubAsync`
+/// counterpart：`ShowYesNoInteraction(ResUI.RemoveServer)` 取消直接 return）。
+///
+/// [confirmDelete] 覆盖确认框（默认弹确认框），便于测试注入取消/确认。
+/// 取消不写库；删除失败在窗内状态行报出错误并保留该组（控制器 delete 仅
+/// 成功才刷新/resync）。返回 true=已删除。
+Future<bool> confirmAndDeleteSub(
+  BuildContext context,
+  WidgetRef ref,
+  String id, {
+  Future<bool> Function(String remarks)? confirmDelete,
+}) async {
+  final items = ref.read(subsControllerProvider).items;
+  final current = items.where((s) => s.id == id).firstOrNull;
+  if (current == null) return false;
+  final confirmed = await (confirmDelete != null
+      ? confirmDelete(current.remarks)
+      : showAppConfirmDialog(
+          context,
+          title: '删除订阅',
+          message: '确认删除订阅“${current.remarks}”？',
+          confirmLabel: '删除',
+          destructive: true,
+          dialogKey: const ValueKey('sub-delete-confirm'),
+          confirmKey: const ValueKey('sub-delete-confirm-ok'),
+          cancelKey: const ValueKey('sub-delete-cancel'),
+        ));
+  if (!confirmed) return false;
+  final result = ref.read(subsControllerProvider.notifier).delete(<String>[
+    current.id,
+  ]);
+  if (!result.ok) {
+    final code = result.error?.messageKey ?? result.error?.code ?? '未知错误';
+    ref
+        .read(subsControllerProvider.notifier)
+        .setStatus(SubStatus(kind: 'error', message: '订阅删除失败', detail: code));
+    return false;
+  }
+  return true;
+}
 
 /// The subscription settings window (upstream `SubSettingWindow`,
 /// F-SUB-001/002/003). Opened from the 订阅分组 menu (ACT-MAIN-019).
@@ -112,10 +154,10 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
     if (saved != null) controller.save(saved);
   }
 
-  void _delete(BuildContext context, SubsState state) {
+  Future<void> _delete(BuildContext context, SubsState state) async {
     final id = state.selectedId;
     if (id == null) return;
-    ref.read(subsControllerProvider.notifier).delete(<String>[id]);
+    await confirmAndDeleteSub(context, ref, id);
   }
 
   void _share(BuildContext context, SubsState state) {
@@ -145,7 +187,7 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
         const PopupMenuItem(value: 'update', child: Text('更新')),
         const PopupMenuItem(value: 'delete', child: Text('删除')),
       ],
-    ).then((value) {
+    ).then((value) async {
       if (value == null || !context.mounted) return;
       switch (value) {
         case 'edit':
@@ -159,7 +201,10 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
         case 'update':
           controller.update(subIds: <String>[item.id]);
         case 'delete':
-          controller.delete(<String>[item.id]);
+          controller.select(item.id);
+          if (context.mounted) {
+            await confirmAndDeleteSub(context, ref, item.id);
+          }
       }
     });
   }

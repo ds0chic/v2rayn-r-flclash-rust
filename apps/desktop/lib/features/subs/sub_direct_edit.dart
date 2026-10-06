@@ -15,6 +15,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/sub_entry.dart';
 import 'package:v2rayn_desktop/features/subs/sub_edit_window.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
+import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
 
 /// 编辑当前订阅：直达节点页当前组 G。All/缺失按原版门控，无操作并提示。
 ///
@@ -44,6 +45,68 @@ Future<bool> openEditCurrentSub(BuildContext context, WidgetRef ref) async {
     ref.read(uiShellControllerProvider.notifier).setMessage('订阅保存被拒绝，已保留原数据');
     return false;
   }
+  return true;
+}
+
+/// 删除当前订阅：主窗直接删 G 入口（上游 `ProfilesViewModel.DeleteSubAsync`
+/// counterpart：取 GetSubItem(SubIndexId)，null 直接 return；确认框取消直接
+/// return；删除后 RefreshSubscriptions + SubSelectedChangedAsync）。
+///
+/// All/缺失按原版门控，无操作并提示（不弹确认框）。[confirmDelete] 覆盖确认框
+/// （默认弹上游 `ResUI.RemoveServer` 对等的确认框），便于测试注入取消/确认。
+/// 删除失败报出错误并保持当前组（控制器 delete 仅成功才 resync）。
+/// 返回 true=已删除。
+Future<bool> deleteCurrentSub(
+  BuildContext context,
+  WidgetRef ref, {
+  Future<bool> Function(String remarks)? confirmDelete,
+}) async {
+  final groupSubId = ref.read(profilesControllerProvider).groupSubId;
+  final items = ref.read(subsControllerProvider).items;
+  final entry = resolveSubEntry(
+    groupSubId: groupSubId,
+    existingIds: [for (final s in items) s.id],
+  );
+  if (entry.kind != SubEntryKind.editCurrent || entry.targetId == null) {
+    ref
+        .read(uiShellControllerProvider.notifier)
+        .setMessage('当前为全部视图，无可直接删除的订阅（已保留总列表入口）');
+    return false;
+  }
+  final current = items.where((s) => s.id == entry.targetId).firstOrNull;
+  if (current == null) return false;
+  final confirmed = await (confirmDelete != null
+      ? confirmDelete(current.remarks)
+      : showAppConfirmDialog(
+          context,
+          title: '删除订阅',
+          message: '确认删除订阅“${current.remarks}”？',
+          confirmLabel: '删除',
+          destructive: true,
+          dialogKey: const ValueKey('sub-delete-confirm'),
+          confirmKey: const ValueKey('sub-delete-confirm-ok'),
+          cancelKey: const ValueKey('sub-delete-cancel'),
+        ));
+  if (!confirmed) {
+    ref.read(uiShellControllerProvider.notifier).setMessage('已取消：未删除订阅');
+    return false;
+  }
+  final result = ref.read(subsControllerProvider.notifier).delete(<String>[
+    current.id,
+  ]);
+  if (!result.ok) {
+    final code = result.error?.messageKey ?? result.error?.code ?? '未知错误';
+    ref
+        .read(subsControllerProvider.notifier)
+        .setStatus(SubStatus(kind: 'error', message: '订阅删除失败', detail: code));
+    ref
+        .read(uiShellControllerProvider.notifier)
+        .setMessage('订阅删除失败（$code），已保留原数据');
+    return false;
+  }
+  ref
+      .read(uiShellControllerProvider.notifier)
+      .setMessage('已删除订阅“${current.remarks}”');
   return true;
 }
 

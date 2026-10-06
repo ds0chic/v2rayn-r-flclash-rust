@@ -190,3 +190,74 @@ group_reopen 绿、真实 G 保存重开、同名/普通组、取消/失败：�
 - 上游订阅设置窗删除有确认框（`ShowYesNoInteraction`），本项目
   `sub_setting_window._delete` 直接删除：行为差，未改（他卡 UX 范畴）。
 - 真实 FRB/SQLite 重开、正式包入口、DPI 真机对照：未运行，标未验证。
+
+## 10. 删除 parity 轮（主窗直接删 G + 订阅窗删除确认）
+
+状态：implemented（独立接线完成；verified 不标：真机删除 trace/DPI、
+真实 FRB/SQLite 重开未运行）。
+合成数据专用；无宿主网络/10808/系统代理/路由/TUN/DNS/Run-key 操作；
+不读用户秘密。不 commit。未动 `profiles_controller.dart`（他锁文件，
+本轮只用其已有 `reload`/`resyncGroupFromSubs`/`setGroupSubId` API）。
+
+### 10.1 做（本轮）
+
+- 主窗直接删 G 入口（上游 `ProfilesViewModel.DeleteSubAsync:885-900`
+  counterpart）：`sub_direct_edit.dart` 新增 `deleteCurrentSub`
+ （取当前组 G，All/缺失按原版门控直接 return 且不弹确认框；
+  确认框取消直接 return；删除走已有 `subs_controller.delete`，
+  成功后控制器统一刷新 + profiles 回 All，失败报出错误并保持当前组）。
+  `profiles_page.dart` 工具栏新增 `toolbar-sub-delete`（删除当前订阅）
+  调用该入口。
+- 订阅窗删除确认（上游 `SubSettingViewModel.DeleteSubAsync:84-96`
+  counterpart，`ResUI.RemoveServer` 对等文案）：`sub_setting_window.dart`
+  新增 `confirmAndDeleteSub`（[confirmDelete] 可注入覆盖，便于测试）；
+  删除按钮与右键菜单删除项均经此确认路径（菜单项先 select 再确认，
+  与按钮行为一致）。取消零写；失败在窗内状态行报出错误并保留该组。
+- 确认框统一用共享 `showAppConfirmDialog`（取消左/删除右，Enter 确认/
+  Esc 取消），键为 `sub-delete-confirm` / `sub-delete-confirm-ok` /
+  `sub-delete-cancel`。
+
+### 10.2 改动文件（写锁内）
+
+- `apps/desktop/lib/features/subs/sub_direct_edit.dart`：+`deleteCurrentSub`。
+- `apps/desktop/lib/features/profiles/profiles_page.dart`：工具栏
+  +`toolbar-sub-delete`。
+- `apps/desktop/lib/features/subs/sub_setting_window.dart`：
+  +`confirmAndDeleteSub`；`_delete` 与右键菜单删除项改走确认路径。
+- `apps/desktop/test/repair/sp_16_sub_delete_test.dart`：新增 8 项
+  （纯门控 3 + 主窗删除 All 门控/取消保留/确认回 All/失败保组报错 2 +
+  订阅窗确认取消/确认删除/失败保组报错 2 + 订阅窗真实对话框取消→确认 1）。
+- `apps/desktop/test/repair/sp_16_sub_delete_toolbar_test.dart`：新增 1 项
+  （整壳 MainShell 工具栏真实对话框：取消保留组与订阅，确认删当前组回
+  All；独立文件、单次整壳构建，避开单进程多次整页构建的 tester 崩溃）。
+- `docs/repair/stable-port-2026-10-06/execution-manifest.json`：SP-16 note。
+
+未动：`profiles_controller.dart`、`crates/**`、桥/FRB 文件、其他 feature。
+
+### 10.3 定向检查（实际结果）
+
+- `dart format --output=none --set-exit-if-changed lib test`：0 changed。
+- `flutter analyze`：本卡文件零命中；全树 2 issues 均为他卡在途文件
+  `test/sp21_paged_load_test.dart`（`ProfileSummary` 未定义 + 类型错，
+  非本卡文件，不动）。
+- `flutter test test/repair/sp_16_sub_delete_test.dart`：8/8 passed。
+- `flutter test test/repair/sp_16_sub_delete_toolbar_test.dart`：1/1。
+- 回归：`t09_sub_setting_test` 5/5、`ux_space01_entries_test` 1/1、
+  `sp_16_group_persistence` 15/15、`sp_16_sub_entry` 9/9 +
+  `t09_sub_edit_test` 5/5。
+- 过程记录：整壳工具栏测试与 8 项同文件时 tester 进程崩溃
+ （did not complete，无 Dart 栈；单测隔离均绿，属已知
+  flutter_tester 单进程多次整页构建崩溃，见 profiles_harness 注记），
+  按该注记拆为独立文件后各自绿；另有一次加载期偶发崩溃，重试即绿。
+- 未运行：cargo（无 Rust 改动）；全量 `flutter test`（按任务卡只跑受影响
+  文件）；真机/正式包/DPI。
+
+### 10.4 登记缺口（不发明接口）
+
+- §9.4 既有缺口延续：engine `set_current_group` 无 FRB 暴露（SP-00 整合）；
+  engine 组写不校验存在性（Dart 读侧门控）；真机 trace/DPI 未验证。
+- 新增按钮沿用工具栏图标按钮样式（30x30），上游主窗删除为菜单命令，
+  本项目主窗菜单/右键暂无删 G 入口——工具栏按钮覆盖该行为，菜单镜像缺口
+  仍登记（需菜单 owner 确认 id/文案后再补，不在本轮发明）。
+- 多选批量删除（上游订阅窗 `SelectedSources`）：本项目订阅窗为单选模型，
+  仍单删；批量语义缺口登记，不强行引入多选。

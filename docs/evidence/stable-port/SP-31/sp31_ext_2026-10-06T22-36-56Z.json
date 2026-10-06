@@ -1,0 +1,64 @@
+{
+  "tool": "sp31_ext_bench.dart",
+  "seed": 20261007,
+  "percentile": "nearest-rank",
+  "note": "Dart-side synthetic mirrors, same bounds as production (page 500, 2000-line cap, 15s/90s/3 fails); not Rust timings; no GUI frames claimed",
+  "scenarios": {
+    "pagewalk_10k_ms": {
+      "n": 30,
+      "min_ms": 2.711,
+      "max_ms": 8.896,
+      "p50": 2.891,
+      "p95": 4.811,
+      "p99": 8.896
+    },
+    "pagewalk_100k_ms": {
+      "n": 10,
+      "min_ms": 41.744,
+      "max_ms": 51.148,
+      "p50": 43.362,
+      "p95": 51.148,
+      "p99": 51.148
+    },
+    "overlay_10k_ms": {
+      "n": 30,
+      "min_ms": 0.158,
+      "max_ms": 3.686,
+      "p50": 0.18,
+      "p95": 0.618,
+      "p99": 3.686
+    },
+    "logtail_merge_ms": {
+      "n": 30,
+      "min_ms": 14.628,
+      "max_ms": 42.827,
+      "p50": 15.308,
+      "p95": 42.135,
+      "p99": 42.827
+    },
+    "snapshot_assemble_10k_ms": {
+      "n": 30,
+      "min_ms": 0.942,
+      "max_ms": 2.309,
+      "p50": 0.955,
+      "p95": 1.309,
+      "p99": 2.309
+    },
+    "update_flags_10k_ms": {
+      "n": 30,
+      "min_ms": 0.013,
+      "max_ms": 0.595,
+      "p50": 0.014,
+      "p95": 0.294,
+      "p99": 0.595
+    },
+    "lease_renew_10k_ms": {
+      "n": 30,
+      "min_ms": 0.04,
+      "max_ms": 0.68,
+      "p50": 0.04,
+      "p95": 0.564,
+      "p99": 0.68
+    }
+  }
+}

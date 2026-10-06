@@ -467,10 +467,9 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// a late (older) page result can never overwrite a newer one.
   int _queryGeneration = 0;
 
-  /// SP-21 cancellable page orchestration. The page source itself still waits
-  /// on the `QueryProfilesPageAsync` FRB entry (registered gap, SP-00
-  /// integrator); this pager already owns the generation/cancel/cursor
-  /// contract the async loader will use.
+  /// SP-21 cancellable page orchestration. The paged walks consume the
+  /// `query_profiles_page_async` FRB entry with the generation/cancel/cursor
+  /// contract owned here.
   final AsyncProfilePager _pagePager = AsyncProfilePager();
 
   /// Generation that currently owns `ProfilesState.pagedLoading`. A superseded
@@ -795,22 +794,23 @@ class ProfilesController extends Notifier<ProfilesState> {
     _log('cancel-page-query', 'generation=$_queryGeneration');
   }
 
-  /// Incremental structural load through the existing bounded
-  /// [BridgePort.querySummaryPage] cursor API (SP-21 UI consumption).
+  /// Incremental structural load through the async
+  /// [BridgePort.queryProfilesPageAsync] FRB entry (SP-21 Dart adoption).
   ///
-  /// Unlike [reload] (one synchronous full read), pages stream in with an
-  /// event-loop yield between them, so the UI timer and input stay responsive
-  /// while a large store loads. The walk is generation-guarded: a newer
-  /// [reloadPaged]/[selectAllAcrossPages] or any query-changing entry (which
-  /// bumps [_pagePager] via [cancelProfilePageQuery] or the mutators below)
-  /// makes late pages resolve to nothing instead of overwriting the latest
-  /// view. A revision change under the cursor restarts the walk from zero
+  /// Unlike [reload] (one synchronous full read), pages are awaited one at a
+  /// time on the FRB worker pool with an event-loop yield between them, so the
+  /// UI timer and input stay responsive while a large store loads. The walk is
+  /// generation-guarded twice: a newer [reloadPaged]/[selectAllAcrossPages] or
+  /// any query-changing entry (which bumps [_pagePager]) makes late pages
+  /// resolve to nothing, and a response whose echoed `requestGeneration` does
+  /// not match the owner generation is dropped instead of merged. A
+  /// `datasetRevision` change under the cursor restarts the walk from zero
   /// instead of skipping or repeating rows.
   ///
-  /// The full DTO set (editor + batch actions) still comes from the existing
-  /// cursor-following [BridgePort.queryAllProfiles] once the summaries land;
-  /// a true background-worker page source needs the `QueryProfilesPageAsync`
-  /// FRB entry (registered gap, SP-00 integrator).
+  /// The request freezes filter/sort to the full-store `indexId` order; the
+  /// group + text filter is still applied locally by [_recompute], so the view
+  /// semantics match [reload]. The full DTO set (editor + batch actions) is
+  /// the exact items walked (no second full read).
   Future<void> reloadPaged({int pageSize = 200}) async {
     final size = pageSize.clamp(1, 2000);
     final generation = _pagePager.nextGeneration();
@@ -818,27 +818,39 @@ class ProfilesController extends Notifier<ProfilesState> {
     var cursor = 0;
     var restarts = 0;
     final rows = <ProfileSummary>[];
+    final walkedProfiles = <c.ProfileDto>[];
     state = state.copyWith(pagedLoading: true);
     _pagedLoadOwner = generation;
+    const filter = c.ProfileFilterDto(text: null, configTypes: [], subid: null);
+    const sort = c.ProfileSortDto.indexId;
     try {
       for (;;) {
         if (!_pagePager.isCurrent(generation)) return;
-        final page = _bridge.querySummaryPage(cursor: cursor, pageSize: size);
+        final page = await _bridge.queryProfilesPageAsync(
+          filter: filter,
+          sort: sort,
+          cursor: cursor,
+          pageSize: size,
+          requestGeneration: generation,
+        );
         if (!_pagePager.isCurrent(generation)) return;
-        final currentRevision = _bridge.profileRevision();
-        if (currentRevision != expectedRevision) {
+        if (page.requestGeneration != BigInt.from(generation)) return;
+        final pageRevision = page.datasetRevision.toInt();
+        if (pageRevision != expectedRevision) {
           if (cursor == 0) {
-            expectedRevision = currentRevision;
+            expectedRevision = pageRevision;
           } else {
             restarts++;
             if (restarts > 5) return;
-            expectedRevision = currentRevision;
+            expectedRevision = pageRevision;
             cursor = 0;
             rows.clear();
+            walkedProfiles.clear();
             continue;
           }
         }
-        rows.addAll(page.items);
+        rows.addAll(page.items.map(dtoToSummary));
+        walkedProfiles.addAll(page.items);
         _baseSummaries = List<ProfileSummary>.of(rows);
         state = _recompute(
           state.copyWith(
@@ -846,7 +858,7 @@ class ProfilesController extends Notifier<ProfilesState> {
             pagedLoading: true,
           ),
         );
-        final next = page.nextCursor;
+        final next = page.nextCursor?.toInt();
         if (next == null || next <= cursor || page.items.isEmpty) break;
         cursor = next;
         // Yield so the UI timer, pointer input and a cancel land between
@@ -854,21 +866,22 @@ class ProfilesController extends Notifier<ProfilesState> {
         await Future<void>.delayed(Duration.zero);
       }
       if (!_pagePager.isCurrent(generation)) return;
-      final profiles = _bridge.queryAllProfiles();
-      if (!_pagePager.isCurrent(generation)) return;
       final active = _bridge.getActiveProfile();
       _queryGeneration++;
       state = _recompute(
         state.copyWith(
           all: _bridge.applyLiveOverlay(_baseSummaries),
-          profiles: profiles,
+          profiles: walkedProfiles,
           activeId: active,
           clearActive: active == null,
           rustCount: _bridge.rustProfileCount(),
           pagedLoading: false,
         ),
       );
-      _log('reload-paged', 'profiles=${profiles.length} rows=${rows.length}');
+      _log(
+        'reload-paged',
+        'profiles=${walkedProfiles.length} rows=${rows.length}',
+      );
     } finally {
       if (state.pagedLoading && _pagedLoadOwner == generation) {
         state = state.copyWith(pagedLoading: false);
@@ -876,24 +889,51 @@ class ProfilesController extends Notifier<ProfilesState> {
     }
   }
 
-  /// Cross-page select-all through the real cursor (SP-21 UI consumption).
+  /// Cross-page select-all through the async cursor (SP-21 Dart adoption).
   ///
-  /// Walks [BridgePort.querySummaryPage] to exhaustion and selects the walked
-  /// ids restricted to the current view, so the outcome matches Ctrl+A once
-  /// the table is windowed instead of trusting whatever window happens to be
-  /// loaded. Generation-guarded and cancellable like [reloadPaged]: a newer
-  /// query leaves the previous selection untouched.
+  /// Walks [BridgePort.queryProfilesPageAsync] to exhaustion and selects the
+  /// walked ids restricted to the current view, so the outcome matches Ctrl+A
+  /// once the table is windowed. Generation-guarded and cancellable like
+  /// [reloadPaged]: a stale `requestGeneration` echo or a newer query leaves
+  /// the previous selection untouched; a revision change under the cursor
+  /// restarts the walk instead of missing rows.
   Future<Set<String>> selectAllAcrossPages({int pageSize = 500}) async {
     final size = pageSize.clamp(1, 2000);
     final generation = _pagePager.nextGeneration();
+    var expectedRevision = _bridge.profileRevision();
     final walked = <String>{};
     var cursor = 0;
+    var restarts = 0;
+    const filter = c.ProfileFilterDto(text: null, configTypes: [], subid: null);
+    const sort = c.ProfileSortDto.indexId;
     for (;;) {
       if (!_pagePager.isCurrent(generation)) return state.selected;
-      final page = _bridge.querySummaryPage(cursor: cursor, pageSize: size);
+      final page = await _bridge.queryProfilesPageAsync(
+        filter: filter,
+        sort: sort,
+        cursor: cursor,
+        pageSize: size,
+        requestGeneration: generation,
+      );
       if (!_pagePager.isCurrent(generation)) return state.selected;
-      walked.addAll(page.items.map((r) => r.id));
-      final next = page.nextCursor;
+      if (page.requestGeneration != BigInt.from(generation)) {
+        return state.selected;
+      }
+      final pageRevision = page.datasetRevision.toInt();
+      if (pageRevision != expectedRevision) {
+        if (cursor == 0) {
+          expectedRevision = pageRevision;
+        } else {
+          restarts++;
+          if (restarts > 5) return state.selected;
+          expectedRevision = pageRevision;
+          cursor = 0;
+          walked.clear();
+          continue;
+        }
+      }
+      walked.addAll(page.items.map((d) => d.indexId));
+      final next = page.nextCursor?.toInt();
       if (next == null || next <= cursor || page.items.isEmpty) break;
       cursor = next;
       await Future<void>.delayed(Duration.zero);

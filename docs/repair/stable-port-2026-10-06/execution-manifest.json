@@ -563,7 +563,7 @@
       "upstream_symbols": "ServiceLib/ViewModels/ProfilesViewModel.cs",
       "status": "implemented",
       "evidence": "docs/evidence/stable-port/SP-16/README.md",
-      "note": "group persistence/reopen wired through profiles_controller (canonical SubIndexId group write on switch, build restore, resync fallback with no repair persist) + subs save/delete unified refresh; synthetic reopen/failure tests green (15 new + collateral ux_space01 fix); gaps: engine set_current_group has no FRB entry (settings-group seam used, SP-00), engine group write unvalidated (Dart read-side gate), native group_reopen trace/DPI unverified",
+      "note": "group persistence/reopen wired through profiles_controller (canonical SubIndexId group write on switch, build restore, resync fallback with no repair persist) + subs save/delete unified refresh; synthetic reopen/failure tests green (15 new + collateral ux_space01 fix); delete parity round: main-window toolbar-sub-delete via deleteCurrentSub (DeleteSubAsync counterpart, All/missing gated, confirm, fail keeps group + surfaces error) + subs-window confirmAndDeleteSub (button + context menu, ShowYesNo parity, cancel zero-write); 9 new synthetic delete tests green (8 helper/dialog + 1 toolbar E2E in own file); no profiles_controller change; gaps: engine set_current_group has no FRB entry (settings-group seam used, SP-00), engine group write unvalidated (Dart read-side gate), native group_reopen trace/DPI unverified",
       "instance_required": false
     },
     {
@@ -1064,7 +1064,8 @@
       "test_scope": "release GUI采样、raw samples/percentile算法",
       "upstream_symbols": "原方案§16基准方法/阈值",
       "status": "identified",
-      "instance_required": false
+      "instance_required": false,
+      "note": "2026-10-07 SP-31 continuation: extended synthetic harness tools/perf/sp31_ext_bench.dart (pure Dart headless; SP-21 pagewalk 10k p95 4.81ms / 100k p50 43.36ms, SP-22 overlay 10k p95 0.62ms + logtail mirror p95 42.14ms, SP-17 snapshot p95 1.31ms, SP-27 flags p95 0.29ms, SP-09 lease p95 0.56ms; JSON+CSV under docs/evidence/stable-port/SP-31/). No prod/Rust touched, no cargo gates, no release build (running dist instance blocks it). Release-GUI frame/startup/memory sampling still blocked on candidate build; stays identified, not verified"
     },
     {
       "id": "SP-32",

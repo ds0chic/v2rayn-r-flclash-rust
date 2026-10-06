@@ -724,7 +724,7 @@
       "status": "identified",
       "instance_required": false,
       "evidence": "docs/evidence/stable-port/SP-21/README.md",
-      "note": "2026-10-07 SP-21 continuation (uncommitted): real-SQLite file-backed worker scale proof landed (10k walk 670ms/20p, 100k walk 26636ms/200p, page 500, Remarks sort; tie/stale/cancel/select-all via worker; Rust sp21_* 12/12, application lib 346/0, persistence 74/0, fmt/clippy green) + profiles-list UI consumes existing querySummaryPage cursor API (reloadPaged incremental+yield+generation/cancel/revision-restart, selectAllAcrossPages, cancel wired into group/filter/sort entries; Dart 10/10, analyze clean). QueryProfilesPageAsync FRB entry still a registered gap (SP-00) + real-GUI timer/interaction sampling pending SP-31 → stays identified, not verified"
+      "note": "2026-10-07 SP-21 continuation: real-SQLite file-backed worker scale proof landed (10k walk 670ms/20p, 100k walk 26636ms/200p, page 500, Remarks sort; tie/stale/cancel/select-all via worker; Rust sp21_* 12/12, application lib 346/0, persistence 74/0, fmt/clippy green) + profiles-list UI consumes existing querySummaryPage cursor API (reloadPaged incremental+yield+generation/cancel/revision-restart, selectAllAcrossPages, cancel wired into group/filter/sort entries; Dart 10/10, analyze clean). Integrator closed the FRB gap: query_profiles_page_async + ProfilePageDto datasetRevision/requestGeneration + Dart seam (bridge_api 82/82, t06a real-FRB + seam test green; see INTEGRATOR-ASYNC-FRB.md). Real-GUI timer/interaction sampling pending SP-31 → stays identified, not verified"
     },
     {
       "id": "SP-22",

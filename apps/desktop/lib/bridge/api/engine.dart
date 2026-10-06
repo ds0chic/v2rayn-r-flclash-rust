@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine_failure_slot`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `error_snapshot_dto`, `failed_engine`, `initialize_engine`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `operation_status_dto`, `profile_dto`, `profile_from_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `resolve_engine_dir`, `resource_report_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `set_engine_failure`, `snapshot_to_dto`, `subscribers`, `test_only_smoke_body`, `transport_from_dto`, `transport_to_dto`
+// These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine_failure_slot`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `error_snapshot_dto`, `failed_engine`, `initialize_engine`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `operation_status_dto`, `profile_dto`, `profile_from_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `query_profiles_page_inner`, `resolve_engine_dir`, `resource_report_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `set_engine_failure`, `snapshot_to_dto`, `subscribers`, `test_only_smoke_body`, `transport_from_dto`, `transport_to_dto`
 // These functions are ignored (category: IgnoreBecauseExplicitAttribute): `t18b_test_only_smoke_config_json`
 
 /// Open the application engine against an explicit data directory (tests and
@@ -44,6 +44,25 @@ ProfilePageDto queryProfiles({
   sort: sort,
   cursor: cursor,
   pageSize: pageSize,
+);
+
+/// SP-21: asynchronous page query. FRB runs it on the worker pool, so a slow
+/// page (large stores) never blocks the UI isolate. `request_generation` is
+/// echoed back so the caller can drop a response that arrived after its live
+/// generation advanced; `dataset_revision` is the desired revision the page
+/// was actually read at.
+Future<ProfilePageDto> queryProfilesPageAsync({
+  required ProfileFilterDto filter,
+  required ProfileSortDto sort,
+  required BigInt cursor,
+  required int pageSize,
+  required BigInt requestGeneration,
+}) => RustLib.instance.api.crateApiEngineQueryProfilesPageAsync(
+  filter: filter,
+  sort: sort,
+  cursor: cursor,
+  pageSize: pageSize,
+  requestGeneration: requestGeneration,
 );
 
 /// `save_profile` — draft + expected revision; returns the saved entity and

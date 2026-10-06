@@ -138,6 +138,7 @@ pub fn delete_template(id: String) -> SimpleResult {
 /// (subscription matches first, then the explicit `ChildItems` order).
 #[frb(sync)]
 pub fn group_children(index_id: String) -> ProfilePageDto {
+    let dataset_revision = engine().desired_revision();
     match engine().group_children(&index_id) {
         Ok(children) => {
             let total = children.len() as u64;
@@ -148,12 +149,16 @@ pub fn group_children(index_id: String) -> ProfilePageDto {
                     .collect(),
                 total,
                 next_cursor: None,
+                dataset_revision,
+                request_generation: 0,
             }
         }
         Err(_) => ProfilePageDto {
             items: Vec::new(),
             total: 0,
             next_cursor: None,
+            dataset_revision,
+            request_generation: 0,
         },
     }
 }

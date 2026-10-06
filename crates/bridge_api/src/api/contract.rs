@@ -290,6 +290,12 @@ pub struct ProfilePageDto {
     pub items: Vec<ProfileDto>,
     pub total: u64,
     pub next_cursor: Option<u64>,
+    /// SP-21: desired revision this page was read at, so the UI can drop a
+    /// page whose dataset changed while it was in flight (stale-response
+    /// eviction, never a partial merge).
+    pub dataset_revision: u64,
+    /// SP-21: caller-supplied request generation, echoed back unchanged.
+    pub request_generation: u64,
 }
 
 /// Result of `save_profile`: either the saved profile or a field error.

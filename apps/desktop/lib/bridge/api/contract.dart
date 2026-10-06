@@ -1115,14 +1115,29 @@ class ProfilePageDto {
   final BigInt total;
   final BigInt? nextCursor;
 
+  /// SP-21: desired revision this page was read at, so the UI can drop a
+  /// page whose dataset changed while it was in flight (stale-response
+  /// eviction, never a partial merge).
+  final BigInt datasetRevision;
+
+  /// SP-21: caller-supplied request generation, echoed back unchanged.
+  final BigInt requestGeneration;
+
   const ProfilePageDto({
     required this.items,
     required this.total,
     this.nextCursor,
+    required this.datasetRevision,
+    required this.requestGeneration,
   });
 
   @override
-  int get hashCode => items.hashCode ^ total.hashCode ^ nextCursor.hashCode;
+  int get hashCode =>
+      items.hashCode ^
+      total.hashCode ^
+      nextCursor.hashCode ^
+      datasetRevision.hashCode ^
+      requestGeneration.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1131,7 +1146,9 @@ class ProfilePageDto {
           runtimeType == other.runtimeType &&
           items == other.items &&
           total == other.total &&
-          nextCursor == other.nextCursor;
+          nextCursor == other.nextCursor &&
+          datasetRevision == other.datasetRevision &&
+          requestGeneration == other.requestGeneration;
 }
 
 /// Sort key for `query_profiles`.

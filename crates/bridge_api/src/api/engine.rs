@@ -551,6 +551,31 @@ pub fn query_profiles(
     cursor: u64,
     page_size: u32,
 ) -> ProfilePageDto {
+    query_profiles_page_inner(filter, sort, cursor, page_size, 0)
+}
+
+/// SP-21: asynchronous page query. FRB runs it on the worker pool, so a slow
+/// page (large stores) never blocks the UI isolate. `request_generation` is
+/// echoed back so the caller can drop a response that arrived after its live
+/// generation advanced; `dataset_revision` is the desired revision the page
+/// was actually read at.
+pub async fn query_profiles_page_async(
+    filter: ProfileFilterDto,
+    sort: ProfileSortDto,
+    cursor: u64,
+    page_size: u32,
+    request_generation: u64,
+) -> ProfilePageDto {
+    query_profiles_page_inner(filter, sort, cursor, page_size, request_generation)
+}
+
+fn query_profiles_page_inner(
+    filter: ProfileFilterDto,
+    sort: ProfileSortDto,
+    cursor: u64,
+    page_size: u32,
+    request_generation: u64,
+) -> ProfilePageDto {
     let filter = ProfileFilter {
         text: filter.text,
         config_types: filter.config_types,
@@ -566,16 +591,21 @@ pub fn query_profiles(
         cursor: cursor as usize,
         page_size,
     };
+    let dataset_revision = engine().desired_revision();
     match engine().query_profiles(filter, sort, page) {
         Ok(p) => ProfilePageDto {
             items: p.items.into_iter().map(profile_to_dto).collect(),
             total: p.total as u64,
             next_cursor: p.next_cursor.map(|c| c as u64),
+            dataset_revision,
+            request_generation,
         },
         Err(_) => ProfilePageDto {
             items: Vec::new(),
             total: 0,
             next_cursor: None,
+            dataset_revision,
+            request_generation,
         },
     }
 }
@@ -1176,6 +1206,31 @@ mod tests {
         // SP-17: the actual descriptor is always part of the contract shape
         // (null when no actual fact exists).
         assert!(json.get("actual").is_some());
+    }
+
+    #[test]
+    fn sp21_page_query_echoes_generation_and_revision() {
+        let _guard = engine_test_lock();
+        seed_synthetic_profiles(3);
+        let dto = query_profiles_page_inner(
+            ProfileFilterDto {
+                text: None,
+                config_types: Vec::new(),
+                subid: None,
+            },
+            ProfileSortDto::Remarks,
+            0,
+            2,
+            42,
+        );
+        assert_eq!(dto.request_generation, 42, "generation echoed unchanged");
+        assert_eq!(dto.dataset_revision, engine().desired_revision());
+        assert!(dto.items.len() <= 2);
+        assert!(dto.total >= 3);
+        assert!(
+            dto.next_cursor.is_some(),
+            "more rows than one page leave a cursor"
+        );
     }
 
     #[test]

@@ -60,6 +60,18 @@ abstract class BridgePort {
   /// cursor to exhaustion, so a store larger than one page is never truncated.
   List<ProfileSummary> queryAllSummaries({String? text, String? subid});
 
+  /// SP-21: asynchronous page read on the FRB worker pool, so a slow page on a
+  /// large store never blocks the UI isolate. [requestGeneration] is echoed
+  /// back unchanged; the returned `datasetRevision` is the revision the page
+  /// was read at, so a stale response can be dropped instead of merged.
+  Future<c.ProfilePageDto> queryProfilesPageAsync({
+    required c.ProfileFilterDto filter,
+    required c.ProfileSortDto sort,
+    required int cursor,
+    required int pageSize,
+    required int requestGeneration,
+  });
+
   /// One structural read of the profile store (ordered base rows + full DTOs
   /// from the same pass). Used by reload so it does not query the table twice.
   ProfileSnapshot fetchProfileSnapshot(
@@ -451,6 +463,21 @@ class FrbBridgePort implements BridgePort {
     }
     return out;
   }
+
+  @override
+  Future<c.ProfilePageDto> queryProfilesPageAsync({
+    required c.ProfileFilterDto filter,
+    required c.ProfileSortDto sort,
+    required int cursor,
+    required int pageSize,
+    required int requestGeneration,
+  }) => engine.queryProfilesPageAsync(
+    filter: filter,
+    sort: sort,
+    cursor: BigInt.from(cursor),
+    pageSize: pageSize,
+    requestGeneration: BigInt.from(requestGeneration),
+  );
 
   @override
   ProfileSnapshot fetchProfileSnapshot(
@@ -1362,6 +1389,39 @@ class SyntheticBridgePort implements BridgePort {
   }
 
   @override
+  Future<c.ProfilePageDto> queryProfilesPageAsync({
+    required c.ProfileFilterDto filter,
+    required c.ProfileSortDto sort,
+    required int cursor,
+    required int pageSize,
+    required int requestGeneration,
+  }) async {
+    // Synthetic equivalent of the async Rust cursor: slice the generated base
+    // rows with a real next cursor and echo the caller's generation. Filter
+    // and sort mirror the sync synthetic page (no hidden reordering).
+    _ensureProfiles();
+    final rows = List<c.ProfileDto>.of(_profiles);
+    final start = cursor < 0 ? 0 : cursor;
+    if (start >= rows.length) {
+      return c.ProfilePageDto(
+        items: const <c.ProfileDto>[],
+        total: BigInt.from(rows.length),
+        nextCursor: null,
+        datasetRevision: BigInt.from(profileRevision()),
+        requestGeneration: BigInt.from(requestGeneration),
+      );
+    }
+    final end = (start + pageSize).clamp(start, rows.length);
+    return c.ProfilePageDto(
+      items: rows.sublist(start, end),
+      total: BigInt.from(rows.length),
+      nextCursor: end < rows.length ? BigInt.from(end) : null,
+      datasetRevision: BigInt.from(profileRevision()),
+      requestGeneration: BigInt.from(requestGeneration),
+    );
+  }
+
+  @override
   ProfileSnapshot fetchProfileSnapshot(
     int count, {
     String? text,
@@ -2192,7 +2252,12 @@ class SyntheticBridgePort implements BridgePort {
     _ensureProfiles();
     final group = getProfile(indexId);
     if (group == null) {
-      return c.ProfilePageDto(items: const [], total: BigInt.zero);
+      return c.ProfilePageDto(
+        items: const [],
+        total: BigInt.zero,
+        datasetRevision: BigInt.zero,
+        requestGeneration: BigInt.zero,
+      );
     }
     final byId = <String, c.ProfileDto>{
       for (final p in _profiles) p.indexId: p,
@@ -2220,7 +2285,12 @@ class SyntheticBridgePort implements BridgePort {
         ordered.add(child);
       }
     }
-    return c.ProfilePageDto(items: ordered, total: BigInt.from(ordered.length));
+    return c.ProfilePageDto(
+      items: ordered,
+      total: BigInt.from(ordered.length),
+      datasetRevision: BigInt.zero,
+      requestGeneration: BigInt.zero,
+    );
   }
 
   @override

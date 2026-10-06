@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
+import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
 import 'support/profiles_harness.dart';
@@ -118,5 +120,43 @@ void main() {
 
     expect(ids, isEmpty);
     expect(container.read(profilesControllerProvider).selected, isEmpty);
+  });
+
+  test('async page seam echoes generation and slices honestly', () async {
+    // SP-00 integrator closed the FRB gap (`query_profiles_page_async`); the
+    // synthetic port mirrors the same contract so the Dart consumption can be
+    // pinned without the native DLL.
+    final bridge = SyntheticBridgePort(count: 5);
+    final first = await bridge.queryProfilesPageAsync(
+      filter: c.ProfileFilterDto(
+        text: null,
+        configTypes: const [],
+        subid: null,
+      ),
+      sort: c.ProfileSortDto.indexId,
+      cursor: 0,
+      pageSize: 2,
+      requestGeneration: 7,
+    );
+    expect(first.requestGeneration, BigInt.from(7));
+    expect(first.datasetRevision, BigInt.from(bridge.profileRevision()));
+    expect(first.items.length, 2);
+    expect(first.total, BigInt.from(5));
+    expect(first.nextCursor, BigInt.from(2));
+
+    final last = await bridge.queryProfilesPageAsync(
+      filter: c.ProfileFilterDto(
+        text: null,
+        configTypes: const [],
+        subid: null,
+      ),
+      sort: c.ProfileSortDto.indexId,
+      cursor: 4,
+      pageSize: 2,
+      requestGeneration: 8,
+    );
+    expect(last.requestGeneration, BigInt.from(8));
+    expect(last.items.length, 1);
+    expect(last.nextCursor, isNull, reason: 'end of list is real, not faked');
   });
 }

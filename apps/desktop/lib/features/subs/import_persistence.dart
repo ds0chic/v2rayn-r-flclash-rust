@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 
@@ -19,13 +21,11 @@ class PersistImportedResult {
 /// Persists profiles returned by `importFromText` when the backend attached
 /// them to no subscription.
 ///
-/// T21-E root cause: `subs.importFromText` (Rust) only writes profiles when a
-/// non-empty `subid` is supplied; a clipboard import passes none, so the real
-/// bridge reports `ok` / `imported = N` while SQLite stays empty and the node
-/// table never updates. The import pipeline therefore persists each parsed
-/// profile through `saveImportedProfile` (FIX-04), which accepts the empty
-/// remarks/address that share URIs legitimately carry — unlike the editor
-/// draft contract enforced by `saveProfile`.
+/// Legacy per-row FIX-04 path (T21-E): kept for the callers that already hold
+/// parsed profiles outside the SP-14 preview/commit seam (see
+/// `t21e_import_real_bridge_test.dart`). New imports must use [previewImport]
+/// + [commitImport], which write the whole batch in one transaction instead of
+/// row-by-row.
 ///
 /// [subid] is the group snapshot taken when the import command started. Any
 /// returned profile that carries no owning subscription is rebound to it before
@@ -66,11 +66,29 @@ PersistImportedResult persistImportedProfiles(
 /// A parse-only import result: the profiles are decoded but **nothing** is in
 /// the database yet. The commit phase ([commitImport]) performs the single
 /// write.
+///
+/// SP-14 binding: [previewToken] identifies the exact previewed content (FNV-1a
+/// over the raw text, same algorithm as `application::import_batch`);
+/// [expectedRevision] freezes the desired revision at preview time;
+/// [mutationId] makes the commit idempotent. A commit carrying a different
+/// token/revision is rejected before any write.
 class ImportPreview {
-  const ImportPreview(this.result);
+  ImportPreview(this.result, {required String sourceText, String? mutationId})
+    : previewToken = _previewTokenFor(sourceText),
+      expectedRevision = _frozenRevision,
+      mutationId = mutationId ?? _newMutationId();
 
   /// The raw backend parse result (profiles plus located per-line issues).
   final c.ImportResult result;
+
+  /// Binds the exact previewed content (FNV-1a hex of the raw text).
+  final String previewToken;
+
+  /// Desired revision frozen when the preview was taken.
+  final int expectedRevision;
+
+  /// Idempotency key for the commit (SP-00 `mutationId`, SP-02 reuse).
+  final String mutationId;
 
   bool get ok => result.ok && result.profiles.isNotEmpty;
   List<c.ProfileDto> get profiles => result.profiles;
@@ -78,54 +96,110 @@ class ImportPreview {
   int get imported => result.imported;
 }
 
-/// Parse/preview phase (R4-16): nothing is persisted.
+/// Revision captured for the in-flight [ImportPreview].
 ///
-/// The backend is called with no group so the shared `import_from_text` path
-/// never runs `replace_sub_profiles`; a preview therefore never touches SQLite.
-/// `deduplicate: false` mirrors upstream `AddBatchServersCommon`, which only
-/// collapses duplicates when `isSub` (`arrData.Distinct()` is guarded by
-/// `if (isSub)`); a manual paste/scan must keep duplicate entries.
-Future<ImportPreview> previewImport(BridgePort bridge, String text) async =>
-    ImportPreview(
-      await bridge.importFromText(text, subid: null, deduplicate: false),
-    );
+/// Set by [previewImport] from the live bridge just before parsing, so tests
+/// scripting a stale revision can observe the freeze without a native library.
+int _frozenRevision = 0;
+int _mutationSeq = 0;
 
-/// Commit phase (R4-16): persist the batch exactly once.
+/// Completed SP-14 commits keyed by `mutationId`: a retried commit returns the
+/// same receipt without rewriting the batch.
+final Map<String, PersistImportedResult> _completedMutations =
+    <String, PersistImportedResult>{};
+
+/// Test helper: drop cached SP-14 mutation receipts between cases.
+void clearImportMutationCache() => _completedMutations.clear();
+
+/// FNV-1a 64 hex over the UTF-8 bytes.
 ///
-/// With a non-empty group snapshot the backend batch path binds every row to
-/// the group and inserts them in one transaction; the Dart side must **not**
-/// re-save each row, otherwise the import is written twice (batch + per-row,
-/// UF-PROF-08).
+/// Same algorithm as `application::import_batch::preview_token`, so the Dart
+/// preview token and the Rust commit binding compare equal for the same text.
+/// The FRB `CommitImportRequest.preview_token` wiring lands with the
+/// integrator; until then the Dart seam enforces the binding.
+String _previewTokenFor(String text) {
+  // Signed-64 wraparound has identical bits to the unsigned FNV-1a; format via
+  // BigInt so the high bit renders as unsigned hex both layers agree on.
+  var hash = 0xcbf29ce484222325;
+  const prime = 0x100000001b3;
+  for (final byte in utf8.encode(text)) {
+    hash ^= byte;
+    hash = hash * prime;
+  }
+  return BigInt.from(hash).toUnsigned(64).toRadixString(16).padLeft(16, '0');
+}
+
+String _newMutationId() =>
+    'sp14-${DateTime.now().microsecondsSinceEpoch}-${_mutationSeq++}';
+
+/// Parse/preview phase (SP-14): nothing is persisted.
 ///
-/// Without a group there is currently no single-transaction batch entry point
-/// (a `commit_import_text` binding is pending FRB regeneration), so the only
-/// available primitive is the FIX-04 `saveImportedProfile` per row; the rows
-/// stay ungrouped.
+/// The backend runs the pure `previewImportText` entry point (no group write,
+/// no Custom file materialization, `deduplicate: false` mirroring upstream
+/// `AddBatchServersCommon`, which only collapses duplicates when `isSub`).
+/// Cancelling after this call leaves zero DB/file effects.
+Future<ImportPreview> previewImport(
+  BridgePort bridge,
+  String text, {
+  String? mutationId,
+}) async {
+  _frozenRevision = bridge.profileRevision();
+  final result = bridge.previewImportText(text);
+  return ImportPreview(result, sourceText: text, mutationId: mutationId);
+}
+
+/// Commit phase (SP-14): persist the previewed batch exactly once.
+///
+/// Every target group — including the All/no-group bucket — goes through the
+/// single-transaction `commitImportText` entry point: no second parse (no new
+/// id drift), no per-row fallback, no half batch. The call fails closed when:
+/// - [previewToken] differs from the preview's token (content drift);
+/// - the frozen [expectedRevision] is stale against the live revision;
+/// - the backend reports a failure (the batch stays fully unapplied).
+///
+/// A repeated [mutationId] returns the first receipt without rewriting.
 Future<PersistImportedResult> commitImport(
   BridgePort bridge,
-  String text,
   ImportPreview preview, {
   String? subid,
+  String? previewToken,
+  int? expectedRevision,
+  String? mutationId,
 }) async {
-  final groupSubId = (subid != null && subid.isNotEmpty) ? subid : null;
-  if (groupSubId != null) {
-    final result = await bridge.importFromText(
-      text,
-      subid: groupSubId,
-      deduplicate: false,
-    );
-    if (result.ok && result.profiles.isNotEmpty) {
-      return PersistImportedResult(saved: result.imported, failed: 0);
-    }
-    // The backend transaction either fully applies or not at all; a failed
-    // commit leaves no partial rows (upstream `InsertAllAsync`).
+  final token = previewToken ?? preview.previewToken;
+  if (token != preview.previewToken) {
     return PersistImportedResult(
       saved: 0,
       failed: preview.profiles.length,
-      firstErrorCode: result.error?.code,
+      firstErrorCode: 'E_PREVIEW_MISMATCH',
     );
   }
-  return persistImportedProfiles(bridge, preview.profiles);
+  final mutation = mutationId ?? preview.mutationId;
+  // Idempotent replay first: the same mutation already validated its revision
+  // when it first executed, so a retry returns the recorded receipt even
+  // though the live revision has since advanced.
+  final cached = _completedMutations[mutation];
+  if (cached != null) return cached;
+  final revision = expectedRevision ?? preview.expectedRevision;
+  if (revision != bridge.profileRevision()) {
+    return PersistImportedResult(
+      saved: 0,
+      failed: preview.profiles.length,
+      firstErrorCode: 'E_REVISION_STALE',
+    );
+  }
+
+  final groupSubId = (subid != null && subid.isNotEmpty) ? subid : null;
+  final result = bridge.commitImportText(preview.profiles, subid: groupSubId);
+  final receipt = result.ok && result.profiles.isNotEmpty
+      ? PersistImportedResult(saved: result.imported, failed: 0)
+      : PersistImportedResult(
+          saved: 0,
+          failed: preview.profiles.length,
+          firstErrorCode: result.error?.code ?? 'E_STORAGE',
+        );
+  _completedMutations[mutation] = receipt;
+  return receipt;
 }
 
 /// Copy [profile] with its owning subscription replaced by [subid].

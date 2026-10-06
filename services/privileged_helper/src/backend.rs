@@ -17,6 +17,16 @@ pub struct StartedCore {
     pub pid: u32,
 }
 
+/// One observed elevated-core exit (SP-06). The observation is
+/// handle-scoped: the helper owns the process handle, so a recycled PID can
+/// never cause a miskill and polling never kills.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CoreExit {
+    pub handle: u64,
+    pub pid: u32,
+    pub exit_code: Option<i32>,
+}
+
 /// The finite privileged operation set the server may invoke.
 pub trait HelperBackend: Send + Sync {
     /// Whether the current process token is elevated.
@@ -33,6 +43,9 @@ pub trait HelperBackend: Send + Sync {
     fn run_elevated_core(&self, spec: &ElevatedCoreSpec) -> Result<StartedCore, HelperError>;
     /// Stop a previously started core; idempotent for known handles.
     fn stop_elevated_core(&self, handle: u64) -> Result<(), HelperError>;
+    /// Non-blocking poll of owned elevated cores that exited since the last
+    /// poll. Never kills; removal stays with stop/disconnect cleanup.
+    fn poll_core_exits(&self) -> Vec<CoreExit>;
     /// Release helper resources.
     fn shutdown(&self) -> Result<(), HelperError>;
 }
@@ -81,6 +94,10 @@ struct FakeState {
     calls: Vec<FakeCall>,
     running: BTreeSet<u64>,
     known: BTreeSet<u64>,
+    /// Fault-injected exits: handle -> wait code, drained by the next poll.
+    exited: BTreeMap<u64, Option<i32>>,
+    /// Owned identity per handle, so a poll keeps the spawn-time pid.
+    pids: BTreeMap<u64, u32>,
     tun: BTreeSet<u32>,
     stopped: Vec<u64>,
     next_handle: u64,
@@ -145,6 +162,15 @@ impl FakeBackend {
     /// Whether a core handle is currently running.
     pub fn is_running(&self, handle: u64) -> bool {
         self.lock().running.contains(&handle)
+    }
+
+    /// Fault injection (SP-06): pretend the owned elevated core exited with
+    /// `exit_code`. Unknown handles are ignored, never recorded.
+    pub fn inject_exit(&self, handle: u64, exit_code: Option<i32>) {
+        let mut state = self.lock();
+        if state.known.contains(&handle) && state.running.contains(&handle) {
+            state.exited.insert(handle, exit_code);
+        }
     }
 
     /// Handles for which stop was called, in order.
@@ -222,6 +248,7 @@ impl HelperBackend for FakeBackend {
         state.next_pid += 1;
         state.known.insert(handle);
         state.running.insert(handle);
+        state.pids.insert(handle, pid);
         state.calls.push(FakeCall::RunElevatedCore(spec.clone()));
         Ok(StartedCore { handle, pid })
     }
@@ -236,6 +263,29 @@ impl HelperBackend for FakeBackend {
         state.stopped.push(handle);
         state.calls.push(FakeCall::StopElevatedCore(handle));
         Ok(())
+    }
+
+    fn poll_core_exits(&self) -> Vec<CoreExit> {
+        let mut state = self.lock();
+        // Drain exactly once: an observed exit is never reported twice, and
+        // polling never touches unknown handles.
+        let handles: Vec<u64> = state.exited.keys().copied().collect();
+        let mut exits = Vec::new();
+        for handle in handles {
+            let code = state
+                .exited
+                .remove(&handle)
+                .expect("polled handle recorded");
+            if !state.running.remove(&handle) {
+                continue;
+            }
+            exits.push(CoreExit {
+                handle,
+                pid: state.pids.get(&handle).copied().unwrap_or(0),
+                exit_code: code,
+            });
+        }
+        exits
     }
 
     fn shutdown(&self) -> Result<(), HelperError> {
@@ -267,3 +317,57 @@ impl HandleAllocator {
 
 /// Small helper used by the real backend to track applied TUN configs.
 pub type TunRegistry = BTreeMap<u32, TunAddressConfig>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn spec() -> ElevatedCoreSpec {
+        ElevatedCoreSpec {
+            core: "sing-box".into(),
+            exe_path: r"C:\run\s1\processes\pre-socks\sing-box.exe".into(),
+            args: vec!["run".into(), "-c".into(), "config.json".into()],
+            run_dir: r"C:\run\s1\processes\pre-socks".into(),
+        }
+    }
+
+    #[test]
+    fn sp06_poll_reports_an_injected_exit_exactly_once() {
+        let backend = FakeBackend::new();
+        let started = backend.run_elevated_core(&spec()).expect("starts");
+        assert!(backend.poll_core_exits().is_empty(), "live core is quiet");
+        backend.inject_exit(started.handle, Some(1));
+        let exits = backend.poll_core_exits();
+        assert_eq!(exits.len(), 1, "one owned exit observed");
+        assert_eq!(exits[0].handle, started.handle);
+        assert_eq!(exits[0].pid, started.pid, "exit keeps the owned identity");
+        assert_eq!(exits[0].exit_code, Some(1));
+        assert!(
+            backend.poll_core_exits().is_empty(),
+            "an observed exit is never reported twice"
+        );
+    }
+
+    #[test]
+    fn sp06_stop_after_poll_stays_idempotent_without_miskill() {
+        let backend = FakeBackend::new();
+        let started = backend.run_elevated_core(&spec()).expect("starts");
+        backend.inject_exit(started.handle, Some(1));
+        assert_eq!(backend.poll_core_exits().len(), 1);
+        backend
+            .stop_elevated_core(started.handle)
+            .expect("stop of a known exited core succeeds");
+        assert!(!backend.is_running(started.handle));
+    }
+
+    #[test]
+    fn sp06_unknown_handles_are_never_reported() {
+        let backend = FakeBackend::new();
+        backend.inject_exit(999_999, Some(1));
+        assert!(
+            backend.poll_core_exits().is_empty(),
+            "foreign identities must not surface as owned exits"
+        );
+        assert!(backend.stop_elevated_core(999_999).is_err());
+    }
+}

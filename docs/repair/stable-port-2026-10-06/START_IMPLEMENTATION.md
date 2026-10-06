@@ -4,7 +4,7 @@
 
 在本仓库按 `docs/repair/stable-port-2026-10-06/IMPLEMENTATION_PLAN.md` 完成完整稳定移植修复。先读AGENTS、主方案、三份实施分册、当前全范围审计、execution-manifest和本次唯一任务卡。应用审计基线a7aa0a5，原版固定v2rayN7.25.4/7d6a967；先核对当前HEAD和已有改动，不把本方案当生产修复已完成。
 
-第一次只领SP-00，确认共享合同、所有权和编译可用接口；不要立即开始全部领域大改。完成后依manifest领取数据安全/运行状态卡。新增API/DTO在设计里是拟新增，必须先找现存签名和消费者，能复用的API优先复用。一个任务一次一个用户流程/字段实例/平台实例，不整批把180字段标完成。
+第一次先核对SP-00共享合同、所有权和编译可用接口；已有implemented成果按当前证据复核，不重写。按manifest和[10～15子代理安排](PARALLEL_EXECUTION_15.md)领取当前未完成流程，前置不足先做独立源码对照/模块准备。新增API/DTO在设计里是拟新增，必须先找现存签名和消费者，能复用的API优先复用。一个任务一次一个用户流程/字段实例/平台实例，不整批把180字段标完成。
 
 先为当前真实失败建立正确预期的回归，再改最小范围：启动A→stop→B、核心退出仍Running、applied目标竞态、cleanup失败丢journal、坏配置默认化、canonical备份还原、路由旧草稿复活、All导入半写、保存成功应用失败重试、独立窗丢回复。不能把测试预期改成现有错误，也不能拿观察bug的pass用例作正确实现证据。
 
@@ -12,7 +12,7 @@
 
 运行命令/窗口回包超时是结果未知，先query operation/mutation/snapshot，不能重写产生重复效果。selected/currentGroup/default/actualRuntime身份分离；desiredRevision/newRevision/appliedRevision/actualGeneration分清。stop cleanup不可被后来的apply吞掉；save成功apply失败返回分阶段事实并允许重试已保存内容。
 
-最多三个子代理分别领取独立文件任务，根整合者负责shared DTO/engine/bridge/FRB/native host接线和全门禁。单文件同时只有一个写入者。FRB生成一人执行、三处2.13.0一致、二次生成no-diff；协议和迁移有版本及兼容错误，不暗中接旧helper写OS资源。
+用户允许10～15个子代理，按PARALLEL_EXECUTION_15.md的10个主要任务+5个补充任务调度，实际并发服从执行器限制；当前会话主控+子代理共4槽，最多3子代理同时活跃，不冒称启动15个。根整合者负责shared DTO/engine/bridge/FRB/native host接线与候选全门禁。单文件同时只有一个写入者，按owner租用；构建/GUI/性能另排队，不每个代理全量跑290项。FRB生成一人执行、三处2.13.0一致，桥或生成配置变化才二次no-diff；协议和迁移有版本及兼容错误，不暗中接旧helper写OS资源。
 
 保留旧已修行为：顶部selected目标/F5默认、即时选择/捕获modifier、右键target冻结与滚动失焦关闭、有组批导入及IsSub来源、DNS草稿baseline、热键pause gate、stale拒绝/保存失败反馈、Legacy单TUN provider。原版路由即时提交和关闭Modified reload，参数窗关闭时机依原版。未真机对照的submenu Esc/高DPI仍逐项验。
 

@@ -120,6 +120,35 @@ class RuntimeView {
 
   bool get isRunning => state == 'Running';
 
+  /// SP-06: the backend reconciled an unsolicited main-core exit (never a
+  /// user stop): Stopped with the structured `error.core_exited` cause.
+  bool get isCoreExited =>
+      !isRunning && error?.messageKey == 'error.core_exited';
+
+  /// SP-06: a sidecar died under a live main core. The session reads
+  /// `Degraded` (never a clean Running) while the main endpoint is kept.
+  bool get isSidecarDegraded =>
+      state == 'Degraded' || error?.messageKey == 'error.sidecar_exited';
+
+  /// SP-06 recovery entry: an exited or degraded runtime can be retried
+  /// (`applyActive`/`reload`) or restarted (`stop` then apply). A clean stop
+  /// is not an exit and offers no exit recovery.
+  bool get canRecover => isCoreExited || isSidecarDegraded;
+
+  /// Actual-exit label for the status surface. The redacted backend detail
+  /// (`pid=.. code=..`) is shown verbatim: numbers only, never secrets.
+  String get exitStatusLabel {
+    if (isCoreExited) {
+      final detail = error?.detail;
+      return detail == null ? '已退出' : '已退出（$detail）';
+    }
+    if (isSidecarDegraded) {
+      final detail = error?.detail;
+      return detail == null ? '已降级' : '已降级（$detail）';
+    }
+    return statusLabel;
+  }
+
   /// Busy covers both the backend's own transition states and a command this
   /// UI has submitted but whose transition has not arrived yet.
   bool get isBusy =>
@@ -139,13 +168,15 @@ class RuntimeView {
   bool get hasAppliedEndpoint =>
       isRunning && ports.isNotEmpty && sessionId != null;
 
-  /// Never fabricates a running label: unknown or stopped reads as 未运行.
+  /// Never fabricates a running label: an actual exit reads as 已退出, a
+  /// sidecar failure as 已降级, other unknown or stopped reads as 未运行.
   String get statusLabel {
     if (isRunning) {
       final pidText = pid == null ? '' : ' PID=$pid';
       final portText = ports.isEmpty ? '' : ' 端口=${ports.join(',')}';
       return '运行中$pidText$portText';
     }
+    if (isCoreExited || isSidecarDegraded) return exitStatusLabel;
     return '未运行';
   }
 

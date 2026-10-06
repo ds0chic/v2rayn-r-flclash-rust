@@ -1,7 +1,13 @@
-// R4-16 import/export contract tests: parse/preview vs commit separation,
-// single commit (no Rust+Dart duplicate write), manual source rules (no dedup,
-// IsSub handled by the Rust batch path), cancel/bad-line/failure behaviour and
-// import -> export -> re-import interop at the pipeline seam.
+// R4-16/SP-14 import/export contract tests: parse/preview vs commit
+// separation, single commit (no Rust+Dart duplicate write), manual source
+// rules (no dedup, IsSub handled by the Rust batch path), cancel/bad-line/
+// failure behaviour and import -> export -> re-import interop at the pipeline
+// seam.
+//
+// SP-14: preview runs the pure `previewImportText` entry point and every group
+// (including the no-group bucket) commits through the single-transaction
+// `commitImportText` entry point; the legacy `importFromText` batch path is
+// only asserted for its own backwards-compatible behaviour.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -54,6 +60,24 @@ class SpyImportBridge extends SyntheticBridgePort {
   final List<String> exportedKinds = <String>[];
   int importPersistCalls = 0;
   int saveImportedCalls = 0;
+  int previewCalls = 0;
+
+  @override
+  c.ImportResult previewImportText(String text, {String? subid}) {
+    previewCalls++;
+    if (previewResult != null) return previewResult!;
+    return super.previewImportText(text, subid: subid);
+  }
+
+  @override
+  c.ImportResult commitImportText(
+    List<c.ProfileDto> profiles, {
+    String? subid,
+  }) {
+    importPersistCalls++;
+    if (commitResult != null) return commitResult!;
+    return super.commitImportText(profiles, subid: subid);
+  }
 
   @override
   Future<c.ImportResult> importFromText(
@@ -63,13 +87,7 @@ class SpyImportBridge extends SyntheticBridgePort {
   }) async {
     importSubids.add(subid);
     importDedup.add(deduplicate);
-    if (subid != null && subid.isNotEmpty) {
-      importPersistCalls++;
-      return commitResult ??
-          super.importFromText(text, subid: subid, deduplicate: deduplicate);
-    }
-    return previewResult ??
-        super.importFromText(text, subid: subid, deduplicate: deduplicate);
+    return super.importFromText(text, subid: subid, deduplicate: deduplicate);
   }
 
   @override
@@ -90,27 +108,22 @@ class SpyImportBridge extends SyntheticBridgePort {
 
 void main() {
   group('parse/preview', () {
-    test(
-      'previewImport persists nothing and passes manual dedup=false',
-      () async {
-        final bridge = SpyImportBridge(
-          previewResult: okResult(<c.ProfileDto>[
-            vlessDto('p1'),
-            vlessDto('p1'),
-          ]),
-        );
-        final preview = await previewImport(bridge, 'irrelevant');
-        expect(preview.ok, isTrue);
-        expect(preview.profiles.length, 2);
-        expect(preview.imported, 2);
-        expect(bridge.importPersistCalls, 0, reason: 'preview is parse-only');
-        expect(bridge.saveImportedCalls, 0);
-        // Manual batch import must not collapse duplicates (upstream guards
-        // `Distinct()` with `if (isSub)`).
-        expect(bridge.importDedup, <bool>[false]);
-        expect(bridge.importSubids, <String?>[null]);
-      },
-    );
+    test('previewImport is parse-only through the pure entry point', () async {
+      final bridge = SpyImportBridge(
+        previewResult: okResult(<c.ProfileDto>[vlessDto('p1'), vlessDto('p1')]),
+      );
+      final preview = await previewImport(bridge, 'irrelevant');
+      expect(preview.ok, isTrue);
+      expect(preview.profiles.length, 2);
+      expect(preview.imported, 2);
+      expect(bridge.importPersistCalls, 0, reason: 'preview is parse-only');
+      expect(bridge.saveImportedCalls, 0);
+      expect(bridge.previewCalls, 1);
+      // Manual batch import keeps duplicates: the staged preview carries both
+      // rows instead of collapsing them (upstream guards `Distinct()` with
+      // `if (isSub)`).
+      expect(preview.profiles.map((p) => p.remarks), <String>['p1', 'p1']);
+    });
 
     test('bad lines keep the valid rows and locate the failure', () async {
       final bridge = SpyImportBridge(
@@ -138,29 +151,29 @@ void main() {
         previewResult: okResult(<c.ProfileDto>[vlessDto('a'), vlessDto('b')]),
         commitResult: okResult(<c.ProfileDto>[vlessDto('a'), vlessDto('b')]),
       );
+      clearImportMutationCache();
       final preview = await previewImport(bridge, 'text');
-      final persisted = await commitImport(
-        bridge,
-        'text',
-        preview,
-        subid: 'sub-A',
-      );
+      final persisted = await commitImport(bridge, preview, subid: 'sub-A');
       expect(persisted.saved, 2);
       expect(persisted.failed, 0);
       expect(bridge.importPersistCalls, 1, reason: 'exactly one batch commit');
       expect(bridge.saveImportedCalls, 0, reason: 'no Dart per-row re-save');
-      expect(bridge.importDedup, <bool>[false, false]);
     });
 
-    test('no-group commit uses the per-row FIX-04 fallback', () async {
+    test('no-group commit is also one batch write (SP-14)', () async {
       final bridge = SpyImportBridge(
         previewResult: okResult(<c.ProfileDto>[vlessDto('a'), vlessDto('b')]),
       );
+      clearImportMutationCache();
       final preview = await previewImport(bridge, 'text');
-      final persisted = await commitImport(bridge, 'text', preview);
+      final persisted = await commitImport(bridge, preview);
       expect(persisted.saved, 2);
-      expect(bridge.importPersistCalls, 0);
-      expect(bridge.saveImportedCalls, 2);
+      expect(bridge.importPersistCalls, 1);
+      expect(
+        bridge.saveImportedCalls,
+        0,
+        reason: 'All commits use the single transaction, not per-row saves',
+      );
     });
 
     test('a failed batch commit is not half-written', () async {
@@ -178,13 +191,9 @@ void main() {
           ),
         ),
       );
+      clearImportMutationCache();
       final preview = await previewImport(bridge, 'text');
-      final persisted = await commitImport(
-        bridge,
-        'text',
-        preview,
-        subid: 'sub-A',
-      );
+      final persisted = await commitImport(bridge, preview, subid: 'sub-A');
       expect(persisted.saved, 0);
       expect(persisted.failed, 1);
       expect(persisted.firstErrorCode, 'E_UNAVAILABLE');

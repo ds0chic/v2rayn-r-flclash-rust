@@ -153,6 +153,20 @@ abstract class BridgePort {
     bool deduplicate = true,
   });
 
+  /// SP-14 parse-only preview: decode without touching SQLite or受控文件.
+  ///
+  /// Backed by the generated `previewImportText` (pure `parse_import` with
+  /// `materialize: false`). The legacy [importFromText] path stays for the
+  /// grouped single-shot import until all callers migrate.
+  c.ImportResult previewImportText(String text, {String? subid});
+
+  /// SP-14 single-transaction commit of an already-previewed batch.
+  ///
+  /// Backed by the generated `commitImportText`: one `replace_sub_profiles`
+  /// transaction for every target group including the no-group bucket, so a
+  /// mid-batch failure never leaves a half batch.
+  c.ImportResult commitImportText(List<c.ProfileDto> profiles, {String? subid});
+
   c.UriParseResult parseShareUri(String line);
 
   Future<c.ShareExportResult> exportProfiles(List<String> ids, String kind);
@@ -598,6 +612,16 @@ class FrbBridgePort implements BridgePort {
     String? subid,
     bool deduplicate = true,
   }) => subs.importFromText(text: text, subid: subid, deduplicate: deduplicate);
+
+  @override
+  c.ImportResult previewImportText(String text, {String? subid}) =>
+      subs.previewImportText(text: text, subid: subid);
+
+  @override
+  c.ImportResult commitImportText(
+    List<c.ProfileDto> profiles, {
+    String? subid,
+  }) => subs.commitImportText(profiles: profiles, subid: subid);
 
   @override
   c.UriParseResult parseShareUri(String line) => subs.parseShareUri(line: line);
@@ -1780,6 +1804,161 @@ class SyntheticBridgePort implements BridgePort {
           : null,
     );
   }
+
+  /// SP-14 test seams for the pure-preview + single-transaction path.
+  int previewImportTextCalls = 0;
+  int commitImportTextCalls = 0;
+  String? lastCommitSubid;
+
+  /// Test helper: force the next [commitImportText] to fail atomically.
+  bool failNextCommit = false;
+
+  @override
+  c.ImportResult previewImportText(String text, {String? subid}) {
+    // Parse-only: decode the same shape as [importFromText] but never persist.
+    previewImportTextCalls++;
+    final lines = text
+        .split(RegExp(r'\r?\n'))
+        .map((l) => l.trim())
+        .where((l) => l.isNotEmpty && l.contains('://'))
+        .toList();
+    final profiles = <c.ProfileDto>[];
+    for (var i = 0; i < lines.length; i++) {
+      final uri = lines[i];
+      if (uri.startsWith('vmess://') ||
+          uri.startsWith('vless://') ||
+          uri.startsWith('ss://') ||
+          uri.startsWith('trojan://') ||
+          uri.startsWith('hysteria2://')) {
+        profiles.add(
+          c.ProfileDto(
+            indexId: 'syn-preview-${_subSeq++}',
+            configType: ConfigType.vless,
+            coreType: CoreType.xray,
+            configVersion: 4,
+            subid: subid ?? '',
+            isSub: false,
+            displayLog: true,
+            remarks: uri.split('#').length > 1
+                ? Uri.decodeComponent(uri.split('#').last)
+                : 'import-${i + 1}',
+            address: '192.0.2.${i + 1}',
+            port: 443,
+            password: '',
+            username: '',
+            network: 'raw',
+            security: const c.SecurityDto(),
+            protoExtra: const c.ProtocolExtraDto(extraJson: '{}'),
+            transportExtra: const c.TransportExtraDto(extraJson: '{}'),
+            extraJson: '{}',
+          ),
+        );
+      }
+    }
+    return c.ImportResult(
+      ok: profiles.isNotEmpty,
+      imported: profiles.length,
+      profiles: profiles,
+      errors: const <c.ParseIssueDto>[],
+      error: profiles.isEmpty
+          ? const c.ErrorDto(
+              code: 'E_FIELD_FORMAT',
+              messageKey: 'error.import_nothing',
+              retryable: false,
+            )
+          : null,
+    );
+  }
+
+  @override
+  c.ImportResult commitImportText(
+    List<c.ProfileDto> profiles, {
+    String? subid,
+  }) {
+    // Single transaction: validate everything first, then write the whole
+    // batch with one revision bump; any failure writes nothing. This writes
+    // the store directly (never through [saveImportedProfile]) so counting
+    // that seam proves callers stopped using the per-row fallback.
+    commitImportTextCalls++;
+    lastCommitSubid = subid;
+    if (failNextCommit) {
+      failNextCommit = false;
+      return const c.ImportResult(
+        ok: false,
+        imported: 0,
+        profiles: <c.ProfileDto>[],
+        errors: <c.ParseIssueDto>[],
+        error: c.ErrorDto(
+          code: 'E_STORAGE',
+          messageKey: 'error.storage',
+          retryable: true,
+        ),
+      );
+    }
+    if (profiles.isEmpty) {
+      return const c.ImportResult(
+        ok: false,
+        imported: 0,
+        profiles: <c.ProfileDto>[],
+        errors: <c.ParseIssueDto>[],
+        error: c.ErrorDto(
+          code: 'E_FIELD_FORMAT',
+          messageKey: 'error.import_nothing',
+          retryable: false,
+        ),
+      );
+    }
+    _ensureProfiles();
+    final staged = <c.ProfileDto>[];
+    for (final profile in profiles) {
+      final bound = (subid != null && subid.isNotEmpty && profile.subid.isEmpty)
+          ? _withProfileSubId(profile, subid)
+          : profile;
+      staged.add(
+        bound.indexId.trim().isEmpty
+            ? _withId(bound, 'syn-commit-${_newId++}')
+            : bound,
+      );
+    }
+    for (final draft in staged) {
+      final index = _profiles.indexWhere((p) => p.indexId == draft.indexId);
+      if (index >= 0) {
+        _profiles[index] = draft;
+      } else {
+        _profiles.add(draft);
+      }
+    }
+    _revision += 1;
+    return c.ImportResult(
+      ok: true,
+      imported: staged.length,
+      profiles: List<c.ProfileDto>.of(staged),
+      errors: const <c.ParseIssueDto>[],
+    );
+  }
+
+  c.ProfileDto _withProfileSubId(c.ProfileDto p, String subid) => c.ProfileDto(
+    indexId: p.indexId,
+    configType: p.configType,
+    coreType: p.coreType,
+    configVersion: p.configVersion,
+    subid: subid,
+    isSub: p.isSub,
+    preSocksPort: p.preSocksPort,
+    displayLog: p.displayLog,
+    remarks: p.remarks,
+    address: p.address,
+    port: p.port,
+    password: p.password,
+    username: p.username,
+    network: p.network,
+    muxEnabled: p.muxEnabled,
+    finalmask: p.finalmask,
+    security: p.security,
+    protoExtra: p.protoExtra,
+    transportExtra: p.transportExtra,
+    extraJson: p.extraJson,
+  );
 
   @override
   c.UriParseResult parseShareUri(String line) {

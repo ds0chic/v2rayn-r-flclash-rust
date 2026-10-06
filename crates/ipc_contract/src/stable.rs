@@ -122,6 +122,18 @@ pub struct CoreExitFact {
     pub at_ms: i64,
 }
 
+impl CoreExitFact {
+    /// Record one handle-authoritative exit observation (SP-06). Numbers only;
+    /// never credentials or config material.
+    pub fn observed(pid: u32, exit_code: Option<i32>, at_ms: i64) -> Self {
+        Self {
+            pid,
+            exit_code,
+            at_ms,
+        }
+    }
+}
+
 /// Live TUN lease facts (mirrors the runtime snapshot facts).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TunLeaseFacts {
@@ -158,6 +170,53 @@ pub struct RuntimeActualDescriptor {
     pub last_exit: Option<CoreExitFact>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_error: Option<ContractError>,
+}
+
+impl RuntimeActualDescriptor {
+    /// Apply a main-core exit (SP-06): the fact generation advances even
+    /// though desired did not change, the live PID/endpoints are withdrawn,
+    /// and the frozen plan history (target/applied revision/plan hash) is
+    /// preserved. Never invents Running.
+    pub fn mark_main_exited(&mut self, exit: CoreExitFact, error: ContractError) {
+        self.actual_generation = self.actual_generation.saturating_add(1);
+        self.main_state = "exited".to_string();
+        self.main_pid = None;
+        self.ready_endpoints.clear();
+        self.last_exit = Some(exit);
+        self.last_error = Some(error);
+    }
+
+    /// Apply a sidecar exit (SP-06): the sidecar fact goes `exited`, a live
+    /// main core degrades instead of reporting a clean Running, and the most
+    /// recent exit is recorded. History is preserved.
+    pub fn mark_sidecar_exited(
+        &mut self,
+        sidecar_id: &str,
+        exit: CoreExitFact,
+        error: ContractError,
+    ) {
+        self.actual_generation = self.actual_generation.saturating_add(1);
+        let mut found = false;
+        for state in &mut self.sidecar_states {
+            if state.id == sidecar_id {
+                state.state = "exited".to_string();
+                state.pid = None;
+                found = true;
+            }
+        }
+        if !found {
+            self.sidecar_states.push(ProcessStateFact {
+                id: sidecar_id.to_string(),
+                state: "exited".to_string(),
+                pid: None,
+            });
+        }
+        if self.main_state == "running" {
+            self.main_state = "degraded".to_string();
+        }
+        self.last_exit = Some(exit);
+        self.last_error = Some(error);
+    }
 }
 
 /// Settings persistence phase outcome.
@@ -395,5 +454,84 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         let back: CommitImportRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(back, request);
+    }
+
+    fn running_descriptor() -> RuntimeActualDescriptor {
+        RuntimeActualDescriptor {
+            session_id: "s-1".into(),
+            actual_generation: 4,
+            operation_id: "op-1".into(),
+            intent_seq: 2,
+            target_profile_id: "p-a".into(),
+            target_core: "xray".into(),
+            core_version: "26.3.27".into(),
+            plan_hash: "hash-plan".into(),
+            applied_runtime_revision: 11,
+            main_pid: Some(42756),
+            sidecar_pids: vec![42757],
+            ready_endpoints: vec![ReadyEndpoint {
+                scheme: "socks".into(),
+                owner: "inbound".into(),
+                core: "xray".into(),
+                api_kind: "socks5".into(),
+                auth_required: false,
+                port: 11977,
+            }],
+            main_state: "running".into(),
+            sidecar_states: vec![ProcessStateFact {
+                id: "pre-socks".into(),
+                state: "running".into(),
+                pid: Some(42757),
+            }],
+            tun_lease_facts: None,
+            last_exit: None,
+            last_error: None,
+        }
+    }
+
+    fn exit_error() -> ContractError {
+        ContractError {
+            code: "E_INTERNAL".into(),
+            message_key: "error.core_exited".into(),
+            detail: Some("pid=42756 code=1".into()),
+            retryable: false,
+        }
+    }
+
+    #[test]
+    fn main_exit_withdraws_endpoints_and_advances_generation() {
+        let mut descriptor = running_descriptor();
+        let exit = CoreExitFact::observed(42756, Some(1), 1_700_000_000_001);
+        descriptor.mark_main_exited(exit.clone(), exit_error());
+        assert_eq!(descriptor.main_state, "exited");
+        assert!(descriptor.main_pid.is_none(), "no ghost PID");
+        assert!(descriptor.ready_endpoints.is_empty(), "no stale endpoint");
+        assert_eq!(descriptor.last_exit, Some(exit));
+        assert_eq!(descriptor.last_error, Some(exit_error()));
+        assert_eq!(descriptor.actual_generation, 5);
+        assert_eq!(descriptor.target_profile_id, "p-a");
+        assert_eq!(descriptor.applied_runtime_revision, 11);
+        assert_eq!(descriptor.plan_hash, "hash-plan");
+    }
+
+    #[test]
+    fn sidecar_exit_degrades_without_rewriting_history() {
+        let mut descriptor = running_descriptor();
+        let exit = CoreExitFact::observed(42757, Some(3), 1_700_000_000_002);
+        descriptor.mark_sidecar_exited("pre-socks", exit.clone(), exit_error());
+        assert_eq!(descriptor.main_state, "degraded");
+        assert_eq!(
+            descriptor.sidecar_states,
+            vec![ProcessStateFact {
+                id: "pre-socks".into(),
+                state: "exited".into(),
+                pid: None,
+            }]
+        );
+        assert_eq!(descriptor.main_pid, Some(42756));
+        assert_eq!(descriptor.ready_endpoints.len(), 1);
+        assert_eq!(descriptor.last_exit, Some(exit));
+        assert_eq!(descriptor.actual_generation, 5);
+        assert_eq!(descriptor.applied_runtime_revision, 11);
     }
 }

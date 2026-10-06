@@ -101,13 +101,16 @@ Future<void> importShareText(
   );
 }
 
-/// Parse/preview then a single commit (R4-16).
+/// Parse/preview then a single commit (SP-14).
 ///
-/// Phase 1 [previewImport] decodes the payload without persisting anything; on
-/// a usable preview phase 2 [commitImport] binds the frozen [groupSubId] and
-/// writes the whole batch exactly once. A preview that only yields standalone
-/// subscription URLs is offered to the subscription add path, and an
-/// unrecognisable payload surfaces a classified failure.
+/// Phase 1 [previewImport] decodes the payload without persisting anything
+/// (no SQLite, no Custom file staging); the user confirms the parsed batch in
+/// a preview sheet and may cancel with zero effects. On confirmation phase 2
+/// [commitImport] binds the frozen [groupSubId] plus the preview's
+/// `previewToken`/`expectedRevision`/`mutationId` and writes the whole batch
+/// exactly once. A preview that only yields standalone subscription URLs is
+/// offered to the subscription add path, and an unrecognisable payload
+/// surfaces a classified failure.
 Future<void> _importPipeline(
   BuildContext context,
   WidgetRef ref,
@@ -118,12 +121,26 @@ Future<void> _importPipeline(
   final bridge = ref.read(bridgePortProvider);
   final preview = await previewImport(bridge, text);
   if (preview.ok) {
-    final persisted = await commitImport(
-      bridge,
-      text,
+    if (!context.mounted) return;
+    final confirmed = await _confirmImportPreview(
+      context,
       preview,
-      subid: groupSubId,
+      groupSubId: groupSubId,
     );
+    if (!confirmed) {
+      _toast(ref, '已取消：未导入任何节点');
+      return;
+    }
+    final persisted = await commitImport(bridge, preview, subid: groupSubId);
+    if (!context.mounted) return;
+    if (persisted.saved == 0 && persisted.hasFailures) {
+      _toast(
+        ref,
+        '导入未提交，已保留原数据'
+        '${persisted.firstErrorCode == null ? '' : '（${persisted.firstErrorCode}）'}',
+      );
+      return;
+    }
     ref.read(profilesControllerProvider.notifier).reload();
     _toast(
       ref,
@@ -138,6 +155,61 @@ Future<void> _importPipeline(
     return;
   }
   _toast(ref, describeImportFailure(preview.result));
+}
+
+/// SP-14 preview sheet: show the parsed batch and let the user confirm or
+/// cancel. Cancelling performs no commit, so neither files nor half-batch
+/// nodes are produced.
+Future<bool> _confirmImportPreview(
+  BuildContext context,
+  ImportPreview preview, {
+  required String? groupSubId,
+}) async {
+  final target = (groupSubId != null && groupSubId.isNotEmpty)
+      ? '分组 $groupSubId'
+      : '全部（未分组）';
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      key: const ValueKey('import-preview-dialog'),
+      title: const Text('预览导入', style: TextStyle(fontSize: 15)),
+      content: SizedBox(
+        width: 480,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text('将导入 ${preview.imported} 个节点到$target，一次提交。'),
+            if (preview.errors.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(
+                '${preview.errors.length} 行未识别，将跳过（首项：${preview.errors.first.message}）。',
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+            const SizedBox(height: 8),
+            const Text(
+              '取消不产生任何文件或节点；提交失败不留半批。',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const ValueKey('import-preview-cancel'),
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const ValueKey('import-preview-commit'),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('提交导入'),
+        ),
+      ],
+    ),
+  );
+  return confirmed == true;
 }
 
 String _importSuccessToast(

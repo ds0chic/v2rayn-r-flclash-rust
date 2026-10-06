@@ -62,8 +62,15 @@ void main() {
     await tester.pump();
 
     final (context, ref) = captured!;
-    await importFromClipboard(context, ref);
+    // SP-14: confirm the preview sheet to run the single commit.
+    final pending = importFromClipboard(context, ref);
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byKey(const ValueKey('import-preview-dialog')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('import-preview-commit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await pending;
 
     // The synthetic bridge reports success through the shell status message.
     expect(container.read(profilesControllerProvider).events, isNotEmpty);

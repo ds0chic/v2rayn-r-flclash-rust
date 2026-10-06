@@ -110,13 +110,44 @@ void main() {
     final (context, ref, container) = await pumpProbe(tester);
     final before = container.read(profilesControllerProvider).profiles.length;
 
-    await importFromClipboard(context, ref);
+    // SP-14: the pipeline stops at the preview sheet; the commit only runs
+    // after the user confirms.
+    final pending = importFromClipboard(context, ref);
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byKey(const ValueKey('import-preview-dialog')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('import-preview-commit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await pending;
 
     final after = container.read(profilesControllerProvider).profiles;
     expect(after.length - before, 2, reason: 'imported rows must be visible');
     final message = container.read(uiShellControllerProvider).message;
     expect(message, contains('导入 2 个节点'));
+  });
+
+  testWidgets('cancelling the preview imports nothing', (tester) async {
+    clipboardData = <String, dynamic>{
+      'text': 'vless://11111111-1111-1111-1111-111111111111@a.example:443#one',
+    };
+    final (context, ref, container) = await pumpProbe(tester);
+    final before = container.read(profilesControllerProvider).profiles.length;
+
+    final pending = importFromClipboard(context, ref);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byKey(const ValueKey('import-preview-dialog')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('import-preview-cancel')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await pending;
+
+    final after = container.read(profilesControllerProvider).profiles;
+    expect(after.length, before, reason: 'cancel leaves zero effects');
+    expect(container.read(uiShellControllerProvider).message, contains('已取消'));
   });
 
   testWidgets('subscription URL offers 作为订阅添加 and adds it', (tester) async {

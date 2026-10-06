@@ -210,6 +210,13 @@ pub struct AppEngine {
     mem_pending: Arc<Mutex<Option<MemPending>>>,
     /// Set while an in-memory engine has an unresolved commit.
     mem_recovery: Arc<AtomicBool>,
+    /// SP-14 preview registry: token -> content digest (memory only; registering
+    /// a preview never touches SQLite or受控文件).
+    import_previews: Arc<Mutex<HashMap<String, String>>>,
+    /// SP-14 completed import commits keyed by mutation id (idempotent replay).
+    import_commits: Arc<Mutex<HashMap<String, crate::import_batch::ImportReceipt>>>,
+    /// SP-14 fault injection: the next commit fails after staging (tests only).
+    import_fault: Arc<AtomicBool>,
 }
 
 // ---------------------------------------------------------------------------
@@ -396,6 +403,9 @@ impl AppEngine {
             mem_commits: Arc::new(Mutex::new(HashMap::new())),
             mem_pending: Arc::new(Mutex::new(None)),
             mem_recovery: Arc::new(AtomicBool::new(false)),
+            import_previews: Arc::new(Mutex::new(HashMap::new())),
+            import_commits: Arc::new(Mutex::new(HashMap::new())),
+            import_fault: Arc::new(AtomicBool::new(false)),
         };
         engine.ensure_builtin_routing_dns();
         engine
@@ -484,6 +494,9 @@ impl AppEngine {
             mem_commits: Arc::new(Mutex::new(HashMap::new())),
             mem_pending: Arc::new(Mutex::new(None)),
             mem_recovery: Arc::new(AtomicBool::new(false)),
+            import_previews: Arc::new(Mutex::new(HashMap::new())),
+            import_commits: Arc::new(Mutex::new(HashMap::new())),
+            import_fault: Arc::new(AtomicBool::new(false)),
         };
         engine.ensure_builtin_routing_dns();
         // SP-05: reload the frozen applied history and the fact counters so an
@@ -4126,6 +4139,159 @@ impl AppEngine {
         drop(repo);
         self.persist_config(&revisions)?;
         Ok((added, removed))
+    }
+
+    // -- SP-14 All纯预览批导入 --------------------------------------------------
+
+    /// Register a parse-only preview: memory only, never SQLite/受控文件.
+    ///
+    /// Returns the `preview_token` binding this exact content; the later
+    /// [`Self::commit_import_batch`] rejects any token that was not registered
+    /// here or whose content digest drifted (second parse, new ids, retarget).
+    pub fn register_import_preview(&self, text: &str, profiles: &[Profile]) -> String {
+        let token = crate::import_batch::preview_token(text);
+        let digest = crate::import_batch::content_digest(profiles);
+        if let Ok(mut previews) = self.import_previews.lock() {
+            if previews.len() >= 128 {
+                if let Some(first) = previews.keys().next().cloned() {
+                    previews.remove(&first);
+                }
+            }
+            previews.insert(token.clone(), digest);
+        }
+        token
+    }
+
+    /// True when `token` was registered for exactly `profiles`.
+    pub fn check_import_token(&self, profiles: &[Profile], token: &str) -> bool {
+        let digest = crate::import_batch::content_digest(profiles);
+        self.import_previews
+            .lock()
+            .ok()
+            .and_then(|previews| previews.get(token).cloned())
+            .is_some_and(|registered| registered == digest)
+    }
+
+    /// Fault injection for the SP-14 commit path (tests only). Production
+    /// always leaves it `false`; the next commit fails after staging and rolls
+    /// back staged files plus the DB batch.
+    pub fn set_import_commit_fault(&self, fault: bool) {
+        self.import_fault.store(fault, Ordering::Release);
+    }
+
+    /// Commit one previewed batch atomically (SP-14).
+    ///
+    /// Order: mutation replay check -> revision check -> token binding check ->
+    /// stage Custom files -> single `replace_sub_profiles` transaction. Any
+    /// failure before the DB commit writes nothing; a DB failure also deletes
+    /// files staged by this commit so no orphan survives. A committed
+    /// `mutation_id` replays the same receipt without rewriting.
+    pub fn commit_import_batch(
+        &self,
+        commit: crate::import_batch::ImportCommit,
+    ) -> Result<crate::import_batch::ImportReceipt, DomainError> {
+        use crate::import_batch as batch;
+        self.guard_storage()?;
+        if commit.profiles.is_empty() {
+            return Err(batch::empty_commit_error());
+        }
+        if let Some(cached) = self
+            .import_commits
+            .lock()
+            .ok()
+            .and_then(|commits| commits.get(&commit.mutation_id).cloned())
+        {
+            return Ok(cached);
+        }
+        let current = self.desired_revision();
+        if commit.expected_revision != current {
+            return Err(batch::stale_revision_error(
+                commit.expected_revision,
+                current,
+            ));
+        }
+        if !self.check_import_token(&commit.profiles, &commit.preview_token) {
+            return Err(batch::token_mismatch_error());
+        }
+        let target = commit.target_group.clone().unwrap_or_default();
+        // Stage Custom/Outbound payloads before the DB transaction.
+        let mut staged = commit.profiles.clone();
+        let mut new_files: Vec<std::path::PathBuf> = Vec::new();
+        let config_dir = self
+            .data_dir()
+            .map(|dir| dir.join("config"))
+            .unwrap_or_else(std::env::temp_dir);
+        for profile in staged.iter_mut() {
+            if !matches!(
+                profile.config_type,
+                domain::ConfigType::Custom | domain::ConfigType::Outbound
+            ) {
+                continue;
+            }
+            let Some(raw) = subscriptions::take_raw_config(profile) else {
+                continue;
+            };
+            let name = batch::staged_file_name(&raw);
+            let existed = if self.data_dir().is_some() {
+                config_dir.join(&name).exists()
+            } else {
+                std::env::temp_dir().join(&name).exists()
+            };
+            let (dir, stored) = if self.data_dir().is_some() {
+                (config_dir.clone(), name.clone())
+            } else {
+                let dir = std::env::temp_dir();
+                let absolute = dir.join(&name).to_string_lossy().into_owned();
+                (dir, absolute)
+            };
+            let written = std::fs::create_dir_all(&dir).is_ok()
+                && std::fs::write(dir.join(&name), &raw).is_ok();
+            if !written {
+                for path in new_files {
+                    std::fs::remove_file(path).ok();
+                }
+                return Err(DomainError::new(domain::codes::INTERNAL, "error.storage")
+                    .with_detail("import commit: failed to stage custom config"));
+            }
+            if !existed {
+                new_files.push(dir.join(&name));
+            }
+            profile.address = stored;
+        }
+        if self.import_fault.swap(false, Ordering::AcqRel) {
+            for path in new_files {
+                std::fs::remove_file(path).ok();
+            }
+            return Err(DomainError::new(domain::codes::INTERNAL, "error.storage")
+                .with_detail("injected import commit failure"));
+        }
+        let normalized: Vec<Profile> = staged
+            .into_iter()
+            .map(|p| batch::normalize_batch(p, &target))
+            .collect();
+        let count = normalized.len();
+        let result = self.replace_sub_profiles(&target, normalized, false);
+        match result {
+            Ok(_) => {
+                let new_revision = self.desired_revision();
+                let receipt = batch::ImportReceipt {
+                    ok: true,
+                    imported: count as u32,
+                    commit_id: crate::recoverable_commit::commit_id_for(&commit.mutation_id),
+                    new_revision,
+                };
+                if let Ok(mut commits) = self.import_commits.lock() {
+                    commits.insert(commit.mutation_id, receipt.clone());
+                }
+                Ok(receipt)
+            }
+            Err(error) => {
+                for path in new_files {
+                    std::fs::remove_file(path).ok();
+                }
+                Err(error)
+            }
+        }
     }
 
     /// Overwrite only `UpdateTime` for a subscription (scheduler bookkeeping).

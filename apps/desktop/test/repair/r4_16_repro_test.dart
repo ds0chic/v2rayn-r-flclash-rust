@@ -1,7 +1,7 @@
-// R4-16 repro: a group paste/scan import is committed by the Rust batch path
-// AND then re-saved per row on the Dart side (UF-PROF-08: "一次批提交 + N 次
-// 再保存"). This file intentionally asserts the fixed contract; it must fail
-// against the pre-fix implementation.
+// R4-16/SP-14 repro: a group paste/scan import is committed by exactly one
+// batch transaction (SP-14 `commitImportText`) and never re-saved per row on
+// the Dart side (UF-PROF-08: "一次批提交 + N 次再保存"). This file asserts the
+// fixed contract; it fails against the pre-fix implementation.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,28 +12,19 @@ import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 
 /// Records how a manual batch import is persisted. `importPersistCalls` models
-/// the real Rust `import_from_text` group transaction; `saveImportedCalls`
-/// models the FIX-04 per-row UI save.
+/// the single-transaction SP-14 commit; `saveImportedCalls` models the legacy
+/// FIX-04 per-row UI save (must stay zero on the new path).
 class CountingImportBridge extends SyntheticBridgePort {
-  final List<String?> importSubids = <String?>[];
-  final List<bool> importDedup = <bool>[];
   int importPersistCalls = 0;
   int saveImportedCalls = 0;
 
   @override
-  Future<c.ImportResult> importFromText(
-    String text, {
+  c.ImportResult commitImportText(
+    List<c.ProfileDto> profiles, {
     String? subid,
-    bool deduplicate = true,
-  }) async {
-    importSubids.add(subid);
-    importDedup.add(deduplicate);
-    final result = await super.importFromText(
-      text,
-      subid: subid,
-      deduplicate: deduplicate,
-    );
-    if (subid != null && subid.isNotEmpty && result.ok) importPersistCalls++;
+  }) {
+    final result = super.commitImportText(profiles, subid: subid);
+    if (result.ok) importPersistCalls++;
     return result;
   }
 
@@ -92,22 +83,23 @@ void main() {
       ),
     );
     await tester.tap(find.text('go'));
+    await tester.pump();
+    expect(find.byKey(const ValueKey('import-preview-dialog')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('import-preview-commit')));
     await tester.pumpAndSettle();
 
     // Exactly one batch transaction commits the group import.
     expect(
       bridge.importPersistCalls,
       1,
-      reason: 'the group import must be one Rust batch commit',
+      reason: 'the group import must be one batch commit',
     );
     // The Dart side must not add a second per-row write on top of it.
     expect(
       bridge.saveImportedCalls,
       0,
-      reason: 'no Rust batch + Dart per-row double write',
+      reason: 'no batch + Dart per-row double write',
     );
-    // Manual batch import keeps duplicates: upstream `AddBatchServersCommon`
-    // only applies `Distinct()` when `isSub`.
-    expect(bridge.importDedup, everyElement(isFalse));
   });
 }

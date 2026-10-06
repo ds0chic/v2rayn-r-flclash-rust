@@ -631,12 +631,19 @@ pub fn import_from_text(text: String, subid: Option<String>, deduplicate: bool) 
 }
 
 /// `commit_import_text` — single-transaction persistence of an already-parsed
-/// import (R4-16). The input is the DTO list produced by
+/// import (R4-16, SP-14). The input is the DTO list produced by
 /// [`preview_import_text`] plus the target `subid`; every profile is written in
 /// one `replace_sub_profiles` transaction (including the no-group case, where
 /// `subid` is `None`/empty) so there is no per-line fallback and no second
 /// parse. Semantics match `parse_import`: `IsSub = false`, ids assigned, subid
 /// stamped; per-line parse issues are reported by the preview, not here.
+///
+/// SP-14: `Custom`/`Outbound` payloads parked under `extra["RawConfig"]` by the
+/// pure preview are staged to content-addressed files *before* the DB
+/// transaction; a DB failure deletes files staged by this commit so no orphan
+/// survives. `preview_token`/`expected_revision`/`mutation_id` binding lives in
+/// the Dart preview/commit seam plus `application::import_batch` until the
+/// generated `CommitImportRequest` FRB wiring lands (integrator-owned).
 #[frb(sync)]
 pub fn commit_import_text(profiles: Vec<ProfileDto>, subid: Option<String>) -> ImportResult {
     if profiles.is_empty() {
@@ -656,8 +663,84 @@ pub fn commit_import_text(profiles: Vec<ProfileDto>, subid: Option<String>) -> I
         }
         profile.is_sub = false;
     }
+    // SP-14 staging: materialize Custom payloads before the DB write.
+    let mut staged_new: Vec<std::path::PathBuf> = Vec::new();
+    for profile in parsed.iter_mut() {
+        if !matches!(
+            profile.config_type,
+            ConfigType::Custom | ConfigType::Outbound
+        ) {
+            continue;
+        }
+        let Some(raw) = subscriptions::take_raw_config(profile) else {
+            continue;
+        };
+        let name = application::import_batch::staged_file_name(&raw);
+        let data_dir = engine().data_dir().map(|dir| dir.to_path_buf());
+        let (dir, stored) = match &data_dir {
+            Some(base) => (base.join("config"), name.clone()),
+            None => {
+                let dir = std::env::temp_dir();
+                let absolute = dir.join(&name).to_string_lossy().into_owned();
+                (dir, absolute)
+            }
+        };
+        let existed = dir.join(&name).exists();
+        let written =
+            std::fs::create_dir_all(&dir).is_ok() && std::fs::write(dir.join(&name), &raw).is_ok();
+        if !written {
+            for path in staged_new {
+                std::fs::remove_file(path).ok();
+            }
+            // Never drop the payload silently; park it back for a later retry.
+            profile.extra.insert(
+                subscriptions::fmt::batch::RAW_CONFIG_KEY.to_string(),
+                serde_json::Value::String(raw),
+            );
+            return ImportResult {
+                ok: false,
+                imported: 0,
+                profiles: Vec::new(),
+                errors: Vec::new(),
+                error: Some(ErrorDto {
+                    code: domain::codes::INTERNAL.to_string(),
+                    message_key: "error.storage".to_string(),
+                    field_path: None,
+                    retryable: true,
+                    operation_id: None,
+                    detail: Some("import commit: failed to stage custom config".to_string()),
+                }),
+            };
+        }
+        if !existed {
+            staged_new.push(dir.join(&name));
+        }
+        profile.address = stored;
+    }
+    if commit_import_fail_next() {
+        for path in staged_new {
+            std::fs::remove_file(path).ok();
+        }
+        return ImportResult {
+            ok: false,
+            imported: 0,
+            profiles: Vec::new(),
+            errors: Vec::new(),
+            error: Some(ErrorDto {
+                code: domain::codes::INTERNAL.to_string(),
+                message_key: "error.storage".to_string(),
+                field_path: None,
+                retryable: true,
+                operation_id: None,
+                detail: Some("injected import commit failure".to_string()),
+            }),
+        };
+    }
     let count = parsed.len() as u32;
     if let Err(error) = engine().replace_sub_profiles(&sub, parsed.clone(), false) {
+        for path in staged_new {
+            std::fs::remove_file(path).ok();
+        }
         return ImportResult {
             ok: false,
             imported: 0,
@@ -677,6 +760,27 @@ pub fn commit_import_text(profiles: Vec<ProfileDto>, subid: Option<String>) -> I
         errors: Vec::new(),
         error: None,
     }
+}
+
+/// SP-14 test-only fault: the next `commit_import_text` fails after staging
+/// and rolls back staged files plus the DB batch. Production never sets it.
+#[cfg(test)]
+static COMMIT_IMPORT_FAIL_NEXT: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(test)]
+pub(crate) fn set_commit_import_fail_next(fail: bool) {
+    COMMIT_IMPORT_FAIL_NEXT.store(fail, std::sync::atomic::Ordering::Release);
+}
+
+#[cfg(test)]
+fn commit_import_fail_next() -> bool {
+    COMMIT_IMPORT_FAIL_NEXT.swap(false, std::sync::atomic::Ordering::AcqRel)
+}
+
+#[cfg(not(test))]
+fn commit_import_fail_next() -> bool {
+    false
 }
 
 /// `parse_share_uri` — resolve a single line without persisting it.
@@ -1260,5 +1364,73 @@ mod tests {
             sub_update_report("job-sr01".into()).as_deref(),
             Some(r#"{"success":1,"entries":[]}"#)
         );
+    }
+
+    #[test]
+    fn sp14_preview_custom_leaves_no_files() {
+        // SP-14: the pure preview parses a full Custom config but stages no
+        // file and writes no rows, so cancelling leaves zero disk/DB effects.
+        let _guard = crate::api::engine::engine_test_lock();
+        let raw = synthetic_full_v2ray();
+        let before_rows = engine().profile_count();
+        let preview = preview_import_text(raw.clone(), None);
+        assert!(preview.ok, "{:?}", preview.error.map(|e| e.code));
+        assert_eq!(engine().profile_count(), before_rows);
+        let dto = preview.profiles.into_iter().next().expect("one profile");
+        assert!(
+            dto.address.trim().is_empty(),
+            "pure preview must not set a file Address"
+        );
+        let staged = application::import_batch::staged_file_name(&raw);
+        let data_dir = engine().data_dir().map(|dir| dir.to_path_buf());
+        let staged_path = match &data_dir {
+            Some(base) => base.join("config").join(&staged),
+            None => std::env::temp_dir().join(&staged),
+        };
+        assert!(
+            !staged_path.exists(),
+            "preview must not stage {}",
+            staged_path.display()
+        );
+    }
+
+    #[test]
+    fn sp14_commit_custom_materializes_and_fault_rolls_back() {
+        // SP-14: commit stages the Custom file + writes one batch; an injected
+        // failure after staging leaves neither rows nor orphan files.
+        let _guard = crate::api::engine::engine_test_lock();
+        let raw = synthetic_full_v2ray();
+        let preview = preview_import_text(raw.clone(), None);
+        assert!(preview.ok);
+        assert_eq!(preview.imported, 1);
+        let committed = commit_import_text(preview.profiles, None);
+        assert!(committed.ok, "{:?}", committed.error.map(|e| e.code));
+        let dto = committed.profiles.first().expect("one profile").clone();
+        assert!(
+            !dto.address.trim().is_empty(),
+            "commit must materialize the file Address"
+        );
+        let materialized = materialized_path(&dto);
+        assert!(materialized.exists(), "staged file must exist after commit");
+        let text = std::fs::read_to_string(&materialized).expect("staged file");
+        assert!(text.contains("fix04b-marker"));
+
+        // Fault path: staging is cleaned and no rows are added.
+        let preview2 = preview_import_text(raw.clone(), None);
+        assert!(preview2.ok);
+        let before = engine().profile_count();
+        set_commit_import_fail_next(true);
+        let failed = commit_import_text(preview2.profiles, None);
+        assert!(!failed.ok);
+        assert_eq!(engine().profile_count(), before);
+        // The shared content-addressed file from the success above survives
+        // (it belongs to committed rows); the failed batch added no rows.
+        assert!(materialized.exists());
+        std::fs::remove_file(&materialized).ok();
+        for profile in &committed.profiles {
+            let _ = engine()
+                .delete_profiles(std::slice::from_ref(&profile.index_id))
+                .map_err(|_| ());
+        }
     }
 }

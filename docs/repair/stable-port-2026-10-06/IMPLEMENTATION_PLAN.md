@@ -204,6 +204,8 @@ JSON 与 SQLite 使用可恢复提交：校验输入及当前datasetEpoch→生�
 
 ## 9. 执行依赖与子代理协作
 
+2026-10-07用户允许10～15子代理，分工见[扩展并行安排](PARALLEL_EXECUTION_15.md)。10个主要任务+5个补充任务，实际并发服从执行器槽位；主控锁共享接口、构建/GUI/性能单独调度。已有implemented成果复核后保留，不派多人返工；当前会话共4槽不声称已经同时启动15个。
+
 推荐顺序：SP-00合同→数据 SP-01..03 与 runtime SP-04..10 并行→窗口/保存/路由/导入 SP-11..15→原版交互 SP-16..20 与字段 SP-23..27→异步 SP-21..22→原核/测试 SP-28..29→正式 GUI/SP-30、性能/SP-31、平台/SP-32..33→持续/SP-35→最终包/SP-34。manifest 是具体有向无环依赖；代码合并后的验证仍串行。
 
 每个执行槽每次只领取一张唯一流程卡。下列共享文件须整合者独占或预约写锁：`crates/application/src/engine.rs`、`crates/bridge_api/src/api/engine.rs`、`crates/ipc_contract/src/lib.rs`、`apps/desktop/lib/bridge/bridge_port.dart`、`settings_controller.dart`、`runtime_controller.dart`、`services/net_host/src/session.rs`。领域代理可先写专属模块和故障回归；接口缺口登记提供方/调用方/参数/错误/版本/生效点，不私改别人的文件。

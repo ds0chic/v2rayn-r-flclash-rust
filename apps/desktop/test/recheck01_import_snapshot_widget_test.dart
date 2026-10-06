@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,37 +7,27 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 
-/// Import bridge that records the `subid` it was handed and blocks until the
-/// test releases it, so a group switch can happen mid-parse.
+/// Import bridge that records the `subid` each SP-14 phase was handed.
+///
+/// Preview is parse-only (always `null` group); the commit binds the group
+/// snapshot taken when the command started.
 class DelayedImportBridge extends SyntheticBridgePort {
+  final List<String?> receivedPreviewSubids = <String?>[];
   final List<String?> receivedSubids = <String?>[];
-  final Completer<void> _gate = Completer<void>();
 
-  void release() {
-    if (!_gate.isCompleted) _gate.complete();
+  @override
+  c.ImportResult previewImportText(String text, {String? subid}) {
+    receivedPreviewSubids.add(subid);
+    return super.previewImportText(text, subid: subid);
   }
 
   @override
-  Future<c.ImportResult> importFromText(
-    String text, {
+  c.ImportResult commitImportText(
+    List<c.ProfileDto> profiles, {
     String? subid,
-    bool deduplicate = true,
-  }) async {
+  }) {
     receivedSubids.add(subid);
-    await _gate.future;
-    final result = await super.importFromText(
-      text,
-      subid: subid,
-      deduplicate: deduplicate,
-    );
-    // Model the real Rust batch commit: with a group the backend inserts the
-    // rows itself (R4-16), instead of the Dart per-row fallback.
-    if (subid != null && subid.isNotEmpty && result.ok) {
-      for (final profile in result.profiles) {
-        super.saveImportedProfile(profile, super.profileRevision());
-      }
-    }
-    return result;
+    return super.commitImportText(profiles, subid: subid);
   }
 }
 
@@ -97,16 +85,18 @@ void main() {
     await tester.tap(find.text('go'));
     await tester.pump();
 
-    // The user switches group while the share text is still being parsed.
+    // The user switches group while the preview sheet is still open.
     controller.setGroupSubId('sub-B');
+    expect(find.byKey(const ValueKey('import-preview-dialog')), findsOneWidget);
 
-    bridge.release();
+    await tester.tap(find.byKey(const ValueKey('import-preview-commit')));
     await tester.pumpAndSettle();
     await pending;
 
-    // Preview (no group) then the single group commit, both bound to the
+    // Pure preview (no group) then the single commit, both bound to the
     // snapshot taken when the command started.
-    expect(bridge.receivedSubids, <String?>[null, 'sub-A']);
+    expect(bridge.receivedPreviewSubids, <String?>[null]);
+    expect(bridge.receivedSubids, <String?>['sub-A']);
     final saved = bridge.queryAllProfiles().firstWhere(
       (p) => p.remarks == 'synthetic',
     );

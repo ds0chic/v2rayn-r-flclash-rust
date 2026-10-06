@@ -222,7 +222,7 @@
       ],
       "test_scope": "ready后exit、ordinary/elevated身份与snapshot",
       "upstream_symbols": "ServiceLib/Manager/CoreManager.cs；net_host/session.rs",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {
@@ -490,7 +490,7 @@
       ],
       "test_scope": "All第二条失败、Custom纯预览、commit crash",
       "upstream_symbols": "ServiceLib/Handler/ConfigHandler.cs批导入；现成subs generated API",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {

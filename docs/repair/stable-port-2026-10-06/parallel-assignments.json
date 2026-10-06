@@ -1,0 +1,366 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-07",
+  "scope": "parallel scheduling plan only",
+  "requested_child_workers": [
+    10,
+    15
+  ],
+  "this_chat_capacity": {
+    "total_slots": 4,
+    "maximum_active_children": 3
+  },
+  "executor_rule": "effective active workers=min(requested count, actual available child slots); do not claim unsupported workers are running",
+  "snapshot_commit": "8da14529eecd7f8de54bb623c26a7f6eb984472b",
+  "source_of_truth": "execution-manifest.json plus current task evidence/diff",
+  "status": "identified",
+  "production_edits": false,
+  "root_shared_file_owners": [
+    "crates/application/src/engine.rs",
+    "crates/application/src/lib.rs",
+    "crates/application/src/runtime_client.rs",
+    "crates/domain",
+    "crates/ipc_contract",
+    "crates/bridge_api",
+    "apps/desktop/lib/bridge",
+    "apps/desktop/windows/runner",
+    "services/net_host/src/main.rs",
+    "Cargo.toml",
+    "Cargo.lock"
+  ],
+  "special_handoffs": [
+    "A02 helper release/journal interface -> A03 host cleanup/renew; root completes SP-08 only after both sides",
+    "A06 group state changes -> A07 profiles_controller; A06 does not write this controller",
+    "A04 settings form/save -> A08 child presentation entry; neither edits other's file",
+    "A12 platform probe/content facts -> A03/A04/A10; 10-worker mode waits for A12 role reassignment rather than writing unowned platform files",
+    "FRB/IPC/public engine registration -> root; codegen exactly one integrator",
+    "A14 renderer production patch is separately assigned; no concurrent runner writes",
+    "A01 runtime facts -> A08 status UI -> A11 monitor; no fake production success"
+  ],
+  "initial_priority": [
+    "A01",
+    "A04",
+    "A02",
+    "A06",
+    "A03",
+    "A07",
+    "A08",
+    "A09",
+    "A10",
+    "A05",
+    "A11",
+    "A12",
+    "A13",
+    "A14",
+    "A15"
+  ],
+  "resources": {
+    "release_build_initial_limit": 1,
+    "gui_validation": "exclusive per app/data directory",
+    "performance_measurement": "exclusive controlled workload",
+    "frb_generation_limit": 1,
+    "full_gate": "candidate release only; not per worker/task"
+  },
+  "roles": [
+    {
+      "id": "A01",
+      "name": "事件与重连",
+      "primary": true,
+      "tasks": [
+        "SP-07"
+      ],
+      "owns": [
+        "services/net_host/src/events.rs",
+        "services/net_host/src/server.rs",
+        "crates/application/src/net_host_client.rs"
+      ],
+      "provider_dependencies": [],
+      "prepare_now": "复核SP-05/06，控制事件lag与重连合同",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A02",
+      "name": "helper归属与清理",
+      "primary": true,
+      "tasks": [
+        "SP-08:helper"
+      ],
+      "owns": [
+        "services/privileged_helper/src/backend.rs",
+        "services/privileged_helper/src/server.rs",
+        "services/privileged_helper/src/windows.rs"
+      ],
+      "provider_dependencies": [],
+      "prepare_now": "失败保留归属/journal合同，逐资源release接口",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A03",
+      "name": "host租约与TUN",
+      "primary": true,
+      "tasks": [
+        "SP-08:host",
+        "SP-09",
+        "SP-10"
+      ],
+      "owns": [
+        "services/net_host/src/helper_client.rs",
+        "services/net_host/src/tun_lease.rs",
+        "services/net_host/src/session.rs",
+        "services/net_host/src/lifecycle.rs",
+        "crates/application/src/tun_plan.rs"
+      ],
+      "provider_dependencies": [
+        "A02"
+      ],
+      "prepare_now": "host侧恢复与续租准备，固定helper接口；真实平台probe由A12提供",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A04",
+      "name": "保存与失败重试",
+      "primary": true,
+      "tasks": [
+        "SP-12"
+      ],
+      "owns": [
+        "apps/desktop/lib/features/settings/settings_controller.dart",
+        "apps/desktop/lib/features/settings/settings_actions.dart",
+        "apps/desktop/lib/features/settings/settings_window_host.dart",
+        "apps/desktop/lib/features/settings/option_setting_window.dart",
+        "crates/application/src/settings.rs"
+      ],
+      "provider_dependencies": [],
+      "prepare_now": "SP-11复核后接newRevision/epoch/阶段结果",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A05",
+      "name": "路由与DNS",
+      "primary": true,
+      "tasks": [
+        "SP-13",
+        "SP-23:routing_dns"
+      ],
+      "owns": [
+        "apps/desktop/lib/features/routing",
+        "crates/application/src/routing.rs",
+        "crates/application/src/dns.rs"
+      ],
+      "provider_dependencies": [
+        "A04"
+      ],
+      "prepare_now": "原版语义核对，读失败/增量提交故障夹具",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A06",
+      "name": "组订阅与节点键鼠",
+      "primary": true,
+      "tasks": [
+        "SP-16",
+        "SP-18"
+      ],
+      "owns": [
+        "apps/desktop/lib/features/profiles/profiles_page.dart",
+        "apps/desktop/lib/features/profiles/profiles_table.dart",
+        "apps/desktop/lib/features/profiles/context_menu.dart",
+        "apps/desktop/lib/features/profiles/command_context.dart",
+        "apps/desktop/lib/features/profiles/profile_actions.dart",
+        "apps/desktop/lib/features/profiles/table_actions.dart",
+        "apps/desktop/lib/features/subs",
+        "crates/application/src/selection.rs",
+        "crates/application/src/groups.rs"
+      ],
+      "provider_dependencies": [
+        "A04"
+      ],
+      "prepare_now": "原版右键/选择核对；controller补丁交A07",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A07",
+      "name": "节点异步数据链",
+      "primary": true,
+      "tasks": [
+        "SP-21",
+        "SP-22:profiles"
+      ],
+      "owns": [
+        "crates/application/src/store_repo.rs",
+        "apps/desktop/lib/features/profiles/profiles_controller.dart"
+      ],
+      "provider_dependencies": [
+        "A06"
+      ],
+      "prepare_now": "DB分页/worker/游标模块准备；与A06约定组读写",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A08",
+      "name": "主窗与子窗呈现",
+      "primary": true,
+      "tasks": [
+        "SP-17",
+        "SP-19"
+      ],
+      "owns": [
+        "apps/desktop/lib/app/shell",
+        "apps/desktop/lib/features/runtime/runtime_bridge.dart",
+        "apps/desktop/lib/features/runtime/runtime_controller.dart",
+        "apps/desktop/lib/features/settings/option_setting_window_entry.dart",
+        "apps/desktop/lib/shared"
+      ],
+      "provider_dependencies": [
+        "A01",
+        "A04"
+      ],
+      "prepare_now": "原版底栏/主题字体布局对照与独立样式；actual接线等provider",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A09",
+      "name": "配置消费者",
+      "primary": true,
+      "tasks": [
+        "SP-24",
+        "SP-23:codegen"
+      ],
+      "owns": [
+        "crates/config_codegen",
+        "crates/application/src/codegen.rs",
+        "crates/application/src/custom.rs",
+        "crates/application/src/mixin.rs",
+        "crates/application/src/templates.rs"
+      ],
+      "provider_dependencies": [
+        "A04"
+      ],
+      "prepare_now": "Happy/Fragment/Mihomo/SRS参数化正确合同",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A10",
+      "name": "应用HTTPS与更新",
+      "primary": true,
+      "tasks": [
+        "SP-25",
+        "SP-27"
+      ],
+      "owns": [
+        "crates/subscriptions",
+        "crates/updater",
+        "services/upgrade_runner",
+        "crates/application/src/update_service.rs",
+        "crates/application/src/webdav.rs"
+      ],
+      "provider_dependencies": [
+        "A04",
+        "A12"
+      ],
+      "prepare_now": "受控TLS/当次flags/签名安装回滚合同；network新模块路径由主控登记",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A11",
+      "name": "连接与监控",
+      "primary": false,
+      "tasks": [
+        "SP-20",
+        "SP-22:monitor"
+      ],
+      "owns": [
+        "apps/desktop/lib/features/monitor",
+        "crates/application/src/monitor.rs"
+      ],
+      "provider_dependencies": [
+        "A01",
+        "A08"
+      ],
+      "prepare_now": "列持久化/右键/虚拟表与真实endpoint generation合同",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A12",
+      "name": "平台实际生效",
+      "primary": false,
+      "tasks": [
+        "SP-15",
+        "SP-32",
+        "SP-23:platform"
+      ],
+      "owns": [
+        "crates/platform",
+        "crates/application/src/platform_service.rs"
+      ],
+      "provider_dependencies": [
+        "A04"
+      ],
+      "prepare_now": "内容hash/desired与实际事实/fake故障；OS实測需授权隔离",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A13",
+      "name": "普通用户验收",
+      "primary": false,
+      "tasks": [
+        "SP-30"
+      ],
+      "owns": [
+        "docs/evidence/stable-port/parallel-A13"
+      ],
+      "provider_dependencies": [],
+      "prepare_now": "只读原版/当前用户流程审计，准备synthetic场景；普通GUI等当前候选",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A14",
+      "name": "性能与renderer",
+      "primary": false,
+      "tasks": [
+        "SP-26:research",
+        "SP-31"
+      ],
+      "owns": [
+        "benchmarks/parallel-A14",
+        "docs/evidence/stable-port/parallel-A14"
+      ],
+      "provider_dependencies": [],
+      "prepare_now": "renderer研究和采样方案；runner代码补丁另分卡预约；计时等稳定候选",
+      "status": "identified",
+      "started": false
+    },
+    {
+      "id": "A15",
+      "name": "核心协议与字段覆盖",
+      "primary": false,
+      "tasks": [
+        "SP-28",
+        "SP-23:coverage_review"
+      ],
+      "owns": [
+        "fixtures/parallel-A15",
+        "docs/evidence/stable-port/parallel-A15"
+      ],
+      "provider_dependencies": [
+        "A09"
+      ],
+      "prepare_now": "只读核/协议/字段漏项核对；候选ready后逐实例会话，不改A09生成器",
+      "status": "identified",
+      "started": false
+    }
+  ]
+}

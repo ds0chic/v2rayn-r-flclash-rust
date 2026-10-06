@@ -10,6 +10,8 @@ mod dacl;
 mod events;
 mod helper_client;
 mod journal;
+mod lifecycle;
+mod managed_process;
 mod server;
 mod session;
 mod tun_lease;

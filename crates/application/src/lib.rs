@@ -15,6 +15,7 @@ pub mod custom;
 pub mod dns;
 pub mod engine;
 pub mod groups;
+pub mod import_batch;
 pub mod jobs;
 pub mod mixin;
 pub mod monitor;

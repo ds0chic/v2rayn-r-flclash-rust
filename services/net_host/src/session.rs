@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 use domain::event::{EventKind, RuntimeStateChanged};
 use domain::runtime_plan::ConfigSource;
 use domain::{CoreType, DomainError, RuntimePlan, RuntimeState};
+use ipc_contract::stable::CoreExitFact;
 use ipc_contract::{OperationStatus, RecoveryStage, RecoveryStatus, RuntimeSnapshot};
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -27,6 +28,8 @@ use runtime::{
 use crate::events::EventBus;
 use crate::helper_client::{build_helper_link, HelperConfig, HelperLink, TunLease};
 use crate::journal::{self, JournalEntry};
+use crate::lifecycle;
+use crate::managed_process;
 use crate::tun_lease;
 
 /// Runtime configuration, overridable from the environment for tests.
@@ -124,6 +127,8 @@ struct PreparedSidecar {
 /// normal child process owned by net-host, or an elevated process owned by the
 /// helper session kept open in `helper`.
 pub struct SidecarSession {
+    /// Process-graph node id (e.g. `pre-socks`), for exit attribution.
+    pub id: String,
     pub child: Option<tokio::process::Child>,
     /// Owns the sidecar's Job Object; dropping it (on stop or session drop)
     /// guarantees the sidecar tree dies even if net-host is hard-killed.
@@ -239,6 +244,17 @@ pub struct Inner {
     /// whole runtime session: dropping it lets the helper reclaim the lease
     /// via its disconnect cleanup, so it must not be dropped early.
     pub tun_link: Option<Box<dyn HelperLink>>,
+    /// SP-06: fact generation advanced by every unsolicited exit, even though
+    /// the desired plan did not change. Surfaced on the wire as an event-epoch
+    /// bump plus the Stopped/Degraded transition; kept here for the future
+    /// `RuntimeActualDescriptor` FRB exposure.
+    pub actual_generation: u64,
+    /// SP-06: the most recent unsolicited managed-process exit
+    /// (`pid/exit_code/at_ms`). Cleared by the next successful apply; a
+    /// user-initiated stop keeps it as history.
+    pub last_exit: Option<CoreExitFact>,
+    /// Sidecar id for `last_exit`, when the exit was a sidecar.
+    pub last_exit_sidecar: Option<String>,
 }
 
 /// Factory for helper links. Production builds a pipe (or dry-run) link from
@@ -452,6 +468,7 @@ fn job_assign_failed(operation_id: &str, detail: impl Into<String>) -> DomainErr
 impl HostState {
     /// Read-only lookup of a recorded operation's structured status (R4-04).
     pub async fn operation_status(&self, operation_id: &str) -> Option<OperationStatus> {
+        self.reconcile_exits().await;
         self.inner
             .lock()
             .await
@@ -487,6 +504,9 @@ impl HostState {
                 tun_lease: None,
                 tun_session_id: None,
                 tun_link: None,
+                actual_generation: 0,
+                last_exit: None,
+                last_exit_sidecar: None,
             }),
             bus: EventBus::new(),
             config,
@@ -601,6 +621,7 @@ impl HostState {
 
     /// Snapshot of runtime facts for an IPC `GetSnapshot`.
     pub async fn ipc_snapshot(&self) -> RuntimeSnapshot {
+        self.reconcile_exits().await;
         let inner = self.inner.lock().await;
         RuntimeSnapshot {
             state: inner.detail.state,
@@ -616,12 +637,197 @@ impl HostState {
     /// A fresh detail event frame for the requesting connection (not
     /// broadcast; the client only uses it to learn PID/ports).
     pub async fn detail_frame(&self) -> ServerFrame {
+        self.reconcile_exits().await;
         let inner = self.inner.lock().await;
         let payload = serde_json::to_value(&inner.detail).unwrap_or(json!({}));
         ServerFrame::Event(
             self.bus
                 .make(EventKind::Other(RUNTIME_DETAIL_EVENT.to_string()), payload),
         )
+    }
+
+    /// SP-06 continuous exit observation.
+    ///
+    /// Every read path (`ipc_snapshot`, `detail_frame`, `operation_status`)
+    /// reconciles first, so a post-readiness exit can never survive as a
+    /// cached Running behind a port that is already dead (CP-01 ghost).
+    ///
+    /// Observation is handle-authoritative (`try_wait` on the owned `Child`):
+    /// never a PID scan, so a recycled PID can never cause a miskill and an
+    /// unreadable status never fabricates a transition. Elevated sidecars
+    /// owned by the helper have no pollable handle on this side, so they are
+    /// left alone here (no miskill); their observation is the registered
+    /// `HelperOp::PollCoreExits` gap for the SP-00 integrator.
+    ///
+    /// Reconcile runs only when no command is in flight: an in-flight apply
+    /// owns the session through readiness and must not lose it to a read.
+    pub async fn reconcile_exits(&self) {
+        struct MainExit {
+            pid: u32,
+            created_at_ms: i64,
+            port: u16,
+            plan_id: String,
+            desired_revision: u64,
+            config_sha256: String,
+            session_id: String,
+            code: Option<i32>,
+        }
+        struct SidecarExit {
+            index: usize,
+            id: String,
+            pid: u32,
+            code: Option<i32>,
+        }
+
+        let (session, main_exit, _sidecar_exits, emit) = {
+            let mut inner = self.inner.lock().await;
+            if !lifecycle::should_reconcile(
+                inner.active_operation.as_deref(),
+                inner.session.is_some(),
+            ) {
+                return;
+            }
+            let at_ms = journal::now_ms();
+            let session = inner.session.as_mut().expect("reconcile gated a session");
+            // An unreadable status never fabricates a transition.
+            let main_status = session.child.try_wait().ok().flatten();
+            let mut sidecar_exits = Vec::new();
+            for (index, sidecar) in session.sidecars.iter_mut().enumerate() {
+                let Some(child) = sidecar.child.as_mut() else {
+                    continue;
+                };
+                // Alive needs nothing; unreadable must never be fabricated
+                // into a transition.
+                if let Ok(Some(status)) = child.try_wait() {
+                    sidecar_exits.push(SidecarExit {
+                        index,
+                        id: sidecar.id.clone(),
+                        pid: child.id().unwrap_or_default(),
+                        code: status.code(),
+                    });
+                }
+            }
+            if let Some(status) = main_status {
+                let exit = MainExit {
+                    pid: session.identity.pid,
+                    created_at_ms: session.identity.created_at_ms,
+                    port: session.port,
+                    plan_id: session.plan_id.clone(),
+                    desired_revision: session.desired_revision,
+                    config_sha256: session.config_sha256.clone(),
+                    session_id: session.session_id.clone(),
+                    code: status.code(),
+                };
+                let error = managed_process::main_exit_error(exit.pid, exit.code);
+                let observed = managed_process::ObservedExit {
+                    pid: exit.pid,
+                    exit_code: exit.code,
+                    at_ms,
+                };
+                let session = inner.session.take().expect("reconcile gated a session");
+                // Withdraw the live endpoint; the applied revision stays as
+                // history of what actually ran.
+                inner.detail.state = RuntimeState::Stopped;
+                inner.detail.pid = None;
+                inner.detail.created_at_ms = None;
+                inner.detail.ports.clear();
+                inner.detail.session_id = None;
+                inner.detail.config_sha256 = None;
+                inner.detail.error = Some(error.clone());
+                inner.actual_generation = lifecycle::next_generation(inner.actual_generation);
+                inner.last_exit = Some(CoreExitFact::observed(
+                    observed.pid,
+                    observed.exit_code,
+                    observed.at_ms,
+                ));
+                inner.last_exit_sidecar = None;
+                // Phase 2 below terminates the torn-down sidecars in reverse
+                // order (helper-owned ones via their link) and drops the job.
+                let emit = (RuntimeState::Stopped, error, inner.detail.applied_revision);
+                (Some(session), Some(exit), sidecar_exits, Some(emit))
+            } else if !sidecar_exits.is_empty() {
+                let first = &sidecar_exits[0];
+                let observed = managed_process::ObservedExit {
+                    pid: first.pid,
+                    exit_code: first.code,
+                    at_ms,
+                };
+                let error = managed_process::sidecar_exit_error(&first.id, observed.exit_code);
+                // Drop the reaped sidecars (highest index first); the live
+                // main core keeps its endpoint.
+                let mut indices: Vec<usize> = sidecar_exits.iter().map(|exit| exit.index).collect();
+                indices.sort_unstable_by(|a, b| b.cmp(a));
+                let session = inner.session.as_mut().expect("reconcile gated a session");
+                for index in indices {
+                    session.sidecars.remove(index);
+                }
+                inner.detail.state = lifecycle::state_for_sidecar_exit(true);
+                inner.detail.error = Some(error.clone());
+                inner.actual_generation = lifecycle::next_generation(inner.actual_generation);
+                inner.last_exit = Some(CoreExitFact::observed(
+                    observed.pid,
+                    observed.exit_code,
+                    observed.at_ms,
+                ));
+                inner.last_exit_sidecar = Some(first.id.clone());
+                let emit = (
+                    lifecycle::state_for_sidecar_exit(true),
+                    error,
+                    inner.detail.applied_revision,
+                );
+                (None, None, sidecar_exits, Some(emit))
+            } else {
+                return;
+            }
+        };
+
+        // Outside the inner lock: terminate leftovers, journal, then push the
+        // fact generation so readers observe the exit.
+        if let (Some(mut session), Some(exit)) = (session, main_exit) {
+            for sidecar in session.sidecars.iter_mut().rev() {
+                sidecar.terminate_and_wait(Duration::from_secs(5)).await;
+            }
+            drop(session.job);
+            let _ = journal::write_entry(
+                &self.config.run_root,
+                &JournalEntry {
+                    session_id: exit.session_id.clone(),
+                    plan_id: exit.plan_id,
+                    desired_revision: exit.desired_revision,
+                    config_sha256: exit.config_sha256,
+                    stage: RecoveryStage::Finalized,
+                    pid: Some(exit.pid),
+                    created_at_ms: Some(exit.created_at_ms),
+                    port: exit.port,
+                    updated_at_ms: journal::now_ms(),
+                },
+            );
+            journal::remove_staged_artifacts(&self.config.run_root, &exit.session_id);
+            eprintln!(
+                "[net_host] session {} EXITED pid={} code={:?}; endpoint withdrawn",
+                exit.session_id, exit.pid, exit.code
+            );
+        }
+        if let Some((state, error, applied_revision)) = emit {
+            self.bus.bump_epoch();
+            self.bus.emit_named(
+                "runtime_state_changed",
+                serde_json::to_value(RuntimeStateChanged {
+                    state,
+                    applied_revision,
+                    message_key: None,
+                })
+                .unwrap_or(json!({})),
+            );
+            self.bus.emit_named(
+                "error_raised",
+                json!({
+                    "code": error.code,
+                    "message_key": error.message_key,
+                    "detail": error.detail,
+                }),
+            );
+        }
     }
 
     async fn fail_operation(&self, operation_id: &str, error: &DomainError) {
@@ -1544,6 +1750,11 @@ impl HostState {
                     );
                     inner.last_exe = Some(session.exe.clone());
                     inner.session = Some(session);
+                    // A fresh session clears the previous exit fact: the new
+                    // generation has no unsolicited exit yet.
+                    inner.last_exit = None;
+                    inner.last_exit_sidecar = None;
+                    inner.actual_generation = 0;
                 }
                 eprintln!(
                     "[net_host] session {session_id} RUNNING pid={pid} created_at_ms={created_at_ms} port={port} rev={}",
@@ -1690,6 +1901,7 @@ impl HostState {
         })?;
         let (handle, _pid) = outcome.map_err(|error| error.with_operation(operation_id))?;
         Ok(SidecarSession {
+            id: sidecar.id.clone(),
             child: None,
             _job: None,
             helper: Some(link),
@@ -1789,6 +2001,7 @@ impl HostState {
             );
         }
         let mut session = SidecarSession {
+            id: sidecar.id.clone(),
             child: Some(child),
             _job: Some(sidecar_job),
             helper: None,
@@ -3544,5 +3757,190 @@ Idx     Met    MTU          State                Name\r\n\
         assert_eq!(parse_tun_interface_index(sample, "v2rayn-tun"), Some(9));
         assert_eq!(parse_tun_interface_index(sample, "V2RAYN-TUN"), Some(9));
         assert_eq!(parse_tun_interface_index(sample, "nope"), None);
+    }
+
+    // -- SP-06 continuous exit observation -----------------------------------
+
+    /// Ghost-Running regression (CP-01): a managed core killed after readiness
+    /// must reconcile to Stopped with a structured exit fact on the next read,
+    /// never keep reporting the dead PID and port.
+    ///
+    /// Holds the RR-10 env lock for the whole body: the stub executable
+    /// travels through process-global env, and a concurrent stub swap would
+    /// turn a must-fail switch into a false pass (or vice versa). The whole
+    /// flow runs on one `block_on`: every runtime drop waits for the stub
+    /// pipes to close, so intermediate drops would burn the stub's natural
+    /// lifetime before the observation runs.
+    #[test]
+    fn sp06_main_exit_reconciles_to_stopped_with_last_exit() {
+        let _guard = rr10_lock();
+        let state = test_state("sp06-main-exit");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        // Port 0: readiness by process liveness; the subject is observation.
+        let plan = plan_with_body("sp06", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        let run_root = state.config.run_root.clone();
+        let facts = futures_block_on(async {
+            let epoch_before = state.ipc_snapshot().await.epoch.0;
+            state.apply_plan(plan).await.expect("stub session starts");
+            let live_pid = {
+                let inner = state.inner.lock().await;
+                assert_eq!(inner.detail.state, RuntimeState::Running);
+                inner.detail.pid.expect("running session publishes its pid")
+            };
+            // Fault injection: kill the project-owned core through the owned
+            // handle (synthetic stub, ports >= 11808 rule untouched: port 0).
+            {
+                let mut inner = state.inner.lock().await;
+                let session = inner.session.as_mut().expect("session runs");
+                let _ = session.child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(10), session.child.wait()).await;
+            }
+            // The next read reconciles: no ghost Running, no stale endpoint.
+            let snapshot = state.ipc_snapshot().await;
+            let inner = state.inner.lock().await;
+            let facts = (
+                epoch_before,
+                live_pid,
+                snapshot.state,
+                inner.session.is_none(),
+                inner.detail.pid,
+                inner.detail.ports.clone(),
+                inner.detail.session_id.clone(),
+                inner.last_exit.clone(),
+                inner.last_exit_sidecar.clone(),
+                inner.actual_generation,
+                inner.detail.applied_revision,
+                inner.detail.error.clone().map(|error| error.message_key),
+            );
+            drop(inner);
+            let epoch_after = state.ipc_snapshot().await.epoch.0;
+            (facts, epoch_after)
+        });
+        let (
+            (
+                epoch_before,
+                live_pid,
+                snapshot_state,
+                session_gone,
+                pid,
+                ports,
+                session_id,
+                last_exit,
+                last_exit_sidecar,
+                generation,
+                applied_revision,
+                error_key,
+            ),
+            epoch_after,
+        ) = facts;
+        assert_eq!(
+            snapshot_state,
+            RuntimeState::Stopped,
+            "an exited core must not report Running"
+        );
+        assert!(session_gone, "dead session is withdrawn");
+        assert!(pid.is_none(), "no ghost PID");
+        assert!(ports.is_empty(), "no stale endpoint");
+        assert!(session_id.is_none(), "no stale session fact");
+        let exit = last_exit.as_ref().expect("lastExit recorded");
+        assert_eq!(exit.pid, live_pid, "exit keeps the owned identity");
+        assert!(last_exit_sidecar.is_none(), "main exit, not sidecar");
+        assert_eq!(generation, 1, "exit pushes generation");
+        // History survives: the applied revision is a fact about what ran.
+        assert_eq!(applied_revision, 1);
+        assert_eq!(error_key.as_deref(), Some("error.core_exited"));
+        assert!(
+            epoch_after > epoch_before,
+            "exit pushes the fact generation onto the wire"
+        );
+        let _ = std::fs::remove_dir_all(&run_root);
+    }
+
+    /// Sidecar regression: a dead pre-socks sidecar under a live main core
+    /// degrades the session instead of reporting a clean Running.
+    ///
+    /// Holds the RR-10 env lock for the whole body (stub executable travels
+    /// through process-global env).
+    #[test]
+    fn sp06_sidecar_exit_degrades_without_killing_main() {
+        let _guard = rr10_lock();
+        let state = test_state("sp06-sidecar-exit");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        let mut plan = plan_with_body("sp06sc", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        for id in ["Xray", "pre-socks"] {
+            plan.process_graph
+                .add_process(domain::runtime_plan::ProcessNode {
+                    id: id.into(),
+                    core_type: domain::CoreType::Xray,
+                    config: ConfigSource::Inline {
+                        body: "{\"inbounds\":[],\"outbounds\":[]}".into(),
+                    },
+                    ports: vec![],
+                    privileges: vec![],
+                });
+        }
+        plan.process_graph.depends_on("pre-socks", "Xray");
+        let run_root = state.config.run_root.clone();
+        // One runtime for the whole flow (see the main-exit test): every
+        // runtime drop waits for the stub pipes to close.
+        let facts = futures_block_on(async {
+            state.apply_plan(plan).await.expect("graph session starts");
+            {
+                let mut inner = state.inner.lock().await;
+                let session = inner.session.as_mut().expect("session runs");
+                assert_eq!(session.sidecars.len(), 1);
+                let sidecar = session.sidecars.get_mut(0).expect("sidecar tracked");
+                let child = sidecar.child.as_mut().expect("ordinary sidecar");
+                let _ = child.start_kill();
+                let _ = tokio::time::timeout(Duration::from_secs(10), child.wait()).await;
+            }
+            let snapshot = state.ipc_snapshot().await;
+            let inner = state.inner.lock().await;
+            let facts = (
+                snapshot.state,
+                inner.session.is_some(),
+                inner.session.as_ref().map(|session| session.sidecars.len()),
+                inner.detail.pid,
+                inner.detail.ports.clone(),
+                inner.last_exit.clone(),
+                inner.last_exit_sidecar.clone(),
+                inner.actual_generation,
+                inner.detail.error.clone().map(|error| error.message_key),
+            );
+            drop(inner);
+            let _ = state.stop_managed(None).await;
+            facts
+        });
+        let (
+            snapshot_state,
+            session_alive,
+            sidecar_count,
+            pid,
+            ports,
+            last_exit,
+            last_exit_sidecar,
+            generation,
+            error_key,
+        ) = facts;
+        assert_eq!(
+            snapshot_state,
+            RuntimeState::Degraded,
+            "a dead sidecar must not read as clean Running"
+        );
+        assert!(session_alive, "main core keeps running");
+        assert_eq!(sidecar_count, Some(0), "dead sidecar withdrawn");
+        assert!(pid.is_some(), "main endpoint kept");
+        assert!(!ports.is_empty() || pid.is_some());
+        assert!(last_exit.is_some(), "sidecar exit recorded");
+        assert_eq!(last_exit_sidecar.as_deref(), Some("pre-socks"));
+        assert_eq!(generation, 1, "exit pushes generation");
+        assert_eq!(error_key.as_deref(), Some("error.sidecar_exited"));
+        let _ = std::fs::remove_dir_all(&run_root);
     }
 }

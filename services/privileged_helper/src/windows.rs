@@ -21,16 +21,18 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Security::Authorization::ConvertSidToStringSidW;
 use windows::Win32::Security::{GetTokenInformation, TokenUser, TOKEN_QUERY, TOKEN_USER};
 use windows::Win32::System::Threading::{
-    OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
+    GetExitCodeProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 
-use crate::backend::{HelperBackend, StartedCore};
+use crate::backend::{CoreExit, HelperBackend, StartedCore};
 
 pub use crate::pipe_security::{current_user_sid_string, PipeSecurity};
 
 const AF_INET: u16 = 2;
 const AF_INET6: u16 = 23;
 const MIB_IPPROTO_NETMGMT: u32 = 3;
+/// Wait status a live process reports to `GetExitCodeProcess` (WinBase).
+const STILL_ACTIVE: u32 = 259;
 const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
 const CREATE_SUSPENDED: u32 = 0x0000_0004;
 
@@ -554,6 +556,31 @@ impl HelperBackend for WindowsBackend {
             }
         }
         Ok(())
+    }
+
+    /// SP-06: handle-scoped exit poll. The owned process handle makes the
+    /// observation authoritative: no PID scan, so PID reuse cannot miskill.
+    /// Never removes records and never kills; stop/disconnect own removal.
+    fn poll_core_exits(&self) -> Vec<CoreExit> {
+        let cores = self.cores.lock().expect("cores poisoned");
+        let mut exited = Vec::new();
+        for (handle, record) in cores.iter() {
+            // A failed query leaves `STILL_ACTIVE` in place, which reads as
+            // live/unknown below: never fabricate a transition.
+            let mut code = STILL_ACTIVE;
+            // SAFETY: `record.process` is a live owned process handle stored
+            // at spawn; the call only writes the wait status into `code`.
+            let queried =
+                unsafe { GetExitCodeProcess(HANDLE(record.process as *mut c_void), &mut code) };
+            if queried.is_ok() && code != STILL_ACTIVE {
+                exited.push(CoreExit {
+                    handle: *handle,
+                    pid: record.pid,
+                    exit_code: Some(code as i32),
+                });
+            }
+        }
+        exited
     }
 
     fn shutdown(&self) -> Result<(), HelperError> {

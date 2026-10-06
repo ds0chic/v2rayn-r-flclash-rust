@@ -44,7 +44,9 @@ use crate::settings::{
     apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,
     SettingsState,
 };
-use crate::snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
+use crate::snapshot::{
+    assemble, ActualRuntimeView, CapabilityEntry, ExitFactView, Snapshot, StartupRecovery,
+};
 use persistence::Store;
 use updater::download::{DownloadRequest, DownloaderOptions, FileDownloader};
 use updater::UpdateError;
@@ -5287,9 +5289,11 @@ impl AppEngine {
         let runtime = self.runtime.snapshot()?;
         self.reconcile_applied_session(&runtime);
         let active = self.jobs.active();
+        let actual = self.actual_runtime_view(&runtime);
         Ok(assemble(
             desired,
             &runtime,
+            actual,
             active,
             capability_table(),
             StartupRecovery {
@@ -5300,6 +5304,51 @@ impl AppEngine {
             },
             self.profile_count(),
         ))
+    }
+
+    /// SP-17: compose the actual-runtime descriptor from the submit-time
+    /// frozen target plus the live net-host facts. `None` only when no actual
+    /// fact exists at all (no frozen target, no live session, no observed
+    /// exit, no in-flight operation): an empty descriptor would otherwise
+    /// mislabel "nothing ran" as a real target.
+    fn actual_runtime_view(&self, runtime: &RuntimeSnapshot) -> Option<ActualRuntimeView> {
+        let frozen = self.applied_target();
+        let runtime_has_fact = runtime.pid.is_some()
+            || runtime.session_id.is_some()
+            || runtime.last_exit.is_some()
+            || runtime.operation_id.is_some()
+            || runtime.state != RuntimeState::Stopped;
+        if frozen.is_none() && !runtime_has_fact {
+            return None;
+        }
+        Some(ActualRuntimeView {
+            session_id: runtime.session_id.clone(),
+            actual_generation: self.actual_generation(),
+            operation_id: runtime
+                .operation_id
+                .clone()
+                .or_else(|| frozen.as_ref().map(|f| f.operation_id.clone())),
+            target_profile_id: frozen
+                .as_ref()
+                .map(|f| f.target_profile_id.clone())
+                .filter(|id| !id.is_empty()),
+            target_core: frozen.as_ref().map(|f| f.core.as_str().to_string()),
+            core_version: runtime.core_version.clone(),
+            plan_hash: frozen
+                .as_ref()
+                .map(|f| f.config_sha256.clone())
+                .filter(|hash| !hash.is_empty()),
+            applied_runtime_revision: runtime.applied_revision.0,
+            main_pid: runtime.pid,
+            ready_endpoints: runtime.ports.clone(),
+            last_exit: runtime.last_exit.as_ref().map(|exit| ExitFactView {
+                pid: exit.pid,
+                exit_code: exit.exit_code,
+                at_ms: exit.at_ms,
+            }),
+            last_exit_sidecar: runtime.last_exit_sidecar.clone(),
+            last_error: runtime.error.clone(),
+        })
     }
 
     pub fn jobs(&self) -> &JobManager {
@@ -5546,6 +5595,7 @@ pub fn empty_snapshot() -> Snapshot {
     assemble(
         DesiredRevision::ZERO,
         &runtime,
+        None,
         Vec::new(),
         capability_table(),
         StartupRecovery {

@@ -98,6 +98,10 @@ impl RuntimeClient for GatedFake {
             operation_id: None,
             error: None,
             tun: None,
+            actual_generation: 0,
+            core_version: None,
+            last_exit: None,
+            last_exit_sidecar: None,
         })
     }
 
@@ -248,6 +252,31 @@ fn sp05_apply_a_then_default_b_still_reports_a() {
         "a newer desired selection is not the accepted plan's applied target"
     );
     assert_eq!(applied.proxy_port, Some(port));
+
+    // SP-17: the same snapshot also carries the actual descriptor: frozen
+    // target + live facts, never the newly desired B.
+    let snap = engine.snapshot().unwrap();
+    let actual = snap.actual.expect("a running session has actual facts");
+    assert_eq!(actual.target_profile_id.as_deref(), Some("node-a"));
+    assert_eq!(actual.ready_endpoints, vec![port]);
+    assert_eq!(actual.applied_runtime_revision, 0);
+    assert_eq!(actual.actual_generation, 1, "first Running publish");
+    let frozen = engine.applied_target().expect("frozen history");
+    assert_eq!(
+        actual.plan_hash.as_deref(),
+        Some(frozen.config_sha256.as_str())
+    );
+    assert_eq!(actual.target_core.as_deref(), Some(frozen.core.as_str()));
+}
+
+#[test]
+fn sp17_actual_view_is_absent_without_facts() {
+    // A fresh engine with a stopped runtime has no actual fact at all: the
+    // descriptor must be absent instead of an empty "nothing ran" record.
+    let fake = Arc::new(GatedFake::new());
+    let engine = AppEngine::with_runtime(fake);
+    let snap = engine.snapshot().unwrap();
+    assert!(snap.actual.is_none());
 }
 
 #[test]

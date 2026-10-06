@@ -23,11 +23,12 @@ use domain::{DomainError, MultipleLoad, Profile, ProtocolExtra, SecurityParams, 
 use serde_json::Value;
 
 use crate::api::contract::{
-    AppliedInboundDto, ApplyRuntimeResult, CancelResult, CapabilityDto, CopyProfilesResult,
-    CustomFileResult, DeleteProfilesResult, ErrorDto, EventEnvelopeDto, JobDto, OperationStatusDto,
-    ProfileDto, ProfileFilterDto, ProfilePageDto, ProfileSortDto, ProtocolExtraDto, RecoveryDto,
-    ResourceFailureDto, ResourceUpdateReportDto, RuntimeTunDto, SaveProfileResult, SecurityDto,
-    SimpleResult, SnapshotDto, StopRuntimeResult, TransportExtraDto,
+    ActualRuntimeDto, AppliedInboundDto, ApplyRuntimeResult, CancelResult, CapabilityDto,
+    CopyProfilesResult, CustomFileResult, DeleteProfilesResult, ErrorDto, EventEnvelopeDto,
+    ExitFactDto, JobDto, OperationStatusDto, ProfileDto, ProfileFilterDto, ProfilePageDto,
+    ProfileSortDto, ProtocolExtraDto, RecoveryDto, ResourceFailureDto, ResourceUpdateReportDto,
+    RuntimeTunDto, SaveProfileResult, SecurityDto, SimpleResult, SnapshotDto, StopRuntimeResult,
+    TransportExtraDto,
 };
 
 use crate::frb_generated::StreamSink;
@@ -451,6 +452,25 @@ fn snapshot_to_dto(s: application::Snapshot) -> SnapshotDto {
             route_count: tun.route_count,
             dry_run: tun.dry_run,
         }),
+        actual: s.actual.map(|actual| ActualRuntimeDto {
+            session_id: actual.session_id,
+            actual_generation: actual.actual_generation,
+            operation_id: actual.operation_id,
+            target_profile_id: actual.target_profile_id,
+            target_core: actual.target_core,
+            core_version: actual.core_version,
+            plan_hash: actual.plan_hash,
+            applied_runtime_revision: actual.applied_runtime_revision,
+            main_pid: actual.main_pid,
+            ready_endpoints: actual.ready_endpoints,
+            last_exit: actual.last_exit.map(|exit| ExitFactDto {
+                pid: exit.pid,
+                exit_code: exit.exit_code,
+                at_ms: exit.at_ms,
+            }),
+            last_exit_sidecar: actual.last_exit_sidecar,
+            last_error: actual.last_error.map(ErrorDto::from),
+        }),
         active_jobs: s.active_jobs.into_iter().map(job_dto).collect(),
         capabilities: s
             .capabilities
@@ -487,6 +507,7 @@ fn empty_snapshot_dto() -> SnapshotDto {
         runtime_operation_id: None,
         runtime_error: None,
         runtime_tun: None,
+        actual: None,
         active_jobs: Vec::new(),
         capabilities: Vec::new(),
         recovery: RecoveryDto {
@@ -1152,6 +1173,9 @@ mod tests {
         assert!(json.get("runtime_state").is_some());
         assert!(json.get("runtime_pid").is_some());
         assert!(json.get("profile_count").is_some());
+        // SP-17: the actual descriptor is always part of the contract shape
+        // (null when no actual fact exists).
+        assert!(json.get("actual").is_some());
     }
 
     #[test]
@@ -1199,6 +1223,12 @@ mod tests {
             "profile_count": s.profile_count,
             "capabilities": s.capabilities.len(),
             "active_jobs": s.active_jobs.len(),
+            "actual": s.actual.as_ref().map(|a| serde_json::json!({
+                "target_profile_id": a.target_profile_id.as_deref(),
+                "actual_generation": a.actual_generation,
+                "ready_endpoints": a.ready_endpoints,
+                "last_exit": a.last_exit.as_ref().map(|e| e.pid),
+            })),
         })
     }
 

@@ -49,6 +49,23 @@ pub struct RuntimeSnapshot {
     pub error: Option<DomainError>,
     /// Active TUN lease facts, when the running plan requested TUN.
     pub tun: Option<TunStatus>,
+    /// SP-17: fact generation reported by net-host (advances on actual
+    /// transitions even when desired is unchanged).
+    pub actual_generation: u64,
+    /// SP-17: core version of the applied plan.
+    pub core_version: Option<String>,
+    /// SP-17: most recent unsolicited process exit (numbers only).
+    pub last_exit: Option<ExitFact>,
+    /// Sidecar id for `last_exit`, when the exit was a sidecar.
+    pub last_exit_sidecar: Option<String>,
+}
+
+/// One process-exit fact as reported by net-host (numbers only).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExitFact {
+    pub pid: u32,
+    pub exit_code: Option<i32>,
+    pub at_ms: i64,
 }
 
 impl Default for RuntimeSnapshot {
@@ -65,6 +82,10 @@ impl Default for RuntimeSnapshot {
             operation_id: None,
             error: None,
             tun: None,
+            actual_generation: 0,
+            core_version: None,
+            last_exit: None,
+            last_exit_sidecar: None,
         }
     }
 }

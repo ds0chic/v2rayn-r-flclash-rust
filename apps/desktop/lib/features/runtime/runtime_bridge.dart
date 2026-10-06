@@ -46,6 +46,50 @@ class RuntimeTunView {
   final bool dryRun;
 }
 
+/// SP-17 actual-runtime descriptor from the snapshot: what is actually
+/// running/exited. Every fact is real (frozen target or net-host
+/// observation); absent facts stay null/empty.
+class RuntimeActualView {
+  const RuntimeActualView({
+    this.sessionId,
+    this.actualGeneration,
+    this.operationId,
+    this.targetProfileId,
+    this.targetCore,
+    this.coreVersion,
+    this.planHash,
+    this.appliedRuntimeRevision,
+    this.mainPid,
+    this.readyEndpoints = const <int>[],
+    this.lastExitPid,
+    this.lastExitCode,
+    this.lastExitAtMs,
+    this.lastExitSidecar,
+  });
+
+  final String? sessionId;
+  final BigInt? actualGeneration;
+  final String? operationId;
+  final String? targetProfileId;
+  final String? targetCore;
+  final String? coreVersion;
+  final String? planHash;
+  final BigInt? appliedRuntimeRevision;
+  final int? mainPid;
+  final List<int> readyEndpoints;
+  final int? lastExitPid;
+  final int? lastExitCode;
+  final int? lastExitAtMs;
+  final String? lastExitSidecar;
+
+  /// Redacted exit fact label (`pid=.. code=..`), numbers only.
+  String get exitFactLabel {
+    if (lastExitPid == null) return '';
+    final codeText = lastExitCode == null ? '' : ' code=$lastExitCode';
+    return 'pid=$lastExitPid$codeText';
+  }
+}
+
 /// Severity of a status-bar notice (SP-17 message ordering).
 enum RuntimeNoticeSeverity { info, warning, error }
 
@@ -81,6 +125,7 @@ class RuntimeView {
     this.desiredRevision,
     this.appliedRevision,
     this.tun,
+    this.actual,
     this.epoch,
     this.lastSeq,
     this.sequenceWarning,
@@ -110,6 +155,9 @@ class RuntimeView {
   /// has no TUN lease. The UI reads this instead of the desired switch
   /// (TUN-A03); it is never synthesized from settings.
   final RuntimeTunView? tun;
+
+  /// SP-17 actual-runtime descriptor, or null when no actual fact exists.
+  final RuntimeActualView? actual;
 
   /// True while a local command (apply/reload/stop) is being submitted but the
   /// backend has not reported its own transition yet. This is a UI command
@@ -292,6 +340,7 @@ class RuntimeView {
       desiredRevision: desiredRevision,
       appliedRevision: appliedRevision,
       tun: clearTun ? null : (tun ?? this.tun),
+      actual: actual,
       epoch: epoch ?? this.epoch,
       lastSeq: lastSeq ?? this.lastSeq,
       sequenceWarning: sequenceWarning ?? this.sequenceWarning,
@@ -533,6 +582,24 @@ class FrbRuntimeBridge
               interfaceIndex: snap.runtimeTun!.interfaceIndex,
               routeCount: snap.runtimeTun!.routeCount,
               dryRun: snap.runtimeTun!.dryRun,
+            ),
+      actual: snap.actual == null
+          ? null
+          : RuntimeActualView(
+              sessionId: snap.actual!.sessionId,
+              actualGeneration: snap.actual!.actualGeneration,
+              operationId: snap.actual!.operationId,
+              targetProfileId: snap.actual!.targetProfileId,
+              targetCore: snap.actual!.targetCore,
+              coreVersion: snap.actual!.coreVersion,
+              planHash: snap.actual!.planHash,
+              appliedRuntimeRevision: snap.actual!.appliedRuntimeRevision,
+              mainPid: snap.actual!.mainPid,
+              readyEndpoints: snap.actual!.readyEndpoints.toList(),
+              lastExitPid: snap.actual!.lastExit?.pid,
+              lastExitCode: snap.actual!.lastExit?.exitCode,
+              lastExitAtMs: snap.actual!.lastExit?.atMs,
+              lastExitSidecar: snap.actual!.lastExitSidecar,
             ),
     );
   }

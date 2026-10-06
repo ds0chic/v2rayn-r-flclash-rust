@@ -52,6 +52,29 @@ SaveSettingsResult saveSettingsGroup({
   expectedRevision: expectedRevision,
 );
 
+/// Content hash of an already-saved settings document for SP-12 retries.
+///
+/// Plain helper (not an FRB method, so no codegen change): the Dart
+/// `retrySettingsApply` path carries the hash and the Rust side re-checks it
+/// before running apply phases. New FRB surface, if ever needed, is owned by
+/// the SP-00 integrator (see SP-12 evidence interface registry).
+Future<String> settingsContentHashForRetry({required String settingsJson}) =>
+    RustLib.instance.api.crateApiSettingsSettingsContentHashForRetry(
+      settingsJson: settingsJson,
+    );
+
+/// Whether a retry may run: draft and persisted hashes must equal the saved
+/// hash (SP-12). Pure so it can be unit tested without the engine.
+Future<bool> retryContentMatchesSaved({
+  required String savedHash,
+  required String draftHash,
+  required String persistedHash,
+}) => RustLib.instance.api.crateApiSettingsRetryContentMatchesSaved(
+  savedHash: savedHash,
+  draftHash: draftHash,
+  persistedHash: persistedHash,
+);
+
 /// Test/debug helper: validate the current tree without saving it.
 bool validateCurrentSettings() =>
     RustLib.instance.api.crateApiSettingsValidateCurrentSettings();

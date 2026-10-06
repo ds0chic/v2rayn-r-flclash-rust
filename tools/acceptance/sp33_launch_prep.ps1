@@ -77,6 +77,7 @@ if ($Zip -ne '') {
   $z = (Resolve-Path -LiteralPath $Zip).Path
   $report['zip'] = $z
   $report['zip_sha256'] = (Get-FileHash -LiteralPath $z -Algorithm SHA256).Hash.ToLower()
+  Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $fs = [System.IO.File]::OpenRead($z)
   try {

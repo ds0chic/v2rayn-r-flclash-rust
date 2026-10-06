@@ -46,6 +46,6 @@ pub use tun::{
     TunSpec, TUN_CLI_DRY_RUN, TUN_CONFIG_KIND, TUN_ENV_DRY_RUN, TUN_PROCESS_ID,
 };
 pub use wire::{
-    decode_payload, encode_frame, frame_len, frame_len_ok, RuntimeDetail, RuntimeTunDetail,
-    ServerFrame, LEN_PREFIX_BYTES, NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
+    decode_payload, encode_frame, frame_len, frame_len_ok, RuntimeDetail, RuntimeExitFact,
+    RuntimeTunDetail, ServerFrame, LEN_PREFIX_BYTES, NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
 };

@@ -21,8 +21,8 @@ use tokio::sync::{Mutex, Notify};
 use runtime::tun::{tun_spec_from_plan, TunSpec};
 use runtime::{
     adapter_for, matches_identity, process_creation_time_ms, sha256_hex, CoreAdapter, CoreLocator,
-    JobGuard, ProcessIdentity, RuntimeDetail, RuntimeTunDetail, ServerFrame, NET_HOST_PIPE_NAME,
-    RUNTIME_DETAIL_EVENT,
+    JobGuard, ProcessIdentity, RuntimeDetail, RuntimeExitFact, RuntimeTunDetail, ServerFrame,
+    NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
 };
 
 use crate::events::EventBus;
@@ -835,6 +835,15 @@ impl HostState {
                     observed.at_ms,
                 ));
                 inner.last_exit_sidecar = None;
+                // SP-17: mirror the fact onto the wire detail so the UI reads
+                // the actual exit, never a synthesized one.
+                inner.detail.actual_generation = inner.actual_generation;
+                inner.detail.last_exit = Some(RuntimeExitFact {
+                    pid: observed.pid,
+                    exit_code: observed.exit_code,
+                    at_ms: observed.at_ms,
+                });
+                inner.detail.last_exit_sidecar = None;
                 // Phase 2 below terminates the torn-down sidecars in reverse
                 // order (helper-owned ones via their link) and drops the job.
                 let emit = (RuntimeState::Stopped, error, inner.detail.applied_revision);
@@ -864,6 +873,13 @@ impl HostState {
                     observed.at_ms,
                 ));
                 inner.last_exit_sidecar = Some(first.id.clone());
+                inner.detail.actual_generation = inner.actual_generation;
+                inner.detail.last_exit = Some(RuntimeExitFact {
+                    pid: observed.pid,
+                    exit_code: observed.exit_code,
+                    at_ms: observed.at_ms,
+                });
+                inner.detail.last_exit_sidecar = Some(first.id.clone());
                 let emit = (
                     lifecycle::state_for_sidecar_exit(true),
                     error,
@@ -1840,6 +1856,9 @@ impl HostState {
             inner.detail.session_id = Some(session_id.clone());
             inner.detail.config_sha256 = Some(actual_hash.clone());
             inner.detail.ports = vec![port];
+            // SP-17: the core version of the plan being started is an actual
+            // fact of this session, never inferred from the desired default.
+            inner.detail.core_version = plan.target.version.clone();
         }
         let _ = journal::write_entry(
             &self.config.run_root,
@@ -2043,6 +2062,10 @@ impl HostState {
                     inner.last_exit = None;
                     inner.last_exit_sidecar = None;
                     inner.actual_generation = 0;
+                    inner.detail.actual_generation = 0;
+                    inner.detail.last_exit = None;
+                    inner.detail.last_exit_sidecar = None;
+                    inner.detail.core_version = plan.target.version.clone();
                 }
                 eprintln!(
                     "[net_host] session {session_id} RUNNING pid={pid} created_at_ms={created_at_ms} port={port} rev={}",
@@ -4412,6 +4435,9 @@ Idx     Met    MTU          State                Name\r\n\
                 inner.last_exit.clone(),
                 inner.last_exit_sidecar.clone(),
                 inner.actual_generation,
+                inner.detail.actual_generation,
+                inner.detail.last_exit,
+                inner.detail.last_exit_sidecar.clone(),
                 inner.detail.applied_revision,
                 inner.detail.error.clone().map(|error| error.message_key),
             );
@@ -4431,6 +4457,9 @@ Idx     Met    MTU          State                Name\r\n\
                 last_exit,
                 last_exit_sidecar,
                 generation,
+                detail_generation,
+                detail_exit,
+                detail_sidecar,
                 applied_revision,
                 error_key,
             ),
@@ -4449,6 +4478,14 @@ Idx     Met    MTU          State                Name\r\n\
         assert_eq!(exit.pid, live_pid, "exit keeps the owned identity");
         assert!(last_exit_sidecar.is_none(), "main exit, not sidecar");
         assert_eq!(generation, 1, "exit pushes generation");
+        // SP-17: the wire detail mirrors the same exit fact, so the UI reads
+        // the actual observation instead of a synthesized one.
+        assert_eq!(detail_generation, generation, "detail mirrors generation");
+        let detail_exit = detail_exit.expect("detail carries the exit fact");
+        assert_eq!(detail_exit.pid, exit.pid);
+        assert_eq!(detail_exit.exit_code, exit.exit_code);
+        assert_eq!(detail_exit.at_ms, exit.at_ms);
+        assert_eq!(detail_sidecar, last_exit_sidecar);
         // History survives: the applied revision is a fact about what ran.
         assert_eq!(applied_revision, 1);
         assert_eq!(error_key.as_deref(), Some("error.core_exited"));

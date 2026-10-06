@@ -69,3 +69,54 @@ Run-key 无写入；合成数据 only（`*.example.invalid` / `flood N` / `SPEED
 4. 任务卡 `tasks/SP-22.md` 与 `execution-manifest.json` 状态未改（写锁外：只允许 monitor/**、`monitor.rs`、
    本卡测试与证据）。本卡当前自评 `implemented`（正确合同绿；整机采样与发布门禁未做，不标 `verified`），
    请整合者按本证据更新卡与 manifest。
+
+## Continuation 2026-10-06：real-scale（10k 节点/连接 + 日志洪水）
+
+基线 `467607e`，不 commit。本轮只新增两个测试文件 + 本证据（`monitor.rs` 与 Dart 业务代码零改动，
+沿用上一轮已验证的增量 overlay/背压链路）。
+
+### 新增
+
+- `crates/application/tests/sp22_scale.rs`（6 测试，合成数据；stub 用 `tiny_http` 绑定探测到的
+  `>= 11808` 回环端口，`10808` 未触碰）：
+  - 10k 节点延迟 overlay：`merge_delay_map` 10k 项全量进入 map，复测按 ID 原位覆盖不膨胀；
+  - 50k 行洪水（10×5000）：默认 ring（10k 行/10MiB）只保留 10k，`rejected=30000`（单 burst 截尾头）、
+    `accepted=20000`、`dropped_lines=10000`，`accepted == total + dropped_lines` 闭环；
+    控制队列存活，最终 `syn-final` 标记存活；
+  - 字节预算：64 KiB 下 10k×~200B 只保留 350 行，`dropped_bytes=1804550` 计数；
+  - 单 10k burst：`coalesce_log_batch` 只收尾部 2000，shed 头上报；
+  - generation 切换：gen7 冻结的 close 在 gen8 判 stale，空 id 拒绝；
+  - 取消恢复：300ms×4 慢探针中途 abort 发布零行；换新 stub 重跑全量有序恢复。
+- `apps/desktop/test/repair/sp_22_scale_test.dart`（9 测试，`FakeMonitorBridge`，无 socket）：
+  - 10k 覆盖/排序/连接合并/有界筛选/日志尾合并；
+  - dropped/truncated 计数器先行于 150ms 行合并生效且 flush 后保持；
+  - 会话切换即时清空旧行 + 在途 `refreshConnections` 被 gate 卡住时切换，late 响应丢弃；
+    切换后新会话重读恢复；空 close id 永不到 bridge。
+
+### 实测数字（命令原文见 `logs/sp22-scale-2026-10-06.log`）
+
+Rust（debug，`--nocapture`）：10k overlay 6.7ms；50k 洪水 7.3ms
+（total=10000，dropped_lines=10000，dropped_bytes=422000，rejected=30000，accepted=20000）；
+字节预算 total=350/dropped=9650；恢复 `group_delay` 302.7ms（4×300ms 并发，串行需 ~1200ms）。
+Dart（flutter_tester）：mergeDelayMap 3ms；sort 10k 10ms；mergeConnections 3ms；
+filter 10k 17ms（命中 10000→返回 300 + 截断标记）；mergeLogTail 0ms；testGroup 10k 1ms。
+
+### 定向检查（本轮，exit 均为 0）
+
+`cargo fmt -p application -p subscriptions -- --check`；
+`cargo clippy -p application -p subscriptions --all-targets --locked -- -D warnings`；
+`cargo test -p application --locked`（lib 342 + 全部集成 suite，0 失败）；
+`cargo test -p subscriptions --locked`（回归，0 失败）；
+`dart format`（相关文件）、`flutter analyze`（No issues）；
+`flutter test` 相关 5 文件共 38 passed
+（sp22-scale 9 + sp22-backpressure 7 + fix11 3 + sp20-full 10 + sp20-prep 9）。
+一次 compact-reporter 合跑曾报 4 个 SP-20 widget 用例 "did not complete"
+（flutter_tester flake，无断言失败）；单文件重跑通过，`--reporter expanded` 合跑 38/38。
+
+### 仍未验证（诚实口径：`implemented`，非 `verified`）
+
+1. 真实内核 10k 节点 + 10k 连接 + 测速日志并发的整机采样、队列/内存无持续增长的长稳曲线，
+   需真实内核与 SP-31 性能门禁；本轮是合成规模 + 真实本地 HTTP 控制器桩。
+2. `group_delay_with_progress` 逐项 UI 流式刷新仍缺 bridge/FRB 接口（上一轮已登记，不削减需求）。
+3. Workspace 全量门禁与 release 构建未跑（VALIDATION_POLICY：发布候选才跑，由 SP-34 整合）。
+4. 本轮 `monitor.rs` 与 Dart 业务代码零改动；`crates/subscriptions` 未动（仅回归测试）。

@@ -1,0 +1,15 @@
+{
+    "plan":  [
+                 "sha256(zip) 并与 -ShaFile（RC 传 dist/SHA256SUMS）同名条目比对；缺文件/缺条目/不一致即 fail",
+                 "-Setup \u003csetup.exe\u003e：同文件内同名条目比对（可选；传了才验）",
+                 "读取 zip 内 build-info.json：断言 smoke_armed=false, git_dirty=false；缺文件/缺字段即 fail",
+                 "断言 build-info.git_commit == ExpectedCommit（RC 重建时传新基线 commit）",
+                 "断言 flat layout 四 exe 齐全；断言无 xray/sing-box 被捆绑",
+                 "-RequireCleanTree：git status --porcelain 非空即 fail（dirty tree live 侧）",
+                 "-VerifyFixture：合成订阅形状校验（只读）",
+                 "-RepoRootOverride：仅自测时把 clean-tree 与夹具根指向临时目录；RC 运行不传"
+             ],
+    "mode":  "dry-run",
+    "side_effects":  "none（不启动 exe、不绑定端口、不改代理/注册表/TUN/Run-key）",
+    "status":  "identified"
+}

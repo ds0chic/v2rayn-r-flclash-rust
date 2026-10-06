@@ -28,6 +28,19 @@ SP-30 真实验收开始前须先复核 SP-03/06/07/12–20/22/24/25/27/28/29 �
 | S5 | 备份 | 正式 UI：备份/恢复视图（`lib/features/backup/backup_and_restore_view.dart`）→ 备份 zip 写隔离目录外取证区，记 SHA256 | 备份文件生成且 hash 记录；含 S3/S4 状态 | 备份失败/内容缺节点：保留数据目录 + 错误弹窗截图 |
 | S6 | 重开 | 仅停止本脚本启动的 owned PID 树；同 `V2RAYN_R_DATA_DIR` 重新双击普通入口 | 节点/活动选择/设置与 S5 前一致（配置 diff 为空） | 不一致：新旧 DB 节点清单 diff + 启动日志存档 |
 | S7 | 恢复 | 清空数据目录 → 正式 UI 恢复视图导入 S5 备份 | 恢复后与 S5 备份内容一致；journal 无残留半写 | 恢复失败/半写：保留现场目录，blocked 登记 |
+| S8 | 实际描述子快照字段（FRB） | 候选包 S4 应用后：FRB `get_snapshot()`（`lib/bridge/api/engine.dart`）+ `get_operation(operation_id)` 取运行事实，对照隔离 `V2RAYN_R_DATA_DIR` 内 `applied_target`（`target_profile_id`/`actual_generation`）与 `OperationReceipt.actual_snapshot`（`crates/ipc_contract/src/stable.rs:RuntimeActualDescriptor`）；UI 状态栏经 `lib/features/runtime/runtime_bridge.dart` 展示 | `target_profile_id` == 本次应用节点 id（非当前 desired 默认）；apply/退出使 `actual_generation` 递增而 desired 不变；运行中 `last_exit=None`，退出后 `last_exit=Some{pid,exit_code}` 且历史 plan_hash/applied_revision 保留；desired/applied 不混淆 | 任一字段不符/伪造 Running：取 snapshot JSON + operation JSON + 数据目录清单存档，blocked 登记 |
+| S9 | TUN lease 事实路径 | 候选包运行中：FRB `get_snapshot().runtime_tun`（`RuntimeTunDto` ← `application::RuntimeSnapshot.tun` ← net-host `TunStatus`/`TunLeaseFacts`，见 `crates/application/src/runtime_client.rs`）；UI 经 `lib/features/runtime/tun_toggle.dart` 只读展示；默认计划（未请求 TUN）必须为 `None` 并渲染“未启用” | 请求 TUN 的计划在隔离机上跑出 `Some{adapter_name,interface_index,route_count,dry_run}` 且只含四字段（无地址/下一跳/token）；未请求时 `None`，UI 不得显示 active TUN | 出现地址类字段/`None` 显示为启用：取 snapshot JSON 存档，blocked 登记；本机禁改 TUN（见阻塞 B2） |
+| S10 | 更新按操作 flags（prerelease/via-proxy） | 候选包：检查更新窗（`V2RAYN_R_OPEN_UPDATE=1` 或菜单 `menuCheckUpdate` → `lib/features/update/check_update_view.dart`，`update_controller.dart`）+ 订阅更新菜单（`menuSubUpdate/menuSubUpdateViaProxy/menuSubGroupUpdate/menuSubGroupUpdateViaProxy`）；底层 FRB `t16_check_updates(prerelease, via_proxy)` / `t16_check_core(core, prerelease, via_proxy)`（`crates/bridge_api/src/api/t16.rs`）与 `update_subscriptions(sub_ids, via_proxy)` / `update_subscription`（`crates/bridge_api/src/api/subs.rs`） | prerelease 开/关分别命中 stable/prerelease 通道且可回滚；via-proxy=true 走本地已应用 session 端口、无 endpoint 时报 `E_PROXY_UNAVAILABLE` 而非直连冒充；每次检查的 flag 组合在报告中可区分 | 通道混淆/静默回退直连：取 update 报告 JSON + 设置 `CheckUpdateItem.update_via_proxy` 存档，blocked 登记 |
+| S11 | 增量 monitor 覆盖层 | 候选包（seed loopback apply，端口 ≥11808，不碰 10808）：打开连接/代理/日志页（`lib/features/monitor/connections_view.dart`、`proxies_view.dart`、`logs_view.dart` 经 `monitor_bridge.dart`/`monitor_controller.dart`/`monitor_incremental.dart`）；底层 FRB `clash_group_delay`（按 id 增量 overlay）、`clash_connections`、`stats_snapshot`、`subscribe_traffic`/`subscribe_logs`、`set_page_visible("connections"/"proxies"/"logs")`（`crates/bridge_api/src/api/monitor.rs`，`crates/application/src/monitor.rs` overlay/backpressure） | 存量 delay 条目在新一批结果到达时保留、按 id 更新（非整表闪替）；高频日志批按 backpressure 预算合并，lag 时发 `resync_required` 并以权威 snapshot 对齐（不丢位不断序）；隐藏页面不订阅 | 整表替换/旧 session 端口残留采集/失序：取 traffic/log 批次头（epoch/seq/generation）+ 页面截图存档，blocked 登记 |
+
+## S8–S11 状态（候选包未出，全部 blocked，未实测）
+
+| # | 状态 | 阻塞条件（unblock） |
+|---|---|---|
+| S8 | blocked | 新候选包从当前 HEAD 干净重建 + S0 身份核对 exit 0（`-Zip <新包> -ShaFile dist/SHA256SUMS -ExpectedCommit <重建commit> -RequireCleanTree`）+ 授权隔离机上完成 S4 应用 |
+| S9 | blocked | 同 S8；另需隔离机授权（宿主禁改 TUN/路由；本机只能观察 `None` 路径，不得启用 TUN） |
+| S10 | blocked | 同 S8；检查更新允许离线“无更新/不可达”诚实记录，不伪造远端版本 |
+| S11 | blocked | 同 S8；另需 seed loopback 端口 ≥11808 且先探测空闲（10808 永不触碰） |
 
 ## 约束重申
 

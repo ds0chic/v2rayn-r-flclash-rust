@@ -1,0 +1,114 @@
+{
+    "mode":  "identity-selftest",
+    "status":  "pass",
+    "failed":  0,
+    "total":  15,
+    "cases":  [
+                  {
+                      "case":  "good-pass",
+                      "status":  "pass",
+                      "want_exit":  0,
+                      "got_exit":  0,
+                      "want_substring":  "matches sha256sums"
+                  },
+                  {
+                      "case":  "good-nosha-note",
+                      "status":  "pass",
+                      "want_exit":  0,
+                      "got_exit":  0,
+                      "want_substring":  "sha pinning skipped"
+                  },
+                  {
+                      "case":  "dirty-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "git_dirty != false"
+                  },
+                  {
+                      "case":  "drift-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "!= expected"
+                  },
+                  {
+                      "case":  "armed-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "smoke_armed != false"
+                  },
+                  {
+                      "case":  "nofield-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "missing field: git_commit"
+                  },
+                  {
+                      "case":  "nometa-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "build-info.json not in zip"
+                  },
+                  {
+                      "case":  "hashmismatch-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "mismatch"
+                  },
+                  {
+                      "case":  "missingentry-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "entry missing"
+                  },
+                  {
+                      "case":  "noshafile-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "not found"
+                  },
+                  {
+                      "case":  "setup-pass",
+                      "status":  "pass",
+                      "want_exit":  0,
+                      "got_exit":  0,
+                      "want_substring":  "setup sha256 matches"
+                  },
+                  {
+                      "case":  "setup-mismatch-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "setup sha256 mismatch"
+                  },
+                  {
+                      "case":  "cleantree-clean-pass",
+                      "status":  "pass",
+                      "want_exit":  0,
+                      "got_exit":  0,
+                      "want_substring":  "working tree clean"
+                  },
+                  {
+                      "case":  "cleantree-dirty-reject",
+                      "status":  "pass",
+                      "want_exit":  1,
+                      "got_exit":  1,
+                      "want_substring":  "working tree dirty"
+                  },
+                  {
+                      "case":  "fixture-shape-pass",
+                      "status":  "pass",
+                      "want_exit":  0,
+                      "got_exit":  0,
+                      "want_substring":  "fixture_lines"
+                  }
+              ],
+    "side_effects":  "none (temp dir removed; no exe launch; no port bind; 10808 untouched; no proxy/registry/TUN/Run-key change)"
+}

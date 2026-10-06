@@ -35,6 +35,35 @@ pub struct StartupRecovery {
     pub pending: u32,
 }
 
+/// One process-exit fact as reported by net-host (SP-06/SP-17).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExitFactView {
+    pub pid: u32,
+    pub exit_code: Option<i32>,
+    pub at_ms: i64,
+}
+
+/// The actual-runtime descriptor (SP-17): what is actually running or has
+/// actually exited, composed from the submit-time frozen target (business
+/// truth) plus the live net-host facts. Nothing here is inferred from the
+/// desired default; absent facts stay `None`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ActualRuntimeView {
+    pub session_id: Option<String>,
+    pub actual_generation: u64,
+    pub operation_id: Option<String>,
+    pub target_profile_id: Option<String>,
+    pub target_core: Option<String>,
+    pub core_version: Option<String>,
+    pub plan_hash: Option<String>,
+    pub applied_runtime_revision: u64,
+    pub main_pid: Option<u32>,
+    pub ready_endpoints: Vec<u16>,
+    pub last_exit: Option<ExitFactView>,
+    pub last_exit_sidecar: Option<String>,
+    pub last_error: Option<DomainError>,
+}
+
 /// The assembled snapshot.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -65,6 +94,9 @@ pub struct Snapshot {
     /// Active TUN lease facts from net-host, when the running plan requested
     /// TUN. `None` renders as "not enabled" in the UI, never as an active TUN.
     pub tun: Option<TunStatus>,
+    /// SP-17 actual-runtime descriptor; `None` only when no actual fact
+    /// exists (no frozen target, no live session, no observed exit).
+    pub actual: Option<ActualRuntimeView>,
     /// Active (non-terminal) jobs.
     pub active_jobs: Vec<JobView>,
     /// Core capability table.
@@ -79,6 +111,7 @@ pub struct Snapshot {
 pub fn assemble(
     desired: DesiredRevision,
     runtime: &RuntimeSnapshot,
+    actual: Option<ActualRuntimeView>,
     active_jobs: Vec<JobView>,
     capabilities: Vec<CapabilityEntry>,
     recovery: StartupRecovery,
@@ -99,6 +132,7 @@ pub fn assemble(
         runtime_operation_id: runtime.operation_id.clone(),
         runtime_error: runtime.error.clone(),
         tun: runtime.tun.clone(),
+        actual,
         active_jobs,
         capabilities,
         recovery,
@@ -121,6 +155,7 @@ mod tests {
         let snap = assemble(
             DesiredRevision::new(5),
             &runtime,
+            None,
             vec![],
             vec![],
             StartupRecovery {
@@ -147,6 +182,7 @@ mod tests {
         let snap = assemble(
             DesiredRevision::new(4),
             &runtime,
+            None,
             vec![],
             vec![],
             StartupRecovery {
@@ -177,6 +213,7 @@ mod tests {
         let snap = assemble(
             DesiredRevision::new(4),
             &runtime,
+            None,
             vec![],
             vec![],
             StartupRecovery {
@@ -203,6 +240,7 @@ mod tests {
         let snap = assemble(
             DesiredRevision::new(4),
             &runtime,
+            None,
             vec![],
             vec![],
             StartupRecovery {

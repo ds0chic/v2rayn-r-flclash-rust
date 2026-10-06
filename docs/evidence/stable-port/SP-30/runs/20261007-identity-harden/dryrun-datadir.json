@@ -1,0 +1,17 @@
+{
+    "mode":  "datadir-plan",
+    "status":  "identified",
+    "location_pattern":  "%TEMP%\\sp30_accept_\u003cguid\u003e",
+    "env":  "V2RAYN_R_DATA_DIR=\u003cnew dir\u003e（验收进程独占；退出即重开同一目录）",
+    "writes_when_armed":  [
+                              "新建空目录",
+                              "目录内 README.txt（基线+用途）"
+                          ],
+    "never":  [
+                  "用户真实数据目录",
+                  "注册表/系统代理",
+                  "10808",
+                  "TUN/路由/DNS/Run-key"
+              ],
+    "cleanup":  "验收后删除本脚本创建的目录树（owned 资源）；失败保留供取证并记录路径"
+}

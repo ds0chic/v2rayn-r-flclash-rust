@@ -67,6 +67,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  ActualRuntimeDto dco_decode_actual_runtime_dto(dynamic raw);
+
+  @protected
   AppRestartCommandDto dco_decode_app_restart_command_dto(dynamic raw);
 
   @protected
@@ -100,6 +103,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  ActualRuntimeDto dco_decode_box_autoadd_actual_runtime_dto(dynamic raw);
+
+  @protected
   BackupManifestDto dco_decode_box_autoadd_backup_manifest_dto(dynamic raw);
 
   @protected
@@ -116,6 +122,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto dco_decode_box_autoadd_error_dto(dynamic raw);
+
+  @protected
+  ExitFactDto dco_decode_box_autoadd_exit_fact_dto(dynamic raw);
 
   @protected
   Fragment4RayItemDto dco_decode_box_autoadd_fragment_4_ray_item_dto(
@@ -273,6 +282,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   EventEnvelopeDto dco_decode_event_envelope_dto(dynamic raw);
+
+  @protected
+  ExitFactDto dco_decode_exit_fact_dto(dynamic raw);
 
   @protected
   ExportClientConfigDto dco_decode_export_client_config_dto(dynamic raw);
@@ -498,6 +510,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? dco_decode_opt_String(dynamic raw);
 
   @protected
+  ActualRuntimeDto? dco_decode_opt_box_autoadd_actual_runtime_dto(dynamic raw);
+
+  @protected
   BackupManifestDto? dco_decode_opt_box_autoadd_backup_manifest_dto(
     dynamic raw,
   );
@@ -516,6 +531,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto? dco_decode_opt_box_autoadd_error_dto(dynamic raw);
+
+  @protected
+  ExitFactDto? dco_decode_opt_box_autoadd_exit_fact_dto(dynamic raw);
 
   @protected
   Fragment4RayItemDto? dco_decode_opt_box_autoadd_fragment_4_ray_item_dto(
@@ -868,6 +886,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String sse_decode_String(SseDeserializer deserializer);
 
   @protected
+  ActualRuntimeDto sse_decode_actual_runtime_dto(SseDeserializer deserializer);
+
+  @protected
   AppRestartCommandDto sse_decode_app_restart_command_dto(
     SseDeserializer deserializer,
   );
@@ -913,6 +934,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  ActualRuntimeDto sse_decode_box_autoadd_actual_runtime_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   BackupManifestDto sse_decode_box_autoadd_backup_manifest_dto(
     SseDeserializer deserializer,
   );
@@ -935,6 +961,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto sse_decode_box_autoadd_error_dto(SseDeserializer deserializer);
+
+  @protected
+  ExitFactDto sse_decode_box_autoadd_exit_fact_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   Fragment4RayItemDto sse_decode_box_autoadd_fragment_4_ray_item_dto(
@@ -1118,6 +1149,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   EventEnvelopeDto sse_decode_event_envelope_dto(SseDeserializer deserializer);
+
+  @protected
+  ExitFactDto sse_decode_exit_fact_dto(SseDeserializer deserializer);
 
   @protected
   ExportClientConfigDto sse_decode_export_client_config_dto(
@@ -1417,6 +1451,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
+  ActualRuntimeDto? sse_decode_opt_box_autoadd_actual_runtime_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   BackupManifestDto? sse_decode_opt_box_autoadd_backup_manifest_dto(
     SseDeserializer deserializer,
   );
@@ -1439,6 +1478,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   ErrorDto? sse_decode_opt_box_autoadd_error_dto(SseDeserializer deserializer);
+
+  @protected
+  ExitFactDto? sse_decode_opt_box_autoadd_exit_fact_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   Fragment4RayItemDto? sse_decode_opt_box_autoadd_fragment_4_ray_item_dto(
@@ -1874,6 +1918,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_String(String self, SseSerializer serializer);
 
   @protected
+  void sse_encode_actual_runtime_dto(
+    ActualRuntimeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_app_restart_command_dto(
     AppRestartCommandDto self,
     SseSerializer serializer,
@@ -1934,6 +1984,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_actual_runtime_dto(
+    ActualRuntimeDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_backup_manifest_dto(
     BackupManifestDto self,
     SseSerializer serializer,
@@ -1963,6 +2019,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_error_dto(
     ErrorDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_exit_fact_dto(
+    ExitFactDto self,
     SseSerializer serializer,
   );
 
@@ -2211,6 +2273,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     EventEnvelopeDto self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_exit_fact_dto(ExitFactDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_export_client_config_dto(
@@ -2597,6 +2662,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_actual_runtime_dto(
+    ActualRuntimeDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_backup_manifest_dto(
     BackupManifestDto? self,
     SseSerializer serializer,
@@ -2626,6 +2697,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_error_dto(
     ErrorDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_exit_fact_dto(
+    ExitFactDto? self,
     SseSerializer serializer,
   );
 

@@ -1,0 +1,11 @@
+{
+    "notes":  [
+                  "no -Zip given: package checks skipped (fixture-only run)"
+              ],
+    "mode":  "identity-check",
+    "fixture_lines":  4,
+    "failures":  [
+
+                 ],
+    "status":  "pass"
+}

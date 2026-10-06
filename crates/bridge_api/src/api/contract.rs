@@ -73,10 +73,42 @@ pub struct SnapshotDto {
     /// plan has no TUN lease (TUN-A03: the UI must read the real state, never
     /// the desired switch).
     pub runtime_tun: Option<RuntimeTunDto>,
+    /// SP-17 actual-runtime descriptor (frozen applied target + live facts);
+    /// `None` only when no actual fact exists at all.
+    pub actual: Option<ActualRuntimeDto>,
     pub active_jobs: Vec<JobDto>,
     pub capabilities: Vec<CapabilityDto>,
     pub recovery: RecoveryDto,
     pub profile_count: u64,
+}
+
+/// SP-17 actual-runtime descriptor: what is actually running/exited. Every
+/// fact is real (submit-time frozen target or net-host observation); absent
+/// facts stay `None`/empty instead of being synthesized from the desired
+/// default.
+#[derive(Clone)]
+pub struct ActualRuntimeDto {
+    pub session_id: Option<String>,
+    pub actual_generation: u64,
+    pub operation_id: Option<String>,
+    pub target_profile_id: Option<String>,
+    pub target_core: Option<String>,
+    pub core_version: Option<String>,
+    pub plan_hash: Option<String>,
+    pub applied_runtime_revision: u64,
+    pub main_pid: Option<u32>,
+    pub ready_endpoints: Vec<u16>,
+    pub last_exit: Option<ExitFactDto>,
+    pub last_exit_sidecar: Option<String>,
+    pub last_error: Option<ErrorDto>,
+}
+
+/// One process-exit observation (numbers only).
+#[derive(Clone)]
+pub struct ExitFactDto {
+    pub pid: u32,
+    pub exit_code: Option<i32>,
+    pub at_ms: i64,
 }
 
 /// Live TUN lease facts (adapter, interface, route count, dry-run flag).

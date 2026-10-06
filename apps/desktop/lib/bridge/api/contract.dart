@@ -9,7 +9,78 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ApplyRuntimeRequest`, `RevisionDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+
+/// SP-17 actual-runtime descriptor: what is actually running/exited. Every
+/// fact is real (submit-time frozen target or net-host observation); absent
+/// facts stay `None`/empty instead of being synthesized from the desired
+/// default.
+class ActualRuntimeDto {
+  final String? sessionId;
+  final BigInt actualGeneration;
+  final String? operationId;
+  final String? targetProfileId;
+  final String? targetCore;
+  final String? coreVersion;
+  final String? planHash;
+  final BigInt appliedRuntimeRevision;
+  final int? mainPid;
+  final Uint16List readyEndpoints;
+  final ExitFactDto? lastExit;
+  final String? lastExitSidecar;
+  final ErrorDto? lastError;
+
+  const ActualRuntimeDto({
+    this.sessionId,
+    required this.actualGeneration,
+    this.operationId,
+    this.targetProfileId,
+    this.targetCore,
+    this.coreVersion,
+    this.planHash,
+    required this.appliedRuntimeRevision,
+    this.mainPid,
+    required this.readyEndpoints,
+    this.lastExit,
+    this.lastExitSidecar,
+    this.lastError,
+  });
+
+  @override
+  int get hashCode =>
+      sessionId.hashCode ^
+      actualGeneration.hashCode ^
+      operationId.hashCode ^
+      targetProfileId.hashCode ^
+      targetCore.hashCode ^
+      coreVersion.hashCode ^
+      planHash.hashCode ^
+      appliedRuntimeRevision.hashCode ^
+      mainPid.hashCode ^
+      readyEndpoints.hashCode ^
+      lastExit.hashCode ^
+      lastExitSidecar.hashCode ^
+      lastError.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ActualRuntimeDto &&
+          runtimeType == other.runtimeType &&
+          sessionId == other.sessionId &&
+          actualGeneration == other.actualGeneration &&
+          operationId == other.operationId &&
+          targetProfileId == other.targetProfileId &&
+          targetCore == other.targetCore &&
+          coreVersion == other.coreVersion &&
+          planHash == other.planHash &&
+          appliedRuntimeRevision == other.appliedRuntimeRevision &&
+          mainPid == other.mainPid &&
+          readyEndpoints == other.readyEndpoints &&
+          lastExit == other.lastExit &&
+          lastExitSidecar == other.lastExitSidecar &&
+          lastError == other.lastError;
+}
 
 /// Read-only relaunch command the external upgrade runner executes (R4-29).
 class AppRestartCommandDto {
@@ -620,6 +691,27 @@ class EventEnvelopeDto {
           kind == other.kind &&
           control == other.control &&
           payloadJson == other.payloadJson;
+}
+
+/// One process-exit observation (numbers only).
+class ExitFactDto {
+  final int pid;
+  final int? exitCode;
+  final PlatformInt64 atMs;
+
+  const ExitFactDto({required this.pid, this.exitCode, required this.atMs});
+
+  @override
+  int get hashCode => pid.hashCode ^ exitCode.hashCode ^ atMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExitFactDto &&
+          runtimeType == other.runtimeType &&
+          pid == other.pid &&
+          exitCode == other.exitCode &&
+          atMs == other.atMs;
 }
 
 /// External-upgrade spec for the application itself (never executed here).
@@ -1568,6 +1660,10 @@ class SnapshotDto {
   /// plan has no TUN lease (TUN-A03: the UI must read the real state, never
   /// the desired switch).
   final RuntimeTunDto? runtimeTun;
+
+  /// SP-17 actual-runtime descriptor (frozen applied target + live facts);
+  /// `None` only when no actual fact exists at all.
+  final ActualRuntimeDto? actual;
   final List<JobDto> activeJobs;
   final List<CapabilityDto> capabilities;
   final RecoveryDto recovery;
@@ -1587,6 +1683,7 @@ class SnapshotDto {
     this.runtimeOperationId,
     this.runtimeError,
     this.runtimeTun,
+    this.actual,
     required this.activeJobs,
     required this.capabilities,
     required this.recovery,
@@ -1608,6 +1705,7 @@ class SnapshotDto {
       runtimeOperationId.hashCode ^
       runtimeError.hashCode ^
       runtimeTun.hashCode ^
+      actual.hashCode ^
       activeJobs.hashCode ^
       capabilities.hashCode ^
       recovery.hashCode ^
@@ -1631,6 +1729,7 @@ class SnapshotDto {
           runtimeOperationId == other.runtimeOperationId &&
           runtimeError == other.runtimeError &&
           runtimeTun == other.runtimeTun &&
+          actual == other.actual &&
           activeJobs == other.activeJobs &&
           capabilities == other.capabilities &&
           recovery == other.recovery &&

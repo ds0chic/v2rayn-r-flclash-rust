@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -642643966;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -754194330;
 
 // Section: executor
 
@@ -3155,6 +3155,46 @@ fn wire__crate__api__platform__restore_system_proxy_on_exit_impl(
         },
     )
 }
+fn wire__crate__api__settings__retry_content_matches_saved_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "retry_content_matches_saved",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_saved_hash = <String>::sse_decode(&mut deserializer);
+            let api_draft_hash = <String>::sse_decode(&mut deserializer);
+            let api_persisted_hash = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(crate::api::settings::retry_content_matches_saved(
+                            &api_saved_hash,
+                            &api_draft_hash,
+                            &api_persisted_hash,
+                        ))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__routing__routing_profile_dto_default_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -4076,6 +4116,41 @@ fn wire__crate__api__platform__set_system_proxy_impl(
                 ))?;
                 std::result::Result::Ok(output_ok)
             })())
+        },
+    )
+}
+fn wire__crate__api__settings__settings_content_hash_for_retry_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "settings_content_hash_for_retry",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_settings_json = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(
+                        crate::api::settings::settings_content_hash_for_retry(&api_settings_json),
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
         },
     )
 }
@@ -6111,6 +6186,41 @@ impl SseDecode for String {
     }
 }
 
+impl SseDecode for crate::api::contract::ActualRuntimeDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_sessionId = <Option<String>>::sse_decode(deserializer);
+        let mut var_actualGeneration = <u64>::sse_decode(deserializer);
+        let mut var_operationId = <Option<String>>::sse_decode(deserializer);
+        let mut var_targetProfileId = <Option<String>>::sse_decode(deserializer);
+        let mut var_targetCore = <Option<String>>::sse_decode(deserializer);
+        let mut var_coreVersion = <Option<String>>::sse_decode(deserializer);
+        let mut var_planHash = <Option<String>>::sse_decode(deserializer);
+        let mut var_appliedRuntimeRevision = <u64>::sse_decode(deserializer);
+        let mut var_mainPid = <Option<u32>>::sse_decode(deserializer);
+        let mut var_readyEndpoints = <Vec<u16>>::sse_decode(deserializer);
+        let mut var_lastExit =
+            <Option<crate::api::contract::ExitFactDto>>::sse_decode(deserializer);
+        let mut var_lastExitSidecar = <Option<String>>::sse_decode(deserializer);
+        let mut var_lastError = <Option<crate::api::contract::ErrorDto>>::sse_decode(deserializer);
+        return crate::api::contract::ActualRuntimeDto {
+            session_id: var_sessionId,
+            actual_generation: var_actualGeneration,
+            operation_id: var_operationId,
+            target_profile_id: var_targetProfileId,
+            target_core: var_targetCore,
+            core_version: var_coreVersion,
+            plan_hash: var_planHash,
+            applied_runtime_revision: var_appliedRuntimeRevision,
+            main_pid: var_mainPid,
+            ready_endpoints: var_readyEndpoints,
+            last_exit: var_lastExit,
+            last_exit_sidecar: var_lastExitSidecar,
+            last_error: var_lastError,
+        };
+    }
+}
+
 impl SseDecode for crate::api::contract::AppRestartCommandDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -6867,6 +6977,20 @@ impl SseDecode for crate::api::contract::EventEnvelopeDto {
             kind: var_kind,
             control: var_control,
             payload_json: var_payloadJson,
+        };
+    }
+}
+
+impl SseDecode for crate::api::contract::ExitFactDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_pid = <u32>::sse_decode(deserializer);
+        let mut var_exitCode = <Option<i32>>::sse_decode(deserializer);
+        let mut var_atMs = <i64>::sse_decode(deserializer);
+        return crate::api::contract::ExitFactDto {
+            pid: var_pid,
+            exit_code: var_exitCode,
+            at_ms: var_atMs,
         };
     }
 }
@@ -8009,6 +8133,19 @@ impl SseDecode for Option<String> {
     }
 }
 
+impl SseDecode for Option<crate::api::contract::ActualRuntimeDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::contract::ActualRuntimeDto>::sse_decode(
+                deserializer,
+            ));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::api::contract::BackupManifestDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -8073,6 +8210,19 @@ impl SseDecode for Option<crate::api::contract::ErrorDto> {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         if (<bool>::sse_decode(deserializer)) {
             return Some(<crate::api::contract::ErrorDto>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<crate::api::contract::ExitFactDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<crate::api::contract::ExitFactDto>::sse_decode(
+                deserializer,
+            ));
         } else {
             return None;
         }
@@ -9343,6 +9493,8 @@ impl SseDecode for crate::api::contract::SnapshotDto {
             <Option<crate::api::contract::ErrorDto>>::sse_decode(deserializer);
         let mut var_runtimeTun =
             <Option<crate::api::contract::RuntimeTunDto>>::sse_decode(deserializer);
+        let mut var_actual =
+            <Option<crate::api::contract::ActualRuntimeDto>>::sse_decode(deserializer);
         let mut var_activeJobs = <Vec<crate::api::contract::JobDto>>::sse_decode(deserializer);
         let mut var_capabilities =
             <Vec<crate::api::contract::CapabilityDto>>::sse_decode(deserializer);
@@ -9362,6 +9514,7 @@ impl SseDecode for crate::api::contract::SnapshotDto {
             runtime_operation_id: var_runtimeOperationId,
             runtime_error: var_runtimeError,
             runtime_tun: var_runtimeTun,
+            actual: var_actual,
             active_jobs: var_activeJobs,
             capabilities: var_capabilities,
             recovery: var_recovery,
@@ -10152,78 +10305,90 @@ fn pde_ffi_dispatcher_primary_impl(
             rust_vec_len,
             data_len,
         ),
-        99 => wire__crate__api__routing__routing_profile_dto_default_impl(
+        99 => wire__crate__api__settings__retry_content_matches_saved_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        100 => wire__crate__api__routing__routing_rule_dto_default_impl(
+        100 => wire__crate__api__routing__routing_profile_dto_default_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        113 => {
+        101 => wire__crate__api__routing__routing_rule_dto_default_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        114 => {
             wire__crate__api__contract__security_dto_default_impl(port, ptr, rust_vec_len, data_len)
         }
-        115 => {
+        116 => {
             wire__crate__api__monitor__select_clash_proxy_impl(port, ptr, rust_vec_len, data_len)
         }
-        128 => {
+        128 => wire__crate__api__settings__settings_content_hash_for_retry_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        130 => {
             wire__crate__api__dns__simple_dns_dto_default_impl(port, ptr, rust_vec_len, data_len)
         }
-        129 => {
+        131 => {
             wire__crate__api__profiles__simulate_blocking_impl(port, ptr, rust_vec_len, data_len)
         }
-        138 => {
+        140 => {
             wire__crate__api__speedtest__speedtest_subscribe_impl(port, ptr, rust_vec_len, data_len)
         }
-        140 => wire__crate__api__stable__stable_contract_version_impl(
+        142 => wire__crate__api__stable__stable_contract_version_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        144 => wire__crate__api__engine__stop_runtime_impl(port, ptr, rust_vec_len, data_len),
-        148 => wire__crate__api__engine__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
-        149 => wire__crate__api__monitor__subscribe_logs_impl(port, ptr, rust_vec_len, data_len),
-        150 => wire__crate__api__monitor__subscribe_traffic_impl(port, ptr, rust_vec_len, data_len),
-        155 => {
+        146 => wire__crate__api__engine__stop_runtime_impl(port, ptr, rust_vec_len, data_len),
+        150 => wire__crate__api__engine__subscribe_events_impl(port, ptr, rust_vec_len, data_len),
+        151 => wire__crate__api__monitor__subscribe_logs_impl(port, ptr, rust_vec_len, data_len),
+        152 => wire__crate__api__monitor__subscribe_traffic_impl(port, ptr, rust_vec_len, data_len),
+        157 => {
             wire__crate__api__t16__t16_apply_app_update_spec_impl(port, ptr, rust_vec_len, data_len)
         }
-        156 => wire__crate__api__t16__t16_apply_app_update_spec_with_flags_impl(
+        158 => wire__crate__api__t16__t16_apply_app_update_spec_with_flags_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        157 => wire__crate__api__t16__t16_apply_core_update_impl(port, ptr, rust_vec_len, data_len),
-        158 => wire__crate__api__t16__t16_backup_import_upstream_impl(
+        159 => wire__crate__api__t16__t16_apply_core_update_impl(port, ptr, rust_vec_len, data_len),
+        160 => wire__crate__api__t16__t16_backup_import_upstream_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        160 => wire__crate__api__t16__t16_backup_list_impl(port, ptr, rust_vec_len, data_len),
-        161 => wire__crate__api__t16__t16_backup_local_impl(port, ptr, rust_vec_len, data_len),
-        162 => wire__crate__api__t16__t16_backup_recognize_impl(port, ptr, rust_vec_len, data_len),
-        163 => wire__crate__api__t16__t16_backup_restore_impl(port, ptr, rust_vec_len, data_len),
-        164 => wire__crate__api__t16__t16_backup_verify_impl(port, ptr, rust_vec_len, data_len),
-        165 => wire__crate__api__t16__t16_check_updates_impl(port, ptr, rust_vec_len, data_len),
-        171 => wire__crate__api__t16__t16_webdav_backup_impl(port, ptr, rust_vec_len, data_len),
-        172 => wire__crate__api__t16__t16_webdav_check_impl(port, ptr, rust_vec_len, data_len),
-        175 => wire__crate__api__t16__t16_webdav_list_impl(port, ptr, rust_vec_len, data_len),
-        176 => wire__crate__api__t16__t16_webdav_restore_impl(port, ptr, rust_vec_len, data_len),
-        177 => wire__crate__api__contract__transport_extra_dto_default_impl(
+        162 => wire__crate__api__t16__t16_backup_list_impl(port, ptr, rust_vec_len, data_len),
+        163 => wire__crate__api__t16__t16_backup_local_impl(port, ptr, rust_vec_len, data_len),
+        164 => wire__crate__api__t16__t16_backup_recognize_impl(port, ptr, rust_vec_len, data_len),
+        165 => wire__crate__api__t16__t16_backup_restore_impl(port, ptr, rust_vec_len, data_len),
+        166 => wire__crate__api__t16__t16_backup_verify_impl(port, ptr, rust_vec_len, data_len),
+        167 => wire__crate__api__t16__t16_check_updates_impl(port, ptr, rust_vec_len, data_len),
+        173 => wire__crate__api__t16__t16_webdav_backup_impl(port, ptr, rust_vec_len, data_len),
+        174 => wire__crate__api__t16__t16_webdav_check_impl(port, ptr, rust_vec_len, data_len),
+        177 => wire__crate__api__t16__t16_webdav_list_impl(port, ptr, rust_vec_len, data_len),
+        178 => wire__crate__api__t16__t16_webdav_restore_impl(port, ptr, rust_vec_len, data_len),
+        179 => wire__crate__api__contract__transport_extra_dto_default_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        178 => wire__crate__api__monitor__update_clash_mode_impl(port, ptr, rust_vec_len, data_len),
-        179 => wire__crate__api__subs__update_subscription_impl(port, ptr, rust_vec_len, data_len),
-        180 => wire__crate__api__subs__update_subscriptions_impl(port, ptr, rust_vec_len, data_len),
+        180 => wire__crate__api__monitor__update_clash_mode_impl(port, ptr, rust_vec_len, data_len),
+        181 => wire__crate__api__subs__update_subscription_impl(port, ptr, rust_vec_len, data_len),
+        182 => wire__crate__api__subs__update_subscriptions_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -10322,88 +10487,120 @@ fn pde_ffi_dispatcher_sync_impl(
             rust_vec_len,
             data_len,
         ),
-        101 => wire__crate__api__profiles__rust_profile_count_impl(ptr, rust_vec_len, data_len),
-        102 => wire__crate__api__dns__save_dns_impl(ptr, rust_vec_len, data_len),
-        103 => wire__crate__api__engine__save_imported_profile_impl(ptr, rust_vec_len, data_len),
-        104 => wire__crate__api__engine__save_profile_impl(ptr, rust_vec_len, data_len),
-        105 => wire__crate__api__routing__save_routing_impl(ptr, rust_vec_len, data_len),
-        106 => wire__crate__api__routing__save_routing_rules_impl(ptr, rust_vec_len, data_len),
-        107 => wire__crate__api__settings__save_settings_impl(ptr, rust_vec_len, data_len),
-        108 => wire__crate__api__settings__save_settings_group_impl(ptr, rust_vec_len, data_len),
-        109 => wire__crate__api__settings__save_settings_json_impl(ptr, rust_vec_len, data_len),
-        110 => wire__crate__api__dns__save_simple_dns_impl(ptr, rust_vec_len, data_len),
-        111 => wire__crate__api__subs__save_sub_item_impl(ptr, rust_vec_len, data_len),
-        112 => wire__crate__api__groups__save_template_impl(ptr, rust_vec_len, data_len),
-        114 => wire__crate__api__engine__seed_synthetic_profiles_impl(ptr, rust_vec_len, data_len),
-        116 => wire__crate__api__engine__set_active_profile_impl(ptr, rust_vec_len, data_len),
-        117 => wire__crate__api__platform__set_autostart_impl(ptr, rust_vec_len, data_len),
-        118 => wire__crate__api__routing__set_default_routing_impl(ptr, rust_vec_len, data_len),
-        119 => wire__crate__api__subs__set_local_proxy_port_impl(ptr, rust_vec_len, data_len),
-        120 => wire__crate__api__monitor__set_log_filter_impl(ptr, rust_vec_len, data_len),
-        121 => wire__crate__api__monitor__set_log_pause_impl(ptr, rust_vec_len, data_len),
-        122 => wire__crate__api__monitor__set_page_visible_impl(ptr, rust_vec_len, data_len),
-        123 => wire__crate__api__engine__set_profile_remarks_impl(ptr, rust_vec_len, data_len),
-        124 => wire__crate__api__routing__set_rule_mode_impl(ptr, rust_vec_len, data_len),
-        125 => wire__crate__api__subs__set_sub_enabled_impl(ptr, rust_vec_len, data_len),
-        126 => wire__crate__api__platform__set_system_proxy_impl(ptr, rust_vec_len, data_len),
-        127 => wire__crate__api__settings__settings_revision_impl(ptr, rust_vec_len, data_len),
-        130 => wire__crate__api__speedtest__speedtest_active_jobs_impl(ptr, rust_vec_len, data_len),
-        131 => wire__crate__api__speedtest__speedtest_apply_profile_order_impl(
+        102 => wire__crate__api__profiles__rust_profile_count_impl(ptr, rust_vec_len, data_len),
+        103 => wire__crate__api__dns__save_dns_impl(ptr, rust_vec_len, data_len),
+        104 => wire__crate__api__engine__save_imported_profile_impl(ptr, rust_vec_len, data_len),
+        105 => wire__crate__api__engine__save_profile_impl(ptr, rust_vec_len, data_len),
+        106 => wire__crate__api__routing__save_routing_impl(ptr, rust_vec_len, data_len),
+        107 => wire__crate__api__routing__save_routing_rules_impl(ptr, rust_vec_len, data_len),
+        108 => wire__crate__api__settings__save_settings_impl(ptr, rust_vec_len, data_len),
+        109 => wire__crate__api__settings__save_settings_group_impl(ptr, rust_vec_len, data_len),
+        110 => wire__crate__api__settings__save_settings_json_impl(ptr, rust_vec_len, data_len),
+        111 => wire__crate__api__dns__save_simple_dns_impl(ptr, rust_vec_len, data_len),
+        112 => wire__crate__api__subs__save_sub_item_impl(ptr, rust_vec_len, data_len),
+        113 => wire__crate__api__groups__save_template_impl(ptr, rust_vec_len, data_len),
+        115 => wire__crate__api__engine__seed_synthetic_profiles_impl(ptr, rust_vec_len, data_len),
+        117 => wire__crate__api__engine__set_active_profile_impl(ptr, rust_vec_len, data_len),
+        118 => wire__crate__api__platform__set_autostart_impl(ptr, rust_vec_len, data_len),
+        119 => wire__crate__api__routing__set_default_routing_impl(ptr, rust_vec_len, data_len),
+        120 => wire__crate__api__subs__set_local_proxy_port_impl(ptr, rust_vec_len, data_len),
+        121 => wire__crate__api__monitor__set_log_filter_impl(ptr, rust_vec_len, data_len),
+        122 => wire__crate__api__monitor__set_log_pause_impl(ptr, rust_vec_len, data_len),
+        123 => wire__crate__api__monitor__set_page_visible_impl(ptr, rust_vec_len, data_len),
+        124 => wire__crate__api__engine__set_profile_remarks_impl(ptr, rust_vec_len, data_len),
+        125 => wire__crate__api__routing__set_rule_mode_impl(ptr, rust_vec_len, data_len),
+        126 => wire__crate__api__subs__set_sub_enabled_impl(ptr, rust_vec_len, data_len),
+        127 => wire__crate__api__platform__set_system_proxy_impl(ptr, rust_vec_len, data_len),
+        129 => wire__crate__api__settings__settings_revision_impl(ptr, rust_vec_len, data_len),
+        132 => wire__crate__api__speedtest__speedtest_active_jobs_impl(ptr, rust_vec_len, data_len),
+        133 => wire__crate__api__speedtest__speedtest_apply_profile_order_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        132 => wire__crate__api__speedtest__speedtest_cancel_impl(ptr, rust_vec_len, data_len),
-        133 => wire__crate__api__speedtest__speedtest_configure_impl(ptr, rust_vec_len, data_len),
-        134 => {
+        134 => wire__crate__api__speedtest__speedtest_cancel_impl(ptr, rust_vec_len, data_len),
+        135 => wire__crate__api__speedtest__speedtest_configure_impl(ptr, rust_vec_len, data_len),
+        136 => {
             wire__crate__api__speedtest__speedtest_remove_invalid_impl(ptr, rust_vec_len, data_len)
         }
-        135 => wire__crate__api__speedtest__speedtest_remove_invalid_group_impl(
+        137 => wire__crate__api__speedtest__speedtest_remove_invalid_group_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        136 => wire__crate__api__speedtest__speedtest_results_impl(ptr, rust_vec_len, data_len),
-        137 => wire__crate__api__speedtest__speedtest_start_impl(ptr, rust_vec_len, data_len),
-        139 => wire__crate__api__speedtest__speedtest_supported_impl(ptr, rust_vec_len, data_len),
-        141 => wire__crate__api__subs__start_sub_scheduler_impl(ptr, rust_vec_len, data_len),
-        142 => wire__crate__api__monitor__stats_flush_impl(ptr, rust_vec_len, data_len),
-        143 => wire__crate__api__monitor__stats_snapshot_impl(ptr, rust_vec_len, data_len),
-        145 => wire__crate__api__subs__stop_sub_scheduler_impl(ptr, rust_vec_len, data_len),
-        146 => wire__crate__api__subs__sub_scheduler_running_impl(ptr, rust_vec_len, data_len),
-        147 => wire__crate__api__subs__sub_update_report_impl(ptr, rust_vec_len, data_len),
-        151 => wire__crate__api__engine__subscriber_count_impl(ptr, rust_vec_len, data_len),
-        152 => wire__crate__api__platform__sysproxy_mode_value_impl(ptr, rust_vec_len, data_len),
-        153 => wire__crate__api__platform__sysproxy_type_valid_impl(ptr, rust_vec_len, data_len),
-        154 => wire__crate__api__t16__t16_app_restart_command_impl(ptr, rust_vec_len, data_len),
-        159 => wire__crate__api__t16__t16_backup_import_upstream_merge_impl(
+        138 => wire__crate__api__speedtest__speedtest_results_impl(ptr, rust_vec_len, data_len),
+        139 => wire__crate__api__speedtest__speedtest_start_impl(ptr, rust_vec_len, data_len),
+        141 => wire__crate__api__speedtest__speedtest_supported_impl(ptr, rust_vec_len, data_len),
+        143 => wire__crate__api__subs__start_sub_scheduler_impl(ptr, rust_vec_len, data_len),
+        144 => wire__crate__api__monitor__stats_flush_impl(ptr, rust_vec_len, data_len),
+        145 => wire__crate__api__monitor__stats_snapshot_impl(ptr, rust_vec_len, data_len),
+        147 => wire__crate__api__subs__stop_sub_scheduler_impl(ptr, rust_vec_len, data_len),
+        148 => wire__crate__api__subs__sub_scheduler_running_impl(ptr, rust_vec_len, data_len),
+        149 => wire__crate__api__subs__sub_update_report_impl(ptr, rust_vec_len, data_len),
+        153 => wire__crate__api__engine__subscriber_count_impl(ptr, rust_vec_len, data_len),
+        154 => wire__crate__api__platform__sysproxy_mode_value_impl(ptr, rust_vec_len, data_len),
+        155 => wire__crate__api__platform__sysproxy_type_valid_impl(ptr, rust_vec_len, data_len),
+        156 => wire__crate__api__t16__t16_app_restart_command_impl(ptr, rust_vec_len, data_len),
+        161 => wire__crate__api__t16__t16_backup_import_upstream_merge_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        166 => wire__crate__api__t16__t16_cleanup_logs_tmp_impl(ptr, rust_vec_len, data_len),
-        167 => wire__crate__api__t16__t16_get_core_versions_impl(ptr, rust_vec_len, data_len),
-        168 => wire__crate__api__t16__t16_open_config_dir_impl(ptr, rust_vec_len, data_len),
-        169 => wire__crate__api__t16__t16_rollback_app_upgrade_impl(ptr, rust_vec_len, data_len),
-        170 => wire__crate__api__t16__t16_update_targets_impl(ptr, rust_vec_len, data_len),
-        173 => wire__crate__api__t16__t16_webdav_config_get_impl(ptr, rust_vec_len, data_len),
-        174 => wire__crate__api__t16__t16_webdav_config_save_impl(ptr, rust_vec_len, data_len),
-        181 => {
+        168 => wire__crate__api__t16__t16_cleanup_logs_tmp_impl(ptr, rust_vec_len, data_len),
+        169 => wire__crate__api__t16__t16_get_core_versions_impl(ptr, rust_vec_len, data_len),
+        170 => wire__crate__api__t16__t16_open_config_dir_impl(ptr, rust_vec_len, data_len),
+        171 => wire__crate__api__t16__t16_rollback_app_upgrade_impl(ptr, rust_vec_len, data_len),
+        172 => wire__crate__api__t16__t16_update_targets_impl(ptr, rust_vec_len, data_len),
+        175 => wire__crate__api__t16__t16_webdav_config_get_impl(ptr, rust_vec_len, data_len),
+        176 => wire__crate__api__t16__t16_webdav_config_save_impl(ptr, rust_vec_len, data_len),
+        183 => {
             wire__crate__api__settings__validate_current_settings_impl(ptr, rust_vec_len, data_len)
         }
-        182 => wire__crate__api__platform__validate_custom_proxy_script_impl(
+        184 => wire__crate__api__platform__validate_custom_proxy_script_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        183 => wire__crate__api__subs__validate_sub_item_impl(ptr, rust_vec_len, data_len),
-        184 => wire__crate__api__subs__write_export_file_impl(ptr, rust_vec_len, data_len),
+        185 => wire__crate__api__subs__validate_sub_item_impl(ptr, rust_vec_len, data_len),
+        186 => wire__crate__api__subs__write_export_file_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
 
 // Section: rust2dart
 
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::contract::ActualRuntimeDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.session_id.into_into_dart().into_dart(),
+            self.actual_generation.into_into_dart().into_dart(),
+            self.operation_id.into_into_dart().into_dart(),
+            self.target_profile_id.into_into_dart().into_dart(),
+            self.target_core.into_into_dart().into_dart(),
+            self.core_version.into_into_dart().into_dart(),
+            self.plan_hash.into_into_dart().into_dart(),
+            self.applied_runtime_revision.into_into_dart().into_dart(),
+            self.main_pid.into_into_dart().into_dart(),
+            self.ready_endpoints.into_into_dart().into_dart(),
+            self.last_exit.into_into_dart().into_dart(),
+            self.last_exit_sidecar.into_into_dart().into_dart(),
+            self.last_error.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::contract::ActualRuntimeDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::contract::ActualRuntimeDto>
+    for crate::api::contract::ActualRuntimeDto
+{
+    fn into_into_dart(self) -> crate::api::contract::ActualRuntimeDto {
+        self
+    }
+}
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::contract::AppRestartCommandDto {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
@@ -11417,6 +11614,28 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::contract::EventEnvelopeDto>
     for crate::api::contract::EventEnvelopeDto
 {
     fn into_into_dart(self) -> crate::api::contract::EventEnvelopeDto {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::contract::ExitFactDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.pid.into_into_dart().into_dart(),
+            self.exit_code.into_into_dart().into_dart(),
+            self.at_ms.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::contract::ExitFactDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::contract::ExitFactDto>
+    for crate::api::contract::ExitFactDto
+{
+    fn into_into_dart(self) -> crate::api::contract::ExitFactDto {
         self
     }
 }
@@ -13290,6 +13509,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::contract::SnapshotDto {
             self.runtime_operation_id.into_into_dart().into_dart(),
             self.runtime_error.into_into_dart().into_dart(),
             self.runtime_tun.into_into_dart().into_dart(),
+            self.actual.into_into_dart().into_dart(),
             self.active_jobs.into_into_dart().into_dart(),
             self.capabilities.into_into_dart().into_dart(),
             self.recovery.into_into_dart().into_dart(),
@@ -14241,6 +14461,25 @@ impl SseEncode for String {
     }
 }
 
+impl SseEncode for crate::api::contract::ActualRuntimeDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<String>>::sse_encode(self.session_id, serializer);
+        <u64>::sse_encode(self.actual_generation, serializer);
+        <Option<String>>::sse_encode(self.operation_id, serializer);
+        <Option<String>>::sse_encode(self.target_profile_id, serializer);
+        <Option<String>>::sse_encode(self.target_core, serializer);
+        <Option<String>>::sse_encode(self.core_version, serializer);
+        <Option<String>>::sse_encode(self.plan_hash, serializer);
+        <u64>::sse_encode(self.applied_runtime_revision, serializer);
+        <Option<u32>>::sse_encode(self.main_pid, serializer);
+        <Vec<u16>>::sse_encode(self.ready_endpoints, serializer);
+        <Option<crate::api::contract::ExitFactDto>>::sse_encode(self.last_exit, serializer);
+        <Option<String>>::sse_encode(self.last_exit_sidecar, serializer);
+        <Option<crate::api::contract::ErrorDto>>::sse_encode(self.last_error, serializer);
+    }
+}
+
 impl SseEncode for crate::api::contract::AppRestartCommandDto {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -14744,6 +14983,15 @@ impl SseEncode for crate::api::contract::EventEnvelopeDto {
         <String>::sse_encode(self.kind, serializer);
         <bool>::sse_encode(self.control, serializer);
         <String>::sse_encode(self.payload_json, serializer);
+    }
+}
+
+impl SseEncode for crate::api::contract::ExitFactDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <u32>::sse_encode(self.pid, serializer);
+        <Option<i32>>::sse_encode(self.exit_code, serializer);
+        <i64>::sse_encode(self.at_ms, serializer);
     }
 }
 
@@ -15530,6 +15778,16 @@ impl SseEncode for Option<String> {
     }
 }
 
+impl SseEncode for Option<crate::api::contract::ActualRuntimeDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::contract::ActualRuntimeDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::api::contract::BackupManifestDto> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -15586,6 +15844,16 @@ impl SseEncode for Option<crate::api::contract::ErrorDto> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <crate::api::contract::ErrorDto>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<crate::api::contract::ExitFactDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <crate::api::contract::ExitFactDto>::sse_encode(value, serializer);
         }
     }
 }
@@ -16429,6 +16697,7 @@ impl SseEncode for crate::api::contract::SnapshotDto {
         <Option<String>>::sse_encode(self.runtime_operation_id, serializer);
         <Option<crate::api::contract::ErrorDto>>::sse_encode(self.runtime_error, serializer);
         <Option<crate::api::contract::RuntimeTunDto>>::sse_encode(self.runtime_tun, serializer);
+        <Option<crate::api::contract::ActualRuntimeDto>>::sse_encode(self.actual, serializer);
         <Vec<crate::api::contract::JobDto>>::sse_encode(self.active_jobs, serializer);
         <Vec<crate::api::contract::CapabilityDto>>::sse_encode(self.capabilities, serializer);
         <crate::api::contract::RecoveryDto>::sse_encode(self.recovery, serializer);

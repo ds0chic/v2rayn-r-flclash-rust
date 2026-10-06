@@ -53,6 +53,31 @@ pub struct RuntimeDetail {
     /// adapter label, interface index, route count and the dry-run flag only.
     #[serde(default)]
     pub tun: Option<RuntimeTunDetail>,
+    /// SP-06/SP-17: fact generation advanced by every actual transition
+    /// (first Running publish, live withdraw, unsolicited exit), even though
+    /// the desired plan did not change.
+    #[serde(default)]
+    pub actual_generation: u64,
+    /// SP-17: target core version of the applied plan (`RuntimeTarget.version`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub core_version: Option<String>,
+    /// SP-06/SP-17: most recent unsolicited managed-process exit
+    /// (`pid/exit_code/at_ms`). Cleared by the next successful apply.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_exit: Option<RuntimeExitFact>,
+    /// Sidecar id for `last_exit`, when the exit was a sidecar.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_exit_sidecar: Option<String>,
+}
+
+/// One handle-authoritative process exit observation (SP-06), redacted to
+/// numbers. Never carries config material or credentials.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeExitFact {
+    pub pid: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+    pub at_ms: i64,
 }
 
 /// Redacted TUN facts carried alongside [`RuntimeDetail`] (T14).
@@ -121,6 +146,14 @@ mod tests {
             operation_id: Some("op1".into()),
             error: None,
             tun: None,
+            actual_generation: 2,
+            core_version: Some("25.9.1".into()),
+            last_exit: Some(RuntimeExitFact {
+                pid: 4242,
+                exit_code: Some(-1073741510),
+                at_ms: 1_700_000_100_000,
+            }),
+            last_exit_sidecar: Some("pre-socks".into()),
         };
         let env = EventEnvelope::new(
             EventEpoch(1),

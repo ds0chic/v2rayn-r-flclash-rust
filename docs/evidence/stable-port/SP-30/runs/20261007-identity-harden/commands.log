@@ -1,0 +1,33 @@
+# SP-30 identity-hardening run — exact commands + exits (2026-10-07, no RC package yet)
+# All read-only except synthetic TEMP dirs (auto-removed). 10808 untouched.
+# No proxy/registry/route/TUN/DNS/Run-key changes. No release build. No commit.
+
+[1] powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -DryRun
+    -> docs/evidence/stable-port/SP-30/runs/20261007-identity-harden/dryrun-identity.json
+    exit 0, status=identified (plan now lists ShaFile/Setup/RequireCleanTree/RepoRootOverride)
+
+[2] powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -VerifyFixture
+    -> runs/20261007-identity-harden/verify-fixture.json
+    exit 0, status=pass (fixture_lines=4, synthetic-sub.txt shape ok)
+
+[3] powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_prepare_datadir.ps1 -DryRun
+    -> runs/20261007-identity-harden/dryrun-datadir.json
+    exit 0, status=identified
+    NOTE: this failed to parse (exit 1, ParserError) before the BOM-only fix —
+    the committed file was UTF-8 no-BOM with Chinese strings, which Windows
+    PowerShell 5.1 cannot parse. Fix = 3 BOM bytes, zero content change.
+
+[4] powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity_selftest.ps1
+    -> runs/20261007-identity-harden/selftest-output.txt (is the result JSON)
+    exit 0, status=pass, failed=0, total=15
+    (good-pass, good-nosha-note, dirty/armdrift/armed/nofield/nometa rejects,
+     hashmismatch/missingentry/noshafile/setup-mismatch rejects, setup-pass,
+     cleantree clean-pass + dirty-reject via temp git repo, fixture-shape-pass)
+
+[5] powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -Zip dist/v2rayN-R-1.0.0+1-windows-x64.zip -ShaFile dist/SHA256SUMS -ExpectedCommit 3635392ed519a26b4da1862d99019f07e6a8de5c
+    -> runs/20261007-identity-harden/historic-zip-reject.json
+    exit 1 (EXPECTED), status=fail
+    zip_sha256=f61ccca01bdef7f0e3551f364edd4f453b872c36ecbb249833283ff4716cf8aa matches dist/SHA256SUMS,
+    but build_info={git_commit=672e6666..., git_dirty=True} ->
+    failures=[git_dirty != false, git_commit ... != expected 3635392...].
+    Proves the hardened S0 gate rejects the stale dirty package for RC use.

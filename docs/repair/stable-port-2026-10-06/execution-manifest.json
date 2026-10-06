@@ -592,8 +592,10 @@
       ],
       "test_scope": "actual summary、message ordering、test availability",
       "upstream_symbols": "StatusBarViewModel.cs、StatusBarView.xaml.cs",
-      "status": "identified",
-      "instance_required": false
+      "status": "implemented",
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-17/README.md",
+      "note": "2026-10-07 integrator: SnapshotDto/FRB exposes the actual descriptor end-to-end (net_host RuntimeDetail → application ActualRuntimeView → bridge_api ActualRuntimeDto: target_profile_id/actual_generation/plan_hash/core_version/last_exit/last_error/ready_endpoints); runtime_bridge.dart maps it into RuntimeView.actual. Targeted checks green (runtime/net_host/application/bridge_api tests, sp05+sp17 Dart tests, t06a real-FRB, flutter analyze). Real GUI candidate trace pending → not verified"
     },
     {
       "id": "SP-18",
@@ -751,8 +753,10 @@
       ],
       "test_scope": "delta/coalescing/backpressure/final result",
       "upstream_symbols": "原版Stats/Msg/测试调度服务",
-      "status": "identified",
-      "instance_required": false
+      "status": "implemented",
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-22/README.md",
+      "note": "2026-10-07 continuation: synthetic real-scale tests landed (Rust sp22_scale 6/6, Dart sp_22_scale 9/9; 10k overlay 6.7ms, 50k flood accounting closed, 64KiB trim, generation switch/cancel recovery). Real-core 10k/10k concurrent sampling + long-stability memory curve still pending SP-31 → not verified"
     },
     {
       "id": "SP-23",
@@ -948,7 +952,9 @@
       "test_scope": "core实例配置校验/loopback/TLS/exit",
       "upstream_symbols": "14核心锁与upstream能力矩阵、对应R4-18.P实例",
       "status": "identified",
-      "instance_required": true
+      "instance_required": true,
+      "evidence": "docs/evidence/stable-port/SP-28/README.md",
+      "note": "2026-10-07 L1 continuation: 13/13 areas audited read-only; 3 new gaps (SP28-L1-001 update GeoFiles row → SP-27, SP28-L1-002 cert-chain leaf-only → SP-03, SP28-L1-003 mihomo YAML preprocessing → SP-24); matrix 34→37 rows; per-core GUI→host real-flow instances still pending"
     },
     {
       "id": "SP-29",
@@ -1020,7 +1026,9 @@
       "test_scope": "ACCEPTANCE_MATRIX正常/异常用户流",
       "upstream_symbols": "原版各可见入口、185action/53window完整覆盖",
       "status": "identified",
-      "instance_required": true
+      "instance_required": true,
+      "evidence": "docs/evidence/stable-port/SP-30/README.md",
+      "note": "2026-10-07 prep hardening: identity script now pins zip/setup hash to SHA256SUMS, rejects dirty tree/missing metadata; selftest 15/15; S8-S11 checklist added (actual descriptor, TUN facts, update flags, incremental overlay). Historic dist zip correctly rejected (dirty+drift). Real candidate run blocked on clean rebuild → not verified"
     },
     {
       "id": "SP-31",

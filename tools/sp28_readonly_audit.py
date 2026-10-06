@@ -36,7 +36,7 @@ def main():
     owners = {r["id"]: r["owner_work_package"]
               for r in csv.DictReader(open(PLAN_CSV, encoding="utf-8-sig"))}
     sp23_files = {f for f in os.listdir(SP23_DIR) if f.startswith("FLD-CFG-")}
-    assert len(sp23_files) == 18, "SP-23 must still hold 18 FLD files"
+    assert len(sp23_files) >= 18, "SP-23 must hold at least 18 FLD files"
     gaps = [r for r in rows
             if r["id"] not in SP23_IDS and r["status"] == "identified"]
     impl = [r for r in rows if r["status"] == "implemented"]

@@ -72,8 +72,8 @@ pub use repository::{
 };
 pub use routing::{new_routing_id, InMemoryRoutingRepository, RoutingRepository};
 pub use runtime_client::{
-    AppliedSession, ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
-    TunStatus,
+    AppliedSession, ApplyOutcome, EventSink, ExitFact, NullRuntimeClient, RuntimeClient,
+    RuntimeSnapshot, TunStatus,
 };
 pub use selection::{
     pick_default, present as present_id, resolve_current_group, resolve_visible_selection,
@@ -82,7 +82,9 @@ pub use settings::{
     apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,
     SettingsState,
 };
-pub use snapshot::{assemble, CapabilityEntry, Snapshot, StartupRecovery};
+pub use snapshot::{
+    assemble, ActualRuntimeView, CapabilityEntry, ExitFactView, Snapshot, StartupRecovery,
+};
 pub use speedtest::{
     find_free_test_port, http_get_via_socks, release_test_port, reserve_free_test_port,
     reserved_test_port_count, tcping, DownloadOutcome, ProbeError, ProbeFailureKind, ProfileExItem,

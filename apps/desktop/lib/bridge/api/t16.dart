@@ -8,10 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `app_install_root`, `app_update_spec_inner`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `last_update_flags`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `remember_update_flags`, `update_flags`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
-// These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `UpdateFlags`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`
-// These functions are ignored (category: IgnoreBecauseOwnerTyShouldIgnore): `default`
+// These functions are ignored because they are not marked as `pub`: `app_install_root`, `app_update_spec_inner`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
 
 /// `backup_local` — write a versioned bundle under `dest_root`. Async: copies
 /// files and hashes the database, so it must not run on the UI isolate.
@@ -134,8 +131,14 @@ Future<ExternalSpecDto> t16ApplyAppUpdateSpecWithFlags({
   viaProxy: viaProxy,
 );
 
-/// Backward-compatible no-arg entry point retained until the FRB bindings are
-/// regenerated; it reuses the last recorded check selection (R4-29 gap).
+/// Backward-compatible no-arg entry point (SP-27).
+///
+/// The generated FRB signature takes no arguments, so it cannot carry the
+/// current check toggles. It stages with the safe defaults (stable channel,
+/// direct connection) and never reuses another operation's flags; the
+/// per-operation selection travels through
+/// [`t16_apply_app_update_spec_with_flags`] once the Bridge/UI wiring lands
+/// (SP-00 follow-up).
 Future<ExternalSpecDto> t16ApplyAppUpdateSpec() =>
     RustLib.instance.api.crateApiT16T16ApplyAppUpdateSpec();
 

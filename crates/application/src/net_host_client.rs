@@ -35,7 +35,8 @@ use runtime::{
 };
 
 use crate::runtime_client::{
-    ApplyOutcome, EventSink, OperationStatusView, RuntimeClient, RuntimeSnapshot, TunStatus,
+    ApplyOutcome, EventSink, ExitFact, OperationStatusView, RuntimeClient, RuntimeSnapshot,
+    TunStatus,
 };
 
 /// How long to wait for a freshly launched net-host to accept a connection.
@@ -548,6 +549,16 @@ fn map_snapshot(snapshot: &IpcSnapshot, detail: &RuntimeDetail) -> RuntimeSnapsh
             route_count: tun.route_count,
             dry_run: tun.dry_run,
         }),
+        // SP-17: actual facts flow through untouched; a missing exit stays
+        // `None` instead of being synthesized from the desired plan.
+        actual_generation: detail.actual_generation,
+        core_version: detail.core_version.clone(),
+        last_exit: detail.last_exit.as_ref().map(|exit| ExitFact {
+            pid: exit.pid,
+            exit_code: exit.exit_code,
+            at_ms: exit.at_ms,
+        }),
+        last_exit_sidecar: detail.last_exit_sidecar.clone(),
     }
 }
 
@@ -987,8 +998,15 @@ mod tests {
                 route_count: 2,
                 dry_run: true,
             }),
+            actual_generation: 3,
+            core_version: Some("25.9.1".into()),
+            last_exit: None,
+            last_exit_sidecar: None,
         };
         let snap = map_snapshot(&ipc_snapshot(), &detail);
+        assert_eq!(snap.actual_generation, 3);
+        assert_eq!(snap.core_version.as_deref(), Some("25.9.1"));
+        assert!(snap.last_exit.is_none());
         let tun = snap.tun.expect("tun lease must flow into the snapshot");
         assert_eq!(tun.adapter_name, "v2rayn-tun");
         assert_eq!(tun.interface_index, 9);

@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `content_stem`, `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `materialize_custom_configs`, `parse_error_result`, `parse_import`, `parse_issue_dto`, `register_sub_job`, `remember_sub_report`, `render_export`, `spawn_sub_update`, `sub_jobs`, `sub_reports`, `sub_to_dto`
+// These functions are ignored because they are not marked as `pub`: `commit_import_fail_next`, `content_stem`, `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `materialize_custom_configs`, `parse_error_result`, `parse_import`, `parse_issue_dto`, `register_sub_job`, `remember_sub_report`, `render_export`, `spawn_sub_update`, `sub_jobs`, `sub_reports`, `sub_to_dto`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ParsedImport`
 
 /// `list_sub_items` — every subscription ordered by `Sort`.
@@ -127,12 +127,19 @@ Future<ImportResult> importFromText({
 );
 
 /// `commit_import_text` — single-transaction persistence of an already-parsed
-/// import (R4-16). The input is the DTO list produced by
+/// import (R4-16, SP-14). The input is the DTO list produced by
 /// [`preview_import_text`] plus the target `subid`; every profile is written in
 /// one `replace_sub_profiles` transaction (including the no-group case, where
 /// `subid` is `None`/empty) so there is no per-line fallback and no second
 /// parse. Semantics match `parse_import`: `IsSub = false`, ids assigned, subid
 /// stamped; per-line parse issues are reported by the preview, not here.
+///
+/// SP-14: `Custom`/`Outbound` payloads parked under `extra["RawConfig"]` by the
+/// pure preview are staged to content-addressed files *before* the DB
+/// transaction; a DB failure deletes files staged by this commit so no orphan
+/// survives. `preview_token`/`expected_revision`/`mutation_id` binding lives in
+/// the Dart preview/commit seam plus `application::import_batch` until the
+/// generated `CommitImportRequest` FRB wiring lands (integrator-owned).
 ImportResult commitImportText({
   required List<ProfileDto> profiles,
   String? subid,

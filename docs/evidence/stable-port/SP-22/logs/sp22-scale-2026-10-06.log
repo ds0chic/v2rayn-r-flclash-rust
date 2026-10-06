@@ -1,0 +1,52 @@
+# SP-22 real-scale continuation — command log (2026-10-06, Windows pwsh)
+# Repo: v2rayn-flclash-rust-v2rayn @ 467607e (worktree left uncommitted).
+# Ports: stub controllers bind probed loopback ports >= 11808; 127.0.0.1:10808 never touched.
+# No system proxy / registry / routes / TUN / run-key changes; synthetic data only.
+
+## Rust (new: crates/application/tests/sp22_scale.rs, 6 tests)
+$ cargo test -p application --locked --test sp22_scale -- --nocapture
+sp22 10k delay overlay: 6.7377ms (10000 items)
+sp22 byte-budget: total=350 dropped_lines=9650 dropped_bytes=1804550
+sp22 50k-line flood: 7.2773ms total=10000 dropped_lines=10000 dropped_bytes=422000 rejected=30000 accepted=20000
+sp22 recovery group_delay: 302.6645ms
+test result: ok. 6 passed; 0 failed (exit 0)
+
+$ cargo fmt -p application -p subscriptions -- --check
+exit 0 (after one `cargo fmt` normalized a continuation indent in sp22_scale.rs)
+
+$ cargo clippy -p application -p subscriptions --all-targets --locked -- -D warnings
+exit 0 (after removing one unnecessary `as i32` cast flagged in sp22_scale.rs)
+
+$ cargo test -p application --locked
+exit 0 — lib 342 passed; every integration suite ok, 0 failed
+(includes sp22_scale 6 passed; t15_monitor regression green)
+
+$ cargo test -p subscriptions --locked
+exit 0 — 69+11+23+9+13+18+5 passed across suites, 0 failed
+(subscriptions untouched by this pass; affected-package regression only)
+
+## Dart (new: apps/desktop/test/repair/sp_22_scale_test.dart, 9 tests)
+$ dart format --output=none --set-exit-if-changed lib/features/monitor test/repair/sp_22_scale_test.dart test/repair/sp_22_backpressure_test.dart
+exit 0 (after one `dart format` pass on the new test file)
+
+$ flutter analyze
+No issues found! (exit 0)
+
+$ flutter test test/repair/sp_22_scale_test.dart
+All tests passed! 9/9 (exit 0)
+sp22-scale mergeDelayMap-10k: 3ms
+sp22-scale sortProxies-10k: 10ms
+sp22-scale mergeConnections-10k: 3ms
+sp22-scale filterConnections-10k: 17ms
+sp22-scale mergeLogTail-10k: 0ms
+sp22-scale testGroup-10k: 1ms
+
+$ flutter test test/repair/sp_22_scale_test.dart test/repair/sp_22_backpressure_test.dart test/fix11_monitor_session_test.dart test/repair/sp_20_connections_full_test.dart test/repair/sp_20_connections_prep_test.dart --reporter expanded
+All tests passed! 38/38 (exit 0)
+NOTE: one earlier combined run (compact reporter) reported 4 SP-20 widget
+tests as "did not complete" (flutter_tester flake, no assertion failure);
+per-file rerun passed, and the expanded-reporter combined rerun passed 38/38.
+
+## Not run (per VALIDATION_POLICY.md, out of scope for this card)
+- Workspace-wide gates (`cargo fmt --all`, workspace clippy/test), release builds.
+- Real-core 10k sampling / 24h stability (needs live core + SP-31 perf gate).

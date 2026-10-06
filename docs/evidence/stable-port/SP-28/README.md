@@ -36,3 +36,86 @@
 ## 4. 新建文件与 git 状态
 
 见最终消息。收尾要求：除 `tools/sp28_readonly_audit.py`、`fixtures/synthetic/sp28/`（14）、本目录（3）、`docs/evidence/stable-port/SP-23/SP-28-readonly-note.md` 外无其它改动；生产代码零改动。
+
+## 5. L1 续审（2026-10-06，只读；`field-gap-matrix.csv` 34 → 37 行）
+
+方法：沿上游冻结 `work/research-v2rayn/source/2dust-v2rayN-2813985/v2rayN/ServiceLib`
+（`Handler/CoreConfigHandler.cs`、`Services/CoreConfig/*`、`Manager/*`、`ViewModels/*`、
+`Enums/*`、`Models/*`）逐区 `rg`/源码对照 `crates/`、`apps/desktop/lib` 真实符号；
+只读查询（`rg`/CSV 解析），未启动任何内核进程，未写 OS（代理/路由/TUN/DNS/Run 键），
+未跑 cargo/flutter，未改 `SP-28/` 之外任何文件，不 commit。
+新增行 `row_kind=l1`（行为级 L1 缺口，非 180 字段表成员），状态均为 identified
+（已登记、正式入口→真实 flow/exit 未验证，不写 verified）。
+
+- SP28-L1-001（update，→SP-27）：更新窗无 GeoFiles 行。上游
+  `ViewModels/CheckUpdateViewModel.cs:82-91`（`GetGeoFileCheckUpdateModel`，
+  `IsGeoFile=true`，`SelectedCoreTypes` 存 `GeoFiles`）、`:195-197`（选中即走
+  `CheckUpdateGeo`）、`:235-247`（`UpdateService.UpdateGeoFileAll`）；
+  当前 `crates/application/src/update_service.rs:131-135`（`ui_targets` 仅
+  v2rayN+14 核）、`apps/desktop/lib/features/update/update_controller.dart:130-151,213-221`
+ （targets/seed/save 均为 core-only），`features/update` 内零 geo 命中。
+- SP28-L1-002（custom/profile，→SP-03）：证书链获取仅叶子。上游
+  `ViewModels/AddServerViewModel.cs:519-544`（`FetchCertChain` 经
+  `CertPemManager.GetCertChainPemAsync` + `ConcatenatePemChain` 返回完整链）；
+  当前 `apps/desktop/lib/features/profiles/profile_fields.dart:945-975`
+ （`leafOnly` 恒 true，`dart:io` 只暴露叶子），接线见
+  `profile_editor_dialog.dart:440-468`。
+- SP28-L1-003（mihomo/clash，→SP-24）：custom YAML 预处理缺失。上游
+  `Services/CoreConfig/CoreConfigClashService.cs:55-65`（`!<str>` 标签替换、
+  `<<:`/`*`/`&` 锚预处理）与 `:123-143`（REALITY short-id 防 float 加引号）；
+  当前 `crates/application/src/mixin.rs:49-60` 为裸 `serde_yaml` 解析，
+  `:75-125` 的 merge 复刻了改写/mixin（`mixed-port`/`log-level`/`external-controller`/
+  `secret`/`allow-lan`/`ipv6`/`mode`/TUN/`prepend-/append-/removed-`）但无上述预处理。
+
+逐区结论（有缺口则已编号，无则给出守卫证据，不推测）：
+xray——`CoreConfigHandler.cs:28-30` 非 custom/非 sing-box 统一走 V2ray 路径，
+  当前 `codegen.rs:313-319` 同策略；balancer/observatory（`xray/routing.rs`、
+  `xray/outbound.rs:1084-1132`）、sing-box 能力门（`singbox/mod.rs:29-45` 11 类 =
+  `Global.cs:378-391`）、日志映射（`singbox/log.rs:11-21` = `SingboxLogService.cs:6-38`）、
+  geosite/geoip→ruleset（`singbox/ruleset.rs:1-155` = `SingboxRulesetService.cs`）、
+  TUN inbound（`singbox/inbound.rs:27-70`）、direct-exe 规则
+  （`xray/routing.rs:166-172` 对 `V2rayRoutingService.cs:239-278`）均对齐。
+mihomo/clash——Clash API 客户端覆盖
+  `ClashApiManager.cs:11-184` 全方法（`clash_api.rs:194-475`，
+  `update_mode` 即 `UpdateClashMode→UpdateConfig` 唯一生产调用）；
+  组 delay 批量（`clashGroupDelay`，`monitor_controller.dart:608`）对齐；
+  仅 SP28-L1-003 新增。
+custom——`generate()` 分发、`native_custom`（`engine.rs:4875-4927`）与上游
+  `CoreConfigHandler.cs:16-31`（mihomo-custom merge、其余原文直通）同形；
+  mihomo 非 custom 走 xray JSON 与上游 else 分支一致；`ECoreType` 14 核+99
+  （`enums.rs:140-255`）与上游 `ECoreType.cs` 对齐；Clash 订阅全文导入
+  （`subscriptions/.../batch.rs:74-75 is_clash_full` 对 `ConfigHandler.cs:1768`）对齐；
+  仅 SP28-L1-002 新增。
+tun——`TunModeItem` 11 字段全量存在（`settings.rs:266-306` 对 `ConfigItems.cs:141-154`），
+  计划/校验（`tun_plan.rs`、`codegen.rs:439-447`）对齐；单 TUN provider 抑制
+  （`engine.rs:4859-4874`）保留。
+dns——`DNSItem` 9 字段（`entities.rs:131-144` 对 `DNSItem.cs`）、`SimpleDNSItem`
+  18 字段、`HappyEyeballs4RayItem` 对齐；`domain_dns_address`/
+  `strategy4_freedom` 到达 xray（`xray/dns.rs:211-264,405-457`）与 sing-box
+  （`singbox/dns.rs:727-732`）均有消费者。
+routing——`RoutingProfile` 13 字段（`entities.rs:92-109` 对 `RoutingItem.cs`）、
+  `RulesItem` 13 字段（`entities.rs:61-78` 对 `RulesItem.cs`，含 `process`/
+  `enabled`/`rule_type`）、`ERuleMode`/`ERuleType`/`ESysProxyType` 枚举值对齐。
+subscriptions——`SubItem` 17 字段全量（`entities.rs:18-42` 对 `SubItem.cs`）；
+  调度器（订阅+Geo 定时，`engine.rs:5097-5225`）对 `TaskManager.cs:22-155`
+  同形（1 分钟订阅检查、20 分钟落盘、小时级 Geo、日级更新检查）。
+update——core 更新管线（`update_service.rs` + `updater/channel.rs` 对
+  `UpdateService.cs:49-137`/`CoreInfoManager.cs`）对齐；仅 SP28-L1-001 新增
+  （更新窗 Geo 行）。
+platform/proxy——PAC 服务（`platform/src/pac.rs:25-92` 对 `PacManager.cs:15-58`，
+  `__PROXY__` 替换一致）、bypass `<local>;`（`sysproxy/windows.rs:456-469` 对
+  `SysProxyHandler.cs:85-91`）对齐；热键 5 动作（`hotkeys.dart:9-27` 对
+  `EGlobalHotkey.cs`）+ 编辑期 pause（`hotkeys.dart:475-548` 对
+  `HotkeyManager.cs:10,145`）对齐。
+webdav——check/list/upload/download（`webdav.rs:198-267` 对
+  `WebDavManager.cs:98-183`）、远端目录/文件名（`webdav.rs:14-16`
+  `v2rayN_backup`/`backup.zip` 对 `WebDavManager.cs:13-15`）、远端备份/恢复接线
+  （`backup_controller.dart:518-560` 对 `BackupAndRestoreViewModel.cs:60-90`）对齐。
+backup——本地备份/恢复/校验/识别（`backup_service.rs:72-335` 对
+  `BackupAndRestoreViewModel.cs:92-143`）同形；`backup_*.zip` 往返
+  （`backup_picker.dart:6-11`）对齐。
+
+附带只读发现（非缺口行，不改其它目录）：`tools/sp28_readonly_audit.py:39`
+  断言 SP-23 仅 18 个 FLD 文件，当前已有 36 个（第二批 +18），该脚本现 exit=1；
+  修脚本属整合者事项，本卡仅记录。core-matrix.csv 未变（L1 仍全部 blocked，
+  待 SP-24/SP-28 L1 门禁）。

@@ -29,8 +29,7 @@ Future<void> openOptionSettingWindow(
   final snapshotRevision = ref.read(settingsControllerProvider).revision;
   final opened = await OptionWindowHost.instance.open(
     snapshot: snapshot,
-    onSave: (draftJson) =>
-        _applyOptionDraft(ref, draftJson, snapshotRevision),
+    onSave: (draftJson) => _applyOptionDraft(ref, draftJson, snapshotRevision),
   );
   if (!opened && context.mounted) {
     ScaffoldMessenger.maybeOf(context)

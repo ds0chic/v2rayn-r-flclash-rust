@@ -20,6 +20,7 @@ pub mod mixin;
 pub mod monitor;
 pub mod net_host_client;
 pub mod platform_service;
+pub mod recoverable_commit;
 pub mod repository;
 pub mod routing;
 pub mod runtime_client;

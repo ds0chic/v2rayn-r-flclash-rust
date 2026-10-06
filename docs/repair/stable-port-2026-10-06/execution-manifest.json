@@ -91,7 +91,7 @@
       ],
       "test_scope": "staging/fsync/DB commit/rename/recovery每阶段故障",
       "upstream_symbols": "ServiceLib/Handler/ConfigHandler.cs、SQLite持久化源；SD-02",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {

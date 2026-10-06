@@ -193,7 +193,10 @@ class SettingsController extends Notifier<SettingsViewState> {
     _normalizeRootCertProvider(draft);
     final result = ref
         .read(bridgePortProvider)
-        .saveSettingsJson(jsonEncode(draft), _revisionFor(draft, expectedRevision));
+        .saveSettingsJson(
+          jsonEncode(draft),
+          _revisionFor(draft, expectedRevision),
+        );
     if (result.ok) {
       final newRevision = result.newRevision?.toInt() ?? state.revision;
       state = state.copyWith(

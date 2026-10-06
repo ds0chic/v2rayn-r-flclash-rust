@@ -5,8 +5,9 @@
 //! access: T03 replaces [`NullRuntimeClient`] with the net-host client and T04
 //! replaces [`InMemoryProfileRepository`] with SQLite.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -23,6 +24,12 @@ use serde_json::Value;
 
 use crate::jobs::{JobManager, JobView};
 use crate::net_host_client::NetHostClient;
+use crate::recoverable_commit::{
+    blocked_receipt, commit_id_for, committed_receipt, contract_error, document_token,
+    domain_to_contract, not_started_receipt, parse_receipt, persist_to_contract, rejected_receipt,
+    settings_hash_of, unknown_receipt, CommitStage, CommitTestFault, MemCommit, MemPending,
+    SettingsCommitSnapshot, ValidatedSave,
+};
 use crate::repository::{
     InMemoryProfileRepository, InMemorySubRepository, PageRequest, ProfileFilter, ProfilePage,
     ProfileRepository, ProfileSort, RevisionStore, SubRepository,
@@ -54,6 +61,7 @@ use crate::subs::{
     SubItem, SubScheduler, SubUpdateEntry, SubUpdateOutcome, SubUpdateReport, SubUpdateRequest,
 };
 use crate::tun_plan::{self, TunPlanHints};
+use ipc_contract::stable::{DatasetEpoch, SettingsSaveReceipt};
 
 /// Application data directory override.
 pub const DATA_DIR_ENV: &str = "V2RAYN_R_DATA_DIR";
@@ -162,6 +170,20 @@ pub struct AppEngine {
     /// instead of silently serving an in-memory database or a fake `Accepted`
     /// (D20). Always `None` for a successfully opened or in-memory engine.
     storage_error: Arc<Mutex<Option<DomainError>>>,
+    /// Fault injection for the recoverable commit path (SP-02). Production
+    /// always leaves [`CommitTestFault::None`]; tests set a fault to prove
+    /// each stage fails and recovers. Never read from user input.
+    commit_fault: Arc<Mutex<CommitTestFault>>,
+    /// Serialises recoverable commits against recovery: a save holds it
+    /// briefly, recovery holds it for the whole pass. A save that cannot take
+    /// it reports `RecoveryRequired` instead of queuing behind recovery.
+    commit_lock: Arc<Mutex<()>>,
+    /// Completed mutations for engines without a data directory (memory only).
+    mem_commits: Arc<Mutex<HashMap<String, MemCommit>>>,
+    /// Unresolved mutation for engines without a data directory.
+    mem_pending: Arc<Mutex<Option<MemPending>>>,
+    /// Set while an in-memory engine has an unresolved commit.
+    mem_recovery: Arc<AtomicBool>,
 }
 
 // ---------------------------------------------------------------------------
@@ -339,6 +361,11 @@ impl AppEngine {
             apply_facts: Arc::new(Mutex::new(None)),
             restore_epoch: Arc::new(AtomicU64::new(0)),
             storage_error: Arc::new(Mutex::new(None)),
+            commit_fault: Arc::new(Mutex::new(CommitTestFault::None)),
+            commit_lock: Arc::new(Mutex::new(())),
+            mem_commits: Arc::new(Mutex::new(HashMap::new())),
+            mem_pending: Arc::new(Mutex::new(None)),
+            mem_recovery: Arc::new(AtomicBool::new(false)),
         };
         engine.ensure_builtin_routing_dns();
         engine
@@ -420,6 +447,11 @@ impl AppEngine {
             apply_facts: Arc::new(Mutex::new(None)),
             restore_epoch: Arc::new(AtomicU64::new(0)),
             storage_error: Arc::new(Mutex::new(None)),
+            commit_fault: Arc::new(Mutex::new(CommitTestFault::None)),
+            commit_lock: Arc::new(Mutex::new(())),
+            mem_commits: Arc::new(Mutex::new(HashMap::new())),
+            mem_pending: Arc::new(Mutex::new(None)),
+            mem_recovery: Arc::new(AtomicBool::new(false)),
         };
         engine.ensure_builtin_routing_dns();
         Ok(engine)
@@ -1633,6 +1665,7 @@ impl AppEngine {
         expected_revision: u64,
     ) -> Result<SaveSettingsOutcome, DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let mut guard = self
             .settings
             .lock()
@@ -1685,6 +1718,7 @@ impl AppEngine {
         // Same store guard as `save_settings`: a broken store must never
         // answer a group save as success (AUD-ROOT-04).
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let mut guard = self
             .settings
             .lock()
@@ -1718,6 +1752,1005 @@ impl AppEngine {
         // A settings change invalidates the applied runtime until re-applied.
         self.bump_desired_for_change()?;
         Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
+    }
+
+    // -- SP-02 recoverable commit ------------------------------------------
+
+    /// The current dataset epoch. Ordinary settings mutations keep it; only a
+    /// restore/import replacement bumps it via [`Self::prepare_restore`], so a
+    /// stale request can never take effect after a restore (plan §3.1).
+    pub fn dataset_epoch(&self) -> DatasetEpoch {
+        self.restore_epoch.load(Ordering::Acquire)
+    }
+
+    /// Test-only fault injection for the recoverable commit path. Production
+    /// always leaves [`CommitTestFault::None`]; the value is never read from
+    /// user input or persisted.
+    pub fn set_commit_test_fault(&self, fault: CommitTestFault) {
+        if let Ok(mut guard) = self.commit_fault.lock() {
+            *guard = fault;
+        }
+    }
+
+    fn commit_fault(&self) -> CommitTestFault {
+        self.commit_fault
+            .lock()
+            .map(|guard| *guard)
+            .unwrap_or(CommitTestFault::None)
+    }
+
+    /// Whether new writes must stay blocked until recovery confirms the
+    /// pending journals. An unreadable journal fails closed (blocked).
+    pub fn pending_commit_recovery(&self) -> bool {
+        if self.commit_lock.try_lock().is_err() {
+            return true;
+        }
+        match &self.data_dir {
+            Some(dir) => {
+                if persistence::commit::recovery_required(dir) {
+                    return true;
+                }
+                match persistence::commit::pending(dir) {
+                    Ok(list) => !list.is_empty(),
+                    Err(_) => true,
+                }
+            }
+            None => self.mem_recovery.load(Ordering::Acquire),
+        }
+    }
+
+    fn ensure_commit_writable(&self) -> Result<(), DomainError> {
+        if self.pending_commit_recovery() {
+            return Err(
+                DomainError::new(domain::codes::INTERNAL, "error.recovery_required")
+                    .with_detail("a previous commit is unresolved; run recovery before writing")
+                    .retryable(),
+            );
+        }
+        Ok(())
+    }
+
+    /// `save_settings_commit` — recoverable whole-tree save (plan §3.3/§5.1).
+    ///
+    /// Coordinates one SQLite transaction with one `guiNConfig.json` publish
+    /// through the [`persistence::commit`] journal and reports a frozen
+    /// [`SettingsSaveReceipt`]: rejected saves pin no `new_revision`; a DB
+    /// half committed without its file publish is `CommitUnknown` and blocks
+    /// new writes with `RecoveryRequired` until recovery confirms.
+    pub fn save_settings_commit(
+        &self,
+        dataset_epoch: DatasetEpoch,
+        expected_revision: u64,
+        mutation_id: &str,
+        settings: AppSettings,
+    ) -> SettingsSaveReceipt {
+        if let Err(error) = self.guard_storage() {
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "storage",
+                domain_to_contract(&error),
+            );
+        }
+        let _commit_guard = match self.commit_lock.try_lock() {
+            Ok(guard) => guard,
+            Err(_) => return blocked_receipt(mutation_id, dataset_epoch),
+        };
+        if mutation_id.trim().is_empty() {
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "mutation",
+                contract_error(
+                    domain::codes::INVALID_ARGUMENT,
+                    "error.invalid_mutation",
+                    Some("mutation_id must not be empty".to_string()),
+                    false,
+                ),
+            );
+        }
+        if dataset_epoch != self.dataset_epoch() {
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "epoch",
+                contract_error(
+                    domain::codes::CONFLICT,
+                    "error.stale_epoch",
+                    Some(format!(
+                        "mutation epoch {dataset_epoch} does not match dataset epoch {}",
+                        self.dataset_epoch()
+                    )),
+                    false,
+                ),
+            );
+        }
+        // Pure checks first: normalise + validate, then the idempotency key.
+        // A replayed mutation returns its stored receipt even if the live
+        // revision has moved on; different content under the same mutation id
+        // is a conflict. Both precede the stale-revision gate so a retry with
+        // the original parameters never looks like a new stale write.
+        let next = normalize_for_save(settings);
+        if let Err(error) = validate_settings(&next) {
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "validation",
+                domain_to_contract(&error),
+            );
+        }
+        let settings_hash = settings_hash_of(&next);
+        if self.data_dir.is_none() {
+            return self.save_settings_commit_memory(
+                dataset_epoch,
+                expected_revision,
+                mutation_id,
+                next,
+                &settings_hash,
+            );
+        }
+        let dir = self.data_dir.clone().unwrap_or_default();
+        if persistence::commit::recovery_required(&dir)
+            || persistence::commit::pending(&dir)
+                .map(|list| !list.is_empty())
+                .unwrap_or(true)
+        {
+            return blocked_receipt(mutation_id, dataset_epoch);
+        }
+        if let Ok(Some(done)) = persistence::commit::load_receipt(&dir, mutation_id) {
+            if done.content_hash == settings_hash {
+                if let Some(receipt) = parse_receipt(&done.receipt_json) {
+                    return receipt;
+                }
+                return unknown_receipt(
+                    mutation_id,
+                    "",
+                    dataset_epoch,
+                    "journal",
+                    contract_error(
+                        domain::codes::INTERNAL,
+                        "error.storage",
+                        Some("stored completion is unreadable".to_string()),
+                        true,
+                    ),
+                );
+            }
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "mutation",
+                contract_error(
+                    domain::codes::CONFLICT,
+                    "error.mutation_conflict",
+                    Some(format!(
+                        "mutation `{mutation_id}` was already committed with different content"
+                    )),
+                    false,
+                ),
+            );
+        }
+        let snapshot = match self.snapshot_settings_for_commit() {
+            Ok(snapshot) => snapshot,
+            Err(error) => {
+                return rejected_receipt(
+                    mutation_id,
+                    dataset_epoch,
+                    "storage",
+                    domain_to_contract(&error),
+                );
+            }
+        };
+        if snapshot.revision != expected_revision {
+            let stale = DomainError::stale_revision(expected_revision, snapshot.revision);
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "revision",
+                domain_to_contract(&stale),
+            );
+        }
+        let validated = self.build_validated_save(&snapshot, mutation_id, next, &settings_hash);
+        let fault = self.commit_fault();
+        let staged_rel = format!(
+            "{}/{}/{mutation_id}/guiNConfig.json",
+            persistence::commit::JOURNAL_DIR,
+            "staging"
+        );
+        let record = persistence::commit::new_record(
+            mutation_id,
+            &validated.commit_id,
+            1,
+            dataset_epoch,
+            expected_revision,
+            &validated.settings_hash,
+            &validated.doc_hash,
+            &staged_rel,
+            "guiNConfig.json",
+        );
+        if let Err(error) = persistence::commit::begin(&dir, &record, &validated.staged_text, fault)
+        {
+            let _ = persistence::commit::set_recovery_required(&dir);
+            return unknown_receipt(
+                mutation_id,
+                &validated.commit_id,
+                dataset_epoch,
+                "journal",
+                persist_to_contract(&error),
+            );
+        }
+        if fault == CommitTestFault::CrashAfterStage {
+            let _ = persistence::commit::set_recovery_required(&dir);
+            return unknown_receipt(
+                mutation_id,
+                &validated.commit_id,
+                dataset_epoch,
+                "commit",
+                contract_error(
+                    "E_COMMIT_UNKNOWN",
+                    "error.commit_unknown",
+                    Some("stopped after staging, before the database commit".to_string()),
+                    true,
+                ),
+            );
+        }
+        if fault == CommitTestFault::FailDbCommit {
+            let _ = persistence::commit::abandon(&dir, mutation_id);
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "db",
+                contract_error(
+                    "E_FAULT_INJECTED",
+                    "error.storage",
+                    Some("injected database commit failure".to_string()),
+                    true,
+                ),
+            );
+        }
+        if let Err(error) = self.commit_settings_db(&dir, mutation_id, &validated) {
+            let _ = persistence::commit::abandon(&dir, mutation_id);
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "db",
+                persist_to_contract(&error),
+            );
+        }
+        if let Err(error) = persistence::commit::mark_db_committed(&dir, mutation_id) {
+            let _ = persistence::commit::set_recovery_required(&dir);
+            return unknown_receipt(
+                mutation_id,
+                &validated.commit_id,
+                dataset_epoch,
+                "journal",
+                persist_to_contract(&error),
+            );
+        }
+        if fault == CommitTestFault::CrashAfterDbCommit {
+            let _ = persistence::commit::set_recovery_required(&dir);
+            return unknown_receipt(
+                mutation_id,
+                &validated.commit_id,
+                dataset_epoch,
+                "commit",
+                contract_error(
+                    "E_COMMIT_UNKNOWN",
+                    "error.commit_unknown",
+                    Some("stopped after the database commit, before the file publish".to_string()),
+                    true,
+                ),
+            );
+        }
+        if let Err(error) = persistence::commit::publish_staged(&dir, mutation_id, fault) {
+            let _ = persistence::commit::set_recovery_required(&dir);
+            return unknown_receipt(
+                mutation_id,
+                &validated.commit_id,
+                dataset_epoch,
+                "publish",
+                persist_to_contract(&error),
+            );
+        }
+        let token = document_token(
+            &validated.commit_id,
+            validated.new_revision,
+            &validated.settings_hash,
+        );
+        let receipt = committed_receipt(
+            mutation_id,
+            &validated.commit_id,
+            dataset_epoch,
+            validated.new_revision,
+            &token,
+            &validated.settings_hash,
+        );
+        let done = persistence::commit::DoneRecord {
+            receipt_json: serde_json::to_string(&receipt).unwrap_or_else(|_| "{}".to_string()),
+            content_hash: validated.settings_hash.clone(),
+        };
+        if let Err(error) = persistence::commit::finish(&dir, mutation_id, &done) {
+            let _ = persistence::commit::set_recovery_required(&dir);
+            return unknown_receipt(
+                mutation_id,
+                &validated.commit_id,
+                dataset_epoch,
+                "journal",
+                persist_to_contract(&error),
+            );
+        }
+        self.install_committed_doc(&validated.doc, validated.new_desired);
+        let _ = persistence::commit::clear_recovery_required(&dir);
+        receipt
+    }
+
+    /// Query the stored outcome of one mutation. Unknown mutations are
+    /// `NotStarted` with no revision; unresolved journals are `CommitUnknown`.
+    /// A query never replays a non-idempotent write.
+    pub fn query_settings_mutation(
+        &self,
+        dataset_epoch: DatasetEpoch,
+        mutation_id: &str,
+    ) -> SettingsSaveReceipt {
+        if let Err(error) = self.guard_storage() {
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "storage",
+                domain_to_contract(&error),
+            );
+        }
+        if self.data_dir.is_none() {
+            if let Ok(commits) = self.mem_commits.lock() {
+                if let Some(found) = commits.get(mutation_id) {
+                    if let Some(receipt) = parse_receipt(&found.receipt_json) {
+                        return receipt;
+                    }
+                }
+            }
+            if let Ok(pending) = self.mem_pending.lock() {
+                if let Some(active) = pending.as_ref() {
+                    if active.mutation_id == mutation_id {
+                        return unknown_receipt(
+                            mutation_id,
+                            &active.commit_id,
+                            active.dataset_epoch,
+                            "commit",
+                            contract_error(
+                                "E_COMMIT_UNKNOWN",
+                                "error.commit_unknown",
+                                Some("mutation has an unresolved commit".to_string()),
+                                true,
+                            ),
+                        );
+                    }
+                }
+            }
+            return not_started_receipt(mutation_id, dataset_epoch);
+        }
+        let dir = self.data_dir.clone().unwrap_or_default();
+        if let Ok(Some(done)) = persistence::commit::load_receipt(&dir, mutation_id) {
+            if let Some(receipt) = parse_receipt(&done.receipt_json) {
+                return receipt;
+            }
+        }
+        if let Ok(Some(record)) = persistence::commit::load(&dir, mutation_id) {
+            let phase = if record.stage == CommitStage::DbCommitted {
+                "publish"
+            } else {
+                "commit"
+            };
+            return unknown_receipt(
+                mutation_id,
+                &record.commit_id,
+                record.dataset_epoch,
+                phase,
+                contract_error(
+                    "E_COMMIT_UNKNOWN",
+                    "error.commit_unknown",
+                    Some(format!(
+                        "mutation `{mutation_id}` has an unresolved journal"
+                    )),
+                    true,
+                ),
+            );
+        }
+        not_started_receipt(mutation_id, dataset_epoch)
+    }
+
+    /// Recover every unresolved journal: discard staged-only mutations
+    /// (rollback) and publish DB-committed ones (roll-forward). Returns one
+    /// receipt per resolved mutation, oldest first. While this runs, new
+    /// writes report `RecoveryRequired`; afterwards the snapshot is consistent
+    /// and writable again.
+    pub fn recover_pending_commits(&self) -> Vec<SettingsSaveReceipt> {
+        if let Err(error) = self.guard_storage() {
+            return vec![rejected_receipt(
+                "recovery",
+                self.dataset_epoch(),
+                "storage",
+                domain_to_contract(&error),
+            )];
+        }
+        let _commit_guard = match self.commit_lock.lock() {
+            Ok(guard) => guard,
+            Err(_) => {
+                return vec![blocked_receipt("recovery", self.dataset_epoch())];
+            }
+        };
+        if self.data_dir.is_none() {
+            return self.recover_memory_commits();
+        }
+        let dir = self.data_dir.clone().unwrap_or_default();
+        let pendings = match persistence::commit::pending(&dir) {
+            Ok(list) => list,
+            Err(error) => {
+                let _ = persistence::commit::set_recovery_required(&dir);
+                return vec![unknown_receipt(
+                    "recovery",
+                    "",
+                    self.dataset_epoch(),
+                    "journal",
+                    persist_to_contract(&error),
+                )];
+            }
+        };
+        let mut out = Vec::new();
+        for record in &pendings {
+            out.push(self.recover_one_commit(&dir, record));
+        }
+        if persistence::commit::pending(&dir)
+            .map(|list| list.is_empty())
+            .unwrap_or(false)
+        {
+            let _ = persistence::commit::clear_recovery_required(&dir);
+        }
+        out
+    }
+
+    /// Memory-only variant of [`Self::save_settings_commit`] for engines
+    /// without a data directory. Same receipt contract, same stage order, no
+    /// files involved.
+    fn save_settings_commit_memory(
+        &self,
+        dataset_epoch: DatasetEpoch,
+        expected_revision: u64,
+        mutation_id: &str,
+        next: AppSettings,
+        settings_hash: &str,
+    ) -> SettingsSaveReceipt {
+        if let Ok(commits) = self.mem_commits.lock() {
+            if let Some(found) = commits.get(mutation_id) {
+                if found.content_hash == settings_hash {
+                    if let Some(receipt) = parse_receipt(&found.receipt_json) {
+                        return receipt;
+                    }
+                }
+                return rejected_receipt(
+                    mutation_id,
+                    dataset_epoch,
+                    "mutation",
+                    contract_error(
+                        domain::codes::CONFLICT,
+                        "error.mutation_conflict",
+                        Some(format!(
+                            "mutation `{mutation_id}` was already committed with different content"
+                        )),
+                        false,
+                    ),
+                );
+            }
+        }
+        let snapshot = match self.snapshot_settings_for_commit() {
+            Ok(snapshot) => snapshot,
+            Err(error) => {
+                return rejected_receipt(
+                    mutation_id,
+                    dataset_epoch,
+                    "storage",
+                    domain_to_contract(&error),
+                );
+            }
+        };
+        if snapshot.revision != expected_revision {
+            let stale = DomainError::stale_revision(expected_revision, snapshot.revision);
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "revision",
+                domain_to_contract(&stale),
+            );
+        }
+        let validated = self.build_validated_save(&snapshot, mutation_id, next, settings_hash);
+        let fault = self.commit_fault();
+        if fault == CommitTestFault::FailJournalWrite {
+            self.mem_recovery.store(true, Ordering::Release);
+            return unknown_receipt(
+                mutation_id,
+                &validated.commit_id,
+                dataset_epoch,
+                "journal",
+                contract_error(
+                    "E_FAULT_INJECTED",
+                    "error.storage",
+                    Some("injected journal failure".to_string()),
+                    true,
+                ),
+            );
+        }
+        if fault == CommitTestFault::CrashAfterStage || fault == CommitTestFault::FailDbCommit {
+            if fault == CommitTestFault::CrashAfterStage {
+                if let Ok(mut pending) = self.mem_pending.lock() {
+                    *pending = Some(MemPending {
+                        mutation_id: mutation_id.to_string(),
+                        commit_id: validated.commit_id.clone(),
+                        dataset_epoch,
+                        expected_revision,
+                        content_hash: validated.settings_hash.clone(),
+                        stage: CommitStage::Staged,
+                        doc: validated.doc.clone(),
+                        new_revision: validated.new_revision,
+                        new_desired: validated.new_desired,
+                    });
+                }
+                self.mem_recovery.store(true, Ordering::Release);
+                return unknown_receipt(
+                    mutation_id,
+                    &validated.commit_id,
+                    dataset_epoch,
+                    "commit",
+                    contract_error(
+                        "E_COMMIT_UNKNOWN",
+                        "error.commit_unknown",
+                        Some("stopped before the database commit".to_string()),
+                        true,
+                    ),
+                );
+            }
+            return rejected_receipt(
+                mutation_id,
+                dataset_epoch,
+                "db",
+                contract_error(
+                    "E_FAULT_INJECTED",
+                    "error.storage",
+                    Some("injected database commit failure".to_string()),
+                    true,
+                ),
+            );
+        }
+        if fault == CommitTestFault::CrashAfterDbCommit || fault == CommitTestFault::FailFilePublish
+        {
+            if let Ok(mut pending) = self.mem_pending.lock() {
+                *pending = Some(MemPending {
+                    mutation_id: mutation_id.to_string(),
+                    commit_id: validated.commit_id.clone(),
+                    dataset_epoch,
+                    expected_revision,
+                    content_hash: validated.settings_hash.clone(),
+                    stage: CommitStage::DbCommitted,
+                    doc: validated.doc.clone(),
+                    new_revision: validated.new_revision,
+                    new_desired: validated.new_desired,
+                });
+            }
+            self.mem_recovery.store(true, Ordering::Release);
+            return unknown_receipt(
+                mutation_id,
+                &validated.commit_id,
+                dataset_epoch,
+                "publish",
+                contract_error(
+                    if fault == CommitTestFault::FailFilePublish {
+                        "E_FAULT_INJECTED"
+                    } else {
+                        "E_COMMIT_UNKNOWN"
+                    },
+                    if fault == CommitTestFault::FailFilePublish {
+                        "error.storage"
+                    } else {
+                        "error.commit_unknown"
+                    },
+                    Some("database committed without the file publish".to_string()),
+                    true,
+                ),
+            );
+        }
+        let token = document_token(
+            &validated.commit_id,
+            validated.new_revision,
+            &validated.settings_hash,
+        );
+        let receipt = committed_receipt(
+            mutation_id,
+            &validated.commit_id,
+            dataset_epoch,
+            validated.new_revision,
+            &token,
+            &validated.settings_hash,
+        );
+        if let Ok(mut commits) = self.mem_commits.lock() {
+            commits.insert(
+                mutation_id.to_string(),
+                MemCommit {
+                    receipt_json: serde_json::to_string(&receipt)
+                        .unwrap_or_else(|_| "{}".to_string()),
+                    content_hash: validated.settings_hash.clone(),
+                },
+            );
+        }
+        self.install_committed_doc(&validated.doc, validated.new_desired);
+        receipt
+    }
+
+    /// Memory-only recovery: discard staged-only pendings, roll forward
+    /// DB-committed ones.
+    fn recover_memory_commits(&self) -> Vec<SettingsSaveReceipt> {
+        let pending = self.mem_pending.lock().map(|mut guard| guard.take());
+        let Some(active) = pending.unwrap_or(None) else {
+            self.mem_recovery.store(false, Ordering::Release);
+            return Vec::new();
+        };
+        if active.stage == CommitStage::Staged {
+            let receipt = rejected_receipt(
+                &active.mutation_id,
+                active.dataset_epoch,
+                "commit",
+                contract_error(
+                    "E_COMMIT_ROLLED_BACK",
+                    "error.commit_rolled_back",
+                    Some(
+                        "the database commit never happened; staged content discarded".to_string(),
+                    ),
+                    false,
+                ),
+            );
+            if let Ok(mut commits) = self.mem_commits.lock() {
+                commits.insert(
+                    active.mutation_id.clone(),
+                    MemCommit {
+                        receipt_json: serde_json::to_string(&receipt)
+                            .unwrap_or_else(|_| "{}".to_string()),
+                        content_hash: active.content_hash.clone(),
+                    },
+                );
+            }
+            self.mem_recovery.store(false, Ordering::Release);
+            return vec![receipt];
+        }
+        let token = document_token(&active.commit_id, active.new_revision, &active.content_hash);
+        let receipt = committed_receipt(
+            &active.mutation_id,
+            &active.commit_id,
+            active.dataset_epoch,
+            active.new_revision,
+            &token,
+            &active.content_hash,
+        );
+        if let Ok(mut commits) = self.mem_commits.lock() {
+            commits.insert(
+                active.mutation_id.clone(),
+                MemCommit {
+                    receipt_json: serde_json::to_string(&receipt)
+                        .unwrap_or_else(|_| "{}".to_string()),
+                    content_hash: active.content_hash.clone(),
+                },
+            );
+        }
+        self.install_committed_doc(&active.doc, active.new_desired);
+        self.mem_recovery.store(false, Ordering::Release);
+        vec![receipt]
+    }
+
+    fn recover_one_commit(
+        &self,
+        dir: &Path,
+        record: &persistence::commit::JournalRecord,
+    ) -> SettingsSaveReceipt {
+        let mutation_id = record.mutation_id.as_str();
+        if record.stage == CommitStage::Staged {
+            let _ = persistence::commit::abandon(dir, mutation_id);
+            let receipt = rejected_receipt(
+                mutation_id,
+                record.dataset_epoch,
+                "commit",
+                contract_error(
+                    "E_COMMIT_ROLLED_BACK",
+                    "error.commit_rolled_back",
+                    Some(
+                        "the database commit never happened; staged content discarded".to_string(),
+                    ),
+                    false,
+                ),
+            );
+            let done = persistence::commit::DoneRecord {
+                receipt_json: serde_json::to_string(&receipt).unwrap_or_else(|_| "{}".to_string()),
+                content_hash: record.content_hash.clone(),
+            };
+            let _ = persistence::commit::finish(dir, mutation_id, &done);
+            return receipt;
+        }
+        let staged = dir.join(&record.staged_file);
+        let staged_text = match std::fs::read_to_string(&staged).ok() {
+            Some(text) => text,
+            None => {
+                // The staged payload is gone. If the target already carries
+                // the committed content, the publish happened and only the
+                // bookkeeping is left; otherwise the commit stays unresolved.
+                let target = dir.join(&record.target_file);
+                match std::fs::read_to_string(&target) {
+                    Ok(target_text)
+                        if persistence::hash::sha256_hex(target_text.as_bytes())
+                            == record.doc_hash =>
+                    {
+                        return self.finish_rolled_forward(dir, record, &target_text);
+                    }
+                    _ => {
+                        let _ = persistence::commit::set_recovery_required(dir);
+                        return unknown_receipt(
+                            mutation_id,
+                            &record.commit_id,
+                            record.dataset_epoch,
+                            "publish",
+                            contract_error(
+                                "E_COMMIT_UNKNOWN",
+                                "error.commit_unknown",
+                                Some(
+                                    "staged payload missing; target does not carry the commit"
+                                        .to_string(),
+                                ),
+                                true,
+                            ),
+                        );
+                    }
+                }
+            }
+        };
+        if persistence::hash::sha256_hex(staged_text.as_bytes()) != record.doc_hash {
+            let _ = persistence::commit::set_recovery_required(dir);
+            return unknown_receipt(
+                mutation_id,
+                &record.commit_id,
+                record.dataset_epoch,
+                "publish",
+                contract_error(
+                    "E_COMMIT_UNKNOWN",
+                    "error.commit_unknown",
+                    Some("staged payload does not match the journal hash".to_string()),
+                    true,
+                ),
+            );
+        }
+        if let Err(error) =
+            persistence::commit::publish_staged(dir, mutation_id, self.commit_fault())
+        {
+            let _ = persistence::commit::set_recovery_required(dir);
+            return unknown_receipt(
+                mutation_id,
+                &record.commit_id,
+                record.dataset_epoch,
+                "publish",
+                persist_to_contract(&error),
+            );
+        }
+        self.finish_rolled_forward(dir, record, &staged_text)
+    }
+
+    /// Complete a roll-forward whose document text is known: parse, install,
+    /// record the done receipt and clean the journal.
+    fn finish_rolled_forward(
+        &self,
+        dir: &Path,
+        record: &persistence::commit::JournalRecord,
+        doc_text: &str,
+    ) -> SettingsSaveReceipt {
+        let mutation_id = record.mutation_id.as_str();
+        let doc: Value = match serde_json::from_str(doc_text) {
+            Ok(doc) => doc,
+            Err(error) => {
+                let _ = persistence::commit::set_recovery_required(dir);
+                return unknown_receipt(
+                    mutation_id,
+                    &record.commit_id,
+                    record.dataset_epoch,
+                    "publish",
+                    contract_error(
+                        domain::codes::FIELD_FORMAT,
+                        "error.config_corrupt",
+                        Some(error.to_string()),
+                        false,
+                    ),
+                );
+            }
+        };
+        let new_revision = doc
+            .get("settings_revision")
+            .and_then(Value::as_u64)
+            .unwrap_or(record.expected_revision.saturating_add(1));
+        let new_desired = doc
+            .get("desired_revision")
+            .and_then(Value::as_u64)
+            .unwrap_or(0);
+        let token = document_token(&record.commit_id, new_revision, &record.content_hash);
+        let receipt = committed_receipt(
+            mutation_id,
+            &record.commit_id,
+            record.dataset_epoch,
+            new_revision,
+            &token,
+            &record.content_hash,
+        );
+        let done = persistence::commit::DoneRecord {
+            receipt_json: serde_json::to_string(&receipt).unwrap_or_else(|_| "{}".to_string()),
+            content_hash: record.content_hash.clone(),
+        };
+        if persistence::commit::finish(dir, mutation_id, &done).is_err() {
+            let _ = persistence::commit::set_recovery_required(dir);
+            return unknown_receipt(
+                mutation_id,
+                &record.commit_id,
+                record.dataset_epoch,
+                "journal",
+                contract_error(
+                    domain::codes::INTERNAL,
+                    "error.storage",
+                    Some("could not record the recovered commit".to_string()),
+                    true,
+                ),
+            );
+        }
+        self.install_committed_doc(&doc, new_desired);
+        receipt
+    }
+
+    fn snapshot_settings_for_commit(&self) -> Result<SettingsCommitSnapshot, DomainError> {
+        let (settings, revision, group_revisions) = self
+            .settings
+            .lock()
+            .map(|guard| {
+                (
+                    guard.settings.clone(),
+                    guard.revision,
+                    guard.group_revisions.clone(),
+                )
+            })
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let desired = self
+            .revisions
+            .lock()
+            .map(|guard| guard.desired().get())
+            .unwrap_or(0);
+        let active = self.active.lock().ok().and_then(|guard| guard.clone());
+        let rule_mode = self
+            .rule_mode
+            .lock()
+            .ok()
+            .map(|mode| match *mode {
+                RuleMode::Global => "Global".to_string(),
+                RuleMode::Direct => "Direct".to_string(),
+                _ => "Rule".to_string(),
+            })
+            .unwrap_or_else(|| "Rule".to_string());
+        let templates = self
+            .templates
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default();
+        Ok(SettingsCommitSnapshot {
+            settings,
+            revision,
+            group_revisions,
+            desired,
+            active,
+            rule_mode,
+            templates,
+        })
+    }
+
+    fn build_validated_save(
+        &self,
+        snapshot: &SettingsCommitSnapshot,
+        mutation_id: &str,
+        next: AppSettings,
+        settings_hash: &str,
+    ) -> ValidatedSave {
+        let new_revision = snapshot.revision.saturating_add(1);
+        let new_desired = snapshot.desired.saturating_add(1);
+        let mut groups: HashMap<String, u64> = snapshot
+            .group_revisions
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect();
+        for group in domain::SETTINGS_GROUPS {
+            *groups.entry((*group).to_string()).or_insert(0) += 1;
+        }
+        let mut object = match serde_json::to_value(&next).unwrap_or(Value::Null) {
+            Value::Object(map) => map,
+            _ => serde_json::Map::new(),
+        };
+        object.insert(
+            "desired_revision".to_string(),
+            serde_json::json!(new_desired),
+        );
+        object.insert(
+            "active_index_id".to_string(),
+            serde_json::json!(snapshot.active),
+        );
+        object.insert(
+            "rule_mode".to_string(),
+            serde_json::json!(snapshot.rule_mode),
+        );
+        object.insert(
+            "full_config_templates".to_string(),
+            serde_json::json!(snapshot.templates),
+        );
+        object.insert(
+            "settings_revision".to_string(),
+            serde_json::json!(new_revision),
+        );
+        object.insert(
+            "settings_group_revisions".to_string(),
+            serde_json::json!(groups),
+        );
+        let doc = Value::Object(object);
+        let staged_text = serde_json::to_string_pretty(&doc).unwrap_or_default();
+        let doc_hash = persistence::hash::sha256_hex(staged_text.as_bytes());
+        ValidatedSave {
+            doc,
+            settings_hash: settings_hash.to_string(),
+            doc_hash,
+            staged_text,
+            commit_id: commit_id_for(mutation_id),
+            new_revision,
+            new_desired,
+            new_groups: groups,
+        }
+    }
+
+    /// Record the commit in `guiNDB.db` inside one SQLite transaction. The
+    /// row only tracks the commit identity; the settings document itself is
+    /// published through the staged file.
+    fn commit_settings_db(
+        &self,
+        dir: &Path,
+        mutation_id: &str,
+        validated: &ValidatedSave,
+    ) -> Result<(), persistence::PersistenceError> {
+        let store = persistence::Store::open(dir.join("guiNDB.db"))?;
+        let tx = store.begin()?;
+        let meta = serde_json::json!({
+            "commit_id": validated.commit_id,
+            "dataset_epoch": self.dataset_epoch(),
+            "settings_revision": validated.new_revision,
+            "content_hash": validated.settings_hash,
+            "doc_hash": validated.doc_hash,
+        });
+        store.set_meta(
+            &tx,
+            &format!("settings_commit:{mutation_id}"),
+            &meta.to_string(),
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Install a committed document into memory after its file publish (or
+    /// roll-forward) succeeded. The file stays the source of truth; memory
+    /// only mirrors it.
+    fn install_committed_doc(&self, doc: &Value, new_desired: u64) {
+        if let Ok(state) = read_settings_state(doc) {
+            if let Ok(mut guard) = self.settings.lock() {
+                guard.settings = state.settings;
+                guard.revision = state.revision;
+                guard.group_revisions = state.group_revisions;
+            }
+        }
+        if let Ok(mut revisions) = self.revisions.lock() {
+            let mut spins = 0;
+            while revisions.desired().get() < new_desired && spins < 1_000_000 {
+                revisions.bump();
+                spins += 1;
+            }
+        }
     }
 
     /// Record a stored change that requires a runtime apply: bump the global

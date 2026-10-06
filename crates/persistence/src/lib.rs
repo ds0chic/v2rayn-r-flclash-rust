@@ -23,6 +23,7 @@ pub mod backup;
 pub mod batch;
 pub mod blobs;
 pub mod candidate;
+pub mod commit;
 pub mod error;
 pub mod hash;
 pub mod mapping;

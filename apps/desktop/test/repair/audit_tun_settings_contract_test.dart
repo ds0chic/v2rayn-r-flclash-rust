@@ -91,75 +91,85 @@ void main() {
     );
   });
 
-  test('TUN toggle must not report applied when runtime rejected the plan', () async {
-    final runtime = CountingRuntimeBridge(
-      applyError: const RuntimeErrorView(
-        code: 'E_TUN_HELPER_UNAVAILABLE',
-        messageKey: 'error.tun_helper_denied',
-      ),
-    );
-    final container = containerFor(SyntheticBridgePort(), runtime);
-    addTearDown(container.dispose);
-    final controller = container.read(runtimeControllerProvider.notifier);
-    final result = await toggleTunDesired(
-      enabled: false,
-      persist: (_) => true,
-      apply: controller.applyActive,
-    );
-    expect(
-      container.read(runtimeControllerProvider).error?.code,
-      'E_TUN_HELPER_UNAVAILABLE',
-    );
-    expect(
-      result.runtimeApplied,
-      isFalse,
-      reason: 'void completion is not an applied result',
-    );
-    expect(result.ok, isFalse);
-  });
+  test(
+    'TUN toggle must not report applied when runtime rejected the plan',
+    () async {
+      final runtime = CountingRuntimeBridge(
+        applyError: const RuntimeErrorView(
+          code: 'E_TUN_HELPER_UNAVAILABLE',
+          messageKey: 'error.tun_helper_denied',
+        ),
+      );
+      final container = containerFor(SyntheticBridgePort(), runtime);
+      addTearDown(container.dispose);
+      final controller = container.read(runtimeControllerProvider.notifier);
+      final result = await toggleTunDesired(
+        enabled: false,
+        persist: (_) => true,
+        apply: controller.applyActive,
+      );
+      expect(
+        container.read(runtimeControllerProvider).error?.code,
+        'E_TUN_HELPER_UNAVAILABLE',
+      );
+      expect(
+        result.runtimeApplied,
+        isFalse,
+        reason: 'void completion is not an applied result',
+      );
+      expect(result.ok, isFalse);
+    },
+  );
 
   test('settings load exception must not make defaults a successful load', () {
-    final container = containerFor(ThrowingLoadBridge(), CountingRuntimeBridge());
+    final container = containerFor(
+      ThrowingLoadBridge(),
+      CountingRuntimeBridge(),
+    );
     addTearDown(container.dispose);
     final result = container.read(settingsControllerProvider.notifier).load();
     expect(
       result.loaded,
       isFalse,
-      reason: 'loading failed; an editable default draft is not the stored config',
+      reason:
+          'loading failed; an editable default draft is not the stored config',
     );
   });
 
-  test('settings apply must include system proxy failure in its outcome', () async {
-    final container = containerFor(
-      SyntheticBridgePort(),
-      CountingRuntimeBridge(
-        initial: const RuntimeView(
-          state: 'Running',
-          hostAlive: true,
-          ports: [11977],
-          sessionId: 'synthetic-old-session',
+  test(
+    'settings apply must include system proxy failure in its outcome',
+    () async {
+      final container = containerFor(
+        SyntheticBridgePort(),
+        CountingRuntimeBridge(
+          initial: const RuntimeView(
+            state: 'Running',
+            hostAlive: true,
+            ports: [11977],
+            sessionId: 'synthetic-old-session',
+          ),
         ),
-      ),
-      platform: RejectProxyBridge(),
-    );
-    addTearDown(container.dispose);
-    final controller = container.read(settingsControllerProvider.notifier);
-    controller.load();
-    container.read(platformControllerProvider.notifier);
-    await container.read(runtimeControllerProvider.notifier).refresh();
-    final draft = controller.draft();
-    (draft['SystemProxyItem'] as Map<String, dynamic>)['SysProxyType'] = 1;
-    final outcome = await controller.saveAndApply(draft);
-    expect(
-      container.read(platformControllerProvider).error?.code,
-      'E_PLATFORM_BACKEND',
-    );
-    expect(
-      outcome.ok,
-      isFalse,
-      reason: 'the system proxy consumer failed even though the core apply succeeded',
-    );
-  });
+        platform: RejectProxyBridge(),
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(settingsControllerProvider.notifier);
+      controller.load();
+      container.read(platformControllerProvider.notifier);
+      await container.read(runtimeControllerProvider.notifier).refresh();
+      final draft = controller.draft();
+      (draft['SystemProxyItem'] as Map<String, dynamic>)['SysProxyType'] = 1;
+      final outcome = await controller.saveAndApply(draft);
+      expect(
+        container.read(platformControllerProvider).error?.code,
+        'E_PLATFORM_BACKEND',
+      );
+      expect(
+        outcome.ok,
+        isFalse,
+        reason: 'the system proxy consumer failed even though the core apply succeeded',
+      );
+    },
+  );
 
   test('failed autostart must retry when clicking save again', () async {
     final platform = _RejectAutostart();
@@ -187,7 +197,10 @@ void main() {
   });
 
   test('old full draft must not overwrite a newer group edit', () {
-    final container = containerFor(SyntheticBridgePort(), CountingRuntimeBridge());
+    final container = containerFor(
+      SyntheticBridgePort(),
+      CountingRuntimeBridge(),
+    );
     addTearDown(container.dispose);
     final controller = container.read(settingsControllerProvider.notifier);
     controller.load();
@@ -196,7 +209,8 @@ void main() {
     ui['CurrentLanguage'] = 'en';
     expect(controller.saveGroup('UiItem', ui).ok, isTrue);
     expect(
-      (container.read(settingsControllerProvider).document['UiItem'] as Map)['CurrentLanguage'],
+      (container.read(settingsControllerProvider).document['UiItem']
+          as Map)['CurrentLanguage'],
       'en',
     );
     final result = controller.saveDocument(oldDraft);

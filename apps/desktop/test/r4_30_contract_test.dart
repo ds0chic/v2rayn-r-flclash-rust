@@ -228,6 +228,19 @@ void main() {
       expect(localizer.key('validate.fragment'), '请填写正确的分片参数');
     });
 
+    test('SP-01/SP-25 contract keys localize, never raw', () {
+      const zh = ErrorLocalizer(L10n('zh-Hans'));
+      expect(zh.key('error.config_corrupt'), contains('配置'));
+      expect(zh.key('error.webdav_tls'), contains('TLS'));
+      const en = ErrorLocalizer(L10n('en'));
+      expect(en.key('error.config_corrupt').toLowerCase(), contains('corrupt'));
+      expect(en.key('error.webdav_tls').toLowerCase(), contains('tls'));
+      for (final key in <String>['error.config_corrupt', 'error.webdav_tls']) {
+        expect(zh.key(key), isNot(key));
+        expect(en.key(key), isNot(key));
+      }
+    });
+
     test('status bar shows a readable runtime error, not a key', () {
       const runtime = RuntimeErrorView(
         code: 'E_TEST',

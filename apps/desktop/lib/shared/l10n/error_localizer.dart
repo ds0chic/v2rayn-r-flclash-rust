@@ -118,6 +118,8 @@ class ErrorLocalizer {
     'error.template_core_unsupported': 'errorTemplateCoreUnsupported',
     'error.template_json_invalid': 'errorTemplateJsonInvalid',
     'error.group_children_required': 'errorGroupChildrenRequired',
+    'error.config_corrupt': 'errorConfigCorrupt',
+    'error.webdav_tls': 'errorWebdavTls',
   };
 }
 

@@ -2151,6 +2151,29 @@ kResUiStrings = <String, Map<String, String>>{
     'id': 'Grup ini memerlukan setidaknya satu node anak',
     'az': 'Bu qrup üçün ən azı bir uşaq node lazımdır',
   },
+  'errorConfigCorrupt': {
+    'en':
+        'The configuration file is corrupted; the previous good state was kept',
+    'zh-Hans': '配置文件已损坏，已保留上一个可用状态',
+    'zh-Hant': '設定檔已損毀，已保留上一個可用狀態',
+    'ru': 'Файл конфигурации повреждён; сохранено предыдущее рабочее состояние',
+    'fa': 'فایل تنظیمات خراب است؛ وضعیت سالم قبلی حفظ شد',
+    'fr': 'Le fichier de configuration est corrompu ; le dernier état valide a été conservé',
+    'hu': 'A konfigurációs fájl sérült; az előző működő állapot megmaradt',
+    'id': 'File konfigurasi rusak; keadaan baik sebelumnya dipertahankan',
+    'az': 'Konfiqurasiya faylı zədələnib; əvvəlki işlək vəziyyət saxlanıldı',
+  },
+  'errorWebdavTls': {
+    'en': 'WebDAV TLS verification failed; the certificate is not trusted',
+    'zh-Hans': 'WebDAV TLS 验证失败，证书不受信任',
+    'zh-Hant': 'WebDAV TLS 驗證失敗，憑證不受信任',
+    'ru': 'Ошибка проверки TLS WebDAV; сертификат не является доверенным',
+    'fa': 'تأیید TLS وب‌داو ناموفق بود؛ گواهی مورد اعتماد نیست',
+    'fr': 'Échec de la vérification TLS WebDAV ; le certificat n’est pas approuvé',
+    'hu': 'A WebDAV TLS-ellenőrzése sikertelen; a tanúsítvány nem megbízható',
+    'id': 'Verifikasi TLS WebDAV gagal; sertifikat tidak tepercaya',
+    'az': 'WebDAV TLS yoxlaması alınmadı; sertifikata etibar edilmir',
+  },
 };
 
 /// ResUI-style key aliases the Flutter code uses for keys that are identical to

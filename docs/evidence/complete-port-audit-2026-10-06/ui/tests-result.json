@@ -1,0 +1,17 @@
+{
+  "baseline": "a7aa0a5b1ecd523bc60d201e0696ff6051cddf26",
+  "executed_by": "root agent, sequential locked Flutter CLI from apps/desktop",
+  "correct_expectation_failed": 7,
+  "real_desktop": "未验证",
+  "initial_nonproduct_failures": [
+    {"test": "native_reply_loss_test.dart", "result": "Connection closed before test suite loaded", "log": "../checks/audit-ui-native_reply_loss.log"},
+    {"test": "group_reopen_test.dart", "result": "Synthetic fixture rejected empty URL; corrected to example.invalid, no request is made", "log": "../checks/audit-ui-group_reopen.log"}
+  ],
+  "confirmed": [
+    {"test": "native_reply_loss_test.dart", "cases": 3, "failed": 3, "observation": "settings and routing result remain pending after 31 seconds; unknown routing schema returns a normal empty snapshot", "log": "../checks/audit-ui-native_reply_loss-confirmed.log"},
+    {"test": "group_reopen_test.dart", "cases": 1, "failed": 1, "observation": "canonical SubIndexId expected syn-sub-0 but actual null; later controller-rebuild assertion was not reached", "log": "../checks/audit-ui-group_reopen-confirmed.log"},
+    {"test": "routing_partial_commit_test.dart", "cases": 1, "failed": 1, "observation": "first deletion commits, second fails, stale a remains rendered, OK sends stale whole draft and fake store becomes b,a", "log": "../checks/audit-ui-routing_partial_commit.log"},
+    {"test": "status_viewport_test.dart", "cases": 1, "failed": 1, "observation": "800px initial routing and rates extend beyond viewport; every checked item is reachable after horizontal scroll; layout mismatch only", "log": "../checks/audit-ui-status_viewport.log"},
+    {"test": "ungrouped_import_failure_test.dart", "cases": 1, "failed": 1, "observation": "second synthetic write fails, saved=1 failed=1 per-row writes=2, store 0 to 1; actual SQLite failure not injected", "log": "../checks/audit-ui-ungrouped_import_failure-confirmed.log"}
+  ]
+}

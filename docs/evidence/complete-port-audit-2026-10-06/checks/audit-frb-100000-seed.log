@@ -1,0 +1,14 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/frb_persistence_probe_test.dart
+00:00 +0: production FRB + isolated SQLite persists and reopens synthetic profiles
+00:00 +0 -1: production FRB + isolated SQLite persists and reopens synthetic profiles [E]
+  Expected: <100000>
+    Actual: <10000>
+  
+  package:matcher                                                                          expect
+  package:flutter_test/src/widget_tester.dart 473:18                                       expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\frb_persistence_probe_test.dart 40:7  main.<fn>
+  
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/frb_persistence_probe_test.dart: production FRB + isolated SQLite persists and reopens synthetic profiles

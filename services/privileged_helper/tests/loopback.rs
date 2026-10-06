@@ -160,7 +160,9 @@ async fn oversized_frame_is_rejected() {
 }
 
 #[tokio::test]
-async fn idle_connection_times_out() {
+async fn idle_connection_survives_request_timeout() {
+    // TUN-A01: the per-request timeout (150ms here) must not reclaim an idle
+    // session; an open session keeps its lease until EOF or the idle bound.
     let fake = Arc::new(FakeBackend::new());
     let server = Arc::new(HelperServer::new(fake, config()));
     let (mut client, server_side) = tokio::io::duplex(64 * 1024);
@@ -173,9 +175,37 @@ async fn idle_connection_times_out() {
         }
     });
 
+    let early = tokio::time::timeout(Duration::from_millis(500), read_response(&mut client)).await;
+    assert!(
+        early.is_err(),
+        "an idle session must not time out at the per-request bound"
+    );
+    assert!(!task.is_finished(), "the session must still be open");
+    drop(client);
+    let _ = tokio::time::timeout(Duration::from_secs(2), task).await;
+}
+
+#[tokio::test]
+async fn idle_connection_times_out_at_the_idle_bound() {
+    // The long keep-alive bound still ends a session that stays open with no
+    // traffic; configured short here to keep the test fast.
+    let fake = Arc::new(FakeBackend::new());
+    let mut server_config = config();
+    server_config.idle_timeout = Duration::from_millis(200);
+    let server = Arc::new(HelperServer::new(fake, server_config));
+    let (mut client, server_side) = tokio::io::duplex(64 * 1024);
+    let task = tokio::spawn({
+        let server = server.clone();
+        async move {
+            serve_connection(server_side, server, ConnectionLease::new("s1"), None)
+                .await
+                .unwrap();
+        }
+    });
+
     let response = tokio::time::timeout(Duration::from_secs(2), read_response(&mut client))
         .await
-        .expect("timeout response should arrive");
+        .expect("timeout response should arrive at the idle bound");
     assert!(matches!(
         response.result,
         HelperResult::Error {

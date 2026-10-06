@@ -18,8 +18,10 @@ use domain::runtime_plan::RuntimePlan;
 use domain::{DomainError, RuntimeState};
 
 pub mod helper;
+pub mod stable;
 
 pub use helper::*;
+pub use stable::*;
 
 /// IPC protocol version. Bump on any incompatible message change.
 pub const IPC_PROTOCOL_VERSION: u32 = 1;

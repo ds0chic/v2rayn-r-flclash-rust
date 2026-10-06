@@ -12,6 +12,7 @@ pub mod profiles;
 pub mod routing;
 pub mod settings;
 pub mod speedtest;
+pub mod stable;
 pub mod subs;
 pub mod t16;
 

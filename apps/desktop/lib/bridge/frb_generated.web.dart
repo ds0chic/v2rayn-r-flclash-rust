@@ -17,6 +17,7 @@ import 'api/profiles.dart';
 import 'api/routing.dart';
 import 'api/settings.dart';
 import 'api/speedtest.dart';
+import 'api/stable.dart';
 import 'api/subs.dart';
 import 'api/t16.dart';
 

@@ -1,0 +1,331 @@
+{
+  "baseline": "a7aa0a5b1ecd523bc60d201e0696ff6051cddf26",
+  "findings": [
+    {
+      "id": "UI-01",
+      "priority": 1,
+      "status": "identified",
+      "title": "route read failure/invalid snapshot becomes writable empty data",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/routing/routing_actions.dart",
+          "start": 53,
+          "end": 64
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/routing/routing_windows.dart",
+          "start": 1570,
+          "end": 1585
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/routing/routing_windows.dart",
+          "start": 1743,
+          "end": 1749
+        }
+      ],
+      "upstream_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs",
+          "start": 84,
+          "end": 105
+        }
+      ],
+      "synthetic_tests": [
+        "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart"
+      ],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-02",
+      "priority": 1,
+      "status": "identified",
+      "title": "partial routing commits plus stale whole draft can resurrect/remove committed rows",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/routing/routing_windows.dart",
+          "start": 2100,
+          "end": 2115
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/routing/routing_windows.dart",
+          "start": 2190,
+          "end": 2199
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/routing/routing_actions.dart",
+          "start": 112,
+          "end": 132
+        }
+      ],
+      "upstream_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs",
+          "start": 110,
+          "end": 115
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/RoutingSettingViewModel.cs",
+          "start": 153,
+          "end": 163
+        }
+      ],
+      "synthetic_tests": [
+        "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/routing_partial_commit_test.dart"
+      ],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-03",
+      "priority": 1,
+      "status": "identified",
+      "title": "independent settings/routing save can wait forever after lost reply",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/settings/settings_window_host.dart",
+          "start": 157,
+          "end": 170
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/routing/routing_windows.dart",
+          "start": 1753,
+          "end": 1786
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/windows/runner/option_window_host.cpp",
+          "start": 71,
+          "end": 77
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/windows/runner/routing_window_host.cpp",
+          "start": 72,
+          "end": 78
+        }
+      ],
+      "upstream_evidence": [],
+      "synthetic_tests": [
+        "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart"
+      ],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-04",
+      "priority": 2,
+      "status": "identified",
+      "title": "current subscription group is neither persisted nor restored",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/profiles/profiles_controller.dart",
+          "start": 365,
+          "end": 384
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/profiles/profiles_controller.dart",
+          "start": 866,
+          "end": 874
+        }
+      ],
+      "upstream_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs",
+          "start": 334,
+          "end": 338
+        }
+      ],
+      "synthetic_tests": [
+        "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/group_reopen_test.dart"
+      ],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-05",
+      "priority": 2,
+      "status": "identified",
+      "title": "bottom bar depends on horizontal scrolling at upstream minimum viewport",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/app/shell/status_bar_view.dart",
+          "start": 298,
+          "end": 316
+        }
+      ],
+      "upstream_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/MainWindow.xaml",
+          "start": 14,
+          "end": 16
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/StatusBarView.xaml",
+          "start": 22,
+          "end": 103
+        }
+      ],
+      "synthetic_tests": [
+        "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/status_viewport_test.dart"
+      ],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-06",
+      "priority": 2,
+      "status": "identified",
+      "title": "actual running node identity and original status test input are missing",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/runtime/runtime_bridge.dart",
+          "start": 40,
+          "end": 77
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/app/shell/status_bar_view.dart",
+          "start": 163,
+          "end": 170
+        }
+      ],
+      "upstream_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/StatusBarViewModel.cs",
+          "start": 270,
+          "end": 271
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/StatusBarView.xaml.cs",
+          "start": 94,
+          "end": 96
+        }
+      ],
+      "synthetic_tests": [],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-07",
+      "priority": 2,
+      "status": "identified",
+      "title": "add/edit subscription buttons both open total list",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/profiles/profiles_page.dart",
+          "start": 118,
+          "end": 128
+        }
+      ],
+      "upstream_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs",
+          "start": 862,
+          "end": 881
+        }
+      ],
+      "synthetic_tests": [],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-08",
+      "priority": 2,
+      "status": "identified",
+      "title": "independent windows do not inherit parent theme/font/locale",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/settings/option_setting_window_entry.dart",
+          "start": 19,
+          "end": 23
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/routing/routing_windows.dart",
+          "start": 1844,
+          "end": 1848
+        }
+      ],
+      "upstream_evidence": [],
+      "synthetic_tests": [],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-09",
+      "priority": 2,
+      "status": "identified",
+      "title": "connection table lacks column layout/menus and row virtualization",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/monitor/connections_view.dart",
+          "start": 228,
+          "end": 274
+        }
+      ],
+      "upstream_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ClashConnectionsView.xaml",
+          "start": 64,
+          "end": 79
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/v2rayN/Views/ClashConnectionsView.xaml.cs",
+          "start": 70,
+          "end": 125
+        }
+      ],
+      "synthetic_tests": [],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-10",
+      "priority": 2,
+      "status": "identified",
+      "title": "old platform result shadows newer business feedback",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/app/shell/status_bar_view.dart",
+          "start": 276,
+          "end": 287
+        }
+      ],
+      "upstream_evidence": [],
+      "synthetic_tests": [],
+      "real_desktop": "未验证"
+    },
+    {
+      "id": "UI-11",
+      "priority": 1,
+      "status": "identified",
+      "title": "All/ungrouped import uses synchronous per-row saves and production preview materializes files despite generated batch/preview APIs",
+      "source_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/subs/import_persistence.dart",
+          "start": 88,
+          "end": 128
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/features/subs/import_persistence.dart",
+          "start": 47,
+          "end": 57
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/lib/bridge/bridge_port.dart",
+          "start": 596,
+          "end": 600
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/crates/bridge_api/src/api/subs.rs",
+          "start": 438,
+          "end": 466
+        },
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/crates/bridge_api/src/api/subs.rs",
+          "start": 602,
+          "end": 603
+        }
+      ],
+      "upstream_evidence": [
+        {
+          "path": "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Handler/ConfigHandler.cs",
+          "start": 1697,
+          "end": 1702
+        }
+      ],
+      "synthetic_tests": [
+        "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/ungrouped_import_failure_test.dart"
+      ],
+      "real_desktop": "未验证"
+    }
+  ]
+}

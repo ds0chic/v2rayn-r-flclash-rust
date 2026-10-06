@@ -1,0 +1,19 @@
+[net_host] starting version=0.0.0 pipe=\\.\pipe\v2rayn-complete-port-audit-6e81d8f71c0c49d7a480f0e285a32ca8 run_root=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\complete-port-audit-2026-10-06\runtime\run-5940eda0118f416bb553da85cb422261
+[net_host] client connected (active=1)
+[net_host] session s-1791287488441-2 RUNNING pid=42756 created_at_ms=1791287488445 port=11977 rev=1
+[net_host] client disconnected
+[net_host] client connected (active=1)
+[net_host] switch precheck failed, keeping current session: E_INVALID_PLAN
+[net_host] client disconnected
+[net_host] client connected (active=1)
+[net_host] session s-1791287488441-2 STOPPED pid=42756
+[net_host] session s-1791287488735-4 RUNNING pid=23988 created_at_ms=1791287488738 port=11978 rev=1
+[net_host] client disconnected
+[net_host] client connected (active=1)
+[net_host] client disconnected
+[net_host] client connected (active=1)
+[net_host] session s-1791287488735-4 STOPPED pid=23988
+[net_host] client disconnected
+[net_host] client connected (active=1)
+[net_host] shutdown complete
+[net_host] client disconnected

@@ -1,0 +1,11 @@
+{
+  "session_id": "s-1791287488441-2",
+  "plan_id": "synthetic-audit-apply-11977",
+  "desired_revision": 1,
+  "config_sha256": "1649c087f72fe2b5f556ba4f85c385fad2ce879d4272c8a4d79c64c0de09a673",
+  "stage": "finalized",
+  "pid": 42756,
+  "created_at_ms": 1791287488445,
+  "port": 11977,
+  "updated_at_ms": 1791287488728
+}

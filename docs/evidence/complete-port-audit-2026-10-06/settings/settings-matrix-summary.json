@@ -1,0 +1,17 @@
+{
+  "head": "a7aa0a5b1ecd523bc60d201e0696ff6051cddf26",
+  "upstream": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "settings_ids": 180,
+  "unique_ids": 180,
+  "row_kinds": {
+    "internal": 2,
+    "container": 23,
+    "leaf": 155
+  },
+  "static_statuses": {
+    "identified": 46,
+    "implemented": 134
+  },
+  "verified_full_effect_this_audit": 0,
+  "warning": "statuses describe static implementation/identified defects, not a completion percentage; historical refs were not rerun individually here; fresh_reference_candidates include UI writers and are not consumer proof"
+}

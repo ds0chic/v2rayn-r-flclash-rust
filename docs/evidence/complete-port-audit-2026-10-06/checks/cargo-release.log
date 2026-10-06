@@ -1,0 +1,14 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling privileged_helper v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\privileged_helper)
+   Compiling net_host v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\net_host)
+   Compiling application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+   Compiling bridge_api v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\bridge_api)
+   Compiling upgrade_runner v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\upgrade_runner)
+warning: linker stdout: 正在创建库 C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\target\release\deps\bridge_api.dll.lib 和对象 C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\target\release\deps\bridge_api.dll.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `bridge_api` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 25.05s

@@ -1,0 +1,5 @@
+{
+  "scope": "standalone Dart VM, current release DLL, actual SQLite, same 500-row synchronous query loop as FrbBridgePort; no Flutter frames or OS operations",
+  "rows": 100000,
+  "query_all_ms": 2981.659
+}

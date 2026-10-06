@@ -1,0 +1,27 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling net_host v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\net_host)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.55s
+     Running unittests src\main.rs (target\debug\deps\net_host-d28ebdac38e4502d.exe)
+
+running 14 tests
+test tun_lease::tests::journal_entry_roundtrips_through_json ... ok
+test tun_lease::tests::apply_disconnect_is_unavailable ... ok
+test tun_lease::tests::apply_denied_leaves_no_journal_with_stable_code ... ok
+test tun_lease::tests::apply_rejects_invalid_spec_before_touching_helper ... ok
+test tun_lease::tests::cleanup_without_journal_is_ok ... ok
+test tun_lease::tests::apply_timeout_is_retryable_unavailable ... ok
+test tun_lease::tests::reconcile_empty_run_root_is_zero ... ok
+[net_host] tun journal mismatch for s1: recorded lease differs; cleaning recorded resources anyway
+test tun_lease::tests::apply_writes_journal_and_returns_lease ... ok
+[net_host] tun recovery deferred for s1: helper unavailable (journal kept)
+test tun_lease::tests::cleanup_with_mismatched_lease_still_cleans ... ok
+test tun_lease::tests::cleanup_is_idempotent ... ok
+test tun_lease::tests::cleanup_releases_helper_state_and_drops_journal ... ok
+test tun_lease::tests::dry_run_lease_journals_dry_run_flag ... ok
+test tun_lease::tests::reconcile_cleans_stale_after_restart ... ok
+test tun_lease::tests::reconcile_unavailable_keeps_pending_and_journal ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 54 filtered out; finished in 0.01s
+

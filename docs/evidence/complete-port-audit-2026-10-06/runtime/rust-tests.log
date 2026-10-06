@@ -1,0 +1,32 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling runtime_complete_port_audit v0.0.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\complete-port-audit-2026-10-06\runtime\rust)
+warning: methods `last_seq` and `bump_epoch` are never used
+  --> src\..\..\..\..\..\..\services\net_host\src\events.rs:42:12
+   |
+24 | impl EventBus {
+   | ------------- methods in this implementation
+...
+42 |     pub fn last_seq(&self) -> u64 {
+   |            ^^^^^^^^
+...
+47 |     pub fn bump_epoch(&self) {
+   |            ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `runtime_complete_port_audit` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.63s
+     Running unittests src\lib.rs (target/runtime-complete-port-audit\debug\deps\runtime_complete_port_audit-f156774c052fe974.exe)
+
+running 3 tests
+OBSERVED: helper active lease survives virtual 6s but expires after virtual 24h; client remained open; no socket/OS backend used
+test tests::active_helper_lease_is_still_cleaned_at_24h_without_a_heartbeat ... ok
+OBSERVED: returned operation=op-synthetic-accepted:job-00000001, apply jobs remain active after running + stop; this records current defect, not intended acceptance
+test tests::completed_apply_leaves_a_running_job_and_compound_operation_id ... ok
+OBSERVED: actual EventBus emits Lagged after a synthetic 2049-event burst; production forwarder treats this recoverable error as end-of-stream; no pipe or OS used
+test tests::slow_control_subscriber_hits_the_unhandled_lagged_branch ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

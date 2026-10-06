@@ -1,0 +1,16 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/ungrouped_import_failure_test.dart
+00:00 +0: ungrouped import uses one transaction and does not leave a partial batch
+AUDIT no-group import: saved=1, failed=1, per-row writes=2, stored before=0 after=1
+00:00 +0 -1: ungrouped import uses one transaction and does not leave a partial batch [E]
+  Expected: <0>
+    Actual: <1>
+  an I/O failure in the batch must not leave just the first imported row; wire the generated commitImportText transaction
+  
+  package:matcher                                                                                expect
+  package:flutter_test/src/widget_tester.dart 473:18                                             expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\ui\ungrouped_import_failure_test.dart 31:5  main.<fn>
+  
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/ungrouped_import_failure_test.dart: ungrouped import uses one transaction and does not leave a partial batch

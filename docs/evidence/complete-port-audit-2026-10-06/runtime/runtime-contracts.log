@@ -1,0 +1,61 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/runtime/runtime-contracts_test.dart
+00:00 +0: actual active lease remains enabled when desired disable has not applied
+00:00 +0 -1: actual active lease remains enabled when desired disable has not applied [E]
+  Expected: a string starting with '已启用'
+    Actual: '未启用'
+  desired=false does not prove a live lease disappeared
+  
+  package:matcher                                                                              expect
+  package:flutter_test/src/widget_tester.dart 473:18                                           expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\runtime\runtime-contracts_test.dart 48:5  main.<fn>
+  
+00:00 +0 -1: failed candidate does not describe retained old TUN lease as rolled back
+00:00 +0 -2: failed candidate does not describe retained old TUN lease as rolled back [E]
+  Expected: a string starting with '已启用'
+    Actual: '失败已回滚'
+  retained actual lease must win over candidate failure feedback
+  
+  package:matcher                                                                              expect
+  package:flutter_test/src/widget_tester.dart 473:18                                           expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\runtime\runtime-contracts_test.dart 52:5  main.<fn>
+  
+00:00 +0 -2: a dry-run lease must not be presented as an enabled real adapter
+00:00 +0 -3: a dry-run lease must not be presented as an enabled real adapter [E]
+  Expected: not a string starting with '已启用'
+    Actual: '已启用 (synthetic-dry if=7)'
+  
+  package:matcher                                                                              expect
+  package:flutter_test/src/widget_tester.dart 473:18                                           expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\runtime\runtime-contracts_test.dart 56:5  main.<fn>
+  
+00:00 +0 -3: latest start intent after a queued stop leaves the runtime running
+OBSERVED queue=[apply:a, apply:b, stop]; final=Stopped
+00:00 +0 -4: latest start intent after a queued stop leaves the runtime running [E]
+  Expected: true
+    Actual: <false>
+  the newer user intent was start b, not stop
+  
+  package:matcher                                                                              expect
+  package:flutter_test/src/widget_tester.dart 473:18                                           expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\runtime\runtime-contracts_test.dart 70:5  main.<fn>
+  
+00:00 +0 -4: an unknown apply result is reconciled from actual backend state
+OBSERVED unknown apply backend=Running, UI=Stopped, reconcile=false
+00:00 +0 -5: an unknown apply result is reconciled from actual backend state [E]
+  Expected: true
+    Actual: <false>
+  a timeout does not prove that a backend apply failed
+  
+  package:matcher                                                                              expect
+  package:flutter_test/src/widget_tester.dart 473:18                                           expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\runtime\runtime-contracts_test.dart 82:5  main.<fn>
+  
+00:00 +0 -5: failed apply remains a failure through the new bool result contract
+00:00 +1 -5: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/runtime/runtime-contracts_test.dart: a dry-run lease must not be presented as an enabled real adapter
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/runtime/runtime-contracts_test.dart: actual active lease remains enabled when desired disable has not applied
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/runtime/runtime-contracts_test.dart: an unknown apply result is reconciled from actual backend state
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/runtime/runtime-contracts_test.dart: failed candidate does not describe retained old TUN lease as rolled back
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/runtime/runtime-contracts_test.dart: latest start intent after a queued stop leaves the runtime running

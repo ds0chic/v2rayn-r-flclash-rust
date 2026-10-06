@@ -1,0 +1,12 @@
+AUDIT Dart VM without Flutter tester; real release bridge and isolated 100000-row SQLite
+AUDIT fetched=10000 elapsed_ms=189
+AUDIT fetched=20000 elapsed_ms=387
+AUDIT fetched=30000 elapsed_ms=612
+AUDIT fetched=40000 elapsed_ms=867
+AUDIT fetched=50000 elapsed_ms=1139
+AUDIT fetched=60000 elapsed_ms=1427
+AUDIT fetched=70000 elapsed_ms=1733
+AUDIT fetched=80000 elapsed_ms=2078
+AUDIT fetched=90000 elapsed_ms=2512
+AUDIT fetched=100000 elapsed_ms=2981
+{"scope":"standalone Dart VM, current release DLL, actual SQLite, same 500-row synchronous query loop as FrbBridgePort; no Flutter frames or OS operations","rows":100000,"query_all_ms":2981.659}

@@ -1,0 +1,1291 @@
+{
+  "schema_version": 1,
+  "application_commit": "a7aa0a5b1ecd523bc60d201e0696ff6051cddf26",
+  "upstream_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "status": "identified",
+  "production_edits": false,
+  "tasks": [
+    {
+      "id": "SP-00",
+      "title": "冻结合同与文件所有权",
+      "flow": "执行模型领取一个用户流程前，固定共享接口、库存和文件写锁",
+      "dependencies": [],
+      "findings": [],
+      "legacy_tasks": [
+        "R4-00"
+      ],
+      "allowed_modules": [
+        "crates/ipc_contract",
+        "crates/domain",
+        "crates/bridge_api",
+        "apps/desktop/lib/bridge"
+      ],
+      "contract": "把主方案§3拟DTO对照当前API，锁定版本、错误、幂等与查询合同；明确provider/caller和FRB生成唯一写者。",
+      "acceptance": "接口提供/调用方可编译，协议握手不兼容安全失败；不以空实现或mock签名放行。",
+      "rust_packages": [
+        "ipc_contract",
+        "domain",
+        "bridge_api"
+      ],
+      "test_scope": "runtime/snapshot、settings receipt、window envelope、page/import接口编译合同",
+      "upstream_symbols": "ServiceLib/Models/Configs/Config.cs；原方案§19；当前 domain/runtime_plan.rs、domain/job.rs",
+      "status": "implemented",
+      "instance_required": false
+    },
+    {
+      "id": "SP-01",
+      "title": "损坏配置读取与恢复",
+      "flow": "打开存在坏类型或截断内容的配置后，用户看到恢复入口而原件不被覆盖",
+      "dependencies": [
+        "SP-00"
+      ],
+      "findings": [
+        "CP-06"
+      ],
+      "legacy_tasks": [
+        "R4-27"
+      ],
+      "allowed_modules": [
+        "crates/persistence",
+        "crates/application/src/engine.rs",
+        "crates/domain/src/settings.rs",
+        "apps/desktop/lib/features/settings"
+      ],
+      "contract": "missing初始化与empty/null/type error分开；raw未知键保留；严禁整树unwrap_or_default。",
+      "acceptance": "实际合成磁盘坏字段不丢其它语言/去重/11808；失败无写盘、无核心启动，独立重开可重试。",
+      "rust_packages": [
+        "persistence",
+        "application"
+      ],
+      "test_scope": "坏TrayMenuServersLimit、截断、missing/null/unknown字段回归",
+      "upstream_symbols": "ServiceLib/Handler/ConfigHandler.cs；ServiceLib/Models/Configs/Config.cs",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-02",
+      "title": "可恢复持久化提交",
+      "flow": "保存跨SQLite和配置文件的变更，在任一阶段失败或崩溃后重开恢复一致快照",
+      "dependencies": [
+        "SP-00",
+        "SP-01"
+      ],
+      "findings": [
+        "CP-06",
+        "CP-07",
+        "CP-10"
+      ],
+      "legacy_tasks": [
+        "R4-27",
+        "R4-28"
+      ],
+      "allowed_modules": [
+        "crates/persistence",
+        "crates/application"
+      ],
+      "contract": "单writer、commit epoch和journal；DB事务与文件发布可恢复协调，不声称跨文件原子事务。",
+      "acceptance": "逐阶段故障注入可重开rollback/roll-forward；mutation幂等；不暴露半旧半新可写状态；journal秘密不进日志。",
+      "rust_packages": [
+        "persistence",
+        "application"
+      ],
+      "test_scope": "staging/fsync/DB commit/rename/recovery每阶段故障",
+      "upstream_symbols": "ServiceLib/Handler/ConfigHandler.cs、SQLite持久化源；SD-02",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-03",
+      "title": "canonical身份备份往返",
+      "flow": "用户备份默认B与组G，临时选择C不改默认，恢复重开按原版选择B或可见首行",
+      "dependencies": [
+        "SP-01",
+        "SP-02"
+      ],
+      "findings": [
+        "CP-07"
+      ],
+      "legacy_tasks": [
+        "R4-27",
+        "R4-28"
+      ],
+      "allowed_modules": [
+        "crates/application",
+        "crates/persistence",
+        "apps/desktop/lib/features/backup"
+      ],
+      "contract": "IndexId/SubIndexId/UiItem统一canonical读写；新私有字段不能与原版字段漂移；runtime actual不伪造。",
+      "acceptance": "真实库→本地bundle→兼容ZIP→恢复→独立进程及原版可读；失败/取消不破坏旧库；WebDAV受控端同样往返。",
+      "rust_packages": [
+        "application",
+        "persistence"
+      ],
+      "test_scope": "审计backup活动A/B回归、实体引用迁移",
+      "upstream_symbols": "ServiceLib/Models/Configs/Config.cs；备份与Restore上游处理",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-04",
+      "title": "启动停止命令次序",
+      "flow": "用户在A启动中按停止再启动B，最终真实运行B且旧回复不覆盖它",
+      "dependencies": [
+        "SP-00"
+      ],
+      "findings": [
+        "CP-02"
+      ],
+      "legacy_tasks": [
+        "R4-04"
+      ],
+      "allowed_modules": [
+        "crates/application",
+        "services/net_host",
+        "apps/desktop/lib/features/runtime"
+      ],
+      "contract": "会话全局接受序列，stop为清理barrier；只supersede安全且未开始项；超时query operation/snapshot。",
+      "acceptance": "A/stop/B、ACK丢失、回包逆序、重复ID/并发窗口均符合最新接受意图，无重复写或旧stop压B。",
+      "rust_packages": [
+        "application",
+        "net_host"
+      ],
+      "test_scope": "runtime-contracts队列与unknown outcome正确合同",
+      "upstream_symbols": "ServiceLib/Manager/CoreManager.cs；runtime_controller队列",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-05",
+      "title": "冻结运行目标和job终态",
+      "flow": "A计划提交后用户改默认B，实际核心和applied目标仍正确表示A",
+      "dependencies": [
+        "SP-00",
+        "SP-04"
+      ],
+      "findings": [
+        "CP-03"
+      ],
+      "legacy_tasks": [
+        "R4-01",
+        "R4-04",
+        "R4-23"
+      ],
+      "allowed_modules": [
+        "crates/domain",
+        "crates/application/src/engine.rs",
+        "services/net_host",
+        "crates/bridge_api"
+      ],
+      "contract": "接受时冻结target/core/hash/revision，actual descriptor原子提交；operation/job/session ID分开。",
+      "acceptance": "实际AppEngine门控竞态正确；成功apply的job Done，session仍Running；stop不会改写历史target成B。",
+      "rust_packages": [
+        "application",
+        "domain",
+        "net_host"
+      ],
+      "test_scope": "applied_target竞态、operation/job终态与reconnect",
+      "upstream_symbols": "ServiceLib/Manager/CoreManager.cs；domain/runtime_plan.rs、domain/job.rs",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-06",
+      "title": "主核和sidecar退出观察",
+      "flow": "用户启动后本项目核心退出，界面显示实际退出并允许恢复",
+      "dependencies": [
+        "SP-04",
+        "SP-05"
+      ],
+      "findings": [
+        "CP-01",
+        "CP-12"
+      ],
+      "legacy_tasks": [
+        "R4-01",
+        "R4-23",
+        "R4-25"
+      ],
+      "allowed_modules": [
+        "services/net_host/src/session.rs",
+        "services/privileged_helper",
+        "crates/ipc_contract",
+        "apps/desktop/lib/features/runtime",
+        "services/net_host/src/managed_process.rs（拟新增）",
+        "services/net_host/src/lifecycle.rs（拟新增）"
+      ],
+      "contract": "持续观察主/sidecar普通和提权进程；ready≠dispatch；退出清活跃端点、结构化lastExit。",
+      "acceptance": "真实自有Xray11977/11978退出不再ghostRunning；sidecar退出依赖处理；PID复用不误kill。",
+      "rust_packages": [
+        "net_host",
+        "privileged_helper",
+        "ipc_contract"
+      ],
+      "test_scope": "ready后exit、ordinary/elevated身份与snapshot",
+      "upstream_symbols": "ServiceLib/Manager/CoreManager.cs；net_host/session.rs",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-07",
+      "title": "事件落后与重连对账",
+      "flow": "日志压力或订阅lag后，用户仍看到正确运行状态和最终操作结果",
+      "dependencies": [
+        "SP-00",
+        "SP-05",
+        "SP-06"
+      ],
+      "findings": [
+        "CP-17"
+      ],
+      "legacy_tasks": [
+        "R4-04",
+        "R4-23"
+      ],
+      "allowed_modules": [
+        "crates/ipc_contract",
+        "crates/application",
+        "services/net_host",
+        "apps/desktop/lib/features/runtime"
+      ],
+      "contract": "epoch/seq与ResyncRequired；Lagged不是EOF；高频遥测与生命周期隔离。",
+      "acceptance": "真实EventBus及跨pipe压力，lag通知→snapshot→续订；断联重连无silent half-open/旧generation覆盖。",
+      "rust_packages": [
+        "application",
+        "ipc_contract",
+        "net_host"
+      ],
+      "test_scope": "2049burst、pipe lag/reconnect、final outcome",
+      "upstream_symbols": "application EventBus、IPC server/client循环",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-08",
+      "title": "TUN失败清理和恢复归属",
+      "flow": "停止TUN时某资源清理失败，用户能看到待清理并重试成功",
+      "dependencies": [
+        "SP-00",
+        "SP-04"
+      ],
+      "findings": [
+        "CP-04"
+      ],
+      "legacy_tasks": [
+        "R4-05",
+        "R4-25"
+      ],
+      "allowed_modules": [
+        "services/privileged_helper",
+        "services/net_host",
+        "crates/platform",
+        "crates/runtime"
+      ],
+      "contract": "逐资源release确认，失败保留journal/owned状态；AlreadyAbsent幂等，权限错不可吞。",
+      "acceptance": "纯文件/FakeBackend审计正确合同先绿；授权隔离机失败→重开→retry真实收敛，错误跨层可见。",
+      "rust_packages": [
+        "privileged_helper",
+        "net_host",
+        "platform",
+        "runtime"
+      ],
+      "test_scope": "cleanup-journal/helper失败归属保留",
+      "upstream_symbols": "TUN adapter/route/DNS源；runtime TUN journal",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-09",
+      "title": "活动租约持续保活",
+      "flow": "用户TUN长期运行不被idle误回收，管理者失联后可按真实归属恢复",
+      "dependencies": [
+        "SP-06",
+        "SP-08"
+      ],
+      "findings": [
+        "CP-12"
+      ],
+      "legacy_tasks": [
+        "R4-25"
+      ],
+      "allowed_modules": [
+        "services/net_host",
+        "services/privileged_helper",
+        "crates/ipc_contract/src/helper.rs"
+      ],
+      "contract": "lease/session/generation鉴权续租；active heartbeat与request/idle timeout分开；reopen查询journal。",
+      "acceptance": "虚拟时间跨24h活跃不回收，失联按合同清理；迟到renew/不同owner不能复活lease；实际长运行另验。",
+      "rust_packages": [
+        "privileged_helper",
+        "net_host",
+        "ipc_contract"
+      ],
+      "test_scope": "heartbeat、idle/request合同、owner失联",
+      "upstream_symbols": "helper连接超时和lease创建/释放",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-10",
+      "title": "TUN提权保护与实际状态",
+      "flow": "用户在授权隔离机启用TUN，主核/sidecar就绪、IPv4IPv6正常且标签真实",
+      "dependencies": [
+        "SP-05",
+        "SP-06",
+        "SP-08",
+        "SP-09"
+      ],
+      "findings": [
+        "CP-12"
+      ],
+      "legacy_tasks": [
+        "R4-25"
+      ],
+      "allowed_modules": [
+        "crates/application",
+        "crates/platform",
+        "services/net_host",
+        "services/privileged_helper",
+        "apps/desktop/lib/features/runtime",
+        "crates/domain",
+        "crates/core_adapters",
+        "crates/config_codegen",
+        "crates/runtime"
+      ],
+      "contract": "单provider保留；ordinary/elevated ready/exit统一；冻结adapter名称、地址归属、IPv6/process protect；dryRun不称启用。",
+      "acceptance": "标签合同绿；真实IPv4/6/DNS/protect路径/默认route失败恢复，资源清理无误归属；OS实测未做不verified。",
+      "rust_packages": [
+        "application",
+        "platform",
+        "net_host",
+        "privileged_helper",
+        "domain",
+        "core_adapters",
+        "config_codegen",
+        "runtime"
+      ],
+      "test_scope": "实际lease优先、dryRun、main/sidecar权限/IPv6",
+      "upstream_symbols": "原版Tun配置构造与core进程启动",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-11",
+      "title": "原生子窗丢回包",
+      "flow": "用户独立设置窗保存回包丢失后，能确认实际结果且不永久等待",
+      "dependencies": [
+        "SP-00",
+        "SP-02"
+      ],
+      "findings": [
+        "CP-09"
+      ],
+      "legacy_tasks": [
+        "R4-12"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/features/settings/settings_window_host.dart",
+        "apps/desktop/lib/features/routing/routing_windows.dart",
+        "apps/desktop/windows/runner"
+      ],
+      "contract": "windowGeneration/requestId/mutationId；ACK和Outcome分开；bounded reconcile、异常回包、close旧reply隔离。",
+      "acceptance": "正确native_reply_loss合同绿；真实HWND缺main/关窗/迟到/双击不永久busy、无重复提交。",
+      "rust_packages": [
+        "bridge_api"
+      ],
+      "test_scope": "native ACK/reply loss、exception、close/reopen",
+      "upstream_symbols": "Option/RoutingWindow源；settings_window_host与native cpp",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-12",
+      "title": "已保存未生效重试",
+      "flow": "用户设置保存成功而核心或自启失败，再次确认只重试未成功阶段",
+      "dependencies": [
+        "SP-02",
+        "SP-04",
+        "SP-11"
+      ],
+      "findings": [
+        "CP-05",
+        "CP-13"
+      ],
+      "legacy_tasks": [
+        "R4-13",
+        "R4-12"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/features/settings",
+        "crates/application",
+        "crates/bridge_api/src/api",
+        "crates/platform"
+      ],
+      "contract": "SettingsSaveReceipt/newRevision；desired≠OS事实；本窗保存revision更新、外部stale分开；取消不撤已提交事实。",
+      "acceptance": "settings_retry三正确合同绿；native设置saveSucceeded/applyFailed→retry→重开有效，阶段结果与OS记录一致。",
+      "rust_packages": [
+        "application",
+        "bridge_api",
+        "platform"
+      ],
+      "test_scope": "newRevision、autostart fail/reopen/retry、phase receipt",
+      "upstream_symbols": "OptionSettingViewModel与原版生效时机",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-13",
+      "title": "路由部分提交后关闭",
+      "flow": "用户路由多选删除部分失败后关闭，已删规则不复活且新规则不误删",
+      "dependencies": [
+        "SP-02",
+        "SP-11",
+        "SP-12"
+      ],
+      "findings": [
+        "CP-08"
+      ],
+      "legacy_tasks": [
+        "R4-14"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/features/routing",
+        "crates/application",
+        "crates/bridge_api/src/api"
+      ],
+      "contract": "loadFailed只读；每增量提交刷新权威snapshot；主确定仅原版策略字段，不回写旧全集。",
+      "acceptance": "畸形/读失败不写；routing_partial_commit绿；真实DB部分失败/save成功apply失败/并发/重开无复活。",
+      "rust_packages": [
+        "application",
+        "bridge_api"
+      ],
+      "test_scope": "routing_partial_commit、bad schema/read error",
+      "upstream_symbols": "ServiceLib/ViewModels/RoutingSettingViewModel.cs",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-14",
+      "title": "All纯预览批导入",
+      "flow": "用户在All预览导入后取消或提交失败，不产生文件或半批节点",
+      "dependencies": [
+        "SP-02"
+      ],
+      "findings": [
+        "CP-10"
+      ],
+      "legacy_tasks": [
+        "R4-16"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/features/subs",
+        "apps/desktop/lib/bridge/bridge_port.dart",
+        "crates/bridge_api/src/api/subs.rs",
+        "crates/application"
+      ],
+      "contract": "接现成previewImportText/commitImportText，All和有组一次批提交；Custom staging/journal；保留IsSub。",
+      "acceptance": "ungrouped_import_failure绿；真实SQLite/受控文件故障点；取消no-diff，10k有组/All一致，独立重开。",
+      "rust_packages": [
+        "application",
+        "bridge_api"
+      ],
+      "test_scope": "All第二条失败、Custom纯预览、commit crash",
+      "upstream_symbols": "ServiceLib/Handler/ConfigHandler.cs批导入；现成subs generated API",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-15",
+      "title": "平台配置按内容生效",
+      "flow": "用户同模式同端口修改bypass/PAC后，实际系统效果更新且失败可重试",
+      "dependencies": [
+        "SP-02",
+        "SP-12"
+      ],
+      "findings": [
+        "CP-13"
+      ],
+      "legacy_tasks": [
+        "R4-24",
+        "R4-13"
+      ],
+      "allowed_modules": [
+        "crates/platform",
+        "crates/application",
+        "apps/desktop/lib/features/settings"
+      ],
+      "contract": "normalized contentHash包含模式/端口/session/bypass/PAC等；applied只成功推进；缺PAC按原版fallback。",
+      "acceptance": "纯平台fake正确合同绿；授权隔离机bypass/PAC/自启成功失败/外部变化重开，禁止宿主写入。",
+      "rust_packages": [
+        "platform",
+        "application"
+      ],
+      "test_scope": "内容hash、不吞saveGroup失败、PAC fallback",
+      "upstream_symbols": "原版SysProxyHandler/PAC/autostart处理",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-16",
+      "title": "当前组恢复与编辑入口",
+      "flow": "用户选G退出重开后编辑当前订阅，直接编辑G",
+      "dependencies": [
+        "SP-03",
+        "SP-12"
+      ],
+      "findings": [
+        "CP-14"
+      ],
+      "legacy_tasks": [
+        "R4-06",
+        "R4-17"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/features/profiles",
+        "apps/desktop/lib/features/subs",
+        "crates/application"
+      ],
+      "contract": "canonical SubIndexId读写；删除组fallback；create/edit直达对象，All按原版门控。",
+      "acceptance": "group_reopen绿；真实G保存重开、同名/普通组、取消/失败；入口不再统一总列表。",
+      "rust_packages": [
+        "application"
+      ],
+      "test_scope": "group persistence、新建/编辑当前入口",
+      "upstream_symbols": "ServiceLib/ViewModels/ProfilesViewModel.cs",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-17",
+      "title": "真实运行摘要和消息",
+      "flow": "用户切B失败保留A，底栏显示A并可查看当前失败或进行原版测试",
+      "dependencies": [
+        "SP-05",
+        "SP-07",
+        "SP-12"
+      ],
+      "findings": [
+        "CP-14"
+      ],
+      "legacy_tasks": [
+        "R4-23",
+        "R4-26"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/app/shell/status_bar_view.dart",
+        "apps/desktop/lib/features/runtime",
+        "apps/desktop/lib/features/monitor"
+      ],
+      "contract": "从actual descriptor取target，ACT-STAT-004按实际PreviewMouseDown绑定；消息time/severity/op/generation。",
+      "acceptance": "失败保旧A、停止/改备注/重开；旧平台message不遮新结果；可用性测试真实loopback反馈。",
+      "rust_packages": [
+        "bridge_api"
+      ],
+      "test_scope": "actual summary、message ordering、test availability",
+      "upstream_symbols": "StatusBarViewModel.cs、StatusBarView.xaml.cs",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-18",
+      "title": "节点右键和键鼠原版对照",
+      "flow": "用户多选、右键、子菜单Esc和立即Enter，命令作用正确节点集合",
+      "dependencies": [
+        "SP-04",
+        "SP-05",
+        "SP-16"
+      ],
+      "findings": [],
+      "legacy_tasks": [
+        "R4-02",
+        "R4-03",
+        "R4-08"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/features/profiles"
+      ],
+      "contract": "保留即时选择/modifier捕获/target冻结；子菜单Esc/失活/空白等实测原版再修，不猜规则。",
+      "acceptance": "同合成数据WPF逐场景trace/截图；所有ACT-PROF菜单条件/作用/取消核对；DPI跨屏无错target。",
+      "rust_packages": [],
+      "test_scope": "已有选择/右键回归加真实原生菜单矩阵",
+      "upstream_symbols": "ProfilesView.xaml(.cs)、ProfilesViewModel.cs",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-19",
+      "title": "底栏同屏与子窗呈现",
+      "flow": "用户800px高DPI主窗和独立设置窗能读清并操作全部关键控件",
+      "dependencies": [
+        "SP-11",
+        "SP-17"
+      ],
+      "findings": [
+        "CP-14"
+      ],
+      "legacy_tasks": [
+        "R4-11",
+        "R4-12",
+        "R4-30"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/app/shell",
+        "apps/desktop/lib/features/settings",
+        "apps/desktop/lib/features/routing",
+        "apps/desktop/lib/shared"
+      ],
+      "contract": "left/right bounded + flex middle；presentation envelope/theme/font/locale；长字留白省略，不以scroll可达替代同屏。",
+      "acceptance": "status_viewport绿；800/1200/1280×DPI100/125/150/200亮暗多语言截图，主题继承/焦点窗口正常。",
+      "rust_packages": [],
+      "test_scope": "viewport同屏、presentation/native geometry",
+      "upstream_symbols": "MainWindow.xaml、StatusBarView.xaml、各设置WPF窗口",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-20",
+      "title": "连接表列和右键",
+      "flow": "用户排列连接列、右键关闭后重开，布局保持且真实连接管理有效",
+      "dependencies": [
+        "SP-03",
+        "SP-06",
+        "SP-07",
+        "SP-17"
+      ],
+      "findings": [
+        "CP-14"
+      ],
+      "legacy_tasks": [
+        "R4-26",
+        "R4-30"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/features/monitor",
+        "apps/desktop/lib/features/profiles/ui_state_store.dart",
+        "crates/application"
+      ],
+      "contract": "真实虚拟行，ConnectionsColumnItem宽/序/autoSize/排序/右键；close绑定endpoint+generation。",
+      "acceptance": "列保存独立重开，1k/10k真实合成连接；关闭失败/换session迟到不误关；原版列行为对照。",
+      "rust_packages": [
+        "application"
+      ],
+      "test_scope": "connection columns/context/close/reopen",
+      "upstream_symbols": "ClashConnectionsView.xaml(.cs)，FLD-CFG-136",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-21",
+      "title": "大库异步分页",
+      "flow": "用户100k真实节点库中切组筛选排序并取消，界面仍立即响应",
+      "dependencies": [
+        "SP-00",
+        "SP-02",
+        "SP-16"
+      ],
+      "findings": [
+        "CP-15"
+      ],
+      "legacy_tasks": [
+        "R4-09",
+        "R4-10"
+      ],
+      "allowed_modules": [
+        "crates/persistence",
+        "crates/application/src/store_repo.rs",
+        "crates/bridge_api/src/api",
+        "apps/desktop/lib/bridge/bridge_port.dart",
+        "apps/desktop/lib/features/profiles"
+      ],
+      "contract": "真实worker异步分页与Rust filter/sort；datasetRevision游标/ID tie；全选跨页/取消/迟到正确。",
+      "acceptance": "真实SQLite10k/100k、UI timer/交互可用；稳定排序无漏/重复；不可只给Future.sync包同步全读。",
+      "rust_packages": [
+        "persistence",
+        "application",
+        "bridge_api"
+      ],
+      "test_scope": "异步FRB page/cursor/cancel/selection allpages",
+      "upstream_symbols": "GetProfileItemsEx/Sort；store_repo分页查询",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-22",
+      "title": "高频状态和大IO背压",
+      "flow": "用户测速同时浏览日志连接和筛选节点，界面不被全量overlay与IO阻塞",
+      "dependencies": [
+        "SP-07",
+        "SP-20",
+        "SP-21"
+      ],
+      "findings": [
+        "CP-15"
+      ],
+      "legacy_tasks": [
+        "R4-09",
+        "R4-10",
+        "R4-31"
+      ],
+      "allowed_modules": [
+        "apps/desktop/lib/features/monitor",
+        "apps/desktop/lib/features/profiles",
+        "crates/application",
+        "crates/subscriptions"
+      ],
+      "contract": "overlay按ID增量+可见行合并，bounded日志/连接刷新、后台解析；最终结果不丢，取消到安全点。",
+      "acceptance": "10k节点+10k连接+测速日志并发真实核采样；队列/内存无持续增长；generation切换/取消恢复。",
+      "rust_packages": [
+        "application",
+        "subscriptions"
+      ],
+      "test_scope": "delta/coalescing/backpressure/final result",
+      "upstream_symbols": "原版Stats/Msg/测试调度服务",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-23",
+      "title": "逐字段实例登记",
+      "flow": "实施者领取一个原设置ID前，明确它的最终消费者和唯一验收流程",
+      "dependencies": [
+        "SP-00"
+      ],
+      "findings": [
+        "CP-11",
+        "CP-14"
+      ],
+      "legacy_tasks": [
+        "R4-13"
+      ],
+      "allowed_modules": [
+        "docs/repair/stable-port-2026-10-06",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "180ID精确映射；容器23/内部2/叶子155分开；每次只派生一个ID小卡，可共享测试不能扫表标全verified。",
+      "acceptance": "CSV与compat完全一致；每叶子有具体consumer/timing/错误/cancel/reopen证据要求；实现需逐实例完成，SP-23文档通过不代表180功能通过。",
+      "rust_packages": [],
+      "test_scope": "字段实例schema/ID集合校验",
+      "upstream_symbols": "compat/fields.settings.yaml source_file/source_symbol逐ID",
+      "status": "identified",
+      "instance_required": true
+    },
+    {
+      "id": "SP-24",
+      "title": "核心设置配置消费者",
+      "flow": "用户关闭Happy Eyeballs后保存并启动，实际Xray配置不再开启该功能",
+      "dependencies": [
+        "SP-02",
+        "SP-12",
+        "SP-23"
+      ],
+      "findings": [
+        "CP-11"
+      ],
+      "legacy_tasks": [
+        "R4-13",
+        "R4-19",
+        "R4-34"
+      ],
+      "allowed_modules": [
+        "crates/config_codegen",
+        "crates/application",
+        "crates/domain",
+        "apps/desktop/lib/features/settings"
+      ],
+      "contract": "本卡先做Happy enabled门控，MaxSplit独立子实例；逐ID校验最终配置/校验器；不得自造范围随机语义。",
+      "acceptance": "Happy/MaxSplit当前正确合同绿；实际生成diff/内核校验/正式UI重开；其它codegen叶子按SP-23实例。",
+      "rust_packages": [
+        "config_codegen",
+        "application",
+        "domain"
+      ],
+      "test_scope": "Happy enabled、MaxSplit1-3合法与wire下界",
+      "upstream_symbols": "V2rayOutboundService.cs、TryParseMaxSplit、CSV字段source",
+      "status": "identified",
+      "instance_required": true
+    },
+    {
+      "id": "SP-25",
+      "title": "应用HTTPS信任消费者",
+      "flow": "用户切应用RootCertProvider后，订阅/更新/WebDAV HTTPS按选择建立信任",
+      "dependencies": [
+        "SP-02",
+        "SP-12",
+        "SP-23"
+      ],
+      "findings": [
+        "CP-11"
+      ],
+      "legacy_tasks": [
+        "R4-13",
+        "R4-29"
+      ],
+      "allowed_modules": [
+        "crates/subscriptions",
+        "crates/updater",
+        "crates/application",
+        "apps/desktop/lib/features/settings",
+        "拟新增低层HTTP共享模块（例如crates/net_http，先核定路径）",
+        "Cargo.toml",
+        "Cargo.lock"
+      ],
+      "contract": "公共HTTP policy/factory消费者一致；RootCertProvider为应用信任来源，合成CA不安装OS证书；日志脱敏。",
+      "acceptance": "受控TLS不同信任源/错误CA/取消/重开；订阅、资源、更新、WebDAV请求各证；其它日志/Mihomo/SRS用字段子卡。",
+      "rust_packages": [
+        "subscriptions",
+        "updater",
+        "application"
+      ],
+      "test_scope": "应用HTTPS trust source受控TLS矩阵",
+      "upstream_symbols": "RootCertProvider上游HTTP初始化；SD-10",
+      "status": "identified",
+      "instance_required": true
+    },
+    {
+      "id": "SP-26",
+      "title": "硬件渲染设置可行性",
+      "flow": "用户更改硬件加速并按原版重启语义生效，renderer有真实可观测变化",
+      "dependencies": [
+        "SP-00",
+        "SP-23"
+      ],
+      "findings": [
+        "CP-11"
+      ],
+      "legacy_tasks": [
+        "R4-13.S10"
+      ],
+      "allowed_modules": [
+        "apps/desktop/windows/runner",
+        "docs/decisions",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "先证明锁定Flutter runner/engine能力；禁Impeller/低功耗GPU不等于软件渲染；若扩展需ADR/独立实现。",
+      "acceptance": "可行性源码证据+真实renderer/设备结果；不可实现标blocked和扩展路径，不假checkbox有效。",
+      "rust_packages": [],
+      "test_scope": "renderer设备/模式证据、重启与失败rollback",
+      "upstream_symbols": "GuiItem.EnableHWA源与锁定Flutter engine头文件",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-27",
+      "title": "本产品自更新链路",
+      "flow": "用户选择当次更新选项，验证本项目包后安装重开，失败可回滚",
+      "dependencies": [
+        "SP-02",
+        "SP-12",
+        "SP-15",
+        "SP-23"
+      ],
+      "findings": [
+        "CP-13"
+      ],
+      "legacy_tasks": [
+        "R4-29"
+      ],
+      "allowed_modules": [
+        "crates/updater",
+        "services/upgrade_runner",
+        "crates/bridge_api",
+        "apps/desktop/lib/features/update",
+        "crates/application"
+      ],
+      "contract": "当次flags显式，app_repo/本项目key接线；已有PGP/GPG保留；下载verify/stage/install/rollback各事实。",
+      "acceptance": "受控真实发行端+真实产品源，错签名/路径/锁/中断/取消/回滚/独立重开；无repo/key只相关环节blocked。",
+      "rust_packages": [
+        "updater",
+        "upgrade_runner",
+        "bridge_api",
+        "application"
+      ],
+      "test_scope": "update flags/signature/stage/install rollback",
+      "upstream_symbols": "原版CheckUpdate/更新选择；updater with_flags",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-28",
+      "title": "逐核产品入口矩阵",
+      "flow": "用户通过正式界面选择一个适用核心并运行合成会话再停止",
+      "dependencies": [
+        "SP-04",
+        "SP-05",
+        "SP-06",
+        "SP-14",
+        "SP-24"
+      ],
+      "findings": [],
+      "legacy_tasks": [
+        "R4-18",
+        "R4-34"
+      ],
+      "allowed_modules": [
+        "crates/core_adapters",
+        "crates/config_codegen",
+        "crates/application",
+        "tools/cores/cores.lock.json",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "本卡每次指定一个core/version/protocol实例；14现成资产来源和ready/data/exit按适用矩阵；自动目标按原版。",
+      "acceptance": "每适用核GUI→FRB→host→真实flow/exit，不用version命令代替；hash来源记录，所有实例完成后总矩阵门禁。",
+      "rust_packages": [
+        "core_adapters",
+        "config_codegen",
+        "application"
+      ],
+      "test_scope": "core实例配置校验/loopback/TLS/exit",
+      "upstream_symbols": "14核心锁与upstream能力矩阵、对应R4-18.P实例",
+      "status": "identified",
+      "instance_required": true
+    },
+    {
+      "id": "SP-29",
+      "title": "稳定完整测试门禁",
+      "flow": "开发者运行锁定工具链门禁，获得可复现完整结果且没有静默未完成用例",
+      "dependencies": [
+        "SP-00"
+      ],
+      "findings": [
+        "CP-16"
+      ],
+      "legacy_tasks": [
+        "R4-32"
+      ],
+      "allowed_modules": [
+        "services/privileged_helper/tests",
+        "apps/desktop/test",
+        "tools",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "修helper request/idle测试合同；3Flutter异常采栈定位，不能删除/放宽/skip装绿；生产错误另归业务卡。",
+      "acceptance": "全部测试文件有完整终态；异常根因/修复证据；fmt/clippy/analyze/fulltest/FRB no-diff；变化后相应回归。",
+      "rust_packages": [
+        "privileged_helper"
+      ],
+      "test_scope": "loopback idle_connection_times_out、r3_visual/r4_07/t11_menu",
+      "upstream_symbols": "AGENTS门禁与审计checks原始日志",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-30",
+      "title": "正式GUI完整流程",
+      "flow": "用户从未武装新候选包普通入口完成一次首次使用到备份重开流程",
+      "dependencies": [
+        "SP-03",
+        "SP-06",
+        "SP-07",
+        "SP-12",
+        "SP-13",
+        "SP-14",
+        "SP-15",
+        "SP-16",
+        "SP-17",
+        "SP-18",
+        "SP-19",
+        "SP-20",
+        "SP-22",
+        "SP-24",
+        "SP-25",
+        "SP-27",
+        "SP-28",
+        "SP-29"
+      ],
+      "findings": [
+        "CP-16"
+      ],
+      "legacy_tasks": [
+        "R4-32",
+        "R4-01"
+      ],
+      "allowed_modules": [
+        "tools/release",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "清洁候选包+独立合成数据，按验收矩阵；逐库存缺口分卡，禁止auto hook/预置active代替按钮。",
+      "acceptance": "核心首次安装/启动/切换/设置/订阅/路由DNS/backup/更新/退出重开真实证据；package hash绑定。",
+      "rust_packages": [],
+      "test_scope": "ACCEPTANCE_MATRIX正常/异常用户流",
+      "upstream_symbols": "原版各可见入口、185action/53window完整覆盖",
+      "status": "identified",
+      "instance_required": true
+    },
+    {
+      "id": "SP-31",
+      "title": "原版对照性能验收",
+      "flow": "用户大量节点和监控负载下操作，release GUI达到原规格反馈与帧预算",
+      "dependencies": [
+        "SP-21",
+        "SP-22",
+        "SP-29",
+        "SP-30"
+      ],
+      "findings": [
+        "CP-15"
+      ],
+      "legacy_tasks": [
+        "R4-31"
+      ],
+      "allowed_modules": [
+        "benchmarks",
+        "tools",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "同硬件/核/配置/合成节点p50/p95/p99，冷20热30及帧/内存/queue；实DB不是memory种子。",
+      "acceptance": "feedback≤100ms，1k冷≤2s热≤1s，10k搜索≤200ms，UI/raster各16.7ms且超预算≤1%；原始样本。",
+      "rust_packages": [],
+      "test_scope": "release GUI采样、raw samples/percentile算法",
+      "upstream_symbols": "原方案§16基准方法/阈值",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-32",
+      "title": "隔离Windows平台效果",
+      "flow": "用户在授权隔离Windows中启用代理、自启与TUN再退出重开，实际效果和恢复一致",
+      "dependencies": [
+        "SP-08",
+        "SP-09",
+        "SP-10",
+        "SP-15",
+        "SP-26",
+        "SP-29",
+        "SP-30"
+      ],
+      "findings": [
+        "CP-04",
+        "CP-12",
+        "CP-13"
+      ],
+      "legacy_tasks": [
+        "R4-24",
+        "R4-25",
+        "R4-33"
+      ],
+      "allowed_modules": [
+        "crates/platform",
+        "services/privileged_helper",
+        "tests/system",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "逐唯一平台流程派生实例，真实OS query/diff/ownedcleanup；无授权不写宿主，不因端口空闲忽略route副作用。",
+      "acceptance": "IPv4/6/DNS/PAC/proxy/自启/hotkey/提权故障与恢复；副作用前后快照；未验证明确blocked。",
+      "rust_packages": [
+        "platform",
+        "privileged_helper"
+      ],
+      "test_scope": "授权隔离机专项，不在宿主运行",
+      "upstream_symbols": "platform-matrix与原版Windows平台服务",
+      "status": "identified",
+      "instance_required": true
+    },
+    {
+      "id": "SP-33",
+      "title": "六平台独立交付",
+      "flow": "用户在指定OS×架构实例启动包并完成该平台普通流程",
+      "dependencies": [
+        "SP-23",
+        "SP-26",
+        "SP-28",
+        "SP-29",
+        "SP-30"
+      ],
+      "findings": [],
+      "legacy_tasks": [
+        "R4-33"
+      ],
+      "allowed_modules": [
+        "crates/platform",
+        "tools/release",
+        "docs/evidence/stable-port",
+        "apps/desktop/windows",
+        "apps/desktop/macos",
+        "apps/desktop/linux"
+      ],
+      "contract": "每次只WinARM/macx64/macARM/Linuxx64/LinuxARM实例；Windowsx64另SP-32；原版WPF/Avalonia差异按源。",
+      "acceptance": "每单元真实build/package/runtime/tray/hotkey/window/DPI/update/cleanup；不交叉借证据；额外架构不删库存。",
+      "rust_packages": [
+        "platform"
+      ],
+      "test_scope": "单OS架构对应门禁及真实GUI",
+      "upstream_symbols": "platform-matrix与Avalonia/Windows冻结源",
+      "status": "identified",
+      "instance_required": true
+    },
+    {
+      "id": "SP-34",
+      "title": "固定身份最终发布包",
+      "flow": "用户下载最终未武装发行包，行为与已验收源码及证据完全对应",
+      "dependencies": [
+        "SP-01",
+        "SP-02",
+        "SP-03",
+        "SP-04",
+        "SP-05",
+        "SP-06",
+        "SP-07",
+        "SP-08",
+        "SP-09",
+        "SP-10",
+        "SP-11",
+        "SP-12",
+        "SP-13",
+        "SP-14",
+        "SP-15",
+        "SP-16",
+        "SP-17",
+        "SP-18",
+        "SP-19",
+        "SP-20",
+        "SP-21",
+        "SP-22",
+        "SP-23",
+        "SP-24",
+        "SP-25",
+        "SP-26",
+        "SP-27",
+        "SP-28",
+        "SP-29",
+        "SP-30",
+        "SP-31",
+        "SP-32",
+        "SP-33",
+        "SP-35"
+      ],
+      "findings": [
+        "CP-16"
+      ],
+      "legacy_tasks": [
+        "R4-32",
+        "R4-33"
+      ],
+      "allowed_modules": [
+        "tools/release",
+        "README.md",
+        "NOTICE.md",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "clean固定提交重新完整打包，runner/app.so/DLL/host/helper/updater资源逐hash；完整实例/库存证据门禁。",
+      "acceptance": "新ZIP/SHA/build-info准确armed=false/dirty=false；完整门禁、所有适用实例verified、普通包和license验收；历史ZIP不得复用。",
+      "rust_packages": [],
+      "test_scope": "完整workspace/Flutter门禁+包身份/未武装GUI",
+      "upstream_symbols": "AGENTS发布门禁、原方案§20、审计release-identity",
+      "status": "identified",
+      "instance_required": false
+    },
+    {
+      "id": "SP-35",
+      "title": "持续运行退出恢复",
+      "flow": "用户长时间合成负载与500次切换后退出重开，资源和数据可恢复",
+      "dependencies": [
+        "SP-07",
+        "SP-08",
+        "SP-09",
+        "SP-10",
+        "SP-12",
+        "SP-14",
+        "SP-22",
+        "SP-29",
+        "SP-30",
+        "SP-31"
+      ],
+      "findings": [],
+      "legacy_tasks": [
+        "R4-05",
+        "R4-25",
+        "R4-31"
+      ],
+      "allowed_modules": [
+        "tests/system",
+        "tools",
+        "docs/evidence/stable-port"
+      ],
+      "contract": "24h真实负载+500switch含失败、cancel、journal恢复；只自己的process/resource；清理不吞错。",
+      "acceptance": "原始时序/资源/内存/队列，异常退出重开恢复；授权隔离OS部分独立证据，未做不合并通过。",
+      "rust_packages": [],
+      "test_scope": "24h/500切换/exit-reopen fault run",
+      "upstream_symbols": "原方案持续稳定性与恢复要求",
+      "status": "identified",
+      "instance_required": false
+    }
+  ],
+  "findings_to_tasks": {
+    "CP-06": [
+      "SP-01",
+      "SP-02"
+    ],
+    "CP-07": [
+      "SP-02",
+      "SP-03"
+    ],
+    "CP-10": [
+      "SP-02",
+      "SP-14"
+    ],
+    "CP-02": [
+      "SP-04"
+    ],
+    "CP-03": [
+      "SP-05"
+    ],
+    "CP-01": [
+      "SP-06"
+    ],
+    "CP-12": [
+      "SP-06",
+      "SP-09",
+      "SP-10",
+      "SP-32"
+    ],
+    "CP-17": [
+      "SP-07"
+    ],
+    "CP-04": [
+      "SP-08",
+      "SP-32"
+    ],
+    "CP-09": [
+      "SP-11"
+    ],
+    "CP-05": [
+      "SP-12"
+    ],
+    "CP-13": [
+      "SP-12",
+      "SP-15",
+      "SP-27",
+      "SP-32"
+    ],
+    "CP-08": [
+      "SP-13"
+    ],
+    "CP-14": [
+      "SP-16",
+      "SP-17",
+      "SP-19",
+      "SP-20",
+      "SP-23"
+    ],
+    "CP-15": [
+      "SP-21",
+      "SP-22",
+      "SP-31"
+    ],
+    "CP-11": [
+      "SP-23",
+      "SP-24",
+      "SP-25",
+      "SP-26"
+    ],
+    "CP-16": [
+      "SP-29",
+      "SP-30",
+      "SP-34"
+    ]
+  },
+  "field_instance_template": "tasks/FIELD_INSTANCE_TEMPLATE.md",
+  "field_instance_source": "SETTINGS_IMPLEMENTATION_180.csv",
+  "note": "SP-23为字段实例登记，不以总卡通过宣称180消费者通过。其它实例卡按唯一core/action/platform派生。最终release检查所有实例证据。",
+  "shared_interface_registry": "INTERFACE_AND_OWNER_MAP.md",
+  "field_instance_completion_gate": "所有适用字段逐实例正式入口/最终consumer证据；SP-23登记通过不能代替"
+}

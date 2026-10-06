@@ -349,6 +349,7 @@ dependencies = [
  "core_adapters",
  "domain",
  "flutter_rust_bridge",
+ "ipc_contract",
  "platform",
  "runtime",
  "serde_json",

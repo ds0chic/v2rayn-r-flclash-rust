@@ -1,0 +1,26 @@
+   Compiling settings_engine_audit_probe v0.0.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\complete-port-audit-2026-10-06\settings\pure-probe)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.26s
+     Running `docs\evidence\complete-port-audit-2026-10-06\settings\pure-probe\target\debug\settings_engine_audit_probe.exe`
+{
+  "scope": "actual application/domain/config_codegen with synthetic SQLite/config; NullRuntimeClient; no socket/core/OS/network",
+  "happy_switch_false_still_emits": true,
+  "happy_switch_toggle_identical": true,
+  "valid_max_split_range_1_3_rejected": {
+    "code": "E_FIELD_FORMAT",
+    "field": "Fragment4RayItem.MaxSplit"
+  },
+  "unavailable_load_blocked": true,
+  "unavailable_group_save_rejected": true,
+  "unavailable_group_save_created_config": false,
+  "canonical_index_profile_exists": true,
+  "canonical_index_active_after_reopen": null,
+  "present_empty_config_load_success": true,
+  "malformed_field_load_success": true,
+  "malformed_field_language": "zh-Hans",
+  "malformed_field_keep_older_dedupl": false,
+  "malformed_field_local_port": 10808,
+  "backup_active_before": "synthetic-b",
+  "backup_canonical_index_before": "synthetic-a",
+  "backup_restore_status": "Imported",
+  "backup_active_remarks_after_restore": "A"
+}

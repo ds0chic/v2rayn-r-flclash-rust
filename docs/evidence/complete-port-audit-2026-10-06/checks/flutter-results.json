@@ -1,0 +1,31 @@
+[
+  {
+    "name": "dart-format",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\dart.bat",
+      "format",
+      "--output=none",
+      "--set-exit-if-changed",
+      "lib",
+      "test"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:45:32.839923+00:00",
+    "seconds": 1.88,
+    "exit_code": 1,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\dart-format.log"
+  },
+  {
+    "name": "flutter-analyze",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "analyze",
+      "--no-pub"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:45:34.720206+00:00",
+    "seconds": 7.199,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\flutter-analyze.log"
+  }
+]

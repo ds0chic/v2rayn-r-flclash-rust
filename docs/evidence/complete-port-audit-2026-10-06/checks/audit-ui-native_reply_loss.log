@@ -1,0 +1,7 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart
+00:00 +0 -1: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart [E]
+  Failed to load "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart": Connection closed before test suite loaded.
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart

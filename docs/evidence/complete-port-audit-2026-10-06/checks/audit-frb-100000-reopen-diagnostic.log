@@ -1,0 +1,12 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/frb_persistence_probe_test.dart
+00:00 +0: production FRB + isolated SQLite persists and reopens synthetic profiles
+AUDIT native library initialized phase=reopen rows=100000
+AUDIT real SQLite engine opened
+AUDIT persisted profile count=100000
+AUDIT saved language confirmed; next synchronous all-profile query
+00:00 +0: production FRB + isolated SQLite persists and reopens synthetic profiles - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/frb_persistence_probe_test.dart: production FRB + isolated SQLite persists and reopens synthetic profiles (did not complete)
+No tests were found.

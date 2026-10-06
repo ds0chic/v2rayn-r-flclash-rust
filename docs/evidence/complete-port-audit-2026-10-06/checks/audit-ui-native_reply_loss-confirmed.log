@@ -1,0 +1,89 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart
+00:00 +0: settings missing reply reaches a bounded failure
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: true
+  Actual: <false>
+saveDraft acknowledgement is not the save result; a lost saveOutcome must not hang forever
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart:20:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart line 20
+The test description was:
+  settings missing reply reaches a bounded failure
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:00 +0 -1: settings missing reply reaches a bounded failure [E]
+  Test failed. See exception logs above.
+  The test description was: settings missing reply reaches a bounded failure
+  
+00:00 +0 -1: routing missing reply reaches a bounded failure
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: true
+  Actual: <false>
+a missing saveOutcome must resolve as unknown/failed and offer reconciliation
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart:36:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart line 36
+The test description was:
+  routing missing reply reaches a bounded failure
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:00 +0 -2: routing missing reply reaches a bounded failure [E]
+  Test failed. See exception logs above.
+  The test description was: routing missing reply reaches a bounded failure
+  
+00:00 +0 -2: malformed routing snapshot is rejected, not editable empty data
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: throws <Instance of 'RoutingEditorLoadException'>
+  Actual: <Instance of 'Future<RoutingEditorSnapshot>'>
+   Which: emitted <Instance of 'RoutingEditorSnapshot'>
+
+When the exception was thrown, this was the stack:
+#0      fail (package:matcher/src/expect/expect.dart:187:31)
+#1      _expect.<anonymous closure> (package:matcher/src/expect/expect.dart:155:13)
+<asynchronous suspension>
+<asynchronous suspension>
+#8      expectLater.<anonymous closure> (package:flutter_test/src/widget_tester.dart:508:19)
+<asynchronous suspension>
+#9      main.<anonymous closure> (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart:48:5)
+<asynchronous suspension>
+#10     testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#11     TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided 7 frames from dart:async and package:stack_trace)
+
+The test description was:
+  malformed routing snapshot is rejected, not editable empty data
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:00 +0 -3: malformed routing snapshot is rejected, not editable empty data [E]
+  Test failed. See exception logs above.
+  The test description was: malformed routing snapshot is rejected, not editable empty data
+  
+00:00 +0 -3: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart: malformed routing snapshot is rejected, not editable empty data
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart: routing missing reply reaches a bounded failure
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart: settings missing reply reaches a bounded failure

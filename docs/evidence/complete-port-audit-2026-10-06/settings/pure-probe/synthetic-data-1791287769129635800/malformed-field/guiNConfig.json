@@ -1,0 +1,14 @@
+{
+  "GuiItem": {
+    "TrayMenuServersLimit": "broken-type",
+    "KeepOlderDedupl": true
+  },
+  "UiItem": {
+    "CurrentLanguage": "en"
+  },
+  "Inbound": [
+    {
+      "LocalPort": 11808
+    }
+  ]
+}

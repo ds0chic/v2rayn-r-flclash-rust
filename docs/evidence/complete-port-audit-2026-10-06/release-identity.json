@@ -1,0 +1,38 @@
+[
+  {
+    "member": "v2rayn_desktop.exe",
+    "zip_sha256": "86196994a97bec0e3f246df39300bb35987a1dbfcb8cc48863674b241667275d",
+    "new_release_sha256": "86196994a97bec0e3f246df39300bb35987a1dbfcb8cc48863674b241667275d",
+    "same": true
+  },
+  {
+    "member": "bridge_api.dll",
+    "zip_sha256": "4383d1e79d27dc2154ae448855c37cd71d88d3bab642a7af1b0449cc9f5cfa26",
+    "new_release_sha256": "3afc3cc9b2a1f7f89340fd4f59e39c0924d23e56dfcafe1bea6f04ce4476dc0f",
+    "same": false
+  },
+  {
+    "member": "net_host.exe",
+    "zip_sha256": "bc58241dd44b15136b4639c601a8b7ceaf5ade41e2c823f4d9bdfe72a6d18422",
+    "new_release_sha256": "14ce93cddb77f78a8b30e1eca471b7336b1082297d9e6d77e1982eee8a1e02ff",
+    "same": false
+  },
+  {
+    "member": "privileged_helper.exe",
+    "zip_sha256": "f220ddeed195addcf17cd22d40fdd9f5da24d00aa1a5bde2883b746686629f30",
+    "new_release_sha256": "e220c5b22f5b2b8793d392a4c917d8e76d97b7dd2ec00b3f01327b705bfb7e90",
+    "same": false
+  },
+  {
+    "member": "v2rayN-upgrade.exe",
+    "zip_sha256": "15e0b438d519812353c7f3d6bcbc6ec9625d2828bc4086386806ee0c37892096",
+    "new_release_sha256": "5d2686a59b1c89b5857fe0a346a409ff85d1655ef7fff2257e586367e660beea",
+    "same": false
+  },
+  {
+    "member": "data/app.so",
+    "zip_sha256": "e29ac878f72167cc699d9b5d282df0405629bd993782212bcf0685a4eef54cde",
+    "new_release_sha256": "7e372b6473eeeacb8c5bff603df70268aa0fd3edfcbf1ebcc34445cef7928889",
+    "same": false
+  }
+]

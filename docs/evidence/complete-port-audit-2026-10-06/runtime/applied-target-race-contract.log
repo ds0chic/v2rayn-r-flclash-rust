@@ -1,0 +1,37 @@
+   Compiling runtime_complete_port_audit v0.0.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\complete-port-audit-2026-10-06\runtime\rust)
+warning: methods `last_seq` and `bump_epoch` are never used
+  --> src\..\..\..\..\..\..\services\net_host\src\events.rs:42:12
+   |
+24 | impl EventBus {
+   | ------------- methods in this implementation
+...
+42 |     pub fn last_seq(&self) -> u64 {
+   |            ^^^^^^^^
+...
+47 |     pub fn bump_epoch(&self) {
+   |            ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `runtime_complete_port_audit` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.69s
+     Running unittests src\lib.rs (target/runtime-complete-port-audit\debug\deps\runtime_complete_port_audit-f156774c052fe974.exe)
+
+running 1 test
+OBSERVED applied_plan=rt-Xray-synthetic-a-2 generated_from=synthetic-a applied_target=Some("synthetic-b") desired_target=Some("synthetic-b"); AppEngine production + gated synthetic RuntimeClient; no process/IPC/OS
+
+thread 'tests::applying_a_while_desired_moves_to_b_must_still_publish_a' (16740) panicked at src\lib.rs:71:9:
+assertion `left == right` failed: a newer desired selection is not the accepted plan's applied target
+  left: Some("synthetic-b")
+ right: Some("synthetic-a")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::applying_a_while_desired_moves_to_b_must_still_publish_a ... FAILED
+
+failures:
+
+failures:
+    tests::applying_a_while_desired_moves_to_b_must_still_publish_a
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 42 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

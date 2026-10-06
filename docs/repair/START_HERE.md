@@ -1,8 +1,15 @@
 # 给实施模型的开始说明
 
+## 2026-10-06 最新复审入口
+
+完整的当前实施入口是 [稳定移植详细方案](stable-port-2026-10-06/IMPLEMENTATION_PLAN.md)，配套 [36张整合任务卡](stable-port-2026-10-06/tasks/README.md)、[180字段实施映射](stable-port-2026-10-06/SETTINGS_IMPLEMENTATION_180.csv)、三领域分册、接口所有权和完整验收矩阵。把 [本次给执行模型的指令](stable-port-2026-10-06/START_IMPLEMENTATION.md) 交给后续模型；先做SP-00共享合同，再依manifest推进。本文下面2026-10-05文字仅保留历史，不能作为当前开工指令。本次交付只有方案，未修生产代码或发行包。
+
+实施前先读 [当前全范围审计与稳定验收方案](../evidence/complete-port-audit-2026-10-06/README.md)，基线a7aa0a5。它复核并关闭部分旧缺陷，同时新增真实核心退出仍Running、命令次序、applied身份、清理假成功、备份活动节点往返、坏配置默认化、All导入半写、独立窗口回包/重试等阻断。旧计划与任务历史保留；不能用旧implemented/测试绿或旧ZIP宣布当前完成。先把正确期望回归转绿，再从当前未武装包普通入口逐项验收。
+
+
 本目录是2026-10-05对当前不可用/不顺畅流程的修复方案，不是已经修好的版本。先读 [完整方案](V2RAYN_COMPLETE_PORT_REPAIR_PLAN_2026-10-05.md)、[任务索引](tasks/README.md)、[覆盖清单](coverage.csv) 与三份领域报告。不要继续使用“只剩TUN实测”“主要功能都做完”的前提。
 
-可以把以下文字直接交给执行模型：
+以下为2026-10-05历史指令，当前执行使用上面的2026-10-06入口：
 
 > 在此仓库按 docs/repair/V2RAYN_COMPLETE_PORT_REPAIR_PLAN_2026-10-05.md 执行完整移植修复。原版基线保持 v2rayN 7.25.4 / 7d6a967；本轮审查应用基线77c74ed。先读取AGENTS.md、方案原件、三个user-flow-audit报告与当前任务卡，核对最新HEAD和既有改动。不要按旧报告认为当前生产流程已通过。
 >

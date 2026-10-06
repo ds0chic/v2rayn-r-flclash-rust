@@ -1,0 +1,23 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.44s
+     Running unittests src\main.rs (target\debug\deps\net_host-d28ebdac38e4502d.exe)
+
+running 2 tests
+[net_host] session s-1791287943816-2 RUNNING pid=16548 created_at_ms=1791287943820 port=0 rev=1
+[net_host] session s-1791287943816-2 STOPPED pid=16548
+[net_host] apply failed: E_INTERNAL error.core_exited
+[net_host] apply failed: E_INTERNAL error.core_exited
+[net_host] previous session could not be restored: E_INTERNAL
+test session::tests::rr10_failed_switch_without_restorable_previous_reports_stopped ... ok
+[net_host] session s-1791287948001-8 RUNNING pid=11144 created_at_ms=1791287948003 port=0 rev=1
+[net_host] session s-1791287948001-8 STOPPED pid=11144
+[net_host] apply failed: E_INTERNAL error.core_exited
+[net_host] session s-1791287952122-12 RUNNING pid=6508 created_at_ms=1791287952124 port=0 rev=1
+[net_host] restored previous session after failed switch
+[net_host] session s-1791287952122-12 STOPPED pid=6508
+test session::tests::rr10_failed_switch_restores_previous_session ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 12.38s
+

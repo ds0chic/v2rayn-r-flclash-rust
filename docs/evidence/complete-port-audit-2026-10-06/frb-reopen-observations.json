@@ -1,0 +1,9 @@
+{
+  "phase": "reopen",
+  "rows": 10000,
+  "dll": "target/release/bridge_api.dll",
+  "effects": "no core, no scheduler, no socket, no platform API",
+  "query_all_ms": 123.148,
+  "timer_ticks_during_synchronous_query": 0,
+  "queried_rows": 10000
+}

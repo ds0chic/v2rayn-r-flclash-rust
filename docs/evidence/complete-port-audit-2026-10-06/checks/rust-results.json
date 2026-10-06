@@ -1,0 +1,51 @@
+[
+  {
+    "name": "cargo-fmt",
+    "command": [
+      "C:\\Users\\Colby\\.cargo\\bin\\cargo.exe",
+      "fmt",
+      "--all",
+      "--",
+      "--check"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
+    "started_at": "2026-10-06T11:45:32.839907+00:00",
+    "seconds": 1.243,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\cargo-fmt.log"
+  },
+  {
+    "name": "cargo-clippy",
+    "command": [
+      "C:\\Users\\Colby\\.cargo\\bin\\cargo.exe",
+      "clippy",
+      "--workspace",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
+    "started_at": "2026-10-06T11:45:34.086524+00:00",
+    "seconds": 1.016,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\cargo-clippy.log"
+  },
+  {
+    "name": "cargo-test",
+    "command": [
+      "C:\\Users\\Colby\\.cargo\\bin\\cargo.exe",
+      "test",
+      "--workspace",
+      "--locked",
+      "--offline"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
+    "started_at": "2026-10-06T11:45:35.102722+00:00",
+    "seconds": 65.42,
+    "exit_code": 101,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\cargo-test.log"
+  }
+]

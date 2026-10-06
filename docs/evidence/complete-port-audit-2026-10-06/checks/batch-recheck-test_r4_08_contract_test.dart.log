@@ -1,0 +1,8 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_08_contract_test.dart
+00:00 +0: click is immediate, modifier frozen, command target correct
+00:02 +0: click is immediate, modifier frozen, command target correct - did not complete [E]
+00:02 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_08_contract_test.dart: click is immediate, modifier frozen, command target correct (did not complete)
+No tests were found.

@@ -1,0 +1,39 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+warning: methods `last_seq` and `bump_epoch` are never used
+  --> src\..\..\..\..\..\..\services\net_host\src\events.rs:42:12
+   |
+24 | impl EventBus {
+   | ------------- methods in this implementation
+...
+42 |     pub fn last_seq(&self) -> u64 {
+   |            ^^^^^^^^
+...
+47 |     pub fn bump_epoch(&self) {
+   |            ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `runtime_complete_port_audit` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.08s
+     Running unittests src\lib.rs (target/runtime-complete-port-audit\debug\deps\runtime_complete_port_audit-f156774c052fe974.exe)
+
+running 1 test
+[net_host] tun cleanup best-effort failed for synthetic-cleanup: E_UNAVAILABLE error.synthetic_cleanup_failed
+OBSERVED cleanup_error_injected=true result_ok=true recovery_journal_retained=false; only synthetic file + actual production cleanup_tun_lease called; no OS/helper/pipe
+
+thread 'tests::cleanup_failure_should_keep_recovery_record' (27504) panicked at src\lib.rs:57:9:
+an unconfirmed cleanup cannot report success
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::cleanup_failure_should_keep_recovery_record ... FAILED
+
+failures:
+
+failures:
+    tests::cleanup_failure_should_keep_recovery_record
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

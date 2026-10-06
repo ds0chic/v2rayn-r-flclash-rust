@@ -1,0 +1,562 @@
+[
+  {
+    "name": "audit-ui-native_reply_loss",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "../../docs/evidence/complete-port-audit-2026-10-06/ui/native_reply_loss_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:10.789324+00:00",
+    "seconds": 3.372,
+    "exit_code": 1,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\audit-ui-native_reply_loss.log"
+  },
+  {
+    "name": "audit-ui-group_reopen",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "../../docs/evidence/complete-port-audit-2026-10-06/ui/group_reopen_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:14.162337+00:00",
+    "seconds": 2.736,
+    "exit_code": 1,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\audit-ui-group_reopen.log"
+  },
+  {
+    "name": "audit-ui-status_viewport",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "../../docs/evidence/complete-port-audit-2026-10-06/ui/status_viewport_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:16.898998+00:00",
+    "seconds": 3.309,
+    "exit_code": 1,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\audit-ui-status_viewport.log"
+  },
+  {
+    "name": "audit-ui-routing_partial_commit",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "../../docs/evidence/complete-port-audit-2026-10-06/ui/routing_partial_commit_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:20.208724+00:00",
+    "seconds": 3.488,
+    "exit_code": 1,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\audit-ui-routing_partial_commit.log"
+  },
+  {
+    "name": "audit-frb-seed",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "../../docs/evidence/complete-port-audit-2026-10-06/frb_persistence_probe_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:23.696742+00:00",
+    "seconds": 3.626,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\audit-frb-seed.log"
+  },
+  {
+    "name": "audit-frb-reopen",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "../../docs/evidence/complete-port-audit-2026-10-06/frb_persistence_probe_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:27.322969+00:00",
+    "seconds": 2.892,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\audit-frb-reopen.log"
+  },
+  {
+    "name": "batch-recheck-test_fix03b_custom_browse_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/fix03b_custom_browse_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:30.222740+00:00",
+    "seconds": 4.036,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_fix03b_custom_browse_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_fix08_option_error_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/fix08_option_error_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:34.258856+00:00",
+    "seconds": 3.722,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_fix08_option_error_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_fix15_hotkey_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/fix15_hotkey_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:37.980771+00:00",
+    "seconds": 3.284,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_fix15_hotkey_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_profiles_drag_scroll_up_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/profiles_drag_scroll_up_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:41.265248+00:00",
+    "seconds": 5.228,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_profiles_drag_scroll_up_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_profiles_drag_select_up_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/profiles_drag_select_up_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:46.493247+00:00",
+    "seconds": 4.185,
+    "exit_code": 79,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_profiles_drag_select_up_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_profiles_render_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/profiles_render_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:50.678830+00:00",
+    "seconds": 4.209,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_profiles_render_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_profiles_select_basic_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/profiles_select_basic_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:54.888124+00:00",
+    "seconds": 4.51,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_profiles_select_basic_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_profiles_share_shortcut_empty_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/profiles_share_shortcut_empty_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:55:59.398159+00:00",
+    "seconds": 3.939,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_profiles_share_shortcut_empty_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r3_visual_dpi_shell_100_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r3_visual_dpi_shell_100_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:03.337493+00:00",
+    "seconds": 4.695,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r3_visual_dpi_shell_100_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r3_visual_dpi_shell_125_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r3_visual_dpi_shell_125_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:08.032803+00:00",
+    "seconds": 4.878,
+    "exit_code": 79,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r3_visual_dpi_shell_125_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r3_visual_dpi_shell_200_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r3_visual_dpi_shell_200_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:12.910594+00:00",
+    "seconds": 4.546,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r3_visual_dpi_shell_200_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r3_visual_dpi_windows_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r3_visual_dpi_windows_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:17.457066+00:00",
+    "seconds": 6.323,
+    "exit_code": 79,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r3_visual_dpi_windows_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r3_wpf_routing_window_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r3_wpf_routing_window_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:23.780459+00:00",
+    "seconds": 4.045,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r3_wpf_routing_window_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r4_07_contract_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r4_07_contract_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:27.825773+00:00",
+    "seconds": 5.138,
+    "exit_code": 79,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r4_07_contract_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r4_08_contract_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r4_08_contract_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:32.963726+00:00",
+    "seconds": 5.471,
+    "exit_code": 79,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r4_08_contract_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r4_12_contract_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r4_12_contract_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:38.434650+00:00",
+    "seconds": 4.611,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r4_12_contract_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r4_13_s13_contract_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r4_13_s13_contract_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:43.045485+00:00",
+    "seconds": 3.091,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r4_13_s13_contract_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r4_18_p02_contract_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r4_18_p02_contract_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:46.137003+00:00",
+    "seconds": 3.887,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r4_18_p02_contract_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r4_18_p03_contract_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r4_18_p03_contract_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:50.024701+00:00",
+    "seconds": 3.715,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r4_18_p03_contract_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r4_18_p04_contract_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r4_18_p04_contract_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:53.739742+00:00",
+    "seconds": 3.79,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r4_18_p04_contract_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_r4_18_p11_contract_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/r4_18_p11_contract_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:56:57.529797+00:00",
+    "seconds": 3.663,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_r4_18_p11_contract_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_recheck_r3_prof_menu_target_a_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/recheck_r3_prof_menu_target_a_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:57:01.192927+00:00",
+    "seconds": 5.784,
+    "exit_code": 79,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_recheck_r3_prof_menu_target_a_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_repair_r4_08_repro_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/repair/r4_08_repro_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:57:06.977309+00:00",
+    "seconds": 4.615,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_repair_r4_08_repro_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_repair_r4_11_repro_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/repair/r4_11_repro_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:57:11.592563+00:00",
+    "seconds": 4.545,
+    "exit_code": 1,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_repair_r4_11_repro_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_t06a_editor_error_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/t06a_editor_error_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:57:16.138245+00:00",
+    "seconds": 3.803,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_t06a_editor_error_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_t10_template_window_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/t10_template_window_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:57:19.941625+00:00",
+    "seconds": 3.716,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_t10_template_window_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_t11_menu_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/t11_menu_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:57:23.657677+00:00",
+    "seconds": 5.067,
+    "exit_code": 1,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_t11_menu_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_t12a_option_window_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/t12a_option_window_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:57:28.724522+00:00",
+    "seconds": 4.42,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_t12a_option_window_test.dart.log"
+  },
+  {
+    "name": "batch-recheck-test_ux_parity_fix01_gen_group_guard_test.dart",
+    "command": [
+      "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+      "test",
+      "--no-pub",
+      "test/ux_parity_fix01_gen_group_guard_test.dart",
+      "--reporter",
+      "expanded"
+    ],
+    "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\apps\\desktop",
+    "started_at": "2026-10-06T11:57:33.145132+00:00",
+    "seconds": 4.834,
+    "exit_code": 0,
+    "log": "docs\\evidence\\complete-port-audit-2026-10-06\\checks\\batch-recheck-test_ux_parity_fix01_gen_group_guard_test.dart.log"
+  }
+]

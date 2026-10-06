@@ -1,0 +1,6 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p03_contract_test.dart
+00:00 +0: R4-18.P03 method list follows the selected core
+00:00 +1: R4-18.P03 save -> reopen keeps method + uot
+00:00 +2: R4-18.P03 empty method is a visible required error
+00:00 +3: R4-18.P03 cancel writes nothing
+00:01 +4: All tests passed!

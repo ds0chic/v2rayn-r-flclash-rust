@@ -1,0 +1,40 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/status_viewport_test.dart
+00:00 +0: original 800px minimum width shows controls and rates together
+AUDIT viewport system-proxy-selector: Rect.fromLTRB(349.5, 9.0, 598.8, 31.0)
+AUDIT viewport routing-selector: Rect.fromLTRB(754.3, 9.0, 1038.8, 31.0)
+AUDIT viewport status-proxy-speed: Rect.fromLTRB(1231.0, 3.5, 1348.5, 19.5)
+AUDIT viewport status-direct-speed: Rect.fromLTRB(1231.0, 20.5, 1348.5, 36.5)
+AUDIT after horizontal scroll system-proxy-selector: Rect.fromLTRB(0.0, 9.0, 249.3, 31.0)
+AUDIT after horizontal scroll routing-selector: Rect.fromLTRB(0.0, 9.0, 284.5, 31.0)
+AUDIT after horizontal scroll status-proxy-speed: Rect.fromLTRB(461.0, 3.5, 578.5, 19.5)
+AUDIT after horizontal scroll status-direct-speed: Rect.fromLTRB(461.0, 20.5, 578.5, 36.5)
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: empty
+  Actual: ['routing-selector', 'status-proxy-speed', 'status-direct-speed']
+core controls and both rate lines must be visible without horizontally scrolling the bottom bar at
+the upstream minimum width
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/status_viewport_test.dart:50:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1953:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/status_viewport_test.dart line 50
+The test description was:
+  original 800px minimum width shows controls and rates together
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:00 +0 -1: original 800px minimum width shows controls and rates together [E]
+  Test failed. See exception logs above.
+  The test description was: original 800px minimum width shows controls and rates together
+  
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/status_viewport_test.dart: original 800px minimum width shows controls and rates together

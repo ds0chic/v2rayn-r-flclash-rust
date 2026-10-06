@@ -1,0 +1,40 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   Compiling runtime_complete_port_audit v0.0.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\complete-port-audit-2026-10-06\runtime\rust)
+warning: methods `last_seq` and `bump_epoch` are never used
+  --> src\..\..\..\..\..\..\services\net_host\src\events.rs:42:12
+   |
+24 | impl EventBus {
+   | ------------- methods in this implementation
+...
+42 |     pub fn last_seq(&self) -> u64 {
+   |            ^^^^^^^^
+...
+47 |     pub fn bump_epoch(&self) {
+   |            ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `runtime_complete_port_audit` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.92s
+     Running unittests src\lib.rs (target/runtime-complete-port-audit\debug\deps\runtime_complete_port_audit-f156774c052fe974.exe)
+
+running 1 test
+OBSERVED reset_error_count=1 fake_interfaces=[7] owned_tun_count=0 closed=true retry_error_count=0; FakeBackend only
+
+thread 'tests::helper_failed_cleanup_should_retain_owned_resources_for_retry' (40988) panicked at src\lib.rs:78:9:
+assertion `left == right` failed: failed resources must remain owned or be copied into durable recovery
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test tests::helper_failed_cleanup_should_retain_owned_resources_for_retry ... FAILED
+
+failures:
+
+failures:
+    tests::helper_failed_cleanup_should_retain_owned_resources_for_retry
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

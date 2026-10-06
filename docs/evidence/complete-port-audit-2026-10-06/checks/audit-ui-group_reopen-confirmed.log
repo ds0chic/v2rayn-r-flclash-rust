@@ -1,0 +1,16 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/group_reopen_test.dart
+00:00 +0: current group survives a controller reopen through canonical settings
+00:00 +0 -1: current group survives a controller reopen through canonical settings [E]
+  Expected: 'syn-sub-0'
+    Actual: <null>
+     Which: not an <Instance of 'String'>
+  current node group must enter the canonical config that close/restore will save
+  
+  package:matcher                                                                    expect
+  package:flutter_test/src/widget_tester.dart 473:18                                 expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\ui\group_reopen_test.dart 26:5  main.<fn>
+  
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/ui/group_reopen_test.dart: current group survives a controller reopen through canonical settings

@@ -1,0 +1,10 @@
+{
+  "phase": "seed",
+  "rows": 10000,
+  "dll": "target/release/bridge_api.dll",
+  "effects": "no core, no scheduler, no socket, no platform API",
+  "import_ms": 612.613,
+  "query_all_ms": 101.533,
+  "timer_ticks_during_synchronous_query": 0,
+  "queried_rows": 10000
+}

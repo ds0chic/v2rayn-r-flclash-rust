@@ -1,0 +1,13 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src\main.rs (target\debug\deps\net_host-d28ebdac38e4502d.exe)
+
+running 4 tests
+[net_host] recovery session=stale stage=Applying pid=None cleaned=true
+[net_host] recovery session=stale stage=Applying pid=None cleaned=true
+test journal::tests::finalized_sessions_are_not_recovered ... ok
+test journal::tests::staged_artifacts_are_removed_but_journal_survives ... ok
+test journal::tests::stale_session_without_pid_is_finalized ... ok
+test journal::tests::recovery_deletes_staged_config_after_finalizing ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 64 filtered out; finished in 0.00s
+

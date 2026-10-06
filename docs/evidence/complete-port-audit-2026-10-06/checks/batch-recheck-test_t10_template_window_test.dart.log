@@ -1,0 +1,6 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_template_window_test.dart
+00:00 +0: template window renders both core tabs
+00:00 +1: template window rejects invalid json
+00:00 +2: template window cancel saves nothing
+00:00 +3: template window saves both rows with flags
+00:01 +4: All tests passed!

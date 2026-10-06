@@ -1,0 +1,20 @@
+   Compiling tokio v1.53.1
+   Compiling privileged_helper v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\privileged_helper)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.19s
+     Running tests\loopback.rs (target\debug\deps\loopback-50e31c14d25626fb.exe)
+
+running 1 test
+
+thread 'idle_connection_times_out' (38796) panicked at services\privileged_helper\tests\loopback.rs:178:10:
+timeout response should arrive: Elapsed(())
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test idle_connection_times_out ... FAILED
+
+failures:
+
+failures:
+    idle_connection_times_out
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 2.00s
+
+error: test failed, to rerun pass `-p privileged_helper --test loopback`

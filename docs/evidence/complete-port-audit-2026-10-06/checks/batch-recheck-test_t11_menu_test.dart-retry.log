@@ -1,0 +1,8 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart
+00:00 +0: menu model carries the routing and DNS entries
+00:00 +1: menu opens the routing window; status bar shows the switch
+00:01 +1: menu opens the routing window; status bar shows the switch - did not complete [E]
+00:01 +1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_menu_test.dart: menu opens the routing window; status bar shows the switch (did not complete)

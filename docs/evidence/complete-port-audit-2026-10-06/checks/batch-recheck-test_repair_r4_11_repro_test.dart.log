@@ -1,0 +1,8 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_11_repro_test.dart
+00:00 +0: R4-11 link: GlobalFakeIp only visible when FakeIP is on
+00:00 +1: R4-11 default: null/empty group falls back to upstream defaults
+00:01 +1: R4-11 default: null/empty group falls back to upstream defaults - did not complete [E]
+00:01 +1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_11_repro_test.dart: R4-11 default: null/empty group falls back to upstream defaults (did not complete)

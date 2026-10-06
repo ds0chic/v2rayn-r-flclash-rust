@@ -1,0 +1,28 @@
+[package]
+name = "runtime_complete_port_audit"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[[bin]]
+name = "runtime_audit_host"
+path = "../../../../../services/net_host/src/main.rs"
+
+[[bin]]
+name = "runtime_audit_client"
+path = "src/client.rs"
+
+[dependencies]
+application = { path = "../../../../../crates/application" }
+domain = { path = "../../../../../crates/domain" }
+ipc_contract = { path = "../../../../../crates/ipc_contract" }
+runtime = { path = "../../../../../crates/runtime" }
+privileged_helper = { path = "../../../../../services/privileged_helper" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = { version = "1.53", features = ["rt-multi-thread", "net", "io-util", "fs", "process", "sync", "time", "macros", "test-util"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading"] }

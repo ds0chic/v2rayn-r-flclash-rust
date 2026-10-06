@@ -1,0 +1,37 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/settings/settings_retry_contract_test.dart
+00:00 +0: failed autostart is still retryable after reopening settings
+00:00 +0 -1: failed autostart is still retryable after reopening settings [E]
+  Expected: <2>
+    Actual: <1>
+  reloading persisted desire cannot confirm a failed OS write
+  
+  package:matcher                                                                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18                                                  expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\settings\settings_retry_contract_test.dart 88:5  main.<fn>
+  
+00:00 +0 -1: independent settings window can retry a saved but failed apply
+00:00 +0 -2: independent settings window can retry a saved but failed apply [E]
+  Expected: true
+    Actual: <false>
+  retrying this window's own saved draft must reach apply
+  
+  package:matcher                                                                                      expect
+  package:flutter_test/src/widget_tester.dart 473:18                                                   expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\settings\settings_retry_contract_test.dart 124:5  main.<fn>
+  
+00:00 +0 -2: update option failure must be visible or rolled back
+00:00 +0 -3: update option failure must be visible or rolled back [E]
+  Expected: true
+    Actual: <false>
+  a failed persisted toggle must not look like success
+  
+  package:matcher                                                                                      expect
+  package:flutter_test/src/widget_tester.dart 473:18                                                   expect
+  ..\..\docs\evidence\complete-port-audit-2026-10-06\settings\settings_retry_contract_test.dart 141:5  main.<fn>
+  
+00:00 +0 -3: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/settings/settings_retry_contract_test.dart: failed autostart is still retryable after reopening settings
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/settings/settings_retry_contract_test.dart: independent settings window can retry a saved but failed apply
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/docs/evidence/complete-port-audit-2026-10-06/settings/settings_retry_contract_test.dart: update option failure must be visible or rolled back

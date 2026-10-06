@@ -1,0 +1,66 @@
+{
+  "format_version": 1,
+  "created_at": 1791200000,
+  "app_source_commit": "7d6a967c18c697f28dc6917122ed3a4993fcf336",
+  "db_sha256": "260afcc97c3c11c73934278fc0f227b7585591d071b247eabc0e2d4d4efd9109",
+  "config_sha256": "d810ae4eb3624094be71807b37f1bb67c8a8df5cc0ea3162f5f4377fd11ccee8",
+  "referenced_resources": [],
+  "entity_counts": [
+    {
+      "table": "SubItem",
+      "source_rows": 0,
+      "imported_rows": 0,
+      "migrated_rows": 0,
+      "skipped_rows": 0
+    },
+    {
+      "table": "ProfileItem",
+      "source_rows": 2,
+      "imported_rows": 2,
+      "migrated_rows": 0,
+      "skipped_rows": 0
+    },
+    {
+      "table": "ServerStatItem",
+      "source_rows": 0,
+      "imported_rows": 0,
+      "migrated_rows": 0,
+      "skipped_rows": 0
+    },
+    {
+      "table": "RoutingItem",
+      "source_rows": 3,
+      "imported_rows": 3,
+      "migrated_rows": 0,
+      "skipped_rows": 0
+    },
+    {
+      "table": "ProfileExItem",
+      "source_rows": 0,
+      "imported_rows": 0,
+      "migrated_rows": 0,
+      "skipped_rows": 0
+    },
+    {
+      "table": "DNSItem",
+      "source_rows": 2,
+      "imported_rows": 2,
+      "migrated_rows": 0,
+      "skipped_rows": 0
+    },
+    {
+      "table": "FullConfigTemplateItem",
+      "source_rows": 0,
+      "imported_rows": 0,
+      "migrated_rows": 0,
+      "skipped_rows": 0
+    },
+    {
+      "table": "ProfileGroupItem",
+      "source_rows": 0,
+      "imported_rows": 0,
+      "migrated_rows": 0,
+      "skipped_rows": 0
+    }
+  ]
+}

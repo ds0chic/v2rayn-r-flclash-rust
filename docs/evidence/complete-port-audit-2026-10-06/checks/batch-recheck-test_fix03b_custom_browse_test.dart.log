@@ -1,0 +1,16 @@
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix03b_custom_browse_test.dart
+00:00 +0: resolveCustomConfigPath absolute path is used as-is
+00:00 +1: resolveCustomConfigPath relative name joins dataDir/config
+00:00 +2: defaultCustomRemarks matches upstream custom/outbound prefixes
+00:00 +3: SyntheticBridgePort custom seam records source and returns a stored name with the extension
+00:00 +4: SyntheticBridgePort custom seam reports a structured failure when forced
+00:00 +5: custom editor Browse copies the picked file and rewrites Address
+00:00 +6: custom editor Browse outbound empty remarks gets the outbound prefix
+00:00 +7: custom editor Browse cancelled picker leaves the draft untouched
+00:00 +8: custom editor Browse failed import keeps Address and shows a file error
+00:00 +9: custom editor Browse non-empty remarks are not overwritten on browse
+00:01 +10: custom editor Edit relative Address resolves under dataDir/config
+00:01 +11: custom editor Edit absolute Address is opened directly
+00:01 +12: custom editor Edit missing file shows an explicit error
+00:01 +13: custom editor Edit empty Address is rejected before opening
+00:01 +14: All tests passed!

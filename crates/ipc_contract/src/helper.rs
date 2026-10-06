@@ -20,7 +20,14 @@ use crate::{SessionIdentity, IPC_APPLY_TIMEOUT_MS, IPC_MAX_MESSAGE_BYTES, IPC_RE
 use domain::{codes, DomainError};
 
 /// Helper protocol version. Bump on any incompatible helper message change.
-pub const HELPER_PROTOCOL_VERSION: u32 = 1;
+///
+/// v2 (2026-10-07) adds the lease/observation ops (`RenewLease`,
+/// `GetLeaseStatus`, `PollCoreExits`) and the `AlreadyGone` cleanup result
+/// (SP-08/SP-09/SP-10 interface gaps N-H1/N-H2/N-H3). A v1 helper cannot
+/// decode these ops, so the version is bumped: `check_helper_session` rejects
+/// the mismatch explicitly instead of surfacing a decode error, and the host
+/// must ship the matching helper.
+pub const HELPER_PROTOCOL_VERSION: u32 = 2;
 
 /// Well-known named pipe the privileged helper listens on (Windows).
 pub const HELPER_PIPE_NAME: &str = r"\\.\pipe\v2rayn-r-helper";
@@ -37,6 +44,9 @@ pub const HELPER_MAX_TUN_ADDRESSES: usize = 64;
 
 /// Maximum number of arguments accepted for an elevated core.
 pub const HELPER_MAX_ARGS: usize = 64;
+
+/// Maximum number of handles accepted in one `PollCoreExits` request.
+pub const HELPER_MAX_POLL_HANDLES: usize = 256;
 
 /// Maximum byte length of a single argument.
 pub const HELPER_MAX_ARG_BYTES: usize = 4096;
@@ -100,6 +110,16 @@ pub enum HelperOp {
     RunElevatedCore { spec: ElevatedCoreSpec },
     /// Stop a previously started elevated core by opaque helper handle.
     StopElevatedCore { handle: u64 },
+    /// SP-09: renew the keep-alive lease of one owned handle. The helper
+    /// extends the lease and reports the new expiry; an unknown handle is a
+    /// structured `UnknownHandle`, never a silent success.
+    RenewLease { handle: u64 },
+    /// SP-09: read the lease state of one owned handle without renewing it.
+    GetLeaseStatus { handle: u64 },
+    /// SP-10/SP-06: poll handle-scoped exits of owned elevated cores. The
+    /// request lists the handles the caller still owns; the helper answers
+    /// only for those, at most once per observed exit (drain-once).
+    PollCoreExits { handles: Vec<u64> },
     /// Graceful shutdown of the helper after cleanup.
     Shutdown,
 }
@@ -180,19 +200,87 @@ pub struct ElevationStatus {
     pub protocol_version: u32,
 }
 
+/// Lease state of one owned elevated-core handle (SP-09).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LeaseState {
+    /// The handle is owned and the helper still holds the process.
+    Active,
+    /// The owned process exited; the exit is awaiting the next poll/cleanup.
+    Exited,
+    /// The handle was released (stop/cleanup confirmed); history only.
+    Released,
+}
+
+/// Lease facts for one owned handle (SP-09).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LeaseStatus {
+    pub handle: u64,
+    pub state: LeaseState,
+    /// Spawn-time PID of the owned process, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pid: Option<u32>,
+    /// Unix-ms instant the keep-alive lease expires without a renewal.
+    pub expires_at_ms: i64,
+}
+
+/// One handle-scoped elevated-core exit observation (SP-10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreExitObservation {
+    pub handle: u64,
+    pub pid: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exit_code: Option<i32>,
+    /// Unix-ms instant the helper observed the exit.
+    pub at_ms: i64,
+}
+
 /// Result payload of a helper call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum HelperResult {
-    Pong { elevation: ElevationStatus },
-    ElevationStatus { status: ElevationStatus },
-    RoutesAdded { count: u32 },
-    RoutesRemoved { count: u32 },
-    TunAddressSet { interface_index: u32 },
-    CoreStarted { handle: u64, pid: u32 },
-    CoreStopped { handle: u64 },
+    Pong {
+        elevation: ElevationStatus,
+    },
+    ElevationStatus {
+        status: ElevationStatus,
+    },
+    RoutesAdded {
+        count: u32,
+    },
+    RoutesRemoved {
+        count: u32,
+    },
+    TunAddressSet {
+        interface_index: u32,
+    },
+    CoreStarted {
+        handle: u64,
+        pid: u32,
+    },
+    CoreStopped {
+        handle: u64,
+    },
+    LeaseRenewed {
+        handle: u64,
+        expires_at_ms: i64,
+    },
+    LeaseStatus {
+        status: LeaseStatus,
+    },
+    CoreExits {
+        exits: Vec<CoreExitObservation>,
+    },
+    /// SP-08: cleanup confirmed the resource was already absent. Not an error:
+    /// the desired end state holds. Carries the resource label for the audit
+    /// trail.
+    AlreadyGone {
+        resource: String,
+    },
     Shutdown,
-    Error { error: HelperError },
+    Error {
+        error: HelperError,
+    },
 }
 
 /// Structured helper errors. Kept separate from [`crate::IpcError`] because the
@@ -325,6 +413,44 @@ pub fn helper_timeout_for(op: &HelperOp) -> u64 {
         | HelperOp::Shutdown => IPC_APPLY_TIMEOUT_MS,
         _ => IPC_REQUEST_TIMEOUT_MS,
     }
+}
+
+/// Validate one opaque helper handle. Handles are allocated from 1, so zero is
+/// never a real handle and is rejected as malformed instead of reaching the
+/// backend as an unknown handle.
+pub fn validate_handle(handle: u64) -> Result<(), HelperError> {
+    if handle == 0 {
+        return Err(HelperError::malformed("handle must be non-zero"));
+    }
+    Ok(())
+}
+
+/// Validate a `PollCoreExits` handle list. Non-empty, bounded, no zero handle,
+/// no duplicates (a duplicate would make drain-once semantics ambiguous).
+pub fn validate_poll_handles(handles: &[u64]) -> Result<(), HelperError> {
+    if handles.is_empty() {
+        return Err(HelperError::malformed("poll handle list is empty"));
+    }
+    if handles.len() > HELPER_MAX_POLL_HANDLES {
+        return Err(HelperError::malformed(format!(
+            "{} poll handles exceed the limit of {HELPER_MAX_POLL_HANDLES}",
+            handles.len()
+        )));
+    }
+    let mut seen = std::collections::BTreeSet::new();
+    for (index, handle) in handles.iter().enumerate() {
+        if *handle == 0 {
+            return Err(HelperError::malformed(format!(
+                "handles[{index}] must be non-zero"
+            )));
+        }
+        if !seen.insert(*handle) {
+            return Err(HelperError::malformed(format!(
+                "handles[{index}] duplicates handle {handle}"
+            )));
+        }
+    }
+    Ok(())
 }
 
 /// Parse a CIDR string into an address plus a validated prefix length.
@@ -804,6 +930,90 @@ mod tests {
         };
         assert_eq!(helper_timeout_for(&op), IPC_APPLY_TIMEOUT_MS);
         assert_eq!(helper_timeout_for(&HelperOp::Ping), IPC_REQUEST_TIMEOUT_MS);
+    }
+
+    #[test]
+    fn helper_v2_lease_ops_roundtrip() {
+        let ops = [
+            HelperOp::RenewLease { handle: 7 },
+            HelperOp::GetLeaseStatus { handle: 7 },
+            HelperOp::PollCoreExits {
+                handles: vec![7, 9],
+            },
+        ];
+        for op in ops {
+            let request = HelperRequest {
+                session: session(HELPER_PROTOCOL_VERSION),
+                request_id: "lease".into(),
+                operation: op,
+            };
+            let json = serde_json::to_string(&request).unwrap();
+            let back: HelperRequest = serde_json::from_str(&json).unwrap();
+            assert_eq!(request, back);
+        }
+
+        let results = [
+            HelperResult::LeaseRenewed {
+                handle: 7,
+                expires_at_ms: 1_700_000_000_000,
+            },
+            HelperResult::LeaseStatus {
+                status: LeaseStatus {
+                    handle: 7,
+                    state: LeaseState::Active,
+                    pid: Some(4242),
+                    expires_at_ms: 1_700_000_000_000,
+                },
+            },
+            HelperResult::CoreExits {
+                exits: vec![CoreExitObservation {
+                    handle: 7,
+                    pid: 4242,
+                    exit_code: Some(-1073741510),
+                    at_ms: 1_700_000_100_000,
+                }],
+            },
+            HelperResult::AlreadyGone {
+                resource: "route 0.0.0.0/0".into(),
+            },
+        ];
+        for result in results {
+            let response = HelperResponse {
+                request_id: "lease".into(),
+                result,
+            };
+            let json = serde_json::to_string(&response).unwrap();
+            let back: HelperResponse = serde_json::from_str(&json).unwrap();
+            assert_eq!(response, back);
+        }
+    }
+
+    #[test]
+    fn helper_v2_lease_ops_use_request_timeout() {
+        assert_eq!(
+            helper_timeout_for(&HelperOp::RenewLease { handle: 1 }),
+            IPC_REQUEST_TIMEOUT_MS
+        );
+        assert_eq!(
+            helper_timeout_for(&HelperOp::GetLeaseStatus { handle: 1 }),
+            IPC_REQUEST_TIMEOUT_MS
+        );
+        assert_eq!(
+            helper_timeout_for(&HelperOp::PollCoreExits { handles: vec![1] }),
+            IPC_REQUEST_TIMEOUT_MS
+        );
+    }
+
+    #[test]
+    fn poll_handles_validate_bounds() {
+        assert!(validate_handle(0).is_err());
+        assert!(validate_handle(1).is_ok());
+        assert!(validate_poll_handles(&[]).is_err());
+        assert!(validate_poll_handles(&[0]).is_err());
+        assert!(validate_poll_handles(&[1, 1]).is_err());
+        assert!(validate_poll_handles(&[1, 2]).is_ok());
+        let many = (1..=HELPER_MAX_POLL_HANDLES as u64 + 1).collect::<Vec<_>>();
+        assert!(validate_poll_handles(&many).is_err());
     }
 
     #[test]

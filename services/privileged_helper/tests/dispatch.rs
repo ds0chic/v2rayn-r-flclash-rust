@@ -8,7 +8,8 @@ use std::time::Duration;
 
 use ipc_contract::{
     AddressFamily, CidrAddress, ElevatedCoreSpec, HelperError, HelperOp, HelperRequest,
-    HelperResult, RouteEntry, SessionIdentity, TunAddressConfig, HELPER_PROTOCOL_VERSION,
+    HelperResult, LeaseState, RouteEntry, SessionIdentity, TunAddressConfig,
+    HELPER_PROTOCOL_VERSION,
 };
 use privileged_helper::backend::{FakeBackend, FakeCall, FakeOp};
 use privileged_helper::server::{
@@ -598,4 +599,159 @@ fn sid_comparison_is_case_insensitive_and_strict() {
     assert!(sid_matches("S-1-5-21-1-2-3", "s-1-5-21-1-2-3"));
     assert!(!sid_matches("S-1-5-21-1-2-3", "S-1-5-21-9-9-9"));
     assert!(!sid_matches("", "S-1-5-21-1-2-3"));
+}
+
+/// Start one elevated core through dispatch and return its handle.
+fn start_core(server: &HelperServer<FakeBackend>, lease: &mut ConnectionLease) -> u64 {
+    match server
+        .handle(
+            lease,
+            &request(HelperOp::RunElevatedCore { spec: core_spec() }),
+        )
+        .result
+    {
+        HelperResult::CoreStarted { handle, .. } => handle,
+        other => panic!("expected CoreStarted, got {other:?}"),
+    }
+}
+
+#[test]
+fn sp09_renew_lease_extends_owned_handle_only() {
+    let fake = Arc::new(FakeBackend::new());
+    let server = server_with(fake, LeasePolicy::CleanOwned);
+    let mut lease = lease("s-renew");
+    let handle = start_core(&server, &mut lease);
+
+    let first = match server
+        .handle(&mut lease, &request(HelperOp::GetLeaseStatus { handle }))
+        .result
+    {
+        HelperResult::LeaseStatus { status } => status,
+        other => panic!("expected LeaseStatus, got {other:?}"),
+    };
+    assert_eq!(first.state, LeaseState::Active);
+    assert!(first.expires_at_ms > 0, "an owned handle has an expiry");
+
+    let renewed = match server
+        .handle(&mut lease, &request(HelperOp::RenewLease { handle }))
+        .result
+    {
+        HelperResult::LeaseRenewed { expires_at_ms, .. } => expires_at_ms,
+        other => panic!("expected LeaseRenewed, got {other:?}"),
+    };
+    assert!(renewed >= first.expires_at_ms);
+
+    let unknown = server
+        .handle(
+            &mut lease,
+            &request(HelperOp::RenewLease { handle: 424_242 }),
+        )
+        .result;
+    assert!(matches!(
+        unknown,
+        HelperResult::Error {
+            error: HelperError::UnknownHandle { handle: 424_242 }
+        }
+    ));
+
+    let zero = server
+        .handle(&mut lease, &request(HelperOp::RenewLease { handle: 0 }))
+        .result;
+    assert!(matches!(
+        zero,
+        HelperResult::Error {
+            error: HelperError::Malformed { .. }
+        }
+    ));
+}
+
+#[test]
+fn sp10_poll_core_exits_drains_once_and_status_reflects_it() {
+    let fake = Arc::new(FakeBackend::new());
+    let server = server_with(fake.clone(), LeasePolicy::CleanOwned);
+    let mut lease = lease("s-poll");
+    let handle = start_core(&server, &mut lease);
+
+    let quiet = server
+        .handle(
+            &mut lease,
+            &request(HelperOp::PollCoreExits {
+                handles: vec![handle],
+            }),
+        )
+        .result;
+    assert!(matches!(
+        quiet,
+        HelperResult::CoreExits { ref exits } if exits.is_empty()
+    ));
+
+    fake.inject_exit(handle, Some(3));
+    let first = match server
+        .handle(
+            &mut lease,
+            &request(HelperOp::PollCoreExits {
+                handles: vec![handle],
+            }),
+        )
+        .result
+    {
+        HelperResult::CoreExits { exits } => exits,
+        other => panic!("expected CoreExits, got {other:?}"),
+    };
+    assert_eq!(first.len(), 1, "one owned exit observed");
+    assert_eq!(first[0].handle, handle);
+    assert_eq!(first[0].exit_code, Some(3));
+    assert!(first[0].at_ms > 0);
+
+    let second = server
+        .handle(
+            &mut lease,
+            &request(HelperOp::PollCoreExits {
+                handles: vec![handle],
+            }),
+        )
+        .result;
+    assert!(
+        matches!(second, HelperResult::CoreExits { ref exits } if exits.is_empty()),
+        "an observed exit is never reported twice"
+    );
+
+    let status = match server
+        .handle(&mut lease, &request(HelperOp::GetLeaseStatus { handle }))
+        .result
+    {
+        HelperResult::LeaseStatus { status } => status,
+        other => panic!("expected LeaseStatus, got {other:?}"),
+    };
+    assert_eq!(status.state, LeaseState::Exited);
+
+    server.handle(&mut lease, &request(HelperOp::StopElevatedCore { handle }));
+    let released = match server
+        .handle(&mut lease, &request(HelperOp::GetLeaseStatus { handle }))
+        .result
+    {
+        HelperResult::LeaseStatus { status } => status,
+        other => panic!("expected LeaseStatus, got {other:?}"),
+    };
+    assert_eq!(released.state, LeaseState::Released);
+}
+
+#[test]
+fn sp10_poll_handles_validate_before_backend() {
+    let fake = Arc::new(FakeBackend::new());
+    let server = server_with(fake.clone(), LeasePolicy::CleanOwned);
+    let mut lease = lease("s-poll-bad");
+
+    for handles in [vec![], vec![0], vec![1, 1]] {
+        let result = server
+            .handle(&mut lease, &request(HelperOp::PollCoreExits { handles }))
+            .result;
+        assert!(matches!(
+            result,
+            HelperResult::Error {
+                error: HelperError::Malformed { .. }
+            }
+        ));
+    }
+    assert_eq!(fake.call_count(), 0, "no backend work for invalid lists");
 }

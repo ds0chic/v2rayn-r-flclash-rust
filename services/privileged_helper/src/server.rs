@@ -10,8 +10,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ipc_contract::{
-    check_helper_session, validate_elevated_core, validate_route_entries, validate_tun_address,
-    ElevationStatus, HelperError, HelperOp, HelperRequest, HelperResponse, HelperResult,
+    check_helper_session, validate_elevated_core, validate_handle, validate_poll_handles,
+    validate_route_entries, validate_tun_address, CoreExitObservation, ElevationStatus,
+    HelperError, HelperOp, HelperRequest, HelperResponse, HelperResult, LeaseState, LeaseStatus,
     RouteEntry, HELPER_MAX_MESSAGE_BYTES, HELPER_PROTOCOL_VERSION,
 };
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -21,6 +22,14 @@ use crate::backend::{HelperBackend, StartedCore};
 use crate::journal::{
     core_label, route_label, tun_label, JournalEntry, JournalKind, ResourceJournal,
 };
+
+/// Wall-clock Unix milliseconds. Used for lease expiry and exit timestamps.
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as i64)
+        .unwrap_or(0)
+}
 
 /// Frame length prefix size in bytes (net-host convention).
 pub const LEN_PREFIX_BYTES: usize = 4;
@@ -90,6 +99,16 @@ pub struct ConnectionLease {
     closed: bool,
     journal: ResourceJournal,
     cleanup_attempts: u32,
+    /// SP-09: per-handle keep-alive expiry (Unix ms), set at start and
+    /// extended by `RenewLease`.
+    lease_expires_at_ms: std::collections::BTreeMap<u64, i64>,
+    /// Spawn-time pid per owned handle, for status/exit attribution.
+    core_pids: std::collections::BTreeMap<u64, u32>,
+    /// Handles already released (stop/cleanup confirmed): status history.
+    released_cores: std::collections::BTreeSet<u64>,
+    /// Handle-scoped exits observed by `PollCoreExits`, kept so
+    /// `GetLeaseStatus` can report `Exited` without draining again.
+    observed_exits: std::collections::BTreeMap<u64, CoreExitObservation>,
 }
 
 impl ConnectionLease {
@@ -122,6 +141,65 @@ impl ConnectionLease {
 
     pub fn owned_cores(&self) -> Vec<u64> {
         self.cores.clone()
+    }
+
+    /// SP-09: track a freshly started owned handle with its initial expiry.
+    pub fn track_core_lease(&mut self, handle: u64, pid: u32, expires_at_ms: i64) {
+        self.lease_expires_at_ms.insert(handle, expires_at_ms);
+        self.core_pids.insert(handle, pid);
+        self.observed_exits.remove(&handle);
+        self.released_cores.remove(&handle);
+    }
+
+    /// SP-09: extend one owned handle's keep-alive. Unknown (never started or
+    /// already released) handles are rejected, never silently renewed.
+    pub fn renew_core_lease(&mut self, handle: u64, idle: Duration) -> Result<i64, HelperError> {
+        if !self.cores.contains(&handle) {
+            return Err(HelperError::UnknownHandle { handle });
+        }
+        let expires = now_ms().saturating_add(idle.as_millis() as i64);
+        self.lease_expires_at_ms.insert(handle, expires);
+        Ok(expires)
+    }
+
+    /// SP-09: mark a handle released (stop/cleanup confirmed).
+    pub fn mark_core_released(&mut self, handle: u64) {
+        self.cores.retain(|owned| *owned != handle);
+        self.released_cores.insert(handle);
+        self.lease_expires_at_ms.remove(&handle);
+    }
+
+    /// SP-10: remember one observed exit for status queries.
+    pub fn note_observed_exit(&mut self, exit: CoreExitObservation) {
+        self.observed_exits.insert(exit.handle, exit);
+    }
+
+    /// SP-09: lease facts for one handle, or `None` when the handle is not
+    /// (and was never) owned by this session.
+    pub fn core_lease_status(&self, handle: u64) -> Option<LeaseStatus> {
+        let pid = self.core_pids.get(&handle).copied();
+        if self.released_cores.contains(&handle) {
+            return Some(LeaseStatus {
+                handle,
+                state: LeaseState::Released,
+                pid,
+                expires_at_ms: 0,
+            });
+        }
+        if self.cores.contains(&handle) {
+            let state = if self.observed_exits.contains_key(&handle) {
+                LeaseState::Exited
+            } else {
+                LeaseState::Active
+            };
+            return Some(LeaseStatus {
+                handle,
+                state,
+                pid,
+                expires_at_ms: self.lease_expires_at_ms.get(&handle).copied().unwrap_or(0),
+            });
+        }
+        None
     }
 
     /// Journal entries for resources whose release failed and is awaiting
@@ -310,6 +388,11 @@ impl<B: HelperBackend> HelperServer<B> {
                 validate_elevated_core(spec, &self.config.allowed_run_roots)?;
                 let started: StartedCore = self.backend.run_elevated_core(spec)?;
                 lease.cores.push(started.handle);
+                lease.track_core_lease(
+                    started.handle,
+                    started.pid,
+                    now_ms().saturating_add(self.config.idle_timeout.as_millis() as i64),
+                );
                 lease
                     .journal
                     .record_owned(JournalKind::Core, core_label(started.handle));
@@ -327,13 +410,59 @@ impl<B: HelperBackend> HelperServer<B> {
             }
             HelperOp::StopElevatedCore { handle } => {
                 self.backend.stop_elevated_core(*handle)?;
-                lease.cores.retain(|owned| owned != handle);
+                lease.mark_core_released(*handle);
                 lease
                     .journal
                     .mark_released(JournalKind::Core, &core_label(*handle));
                 Ok((
                     HelperResult::CoreStopped { handle: *handle },
                     format!("stop_elevated_core handle={handle}"),
+                ))
+            }
+            HelperOp::RenewLease { handle } => {
+                validate_handle(*handle)?;
+                let expires_at_ms = lease.renew_core_lease(*handle, self.config.idle_timeout)?;
+                Ok((
+                    HelperResult::LeaseRenewed {
+                        handle: *handle,
+                        expires_at_ms,
+                    },
+                    format!("renew_lease handle={handle}"),
+                ))
+            }
+            HelperOp::GetLeaseStatus { handle } => {
+                validate_handle(*handle)?;
+                let status = lease
+                    .core_lease_status(*handle)
+                    .ok_or(HelperError::UnknownHandle { handle: *handle })?;
+                Ok((
+                    HelperResult::LeaseStatus { status },
+                    format!("get_lease_status handle={handle}"),
+                ))
+            }
+            HelperOp::PollCoreExits { handles } => {
+                validate_poll_handles(handles)?;
+                let observed = self.backend.poll_core_exits();
+                let at_ms = now_ms();
+                let mut exits = Vec::new();
+                for exit in observed {
+                    let observation = CoreExitObservation {
+                        handle: exit.handle,
+                        pid: exit.pid,
+                        exit_code: exit.exit_code,
+                        at_ms,
+                    };
+                    // Every drained exit is remembered for status queries,
+                    // even when the caller did not list that handle this
+                    // round (drain-once would otherwise lose the fact).
+                    lease.note_observed_exit(observation);
+                    if handles.contains(&exit.handle) {
+                        exits.push(observation);
+                    }
+                }
+                Ok((
+                    HelperResult::CoreExits { exits },
+                    format!("poll_core_exits requested={}", handles.len()),
                 ))
             }
             HelperOp::Shutdown => {
@@ -429,6 +558,7 @@ impl<B: HelperBackend> HelperServer<B> {
         for handle in handles {
             match self.backend.stop_elevated_core(handle) {
                 Ok(()) => {
+                    lease.mark_core_released(handle);
                     lease
                         .journal
                         .mark_released(JournalKind::Core, &core_label(handle));
@@ -505,6 +635,9 @@ fn op_name(operation: &HelperOp) -> &'static str {
         HelperOp::SetTunAdapterAddress { .. } => "set_tun_adapter_address",
         HelperOp::RunElevatedCore { .. } => "run_elevated_core",
         HelperOp::StopElevatedCore { .. } => "stop_elevated_core",
+        HelperOp::RenewLease { .. } => "renew_lease",
+        HelperOp::GetLeaseStatus { .. } => "get_lease_status",
+        HelperOp::PollCoreExits { .. } => "poll_core_exits",
         HelperOp::Shutdown => "shutdown",
     }
 }

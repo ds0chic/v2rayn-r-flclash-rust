@@ -122,7 +122,7 @@
       ],
       "test_scope": "审计backup活动A/B回归、实体引用迁移",
       "upstream_symbols": "ServiceLib/Models/Configs/Config.cs；备份与Restore上游处理",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {
@@ -394,7 +394,7 @@
       ],
       "test_scope": "native ACK/reply loss、exception、close/reopen",
       "upstream_symbols": "Option/RoutingWindow源；settings_window_host与native cpp",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {

@@ -127,14 +127,20 @@ impl BackupService {
             );
         }
         let manifest = backup::read_manifest(root).map_err(persist_error)?;
+        // SP-03: the replacement creates a new dataset generation. Capture
+        // both epochs before the exchange so the persisted value advances
+        // monotonically however the bundled config relates to the live one.
+        let config_path = self.data_dir.join(CONFIG_FILE_NAME);
+        let live_epoch = read_dataset_epoch(&config_path);
+        let bundled_epoch = read_dataset_epoch(&root.join(CONFIG_FILE_NAME));
         let report =
             backup::restore_backup(root, &self.db_path(), work_dir).map_err(persist_error)?;
 
         // Config first, then resources; roll the whole group back on failure.
-        let config_path = self.data_dir.join(CONFIG_FILE_NAME);
         let mut config_prior: Option<PathBuf> = None;
         let bundled_config = root.join(CONFIG_FILE_NAME);
-        if bundled_config.is_file() {
+        let config_replaced = bundled_config.is_file();
+        if config_replaced {
             // Establishing the config rollback copy can fail; the database is
             // already swapped, so undo it before reporting the failure.
             match backup_previous(&config_path) {
@@ -152,6 +158,22 @@ impl BackupService {
         }
         match self.restore_resources(root, &manifest.referenced_resources) {
             Ok(_) => {
+                // The exchange committed: publish the new dataset generation
+                // so pre-restore requests stay rejected after reopen (plan
+                // §3.1). A failed epoch publish rolls back like any other
+                // late activation failure.
+                let new_epoch = live_epoch.max(bundled_epoch).saturating_add(1);
+                if let Err(error) = write_dataset_epoch(&config_path, new_epoch) {
+                    // Only undo the config when this restore replaced it; a
+                    // bundle without config leaves the live file untouched, so
+                    // there is nothing to restore (deleting it would destroy
+                    // data this restore never wrote).
+                    if config_replaced {
+                        restore_previous(&config_path, config_prior.as_deref());
+                    }
+                    rollback_database(&self.db_path(), report.target_backup.as_deref());
+                    return Err(error);
+                }
                 if let Some(prior) = &config_prior {
                     let _ = std::fs::remove_file(prior);
                 }
@@ -334,6 +356,10 @@ impl BackupService {
         fingerprint: &str,
         db_backup: Option<&str>,
     ) -> Result<(), DomainError> {
+        // SP-03: capture the live generation before the config is replaced so
+        // the activation can publish the next one.
+        let config_path = self.data_dir.join(CONFIG_FILE_NAME);
+        let live_epoch = read_dataset_epoch(&config_path);
         // Stage from the read-only source first so a staging failure never
         // leaves the committed database dangling.
         let staged = match stage_upstream_resources(source, work_dir) {
@@ -343,7 +369,6 @@ impl BackupService {
                 return Err(error);
             }
         };
-        let config_path = self.data_dir.join(CONFIG_FILE_NAME);
         let config_prior = match backup_previous(&config_path) {
             Ok(prior) => prior,
             Err(error) => {
@@ -351,7 +376,8 @@ impl BackupService {
                 return Err(error);
             }
         };
-        if let Err(error) = self.activate_upstream_config(fingerprint) {
+        if let Err(error) = self.activate_upstream_config(fingerprint, live_epoch.saturating_add(1))
+        {
             restore_previous(&config_path, config_prior.as_deref());
             rollback_database(&self.db_path(), db_backup);
             return Err(error);
@@ -402,9 +428,18 @@ impl BackupService {
     /// settings file. No-op when the source carried no config. The upstream
     /// PascalCase tree and every unknown key are preserved verbatim; only the
     /// id references and engine-owned meta keys are (re)written.
+    ///
+    /// SP-03: the default resolves with the same migration priority as an
+    /// open/reopen (plan §5.2) — the remapped engine mirror
+    /// `active_index_id` first when it names a restored row, then the
+    /// remapped canonical `IndexId` — so activating a bundle written before
+    /// the dual-identity unification still lands on the true default instead
+    /// of a stale canonical id. `new_epoch` is the post-activation dataset
+    /// generation, published with the same write.
     pub fn activate_upstream_config(
         &self,
         fingerprint: &str,
+        new_epoch: u64,
     ) -> Result<Option<String>, DomainError> {
         let store = Store::open(self.db_path()).map_err(persist_error)?;
         // Prefer the batch-scoped config for this exact source, so activation
@@ -432,18 +467,34 @@ impl BackupService {
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string();
+        let old_mirror = object
+            .get("active_index_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
         let old_sub = object
             .get("SubIndexId")
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string();
-        let active = (!old_active.is_empty())
+        let remapped_mirror = (!old_mirror.is_empty())
+            .then(|| derived_id("profile", &format!("{fingerprint}:{old_mirror}")));
+        let remapped_canonical = (!old_active.is_empty())
             .then(|| derived_id("profile", &format!("{fingerprint}:{old_active}")));
+        // Prefer the mirror when it names a restored row (it is the newest
+        // explicit default choice); otherwise the canonical id, even when
+        // dangling — the next open/reopen repairs that per the upstream rule.
+        let active = match (&remapped_mirror, &remapped_canonical) {
+            (Some(mirror), _) if profile_exists(&store, mirror) => Some(mirror.clone()),
+            (_, Some(canonical)) => Some(canonical.clone()),
+            (Some(mirror), None) => Some(mirror.clone()),
+            (None, None) => None,
+        };
         let sub =
             (!old_sub.is_empty()).then(|| derived_id("sub", &format!("{fingerprint}:{old_sub}")));
         object.insert(
             "IndexId".to_string(),
-            Value::String(active.clone().unwrap_or_default()),
+            active.clone().map(Value::String).unwrap_or(Value::Null),
         );
         if let Some(sub) = &sub {
             object.insert("SubIndexId".to_string(), Value::String(sub.clone()));
@@ -455,6 +506,7 @@ impl BackupService {
         object
             .entry("desired_revision".to_string())
             .or_insert_with(|| Value::from(0));
+        object.insert("dataset_epoch".to_string(), Value::from(new_epoch));
         object
             .entry("rule_mode".to_string())
             .or_insert_with(|| Value::String("Rule".to_string()));
@@ -898,6 +950,58 @@ fn write_json_atomic(path: &Path, value: &Value) -> Result<(), DomainError> {
     std::fs::write(&tmp, text).map_err(|e| internal(e.to_string()))?;
     std::fs::rename(&tmp, path).map_err(|e| internal(e.to_string()))?;
     Ok(())
+}
+
+/// Whether a profile row exists in an opened store (activation-time guard).
+fn profile_exists(store: &Store, index_id: &str) -> bool {
+    store
+        .count_query(
+            "SELECT COUNT(*) FROM \"ProfileItem\" WHERE \"IndexId\" = ?1",
+            &[&index_id],
+        )
+        .map(|count| count > 0)
+        .unwrap_or(false)
+}
+
+/// Persisted dataset generation in a config file. A missing or unreadable
+/// file means the pre-SP-03 generation zero, never an error: the activation
+/// always publishes a strictly larger value.
+fn read_dataset_epoch(config_path: &Path) -> u64 {
+    std::fs::read_to_string(config_path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+        .and_then(|value| value.get("dataset_epoch").and_then(Value::as_u64))
+        .unwrap_or(0)
+}
+
+/// Read-modify-write the dataset generation of the live config, preserving
+/// every other key. A missing config becomes a minimal document (same
+/// first-run semantics as a missing file: absent groups take defaults). A
+/// present-but-unparseable (or non-object) file is a structured corrupt error
+/// (SP-01 fail-closed): the activation must roll back rather than pave over
+/// the evidence with a fresh document.
+fn write_dataset_epoch(config_path: &Path, epoch: u64) -> Result<(), DomainError> {
+    let mut value = match std::fs::read_to_string(config_path).ok() {
+        None => Value::Object(serde_json::Map::new()),
+        Some(text) => match serde_json::from_str::<Value>(&text) {
+            Ok(value @ Value::Object(_)) => value,
+            _ => {
+                return Err(
+                    DomainError::new(codes::FIELD_FORMAT, "error.config_corrupt")
+                        .with_detail(format!(
+                            "{} is present but is not a JSON object",
+                            config_path.display()
+                        ))
+                        .retryable(),
+                );
+            }
+        },
+    };
+    value
+        .as_object_mut()
+        .expect("filtered to objects")
+        .insert("dataset_epoch".to_string(), Value::from(epoch));
+    write_json_atomic(config_path, &value)
 }
 
 #[cfg(test)]

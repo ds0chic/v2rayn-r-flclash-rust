@@ -10,6 +10,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/features/settings/settings_window_host.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
@@ -1426,7 +1427,12 @@ class RoutingEditorSnapshot {
 
 /// Outcome of persisting a routing draft through the main engine.
 class RoutingEditorOutcome {
-  const RoutingEditorOutcome({required this.ok, this.message, this.schemes});
+  const RoutingEditorOutcome({
+    required this.ok,
+    this.message,
+    this.schemes,
+    this.pendingConfirmation = false,
+  });
 
   final bool ok;
 
@@ -1437,6 +1443,10 @@ class RoutingEditorOutcome {
   /// import) so the independent window can show them without a protocol
   /// round-trip. Only set on success.
   final List<RoutingSchemeSnapshot>? schemes;
+
+  /// SP-11: the bounded wait expired with an unknown result. The window must
+  /// stay open showing [message] and must not auto-replay the commit.
+  final bool pendingConfirmation;
 }
 
 /// Thrown when the routing window cannot read its starting snapshot from the
@@ -1684,20 +1694,46 @@ class RoutingWindowHost {
 
   Future<dynamic> _handle(MethodCall call) async {
     if (call.method != 'applyDraft') return null;
-    final args = (call.arguments as Map).cast<String, dynamic>();
+    final args =
+        (call.arguments as Map?)?.cast<String, dynamic>() ??
+        <String, dynamic>{};
     final id = args['id'];
+    final requestId = args['requestId'] as String?;
+    final generation = (args['windowGeneration'] as num?)?.toInt();
     final draftJson = args['draft'] as String? ?? '{}';
     final save = _save;
-    final outcome = save == null
-        ? const RoutingEditorOutcome(ok: false, message: '保存路由设置失败')
-        : await save(draftJson);
-    await _channel.invokeMethod<void>('reportOutcome', <String, dynamic>{
-      'id': id,
-      'ok': outcome.ok,
-      'message': outcome.message,
-      if (outcome.schemes != null)
-        'schemes': encodeRoutingSchemes(outcome.schemes!),
-    });
+    // SP-11: an exception is a structured failed outcome, never a dropped
+    // reply. Without this the routing window would wait forever.
+    RoutingEditorOutcome outcome;
+    if (save == null) {
+      outcome = const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
+    } else {
+      try {
+        outcome = await save(draftJson);
+      } catch (_) {
+        outcome = const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
+      }
+    }
+    try {
+      await _channel.invokeMethod<void>('reportOutcome', <String, dynamic>{
+        'id': id,
+        'ok': outcome.ok,
+        'requestId': ?requestId,
+        'windowGeneration': ?generation,
+        'status': windowOutcomeStatusName(
+          outcome.pendingConfirmation
+              ? WindowOutcomeStatus.pendingConfirmation
+              : (outcome.ok
+                    ? WindowOutcomeStatus.ok
+                    : WindowOutcomeStatus.failed),
+        ),
+        if (outcome.message != null) 'message': outcome.message,
+        if (outcome.schemes != null)
+          'schemes': encodeRoutingSchemes(outcome.schemes!),
+      });
+    } catch (_) {
+      // Window already closed: the routing engine's bounded wait settles it.
+    }
     return null;
   }
 }
@@ -1705,15 +1741,30 @@ class RoutingWindowHost {
 /// Routing-window side of the native host. Runs in the second Flutter engine,
 /// which has no Rust bridge handle; every mutation is relayed to the main
 /// engine, which performs the actual save.
+///
+/// SP-11: same reply contract as [NativeSettingsEditorHost]: the `saveDraft`
+/// transport ACK is not the result, a missing outcome settles as
+/// PendingConfirmation after a bounded wait, and close rotates the
+/// generation so late replies are dropped.
 class NativeRoutingEditorHost implements RoutingEditorHost, RoutingCommitHost {
-  NativeRoutingEditorHost() {
+  NativeRoutingEditorHost({
+    Duration? outcomeTimeout,
+    this._reconciler,
+    this._onReconciled,
+  }) : _gate = WindowReplyGate(outcomeTimeout: outcomeTimeout) {
     _ready = _init();
   }
 
   static const MethodChannel _channel = MethodChannel('v2rayn/routing_window');
 
-  final Map<int, Completer<RoutingEditorOutcome>> _pending =
-      <int, Completer<RoutingEditorOutcome>>{};
+  final WindowReplyGate _gate;
+  final Future<RoutingEditorOutcome?> Function(WindowPendingQuery query)?
+  _reconciler;
+  final void Function(RoutingEditorOutcome reconciled)? _onReconciled;
+  final Map<String, Completer<RoutingEditorOutcome>> _pending =
+      <String, Completer<RoutingEditorOutcome>>{};
+  // Legacy numeric ids for runners/handlers that do not echo `requestId`.
+  final Map<Object?, String> _legacyIds = <Object?, String>{};
   late final Future<void> _ready;
   int _nextId = 1;
   String _snapshotJson = '{}';
@@ -1750,44 +1801,90 @@ class NativeRoutingEditorHost implements RoutingEditorHost, RoutingCommitHost {
   }
 
   @override
-  Future<RoutingEditorOutcome> save(RoutingDraft draft) async {
+  Future<RoutingEditorOutcome> save(RoutingDraft draft) {
+    return _send(encodeRoutingDraft(draft), '保存路由设置失败');
+  }
+
+  @override
+  Future<RoutingEditorOutcome> commit(String actionJson) {
+    // Reuses the existing saveDraft/saveOutcome channel round-trip; the main
+    // engine dispatches on the embedded `kind` field (see
+    // routing_actions._applyRoutingAction). No native protocol change needed.
+    return _send(actionJson, '提交路由更改失败');
+  }
+
+  Future<RoutingEditorOutcome> _send(
+    String payload,
+    String transportError,
+  ) async {
     final id = _nextId++;
     final completer = Completer<RoutingEditorOutcome>();
-    _pending[id] = completer;
+    late final String requestId;
+    // SP-11: never auto-replay here. Expiry completes PendingConfirmation
+    // and only observes via the reconciler seam.
+    requestId = _gate.begin(() {
+      _pending.remove(requestId);
+      _legacyIds.remove(id);
+      if (!completer.isCompleted) {
+        completer.complete(
+          const RoutingEditorOutcome(
+            ok: false,
+            pendingConfirmation: true,
+            message: '路由保存结果待确认',
+          ),
+        );
+      }
+      _reconcileAfterTimeout(requestId);
+    });
+    _pending[requestId] = completer;
+    _legacyIds[id] = requestId;
     try {
+      // Transport ACK only; the business result arrives via `saveOutcome`.
       await _channel.invokeMethod<void>('saveDraft', <String, dynamic>{
         'id': id,
-        'draft': encodeRoutingDraft(draft),
+        'draft': payload,
+        'requestId': requestId,
+        'windowGeneration': _gate.generation,
+        'mutationId': 'win-routing-$requestId',
       });
     } catch (_) {
-      _pending.remove(id);
-      return const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
+      _gate.cancel(requestId);
+      _pending.remove(requestId);
+      _legacyIds.remove(id);
+      return RoutingEditorOutcome(ok: false, message: transportError);
     }
     return completer.future;
   }
 
-  @override
-  Future<RoutingEditorOutcome> commit(String actionJson) async {
-    // Reuses the existing saveDraft/saveOutcome channel round-trip; the main
-    // engine dispatches on the embedded `kind` field (see
-    // routing_actions._applyRoutingAction). No native protocol change needed.
-    final id = _nextId++;
-    final completer = Completer<RoutingEditorOutcome>();
-    _pending[id] = completer;
-    try {
-      await _channel.invokeMethod<void>('saveDraft', <String, dynamic>{
-        'id': id,
-        'draft': actionJson,
-      });
-    } catch (_) {
-      _pending.remove(id);
-      return const RoutingEditorOutcome(ok: false, message: '提交路由更改失败');
-    }
-    return completer.future;
+  void _reconcileAfterTimeout(String requestId) {
+    final reconciler = _reconciler;
+    if (reconciler == null) return;
+    unawaited(() async {
+      try {
+        final outcome = await reconciler(
+          WindowPendingQuery(
+            windowId: 'routing',
+            windowGeneration: _gate.generation,
+            requestId: requestId,
+            mutationId: 'win-routing-$requestId',
+          ),
+        );
+        if (outcome != null) _onReconciled?.call(outcome);
+      } catch (_) {}
+    }());
   }
 
   @override
   Future<void> close() async {
+    for (final requestId in _gate.abandonAll()) {
+      final completer = _pending.remove(requestId);
+      if (completer != null && !completer.isCompleted) {
+        completer.complete(
+          const RoutingEditorOutcome(ok: false, message: '窗口已关闭'),
+        );
+      }
+    }
+    _legacyIds.clear();
     try {
       await _channel.invokeMethod<void>('close');
     } catch (_) {}
@@ -1795,14 +1892,31 @@ class NativeRoutingEditorHost implements RoutingEditorHost, RoutingCommitHost {
 
   Future<dynamic> _handle(MethodCall call) async {
     if (call.method != 'saveOutcome') return null;
-    final args = (call.arguments as Map).cast<String, dynamic>();
-    final id = args['id'] as int?;
-    final completer = id == null ? null : _pending.remove(id);
+    final args =
+        (call.arguments as Map?)?.cast<String, dynamic>() ??
+        <String, dynamic>{};
+    final requestId = _resolveRequestId(args);
+    if (requestId == null) return null;
+    final generation =
+        (args['windowGeneration'] as num?)?.toInt() ?? _gate.generation;
+    // Late, duplicate, or old-window replies are dropped here.
+    if (!_gate.settle(requestId, generation)) return null;
+    final completer = _pending.remove(requestId);
+    _legacyIds.removeWhere((_, value) => value == requestId);
     if (completer != null && !completer.isCompleted) {
+      // A reply carrying `status` is authoritative; a legacy reply without
+      // it falls back to the `ok` flag (old runners echo only id/ok).
+      final status = args.containsKey('status')
+          ? windowOutcomeStatusFromName(args['status'])
+          : (args['ok'] == true
+                ? WindowOutcomeStatus.ok
+                : WindowOutcomeStatus.failed);
       final schemesJson = args['schemes'] as String?;
       completer.complete(
         RoutingEditorOutcome(
-          ok: args['ok'] == true,
+          ok: status == WindowOutcomeStatus.ok,
+          pendingConfirmation:
+              status == WindowOutcomeStatus.pendingConfirmation,
           message: args['message'] as String?,
           schemes: schemesJson == null
               ? null
@@ -1812,6 +1926,25 @@ class NativeRoutingEditorHost implements RoutingEditorHost, RoutingCommitHost {
     }
     return null;
   }
+
+  /// Prefers the stable `requestId`; falls back to the legacy numeric `id`
+  /// for runners that relay old payloads without echoing the envelope.
+  String? _resolveRequestId(Map<String, dynamic> args) {
+    final direct = args['requestId'] as String?;
+    if (direct != null && direct.isNotEmpty) return direct;
+    final id = args['id'];
+    return _legacyIds[id];
+  }
+
+  @visibleForTesting
+  Future<void> debugInjectReply(Map<String, dynamic> args) =>
+      _handle(MethodCall('saveOutcome', args));
+
+  @visibleForTesting
+  int get debugPendingCount => _gate.pendingCount;
+
+  @visibleForTesting
+  int get debugGeneration => _gate.generation;
 }
 
 r.RoutingRuleDto _newRoutingRuleDraft() => r.RoutingRuleDto(
@@ -1947,6 +2080,15 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     final outcome = await host.commit(jsonEncode(action));
     if (!mounted) return;
     if (!outcome.ok) {
+      // SP-11: a timed-out commit is PendingConfirmation, not a failure to
+      // retry blindly. The window stays open; the save is never replayed.
+      if (outcome.pendingConfirmation) {
+        setState(() {
+          _status = outcome.message ?? '路由保存结果待确认';
+          _error = null;
+        });
+        return;
+      }
       setState(() {
         _status = null;
         _error = outcome.message ?? '保存路由设置失败';
@@ -2107,8 +2249,15 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
         if (!outcome.ok) {
           if (mounted) {
             setState(() {
-              _status = null;
-              _error = outcome.message ?? '删除路由方案失败';
+              // SP-11: PendingConfirmation is recoverable status, not an
+              // error to retry blindly; the batch stops without replay.
+              if (outcome.pendingConfirmation) {
+                _status = outcome.message ?? '路由保存结果待确认';
+                _error = null;
+              } else {
+                _status = null;
+                _error = outcome.message ?? '删除路由方案失败';
+              }
             });
           }
           return;
@@ -2203,9 +2352,16 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
       await widget.host.close();
       return;
     }
+    // SP-11: PendingConfirmation releases the busy flag and keeps the window
+    // open with a recoverable status instead of hanging or resubmitting.
     setState(() {
       _busy = false;
-      _error = outcome.message ?? '保存路由设置失败';
+      if (outcome.pendingConfirmation) {
+        _error = null;
+        _status = outcome.message ?? '路由保存结果待确认';
+      } else {
+        _error = outcome.message ?? '保存路由设置失败';
+      }
     });
   }
 

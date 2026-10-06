@@ -38,6 +38,7 @@ use crate::runtime_client::{
     AppliedSession, ApplyOutcome, EventSink, NullRuntimeClient, OperationStatusView, RuntimeClient,
     RuntimeSnapshot,
 };
+use crate::selection::{pick_default, present as present_id, resolve_visible_selection};
 use crate::settings::{
     apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,
     SettingsState,
@@ -399,10 +400,8 @@ impl AppEngine {
             .get("desired_revision")
             .and_then(Value::as_u64)
             .unwrap_or(0);
-        let active = config
-            .get("active_index_id")
-            .and_then(Value::as_str)
-            .map(str::to_string);
+        let active = canonical_active_from_config(&config);
+        let dataset_epoch = dataset_epoch_from_config(&config);
 
         let sub_store = SqliteSubRepository::from_store(
             Store::open(&db_path).map_err(persistence_storage_error)?,
@@ -445,7 +444,7 @@ impl AppEngine {
             applied_session: Arc::new(Mutex::new(None)),
             apply_target: Arc::new(Mutex::new(None)),
             apply_facts: Arc::new(Mutex::new(None)),
-            restore_epoch: Arc::new(AtomicU64::new(0)),
+            restore_epoch: Arc::new(AtomicU64::new(dataset_epoch)),
             storage_error: Arc::new(Mutex::new(None)),
             commit_fault: Arc::new(Mutex::new(CommitTestFault::None)),
             commit_lock: Arc::new(Mutex::new(())),
@@ -454,6 +453,9 @@ impl AppEngine {
             mem_recovery: Arc::new(AtomicBool::new(false)),
         };
         engine.ensure_builtin_routing_dns();
+        // Heal a dangling default the same way upstream `SetDefaultServer`
+        // does on list load; a no-op for fresh/consistent stores.
+        let _ = engine.repair_default_selection();
         Ok(engine)
     }
 
@@ -575,10 +577,8 @@ impl AppEngine {
             .get("desired_revision")
             .and_then(Value::as_u64)
             .unwrap_or(0);
-        let active = config
-            .get("active_index_id")
-            .and_then(Value::as_str)
-            .map(str::to_string);
+        let active = canonical_active_from_config(&config);
+        let dataset_epoch = dataset_epoch_from_config(&config);
         let rule_mode = config
             .get("rule_mode")
             .and_then(Value::as_str)
@@ -599,7 +599,12 @@ impl AppEngine {
         *self.active.lock().map_err(|_| lock_error())? = active;
         *self.templates.lock().map_err(|_| lock_error())? = read_templates(&config);
         *self.settings.lock().map_err(|_| lock_error())? = read_settings_state(&config)?;
+        self.restore_epoch.store(dataset_epoch, Ordering::Release);
         self.ensure_builtin_routing_dns();
+        // A restore/import may have left a default that no longer resolves;
+        // fall back per the upstream repair rule so the reopened engine never
+        // serves a dangling default as the current selection.
+        self.repair_default_selection()?;
         Ok(())
     }
 
@@ -1157,6 +1162,10 @@ impl AppEngine {
     /// show "saved, not applied" even when apply later fails (R4-02 / D27).
     /// A persist failure rolls the in-memory active id and revision back, so a
     /// broken store never leaves a fake active node behind.
+    ///
+    /// SP-03: the canonical `IndexId` and the engine mirror `active_index_id`
+    /// are always written together (§5.2), so backups carry the active node
+    /// and a restore never drifts back to a stale default.
     pub fn set_active(&self, id: Option<String>) -> Result<(), DomainError> {
         self.guard_storage()?;
         if let Some(target) = &id {
@@ -1174,23 +1183,192 @@ impl AppEngine {
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
             .clone();
         if previous_active == id {
-            return Ok(());
+            // Idempotent for the revision, but still heal a drifted canonical
+            // `IndexId` left by pre-SP-03 writes (no desired bump for a heal).
+            let canonical = self
+                .settings
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+                .settings
+                .index_id
+                .clone();
+            if canonical == id {
+                return Ok(());
+            }
+            return self.write_identity_unified(id, false);
         }
-        let mut revisions = self
-            .revisions
+        self.write_identity_unified(id, true)
+    }
+
+    /// Write the default identity to both the canonical `IndexId` and the
+    /// engine mirror `active_index_id` in one persisted step. `bump_desired`
+    /// marks an explicit user default change; healing writes (open/reopen
+    /// repair, drift unification) do not advance the revision.
+    ///
+    /// Lock discipline: every lock is taken and released in turn, never nested
+    /// across [`Self::persist_config_standalone`], matching the existing
+    /// save paths. A persist failure rolls all three values back.
+    fn write_identity_unified(
+        &self,
+        id: Option<String>,
+        bump_desired: bool,
+    ) -> Result<(), DomainError> {
+        let lock_error = || DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned");
+        let previous_active = self.active.lock().map_err(|_| lock_error())?.clone();
+        let previous_index = self
+            .settings
             .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let previous_desired = revisions.desired();
-        revisions.bump();
-        *self
-            .active
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))? = id;
-        if let Err(error) = self.persist_config(&revisions) {
+            .map_err(|_| lock_error())?
+            .settings
+            .index_id
+            .clone();
+        let previous_desired = self.revisions.lock().map_err(|_| lock_error())?.desired();
+        if let Ok(mut guard) = self.settings.lock() {
+            guard.settings.index_id = id.clone();
+        }
+        if let Ok(mut guard) = self.active.lock() {
+            *guard = id.clone();
+        }
+        if bump_desired {
+            if let Ok(mut revisions) = self.revisions.lock() {
+                revisions.bump();
+            }
+        }
+        if let Err(error) = self.persist_config_standalone() {
+            if let Ok(mut guard) = self.settings.lock() {
+                guard.settings.index_id = previous_index;
+            }
             if let Ok(mut guard) = self.active.lock() {
                 *guard = previous_active;
             }
-            *revisions = crate::repository::RevisionStore::with_desired(previous_desired);
+            if let Ok(mut revisions) = self.revisions.lock() {
+                *revisions = crate::repository::RevisionStore::with_desired(previous_desired);
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// Repair a dangling persisted default after open/reopen, following
+    /// upstream `ConfigHandler.SetDefaultServer`: keep the mirror when it
+    /// resolves, else the canonical `IndexId` when it resolves, else the
+    /// first row with a real port, persisted as the new unified default.
+    /// Nothing persisted means nothing repaired (a fresh store opens without
+    /// touching the file — T18 no-drift), and with no rows the config is left
+    /// untouched (upstream also saves nothing then). Returns the resolved
+    /// default. Healing writes never bump the desired revision.
+    pub fn repair_default_selection(&self) -> Result<Option<String>, DomainError> {
+        self.guard_storage()?;
+        if self.data_dir.is_none() {
+            return Ok(self.active_profile());
+        }
+        let mirror = self.active_profile();
+        let canonical = self
+            .settings
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
+            .settings
+            .index_id
+            .clone();
+        let page = self.query_profiles(
+            ProfileFilter::default(),
+            ProfileSort::IndexId,
+            PageRequest {
+                cursor: 0,
+                page_size: u32::MAX,
+            },
+        )?;
+        if page.items.is_empty() {
+            return Ok(mirror);
+        }
+        let exists = |id: &str| page.items.iter().any(|p| p.index_id == id);
+        let first_with_port = page
+            .items
+            .iter()
+            .find(|p| p.port > 0)
+            .map(|p| p.index_id.clone());
+        // Only a persisted-but-unresolvable default is repaired; a store that
+        // never named a default keeps none until the user chooses one (reopen
+        // must not invent file content — T18 no-drift).
+        let persisted = present_id(mirror.as_deref()).or(present_id(canonical.as_deref()));
+        let resolved = match persisted {
+            None => None,
+            Some(_) => pick_default(
+                mirror.as_deref(),
+                canonical.as_deref(),
+                &exists,
+                first_with_port,
+            ),
+        };
+        if resolved == mirror && canonical == mirror {
+            return Ok(mirror);
+        }
+        if resolved.is_none() {
+            return Ok(mirror);
+        }
+        self.write_identity_unified(resolved.clone(), false)?;
+        Ok(resolved)
+    }
+
+    /// Visible-table selection for a list load: in-memory pending id, then the
+    /// persisted default, then the first visible row (upstream
+    /// `RefreshServersBiz` 366–375). Pure display resolution: it never writes
+    /// the default, so a temporary selection of C leaves B persisted.
+    pub fn resolve_startup_selection(&self, pending: Option<&str>) -> Option<String> {
+        let visible: Vec<String> = self
+            .query_profiles(
+                ProfileFilter::default(),
+                ProfileSort::IndexId,
+                PageRequest {
+                    cursor: 0,
+                    page_size: u32::MAX,
+                },
+            )
+            .map(|page| page.items.into_iter().map(|p| p.index_id).collect())
+            .unwrap_or_default();
+        resolve_visible_selection(&visible, pending, self.active_profile().as_deref())
+    }
+
+    /// Resolve the persisted current group against the live subscriptions: a
+    /// group that still exists stays, a dangling one resolves to `None` (the
+    /// "All" view, upstream `RefreshSubscriptions`). Never persists a repair.
+    pub fn resolve_current_group(&self) -> Option<String> {
+        let persisted = self
+            .settings
+            .lock()
+            .ok()
+            .and_then(|guard| guard.settings.sub_index_id.clone());
+        let existing: Vec<String> = self
+            .list_sub_items()
+            .map(|items| items.into_iter().map(|s| s.id).collect())
+            .unwrap_or_default();
+        crate::selection::resolve_current_group(persisted.as_deref(), &existing)
+    }
+
+    /// Switch the current group (`SubIndexId`, the view filter). `None`/empty
+    /// means the "All" view. A named group must exist; the switch persists
+    /// immediately so backups carry it. Unlike [`Self::set_active`] this never
+    /// touches the default node or the desired revision.
+    pub fn set_current_group(&self, id: Option<String>) -> Result<(), DomainError> {
+        self.guard_storage()?;
+        let normalized = present_id(id.as_deref()).map(str::to_string);
+        if let Some(target) = &normalized {
+            if self.get_sub_item(target)?.is_none() {
+                return Err(DomainError::not_found("subscription", target));
+            }
+        }
+        let previous = self
+            .settings
+            .lock()
+            .ok()
+            .and_then(|guard| guard.settings.sub_index_id.clone());
+        if let Ok(mut guard) = self.settings.lock() {
+            guard.settings.sub_index_id = normalized;
+        }
+        if let Err(error) = self.persist_config_standalone() {
+            if let Ok(mut guard) = self.settings.lock() {
+                guard.settings.sub_index_id = previous;
+            }
             return Err(error);
         }
         Ok(())
@@ -1659,6 +1837,12 @@ impl AppEngine {
     /// A stale `expected_revision` is rejected and a validation failure leaves
     /// the previous value untouched; on success the tree is persisted
     /// atomically and the changed fields are classified by `apply_timing`.
+    ///
+    /// SP-03: the caller payload never carries node identity. The canonical
+    /// `IndexId`/`SubIndexId` are pinned to the authoritative default/group
+    /// before validation, so a stale whole-tree draft can neither drift the
+    /// backup identity nor clear the default (identity changes go through
+    /// [`Self::set_active`] / [`Self::set_current_group`]).
     pub fn save_settings(
         &self,
         settings: AppSettings,
@@ -1666,6 +1850,7 @@ impl AppEngine {
     ) -> Result<SaveSettingsOutcome, DomainError> {
         self.guard_storage()?;
         self.ensure_commit_writable()?;
+        let (pinned_index, pinned_sub) = self.authoritative_identity();
         let mut guard = self
             .settings
             .lock()
@@ -1676,7 +1861,9 @@ impl AppEngine {
                 guard.revision,
             ));
         }
-        let next = normalize_for_save(settings);
+        let mut next = normalize_for_save(settings);
+        next.index_id = pinned_index;
+        next.sub_index_id = pinned_sub;
         validate_settings(&next)?;
         let changes = guard.settings.classified_changes(&next);
         let previous_settings = guard.settings.clone();
@@ -1709,6 +1896,11 @@ impl AppEngine {
 
     /// `save_settings_group` — patch one top-level group, leaving the others
     /// untouched. The expected revision is that group's own counter.
+    ///
+    /// SP-03: patches to unrelated groups cannot drift node identity: the
+    /// canonical ids are re-pinned to the authoritative values. An explicit
+    /// `IndexId` group write is validated like [`Self::set_active`] and syncs
+    /// the engine mirror; an explicit `SubIndexId` write is the group switch.
     pub fn save_settings_group(
         &self,
         group: &str,
@@ -1719,6 +1911,10 @@ impl AppEngine {
         // answer a group save as success (AUD-ROOT-04).
         self.guard_storage()?;
         self.ensure_commit_writable()?;
+        if group == "IndexId" {
+            return self.save_identity_group(patch, expected_revision);
+        }
+        let (pinned_index, pinned_sub) = self.authoritative_identity();
         let mut guard = self
             .settings
             .lock()
@@ -1730,7 +1926,15 @@ impl AppEngine {
                 current_group,
             ));
         }
-        let next = apply_group_patch(&guard.settings, group, patch)?;
+        let mut next = apply_group_patch(&guard.settings, group, patch)?;
+        // An explicit `SubIndexId` write is the group switch itself; any other
+        // group must not disturb either identity.
+        if group != "SubIndexId" {
+            next.index_id = pinned_index;
+            next.sub_index_id = pinned_sub;
+        } else {
+            next.index_id = pinned_index;
+        }
         validate_settings(&next)?;
         let changes = guard.settings.classified_changes(&next);
         let previous_settings = guard.settings.clone();
@@ -1754,11 +1958,95 @@ impl AppEngine {
         Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
     }
 
+    /// The authoritative node identity: the engine-mirror default plus the
+    /// current group. Whole-tree and unrelated group saves pin the caller
+    /// payload to these values so stale drafts cannot drift them.
+    fn authoritative_identity(&self) -> (Option<String>, Option<String>) {
+        let active = self.active.lock().ok().and_then(|guard| guard.clone());
+        let sub = self
+            .settings
+            .lock()
+            .ok()
+            .and_then(|guard| guard.settings.sub_index_id.clone());
+        (active, sub)
+    }
+
+    /// Explicit `IndexId` group write: validated like [`Self::set_active`] and
+    /// mirrored, revision-guarded by the `IndexId` group counter.
+    fn save_identity_group(
+        &self,
+        patch: Value,
+        expected_revision: u64,
+    ) -> Result<SaveSettingsOutcome, DomainError> {
+        let id: Option<String> = match &patch {
+            Value::Null => None,
+            Value::String(text) => present_id(Some(text)).map(str::to_string),
+            _ => {
+                return Err(
+                    DomainError::new(domain::codes::FIELD_FORMAT, "error.settings_patch")
+                        .with_field("IndexId"),
+                );
+            }
+        };
+        if let Some(target) = &id {
+            let repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            if repo.get(target)?.is_none() {
+                return Err(DomainError::not_found("profile", target));
+            }
+        }
+        let mut guard = self
+            .settings
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let current_group = guard.group_revision("IndexId");
+        if current_group != expected_revision {
+            return Err(DomainError::stale_revision(
+                expected_revision,
+                current_group,
+            ));
+        }
+        let previous_settings = guard.settings.clone();
+        let previous_revision = guard.revision;
+        let previous_groups = guard.group_revisions.clone();
+        guard.settings.index_id = id.clone();
+        guard.revision += 1;
+        *guard
+            .group_revisions
+            .entry("IndexId".to_string())
+            .or_insert(0) += 1;
+        let new_revision = guard.revision;
+        let changes = previous_settings.classified_changes(&guard.settings);
+        let previous_active = self.active_profile();
+        drop(guard);
+        if let Ok(mut active) = self.active.lock() {
+            *active = id;
+        }
+        if let Err(error) = self.persist_config_standalone() {
+            if let Ok(mut guard) = self.settings.lock() {
+                guard.settings = previous_settings;
+                guard.revision = previous_revision;
+                guard.group_revisions = previous_groups;
+            }
+            if let Ok(mut active) = self.active.lock() {
+                *active = previous_active;
+            }
+            return Err(error);
+        }
+        self.bump_desired_for_change()?;
+        Ok(SaveSettingsOutcome::from_changes(new_revision, changes))
+    }
+
     // -- SP-02 recoverable commit ------------------------------------------
 
-    /// The current dataset epoch. Ordinary settings mutations keep it; only a
-    /// restore/import replacement bumps it via [`Self::prepare_restore`], so a
-    /// stale request can never take effect after a restore (plan §3.1).
+    /// The current dataset epoch. Ordinary settings mutations keep it; a
+    /// restore/import replacement advances it both in memory (via
+    /// [`Self::prepare_restore`], guarding in-flight subscription commits)
+    /// and in the persisted config (at activation, so an independent reopen
+    /// observes it). A stale request can never take effect after a restore
+    /// (plan §3.1).
     pub fn dataset_epoch(&self) -> DatasetEpoch {
         self.restore_epoch.load(Ordering::Acquire)
     }
@@ -2620,6 +2908,11 @@ impl AppEngine {
             .map(|guard| guard.desired().get())
             .unwrap_or(0);
         let active = self.active.lock().ok().and_then(|guard| guard.clone());
+        let sub_index_id = self
+            .settings
+            .lock()
+            .ok()
+            .and_then(|guard| guard.settings.sub_index_id.clone());
         let rule_mode = self
             .rule_mode
             .lock()
@@ -2641,6 +2934,7 @@ impl AppEngine {
             group_revisions,
             desired,
             active,
+            sub_index_id,
             rule_mode,
             templates,
         })
@@ -2650,9 +2944,14 @@ impl AppEngine {
         &self,
         snapshot: &SettingsCommitSnapshot,
         mutation_id: &str,
-        next: AppSettings,
+        mut next: AppSettings,
         settings_hash: &str,
     ) -> ValidatedSave {
+        // SP-03: the caller payload never carries node identity; pin the
+        // canonical ids to the authoritative snapshot before hashing the
+        // document, so every commit keeps the dual identity unified.
+        next.index_id.clone_from(&snapshot.active);
+        next.sub_index_id.clone_from(&snapshot.sub_index_id);
         let new_revision = snapshot.revision.saturating_add(1);
         let new_desired = snapshot.desired.saturating_add(1);
         let mut groups: HashMap<String, u64> = snapshot
@@ -2674,6 +2973,12 @@ impl AppEngine {
         object.insert(
             "active_index_id".to_string(),
             serde_json::json!(snapshot.active),
+        );
+        // SP-03: ordinary commits preserve the dataset epoch; only a
+        // restore/import replacement advances it (plan §3.1).
+        object.insert(
+            DATASET_EPOCH_KEY.to_string(),
+            serde_json::json!(self.dataset_epoch()),
         );
         object.insert(
             "rule_mode".to_string(),
@@ -2810,6 +3115,12 @@ impl AppEngine {
             serde_json::json!(revisions.desired().get()),
         );
         object.insert("active_index_id".to_string(), serde_json::json!(active));
+        // SP-03: the epoch rides with the document so an independent reopen
+        // observes the post-restore generation; ordinary saves preserve it.
+        object.insert(
+            DATASET_EPOCH_KEY.to_string(),
+            serde_json::json!(self.dataset_epoch()),
+        );
         object.insert(
             "rule_mode".to_string(),
             serde_json::json!(match rule_mode {
@@ -4429,11 +4740,43 @@ fn config_corrupt_error(error: impl std::fmt::Display) -> DomainError {
 pub const SETTINGS_META_KEYS: &[&str] = &[
     "desired_revision",
     "active_index_id",
+    "dataset_epoch",
     "rule_mode",
     "full_config_templates",
     "settings_revision",
     "settings_group_revisions",
 ];
+
+/// Engine-owned whole-dataset generation key in `guiNConfig.json` (plan
+/// §3.1). Ordinary saves preserve it; a restore/import replacement advances
+/// it so pre-restore requests stay rejected after reopen.
+pub const DATASET_EPOCH_KEY: &str = "dataset_epoch";
+
+/// Canonical default resolution for one raw config tree: the engine mirror
+/// `active_index_id` first (newest explicit choice), then the canonical
+/// upstream `IndexId`. Blank values behave as absent.
+fn canonical_active_from_config(config: &Value) -> Option<String> {
+    let mirror = config
+        .get("active_index_id")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let canonical = config
+        .get("IndexId")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    present_id(mirror.as_deref())
+        .map(str::to_string)
+        .or_else(|| present_id(canonical.as_deref()).map(str::to_string))
+}
+
+/// Persisted dataset epoch from one raw config tree; missing or malformed
+/// values mean the pre-SP-03 generation zero.
+fn dataset_epoch_from_config(config: &Value) -> DatasetEpoch {
+    config
+        .get(DATASET_EPOCH_KEY)
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+}
 
 /// Parse the settings tree and its revision counters out of the raw config.
 ///

@@ -24,6 +24,7 @@ pub mod recoverable_commit;
 pub mod repository;
 pub mod routing;
 pub mod runtime_client;
+pub mod selection;
 pub mod settings;
 pub mod snapshot;
 pub mod speedtest;
@@ -72,6 +73,9 @@ pub use routing::{new_routing_id, InMemoryRoutingRepository, RoutingRepository};
 pub use runtime_client::{
     AppliedSession, ApplyOutcome, EventSink, NullRuntimeClient, RuntimeClient, RuntimeSnapshot,
     TunStatus,
+};
+pub use selection::{
+    pick_default, present as present_id, resolve_current_group, resolve_visible_selection,
 };
 pub use settings::{
     apply_group_patch, normalize_for_save, validate_settings, LoadedSettings, SaveSettingsOutcome,

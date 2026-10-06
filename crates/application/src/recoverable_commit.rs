@@ -120,6 +120,7 @@ pub struct SettingsCommitSnapshot {
     pub group_revisions: std::collections::BTreeMap<String, u64>,
     pub desired: u64,
     pub active: Option<String>,
+    pub sub_index_id: Option<String>,
     pub rule_mode: String,
     pub templates: Vec<domain::FullConfigTemplate>,
 }

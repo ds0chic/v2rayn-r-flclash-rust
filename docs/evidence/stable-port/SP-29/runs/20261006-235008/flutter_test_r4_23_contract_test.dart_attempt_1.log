@@ -1,0 +1,13 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_23_contract_test.dart
+00:00 +0: applied session binds statistics, then a switch drops the old session
+00:00 +1: stopping the core clears the old session and re-syncs the poller
+00:00 +2: late proxes/mode reads from a replaced session are dropped
+00:00 +3: overlapping proxy refresh coalesces to one in-flight request
+00:00 +4: collection pause and scroll pause are independent
+00:00 +5: hiding the page freezes the view but never the collection
+00:00 +6: closing a connection uses the real bridge and refreshes the list
+00:00 +7: close-all failure is not reported as success
+00:00 +8: log filtering, scroll pause and copy are presentation-only
+00:00 +9: a store bind/load failure is visible and cleared on retry
+00:00 +10: All tests passed!
+

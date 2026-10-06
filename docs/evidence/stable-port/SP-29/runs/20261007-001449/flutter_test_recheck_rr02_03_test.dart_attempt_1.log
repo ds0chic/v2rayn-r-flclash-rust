@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr02_03_test.dart
+00:00 +0: RR-02 default routing command setDefaultAndReload persists the default and triggers reload/apply
+00:00 +1: RR-02 default routing command select stays edit-selection only and never changes the default
+00:00 +2: RR-03 system proxy / PAC PAC saves SysProxyType and serves the configured pac.txt
+00:00 +3: RR-03 system proxy / PAC mode without a running session reports honestly
+00:00 +4: RR-03 system proxy / PAC startup restore re-applies the saved mode from the applied port
+00:01 +5: All tests passed!
+

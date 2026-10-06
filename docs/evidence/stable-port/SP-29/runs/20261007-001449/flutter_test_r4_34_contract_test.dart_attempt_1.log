@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_34_contract_test.dart
+00:00 +0: resource plan (D32) a saved source + global period is schedulable
+00:00 +1: resource plan (D32) interval 0 disables the task even with sources configured
+00:00 +2: resource plan (D32) a configured route template alone is a resource source
+00:00 +3: resource plan (D32) blank sources are ignored, so nothing downloads silently
+00:00 +4: scheduler entry (FIX-09D must not regress) start is idempotent and stop leaves no timer behind
+00:00 +5: scheduler entry (FIX-09D must not regress) a scheduler already running is not restarted
+00:00 +6: All tests passed!
+

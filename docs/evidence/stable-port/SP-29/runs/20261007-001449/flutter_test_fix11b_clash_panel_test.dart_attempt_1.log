@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix11b_clash_panel_test.dart
+00:00 +0: no running session / unsupported core is disabled with a message
+00:00 +1: mode selector reflects the live mode and switches via bridge
+00:00 +2: failed mode switch surfaces an error, not a fake success
+00:00 +3: close-all failure reports instead of silently succeeding
+00:01 +4: All tests passed!
+

@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p11_contract_test.dart
+00:00 +0: P11 save -> reopen keeps Naive fields + TLS default
+00:00 +1: P11 missing password is a visible error
+00:00 +2: P11 cancel never saves
+00:01 +3: P11 Naive keeps TLS, no Reality, sing-box only, no transport
+00:01 +4: All tests passed!
+

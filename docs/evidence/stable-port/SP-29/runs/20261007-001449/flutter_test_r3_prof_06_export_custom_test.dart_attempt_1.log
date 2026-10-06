@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_prof_06_export_custom_test.dart
+00:00 +0: Custom file export keeps the original file extension
+00:00 +1: Custom clipboard export fails instead of faking success
+00:00 +2: All tests passed!
+

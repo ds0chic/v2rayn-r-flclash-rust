@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_20_contract_test.dart
+00:00 +0: resolveGroupPreview (preview == generation semantics) subscription source survives a cross-subscription id change
+00:00 +1: resolveGroupPreview (preview == generation semantics) nested group child is retained as a member (no expansion)
+00:00 +2: resolveGroupPreview (preview == generation semantics) cycle members resolve one level without hanging
+00:00 +3: resolveGroupPreview (preview == generation semantics) region filter selects only matching remarks in index order
+00:00 +4: resolveGroupPreview (preview == generation semantics) unsupported Shadowsocks method is dropped from the preview
+00:00 +5: save persists the draft child order and sub source
+00:00 +6: cancel after edits persists nothing
+00:00 +7: All tests passed!
+

@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_13_s05_contract_test.dart
+00:00 +0: CoreBasicItem save awaits the real apply and persists for reopen
+00:00 +1: apply failure is reported and never faked as success
+00:00 +2: SendThrough/BindInterface trim and empty->null on save
+00:00 +3: in-process 确定 keeps the window open on apply failure
+00:01 +4: All tests passed!
+

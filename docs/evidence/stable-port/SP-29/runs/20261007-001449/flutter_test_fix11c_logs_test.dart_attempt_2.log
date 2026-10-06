@@ -1,0 +1,11 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix11c_logs_test.dart
+00:00 +0: formatLogsForCopy matches upstream newline-joined text
+00:00 +1: keyword/level filtering is presentation-only
+00:00 +2: collection pause freezes the view even if a batch arrives
+00:00 +3: hidden page keeps collecting but freezes UI, then resyncs
+00:00 +4: auto-refresh toggle freezes and resyncs the view
+00:00 +5: auto-scroll toggle drives the Rust scroll-pause flag
+00:00 +6: clear empties the ring and shows the upstream marker
+00:00 +7: display buffer is bounded under a large burst
+00:00 +8: All tests passed!
+

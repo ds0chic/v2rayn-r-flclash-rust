@@ -835,7 +835,8 @@ pub fn apply_runtime(target_id: String, expected_revision: u64) -> ApplyRuntimeR
             };
         }
     };
-    match engine().apply_runtime(plan, DesiredRevision::new(expected_revision)) {
+    match engine().apply_runtime_for_target(plan, &target, DesiredRevision::new(expected_revision))
+    {
         Ok(operation_id) => {
             emit_control(
                 "job_progress",

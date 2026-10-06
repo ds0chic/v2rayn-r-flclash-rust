@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15b_speedtest_test.dart
+00:00 +0: selection tests use the selection and Mixed uses all nodes
+00:00 +1: Escape cancels the running test (ACT-PROF-038)
+00:00 +2: ProfileEx overlay updates Delay/Speed and preserves order
+00:00 +3: RemoveInvalidServerResult deletes the failed ProfileItem (PR-11)
+00:00 +4: mixed scope follows the current group, not the whole DB (PR-16)
+00:00 +5: empty selection for a per-selection test starts nothing
+00:00 +6: removeDuplicate is enabled and deletes transport-identical nodes
+00:00 +7: All tests passed!
+

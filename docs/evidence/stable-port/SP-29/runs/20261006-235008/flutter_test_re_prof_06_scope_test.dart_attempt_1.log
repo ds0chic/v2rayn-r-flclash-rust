@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/re_prof_06_scope_test.dart
+00:00 +0: dedup scopes to the group even when the filter hides a duplicate
+00:00 +1: remove-invalid scopes to the group and preserves other groups
+00:00 +2: remove-invalid keeps evidence when the delete fails
+00:00 +3: All tests passed!
+

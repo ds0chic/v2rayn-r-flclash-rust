@@ -1,0 +1,11 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_29_contract_test.dart
+00:00 +0: unconfigured source is an explicit block, not a fake update
+00:00 +1: unconfigured source blocks the app hand-off
+00:00 +2: checked package hands the runner CLI over and exits
+00:00 +3: error.update_signature is rejected without launch, exit or success
+00:00 +4: error.update_signature_missing is rejected without launch, exit or success
+00:00 +5: error.update_failed is rejected without launch, exit or success
+00:00 +6: missing helper path is rejected, no launch, no exit
+00:00 +7: a thrown spec call clears busy instead of latching
+00:00 +8: All tests passed!
+

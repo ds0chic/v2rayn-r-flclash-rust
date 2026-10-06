@@ -1,0 +1,14 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_15_contract_test.dart
+00:00 +0: R4-15/D18: draft equal to another field stored value survives preset
+00:00 +1: R4-15/D17: normal save (applyAfter=false) triggers the upstream reload
+00:00 +2: R4-15: failed save keeps the window open, writes nothing, no reload
+00:01 +2: R4-15: failed save keeps the window open, writes nothing, no reload - did not complete [E]
+00:01 +2: R4-15: cancel persists nothing and does not reload - did not complete [E]
+00:01 +2: R4-15: a toggled boolean draft survives repeated preset refreshes - did not complete [E]
+00:01 +2: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_15_contract_test.dart: R4-15: a toggled boolean draft survives repeated preset refreshes (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_15_contract_test.dart: R4-15: cancel persists nothing and does not reload (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_15_contract_test.dart: R4-15: failed save keeps the window open, writes nothing, no reload (did not complete)
+

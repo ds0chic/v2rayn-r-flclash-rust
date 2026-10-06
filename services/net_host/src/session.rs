@@ -1915,8 +1915,33 @@ impl HostState {
         self.stop_managed_inner(operation_id).await
     }
 
+    /// Record one stop as a terminal operation entry (SP-05). Earlier apply
+    /// entries are never touched: a stop only appends its own id, so history
+    /// still shows what actually ran.
+    async fn record_stop_operation(&self, operation_id: &Option<String>) {
+        let Some(operation_id) = operation_id else {
+            return;
+        };
+        let mut inner = self.inner.lock().await;
+        inner.operations.insert(
+            operation_id.clone(),
+            OperationStatus {
+                operation_id: operation_id.clone(),
+                job_id: None,
+                state: domain::JobState::Done,
+                cancel: None,
+                error: None,
+            },
+        );
+    }
+
     /// The stop body. The caller must hold [`command_gate`](HostState::command_gate).
-    async fn stop_managed_inner(&self, _operation_id: Option<String>) -> Option<String> {
+    ///
+    /// SP-05: a stop withdraws the live endpoint but never rewrites operation
+    /// history. When the caller passes an operation id it is recorded as a
+    /// terminal `Done` entry so a later `GetOperation` reconciles instead of
+    /// reporting not-found; entries of earlier applies are retained.
+    async fn stop_managed_inner(&self, operation_id: Option<String>) -> Option<String> {
         let mut session = {
             let mut inner = self.inner.lock().await;
             match inner.session.take() {
@@ -1940,6 +1965,7 @@ impl HostState {
                     // No core, but a TUN lease may still be pending (stop arriving
                     // between helper-apply and core-spawn); always release.
                     self.release_tun_lease().await;
+                    self.record_stop_operation(&operation_id).await;
                     return None;
                 }
             }
@@ -1983,6 +2009,7 @@ impl HostState {
         eprintln!("[net_host] session {session_id} STOPPED pid={pid}");
         // Reverse cleanup after the core tree is gone.
         self.release_tun_lease().await;
+        self.record_stop_operation(&operation_id).await;
         self.bus.emit_named(
             "runtime_state_changed",
             serde_json::to_value(RuntimeStateChanged {
@@ -2998,6 +3025,78 @@ mod tests {
         let snapshot = futures_block_on(state.ipc_snapshot());
         assert_eq!(snapshot.state, RuntimeState::Stopped);
         assert!(futures_block_on(state.inner.lock()).session.is_none());
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    // -- SP-05 frozen target history and stop operation record -----------
+
+    #[tokio::test]
+    async fn sp05_stop_records_terminal_operation_and_keeps_apply_history() {
+        let state = {
+            let _guard = rr10_lock();
+            std::sync::Arc::new(test_state("sp05-stop-op"))
+        };
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        // Stub core, no listener port (port 0 -> readiness by liveness, no
+        // socket, no OS port): the subject is operation history, not I/O.
+        let stay = core_stub(&dir, "stay", "stay");
+        {
+            let _guard = rr10_lock();
+            std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        }
+        let plan = plan_with_body("sp05", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        let op = state.apply_plan(plan).await.expect("stub session starts");
+        let status = state
+            .operation_status(&op)
+            .await
+            .expect("accepted apply is queryable");
+        assert_eq!(status.state, domain::JobState::Done);
+
+        // A stop with an operation id withdraws the live endpoint but keeps
+        // the apply history: neither entry may be rewritten or dropped.
+        let stopped = state.stop_managed(Some("stop-sp05-1".to_string())).await;
+        assert!(stopped.is_some(), "a session was running");
+        let snapshot = state.ipc_snapshot().await;
+        assert_eq!(snapshot.state, RuntimeState::Stopped);
+        {
+            let inner = state.inner.lock().await;
+            assert!(inner.session.is_none(), "live session withdrawn");
+            assert!(inner.detail.session_id.is_none(), "no stale session fact");
+            assert!(inner.detail.ports.is_empty(), "no stale endpoint");
+            assert!(
+                inner.operations.contains_key(&op),
+                "apply history survives the stop"
+            );
+            assert_eq!(
+                inner.operations.get(&op).map(|s| s.state),
+                Some(domain::JobState::Done)
+            );
+        }
+        let stop_status = state
+            .operation_status("stop-sp05-1")
+            .await
+            .expect("stop operation id reconciles instead of not-found");
+        assert_eq!(stop_status.state, domain::JobState::Done);
+        assert!(state.operation_status("stop-sp05-unknown").await.is_none());
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[tokio::test]
+    async fn sp05_idle_stop_is_idempotent_and_still_records() {
+        let state = {
+            let _guard = rr10_lock();
+            std::sync::Arc::new(test_state("sp05-stop-idle"))
+        };
+        let stopped = state.stop_managed(Some("stop-sp05-idle".to_string())).await;
+        assert!(stopped.is_none(), "nothing was running");
+        let snapshot = state.ipc_snapshot().await;
+        assert_eq!(snapshot.state, RuntimeState::Stopped);
+        let status = state
+            .operation_status("stop-sp05-idle")
+            .await
+            .expect("idle stop still records its terminal entry");
+        assert_eq!(status.state, domain::JobState::Done);
         let _ = std::fs::remove_dir_all(&state.config.run_root);
     }
 

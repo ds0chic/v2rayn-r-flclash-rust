@@ -1,0 +1,176 @@
+﻿{
+    "schema_version":  1,
+    "gate":  "SP-29",
+    "started_at":  "2026-10-07T00:38:48.9493687+08:00",
+    "toolchain":  {
+                      "flutter_version":  "Flutter 3.47.5 • channel stable • https://github.com/flutter/flutter.git\nFramework • revision 6a19cca564 (3 weeks ago) • 2026-09-17 14:13:22 -0400\nEngine • hash ab598368592da0064197e2bc15c7f5b0a2c6bb1f (revision af7e796e16) (19 days ago) • 2026-09-16 18:35:09.000Z\nTools • Dart 3.13.4 • DevTools 2.60.0",
+                      "rustc_version":  "rustc 1.98.1 (48a229cea 2026-09-01)",
+                      "cargo_version":  "cargo 1.98.1 (797e8a9bc 2026-08-05)",
+                      "frb_codegen":  "flutter_rust_bridge_codegen 2.13.0",
+                      "dart_version":  "Dart SDK version: 3.13.4 (stable) (Tue Sep 15 01:01:15 2026 -0700) on \"windows_x64\"",
+                      "frb_rust":  "2.13.0",
+                      "flutter_path":  "C:\\Users\\Colby\\toolchains\\flutter\\bin\\flutter.bat",
+                      "git_head":  "7466bee13f2c82241efb41ebad2cf74368ae09ab",
+                      "frb_dart":  "2.13.0",
+                      "cargo_path":  "C:\\Users\\Colby\\.cargo\\bin\\cargo.exe"
+                  },
+    "inventory":  {
+                      "count":  8,
+                      "files":  [
+                                    "test/r4_07_contract_test.dart",
+                                    "test/r4_16_matrix_test.dart",
+                                    "test/t06a_frb_bridge_test.dart",
+                                    "test/t21e_import_forms_test.dart",
+                                    "test/t21e_import_real_bridge_test.dart",
+                                    "test/ux_parity_fix04_inner_test.dart",
+                                    "test/ux_parity_fix04b_config_import_test.dart",
+                                    "test/ux_parity_fix05_scan_test.dart"
+                                ]
+                  },
+    "stages":  [
+
+               ],
+    "cargo_summary":  {
+                          "ignored":  0,
+                          "suites":  0,
+                          "failed":  0,
+                          "passed":  0
+                      },
+    "files":  [
+                  {
+                      "path":  "test/r4_07_contract_test.dart",
+                      "attempts":  [
+                                       {
+                                           "attempt":  1,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_r4_07_contract_test.dart_attempt_1.log",
+                                           "seconds":  5.39,
+                                           "class":  "incomplete",
+                                           "exit_code":  79
+                                       },
+                                       {
+                                           "attempt":  2,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_r4_07_contract_test.dart_attempt_2.log",
+                                           "seconds":  5.937,
+                                           "class":  "incomplete",
+                                           "exit_code":  79
+                                       },
+                                       {
+                                           "attempt":  3,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_r4_07_contract_test.dart_attempt_3.log",
+                                           "seconds":  4.42,
+                                           "class":  "incomplete",
+                                           "exit_code":  79
+                                       }
+                                   ],
+                      "status":  "incomplete",
+                      "reason":  "still incomplete after 3 attempts"
+                  },
+                  {
+                      "path":  "test/r4_16_matrix_test.dart",
+                      "attempts":  [
+                                       {
+                                           "attempt":  1,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_r4_16_matrix_test.dart_attempt_1.log",
+                                           "seconds":  2.832,
+                                           "class":  "fail",
+                                           "exit_code":  1
+                                       }
+                                   ],
+                      "status":  "fail",
+                      "reason":  "assertion failure (stable across retries)"
+                  },
+                  {
+                      "path":  "test/t06a_frb_bridge_test.dart",
+                      "attempts":  [
+                                       {
+                                           "attempt":  1,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_t06a_frb_bridge_test.dart_attempt_1.log",
+                                           "seconds":  2.46,
+                                           "class":  "fail",
+                                           "exit_code":  1
+                                       }
+                                   ],
+                      "status":  "fail",
+                      "reason":  "assertion failure (stable across retries)"
+                  },
+                  {
+                      "path":  "test/t21e_import_forms_test.dart",
+                      "attempts":  [
+                                       {
+                                           "attempt":  1,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_t21e_import_forms_test.dart_attempt_1.log",
+                                           "seconds":  2.411,
+                                           "class":  "fail",
+                                           "exit_code":  1
+                                       }
+                                   ],
+                      "status":  "fail",
+                      "reason":  "assertion failure (stable across retries)"
+                  },
+                  {
+                      "path":  "test/t21e_import_real_bridge_test.dart",
+                      "attempts":  [
+                                       {
+                                           "attempt":  1,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_t21e_import_real_bridge_test.dart_attempt_1.log",
+                                           "seconds":  2.453,
+                                           "class":  "fail",
+                                           "exit_code":  1
+                                       }
+                                   ],
+                      "status":  "fail",
+                      "reason":  "assertion failure (stable across retries)"
+                  },
+                  {
+                      "path":  "test/ux_parity_fix04_inner_test.dart",
+                      "attempts":  [
+                                       {
+                                           "attempt":  1,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_ux_parity_fix04_inner_test.dart_attempt_1.log",
+                                           "seconds":  2.55,
+                                           "class":  "fail",
+                                           "exit_code":  1
+                                       }
+                                   ],
+                      "status":  "fail",
+                      "reason":  "assertion failure (stable across retries)"
+                  },
+                  {
+                      "path":  "test/ux_parity_fix04b_config_import_test.dart",
+                      "attempts":  [
+                                       {
+                                           "attempt":  1,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_ux_parity_fix04b_config_import_test.dart_attempt_1.log",
+                                           "seconds":  4.078,
+                                           "class":  "fail",
+                                           "exit_code":  1
+                                       }
+                                   ],
+                      "status":  "fail",
+                      "reason":  "assertion failure (stable across retries)"
+                  },
+                  {
+                      "path":  "test/ux_parity_fix05_scan_test.dart",
+                      "attempts":  [
+                                       {
+                                           "attempt":  1,
+                                           "log":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-29\\runs\\20261007-003811\\flutter_test_ux_parity_fix05_scan_test.dart_attempt_1.log",
+                                           "seconds":  2.834,
+                                           "class":  "fail",
+                                           "exit_code":  1
+                                       }
+                                   ],
+                      "status":  "fail",
+                      "reason":  "assertion failure (stable across retries)"
+                  }
+              ],
+    "summary":  {
+                    "skip":  0,
+                    "incomplete":  1,
+                    "pass":  0,
+                    "fail":  7,
+                    "total":  8
+                },
+    "reproducibility":  null,
+    "verdict":  "fail+incomplete"
+}

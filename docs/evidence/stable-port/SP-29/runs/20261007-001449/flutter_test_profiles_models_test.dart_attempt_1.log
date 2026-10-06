@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/profiles_models_test.dart
+00:00 +0: default column set matches LAY-PROFILES-002
+00:00 +1: filter is instant and matches remarks/address
+00:00 +2: filter with empty query returns all rows
+00:00 +3: sort by delay sinks failed rows in both directions
+00:00 +4: SortSpec toggles the same column two-way, resets on a new column
+00:00 +5: formatBytes renders human readable units
+00:00 +6: synthetic source yields 10k rows with reserved ranges
+00:00 +7: All tests passed!
+

@@ -185,7 +185,7 @@
       ],
       "test_scope": "applied_target竞态、operation/job终态与reconnect",
       "upstream_symbols": "ServiceLib/Manager/CoreManager.cs；domain/runtime_plan.rs、domain/job.rs",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {
@@ -765,7 +765,7 @@
       "rust_packages": [],
       "test_scope": "字段实例schema/ID集合校验",
       "upstream_symbols": "compat/fields.settings.yaml source_file/source_symbol逐ID",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": true
     },
     {
@@ -964,7 +964,7 @@
       ],
       "test_scope": "loopback idle_connection_times_out、r3_visual/r4_07/t11_menu",
       "upstream_symbols": "AGENTS门禁与审计checks原始日志",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {

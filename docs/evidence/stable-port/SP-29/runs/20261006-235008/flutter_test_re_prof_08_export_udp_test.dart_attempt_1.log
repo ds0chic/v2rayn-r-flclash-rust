@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/re_prof_08_export_udp_test.dart
+00:00 +0: clipboard export copies the generated client config
+00:00 +1: file export cancel writes nothing
+00:00 +2: file export success writes the generated text
+00:00 +3: file export reports a write failure
+00:00 +4: udp test is gated by the runtime support flag
+00:00 +5: All tests passed!
+

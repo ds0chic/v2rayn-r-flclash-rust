@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_13_s23_repro_test.dart
+00:00 +0: three layouts/window sizes/column widths survive a full-document reopen
+00:00 +1: main shell survives the 150% DPI matrix in all three layouts
+00:02 +1: main shell survives the 150% DPI matrix in all three layouts - did not complete [E]
+00:02 +1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_13_s23_repro_test.dart: main shell survives the 150% DPI matrix in all three layouts (did not complete)
+

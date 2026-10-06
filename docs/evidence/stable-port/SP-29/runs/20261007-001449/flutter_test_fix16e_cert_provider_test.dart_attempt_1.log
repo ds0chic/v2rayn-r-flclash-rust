@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix16e_cert_provider_test.dart
+00:00 +0: FIX-16E: provider options match upstream and normalize
+00:00 +1: FIX-16E: save normalizes invalid provider and keeps valid value
+00:00 +2: All tests passed!
+

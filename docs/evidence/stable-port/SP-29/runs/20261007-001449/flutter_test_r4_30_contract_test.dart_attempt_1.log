@@ -1,0 +1,17 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_30_contract_test.dart
+00:00 +0: language infrastructure kSupportedLanguages matches the frozen ResUI resx set
+00:00 +1: language infrastructure localeForLanguage produces the script-qualified code
+00:00 +2: language infrastructure resource table covers every listed language for every key
+00:00 +3: language infrastructure missing translation falls back to English, then to the key
+00:00 +4: menu and status bar switch with the locale menu labels resolve per active locale
+00:00 +5: menu and status bar switch with the locale changing UiShellState.language persists and reapplies
+00:00 +6: readable error feedback (no raw keys) bridge error keys localize for every supported language
+00:00 +7: readable error feedback (no raw keys) unknown error keys degrade to readable generic text
+00:00 +8: readable error feedback (no raw keys) bridge ErrorDto localizes via the adapter
+00:00 +9: readable error feedback (no raw keys) runtime/platform error projections localize
+00:00 +10: readable error feedback (no raw keys) window status keys localize, never a raw key (Wave K no regression)
+00:00 +11: readable error feedback (no raw keys) validation keys localize
+00:00 +12: readable error feedback (no raw keys) status bar shows a readable runtime error, not a key
+00:00 +13: menu key provenance every menu entry resolves for all 9 languages (en fallback allowed)
+00:00 +14: All tests passed!
+

@@ -16,9 +16,10 @@ use domain::runtime_plan::{
     ProcessGraph, ProcessNode, RequiredPrivilege, RuntimePlan, RuntimeTarget,
 };
 use domain::{
-    AppSettings, AppliedRevision, CancelOutcome, CancellationToken, ConfigType, CoreType,
-    DesiredRevision, DnsProfile, DomainError, FullConfigTemplate, JobId, Profile, RoutingProfile,
-    RuleMode, RuntimeState,
+    job_state_from_stable_name, stable_operation_name, AppSettings, AppliedRevision, CancelOutcome,
+    CancellationToken, ConfigType, CoreType, DesiredRevision, DnsProfile, DomainError,
+    FrozenAppliedTarget, FullConfigTemplate, JobId, Profile, RoutingProfile, RuleMode,
+    RuntimeState,
 };
 use serde_json::Value;
 
@@ -157,7 +158,23 @@ pub struct AppEngine {
     /// The active node id captured when an apply was accepted, so the applied
     /// session reports the node the running config was built for, not the
     /// current desired selection.
-    apply_target: Arc<Mutex<Option<String>>>,
+    ///
+    /// SP-05: the whole submit-time fact, frozen **before** the runtime call
+    /// (target/plan/revision/operation/intent/generation). A later default
+    /// change never rewrites it; a stop withdraws the live session but keeps
+    /// this history so reopen still reports what actually ran.
+    applied_frozen: Arc<Mutex<Option<FrozenAppliedTarget>>>,
+    /// Monotonic submit sequence (plan §3.2 `intentSeq`), allocated before
+    /// the runtime call so concurrent submits order by admission.
+    intent_seq: Arc<AtomicU64>,
+    /// Monotonic actual generation (plan §3.1 `actualGeneration`). Bumped on
+    /// every applied-fact transition (accept/publish/withdraw), even when the
+    /// desired revision is unchanged.
+    actual_generation: Arc<AtomicU64>,
+    /// `operation_id -> job_id` correlation for one accepted apply (RUN-05):
+    /// the runtime owns the operation, the job manager owns the job, and this
+    /// map binds them so either id resolves to one terminal state.
+    operation_jobs: Arc<Mutex<HashMap<String, JobId>>>,
     /// Core + statistics/API ports captured when an apply was accepted, so the
     /// monitor pipeline polls the running core instead of re-deriving facts
     /// from a desired (possibly changed) plan.
@@ -366,7 +383,10 @@ impl AppEngine {
             last_resource_report: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
             applied_session: Arc::new(Mutex::new(None)),
-            apply_target: Arc::new(Mutex::new(None)),
+            applied_frozen: Arc::new(Mutex::new(None)),
+            intent_seq: Arc::new(AtomicU64::new(0)),
+            actual_generation: Arc::new(AtomicU64::new(0)),
+            operation_jobs: Arc::new(Mutex::new(HashMap::new())),
             apply_facts: Arc::new(Mutex::new(None)),
             restore_epoch: Arc::new(AtomicU64::new(0)),
             storage_error: Arc::new(Mutex::new(None)),
@@ -451,7 +471,10 @@ impl AppEngine {
             last_resource_report: Arc::new(Mutex::new(None)),
             local_proxy_port: Arc::new(Mutex::new(None)),
             applied_session: Arc::new(Mutex::new(None)),
-            apply_target: Arc::new(Mutex::new(None)),
+            applied_frozen: Arc::new(Mutex::new(None)),
+            intent_seq: Arc::new(AtomicU64::new(0)),
+            actual_generation: Arc::new(AtomicU64::new(0)),
+            operation_jobs: Arc::new(Mutex::new(HashMap::new())),
             apply_facts: Arc::new(Mutex::new(None)),
             restore_epoch: Arc::new(AtomicU64::new(dataset_epoch)),
             storage_error: Arc::new(Mutex::new(None)),
@@ -463,6 +486,10 @@ impl AppEngine {
             mem_recovery: Arc::new(AtomicBool::new(false)),
         };
         engine.ensure_builtin_routing_dns();
+        // SP-05: reload the frozen applied history and the fact counters so an
+        // independent reopen reports the same applied-vs-actual truth instead
+        // of inventing the desired default as the running target.
+        engine.restore_applied_history(&config);
         // Heal a dangling default the same way upstream `SetDefaultServer`
         // does on list load; a no-op for fresh/consistent stores.
         let _ = engine.repair_default_selection();
@@ -610,6 +637,9 @@ impl AppEngine {
         *self.templates.lock().map_err(|_| lock_error())? = read_templates(&config);
         *self.settings.lock().map_err(|_| lock_error())? = read_settings_state(&config)?;
         self.restore_epoch.store(dataset_epoch, Ordering::Release);
+        // SP-05: same frozen-history restore as `open_with_runtime`, so a
+        // reopened engine reports the same applied-vs-actual truth.
+        self.restore_applied_history(&config);
         self.ensure_builtin_routing_dns();
         // A restore/import may have left a default that no longer resolves;
         // fall back per the upstream repair rule so the reopened engine never
@@ -1387,6 +1417,34 @@ impl AppEngine {
     /// Currently active profile id, if any.
     pub fn active_profile(&self) -> Option<String> {
         self.active.lock().ok().and_then(|guard| guard.clone())
+    }
+
+    /// Reload the frozen applied history and fact counters from one raw
+    /// config tree (SP-05 reopen). A malformed history entry loads as absent
+    /// history, never as a guessed target; counters fall back to zero and
+    /// stay monotonic afterwards.
+    fn restore_applied_history(&self, config: &Value) {
+        let frozen: Option<FrozenAppliedTarget> = config
+            .get(APPLIED_TARGET_KEY)
+            .and_then(|value| serde_json::from_value(value.clone()).ok())
+            .flatten();
+        if let Ok(mut guard) = self.applied_frozen.lock() {
+            *guard = frozen;
+        }
+        self.intent_seq.store(
+            config
+                .get(INTENT_SEQ_KEY)
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
+            Ordering::Release,
+        );
+        self.actual_generation.store(
+            config
+                .get(ACTUAL_GENERATION_KEY)
+                .and_then(Value::as_u64)
+                .unwrap_or(0),
+            Ordering::Release,
+        );
     }
 
     // -- T11 routing / DNS use cases ----------------------------------------
@@ -3125,6 +3183,27 @@ impl AppEngine {
             serde_json::json!(revisions.desired().get()),
         );
         object.insert("active_index_id".to_string(), serde_json::json!(active));
+        // SP-05: the frozen applied history and the fact counters ride with
+        // the document so an independent reopen reports the same
+        // applied-vs-actual truth. Only saving the default never touches
+        // them: this write preserves, never invents, the running target.
+        let frozen = self
+            .applied_frozen
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone());
+        object.insert(
+            APPLIED_TARGET_KEY.to_string(),
+            serde_json::to_value(&frozen).unwrap_or(Value::Null),
+        );
+        object.insert(
+            INTENT_SEQ_KEY.to_string(),
+            serde_json::json!(self.intent_seq.load(Ordering::Acquire)),
+        );
+        object.insert(
+            ACTUAL_GENERATION_KEY.to_string(),
+            serde_json::json!(self.actual_generation.load(Ordering::Acquire)),
+        );
         // SP-03: the epoch rides with the document so an independent reopen
         // observes the post-restore generation; ordinary saves preserve it.
         object.insert(
@@ -3155,13 +3234,18 @@ impl AppEngine {
         Ok(())
     }
 
-    /// `apply_runtime` use case.
+    /// `apply_runtime` use case with an explicit submit-time target.
     ///
-    /// Checks `expected_revision`, submits the immutable plan to the runtime
-    /// client and returns an operation id. Results flow on the event stream.
-    pub fn apply_runtime(
+    /// The target/plan/revision is frozen **before** anything reaches the
+    /// runtime (SP-05/RUN-04): `target_id` is the node the plan was built
+    /// for, recorded with the plan id, config hash, revision, operation id,
+    /// intent sequence and actual generation. A later `set_active` (desired
+    /// default change) never rewrites this record, and a stop withdraws the
+    /// live session without rewriting the history entry.
+    pub fn apply_runtime_for_target(
         &self,
         plan: RuntimePlan,
+        target_id: &str,
         expected_revision: DesiredRevision,
     ) -> Result<String, DomainError> {
         self.guard_storage()?;
@@ -3183,12 +3267,29 @@ impl AppEngine {
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
 
+        // SP-05: allocate the submit sequence and the frozen fact before the
+        // runtime call. Nothing below re-reads the desired default.
+        let intent_seq = self.intent_seq.fetch_add(1, Ordering::AcqRel) + 1;
+        let mut frozen = FrozenAppliedTarget::new(
+            target_id.to_string(),
+            plan.plan_id.clone(),
+            plan.target.config_sha256.as_str().to_string(),
+            plan.target.core_type,
+            plan.desired_revision,
+            String::new(),
+            intent_seq,
+            self.actual_generation.load(Ordering::Acquire),
+        );
+
         match self.runtime.apply(&plan)? {
             ApplyOutcome::Accepted { operation_id } => {
-                // Remember which node this apply targets so the applied-session
-                // fact reports it even if the desired selection changes later.
-                if let Ok(mut guard) = self.apply_target.lock() {
-                    *guard = self.active_profile();
+                // SP-05: freeze the submit-time fact. The actual generation
+                // is the current counter: it advances only when applied
+                // facts transition (first Running publish / live withdraw),
+                // never on the submit itself.
+                frozen.operation_id = operation_id.clone();
+                if let Ok(mut guard) = self.applied_frozen.lock() {
+                    *guard = Some(frozen);
                 }
                 // Record the core + statistics/API ports of the accepted plan
                 // so the monitor pipeline can poll the applied session without
@@ -3198,6 +3299,16 @@ impl AppEngine {
                     *guard = Some(facts);
                 }
                 let job = self.jobs.start("apply_runtime");
+                if let Ok(mut guard) = self.operation_jobs.lock() {
+                    guard.insert(operation_id.clone(), job.job_id.clone());
+                }
+                // Persist the frozen history so an independent reopen reports
+                // the same applied-vs-actual truth. A persist failure keeps
+                // the in-memory fact (still correct for this process); the
+                // reopen path then treats history as absent, never as B.
+                if let Ok(revisions) = self.revisions.lock() {
+                    let _ = self.persist_config(&revisions);
+                }
                 // The correlation the UI uses is the job id; the runtime's
                 // operation id is embedded in the plan correlation.
                 Ok(format!("{}:{}", operation_id, job.job_id))
@@ -3210,16 +3321,62 @@ impl AppEngine {
         }
     }
 
+    /// `apply_runtime` use case.
+    ///
+    /// Same freeze contract as [`Self::apply_runtime_for_target`]; the target
+    /// falls back to the desired default read **before** the runtime call.
+    /// Prefer the explicit entry point when the caller already resolved the
+    /// target (the bridge does): a pre-read default still cannot cover an
+    /// explicit `applyTarget(B)` issued while active is `A`.
+    pub fn apply_runtime(
+        &self,
+        plan: RuntimePlan,
+        expected_revision: DesiredRevision,
+    ) -> Result<String, DomainError> {
+        // Pre-read, never post-read: capturing the default after `Accepted`
+        // is the RUN-04 race (a concurrent `set_active(B)` would relabel A's
+        // session as B).
+        let target = self.active_profile().unwrap_or_default();
+        self.apply_runtime_for_target(plan, &target, expected_revision)
+    }
+
     /// `stop_runtime` use case: ask net-host to stop the managed core.
     ///
     /// SP-04: joins the same in-process command sequence as `apply_runtime`
     /// (stop is the cleanup barrier: never superseded, never overtaken).
+    /// SP-05: withdrawing the live session is an actual-fact transition, so
+    /// the generation advances when a live fact is actually withdrawn, even
+    /// though desired is unchanged; the frozen history is retained (a stop
+    /// never rewrites what actually ran), and an accepted apply that never
+    /// reached Running is closed as Cancelled instead of left Running
+    /// forever (RUN-05). A failed stop changes none of this: the backend
+    /// fact is still unknown.
     pub fn stop_runtime(&self) -> Result<(), DomainError> {
         let _cmd = self
             .runtime_cmd_lock
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        self.runtime.stop()
+        // A failed stop leaves every fact untouched: the backend outcome is
+        // still unknown, so no generation, job or history change applies.
+        self.runtime.stop()?;
+        self.cancel_pending_apply_jobs();
+        let had_live = self
+            .applied_session
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone())
+            .is_some();
+        if had_live {
+            if let Ok(mut guard) = self.applied_session.lock() {
+                *guard = None;
+            }
+            self.set_local_proxy_port(None);
+            self.actual_generation.fetch_add(1, Ordering::AcqRel);
+        }
+        if let Ok(revisions) = self.revisions.lock() {
+            let _ = self.persist_config(&revisions);
+        }
+        Ok(())
     }
 
     /// Register the sink for unsolicited net-host events (control + detail).
@@ -3284,15 +3441,140 @@ impl AppEngine {
     }
 
     /// Read the structured status of a prior runtime operation (R4-04
-    /// reconcile). Read-only passthrough to the runtime client.
+    /// reconcile). Accepts the raw runtime operation id and the compound
+    /// `"<operation_id>:<job_id>"` correlation [`Self::apply_runtime`]
+    /// returns (RUN-05): the compound id is split, never sent to the runtime
+    /// verbatim. A terminal state on either side wins: the runtime view is
+    /// authoritative while in flight, but an engine job that already reached
+    /// its terminal state (via the snapshot reconcile listener) is reported
+    /// as terminal even when the backend record still reads non-terminal.
+    /// Unknown ids stay a structured not-found.
     pub fn operation_status(&self, operation_id: &str) -> Result<OperationStatusView, DomainError> {
-        self.runtime.operation_status(operation_id)
+        let (raw_op, compound_job) = split_operation_id(operation_id);
+        let runtime_view = self.runtime.operation_status(raw_op).ok();
+        let correlated_job: Option<JobId> = compound_job
+            .map(JobId::new)
+            .or_else(|| self.operation_job(raw_op));
+        let correlated_view = correlated_job
+            .as_ref()
+            .and_then(|job_id| self.jobs.get(job_id));
+        match (runtime_view, correlated_view) {
+            (Some(mut view), correlated) => {
+                // The runtime never tracks the application job: fill the
+                // correlation so one query returns both identities.
+                if view.job_id.is_none() {
+                    view.job_id = correlated
+                        .as_ref()
+                        .map(|job| job.job_id.0.clone())
+                        .or_else(|| correlated_job.map(|job| job.0));
+                }
+                if !view.state.is_terminal() {
+                    if let Some(job) = correlated {
+                        if job.state.is_terminal() {
+                            return Ok(OperationStatusView {
+                                operation_id: raw_op.to_string(),
+                                job_id: Some(job.job_id.0),
+                                state: job.state,
+                                cancel: None,
+                                error: job.error,
+                            });
+                        }
+                    }
+                }
+                Ok(view)
+            }
+            (None, Some(job)) => Ok(OperationStatusView {
+                operation_id: raw_op.to_string(),
+                job_id: Some(job.job_id.0),
+                state: job.state,
+                cancel: None,
+                error: job.error,
+            }),
+            (None, None) => Err(DomainError::not_found("operation", operation_id)),
+        }
+    }
+
+    /// The job correlated with one accepted runtime operation, if any.
+    pub fn operation_job(&self, operation_id: &str) -> Option<JobId> {
+        self.operation_jobs
+            .lock()
+            .ok()
+            .and_then(|guard| guard.get(operation_id).cloned())
+    }
+
+    /// The frozen submit-time target of the last accepted apply (SP-05
+    /// history). Survives stop and desired-default changes; `None` means no
+    /// apply was ever accepted by this engine lineage.
+    pub fn applied_target(&self) -> Option<FrozenAppliedTarget> {
+        self.applied_frozen
+            .lock()
+            .ok()
+            .and_then(|guard| guard.clone())
+    }
+
+    /// Current actual generation (plan §3.1 `actualGeneration`).
+    pub fn actual_generation(&self) -> u64 {
+        self.actual_generation.load(Ordering::Acquire)
+    }
+
+    /// Most recently allocated submit sequence (plan §3.2 `intentSeq`).
+    pub fn last_intent_seq(&self) -> u64 {
+        self.intent_seq.load(Ordering::Acquire)
+    }
+
+    /// Close every accepted apply job that never reached Running (RUN-05).
+    /// Called on the stop barrier: the stop supersedes those submits, so
+    /// they end `Cancelled`, never `Done` and never dangling `Running`.
+    /// Terminal jobs are left untouched.
+    fn cancel_pending_apply_jobs(&self) {
+        let ids: Vec<JobId> = self
+            .operation_jobs
+            .lock()
+            .map(|guard| guard.values().cloned().collect())
+            .unwrap_or_default();
+        for id in ids {
+            if let Some(job) = self.jobs.get(&id) {
+                if !job.state.is_terminal() {
+                    self.jobs.finish(&id, domain::JobState::Cancelled, None);
+                }
+            }
+        }
+    }
+
+    /// Finish the job correlated with one frozen submit when it is still open.
+    /// Terminal jobs are never rewritten: a late snapshot cannot turn a
+    /// `Cancelled`/`Failed` job into `Done`.
+    fn finish_correlated_job(&self, frozen: &FrozenAppliedTarget, state: domain::JobState) {
+        self.finish_correlated_job_with(frozen, state, None);
+    }
+
+    /// [`Self::finish_correlated_job`] with an attached failure, so a failed
+    /// submit closes as `Failed` with its structured error instead of
+    /// dangling `Running` forever (RUN-05).
+    fn finish_correlated_job_with(
+        &self,
+        frozen: &FrozenAppliedTarget,
+        state: domain::JobState,
+        error: Option<DomainError>,
+    ) {
+        if let Ok(guard) = self.operation_jobs.lock() {
+            if let Some(job_id) = guard.get(&frozen.operation_id) {
+                if let Some(job) = self.jobs.get(job_id) {
+                    if !job.state.is_terminal() {
+                        self.jobs.finish(job_id, state, error);
+                    }
+                }
+            }
+        }
     }
 
     /// Reconcile the applied-session fact from a fresh runtime snapshot.
     ///
-    /// Only a `Running` session with a bound port publishes an endpoint; a
-    /// stopped/degraded/rolling-back runtime withdraws it. Busy states keep the
+    /// Only a `Running` session with a bound port publishes an endpoint, and
+    /// the published target is the submit-time frozen target (SP-05), never
+    /// the current desired default. A stop/failure withdraws the live fact
+    /// (and advances the actual generation) while the frozen history stays so
+    /// reopen keeps reporting what actually ran. Busy states keep the
     /// previous fact so an in-place restart does not drop the old endpoint
     /// before the new one is proven.
     fn reconcile_applied_session(&self, snapshot: &RuntimeSnapshot) {
@@ -3301,34 +3583,101 @@ impl AppEngine {
                 let Some(port) = snapshot.ports.first().copied() else {
                     return;
                 };
-                // R4-05: only a target this engine actually applied counts as
-                // the applied target. A fresh engine reconnecting to an already
-                // running net-host has no apply_target; inventing the persisted
-                // desired node (or a default Xray API) would mislabel the actual
-                // session, so publish no applied session instead.
-                let Some(active) = self
-                    .apply_target
+                // SP-05: only a target this engine actually froze at submit
+                // counts as the applied target. A fresh engine reconnecting
+                // to an already running net-host has no frozen record, and an
+                // empty record means no explicit target was ever submitted:
+                // inventing the persisted desired node (or a default Xray API)
+                // would mislabel the actual session, so publish no applied
+                // session instead (R4-05 direction preserved).
+                let Some(frozen) = self
+                    .applied_frozen
                     .lock()
                     .ok()
                     .and_then(|guard| guard.clone())
                 else {
                     return;
                 };
+                if frozen.target_profile_id.is_empty() {
+                    return;
+                }
+                let was_live = self
+                    .applied_session
+                    .lock()
+                    .ok()
+                    .and_then(|guard| guard.clone())
+                    .is_some();
                 if let Ok(mut guard) = self.applied_session.lock() {
                     *guard = Some(AppliedSession {
                         session_id: snapshot.session_id.clone(),
-                        active_index_id: Some(active),
+                        active_index_id: Some(frozen.target_profile_id.clone()),
                         proxy_port: Some(port),
                         applied_revision: snapshot.applied_revision,
                     });
                 }
                 self.set_local_proxy_port(Some(port));
+                if !was_live {
+                    // First proof this submit actually runs: advance the
+                    // generation, stamp it on the frozen record, and close
+                    // its apply job as Done (RUN-05). A later default change
+                    // never re-triggers this: the frozen record, not the
+                    // desired default, gates it.
+                    let generation = self.actual_generation.fetch_add(1, Ordering::AcqRel) + 1;
+                    if let Ok(mut guard) = self.applied_frozen.lock() {
+                        if let Some(stored) = guard.as_mut() {
+                            if stored.operation_id == frozen.operation_id {
+                                stored.actual_generation = generation;
+                            }
+                        }
+                    }
+                    if let Ok(revisions) = self.revisions.lock() {
+                        let _ = self.persist_config(&revisions);
+                    }
+                    self.finish_correlated_job(&frozen, domain::JobState::Done);
+                }
             }
             RuntimeState::Stopped | RuntimeState::Degraded | RuntimeState::RollingBack => {
+                let was_live = self
+                    .applied_session
+                    .lock()
+                    .ok()
+                    .and_then(|guard| guard.clone())
+                    .is_some();
                 if let Ok(mut guard) = self.applied_session.lock() {
                     *guard = None;
                 }
                 self.set_local_proxy_port(None);
+                if was_live {
+                    // Exit/failure is an actual-fact transition even when
+                    // desired is unchanged (SP-05 §3.1). History stays frozen.
+                    self.actual_generation.fetch_add(1, Ordering::AcqRel);
+                }
+                // An accepted submit that already ended is closed: with the
+                // backend error when there is one, otherwise as Cancelled
+                // (superseded by the stop/external exit). A submit that
+                // never published and carries no error is still pending
+                // (idle backend), so its job stays open. Open jobs never
+                // dangle after a proven end; terminal jobs are never
+                // rewritten.
+                if was_live || snapshot.error.is_some() {
+                    if let Some(frozen) = self
+                        .applied_frozen
+                        .lock()
+                        .ok()
+                        .and_then(|guard| guard.clone())
+                    {
+                        match snapshot.error.clone() {
+                            Some(error) => self.finish_correlated_job_with(
+                                &frozen,
+                                domain::JobState::Failed,
+                                Some(error),
+                            ),
+                            None => {
+                                self.finish_correlated_job(&frozen, domain::JobState::Cancelled)
+                            }
+                        }
+                    }
+                }
             }
             RuntimeState::Validating
             | RuntimeState::Preparing
@@ -4734,6 +5083,29 @@ fn lock_error() -> DomainError {
     DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
 }
 
+/// Split the compound `"<operation_id>:<job_id>"` correlation
+/// [`AppEngine::apply_runtime`] returns (RUN-05). The runtime owns the
+/// operation id and never sees the compound form; unknown shapes pass
+/// through unsplit so a raw operation id keeps resolving.
+fn split_operation_id(id: &str) -> (&str, Option<&str>) {
+    match id.split_once(':') {
+        Some((op, job)) if !op.is_empty() && !job.is_empty() => (op, Some(job)),
+        _ => (id, None),
+    }
+}
+
+/// Canonical `stable::OperationState` name for one [`domain::JobState`]
+/// (SP-05: one mapped vocabulary, no parallel unmapped enums).
+pub fn operation_state_name(state: domain::JobState) -> &'static str {
+    stable_operation_name(state)
+}
+
+/// [`domain::JobState`] for one canonical `stable::OperationState` name, or
+/// `None` when the name is not in the vocabulary (never guessed).
+pub fn job_state_for_operation(name: &str) -> Option<domain::JobState> {
+    job_state_from_stable_name(name)
+}
+
 /// Read `guiNConfig.json` from the data directory.
 ///
 /// A missing file yields an empty object (first-run init, upstream
@@ -4766,6 +5138,9 @@ fn config_corrupt_error(error: impl std::fmt::Display) -> DomainError {
 pub const SETTINGS_META_KEYS: &[&str] = &[
     "desired_revision",
     "active_index_id",
+    "applied_target",
+    "runtime_intent_seq",
+    "actual_generation",
     "dataset_epoch",
     "rule_mode",
     "full_config_templates",
@@ -4777,6 +5152,15 @@ pub const SETTINGS_META_KEYS: &[&str] = &[
 /// §3.1). Ordinary saves preserve it; a restore/import replacement advances
 /// it so pre-restore requests stay rejected after reopen.
 pub const DATASET_EPOCH_KEY: &str = "dataset_epoch";
+
+/// Engine-owned frozen applied history in `guiNConfig.json` (SP-05 §3.1):
+/// the submit-time target/plan/revision/operation/intent/generation record.
+/// Stripped before settings parsing like every other engine-owned key.
+pub const APPLIED_TARGET_KEY: &str = "applied_target";
+/// Engine-owned submit sequence counter (plan §3.2 `intentSeq`).
+pub const INTENT_SEQ_KEY: &str = "runtime_intent_seq";
+/// Engine-owned actual generation counter (plan §3.1 `actualGeneration`).
+pub const ACTUAL_GENERATION_KEY: &str = "actual_generation";
 
 /// Canonical default resolution for one raw config tree: the engine mirror
 /// `active_index_id` first (newest explicit choice), then the canonical

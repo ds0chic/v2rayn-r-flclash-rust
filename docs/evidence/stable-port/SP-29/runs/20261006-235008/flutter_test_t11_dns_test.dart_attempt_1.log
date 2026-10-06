@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t11_dns_test.dart
+00:00 +0: dns controller seeds one row per core
+00:00 +1: dns save rejects empty remarks
+00:00 +2: dns import-default fills the embedded template text
+00:00 +3: dns simple round-trips and presets report pending offline
+00:00 +4: dns window renders four tabs and cancel discards
+00:00 +5: All tests passed!
+

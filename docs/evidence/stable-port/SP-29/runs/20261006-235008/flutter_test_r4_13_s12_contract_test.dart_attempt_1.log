@@ -1,0 +1,12 @@
+﻿flutter.bat : Waiting for another flutter command to release the startup lock...
+所在位置 C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\tools\gates\run_all.ps1:171 字符: 17
++ ...     $out = (& $flutterBin test --no-pub $rel --reporter expanded 2>&1 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Waiting for ano...startup lock...:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_13_s12_contract_test.dart
+00:00 +0: Hysteria fields save -> reopen
+00:00 +1: Hysteria defaults are the frozen upstream values
+00:00 +2: All tests passed!
+

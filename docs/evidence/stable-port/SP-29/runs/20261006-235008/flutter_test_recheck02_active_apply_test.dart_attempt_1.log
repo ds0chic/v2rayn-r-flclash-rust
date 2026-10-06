@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck02_active_apply_test.dart
+00:00 +0: nextActiveAfterRemoval picks the first Port>0 node of the current view
+00:00 +1: editing the active node re-applies once; non-active does not
+00:00 +2: deleting the active node applies a fallback once
+00:00 +3: deleting a non-active node never applies
+00:00 +4: All tests passed!
+

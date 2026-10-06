@@ -1,0 +1,14 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_29_contract_test.dart
+00:00 +0: SP-29 gate attempt classification exit 79 with did-not-complete is incomplete, not fail
+00:00 +1: SP-29 gate attempt classification exit 1 with did-not-complete is incomplete, not fail
+00:00 +2: SP-29 gate attempt classification load-time tester crash with exit 1 is incomplete, not fail
+00:00 +3: SP-29 gate attempt classification completed assertion failure is fail
+00:00 +4: SP-29 gate attempt classification completed green run is pass
+00:00 +5: SP-29 gate attempt classification all-skipped run is skip
+00:00 +6: SP-29 gate attempt classification bare crash exit without output is incomplete
+00:00 +7: SP-29 inventory completeness missing result entry is detected, never silent
+00:00 +8: SP-29 inventory completeness full coverage reports nothing missing
+00:00 +9: SP-29 inventory completeness recursive inventory covers nested test dirs
+00:00 +10: SP-29 gate entry presence tools/gates/run_all.ps1 exists with crash/toolchain handling
+00:00 +11: All tests passed!
+

@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_01_recovery_contract_test.dart
+00:00 +0: corrupt load is visible and never an editable default document
+00:00 +1: saves are refused on a failed load without touching storage
+00:00 +2: repair plus retrying load recovers without a restart
+00:00 +3: corrupt load shows a retry entry and recovers in place
+00:00 +4: All tests passed!
+

@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/scan_screen_qr_test.dart
+00:00 +0: success captures, restores the window and imports
+00:00 +1: cancelled capture is silent but still restores the window
+00:00 +2: image without a QR reports an actionable message
+00:00 +3: capture exception restores the window and reports failure
+00:00 +4: All tests passed!
+

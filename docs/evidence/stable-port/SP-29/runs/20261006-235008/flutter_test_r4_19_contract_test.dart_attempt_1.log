@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_19_contract_test.dart
+00:00 +0: renders both core tabs
+00:00 +1: rejects invalid JSON with a readable message
+00:00 +2: cancel writes nothing
+00:00 +3: saves both rows with flags and trims detour
+00:01 +4: a thrown save error is readable and retryable
+00:01 +5: preserves unknown template keys on round-trip
+00:01 +6: All tests passed!
+

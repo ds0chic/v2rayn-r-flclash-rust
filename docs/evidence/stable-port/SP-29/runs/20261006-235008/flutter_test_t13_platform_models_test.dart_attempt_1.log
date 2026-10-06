@@ -1,0 +1,13 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_platform_models_test.dart
+00:00 +0: tray menu model follows the upstream ContextMenu order and marks the active mode
+00:00 +1: tray menu model PAC entry is Windows-only
+00:00 +2: tray menu model node submenu hides above TrayMenuServersLimit
+00:00 +3: proxy settings view parses SystemProxyItem into a typed view
+00:00 +4: proxy settings view builds server with and without the advanced template
+00:00 +5: proxy settings view builds bypass adding <local>
+00:00 +6: platform controller apply records the mode and reads state back from the bridge
+00:00 +7: platform controller failed apply keeps the error and does not fake success
+00:00 +8: platform controller restore reports user conflicts without pretending a clean restore
+00:00 +9: platform controller desired mode is read from the settings document
+00:00 +10: All tests passed!
+

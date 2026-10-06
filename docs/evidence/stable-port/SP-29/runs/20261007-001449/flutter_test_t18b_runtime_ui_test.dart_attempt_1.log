@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t18b_runtime_ui_test.dart
+00:00 +0: apply button drives the real plan; rev mismatch shows 未应用
+00:01 +1: failed apply keeps the structured error on screen
+00:01 +2: hasUnappliedChanges is true only on a real mismatch
+00:01 +3: All tests passed!
+

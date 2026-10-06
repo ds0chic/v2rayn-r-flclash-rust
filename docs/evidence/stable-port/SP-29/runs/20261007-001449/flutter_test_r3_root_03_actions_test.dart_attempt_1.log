@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_root_03_actions_test.dart
+00:00 +0: admin relaunch request carries the runner rebootas marker and runas
+00:00 +1: elevation argv invokes PowerShell Start-Process -Verb RunAs
+00:00 +2: relaunchAsAdmin reports hand-off, cancel and failure honestly
+00:00 +3: UWP loopback command is CheckNetIsolation and reversible
+00:00 +4: core website URLs match upstream CoreUrls and drop /releases
+00:00 +5: openCoreWebsite launches cmd start with the resolved URL
+00:00 +6: region preset message reflects applied, offline and failed outcomes
+00:00 +7: All tests passed!
+

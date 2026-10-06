@@ -1,0 +1,12 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix16d_ui_state_store_test.dart
+00:00 +0: WindowGeometry round-trips per TypeName and restores all rows
+00:00 +1: WindowGeometry invalid rows are not restored
+00:00 +2: WindowGeometry migrates the legacy flat window blob to MainWindow
+00:00 +3: WindowGeometry migrates a TypeName-keyed legacy blob
+00:00 +4: ColumnLayout node table and Clash connections share one shape and source
+00:00 +5: ColumnLayout migrates legacy flat column_widths into the profiles layout
+00:00 +6: ColumnLayout unknown table falls back to an empty layout
+00:00 +7: migrateLegacyUiState folds legacy blobs and records the schema version
+00:00 +8: backup document round-trips windows and both column tables
+00:00 +9: All tests passed!
+

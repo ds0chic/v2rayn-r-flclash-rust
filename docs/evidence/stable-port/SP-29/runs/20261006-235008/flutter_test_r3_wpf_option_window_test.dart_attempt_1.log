@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_wpf_option_window_test.dart
+00:00 +0: standalone editor renders the frozen five tabs from the host snapshot
+00:00 +1: 确定 relays the visible draft to the host then closes
+00:01 +2: 取消 discards the draft: no save, window closes
+00:01 +3: Esc closes without writing the draft
+00:01 +4: a failed save keeps the window open and shows the error
+00:01 +5: All tests passed!
+

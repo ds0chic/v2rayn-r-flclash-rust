@@ -1,0 +1,19 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix11c_logs_test.dart
+00:00 +0: formatLogsForCopy matches upstream newline-joined text
+00:00 +1: keyword/level filtering is presentation-only
+00:00 +1: keyword/level filtering is presentation-only - did not complete [E]
+00:00 +1: collection pause freezes the view even if a batch arrives - did not complete [E]
+00:00 +1: hidden page keeps collecting but freezes UI, then resyncs - did not complete [E]
+00:00 +1: auto-refresh toggle freezes and resyncs the view - did not complete [E]
+00:00 +1: auto-scroll toggle drives the Rust scroll-pause flag - did not complete [E]
+00:00 +1: clear empties the ring and shows the upstream marker - did not complete [E]
+00:00 +1: display buffer is bounded under a large burst - did not complete [E]
+00:00 +1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix11c_logs_test.dart: auto-refresh toggle freezes and resyncs the view (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix11c_logs_test.dart: auto-scroll toggle drives the Rust scroll-pause flag (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix11c_logs_test.dart: clear empties the ring and shows the upstream marker (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix11c_logs_test.dart: collection pause freezes the view even if a batch arrives (did not complete)
+  ... and 3 more
+

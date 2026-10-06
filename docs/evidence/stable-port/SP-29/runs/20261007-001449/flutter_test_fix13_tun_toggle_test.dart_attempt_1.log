@@ -1,0 +1,12 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart
+00:00 +0: toggleTunDesired failed persist never applies and reports failure
+00:00 +1: toggleTunDesired successful save then applies the plan
+00:00 +2: toggleTunDesired turning off persists false before applying
+00:00 +3: toggleTunDesired rejected apply is not reported as applied
+00:00 +4: tunActualLabel switch off is 未启用 regardless of runtime
+00:00 +5: tunActualLabel desired but stopped is 未启用, never a fake active
+00:00 +6: tunActualLabel helper refusal surfaces as 失败已回滚
+00:00 +7: tunActualLabel live runtime reads 已请求(未验证), not a fabricated success
+00:00 +8: tunActualLabel live lease reads the real adapter fact
+00:00 +9: All tests passed!
+

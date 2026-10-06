@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_groups_panel_test.dart
+00:00 +0: groups panel filters by subscription
+00:01 +1: group filter compares sub ids, not display remarks
+00:01 +2: All tests passed!
+

@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_27_contract_test.dart
+00:00 +0: default UI state path lives in the data directory, not the exe dir
+00:00 +1: writes are atomic (temp file + rename, no temp left behind)
+00:00 +2: a write failure is visible instead of silently swallowed
+00:00 +3: legacy exe-adjacent ui_state.json is migrated into the data directory
+00:00 +4: section saves preserve unknown top-level keys
+00:00 +5: All tests passed!
+

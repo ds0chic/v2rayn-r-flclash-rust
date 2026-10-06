@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_11_contract_test.dart
+00:00 +0: mergeWithSettingsDefaults fills missing/null scalars, keeps values
+00:00 +1: R4-11 edit-save-reopen: saved value persists
+00:01 +2: R4-11 edit-cancel: nothing is written
+00:01 +3: R4-11 invalid port keeps the window open and shows an error
+00:01 +4: R4-11 User/Pass are disabled until NewPort4LAN is on
+00:02 +5: All tests passed!
+

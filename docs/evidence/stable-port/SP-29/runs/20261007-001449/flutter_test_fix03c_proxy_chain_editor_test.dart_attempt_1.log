@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix03c_proxy_chain_editor_test.dart
+00:00 +0: chain reopen keeps type/group/order/mode/refs on save
+00:00 +1: new chain defaults to ProxyChain group type and saves mode
+00:01 +2: chain editor exposes all five multiple-load modes
+00:01 +3: chain editor add/move/remove child then save
+00:01 +4: chain picker offers nested groups/chain but not custom
+00:01 +5: chain cancel calls onSave zero times
+00:01 +6: chain save then reopen keeps children order and mode
+00:02 +7: All tests passed!
+

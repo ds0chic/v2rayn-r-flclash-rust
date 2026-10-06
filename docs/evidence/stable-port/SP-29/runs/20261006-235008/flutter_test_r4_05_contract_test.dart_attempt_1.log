@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_05_contract_test.dart
+00:00 +0: bounded real-exit sequence runs stop -> flush -> platform restore in contract order
+00:00 +1: bounded real-exit sequence a failed stop does not skip platform restore
+00:00 +2: bounded real-exit sequence a hanging step is bounded by the per-step timeout
+00:00 +3: bounded real-exit sequence the total budget skips remaining steps instead of hanging
+00:00 +4: hide is not a stop Windows close always hides; opt-in hides elsewhere
+00:00 +5: self-update hand-off prefers the bounded desktop lifecycle when present
+00:00 +6: self-update hand-off falls back to the injected exit without an integration
+00:00 +7: All tests passed!
+

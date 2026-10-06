@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_theme_test.dart
+00:00 +0: theme dialog applies immediately and persists
+00:00 +1: theme dialog keeps the old theme when saving fails
+00:00 +2: All tests passed!
+

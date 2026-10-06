@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p08_contract_test.dart
+00:00 +0: P08 save -> reopen keeps UUID/password and TLS+h3 defaults
+00:00 +1: P08 invalid UUID is a readable error
+00:01 +2: P08 cancel never saves
+00:01 +3: P08 TUIC is sing-box only and has no Reality/transport
+00:01 +4: All tests passed!
+

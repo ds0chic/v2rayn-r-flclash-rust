@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_09_contract_test.dart
+00:00 +0: querySummaryPage uses the real store cursor across bounded pages
+00:00 +1: queryAllSummaries follows the cursor past 100k with no truncation
+00:00 +2: reload reads the profile table once (no double full read)
+00:00 +3: group switch / filter / sort do not re-read the store
+00:00 +4: speedtest poll is incremental and does not lose results
+00:00 +5: a stale search result cannot overwrite a newer one
+00:00 +6: shift selection across a page boundary keeps the full range
+00:00 +7: All tests passed!
+

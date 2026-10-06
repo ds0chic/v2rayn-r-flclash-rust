@@ -1,0 +1,11 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15_tray_pac_test.dart
+00:00 +0: tray shared use cases and dynamic sync tray leaf actions map to the main window command ids
+00:00 +1: tray shared use cases and dynamic sync routing/nodes submenus carry live entries, respecting the limit
+00:00 +2: tray shared use cases and dynamic sync nodes submenu hides above the configured limit
+00:00 +3: tray shared use cases and dynamic sync TrayAction exposes the shared command for a menu item
+00:00 +4: system proxy mode persistence mode toggle preserves the other SystemProxyItem fields
+00:00 +5: system proxy mode persistence missing group yields just the mode
+00:00 +6: platform controller PAC lifecycle startPac publishes the real handle and stopPac clears it
+00:00 +7: platform controller PAC lifecycle pac failure surfaces the error without faking success
+00:00 +8: All tests passed!
+

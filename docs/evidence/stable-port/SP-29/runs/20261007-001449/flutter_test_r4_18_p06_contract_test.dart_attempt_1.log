@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p06_contract_test.dart
+00:00 +0: R4-18.P06 Trojan keeps Reality (upstream adds it for Trojan)
+00:00 +1: R4-18.P06 save -> reopen keeps Flow, user/pass
+00:00 +2: R4-18.P06 Reality without public key is rejected
+00:01 +3: R4-18.P06 missing password is a visible error
+00:01 +4: All tests passed!
+

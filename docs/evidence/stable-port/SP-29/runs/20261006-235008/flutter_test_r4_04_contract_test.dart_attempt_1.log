@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_04_contract_test.dart
+00:00 +0: local pending is visible before the backend reports anything
+00:00 +1: the command queue is bounded and coalesces to the latest target
+00:00 +2: a command that waited past the deadline is rejected, not run late
+00:00 +3: concurrent refreshes are merged, not stacked
+00:00 +4: a snapshot overtaken by a command generation is dropped
+00:00 +5: a stop with an unknown outcome reconciles instead of claiming success
+00:00 +6: All tests passed!
+

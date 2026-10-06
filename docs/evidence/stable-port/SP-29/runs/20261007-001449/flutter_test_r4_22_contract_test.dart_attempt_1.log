@@ -1,0 +1,11 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_22_contract_test.dart
+00:00 +0: the run generation advances on every start and cancel
+00:00 +1: a completed run summarizes exactly its frozen scope
+00:00 +2: a cancelled rerun never reports a stale previous success
+00:00 +3: result sort persists the order and a poll does not revert it
+00:01 +4: group / filter / sort during a run never re-read the store
+00:01 +5: scope: mixed uses the visible list, per-selection uses the selection
+00:01 +6: UDP without node-routed support is explicit, never faked
+00:01 +7: a start failure is readable and the next attempt can retry
+00:01 +8: All tests passed!
+

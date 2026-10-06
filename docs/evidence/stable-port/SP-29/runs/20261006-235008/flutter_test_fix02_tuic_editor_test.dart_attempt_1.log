@@ -1,0 +1,22 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix02_tuic_editor_test.dart
+00:00 +0: TUIC exposes distinct UUID (username) and password fields
+00:00 +1: TUIC save keeps UUID and password separate across reopen
+00:01 +1: TUIC save keeps UUID and password separate across reopen - did not complete [E]
+00:01 +1: TUIC UUID must be a UUID; password must be non-empty - did not complete [E]
+00:01 +1: selecting Reality reveals its fields without reopening - did not complete [E]
+00:01 +1: unknown dropdown value falls back instead of asserting - did not complete [E]
+00:01 +1: Fingerprint candidates include randomized and empty - did not complete [E]
+00:01 +1: VLESS encryption is an editable text field - did not complete [E]
+00:01 +1: remarks-only save does not reset security/transport values - did not complete [E]
+00:01 +1: UUID generate button fills the UUID field - did not complete [E]
+00:01 +1: Cert SHA-256 helpers parse PEM chains deterministically - did not complete [E]
+00:01 +1: editing Cert auto-derives CertSha on save - did not complete [E]
+00:01 +1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix02_tuic_editor_test.dart: Cert SHA-256 helpers parse PEM chains deterministically (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix02_tuic_editor_test.dart: Fingerprint candidates include randomized and empty (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix02_tuic_editor_test.dart: TUIC UUID must be a UUID; password must be non-empty (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix02_tuic_editor_test.dart: TUIC save keeps UUID and password separate across reopen (did not complete)
+  ... and 6 more
+

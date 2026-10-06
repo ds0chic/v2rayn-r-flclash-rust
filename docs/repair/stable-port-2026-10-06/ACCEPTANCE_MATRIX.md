@@ -62,6 +62,8 @@ mock只用于可靠故障注入；每行正常流用真实FRB/持久化/最终�
 
 ## 4. 门禁与性能
 
+以下完整命令是发布候选的汇总检查，不是每卡都执行。日常修复、整合与高成本验收按[检查频率规则](VALIDATION_POLICY.md)执行；完整覆盖保持，避免重复跑整个清单。
+
 Rust workspace：`cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings`、`cargo test --workspace --locked`。
 
 `apps/desktop`：`dart format --output=none --set-exit-if-changed lib test`、`flutter analyze`、`flutter test`、`flutter build windows --release`。使用AGENTS锁定工具链；任何缺失、忽略、异常退出或未完成都列明，不改skip/list装绿。FRB二次生成no-diff，版本三处一致。

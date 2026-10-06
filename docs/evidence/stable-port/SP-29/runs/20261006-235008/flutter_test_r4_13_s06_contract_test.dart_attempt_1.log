@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_13_s06_contract_test.dart
+00:00 +0: CoreTypeItem rows save -> reopen
+00:00 +1: absent CoreTypeItem stays null until the window seeds it
+00:00 +2: All tests passed!
+

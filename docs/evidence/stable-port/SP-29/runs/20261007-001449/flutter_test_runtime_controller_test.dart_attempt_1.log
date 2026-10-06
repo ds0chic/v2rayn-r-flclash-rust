@@ -1,0 +1,12 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/runtime_controller_test.dart
+00:00 +0: revision label renders desired/applied without fabricating values
+00:00 +1: applied endpoint is only exposed for a running session
+00:00 +2: controller records epoch/seq and flags out-of-order events
+[runtime] runtime event out of order: seq=4 <= last=5
+00:00 +3: applyActive re-reads the latest desired revision before applying
+00:00 +4: applyActive surfaces a structured error and never fakes success
+00:00 +5: restoreActiveOnLaunch applies the persisted active node once
+00:00 +6: restoreActiveOnLaunch is a no-op without an active node
+00:00 +7: restoreActiveOnLaunch does not re-apply an already running session
+00:00 +8: All tests passed!
+

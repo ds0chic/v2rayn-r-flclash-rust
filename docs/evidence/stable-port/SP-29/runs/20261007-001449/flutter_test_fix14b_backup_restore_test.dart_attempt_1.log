@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix14b_backup_restore_test.dart
+00:00 +0: cancelled archive picker is a no-op
+00:00 +1: archive restore recognizes, imports and refreshes state
+00:00 +2: directory restore routes through bundle restore and refreshes
+00:01 +3: corrupted zip surfaces the error and keeps existing config
+00:01 +4: listed backup shows time/size and restores on selection
+00:01 +5: All tests passed!
+

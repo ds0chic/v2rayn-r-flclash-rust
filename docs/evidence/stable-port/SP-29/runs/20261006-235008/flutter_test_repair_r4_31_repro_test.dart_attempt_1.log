@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_31_repro_test.dart
+00:00 +0: an idle poll tick must not rebuild the node table read model
+00:00 +1: the poll must not run a structural full read on every empty-base tick
+00:00 +2: All tests passed!
+

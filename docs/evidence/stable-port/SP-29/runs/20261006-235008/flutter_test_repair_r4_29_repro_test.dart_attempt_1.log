@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_29_repro_test.dart
+00:00 +0: a thrown spec call completes, reports an error and clears busy
+00:00 +1: a thrown check call completes, reports an error and clears busy
+00:00 +2: All tests passed!
+

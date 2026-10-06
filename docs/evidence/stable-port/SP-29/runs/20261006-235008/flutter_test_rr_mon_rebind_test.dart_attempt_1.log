@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/rr_mon_rebind_test.dart
+00:00 +0: unrelated RuntimeView churn keeps the same session signature
+00:00 +1: heartbeat does not re-sync the source; a real applied change does
+00:00 +2: a store bind/load failure is visible on the monitor state
+00:00 +3: All tests passed!
+

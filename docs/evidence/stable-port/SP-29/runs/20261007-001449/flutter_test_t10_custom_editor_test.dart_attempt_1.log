@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_custom_editor_test.dart
+00:00 +0: custom editor renders all fields
+00:00 +1: custom editor rejects invalid json text
+00:00 +2: custom editor rejects out-of-range pre-socks port
+00:00 +3: custom editor cancel persists nothing
+00:01 +4: custom editor saves json + flags through
+00:01 +5: All tests passed!
+

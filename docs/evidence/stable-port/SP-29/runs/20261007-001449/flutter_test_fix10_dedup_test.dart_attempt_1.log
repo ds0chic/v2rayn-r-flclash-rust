@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix10_dedup_test.dart
+00:00 +0: transport-identical nodes are duplicates, keep the older
+00:00 +1: keepOlder=false keeps the newer entry
+00:00 +2: a differing transport field is not a duplicate
+00:00 +3: complex nodes (policyGroup) are always kept
+00:00 +4: All tests passed!
+

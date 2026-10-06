@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/ux_space03_vless_editor_test.dart
+00:00 +0: invalid port keeps draft, cancel discards, reopen reads original
+00:00 +1: default metrics: control 34-36, field gap 8-12, label gap 12-16, group gap ~16
+00:01 +2: field error grows its own row without covering the next field
+00:01 +3: user font size propagates to label, content and error
+00:01 +4: shared form does not clip VMess or Trojan fields
+00:01 +5: All tests passed!
+

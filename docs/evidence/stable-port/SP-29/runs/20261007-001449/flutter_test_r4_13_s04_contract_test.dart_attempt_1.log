@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_13_s04_contract_test.dart
+00:00 +0: ConstItem source urls save -> reopen
+00:00 +1: blank ConstItem urls stay authored (consumer applies the fallback)
+00:00 +2: All tests passed!
+

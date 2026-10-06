@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_32_contract_test.dart
+00:00 +0: release build defaults to unarmed (no SMOKE_ARMED define)
+00:00 +1: self-update helper ships under the runner name the updater launches
+00:00 +2: installer version and output name track the pubspec version
+00:00 +3: uninstall never recursively deletes the whole install root
+00:00 +4: delivery scripts never listen on the live 10808
+00:00 +5: All tests passed!
+

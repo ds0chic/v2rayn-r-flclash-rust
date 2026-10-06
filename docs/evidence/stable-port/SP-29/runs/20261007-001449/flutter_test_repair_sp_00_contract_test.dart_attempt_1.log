@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_00_contract_test.dart
+00:00 +0: stable shared contract family is exposed with version 1
+00:00 +1: runtime read model keeps desired/applied and the actual tun fact separate
+00:00 +2: revision pair reports unapplied changes without faking applied
+00:00 +3: All tests passed!
+

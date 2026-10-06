@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix09_subs_job_cancel_test.dart
+00:00 +0: binds the live job id before completion and cancels by id
+00:00 +1: reports a real success only after the bound job completes
+00:00 +2: a Done job without a report never fabricates success
+00:00 +3: All tests passed!
+

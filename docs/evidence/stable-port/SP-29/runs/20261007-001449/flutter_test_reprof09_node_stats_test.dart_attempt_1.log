@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/reprof09_node_stats_test.dart
+00:00 +0: applyNodeStatsOverlay joins ServerStatItem by IndexId
+00:00 +1: a stat for a deleted id never attaches to a remaining row
+00:00 +2: traffic columns render raw byte counters with 1024-based units
+00:00 +3: node table consumes controlled monitor stats across reloads
+00:00 +4: statistics disabled leaves the traffic columns untouched
+00:00 +5: All tests passed!
+

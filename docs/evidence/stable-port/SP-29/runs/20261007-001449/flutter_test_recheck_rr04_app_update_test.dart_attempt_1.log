@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck_rr04_app_update_test.dart
+00:00 +0: success: runner launched detached-ish and app exits
+00:00 +1: launch failure is reported and app does not exit
+00:00 +2: missing helper path is reported, no launch, no exit
+00:00 +3: spec unavailable: blocked message and no launch
+00:01 +4: All tests passed!
+

@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_statusbar_test.dart
+00:00 +0: status bar shows the four system-proxy modes and applies one
+00:00 +1: status bar renders the current proxy state label
+00:00 +2: All tests passed!
+

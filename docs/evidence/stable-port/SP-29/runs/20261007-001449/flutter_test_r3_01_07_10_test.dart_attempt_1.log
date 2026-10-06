@@ -1,0 +1,12 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r3_01_07_10_test.dart
+00:00 +0: R3-01 PAC renderer HTTP/mixed endpoint renders the upstream PROXY ...;DIRECT;
+00:00 +1: R3-01 PAC renderer SOCKS endpoint renders a SOCKS5 directive, not a bare address
+00:00 +2: R3-01 PAC renderer applyModeFromConfig(Pac) substitutes a full legal directive into pac.txt
+00:00 +3: R3-07 system proxy / PAC protocol distinction primaryLocalProxyInbound prefers the SOCKS inbound
+00:00 +4: R3-07 system proxy / PAC protocol distinction SOCKS endpoint drives socks= for ForcedChange and SOCKS5 for PAC
+00:00 +5: R3-07 system proxy / PAC protocol distinction HTTP/mixed endpoint keeps the bare named proxy and PROXY directive
+00:00 +6: R3-07 system proxy / PAC protocol distinction no running session reports honestly for both proxy and PAC
+00:00 +7: R3-10 routing reload honesty successful reload keeps the applied fact and reports success
+00:00 +8: R3-10 routing reload honesty failed reload saves the default but reports the concrete failure
+00:00 +9: All tests passed!
+

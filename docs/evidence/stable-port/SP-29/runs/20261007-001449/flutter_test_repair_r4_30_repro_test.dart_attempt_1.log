@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_30_repro_test.dart
+00:00 +0: R4-30 repro: product text resolves through the frozen ResUI keys
+00:00 +1: R4-30 repro: missing translation falls back to English, never a key
+00:00 +2: R4-30 repro: bridge error key localizes to cause + action
+00:00 +3: R4-30 repro: every menu entry carries a resolvable resource key
+00:00 +4: R4-30 repro: status bar never renders a raw error key
+00:00 +5: R4-30 repro: provider language drives product text
+00:00 +6: All tests passed!
+

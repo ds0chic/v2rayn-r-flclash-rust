@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_theme_tokens_test.dart
+00:00 +0: row height follows the configured font size within 24..28
+00:00 +1: light and dark themes carry distinct semantic tokens
+00:00 +2: font size and zebra flag reach the theme extension
+00:00 +3: accent mapping falls back and the icon family is stable
+00:00 +4: window metrics match the ledger minimums
+00:00 +5: All tests passed!
+

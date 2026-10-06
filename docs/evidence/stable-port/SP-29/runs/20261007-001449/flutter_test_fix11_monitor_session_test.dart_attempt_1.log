@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix11_monitor_session_test.dart
+00:00 +0: applied session enables polling and real traffic reaches the model
+00:00 +1: hiding a page pauses only that page, never the collection
+00:00 +2: stopping the core re-syncs and stops the old session
+00:00 +3: All tests passed!
+

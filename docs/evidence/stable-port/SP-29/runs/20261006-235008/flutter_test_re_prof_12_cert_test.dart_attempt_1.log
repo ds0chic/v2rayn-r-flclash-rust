@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/re_prof_12_cert_test.dart
+00:00 +0: selectCertFetchServerName prefers SNI, then transport host, then address
+00:00 +1: certSha256Thumbprint hashes a valid PEM body
+00:00 +2: certSha256Thumbprint returns null for invalid base64 without throwing
+00:00 +3: certSha256Thumbprint returns null when no PEM block is present
+00:00 +4: certShaFromChain joins valid blocks and refuses a malformed block
+00:00 +5: PeerCertChainResult reports leaf-only so the UI never claims a full chain
+00:00 +6: All tests passed!
+

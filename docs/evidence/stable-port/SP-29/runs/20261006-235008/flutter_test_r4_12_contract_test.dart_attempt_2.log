@@ -1,0 +1,11 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_12_contract_test.dart
+00:00 +0: R4-12 three main layouts layout mode persists and is restored after reopen
+00:00 +1: R4-12 three main layouts UiItem.MainGirdOrientation is the layout state source
+00:00 +2: R4-12 three main layouts main shell keeps table, menu and status bar in each layout
+00:01 +3: R4-12 read failure is not an empty draft settings: throwing load shows an error and no 确定
+00:01 +4: R4-12 read failure is not an empty draft settings: empty snapshot is treated as a failed read
+00:01 +5: R4-12 read failure is not an empty draft routing: throwing load shows an error and no 确定
+00:01 +6: R4-12 sub-editor/immediate commit survives whole-window cancel sub-editor 确定 commits immediately; 取消 keeps it
+00:01 +7: R4-12 sub-editor/immediate commit survives whole-window cancel strategy change commits immediately
+00:01 +8: All tests passed!
+

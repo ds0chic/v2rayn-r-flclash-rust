@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t17_menu_structure_test.dart
+00:00 +0: top-level menu order matches the upstream layout
+00:00 +1: 30 main-menu action ids are reachable from the model
+00:00 +2: help submenu keeps 检查更新 and the dynamic core-website entry
+00:00 +3: wired desktop entries are no longer preserved-only
+00:00 +4: reload entry is invocable after the shared reload use case
+00:00 +5: implemented entries stay invocable
+00:00 +6: All tests passed!
+

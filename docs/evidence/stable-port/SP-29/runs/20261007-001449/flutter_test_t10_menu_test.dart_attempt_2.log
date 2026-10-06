@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_menu_test.dart
+00:00 +0: menu model carries the T10 entries
+00:00 +1: menu opens the custom editor
+00:01 +1: menu opens the custom editor - did not complete [E]
+00:01 +1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_menu_test.dart: menu opens the custom editor (did not complete)
+

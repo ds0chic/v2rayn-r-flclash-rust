@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart
+00:00 +0: import failure keeps the draft; success enters it
+00:00 +1: deleting rules asks for confirmation; cancel keeps the draft
+00:01 +2: outbound selector excludes Custom profiles
+00:02 +2: outbound selector excludes Custom profiles - did not complete [E]
+00:02 +2: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08c_routing_draft_test.dart: outbound selector excludes Custom profiles (did not complete)
+

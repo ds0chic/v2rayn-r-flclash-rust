@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t09_import_export_test.dart
+00:00 +0: clipboard import reads injected content and imports nodes
+00:00 +1: export writes share text to the injected clipboard
+00:00 +2: share dialog renders a QR view
+00:00 +3: synthetic file writes return a structured not-wired result
+00:00 +4: All tests passed!
+

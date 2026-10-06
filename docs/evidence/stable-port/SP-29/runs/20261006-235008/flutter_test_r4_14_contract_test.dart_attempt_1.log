@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_14_contract_test.dart
+00:00 +0: 一键导入规则集 commits the real backend import
+00:00 +1: failed commit leaves the list unchanged and shows the error
+00:00 +2: Ctrl+A + Delete removes all selected schemes
+00:00 +3: sub-editor 确定 commits immediately; 取消 never saves the draft
+00:01 +4: strategy change commits immediately
+00:01 +5: All tests passed!
+

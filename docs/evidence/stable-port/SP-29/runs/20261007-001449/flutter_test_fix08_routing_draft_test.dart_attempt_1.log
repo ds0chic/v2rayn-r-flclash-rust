@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_routing_draft_test.dart
+00:00 +0: ruleset draft: unique ids, draft move, delete-all saves
+00:01 +1: routing top strategy edits the global object, not the scheme
+00:01 +2: All tests passed!
+

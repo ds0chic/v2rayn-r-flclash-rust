@@ -1,0 +1,24 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_19_contract_test.dart
+00:00 +0: renders both core tabs
+00:00 +0: renders both core tabs - did not complete [E]
+00:00 +0: rejects invalid JSON with a readable message - did not complete [E]
+00:00 +0: cancel writes nothing - did not complete [E]
+00:00 +0: saves both rows with flags and trims detour - did not complete [E]
+00:00 +0: a thrown save error is readable and retryable - did not complete [E]
+00:00 +0: preserves unknown template keys on round-trip - did not complete [E]
+00:00 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_19_contract_test.dart: a thrown save error is readable and retryable (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_19_contract_test.dart: cancel writes nothing (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_19_contract_test.dart: preserves unknown template keys on round-trip (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_19_contract_test.dart: rejects invalid JSON with a readable message (did not complete)
+  ... and 2 more
+flutter.bat : No tests were found.
+所在位置 C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\tools\gates\run_all.ps1:172 字符: 17
++ ...     $out = (& $flutterBin test --no-pub $rel --reporter expanded 2>&1 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (No tests were found.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+

@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_08_repro_test.dart
+00:00 +0: UF13 immediate selection and keyboard target
+UF13 ctrl +50ms selected={syn-000000, syn-000001} primary=syn-000001
+UF13 ctrl +400ms selected={syn-000000, syn-000001} primary=syn-000001
+UF13 enter +50ms selected={syn-000001} primary=syn-000001 active=syn-000000
+UF13 Enter accepted active=syn-000001 primary=syn-000001
+00:01 +1: All tests passed!
+

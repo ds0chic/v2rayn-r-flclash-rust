@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t21e_import_ux_test.dart
+00:00 +0: import helpers extractSubscriptionUrls keeps only http(s) lines
+00:00 +1: import helpers describeImportFailure is actionable, never generic
+00:00 +2: share links from clipboard persist and appear in the table
+00:00 +3: subscription URL offers 作为订阅添加 and adds it
+00:00 +4: unrecognized clipboard shows a classified failure
+00:00 +5: All tests passed!
+

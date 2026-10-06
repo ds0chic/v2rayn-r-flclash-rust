@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_13_s23_contract_test.dart
+00:00 +0: UiItem layout/window/column fields save -> reopen
+00:00 +1: window geometry and column layout round-trip through one store
+00:00 +2: main shell survives the DPI matrix in all three layouts
+00:01 +2: main shell survives the DPI matrix in all three layouts - did not complete [E]
+00:01 +2: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_13_s23_contract_test.dart: main shell survives the DPI matrix in all three layouts (did not complete)
+

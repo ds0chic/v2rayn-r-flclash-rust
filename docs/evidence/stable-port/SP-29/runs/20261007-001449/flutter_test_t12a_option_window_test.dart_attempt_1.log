@@ -1,0 +1,15 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_option_window_test.dart
+00:00 +0: option window: 5 upstream tabs, linkage, retained sections, cancel
+00:01 +0: option window: 5 upstream tabs, linkage, retained sections, cancel - did not complete [E]
+00:01 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t12a_option_window_test.dart: option window: 5 upstream tabs, linkage, retained sections, cancel (did not complete)
+flutter.bat : No tests were found.
+所在位置 C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\tools\gates\run_all.ps1:172 字符: 17
++ ...     $out = (& $flutterBin test --no-pub $rel --reporter expanded 2>&1 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (No tests were found.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+

@@ -1,0 +1,22 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_26_contract_test.dart
+00:00 +0: ACT-TRAY-012 copy proxy command (D30 / UFS-15) builds the exact upstream Windows `set` command text
+00:00 +1: ACT-TRAY-012 copy proxy command (D30 / UFS-15) uses POSIX `export` syntax off Windows
+00:00 +2: ACT-TRAY-012 copy proxy command (D30 / UFS-15) no running session is an honest failure, never a wrong port
+00:00 +3: ACT-TRAY-012 copy proxy command (D30 / UFS-15) running session with no applied port is an honest failure
+00:00 +4: ACT-TRAY-012 copy proxy command (D30 / UFS-15) prefers the configured port only when it is actually applied
+00:00 +5: ACT-TRAY-012 copy proxy command (D30 / UFS-15) tray menu still carries the copy item in upstream order
+00:00 +6: tray icon follows applied facts, not the desired mode a failed apply does not show a proxy icon
+00:00 +7: tray icon follows applied facts, not the desired mode an actually applied forced proxy shows proxyActive
+00:00 +8: tray icon follows applied facts, not the desired mode a serving PAC server shows proxyPac
+00:00 +9: tray icon follows applied facts, not the desired mode model without an applied mode keeps the R3-09 mapping (no regress)
+00:00 +10: tray icon follows applied facts, not the desired mode node/route checkmarks come from the default selection
+00:00 +11: tray leaf dispatch mapping clipboard / scan / subscription actions map to shared commands
+00:00 +12: tray leaf dispatch mapping proxy-mode / routing / node / copy / exit are tray-only
+00:00 +13: hotkey same-combo grouping + dispatch chain groups one combo with its ordered, de-duplicated actions
+00:00 +14: hotkey same-combo grouping + dispatch chain one OS registration dispatches every bound action in order
+00:00 +15: hotkey pause is a dispatch gate a combo fired while editing does not run its saved action
+00:00 +16: hotkey pause is a dispatch gate unregisterAll is best-effort and never throws
+00:00 +17: hide / startup regressions (R4-05 / FIX-15C) Windows close always hides; hide is not a stop
+00:00 +18: hide / startup regressions (R4-05 / FIX-15C) AutoHideStartup is a launch-only decision
+00:00 +19: All tests passed!
+

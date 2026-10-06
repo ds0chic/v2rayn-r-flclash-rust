@@ -1,0 +1,14 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_15_repro_test.dart
+00:00 +0: audit dirty DNS equal to other baseline survives preset
+00:00 +1: import-default previews, save persists, cancel leaves none
+00:01 +2: preset apply does not discard other-page drafts
+00:01 +2: preset apply does not discard other-page drafts - did not complete [E]
+00:01 +2: both custom enabled disables the simple DNS area - did not complete [E]
+00:01 +2: one custom row enabled keeps simple DNS enabled - did not complete [E]
+00:01 +2: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_15_repro_test.dart: both custom enabled disables the simple DNS area (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_15_repro_test.dart: one custom row enabled keeps simple DNS enabled (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_15_repro_test.dart: preset apply does not discard other-page drafts (did not complete)
+

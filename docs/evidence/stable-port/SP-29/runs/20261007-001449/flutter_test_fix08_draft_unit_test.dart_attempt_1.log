@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_draft_unit_test.dart
+00:00 +0: new rule drafts carry stable unique ids
+00:00 +1: import parse accepts both shapes, refreshes ids, rejects junk
+00:00 +2: draft export is upstream-shaped, id-free and re-importable
+00:00 +3: ruleset serialization keeps ids and matches the stored shape
+00:00 +4: settings group save preserves unedited and unknown keys
+00:00 +5: All tests passed!
+

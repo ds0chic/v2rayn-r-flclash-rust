@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/reprof04_sort_readback_test.dart
+00:00 +0: orderByPersistedSort reorders rows and appends unknown ids
+00:00 +1: reload reads the persisted Sort order back after a drag
+00:00 +2: column-header sort toggles ascending and descending, never none
+00:00 +3: sortByResult supports both directions with failures sinking
+00:00 +4: a failed order write is surfaced and cleared by the next success
+00:00 +5: All tests passed!
+

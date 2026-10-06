@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t13_hotkey_test.dart
+00:00 +0: hotkey binding model unbound correspondence and label
+00:00 +1: hotkey binding model parses and serializes the KeyEventItem shape
+00:00 +2: hotkey controller registerAll accepts valid bindings and reports conflicts
+00:00 +3: hotkey controller conflict is surfaced, not swallowed
+00:00 +4: hotkey controller save rejects when persist fails
+00:00 +5: close behavior parses UiItem close flags
+00:00 +6: All tests passed!
+

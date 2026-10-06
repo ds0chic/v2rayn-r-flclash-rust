@@ -1,0 +1,13 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p01_contract_test.dart
+00:00 +0: R4-18.P01 save -> reopen keeps security=auto and fields
+00:00 +1: R4-18.P01 cancel writes nothing
+00:01 +1: R4-18.P01 cancel writes nothing - did not complete [E]
+00:01 +1: R4-18.P01 invalid UUID is blocked with a visible error - did not complete [E]
+00:01 +1: R4-18.P01 codegen boundary: VMess security/alterId feed - did not complete [E]
+00:01 +1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p01_contract_test.dart: R4-18.P01 cancel writes nothing (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p01_contract_test.dart: R4-18.P01 codegen boundary: VMess security/alterId feed (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p01_contract_test.dart: R4-18.P01 invalid UUID is blocked with a visible error (did not complete)
+

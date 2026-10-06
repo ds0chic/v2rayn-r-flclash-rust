@@ -1,0 +1,9 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/table_actions_test.dart
+00:00 +0: shortcut mapping ctrl shortcuts
+00:00 +1: shortcut mapping plain keys
+00:00 +2: shortcut mapping unmapped and modifier-only combos are ignored
+00:00 +3: selection helpers single selection replaces the set
+00:00 +4: selection helpers ctrl toggle adds then removes
+00:00 +5: selection helpers shift range is inclusive and anchored on the main row
+00:00 +6: All tests passed!
+

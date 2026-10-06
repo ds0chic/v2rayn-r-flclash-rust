@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p10_contract_test.dart
+00:00 +0: P10 save -> reopen keeps AnyTLS password + Reality
+00:01 +1: P10 AnyTLS forces TLS when empty
+00:01 +2: P10 missing password is a visible error
+00:01 +3: P10 AnyTLS keeps TLS/Reality, sing-box only, no transport
+00:01 +4: All tests passed!
+

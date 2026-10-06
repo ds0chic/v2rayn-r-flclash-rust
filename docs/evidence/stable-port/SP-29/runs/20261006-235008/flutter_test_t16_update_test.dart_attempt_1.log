@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t16_update_test.dart
+00:00 +0: unsupported targets render disabled
+00:00 +1: via-proxy check without a local port is structured
+00:00 +2: prerelease toggle is forwarded to the bridge
+00:00 +3: check-update applies core updates and reports counts
+00:00 +4: application update launches the runner and exits
+00:00 +5: unconfigured application source is reported as blocked
+00:00 +6: rendering the window performs no update call
+00:00 +7: All tests passed!
+

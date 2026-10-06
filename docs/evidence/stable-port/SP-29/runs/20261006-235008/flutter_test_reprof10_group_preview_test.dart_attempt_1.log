@@ -1,0 +1,18 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/reprof10_group_preview_test.dart
+00:00 +0: resolveGroupPreview subscription matches first: eligible nodes + remarks filter
+00:00 +1: resolveGroupPreview explicit children keep list order and de-dupe against sub matches
+00:00 +2: resolveGroupPreview self sentinel uses owner subid and invalid filter matches all
+00:00 +3: resolveGroupPreview subscription children drop invalid leaves (RE-PROF-07)
+00:00 +4: edit draft to B + filter then refresh shows B, not stored A
+00:00 +5: cancel after a changed preview persists nothing
+00:01 +6: a new group previews a child before it is saved
+00:01 +6: a new group previews a child before it is saved - did not complete [E]
+00:01 +6: subscription children are filtered by the draft remarks regex - did not complete [E]
+00:01 +6: chain draft reorder is reflected by the refresh preview - did not complete [E]
+00:01 +6: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/reprof10_group_preview_test.dart: a new group previews a child before it is saved (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/reprof10_group_preview_test.dart: chain draft reorder is reflected by the refresh preview (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/reprof10_group_preview_test.dart: subscription children are filtered by the draft remarks regex (did not complete)
+

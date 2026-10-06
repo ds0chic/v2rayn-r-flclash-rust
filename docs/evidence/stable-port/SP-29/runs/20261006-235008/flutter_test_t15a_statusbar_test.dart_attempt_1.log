@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_statusbar_test.dart
+00:00 +0: status bar shows placeholders with no statistics data
+00:00 +1: status bar shows real proxy/direct rates from the stream
+00:01 +2: All tests passed!
+

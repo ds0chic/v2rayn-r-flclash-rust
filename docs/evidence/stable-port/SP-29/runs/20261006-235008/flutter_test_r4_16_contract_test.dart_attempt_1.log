@@ -1,0 +1,12 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_16_contract_test.dart
+00:00 +0: parse/preview previewImport persists nothing and passes manual dedup=false
+00:00 +1: parse/preview bad lines keep the valid rows and locate the failure
+00:00 +2: commit group commit is one batch write and no per-row write
+00:00 +3: commit no-group commit uses the per-row FIX-04 fallback
+00:00 +4: commit a failed batch commit is not half-written
+00:00 +5: commit cancel before commit persists nothing
+00:00 +6: field round-trip and export interop unknown extraJson survives the preview unchanged
+00:00 +7: field round-trip and export interop imported nodes export to a share list that re-imports
+00:00 +8: field round-trip and export interop a failed file export is a readable structured error
+00:00 +9: All tests passed!
+

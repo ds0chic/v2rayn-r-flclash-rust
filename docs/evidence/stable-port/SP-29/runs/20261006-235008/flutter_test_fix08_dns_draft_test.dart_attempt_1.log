@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix08_dns_draft_test.dart
+00:00 +0: dns import-default previews only; cancel persists nothing
+00:00 +1: dns save keeps GlobalFakeIp; bad custom text blocks first save
+00:01 +2: dns apply saves the visible draft before applying
+00:01 +3: All tests passed!
+

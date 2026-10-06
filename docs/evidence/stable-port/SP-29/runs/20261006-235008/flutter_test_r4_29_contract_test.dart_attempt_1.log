@@ -1,0 +1,26 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_29_contract_test.dart
+00:00 +0: unconfigured source is an explicit block, not a fake update
+00:01 +0: unconfigured source is an explicit block, not a fake update - did not complete [E]
+00:01 +0: unconfigured source blocks the app hand-off - did not complete [E]
+00:01 +0: checked package hands the runner CLI over and exits - did not complete [E]
+00:01 +0: error.update_signature is rejected without launch, exit or success - did not complete [E]
+00:01 +0: error.update_signature_missing is rejected without launch, exit or success - did not complete [E]
+00:01 +0: error.update_failed is rejected without launch, exit or success - did not complete [E]
+00:01 +0: missing helper path is rejected, no launch, no exit - did not complete [E]
+00:01 +0: a thrown spec call clears busy instead of latching - did not complete [E]
+00:01 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_29_contract_test.dart: a thrown spec call clears busy instead of latching (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_29_contract_test.dart: checked package hands the runner CLI over and exits (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_29_contract_test.dart: error.update_failed is rejected without launch, exit or success (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_29_contract_test.dart: error.update_signature is rejected without launch, exit or success (did not complete)
+  ... and 4 more
+flutter.bat : No tests were found.
+所在位置 C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\tools\gates\run_all.ps1:171 字符: 17
++ ...     $out = (& $flutterBin test --no-pub $rel --reporter expanded 2>&1 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (No tests were found.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+

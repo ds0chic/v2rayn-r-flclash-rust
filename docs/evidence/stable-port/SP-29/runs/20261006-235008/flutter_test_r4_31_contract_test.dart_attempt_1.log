@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_31_contract_test.dart
+00:00 +0: an idle poll tick keeps the same node table read model
+00:00 +1: a changed live result still rebuilds and is applied
+00:00 +2: the poller settles and releases its tracked jobs
+00:01 +3: repeated page toggles and session changes never stack subscriptions
+00:01 +4: the log read model stays bounded under a flood
+00:01 +5: All tests passed!
+

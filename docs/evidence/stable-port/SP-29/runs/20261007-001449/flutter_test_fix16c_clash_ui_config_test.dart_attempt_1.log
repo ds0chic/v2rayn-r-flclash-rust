@@ -1,0 +1,11 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix16c_clash_ui_config_test.dart
+00:00 +0: clashUiConfigFromDocument reads ClashUIItem values
+00:00 +1: clashUiConfigFromDocument falls back to upstream defaults when the group is absent
+00:00 +2: clashUiConfigFromDocument non-positive interval disables auto refresh
+00:00 +3: clashUiGroupWith preserves unknown keys and applies the change
+00:00 +4: proxies view sorts by name when ProxiesSorting=1
+00:00 +5: proxies view sorts by delay when ProxiesSorting=0
+00:00 +6: proxies view honors ProxiesAutoRefresh + interval
+00:00 +7: connections view honors ConnectionsAutoRefresh + interval
+00:00 +8: All tests passed!
+

@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/r4_01_repro_test.dart
+00:00 +0: explicit apply retries after the previous core error is repaired
+00:00 +1: F5 retries a repaired failure rather than re-reading and vetoing it
+00:00 +2: a pending command reports busy before the host sends a transition
+00:00 +3: All tests passed!
+

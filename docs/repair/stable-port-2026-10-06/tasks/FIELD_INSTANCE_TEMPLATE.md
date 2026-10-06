@@ -20,7 +20,7 @@
 
 测试夹具和原版预期：<synthetic输入、core/version/TLS/OS条件>；正向两个不同有效值，负向边界/坏类型/持久化或consumer故障，取消和并发stale；同输入原版预期有源引用或真实对照。真实FRB/磁盘/独立重开/最终consumer；fake仅故障注入。
 
-本次必须通过的命令/真实场景：按改动运行对应cargo test -p <实际package> --locked，fmt/clippy；apps/desktop下flutter analyze及新增行为测试；native改动先release构建。填确切测试文件/名称，不能留占位宣称通过。<本行required_verification具体操作和观察>；最终完整门禁SP-34。
+本次必须通过的命令/真实场景：按../VALIDATION_POLICY.md只选本字段受影响的package/test target、实际改动格式与必要静态检查；共用consumer的字段可参数化合并跑一组，逐ID有可区分断言，不每ID全量跑。已有正确测试优先复用；仅native/实际DLL等需要时构建当前候选以做真实场景。填确切测试文件/名称，不能留占位宣称通过。<本行required_verification具体操作和观察>；跨模块整合者汇总联动检查，完整门禁在发布候选SP-34。
 
 证据文件位置：docs/evidence/stable-port/SP-23/<精确ID>/；metadata绑定commit/package/core/system/renderer与DPI。尚未实测的平台写未验证，真实日志不含秘密。
 

@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_autostart_timing_test.dart
+00:00 +0: enabling AutoRun writes the Run key only on save
+00:01 +1: saving an unchanged AutoRun never touches the Run key
+00:01 +2: disabling a saved AutoRun clears the Run key on save
+00:02 +2: disabling a saved AutoRun clears the Run key on save - did not complete [E]
+00:02 +2: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix15c_autostart_timing_test.dart: disabling a saved AutoRun clears the Run key on save (did not complete)
+

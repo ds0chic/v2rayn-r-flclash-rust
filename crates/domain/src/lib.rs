@@ -19,6 +19,7 @@
 // large-Err lint is allowed here with intent.
 #![allow(clippy::result_large_err)]
 
+pub mod applied_target;
 pub mod dns;
 pub mod entities;
 pub mod enums;
@@ -35,6 +36,7 @@ pub mod settings_timing;
 pub mod summary;
 
 // Re-export the most-used items at the crate root for ergonomics.
+pub use applied_target::{job_state_from_stable_name, stable_operation_name, FrozenAppliedTarget};
 pub use entities::{
     ColumnDefinition, CoreInstallation, CoreTypeBinding, DnsProfile, FullConfigTemplate,
     GlobalHotkey, InboundListener, MigrationRecord, RoutingProfile, RoutingRule, Subscription,

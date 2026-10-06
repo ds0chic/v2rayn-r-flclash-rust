@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t15a_connections_test.dart
+00:00 +0: non-clash core shows the unsupported message
+00:00 +1: renders connection rows and filters by host
+00:00 +2: close selected and close all reach the bridge
+00:00 +3: All tests passed!
+

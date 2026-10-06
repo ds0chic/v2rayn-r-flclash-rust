@@ -1,0 +1,15 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_11_window_reply_test.dart
+00:00 +0: SP-11 window reply loss settings lost saveOutcome settles instead of hanging
+00:00 +1: SP-11 window reply loss routing lost commit outcome settles instead of hanging
+00:00 +2: SP-11 window reply loss close settles pending saves instead of stranding them
+00:00 +3: SP-11 window reply loss main-side exception sends a structured failed outcome
+00:00 +4: SP-11 window reply loss settings ok reply completes with the real result
+00:00 +5: SP-11 window reply loss settings duplicate reply is ignored
+00:00 +6: SP-11 window reply loss settings late reply after timeout is dropped without resending
+00:00 +7: SP-11 window reply loss settings close rotates the generation; old replies dropped
+00:00 +8: SP-11 window reply loss settings legacy reply without envelope still completes
+00:00 +9: SP-11 window reply loss settings timeout queries instead of replaying
+00:00 +10: SP-11 window reply loss routing ok reply completes; duplicate ignored
+00:00 +11: SP-11 window reply loss routing close rotates the generation; old replies dropped
+00:00 +12: All tests passed!
+

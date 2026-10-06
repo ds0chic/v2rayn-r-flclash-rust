@@ -1,0 +1,15 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_group_editor_test.dart
+00:00 +0: group editor renders all sections
+00:00 +1: group editor requires remarks and children
+00:00 +2: group editor cancel persists nothing
+00:00 +3: group editor add/move/remove child then save
+00:01 +3: group editor add/move/remove child then save - did not complete [E]
+00:01 +3: group editor picker cancel adds nothing - did not complete [E]
+00:01 +3: group editor keeps sub-child source and filter - did not complete [E]
+00:01 +3: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_group_editor_test.dart: group editor add/move/remove child then save (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_group_editor_test.dart: group editor keeps sub-child source and filter (did not complete)
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/t10_group_editor_test.dart: group editor picker cancel adds nothing (did not complete)
+

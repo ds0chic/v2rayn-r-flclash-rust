@@ -1,0 +1,11 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/scan_image_qr_test.dart
+00:00 +0: decodeQrImage reads a generated QR PNG
+00:00 +1: decodeQrImage retries a horizontally mirrored code
+00:00 +2: decodeQrImage returns null for non-QR and unreadable bytes
+00:00 +3: scan imports a node through the pipeline and keeps it stored
+00:00 +4: cancelling the picker is silent and does not mutate state
+00:00 +5: non-QR image reports an actionable error without crashing
+00:00 +6: empty image bytes report an actionable error
+00:00 +7: picker failure reports an actionable error
+00:00 +8: All tests passed!
+

@@ -1,0 +1,10 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix03_special_editors_test.dart
+00:00 +0: dispatch routes every config type to the upstream editor
+00:00 +1: custom reopen keeps extra/reference/raw fields on remarks-only save
+00:00 +2: custom cancel calls onSave zero times
+00:00 +3: group reopen keeps children/order/modes/refs on save
+00:01 +4: group picker offers nested groups/outbound but not custom
+00:01 +5: group editor exposes all five multiple-load modes
+00:01 +6: group cancel calls onSave zero times
+00:01 +7: All tests passed!
+

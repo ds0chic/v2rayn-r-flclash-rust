@@ -1,0 +1,6 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix16_settings_field_test.dart
+00:00 +0: FIX-16: localeForLanguage maps persisted codes
+00:00 +1: FIX-16: language + font flow into the live shell and theme
+00:00 +2: FIX-16: save then reopen restores HWA/cert/language
+00:01 +3: All tests passed!
+

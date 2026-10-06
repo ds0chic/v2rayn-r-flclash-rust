@@ -1,0 +1,7 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_18_p07_contract_test.dart
+00:00 +0: P07 save -> reopen keeps Hysteria2 obfs/ports/hop
+00:01 +1: P07 missing password is a visible error, nothing saved
+00:01 +2: P07 cancel never saves
+00:01 +3: P07 Hysteria2 has no Reality and no transport
+00:02 +4: All tests passed!
+

@@ -1,0 +1,8 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_07_contract_test.dart
+00:00 +0: context menu lifecycle and captured target
+00:01 +0: context menu lifecycle and captured target - did not complete [E]
+00:01 +0: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/r4_07_contract_test.dart: context menu lifecycle and captured target (did not complete)
+

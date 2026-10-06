@@ -1,0 +1,5 @@
+﻿00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/recheck05_hidden_selection_test.dart
+00:00 +0: switching group clears a selection that is no longer visible
+00:00 +1: text filter clears a selection it hides
+00:00 +2: All tests passed!
+

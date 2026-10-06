@@ -4704,6 +4704,30 @@ impl AppEngine {
             let _ = std::fs::create_dir_all(&bin);
             opts.log_directory = logs.to_string_lossy().into_owned();
             opts.bin_directory = bin.to_string_lossy().into_owned();
+            // SP-24 G-07: local SRS snapshot. Upstream checks
+            // `Utils.GetBinPath("srss")/{name}.srs` per ruleset and uses the
+            // local file when present; collect the file stems so the sing-box
+            // generator emits `local` rule_sets without touching the network.
+            // A missing `srss` directory simply yields an empty snapshot.
+            let srss = bin.join("srss");
+            if let Ok(entries) = std::fs::read_dir(&srss) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    let is_srs = path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .map(|ext| ext.eq_ignore_ascii_case("srs"))
+                        .unwrap_or(false);
+                    if !is_srs {
+                        continue;
+                    }
+                    if let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) {
+                        if !stem.is_empty() {
+                            opts.local_srs_files.insert(stem.to_string());
+                        }
+                    }
+                }
+            }
         }
         opts
     }
@@ -6004,6 +6028,24 @@ mod tests {
             .build_codegen_input(&id, CoreType::Xray, &opts)
             .unwrap();
         assert_eq!(input.settings.ruleset_url, stored);
+    }
+
+    #[test]
+    fn sp24_g07_runtime_options_scan_local_srs_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let srss = dir.path().join("bin").join("srss");
+        std::fs::create_dir_all(&srss).unwrap();
+        std::fs::write(srss.join("geosite-google.srs"), b"fake").unwrap();
+        std::fs::write(srss.join("geosite-cn.SRS"), b"fake").unwrap();
+        std::fs::write(srss.join("notes.txt"), b"not-srs").unwrap();
+        let engine = AppEngine::open(dir.path()).expect("open");
+        let opts = engine.runtime_codegen_options();
+        assert!(opts.local_srs_files.contains("geosite-google"));
+        assert!(
+            opts.local_srs_files.contains("geosite-cn"),
+            "extension match is case-insensitive"
+        );
+        assert_eq!(opts.local_srs_files.len(), 2, "non-srs files are ignored");
     }
 
     #[test]

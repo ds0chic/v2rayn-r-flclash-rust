@@ -7,7 +7,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_table.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
-import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
+import 'package:v2rayn_desktop/features/subs/sub_direct_edit.dart';
 import 'package:v2rayn_desktop/perf/perf_harness.dart';
 import 'package:v2rayn_desktop/perf/t18_bench.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
@@ -117,15 +117,15 @@ class _Toolbar extends ConsumerWidget {
             ),
           _IconTool(
             keyId: 'toolbar-sub-edit',
-            tooltip: '编辑订阅',
+            tooltip: '编辑当前订阅',
             icon: Icons.edit_outlined,
-            onPressed: () => openSubSettings(context, ref),
+            onPressed: () => openEditCurrentSub(context, ref),
           ),
           _IconTool(
             keyId: 'toolbar-sub-add',
             tooltip: '新增订阅',
             icon: Icons.add,
-            onPressed: () => openSubSettings(context, ref),
+            onPressed: () => openAddSub(context, ref),
           ),
           const SizedBox(
             width: AppTokens.toolbarGroupFilterGap - AppTokens.toolbarIconGap,

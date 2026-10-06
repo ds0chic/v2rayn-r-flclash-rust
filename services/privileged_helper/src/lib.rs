@@ -11,6 +11,7 @@
 
 pub mod audit;
 pub mod backend;
+pub mod journal;
 pub mod server;
 
 #[cfg(windows)]
@@ -20,6 +21,9 @@ pub mod windows;
 
 pub use audit::{AuditLog, AuditOutcome, AuditRecord};
 pub use backend::{FakeBackend, FakeCall, FakeOp, HelperBackend, StartedCore};
+pub use journal::{
+    core_label, route_label, tun_label, JournalEntry, JournalKind, JournalState, ResourceJournal,
+};
 pub use server::{
     serve_connection, sid_matches, ConnectionLease, HelperServer, HelperServerConfig, LeasePolicy,
     LEN_PREFIX_BYTES,

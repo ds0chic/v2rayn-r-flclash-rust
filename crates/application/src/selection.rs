@@ -99,6 +99,78 @@ pub fn resolve_current_group(persisted: Option<&str>, existing_ids: &[String]) -
     None
 }
 
+/// SP-16 "edit current subscription" entry (independent half).
+///
+/// Mirrors upstream `ProfilesViewModel.EditSubAsync(blNew=false)`: only a
+/// persisted current group `G` that still exists resolves to a direct edit;
+/// the "All" view, a blank id, or a deleted group is gated (upstream returns
+/// without opening anything, it never falls back to the first group).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SubEditTarget {
+    EditCurrent(String),
+    GatedAll,
+}
+
+/// Resolve which subscription object the "edit current" entry must open.
+pub fn resolve_sub_edit_target(
+    current_group: Option<&str>,
+    existing_ids: &[String],
+) -> SubEditTarget {
+    match resolve_current_group(current_group, existing_ids) {
+        Some(id) => SubEditTarget::EditCurrent(id),
+        None => SubEditTarget::GatedAll,
+    }
+}
+
+/// SP-18 frozen command targets (independent half).
+///
+/// Captured when the context menu opens; a later group switch or a target
+/// leaving the visible set invalidates the command instead of falling back
+/// to the first row.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrozenCommandTargets {
+    pub target_ids: Vec<String>,
+    pub primary_id: Option<String>,
+    pub group_sub_id: Option<String>,
+}
+
+/// Restore frozen targets against the live view. `None` means refuse with a
+/// re-select prompt.
+pub fn restore_command_targets(
+    frozen_ids: &[String],
+    frozen_primary: Option<&str>,
+    frozen_group: Option<&str>,
+    current_group: Option<&str>,
+    visible_ids: &[String],
+) -> Option<FrozenCommandTargets> {
+    if frozen_group != current_group {
+        return None;
+    }
+    if frozen_ids.is_empty() {
+        return None;
+    }
+    if frozen_ids
+        .iter()
+        .any(|id| !visible_ids.iter().any(|v| v == id))
+    {
+        return None;
+    }
+    Some(FrozenCommandTargets {
+        target_ids: frozen_ids.to_vec(),
+        primary_id: frozen_primary.and_then(|id| present(Some(id)).map(str::to_string)),
+        group_sub_id: frozen_group.map(str::to_string),
+    })
+}
+
+/// Single-object commands (edit/share/activate) require the frozen primary
+/// to still be visible.
+pub fn is_primary_target_live(primary_id: Option<&str>, visible_ids: &[String]) -> bool {
+    match present(primary_id) {
+        Some(id) => visible_ids.iter().any(|v| v == id),
+        None => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,5 +261,56 @@ mod tests {
         assert_eq!(resolve_current_group(Some("gone"), &ids(&["g"])), None);
         assert_eq!(resolve_current_group(Some(""), &ids(&["g"])), None);
         assert_eq!(resolve_current_group(None, &ids(&["g"])), None);
+    }
+
+    #[test]
+    fn sub_edit_target_direct_or_gated() {
+        assert_eq!(
+            resolve_sub_edit_target(Some("g"), &ids(&["g", "h"])),
+            SubEditTarget::EditCurrent("g".to_string())
+        );
+        assert_eq!(
+            resolve_sub_edit_target(None, &ids(&["g"])),
+            SubEditTarget::GatedAll
+        );
+        assert_eq!(
+            resolve_sub_edit_target(Some("gone"), &ids(&["g"])),
+            SubEditTarget::GatedAll
+        );
+        assert_eq!(
+            resolve_sub_edit_target(Some("  "), &ids(&["g"])),
+            SubEditTarget::GatedAll
+        );
+    }
+
+    #[test]
+    fn frozen_targets_require_same_group_and_visibility() {
+        let kept = restore_command_targets(
+            &ids(&["n2", "n3"]),
+            Some("n2"),
+            Some("g"),
+            Some("g"),
+            &ids(&["n1", "n2", "n3"]),
+        )
+        .expect("kept");
+        assert_eq!(kept.primary_id.as_deref(), Some("n2"));
+        assert!(restore_command_targets(
+            &ids(&["n2"]),
+            Some("n2"),
+            Some("g"),
+            Some("h"),
+            &ids(&["n2"]),
+        )
+        .is_none());
+        assert!(restore_command_targets(
+            &ids(&["n2"]),
+            Some("n2"),
+            Some("g"),
+            Some("g"),
+            &ids(&["n1"]),
+        )
+        .is_none());
+        assert!(!is_primary_target_live(Some("n9"), &ids(&["n1"])));
+        assert!(is_primary_target_live(Some("n1"), &ids(&["n1"])));
     }
 }

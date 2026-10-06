@@ -16,11 +16,20 @@ use domain::{codes, DomainError};
 use runtime::tun::TunSpec;
 use serde::{Deserialize, Serialize};
 
-use crate::helper_client::{HelperLink, TunLease, E_TUN_HELPER_UNAVAILABLE};
+#[cfg(test)]
+use crate::helper_client::E_TUN_HELPER_UNAVAILABLE;
+use crate::helper_client::{HelperLink, TunLease};
 use crate::journal::{now_ms, session_dir};
 
 /// File name of the TUN lease journal inside a session directory.
 pub const TUN_JOURNAL_FILE: &str = "tun_lease.json";
+
+/// File name of the durable pending-cleanup record (SP-08). Written when a
+/// cleanup attempt fails without confirmation and removed once a later retry
+/// (or boot reconciliation) confirms the release. It carries the last error
+/// and the attempt count so the failure stays visible and retryable across
+/// restarts instead of being forgotten.
+pub const TUN_PENDING_FILE: &str = "tun_pending.json";
 
 /// Journaled TUN lease: the net-host-side record of what the helper owns for
 /// one session. The embedded [`TunLease`] carries the full descriptor, so
@@ -40,8 +49,141 @@ pub struct TunRecoveryReport {
     pub pending: u32,
 }
 
+/// Durable record of an unconfirmed TUN cleanup (SP-08 / CP-04). The lease
+/// journal stays the ownership source of truth; this record adds the last
+/// error and the attempt count so a failed cleanup is visible, survives a
+/// restart, and can be retried. It never carries next-hop addresses.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PendingCleanup {
+    pub session_id: String,
+    pub adapter_name: String,
+    pub interface_index: u32,
+    pub route_digest: String,
+    pub dry_run: bool,
+    pub error_code: String,
+    pub message_key: String,
+    pub attempts: u32,
+    pub updated_at_ms: i64,
+}
+
+impl PendingCleanup {
+    pub fn from_failure(
+        session_id: &str,
+        lease: &TunLease,
+        error: &DomainError,
+        attempts: u32,
+    ) -> Self {
+        Self {
+            session_id: session_id.to_string(),
+            adapter_name: lease.adapter_name.clone(),
+            interface_index: lease.interface_index,
+            route_digest: lease.route_digest.clone(),
+            dry_run: lease.dry_run,
+            error_code: error.code.clone(),
+            message_key: error.message_key.clone(),
+            attempts,
+            updated_at_ms: now_ms(),
+        }
+    }
+
+    /// Redacted one-line summary for logs and retry surfaces.
+    pub fn summary(&self) -> String {
+        format!(
+            "session={} adapter={} if={} digest={} attempts={} last_error={}",
+            self.session_id,
+            self.adapter_name,
+            self.interface_index,
+            &self.route_digest[..self.route_digest.len().min(12)],
+            self.attempts,
+            self.error_code,
+        )
+    }
+}
+
+/// Whether a cleanup error means "already gone" and may converge like
+/// success. Today that is only `E_NOT_FOUND` (the helper's `UnknownHandle`
+/// maps there): removing routes or resetting an adapter that no longer exists
+/// is idempotent. Every other error — backend failure, unreachable helper,
+/// permission refusal — keeps the journal for retry; a permission error is
+/// never swallowed into success (CP-04).
+///
+/// A02 follow-up: the helper will report an explicit per-resource
+/// `AlreadyGone` in `ReleaseOwnedResources`; until then only `E_NOT_FOUND`
+/// converges here and nothing else is treated as absent.
+pub fn is_already_absent(error: &DomainError) -> bool {
+    error.code == codes::NOT_FOUND
+}
+
 pub fn tun_journal_path(run_root: &Path, session_id: &str) -> PathBuf {
     session_dir(run_root, session_id).join(TUN_JOURNAL_FILE)
+}
+
+pub fn pending_cleanup_path(run_root: &Path, session_id: &str) -> PathBuf {
+    session_dir(run_root, session_id).join(TUN_PENDING_FILE)
+}
+
+/// Atomically write the pending-cleanup record (temp file + rename).
+pub fn write_pending_cleanup(run_root: &Path, pending: &PendingCleanup) -> std::io::Result<()> {
+    let dir = session_dir(run_root, &pending.session_id);
+    std::fs::create_dir_all(&dir)?;
+    let path = pending_cleanup_path(run_root, &pending.session_id);
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, serde_json::to_vec_pretty(pending)?)?;
+    std::fs::rename(&tmp, &path)?;
+    Ok(())
+}
+
+/// Read the pending-cleanup record, if present and parseable.
+pub fn read_pending_cleanup(run_root: &Path, session_id: &str) -> Option<PendingCleanup> {
+    let bytes = std::fs::read(pending_cleanup_path(run_root, session_id)).ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
+/// Drop the pending-cleanup record. Called only after the release is confirmed
+/// (or proven already-absent); a failed retry re-writes it with new attempts.
+pub fn remove_pending_cleanup(run_root: &Path, session_id: &str) {
+    let _ = std::fs::remove_file(pending_cleanup_path(run_root, session_id));
+}
+
+/// Every durable pending cleanup under the run root, sorted by session id.
+/// This is the host-side retry surface the UI/API layer will expose once the
+/// SP-00 integrator wires it through IPC/FRB (interface need N-H1).
+pub fn list_pending_cleanup(run_root: &Path) -> Vec<PendingCleanup> {
+    let mut out = Vec::new();
+    let Ok(dirs) = std::fs::read_dir(run_root) else {
+        return out;
+    };
+    for dir in dirs.flatten() {
+        let session_id = dir.file_name().to_string_lossy().into_owned();
+        if let Some(pending) = read_pending_cleanup(run_root, &session_id) {
+            out.push(pending);
+        }
+    }
+    out.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+    out
+}
+
+/// Record one failed attempt durably: bump the attempt count off any previous
+/// pending record and persist the latest error. The lease journal is always
+/// kept alongside, so the retry can re-derive the exact cleanup.
+pub(crate) fn note_cleanup_failure(
+    run_root: &Path,
+    session_id: &str,
+    lease: &TunLease,
+    error: &DomainError,
+) {
+    let attempts = read_pending_cleanup(run_root, session_id)
+        .map(|pending| pending.attempts)
+        .unwrap_or(0)
+        .saturating_add(1);
+    let pending = PendingCleanup::from_failure(session_id, lease, error, attempts);
+    eprintln!(
+        "[net_host] tun pending cleanup retained: {}",
+        pending.summary()
+    );
+    if let Err(io) = write_pending_cleanup(run_root, &pending) {
+        eprintln!("[net_host] tun pending record write failed for {session_id}: {io}");
+    }
 }
 
 /// Atomically write the lease journal (temp file + rename).
@@ -130,46 +272,106 @@ pub fn apply_tun_lease(
     Ok(lease)
 }
 
-/// Release a TUN lease idempotently: clean helper resources, drop the journal.
+/// Release a TUN lease idempotently (SP-08 / CP-04).
 ///
-/// - No journal: already cleaned, `Ok` without touching the helper.
-/// - Journal/lease mismatch: still cleans the *recorded* resources (never
-///   leaks) and drops the stale record.
-/// - Helper cleanup failure: logged and swallowed; the helper also releases
-///   owned resources on disconnect, so an explicit-cleanup failure still
-///   converges and must never override the caller's root-cause error.
+/// - No journal: already cleaned — `Ok` after dropping any stale pending
+///   marker, without touching the helper.
+/// - Helper confirms the release, or reports already-absent (`E_NOT_FOUND`,
+///   idempotent): the journal and any pending record are dropped, `Ok`.
+/// - Any other helper failure: the journal is **kept**, a durable pending
+///   record is written/refreshed, and the error is returned. The caller must
+///   not report success and must keep the lease retryable. The helper also
+///   releases owned resources on disconnect, so a retry converges once the
+///   helper confirms or the resources are proven gone.
+///
+/// On a journal/lease mismatch the *recorded* (owned) resources are cleaned —
+/// never the caller's differing descriptor — so a retry always acts on the
+/// true ownership and a stale caller cannot redirect the cleanup elsewhere.
 pub fn cleanup_tun_lease(
     run_root: &Path,
     session_id: &str,
     lease: &TunLease,
     link: &mut dyn HelperLink,
 ) -> Result<(), DomainError> {
-    match read_tun_journal(run_root, session_id) {
-        None => return Ok(()),
-        Some(journal) if !verify_lease(&journal, lease) => {
-            eprintln!(
-                "[net_host] tun journal mismatch for {session_id}: recorded lease differs; cleaning recorded resources anyway"
-            );
+    let owned = match read_tun_journal(run_root, session_id) {
+        None => {
+            remove_pending_cleanup(run_root, session_id);
+            return Ok(());
         }
-        Some(_) => {}
+        Some(journal) => {
+            if !verify_lease(&journal, lease) {
+                eprintln!(
+                    "[net_host] tun journal mismatch for {session_id}: recorded lease differs; cleaning recorded resources"
+                );
+            }
+            if !verify_journal_integrity(&journal) {
+                eprintln!(
+                    "[net_host] tun journal for {session_id} failed integrity check; cleaning recorded resources anyway"
+                );
+            }
+            journal.lease
+        }
+    };
+    match link.cleanup(&owned) {
+        Ok(()) => {
+            remove_tun_journal(run_root, session_id);
+            remove_pending_cleanup(run_root, session_id);
+            Ok(())
+        }
+        Err(error) if is_already_absent(&error) => {
+            eprintln!("[net_host] tun cleanup for {session_id} already absent; converging journal");
+            remove_tun_journal(run_root, session_id);
+            remove_pending_cleanup(run_root, session_id);
+            Ok(())
+        }
+        Err(error) => {
+            eprintln!(
+                "[net_host] tun cleanup failed for {session_id}, journal retained for retry: {} {}",
+                error.code, error.message_key
+            );
+            note_cleanup_failure(run_root, session_id, &owned, &error);
+            Err(error)
+        }
     }
-    if let Err(error) = link.cleanup(lease) {
+}
+
+/// Retry a previously failed cleanup (SP-08). Reads the retained journal —
+/// the owned record, not the caller's memory — and re-issues the cleanup.
+/// `Ok` means the helper confirmed the release (journal and pending record
+/// dropped); `Err` refreshes the pending record with new attempts. Unknown
+/// session (no journal) is `Ok` after clearing any stale pending marker.
+///
+/// Called from the async host retry entry; staged until the SP-00 integrator
+/// exposes it over IPC/FRB (need N-H1).
+#[allow(dead_code)]
+pub fn retry_tun_cleanup(
+    run_root: &Path,
+    session_id: &str,
+    link: &mut dyn HelperLink,
+) -> Result<(), DomainError> {
+    let Some(journal) = read_tun_journal(run_root, session_id) else {
+        remove_pending_cleanup(run_root, session_id);
+        return Ok(());
+    };
+    if !verify_journal_integrity(&journal) {
         eprintln!(
-            "[net_host] tun cleanup best-effort failed for {session_id}: {} {}",
-            error.code, error.message_key
+            "[net_host] tun journal for {session_id} failed integrity check; retrying recorded cleanup anyway"
         );
     }
-    remove_tun_journal(run_root, session_id);
-    Ok(())
+    cleanup_tun_lease(run_root, session_id, &journal.lease, link)
 }
 
 /// Reconcile stale TUN leases after a restart.
 ///
 /// net-host is the single owner of its run root, so any lease journal found at
 /// boot is stale: the previous process is gone. Each one gets a single cleanup
-/// attempt through `link`. When the helper itself is unavailable the journal
-/// is *kept* and counted as pending so a later boot (with a live helper) can
-/// finish the cleanup; nothing is silently dropped.
+/// attempt through `link`:
+/// - confirmed release or already-absent: journal (and pending record)
+///   dropped, counted as cleaned;
+/// - any other failure (helper down, backend error, permission refusal): the
+///   journal is **kept**, the pending record is refreshed, and the lease is
+///   counted as pending so a later boot or an explicit retry — with a live
+///   helper — can finish the cleanup. Nothing is silently dropped (CP-04).
 pub fn reconcile_stale_tun(run_root: &Path, link: &mut dyn HelperLink) -> TunRecoveryReport {
     let mut report = TunRecoveryReport::default();
     let Ok(dirs) = std::fs::read_dir(run_root) else {
@@ -196,24 +398,24 @@ pub fn reconcile_stale_tun(run_root: &Path, link: &mut dyn HelperLink) -> TunRec
         match link.cleanup(&journal.lease) {
             Ok(()) => {
                 remove_tun_journal(run_root, &session_id);
+                remove_pending_cleanup(run_root, &session_id);
                 report.cleaned += 1;
             }
-            Err(error) if error.code == E_TUN_HELPER_UNAVAILABLE => {
+            Err(error) if is_already_absent(&error) => {
                 eprintln!(
-                    "[net_host] tun recovery deferred for {session_id}: helper unavailable (journal kept)"
-                );
-                report.pending += 1;
-            }
-            Err(error) => {
-                // Non-availability failure (e.g. poisoned test lock): the
-                // helper disconnect path still owns convergence; drop the
-                // record rather than wedge every future boot on it.
-                eprintln!(
-                    "[net_host] tun recovery best-effort failed for {session_id}: {} {}; record dropped",
-                    error.code, error.message_key
+                    "[net_host] tun recovery for {session_id}: already absent; converging journal"
                 );
                 remove_tun_journal(run_root, &session_id);
+                remove_pending_cleanup(run_root, &session_id);
                 report.cleaned += 1;
+            }
+            Err(error) => {
+                eprintln!(
+                    "[net_host] tun recovery deferred for {session_id}: {} {}; journal kept for retry",
+                    error.code, error.message_key
+                );
+                note_cleanup_failure(run_root, &session_id, &journal.lease, &error);
+                report.pending += 1;
             }
         }
     }
@@ -451,5 +653,277 @@ mod tests {
         let back: TunJournalEntry =
             serde_json::from_slice(&serde_json::to_vec(&entry).unwrap()).unwrap();
         assert_eq!(entry, back);
+    }
+
+    // -- SP-08 red contracts (CP-04): cleanup failure must not report success.
+    //
+    // These use only the current public `HelperLink` surface, so they compile
+    // before the fix and fail against the swallowing behavior. The fix keeps
+    // them green without touching their expectations.
+
+    /// A link whose apply succeeds but whose cleanup always fails with a
+    /// backend error (synthetic fault injection, no OS/helper/pipe).
+    struct FailingCleanupLink;
+
+    impl crate::helper_client::HelperLink for FailingCleanupLink {
+        fn session_id(&self) -> String {
+            "helper-session-9".into()
+        }
+
+        fn dry_run(&self) -> bool {
+            false
+        }
+
+        fn available(&mut self) -> Result<(), DomainError> {
+            Ok(())
+        }
+
+        fn apply(&mut self, spec: &TunSpec) -> Result<TunLease, DomainError> {
+            Ok(TunLease::new("helper-session-9", spec.clone(), false))
+        }
+
+        fn cleanup(&mut self, _lease: &TunLease) -> Result<(), DomainError> {
+            Err(crate::helper_client::tun_apply_failed(
+                "synthetic backend cleanup failure",
+            ))
+        }
+    }
+
+    /// A link whose cleanup reports the helper unreachable (retryable).
+    struct UnreachableCleanupLink;
+
+    impl crate::helper_client::HelperLink for UnreachableCleanupLink {
+        fn session_id(&self) -> String {
+            String::new()
+        }
+
+        fn dry_run(&self) -> bool {
+            false
+        }
+
+        fn available(&mut self) -> Result<(), DomainError> {
+            Ok(())
+        }
+
+        fn apply(&mut self, spec: &TunSpec) -> Result<TunLease, DomainError> {
+            Ok(TunLease::new(String::new(), spec.clone(), false))
+        }
+
+        fn cleanup(&mut self, _lease: &TunLease) -> Result<(), DomainError> {
+            Err(crate::helper_client::tun_helper_unavailable(
+                "synthetic helper unreachable during cleanup",
+            ))
+        }
+    }
+
+    #[test]
+    fn sp08_cleanup_failure_is_not_success_and_keeps_journal() {
+        let root = temp_root("sp08-red-cleanup");
+        let mut apply_link = FakeHelperLink::new();
+        let lease = apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        let mut failing = FailingCleanupLink;
+        let error = cleanup_tun_lease(&root, "s1", &lease, &mut failing)
+            .expect_err("an unconfirmed cleanup cannot report success");
+        assert_eq!(error.code, codes::UNAVAILABLE);
+        assert!(
+            read_tun_journal(&root, "s1").is_some(),
+            "the journal must survive a failed cleanup so a later retry can recover"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_reconcile_backend_failure_keeps_pending_journal() {
+        let root = temp_root("sp08-red-reconcile");
+        let mut apply_link = FakeHelperLink::new();
+        apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        drop(apply_link);
+        let mut failing = FailingCleanupLink;
+        let report = reconcile_stale_tun(&root, &mut failing);
+        assert_eq!(report.scanned, 1);
+        assert_eq!(
+            report.pending, 1,
+            "an unconfirmed recovery must stay pending, never counted as cleaned"
+        );
+        assert_eq!(report.cleaned, 0);
+        assert!(
+            read_tun_journal(&root, "s1").is_some(),
+            "the journal must survive for a later boot with a live helper"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_reconcile_unreachable_keeps_pending_journal() {
+        let root = temp_root("sp08-red-unreachable");
+        let mut apply_link = FakeHelperLink::new();
+        apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        drop(apply_link);
+        let mut down = UnreachableCleanupLink;
+        let report = reconcile_stale_tun(&root, &mut down);
+        assert_eq!((report.scanned, report.cleaned, report.pending), (1, 0, 1));
+        assert!(read_tun_journal(&root, "s1").is_some());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// A link whose cleanup reports the resources already gone (`E_NOT_FOUND`,
+    /// the current mapping of the helper's `UnknownHandle`).
+    struct AlreadyAbsentLink;
+
+    impl crate::helper_client::HelperLink for AlreadyAbsentLink {
+        fn session_id(&self) -> String {
+            "helper-session-9".into()
+        }
+
+        fn dry_run(&self) -> bool {
+            false
+        }
+
+        fn available(&mut self) -> Result<(), DomainError> {
+            Ok(())
+        }
+
+        fn apply(&mut self, spec: &TunSpec) -> Result<TunLease, DomainError> {
+            Ok(TunLease::new("helper-session-9", spec.clone(), false))
+        }
+
+        fn cleanup(&mut self, _lease: &TunLease) -> Result<(), DomainError> {
+            Err(DomainError::not_found("tun_lease", "s1"))
+        }
+    }
+
+    #[test]
+    fn sp08_already_absent_converges_like_success() {
+        let root = temp_root("sp08-absent");
+        let mut apply_link = FakeHelperLink::new();
+        let lease = apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        let mut gone = AlreadyAbsentLink;
+        cleanup_tun_lease(&root, "s1", &lease, &mut gone)
+            .expect("already-absent is idempotent success");
+        assert!(read_tun_journal(&root, "s1").is_none());
+        assert!(read_pending_cleanup(&root, "s1").is_none());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_only_not_found_counts_as_already_absent() {
+        assert!(is_already_absent(&DomainError::not_found(
+            "tun_lease",
+            "s1"
+        )));
+        assert!(!is_already_absent(&crate::helper_client::tun_apply_failed(
+            "x"
+        )));
+        assert!(!is_already_absent(
+            &crate::helper_client::tun_helper_unavailable("x")
+        ));
+        assert!(!is_already_absent(
+            &crate::helper_client::tun_helper_denied("x")
+        ));
+    }
+
+    #[test]
+    fn sp08_failed_cleanup_leaves_a_listed_pending_record() {
+        let root = temp_root("sp08-pending");
+        let mut apply_link = FakeHelperLink::new();
+        let lease = apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        let mut failing = FailingCleanupLink;
+        let error = cleanup_tun_lease(&root, "s1", &lease, &mut failing).unwrap_err();
+        assert_eq!(error.code, codes::UNAVAILABLE);
+        let pendings = list_pending_cleanup(&root);
+        assert_eq!(pendings.len(), 1);
+        let pending = &pendings[0];
+        assert_eq!(pending.session_id, "s1");
+        assert_eq!(pending.error_code, codes::UNAVAILABLE);
+        assert_eq!(pending.attempts, 1);
+        assert_eq!(pending.adapter_name, "v2rayn-tun");
+        let summary = pending.summary();
+        assert!(summary.contains("attempts=1"));
+        assert!(
+            !summary.contains("198.18"),
+            "pending summaries must stay redacted"
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_repeated_failures_bump_attempts() {
+        let root = temp_root("sp08-attempts");
+        let mut apply_link = FakeHelperLink::new();
+        let lease = apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        let mut failing = FailingCleanupLink;
+        for _ in 0..2 {
+            let _ = cleanup_tun_lease(&root, "s1", &lease, &mut failing).unwrap_err();
+        }
+        assert_eq!(
+            read_pending_cleanup(&root, "s1").expect("pending").attempts,
+            2
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_retry_after_failure_converges() {
+        let root = temp_root("sp08-retry");
+        let mut apply_link = FakeHelperLink::new();
+        let lease = apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        let mut failing = FailingCleanupLink;
+        cleanup_tun_lease(&root, "s1", &lease, &mut failing).unwrap_err();
+        assert!(read_tun_journal(&root, "s1").is_some());
+        // The helper is back: the retry acts on the retained owned record and
+        // confirms the release.
+        let mut recovered = FakeHelperLink::new();
+        retry_tun_cleanup(&root, "s1", &mut recovered).expect("retry converges");
+        assert!(read_tun_journal(&root, "s1").is_none());
+        assert!(read_pending_cleanup(&root, "s1").is_none());
+        assert!(list_pending_cleanup(&root).is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_retry_still_failing_keeps_journal_and_refreshes_pending() {
+        let root = temp_root("sp08-retry-fail");
+        let mut apply_link = FakeHelperLink::new();
+        apply_tun_lease(&root, "s1", &spec(), &mut apply_link).unwrap();
+        let mut failing = FailingCleanupLink;
+        retry_tun_cleanup(&root, "s1", &mut failing).unwrap_err();
+        retry_tun_cleanup(&root, "s1", &mut failing).unwrap_err();
+        assert!(read_tun_journal(&root, "s1").is_some());
+        assert_eq!(
+            read_pending_cleanup(&root, "s1").expect("pending").attempts,
+            2
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_retry_without_journal_clears_stale_pending() {
+        let root = temp_root("sp08-retry-nojournal");
+        let lease = TunLease::new("ghost", spec(), false);
+        let pending = PendingCleanup::from_failure(
+            "ghost",
+            &lease,
+            &crate::helper_client::tun_apply_failed("stale"),
+            3,
+        );
+        write_pending_cleanup(&root, &pending).unwrap();
+        let mut link = FakeHelperLink::new();
+        retry_tun_cleanup(&root, "ghost", &mut link).expect("no journal is done");
+        assert!(list_pending_cleanup(&root).is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn sp08_pending_record_roundtrips_through_json() {
+        let lease = TunLease::new("sess", spec(), false);
+        let pending = PendingCleanup::from_failure(
+            "s9",
+            &lease,
+            &crate::helper_client::tun_helper_unavailable("down"),
+            4,
+        );
+        let back: PendingCleanup =
+            serde_json::from_slice(&serde_json::to_vec(&pending).unwrap()).unwrap();
+        assert_eq!(pending, back);
     }
 }

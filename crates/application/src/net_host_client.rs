@@ -23,7 +23,7 @@ use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-use domain::event::EventEpoch;
+use domain::event::{EventEnvelope, EventEpoch};
 use domain::{AppliedRevision, CancelOutcome, DomainError, JobId, RuntimePlan};
 use ipc_contract::{
     IpcOperation, IpcResult, RequestEnvelope, RuntimeSnapshot as IpcSnapshot, SessionIdentity,
@@ -44,6 +44,181 @@ const LAUNCH_WAIT: Duration = Duration::from_secs(10);
 const LAUNCH_POLL: Duration = Duration::from_millis(100);
 /// Reconnect backoff for the event connection.
 const EVENT_RECONNECT: Duration = Duration::from_millis(500);
+
+/// Transport signal asking a lagged subscriber to resynchronize. Mirrors
+/// `net_host::events::RESYNC_REQUIRED_EVENT`; the payload carries the
+/// authoritative `reason`/`epoch`/`last_seq`. Never a lifecycle outcome.
+const RESYNC_REQUIRED_EVENT: &str = "resync_required";
+
+/// Authoritative resync request derived from the event stream (SP-07).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ResyncAsk {
+    pub reason: String,
+    pub epoch: u64,
+    pub last_seq: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct CursorOutcome {
+    pub resync: Option<ResyncAsk>,
+    /// Whether the event may advance lifecycle/final-outcome state.
+    /// Telemetry, duplicates and transport signals never do.
+    pub lifecycle: bool,
+}
+
+/// Subscription cursor: expected `(epoch, next_seq)` plus the newest
+/// attributed fact generation. A gap, epoch change or explicit resync notice
+/// yields a `ResyncAsk` (fetch authoritative snapshot, then `adopt_origin`);
+/// the cursor holds position until that snapshot arrives, so a stale event
+/// can never rewind generation or overwrite a final outcome.
+#[derive(Debug)]
+pub(crate) struct EventCursor {
+    epoch: u64,
+    next_seq: u64,
+    generation: Option<u64>,
+    resyncs: u64,
+}
+
+impl EventCursor {
+    pub(crate) fn new(epoch: u64, next_seq: u64) -> Self {
+        Self {
+            epoch,
+            next_seq,
+            generation: None,
+            resyncs: 0,
+        }
+    }
+
+    pub(crate) fn next_seq(&self) -> u64 {
+        self.next_seq
+    }
+
+    pub(crate) fn generation(&self) -> Option<u64> {
+        self.generation
+    }
+
+    /// Advance the cursor to an authoritative snapshot origin.
+    pub(crate) fn adopt_origin(&mut self, epoch: u64, next_seq: u64) {
+        self.epoch = epoch;
+        self.next_seq = next_seq;
+    }
+
+    pub(crate) fn observe(&mut self, event: &EventEnvelope) -> CursorOutcome {
+        if event.kind.as_str() == RESYNC_REQUIRED_EVENT {
+            self.resyncs += 1;
+            let reason = event
+                .payload
+                .get("reason")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("lagged");
+            let epoch = event
+                .payload
+                .get("epoch")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or_else(|| event.epoch.get());
+            let last_seq = event
+                .payload
+                .get("last_seq")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or_else(|| event.seq.get());
+            return CursorOutcome {
+                resync: Some(ResyncAsk {
+                    reason: reason.to_string(),
+                    epoch,
+                    last_seq,
+                }),
+                lifecycle: false,
+            };
+        }
+        if event.epoch.get() != self.epoch {
+            self.resyncs += 1;
+            return CursorOutcome {
+                resync: Some(ResyncAsk {
+                    reason: "epoch_mismatch".to_string(),
+                    epoch: event.epoch.get(),
+                    last_seq: event.seq.get().saturating_sub(1),
+                }),
+                lifecycle: false,
+            };
+        }
+        let seq = event.seq.get();
+        if seq < self.next_seq {
+            return CursorOutcome {
+                resync: None,
+                lifecycle: false,
+            };
+        }
+        if seq > self.next_seq {
+            self.resyncs += 1;
+            return CursorOutcome {
+                resync: Some(ResyncAsk {
+                    reason: "gap".to_string(),
+                    epoch: self.epoch,
+                    last_seq: seq.saturating_sub(1),
+                }),
+                lifecycle: false,
+            };
+        }
+        self.next_seq = seq.saturating_add(1);
+        let (_, generation) = parse_event_identity(event);
+        if generation.is_some() {
+            self.generation = generation;
+        }
+        CursorOutcome {
+            resync: None,
+            lifecycle: event.kind.is_control(),
+        }
+    }
+}
+
+/// Lifecycle latch: only control events may advance the retained outcome.
+/// High-frequency telemetry increments a counter and can never evict the
+/// final result; transport signals are not outcomes either.
+#[derive(Debug, Default)]
+pub(crate) struct LifecycleLatch {
+    last_control: Option<EventEnvelope>,
+    telemetry_seen: u64,
+}
+
+impl LifecycleLatch {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    pub(crate) fn note(&mut self, event: &EventEnvelope) {
+        if event.kind.as_str() == RESYNC_REQUIRED_EVENT {
+            return;
+        }
+        if event.kind.is_control() {
+            self.last_control = Some(event.clone());
+        } else {
+            self.telemetry_seen = self.telemetry_seen.saturating_add(1);
+        }
+    }
+
+    pub(crate) fn last_control(&self) -> Option<EventEnvelope> {
+        self.last_control.clone()
+    }
+
+    pub(crate) fn telemetry_seen(&self) -> u64 {
+        self.telemetry_seen
+    }
+}
+
+/// Read the `(operation_id, generation)` control identity from an envelope
+/// payload. Mirrors `net_host::events::parse_event_identity`.
+pub(crate) fn parse_event_identity(event: &EventEnvelope) -> (Option<String>, Option<u64>) {
+    let operation_id = event
+        .payload
+        .get("operation_id")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    let generation = event
+        .payload
+        .get("generation")
+        .and_then(serde_json::Value::as_u64);
+    (operation_id, generation)
+}
 
 fn trace(message: impl AsRef<str>) {
     if std::env::var_os("V2RAYN_R_TRACE").is_some() {
@@ -466,13 +641,24 @@ fn start_event_thread(shared: &Arc<Shared>) {
 }
 
 fn event_loop(shared: &Arc<Shared>) {
+    let mut cursor: Option<EventCursor> = None;
+    let mut latch = LifecycleLatch::new();
     while !shared.events_stop.load(Ordering::Acquire) {
         match connect(shared) {
             Ok(mut file) => {
                 trace("event_loop: connected");
-                if subscribe(shared, &mut file).is_err() {
-                    std::thread::sleep(EVENT_RECONNECT);
-                    continue;
+                let (epoch, from_seq) = match subscribe(shared, &mut file) {
+                    Ok(origin) => origin,
+                    Err(_) => {
+                        std::thread::sleep(EVENT_RECONNECT);
+                        continue;
+                    }
+                };
+                // Re-anchor on every (re)subscribe: a disconnect never
+                // resumes from a stale cursor without a snapshot round-trip.
+                match cursor.as_mut() {
+                    Some(cursor) => cursor.adopt_origin(epoch, from_seq),
+                    None => cursor = Some(EventCursor::new(epoch, from_seq)),
                 }
                 while !shared.events_stop.load(Ordering::Acquire) {
                     let payload = match read_payload(&mut file) {
@@ -487,10 +673,30 @@ fn event_loop(shared: &Arc<Shared>) {
                         Err(_) => break,
                     };
                     if let ServerFrame::Event(event) = frame {
-                        let callback = shared.sink.lock().ok().and_then(|slot| slot.clone());
-                        if let Some(callback) = callback {
-                            callback(event);
+                        deliver(shared, &event);
+                        if let Some(cursor) = cursor.as_mut() {
+                            latch.note(&event);
+                            let outcome = cursor.observe(&event);
+                            if let Some(ask) = outcome.resync {
+                                log_resync(cursor, &latch, &ask);
+                                if let Some((epoch, next)) = reconcile_after_resync(shared, &ask) {
+                                    cursor.adopt_origin(epoch, next);
+                                }
+                            }
                         }
+                    }
+                }
+                // The read loop ended (disconnect or a server-closed resync
+                // subscription): re-anchor via snapshot before resubscribing,
+                // so no silent half-open resumes from a stale cursor.
+                if let Some(cursor) = cursor.as_mut() {
+                    let ask = ResyncAsk {
+                        reason: "reconnect".to_string(),
+                        epoch,
+                        last_seq: from_seq.saturating_sub(1),
+                    };
+                    if let Some((epoch, next)) = reconcile_after_resync(shared, &ask) {
+                        cursor.adopt_origin(epoch, next);
                     }
                 }
             }
@@ -503,7 +709,54 @@ fn event_loop(shared: &Arc<Shared>) {
     }
 }
 
-fn subscribe(shared: &Arc<Shared>, file: &mut File) -> Result<(), DomainError> {
+fn deliver(shared: &Arc<Shared>, event: &EventEnvelope) {
+    let callback = shared.sink.lock().ok().and_then(|slot| slot.clone());
+    if let Some(callback) = callback {
+        callback(event.clone());
+    }
+}
+
+fn log_resync(cursor: &EventCursor, latch: &LifecycleLatch, ask: &ResyncAsk) {
+    let (kept_op, kept_gen) = latch
+        .last_control()
+        .as_ref()
+        .map(parse_event_identity)
+        .unwrap_or((None, None));
+    trace(format!(
+        "resync {}: want epoch={} last_seq={}; cursor next={} gen={:?}; kept op={:?} gen={:?} telemetry={}",
+        ask.reason,
+        ask.epoch,
+        ask.last_seq,
+        cursor.next_seq(),
+        cursor.generation(),
+        kept_op,
+        kept_gen,
+        latch.telemetry_seen(),
+    ));
+}
+
+/// Fetch the authoritative snapshot after a lag/disconnect resync ask.
+/// Returns the origin the subscription must continue from.
+fn reconcile_after_resync(shared: &Arc<Shared>, ask: &ResyncAsk) -> Option<(u64, u64)> {
+    match do_request(
+        shared,
+        IpcOperation::GetSnapshot,
+        Duration::from_millis(IPC_REQUEST_TIMEOUT_MS),
+    ) {
+        Ok((IpcResult::Snapshot(snapshot), _)) => {
+            trace(format!(
+                "resync {} answered: epoch={} last_seq={}",
+                ask.reason,
+                snapshot.epoch.get(),
+                snapshot.last_seq
+            ));
+            Some((snapshot.epoch.get(), snapshot.last_seq.saturating_add(1)))
+        }
+        _ => None,
+    }
+}
+
+fn subscribe(shared: &Arc<Shared>, file: &mut File) -> Result<(u64, u64), DomainError> {
     let request = RequestEnvelope {
         session: shared.session.clone(),
         request_id: format!("sub-{}", shared.session.peer_pid),
@@ -517,12 +770,24 @@ fn subscribe(shared: &Arc<Shared>, file: &mut File) -> Result<(), DomainError> {
     file.write_all(&bytes)
         .and_then(|_| file.flush())
         .map_err(|e| unavailable(format!("subscribe write failed: {e}")))?;
-    // Read the EventStreamOpened acknowledgment on the same handle.
-    let payload =
-        read_payload(file).map_err(|e| unavailable(format!("subscribe read failed: {e}")))?;
-    decode_payload::<ServerFrame>(&payload)
-        .map_err(|e| unavailable(format!("subscribe decode failed: {e}")))?;
-    Ok(())
+    // Read until the EventStreamOpened acknowledgment on the same handle. A
+    // resync notice may precede it; deliver it like any other event.
+    loop {
+        let payload =
+            read_payload(file).map_err(|e| unavailable(format!("subscribe read failed: {e}")))?;
+        let frame = decode_payload::<ServerFrame>(&payload)
+            .map_err(|e| unavailable(format!("subscribe decode failed: {e}")))?;
+        match frame {
+            ServerFrame::Response(envelope) => match envelope.result {
+                IpcResult::EventStreamOpened { epoch, from_seq } => {
+                    return Ok((epoch.get(), from_seq));
+                }
+                IpcResult::Error(error) => return Err(error),
+                other => return Err(unexpected("subscribe", &other)),
+            },
+            ServerFrame::Event(event) => deliver(shared, &event),
+        }
+    }
 }
 
 fn connect(shared: &Arc<Shared>) -> Result<File, DomainError> {
@@ -815,5 +1080,123 @@ mod tests {
     fn net_host_client_exposes_worker_counts() {
         let client = NetHostClient::with_pipe("\\\\.\\pipe\\rr01-test-counts");
         assert_eq!(client.request_worker_counts(), (0, 0));
+    }
+
+    fn envelope(
+        epoch: u64,
+        seq: u64,
+        kind: domain::event::EventKind,
+        operation_id: Option<&str>,
+        generation: Option<u64>,
+    ) -> domain::EventEnvelope {
+        let mut payload = serde_json::json!({"synthetic": true});
+        if let Some(op) = operation_id {
+            payload["operation_id"] = serde_json::json!(op);
+        }
+        if let Some(gen) = generation {
+            payload["generation"] = serde_json::json!(gen);
+        }
+        domain::EventEnvelope::new(
+            EventEpoch(epoch),
+            domain::event::EventSeq(seq),
+            kind,
+            payload,
+        )
+    }
+
+    #[test]
+    fn event_identity_parses_operation_and_generation() {
+        use domain::event::EventKind;
+        let env = envelope(2, 7, EventKind::JobFinished, Some("op-sp07"), Some(4));
+        let (op, gen) = parse_event_identity(&env);
+        assert_eq!(op.as_deref(), Some("op-sp07"));
+        assert_eq!(gen, Some(4));
+    }
+
+    #[test]
+    fn gap_in_seq_demands_resync_snapshot() {
+        use domain::event::EventKind;
+        let mut cursor = EventCursor::new(2, 1);
+        let first = envelope(2, 1, EventKind::LogBatch, None, None);
+        assert!(cursor.observe(&first).resync.is_none());
+        let gapped = envelope(2, 5, EventKind::JobFinished, Some("op-9"), Some(1));
+        let outcome = cursor.observe(&gapped);
+        let ask = outcome.resync.expect("seq gap must demand resync");
+        assert_eq!(ask.reason, "gap");
+        assert_eq!(ask.epoch, 2);
+        // Cursor holds its position until the authoritative snapshot arrives.
+        assert_eq!(cursor.next_seq(), 2);
+    }
+
+    #[test]
+    fn epoch_change_demands_resync_and_never_rewinds_generation() {
+        use domain::event::EventKind;
+        let mut cursor = EventCursor::new(2, 40);
+        cursor.observe(&envelope(
+            2,
+            40,
+            EventKind::JobFinished,
+            Some("op-a"),
+            Some(6),
+        ));
+        assert_eq!(cursor.generation(), Some(6));
+        let outcome = cursor.observe(&envelope(
+            3,
+            1,
+            EventKind::JobFinished,
+            Some("op-b"),
+            Some(1),
+        ));
+        let ask = outcome.resync.expect("epoch change must demand resync");
+        assert_eq!(ask.reason, "epoch_mismatch");
+        // A stale generation from the old epoch must not overwrite the latch.
+        assert_eq!(cursor.generation(), Some(6));
+    }
+
+    #[test]
+    fn duplicate_seq_is_ignored_without_resync() {
+        use domain::event::EventKind;
+        let mut cursor = EventCursor::new(2, 2);
+        cursor.observe(&envelope(2, 1, EventKind::LogBatch, None, None));
+        let outcome = cursor.observe(&envelope(2, 1, EventKind::LogBatch, None, None));
+        assert!(outcome.resync.is_none());
+        assert_eq!(cursor.next_seq(), 2);
+    }
+
+    #[test]
+    fn telemetry_flood_never_evicts_lifecycle_outcome() {
+        use domain::event::EventKind;
+        let mut latch = LifecycleLatch::new();
+        for seq in 1..=2049u64 {
+            latch.note(&envelope(2, seq, EventKind::LogBatch, None, None));
+        }
+        let final_outcome = envelope(2, 2050, EventKind::JobFinished, Some("op-final"), Some(3));
+        latch.note(&final_outcome);
+        // Late telemetry duplicates must not overwrite the final outcome.
+        latch.note(&envelope(2, 3, EventKind::LogBatch, None, None));
+        let kept = latch
+            .last_control()
+            .expect("lifecycle outcome must survive telemetry");
+        let (op, gen) = parse_event_identity(&kept);
+        assert_eq!(op.as_deref(), Some("op-final"));
+        assert_eq!(gen, Some(3));
+        assert!(latch.telemetry_seen() >= 2049);
+    }
+
+    #[test]
+    fn resync_event_itself_demands_snapshot_renewal() {
+        use domain::event::EventKind;
+        let mut cursor = EventCursor::new(2, 30);
+        let resync = domain::EventEnvelope::new(
+            EventEpoch(2),
+            domain::event::EventSeq(31),
+            EventKind::Other("resync_required".into()),
+            serde_json::json!({"reason": "lagged", "epoch": 2, "last_seq": 120}),
+        );
+        let outcome = cursor.observe(&resync);
+        let ask = outcome
+            .resync
+            .expect("resync_required must renew via snapshot");
+        assert_eq!(ask.reason, "lagged");
     }
 }

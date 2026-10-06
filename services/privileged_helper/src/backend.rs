@@ -51,7 +51,7 @@ pub trait HelperBackend: Send + Sync {
 }
 
 /// Operation identities used to inject fake failures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FakeOp {
     AddRoutes,
     RemoveRoutes,
@@ -104,6 +104,9 @@ struct FakeState {
     next_pid: u32,
     fail_op: Option<FakeOp>,
     fail_error: Option<HelperError>,
+    /// Attempts per operation, including fault-injected failures (SP-08):
+    /// proves a retry really re-attempted the retained resource.
+    attempts: BTreeMap<FakeOp, u32>,
     elevated: bool,
     shutdown_count: u32,
 }
@@ -143,6 +146,19 @@ impl FakeBackend {
         state.fail_op = Some(op);
         state.fail_error = Some(error);
         self
+    }
+
+    /// Clear an injected failure so a retained resource can be retried
+    /// to success (SP-08).
+    pub fn clear_failure(&self) {
+        let mut state = self.lock();
+        state.fail_op = None;
+        state.fail_error = None;
+    }
+
+    /// Attempts for one operation, including failed ones.
+    pub fn attempt_count(&self, op: FakeOp) -> u32 {
+        self.lock().attempts.get(&op).copied().unwrap_or(0)
     }
 
     /// All recorded calls, in order.
@@ -191,7 +207,8 @@ impl FakeBackend {
         self.inner.lock().expect("fake backend poisoned")
     }
 
-    fn check_fail(state: &FakeState, op: FakeOp) -> Result<(), HelperError> {
+    fn check_fail(state: &mut FakeState, op: FakeOp) -> Result<(), HelperError> {
+        *state.attempts.entry(op).or_insert(0) += 1;
         if state.fail_op == Some(op) {
             return Err(state
                 .fail_error
@@ -211,21 +228,21 @@ impl HelperBackend for FakeBackend {
 
     fn add_routes(&self, entries: &[RouteEntry]) -> Result<u32, HelperError> {
         let mut state = self.lock();
-        Self::check_fail(&state, FakeOp::AddRoutes)?;
+        Self::check_fail(&mut state, FakeOp::AddRoutes)?;
         state.calls.push(FakeCall::AddRoutes(entries.to_vec()));
         Ok(entries.len() as u32)
     }
 
     fn remove_routes(&self, entries: &[RouteEntry]) -> Result<u32, HelperError> {
         let mut state = self.lock();
-        Self::check_fail(&state, FakeOp::RemoveRoutes)?;
+        Self::check_fail(&mut state, FakeOp::RemoveRoutes)?;
         state.calls.push(FakeCall::RemoveRoutes(entries.to_vec()));
         Ok(entries.len() as u32)
     }
 
     fn set_tun_address(&self, config: &TunAddressConfig) -> Result<(), HelperError> {
         let mut state = self.lock();
-        Self::check_fail(&state, FakeOp::SetTunAddress)?;
+        Self::check_fail(&mut state, FakeOp::SetTunAddress)?;
         state.tun.insert(config.interface_index);
         state.calls.push(FakeCall::SetTunAddress(config.clone()));
         Ok(())
@@ -233,7 +250,7 @@ impl HelperBackend for FakeBackend {
 
     fn reset_tun_address(&self, interface_index: u32) -> Result<(), HelperError> {
         let mut state = self.lock();
-        Self::check_fail(&state, FakeOp::ResetTunAddress)?;
+        Self::check_fail(&mut state, FakeOp::ResetTunAddress)?;
         state.tun.remove(&interface_index);
         state.calls.push(FakeCall::ResetTunAddress(interface_index));
         Ok(())
@@ -241,7 +258,7 @@ impl HelperBackend for FakeBackend {
 
     fn run_elevated_core(&self, spec: &ElevatedCoreSpec) -> Result<StartedCore, HelperError> {
         let mut state = self.lock();
-        Self::check_fail(&state, FakeOp::RunElevatedCore)?;
+        Self::check_fail(&mut state, FakeOp::RunElevatedCore)?;
         let handle = state.next_handle;
         let pid = state.next_pid;
         state.next_handle += 1;
@@ -255,7 +272,7 @@ impl HelperBackend for FakeBackend {
 
     fn stop_elevated_core(&self, handle: u64) -> Result<(), HelperError> {
         let mut state = self.lock();
-        Self::check_fail(&state, FakeOp::StopElevatedCore)?;
+        Self::check_fail(&mut state, FakeOp::StopElevatedCore)?;
         if !state.known.contains(&handle) {
             return Err(HelperError::UnknownHandle { handle });
         }
@@ -290,7 +307,7 @@ impl HelperBackend for FakeBackend {
 
     fn shutdown(&self) -> Result<(), HelperError> {
         let mut state = self.lock();
-        Self::check_fail(&state, FakeOp::Shutdown)?;
+        Self::check_fail(&mut state, FakeOp::Shutdown)?;
         state.shutdown_count += 1;
         state.calls.push(FakeCall::Shutdown);
         Ok(())

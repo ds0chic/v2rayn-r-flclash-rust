@@ -1,0 +1,27 @@
+{
+  "fixture": "SP-28 synthetic session (no secrets, no user data)",
+  "core": "mihomo",
+  "core_version": "1.19.32",
+  "executable": "tools/cores/mihomo/v1.19.32/mihomo-windows-amd64-v1.exe",
+  "adapter": "crates/runtime/src/adapter.rs",
+  "protocol": "socks",
+  "synthetic_inbound": {
+    "listen": "127.0.0.1",
+    "port": 11812
+  },
+  "synthetic_target": {
+    "host": "127.0.0.1",
+    "port": 9,
+    "note": "discard; loopback only"
+  },
+  "config_sample": "generate_mihomo YAML mixin (mixin.rs:75; formal custom-plan merge unproven G-06)",
+  "forbidden": [
+    "0.0.0.0 listen",
+    "port 10808",
+    "host proxy/route/DNS/Run-key writes",
+    "real credentials"
+  ],
+  "l0_identity_cmd": "tools/cores/mihomo/v1.19.32/mihomo-windows-amd64-v1.exe version",
+  "l1_session_gate": "GUI->FRB->host->real flow/exit per SP-28 s22 (not run; pending prereq)",
+  "credentials": null
+}

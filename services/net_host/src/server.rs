@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use domain::event::{EventEnvelope, EventEpoch};
 use domain::DomainError;
 use ipc_contract::{
     check_session, check_test_ports, IpcError, IpcOperation, IpcResult, RequestEnvelope,
@@ -11,7 +12,7 @@ use ipc_contract::{
 use serde_json::json;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::windows::named_pipe::{NamedPipeServer, PipeMode, ServerOptions};
-use tokio::sync::mpsc;
+use tokio::sync::{broadcast, mpsc};
 
 use runtime::{decode_payload, encode_frame, frame_len, ServerFrame};
 
@@ -63,6 +64,47 @@ fn create_pipe(name: &str, first: bool) -> std::io::Result<NamedPipeServer> {
     options.max_instances(16);
     options.first_pipe_instance(first);
     unsafe { options.create_with_security_attributes_raw(name, security.as_mut_ptr()) }
+}
+
+/// Whether a subscribe request can be served live, or must resynchronize
+/// first. The bus keeps no replay buffer, so an epoch mismatch or a
+/// `from_seq` beyond the authoritative tip cannot be filled: the subscriber
+/// takes an authoritative snapshot and re-subscribes from the returned origin.
+pub(crate) fn resync_needed(
+    requested_epoch: u64,
+    requested_from_seq: u64,
+    current_epoch: u64,
+    current_last_seq: u64,
+) -> Option<&'static str> {
+    if requested_epoch != current_epoch {
+        return Some("epoch_mismatch");
+    }
+    if requested_from_seq > current_last_seq.saturating_add(1) {
+        return Some("seq_ahead");
+    }
+    None
+}
+
+/// One broadcast receive outcome on a subscription forwarder.
+pub(crate) enum ForwardAction {
+    Forward(EventEnvelope),
+    /// Recoverable lag: the forwarder emits a `resync_required` notice and
+    /// ends the subscription so the client reliably reconnects.
+    Resync(&'static str),
+    /// Bus closed: the stream ended.
+    Closed,
+}
+
+/// Classify a broadcast receive: `Lagged` is a recoverable resync request,
+/// never a silent EOF.
+pub(crate) fn classify_recv(
+    result: Result<EventEnvelope, broadcast::error::RecvError>,
+) -> ForwardAction {
+    match result {
+        Ok(event) => ForwardAction::Forward(event),
+        Err(broadcast::error::RecvError::Lagged(_)) => ForwardAction::Resync("lagged"),
+        Err(broadcast::error::RecvError::Closed) => ForwardAction::Closed,
+    }
 }
 
 async fn handle_connection(pipe: NamedPipeServer, state: Arc<HostState>) {
@@ -141,19 +183,61 @@ async fn handle_connection(pipe: NamedPipeServer, state: Arc<HostState>) {
                 let _ = send_result(&tx, &request_id, result).await;
             }
             IpcOperation::SubscribeEvents { epoch, from_seq } => {
+                let current_epoch = state.bus.epoch().get();
+                let current_last_seq = state.bus.last_seq();
                 let mut receiver = state.bus.subscribe();
                 let forward_tx = tx.clone();
+                let bus = state.bus.clone();
                 forwarders.push(tokio::spawn(async move {
-                    while let Ok(event) = receiver.recv().await {
-                        if forward_tx.send(ServerFrame::Event(event)).await.is_err() {
-                            break;
+                    let mut last_operation_id: Option<String> = None;
+                    let mut last_generation: Option<u64> = None;
+                    loop {
+                        match classify_recv(receiver.recv().await) {
+                            ForwardAction::Forward(event) => {
+                                let (operation_id, generation) =
+                                    crate::events::parse_event_identity(&event);
+                                if operation_id.is_some() {
+                                    last_operation_id = operation_id;
+                                }
+                                if generation.is_some() {
+                                    last_generation = generation;
+                                }
+                                if forward_tx.send(ServerFrame::Event(event)).await.is_err() {
+                                    break;
+                                }
+                            }
+                            ForwardAction::Resync(reason) => {
+                                let notice = bus.resync_notice_attributed(
+                                    reason,
+                                    bus.epoch().get(),
+                                    bus.last_seq(),
+                                    last_operation_id.as_deref(),
+                                    last_generation,
+                                );
+                                let _ = forward_tx.send(ServerFrame::Event(notice)).await;
+                                break;
+                            }
+                            ForwardAction::Closed => break,
                         }
                     }
                 }));
+                // Authoritative origin, never an echo of stale parameters: the
+                // client advances its subscription cursor to these values.
+                if let Some(reason) =
+                    resync_needed(epoch.get(), from_seq, current_epoch, current_last_seq)
+                {
+                    let notice = state
+                        .bus
+                        .resync_notice(reason, current_epoch, current_last_seq);
+                    let _ = tx.send(ServerFrame::Event(notice)).await;
+                }
                 let _ = send_result(
                     &tx,
                     &request_id,
-                    IpcResult::EventStreamOpened { epoch, from_seq },
+                    IpcResult::EventStreamOpened {
+                        epoch: EventEpoch(current_epoch),
+                        from_seq: current_last_seq.saturating_add(1),
+                    },
                 )
                 .await;
             }
@@ -286,4 +370,63 @@ where
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
     writer.write_all(&bytes).await?;
     writer.flush().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use domain::event::{EventEnvelope, EventEpoch, EventKind, EventSeq};
+    use tokio::sync::broadcast::error::RecvError;
+
+    fn envelope(seq: u64) -> EventEnvelope {
+        EventEnvelope::new(
+            EventEpoch(3),
+            EventSeq(seq),
+            EventKind::LogBatch,
+            serde_json::json!({}),
+        )
+    }
+
+    #[test]
+    fn stale_epoch_demands_resync_not_echo() {
+        assert_eq!(resync_needed(1, 5, 2, 40), Some("epoch_mismatch"));
+    }
+
+    #[test]
+    fn seq_ahead_of_authority_demands_resync() {
+        assert_eq!(resync_needed(3, 100, 3, 40), Some("seq_ahead"));
+    }
+
+    #[test]
+    fn contiguous_subscription_is_accepted() {
+        assert_eq!(resync_needed(3, 41, 3, 40), None);
+        assert_eq!(resync_needed(3, 0, 3, 40), None);
+    }
+
+    #[test]
+    fn lagged_recv_maps_to_resync_not_eof() {
+        match classify_recv(Err(RecvError::Lagged(7))) {
+            ForwardAction::Resync(reason) => assert_eq!(reason, "lagged"),
+            ForwardAction::Forward(_) | ForwardAction::Closed => {
+                panic!("Lagged must map to Resync, never EOF-or-forward")
+            }
+        }
+    }
+
+    #[test]
+    fn closed_recv_maps_to_eof() {
+        assert!(matches!(
+            classify_recv(Err(RecvError::Closed)),
+            ForwardAction::Closed
+        ));
+    }
+
+    #[test]
+    fn ok_recv_forwards_event() {
+        let env = envelope(9);
+        match classify_recv(Ok(env.clone())) {
+            ForwardAction::Forward(got) => assert_eq!(got.seq, env.seq),
+            _ => panic!("Ok must forward"),
+        }
+    }
 }

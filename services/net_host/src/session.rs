@@ -26,11 +26,13 @@ use runtime::{
 };
 
 use crate::events::EventBus;
-use crate::helper_client::{build_helper_link, HelperConfig, HelperLink, TunLease};
+use crate::helper_client::{
+    build_helper_link, tun_helper_unavailable, HelperConfig, HelperLink, TunLease,
+};
 use crate::journal::{self, JournalEntry};
 use crate::lifecycle;
 use crate::managed_process;
-use crate::tun_lease;
+use crate::tun_lease::{self, PendingCleanup};
 
 /// Runtime configuration, overridable from the environment for tests.
 #[derive(Debug, Clone)]
@@ -244,6 +246,10 @@ pub struct Inner {
     /// whole runtime session: dropping it lets the helper reclaim the lease
     /// via its disconnect cleanup, so it must not be dropped early.
     pub tun_link: Option<Box<dyn HelperLink>>,
+    /// SP-08: unconfirmed TUN cleanups retained in memory (mirrored on disk
+    /// by the pending record). A stop with a failed cleanup keeps its lease
+    /// here for explicit retry instead of reporting a clean shutdown.
+    pub pending_tun_cleanup: Vec<PendingCleanup>,
     /// SP-06: fact generation advanced by every unsolicited exit, even though
     /// the desired plan did not change. Surfaced on the wire as an event-epoch
     /// bump plus the Stopped/Degraded transition; kept here for the future
@@ -504,6 +510,7 @@ impl HostState {
                 tun_lease: None,
                 tun_session_id: None,
                 tun_link: None,
+                pending_tun_cleanup: Vec::new(),
                 actual_generation: 0,
                 last_exit: None,
                 last_exit_sidecar: None,
@@ -566,6 +573,9 @@ impl HostState {
 
     /// Reconcile stale TUN leases left by a previous net-host process.
     /// Best-effort: never fails startup; counts are logged for the audit trail.
+    /// Leases the previous process could not confirm stay pending — on disk
+    /// and in memory — so an explicit retry (once the helper is reachable)
+    /// can finish them (SP-08 recovery entry).
     pub fn reconcile_tun_leases(&self) {
         let mut link = self.make_helper_link();
         let report = tun_lease::reconcile_stale_tun(&self.config.run_root, &mut *link);
@@ -575,6 +585,38 @@ impl HostState {
                 report.scanned, report.cleaned, report.pending
             );
         }
+        let pending = tun_lease::list_pending_cleanup(&self.config.run_root);
+        if !pending.is_empty() {
+            // Construction-time: the lock is uncontended, so a non-blocking
+            // acquisition always succeeds here (and keeps this callable from
+            // inside an async runtime, where blocking would panic).
+            match self.inner.try_lock() {
+                Ok(mut inner) => inner.pending_tun_cleanup = pending,
+                Err(_) => {
+                    eprintln!("[net_host] tun pending state deferred; retry surface stays on disk")
+                }
+            }
+        }
+    }
+
+    /// Host-side pending-cleanup surface for the future IPC/FRB wiring
+    /// (interface need N-H1): in-memory entries plus durable records,
+    /// de-duplicated by session. The stable snapshot DTO is owned by the
+    /// SP-00 integrator; this method is the data source, not the wire shape.
+    /// Staged until the integrator wires it; covered by SP-08 tests.
+    #[allow(dead_code)]
+    pub async fn pending_cleanup_snapshot(&self) -> Vec<PendingCleanup> {
+        let mut merged = self.inner.lock().await.pending_tun_cleanup.clone();
+        for pending in tun_lease::list_pending_cleanup(&self.config.run_root) {
+            if !merged
+                .iter()
+                .any(|known| known.session_id == pending.session_id)
+            {
+                merged.push(pending);
+            }
+        }
+        merged.sort_by(|a, b| a.session_id.cmp(&b.session_id));
+        merged
     }
 
     pub async fn connection_opened(&self) {
@@ -868,9 +910,15 @@ impl HostState {
     }
 
     /// Release the active TUN lease in reverse order (helper resources, then
-    /// the journal), idempotently. Best-effort: a cleanup failure is logged,
-    /// never surfaced over the caller's root-cause error.
-    async fn release_tun_lease(&self) {
+    /// the journal), idempotently (SP-08 / CP-04).
+    ///
+    /// `Ok` means the helper confirmed the release (or there was nothing to
+    /// release). On failure the journal is kept, the lease stays in memory,
+    /// and a pending entry is recorded — the caller must surface the error
+    /// instead of reporting a clean shutdown. Failure paths that already carry
+    /// a root-cause error may ignore the `Result`, but the lease still stays
+    /// retryable; nothing is silently dropped.
+    async fn release_tun_lease(&self) -> Result<(), DomainError> {
         let (session_id, lease, link) = {
             let mut inner = self.inner.lock().await;
             inner.detail.tun = None;
@@ -881,23 +929,211 @@ impl HostState {
             )
         };
         let (Some(session_id), Some(lease)) = (session_id, lease) else {
-            return;
+            return Ok(());
         };
         let run_root = self.config.run_root.clone();
+        let attempt_session = session_id.clone();
+        let attempt_lease = lease.clone();
         let outcome = tokio::task::spawn_blocking(move || {
             if let Some(mut link) = link {
-                let _ = tun_lease::cleanup_tun_lease(&run_root, &session_id, &lease, &mut *link);
+                let result = tun_lease::cleanup_tun_lease(
+                    &run_root,
+                    &attempt_session,
+                    &attempt_lease,
+                    &mut *link,
+                );
+                (Some(link), result)
             } else {
-                // Link lost without cleanup (should not happen): the helper
-                // owns disconnect cleanup for its own session, so drop the
-                // journal rather than report a phantom lease forever.
-                tun_lease::remove_tun_journal(&run_root, &session_id);
-                eprintln!("[net_host] tun link lost for {session_id}; journal dropped");
+                // The link was lost without cleanup (should not happen: the
+                // link lives exactly as long as the lease). Without a helper
+                // confirmation the journal must stay so the lease is retried,
+                // not forgotten.
+                let error =
+                    tun_helper_unavailable("tun link lost before cleanup; journal retained")
+                        .retryable();
+                tun_lease::note_cleanup_failure(
+                    &run_root,
+                    &attempt_session,
+                    &attempt_lease,
+                    &error,
+                );
+                (None, Err(error))
             }
         })
         .await;
-        if let Err(join) = outcome {
-            eprintln!("[net_host] tun release task failed: {join}");
+        match outcome {
+            Ok((link, Ok(()))) => {
+                drop(link);
+                let mut inner = self.inner.lock().await;
+                inner
+                    .pending_tun_cleanup
+                    .retain(|pending| pending.session_id != session_id);
+                Ok(())
+            }
+            Ok((link, Err(error))) => {
+                // Keep the lease retryable in memory. Memory follows the
+                // journal: the owned record is authoritative for the retry.
+                let mut inner = self.inner.lock().await;
+                let owned = tun_lease::read_tun_journal(&self.config.run_root, &session_id)
+                    .map(|journal| journal.lease)
+                    .unwrap_or(lease);
+                inner.tun_session_id = Some(session_id);
+                inner.tun_lease = Some(owned);
+                if let Some(link) = link {
+                    inner.tun_link = Some(link);
+                }
+                inner.pending_tun_cleanup = tun_lease::list_pending_cleanup(&self.config.run_root);
+                Err(error)
+            }
+            Err(join) => {
+                let error = DomainError::new(domain::codes::INTERNAL, "error.tun_apply_failed")
+                    .with_detail(format!("tun release task failed: {join}"));
+                let mut inner = self.inner.lock().await;
+                inner.tun_session_id = Some(session_id);
+                inner.tun_lease = Some(lease);
+                inner.pending_tun_cleanup = tun_lease::list_pending_cleanup(&self.config.run_root);
+                Err(error)
+            }
+        }
+    }
+
+    /// Retry every durable pending TUN cleanup without re-applying anything
+    /// (SP-08 explicit retry entry). The in-memory lease is tried first with
+    /// its live link; journals left by a previous process get a fresh link
+    /// each. `Ok` means every pending lease is confirmed released; otherwise
+    /// the first error is returned and the rest stay pending. Staged until
+    /// the SP-00 integrator exposes it over IPC/FRB (need N-H1); covered by
+    /// SP-08 tests.
+    #[allow(dead_code)]
+    pub async fn retry_tun_cleanup(&self) -> Result<(), DomainError> {
+        let mut first_error: Option<DomainError> = None;
+
+        let memory = {
+            let mut inner = self.inner.lock().await;
+            match (
+                inner.tun_session_id.take(),
+                inner.tun_lease.take(),
+                inner.tun_link.take(),
+            ) {
+                (Some(session_id), Some(lease), link) => Some((session_id, lease, link)),
+                (session_id, lease, link) => {
+                    inner.tun_session_id = session_id;
+                    inner.tun_lease = lease;
+                    if let Some(link) = link {
+                        inner.tun_link = Some(link);
+                    }
+                    None
+                }
+            }
+        };
+        if let Some((session_id, lease, link)) = memory {
+            if let Err(error) = self.retry_one_tun_cleanup(session_id, lease, link).await {
+                first_error = Some(error);
+            }
+        }
+
+        for pending in tun_lease::list_pending_cleanup(&self.config.run_root) {
+            let held = self.inner.lock().await.tun_session_id.clone();
+            if held.as_deref() == Some(pending.session_id.as_str()) {
+                continue;
+            }
+            if tun_lease::read_tun_journal(&self.config.run_root, &pending.session_id).is_none() {
+                continue;
+            }
+            let link = self.make_helper_link();
+            let run_root = self.config.run_root.clone();
+            let session_id = pending.session_id.clone();
+            let outcome = tokio::task::spawn_blocking(move || {
+                let mut link = link;
+                tun_lease::retry_tun_cleanup(&run_root, &session_id, &mut *link)
+            })
+            .await;
+            match outcome {
+                Ok(Ok(())) => {}
+                Ok(Err(error)) => {
+                    if first_error.is_none() {
+                        first_error = Some(error);
+                    }
+                }
+                Err(join) => {
+                    if first_error.is_none() {
+                        first_error = Some(
+                            DomainError::new(domain::codes::INTERNAL, "error.tun_apply_failed")
+                                .with_detail(format!("tun retry task failed: {join}")),
+                        );
+                    }
+                }
+            }
+        }
+
+        {
+            let mut inner = self.inner.lock().await;
+            inner.pending_tun_cleanup = tun_lease::list_pending_cleanup(&self.config.run_root);
+        }
+        match first_error {
+            Some(error) => Err(error),
+            None => {
+                // A confirmed retry with nothing left outstanding restores the
+                // closed state; a live session keeps whatever state it has.
+                let mut inner = self.inner.lock().await;
+                if inner.session.is_none()
+                    && inner.tun_lease.is_none()
+                    && inner.pending_tun_cleanup.is_empty()
+                {
+                    inner.detail.state = RuntimeState::Stopped;
+                    inner.detail.error = None;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Retry one in-memory lease against its journaled owned record. On
+    /// success the triple is consumed; on failure it is restored so the next
+    /// retry (or the next boot) can continue.
+    #[allow(dead_code)]
+    async fn retry_one_tun_cleanup(
+        &self,
+        session_id: String,
+        lease: TunLease,
+        link: Option<Box<dyn HelperLink>>,
+    ) -> Result<(), DomainError> {
+        let run_root = self.config.run_root.clone();
+        let mut link = match link {
+            Some(link) => link,
+            None => self.make_helper_link(),
+        };
+        let attempt_session = session_id.clone();
+        let outcome = tokio::task::spawn_blocking(move || {
+            let result = tun_lease::retry_tun_cleanup(&run_root, &attempt_session, &mut *link);
+            (link, result)
+        })
+        .await;
+        match outcome {
+            Ok((link, Ok(()))) => {
+                drop(link);
+                Ok(())
+            }
+            Ok((link, Err(error))) => {
+                let mut inner = self.inner.lock().await;
+                let owned = tun_lease::read_tun_journal(&self.config.run_root, &session_id)
+                    .map(|journal| journal.lease)
+                    .unwrap_or(lease);
+                inner.tun_session_id = Some(session_id);
+                inner.tun_lease = Some(owned);
+                inner.tun_link = Some(link);
+                inner.pending_tun_cleanup = tun_lease::list_pending_cleanup(&self.config.run_root);
+                Err(error)
+            }
+            Err(join) => {
+                let error = DomainError::new(domain::codes::INTERNAL, "error.tun_apply_failed")
+                    .with_detail(format!("tun retry task failed: {join}"));
+                let mut inner = self.inner.lock().await;
+                inner.tun_session_id = Some(session_id);
+                inner.tun_lease = Some(lease);
+                inner.pending_tun_cleanup = tun_lease::list_pending_cleanup(&self.config.run_root);
+                Err(error)
+            }
         }
     }
 
@@ -1003,7 +1239,7 @@ impl HostState {
         let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
         // The core never became owned; its TUN lease (if any) is released in
         // reverse before the journal is finalized.
-        self.release_tun_lease().await;
+        let _ = self.release_tun_lease().await;
         self.finalize_journal(journal_entry).await;
         journal::remove_staged_artifacts(&self.config.run_root, &journal_entry.session_id);
         let error = job_assign_failed(operation_id, cause.to_string());
@@ -1567,7 +1803,7 @@ impl HostState {
                 let error = DomainError::new(domain::codes::UNAVAILABLE, "error.job_create_failed")
                     .with_operation(&operation_id)
                     .with_detail(e.to_string());
-                self.release_tun_lease().await;
+                let _ = self.release_tun_lease().await;
                 self.finalize_journal(&journal_entry).await;
                 self.fail_operation(&operation_id, &error).await;
                 return Err(error);
@@ -1601,7 +1837,7 @@ impl HostState {
                 let error = DomainError::new(domain::codes::UNAVAILABLE, "error.core_spawn_failed")
                     .with_operation(&operation_id)
                     .with_detail(format!("{}: {e}", exe.display()));
-                self.release_tun_lease().await;
+                let _ = self.release_tun_lease().await;
                 self.finalize_journal(&journal_entry).await;
                 self.fail_operation(&operation_id, &error).await;
                 return Err(error);
@@ -2059,7 +2295,7 @@ impl HostState {
             .await
             .is_ok();
         // Reverse cleanup: the core is dead, so its TUN resources go next.
-        self.release_tun_lease().await;
+        let _ = self.release_tun_lease().await;
         let _ = journal::write_entry(
             &self.config.run_root,
             &JournalEntry {
@@ -2130,22 +2366,35 @@ impl HostState {
 
     /// Record one stop as a terminal operation entry (SP-05). Earlier apply
     /// entries are never touched: a stop only appends its own id, so history
-    /// still shows what actually ran.
-    async fn record_stop_operation(&self, operation_id: &Option<String>) {
+    /// still shows what actually ran. SP-08: when the TUN release failed, the
+    /// stop is recorded as Failed with the cleanup error — a stop with an
+    /// unconfirmed cleanup is not a clean shutdown.
+    async fn record_stop_operation(
+        &self,
+        operation_id: &Option<String>,
+        tun_result: &Result<(), DomainError>,
+    ) {
         let Some(operation_id) = operation_id else {
             return;
         };
         let mut inner = self.inner.lock().await;
-        inner.operations.insert(
-            operation_id.clone(),
-            OperationStatus {
+        let entry = match tun_result {
+            Ok(()) => OperationStatus {
                 operation_id: operation_id.clone(),
                 job_id: None,
                 state: domain::JobState::Done,
                 cancel: None,
                 error: None,
             },
-        );
+            Err(error) => OperationStatus {
+                operation_id: operation_id.clone(),
+                job_id: None,
+                state: domain::JobState::Failed,
+                cancel: None,
+                error: Some(error.clone()),
+            },
+        };
+        inner.operations.insert(operation_id.clone(), entry);
     }
 
     /// The stop body. The caller must hold [`command_gate`](HostState::command_gate).
@@ -2176,9 +2425,16 @@ impl HostState {
                     inner.detail.config_sha256 = None;
                     drop(inner);
                     // No core, but a TUN lease may still be pending (stop arriving
-                    // between helper-apply and core-spawn); always release.
-                    self.release_tun_lease().await;
-                    self.record_stop_operation(&operation_id).await;
+                    // between helper-apply and core-spawn); always release. A
+                    // failed release degrades the stop: desired=false with an
+                    // unconfirmed lease must not read "closed".
+                    let tun_result = self.release_tun_lease().await;
+                    if let Err(error) = &tun_result {
+                        let mut inner = self.inner.lock().await;
+                        inner.detail.state = RuntimeState::Degraded;
+                        inner.detail.error = Some(error.clone());
+                    }
+                    self.record_stop_operation(&operation_id, &tun_result).await;
                     return None;
                 }
             }
@@ -2220,9 +2476,15 @@ impl HostState {
             inner.last_exe = None;
         }
         eprintln!("[net_host] session {session_id} STOPPED pid={pid}");
-        // Reverse cleanup after the core tree is gone.
-        self.release_tun_lease().await;
-        self.record_stop_operation(&operation_id).await;
+        // Reverse cleanup after the core tree is gone. An unconfirmed TUN
+        // release degrades the stop instead of reporting a clean shutdown.
+        let tun_result = self.release_tun_lease().await;
+        if let Err(error) = &tun_result {
+            let mut inner = self.inner.lock().await;
+            inner.detail.state = RuntimeState::Degraded;
+            inner.detail.error = Some(error.clone());
+        }
+        self.record_stop_operation(&operation_id, &tun_result).await;
         self.bus.emit_named(
             "runtime_state_changed",
             serde_json::to_value(RuntimeStateChanged {
@@ -2912,6 +3174,191 @@ mod tests {
         // The dry-run transport is selected purely from configuration.
         let dry: Box<dyn HelperLink> = Box::new(DryRunHelperLink::new());
         assert!(dry.dry_run());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    // -- SP-08 host-side pending cleanup (CP-04) ------------------------------
+    //
+    // Synthetic fault injection only (in-memory links, temp run roots, no
+    // helper pipe, no OS routes/DNS/adapter writes, no ports).
+
+    /// HostConfig with an explicit run root and a helper transport that never
+    /// touches the OS: `dry_run=true` records only, `dry_run=false` with no
+    /// auto-launch reports the helper unreachable without dialing any pipe.
+    fn sp08_config(root: PathBuf, dry_run: bool) -> HostConfig {
+        HostConfig {
+            pipe_name: r"\\.\pipe\v2rayn-r-test-nonexistent".into(),
+            run_root: root,
+            disconnect_grace: Duration::from_millis(1000),
+            heartbeat_interval: Duration::from_millis(1000),
+            readiness_timeout: Duration::from_millis(100),
+            readiness_interval: Duration::from_millis(10),
+            helper: HelperConfig {
+                pipe_name: r"\\.\pipe\v2rayn-r-test-nonexistent".into(),
+                token: String::new(),
+                bin: None,
+                auto_launch: false,
+                allowed_run_roots: Vec::new(),
+                dry_run,
+            },
+        }
+    }
+
+    fn sp08_tun_spec() -> runtime::tun::TunSpec {
+        use runtime::tun::{TunAddress, TunRoute, TUN_CONFIG_KIND};
+        runtime::tun::TunSpec {
+            kind: TUN_CONFIG_KIND.into(),
+            adapter_name: "v2rayn-tun".into(),
+            interface_index: 9,
+            addresses: vec![TunAddress {
+                address: "198.18.0.1".into(),
+                prefix_len: 16,
+            }],
+            mtu: Some(1400),
+            routes: vec![TunRoute {
+                destination: "0.0.0.0/0".into(),
+                next_hop: "198.18.0.1".into(),
+                interface_index: 9,
+                metric: 1,
+            }],
+            route_exclude: vec![],
+        }
+    }
+
+    /// In-memory link with a flippable cleanup fault: apply always succeeds
+    /// (journaling proceeds), cleanup fails while `fail` is set.
+    #[derive(Clone)]
+    struct Sp08FlakyCleanupLink {
+        fail: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl HelperLink for Sp08FlakyCleanupLink {
+        fn session_id(&self) -> String {
+            "helper-session-sp08".into()
+        }
+
+        fn dry_run(&self) -> bool {
+            false
+        }
+
+        fn available(&mut self) -> Result<(), DomainError> {
+            Ok(())
+        }
+
+        fn apply(&mut self, spec: &runtime::tun::TunSpec) -> Result<TunLease, DomainError> {
+            Ok(TunLease::new("helper-session-sp08", spec.clone(), false))
+        }
+
+        fn cleanup(&mut self, _lease: &TunLease) -> Result<(), DomainError> {
+            if self.fail.load(std::sync::atomic::Ordering::SeqCst) {
+                return Err(crate::helper_client::tun_apply_failed(
+                    "synthetic sp08 cleanup failure",
+                ));
+            }
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn sp08_stop_with_failed_cleanup_degrades_and_stays_retryable() {
+        // No rr10_lock: this test never touches process-global env (explicit
+        // HostConfig, temp run root, in-memory links), so it cannot interleave
+        // with the env-mutating RR-10 harness; holding that std lock across an
+        // await would also trip `await_holding_lock`.
+        let root = std::env::temp_dir().join(format!(
+            "v2rayn-sp08-stop-{}-{}",
+            std::process::id(),
+            crate::journal::now_ms()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = std::sync::Arc::new(HostState::new(sp08_config(root.clone(), false)));
+        let fail = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        {
+            let fail = fail.clone();
+            state.set_helper_factory(std::sync::Arc::new(move |_| {
+                let link: Box<dyn HelperLink> =
+                    Box::new(Sp08FlakyCleanupLink { fail: fail.clone() });
+                link
+            }));
+        }
+        // Seed an applied lease (no core): the journal is the owned record.
+        let lease = {
+            let mut link = state.make_helper_link();
+            crate::tun_lease::apply_tun_lease(&root, "sess-sp08", &sp08_tun_spec(), &mut *link)
+                .expect("apply succeeds")
+        };
+        {
+            let mut inner = state.inner.lock().await;
+            inner.tun_session_id = Some("sess-sp08".into());
+            inner.tun_lease = Some(lease);
+            inner.tun_link = Some(state.make_helper_link());
+        }
+
+        state.stop_managed(Some("op-sp08-stop".into())).await;
+
+        // The stop must not read "closed": the lease is unconfirmed.
+        let snapshot = state.ipc_snapshot().await;
+        assert_eq!(
+            snapshot.state,
+            RuntimeState::Degraded,
+            "a stop with an unconfirmed TUN cleanup must degrade, not close"
+        );
+        let status = state
+            .operation_status("op-sp08-stop")
+            .await
+            .expect("stop is recorded");
+        assert_eq!(status.state, domain::JobState::Failed);
+        let pending = state.pending_cleanup_snapshot().await;
+        assert_eq!(pending.len(), 1, "the failed cleanup stays retryable");
+        assert_eq!(pending[0].session_id, "sess-sp08");
+
+        // The helper recovers: the explicit retry confirms the release and
+        // every record converges.
+        fail.store(false, std::sync::atomic::Ordering::SeqCst);
+        state.retry_tun_cleanup().await.expect("retry converges");
+        assert!(state.pending_cleanup_snapshot().await.is_empty());
+        assert_eq!(
+            state.ipc_snapshot().await.state,
+            RuntimeState::Stopped,
+            "a confirmed retry restores the closed state"
+        );
+        drop(state);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn sp08_restart_keeps_unconfirmed_lease_pending() {
+        use crate::helper_client::FakeHelperLink;
+
+        // Env-independent like the test above: no rr10_lock across awaits.
+        let root = std::env::temp_dir().join(format!(
+            "v2rayn-sp08-restart-{}-{}",
+            std::process::id(),
+            crate::journal::now_ms()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        // Previous process: applied a lease (dry-run record) and died without
+        // cleaning. The dry-run link never touches the helper or the OS.
+        {
+            let previous = HostState::new(sp08_config(root.clone(), true));
+            let mut link = previous.make_helper_link();
+            crate::tun_lease::apply_tun_lease(&root, "sess-prev", &sp08_tun_spec(), &mut *link)
+                .expect("apply succeeds");
+        }
+        // New process, helper unreachable: boot reconciliation must keep the
+        // journal and load the lease as pending — never report it cleaned.
+        let state = std::sync::Arc::new(HostState::new(sp08_config(root.clone(), false)));
+        let pending = state.pending_cleanup_snapshot().await;
+        assert_eq!(pending.len(), 1, "the previous lease stays pending");
+        assert_eq!(pending[0].session_id, "sess-prev");
+        // A live helper finishes it on explicit retry.
+        state.set_helper_factory(std::sync::Arc::new(|_| {
+            let link: Box<dyn HelperLink> = Box::new(FakeHelperLink::new());
+            link
+        }));
+        state.retry_tun_cleanup().await.expect("retry converges");
+        assert!(state.pending_cleanup_snapshot().await.is_empty());
+        drop(state);
         let _ = std::fs::remove_dir_all(&root);
     }
 

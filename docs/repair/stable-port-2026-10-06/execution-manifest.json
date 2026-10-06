@@ -256,7 +256,7 @@
       ],
       "test_scope": "2049burst、pipe lag/reconnect、final outcome",
       "upstream_symbols": "application EventBus、IPC server/client循环",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {
@@ -291,7 +291,9 @@
       "test_scope": "cleanup-journal/helper失败归属保留",
       "upstream_symbols": "TUN adapter/route/DNS源；runtime TUN journal",
       "status": "identified",
-      "instance_required": false
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-08/README.md（helper 侧）、docs/evidence/stable-port/SP-08/HOST_SIDE.md（host 侧 A03）",
+      "note": "helper 侧与 host 侧均 implemented（host：失败保 journal+pending 可重试、不假成功，net_host 109/0；Pipe cleanup 错误传播）；跨层 UI（N-H1 待 SP-00）与隔离机真实收敛未验，卡整体保持 identified"
     },
     {
       "id": "SP-09",
@@ -322,7 +324,9 @@
       "test_scope": "heartbeat、idle/request合同、owner失联",
       "upstream_symbols": "helper连接超时和lease创建/释放",
       "status": "identified",
-      "instance_required": false
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-09/README.md（准备范围 A03）",
+      "note": "host 侧准备完成（保活 watch 值+纯决策、归属 key、虚拟 24h 不回收）；RenewLease/GetLeaseStatus/逐资源报告等 A02 接口阻塞（N-H2/N-H3），真实长运行未验，保持 identified"
     },
     {
       "id": "SP-10",
@@ -429,8 +433,10 @@
       ],
       "test_scope": "newRevision、autostart fail/reopen/retry、phase receipt",
       "upstream_symbols": "OptionSettingViewModel与原版生效时机",
-      "status": "identified",
-      "instance_required": false
+      "status": "implemented",
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-12/README.md",
+      "note": "审计retry合同2/3绿；第3项update option回滚属SP-27阻塞；native/正式包/OS隔离验收未跑，不标verified"
     },
     {
       "id": "SP-13",

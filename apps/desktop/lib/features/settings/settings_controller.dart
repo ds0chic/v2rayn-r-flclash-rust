@@ -18,6 +18,31 @@ import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 /// round trip. Saving goes through the Rust engine's optimistic revision check;
 /// the `immediate` subset of fields is applied to the live UI right after a
 /// successful load or save.
+/// Per-phase apply fact for the last save/retry (SP-12).
+///
+/// `save` is the persistence fact; `core`/`platform`/`autostart` are the
+/// apply facts. Each is `committed`/`succeeded`, `failed` or `unknown`.
+/// `desired` (the persisted document) is never presented as `applied`.
+class SettingsPhaseReceipt {
+  const SettingsPhaseReceipt({
+    this.save = 'unknown',
+    this.core = 'unknown',
+    this.platform = 'unknown',
+    this.autostart = 'unknown',
+    this.savedRevision,
+    this.contentHash,
+    this.errors = const <String>[],
+  });
+
+  final String save;
+  final String core;
+  final String platform;
+  final String autostart;
+  final int? savedRevision;
+  final String? contentHash;
+  final List<String> errors;
+}
+
 class SettingsViewState {
   const SettingsViewState({
     this.loaded = false,
@@ -29,6 +54,7 @@ class SettingsViewState {
     this.needsCoreRestart = false,
     this.needsAppRestart = false,
     this.needsNextLaunch = false,
+    this.lastReceipt = const SettingsPhaseReceipt(),
   });
 
   final bool loaded;
@@ -46,6 +72,9 @@ class SettingsViewState {
   final bool needsAppRestart;
   final bool needsNextLaunch;
 
+  /// Staged facts of the last save/retry: persistence vs each apply phase.
+  final SettingsPhaseReceipt lastReceipt;
+
   Map<String, dynamic> group(String key) {
     final value = document[key];
     return value is Map<String, dynamic> ? value : <String, dynamic>{};
@@ -61,6 +90,7 @@ class SettingsViewState {
     bool? needsCoreRestart,
     bool? needsAppRestart,
     bool? needsNextLaunch,
+    SettingsPhaseReceipt? lastReceipt,
   }) {
     return SettingsViewState(
       loaded: loaded ?? this.loaded,
@@ -72,6 +102,7 @@ class SettingsViewState {
       needsCoreRestart: needsCoreRestart ?? this.needsCoreRestart,
       needsAppRestart: needsAppRestart ?? this.needsAppRestart,
       needsNextLaunch: needsNextLaunch ?? this.needsNextLaunch,
+      lastReceipt: lastReceipt ?? this.lastReceipt,
     );
   }
 }
@@ -90,6 +121,12 @@ class SettingsApplyOutcome {
     required this.applied,
     this.message,
     this.statusKey,
+    this.newRevision,
+    this.contentHash,
+    this.coreOk,
+    this.platformOk,
+    this.autostartOk,
+    this.phaseErrors = const <String>[],
   });
 
   final bool ok;
@@ -101,6 +138,17 @@ class SettingsApplyOutcome {
 
   /// Stable success message key (`settings.saved_need_core_restart`, ...).
   final String? statusKey;
+
+  /// New persisted revision returned by the save (SP-12: save fact kept even
+  /// when an apply phase fails).
+  final int? newRevision;
+
+  /// Content hash of the saved document version the apply phases ran against.
+  final String? contentHash;
+  final bool? coreOk;
+  final bool? platformOk;
+  final bool? autostartOk;
+  final List<String> phaseErrors;
 }
 
 final settingsControllerProvider =
@@ -119,8 +167,15 @@ class SettingsController extends Notifier<SettingsViewState> {
 
   /// Last autostart value confirmed written to the OS, or null while unknown.
   /// A persisted `AutoRun` value is not proof the Run key write succeeded, so a
-  /// failed write must be retried on the next save (AUD-DESK-01).
+  /// failed write must be retried on the next save (AUD-DESK-01, SP-12).
+  /// Reloading the persisted desire must never confirm a failed OS write:
+  /// [load] re-reads the actual OS fact instead of copying the document.
   bool? _autostartApplied;
+
+  /// Last successfully persisted version: revision + canonical content hash.
+  /// Retry validates the draft against this before running apply phases only.
+  int? _lastSavedRevision;
+  String? _lastSavedHash;
 
   /// Load once from the engine. Safe to call repeatedly.
   SettingsViewState load() {
@@ -162,9 +217,23 @@ class SettingsController extends Notifier<SettingsViewState> {
       document: document,
       groupRevisions: _decodeGroupRevisions(result.groupRevisionsJson),
     );
-    _autostartApplied = _documentAutoRun(document);
+    _autostartApplied = _readAutostartFact();
     _applyImmediate(document);
     return state;
+  }
+
+  /// Read the actual OS autostart fact (SP-12: desired != applied).
+  ///
+  /// Returns null when the OS cannot be queried, forcing the next save to
+  /// retry the write instead of assuming the persisted desire is applied.
+  bool? _readAutostartFact() {
+    try {
+      final bridge = ref.read(platformBridgeProvider);
+      final exe = Platform.resolvedExecutable;
+      return bridge.getAutostart(bridge.autostartValueName(exe));
+    } on Object {
+      return null;
+    }
   }
 
   /// A deep copy of the current document, safe to edit in a dialog. The copy
@@ -179,6 +248,37 @@ class SettingsController extends Notifier<SettingsViewState> {
       expectedRevision ??
       _draftRevisions[identityHashCode(draft)] ??
       state.revision;
+
+  /// Canonical content hash of a settings document (SP-12 retry guard).
+  ///
+  /// Keys are sorted recursively so insertion order never changes the hash.
+  /// The hex string points at the already-saved version; retry refuses to
+  /// apply when the persisted document no longer matches it.
+  static String contentHashOf(Map<String, dynamic> document) =>
+      _hashString(jsonEncode(_canonicalize(document)));
+
+  static Object? _canonicalize(Object? value) {
+    if (value is Map) {
+      final keys = value.keys.map((k) => k.toString()).toList()..sort();
+      return <String, Object?>{
+        for (final k in keys)
+          k: _canonicalize(
+            value[value.keys.firstWhere((e) => e.toString() == k)],
+          ),
+      };
+    }
+    if (value is List) return value.map(_canonicalize).toList();
+    return value;
+  }
+
+  static String _hashString(String input) {
+    var hash = 0x811c9dc5;
+    for (var i = 0; i < input.length; i++) {
+      hash ^= input.codeUnitAt(i);
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash.toRadixString(16).padLeft(8, '0');
+  }
 
   /// Persist the whole document with the optimistic revision check.
   ///
@@ -199,6 +299,8 @@ class SettingsController extends Notifier<SettingsViewState> {
         );
     if (result.ok) {
       final newRevision = result.newRevision?.toInt() ?? state.revision;
+      _lastSavedRevision = newRevision;
+      _lastSavedHash = contentHashOf(draft);
       state = state.copyWith(
         loaded: true,
         revision: newRevision,
@@ -207,6 +309,11 @@ class SettingsController extends Notifier<SettingsViewState> {
         needsCoreRestart: result.restartCoreFields.isNotEmpty,
         needsAppRestart: result.restartAppFields.isNotEmpty,
         needsNextLaunch: result.nextLaunchFields.isNotEmpty,
+        lastReceipt: SettingsPhaseReceipt(
+          save: 'committed',
+          savedRevision: newRevision,
+          contentHash: _lastSavedHash,
+        ),
       );
       _draftRevisions[identityHashCode(draft)] = newRevision;
       // A whole save advances every group counter in the engine; refresh the
@@ -302,49 +409,228 @@ class SettingsController extends Notifier<SettingsViewState> {
     final previousAutoRun = _documentAutoRun(state.document);
     final result = saveDocument(draft, expectedRevision: expectedRevision);
     if (!result.ok) {
+      // Idempotent window retry (SP-12): the window's own draft was already
+      // persisted by its first attempt, so a stale revision carrying identical
+      // content is proof of "already saved", not a save failure. The saved
+      // fact is kept and only the apply phases run.
+      if (result.error?.code == 'E_REVISION_STALE' &&
+          _persistedMatchesDraft(draft)) {
+        final retry = await retrySettingsApply(
+          draft,
+          savedRevision: state.revision,
+          savedContentHash: contentHashOf(state.document),
+          phases: const {'core', 'platform', 'autostart'},
+        );
+        return SettingsApplyOutcome(
+          ok: retry.ok,
+          saved: true,
+          applied: retry.applied,
+          message: retry.message,
+          statusKey: _statusKeyForSaveGroup(result),
+          newRevision: state.revision,
+          contentHash: contentHashOf(state.document),
+          coreOk: retry.coreOk,
+          platformOk: retry.platformOk,
+          autostartOk: retry.autostartOk,
+          phaseErrors: retry.phaseErrors,
+        );
+      }
+      _recordReceipt(
+        save: 'rejected',
+        errors: [result.error?.code ?? 'E_SAVE_FAILED'],
+      );
       return SettingsApplyOutcome(
         ok: false,
         saved: false,
         applied: false,
         message: _saveFailureMessage(result.error?.messageKey),
+        phaseErrors: [result.error?.code ?? 'E_SAVE_FAILED'],
       );
     }
 
-    // Autostart must be retried until the OS write is confirmed: a persisted
-    // `AutoRun` value is not proof the Run key exists (AUD-DESK-01).
-    var autostartFailed = false;
-    final desiredAutoRun = _draftAutoRun(draft);
-    if (desiredAutoRun != previousAutoRun ||
-        _autostartApplied != desiredAutoRun) {
-      final written = _writeAutostart(desiredAutoRun);
-      autostartFailed = !written;
-      if (written) _autostartApplied = desiredAutoRun;
-    }
-
     final statusKey = _statusKeyFor(result);
-    var applied = false;
-    String? applyMessage;
-    try {
-      applied = await ref
-          .read(runtimeControllerProvider.notifier)
-          .applyActive();
-      if (!applied) {
-        final error = ref.read(runtimeControllerProvider).error;
-        applyMessage = '配置已保存，但应用失败：${error?.messageKey ?? 'unknown'}';
-      }
-    } on Object catch (e) {
-      applyMessage = '配置已保存，但应用失败：$e';
-    }
+    final savedRevision =
+        result.newRevision?.toInt() ?? _lastSavedRevision ?? state.revision;
+    final savedHash = _lastSavedHash ?? contentHashOf(draft);
+    return _applySavedVersion(
+      draft,
+      savedRevision: savedRevision,
+      savedContentHash: savedHash,
+      statusKey: statusKey,
+      previousAutoRun: previousAutoRun,
+      phases: const {'core', 'platform', 'autostart'},
+    );
+  }
 
-    if (!applied) {
-      ref.read(uiShellControllerProvider.notifier).setMessage(applyMessage);
+  /// Retry only the not-yet-successful apply phases of an already-saved
+  /// version (SP-12).
+  ///
+  /// No persistence write happens here: [savedRevision]/[savedContentHash]
+  /// identify the saved version, the draft content hash must equal
+  /// [savedContentHash], and the currently persisted document must still equal
+  /// it (otherwise the retry is stale and no phase runs). [phases] selects
+  /// the subset to execute (`core`, `platform`, `autostart`); already
+  /// successful phases outside the set are never re-executed.
+  Future<SettingsApplyOutcome> retrySettingsApply(
+    Map<String, dynamic> draft, {
+    required int savedRevision,
+    required String savedContentHash,
+    Set<String> phases = const {'core', 'platform', 'autostart'},
+  }) async {
+    if (!state.loaded || state.loadFailed) {
+      return const SettingsApplyOutcome(
+        ok: false,
+        saved: true,
+        applied: false,
+        message: '读取配置失败',
+        phaseErrors: ['E_SETTINGS_NOT_LOADED'],
+      );
+    }
+    if (contentHashOf(draft) != savedContentHash ||
+        contentHashOf(state.document) != savedContentHash) {
+      _recordReceipt(
+        save: 'committed',
+        savedRevision: savedRevision,
+        contentHash: savedContentHash,
+        errors: const ['E_RETRY_STALE'],
+      );
       return SettingsApplyOutcome(
         ok: false,
         saved: true,
         applied: false,
-        message: applyMessage,
-        statusKey: statusKey,
+        message: '已保存版本已变化，请重新保存后再试',
+        newRevision: savedRevision,
+        contentHash: savedContentHash,
+        phaseErrors: const ['E_RETRY_STALE'],
       );
+    }
+    return _applySavedVersion(
+      draft,
+      savedRevision: savedRevision,
+      savedContentHash: savedContentHash,
+      statusKey: null,
+      previousAutoRun: _documentAutoRun(state.document),
+      phases: phases,
+    );
+  }
+
+  /// Whether the persisted document already carries [draft]'s content, so a
+  /// stale-revision save can be treated as "already saved" (SP-12).
+  bool _persistedMatchesDraft(Map<String, dynamic> draft) {
+    if (!state.loaded || state.loadFailed) return false;
+    try {
+      return contentHashOf(state.document) == contentHashOf(draft);
+    } on Object {
+      return false;
+    }
+  }
+
+  static String? _statusKeyForSaveGroup(settings.SaveSettingsResult result) {
+    if (result.restartAppFields.isNotEmpty) {
+      return 'settings.saved_need_app_restart';
+    }
+    if (result.restartCoreFields.isNotEmpty) {
+      return 'settings.saved_need_core_restart';
+    }
+    if (result.nextLaunchFields.isNotEmpty) {
+      return 'settings.saved_need_next_launch';
+    }
+    return 'settings.saved';
+  }
+
+  void _recordReceipt({
+    required String save,
+    String core = 'unknown',
+    String platform = 'unknown',
+    String autostart = 'unknown',
+    int? savedRevision,
+    String? contentHash,
+    List<String> errors = const <String>[],
+  }) {
+    state = state.copyWith(
+      lastReceipt: SettingsPhaseReceipt(
+        save: save,
+        core: core,
+        platform: platform,
+        autostart: autostart,
+        savedRevision: savedRevision ?? _lastSavedRevision,
+        contentHash: contentHash ?? _lastSavedHash,
+        errors: List<String>.of(errors),
+      ),
+    );
+  }
+
+  Future<SettingsApplyOutcome> _applySavedVersion(
+    Map<String, dynamic> draft, {
+    required int savedRevision,
+    required String savedContentHash,
+    required String? statusKey,
+    required bool previousAutoRun,
+    required Set<String> phases,
+  }) async {
+    final errors = <String>[];
+
+    // Autostart must be retried until the OS write is confirmed: a persisted
+    // `AutoRun` value is not proof the Run key exists (AUD-DESK-01, SP-12).
+    bool? autostartOk;
+    if (phases.contains('autostart')) {
+      final desiredAutoRun = _draftAutoRun(draft);
+      if (desiredAutoRun != previousAutoRun ||
+          _autostartApplied != desiredAutoRun) {
+        final written = _writeAutostart(desiredAutoRun);
+        if (written) {
+          _autostartApplied = desiredAutoRun;
+          autostartOk = true;
+        } else {
+          autostartOk = false;
+          errors.add('E_AUTOSTART_APPLY');
+        }
+      } else {
+        autostartOk = true;
+      }
+    }
+
+    bool? coreOk;
+    String? applyMessage;
+    if (phases.contains('core')) {
+      try {
+        final applied = await ref
+            .read(runtimeControllerProvider.notifier)
+            .applyActive();
+        coreOk = applied;
+        if (!applied) {
+          final error = ref.read(runtimeControllerProvider).error;
+          applyMessage = '配置已保存，但应用失败：${error?.messageKey ?? 'unknown'}';
+          errors.add(error?.code ?? 'E_CORE_APPLY');
+        }
+      } on Object catch (e) {
+        coreOk = false;
+        applyMessage = '配置已保存，但应用失败：$e';
+        errors.add('E_CORE_APPLY');
+      }
+      if (coreOk == false) {
+        _recordReceipt(
+          save: 'committed',
+          core: 'failed',
+          savedRevision: savedRevision,
+          contentHash: savedContentHash,
+          errors: errors,
+        );
+        ref.read(uiShellControllerProvider.notifier).setMessage(applyMessage);
+        return SettingsApplyOutcome(
+          ok: false,
+          saved: true,
+          applied: false,
+          message: applyMessage,
+          statusKey: statusKey,
+          newRevision: savedRevision,
+          contentHash: savedContentHash,
+          coreOk: false,
+          platformOk: null,
+          autostartOk: autostartOk,
+          phaseErrors: List<String>.of(errors),
+        );
+      }
     }
 
     // Platform stage: the persisted system-proxy mode is part of this
@@ -353,48 +639,109 @@ class SettingsController extends Notifier<SettingsViewState> {
     // AUD-DESK-03). Driven through the platform controller's static hook: a
     // direct provider read here would close a dependency cycle with the
     // controller's own settings listener.
+    bool? platformOk;
     String? platformMessage;
-    try {
-      final platformResult = PlatformController.applySavedMode(draft);
-      if (platformResult != null && !platformResult.ok) {
-        final key =
-            platformResult.error?.messageKey ??
-            platformResult.error?.code ??
-            'unknown';
-        platformMessage = '配置已保存，但系统代理应用失败：$key';
+    if (phases.contains('platform')) {
+      try {
+        final platformResult = PlatformController.applySavedMode(draft);
+        if (platformResult != null && !platformResult.ok) {
+          final key =
+              platformResult.error?.messageKey ??
+              platformResult.error?.code ??
+              'unknown';
+          platformMessage = '配置已保存，但系统代理应用失败：$key';
+          platformOk = false;
+          errors.add(platformResult.error?.code ?? 'E_PLATFORM_APPLY');
+        } else {
+          platformOk = true;
+        }
+      } on Object catch (e) {
+        platformMessage = '配置已保存，但系统代理应用失败：$e';
+        platformOk = false;
+        errors.add('E_PLATFORM_APPLY');
       }
-    } on Object catch (e) {
-      platformMessage = '配置已保存，但系统代理应用失败：$e';
+      if (platformOk == false) {
+        _recordReceipt(
+          save: 'committed',
+          core: coreOk == null ? 'unknown' : 'succeeded',
+          platform: 'failed',
+          autostart: autostartOk == null
+              ? 'unknown'
+              : (autostartOk ? 'succeeded' : 'failed'),
+          savedRevision: savedRevision,
+          contentHash: savedContentHash,
+          errors: errors,
+        );
+        ref
+            .read(uiShellControllerProvider.notifier)
+            .setMessage(platformMessage);
+        return SettingsApplyOutcome(
+          ok: false,
+          saved: true,
+          applied: true,
+          message: platformMessage,
+          statusKey: statusKey,
+          newRevision: savedRevision,
+          contentHash: savedContentHash,
+          coreOk: coreOk ?? true,
+          platformOk: false,
+          autostartOk: autostartOk,
+          phaseErrors: List<String>.of(errors),
+        );
+      }
     }
-    if (platformMessage != null) {
-      ref.read(uiShellControllerProvider.notifier).setMessage(platformMessage);
+
+    if (autostartOk == false) {
+      const message = '配置已保存，但开机自启写入失败';
+      _recordReceipt(
+        save: 'committed',
+        core: coreOk == null ? 'unknown' : 'succeeded',
+        platform: platformOk == null ? 'unknown' : 'succeeded',
+        autostart: 'failed',
+        savedRevision: savedRevision,
+        contentHash: savedContentHash,
+        errors: errors,
+      );
+      ref.read(uiShellControllerProvider.notifier).setMessage(message);
       return SettingsApplyOutcome(
         ok: false,
         saved: true,
         applied: true,
-        message: platformMessage,
-        statusKey: statusKey,
-      );
-    }
-
-    if (autostartFailed) {
-      const message = '配置已保存，但开机自启写入失败';
-      ref.read(uiShellControllerProvider.notifier).setMessage(message);
-      return const SettingsApplyOutcome(
-        ok: false,
-        saved: true,
-        applied: true,
         message: message,
+        statusKey: statusKey,
+        newRevision: savedRevision,
+        contentHash: savedContentHash,
+        coreOk: coreOk ?? true,
+        platformOk: platformOk ?? true,
+        autostartOk: false,
+        phaseErrors: List<String>.of(errors),
       );
     }
-    ref
-        .read(uiShellControllerProvider.notifier)
-        .setMessage(statusMessageFor(statusKey));
+    _recordReceipt(
+      save: 'committed',
+      core: phases.contains('core') ? 'succeeded' : 'unknown',
+      platform: phases.contains('platform') ? 'succeeded' : 'unknown',
+      autostart: phases.contains('autostart')
+          ? (autostartOk == null ? 'unknown' : 'succeeded')
+          : 'unknown',
+      savedRevision: savedRevision,
+      contentHash: savedContentHash,
+    );
+    if (statusKey != null) {
+      ref
+          .read(uiShellControllerProvider.notifier)
+          .setMessage(statusMessageFor(statusKey));
+    }
     return SettingsApplyOutcome(
       ok: true,
       saved: true,
       applied: true,
       statusKey: statusKey,
+      newRevision: savedRevision,
+      contentHash: savedContentHash,
+      coreOk: phases.contains('core') ? true : null,
+      platformOk: phases.contains('platform') ? true : null,
+      autostartOk: autostartOk,
     );
   }
 

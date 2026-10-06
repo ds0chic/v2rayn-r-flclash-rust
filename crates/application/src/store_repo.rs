@@ -6,12 +6,17 @@
 //! only for migration are preserved in `Profile::extra` so a round-trip never
 //! drops them.
 
-use domain::{codes, ConfigType, CoreType, DomainError, Profile, SecurityParams, TrafficStats};
+use domain::{
+    codes, CancellationToken, ConfigType, CoreType, DomainError, Profile, SecurityParams,
+    TrafficStats,
+};
 use persistence::mapping::map_traffic;
 use persistence::rows::RawRow;
 use persistence::{ProtocolExtraBlob, Store, TransportExtraBlob};
 use rusqlite::types::ToSql;
 use serde_json::{json, Value};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{mpsc, Arc};
 
 use crate::repository::{
     InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage, ProfileRepository,
@@ -55,11 +60,259 @@ pub fn persistence_storage_error(error: persistence::PersistenceError) -> Domain
     }
 }
 
+// ---- SP-21 async paged query data layer (prep; full UI wiring waits on
+// SP-16, the FRB `QueryProfilesPageAsync` entry on the SP-00 integrator) ----
+
+/// Upper bound for one async page: a caller only ever waits on a bounded
+/// window, never on a full-table read.
+pub const ASYNC_PAGE_MAX_SIZE: u32 = 2000;
+
+/// One frozen async page request. `filter`/`sort`/`cursor` are captured at
+/// call time; `expected_revision == 0 && cursor == 0` is a fresh query that
+/// adopts the current dataset revision.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AsyncPageRequest {
+    pub filter: ProfileFilter,
+    pub sort: ProfileSort,
+    pub cursor: usize,
+    pub page_size: u32,
+    pub expected_revision: u64,
+    pub generation: u64,
+}
+
+/// One bounded page plus the cursor/revision contract (PLAN §3.5:
+/// `items/nextCursor/datasetRevision/total`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AsyncPage {
+    pub items: Vec<Profile>,
+    pub next_cursor: Option<usize>,
+    pub dataset_revision: u64,
+    pub total: usize,
+    pub generation: u64,
+    /// Thread that executed the query (proof the worker path leaves the
+    /// caller thread free).
+    pub worker_thread: std::thread::ThreadId,
+}
+
+/// Failure modes of an async page query.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AsyncPageError {
+    /// Cooperative cancel won: no page is delivered, nothing was committed.
+    Cancelled,
+    /// A newer generation superseded this request; the late result is
+    /// dropped instead of overwriting the latest view.
+    Superseded,
+    /// The cursor belongs to an older dataset revision; restart from zero.
+    StaleCursor {
+        expected: u64,
+        actual: u64,
+    },
+    /// The bounded wait expired before the worker answered.
+    Timeout,
+    Storage(DomainError),
+}
+
+impl AsyncPageError {
+    /// Map onto the shared error contract for future FRB wiring.
+    pub fn to_domain_error(&self) -> DomainError {
+        match self {
+            AsyncPageError::Cancelled => DomainError::new(codes::CANCELLED, "error.cancelled"),
+            AsyncPageError::Superseded => {
+                DomainError::new(codes::CONFLICT, "error.page_superseded")
+            }
+            AsyncPageError::StaleCursor { expected, actual } => {
+                DomainError::stale_revision(*expected, *actual)
+            }
+            AsyncPageError::Timeout => DomainError::new(codes::TIMEOUT, "error.page_timeout"),
+            AsyncPageError::Storage(error) => error.clone(),
+        }
+    }
+}
+
+/// Revision + generation orchestration shared by the writer side and the
+/// background reader. The dataset revision is process-local per handle and
+/// starts at zero; every successful profile mutation must call
+/// [`Self::notify_mutated`] so cursors from before the write fail loudly
+/// instead of skipping or repeating rows.
+#[derive(Debug, Default)]
+pub struct ProfilePageQuery {
+    revision: AtomicU64,
+    generation: AtomicU64,
+}
+
+impl ProfilePageQuery {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn dataset_revision(&self) -> u64 {
+        self.revision.load(Ordering::Acquire)
+    }
+
+    /// Record a committed profile mutation (upsert/remove/replace). Lock-free.
+    pub fn notify_mutated(&self) {
+        self.revision.fetch_add(1, Ordering::AcqRel);
+    }
+
+    /// Open a new request generation; in-flight results carrying an older one
+    /// are dropped by [`Self::query_page`].
+    pub fn next_generation(&self) -> u64 {
+        self.generation.fetch_add(1, Ordering::AcqRel) + 1
+    }
+
+    pub fn is_current(&self, generation: u64) -> bool {
+        self.generation.load(Ordering::Acquire) == generation
+    }
+
+    /// Run one bounded page with cancel/revision/generation guards. The call
+    /// itself is blocking SQLite IO; production callers run it on
+    /// [`AsyncPageWorker`], never on the UI thread.
+    pub fn query_page(
+        &self,
+        repo: &impl ProfileRepository,
+        request: &AsyncPageRequest,
+        cancel: &CancellationToken,
+    ) -> Result<AsyncPage, AsyncPageError> {
+        cancel.check().map_err(|_| AsyncPageError::Cancelled)?;
+        let revision = self.dataset_revision();
+        if (request.cursor != 0 || request.expected_revision != 0)
+            && request.expected_revision != revision
+        {
+            return Err(AsyncPageError::StaleCursor {
+                expected: request.expected_revision,
+                actual: revision,
+            });
+        }
+        if !self.is_current(request.generation) {
+            return Err(AsyncPageError::Superseded);
+        }
+        let page_size = request.page_size.clamp(1, ASYNC_PAGE_MAX_SIZE);
+        let page = repo
+            .query(
+                &request.filter,
+                request.sort,
+                PageRequest {
+                    cursor: request.cursor,
+                    page_size,
+                },
+            )
+            .map_err(AsyncPageError::Storage)?;
+        // Late-result guards: a cancel or a newer generation that landed
+        // while the read was in flight discards this page.
+        cancel.check().map_err(|_| AsyncPageError::Cancelled)?;
+        if !self.is_current(request.generation) {
+            return Err(AsyncPageError::Superseded);
+        }
+        // A write racing the read invalidates the page just produced.
+        let after = self.dataset_revision();
+        if after != revision {
+            return Err(AsyncPageError::StaleCursor {
+                expected: revision,
+                actual: after,
+            });
+        }
+        Ok(AsyncPage {
+            items: page.items,
+            next_cursor: page.next_cursor,
+            dataset_revision: revision,
+            total: page.total,
+            generation: request.generation,
+            worker_thread: std::thread::current().id(),
+        })
+    }
+}
+
+struct WorkerJob {
+    request: AsyncPageRequest,
+    cancel: CancellationToken,
+    respond_to: mpsc::Sender<Result<AsyncPage, AsyncPageError>>,
+}
+
+/// Background reader for async pages. It owns a dedicated read-only SQLite
+/// connection to the same file (WAL mode admits concurrent readers), so a
+/// long page never holds the writer connection and the caller only blocks on
+/// a bounded-page rendezvous. `:memory:` databases cannot be shared across
+/// connections; the worker requires a file path.
+pub struct AsyncPageWorker {
+    jobs: mpsc::Sender<WorkerJob>,
+}
+
+impl AsyncPageWorker {
+    pub fn open_readonly(
+        path: impl AsRef<std::path::Path>,
+        shared: Arc<ProfilePageQuery>,
+    ) -> Result<Self, DomainError> {
+        let store = Store::open_readonly(path).map_err(persistence_storage_error)?;
+        let repo = SqliteProfileRepository::from_store(store);
+        let (jobs, inbox) = mpsc::channel::<WorkerJob>();
+        std::thread::Builder::new()
+            .name("sp21-page-worker".to_string())
+            .spawn(move || {
+                while let Ok(job) = inbox.recv() {
+                    let outcome = shared.query_page(&repo, &job.request, &job.cancel);
+                    // The caller cancelled and dropped its receiver: discard
+                    // the late result instead of leaking it.
+                    let _ = job.respond_to.send(outcome);
+                }
+            })
+            .map_err(storage_error)?;
+        Ok(Self { jobs })
+    }
+
+    /// Enqueue one page without blocking on the read itself.
+    pub fn submit(&self, request: AsyncPageRequest, cancel: CancellationToken) -> QueryHandle {
+        let (respond_to, inbox) = mpsc::channel();
+        let accepted = self
+            .jobs
+            .send(WorkerJob {
+                request,
+                cancel: cancel.clone(),
+                respond_to,
+            })
+            .is_ok();
+        QueryHandle {
+            cancel,
+            inbox: accepted.then_some(inbox),
+        }
+    }
+}
+
+/// Handle to one in-flight page. `cancel` is synchronous and lock-free: it
+/// returns immediately and the worker drops the late result at its next safe
+/// point (or the send fails because the receiver is gone).
+pub struct QueryHandle {
+    cancel: CancellationToken,
+    inbox: Option<mpsc::Receiver<Result<AsyncPage, AsyncPageError>>>,
+}
+
+impl QueryHandle {
+    pub fn cancel(&mut self) {
+        self.cancel.cancel();
+        self.inbox.take();
+    }
+
+    pub fn wait(
+        &mut self,
+        timeout: std::time::Duration,
+    ) -> Result<Result<AsyncPage, AsyncPageError>, AsyncPageError> {
+        let Some(inbox) = self.inbox.take() else {
+            return Err(AsyncPageError::Cancelled);
+        };
+        match inbox.recv_timeout(timeout) {
+            Ok(outcome) => Ok(outcome),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                self.inbox = Some(inbox);
+                Err(AsyncPageError::Timeout)
+            }
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(AsyncPageError::Cancelled),
+        }
+    }
+}
+
 /// A SQLite-backed profile repository.
 pub struct SqliteProfileRepository {
     store: Store,
 }
-
 impl SqliteProfileRepository {
     /// Open (creating if needed) the database at `path`.
     pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self, DomainError> {
@@ -219,7 +472,7 @@ impl ProfileRepository for SqliteProfileRepository {
                 " ORDER BY (SELECT \"Delay\" FROM \"ProfileExItem\" e WHERE e.\"IndexId\" = \
                  \"ProfileItem\".\"IndexId\") ASC, \"IndexId\" ASC"
             }
-            ProfileSort::IndexId => " ORDER BY rowid ASC",
+            ProfileSort::IndexId => " ORDER BY \"IndexId\" ASC",
         };
         let limit = page.page_size.max(1) as i64;
         let offset = page.cursor as i64;
@@ -1056,5 +1309,415 @@ mod tests {
         }
         assert_eq!(seen, total, "every row is read, none truncated");
         assert!(pages > 1, "large store is read in bounded pages");
+    }
+
+    // ---- SP-21 async paged query data layer (red contracts) ----
+
+    fn sp21_rows() -> usize {
+        std::env::var("SP21_ROWS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(5_000)
+    }
+
+    #[test]
+    fn sp21_index_id_sort_is_stable_by_id_not_insertion_order() {
+        // Cursor contract: ProfileSort::IndexId must order by IndexId so a
+        // page walk is stable regardless of insertion order.
+        let mut repo = SqliteProfileRepository::open(":memory:").unwrap();
+        for i in [3u32, 1, 2] {
+            let mut p = synthetic_full_profile(i);
+            p.index_id = format!("sp21-stable-{i:05}");
+            p.subid = "sp21".to_string();
+            repo.upsert(p).unwrap();
+        }
+        let page = repo
+            .query(
+                &crate::repository::ProfileFilter::default(),
+                crate::repository::ProfileSort::IndexId,
+                crate::repository::PageRequest {
+                    cursor: 0,
+                    page_size: 10,
+                },
+            )
+            .unwrap();
+        let ids: Vec<_> = page.items.iter().map(|p| p.index_id.clone()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "sp21-stable-00001".to_string(),
+                "sp21-stable-00002".to_string(),
+                "sp21-stable-00003".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn sp21_async_pages_cover_full_dataset_without_dup_or_miss() {
+        use super::{AsyncPageRequest, ProfilePageQuery};
+        use crate::repository::{ProfileFilter, ProfileSort};
+        let total = sp21_rows();
+        let pager = ProfilePageQuery::new();
+        let repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let profiles: Vec<Profile> = (0..total)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i as u32 + 1);
+                p.index_id = format!("sp21-walk-{i:07}");
+                p.subid = "sp21-walk".to_string();
+                p
+            })
+            .collect();
+        let (added, _) = repo
+            .replace_for_sub("sp21-walk", profiles, true, false)
+            .unwrap();
+        assert_eq!(added, total);
+        pager.notify_mutated();
+
+        let cancel = domain::CancellationToken::new();
+        let generation = pager.next_generation();
+        let revision = pager.dataset_revision();
+        let mut cursor = 0usize;
+        let mut seen: Vec<String> = Vec::with_capacity(total);
+        let mut pages = 0usize;
+        let timer = std::time::Instant::now();
+        loop {
+            let request = AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::Remarks,
+                cursor,
+                page_size: 500,
+                expected_revision: revision,
+                generation,
+            };
+            let page = pager.query_page(&repo, &request, &cancel).unwrap();
+            assert!(page.items.len() <= 500, "page stays bounded");
+            assert_eq!(page.dataset_revision, revision);
+            assert_eq!(page.generation, generation);
+            seen.extend(page.items.iter().map(|p| p.index_id.clone()));
+            pages += 1;
+            match page.next_cursor {
+                Some(next) => {
+                    assert!(next > cursor, "cursor must advance");
+                    cursor = next;
+                }
+                None => break,
+            }
+        }
+        let elapsed = timer.elapsed();
+        println!(
+            "SP21 walk rows={total} pages={pages} elapsed_ms={}",
+            elapsed.as_millis()
+        );
+        assert_eq!(seen.len(), total, "every row is read exactly once");
+        let mut sorted = seen.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(sorted.len(), total, "no duplicate rows across pages");
+        assert!(pages > 1, "large store is read in bounded pages");
+    }
+
+    #[test]
+    fn sp21_async_sort_uses_id_tiebreak_across_pages() {
+        use super::{AsyncPageRequest, ProfilePageQuery};
+        use crate::repository::{ProfileFilter, ProfileSort};
+        let pager = ProfilePageQuery::new();
+        let repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let profiles: Vec<Profile> = (0..120)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i + 1);
+                p.index_id = format!("sp21-tie-{i:05}");
+                p.remarks = "same-remarks".to_string();
+                p.subid = "sp21-tie".to_string();
+                p
+            })
+            .collect();
+        repo.replace_for_sub("sp21-tie", profiles, true, false)
+            .unwrap();
+        pager.notify_mutated();
+
+        let cancel = domain::CancellationToken::new();
+        let generation = pager.next_generation();
+        let revision = pager.dataset_revision();
+        let mut cursor = 0usize;
+        let mut ids: Vec<String> = Vec::new();
+        loop {
+            let page = pager
+                .query_page(
+                    &repo,
+                    &AsyncPageRequest {
+                        filter: ProfileFilter::default(),
+                        sort: ProfileSort::Remarks,
+                        cursor,
+                        page_size: 50,
+                        expected_revision: revision,
+                        generation,
+                    },
+                    &cancel,
+                )
+                .unwrap();
+            ids.extend(page.items.iter().map(|p| p.index_id.clone()));
+            match page.next_cursor {
+                Some(next) => cursor = next,
+                None => break,
+            }
+        }
+        let mut expected = ids.clone();
+        expected.sort();
+        assert_eq!(ids, expected, "equal keys fall back to IndexId order");
+    }
+
+    #[test]
+    fn sp21_async_cursor_is_invalidated_by_dataset_revision_change() {
+        use super::{AsyncPageError, AsyncPageRequest, ProfilePageQuery};
+        use crate::repository::{ProfileFilter, ProfileSort};
+        let pager = ProfilePageQuery::new();
+        let mut repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let profiles: Vec<Profile> = (0..300)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i + 1);
+                p.index_id = format!("sp21-rev-{i:05}");
+                p.subid = "sp21-rev".to_string();
+                p
+            })
+            .collect();
+        repo.replace_for_sub("sp21-rev", profiles, true, false)
+            .unwrap();
+        pager.notify_mutated();
+
+        let cancel = domain::CancellationToken::new();
+        let generation = pager.next_generation();
+        let revision = pager.dataset_revision();
+        let first = pager
+            .query_page(
+                &repo,
+                &AsyncPageRequest {
+                    filter: ProfileFilter::default(),
+                    sort: ProfileSort::IndexId,
+                    cursor: 0,
+                    page_size: 100,
+                    expected_revision: revision,
+                    generation,
+                },
+                &cancel,
+            )
+            .unwrap();
+        let cursor = first.next_cursor.expect("more pages remain");
+
+        // A write bumps the dataset revision; the old cursor must not be
+        // silently reused (no skipped/repeated rows).
+        let mut extra = synthetic_full_profile(999_001);
+        extra.index_id = "sp21-rev-added".to_string();
+        extra.subid = "sp21-rev".to_string();
+        repo.upsert(extra).unwrap();
+        pager.notify_mutated();
+
+        let stale = pager.query_page(
+            &repo,
+            &AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor,
+                page_size: 100,
+                expected_revision: revision,
+                generation,
+            },
+            &cancel,
+        );
+        match stale {
+            Err(AsyncPageError::StaleCursor { expected, actual }) => {
+                assert_eq!(expected, revision);
+                assert_eq!(actual, pager.dataset_revision());
+            }
+            other => panic!("expected StaleCursor, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sp21_async_cancel_is_immediate_and_drops_the_late_result() {
+        use super::{AsyncPageError, AsyncPageRequest, ProfilePageQuery};
+        use crate::repository::{ProfileFilter, ProfileSort};
+        let pager = ProfilePageQuery::new();
+        let repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let profiles: Vec<Profile> = (0..1_000)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i + 1);
+                p.index_id = format!("sp21-cancel-{i:05}");
+                p.subid = "sp21-cancel".to_string();
+                p
+            })
+            .collect();
+        repo.replace_for_sub("sp21-cancel", profiles, true, false)
+            .unwrap();
+        pager.notify_mutated();
+
+        let cancel = domain::CancellationToken::new();
+        cancel.cancel();
+        // Cancelling before the query must surface immediately, not after a
+        // full read.
+        let outcome = pager.query_page(
+            &repo,
+            &AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor: 0,
+                page_size: 500,
+                expected_revision: pager.dataset_revision(),
+                generation: pager.next_generation(),
+            },
+            &cancel,
+        );
+        assert_eq!(outcome.unwrap_err(), AsyncPageError::Cancelled);
+    }
+
+    #[test]
+    fn sp21_async_superseded_generation_is_dropped() {
+        use super::{AsyncPageError, AsyncPageRequest, ProfilePageQuery};
+        use crate::repository::{ProfileFilter, ProfileSort};
+        let pager = ProfilePageQuery::new();
+        let repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let profiles: Vec<Profile> = (0..200)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i + 1);
+                p.index_id = format!("sp21-gen-{i:05}");
+                p.subid = "sp21-gen".to_string();
+                p
+            })
+            .collect();
+        repo.replace_for_sub("sp21-gen", profiles, true, false)
+            .unwrap();
+        pager.notify_mutated();
+
+        let cancel = domain::CancellationToken::new();
+        let old_generation = pager.next_generation();
+        let revision = pager.dataset_revision();
+        // A newer request supersedes the in-flight one; its late result must
+        // be dropped instead of overwriting the latest view.
+        let _new_generation = pager.next_generation();
+        let late = pager.query_page(
+            &repo,
+            &AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor: 0,
+                page_size: 100,
+                expected_revision: revision,
+                generation: old_generation,
+            },
+            &cancel,
+        );
+        assert_eq!(late.unwrap_err(), AsyncPageError::Superseded);
+    }
+
+    #[test]
+    fn sp21_async_worker_runs_off_caller_thread_and_cancel_returns_fast() {
+        use super::{AsyncPageError, AsyncPageRequest, AsyncPageWorker, ProfilePageQuery};
+        use crate::repository::{ProfileFilter, ProfileSort};
+        use std::sync::Arc;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sp21-worker.db");
+        let repo = SqliteProfileRepository::open(&path).unwrap();
+        let total = 5_000usize;
+        let profiles: Vec<Profile> = (0..total)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i as u32 + 1);
+                p.index_id = format!("sp21-worker-{i:07}");
+                p.subid = "sp21-worker".to_string();
+                p
+            })
+            .collect();
+        repo.replace_for_sub("sp21-worker", profiles, true, false)
+            .unwrap();
+
+        let pager = Arc::new(ProfilePageQuery::new());
+        pager.notify_mutated();
+        let worker = AsyncPageWorker::open_readonly(&path, pager.clone()).unwrap();
+        let caller = std::thread::current().id();
+        let revision = pager.dataset_revision();
+        let generation = pager.next_generation();
+
+        // The query executes on the worker thread: the caller blocks only on
+        // a bounded page rendezvous, never on a full-table read.
+        let mut handle = worker.submit(
+            AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor: 0,
+                page_size: 200,
+                expected_revision: revision,
+                generation,
+            },
+            domain::CancellationToken::new(),
+        );
+        let page = handle
+            .wait(std::time::Duration::from_secs(30))
+            .expect("bounded page arrives")
+            .expect("page query succeeds");
+        assert_eq!(page.items.len(), 200);
+        assert_ne!(page.worker_thread, caller, "work ran off the caller thread");
+        assert_eq!(page.dataset_revision, revision);
+
+        // Cancel returns immediately (sync) and the late result is discarded.
+        let cancel = domain::CancellationToken::new();
+        let mut late = worker.submit(
+            AsyncPageRequest {
+                filter: ProfileFilter::default(),
+                sort: ProfileSort::IndexId,
+                cursor: 0,
+                page_size: 200,
+                expected_revision: revision,
+                generation,
+            },
+            cancel.clone(),
+        );
+        let timer = std::time::Instant::now();
+        late.cancel();
+        assert!(
+            timer.elapsed() < std::time::Duration::from_secs(1),
+            "cancel stays immediately responsive"
+        );
+        drop(worker);
+        match late.wait(std::time::Duration::from_secs(30)) {
+            Err(AsyncPageError::Cancelled) | Ok(_) => {}
+            other => panic!("cancelled query must not deliver a live page, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn sp21_async_page_size_is_bounded() {
+        use super::{AsyncPageRequest, ProfilePageQuery, ASYNC_PAGE_MAX_SIZE};
+        use crate::repository::{ProfileFilter, ProfileSort};
+        let pager = ProfilePageQuery::new();
+        let repo = SqliteProfileRepository::open(":memory:").unwrap();
+        let profiles: Vec<Profile> = (0..100)
+            .map(|i| {
+                let mut p = synthetic_full_profile(i + 1);
+                p.index_id = format!("sp21-bound-{i:05}");
+                p.subid = "sp21-bound".to_string();
+                p
+            })
+            .collect();
+        repo.replace_for_sub("sp21-bound", profiles, true, false)
+            .unwrap();
+        pager.notify_mutated();
+
+        let cancel = domain::CancellationToken::new();
+        let page = pager
+            .query_page(
+                &repo,
+                &AsyncPageRequest {
+                    filter: ProfileFilter::default(),
+                    sort: ProfileSort::IndexId,
+                    cursor: 0,
+                    page_size: u32::MAX,
+                    expected_revision: pager.dataset_revision(),
+                    generation: pager.next_generation(),
+                },
+                &cancel,
+            )
+            .unwrap();
+        assert!(
+            page.items.len() <= ASYNC_PAGE_MAX_SIZE as usize,
+            "page is clamped to the bounded size"
+        );
     }
 }

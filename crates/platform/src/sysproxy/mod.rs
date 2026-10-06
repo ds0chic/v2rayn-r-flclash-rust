@@ -281,6 +281,22 @@ pub trait SystemProxyBackend {
         Ok(changes)
     }
 
+    /// Canonical applied-content hash (SP-12/SP-15 platform dedupe).
+    ///
+    /// Covers mode, server, bypass, PAC url and autodetect together with the
+    /// applied session key (never the desired port alone), so editing only the
+    /// bypass/PAC list at the same port still changes the identity and a
+    /// failed OS apply never advances the applied hash.
+    fn applied_content_hash(
+        &self,
+        mode: SysProxyMode,
+        settings: &ProxySettings,
+        session_key: &str,
+    ) -> String {
+        let _ = self;
+        applied_content_hash(mode, settings, session_key)
+    }
+
     /// Restore only the fields this application still owns.
     fn restore(&self, applied: &[AppliedChange]) -> Result<RestoreReport> {
         let current = self.snapshot()?;
@@ -293,6 +309,36 @@ pub trait SystemProxyBackend {
         }
         Ok(report)
     }
+}
+
+/// Canonical applied-content hash (SP-12/SP-15 platform dedupe).
+///
+/// Free function so callers without a backend instance can hash too. Covers
+/// mode, server, bypass, PAC url and autodetect plus the applied session key.
+pub fn applied_content_hash(
+    mode: SysProxyMode,
+    settings: &ProxySettings,
+    session_key: &str,
+) -> String {
+    let mode_token = match mode {
+        SysProxyMode::ForcedClear => "clear",
+        SysProxyMode::ForcedChange => "change",
+        SysProxyMode::Unchanged => "unchanged",
+        SysProxyMode::Pac => "pac",
+    };
+    let canonical = format!(
+        "{}|{}|{}|{}|{}|{}",
+        mode_token,
+        settings.server.as_deref().unwrap_or(""),
+        settings.bypass.as_deref().unwrap_or(""),
+        settings.auto_config_url.as_deref().unwrap_or(""),
+        settings
+            .auto_detect
+            .map(|v| if v { "1" } else { "0" })
+            .unwrap_or("-"),
+        session_key,
+    );
+    crate::hash::md5_hex(canonical.as_bytes())
 }
 
 #[cfg(test)]
@@ -353,6 +399,24 @@ mod tests {
         assert!(report.restored.is_empty());
         assert_eq!(report.conflicts.len(), 1);
         assert_eq!(report.conflicts[0].current_value.as_deref(), Some("user:9"));
+    }
+
+    #[test]
+    fn applied_hash_changes_on_bypass_only_edit() {
+        let base = ProxySettings {
+            server: Some("127.0.0.1:11809".to_string()),
+            bypass: Some("<local>".to_string()),
+            ..ProxySettings::default()
+        };
+        let edited = ProxySettings {
+            bypass: Some("<local>;192.0.2.0/24".to_string()),
+            ..base.clone()
+        };
+        let a = applied_content_hash(SysProxyMode::ForcedChange, &base, "sess:11809");
+        let b = applied_content_hash(SysProxyMode::ForcedChange, &edited, "sess:11809");
+        let c = applied_content_hash(SysProxyMode::ForcedChange, &base, "sess:11809");
+        assert_ne!(a, b, "same port with different bypass must re-apply");
+        assert_eq!(a, c);
     }
 
     #[test]

@@ -19,6 +19,61 @@ pub fn next_generation(current: u64) -> u64 {
     current.saturating_add(1)
 }
 
+/// Host-side keep-alive watch values (SP-09 preparation, CP-12).
+///
+/// The privileged helper already separates the per-request bound from the
+/// long idle bound (24h default), so an active session is never reclaimed for
+/// mere UI inactivity. The explicit renew protocol (`RenewLease` /
+/// `GetLeaseStatus` with per-request timeout, consecutive-failure
+/// reconciliation and an authenticated owner check) is A02-owned and not yet
+/// on the wire — interface needs N-H2/N-H3. Until the helper speaks it, the
+/// host side keeps these provisional watch values and the ownership rule
+/// below, and never fabricates a successful renew.
+///
+/// Provisional values follow RUNTIME_TUN_SOLUTION section 6.1: renew every
+/// 15s, lease term 90s, reconcile after 3 consecutive renew failures. They
+/// are negotiation inputs for A02, not negotiated facts yet.
+///
+/// Staged until the A02 renew protocol lands (needs N-H2/N-H3); covered by
+/// SP-09 virtual-time tests, hence `allow(dead_code)` on each item below.
+#[allow(dead_code)]
+pub const HELPER_RENEW_INTERVAL_MS: u64 = 15_000;
+#[allow(dead_code)]
+pub const HELPER_LEASE_TERM_MS: u64 = 90_000;
+#[allow(dead_code)]
+pub const HELPER_RENEW_FAILURES_BEFORE_RECONCILE: u32 = 3;
+
+/// Whether a renew is due. Pure virtual-time decision (`ms` on one monotonic
+/// clock); the actual renew RPC waits for the A02 helper interface.
+#[allow(dead_code)]
+pub fn renew_due(last_renew_ms: u64, now_ms: u64) -> bool {
+    now_ms.saturating_sub(last_renew_ms) >= HELPER_RENEW_INTERVAL_MS
+}
+
+/// Whether the lease term lapsed without confirmation. An active session that
+/// keeps renewing never hits this, however long the UI stays idle; only a
+/// dead owner (no renew, no traffic confirmation) expires.
+#[allow(dead_code)]
+pub fn lease_expired(last_confirmed_ms: u64, now_ms: u64) -> bool {
+    now_ms.saturating_sub(last_confirmed_ms) >= HELPER_LEASE_TERM_MS
+}
+
+/// Whether consecutive renew failures force reconciliation instead of another
+/// blind retry.
+#[allow(dead_code)]
+pub fn renew_reconcile_due(consecutive_failures: u32) -> bool {
+    consecutive_failures >= HELPER_RENEW_FAILURES_BEFORE_RECONCILE
+}
+
+/// Ownership rule for recovery (SP-09): a lease survives UI inactivity and
+/// manager silence; only a dead owner loses it. A reopened manager must
+/// recover by the journaled ownership (helper session + adapter identity +
+/// route digest), never by the current desired settings or by guessing.
+#[allow(dead_code)]
+pub fn active_lease_survives_ui_idle() -> bool {
+    true
+}
+
 /// State after a sidecar exit while the session record still exists: the live
 /// main core keeps its endpoint, but the session must read Degraded, never a
 /// clean Running. When the main core is already gone the session is Stopped.
@@ -53,5 +108,56 @@ mod tests {
     fn sidecar_exit_degrades_a_live_session() {
         assert_eq!(state_for_sidecar_exit(true), RuntimeState::Degraded);
         assert_eq!(state_for_sidecar_exit(false), RuntimeState::Stopped);
+    }
+
+    // -- SP-09 keep-alive preparation (CP-12) -------------------------------
+
+    #[test]
+    fn renew_is_due_on_the_provisional_interval() {
+        assert!(!renew_due(0, 0));
+        assert!(!renew_due(0, HELPER_RENEW_INTERVAL_MS - 1));
+        assert!(renew_due(0, HELPER_RENEW_INTERVAL_MS));
+        assert!(renew_due(1_000, 1_000 + HELPER_RENEW_INTERVAL_MS));
+    }
+
+    #[test]
+    fn lease_term_covers_the_renew_cycle_with_margin() {
+        // Six renew intervals fit inside one term: a single missed renew
+        // never expires an otherwise active lease.
+        const {
+            assert!(HELPER_LEASE_TERM_MS >= 6 * HELPER_RENEW_INTERVAL_MS);
+        }
+        assert!(!lease_expired(0, HELPER_LEASE_TERM_MS - 1));
+        assert!(lease_expired(0, HELPER_LEASE_TERM_MS));
+    }
+
+    #[test]
+    fn active_session_survives_24h_of_ui_idle_with_steady_renew() {
+        // Virtual 24h: renew every interval, confirm every renew. The lease
+        // must never read expired, however long nobody clicks.
+        let day_ms: u64 = 24 * 60 * 60 * 1_000;
+        let mut last_confirmed = 0u64;
+        let mut now = 0u64;
+        while now <= day_ms {
+            if renew_due(last_confirmed, now) {
+                last_confirmed = now;
+            }
+            assert!(
+                !lease_expired(last_confirmed, now),
+                "steady renew must hold the lease across 24h of UI idle"
+            );
+            now += HELPER_RENEW_INTERVAL_MS;
+        }
+    }
+
+    #[test]
+    fn dead_owner_expires_after_the_term_without_renew() {
+        // No renew and no confirmation for the whole term: the lease lapses
+        // and the owner must reconcile rather than assume ownership.
+        assert!(lease_expired(5_000, 5_000 + HELPER_LEASE_TERM_MS));
+        assert!(renew_reconcile_due(HELPER_RENEW_FAILURES_BEFORE_RECONCILE));
+        assert!(!renew_reconcile_due(
+            HELPER_RENEW_FAILURES_BEFORE_RECONCILE - 1
+        ));
     }
 }

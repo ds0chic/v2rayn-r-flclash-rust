@@ -1,0 +1,33 @@
+{
+  "tool": "synth_node_bench.dart",
+  "seed": 20261006,
+  "node_count": 10000,
+  "repeats": 30,
+  "percentile": "nearest-rank",
+  "scenarios": {
+    "filter_10k_ms": {
+      "n": 30,
+      "min_ms": 0.434,
+      "max_ms": 3.649,
+      "p50": 0.73,
+      "p95": 1.481,
+      "p99": 3.649
+    },
+    "sort_10k_ms": {
+      "n": 30,
+      "min_ms": 2.691,
+      "max_ms": 12.325,
+      "p50": 4.425,
+      "p95": 5.726,
+      "p99": 12.325
+    },
+    "logbatch_1k_ms": {
+      "n": 30,
+      "min_ms": 0.103,
+      "max_ms": 1.055,
+      "p50": 0.203,
+      "p95": 0.492,
+      "p99": 1.055
+    }
+  }
+}

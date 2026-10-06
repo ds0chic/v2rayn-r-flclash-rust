@@ -27,7 +27,6 @@ use runtime::tun::{TunAddress, TunSpec, TUN_CONFIG_KIND, TUN_PROCESS_ID};
 
 /// Default adapter label when the operator did not name one.
 pub const DEFAULT_TUN_ADAPTER: &str = "v2rayn-tun";
-
 /// Default adapter address (upstream `Global.TunIPv4Address.First()`).
 pub const DEFAULT_TUN_IPV4_CIDR: &str = "172.18.0.1/30";
 
@@ -328,6 +327,22 @@ pub fn attach_deferred_tun_to_plan(
     Ok(())
 }
 
+/// Ownership key of one applied TUN lease (SP-09 preparation).
+///
+/// A reopened manager recovers by this key — adapter identity, OS interface
+/// index and the order-insensitive route digest — never by the current
+/// desired settings. The adapter name compares case-insensitively after
+/// trimming (Windows display casing is not identity); the digest is opaque.
+/// Pure and side-effect-free; the host journal compares the same fields.
+pub fn tun_ownership_key(adapter_name: &str, interface_index: u32, route_digest: &str) -> String {
+    format!(
+        "{}|{}|{}",
+        adapter_name.trim().to_ascii_lowercase(),
+        interface_index,
+        route_digest.trim(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -596,5 +611,21 @@ Idx     Met    MTU          State                Name\r\n\
     #[test]
     fn explicit_index_wins_over_discovery() {
         assert_eq!(resolve_interface_index("v2rayn-tun", 42), 42);
+    }
+
+    #[test]
+    fn ownership_key_is_stable_across_casing_and_spacing() {
+        assert_eq!(
+            tun_ownership_key("v2rayn-tun", 9, "abc123"),
+            tun_ownership_key("  V2RAYN-TUN ", 9, "abc123"),
+        );
+    }
+
+    #[test]
+    fn ownership_key_separates_index_and_digest() {
+        let base = tun_ownership_key("v2rayn-tun", 9, "abc123");
+        assert_ne!(base, tun_ownership_key("v2rayn-tun", 11, "abc123"));
+        assert_ne!(base, tun_ownership_key("v2rayn-tun", 9, "def456"));
+        assert_ne!(base, tun_ownership_key("other-tun", 9, "abc123"));
     }
 }

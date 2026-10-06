@@ -18,6 +18,9 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::audit::{AuditLog, AuditOutcome};
 use crate::backend::{HelperBackend, StartedCore};
+use crate::journal::{
+    core_label, route_label, tun_label, JournalEntry, JournalKind, ResourceJournal,
+};
 
 /// Frame length prefix size in bytes (net-host convention).
 pub const LEN_PREFIX_BYTES: usize = 4;
@@ -72,6 +75,12 @@ impl Default for HelperServerConfig {
 
 /// Resources owned by one client connection. Cleanup only ever touches this
 /// list, so sessions cannot clean up each other's resources.
+///
+/// SP-08: every owned resource is mirrored in [`ResourceJournal`]. A failed
+/// release keeps the resource in the owned list *and* in the journal, and the
+/// lease stays open so a retry re-attempts exactly the unconfirmed items.
+/// `closed` therefore means "no further cleanup will be attempted", never
+/// "failures were forgotten".
 #[derive(Debug, Clone, Default)]
 pub struct ConnectionLease {
     session_id: String,
@@ -79,6 +88,8 @@ pub struct ConnectionLease {
     tun_interfaces: Vec<u32>,
     cores: Vec<u64>,
     closed: bool,
+    journal: ResourceJournal,
+    cleanup_attempts: u32,
 }
 
 impl ConnectionLease {
@@ -107,6 +118,30 @@ impl ConnectionLease {
 
     pub fn owned_core_count(&self) -> usize {
         self.cores.len()
+    }
+
+    pub fn owned_cores(&self) -> Vec<u64> {
+        self.cores.clone()
+    }
+
+    /// Journal entries for resources whose release failed and is awaiting
+    /// retry. This is what the owning plane (net-host) surfaces to the user.
+    pub fn pending_cleanup(&self) -> Vec<JournalEntry> {
+        self.journal.pending()
+    }
+
+    pub fn pending_cleanup_count(&self) -> usize {
+        self.journal.pending_count()
+    }
+
+    /// Full owned-resource journal snapshot, including released records.
+    pub fn journal_snapshot(&self) -> Vec<JournalEntry> {
+        self.journal.snapshot()
+    }
+
+    /// How many cleanup passes ran over this lease.
+    pub fn cleanup_attempts(&self) -> u32 {
+        self.cleanup_attempts
     }
 }
 
@@ -225,6 +260,12 @@ impl<B: HelperBackend> HelperServer<B> {
                 validate_route_entries(entries)?;
                 let count = self.backend.add_routes(entries)?;
                 lease.routes.extend(entries.iter().cloned());
+                for entry in entries {
+                    lease.journal.record_owned(
+                        JournalKind::Route,
+                        route_label(&entry.destination, entry.interface_index),
+                    );
+                }
                 Ok((
                     HelperResult::RoutesAdded { count },
                     format!("add_routes count={}", entries.len()),
@@ -234,6 +275,12 @@ impl<B: HelperBackend> HelperServer<B> {
                 validate_route_entries(entries)?;
                 let count = self.backend.remove_routes(entries)?;
                 lease.routes.retain(|owned| !entries.contains(owned));
+                for entry in entries {
+                    lease.journal.mark_released(
+                        JournalKind::Route,
+                        &route_label(&entry.destination, entry.interface_index),
+                    );
+                }
                 Ok((
                     HelperResult::RoutesRemoved { count },
                     format!("remove_routes count={}", entries.len()),
@@ -245,6 +292,9 @@ impl<B: HelperBackend> HelperServer<B> {
                 if !lease.tun_interfaces.contains(&config.interface_index) {
                     lease.tun_interfaces.push(config.interface_index);
                 }
+                lease
+                    .journal
+                    .record_owned(JournalKind::TunAddress, tun_label(config.interface_index));
                 Ok((
                     HelperResult::TunAddressSet {
                         interface_index: config.interface_index,
@@ -260,6 +310,9 @@ impl<B: HelperBackend> HelperServer<B> {
                 validate_elevated_core(spec, &self.config.allowed_run_roots)?;
                 let started: StartedCore = self.backend.run_elevated_core(spec)?;
                 lease.cores.push(started.handle);
+                lease
+                    .journal
+                    .record_owned(JournalKind::Core, core_label(started.handle));
                 Ok((
                     HelperResult::CoreStarted {
                         handle: started.handle,
@@ -275,6 +328,9 @@ impl<B: HelperBackend> HelperServer<B> {
             HelperOp::StopElevatedCore { handle } => {
                 self.backend.stop_elevated_core(*handle)?;
                 lease.cores.retain(|owned| owned != handle);
+                lease
+                    .journal
+                    .mark_released(JournalKind::Core, &core_label(*handle));
                 Ok((
                     HelperResult::CoreStopped { handle: *handle },
                     format!("stop_elevated_core handle={handle}"),
@@ -288,67 +344,150 @@ impl<B: HelperBackend> HelperServer<B> {
         }
     }
 
-    /// Clean up the resources owned by a disconnected session. Idempotent:
-    /// a second call on an already-closed lease performs no backend work.
+    /// Clean up the resources owned by a disconnected session.
     ///
-    /// Per-resource failures are returned (not swallowed) and recorded in the
-    /// audit log with an `Error` outcome so an operator can see what was left
-    /// behind. Failed cleanups need recovery by the owning plane (net-host
-    /// owns route/TUN reconciliation; see the T17 input register).
+    /// SP-08: each resource is released individually and confirmed. A failed
+    /// item stays in the owned list and in the journal, the lease stays open,
+    /// and the failure is returned (never swallowed). A retry re-attempts
+    /// exactly the unconfirmed items; only a pass with zero failures closes
+    /// the lease. Calling again after a fully confirmed cleanup (or after an
+    /// explicit `LeaveRunning`) performs no backend work.
     pub fn on_disconnect(&self, lease: &mut ConnectionLease) -> Vec<HelperError> {
+        self.run_cleanup(lease, "lease_cleanup")
+    }
+
+    /// Retry a previously failed cleanup. Same semantics as
+    /// [`Self::on_disconnect`] without requiring a new connection; exposed
+    /// so the owning plane can surface "pending cleanup" and retry it.
+    pub fn retry_cleanup(&self, lease: &mut ConnectionLease) -> Vec<HelperError> {
+        self.run_cleanup(lease, "lease_cleanup_retry")
+    }
+
+    fn run_cleanup(&self, lease: &mut ConnectionLease, op: &str) -> Vec<HelperError> {
         if lease.closed {
+            // Closed means fully released or explicitly left running: there
+            // is nothing unconfirmed to retry, so no backend work happens.
             return Vec::new();
         }
-        lease.closed = true;
+        lease.cleanup_attempts += 1;
         let mut failures: Vec<HelperError> = Vec::new();
-        let policy = self.config.lease_policy;
-        match policy {
-            LeasePolicy::LeaveRunning => {}
+        match self.config.lease_policy {
+            LeasePolicy::LeaveRunning => {
+                lease.closed = true;
+                self.audit.record(
+                    &lease.session_id,
+                    op,
+                    &format!(
+                        "policy=LeaveRunning left routes={} tun={} cores={}",
+                        lease.routes.len(),
+                        lease.tun_interfaces.len(),
+                        lease.cores.len()
+                    ),
+                    AuditOutcome::Ok,
+                );
+                return Vec::new();
+            }
             LeasePolicy::StopCoresOnly => {
-                for handle in std::mem::take(&mut lease.cores) {
-                    if let Err(error) = self.backend.stop_elevated_core(handle) {
-                        failures.push(error);
-                    }
-                }
+                self.release_cores(lease, &mut failures);
             }
             LeasePolicy::CleanOwned => {
-                if !lease.routes.is_empty() {
-                    let routes = std::mem::take(&mut lease.routes);
-                    if let Err(error) = self.backend.remove_routes(&routes) {
-                        failures.push(error);
-                    }
-                }
-                for interface_index in std::mem::take(&mut lease.tun_interfaces) {
-                    if let Err(error) = self.backend.reset_tun_address(interface_index) {
-                        failures.push(error);
-                    }
-                }
-                for handle in std::mem::take(&mut lease.cores) {
-                    if let Err(error) = self.backend.stop_elevated_core(handle) {
-                        failures.push(error);
-                    }
-                }
+                // Reverse-dependency order: stop owned cores before
+                // tearing down the addresses and routes they used.
+                self.release_cores(lease, &mut failures);
+                self.release_tun_addresses(lease, &mut failures);
+                self.release_routes(lease, &mut failures);
             }
         }
-        lease.routes.clear();
-        lease.tun_interfaces.clear();
-        lease.cores.clear();
+        // A lease with unconfirmed cleanups is never marked closed: a later
+        // retry must still see and re-attempt the retained resources.
+        lease.closed = failures.is_empty();
         let (outcome, summary) = if failures.is_empty() {
-            (AuditOutcome::Ok, format!("policy={policy:?}"))
+            (
+                AuditOutcome::Ok,
+                format!("policy={:?} released", self.config.lease_policy),
+            )
         } else {
             let labels: Vec<&str> = failures.iter().map(error_label).collect();
             (
                 AuditOutcome::Error,
                 format!(
-                    "policy={policy:?} cleanup_failures={} [{}] (needs owner recovery)",
+                    "policy={:?} cleanup_failures={} [{}] pending={} (needs owner retry)",
+                    self.config.lease_policy,
                     failures.len(),
                     labels.join(","),
+                    lease.journal.pending_count(),
                 ),
             )
         };
-        self.audit
-            .record(&lease.session_id, "lease_cleanup", &summary, outcome);
+        self.audit.record(&lease.session_id, op, &summary, outcome);
         failures
+    }
+
+    /// Release owned cores one handle at a time; failed handles stay owned.
+    fn release_cores(&self, lease: &mut ConnectionLease, failures: &mut Vec<HelperError>) {
+        let handles = std::mem::take(&mut lease.cores);
+        for handle in handles {
+            match self.backend.stop_elevated_core(handle) {
+                Ok(()) => {
+                    lease
+                        .journal
+                        .mark_released(JournalKind::Core, &core_label(handle));
+                }
+                Err(error) => {
+                    lease.journal.mark_failed(
+                        JournalKind::Core,
+                        core_label(handle),
+                        error_label(&error),
+                    );
+                    lease.cores.push(handle);
+                    failures.push(error);
+                }
+            }
+        }
+    }
+
+    /// Reset owned TUN addresses one interface at a time.
+    fn release_tun_addresses(&self, lease: &mut ConnectionLease, failures: &mut Vec<HelperError>) {
+        let interfaces = std::mem::take(&mut lease.tun_interfaces);
+        for interface_index in interfaces {
+            match self.backend.reset_tun_address(interface_index) {
+                Ok(()) => {
+                    lease
+                        .journal
+                        .mark_released(JournalKind::TunAddress, &tun_label(interface_index));
+                }
+                Err(error) => {
+                    lease.journal.mark_failed(
+                        JournalKind::TunAddress,
+                        tun_label(interface_index),
+                        error_label(&error),
+                    );
+                    lease.tun_interfaces.push(interface_index);
+                    failures.push(error);
+                }
+            }
+        }
+    }
+
+    /// Remove owned routes one entry at a time so a single failure retains
+    /// exactly its own entry while confirmed entries release.
+    fn release_routes(&self, lease: &mut ConnectionLease, failures: &mut Vec<HelperError>) {
+        let routes = std::mem::take(&mut lease.routes);
+        for entry in routes {
+            let label = route_label(&entry.destination, entry.interface_index);
+            match self.backend.remove_routes(std::slice::from_ref(&entry)) {
+                Ok(_) => {
+                    lease.journal.mark_released(JournalKind::Route, &label);
+                }
+                Err(error) => {
+                    lease
+                        .journal
+                        .mark_failed(JournalKind::Route, label, error_label(&error));
+                    lease.routes.push(entry);
+                    failures.push(error);
+                }
+            }
+        }
     }
 }
 
@@ -615,7 +754,7 @@ mod tests {
             },
         ));
         let server = HelperServer::new(
-            backend,
+            backend.clone(),
             HelperServerConfig {
                 lease_policy: LeasePolicy::CleanOwned,
                 ..HelperServerConfig::default()
@@ -629,13 +768,29 @@ mod tests {
         ));
         let failures = server.on_disconnect(&mut lease);
         assert_eq!(failures.len(), 1);
+        // SP-08 (CP-04): the failed route stays owned, the lease stays open,
+        // and the journal exposes it for retry. A retry must re-attempt the
+        // retained resource, never report quiet success.
+        assert_eq!(lease.owned_route_count(), 1);
+        assert!(!lease.is_closed());
+        assert_eq!(lease.pending_cleanup_count(), 1);
         let records = server.audit().records();
         let last = records.last().expect("lease_cleanup audit record");
         assert_eq!(last.operation, "lease_cleanup");
         assert_eq!(last.outcome, AuditOutcome::Error);
         assert!(last.summary.contains("cleanup_failures=1"));
-        // Second call is idempotent and performs no further work.
+        assert!(server.on_disconnect(&mut lease).len() == 1);
+        assert_eq!(backend.attempt_count(FakeOp::RemoveRoutes), 2);
+        // Once the fault clears, retry confirms the release and closes.
+        backend.clear_failure();
+        assert!(server.retry_cleanup(&mut lease).is_empty());
+        assert_eq!(lease.owned_route_count(), 0);
+        assert_eq!(lease.pending_cleanup_count(), 0);
+        assert!(lease.is_closed());
+        // A fully confirmed cleanup stays idempotent with no backend work.
+        let attempts = backend.attempt_count(FakeOp::RemoveRoutes);
         assert!(server.on_disconnect(&mut lease).is_empty());
+        assert_eq!(backend.attempt_count(FakeOp::RemoveRoutes), attempts);
     }
 
     #[test]

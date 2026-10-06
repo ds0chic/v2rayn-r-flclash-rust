@@ -1,0 +1,244 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.42s
+     Running unittests src\lib.rs (target\debug\deps\application-4f9cd1ea82f1473b.exe)
+
+running 29 tests
+test net_host_client::tests::missing_tun_detail_stays_missing ... ok
+test net_host_client::tests::tun_detail_maps_into_snapshot_status ... ok
+test runtime_client::tests::snapshot_carries_no_tun_lease_by_default ... ok
+test snapshot::tests::snapshot_without_tun_stays_without_tun ... ok
+test tun_plan::tests::deferred_spec_is_none_when_disabled_or_index_known ... ok
+test runtime_client::tests::tun_status_roundtrips_and_compares ... ok
+test tun_plan::tests::attach_rejects_invalid_spec ... ok
+test tun_plan::tests::bad_route_exclude_is_rejected ... ok
+test tun_plan::tests::bare_ip_is_rejected_with_field ... ok
+test snapshot::tests::tun_status_flows_into_snapshot ... ok
+test tun_plan::tests::deferred_spec_used_when_interface_unknown ... ok
+test tun_plan::tests::explicit_index_wins_over_discovery ... ok
+test tun_plan::tests::deferred_attach_uses_distinct_node_and_flag ... ok
+test tun_plan::tests::disabled_tun_builds_nothing ... ok
+test tun_plan::tests::attach_round_trips_through_plan_and_is_idempotent ... ok
+test tun_plan::tests::explicit_ipv4_cidr_is_used ... ok
+test tun_plan::tests::ipv6_included_only_when_enabled_with_address ... ok
+test tun_plan::tests::missing_ipv4_falls_back_to_upstream_default ... ok
+test tun_plan::tests::nonpositive_mtu_falls_back_to_1280 ... ok
+test tun_plan::tests::out_of_range_mtu_is_rejected ... ok
+test mixin::tests::tun_section_merges_only_when_enabled ... ok
+test tun_plan::tests::ownership_key_is_stable_across_casing_and_spacing ... ok
+test tun_plan::tests::ownership_key_separates_index_and_digest ... ok
+test tun_plan::tests::parse_handles_adapter_names_with_spaces ... ok
+test tun_plan::tests::parse_missing_or_blank_adapter_is_none ... ok
+test tun_plan::tests::parse_finds_adapter_by_name_and_skips_header ... ok
+test tun_plan::tests::zero_interface_index_is_rejected ... ok
+test codegen::tests::r4_13_s22_tun_fields_reach_generated_config ... ok
+test engine::tests::first_tun_without_interface_builds_a_deferred_plan ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 282 filtered out; finished in 0.01s
+
+     Running tests\cert_sources.rs (target\debug\deps\cert_sources-5fe02c106958b0fc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\fix03b_custom_file.rs (target\debug\deps\fix03b_custom_file-2b48b2bb87ad50f1.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests\fix04_inner_import.rs (target\debug\deps\fix04_inner_import-302736f245a3a979.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\fix10_speedtest_result.rs (target\debug\deps\fix10_speedtest_result-1622cd815df342f8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\fix13_tun_presocks_plan.rs (target\debug\deps\fix13_tun_presocks_plan-f602cbb57efdc3a0.exe)
+
+running 3 tests
+test tun_enabled_without_interface_hint_defers_until_the_core_creates_it ... ok
+test tun_enabled_with_hint_attaches_a_round_tripping_tun_node ... ok
+test tun_disabled_plan_has_no_tun_node_or_privilege ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.01s
+
+     Running tests\profiles_persist.rs (target\debug\deps\profiles_persist-b4d7c9bfd7336577.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\r3_02_presocks_sidecar.rs (target\debug\deps\r3_02_presocks_sidecar-52bf485286878e45.exe)
+
+running 1 test
+test legacy_protect_sidecar_reflects_tun_and_real_local_port ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.01s
+
+     Running tests\r3_03_native_custom.rs (target\debug\deps\r3_03_native_custom-5e1a6db4982b95b3.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\r3_prof_11_reality_fingerprint.rs (target\debug\deps\r3_prof_11_reality_fingerprint-a9b138a21574b2dc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\re_prof_07_normalize.rs (target\debug\deps\re_prof_07_normalize-5f8fb10544cf44a8.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\rr01_cores_root.rs (target\debug\deps\rr01_cores_root-511715bc670a49eb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\single_instance.rs (target\debug\deps\single_instance-abc49e5847fc035e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests\sp01_corrupt_config.rs (target\debug\deps\sp01_corrupt_config-3d32f699122e1a2f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\sp02_recoverable_commit.rs (target\debug\deps\sp02_recoverable_commit-6151bcf7bfa27a10.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\sp03_backup_identity.rs (target\debug\deps\sp03_backup_identity-d86e15687cc372f2.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\sp04_command_sequence.rs (target\debug\deps\sp04_command_sequence-cf388c27321943a7.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests\sp05_applied_target.rs (target\debug\deps\sp05_applied_target-716e783a20059f2b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\sp14_import_batch.rs (target\debug\deps\sp14_import_batch-15decde0967e6d69.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\subs_pipeline.rs (target\debug\deps\subs_pipeline-34479f84f1292502.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+     Running tests\t10_core_matrix.rs (target\debug\deps\t10_core_matrix-dfb5423e9d8851fe.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\t10_groups_templates.rs (target\debug\deps\t10_groups_templates-4009cd4be4f10dba.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests\t11_codegen_matrix.rs (target\debug\deps\t11_codegen_matrix-fcc629cee9b6fc5b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests\t11_routing_dns.rs (target\debug\deps\t11_routing_dns-f0a749c99622ea09.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+     Running tests\t13_platform.rs (target\debug\deps\t13_platform-d37c731dcf07d58a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+     Running tests\t15_monitor.rs (target\debug\deps\t15_monitor-6840f75fee9225db.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\t15b_speedtest_session.rs (target\debug\deps\t15b_speedtest_session-f5520211a78a704b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests\t16_backup.rs (target\debug\deps\t16_backup-628d6f38a9b9ec2a.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\t16_update.rs (target\debug\deps\t16_update-9d5107d590ffe612.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests\t16_webdav.rs (target\debug\deps\t16_webdav-2f454e7ba6d300bc.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests\t18_settings_chain.rs (target\debug\deps\t18_settings_chain-a0813d8ef1634127.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests\t18_stability.rs (target\debug\deps\t18_stability-5a318eb4d87d3236.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests\t18b_runtime_e2e.rs (target\debug\deps\t18b_runtime_e2e-b44f1787463a095b.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests\t18b_runtime_plan.rs (target\debug\deps\t18b_runtime_plan-e3100880d54f529e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+
+     Running tests\ux_test02_https_probe.rs (target\debug\deps\ux_test02_https_probe-9ebd2c84fd95b60c.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+

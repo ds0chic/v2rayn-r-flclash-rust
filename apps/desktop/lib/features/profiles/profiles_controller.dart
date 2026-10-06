@@ -96,6 +96,113 @@ class TableEvent {
   final String detail;
 }
 
+/// One frozen async page request (SP-21 data-layer prep).
+///
+/// Filter/sort/cursor are captured at call time, mirroring the Rust
+/// `AsyncPageRequest` in `crates/application/src/store_repo.rs`.
+/// `expectedRevision == 0 && cursor == 0` is a fresh query that adopts the
+/// current dataset revision. The real `QueryProfilesPageAsync` FRB entry is a
+/// registered gap (SP-00 integrator; full UI wiring waits on SP-16).
+class ProfilePageRequest {
+  const ProfilePageRequest({
+    required this.cursor,
+    required this.pageSize,
+    required this.expectedRevision,
+    required this.generation,
+    this.filterText = '',
+    this.subid,
+    this.sortKey = 'IndexId',
+  });
+
+  final int cursor;
+  final int pageSize;
+  final int expectedRevision;
+  final int generation;
+  final String filterText;
+  final String? subid;
+  final String sortKey;
+}
+
+/// One bounded page: row ids plus the cursor/revision contract.
+class ProfilePageResult {
+  const ProfilePageResult({
+    required this.ids,
+    required this.nextCursor,
+    required this.datasetRevision,
+    required this.total,
+    required this.generation,
+  });
+
+  final List<String> ids;
+  final int? nextCursor;
+  final int datasetRevision;
+  final int total;
+  final int generation;
+}
+
+/// Cancellable async page orchestration.
+///
+/// A newer request (or [cancelCurrentQuery]) supersedes in-flight ones: their
+/// late results resolve to null and must never overwrite the latest view.
+/// [cancelCurrentQuery] is synchronous and returns immediately; the pending
+/// fetch is dropped when it settles instead of being awaited.
+class AsyncProfilePager {
+  int _generation = 0;
+
+  int get currentGeneration => _generation;
+
+  /// Open a new request generation; older in-flight results go stale.
+  int nextGeneration() {
+    _generation++;
+    return _generation;
+  }
+
+  /// Cancel the current query. Synchronous: takes effect immediately without
+  /// awaiting the pending fetch.
+  void cancelCurrentQuery() {
+    _generation++;
+  }
+
+  bool isCurrent(int generation) => generation == _generation;
+
+  /// Whether a page fetched for [cursor]/[expectedRevision] must be discarded
+  /// and re-queried from zero: the dataset changed under the cursor.
+  bool needsRefetchFromStart(
+    ProfilePageResult page, {
+    required int cursor,
+    required int expectedRevision,
+  }) {
+    if (cursor == 0) return false;
+    return page.datasetRevision != expectedRevision;
+  }
+
+  /// Run one frozen page fetch; resolves to null when a newer generation or
+  /// a cancel superseded it while in flight (late-result drop).
+  Future<ProfilePageResult?> fetchPage({
+    required int cursor,
+    required int pageSize,
+    required int expectedRevision,
+    required int generation,
+    String filterText = '',
+    String? subid,
+    String sortKey = 'IndexId',
+    required Future<ProfilePageResult> Function(ProfilePageRequest) fetch,
+  }) async {
+    final request = ProfilePageRequest(
+      cursor: cursor,
+      pageSize: pageSize,
+      expectedRevision: expectedRevision,
+      generation: generation,
+      filterText: filterText,
+      subid: subid,
+      sortKey: sortKey,
+    );
+    final page = await fetch(request);
+    if (!isCurrent(request.generation)) return null;
+    return page;
+  }
+}
+
 /// Outcome of `移除重复` (ACT-PROF-003). Distinguishes "no duplicates found"
 /// from a real delete failure and records whether the active node was removed,
 /// so the caller can show the true error and run the active-node fallback
@@ -349,6 +456,12 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// Latest accepted table-query generation. A newer reload/search bumps it so
   /// a late (older) page result can never overwrite a newer one.
   int _queryGeneration = 0;
+
+  /// SP-21 cancellable page orchestration. The page source itself still waits
+  /// on the `QueryProfilesPageAsync` FRB entry (registered gap, SP-00
+  /// integrator); this pager already owns the generation/cancel/cursor
+  /// contract the async loader will use.
+  final AsyncProfilePager _pagePager = AsyncProfilePager();
 
   /// Job ids of every run started but not yet confirmed finished. Upstream
   /// `SpeedtestService.ExitLoop` cancels *all* in-flight runs, so the controller
@@ -621,6 +734,15 @@ class ProfilesController extends Notifier<ProfilesState> {
     await Future<void>.value();
     if (generation != _queryGeneration) return;
     state = _recompute(state.copyWith(filter: query, filterInput: query));
+  }
+
+  /// Cancel any in-flight async page query. Synchronous and immediately
+  /// effective: the pending fetch is dropped when it settles instead of being
+  /// awaited, so group switches, filter commits and sorts stay responsive.
+  void cancelProfilePageQuery() {
+    _queryGeneration++;
+    _pagePager.cancelCurrentQuery();
+    _log('cancel-page-query', 'generation=$_queryGeneration');
   }
 
   /// Persist a draft through the real bridge (optimistic revision).

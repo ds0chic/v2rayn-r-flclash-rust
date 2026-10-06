@@ -1391,6 +1391,26 @@ pub fn save_settings_group(
     }
 }
 
+/// Content hash of an already-saved settings document for SP-12 retries.
+///
+/// Plain helper (not an FRB method, so no codegen change): the Dart
+/// `retrySettingsApply` path carries the hash and the Rust side re-checks it
+/// before running apply phases. New FRB surface, if ever needed, is owned by
+/// the SP-00 integrator (see SP-12 evidence interface registry).
+pub fn settings_content_hash_for_retry(settings_json: &str) -> String {
+    application::settings::settings_content_hash(settings_json)
+}
+
+/// Whether a retry may run: draft and persisted hashes must equal the saved
+/// hash (SP-12). Pure so it can be unit tested without the engine.
+pub fn retry_content_matches_saved(
+    saved_hash: &str,
+    draft_hash: &str,
+    persisted_hash: &str,
+) -> bool {
+    application::settings::retry_content_matches_saved(saved_hash, draft_hash, persisted_hash)
+}
+
 /// Test/debug helper: validate the current tree without saving it.
 #[frb(sync)]
 pub fn validate_current_settings() -> bool {
@@ -1457,6 +1477,17 @@ mod tests {
         let result = save_settings_group("NotAGroup".to_string(), "{}".to_string(), 0);
         assert!(!result.ok);
         assert_eq!(result.error.unwrap().code, domain::codes::INVALID_ARGUMENT);
+    }
+
+    #[test]
+    fn retry_hash_helpers_reject_diverged_content() {
+        let saved = settings_content_hash_for_retry(r#"{"a":1}"#);
+        let same = settings_content_hash_for_retry(r#"{"a":1}"#);
+        let other = settings_content_hash_for_retry(r#"{"a":2}"#);
+        assert_eq!(saved, same);
+        assert!(retry_content_matches_saved(&saved, &same, &same));
+        assert!(!retry_content_matches_saved(&saved, &other, &same));
+        assert!(!retry_content_matches_saved(&saved, &same, &other));
     }
 
     #[test]

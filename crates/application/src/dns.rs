@@ -530,6 +530,29 @@ mod tests {
         assert!(parse_simple_dns_template("nope").is_err());
     }
 
+    /// SP-13/CP-08: malformed DNS templates are rejected at the parse
+    /// boundary and never reach the repository (read failure must not become
+    /// a write).
+    #[test]
+    fn sp13_malformed_dns_template_never_writes() {
+        let repo = InMemoryDnsRepository::with_items(vec![DnsProfile {
+            id: "dns-keep".into(),
+            remarks: "synthetic keep".into(),
+            enabled: true,
+            core_type: CoreType::Xray,
+            ..Default::default()
+        }]);
+        assert!(parse_dns_template(CoreType::Xray, "not json{{").is_err());
+        assert!(parse_dns_template(CoreType::Xray, "[1,2]").is_err());
+        assert!(parse_dns_template(CoreType::SingBox, "40").is_err());
+        assert!(parse_simple_dns_template("nope").is_err());
+        assert!(parse_simple_dns_template("[1,2]").is_err());
+        let kept = repo.list().unwrap();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].id, "dns-keep");
+        assert_eq!(repo.count(), 1);
+    }
+
     #[test]
     fn parse_simple_dns_template_reads_fields() {
         let text = r#"{"FakeIP": true, "GlobalFakeIp": false,

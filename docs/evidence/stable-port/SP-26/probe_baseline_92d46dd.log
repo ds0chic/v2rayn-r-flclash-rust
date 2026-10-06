@@ -1,0 +1,35 @@
+=== SP-26 renderer probe ===
+time_utc=2026-10-06T17:49:44.9661153Z
+flutter=Flutter 3.47.5 鈥?channel stable 鈥?https://github.com/flutter/flutter.git
+Framework 鈥?revision 6a19cca564 (3 weeks ago) 鈥?2026-09-17 14:13:22 -0400
+Engine 鈥?hash ab598368592da0064197e2bc15c7f5b0a2c6bb1f (revision af7e796e16) (19 days ago) 鈥?2026-09-16 18:35:09.000Z
+
+=== GPU inventory (Win32_VideoController) ===
+name=GameViewer Virtual Display Adapter | driver=15.6.5.199 | arch=5
+name=Parsec Virtual Display Adapter | driver=0.45.0.0 | arch=5
+name=NVIDIA GeForce RTX 5070 Ti | driver=32.0.16.1692 | arch=5
+name=AMD Radeon(TM) Graphics | driver=32.0.21045.5002 | arch=5
+
+=== engine artifacts ===
+dll_sha256=8BD7B61EEE31AA436EDB182DB41624D1CD3B2688A7E03622320DBEAE067B5251
+dll_bytes=21274112
+hdr_sha256=BDA68D72DD864BC3C0745E451CBCCE90D77AED6E9BDAEA2883940A87938D4C2C
+
+=== renderer switch strings in flutter_windows.dll (ASCII scan) ===
+dll_bytes=21274112 --enable-impeller count=3 --enable-impeller=true count=1 --enable-impeller=false count=1 enable-software-rendering count=1 --impeller-use-sdfs count=2 --enable-flutter-gpu count=3 FlutterDesktopEngineGetGraphicsAdapter count=1 LowPowerPreference count=0 HighPerformancePreference count=0 software_rendering_help=b'h. Memory usage will continue to grow indefinitely however.\x00enable-software-rendering\x00Enable rendering using the Skia software backend. This is useful when testing Flutter on emulators. By default, Flutter will attempt t'
+
+=== embedder header knobs (flutter_windows.h enums) ===
+50:} FlutterDesktopGpuPreference;
+82:} FlutterDesktopImpellerSwitch;
+119:FlutterDesktopGpuPreference gpu_preference;
+130:FlutterDesktopImpellerSwitch impeller_switch;
+304:// DEPRECATED: Use |FlutterDesktopEngineGetGraphicsAdapter| instead.
+312:FLUTTER_EXPORT bool FlutterDesktopEngineGetGraphicsAdapter(
+
+=== runner wiring state (expect zero HWA/impeller/gpu hits) ===
+runner_hwa_consumer_hits=0 (gap G-03 confirmed)
+
+=== app-side HWA state (persist only) ===
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\lib\features\settings\option_setting_window.dart:1034:value: _bool(gui, 'EnableHWA'),
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\lib\features\settings\option_setting_window.dart:1035:onChanged: (v) => _set('GuiItem', 'EnableHWA', v),
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\lib\features\settings\settings_defaults.dart:104:'EnableHWA': false,

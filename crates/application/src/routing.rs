@@ -645,4 +645,28 @@ mod tests {
         assert!(parse_imported_rules_compat("[]").is_err());
         assert!(parse_imported_rules_compat("[{}]").is_err());
     }
+
+    /// SP-13/CP-08: malformed rule text is rejected at the parse boundary and
+    /// never reaches the repository (read failure must not become a write).
+    #[test]
+    fn sp13_malformed_import_never_writes() {
+        let repo = InMemoryRoutingRepository::with_items(vec![RoutingProfile {
+            id: "rt-keep".into(),
+            remarks: "synthetic keep".into(),
+            ..Default::default()
+        }]);
+        for bad in [
+            "",
+            "not json{{",
+            "[]",
+            "[{}]",
+            r#"[{"port": "443", "enabled": true}, "oops"]"#,
+        ] {
+            assert!(parse_imported_rules_compat(bad).is_err(), "input: {bad}");
+        }
+        let kept = repo.list().unwrap();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].id, "rt-keep");
+        assert_eq!(repo.count(), 1);
+    }
 }

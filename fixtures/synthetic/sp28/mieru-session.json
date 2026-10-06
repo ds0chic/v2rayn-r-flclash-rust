@@ -1,0 +1,27 @@
+{
+  "fixture": "SP-28 synthetic session (no secrets, no user data)",
+  "core": "mieru",
+  "core_version": "3.38.0",
+  "executable": "tools/cores/mieru/v3.38.0/mieru.exe",
+  "adapter": "crates/runtime/src/adapter.rs",
+  "protocol": "socks",
+  "synthetic_inbound": {
+    "listen": "127.0.0.1",
+    "port": 11821
+  },
+  "synthetic_target": {
+    "host": "127.0.0.1",
+    "port": 9,
+    "note": "discard; loopback only"
+  },
+  "config_sample": "native_custom passthrough via MIERU_CONFIG_JSON_FILE (adapter.rs:859; shape pinned at SP-28 L1)",
+  "forbidden": [
+    "0.0.0.0 listen",
+    "port 10808",
+    "host proxy/route/DNS/Run-key writes",
+    "real credentials"
+  ],
+  "l0_identity_cmd": "tools/cores/mieru/v3.38.0/mieru.exe version",
+  "l1_session_gate": "GUI->FRB->host->real flow/exit per SP-28 s22 (not run; pending prereq)",
+  "credentials": null
+}

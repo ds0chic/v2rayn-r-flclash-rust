@@ -178,6 +178,30 @@ pub fn save_main_grid_height(settings: &mut AppSettings, height1: i32, height2: 
     settings.ui_item.main_gird_height2 = height2;
 }
 
+/// Canonical content hash of an already-serialised settings document (SP-12).
+///
+/// Points at the saved version so `retrySettingsApply` can refuse a stale
+/// retry without re-persisting. FNV-1a/32 hex over the exact bytes; callers
+/// must pass the canonical `guiNConfig.json` bytes (same key order as saved).
+pub fn settings_content_hash(canonical_json: &str) -> String {
+    let mut hash: u32 = 0x811c_9dc5;
+    for byte in canonical_json.bytes() {
+        hash ^= u32::from(byte);
+        hash = hash.wrapping_mul(0x0100_0193);
+    }
+    format!("{hash:08x}")
+}
+
+/// Whether a retry may run its apply phases: the draft hash and the currently
+/// persisted hash must both equal the saved version's hash (SP-12).
+pub fn retry_content_matches_saved(
+    saved_hash: &str,
+    draft_hash: &str,
+    persisted_hash: &str,
+) -> bool {
+    !saved_hash.is_empty() && draft_hash == saved_hash && persisted_hash == saved_hash
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -323,5 +347,26 @@ mod tests {
         save_main_grid_height(&mut settings, 320, 480);
         assert_eq!(settings.ui_item.main_gird_height1, 320);
         assert_eq!(settings.ui_item.main_gird_height2, 480);
+    }
+
+    #[test]
+    fn content_hash_is_stable_and_content_sensitive() {
+        let a = super::settings_content_hash(r#"{"GuiItem":{"AutoRun":true}}"#);
+        let b = super::settings_content_hash(r#"{"GuiItem":{"AutoRun":true}}"#);
+        let c = super::settings_content_hash(r#"{"GuiItem":{"AutoRun":false}}"#);
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        assert_eq!(a.len(), 8);
+    }
+
+    #[test]
+    fn retry_guard_rejects_diverged_content() {
+        let saved = super::settings_content_hash("v1");
+        let same = super::settings_content_hash("v1");
+        let other = super::settings_content_hash("v2");
+        assert!(super::retry_content_matches_saved(&saved, &same, &same));
+        assert!(!super::retry_content_matches_saved(&saved, &other, &same));
+        assert!(!super::retry_content_matches_saved(&saved, &same, &other));
+        assert!(!super::retry_content_matches_saved("", &same, &same));
     }
 }

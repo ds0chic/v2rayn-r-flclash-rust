@@ -1582,11 +1582,31 @@ RoutingEditorSnapshot decodeRoutingSnapshot(String text) {
   try {
     decoded = jsonDecode(text);
   } catch (_) {
-    decoded = null;
+    // CP-08/SP-13: malformed text must never become an empty writable draft
+    // whose 确定 would delete every persisted scheme.
+    throw const RoutingEditorLoadException('读取路由设置失败');
   }
-  final map = decoded is Map
-      ? decoded.cast<String, dynamic>()
-      : <String, dynamic>{};
+  if (decoded is! Map) {
+    throw const RoutingEditorLoadException('读取路由设置失败');
+  }
+  final map = decoded.cast<String, dynamic>();
+  final rawSchemes = map['schemes'];
+  // A readable baseline must carry a scheme list; anything else is corruption,
+  // not an empty configuration.
+  if (rawSchemes is! List) {
+    throw const RoutingEditorLoadException('读取路由设置失败');
+  }
+  for (final entry in rawSchemes) {
+    if (entry is! Map) {
+      throw const RoutingEditorLoadException('读取路由设置失败');
+    }
+    final id = entry.cast<String, dynamic>()['id'];
+    // Persisted schemes always carry an id; an id-less entry would save as a
+    // brand-new row on 确定 (duplicate), so refuse it here.
+    if (id is! String || id.isEmpty) {
+      throw const RoutingEditorLoadException('读取路由设置失败');
+    }
+  }
   return RoutingEditorSnapshot(
     schemes: _decodeRoutingSchemes(map),
     domainStrategy: map['domainStrategy'] as String? ?? '',
@@ -2209,12 +2229,27 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
 
   /// Delete every selected scheme (upstream `RoutingAdvancedRemoveAsync`
   /// iterates `SelectedSources`). Each delete is committed on its own and
-  /// checked; the in-memory list changes only after all writes succeed.
+  /// checked; SP-13 reconciles already-committed ids on partial failure (see
+  /// [_deleteSchemes]) so 确定 can never resurrect them.
   Future<void> _deleteSelected() async {
     final ids = _selectedIds.isEmpty
         ? <String>[?_selectedId]
         : _selectedIds.toList();
     await _deleteSchemes(ids);
+  }
+
+  /// Drop already-committed deletes from the local draft after a partial
+  /// batch failure. The failed and never-attempted ids stay, so the user can
+  /// retry them; a later 确定 only persists what is still listed.
+  void _dropCommitted(Set<String> committed) {
+    if (committed.isEmpty) return;
+    _schemes = _schemes
+        .where((s) => !committed.contains(s.profile.id))
+        .toList();
+    _selectedIds.removeAll(committed);
+    if (_selectedId != null && committed.contains(_selectedId)) {
+      _selectedId = _schemes.isEmpty ? null : _schemes.first.profile.id;
+    }
   }
 
   Future<void> _deleteSchemes(List<String> ids) async {
@@ -2240,6 +2275,13 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     );
     if (confirmed != true || !mounted) return;
     final target = ids.toSet();
+    // SP-13/CP-08: backend commits are real the moment they succeed, so a
+    // later failure in the same batch must not keep the pre-batch full set as
+    // the draft. Committed ids are dropped from the draft immediately;
+    // otherwise a later whole-window 确定 would resurrect them. Full
+    // authoritative re-query after each increment waits for the SP-12
+    // receipt/version contract (A04).
+    final committed = <String>{};
     final Object host = widget.host;
     if (host is RoutingCommitHost) {
       for (final id in target) {
@@ -2249,19 +2291,23 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
         if (!outcome.ok) {
           if (mounted) {
             setState(() {
+              _dropCommitted(committed);
               // SP-11: PendingConfirmation is recoverable status, not an
               // error to retry blindly; the batch stops without replay.
               if (outcome.pendingConfirmation) {
                 _status = outcome.message ?? '路由保存结果待确认';
                 _error = null;
               } else {
-                _status = null;
+                _status = committed.isEmpty
+                    ? null
+                    : '部分删除失败：已删除 ${committed.length} 个';
                 _error = outcome.message ?? '删除路由方案失败';
               }
             });
           }
           return;
         }
+        committed.add(id);
       }
     }
     if (!mounted) return;

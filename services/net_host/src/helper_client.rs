@@ -278,6 +278,12 @@ pub enum FakeHelperFault {
     Disconnect,
     /// Routes are added, then the adapter set fails.
     PartialTun,
+    /// SP-08: apply succeeds, but every cleanup fails with a backend error.
+    /// Resources are left intact so the retry path can be exercised.
+    CleanupFails,
+    /// SP-08: apply succeeds, but every cleanup reports the helper
+    /// unreachable (retryable). Resources are left intact.
+    CleanupUnavailable,
 }
 
 #[derive(Debug, Default)]
@@ -289,6 +295,7 @@ struct FakeHelperState {
     ops: Vec<String>,
     apply_count: u32,
     cleanup_count: u32,
+    cleanup_attempts: u32,
     cleaned: bool,
     elevated_cores: Vec<ElevatedCoreSpec>,
     next_core_handle: u64,
@@ -337,6 +344,11 @@ impl FakeHelperLink {
         self.state.lock().expect("fake helper poisoned")
     }
 
+    /// Switch the injected fault mid-test (e.g. fail cleanups, then recover).
+    pub fn set_fault(&mut self, fault: Option<FakeHelperFault>) {
+        self.fault = fault;
+    }
+
     pub fn ops(&self) -> Vec<String> {
         self.lock().ops.clone()
     }
@@ -355,6 +367,12 @@ impl FakeHelperLink {
 
     pub fn cleanup_count(&self) -> u32 {
         self.lock().cleanup_count
+    }
+
+    /// Every cleanup call, including failed ones (unlike `cleanup_count`,
+    /// which only counts confirmed releases).
+    pub fn cleanup_attempts(&self) -> u32 {
+        self.lock().cleanup_attempts
     }
 }
 
@@ -421,6 +439,17 @@ impl HelperLink for FakeHelperLink {
 
     fn cleanup(&mut self, _lease: &TunLease) -> Result<(), DomainError> {
         let mut state = self.lock();
+        state.cleanup_attempts += 1;
+        if self.fault == Some(FakeHelperFault::CleanupFails) {
+            state.ops.push("cleanup failed".into());
+            return Err(tun_apply_failed("fake cleanup backend failure"));
+        }
+        if self.fault == Some(FakeHelperFault::CleanupUnavailable) {
+            state.ops.push("cleanup unavailable".into());
+            return Err(
+                tun_helper_unavailable("fake helper unreachable during cleanup").retryable(),
+            );
+        }
         if state.cleaned {
             return Ok(());
         }
@@ -771,7 +800,17 @@ impl HelperLink for PipeHelperLink {
     fn cleanup(&mut self, lease: &TunLease) -> Result<(), DomainError> {
         let entries = lease.spec.to_route_entries()?;
         if !entries.is_empty() {
-            let _ = self.call(HelperOp::RemoveRoutes { entries });
+            // SP-08: a removal failure is returned, never swallowed. The
+            // journal stays so the cleanup is retried; dropping the local
+            // connection still lets the helper's disconnect path run, but the
+            // caller only reports success once a cleanup is confirmed (or the
+            // resources are proven already-absent). Per-resource confirmation
+            // needs the A02 `ReleaseOwnedResources` report; until then any
+            // `Err` keeps the lease pending.
+            if let Err(error) = self.call(HelperOp::RemoveRoutes { entries }) {
+                self.conn = None;
+                return Err(error);
+            }
         }
         // Closing the session lets the helper reset the owned TUN adapter via
         // its `LeasePolicy::CleanOwned` disconnect path (there is no explicit
@@ -1157,6 +1196,35 @@ mod tests {
             .code,
             codes::UNAVAILABLE
         );
+    }
+
+    #[test]
+    fn fake_cleanup_failure_keeps_resources_for_retry() {
+        let mut link = FakeHelperLink::with_fault(FakeHelperFault::CleanupFails);
+        let lease = link.apply(&spec()).unwrap();
+        let error = link.cleanup(&lease).unwrap_err();
+        assert_eq!(error.code, codes::UNAVAILABLE);
+        assert_eq!(link.cleanup_attempts(), 1);
+        assert_eq!(link.cleanup_count(), 0, "no confirmed release happened");
+        assert!(link.has_tun(), "resources stay owned until confirmed");
+        assert_eq!(link.route_count(), 1);
+        // Recovery: the fault clears and the same lease cleans normally.
+        link.set_fault(None);
+        link.cleanup(&lease).unwrap();
+        assert_eq!(link.cleanup_count(), 1);
+        assert!(!link.has_tun());
+    }
+
+    #[test]
+    fn fake_cleanup_unavailable_is_retryable_and_keeps_resources() {
+        let mut link = FakeHelperLink::with_fault(FakeHelperFault::CleanupUnavailable);
+        let lease = link.apply(&spec()).unwrap();
+        let error = link.cleanup(&lease).unwrap_err();
+        assert_eq!(error.code, E_TUN_HELPER_UNAVAILABLE);
+        assert!(error.retryable);
+        assert!(link.has_tun());
+        assert_eq!(link.cleanup_attempts(), 1);
+        assert_eq!(link.cleanup_count(), 0);
     }
 
     #[test]

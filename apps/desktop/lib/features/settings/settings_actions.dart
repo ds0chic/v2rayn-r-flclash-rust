@@ -58,9 +58,43 @@ Future<SettingsEditorOutcome> _applyOptionDraft(
   } catch (_) {
     return const SettingsEditorOutcome(ok: false, message: '保存配置失败');
   }
+  // SP-12: the first attempt may have persisted this window's draft while
+  // its apply phases failed. `saveAndApply` treats a stale revision with
+  // identical content as "already saved" and runs only the apply phases, so a
+  // retry never re-submits an old version and never repeats a succeeded phase.
   final outcome = await ref
       .read(settingsControllerProvider.notifier)
       .saveAndApply(draft, expectedRevision: snapshotRevision);
+  final notice = outcome.ok && outcome.statusKey != null
+      ? SettingsController.statusMessageFor(outcome.statusKey!)
+      : null;
+  return SettingsEditorOutcome(
+    ok: outcome.ok,
+    message: outcome.ok ? notice : outcome.message,
+  );
+}
+
+/// Retry only the failed apply phases of an already-saved option draft.
+///
+/// [savedRevision]/[savedContentHash] come from the first attempt's
+/// [SettingsApplyOutcome]; the content hash must still match the persisted
+/// document or no phase runs (stale retry). Used by the independent settings
+/// window's "再次确认" path (SP-12).
+Future<SettingsEditorOutcome> retryOptionApply(
+  WidgetRef ref,
+  Map<String, dynamic> draft, {
+  required int savedRevision,
+  required String savedContentHash,
+  Set<String> phases = const {'core', 'platform', 'autostart'},
+}) async {
+  final outcome = await ref
+      .read(settingsControllerProvider.notifier)
+      .retrySettingsApply(
+        draft,
+        savedRevision: savedRevision,
+        savedContentHash: savedContentHash,
+        phases: phases,
+      );
   final notice = outcome.ok && outcome.statusKey != null
       ? SettingsController.statusMessageFor(outcome.statusKey!)
       : null;

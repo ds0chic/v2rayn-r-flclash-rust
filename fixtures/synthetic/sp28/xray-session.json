@@ -1,0 +1,27 @@
+{
+  "fixture": "SP-28 synthetic session (no secrets, no user data)",
+  "core": "xray",
+  "core_version": "26.3.27",
+  "executable": "tools/cores/xray/v26.3.27/xray.exe",
+  "adapter": "crates/runtime/src/adapter.rs",
+  "protocol": "socks",
+  "synthetic_inbound": {
+    "listen": "127.0.0.1",
+    "port": 11808
+  },
+  "synthetic_target": {
+    "host": "127.0.0.1",
+    "port": 9,
+    "note": "discard; loopback only"
+  },
+  "config_sample": "generate_xray JSON",
+  "forbidden": [
+    "0.0.0.0 listen",
+    "port 10808",
+    "host proxy/route/DNS/Run-key writes",
+    "real credentials"
+  ],
+  "l0_identity_cmd": "tools/cores/xray/v26.3.27/xray.exe version",
+  "l1_session_gate": "GUI->FRB->host->real flow/exit per SP-28 s22 (not run; pending prereq)",
+  "credentials": null
+}

@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+     Running unittests src\main.rs (target\debug\deps\net_host-d28ebdac38e4502d.exe)
+
+running 8 tests
+test lifecycle::tests::active_session_survives_24h_of_ui_idle_with_steady_renew ... ok
+test lifecycle::tests::dead_owner_expires_after_the_term_without_renew ... ok
+test helper_client::tests::fake_helper_records_elevated_core_lifecycle ... ok
+test lifecycle::tests::renew_is_due_on_the_provisional_interval ... ok
+test lifecycle::tests::lease_term_covers_the_renew_cycle_with_margin ... ok
+test lifecycle::tests::reconcile_is_gated_on_quiescence ... ok
+test lifecycle::tests::every_exit_advances_the_fact_generation ... ok
+test lifecycle::tests::sidecar_exit_degrades_a_live_session ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 101 filtered out; finished in 0.00s
+
+     Running unittests src\bin\t03_client.rs (target\debug\deps\t03_client-7aff2fe562bc785e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

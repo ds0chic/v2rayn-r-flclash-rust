@@ -1,0 +1,27 @@
+{
+  "fixture": "SP-28 synthetic session (no secrets, no user data)",
+  "core": "brook",
+  "core_version": "20270101",
+  "executable": "tools/cores/brook/v20270101/brook_windows_amd64.exe",
+  "adapter": "crates/runtime/src/adapter.rs",
+  "protocol": "socks",
+  "synthetic_inbound": {
+    "listen": "127.0.0.1",
+    "port": 11818
+  },
+  "synthetic_target": {
+    "host": "127.0.0.1",
+    "port": 9,
+    "note": "discard; loopback only"
+  },
+  "config_sample": "native_custom passthrough (engine.rs:4840; shape pinned at SP-28 L1)",
+  "forbidden": [
+    "0.0.0.0 listen",
+    "port 10808",
+    "host proxy/route/DNS/Run-key writes",
+    "real credentials"
+  ],
+  "l0_identity_cmd": "tools/cores/brook/v20270101/brook_windows_amd64.exe version",
+  "l1_session_gate": "GUI->FRB->host->real flow/exit per SP-28 s22 (not run; pending prereq)",
+  "credentials": null
+}

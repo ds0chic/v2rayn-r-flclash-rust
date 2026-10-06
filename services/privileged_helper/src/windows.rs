@@ -433,11 +433,15 @@ impl HelperBackend for WindowsBackend {
     }
 
     fn reset_tun_address(&self, interface_index: u32) -> Result<(), HelperError> {
+        // SP-08: only drop the registry record after the OS confirms the
+        // removal. A failed delete keeps the stored config so a retry still
+        // knows exactly which addresses remain owned.
         let stored = self
             .tun
             .lock()
             .expect("tun registry poisoned")
-            .remove(&interface_index);
+            .get(&interface_index)
+            .cloned();
         if let Some(config) = stored {
             for address in &config.addresses {
                 let row = unicast_row(interface_index, &address.address, address.prefix_len)?;
@@ -448,6 +452,10 @@ impl HelperBackend for WindowsBackend {
                     });
                 }
             }
+            self.tun
+                .lock()
+                .expect("tun registry poisoned")
+                .remove(&interface_index);
         }
         Ok(())
     }
@@ -591,10 +599,19 @@ impl HelperBackend for WindowsBackend {
             .keys()
             .copied()
             .collect();
+        // SP-08: attempt every owned core and report the first failure
+        // instead of aborting on it; unconfirmed stops stay visible to the
+        // caller rather than hidden behind an early return.
+        let mut first_error = None;
         for handle in handles {
-            self.stop_elevated_core(handle)?;
+            if let Err(error) = self.stop_elevated_core(handle) {
+                first_error.get_or_insert(error);
+            }
         }
-        Ok(())
+        match first_error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 }
 

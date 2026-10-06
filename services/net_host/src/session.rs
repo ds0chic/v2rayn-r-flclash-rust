@@ -150,6 +150,15 @@ pub struct SidecarSession {
     /// [`HostState::note_elevated_sidecar_exit`]); `reconcile_exits` consumes
     /// it through the same Degraded path as an ordinary sidecar exit.
     pub elevated_exit_code: Option<Option<i32>>,
+    /// SP-09 keep-alive tracking for the helper-owned lease behind
+    /// `handle`. Virtual-time inputs to the `lifecycle` watch values:
+    /// `lease_last_renew_ms` gates the 15s renew cadence, while
+    /// `lease_last_confirmed_ms` plus `lease_renew_failures` drive the 90s
+    /// term / 3-retry reconcile rule. Only meaningful while `helper` and a
+    /// non-zero `handle` are present; ordinary sidecars leave them zero.
+    pub lease_last_renew_ms: u64,
+    pub lease_last_confirmed_ms: u64,
+    pub lease_renew_failures: u32,
 }
 
 impl SidecarSession {
@@ -700,27 +709,18 @@ impl HostState {
 
     /// Record a helper-observed elevated-sidecar exit (SP-10, TUN-A05).
     ///
-    /// Staged until the A02 `PollCoreExits` observation channel lands; until
-    /// then nothing calls this in production and elevated exits stay
-    /// unobserved (registered gap: without observation the session cannot
-    /// claim full readiness, see `lifecycle::session_readiness`). Returns
-    /// false for unknown sidecar ids so a stray report can never fabricate
-    /// an exit. The next read path consumes the report through
-    /// `reconcile_exits`, advancing the fact generation like an ordinary
-    /// sidecar exit.
+    /// Fed by the bounded `PollCoreExits` observation in `reconcile_exits`
+    /// (helper protocol v2) as well as by direct reports. Returns false for
+    /// unknown sidecar ids so a stray report can never fabricate an exit. The
+    /// next read path consumes the report through `reconcile_exits`,
+    /// advancing the fact generation like an ordinary sidecar exit.
     #[allow(dead_code)]
     pub async fn note_elevated_sidecar_exit(&self, id: &str, code: Option<i32>) -> bool {
         let mut inner = self.inner.lock().await;
         let Some(session) = inner.session.as_mut() else {
             return false;
         };
-        let Some(sidecar) = session.sidecars.iter_mut().find(|sidecar| {
-            sidecar.id == id && sidecar.child.is_none() && sidecar.helper.is_some()
-        }) else {
-            return false;
-        };
-        sidecar.elevated_exit_code = Some(code);
-        true
+        stage_elevated_sidecar_exit(&mut session.sidecars, id, code)
     }
 
     /// SP-06 continuous exit observation.
@@ -729,12 +729,15 @@ impl HostState {
     /// reconciles first, so a post-readiness exit can never survive as a
     /// cached Running behind a port that is already dead (CP-01 ghost).
     ///
-    /// Observation is handle-authoritative (`try_wait` on the owned `Child`):
-    /// never a PID scan, so a recycled PID can never cause a miskill and an
-    /// unreadable status never fabricates a transition. Elevated sidecars
-    /// owned by the helper have no pollable handle on this side, so they are
-    /// left alone here (no miskill); their observation is the registered
-    /// `HelperOp::PollCoreExits` gap for the SP-00 integrator.
+    /// Observation is handle-authoritative (`try_wait` on the owned `Child`
+    /// for local processes, `PollCoreExits` on the owning helper link for
+    /// elevated sidecars): never a PID scan, so a recycled PID can never
+    /// cause a miskill and an unreadable status never fabricates a
+    /// transition. Elevated sidecars owned by the helper have no pollable
+    /// handle on this side, so their link is polled instead (bounded: one
+    /// call per link with only its owned handle); their leases are renewed
+    /// on the SP-09 cadence in the same pass, and a dead lease stages
+    /// through the same exit record as an observed exit.
     ///
     /// Reconcile runs only when no command is in flight: an in-flight apply
     /// owns the session through readiness and must not lose it to a read.
@@ -766,6 +769,14 @@ impl HostState {
             }
             let at_ms = journal::now_ms();
             let session = inner.session.as_mut().expect("reconcile gated a session");
+            // Helper protocol v2 observation (SP-09/SP-10): drain
+            // helper-observed elevated exits into the staged record, then
+            // renew the leases due for renewal. Both are gated (no helper
+            // link or no non-zero handle means no calls) and never
+            // fabricate: a failed poll/renew only defers to the next read,
+            // and a dead lease stages through the same exit record below.
+            poll_elevated_sidecars(&mut session.sidecars);
+            renew_elevated_leases(&mut session.sidecars, at_ms.max(0) as u64);
             // An unreadable status never fabricates a transition.
             let main_status = session.child.try_wait().ok().flatten();
             let mut sidecar_exits = Vec::new();
@@ -2237,6 +2248,11 @@ impl HostState {
             handle: Some(handle),
             elevated_pid: if pid == 0 { None } else { Some(pid) },
             elevated_exit_code: None,
+            // The helper granted the lease at launch; the first renew is due
+            // one cadence interval from now.
+            lease_last_renew_ms: wall_ms_u64(),
+            lease_last_confirmed_ms: wall_ms_u64(),
+            lease_renew_failures: 0,
         })
     }
 
@@ -2339,6 +2355,11 @@ impl HostState {
             handle: None,
             elevated_pid: None,
             elevated_exit_code: None,
+            // Ordinary sidecars hold no helper lease; the renew/poll pass
+            // skips them (no link).
+            lease_last_renew_ms: 0,
+            lease_last_confirmed_ms: 0,
+            lease_renew_failures: 0,
         };
         // Wait for the sidecar to accept the same SOCKS greeting the main core
         // accepts (`WaitForProxyPort` upstream). A TUN-only sidecar reports
@@ -3079,6 +3100,148 @@ fn tun_detail_from_lease(lease: &TunLease) -> RuntimeTunDetail {
         interface_index: lease.interface_index,
         route_count: lease.route_count,
         dry_run: lease.dry_run,
+    }
+}
+
+/// Wall-clock milliseconds on the `lifecycle` virtual-time clock. The watch
+/// values take `u64`; the clock never runs negative in practice.
+fn wall_ms_u64() -> u64 {
+    journal::now_ms().max(0) as u64
+}
+
+/// Stage a helper-observed elevated-sidecar exit on the slice. Shared by the
+/// async [`HostState::note_elevated_sidecar_exit`] entry point and the
+/// `PollCoreExits` observation below so both feed the same staged record
+/// that `reconcile_exits` consumes. Unknown ids never fabricate an exit.
+fn stage_elevated_sidecar_exit(
+    sidecars: &mut [SidecarSession],
+    id: &str,
+    code: Option<i32>,
+) -> bool {
+    let Some(sidecar) = sidecars
+        .iter_mut()
+        .find(|sidecar| sidecar.id == id && sidecar.child.is_none() && sidecar.helper.is_some())
+    else {
+        return false;
+    };
+    sidecar.elevated_exit_code = Some(code);
+    true
+}
+
+/// Poll helper-owned elevated sidecars for exits (SP-10, helper protocol v2).
+///
+/// Bounded and gated: one `PollCoreExits` call per link carrying only that
+/// link's owned handle, only for elevated sidecars without a staged exit
+/// yet. No helper link or no non-zero handle means no call. A failed poll is
+/// ignored and retried on the next read — it must never fabricate a
+/// transition. Observations for handles the caller does not own are dropped.
+/// The helper-reported PID is attribution identity, never a kill target:
+/// this function never signals any process.
+fn poll_elevated_sidecars(sidecars: &mut [SidecarSession]) {
+    let targets: Vec<(String, u64)> = sidecars
+        .iter()
+        .filter_map(|sidecar| match (sidecar.helper.is_some(), sidecar.handle) {
+            (true, Some(handle))
+                if sidecar.child.is_none()
+                    && handle != 0
+                    && sidecar.elevated_exit_code.is_none() =>
+            {
+                Some((sidecar.id.clone(), handle))
+            }
+            _ => None,
+        })
+        .collect();
+    for (id, handle) in targets {
+        let exits = {
+            let Some(sidecar) = sidecars
+                .iter_mut()
+                .find(|sidecar| sidecar.id == id && sidecar.helper.is_some())
+            else {
+                continue;
+            };
+            let link = sidecar.helper.as_mut().expect("gated helper link");
+            match link.poll_core_exits(&[handle]) {
+                Ok(exits) => exits,
+                Err(_) => continue,
+            }
+        };
+        for exit in exits {
+            if exit.handle != handle {
+                continue;
+            }
+            if let Some(sidecar) = sidecars.iter_mut().find(|sidecar| sidecar.id == id) {
+                if sidecar.elevated_pid.is_none() {
+                    sidecar.elevated_pid = Some(exit.pid);
+                }
+            }
+            stage_elevated_sidecar_exit(sidecars, &id, exit.exit_code);
+        }
+    }
+}
+
+/// Renew helper-owned elevated-sidecar leases due for renewal (SP-09,
+/// helper protocol v2).
+///
+/// Gated like the poll path: no helper link or no non-zero handle means no
+/// call, and a link is only touched once its 15s renew cadence is due. A
+/// success confirms the lease (failures reset); a failure counts one retry.
+/// After 3 consecutive failures — or when the 90s term lapsed without any
+/// confirmation — the host stops blind retries and stages a lease-loss exit
+/// (code unknown) through the same staged record `reconcile_exits`
+/// consumes, so the session degrades exactly once instead of reporting a
+/// lease it no longer owns as healthy.
+fn renew_elevated_leases(sidecars: &mut [SidecarSession], now_ms: u64) {
+    let targets: Vec<(String, u64)> = sidecars
+        .iter()
+        .filter_map(|sidecar| match (sidecar.helper.is_some(), sidecar.handle) {
+            (true, Some(handle))
+                if sidecar.child.is_none()
+                    && handle != 0
+                    && sidecar.elevated_exit_code.is_none()
+                    && lifecycle::renew_due(sidecar.lease_last_renew_ms, now_ms) =>
+            {
+                Some((sidecar.id.clone(), handle))
+            }
+            _ => None,
+        })
+        .collect();
+    for (id, handle) in targets {
+        let reconcile = {
+            let Some(sidecar) = sidecars
+                .iter_mut()
+                .find(|sidecar| sidecar.id == id && sidecar.helper.is_some())
+            else {
+                continue;
+            };
+            let link = sidecar.helper.as_mut().expect("gated helper link");
+            match link.renew_lease(handle) {
+                Ok(_) => {
+                    sidecar.lease_last_renew_ms = now_ms;
+                    sidecar.lease_last_confirmed_ms = now_ms;
+                    sidecar.lease_renew_failures = 0;
+                    false
+                }
+                Err(_) => {
+                    sidecar.lease_last_renew_ms = now_ms;
+                    sidecar.lease_renew_failures = sidecar.lease_renew_failures.saturating_add(1);
+                    // One bounded disambiguation: a helper-confirmed release
+                    // needs no retries — reconcile now. Anything else (still
+                    // active, unknown, or an unreachable helper) keeps the
+                    // retry accounting, which the term / failure rules below
+                    // convert into reconciliation.
+                    let released = matches!(
+                        link.get_lease_status(handle),
+                        Ok(status) if status.state == ipc_contract::LeaseState::Released
+                    );
+                    released
+                        || lifecycle::lease_expired(sidecar.lease_last_confirmed_ms, now_ms)
+                        || lifecycle::renew_reconcile_due(sidecar.lease_renew_failures)
+                }
+            }
+        };
+        if reconcile {
+            stage_elevated_sidecar_exit(sidecars, &id, None);
+        }
     }
 }
 
@@ -4642,6 +4805,11 @@ Idx     Met    MTU          State                Name\r\n\
                     handle: Some(7),
                     elevated_pid: Some(4242),
                     elevated_exit_code: None,
+                    // Freshly established: the renew cadence is not due yet,
+                    // so this read only exercises the poll path.
+                    lease_last_renew_ms: wall_ms_u64(),
+                    lease_last_confirmed_ms: wall_ms_u64(),
+                    lease_renew_failures: 0,
                 });
             }
             assert!(
@@ -4737,5 +4905,284 @@ Idx     Met    MTU          State                Name\r\n\
             "a live-but-silent sidecar is a timeout, never a fabricated exit"
         );
         let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    // -- SP-09/SP-10 helper protocol v2 adoption (fake helper link) ---------
+    //
+    // Synthetic fixtures only: in-memory links, temp run roots, stub cores on
+    // port 0. No helper pipe, no OS routes/DNS/adapter writes, no 10808.
+
+    fn sp_adoption_spec() -> ipc_contract::ElevatedCoreSpec {
+        ipc_contract::ElevatedCoreSpec {
+            core: "sing-box".into(),
+            exe_path: r"C:\run\s1\processes\pre-socks\sing-box.exe".into(),
+            args: vec!["run".into(), "-c".into(), "config.json".into()],
+            run_dir: r"C:\run\s1\processes\pre-socks".into(),
+        }
+    }
+
+    fn sp_elevated_sidecar(
+        id: &str,
+        link: crate::helper_client::FakeHelperLink,
+        handle: u64,
+        renew_ms: u64,
+        confirmed_ms: u64,
+    ) -> SidecarSession {
+        SidecarSession {
+            id: id.into(),
+            child: None,
+            _job: None,
+            helper: Some(Box::new(link)),
+            handle: Some(handle),
+            elevated_pid: Some(4242),
+            elevated_exit_code: None,
+            lease_last_renew_ms: renew_ms,
+            lease_last_confirmed_ms: confirmed_ms,
+            lease_renew_failures: 0,
+        }
+    }
+
+    #[test]
+    fn sp09_renew_confirms_a_due_lease() {
+        use crate::helper_client::FakeHelperLink;
+        use crate::lifecycle;
+
+        let mut link = FakeHelperLink::new();
+        let (handle, _) = link.run_core(&sp_adoption_spec()).expect("run_core");
+        let mut sidecars = vec![sp_elevated_sidecar("tun-sidecar", link, handle, 0, 0)];
+
+        // Not due yet: no call, tracking untouched.
+        renew_elevated_leases(&mut sidecars, lifecycle::HELPER_RENEW_INTERVAL_MS - 1);
+        assert_eq!(sidecars[0].lease_renew_failures, 0);
+        assert_eq!(sidecars[0].lease_last_renew_ms, 0);
+
+        // Due: the renew confirms the lease and resets the retry count.
+        let now = lifecycle::HELPER_RENEW_INTERVAL_MS;
+        renew_elevated_leases(&mut sidecars, now);
+        assert_eq!(sidecars[0].lease_renew_failures, 0);
+        assert_eq!(sidecars[0].lease_last_renew_ms, now);
+        assert_eq!(sidecars[0].lease_last_confirmed_ms, now);
+        assert!(
+            sidecars[0].elevated_exit_code.is_none(),
+            "a confirmed lease stages nothing"
+        );
+    }
+
+    #[test]
+    fn sp09_renew_retries_then_reconciles_after_three_failures() {
+        use crate::helper_client::{FakeHelperFault, FakeHelperLink};
+        use crate::lifecycle;
+
+        // The lease was granted before the helper became unreachable.
+        let link = FakeHelperLink::with_fault(FakeHelperFault::Timeout);
+        link.seed_lease(1, 4242, 0);
+        let mut sidecars = vec![sp_elevated_sidecar("tun-sidecar", link, 1, 0, 0)];
+
+        let interval = lifecycle::HELPER_RENEW_INTERVAL_MS;
+        renew_elevated_leases(&mut sidecars, interval);
+        assert_eq!(sidecars[0].lease_renew_failures, 1);
+        assert!(sidecars[0].elevated_exit_code.is_none());
+
+        renew_elevated_leases(&mut sidecars, 2 * interval);
+        assert_eq!(sidecars[0].lease_renew_failures, 2);
+        assert!(sidecars[0].elevated_exit_code.is_none());
+
+        // Third consecutive failure: stop blind retries, stage lease-loss.
+        renew_elevated_leases(&mut sidecars, 3 * interval);
+        assert_eq!(sidecars[0].lease_renew_failures, 3);
+        assert_eq!(
+            sidecars[0].elevated_exit_code,
+            Some(None),
+            "reconcile stages lease-loss with an unknown code"
+        );
+
+        // Staged means settled: no further renew is attempted for it.
+        renew_elevated_leases(&mut sidecars, 4 * interval);
+        assert_eq!(sidecars[0].lease_renew_failures, 3);
+    }
+
+    #[test]
+    fn sp09_helper_confirmed_release_reconciles_without_retries() {
+        use crate::helper_client::FakeHelperLink;
+        use crate::lifecycle;
+
+        // The helper already confirmed the release (stop/cleanup path): the
+        // first failed renew disambiguates via GetLeaseStatus and reconciles
+        // at once instead of burning the retry budget.
+        let mut link = FakeHelperLink::new();
+        let (handle, _) = link.run_core(&sp_adoption_spec()).expect("run_core");
+        link.stop_core(handle).expect("stop");
+        let mut sidecars = vec![sp_elevated_sidecar("tun-sidecar", link, handle, 0, 0)];
+
+        renew_elevated_leases(&mut sidecars, lifecycle::HELPER_RENEW_INTERVAL_MS);
+        assert_eq!(sidecars[0].lease_renew_failures, 1);
+        assert_eq!(
+            sidecars[0].elevated_exit_code,
+            Some(None),
+            "a helper-confirmed release reconciles on the first failed renew"
+        );
+    }
+
+    #[test]
+    fn sp09_expired_term_reconciles_without_waiting_for_three_retries() {
+        use crate::helper_client::{FakeHelperFault, FakeHelperLink};
+        use crate::lifecycle;
+
+        let link = FakeHelperLink::with_fault(FakeHelperFault::Disconnect);
+        link.seed_lease(1, 4242, 0);
+        let confirmed = 5_000u64;
+        let mut sidecars = vec![sp_elevated_sidecar(
+            "tun-sidecar",
+            link,
+            1,
+            confirmed,
+            confirmed,
+        )];
+
+        // The whole term lapsed without any confirmation: one failed renew
+        // is enough to reconcile, the owner is dead.
+        renew_elevated_leases(&mut sidecars, confirmed + lifecycle::HELPER_LEASE_TERM_MS);
+        assert_eq!(sidecars[0].lease_renew_failures, 1);
+        assert_eq!(
+            sidecars[0].elevated_exit_code,
+            Some(None),
+            "an expired lease reconciles on the first failed renew"
+        );
+    }
+
+    #[test]
+    fn sp09_poll_and_renew_make_no_calls_without_an_owned_handle() {
+        use crate::helper_client::FakeHelperLink;
+
+        // Ordinary sidecar: a local child, no helper link at all.
+        let mut ordinary = sp_elevated_sidecar("pre-socks", FakeHelperLink::new(), 0, 0, 0);
+        ordinary.child = None;
+        ordinary.helper = None;
+        ordinary.handle = None;
+        let mut sidecars = vec![ordinary];
+        poll_elevated_sidecars(&mut sidecars);
+        renew_elevated_leases(&mut sidecars, u64::MAX);
+        assert!(sidecars[0].elevated_exit_code.is_none());
+
+        // Dry-run shape: a link but the simulated zero handle.
+        let mut simulated = sp_elevated_sidecar("tun-dry", FakeHelperLink::new(), 0, 0, 0);
+        simulated.handle = Some(0);
+        let mut sidecars = vec![simulated];
+        poll_elevated_sidecars(&mut sidecars);
+        renew_elevated_leases(&mut sidecars, u64::MAX);
+        assert!(sidecars[0].elevated_exit_code.is_none());
+        assert_eq!(sidecars[0].lease_renew_failures, 0);
+    }
+
+    #[test]
+    fn sp10_polled_exit_degrades_the_session_exactly_once() {
+        use crate::helper_client::FakeHelperLink;
+
+        let _guard = rr10_lock();
+        let state = test_state("sp10-polled-exit");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        let plan = plan_with_body("sp10poll", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        let run_root = state.config.run_root.clone();
+        let facts = futures_block_on(async {
+            state.apply_plan(plan).await.expect("session starts");
+            {
+                // The helper observed the elevated core's exit before this
+                // read; the fake still holds it pending (drain-once source).
+                let mut link = FakeHelperLink::new();
+                let (handle, pid) = link.run_core(&sp_adoption_spec()).expect("run_core");
+                link.inject_core_exit(handle, pid, Some(3));
+                let mut inner = state.inner.lock().await;
+                let session = inner.session.as_mut().expect("session runs");
+                let now = wall_ms_u64();
+                session
+                    .sidecars
+                    .push(sp_elevated_sidecar("tun-sidecar", link, handle, now, now));
+            }
+            // First read: the poll drains the exit and the session degrades.
+            let first = state.ipc_snapshot().await;
+            let (generation_after_first, sidecar_after_first) = {
+                let inner = state.inner.lock().await;
+                (inner.actual_generation, inner.last_exit_sidecar.clone())
+            };
+            // Second read: nothing left to drain, no second transition.
+            let second = state.ipc_snapshot().await;
+            let generation_after_second = state.inner.lock().await.actual_generation;
+            let facts = (
+                first.state,
+                second.state,
+                generation_after_first,
+                generation_after_second,
+                sidecar_after_first,
+            );
+            let _ = state.stop_managed(None).await;
+            facts
+        });
+        let (first_state, second_state, generation_first, generation_second, exit_sidecar) = facts;
+        assert_eq!(
+            first_state,
+            RuntimeState::Degraded,
+            "a polled elevated exit degrades the live session"
+        );
+        assert_eq!(generation_first, 1, "the exit pushes generation once");
+        assert_eq!(exit_sidecar.as_deref(), Some("tun-sidecar"));
+        assert_eq!(second_state, RuntimeState::Degraded);
+        assert_eq!(
+            generation_second, generation_first,
+            "drain-once: the exit degrades the session exactly once"
+        );
+        let _ = std::fs::remove_dir_all(&run_root);
+    }
+
+    #[test]
+    fn sp10_unknown_polled_handle_fabricates_no_exit() {
+        use crate::helper_client::FakeHelperLink;
+
+        let _guard = rr10_lock();
+        let state = test_state("sp10-unknown-poll");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        let plan = plan_with_body("sp10unk", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        let run_root = state.config.run_root.clone();
+        let facts = futures_block_on(async {
+            state.apply_plan(plan).await.expect("session starts");
+            {
+                let mut link = FakeHelperLink::new();
+                let (handle, pid) = link.run_core(&sp_adoption_spec()).expect("run_core");
+                // Stray observation for a handle this session never owned.
+                link.inject_core_exit(999, pid, Some(1));
+                let mut inner = state.inner.lock().await;
+                let session = inner.session.as_mut().expect("session runs");
+                let now = wall_ms_u64();
+                session
+                    .sidecars
+                    .push(sp_elevated_sidecar("tun-sidecar", link, handle, now, now));
+            }
+            let snapshot = state.ipc_snapshot().await;
+            let inner = state.inner.lock().await;
+            let facts = (
+                snapshot.state,
+                inner.actual_generation,
+                inner.last_exit.clone(),
+                inner.last_exit_sidecar.clone(),
+            );
+            drop(inner);
+            let _ = state.stop_managed(None).await;
+            facts
+        });
+        let (snapshot_state, generation, last_exit, last_exit_sidecar) = facts;
+        assert_eq!(
+            snapshot_state,
+            RuntimeState::Running,
+            "an unlisted handle must not disturb the live session"
+        );
+        assert_eq!(generation, 0, "no transition is fabricated");
+        assert!(last_exit.is_none());
+        assert!(last_exit_sidecar.is_none());
+        let _ = std::fs::remove_dir_all(&run_root);
     }
 }

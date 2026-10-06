@@ -323,10 +323,10 @@
       ],
       "test_scope": "heartbeat、idle/request合同、owner失联",
       "upstream_symbols": "helper连接超时和lease创建/释放",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false,
-      "evidence": "docs/evidence/stable-port/SP-09/README.md（准备范围 A03）",
-      "note": "host 侧准备完成（保活 watch 值+纯决策、归属 key、虚拟 24h 不回收）；RenewLease/GetLeaseStatus/逐资源报告等 A02 接口阻塞（N-H2/N-H3），真实长运行未验，保持 identified"
+      "evidence": "docs/evidence/stable-port/SP-09/README.md（准备范围 A03 + 2026-10-07 net_host 接线）",
+      "note": "2026-10-07 net_host 侧 helper v2 接线落地：HelperLink 新增 renew_lease/get_lease_status/poll_core_exits（含 Pipe 真实链路与 Fake/DryRun/Unavailable）；reconcile 通路按 15s 续租/90s term/3连败规则续提权 sidecar 租约，失败记重试、过期或3连败或 Released 确认后经 staged 记录降级一次；net_host 129/0、fmt/clippy 绿。真实提权 helper 联调、24h/48h 长运行、迟到 renew 真机行为未验，不标 verified"
     },
     {
       "id": "SP-10",
@@ -369,8 +369,10 @@
       ],
       "test_scope": "实际lease优先、dryRun、main/sidecar权限/IPv6",
       "upstream_symbols": "原版Tun配置构造与core进程启动",
-      "status": "identified",
-      "instance_required": false
+      "status": "implemented",
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-10/README.md（准备范围 + 2026-10-07 net_host 接线）",
+      "note": "2026-10-07 net_host 侧 PollCoreExits 接线落地：reconcile 通路对每个提权 sidecar 链路做一次有界 poll（仅自有 handle），观测到的退出经 staged 记录走既有 Degraded 通路且只消费一次，未列出 handle 不伪造退出；net_host 129/0、fmt/clippy 绿。真实提权 sidecar 退出观测、OS 路由/地址/TUN 接管实测未验，不标 verified"
     },
     {
       "id": "SP-11",
@@ -561,7 +563,7 @@
       "upstream_symbols": "ServiceLib/ViewModels/ProfilesViewModel.cs",
       "status": "implemented",
       "evidence": "docs/evidence/stable-port/SP-16/README.md",
-      "note": "independent entry wiring implemented (direct G/create entries, frozen-target gate, blank-group normalization); full card blocked: group persistence/reopen needs profiles_controller (A07-locked) + SP-12/FRB; group_reopen/native trace unverified",
+      "note": "group persistence/reopen wired through profiles_controller (canonical SubIndexId group write on switch, build restore, resync fallback with no repair persist) + subs save/delete unified refresh; synthetic reopen/failure tests green (15 new + collateral ux_space01 fix); gaps: engine set_current_group has no FRB entry (settings-group seam used, SP-00), engine group write unvalidated (Dart read-side gate), native group_reopen trace/DPI unverified",
       "instance_required": false
     },
     {
@@ -917,7 +919,9 @@
       "test_scope": "update flags/signature/stage/install rollback",
       "upstream_symbols": "原版CheckUpdate/更新选择；updater with_flags",
       "status": "implemented",
-      "instance_required": false
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-27/README.md",
+      "note": "2026-10-07 UI接线落地：applyAppUpdate改走with-flags（冻结当次prerelease/viaProxy），check/apply单操作冻结同一份flags，no-arg默认入口保留；Dart定向21/21+r4_29 10/10+审计retry合同3/3绿。受控真实发行源/真实产品key、正式包/OS隔离验收未跑，不标verified"
     },
     {
       "id": "SP-28",

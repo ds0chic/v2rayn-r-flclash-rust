@@ -119,7 +119,12 @@ class SubsController extends Notifier<SubsState> {
       // Keep the top profile group chips in sync with the subscription list
       // (FIX-06): the toolbar rebuilds off the profiles controller, so a
       // saved plain group must refresh it, not only the subs state.
-      ref.read(profilesControllerProvider.notifier).reload();
+      // SP-16: then re-resolve the current group (RefreshSubscriptions
+      // parity — a created/edited group shows up, the current hit is kept,
+      // never auto-switched to new).
+      final profiles = ref.read(profilesControllerProvider.notifier);
+      profiles.reload();
+      profiles.resyncGroupFromSubs();
       state = state.copyWith(
         status: const SubStatus(kind: 'success', message: '订阅已保存'),
       );
@@ -140,7 +145,11 @@ class SubsController extends Notifier<SubsState> {
     if (result.ok) {
       reload();
       // Drop the deleted group chip from the top toolbar (FIX-06).
-      ref.read(profilesControllerProvider.notifier).reload();
+      // SP-16: then fall back a dangling current group to All in memory
+      // (RefreshSubscriptions parity — the repair is never persisted).
+      final profiles = ref.read(profilesControllerProvider.notifier);
+      profiles.reload();
+      profiles.resyncGroupFromSubs();
       state = state.copyWith(
         status: SubStatus(
           kind: 'success',

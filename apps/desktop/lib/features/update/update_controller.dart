@@ -286,6 +286,10 @@ class UpdateController extends Notifier<UpdateState> {
 
   Future<void> checkOnly() async {
     if (state.busy) return;
+    // Freeze the current selection for this operation (SP-27): the check
+    // carries its own prerelease/viaProxy instead of re-reading live state.
+    final prerelease = state.prerelease;
+    final viaProxy = state.viaProxy;
     state = state.copyWith(
       busy: true,
       stage: '正在检查更新…',
@@ -294,7 +298,7 @@ class UpdateController extends Notifier<UpdateState> {
     final result = await _bridgeCall(
       () => ref
           .read(bridgePortProvider)
-          .t16CheckUpdates(_selectedCores, state.prerelease, state.viaProxy),
+          .t16CheckUpdates(_selectedCores, prerelease, viaProxy),
       '检查更新失败',
     );
     if (result == null) return;
@@ -335,6 +339,10 @@ class UpdateController extends Notifier<UpdateState> {
 
   Future<void> checkAndApply() async {
     if (state.busy) return;
+    // Frozen per-operation selection (SP-27): check and apply share the
+    // toggles as they were when the user pressed the button.
+    final prerelease = state.prerelease;
+    final viaProxy = state.viaProxy;
     state = state.copyWith(
       busy: true,
       stage: '正在检查更新…',
@@ -343,7 +351,7 @@ class UpdateController extends Notifier<UpdateState> {
     final check = await _bridgeCall(
       () => ref
           .read(bridgePortProvider)
-          .t16CheckUpdates(_selectedCores, state.prerelease, state.viaProxy),
+          .t16CheckUpdates(_selectedCores, prerelease, viaProxy),
       '检查更新失败',
     );
     if (check == null) return;
@@ -363,7 +371,7 @@ class UpdateController extends Notifier<UpdateState> {
     final apply = await _bridgeCall(
       () => ref
           .read(bridgePortProvider)
-          .t16ApplyCoreUpdate(_selectedCores, state.prerelease, state.viaProxy),
+          .t16ApplyCoreUpdate(_selectedCores, prerelease, viaProxy),
       '内核更新失败',
     );
     if (apply == null) return;
@@ -405,6 +413,9 @@ class UpdateController extends Notifier<UpdateState> {
   /// the user can retry; success is never fabricated.
   Future<void> installCores(List<String> cores) async {
     if (state.busy || cores.isEmpty) return;
+    // Frozen per-operation selection (SP-27), shared by check and apply.
+    final prerelease = state.prerelease;
+    final viaProxy = state.viaProxy;
     state = state.copyWith(
       busy: true,
       stage: '正在安装/修复内核…',
@@ -413,7 +424,7 @@ class UpdateController extends Notifier<UpdateState> {
     final check = await _bridgeCall(
       () => ref
           .read(bridgePortProvider)
-          .t16CheckUpdates(cores, state.prerelease, state.viaProxy),
+          .t16CheckUpdates(cores, prerelease, viaProxy),
       '检查更新失败',
     );
     if (check == null) return;
@@ -433,7 +444,7 @@ class UpdateController extends Notifier<UpdateState> {
     final apply = await _bridgeCall(
       () => ref
           .read(bridgePortProvider)
-          .t16ApplyCoreUpdate(cores, state.prerelease, state.viaProxy),
+          .t16ApplyCoreUpdate(cores, prerelease, viaProxy),
       '内核安装失败，可重试',
     );
     if (apply == null) return;
@@ -466,15 +477,40 @@ class UpdateController extends Notifier<UpdateState> {
   /// Stage the application update, then actually launch the external runner
   /// and exit so it can replace the flat install root and relaunch (RR-04).
   ///
-  /// The spec is produced by `t16_apply_app_update_spec`; we never fabricate a
-  /// success — a missing helper or a failed spawn is reported, not hidden.
+  /// The spec is produced by `t16_apply_app_update_spec_with_flags` carrying
+  /// this operation's own `prerelease` / `viaProxy` selection (SP-27); we
+  /// never fabricate a success — a missing helper or a failed spawn is
+  /// reported, not hidden. Callers that genuinely want the safe defaults
+  /// (stable channel, direct connection) use [applyAppUpdateWithDefaults].
   Future<void> applyAppUpdate() async {
+    if (state.busy) return;
+    final prerelease = state.prerelease;
+    final viaProxy = state.viaProxy;
+    state = state.copyWith(busy: true, stage: '正在准备应用自身更新…');
+    final spec = await _bridgeCall(
+      () => ref
+          .read(bridgePortProvider)
+          .t16ApplyAppUpdateSpecWithFlags(prerelease, viaProxy),
+      '应用更新不可用',
+    );
+    await _launchStagedAppSpec(spec);
+  }
+
+  /// Stage the application update with the safe defaults (stable channel,
+  /// direct connection) via the no-arg `t16_apply_app_update_spec` entry.
+  /// Reserved for callers that genuinely want defaults rather than the
+  /// window's current per-operation selection.
+  Future<void> applyAppUpdateWithDefaults() async {
     if (state.busy) return;
     state = state.copyWith(busy: true, stage: '正在准备应用自身更新…');
     final spec = await _bridgeCall(
       () => ref.read(bridgePortProvider).t16ApplyAppUpdateSpec(),
       '应用更新不可用',
     );
+    await _launchStagedAppSpec(spec);
+  }
+
+  Future<void> _launchStagedAppSpec(c.ExternalSpecDto? spec) async {
     if (spec == null) return;
     if (!spec.ok) {
       state = state.copyWith(

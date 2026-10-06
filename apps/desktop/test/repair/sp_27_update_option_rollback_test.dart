@@ -64,6 +64,28 @@ ProviderContainer _containerFor(SyntheticBridgePort bridge) =>
       overrides: [bridgePortProvider.overrideWithValue(bridge)],
     );
 
+/// SP-27 UI wiring: recorded runner hand-off (no real process, no exit).
+class _Handoff {
+  final List<String> launches = <String>[];
+  int exits = 0;
+}
+
+ProviderContainer _wiredContainer(
+  SyntheticBridgePort bridge,
+  _Handoff handoff,
+) => ProviderContainer(
+  overrides: [
+    bridgePortProvider.overrideWithValue(bridge),
+    updateControllerProvider.overrideWith(
+      () => UpdateController(
+        launchRunner: (helper, args, cwd) async =>
+            handoff.launches.add('$helper|${args.join(",")}|$cwd'),
+        exitApp: () => handoff.exits++,
+      ),
+    ),
+  ],
+);
+
 Future<void> _pumpUpdate(
   WidgetTester tester,
   ProviderContainer container,
@@ -180,4 +202,90 @@ void main() {
       expect(find.textContaining('应用自身发行源未配置'), findsOneWidget);
     },
   );
+
+  testWidgets('app spec carries the current per-operation flags', (
+    tester,
+  ) async {
+    // Default selection: stable channel, via proxy.
+    final bridge = SyntheticBridgePort()..proxyAvailable = true;
+    final handoff = _Handoff();
+    final container = _wiredContainer(bridge, handoff);
+    addTearDown(container.dispose);
+    await _pumpUpdate(tester, container);
+
+    await tester.tap(find.byKey(const ValueKey('update-app-spec-btn')));
+    await tester.pumpAndSettle();
+
+    expect(bridge.t16Calls, contains('app_update_spec_with_flags:false:true'));
+    expect(handoff.launches, hasLength(1));
+    expect(handoff.exits, 1);
+  });
+
+  testWidgets('toggled flags are forwarded to the app spec entry', (
+    tester,
+  ) async {
+    final bridge = SyntheticBridgePort()..proxyAvailable = true;
+    final handoff = _Handoff();
+    final container = _wiredContainer(bridge, handoff);
+    addTearDown(container.dispose);
+    await _pumpUpdate(tester, container);
+
+    await tester.tap(find.byKey(const ValueKey('update-prerelease')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('update-via-proxy')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('update-app-spec-btn')));
+    await tester.pumpAndSettle();
+
+    expect(bridge.t16Calls, contains('app_update_spec_with_flags:true:false'));
+    expect(handoff.launches, hasLength(1));
+    expect(handoff.exits, 1);
+  });
+
+  test(
+    'defaults path keeps the no-arg entry for genuine-default callers',
+    () async {
+      final bridge = SyntheticBridgePort()..proxyAvailable = true;
+      final handoff = _Handoff();
+      final container = _wiredContainer(bridge, handoff);
+      addTearDown(container.dispose);
+      container.read(settingsControllerProvider.notifier).load();
+
+      await container
+          .read(updateControllerProvider.notifier)
+          .applyAppUpdateWithDefaults();
+
+      expect(bridge.t16Calls, contains('app_update_spec'));
+      expect(
+        bridge.t16Calls.any(
+          (call) => call.startsWith('app_update_spec_with_flags:'),
+        ),
+        isFalse,
+      );
+      expect(handoff.launches, hasLength(1));
+      expect(handoff.exits, 1);
+    },
+  );
+
+  test('checkAndApply freezes one flag set across check and apply', () async {
+    final bridge = SyntheticBridgePort()..proxyAvailable = true;
+    final handoff = _Handoff();
+    final container = _wiredContainer(bridge, handoff);
+    addTearDown(container.dispose);
+    container.read(settingsControllerProvider.notifier).load();
+    container.read(updateControllerProvider.notifier).setPrerelease(true);
+
+    await container.read(updateControllerProvider.notifier).checkAndApply();
+
+    final checks = bridge.t16Calls
+        .where((call) => call.startsWith('check_updates:'))
+        .toList();
+    final applies = bridge.t16Calls
+        .where((call) => call.startsWith('apply_core:'))
+        .toList();
+    expect(checks, hasLength(1));
+    expect(applies, hasLength(1));
+    expect(checks.single, endsWith(':true:true'));
+    expect(applies.single, endsWith(':true:true'));
+  });
 }

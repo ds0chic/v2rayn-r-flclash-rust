@@ -23,8 +23,8 @@ use std::io::{Read, Write};
 
 use domain::{codes, DomainError};
 use ipc_contract::{
-    ElevatedCoreSpec, HelperError, HelperOp, HelperRequest, HelperResponse, HelperResult,
-    SessionIdentity, HELPER_PROTOCOL_VERSION,
+    CoreExitObservation, ElevatedCoreSpec, HelperError, HelperOp, HelperRequest, HelperResponse,
+    HelperResult, LeaseStatus, SessionIdentity, HELPER_PROTOCOL_VERSION,
 };
 #[cfg(test)]
 use ipc_contract::{RouteEntry, TunAddressConfig};
@@ -227,6 +227,42 @@ pub trait HelperLink: Send {
         ))
     }
 
+    /// Renew one owned elevated-core lease (SP-09 `RenewLease`). Returns the
+    /// helper-reported expiry (Unix ms). Unknown handles are a structured
+    /// not-found, never a silent success. Lease ops use the contract
+    /// per-request timeout class ([`ipc_contract::helper_timeout_for`]).
+    fn renew_lease(&mut self, handle: u64) -> Result<i64, DomainError> {
+        let _ = handle;
+        Err(tun_helper_unavailable(
+            "this link cannot renew helper leases",
+        ))
+    }
+
+    /// Read one owned handle's lease state without renewing it (SP-09
+    /// `GetLeaseStatus`). Non-draining: a later `poll_core_exits` still
+    /// observes the same exit.
+    fn get_lease_status(&mut self, handle: u64) -> Result<LeaseStatus, DomainError> {
+        let _ = handle;
+        Err(tun_helper_unavailable(
+            "this link cannot read helper lease status",
+        ))
+    }
+
+    /// Poll handle-scoped elevated-core exits (SP-10 `PollCoreExits`).
+    /// Drain-once per handle: an exit is reported at most once; the helper
+    /// remembers it for `get_lease_status` afterwards. Observations for
+    /// handles outside `handles` must be ignored by the caller, never
+    /// fabricated into session state.
+    fn poll_core_exits(
+        &mut self,
+        handles: &[u64],
+    ) -> Result<Vec<CoreExitObservation>, DomainError> {
+        let _ = handles;
+        Err(tun_helper_unavailable(
+            "this link cannot poll helper core exits",
+        ))
+    }
+
     /// In-memory audit of intended/actual operations (redacted).
     fn audit(&self) -> Vec<String> {
         Vec::new()
@@ -288,6 +324,14 @@ pub enum FakeHelperFault {
 
 #[derive(Debug, Default)]
 #[cfg(test)]
+struct FakeLease {
+    pid: u32,
+    expires_at_ms: i64,
+    released: bool,
+}
+
+#[derive(Debug, Default)]
+#[cfg(test)]
 struct FakeHelperState {
     connected: bool,
     routes: Vec<RouteEntry>,
@@ -299,6 +343,13 @@ struct FakeHelperState {
     cleaned: bool,
     elevated_cores: Vec<ElevatedCoreSpec>,
     next_core_handle: u64,
+    /// Owned elevated-core leases, mirroring the helper server's
+    /// `ConnectionLease` (per-handle expiry, pid, released history).
+    leases: std::collections::BTreeMap<u64, FakeLease>,
+    /// Exits staged for the next poll (drain-once source).
+    pending_exits: std::collections::BTreeMap<u64, CoreExitObservation>,
+    /// Drained exits, remembered so status reports `Exited` afterwards.
+    observed_exits: std::collections::BTreeMap<u64, CoreExitObservation>,
 }
 
 /// In-memory helper used by unit tests. It records every operation and can be
@@ -373,6 +424,98 @@ impl FakeHelperLink {
     /// which only counts confirmed releases).
     pub fn cleanup_attempts(&self) -> u32 {
         self.lock().cleanup_attempts
+    }
+
+    /// Keep-alive term granted to a freshly started fake core, mirroring the
+    /// SP-09 provisional lease term the host negotiates with the real helper.
+    pub fn lease_term_ms() -> i64 {
+        crate::lifecycle::HELPER_LEASE_TERM_MS as i64
+    }
+
+    fn fake_now_ms() -> i64 {
+        crate::journal::now_ms()
+    }
+
+    /// Stage a helper-observed exit for `handle`. The next
+    /// `poll_core_exits` listing `handle` drains it exactly once.
+    pub fn inject_core_exit(&self, handle: u64, pid: u32, exit_code: Option<i32>) {
+        let mut state = self.lock();
+        let at_ms = Self::fake_now_ms();
+        state.pending_exits.insert(
+            handle,
+            CoreExitObservation {
+                handle,
+                pid,
+                exit_code,
+                at_ms,
+            },
+        );
+    }
+
+    /// Test seam: record a previously established lease without a launch.
+    /// Models the lease granted before the helper became unreachable: the
+    /// renew/retry path can run against it even while every link call fails.
+    pub fn seed_lease(&self, handle: u64, pid: u32, expires_at_ms: i64) {
+        self.lock().leases.insert(
+            handle,
+            FakeLease {
+                pid,
+                expires_at_ms,
+                released: false,
+            },
+        );
+    }
+
+    pub fn lease_expires_at(&self, handle: u64) -> Option<i64> {
+        self.lock()
+            .leases
+            .get(&handle)
+            .map(|lease| lease.expires_at_ms)
+    }
+
+    /// Mirror of the contract `validate_poll_handles`: the fake rejects the
+    /// same malformed lists the real helper would, so host tests cannot pass
+    /// with a request the wire would refuse.
+    fn check_poll_handles(handles: &[u64]) -> Result<(), DomainError> {
+        if handles.is_empty() {
+            return Err(map_helper_error(HelperError::malformed(
+                "poll handle list is empty",
+            )));
+        }
+        if handles.len() > ipc_contract::HELPER_MAX_POLL_HANDLES {
+            return Err(map_helper_error(HelperError::malformed(format!(
+                "{} poll handles exceed the limit of {}",
+                handles.len(),
+                ipc_contract::HELPER_MAX_POLL_HANDLES
+            ))));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for (index, handle) in handles.iter().enumerate() {
+            if *handle == 0 {
+                return Err(map_helper_error(HelperError::malformed(format!(
+                    "handles[{index}] must be non-zero"
+                ))));
+            }
+            if !seen.insert(*handle) {
+                return Err(map_helper_error(HelperError::malformed(format!(
+                    "handles[{index}] duplicates handle {handle}"
+                ))));
+            }
+        }
+        Ok(())
+    }
+
+    fn check_link_usable(&self) -> Result<(), DomainError> {
+        match self.fault {
+            Some(FakeHelperFault::Deny) => Err(tun_helper_denied("fake helper denied")),
+            Some(FakeHelperFault::Timeout) => {
+                Err(tun_helper_unavailable("fake helper timed out").retryable())
+            }
+            Some(FakeHelperFault::Disconnect) => {
+                Err(tun_helper_unavailable("fake helper disconnected"))
+            }
+            _ => Ok(()),
+        }
     }
 }
 
@@ -493,6 +636,14 @@ impl HelperLink for FakeHelperLink {
         state.next_core_handle += 1;
         let handle = state.next_core_handle;
         state.elevated_cores.push(spec.clone());
+        state.leases.insert(
+            handle,
+            FakeLease {
+                pid: 4242,
+                expires_at_ms: Self::fake_now_ms() + Self::lease_term_ms(),
+                released: false,
+            },
+        );
         Ok((handle, 4242))
     }
 
@@ -501,7 +652,85 @@ impl HelperLink for FakeHelperLink {
         state
             .ops
             .push(format!("stop_elevated_core handle={handle}"));
+        if let Some(lease) = state.leases.get_mut(&handle) {
+            lease.released = true;
+            lease.expires_at_ms = 0;
+        }
         Ok(())
+    }
+
+    fn renew_lease(&mut self, handle: u64) -> Result<i64, DomainError> {
+        self.check_link_usable()?;
+        if handle == 0 {
+            return Err(map_helper_error(HelperError::malformed(
+                "handle must be non-zero",
+            )));
+        }
+        let mut state = self.lock();
+        let Some(lease) = state.leases.get_mut(&handle) else {
+            return Err(map_helper_error(HelperError::UnknownHandle { handle }));
+        };
+        if lease.released {
+            return Err(map_helper_error(HelperError::UnknownHandle { handle }));
+        }
+        let expires_at_ms = Self::fake_now_ms() + Self::lease_term_ms();
+        lease.expires_at_ms = expires_at_ms;
+        state.ops.push(format!("renew_lease handle={handle}"));
+        Ok(expires_at_ms)
+    }
+
+    fn get_lease_status(&mut self, handle: u64) -> Result<LeaseStatus, DomainError> {
+        use ipc_contract::LeaseState;
+
+        self.check_link_usable()?;
+        if handle == 0 {
+            return Err(map_helper_error(HelperError::malformed(
+                "handle must be non-zero",
+            )));
+        }
+        let state = self.lock();
+        let Some(lease) = state.leases.get(&handle) else {
+            return Err(map_helper_error(HelperError::UnknownHandle { handle }));
+        };
+        if lease.released {
+            return Ok(LeaseStatus {
+                handle,
+                state: LeaseState::Released,
+                pid: Some(lease.pid),
+                expires_at_ms: 0,
+            });
+        }
+        let observed = state.observed_exits.contains_key(&handle);
+        Ok(LeaseStatus {
+            handle,
+            state: if observed {
+                LeaseState::Exited
+            } else {
+                LeaseState::Active
+            },
+            pid: Some(lease.pid),
+            expires_at_ms: lease.expires_at_ms,
+        })
+    }
+
+    fn poll_core_exits(
+        &mut self,
+        handles: &[u64],
+    ) -> Result<Vec<CoreExitObservation>, DomainError> {
+        self.check_link_usable()?;
+        Self::check_poll_handles(handles)?;
+        let mut state = self.lock();
+        let mut exits = Vec::new();
+        for handle in handles {
+            if let Some(exit) = state.pending_exits.remove(handle) {
+                state.observed_exits.insert(*handle, exit);
+                exits.push(exit);
+            }
+        }
+        state
+            .ops
+            .push(format!("poll_core_exits requested={}", handles.len()));
+        Ok(exits)
     }
 }
 
@@ -577,6 +806,28 @@ impl HelperLink for DryRunHelperLink {
         Ok(())
     }
 
+    fn renew_lease(&mut self, handle: u64) -> Result<i64, DomainError> {
+        let _ = handle;
+        // Dry-run owns no helper lease: there is nothing to renew. The host
+        // gates real renewals on a non-zero elevated handle, so this is only
+        // reached by a programming error, never by a simulated session.
+        Err(tun_helper_unavailable("dry-run helper link owns no leases"))
+    }
+
+    fn get_lease_status(&mut self, handle: u64) -> Result<LeaseStatus, DomainError> {
+        let _ = handle;
+        Err(tun_helper_unavailable("dry-run helper link owns no leases"))
+    }
+
+    fn poll_core_exits(
+        &mut self,
+        handles: &[u64],
+    ) -> Result<Vec<CoreExitObservation>, DomainError> {
+        let _ = handles;
+        // Simulated cores never exit through the helper.
+        Ok(Vec::new())
+    }
+
     fn audit(&self) -> Vec<String> {
         self.ops()
     }
@@ -620,6 +871,30 @@ impl HelperLink for UnavailableHelperLink {
     fn cleanup(&mut self, _lease: &TunLease) -> Result<(), DomainError> {
         Err(tun_helper_unavailable(
             "privileged helper is not available for cleanup",
+        ))
+    }
+
+    fn renew_lease(&mut self, handle: u64) -> Result<i64, DomainError> {
+        let _ = handle;
+        Err(tun_helper_unavailable(
+            "privileged helper is not available for lease renewal",
+        ))
+    }
+
+    fn get_lease_status(&mut self, handle: u64) -> Result<LeaseStatus, DomainError> {
+        let _ = handle;
+        Err(tun_helper_unavailable(
+            "privileged helper is not available for lease status",
+        ))
+    }
+
+    fn poll_core_exits(
+        &mut self,
+        handles: &[u64],
+    ) -> Result<Vec<CoreExitObservation>, DomainError> {
+        let _ = handles;
+        Err(tun_helper_unavailable(
+            "privileged helper is not available for exit polling",
         ))
     }
 }
@@ -833,6 +1108,50 @@ impl HelperLink for PipeHelperLink {
             HelperResult::CoreStopped { .. } => Ok(()),
             _ => Err(tun_apply_failed(
                 "helper returned an unexpected result for StopElevatedCore",
+            )),
+        }
+    }
+
+    fn renew_lease(&mut self, handle: u64) -> Result<i64, DomainError> {
+        match self.call(HelperOp::RenewLease { handle })? {
+            HelperResult::LeaseRenewed {
+                handle: renewed,
+                expires_at_ms,
+            } if renewed == handle => Ok(expires_at_ms),
+            HelperResult::LeaseRenewed {
+                handle: renewed, ..
+            } => Err(tun_apply_failed(format!(
+                "helper renewed handle {renewed} for requested handle {handle}"
+            ))),
+            _ => Err(tun_apply_failed(
+                "helper returned an unexpected result for RenewLease",
+            )),
+        }
+    }
+
+    fn get_lease_status(&mut self, handle: u64) -> Result<LeaseStatus, DomainError> {
+        match self.call(HelperOp::GetLeaseStatus { handle })? {
+            HelperResult::LeaseStatus { status } if status.handle == handle => Ok(status),
+            HelperResult::LeaseStatus { status } => Err(tun_apply_failed(format!(
+                "helper reported status for handle {} for requested handle {handle}",
+                status.handle
+            ))),
+            _ => Err(tun_apply_failed(
+                "helper returned an unexpected result for GetLeaseStatus",
+            )),
+        }
+    }
+
+    fn poll_core_exits(
+        &mut self,
+        handles: &[u64],
+    ) -> Result<Vec<CoreExitObservation>, DomainError> {
+        match self.call(HelperOp::PollCoreExits {
+            handles: handles.to_vec(),
+        })? {
+            HelperResult::CoreExits { exits } => Ok(exits),
+            _ => Err(tun_apply_failed(
+                "helper returned an unexpected result for PollCoreExits",
             )),
         }
     }
@@ -1232,5 +1551,117 @@ mod tests {
         let lease = TunLease::new("s1", spec(), false);
         let entries = lease.spec.to_route_entries().unwrap();
         assert_eq!(entries[0].family, AddressFamily::V4);
+    }
+
+    // -- SP-09/SP-10 helper protocol v2 lease ops (fake link) ----------------
+
+    fn elevated_spec() -> ElevatedCoreSpec {
+        ElevatedCoreSpec {
+            core: "sing-box".into(),
+            exe_path: r"C:\run\s1\processes\pre-socks\sing-box.exe".into(),
+            args: vec!["run".into(), "-c".into(), "config.json".into()],
+            run_dir: r"C:\run\s1\processes\pre-socks".into(),
+        }
+    }
+
+    #[test]
+    fn fake_renew_extends_the_lease() {
+        use ipc_contract::LeaseState;
+
+        let mut link = FakeHelperLink::new();
+        let (handle, _) = link.run_core(&elevated_spec()).expect("run_core");
+        let before = link.lease_expires_at(handle).expect("lease tracked");
+        let status = link.get_lease_status(handle).expect("status");
+        assert_eq!(status.state, LeaseState::Active);
+        assert_eq!(status.pid, Some(4242));
+
+        let expires = link.renew_lease(handle).expect("renew");
+        assert!(expires >= before, "renew must extend the lease");
+        let status = link.get_lease_status(handle).expect("status");
+        assert_eq!(status.state, LeaseState::Active);
+        assert_eq!(status.expires_at_ms, expires);
+        assert!(link.ops().iter().any(|op| op == "renew_lease handle=1"));
+    }
+
+    #[test]
+    fn fake_renew_rejects_unknown_and_zero_handles() {
+        let mut link = FakeHelperLink::new();
+        let error = link.renew_lease(99).expect_err("unknown handle");
+        assert_eq!(error.code, domain::codes::NOT_FOUND);
+        let error = link.renew_lease(0).expect_err("zero handle");
+        assert_eq!(error.code, domain::codes::INVALID_ARGUMENT);
+        let error = link.get_lease_status(99).expect_err("unknown status");
+        assert_eq!(error.code, domain::codes::NOT_FOUND);
+    }
+
+    #[test]
+    fn fake_released_handle_reads_released_and_refuses_renew() {
+        use ipc_contract::LeaseState;
+
+        let mut link = FakeHelperLink::new();
+        let (handle, _) = link.run_core(&elevated_spec()).expect("run_core");
+        link.stop_core(handle).expect("stop");
+        let status = link.get_lease_status(handle).expect("status");
+        assert_eq!(status.state, LeaseState::Released);
+        let error = link.renew_lease(handle).expect_err("released");
+        assert_eq!(error.code, domain::codes::NOT_FOUND);
+    }
+
+    #[test]
+    fn fake_poll_drains_once_and_status_reflects_it() {
+        use ipc_contract::LeaseState;
+
+        let mut link = FakeHelperLink::new();
+        let (handle, pid) = link.run_core(&elevated_spec()).expect("run_core");
+        link.inject_core_exit(handle, pid, Some(1));
+
+        let exits = link.poll_core_exits(&[handle]).expect("poll");
+        assert_eq!(exits.len(), 1);
+        assert_eq!(exits[0].handle, handle);
+        assert_eq!(exits[0].exit_code, Some(1));
+
+        let again = link.poll_core_exits(&[handle]).expect("second poll");
+        assert!(again.is_empty(), "drain-once: no repeat observation");
+        let status = link.get_lease_status(handle).expect("status");
+        assert_eq!(
+            status.state,
+            LeaseState::Exited,
+            "a drained exit stays visible to status"
+        );
+    }
+
+    #[test]
+    fn fake_poll_ignores_unlisted_handles_and_validates_bounds() {
+        let mut link = FakeHelperLink::new();
+        let (handle, pid) = link.run_core(&elevated_spec()).expect("run_core");
+        // Exit staged for a handle the caller does not own: polling the
+        // owned handle must not surface it, and the unknown handle is not
+        // an error by itself (the server only answers for listed handles).
+        link.inject_core_exit(999, pid, Some(1));
+        let exits = link.poll_core_exits(&[handle]).expect("poll");
+        assert!(
+            exits.is_empty(),
+            "an unlisted handle must not fabricate an exit"
+        );
+
+        assert!(link.poll_core_exits(&[]).is_err(), "empty list rejected");
+        assert!(link.poll_core_exits(&[0]).is_err(), "zero handle rejected");
+        assert!(
+            link.poll_core_exits(&[handle, handle]).is_err(),
+            "duplicates rejected"
+        );
+        let many = (1..=ipc_contract::HELPER_MAX_POLL_HANDLES as u64 + 1).collect::<Vec<_>>();
+        assert!(
+            link.poll_core_exits(&many).is_err(),
+            "oversized list rejected"
+        );
+    }
+
+    #[test]
+    fn fake_lease_ops_fail_when_the_link_is_down() {
+        let mut link = FakeHelperLink::with_fault(FakeHelperFault::Timeout);
+        assert!(link.renew_lease(1).expect_err("renew").retryable);
+        assert!(link.get_lease_status(1).expect_err("status").retryable);
+        assert!(link.poll_core_exits(&[1]).expect_err("poll").retryable);
     }
 }

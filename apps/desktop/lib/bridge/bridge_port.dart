@@ -362,6 +362,15 @@ abstract class BridgePort {
 
   Future<c.ExternalSpecDto> t16ApplyAppUpdateSpec();
 
+  /// Parameterized self-update staging (SP-27): the caller's current
+  /// `prerelease` / `viaProxy` selection travels explicitly instead of the
+  /// no-arg safe defaults. Backed by the existing generated
+  /// `t16ApplyAppUpdateSpecWithFlags` binding (no FRB regeneration).
+  Future<c.ExternalSpecDto> t16ApplyAppUpdateSpecWithFlags(
+    bool prerelease,
+    bool viaProxy,
+  );
+
   c.CleanupResultDto t16CleanupLogsTmp();
 
   c.SimpleResult t16OpenConfigDir();
@@ -926,6 +935,15 @@ class FrbBridgePort implements BridgePort {
   @override
   Future<c.ExternalSpecDto> t16ApplyAppUpdateSpec() =>
       t16.t16ApplyAppUpdateSpec();
+
+  @override
+  Future<c.ExternalSpecDto> t16ApplyAppUpdateSpecWithFlags(
+    bool prerelease,
+    bool viaProxy,
+  ) => t16.t16ApplyAppUpdateSpecWithFlags(
+    prerelease: prerelease,
+    viaProxy: viaProxy,
+  );
 
   @override
   c.CleanupResultDto t16CleanupLogsTmp() => t16.t16CleanupLogsTmp();
@@ -3488,6 +3506,17 @@ class SyntheticBridgePort implements BridgePort {
       waitForPid: 4242,
       args: <String>['/app/.staging/v2rayN-7.99.0'],
     );
+  }
+
+  @override
+  Future<c.ExternalSpecDto> t16ApplyAppUpdateSpecWithFlags(
+    bool prerelease,
+    bool viaProxy,
+  ) async {
+    t16Calls.add('app_update_spec_with_flags:$prerelease:$viaProxy');
+    // The no-arg entry stays the single synthetic success factory, so test
+    // fakes that override only it keep working; flags stay observable above.
+    return t16ApplyAppUpdateSpec();
   }
 
   @override

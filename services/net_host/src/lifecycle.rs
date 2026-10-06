@@ -19,33 +19,25 @@ pub fn next_generation(current: u64) -> u64 {
     current.saturating_add(1)
 }
 
-/// Host-side keep-alive watch values (SP-09 preparation, CP-12).
+/// Host-side keep-alive watch values (SP-09, helper protocol v2).
 ///
-/// The privileged helper already separates the per-request bound from the
-/// long idle bound (24h default), so an active session is never reclaimed for
-/// mere UI inactivity. The explicit renew protocol (`RenewLease` /
-/// `GetLeaseStatus` with per-request timeout, consecutive-failure
-/// reconciliation and an authenticated owner check) is A02-owned and not yet
-/// on the wire — interface needs N-H2/N-H3. Until the helper speaks it, the
-/// host side keeps these provisional watch values and the ownership rule
-/// below, and never fabricates a successful renew.
+/// The privileged helper separates the per-request bound from the long idle
+/// bound (24h default), so an active session is never reclaimed for mere UI
+/// inactivity. The renew protocol (`RenewLease` / `GetLeaseStatus` with the
+/// per-request timeout, consecutive-failure reconciliation and an
+/// authenticated owner check) is on the wire since helper protocol v2, and
+/// the host calls it from the reconcile pass: leases due for renewal are
+/// renewed for their owning helper link, and a dead lease stages through the
+/// same exit record as an observed elevated exit (see `session`).
 ///
-/// Provisional values follow RUNTIME_TUN_SOLUTION section 6.1: renew every
-/// 15s, lease term 90s, reconcile after 3 consecutive renew failures. They
-/// are negotiation inputs for A02, not negotiated facts yet.
-///
-/// Staged until the A02 renew protocol lands (needs N-H2/N-H3); covered by
-/// SP-09 virtual-time tests, hence `allow(dead_code)` on each item below.
-#[allow(dead_code)]
+/// Values follow RUNTIME_TUN_SOLUTION section 6.1: renew every 15s, lease
+/// term 90s, reconcile after 3 consecutive renew failures.
 pub const HELPER_RENEW_INTERVAL_MS: u64 = 15_000;
-#[allow(dead_code)]
 pub const HELPER_LEASE_TERM_MS: u64 = 90_000;
-#[allow(dead_code)]
 pub const HELPER_RENEW_FAILURES_BEFORE_RECONCILE: u32 = 3;
 
 /// Whether a renew is due. Pure virtual-time decision (`ms` on one monotonic
-/// clock); the actual renew RPC waits for the A02 helper interface.
-#[allow(dead_code)]
+/// clock); the reconcile pass issues the actual renew RPC.
 pub fn renew_due(last_renew_ms: u64, now_ms: u64) -> bool {
     now_ms.saturating_sub(last_renew_ms) >= HELPER_RENEW_INTERVAL_MS
 }
@@ -53,14 +45,12 @@ pub fn renew_due(last_renew_ms: u64, now_ms: u64) -> bool {
 /// Whether the lease term lapsed without confirmation. An active session that
 /// keeps renewing never hits this, however long the UI stays idle; only a
 /// dead owner (no renew, no traffic confirmation) expires.
-#[allow(dead_code)]
 pub fn lease_expired(last_confirmed_ms: u64, now_ms: u64) -> bool {
     now_ms.saturating_sub(last_confirmed_ms) >= HELPER_LEASE_TERM_MS
 }
 
 /// Whether consecutive renew failures force reconciliation instead of another
 /// blind retry.
-#[allow(dead_code)]
 pub fn renew_reconcile_due(consecutive_failures: u32) -> bool {
     consecutive_failures >= HELPER_RENEW_FAILURES_BEFORE_RECONCILE
 }

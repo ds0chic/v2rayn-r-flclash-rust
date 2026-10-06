@@ -7,8 +7,12 @@
 //   SubIndexId 命中恢复，否则回 All 首项（从不持久化修复值）。
 // - RefreshServersBiz：pending > IndexId > 首行；单击只改内存选择。
 //
-// 本文件只做纯解析，不碰 profiles_controller（A07 独占）、BridgePort、FRB。
-// 持久化重试/重开接线依赖 SP-12（A04 在途），此处仅冻结“该编哪个对象”。
+// 本文件只做纯解析，不碰 BridgePort、FRB。组切换的持久化写与重开恢复由
+// profiles_controller 经已有 settings/subs 桥接缝执行（SP-16 接线轮）。
+// 跨窗 revision 重试对账依赖 SP-12（A04 在途），此处仅冻结“该编哪个对象”。
+import 'dart:convert';
+
+import 'package:v2rayn_desktop/features/profiles/command_context.dart';
 
 /// 编辑当前订阅入口的解析结果。
 enum SubEntryKind {
@@ -103,3 +107,57 @@ bool isPrimaryTargetLive({
 /// 上游 WPF 子菜单逐级 Esc 尚未真机对照（ui/README UI-09 注记），此处如实
 /// 锁定当前行为，不猜逐级语义。
 const bool menuEscClosesWholeChain = true;
+
+/// SP-16 接线轮：`Config.SubIndexId` 独立组名（已有 settings 桥的组键）。
+const String subIndexIdGroup = 'SubIndexId';
+
+/// 重开恢复：持久化组命中现存订阅则恢复该组，否则回 All（null）。
+///
+/// 对应 Rust `selection::resolve_current_group` 与上游
+/// `RefreshSubscriptions`（命中恢复，否则 All 首项，从不持久化修复值）。
+/// 空白拼写归一为 All，与 [resolveSubEntry]/[normalizeGroupSubId] 一致。
+String? resolveReopenGroup({
+  required String? persisted,
+  required List<String> existingIds,
+}) {
+  final entry = resolveSubEntry(
+    groupSubId: persisted,
+    existingIds: existingIds,
+  );
+  return entry.kind == SubEntryKind.editCurrent ? entry.targetId : null;
+}
+
+/// 从规范 `Config` JSON（PascalCase）读持久化组；缺失/空白/非法一律
+/// 归一为 All（null），调用方不得回落首组。
+String? readPersistedSubIndexId(String settingsJson) {
+  try {
+    final decoded = jsonDecode(settingsJson);
+    if (decoded is! Map<String, dynamic>) return null;
+    final value = decoded['SubIndexId'];
+    if (value == null) return null;
+    if (value is! String) return null;
+    return normalizeGroupSubId(value);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// `SubIndexId` 独立组写的 patch 体：组 id 的 JSON 标量，All 写 null。
+String subIndexIdPatch(String? groupSubId) =>
+    jsonEncode(normalizeGroupSubId(groupSubId));
+
+/// 解析 `group_revisions_json`；非法一律空表（调用方回落 revision 0，
+/// 由桥端做 stale 仲裁，不伪造版本号）。
+Map<String, int> decodeGroupRevisions(String groupRevisionsJson) {
+  try {
+    final decoded = jsonDecode(groupRevisionsJson);
+    if (decoded is! Map) return const <String, int>{};
+    final out = <String, int>{};
+    decoded.forEach((key, value) {
+      if (value is num) out['$key'] = value.toInt();
+    });
+    return out;
+  } catch (_) {
+    return const <String, int>{};
+  }
+}

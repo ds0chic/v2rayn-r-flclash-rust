@@ -1,6 +1,7 @@
-# SP-09 证据（准备范围，A03）
+# SP-09 证据（准备范围，A03 + §5 接线）
 
-状态：identified（准备完成，行为实现被 A02 helper 接口阻塞）。
+状态：implemented（§5 net_host 侧 helper v2 接线完成，fake 链路验证；
+真实提权联调与长运行未验，不标 verified）。
 本卡唯一流程——用户 TUN 长期运行不被 idle 误回收、管理者失联后按真实
 归属恢复——的完整实现需要 `RenewLease` / `GetLeaseStatus` /
 `ReleaseOwnedResources` / `GetOwnedCoreStatus`（A02 独占
@@ -61,3 +62,47 @@
 `crates/application/src/tun_plan.rs`、本目录 `README.md` + 2 份命令日志。
 `tasks/SP-09.md` 与 manifest SP-09 块更新为“准备完成、实现阻塞”
 如实状态（见卡）。
+
+## 5. 2026-10-07 net_host 侧 helper v2 接线（N-H2 落地，implemented）
+
+前置接口已就绪：`2ea50bd` 落地 helper 协议 v2（`RenewLease` /
+`GetLeaseStatus` / `PollCoreExits` + `AlreadyGone`，SP-00
+`HELPER-OPS-V2.md`）。本次只动 `services/net_host`（未动
+`crates/ipc_contract/**`、`services/privileged_helper/**`、
+`crates/bridge_api/**`、`crates/application/**`、workspace Cargo 文件）：
+
+- `services/net_host/src/helper_client.rs`：`HelperLink` 新增
+  `renew_lease` / `get_lease_status` / `poll_core_exits`（既有
+  request/response 管道 + 合同 per-request 超时类；错位结果转结构化
+  `tun_apply_failed`）。`PipeHelperLink`（Windows）走真实 `call`；
+  `FakeHelperLink` 复刻服务端语义（逐 handle 过期/pid/released、
+  drain-once pending→observed、与合同一致的空/越界/0/duplicates 拒绝、
+  `seed_lease`/`inject_core_exit` 故障注入）；`DryRun`/`Unavailable`
+  按“无自有租约”返回结构化错误（poll 在 dry-run 下为空）。
+- `services/net_host/src/session.rs`：`SidecarSession` 新增
+  `lease_last_renew_ms` / `lease_last_confirmed_ms` /
+  `lease_renew_failures`；reconcile 通路对每个有 helper 链路且有非零
+  handle 的提权 sidecar——到期（15s 节奏）才调一次 `RenewLease`，成功
+  确认（失败清零）、失败记一次重试；90s term 无确认、或 3 连败、或
+  `GetLeaseStatus == Released` 一次性确认释放时，经 staged 记录
+  （`stage_elevated_sidecar_exit`，与 `note_elevated_sidecar_exit` 同源）
+  以 code-unknown 降级，由 `reconcile_exits` 既有侧车退出分支消费。
+  无链路/无 handle（含 dry-run 零 handle）不调用；helper 上报 PID 只做
+  归属标识，永不按 PID kill。
+- `services/net_host/src/lifecycle.rs`：15s/90s/3 次 watch 值与
+  `renew_due` / `lease_expired` / `renew_reconcile_due` 去 staged 标记
+  转正（生产调用）；其余 staged 项（`session_readiness` 等）保持不变。
+
+定向检查（exit 均为 0）：
+
+- `cargo fmt -p net_host -- --check` → 0
+- `cargo clippy -p net_host --all-targets --locked -- -D warnings` → 0
+- `cargo test -p net_host --locked` → 0（129 passed；新增 13：
+  fake 链路 6（续租延长/未知句柄/Released/poll drain-once/越界拒绝/
+  链路中断）+ 接线 7（到期确认/3连败对账/过期即对账/Released 快捷对账/
+  无 handle 不调用/session 级 poll 降级恰一次/未知 handle 不伪造））
+- 未动 `ipc_contract` 公共 API，未跑 `cargo test -p ipc_contract`。
+
+未验证（保持 implemented，不标 verified）：真实提权 helper 联调
+（UAC 提权 + 命名管道真实往返）、24h/48h 长运行与睡眠恢复、迟到
+renew/异 owner lease 的真机清理行为。

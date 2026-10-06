@@ -1,6 +1,7 @@
 # SP-10 证据（准备范围：授权隔离机启用 TUN 的本机可独立部分）
 
-状态：**identified**（准备完成；真实 OS 路由接管未验，不得 verified）。
+状态：**implemented**（§7 net_host 侧 PollCoreExits 接线完成，fake 链路
+验证；真实 OS 路由接管未验，不得 verified）。
 
 本次唯一流程：用户在授权隔离机启用 TUN，主核/sidecar 就绪、IPv4/IPv6
 正常且标签真实。本机只做可独立部分——就绪判定/归属/IPv6 探测输入/
@@ -131,5 +132,34 @@ IPC/FRB/Cargo 锁/runtime_bridge/runtime_controller 均未动）。
 
 沿 `docs/repair/coverage.csv` owner_task=R4-25 集合选取本次唯一流程
 （授权隔离机启用 TUN→主核/sidecar 就绪→IPv4/IPv6 正常→标签真实），
-在隔离机实测前不将 owner 全集标 verified。本卡整体状态保持
-identified。
+在隔离机实测前不将 owner 全集标 verified。本卡整体状态自 §7 起为
+implemented（fake 链路接线完成，真实接管未验）。
+
+## 7. 2026-10-07 net_host 侧 PollCoreExits 接线（N-H2 落地，implemented）
+
+前置接口已就绪：`2ea50bd` 落地 helper 协议 v2（含 `PollCoreExits`
+drain-once + `GetLeaseStatus` 可见已 Drain 退出，SP-00
+`HELPER-OPS-V2.md`）。本次只动 `services/net_host`（范围同 SP-09
+§5，未动共享 DTO/Cargo）：
+
+- `reconcile_exits` 读取通路新增 helper 观测段：对每个“有 helper 链
+  路 + 非零 handle + 无本地 child + 尚未 staged”的提权 sidecar，向其
+  自有链路发一次 `PollCoreExits { handles: [handle] }`（有界：单链路单
+  handle，远小于 256 上限；失败则忽略、本次读不 fabricate，下次读重
+  试）。命中自有 handle 的观测经 `stage_elevated_sidecar_exit`（与
+  `note_elevated_sidecar_exit` 同源）记入 `elevated_exit_code` 并补齐
+  helper 上报 PID（仅归属标识），随即由既有侧车退出分支消费：
+  Degraded + `error.sidecar_exited` + fact generation +1，与普通
+  sidecar 退出同一通路。未列出 handle 的观测直接丢弃。
+- 同通路随后按 SP-09 节奏续租（见 SP-09 §5）；两段共享同一门控。
+- 定向检查与 SP-09 §5 同批：`cargo fmt -p net_host -- --check` →
+  0；`cargo clippy -p net_host --all-targets --locked -- -D warnings`
+  → 0；`cargo test -p net_host --locked` → 0（129 passed，含 session
+  级 `sp10_polled_exit_degrades_the_session_exactly_once`——首读
+  Degraded 且 generation 1、次读 generation 不变——与
+  `sp10_unknown_polled_handle_fabricates_no_exit`——Running、
+  generation 0、无 last_exit）。
+
+未验证（保持 implemented，不标 verified）：真实提权 sidecar 的退出
+观测全链路（UAC 提权 + 真实 helper 进程退出 + 命名管道 poll）、§4.5
+所列 OS 路由/地址/TUN 接管实测、24h/48h 与睡眠恢复。

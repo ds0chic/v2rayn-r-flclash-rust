@@ -14,7 +14,9 @@ import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
 import 'package:v2rayn_desktop/features/profiles/profile_dedup.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
+import 'package:v2rayn_desktop/features/profiles/command_context.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
+import 'package:v2rayn_desktop/features/profiles/sub_entry.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
@@ -482,7 +484,12 @@ class ProfilesController extends Notifier<ProfilesState> {
     final rows = _bridge.applyLiveOverlay(snapshot.summaries);
     final columns = _applyStoredLayout(defaultProfileColumns());
     ref.onDispose(() => _testPoller?.cancel());
-    return ProfilesState(
+    // SP-16 reopen: the persisted `Config.SubIndexId` against the live
+    // subscriptions (a dangling id resolves to the All view, never the first
+    // group, and the repair is not persisted). Pure widget tests without a
+    // native bridge fall back to All.
+    final restored = _resolveInitialGroup();
+    var initial = ProfilesState(
       all: rows,
       visible: List<ProfileSummary>.of(rows),
       filter: '',
@@ -494,7 +501,35 @@ class ProfilesController extends Notifier<ProfilesState> {
       columns: columns,
       profiles: snapshot.profiles,
       activeId: _bridge.getActiveProfile(),
+      groupSubId: restored,
     );
+    if (restored != null) initial = _recompute(initial);
+    return initial;
+  }
+
+  /// Persisted current group resolved against the live subscriptions.
+  ///
+  /// Null names the All view: a blank persisted id or one whose subscription
+  /// no longer exists (upstream `RefreshSubscriptions` never falls back to
+  /// the first group). Never throws: an unreadable store means All.
+  String? _resolveInitialGroup() {
+    final existing = <String>[for (final s in subItems()) s.id];
+    return resolveReopenGroup(
+      persisted: _readPersistedGroup(),
+      existingIds: existing,
+    );
+  }
+
+  /// Canonical `Config.SubIndexId` from the persisted settings document.
+  /// Null on any read/parse failure (callers treat it as the All view).
+  String? _readPersistedGroup() {
+    try {
+      final load = _bridge.getSettings();
+      if (!load.ok || load.settingsJson.isEmpty) return null;
+      return readPersistedSubIndexId(load.settingsJson);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// While a run is active, poll the Rust `ProfileExItem` store and refresh the
@@ -982,17 +1017,86 @@ class ProfilesController extends Notifier<ProfilesState> {
 
   /// Select the subscription group shown in the node table (`null` = all).
   ///
+  /// Upstream `SubSelectedChangedAsync` (`_config.SubIndexId = SelectedSub?.Id`):
+  /// every switch writes the canonical `Config.SubIndexId` through the existing
+  /// `saveSettingsGroup('SubIndexId', …)` seam (an explicit `SubIndexId` group
+  /// write is the engine's group switch; a whole-tree save would pin it back).
+  /// The write is unvalidated like the upstream `_config` write — a chip always
+  /// names a live subscription; existence is enforced on the read side
+  /// ([resyncGroupFromSubs]/build), never by falling back to the first group.
+  ///
   /// Switching to a non-empty group defaults the current row (active, else
   /// first) instead of leaving the table with no selection, matching upstream
-  /// `RefreshServersBiz` (R3-PROF-10).
-  void setGroupSubId(String? subId) {
+  /// `RefreshServersBiz` (R3-PROF-10). Returns whether the canonical write
+  /// held; a rejected write leaves the previous group untouched (no fake
+  /// switch, no partial state).
+  bool setGroupSubId(String? subId) {
+    final normalized = normalizeGroupSubId(subId);
+    final int groupRevision;
+    try {
+      final load = _bridge.getSettings();
+      groupRevision = load.ok
+          ? (decodeGroupRevisions(load.groupRevisionsJson)[subIndexIdGroup] ??
+                0)
+          : 0;
+    } catch (_) {
+      _log('group-filter-failed', 'settings-unreadable');
+      return false;
+    }
+    final result = () {
+      try {
+        return _bridge.saveSettingsGroup(
+          subIndexIdGroup,
+          subIndexIdPatch(normalized),
+          groupRevision,
+        );
+      } catch (_) {
+        return null;
+      }
+    }();
+    if (result == null) {
+      _log('group-filter-failed', 'settings-unwritable');
+      return false;
+    }
+    if (!result.ok) {
+      _log('group-filter-failed', result.error?.code ?? 'unknown');
+      return false;
+    }
     state = _recompute(
-      state.copyWith(groupSubId: subId, clearGroup: subId == null),
+      state.copyWith(groupSubId: normalized, clearGroup: normalized == null),
     );
     if (state.selected.isEmpty && state.visible.isNotEmpty) {
       _selectDefaultRow();
     }
-    _log('group-filter', 'sub=${subId ?? "(all)"}');
+    _log('group-filter', 'sub=${normalized ?? "(all)"}');
+    return true;
+  }
+
+  /// Re-resolve the current group against the live subscription list
+  /// (upstream `RefreshSubscriptions`: hit stays, dangling resolves to the
+  /// All view in memory, repair never persisted).
+  ///
+  /// Called at startup (via [build]) and after every subscription-list change
+  /// (subs save/delete, which already refresh both lists), so deleting the
+  /// current group cannot leave the table filtered by a ghost id, and a
+  /// created/edited group shows up without touching the current selection
+  /// (upstream keeps the `SubIndexId` hit, it never auto-switches to new).
+  void resyncGroupFromSubs() {
+    final existing = <String>[for (final s in subItems()) s.id];
+    final current = state.groupSubId;
+    if (current != null && existing.contains(current)) return;
+    final restored = resolveReopenGroup(
+      persisted: current ?? _readPersistedGroup(),
+      existingIds: existing,
+    );
+    if (restored == current) return;
+    state = _recompute(
+      state.copyWith(groupSubId: restored, clearGroup: restored == null),
+    );
+    if (state.selected.isEmpty && state.visible.isNotEmpty) {
+      _selectDefaultRow();
+    }
+    _log('group-resync', 'sub=${restored ?? "(all)"}');
   }
 
   /// Subscription rows for the groups panel.

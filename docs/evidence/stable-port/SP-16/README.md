@@ -117,3 +117,76 @@ table_actions 6/6 + 既有 profiles 键鼠/右键回归 28 项）；
 group_reopen 真实重开）；SP-12 跨窗 revision 重试对账；真机 trace/DPI。
 group_reopen 绿、真实 G 保存重开、同名/普通组、取消/失败：未运行，
 保持 blocked，不装绿。
+
+## 9. 接线轮（profiles_controller 已解 Karen，A07 独占解除）
+
+状态：implemented（接线完成；verified 不标：真机 group_reopen trace/DPI、
+真实 FRB/SQLite 重开未运行）。
+合成数据专用；无宿主网络/10808/系统代理/路由/TUN/DNS/Run-key 操作；
+不读用户秘密。不 commit。
+
+### 9.1 做（本轮）
+
+- 持久化写：`setGroupSubId` 每次切换经已有
+  `saveSettingsGroup('SubIndexId', patch, groupRevision)` 写规范
+  `Config.SubIndexId`（显式 SubIndexId 组写即 engine 组切换；
+  整树保存会 pin 回该值，故不用 `saveSettingsJson`）。
+  写为上游 `SubSelectedChangedAsync` 对等（`_config` 写本身不校验存在性，
+  存在性在读侧强制）。返回 bool：失败留原组（无假切换、无半状态）。
+- 重开恢复：`build()` 读持久化组对现存订阅解析（`resolveReopenGroup`），
+  悬空/空白回 All，不回落首组，不持久化修复。
+- 统一刷新与回落：`subs_controller.save/delete` 成功后
+  `profiles.reload() + resyncGroupFromSubs()`（上游 `RefreshSubscriptions`
+  对等：命中保持、新组不自动切换、删当前组内存回 All 且不写修复）。
+- 工具栏直达入口（`openEditCurrentSub`/`openAddSub`）与订阅设置窗
+  add/edit/delete 均走上述控制器路径，无需改 UI 文件；
+  主窗直接删 G 入口（上游 `ProfilesViewModel.DeleteSubAsync`  counterpart）
+  未新增按钮，删组经订阅设置窗（已有入口）覆盖。
+- 纯帮助（`sub_entry.dart` 新增）：`resolveReopenGroup`（对
+  `selection::resolve_current_group`）、`readPersistedSubIndexId`、
+  `subIndexIdPatch`、`decodeGroupRevisions`、`subIndexIdGroup`。
+-  collateral：`ux_space01_entries_test.dart`  stale 断言已按 SP-16 合同修正
+  （上一轮把 `toolbar-sub-edit` 改为直达 G 后，该测试仍期望弹出总列表；
+  与本轮无关的既有失败，现改为：选 G 后点编辑弹出 `sub-edit-window`，
+  点新增弹出空白 `sub-edit-window`，备注行前切回 All）。
+
+### 9.2 改动文件（写锁内）
+
+- `apps/desktop/lib/features/profiles/sub_entry.dart`：+5 纯帮助。
+- `apps/desktop/lib/features/profiles/profiles_controller.dart`：
+  `build` 恢复、`setGroupSubId -> bool` 持久化、`resyncGroupFromSubs`。
+- `apps/desktop/lib/features/subs/subs_controller.dart`：
+  save/delete 成功后 profiles `reload + resync`。
+- `apps/desktop/test/repair/sp_16_group_persistence_test.dart`：新增 15 项
+  （纯合同 4 + 切换持久化 3 + 合成重开 3 + 真实路径 create/edit/delete 5，
+  含 persist 失败、非法保存、删他组保持、不写修复断言）。
+- `apps/desktop/test/ux_space01_entries_test.dart`：stale 断言修正（见 9.1）。
+- `docs/repair/stable-port-2026-10-06/execution-manifest.json`：SP-16 note。
+
+未动：`crates/bridge_api`、FRB 文件、Rust（本轮无 Rust 改动，未跑 cargo）；
+`profiles_page.dart`、`sub_direct_edit.dart`、`sub_setting_window.dart`
+（入口行为已符合合同，统一刷新由控制器保证）。
+
+### 9.3 定向检查（实际结果）
+
+- `dart format --output=none --set-exit-if-changed lib test`：0 changed。
+- `flutter analyze`：No issues found。
+- `flutter test test/repair/sp_16_group_persistence_test.dart`：15/15。
+- 回归（`setGroupSubId`/subs 存取触及面）：
+  sp_16 9/9、sp_18 8/8、table_actions 6/6、recheck01×2、recheck05、
+  recheck_r3_prof10、r4_09、r4_17、r4_22、re_prof_06、r4_16/r4_17 repro、
+  t15b、ux_parity_fix01、t09×2、fix09×2、r4_34、sr01、t21e、ux_parity_fix06、
+  ux_space01——全部绿（含本轮修正后的 ux_space01）。
+- 未运行：cargo（无 Rust 改动，按任务卡免跑）；全量 `flutter test`
+  （按任务卡只跑受影响文件）；真机/正式包/DPI。
+
+### 9.4 登记缺口（不发明接口）
+
+- `engine.set_current_group/resolve_current_group` 无 FRB 暴露：本轮经
+  settings 独立组缝达到同等持久化效果；专用桥接由 SP-00 整合。
+- engine `save_settings_group('SubIndexId')` 不校验订阅存在性（与
+  `set_current_group` 不对称）：存在性门控只在 Dart 读侧
+  （build/resync/edit 入口门控），写侧保持上游 `_config` 写对等。
+- 上游订阅设置窗删除有确认框（`ShowYesNoInteraction`），本项目
+  `sub_setting_window._delete` 直接删除：行为差，未改（他卡 UX 范畴）。
+- 真实 FRB/SQLite 重开、正式包入口、DPI 真机对照：未运行，标未验证。

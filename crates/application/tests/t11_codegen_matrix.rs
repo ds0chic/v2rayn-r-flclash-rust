@@ -115,6 +115,7 @@ fn opts(base: u16) -> CodegenOptions {
         bin_directory: "bin".into(),
         log_date: "2026-01-01".into(),
         speed_ping_test_url: Some("https://example.com/".into()),
+        local_srs_files: Default::default(),
     }
 }
 

@@ -315,10 +315,26 @@ pub trait SystemProxyBackend {
 ///
 /// Free function so callers without a backend instance can hash too. Covers
 /// mode, server, bypass, PAC url and autodetect plus the applied session key.
+/// Text segments are normalised (trimmed; empty == absent; bypass tokens
+/// re-joined with `;`) so cosmetic edits do not change the identity, while a
+/// real bypass/PAC edit at the same port does.
 pub fn applied_content_hash(
     mode: SysProxyMode,
     settings: &ProxySettings,
     session_key: &str,
+) -> String {
+    applied_content_hash_with_pac(mode, settings, session_key, None)
+}
+
+/// Canonical applied-content hash with an explicit PAC payload segment
+/// (SP-15): same mode/port/URL but different PAC script text must re-apply.
+/// `pac_content` is the raw served script (or a pre-hash of it); `None`
+/// keeps the legacy [`applied_content_hash`] identity.
+pub fn applied_content_hash_with_pac(
+    mode: SysProxyMode,
+    settings: &ProxySettings,
+    session_key: &str,
+    pac_content: Option<&str>,
 ) -> String {
     let mode_token = match mode {
         SysProxyMode::ForcedClear => "clear",
@@ -326,19 +342,44 @@ pub fn applied_content_hash(
         SysProxyMode::Unchanged => "unchanged",
         SysProxyMode::Pac => "pac",
     };
+    let pac_segment = pac_content
+        .map(|text| crate::hash::md5_hex(text.as_bytes()))
+        .unwrap_or_default();
     let canonical = format!(
-        "{}|{}|{}|{}|{}|{}",
+        "{}|{}|{}|{}|{}|{}|{}",
         mode_token,
-        settings.server.as_deref().unwrap_or(""),
-        settings.bypass.as_deref().unwrap_or(""),
-        settings.auto_config_url.as_deref().unwrap_or(""),
+        normalize_segment(settings.server.as_deref()),
+        normalize_bypass(settings.bypass.as_deref()),
+        normalize_segment(settings.auto_config_url.as_deref()),
         settings
             .auto_detect
             .map(|v| if v { "1" } else { "0" })
             .unwrap_or("-"),
-        session_key,
+        session_key.trim(),
+        pac_segment,
     );
     crate::hash::md5_hex(canonical.as_bytes())
+}
+
+/// Trimmed text with empty normalised to absent.
+fn normalize_segment(value: Option<&str>) -> String {
+    value
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map_or_else(String::new, |s| s.to_string())
+}
+
+/// Bypass lists are `;`-separated upstream: trim each token, drop empties and
+/// re-join so `"  <local> ; "` hashes like `"<local>"`.
+fn normalize_bypass(value: Option<&str>) -> String {
+    let Some(raw) = value else {
+        return String::new();
+    };
+    raw.split([';', ','])
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>()
+        .join(";")
 }
 
 #[cfg(test)]

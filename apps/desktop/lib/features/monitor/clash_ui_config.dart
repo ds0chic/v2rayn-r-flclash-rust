@@ -17,6 +17,7 @@ class ClashUiConfig {
     this.proxiesSorting = 0,
     this.connectionsAutoRefresh = false,
     this.connectionsRefreshInterval = 2,
+    this.connectionsColumns = const <Map<String, dynamic>>[],
   });
 
   final bool proxiesAutoRefresh;
@@ -31,6 +32,11 @@ class ClashUiConfig {
 
   /// Seconds between automatic connection refreshes; `<= 0` disables it.
   final int connectionsRefreshInterval;
+
+  /// Raw persisted `ConnectionsColumnItem` rows (Name/Width/Index). The view
+  /// normalizes them with `resolveVisibleColumns`; empty means upstream
+  /// defaults (upstream `RestoreUI` early-returns on a missing list).
+  final List<Map<String, dynamic>> connectionsColumns;
 
   bool get proxiesRefreshEnabled =>
       proxiesAutoRefresh && proxiesRefreshInterval > 0;
@@ -61,7 +67,23 @@ ClashUiConfig clashUiConfigFromDocument(Map<String, dynamic> document) {
     proxiesSorting: asInt(group['ProxiesSorting'], 0),
     connectionsAutoRefresh: asBool(group['ConnectionsAutoRefresh'], false),
     connectionsRefreshInterval: asInt(group['ConnectionsRefreshInterval'], 2),
+    connectionsColumns: asColumnRows(group['ConnectionsColumnItem']),
   );
+}
+
+/// Copy the persisted `ConnectionsColumnItem` rows (Name/Width/Index) out of
+/// the document; anything else falls back to an empty list (upstream defaults).
+List<Map<String, dynamic>> asColumnRows(Object? value) {
+  if (value is! List) return const <Map<String, dynamic>>[];
+  final rows = <Map<String, dynamic>>[];
+  for (final row in value) {
+    if (row is Map<String, dynamic>) {
+      rows.add(Map<String, dynamic>.of(row));
+    } else if (row is Map) {
+      rows.add(Map<String, dynamic>.from(row));
+    }
+  }
+  return rows;
 }
 
 /// Return a copy of the document's `ClashUIItem` group with [changes] applied,

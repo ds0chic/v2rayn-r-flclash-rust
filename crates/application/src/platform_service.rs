@@ -75,6 +75,13 @@ impl ProxyApplyRequest {
 }
 
 /// Snapshot+apply result exposed over the bridge.
+///
+/// This outcome reports *platform effect facts only*: it never claims the
+/// settings save succeeded. Callers copy `applied_content_hash` into the save
+/// receipt's `platformApply` phase (SP-12 contract) while the `save` phase
+/// comes solely from the commit path. `ok == true` means the OS effect is in
+/// place (or was already in place and skipped as a duplicate), never that a
+/// document was persisted.
 #[derive(Debug, Clone, Default)]
 pub struct ProxyApplyOutcome {
     pub ok: bool,
@@ -83,6 +90,25 @@ pub struct ProxyApplyOutcome {
     pub current: ProxyState,
     pub error_code: Option<String>,
     pub error_message: Option<String>,
+    /// Normalised desired content identity for this request (SP-15).
+    pub desired_content_hash: String,
+    /// Last successfully applied content identity after this call. Unchanged
+    /// when this call failed or was skipped, so `desired != applied` means a
+    /// retry is still due.
+    pub applied_content_hash: String,
+    /// True when the desired content already matched the applied effect and
+    /// the live state still carries it: no OS write happened.
+    pub skipped_as_duplicate: bool,
+}
+
+/// Desired-vs-actually-applied platform content (SP-15 status query).
+#[derive(Debug, Clone, Default)]
+pub struct PlatformApplyStatus {
+    pub desired_content_hash: Option<String>,
+    pub applied_content_hash: Option<String>,
+    /// True when a desired effect exists that was never successfully applied
+    /// (e.g. the OS write failed): retry the same saved request.
+    pub needs_retry: bool,
 }
 
 /// Restore/exit outcome exposed over the bridge.
@@ -129,6 +155,16 @@ pub struct PlatformService {
     pac: Arc<Mutex<Option<PacServer>>>,
     /// PAC port chosen by the service (0 = auto-select at/above 11808).
     pac_port: Arc<Mutex<u16>>,
+    /// md5 of the last `pac_start` payload (script text + proxy rule).
+    /// Included in the SP-15 content identity so same mode/port/URL with a
+    /// different served script re-applies. Remote PAC bodies (URL not served
+    /// by us) are not tracked; URL edits still re-apply via `auto_config_url`.
+    pac_content: Arc<Mutex<Option<String>>>,
+    /// Desired content identity of the last apply request (SP-15).
+    desired_hash: Arc<Mutex<Option<String>>>,
+    /// Content identity of the last *successful* OS apply. Only success
+    /// advances this; failures leave it so the gap stays retryable.
+    applied_hash: Arc<Mutex<Option<String>>>,
 }
 
 impl PlatformService {
@@ -142,7 +178,79 @@ impl PlatformService {
             applied: Arc::new(Mutex::new(Vec::new())),
             pac: Arc::new(Mutex::new(None)),
             pac_port: Arc::new(Mutex::new(0)),
+            pac_content: Arc::new(Mutex::new(None)),
+            desired_hash: Arc::new(Mutex::new(None)),
+            applied_hash: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Content identity for a request (SP-15 dedup key): normalised
+    /// mode/session/port/bypass/PAC segments. `session_key` scopes the effect
+    /// owner; pass `""` while no runtime session wiring exists (the bridge
+    /// entry keeps one process-wide service, so `""` is stable there).
+    /// `pac_content_hash` carries the served script identity (`None` keeps the
+    /// legacy URL-only identity).
+    pub fn desired_hash_for(
+        request: &ProxyApplyRequest,
+        session_key: &str,
+        pac_content_hash: Option<&str>,
+    ) -> String {
+        platform::sysproxy::applied_content_hash_with_pac(
+            request.mode,
+            &request.settings(),
+            session_key,
+            pac_content_hash,
+        )
+    }
+
+    /// Currently served PAC payload identity, if `pac_start` ran.
+    fn pac_content_hash(&self) -> Option<String> {
+        self.pac_content.lock().ok().and_then(|g| g.clone())
+    }
+
+    fn record_pac_content(&self, source_text: Option<&str>, proxy_rule: Option<&str>) {
+        let hash = source_text.map(|text| {
+            let mut material = text.to_string();
+            material.push('|');
+            material.push_str(proxy_rule.unwrap_or(""));
+            platform::hash::md5_hex(material.as_bytes())
+        });
+        if let Ok(mut guard) = self.pac_content.lock() {
+            *guard = hash;
+        }
+    }
+
+    /// Desired content identity of the last apply request, if any.
+    pub fn desired_content_hash(&self) -> Option<String> {
+        self.desired_hash.lock().ok().and_then(|g| g.clone())
+    }
+
+    /// Content identity of the last *successful* OS apply, if any.
+    pub fn applied_content_hash_state(&self) -> Option<String> {
+        self.applied_hash.lock().ok().and_then(|g| g.clone())
+    }
+
+    /// Desired-vs-applied status: `needs_retry` is true while a desired effect
+    /// was never successfully applied (failed OS write). Retrying re-issues
+    /// the same saved request; it never invents a new save.
+    pub fn apply_status(&self) -> PlatformApplyStatus {
+        let desired = self.desired_content_hash();
+        let applied = self.applied_content_hash_state();
+        let needs_retry = match (&desired, &applied) {
+            (Some(_), None) => true,
+            (Some(d), Some(a)) => d != a,
+            (None, _) => false,
+        };
+        PlatformApplyStatus {
+            desired_content_hash: desired,
+            applied_content_hash: applied,
+            needs_retry,
+        }
+    }
+
+    /// True while a desired effect still needs a (re-)apply.
+    pub fn needs_retry(&self) -> bool {
+        self.apply_status().needs_retry
     }
 
     /// The current per-field system proxy state (through the backend).
@@ -152,6 +260,18 @@ impl PlatformService {
 
     /// Apply a proxy transition, recording only the fields we actually wrote.
     ///
+    /// SP-15 content semantics:
+    /// * the request's normalised content hash (mode/session/port/bypass/PAC)
+    ///   is recorded as desired *before* touching the OS;
+    /// * an identical repeat while the live state still carries our values is
+    ///   deduplicated: no OS write, `skipped_as_duplicate` is true;
+    /// * same mode/port with different bypass/PAC content hashes differently
+    ///   and re-applies;
+    /// * a failed OS write propagates the error and never advances the applied
+    ///   hash, so `needs_retry()` stays true until the same saved request is
+    ///   retried successfully. The outcome reports platform effect only, never
+    ///   settings-save success.
+    ///
     /// A repeated apply first resets the ledger: fields we previously owned are
     /// re-evaluated so the ledger reflects the *current* write set. Fields the
     /// user changed in between are dropped from the ledger (they are no longer
@@ -160,8 +280,23 @@ impl PlatformService {
         &self,
         request: &ProxyApplyRequest,
     ) -> Result<ProxyApplyOutcome, platform::PlatformError> {
+        let desired = Self::desired_hash_for(request, "", self.pac_content_hash().as_deref());
         if request.mode == SysProxyMode::Unchanged {
-            return Ok(self.unchanged_outcome(request.mode));
+            return Ok(self.unchanged_outcome(request.mode, desired));
+        }
+        self.record_desired(&desired);
+        if self.dedup_hit(&desired) {
+            return Ok(ProxyApplyOutcome {
+                ok: true,
+                mode: mode_value(request.mode),
+                applied: Vec::new(),
+                current: self.proxy.snapshot()?,
+                error_code: None,
+                error_message: None,
+                desired_content_hash: desired,
+                applied_content_hash: self.applied_content_hash_state().unwrap_or_default(),
+                skipped_as_duplicate: true,
+            });
         }
         let before = self.proxy.snapshot()?;
         // Classify any pre-existing ledger entries against the state just
@@ -171,6 +306,8 @@ impl PlatformService {
         let current_before: Vec<AppliedChange> =
             self.applied.lock().map(|g| g.clone()).unwrap_or_default();
         let report = restore_if_owned(&current_before, &before);
+        // The OS write below may fail partway: the applied hash advances only
+        // after it succeeds, so a failure stays honestly retryable.
         let changes = self.proxy.apply(request.mode, &request.settings())?;
         {
             let mut ledger = self.applied.lock().map_err(|_| {
@@ -199,6 +336,7 @@ impl PlatformService {
                 });
             }
         }
+        self.record_applied(&desired);
         Ok(ProxyApplyOutcome {
             ok: true,
             mode: mode_value(request.mode),
@@ -206,10 +344,50 @@ impl PlatformService {
             current: self.proxy.snapshot()?,
             error_code: None,
             error_message: None,
+            desired_content_hash: desired.clone(),
+            applied_content_hash: desired,
+            skipped_as_duplicate: false,
         })
     }
 
-    fn unchanged_outcome(&self, mode: SysProxyMode) -> ProxyApplyOutcome {
+    fn record_desired(&self, desired: &str) {
+        if let Ok(mut guard) = self.desired_hash.lock() {
+            *guard = Some(desired.to_string());
+        }
+    }
+
+    fn record_applied(&self, desired: &str) {
+        if let Ok(mut guard) = self.applied_hash.lock() {
+            *guard = Some(desired.to_string());
+        }
+    }
+
+    /// True when `desired` equals the last successful apply *and* the live
+    /// state still carries every owned value. An externally modified or
+    /// restored field forces a real re-apply instead of masking the drift.
+    fn dedup_hit(&self, desired: &str) -> bool {
+        if self.applied_content_hash_state().as_deref() != Some(desired) {
+            return false;
+        }
+        let (ledger, current) = match (self.applied.lock(), self.proxy.snapshot()) {
+            (Ok(ledger), Ok(current)) => (ledger.clone(), current),
+            _ => return false,
+        };
+        if ledger.is_empty() {
+            return true;
+        }
+        ledger
+            .iter()
+            .all(|change| current.field(change.field) == change.after)
+    }
+
+    fn unchanged_outcome(&self, mode: SysProxyMode, desired: String) -> ProxyApplyOutcome {
+        let applied_state = self.applied_content_hash_state();
+        let skipped = applied_state.as_deref() == Some(desired.as_str());
+        if !skipped {
+            self.record_desired(&desired);
+            self.record_applied(&desired);
+        }
         ProxyApplyOutcome {
             ok: true,
             mode: mode_value(mode),
@@ -217,6 +395,9 @@ impl PlatformService {
             current: self.proxy.snapshot().unwrap_or_default(),
             error_code: None,
             error_message: None,
+            applied_content_hash: self.applied_content_hash_state().unwrap_or_default(),
+            desired_content_hash: desired,
+            skipped_as_duplicate: skipped,
         }
     }
 
@@ -306,10 +487,15 @@ impl PlatformService {
             .pac
             .lock()
             .map_err(|_| platform::PlatformError::Backend("pac slot poisoned".to_string()))?;
+        // Identity input for SP-15: script text plus the requested rule. The
+        // refresh path keeps the server's original rule; hashing the requested
+        // pair may only cause an extra harmless re-apply, never a missed one.
+        let text = source.read().ok();
         if let Some(server) = guard.as_mut() {
             if server.is_running() {
                 // Refresh content; port stays.
                 server.start(source)?;
+                self.record_pac_content(text.as_deref(), proxy_rule.as_deref());
                 if let Ok(mut chosen) = self.pac_port.lock() {
                     *chosen = server.port().unwrap_or(*chosen);
                 }
@@ -324,6 +510,7 @@ impl PlatformService {
         };
         let mut server = PacServer::new(config)?;
         let bound = server.start(source)?;
+        self.record_pac_content(text.as_deref(), proxy_rule.as_deref());
         if let Ok(mut chosen) = self.pac_port.lock() {
             *chosen = bound;
         }

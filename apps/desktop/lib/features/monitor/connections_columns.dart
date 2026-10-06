@@ -123,6 +123,24 @@ List<Map<String, dynamic>> connectionColumnsToStorage(
     <String, dynamic>{'Name': c.name, 'Width': c.width, 'Index': c.index},
 ];
 
+/// 将 [from] 处的列移到 [to] 处并按 0..n-1 重编 `index`（表头拖拽排列用）。
+///
+/// 越界目标钳制到首尾，不抛异常；宽度随列一起移动。
+List<ConnectionColumn> moveConnectionColumn(
+  List<ConnectionColumn> columns,
+  int from,
+  int to,
+) {
+  if (columns.isEmpty) return const <ConnectionColumn>[];
+  final list = columns.toList();
+  final entry = list.removeAt(from.clamp(0, list.length - 1));
+  list.insert(to.clamp(0, list.length), entry);
+  return <ConnectionColumn>[
+    for (var i = 0; i < list.length; i++)
+      ConnectionColumn(name: list[i].name, width: list[i].width, index: i),
+  ];
+}
+
 /// 右键关闭冻结的目标：请求发出时冻结 `id` 与会话 `generation`。
 class ConnectionCloseTarget {
   const ConnectionCloseTarget({required this.id, required this.generation});

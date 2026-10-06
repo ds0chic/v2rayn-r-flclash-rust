@@ -1,0 +1,39 @@
+# SP-15 commands.log (exit codes as observed, host dry-run/fake only)
+
+## RED (baseline 3635392, before fix)
+$ cargo test -p platform --locked --test sp15_applied_hash
+-> error[E0432]: unresolved import `platform::sysproxy::applied_content_hash_with_pac`
+   exit != 0 (contract missing: no PAC-content identity)
+$ cargo test -p application --locked --test sp15_platform_content
+-> error[E0560]: struct `ProxyApplyRequest` has no field named `session_key`
+-> error[E0609]: no field `skipped_as_duplicate` / `desired_content_hash` / `applied_content_hash`
+   exit != 0 (contract missing: no content dedup, no desired/applied split, no retry)
+
+## GREEN (after fix)
+$ cargo test -p platform --locked --test sp15_applied_hash
+-> 4 passed; 0 failed — exit 0
+$ cargo test -p application --locked --test sp15_platform_content
+-> 6 passed; 0 failed — exit 0
+$ cargo test -p application --locked --test t13_platform --test sp15_platform_content
+-> t13_platform: 15 passed; sp15_platform_content: 6 passed — exit 0
+$ cargo test -p application --locked --lib platform_service
+-> 14 passed; 311 filtered out — exit 0
+$ cargo test -p platform --locked
+-> lib 19 + autostart 9 + cert_store 0(1 ignored) + models_and_script 8
+   + pac_server 10 + real_windows 0(2 ignored) + single_instance 3
+   + sp15_applied_hash 4 + sysproxy_ownership 13 = 66 passed / 3 ignored — exit 0
+$ cargo fmt -p platform -p application -- --check
+-> exit 1, but ALL remaining `Diff in` hunks are in siblings' files
+   (codegen.rs, monitor.rs); zero hunks in SP-15 files
+   (platform_service.rs, sysproxy/mod.rs, sp15_*.rs) — exit 0 equivalent for own scope
+$ cargo clippy -p platform --all-targets --locked -- -D warnings
+-> clean — exit 0
+
+## BLOCKED (not owned by SP-15, files untouched)
+$ cargo clippy -p platform -p application --all-targets --locked -- -D warnings
+-> exit 101: application test target `t11_codegen_matrix` E0063 missing
+   `local_srs_files` — sibling in-flight edit in crates/application/src/codegen.rs
+   (mid-write race also briefly broke `--test` lib builds; cleared on retry).
+   Re-verify at integration (SP-00/SP-34 gate) after sibling lands.
+$ authorized-isolated real-OS run (WinINET/registry bypass/PAC/autostart/reopen)
+-> NOT RUN: no authorized environment on this host; host writes prohibited.

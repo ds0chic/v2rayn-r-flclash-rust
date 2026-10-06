@@ -87,3 +87,33 @@ table_actions 既有 6/6 绿。
 SP-16：identified（准备实现完成，完整接线 blocked by SP-12 + A07 文件锁）。
 SP-18：identified（冻结目标/Enter/Esc 纯合同已备，原生逐场景 trace/截图、
 DPI 跨屏、全 ACT-PROF 矩阵未验）。
+
+## 8. 本轮接线（基线 3635392，SP-16+SP-18 并行）
+
+状态：implemented（独立接线完成；完整卡 blocked，不标 verified）。
+合成数据专用；无宿主网络/10808/系统代理/路由/TUN/DNS/Run-key 操作；
+不读用户秘密。不 commit。
+
+做（可独立）：`restoreCommandTargets`（sub_entry.dart）与
+`restore_command_targets`（selection.rs）组归一（空白拼写≡All 视图，
+双端一致，见 SP-18/README）；`_onContextAction` 改走纯门控
+`isCommandContextLive` + 既有重绑（行为等价，profiles_table.dart）；
+工具栏编辑/新增直达入口保持（沿用准备实现，未改 profiles_page）。
+不做（等前置/他锁）：SubIndexId 持久化读写与重开恢复
+（profiles_controller A07 独占 + SP-12 A04 在途，未碰该文件）；
+FRB/桥/引擎真实接线、正式包入口、DPI 真机对照（未运行，标未验证）；
+groups.rs 未动（订阅组 G 与 PolicyGroup 无关）。
+
+定向检查（实际结果）：`rustfmt --check selection.rs` exit 0；
+`cargo test -p application --locked --lib` 330/330（含 selection 13/13）；
+`cargo test -p application --locked`（全 target）被他卡
+t11_codegen_matrix 缺字段阻塞，exit!=0；clippy --lib exit 0，
+--all-targets 同被 t11 阻塞；`flutter analyze` 本卡文件零命中；
+`flutter test` 7 文件 51/51 passed（sp_16 9/9、sp_18 8/8、
+table_actions 6/6 + 既有 profiles 键鼠/右键回归 28 项）；
+`dart format` 本卡 4 文件 exit 0。
+
+阻塞：A07 profiles_controller（setGroupSubId 持久化 + build 恢复 +
+group_reopen 真实重开）；SP-12 跨窗 revision 重试对账；真机 trace/DPI。
+group_reopen 绿、真实 G 保存重开、同名/普通组、取消/失败：未运行，
+保持 blocked，不装绿。

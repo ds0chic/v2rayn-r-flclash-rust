@@ -1,4 +1,7 @@
-// SP-20 准备范围（identified）：连接表列布局/右键关闭重开保持的独立部分。
+// SP-20 准备范围（identified → 本卡完整实现见 sp_20_connections_full_test.dart）：
+// 连接表列布局/右键关闭重开保持的独立纯函数部分。完整接线（列恢复/回写、
+// 右键菜单冻结目标、controller 请求冻结+generation 守卫、真实 endpoint
+// 管理）已在 `lib/features/monitor/` 落地，纯合同保持有效并继续作为回归钉。
 //
 // 原版对照（v2rayN 7.25.4 / 7d6a967）：
 // `v2rayN/Views/ClashConnectionsView.xaml` 默认列宽

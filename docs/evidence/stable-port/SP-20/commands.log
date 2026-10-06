@@ -46,3 +46,46 @@ R10 Isolated harness (TEMP, exact SP-20 bodies, mechanical type-stub swap only):
 
 NOT RUN (per VALIDATION_POLICY.md, no native/AOT wiring changed; full gate is SP-34):
   flutter build windows --release; cargo test --workspace; tools/gates/run_all.ps1.
+
+---
+SP-20 full-card command log (baseline 3635392, no commit). Root unless noted (apps/desktop for flutter).
+
+R11 RED (apps/desktop): flutter test test/repair/sp_20_connections_full_test.dart
+  -> exit 1. Compilation failed: moveConnectionColumn / connectionsColumns missing
+     (plus kSecondaryButton import fixed in-test). Red contract before fix.
+  -> behavior red covered: old closeConnection(empty) returned true and hit bridge.
+
+R12 Rust new tests (root): cargo test -p application --locked --lib monitor::tests::sp20
+  -> 3 passed / 0 failed on first run (pins the existing real endpoint path via
+     SP-17/R4-23; no prod change needed in monitor.rs). One dead_code warning on
+     the stub struct field -> removed, then warning-free.
+
+R13 GREEN (apps/desktop): flutter test test/repair/sp_20_connections_full_test.dart
+  -> 10/10 (2x runs). One run had a single `did not complete` (menu pop-animation
+     race, no assertion failure; re-run green, known flutter_tester flake).
+
+R14 Dart format (apps/desktop): dart format on the 6 own files -> 0 changed final
+  (2 files auto-formatted once mid-work: connections_view, full test).
+
+R15 Analyze (apps/desktop): flutter analyze
+  -> 2 issues, both errors in test/repair/sp_19_settings_entry_test.dart:45-46
+     (other card file, untouched by SP-20, broken on baseline). Zero in SP-20 files.
+
+R16 Affected monitor tests (apps/desktop):
+  flutter test test/repair/sp_20_connections_prep_test.dart
+    test/repair/sp_20_connections_full_test.dart test/fix16c_clash_ui_config_test.dart
+    test/fix11_monitor_session_test.dart test/fix11c_logs_test.dart -> 38/38 pass.
+  flutter test test/fix11b_clash_panel_test.dart -> 4/4 pass.
+  flutter test test/t15a_connections_test.dart test/r4_23_contract_test.dart -> 13/13 pass.
+
+R17 Rust fmt (root): cargo fmt --all -- --check -> exit 0 (two own-test hunks
+  reflowed per rustfmt diff first).
+
+R18 Rust clippy (root): cargo clippy -p application --all-targets --locked -- -D warnings
+  -> exit 0.
+
+R19 Rust lib tests (root): cargo test -p application --locked --lib
+  -> 330 passed / 0 failed; monitor filter 27 passed / 0 failed (incl. 3 new sp20).
+
+NOT RUN (per VALIDATION_POLICY.md; full gate is SP-34):
+  flutter build windows --release; cargo test --workspace; tools/gates/run_all.ps1.

@@ -43,9 +43,15 @@ class StatusBarView extends ConsumerWidget {
     final monitor = ref.watch(monitorControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
-    // Left partitions, in the upstream DockPanel order.
-    final left = <Widget>[
-      _twoLine(
+    // Left partitions, in the upstream DockPanel order. Each partition is
+    // width-capped (SP-19 AppTokens budgets) so the whole strip fits the
+    // upstream 800px minimum without a horizontal scroller; long labels
+    // ellipsize inside their cap and keep their tooltip.
+    final inboundBlock = ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: AppTokens.statusInboundMaxWidth,
+      ),
+      child: _twoLine(
         _statusText(
           '${context.tr('statusLocal')}: ${shell.inbound ?? '--'}',
           key: const ValueKey('status-inbound'),
@@ -55,8 +61,10 @@ class StatusBarView extends ConsumerWidget {
           key: const ValueKey('status-inbound-lan'),
         ),
       ),
-      const _Sep(),
-      Row(
+    );
+    final tunBlock = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: AppTokens.statusTunMaxWidth),
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(
@@ -66,6 +74,10 @@ class StatusBarView extends ConsumerWidget {
           Switch(
             key: const ValueKey('tun-toggle'),
             value: desiredTun,
+            // Compact desktop density (SP-19): the bar rows stay at text
+            // height; the switch keeps its full tap behavior without the
+            // mobile-size tap padding.
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             onChanged: (value) => _onTunToggle(context, ref, value),
           ),
           // FIX-13: the desired flag is persisted to `TunModeItem.EnableTun`
@@ -73,41 +85,34 @@ class StatusBarView extends ConsumerWidget {
           // the runtime snapshot, never from the switch: no live runtime (or
           // switch off) reads 未启用; a helper refusal reads 失败已回滚; a live
           // runtime reads 已请求(未验证).
-          _statusText(
-            '${context.tr('statusActual')}: ${tunActualLabel(desiredTun, runtime)}',
-            key: const ValueKey('tun-actual'),
-          ),
-        ],
-      ),
-      const _Sep(),
-      // F-SYSPROXY-001 / ACT-STAT-001: the four system-proxy modes, applied
-      // through the real platform bridge. State is read back from the backend,
-      // never fabricated from the click.
-      PopupMenuButton<SysProxyMode>(
-        key: const ValueKey('system-proxy-selector'),
-        tooltip: context.tr('menuSystemproxy'),
-        onSelected: (mode) => platformController.applyModeFromConfig(mode),
-        itemBuilder: (context) => <PopupMenuEntry<SysProxyMode>>[
-          for (final mode in SysProxyMode.values)
-            PopupMenuItem<SysProxyMode>(
-              value: mode,
-              child: Text(
-                platform.desiredMode == mode ? '✓ ${mode.label}' : mode.label,
-                style: const TextStyle(fontSize: 12),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppTokens.statusTunActualMaxWidth,
+              ),
+              child: _statusText(
+                '${context.tr('statusActual')}: ${tunActualLabel(desiredTun, runtime)}',
+                key: const ValueKey('tun-actual'),
               ),
             ),
-        ],
-        child: _SelectorFace(
-          child: _statusText(
-            '${context.tr('menuSystemproxy')}: ${platform.desiredMode.label} (${platform.stateLabel})',
-            key: const ValueKey('status-sysproxy'),
           ),
-        ),
+        ],
       ),
-      const SizedBox(width: 6),
-      // F-ROUTING-001: Rule / Global / Direct mode switch (real backend switch
-      // through the routing controller).
-      PopupMenuButton<String>(
+    );
+    Widget cappedSelector({required double maxWidth, required Widget child}) {
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: child,
+      );
+    }
+
+    // F-ROUTING-001: Rule / Global / Direct mode switch (real backend switch
+    // through the routing controller). It stays in row A between the two
+    // upstream combos, so the R4-06 selector order (sysproxy, mode, routing)
+    // holds at every width.
+    final ruleModeSelector = cappedSelector(
+      maxWidth: AppTokens.statusRuleModeMaxWidth,
+      child: PopupMenuButton<String>(
         key: const ValueKey('routing-mode-selector'),
         tooltip: context.tr('menuRulemode'),
         onSelected: routingController.setRuleMode,
@@ -122,62 +127,109 @@ class StatusBarView extends ConsumerWidget {
             ),
         ],
         child: _SelectorFace(
-          child: _statusText(
-            '${context.tr('menuRulemode')}: ${routing.ruleMode}',
+          // SP-19: value only, like the upstream combo display member.
+          child: _statusText(routing.ruleMode),
+        ),
+      ),
+    );
+
+    // Row A (primary), in the upstream DockPanel order: two-line ports, the
+    // 160-wide system-proxy and routing combos, the flex service summary and
+    // the right-docked two-line rates. Width-capped so the whole row shares
+    // the initial 800px viewport with no horizontal scroller.
+    final left = <Widget>[
+      inboundBlock,
+      const _Sep(),
+      // F-SYSPROXY-001 / ACT-STAT-001: the four system-proxy modes, applied
+      // through the real platform bridge. State is read back from the backend,
+      // never fabricated from the click.
+      cappedSelector(
+        maxWidth: AppTokens.statusSysProxyMaxWidth,
+        child: PopupMenuButton<SysProxyMode>(
+          key: const ValueKey('system-proxy-selector'),
+          tooltip: context.tr('menuSystemproxy'),
+          onSelected: (mode) => platformController.applyModeFromConfig(mode),
+          itemBuilder: (context) => <PopupMenuEntry<SysProxyMode>>[
+            for (final mode in SysProxyMode.values)
+              PopupMenuItem<SysProxyMode>(
+                value: mode,
+                child: Text(
+                  platform.desiredMode == mode ? '✓ ${mode.label}' : mode.label,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+          ],
+          child: _SelectorFace(
+            // SP-19: value only (upstream combo shows the selected item, the
+            // hint names the control). The full "control: value (state)" string
+            // stays in the tooltip and the menu lists every mode.
+            child: _statusText(
+              '${platform.desiredMode.label} (${platform.stateLabel})',
+              key: const ValueKey('status-sysproxy'),
+            ),
           ),
         ),
       ),
       const SizedBox(width: 6),
+      ruleModeSelector,
+      const SizedBox(width: 6),
       // Active routing scheme (upstream cmbRoutings2): switch default.
-      PopupMenuButton<String>(
-        key: const ValueKey('routing-selector'),
-        tooltip: context.tr('menuRouting'),
-        onSelected: routingController.setDefaultAndReload,
-        itemBuilder: (context) => <PopupMenuEntry<String>>[
-          if (routing.items.isEmpty)
-            PopupMenuItem<String>(
-              value: '',
-              enabled: false,
-              child: Text(
-                context.tr('statusRoutingEmpty'),
-                style: const TextStyle(fontSize: 12),
+      cappedSelector(
+        maxWidth: AppTokens.statusRoutingMaxWidth,
+        child: PopupMenuButton<String>(
+          key: const ValueKey('routing-selector'),
+          tooltip: context.tr('menuRouting'),
+          onSelected: routingController.setDefaultAndReload,
+          itemBuilder: (context) => <PopupMenuEntry<String>>[
+            if (routing.items.isEmpty)
+              PopupMenuItem<String>(
+                value: '',
+                enabled: false,
+                child: Text(
+                  context.tr('statusRoutingEmpty'),
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
-            ),
-          for (final item in routing.items)
-            PopupMenuItem<String>(
-              value: item.id,
-              child: Text(
-                item.isActive ? '✓ ${item.remarks}' : item.remarks,
-                style: const TextStyle(fontSize: 12),
+            for (final item in routing.items)
+              PopupMenuItem<String>(
+                value: item.id,
+                child: Text(
+                  item.isActive ? '✓ ${item.remarks}' : item.remarks,
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
-            ),
-        ],
-        child: _SelectorFace(
-          child: _statusText(
-            '${context.tr('menuRouting')}: ${_activeSchemeLabel(routing)}',
+          ],
+          child: _SelectorFace(
+            // SP-19: remarks only (upstream DisplayMemberPath="Remarks"); the
+            // control name stays in the tooltip, over-long names ellipsize.
+            child: _statusText(_activeSchemeLabel(routing)),
           ),
         ),
       ),
     ];
+    final rowALeft = left;
 
     // Flexible centre: two-line service summary, matching
     // `txtRunningServerDisplay` / `txtRunningInfoDisplay`. Both lines read the
     // actual session (SP-17 actual summary); double-click runs the original
     // availability test (upstream PreviewMouseDown -> TestServerAvailability).
+    // The summary expands into leftover strip width and ellipsizes instead of
+    // pushing the docked rates off screen.
     final center = Row(
-      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        GestureDetector(
-          key: const ValueKey('running-summary-gesture'),
-          onDoubleTap: () => runAvailabilityTest(ref),
-          child: _twoLine(
-            _statusText(
-              '${context.tr('statusNode')}: ${runtime.actualSummaryLabel}',
-              key: const ValueKey('running-node'),
-            ),
-            _statusText(
-              _runningSummary(context, runtime),
-              key: const ValueKey('running-info'),
+        Expanded(
+          child: GestureDetector(
+            key: const ValueKey('running-summary-gesture'),
+            onDoubleTap: () => runAvailabilityTest(ref),
+            child: _twoLine(
+              _statusText(
+                '${context.tr('statusNode')}: ${runtime.actualSummaryLabel}',
+                key: const ValueKey('running-node'),
+              ),
+              _statusText(
+                _runningSummary(context, runtime),
+                key: const ValueKey('running-info'),
+              ),
             ),
           ),
         ),
@@ -187,135 +239,26 @@ class StatusBarView extends ConsumerWidget {
           // intentionally literal (same as other transient probe feedback).
           tooltip: '测试可用性（双击运行信息也可触发）',
           iconSize: AppTokens.iconSizeSmall,
+          // Compact desktop density (SP-19): icon button fits the two-line
+          // row height instead of forcing a mobile-size tap target row.
+          style: IconButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(20, 20),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           onPressed: () => runAvailabilityTest(ref),
           icon: Icon(AppTokens.icon('test')),
         ),
       ],
     );
 
-    // Right partitions: two-line rates and the today aggregate.
-    final right = <Widget>[
-      _twoLine(
-        _statusText(
-          '${context.tr('statusProxySpeed')} ↑${monitor.hasTraffic ? formatRate(monitor.proxyUpBps) : '--'} '
-          '↓${monitor.hasTraffic ? formatRate(monitor.proxyDownBps) : '--'}',
-          key: const ValueKey('status-proxy-speed'),
-        ),
-        _statusText(
-          '${context.tr('statusDirectSpeed')} ↑${monitor.hasTraffic ? formatRate(monitor.directUpBps) : '--'} '
-          '↓${monitor.hasTraffic ? formatRate(monitor.directDownBps) : '--'}',
-          key: const ValueKey('status-direct-speed'),
-        ),
-        align: CrossAxisAlignment.end,
-      ),
-      const _Sep(),
-      // R3-09b: "今日" is the aggregate of the live per-node
-      // `ServerStatItem` today counters (upstream `StatisticsManager`
-      // semantics). With no node rows it shows `--` instead of a fake zero.
-      _statusText(
-        '${context.tr('statusToday')} ↑${monitor.hasTodayNodes ? formatTraffic(monitor.todayUp) : '--'} '
-        '↓${monitor.hasTodayNodes ? formatTraffic(monitor.todayDown) : '--'}',
-        key: const ValueKey('status-today-traffic'),
-      ),
-      const _Sep(),
-      // Technical diagnostics moved out of the action row into a details popup.
-      PopupMenuButton<void>(
-        key: const ValueKey('status-details'),
-        tooltip: context.tr('statusRunningDetails'),
-        itemBuilder: (context) => <PopupMenuEntry<void>>[
-          PopupMenuItem<void>(
-            enabled: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  '${context.tr('statusRuntime')}: ${runtime.state} '
-                  'host=${runtime.hostAlive ? 'alive' : 'down'} '
-                  'PID=${runtime.pid ?? '--'} '
-                  '${context.tr('statusPorts')}=${runtime.ports.isEmpty ? '--' : runtime.ports.join(',')}',
-                  key: const ValueKey('runtime-info'),
-                  style: const TextStyle(fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  runtime.hasUnappliedChanges
-                      ? '${runtime.revisionLabel} (${context.tr('statusUnapplied')})'
-                      : runtime.revisionLabel,
-                  key: const ValueKey('runtime-revision'),
-                  style: const TextStyle(fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'epoch=${runtime.epoch ?? '--'} seq=${runtime.lastSeq ?? '--'}',
-                  key: const ValueKey('runtime-stream-position'),
-                  style: const TextStyle(fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                // SP-17 actual summary: session/operation/applied revision of
-                // the retained actual, never the desired target.
-                Text(
-                  'actual=${runtime.actualSummaryLabel} '
-                  'session=${runtime.sessionId ?? '--'} '
-                  'op=${runtime.operationId ?? '--'} '
-                  'applied=${runtime.appliedRevision ?? '-'}',
-                  key: const ValueKey('runtime-actual'),
-                  style: const TextStyle(fontSize: 12),
-                ),
-                if (runtime.hasCurrentFailure) ...<Widget>[
-                  const SizedBox(height: 4),
-                  Text(
-                    'failed target=${runtime.failedTargetId ?? '(默认)'} '
-                    'op=${runtime.failureOperationId ?? runtime.error?.operationId ?? '--'} '
-                    'at=${runtime.failedAtMs ?? '--'} '
-                    '${runtime.error!.code} (${runtime.error!.messageKey})',
-                    key: const ValueKey('runtime-failure'),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-                if (runtime.notice != null) ...<Widget>[
-                  const SizedBox(height: 4),
-                  Text(
-                    'notice@${runtime.notice!.atMs}: ${runtime.notice!.text}',
-                    key: const ValueKey('runtime-notice'),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-                // Demoted older platform message: kept viewable here while a
-                // current runtime failure holds the headline.
-                if (runtime.error != null &&
-                    platform.message != null) ...<Widget>[
-                  const SizedBox(height: 4),
-                  Text(
-                    'platform: ${platform.message}',
-                    key: const ValueKey('status-message-demoted'),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-                const SizedBox(height: 4),
-                Text(
-                  'total=${profiles.totalCount} visible=${profiles.visible.length} '
-                  'selected=${profiles.selectedCount}',
-                  key: const ValueKey('status-counts'),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-        child: _SelectorFace(
-          child: Text(
-            context.tr('statusDetails'),
-            style: const TextStyle(fontSize: 11.5),
-          ),
-        ),
-      ),
-    ];
-
     // SP-17 message ordering: the resolved headline/secondary order guarantees
     // a current runtime failure stays the headline while an older platform
     // message is demoted to the details popup (never covering a newer result).
     // Keys 'runtime-error'/'status-message' are kept for existing coverage.
+    // SP-19: only the headline (plus conflicts) renders inline in the strip;
+    // secondary texts live in the details popup so diagnostics never widen
+    // the main row off the 800px viewport.
     final platformErrorText = platform.error == null
         ? null
         : ErrorLocalizer.withCode(
@@ -329,90 +272,274 @@ class StatusBarView extends ConsumerWidget {
       platformMessage: platform.message,
       shellMessage: shell.message,
     );
-    final messages = <Widget>[
-      if (resolved.headlineKind == StatusHeadlineKind.runtimeError &&
-          runtime.error != null)
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            _statusText(
-              // R4-30: bridge errors render as a readable cause + action; the
-              // stable code stays available in the details popup.
-              context.errorKeyText(runtime.error!.messageKey),
-              key: const ValueKey('runtime-error'),
-              color: scheme.error,
-            ),
-            if (runtime.canRetryFailed) ...<Widget>[
-              const SizedBox(width: 4),
-              TextButton(
-                key: const ValueKey('runtime-error-retry'),
-                onPressed: () =>
-                    ref.read(runtimeControllerProvider.notifier).retryFailed(),
-                child: const Text('重试'),
+
+    // Row A right: the upstream right-docked two-line rates. Width-capped so
+    // the rates stay in the initial 800px viewport next to the selectors.
+    final ratesBlock = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: AppTokens.statusRateMaxWidth),
+      child: _twoLine(
+        _statusText(
+          '${context.tr('statusProxySpeed')} ↑${monitor.hasTraffic ? formatRate(monitor.proxyUpBps) : '--'} '
+          '↓${monitor.hasTraffic ? formatRate(monitor.proxyDownBps) : '--'}',
+          key: const ValueKey('status-proxy-speed'),
+        ),
+        _statusText(
+          '${context.tr('statusDirectSpeed')} ↑${monitor.hasTraffic ? formatRate(monitor.directUpBps) : '--'} '
+          '↓${monitor.hasTraffic ? formatRate(monitor.directDownBps) : '--'}',
+          key: const ValueKey('status-direct-speed'),
+        ),
+        align: CrossAxisAlignment.end,
+      ),
+    );
+    // R3-09b: "今日" is the aggregate of the live per-node
+    // `ServerStatItem` today counters (upstream `StatisticsManager`
+    // semantics). With no node rows it shows `--` instead of a fake zero.
+    // Row B keeps it next to the TUN block so the main row never grows.
+    final todayBlock = ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: AppTokens.statusTodayMaxWidth,
+      ),
+      child: _statusText(
+        '${context.tr('statusToday')} ↑${monitor.hasTodayNodes ? formatTraffic(monitor.todayUp) : '--'} '
+        '↓${monitor.hasTodayNodes ? formatTraffic(monitor.todayDown) : '--'}',
+        key: const ValueKey('status-today-traffic'),
+      ),
+    );
+    // Technical diagnostics moved out of the action row into a details popup.
+    final detailsButton = PopupMenuButton<void>(
+      key: const ValueKey('status-details'),
+      tooltip: context.tr('statusRunningDetails'),
+      itemBuilder: (context) => <PopupMenuEntry<void>>[
+        PopupMenuItem<void>(
+          enabled: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                '${context.tr('statusRuntime')}: ${runtime.state} '
+                'host=${runtime.hostAlive ? 'alive' : 'down'} '
+                'PID=${runtime.pid ?? '--'} '
+                '${context.tr('statusPorts')}=${runtime.ports.isEmpty ? '--' : runtime.ports.join(',')}',
+                key: const ValueKey('runtime-info'),
+                style: const TextStyle(fontSize: 12),
               ),
-              TextButton(
-                key: const ValueKey('runtime-error-view'),
-                onPressed: () => showFailureDetails(context, runtime),
-                child: const Text('查看失败'),
+              const SizedBox(height: 4),
+              Text(
+                runtime.hasUnappliedChanges
+                    ? '${runtime.revisionLabel} (${context.tr('statusUnapplied')})'
+                    : runtime.revisionLabel,
+                key: const ValueKey('runtime-revision'),
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'epoch=${runtime.epoch ?? '--'} seq=${runtime.lastSeq ?? '--'}',
+                key: const ValueKey('runtime-stream-position'),
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              // SP-17 actual summary: session/operation/applied revision of
+              // the retained actual, never the desired target.
+              Text(
+                'actual=${runtime.actualSummaryLabel} '
+                'session=${runtime.sessionId ?? '--'} '
+                'op=${runtime.operationId ?? '--'} '
+                'applied=${runtime.appliedRevision ?? '-'}',
+                key: const ValueKey('runtime-actual'),
+                style: const TextStyle(fontSize: 12),
+              ),
+              if (runtime.hasCurrentFailure) ...<Widget>[
+                const SizedBox(height: 4),
+                Text(
+                  'failed target=${runtime.failedTargetId ?? '(默认)'} '
+                  'op=${runtime.failureOperationId ?? runtime.error?.operationId ?? '--'} '
+                  'at=${runtime.failedAtMs ?? '--'} '
+                  '${runtime.error!.code} (${runtime.error!.messageKey})',
+                  key: const ValueKey('runtime-failure'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+              if (runtime.notice != null) ...<Widget>[
+                const SizedBox(height: 4),
+                Text(
+                  'notice@${runtime.notice!.atMs}: ${runtime.notice!.text}',
+                  key: const ValueKey('runtime-notice'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+              // Demoted secondary messages: kept viewable here while the
+              // headline (failure or newest info) owns the strip, so no
+              // older result can cover a newer one and diagnostics never
+              // widen the main row.
+              for (final secondary in resolved.secondaryTexts) ...<Widget>[
+                const SizedBox(height: 4),
+                Text(secondary, style: const TextStyle(fontSize: 12)),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                'total=${profiles.totalCount} visible=${profiles.visible.length} '
+                'selected=${profiles.selectedCount}',
+                key: const ValueKey('status-counts'),
+                style: const TextStyle(fontSize: 12),
               ),
             ],
-          ],
+          ),
+        ),
+      ],
+      child: _SelectorFace(
+        child: Text(
+          context.tr('statusDetails'),
+          style: const TextStyle(fontSize: 11.5),
+        ),
+      ),
+    );
+
+    // Row B notice entries: the headline plus proxy conflicts. The headline
+    // is width-capped so diagnostics can never push row B off the 800px
+    // viewport; secondary texts stay in the details popup above.
+    final notices = <Widget>[
+      if (resolved.headlineKind == StatusHeadlineKind.runtimeError &&
+          runtime.error != null)
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppTokens.statusNoticeMaxWidth,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Flexible(
+                child: _statusText(
+                  // R4-30: bridge errors render as a readable cause + action;
+                  // the stable code stays available in the details popup.
+                  context.errorKeyText(runtime.error!.messageKey),
+                  key: const ValueKey('runtime-error'),
+                  color: scheme.error,
+                ),
+              ),
+              if (runtime.canRetryFailed) ...<Widget>[
+                const SizedBox(width: 4),
+                TextButton(
+                  key: const ValueKey('runtime-error-retry'),
+                  // Compact desktop density (SP-19): the notice row stays at
+                  // text height instead of forcing mobile-size tap targets.
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    minimumSize: const Size(0, 24),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                  onPressed: () => ref
+                      .read(runtimeControllerProvider.notifier)
+                      .retryFailed(),
+                  child: const Text('重试'),
+                ),
+                TextButton(
+                  key: const ValueKey('runtime-error-view'),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    minimumSize: const Size(0, 24),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(fontSize: 12),
+                  ),
+                  onPressed: () => showFailureDetails(context, runtime),
+                  child: const Text('查看失败'),
+                ),
+              ],
+            ],
+          ),
         )
       else if (resolved.headlineKind == StatusHeadlineKind.runtimeError)
-        _statusText(
-          resolved.headlineText,
-          key: const ValueKey('status-sysproxy-error'),
-          color: scheme.error,
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppTokens.statusNoticeMaxWidth,
+          ),
+          child: _statusText(
+            resolved.headlineText,
+            key: const ValueKey('status-sysproxy-error'),
+            color: scheme.error,
+          ),
         ),
       if (platform.error != null && runtime.error != null)
-        _statusText(
-          platformErrorText!,
-          key: const ValueKey('status-sysproxy-error'),
-          color: scheme.error,
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppTokens.statusNoticeMaxWidth,
+          ),
+          child: _statusText(
+            platformErrorText!,
+            key: const ValueKey('status-sysproxy-error'),
+            color: scheme.error,
+          ),
         ),
       if (platform.conflicts.isNotEmpty)
-        _statusText(
-          '${context.tr('menuSystemproxy')} ${platform.conflicts.map((c) => c.field).join(',')}',
-          key: const ValueKey('status-sysproxy-conflict'),
-          color: scheme.error,
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppTokens.statusNoticeMaxWidth,
+          ),
+          child: _statusText(
+            '${context.tr('menuSystemproxy')} ${platform.conflicts.map((c) => c.field).join(',')}',
+            key: const ValueKey('status-sysproxy-conflict'),
+            color: scheme.error,
+          ),
         ),
       if (resolved.headlineKind == StatusHeadlineKind.info)
-        _statusText(
-          resolved.headlineText,
-          key: const ValueKey('status-message'),
-          color: scheme.primary,
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppTokens.statusNoticeMaxWidth,
+          ),
+          child: _statusText(
+            resolved.headlineText,
+            key: const ValueKey('status-message'),
+            color: scheme.primary,
+          ),
         ),
-      // Under a failure headline only the fresh availability notice stays in
-      // the strip; older platform/shell messages are demoted to the details
-      // popup so they can never cover the newer result.
-      for (final secondary in resolved.secondaryTexts)
-        if (resolved.headlineKind != StatusHeadlineKind.runtimeError ||
-            secondary == runtime.notice?.text)
-          _statusText(secondary, color: scheme.onSurfaceVariant),
     ];
 
+    // SP-19 two-row bar. Row A keeps the upstream DockPanel order (two-line
+    // ports, the 160-wide combos with the rule-mode switch between them, the
+    // flex service summary, right-docked two-line rates) and always fits the
+    // 800px minimum with no horizontal scroller. Row B carries the TUN block,
+    // the today aggregate, the details entry and the notice headline, so
+    // diagnostics and secondary feedback never widen the main row (UI-05). Fonts and spacing
+    // follow the original tokens; long labels ellipsize with tooltips instead
+    // of shrinking to unreadable sizes.
     return Material(
       color: scheme.surfaceContainerHighest,
       child: SizedBox(
         height: AppTokens.statusBarHeight,
-        // A single partitioned strip. It stays on one line at the upstream
-        // height; when the window is too narrow for every partition it scrolls
-        // horizontally instead of shrinking the font or wrapping/dropping
-        // controls, so every control stays identifiable and reachable.
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              ...left,
-              const SizedBox(width: 8),
-              center,
-              const SizedBox(width: 8),
-              ...right,
-              for (final message in messages) ...<Widget>[
-                const _Sep(),
-                message,
-              ],
+              Row(
+                children: <Widget>[
+                  ...rowALeft,
+                  const SizedBox(width: 8),
+                  Expanded(child: center),
+                  const SizedBox(width: 8),
+                  ratesBlock,
+                ],
+              ),
+              Row(
+                children: <Widget>[
+                  tunBlock,
+                  const _Sep(),
+                  todayBlock,
+                  const _Sep(),
+                  detailsButton,
+                  for (final notice in notices) ...<Widget>[
+                    const _Sep(),
+                    Expanded(child: notice),
+                  ],
+                ],
+              ),
             ],
           ),
         ),
@@ -422,14 +549,16 @@ class StatusBarView extends ConsumerWidget {
 }
 
 /// A single status line. It never wraps, so the two-line partitions keep the
-/// fixed bar height at any width/DPI; the bar scrolls horizontally when the
-/// whole strip is wider than the window.
+/// fixed bar height at any width/DPI; long labels ellipsize inside their
+/// width-capped partition instead of pushing neighbours off the 800px
+/// viewport. Fonts stay at the original compact sizes (never shrunk to fit).
 Widget _statusText(String data, {Key? key, Color? color}) {
   return Text(
     data,
     key: key,
     maxLines: 1,
     softWrap: false,
+    overflow: TextOverflow.ellipsis,
     style: TextStyle(fontSize: AppTokens.fontSizeSmall, color: color),
   );
 }
@@ -500,6 +629,11 @@ Future<void> showFailureDetails(BuildContext context, RuntimeView runtime) {
 
 /// Bordered selector face with a visible dropdown arrow, so the status-bar
 /// controls read as clickable controls rather than plain status text.
+///
+/// The label flexes inside the width-capped partition and ellipsizes instead
+/// of pushing the neighbour partitions off the 800px viewport. Every face is
+/// used under a bounded width (capped combo or the tight bar row), so the
+/// Flexible always has a finite bound.
 class _SelectorFace extends StatelessWidget {
   const _SelectorFace({required this.child});
 
@@ -516,7 +650,10 @@ class _SelectorFace extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: <Widget>[child, const Icon(Icons.arrow_drop_down, size: 16)],
+        children: <Widget>[
+          Flexible(child: child),
+          const Icon(Icons.arrow_drop_down, size: 16),
+        ],
       ),
     );
   }

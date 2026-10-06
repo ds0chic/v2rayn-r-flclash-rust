@@ -41,7 +41,43 @@ class AppTokens {
   // -- Compact desktop chrome heights ------------------------------------
   static const double menuBarHeight = 30;
   static const double toolbarHeight = 32;
-  static const double statusBarHeight = 40;
+  // SP-19 two-row status bar: row A keeps the upstream DockPanel order at the
+  // 800px minimum (ports, 160-wide combos, flex summary, docked rates) and
+  // row B carries the TUN block, rule-mode combo, today aggregate, details
+  // entry and the notice headline, so diagnostics never widen the main row.
+  // Fonts stay at the original compact sizes; only the bar height grows.
+  // Row A (~33: two-line 11.5px partitions) + row B (~40: Material switch
+  // intrinsic height) + vertical padding.
+  static const double statusBarHeight = 80;
+  // -- Status bar same-screen budgets (SP-19 / LAY-STATUSBAR-001) -----------
+  // Upstream docks the rates right, the ports/selectors left and lets the
+  // service summary fill the rest at the 800px minimum width. The caps below
+  // bound each partition so the whole strip fits 800 logical px without a
+  // horizontal scroller; long labels ellipsize with tooltips instead of
+  // pushing the rates off screen. Font sizes are untouched (readability floor
+  // is fontSizeTiny = 11, never shrunk to fit).
+  static const double statusInboundMaxWidth = 118;
+  // Measured widget-test widths drive these caps (test font advances CJK
+  // wider than 1em): inbound ~71, sysproxy value+state ~140, rates ~118,
+  // today ~120. Caps sit one suffix above the default content so the upstream
+  // chrome never truncates, while over-long values still ellipsize.
+  static const double statusTunMaxWidth = 216;
+  static const double statusTunActualMaxWidth = 80;
+  // Upstream combos are 160 wide and show the mode/remarks only; the sysproxy
+  // face additionally shows the applied state suffix ("mode (state)", T13
+  // read-back contract), so its cap is one suffix wider. Over-long states
+  // still ellipsize with the full string in the tooltip and menu.
+  static const double statusSysProxyMaxWidth = 180;
+  static const double statusRuleModeMaxWidth = 108;
+  static const double statusRoutingMaxWidth = 160;
+  static const double statusRateMaxWidth = 148;
+  static const double statusTodayMaxWidth = 128;
+
+  /// Row B notice headline cap: diagnostics share row B with the TUN block,
+  /// rule-mode combo, today aggregate and details entry, so the headline is
+  /// capped instead of pushing row B off the 800px viewport. Full text stays
+  /// in the details popup (and the failure dialog for runtime errors).
+  static const double statusNoticeMaxWidth = 280;
   static const double tableHeaderHeight = 30;
   static const double tableHandleWidth = 48;
   static const double splitterThickness = 6;

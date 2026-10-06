@@ -1,0 +1,35 @@
+# SP-19 定向检查记录（apps/desktop 下执行，exit 均为 0）
+
+- dart format --output=none --set-exit-if-changed <6 self files>: clean
+  (status_bar_view.dart / app_theme.dart / option_setting_window_entry.dart /
+  sp_19_status_viewport_test.dart / sp_19_shell_chrome_test.dart /
+  sp_19_settings_entry_test.dart)
+- flutter analyze: "No issues found!"
+- flutter test test/repair/sp_19_status_viewport_test.dart: +1 All tests passed
+- flutter test test/repair/sp_19_shell_chrome_test.dart: +1 All tests passed
+- flutter test test/repair/sp_19_settings_entry_test.dart: +1 All tests passed
+  （三文件逐个单独进程执行；不使用多文件一批次，避免锁定的 flutter_tester
+  多 pumpWidget 资源崩溃。`flutter test test/repair/sp_19_*` 的 glob 写法会
+  把三文件放进同一进程，故按 VALIDATION_POLICY 拆分为三次定向执行。）
+- flutter test test/r3_visual_dpi_shell_100_test.dart: +1 pass
+- flutter test test/r3_visual_dpi_shell_125_test.dart: +1 pass
+- flutter test test/r3_visual_dpi_shell_150_test.dart: +1 pass
+  （首次偶发失败一次，同命令重跑即绿；并行卡同机负载抖动）
+- flutter test test/r3_visual_dpi_shell_200_test.dart: +1 pass
+- flutter test test/repair/sp_17_actual_summary_test.dart: +3 pass
+- flutter test test/repair/sp_17_message_ordering_test.dart: +4 pass
+- flutter test test/repair/sp_17_availability_probe_test.dart: +3 pass
+- flutter test test/repair/sp_17_status_bar_test.dart: +2 pass
+- flutter test test/t13_statusbar_test.dart: +2 pass
+- flutter test test/t15a_statusbar_test.dart: +2 pass
+- flutter test test/t05_shell_chrome_test.dart: +1 pass
+- flutter test test/r4_06_contract_test.dart: +1 pass
+- flutter test test/recheck_rr02_03_test.dart: +5 pass
+- flutter test test/profiles_render_test.dart: +1 pass
+- flutter test test/r3_visual_dpi_windows_test.dart: did not complete（挂起）；
+  已在干净基线 3635392（git stash -u 全清工作树后）复现完全相同挂起，
+  既有失败（同类已知 flutter_tester 资源问题，见 SP-17 对 t18b 的记录），
+  非本卡引入。stash 已 pop，全部并行卡改动恢复。
+
+未运行：cargo 相关（Rust 未改）、flutter build windows --release（无
+native/AOT 接线变更）、真实截图/正式包验收（SP-30 范畴）。

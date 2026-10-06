@@ -308,4 +308,28 @@ mod tests {
         .unwrap_err();
         assert_eq!(err.code, codes::FIELD_FORMAT);
     }
+
+    // SP-24 G-06 (generator-side consumer proof): a bad mixin is a hard
+    // `FIELD_FORMAT` error so the engine keeps the old plan; unknown keys
+    // are retained verbatim (upstream merge order).
+    #[test]
+    fn sp24_rejects_bad_mixin_and_retains_unknown_keys() {
+        let err = generate_mihomo(
+            BASE,
+            Some("rules:\n\t- tab-indent\n"),
+            None,
+            &MixinOptions::default(),
+        )
+        .unwrap_err();
+        assert_eq!(err.code, codes::FIELD_FORMAT);
+
+        let out = generate_mihomo(
+            BASE,
+            Some("unknown-kept: 42\n"),
+            None,
+            &MixinOptions::default(),
+        )
+        .unwrap();
+        assert!(out.contains("unknown-kept"), "{out}");
+    }
 }

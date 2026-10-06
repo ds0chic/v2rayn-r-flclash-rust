@@ -6,9 +6,28 @@ import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Root widget of the independent settings window (second Flutter engine).
 class OptionSettingsWindowApp extends StatelessWidget {
-  const OptionSettingsWindowApp({super.key, required this.host});
+  const OptionSettingsWindowApp({
+    super.key,
+    required this.host,
+    this.brightness = Brightness.light,
+    this.accentName,
+    this.fontFamily,
+    this.fontSize,
+    this.locale,
+  });
 
   final SettingsEditorHost host;
+
+  /// Presentation envelope forwarded by the main window (SP-19 / UI-08): the
+  /// second engine never builds a second settings backend, it only renders
+  /// the shared editor body under the main-window theme/font/locale.
+  /// Defaults keep the previous light rendering until the native runner
+  /// forwards the envelope (tracked as the SP-19 runner follow-up).
+  final Brightness brightness;
+  final String? accentName;
+  final String? fontFamily;
+  final double? fontSize;
+  final Locale? locale;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +37,13 @@ class OptionSettingsWindowApp extends StatelessWidget {
     return ProviderScope(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: buildAppTheme(Brightness.light),
+        theme: buildAppTheme(
+          brightness,
+          accentName: accentName,
+          fontFamily: fontFamily,
+          fontSize: fontSize,
+        ),
+        locale: locale,
         home: OptionSettingWindow(host: host, standalone: true),
       ),
     );

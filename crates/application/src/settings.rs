@@ -90,7 +90,7 @@ pub fn validate_settings(settings: &AppSettings) -> Result<(), DomainError> {
     }
     if let Some(fragment) = &settings.fragment4_ray_item {
         if let Some(max_split) = &fragment.max_split {
-            if !max_split.is_empty() && max_split.parse::<u32>().is_err() {
+            if !try_parse_max_split(max_split, 0, 10_000) {
                 return Err(
                     DomainError::new(codes::FIELD_FORMAT, "error.fragment_maxsplit")
                         .with_field("Fragment4RayItem.MaxSplit"),
@@ -105,6 +105,31 @@ pub fn validate_settings(settings: &AppSettings) -> Result<(), DomainError> {
         );
     }
     Ok(())
+}
+
+/// Upstream `Utils.TryParseMaxSplit(input, min, max)`: blank is accepted,
+/// otherwise one `int` or a `from-to` pair with both ends inside
+/// `[min, max]` and `from <= to`.
+fn try_parse_max_split(input: &str, min: i32, max: i32) -> bool {
+    if input.trim().is_empty() {
+        return true;
+    }
+    let mut parts = input.split('-');
+    let from = match parts.next().and_then(|s| s.trim().parse::<i32>().ok()) {
+        Some(value) => value,
+        None => return false,
+    };
+    let to = match parts.next() {
+        None => from,
+        Some(s) => match s.trim().parse::<i32>().ok() {
+            Some(value) => value,
+            None => return false,
+        },
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    from >= min && to <= max && from <= to
 }
 
 /// Apply a single top-level group patch to a settings tree, then re-normalise.
@@ -307,6 +332,40 @@ mod tests {
         let mut settings = AppSettings::default();
         settings.fragment4_ray_item.as_mut().unwrap().max_split = Some("abc".to_string());
         assert!(validate_settings(&settings).is_err());
+    }
+
+    // SP-24 G-02 (upstream `Utils.TryParseMaxSplit(_, 0, 10000)`): the
+    // original client accepts range strings, so the save gate must too.
+    #[test]
+    fn validate_accepts_max_split_range_form() {
+        for raw in ["0", "5", "1-3", "0-10000", "10000", "", "   ", "1 - 3"] {
+            let mut settings = AppSettings::default();
+            settings.fragment4_ray_item.as_mut().unwrap().max_split = Some(raw.to_string());
+            assert!(
+                validate_settings(&settings).is_ok(),
+                "{raw:?} must be accepted like upstream TryParseMaxSplit"
+            );
+        }
+        let mut settings = AppSettings::default();
+        settings.fragment4_ray_item.as_mut().unwrap().max_split = None;
+        assert!(validate_settings(&settings).is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_bad_max_split_range() {
+        for raw in [
+            "abc", "3-1", "0-10001", "10001", "1-2-3", "-", "1-", "-1", "1.5",
+        ] {
+            let mut settings = AppSettings::default();
+            settings.fragment4_ray_item.as_mut().unwrap().max_split = Some(raw.to_string());
+            let err = validate_settings(&settings).unwrap_err();
+            assert_eq!(err.code, codes::FIELD_FORMAT, "{raw:?}");
+            assert_eq!(
+                err.field_path.as_deref(),
+                Some("Fragment4RayItem.MaxSplit"),
+                "{raw:?}"
+            );
+        }
     }
 
     #[test]

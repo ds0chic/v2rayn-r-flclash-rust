@@ -64,7 +64,8 @@ class FrozenCommandTargets {
 }
 
 /// 恢复冻结目标：组变更或目标不可见即失效（null），调用方须提示重选，
-/// 禁止回落首行（R3-PROF-02 / UF-PROF-10）。
+/// 禁止回落首行（R3-PROF-02 / UF-PROF-10）。空白组拼写归一为 All 视图，
+/// 与 Rust `restore_command_targets` 一致。
 FrozenCommandTargets? restoreCommandTargets({
   required List<String> frozenIds,
   required String? frozenPrimary,
@@ -72,7 +73,12 @@ FrozenCommandTargets? restoreCommandTargets({
   required String? currentGroup,
   required List<String> visibleIds,
 }) {
-  if (frozenGroup != currentGroup) return null;
+  String? groupOf(String? value) {
+    final trimmed = value?.trim();
+    return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+  }
+
+  if (groupOf(frozenGroup) != groupOf(currentGroup)) return null;
   if (frozenIds.isEmpty) return null;
   final visible = visibleIds.toSet();
   if (frozenIds.any((id) => !visible.contains(id))) return null;

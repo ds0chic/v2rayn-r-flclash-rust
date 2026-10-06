@@ -5,7 +5,7 @@
 //! T07/T08 notes list as caller responsibility: profile-set projection, resolved
 //! ports/paths and the custom-outbound content map read by the engine.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use config_codegen::input::{
     CodegenDns, CodegenInput, CodegenProfile, CodegenRouting, CodegenSettings, CodegenTemplate,
@@ -25,6 +25,11 @@ pub struct CodegenOptions {
     pub bin_directory: String,
     pub log_date: String,
     pub speed_ping_test_url: Option<String>,
+    /// Caller-supplied snapshot of the `bin/srss/<name>.srs` files present on
+    /// disk (pure input, no IO). Entries switch the sing-box generator to
+    /// `local` rule_sets; the production snapshot filler lives with the
+    /// update/engine side (G-07, locked out of this card).
+    pub local_srs_files: BTreeSet<String>,
 }
 
 impl Default for CodegenOptions {
@@ -37,6 +42,7 @@ impl Default for CodegenOptions {
             bin_directory: "bin".into(),
             log_date: "2026-01-01".into(),
             speed_ping_test_url: Some("https://example.com/".into()),
+            local_srs_files: BTreeSet::new(),
         }
     }
 }
@@ -403,6 +409,12 @@ pub fn settings_from_app(settings: &domain::AppSettings, opts: &CodegenOptions) 
         settings.happy_eyeballs4_ray_item.max_concurrent_try;
     base.gui.enable_statistics = settings.gui_item.enable_statistics;
     base.gui.display_real_time_speed = settings.gui_item.display_real_time_speed;
+    // SRS source template (`ConstItem.SrsSourceUrl`, else the upstream
+    // built-in): the sing-box generator emits it as `route.rule_set[].url`.
+    base.ruleset_url = Some(crate::dns::effective_srs_source(&settings.const_item));
+    // Caller-supplied local snapshot; the generator picks `local` rule_sets
+    // for these names without touching the network.
+    base.local_srs_files = opts.local_srs_files.clone();
     // Inbound: `opts.local_port` stays the resolved listener port (caller
     // responsibility, e.g. free test ports >= 11808); every other inbound
     // field is projected from the settings tree.
@@ -476,6 +488,29 @@ pub fn mixin_options_from_app(
         tun_enabled: settings.tun_mode_item.enable_tun,
         mixin_enabled: settings.clash_ui_item.enable_mixin_content,
     }
+}
+
+/// Mihomo native-plan merge entry (SP-24 G-06, generator side).
+///
+/// Pure: `raw_base_yaml` is the custom YAML text, `mixin_yaml`/`tun_yaml`
+/// are caller-read file texts (IO stays with the engine). Returns the merged
+/// YAML; a bad YAML is `FIELD_FORMAT` and the caller must keep the old plan
+/// instead of persisting the output. Unknown keys are retained verbatim
+/// (upstream `CoreConfigClashService` merge order).
+///
+/// Exact engine wiring (locked `engine.rs` native_custom branch): resolve the
+/// raw text as today, read the mixin/tun texts, then
+/// `mihomo_body_for_plan(&raw, mixin_text.as_deref(), tun_text.as_deref(),
+/// &settings, opts)?`.
+pub fn mihomo_body_for_plan(
+    raw_base_yaml: &str,
+    mixin_yaml: Option<&str>,
+    tun_yaml: Option<&str>,
+    settings: &domain::AppSettings,
+    opts: &CodegenOptions,
+) -> Result<String, domain::DomainError> {
+    let mixin_opts = mixin_options_from_app(settings, opts);
+    crate::mixin::generate_mihomo(raw_base_yaml, mixin_yaml, tun_yaml, &mixin_opts)
 }
 
 /// Kernel inbound protocol token for a stored `Inbound.Protocol` (FLD-CFG-036).
@@ -1331,5 +1366,132 @@ mod tests {
         assert_eq!(st.page_size, 5);
         assert_eq!(st.delay_interval.as_secs(), 2);
         assert_eq!(st.udp_test_target.as_deref(), Some("ntp:pool.ntp.org"));
+    }
+
+    // SP-24 G-06: the mihomo merge is consumable from the generator side.
+    // The engine's native_custom branch (locked) must call
+    // `mihomo_body_for_plan`; a bad YAML is a hard error so the caller keeps
+    // the old plan instead of persisting a corrupt config.
+    #[test]
+    fn sp24_mihomo_body_for_plan_merges_and_rejects() {
+        let mut settings = domain::AppSettings::default();
+        settings.clash_ui_item.enable_ipv6 = true;
+        settings.clash_ui_item.enable_mixin_content = true;
+        let opts = CodegenOptions::default();
+        let base = "port: 7890\nmode: rule\n";
+        let mixin = "rules:\n  - MATCH,DIRECT\nunknown-kept: 42\n";
+        let merged = mihomo_body_for_plan(base, Some(mixin), None, &settings, &opts).unwrap();
+        assert!(merged.contains("ipv6: true"), "{merged}");
+        assert!(merged.contains("MATCH,DIRECT"), "{merged}");
+        assert!(merged.contains("unknown-kept"), "{merged}");
+        assert!(!merged.contains("10808"), "{merged}");
+
+        let bad_base = mihomo_body_for_plan("- just\n- a\n- list\n", None, None, &settings, &opts)
+            .unwrap_err();
+        assert_eq!(bad_base.code, domain::codes::FIELD_FORMAT);
+        let bad_mixin = mihomo_body_for_plan(
+            base,
+            Some("rules:\n\t- tab-indent\n"),
+            None,
+            &settings,
+            &opts,
+        )
+        .unwrap_err();
+        assert_eq!(bad_mixin.code, domain::codes::FIELD_FORMAT);
+
+        settings.clash_ui_item.enable_mixin_content = false;
+        let off = mihomo_body_for_plan(base, Some(mixin), None, &settings, &opts).unwrap();
+        assert!(!off.contains("MATCH,DIRECT"), "{off}");
+    }
+
+    // SP-24 G-07 (generator side): the stored SRS source template reaches the
+    // sing-box rule_set URL; unset falls back to the upstream built-in.
+    #[test]
+    fn sp24_srs_source_reaches_codegen_settings() {
+        let mut settings = domain::AppSettings::default();
+        settings.const_item.srs_source_url = Some("https://mirror.example/srs-{0}/{1}.srs".into());
+        let cs = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(
+            cs.ruleset_url.as_deref(),
+            Some("https://mirror.example/srs-{0}/{1}.srs")
+        );
+
+        let fallback =
+            settings_from_app(&domain::AppSettings::default(), &CodegenOptions::default());
+        assert_eq!(
+            fallback.ruleset_url.as_deref(),
+            Some(crate::dns::BUILTIN_SRS_URL)
+        );
+    }
+
+    // SP-24 G-02 end to end (generator side): a saved range string passes
+    // validation and reaches the wire as the first int (raw `1-3` kept).
+    #[test]
+    fn sp24_saved_range_max_split_reaches_wire_first_int() {
+        let mut settings = domain::AppSettings::default();
+        settings.core_basic_item.enable_final_fragment = true;
+        settings.fragment4_ray_item.as_mut().unwrap().max_split = Some("1-3".into());
+        assert!(crate::settings::validate_settings(&settings).is_ok());
+        let active = leaf("frag-leaf", "192.0.2.72");
+        let mut input = build_input(
+            &active,
+            std::slice::from_ref(&active),
+            None,
+            BTreeMap::new(),
+            None,
+            &CodegenOptions::default(),
+        );
+        input.settings = settings_from_app(&settings, &CodegenOptions::default());
+        assert_eq!(
+            input.settings.fragment4_ray.max_split.as_deref(),
+            Some("1-3"),
+            "raw range string is preserved, not collapsed to 1"
+        );
+        let generated = generate(CoreType::Xray, &input).unwrap();
+        assert_eq!(
+            generated.main["outbounds"][0]["streamSettings"]["finalmask"]["tcp"][0]["settings"]
+                ["maxSplit"],
+            serde_json::json!(1)
+        );
+    }
+
+    // SP-24 G-07 (generator side): a caller-supplied local snapshot selects
+    // `local` rule_sets. The production snapshot filler is still missing
+    // (update/network + engine are locked); this proves the consumer end.
+    #[test]
+    fn sp24_local_srs_snapshot_selects_local_ruleset() {
+        let mut opts = CodegenOptions::default();
+        opts.local_srs_files.insert("geosite-google".into());
+        let active = leaf("srs-leaf", "192.0.2.71");
+        let mut input = build_input(
+            &active,
+            std::slice::from_ref(&active),
+            None,
+            BTreeMap::new(),
+            None,
+            &opts,
+        );
+        input.settings = settings_from_app(&domain::AppSettings::default(), &opts);
+        assert!(input.settings.local_srs_files.contains("geosite-google"));
+        input.routing = Some(CodegenRouting {
+            rule_set: vec![config_codegen::input::CodegenRule {
+                enabled: true,
+                rule_type: config_codegen::input::RuleType::Routing,
+                outbound_tag: "proxy".into(),
+                domain: Some(vec!["geosite:google".into()]),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let generated = generate(CoreType::SingBox, &input).unwrap();
+        let main = &generated.main;
+        assert_eq!(
+            main["route"]["rule_set"][0]["type"],
+            serde_json::json!("local")
+        );
+        assert_eq!(
+            main["route"]["rule_set"][0]["path"],
+            serde_json::json!("bin/srss/geosite-google.srs")
+        );
     }
 }

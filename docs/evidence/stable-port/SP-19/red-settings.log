@@ -1,0 +1,33 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_19_settings_entry_test.dart
+test/repair/sp_19_settings_entry_test.dart:45:9: Error: No named parameter with the name 'brightness'.
+        brightness: Brightness.dark,
+        ^^^^^^^^^^
+lib/features/settings/option_setting_window_entry.dart:9:9: Context: Found this candidate, but the arguments don't match.
+  const OptionSettingsWindowApp({super.key, required this.host});
+        ^^^^^^^^^^^^^^^^^^^^^^^
+00:00 +0 -1: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_19_settings_entry_test.dart [E]
+  Failed to load "C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_19_settings_entry_test.dart":
+  Compilation failed for testPath=C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_19_settings_entry_test.dart: test/repair/sp_19_settings_entry_test.dart:45:9: Error: No named parameter with the name 'brightness'.
+          brightness: Brightness.dark,
+          ^^^^^^^^^^
+  lib/features/settings/option_setting_window_entry.dart:9:9: Context: Found this candidate, but the arguments don't match.
+    const OptionSettingsWindowApp({super.key, required this.host});
+          ^^^^^^^^^^^^^^^^^^^^^^^
+  .
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_19_settings_entry_test.dart: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_19_settings_entry_test.dart

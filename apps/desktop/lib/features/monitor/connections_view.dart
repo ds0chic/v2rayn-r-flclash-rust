@@ -4,15 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/clash_ui_config.dart';
+import 'package:v2rayn_desktop/features/monitor/connections_columns.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Clash connections tab (F-MONITOR-005, LAY-CLASHCN-001).
 ///
-/// Columns follow the persisted `ConnectionsColumnItem` default set:
-/// Host / Chain / Network / Type / ProcessPath / Elapsed. Filter, close
-/// selected and close all go through the Clash controller.
+/// Columns follow the persisted `ConnectionsColumnItem` set (Host / Chain /
+/// Network / Type / ProcessPath / Elapsed): order and widths are restored on
+/// open (upstream `RestoreUI`) and written back on every reorder/autofit
+/// (upstream `StorageUI` parity; synchronous so reopen always sees the last
+/// arrangement). Headers drag to reorder; rows have
+/// the upstream context menu (close / close all) with the target frozen at
+/// menu-open time. Filter, close selected and close all go through the Clash
+/// controller.
 class ConnectionsView extends ConsumerStatefulWidget {
   const ConnectionsView({super.key});
 
@@ -27,12 +33,14 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   final TextEditingController _filter = TextEditingController();
   String _needle = '';
   final Set<String> _selected = <String>{};
+  List<ConnectionColumn> _columns = defaultConnectionColumns();
 
   @override
   void initState() {
     super.initState();
     final config = ref.read(clashUiConfigProvider);
     _autoRefresh = config.connectionsAutoRefresh;
+    _columns = resolveVisibleColumns(config.connectionsColumns);
     _restartTimer(
       config.connectionsRefreshEnabled ? config.connectionsRefreshPeriod : null,
     );
@@ -50,6 +58,85 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     _timer?.cancel();
     _filter.dispose();
     super.dispose();
+  }
+
+  /// Write the arranged columns back as `ConnectionsColumnItem` rows
+  /// (Name/Width/Index) for the next reopen. Every mutation (reorder,
+  /// autofit) persists synchronously, so an exit-time write-back like
+  /// upstream `StorageUI` is unnecessary: in-memory columns can never
+  /// diverge from the persisted rows.
+  void _persistColumns() {
+    final settings = ref.read(settingsControllerProvider);
+    if (!settings.loaded) return;
+    ref
+        .read(settingsControllerProvider.notifier)
+        .saveGroup(
+          'ClashUIItem',
+          clashUiGroupWith(settings.document, <String, Object>{
+            'ConnectionsColumnItem': connectionColumnsToStorage(_columns),
+          }),
+        );
+  }
+
+  void _moveColumn(String name, int to) {
+    final from = _columns.indexWhere((c) => c.name == name);
+    if (from < 0 || from == to) return;
+    setState(() => _columns = moveConnectionColumn(_columns, from, to));
+    _persistColumns();
+  }
+
+  /// Upstream `btnAutofitColumnWidth`: drop the arranged widths and restore
+  /// the `ClashConnectionsView.xaml` defaults, then persist them.
+  void _autofitColumns() {
+    setState(() => _columns = defaultConnectionColumns());
+    _persistColumns();
+  }
+
+  /// Upstream `DataGrid.ContextMenu` (`menuConnectionClose` /
+  /// `menuConnectionCloseAll`). The row id is frozen when the menu opens and
+  /// reused after the async close; the selection is never re-read, so a
+  /// concurrent refresh cannot redirect the close. Close is disabled for an
+  /// empty id (upstream `canEditRemove`); close-all stays on its own path.
+  Future<void> _showRowMenu(Offset position, String rowId) async {
+    final targetId = rowId;
+    final selection = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx,
+        position.dy,
+      ),
+      items: <PopupMenuEntry<String>>[
+        PopupMenuItem<String>(
+          key: const ValueKey('connections-menu-close'),
+          value: 'close',
+          enabled: targetId.isNotEmpty,
+          child: const Text('关闭连接'),
+        ),
+        const PopupMenuItem<String>(
+          key: ValueKey('connections-menu-close-all'),
+          value: 'close-all',
+          child: Text('关闭全部'),
+        ),
+      ],
+    );
+    if (!mounted || selection == null) return;
+    final controller = ref.read(monitorControllerProvider.notifier);
+    if (selection == 'close') {
+      if (targetId.isEmpty) return;
+      final ok = await controller.closeConnection(targetId);
+      if (mounted) {
+        setState(() => _selected.clear());
+        if (!ok) _report('关闭连接失败');
+      }
+    } else if (selection == 'close-all') {
+      final ok = await controller.closeAllConnections();
+      if (mounted) {
+        setState(() => _selected.clear());
+        if (!ok) _report('关闭全部连接失败');
+      }
+    }
   }
 
   /// React to a settings change while the tab is open (save -> live refresh).
@@ -207,6 +294,12 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                   },
                   child: const Text('关闭全部', style: TextStyle(fontSize: 12)),
                 ),
+                const SizedBox(width: 6),
+                OutlinedButton(
+                  key: const ValueKey('connections-autofit'),
+                  onPressed: _autofitColumns,
+                  child: const Text('列宽自适应', style: TextStyle(fontSize: 12)),
+                ),
                 const SizedBox(width: 16),
                 Text(
                   '↑${state.connectionsUpload} ↓${state.connectionsDownload}',
@@ -230,14 +323,33 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                   child: SingleChildScrollView(
                     child: DataTable(
                       key: const ValueKey('connections-list'),
-                      columns: const <DataColumn>[
-                        DataColumn(label: Text('Host', style: _head)),
-                        DataColumn(label: Text('Chain', style: _head)),
-                        DataColumn(label: Text('Network', style: _head)),
-                        DataColumn(label: Text('Type', style: _head)),
-                        DataColumn(label: Text('ProcessPath', style: _head)),
-                        DataColumn(label: Text('Elapsed', style: _head)),
-                        DataColumn(label: Text('', style: _head)),
+                      columns: <DataColumn>[
+                        for (final column in _columns)
+                          DataColumn(
+                            label: DragTarget<String>(
+                              onAcceptWithDetails: (details) => _moveColumn(
+                                details.data,
+                                _columns.indexWhere(
+                                  (c) => c.name == column.name,
+                                ),
+                              ),
+                              builder: (context, _, _) => Draggable<String>(
+                                data: column.name,
+                                feedback: Material(
+                                  child: Text(column.name, style: _head),
+                                ),
+                                child: SizedBox(
+                                  width: column.width.toDouble(),
+                                  child: Text(
+                                    column.name,
+                                    style: _head,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        const DataColumn(label: Text('', style: _head)),
                       ],
                       rows: <DataRow>[
                         for (final c in rows)
@@ -254,12 +366,23 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                               });
                             },
                             cells: <DataCell>[
-                              DataCell(_text(c.host)),
-                              DataCell(_text(c.chains.join(' -> '))),
-                              DataCell(_text(c.network)),
-                              DataCell(_text(c.connectionType)),
-                              DataCell(_text(c.processPath)),
-                              DataCell(_text(_elapsed(c.start))),
+                              for (final column in _columns)
+                                DataCell(
+                                  GestureDetector(
+                                    onSecondaryTapUp: (details) => _showRowMenu(
+                                      details.globalPosition,
+                                      c.id,
+                                    ),
+                                    child: SizedBox(
+                                      width: column.width.toDouble(),
+                                      child: Text(
+                                        _valueFor(c, column.name) ?? '-',
+                                        style: const TextStyle(fontSize: 11.5),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               DataCell(
                                 IconButton(
                                   key: ValueKey('connections-close-${c.id}'),
@@ -284,8 +407,25 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
 
 const _head = TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600);
 
-Widget _text(String? value) =>
-    Text(value ?? '-', style: const TextStyle(fontSize: 11.5));
+/// Cell text for a persisted column key (`ExName` parity, never localized).
+String? _valueFor(m.ClashConnectionDto c, String name) {
+  switch (name) {
+    case 'Host':
+      return c.host;
+    case 'Chain':
+      return c.chains.join(' -> ');
+    case 'Network':
+      return c.network;
+    case 'Type':
+      return c.connectionType;
+    case 'ProcessPath':
+      return c.processPath;
+    case 'Elapsed':
+      return _elapsed(c.start);
+    default:
+      return null;
+  }
+}
 
 String _elapsed(String? start) {
   if (start == null || start.isEmpty) return '-';

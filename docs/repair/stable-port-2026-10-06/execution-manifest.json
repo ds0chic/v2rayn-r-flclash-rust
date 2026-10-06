@@ -529,7 +529,7 @@
       ],
       "test_scope": "内容hash、不吞saveGroup失败、PAC fallback",
       "upstream_symbols": "原版SysProxyHandler/PAC/autostart处理",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {
@@ -559,7 +559,9 @@
       ],
       "test_scope": "group persistence、新建/编辑当前入口",
       "upstream_symbols": "ServiceLib/ViewModels/ProfilesViewModel.cs",
-      "status": "identified",
+      "status": "implemented",
+      "evidence": "docs/evidence/stable-port/SP-16/README.md",
+      "note": "independent entry wiring implemented (direct G/create entries, frozen-target gate, blank-group normalization); full card blocked: group persistence/reopen needs profiles_controller (A07-locked) + SP-12/FRB; group_reopen/native trace unverified",
       "instance_required": false
     },
     {
@@ -616,7 +618,9 @@
       "rust_packages": [],
       "test_scope": "已有选择/右键回归加真实原生菜单矩阵",
       "upstream_symbols": "ProfilesView.xaml(.cs)、ProfilesViewModel.cs",
-      "status": "identified",
+      "status": "implemented",
+      "evidence": "docs/evidence/stable-port/SP-18/README.md",
+      "note": "command-set wiring implemented (pure isCommandContextLive gate, immediate Enter/Esc mapping, frozen targets); native WPF trace/screenshots, DPI matrix and full ACT-PROF verification pending",
       "instance_required": false
     },
     {
@@ -678,7 +682,7 @@
       ],
       "test_scope": "connection columns/context/close/reopen",
       "upstream_symbols": "ClashConnectionsView.xaml(.cs)，FLD-CFG-136",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {

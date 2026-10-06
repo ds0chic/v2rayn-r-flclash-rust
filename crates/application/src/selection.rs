@@ -135,7 +135,9 @@ pub struct FrozenCommandTargets {
 }
 
 /// Restore frozen targets against the live view. `None` means refuse with a
-/// re-select prompt.
+/// re-select prompt. Blank group ids normalize to the "All" view, matching the
+/// Dart mirror (`restoreCommandTargets`); an empty or fully hidden snapshot
+/// refuses without falling back to the first row.
 pub fn restore_command_targets(
     frozen_ids: &[String],
     frozen_primary: Option<&str>,
@@ -143,7 +145,7 @@ pub fn restore_command_targets(
     current_group: Option<&str>,
     visible_ids: &[String],
 ) -> Option<FrozenCommandTargets> {
-    if frozen_group != current_group {
+    if present(frozen_group) != present(current_group) {
         return None;
     }
     if frozen_ids.is_empty() {
@@ -312,5 +314,28 @@ mod tests {
         .is_none());
         assert!(!is_primary_target_live(Some("n9"), &ids(&["n1"])));
         assert!(is_primary_target_live(Some("n1"), &ids(&["n1"])));
+    }
+
+    #[test]
+    fn blank_group_normalizes_to_all_view() {
+        // A blank frozen group and the All view (None) name the same view;
+        // both spellings restore instead of refusing.
+        assert!(restore_command_targets(
+            &ids(&["n1"]),
+            Some("n1"),
+            Some("  "),
+            None,
+            &ids(&["n1", "n2"]),
+        )
+        .is_some());
+        assert!(
+            restore_command_targets(&ids(&["n1"]), Some("n1"), None, Some(""), &ids(&["n1"]),)
+                .is_some()
+        );
+        // A real group still never matches the All view.
+        assert!(
+            restore_command_targets(&ids(&["n1"]), Some("n1"), Some("g"), None, &ids(&["n1"]),)
+                .is_none()
+        );
     }
 }

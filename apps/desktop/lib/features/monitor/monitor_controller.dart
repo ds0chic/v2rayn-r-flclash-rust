@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
+import 'package:v2rayn_desktop/features/monitor/connections_columns.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
@@ -586,14 +587,28 @@ class MonitorController extends Notifier<MonitorState> {
     state = state.copyWith(proxyDelays: delays);
   }
 
+  /// Close one connection. The target id and the session generation are
+  /// frozen together at request time (upstream `SelectedSource.Id` freeze);
+  /// an empty id is never sent (upstream `canEditRemove`, and an empty id
+  /// would hit `DELETE /connections/` i.e. close-all). A response that
+  /// arrives after a session switch claims no success and never refreshes
+  /// the new session's list with the old session's rows.
   Future<bool> closeConnection(String id) async {
-    final result = await _bridge.closeClashConnection(id);
+    final target = freezeConnectionClose(id, _sessionGeneration);
+    if (target == null) return false;
+    final result = await _bridge.closeClashConnection(target.id);
+    if (_disposed ||
+        !closeResponseIsCurrent(target.generation, _sessionGeneration)) {
+      return false;
+    }
     if (result.ok) await _fetchConnections(coalesce: false);
     return result.ok;
   }
 
   Future<bool> closeAllConnections() async {
+    final generation = _sessionGeneration;
     final result = await _bridge.closeAllClashConnections();
+    if (_disposed || generation != _sessionGeneration) return false;
     if (result.ok) await _fetchConnections(coalesce: false);
     return result.ok;
   }

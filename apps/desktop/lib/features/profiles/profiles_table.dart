@@ -1126,9 +1126,17 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     // to the first visible row.
     if (_requiresTarget(entry.kind)) {
       final current = ref.read(profilesControllerProvider);
+      // Pure SP-18 gate first (same normalized group, non-empty snapshot, all
+      // targets still visible); the controller call below performs the actual
+      // selection rebind. Either refusal closes the stale menu instead of
+      // acting on a hidden/other row, never the first visible row.
       final restored =
           command != null &&
-          command.groupSubId == current.groupSubId &&
+          isCommandContextLive(
+            command: command,
+            currentGroupSubId: current.groupSubId,
+            visibleIds: [for (final r in current.visible) r.id],
+          ) &&
           profiles.restoreContextTargets(command.targetIds);
       if (!restored) {
         _closeMenuChain();

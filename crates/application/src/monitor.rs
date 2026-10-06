@@ -1338,4 +1338,237 @@ mod tests {
         assert!(close_response_is_current(request.generation, 7));
         assert!(!close_response_is_current(request.generation, 8));
     }
+
+    // -- SP-20 full card: real endpoint management (no mocked success) --
+    //
+    // The stub below stands in for the Clash controller (like a real core's
+    // HTTP endpoint); the client under test is the real `ClashApiService`
+    // over real HTTP on a floor port >= 11808 (never 10808). A recorded
+    // request line proves the frozen id reached the wire; a 500 proves a
+    // failed close surfaces as `Err` instead of a fake success.
+
+    const SP20_CONN_JSON: &str = r#"{"downloadTotal":200,"uploadTotal":100,"connections":[{"id":"c1","upload":10,"download":20,"start":"2026-10-05T00:00:00Z","chains":["PROXY","DIRECT"],"rule":"MATCH","metadata":{"host":"host-1.example.invalid","network":"tcp","type":"Shadowsocks","sourceIP":"10.255.0.1","sourcePort":"10000","destinationIP":"192.0.2.1","destinationPort":"443","processPath":"C:/synthetic/app.exe"}}]}"#;
+
+    /// First free `127.0.0.1` port `>= 11808` (10808 is the user's live proxy).
+    fn sp20_floor_listener() -> std::net::TcpListener {
+        (11808u16..13000)
+            .find_map(|port| {
+                if port == 10_808 {
+                    return None;
+                }
+                std::net::TcpListener::bind(("127.0.0.1", port)).ok()
+            })
+            .expect("no free loopback port >= 11808")
+    }
+
+    struct Sp20ClashStub {
+        port: u16,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        requests: std::sync::Arc<Mutex<Vec<String>>>,
+        handle: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl Sp20ClashStub {
+        fn start(fail_close_id: Option<String>) -> Self {
+            use std::sync::atomic::Ordering;
+            let listener = sp20_floor_listener();
+            let port = listener.local_addr().expect("sp20 stub addr").port();
+            let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let requests = std::sync::Arc::new(Mutex::new(Vec::new()));
+            let flag = std::sync::Arc::clone(&stop);
+            let seen = std::sync::Arc::clone(&requests);
+            let failing = fail_close_id.clone();
+            let handle = std::thread::spawn(move || {
+                while !flag.load(Ordering::SeqCst) {
+                    let Ok((mut stream, _)) = listener.accept() else {
+                        return;
+                    };
+                    let _ = sp20_serve(&mut stream, &seen, failing.as_deref());
+                }
+            });
+            Self {
+                port,
+                stop,
+                requests,
+                handle: Some(handle),
+            }
+        }
+
+        fn took(&self) -> Vec<String> {
+            self.requests
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .clone()
+        }
+    }
+
+    impl Drop for Sp20ClashStub {
+        fn drop(&mut self) {
+            use std::sync::atomic::Ordering;
+            self.stop.store(true, Ordering::SeqCst);
+            let _ = std::net::TcpStream::connect(("127.0.0.1", self.port));
+            if let Some(handle) = self.handle.take() {
+                let _ = handle.join();
+            }
+        }
+    }
+
+    fn sp20_serve(
+        stream: &mut std::net::TcpStream,
+        requests: &Mutex<Vec<String>>,
+        fail_close_id: Option<&str>,
+    ) -> std::io::Result<()> {
+        use std::io::{Read, Write};
+        stream.set_read_timeout(Some(Duration::from_millis(500)))?;
+        stream.set_write_timeout(Some(Duration::from_millis(500)))?;
+        let mut request = Vec::new();
+        let mut buf = [0u8; 512];
+        while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+            let n = stream.read(&mut buf)?;
+            if n == 0 || request.len() > 16 * 1024 {
+                return Ok(());
+            }
+            request.extend_from_slice(&buf[..n]);
+        }
+        let text = String::from_utf8_lossy(&request);
+        let line = text.lines().next().unwrap_or_default().to_string();
+        let mut parts = line.split_whitespace();
+        let method = parts.next().unwrap_or_default();
+        let path = parts.next().unwrap_or_default();
+        let (status, body) = match (method, path) {
+            ("GET", "/connections") => ("200 OK", SP20_CONN_JSON.to_string()),
+            ("DELETE", "/connections/") => {
+                requests
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .push("DELETE /connections/".to_string());
+                ("204 No Content", String::new())
+            }
+            ("DELETE", p) if p.starts_with("/connections/") => {
+                let id = p.trim_start_matches("/connections/").to_string();
+                requests
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .push(format!("DELETE /connections/{id}"));
+                if fail_close_id == Some(id.as_str()) {
+                    ("500 Internal Server Error", String::new())
+                } else {
+                    ("204 No Content", String::new())
+                }
+            }
+            _ => ("404 Not Found", String::new()),
+        };
+        let response = format!(
+            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        stream.write_all(response.as_bytes())?;
+        stream.flush()?;
+        Ok(())
+    }
+
+    fn sp20_runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("sp20 test runtime")
+    }
+
+    #[test]
+    fn sp20_list_and_close_use_real_endpoint_with_frozen_id() {
+        let stub = Sp20ClashStub::start(None);
+        assert!(stub.port >= 11808 && stub.port != 10_808);
+        let service = ClashApiService::new(
+            stub.port,
+            None,
+            Duration::from_secs(2),
+            Duration::from_secs(1),
+        )
+        .expect("client builds");
+
+        let rt = sp20_runtime();
+        // List comes from the real HTTP controller, not a fabricated row.
+        let conns = rt.block_on(service.connections()).expect("list ok");
+        assert_eq!(conns.upload_total, 100);
+        assert_eq!(conns.download_total, 200);
+        let rows = conns.connections.unwrap_or_default();
+        assert_eq!(rows.len(), 1);
+        let id = rows[0].id.clone().unwrap_or_default();
+        assert_eq!(id, "c1");
+
+        // The frozen close target reaches the wire as `DELETE /connections/{id}`.
+        let request = freeze_close_request(&id, 7).expect("frozen");
+        rt.block_on(service.close_connection(&request.id))
+            .expect("close ok");
+        assert!(
+            stub.took().contains(&"DELETE /connections/c1".to_string()),
+            "single close must hit the frozen id, saw {:?}",
+            stub.took()
+        );
+
+        // Close-all stays on its own path (`DELETE /connections/`, upstream
+        // `CloseConnection("")`), never an empty single id.
+        rt.block_on(service.close_all()).expect("close-all ok");
+        assert!(
+            stub.took().contains(&"DELETE /connections/".to_string()),
+            "close-all must use its own path, saw {:?}",
+            stub.took()
+        );
+    }
+
+    #[test]
+    fn sp20_close_failure_is_surfaced_not_fake_success() {
+        let stub = Sp20ClashStub::start(Some("bad".to_string()));
+        assert!(stub.port >= 11808 && stub.port != 10_808);
+        let service = ClashApiService::new(
+            stub.port,
+            None,
+            Duration::from_secs(2),
+            Duration::from_secs(1),
+        )
+        .expect("client builds");
+
+        let rt = sp20_runtime();
+        let err = rt
+            .block_on(service.close_connection("bad"))
+            .expect_err("500 must fail");
+        assert!(
+            format!("{err:?}").contains("500"),
+            "failure reason must be kept, got {err:?}"
+        );
+        // The attempt still reached the controller (no silent skip).
+        assert!(
+            stub.took().contains(&"DELETE /connections/bad".to_string()),
+            "failed close must still hit the wire, saw {:?}",
+            stub.took()
+        );
+    }
+
+    #[test]
+    fn sp20_column_layout_survives_real_json_roundtrip() {
+        // Persist shape -> real serde through `ClashUiItem` -> normalize again:
+        // an independent reopen must see the same order and widths.
+        let first =
+            normalize_connection_columns(vec![column("Elapsed", 120, 0), column("Host", 310, 1)]);
+        let stored = serde_json::to_value(domain::ClashUiItem {
+            connections_column_item: first.clone(),
+            ..Default::default()
+        })
+        .expect("serialize");
+        let names: Vec<&str> = stored["ConnectionsColumnItem"]
+            .as_array()
+            .expect("rows")
+            .iter()
+            .map(|row| row["Name"].as_str().expect("name"))
+            .collect();
+        assert_eq!(names[0], "Elapsed");
+        let reopened: domain::ClashUiItem = serde_json::from_value(stored).expect("deserialize");
+        let second = normalize_connection_columns(reopened.connections_column_item);
+        assert_eq!(
+            second.iter().map(|c| c.name.clone()).collect::<Vec<_>>(),
+            first.iter().map(|c| c.name.clone()).collect::<Vec<_>>()
+        );
+        assert_eq!(second[0].width, 120);
+        assert_eq!(second[1].width, 310);
+    }
 }

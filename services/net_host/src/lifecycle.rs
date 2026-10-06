@@ -74,6 +74,41 @@ pub fn active_lease_survives_ui_idle() -> bool {
     true
 }
 
+/// Overall readiness of one managed session (SP-10, CP-12 / TUN-A05).
+///
+/// One pure decision over the main core, every sidecar and the
+/// elevated-observation state: a dead main core is never Ready; a failed
+/// sidecar — or an elevated sidecar still without helper exit observation
+/// (A02 `PollCoreExits` pending) — degrades instead of reporting clean
+/// Running. Staged for the A02 wiring; covered by SP-10 unit tests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum SessionReadiness {
+    Ready,
+    Degraded,
+    NotReady,
+}
+
+/// Aggregate one readiness verdict (SP-10).
+///
+/// `sidecar_ready` carries one entry per tracked sidecar; `elevated_pending`
+/// is true while an elevated sidecar has no exit-observation channel yet.
+/// Pure and side-effect-free. Staged for the A02 wiring.
+#[allow(dead_code)]
+pub fn session_readiness(
+    main_ready: bool,
+    sidecar_ready: &[bool],
+    elevated_pending: bool,
+) -> SessionReadiness {
+    if !main_ready {
+        return SessionReadiness::NotReady;
+    }
+    if elevated_pending || sidecar_ready.iter().any(|ready| !ready) {
+        return SessionReadiness::Degraded;
+    }
+    SessionReadiness::Ready
+}
+
 /// State after a sidecar exit while the session record still exists: the live
 /// main core keeps its endpoint, but the session must read Degraded, never a
 /// clean Running. When the main core is already gone the session is Stopped.
@@ -149,7 +184,6 @@ mod tests {
             now += HELPER_RENEW_INTERVAL_MS;
         }
     }
-
     #[test]
     fn dead_owner_expires_after_the_term_without_renew() {
         // No renew and no confirmation for the whole term: the lease lapses
@@ -159,5 +193,37 @@ mod tests {
         assert!(!renew_reconcile_due(
             HELPER_RENEW_FAILURES_BEFORE_RECONCILE - 1
         ));
+    }
+
+    // -- SP-10 readiness aggregation (CP-12) --------------------------------
+    //
+    // Red contract: overall readiness is one pure decision over the main
+    // core, every sidecar and the elevated-observation state. A dead main
+    // core is never Ready; a failed sidecar or an elevated sidecar without
+    // helper observation degrades instead of reporting clean Running.
+
+    #[test]
+    fn sp10_session_readiness_aggregates_main_and_sidecars() {
+        assert_eq!(
+            session_readiness(false, &[], false),
+            SessionReadiness::NotReady
+        );
+        assert_eq!(session_readiness(true, &[], false), SessionReadiness::Ready);
+        assert_eq!(
+            session_readiness(true, &[true, true], false),
+            SessionReadiness::Ready
+        );
+        assert_eq!(
+            session_readiness(true, &[true, false], false),
+            SessionReadiness::Degraded
+        );
+        assert_eq!(
+            session_readiness(false, &[true], false),
+            SessionReadiness::NotReady
+        );
+        assert_eq!(
+            session_readiness(true, &[true], true),
+            SessionReadiness::Degraded
+        );
     }
 }

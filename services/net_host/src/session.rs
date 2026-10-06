@@ -140,6 +140,16 @@ pub struct SidecarSession {
     /// cleanup triggers the helper's `CleanOwned` stop.
     pub helper: Option<Box<dyn HelperLink>>,
     pub handle: Option<u64>,
+    /// Helper-reported PID of an elevated sidecar (SP-10). The helper owns
+    /// the process, so this is attribution identity for exit facts, never a
+    /// local kill target: net-host must not signal it by PID.
+    pub elevated_pid: Option<u32>,
+    /// Helper-observed exit of an elevated sidecar (SP-10, CP-12 / TUN-A05).
+    /// Elevated sidecars have no pollable local handle, so their death
+    /// arrives through helper observation (A02 `PollCoreExits`, staged via
+    /// [`HostState::note_elevated_sidecar_exit`]); `reconcile_exits` consumes
+    /// it through the same Degraded path as an ordinary sidecar exit.
+    pub elevated_exit_code: Option<Option<i32>>,
 }
 
 impl SidecarSession {
@@ -688,6 +698,31 @@ impl HostState {
         )
     }
 
+    /// Record a helper-observed elevated-sidecar exit (SP-10, TUN-A05).
+    ///
+    /// Staged until the A02 `PollCoreExits` observation channel lands; until
+    /// then nothing calls this in production and elevated exits stay
+    /// unobserved (registered gap: without observation the session cannot
+    /// claim full readiness, see `lifecycle::session_readiness`). Returns
+    /// false for unknown sidecar ids so a stray report can never fabricate
+    /// an exit. The next read path consumes the report through
+    /// `reconcile_exits`, advancing the fact generation like an ordinary
+    /// sidecar exit.
+    #[allow(dead_code)]
+    pub async fn note_elevated_sidecar_exit(&self, id: &str, code: Option<i32>) -> bool {
+        let mut inner = self.inner.lock().await;
+        let Some(session) = inner.session.as_mut() else {
+            return false;
+        };
+        let Some(sidecar) = session.sidecars.iter_mut().find(|sidecar| {
+            sidecar.id == id && sidecar.child.is_none() && sidecar.helper.is_some()
+        }) else {
+            return false;
+        };
+        sidecar.elevated_exit_code = Some(code);
+        true
+    }
+
     /// SP-06 continuous exit observation.
     ///
     /// Every read path (`ipc_snapshot`, `detail_frame`, `operation_status`)
@@ -735,6 +770,23 @@ impl HostState {
             let main_status = session.child.try_wait().ok().flatten();
             let mut sidecar_exits = Vec::new();
             for (index, sidecar) in session.sidecars.iter_mut().enumerate() {
+                if sidecar.child.is_none() {
+                    // SP-10: an elevated sidecar has no pollable local
+                    // handle, so only a helper-observed exit (recorded via
+                    // `note_elevated_sidecar_exit`) may transition it. The
+                    // helper-reported PID is attribution identity, never a
+                    // local kill target. Without a report the sidecar is left
+                    // alone here (no miskill).
+                    if let Some(code) = sidecar.elevated_exit_code {
+                        sidecar_exits.push(SidecarExit {
+                            index,
+                            id: sidecar.id.clone(),
+                            pid: sidecar.elevated_pid.unwrap_or(0),
+                            code,
+                        });
+                    }
+                    continue;
+                }
                 let Some(child) = sidecar.child.as_mut() else {
                     continue;
                 };
@@ -2016,6 +2068,18 @@ impl HostState {
                     .await
             }
             ReadyOutcome::Timeout => {
+                // SP-10: the deadline fired, but the outcome is unknown until
+                // the actual result is re-checked: an exit at the edge must
+                // report `core_exited`, not a timeout.
+                if let Some(status) = child.try_wait().ok().flatten() {
+                    let tail = tail_log(&log_path, 8);
+                    let error = DomainError::new(domain::codes::INTERNAL, "error.core_exited")
+                        .with_operation(&operation_id)
+                        .with_detail(format!("core exited (code {:?}): {tail}", status.code()));
+                    return self
+                        .rollback(&operation_id, &mut child, &session_id, error)
+                        .await;
+                }
                 let error = DomainError::new(domain::codes::TIMEOUT, "error.readiness_timeout")
                     .with_operation(&operation_id)
                     .with_field("port")
@@ -2135,13 +2199,21 @@ impl HostState {
                 .with_operation(operation_id)
                 .with_detail(format!("elevated core task failed: {join}"))
         })?;
-        let (handle, _pid) = outcome.map_err(|error| error.with_operation(operation_id))?;
+        let (handle, pid) = outcome.map_err(|error| error.with_operation(operation_id))?;
+        // SP-10: a real launch without a helper process identity is not
+        // ready. Dry-run links report handle 0 by design (simulated, no
+        // process owned); only the real path must carry an identity.
+        let dry_run = link.dry_run();
+        elevated_launch_verdict(handle, dry_run)
+            .map_err(|error| error.with_operation(operation_id))?;
         Ok(SidecarSession {
             id: sidecar.id.clone(),
             child: None,
             _job: None,
             helper: Some(link),
             handle: Some(handle),
+            elevated_pid: if pid == 0 { None } else { Some(pid) },
+            elevated_exit_code: None,
         })
     }
 
@@ -2242,6 +2314,8 @@ impl HostState {
             _job: Some(sidecar_job),
             helper: None,
             handle: None,
+            elevated_pid: None,
+            elevated_exit_code: None,
         };
         // Wait for the sidecar to accept the same SOCKS greeting the main core
         // accepts (`WaitForProxyPort` upstream). A TUN-only sidecar reports
@@ -2254,7 +2328,26 @@ impl HostState {
             )
             .await;
             if !ready {
+                // SP-10: re-check the actual result before attributing the
+                // failure: an exited sidecar reports `core_exited` with its
+                // code; only a live-but-silent one is a readiness timeout.
+                let exited = session
+                    .child
+                    .as_mut()
+                    .and_then(|child| child.try_wait().ok())
+                    .flatten();
                 session.terminate_and_wait(Duration::from_secs(5)).await;
+                if let Some(status) = exited {
+                    return Err(
+                        DomainError::new(domain::codes::INTERNAL, "error.core_exited")
+                            .with_operation(operation_id)
+                            .with_detail(format!(
+                                "sidecar {} exited (code {:?})",
+                                sidecar.id,
+                                status.code()
+                            )),
+                    );
+                }
                 return Err(
                     DomainError::new(domain::codes::TIMEOUT, "error.readiness_timeout")
                         .with_operation(operation_id)
@@ -2746,6 +2839,53 @@ enum ReadyOutcome {
     Timeout,
 }
 
+/// Verdict of re-checking the actual result after a readiness timeout
+/// (SP-10). A timeout never fails an actually-ready session and never masks
+/// a real exit as a timeout. Staged contract: call sites re-observe first;
+/// covered by SP-10 unit tests.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
+pub enum TimeoutConfirm {
+    ActuallyReady,
+    Exited(Option<i32>),
+    ConfirmedTimeout,
+}
+
+/// Re-check the actual result after a readiness timeout (SP-10).
+///
+/// `exited` is the final `try_wait` observation (`Some(code)` when the
+/// process is gone); `port_ready_now` is one last immediate probe. Pure and
+/// side-effect-free; callers perform the final observation. Staged contract,
+/// covered by SP-10 unit tests.
+#[allow(dead_code)]
+pub fn confirm_readiness_timeout(
+    exited: Option<Option<i32>>,
+    port_ready_now: bool,
+) -> TimeoutConfirm {
+    if let Some(code) = exited {
+        return TimeoutConfirm::Exited(code);
+    }
+    if port_ready_now {
+        return TimeoutConfirm::ActuallyReady;
+    }
+    TimeoutConfirm::ConfirmedTimeout
+}
+
+/// Readiness verdict for an elevated-sidecar launch (SP-10, TUN-A05).
+///
+/// The helper's `RunElevatedCore` success only dispatches; readiness needs a
+/// helper-owned process identity. A zero handle on the real path is not
+/// ready. Dry-run links report `(0, 0)` by design and stay simulated.
+pub fn elevated_launch_verdict(handle: u64, dry_run: bool) -> Result<(), DomainError> {
+    if handle == 0 && !dry_run {
+        return Err(
+            DomainError::new(domain::codes::UNAVAILABLE, "error.tun_helper_denied")
+                .with_detail("helper launch returned no elevated process identity"),
+        );
+    }
+    Ok(())
+}
+
 async fn wait_ready(
     child: &mut tokio::process::Child,
     port: u16,
@@ -2763,6 +2903,19 @@ async fn wait_ready(
             return ReadyOutcome::Exited(status.code());
         }
         if Instant::now() >= deadline {
+            // SP-10: the deadline fired, but the outcome is unknown until the
+            // actual result is re-checked: an exit at the edge reports
+            // Exited, and one last immediate probe accepts an
+            // actually-ready core instead of failing it on a timeout.
+            if let Ok(Some(status)) = child.try_wait() {
+                return ReadyOutcome::Exited(status.code());
+            }
+            if port != 0 && TcpStream::connect(addr).await.is_ok() {
+                if let Ok(Some(status)) = child.try_wait() {
+                    return ReadyOutcome::Exited(status.code());
+                }
+                return ReadyOutcome::Ready;
+            }
             return ReadyOutcome::Timeout;
         }
         if port != 0 && TcpStream::connect(addr).await.is_ok() {
@@ -4389,5 +4542,163 @@ Idx     Met    MTU          State                Name\r\n\
         assert_eq!(generation, 1, "exit pushes generation");
         assert_eq!(error_key.as_deref(), Some("error.sidecar_exited"));
         let _ = std::fs::remove_dir_all(&run_root);
+    }
+
+    // -- SP-10 readiness prep (CP-12 / TUN-A05) ------------------------------
+    //
+    // Red contracts: a readiness timeout must first re-check the actual
+    // result (never fail an actually-ready session, never mask a real exit
+    // as a timeout), a real elevated launch without a helper identity is not
+    // ready, and a helper-observed elevated-sidecar exit degrades the live
+    // session through the same fact generation as an ordinary sidecar exit.
+
+    #[test]
+    fn sp10_timeout_confirm_maps_actual_results() {
+        // Exited while the probe timed out: the real exit wins, not Timeout.
+        assert_eq!(
+            confirm_readiness_timeout(Some(Some(3)), false),
+            TimeoutConfirm::Exited(Some(3))
+        );
+        // Live process that answers now: actually ready, timeout suppressed.
+        assert_eq!(
+            confirm_readiness_timeout(None, true),
+            TimeoutConfirm::ActuallyReady
+        );
+        // Live process, still silent: the timeout stands.
+        assert_eq!(
+            confirm_readiness_timeout(None, false),
+            TimeoutConfirm::ConfirmedTimeout
+        );
+    }
+
+    #[test]
+    fn sp10_real_elevated_launch_requires_a_handle() {
+        // The helper returned no process identity on the real path: not ready.
+        assert!(elevated_launch_verdict(0, false).is_err());
+        assert!(elevated_launch_verdict(7, false).is_ok());
+        // Dry-run never owns a process: handle 0 stays simulated success.
+        assert!(elevated_launch_verdict(0, true).is_ok());
+    }
+
+    #[test]
+    fn sp10_elevated_sidecar_exit_degrades_live_session() {
+        use crate::helper_client::FakeHelperLink;
+
+        let _guard = rr10_lock();
+        let state = test_state("sp10-elevated-exit");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        let plan = plan_with_body("sp10el", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        let run_root = state.config.run_root.clone();
+        let facts = futures_block_on(async {
+            state.apply_plan(plan).await.expect("session starts");
+            {
+                let mut inner = state.inner.lock().await;
+                let session = inner.session.as_mut().expect("session runs");
+                session.sidecars.push(SidecarSession {
+                    id: "tun-sidecar".into(),
+                    child: None,
+                    _job: None,
+                    helper: Some(Box::new(FakeHelperLink::new())),
+                    handle: Some(7),
+                    elevated_pid: Some(4242),
+                    elevated_exit_code: None,
+                });
+            }
+            assert!(
+                state
+                    .note_elevated_sidecar_exit("tun-sidecar", Some(1))
+                    .await,
+                "known elevated sidecar exit is recorded"
+            );
+            assert!(
+                !state
+                    .note_elevated_sidecar_exit("no-such-sidecar", None)
+                    .await,
+                "unknown sidecar ids never fabricate an exit"
+            );
+            let snapshot = state.ipc_snapshot().await;
+            let inner = state.inner.lock().await;
+            let facts = (
+                snapshot.state,
+                inner.session.is_some(),
+                inner.detail.pid,
+                inner.detail.ports.clone(),
+                inner.last_exit.clone(),
+                inner.last_exit_sidecar.clone(),
+                inner.actual_generation,
+                inner.detail.error.clone().map(|error| error.message_key),
+            );
+            drop(inner);
+            let _ = state.stop_managed(None).await;
+            facts
+        });
+        let (
+            snapshot_state,
+            session_alive,
+            pid,
+            ports,
+            last_exit,
+            last_exit_sidecar,
+            generation,
+            error_key,
+        ) = facts;
+        assert_eq!(
+            snapshot_state,
+            RuntimeState::Degraded,
+            "an exited elevated sidecar must not read as clean Running"
+        );
+        assert!(session_alive, "main core keeps running");
+        assert!(pid.is_some(), "main endpoint kept");
+        assert!(!ports.is_empty() || pid.is_some());
+        let exit = last_exit.expect("elevated exit recorded");
+        assert_eq!(exit.pid, 4242, "exit keeps the helper-reported identity");
+        assert_eq!(last_exit_sidecar.as_deref(), Some("tun-sidecar"));
+        assert_eq!(generation, 1, "exit pushes generation");
+        assert_eq!(error_key.as_deref(), Some("error.sidecar_exited"));
+        let _ = std::fs::remove_dir_all(&run_root);
+    }
+
+    #[test]
+    fn sp10_live_sidecar_timeout_is_not_an_exit() {
+        let _guard = rr10_lock();
+        let state = test_state("sp10-sidecar-timeout");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        // A free loopback port that nothing answers: the stay stub never
+        // listens there, so the sidecar probe must time out while the
+        // process is still alive — and report a timeout, not a fake exit.
+        let dead_port = {
+            let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            listener.local_addr().unwrap().port()
+        };
+        let mut plan = plan_with_body("sp10to", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        for id in ["Xray", "pre-socks"] {
+            plan.process_graph
+                .add_process(domain::runtime_plan::ProcessNode {
+                    id: id.into(),
+                    core_type: domain::CoreType::Xray,
+                    config: ConfigSource::Inline {
+                        body: "{\"inbounds\":[],\"outbounds\":[]}".into(),
+                    },
+                    ports: if id == "pre-socks" {
+                        vec![domain::runtime_plan::PortRequest::tcp(dead_port, "sidecar")]
+                    } else {
+                        vec![]
+                    },
+                    privileges: vec![],
+                });
+        }
+        plan.process_graph.depends_on("pre-socks", "Xray");
+        let error = futures_block_on(state.apply_plan(plan)).expect_err("sidecar must time out");
+        assert_eq!(
+            error.message_key, "error.readiness_timeout",
+            "a live-but-silent sidecar is a timeout, never a fabricated exit"
+        );
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
     }
 }

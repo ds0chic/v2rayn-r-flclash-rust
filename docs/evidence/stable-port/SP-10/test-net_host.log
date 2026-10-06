@@ -1,0 +1,130 @@
+   Compiling net_host v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\services\net_host)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.84s
+     Running unittests src\main.rs (target\debug\deps\net_host-d28ebdac38e4502d.exe)
+
+running 116 tests
+test dacl::tests::non_windows_placeholder_builds ... ok
+test helper_client::tests::elevation_cancel_maps_to_user_cancelled ... ok
+test helper_client::tests::effective_token_generation_requires_autolaunch ... ok
+test helper_client::tests::fake_denied_maps_to_tun_helper_unavailable ... ok
+test helper_client::tests::fake_cleanup_failure_keeps_resources_for_retry ... ok
+test helper_client::tests::fake_apply_without_routes_skips_add_routes ... ok
+test helper_client::tests::fake_disconnect_cleanup_is_idempotent ... ok
+test helper_client::tests::fake_apply_records_routes_and_adapter ... ok
+test helper_client::tests::fake_disconnect_fails_apply_then_cleanup_is_idempotent ... ok
+test helper_client::tests::fake_cleanup_is_idempotent ... ok
+test helper_client::tests::fake_cleanup_unavailable_is_retryable_and_keeps_resources ... ok
+test helper_client::tests::dry_run_link_records_but_touches_nothing ... ok
+test events::tests::resync_notice_is_control_and_names_reason ... ok
+test helper_client::tests::fake_helper_denies_elevated_core_on_fault ... ok
+test events::tests::control_event_carries_operation_id_and_generation ... ok
+test helper_client::tests::fake_helper_records_elevated_core_lifecycle ... ok
+test helper_client::tests::fake_partial_tun_rolls_back_routes ... ok
+test helper_client::tests::fake_timeout_maps_to_retryable_unavailable ... ok
+test helper_client::tests::helper_error_mapping_is_stable ... ok
+test helper_client::tests::quote_arg_wraps_spaces ... ok
+test helper_client::tests::lease_summary_is_redacted ... ok
+test helper_client::tests::route_entries_from_lease_keep_family ... ok
+test helper_client::tests::unavailable_link_reports_structured_error ... ok
+test dacl::tests::current_user_descriptor_is_built_and_freed ... ok
+test helper_client::tests::lease_roundtrips_through_json ... ok
+test lifecycle::tests::lease_term_covers_the_renew_cycle_with_margin ... ok
+test lifecycle::tests::active_session_survives_24h_of_ui_idle_with_steady_renew ... ok
+test lifecycle::tests::dead_owner_expires_after_the_term_without_renew ... ok
+test lifecycle::tests::every_exit_advances_the_fact_generation ... ok
+test lifecycle::tests::renew_is_due_on_the_provisional_interval ... ok
+test lifecycle::tests::sidecar_exit_degrades_a_live_session ... ok
+test lifecycle::tests::sp10_session_readiness_aggregates_main_and_sidecars ... ok
+test lifecycle::tests::reconcile_is_gated_on_quiescence ... ok
+test managed_process::tests::exit_detail_carries_pid_and_code_without_secrets ... ok
+test managed_process::tests::sidecar_exit_names_the_sidecar ... ok
+test server::tests::closed_recv_maps_to_eof ... ok
+test server::tests::contiguous_subscription_is_accepted ... ok
+test managed_process::tests::main_exit_is_a_structured_fatal_fact ... ok
+test server::tests::lagged_recv_maps_to_resync_not_eof ... ok
+test server::tests::stale_epoch_demands_resync_not_echo ... ok
+test server::tests::seq_ahead_of_authority_demands_resync ... ok
+test server::tests::ok_recv_forwards_event ... ok
+test session::tests::bogus_identity_never_matches ... ok
+test session::tests::connected_client_never_reclaims ... ok
+test session::tests::disconnected_client_reclaims_only_after_grace ... ok
+test session::tests::elevated_core_ids_match_the_helper_allowlist ... ok
+test session::tests::idle_exit_requires_no_client_and_no_work_after_min ... ok
+test session::tests::job_assign_failure_is_structured_and_non_retryable ... ok
+test session::tests::journal_entry_carries_pid_and_creation_time ... ok
+test session::tests::no_session_never_reclaims ... ok
+test session::tests::helper_dry_run_flag_flows_from_env ... ok
+test session::tests::r304_parses_netsh_adapter_index_like_the_application_side ... ok
+test dacl::tests::restrict_to_current_user_applies_to_file_and_dir ... ok
+test session::tests::helper_factory_seam_replaces_link_construction ... ok
+test journal::tests::finalized_sessions_are_not_recovered ... ok
+test journal::tests::staged_artifacts_are_removed_but_journal_survives ... ok
+test journal::tests::stale_session_without_pid_is_finalized ... ok
+test journal::tests::recovery_deletes_staged_config_after_finalizing ... ok
+test events::tests::burst_overflow_reports_lagged_but_stream_continues ... ok
+test session::tests::config_check_deadline_terminates_a_hung_child ... ok
+test session::tests::r304_defers_helper_until_the_core_created_interface_is_discovered ... ok
+test session::tests::r304_discovery_timeout_rolls_back_without_a_lease ... ok
+test session::tests::r304_helper_denial_after_discovery_cleans_up ... ok
+test session::tests::r305_sidecar_failure_after_helper_releases_tun_lease ... ok
+test session::tests::rr06_apply_tracks_sidecar_after_the_core_is_ready ... ok
+test session::tests::rr06_prepare_sidecars_builds_a_pre_socks_node ... ok
+test session::tests::rr06_prepare_sidecars_requires_an_adapter_for_each_node ... ok
+test session::tests::rr06_wait_socks_port_accepts_a_socks5_greeting ... ok
+test session::tests::sp08_restart_keeps_unconfirmed_lease_pending ... ok
+test session::tests::sp08_stop_with_failed_cleanup_degrades_and_stays_retryable ... ok
+test session::tests::sp10_real_elevated_launch_requires_a_handle ... ok
+test session::tests::sp10_timeout_confirm_maps_actual_results ... ok
+test session::tests::tun_detail_from_lease_is_redacted ... ok
+test session::tests::tun_inbound_detection_is_structural ... ok
+test tun_lease::tests::apply_denied_leaves_no_journal_with_stable_code ... ok
+test tun_lease::tests::apply_disconnect_is_unavailable ... ok
+test tun_lease::tests::apply_rejects_invalid_spec_before_touching_helper ... ok
+test tun_lease::tests::apply_timeout_is_retryable_unavailable ... ok
+test tun_lease::tests::apply_writes_journal_and_returns_lease ... ok
+test tun_lease::tests::cleanup_is_idempotent ... ok
+test tun_lease::tests::cleanup_releases_helper_state_and_drops_journal ... ok
+test tun_lease::tests::cleanup_with_mismatched_lease_still_cleans ... ok
+test tun_lease::tests::cleanup_without_journal_is_ok ... ok
+test tun_lease::tests::dry_run_lease_journals_dry_run_flag ... ok
+test tun_lease::tests::journal_entry_roundtrips_through_json ... ok
+test tun_lease::tests::reconcile_cleans_stale_after_restart ... ok
+test tun_lease::tests::reconcile_empty_run_root_is_zero ... ok
+test tun_lease::tests::reconcile_unavailable_keeps_pending_and_journal ... ok
+test tun_lease::tests::sp08_already_absent_converges_like_success ... ok
+test tun_lease::tests::sp08_cleanup_failure_is_not_success_and_keeps_journal ... ok
+test tun_lease::tests::sp08_failed_cleanup_leaves_a_listed_pending_record ... ok
+test tun_lease::tests::sp08_only_not_found_counts_as_already_absent ... ok
+test tun_lease::tests::sp08_pending_record_roundtrips_through_json ... ok
+test tun_lease::tests::sp08_reconcile_backend_failure_keeps_pending_journal ... ok
+test tun_lease::tests::sp08_reconcile_unreachable_keeps_pending_journal ... ok
+test tun_lease::tests::sp08_repeated_failures_bump_attempts ... ok
+test tun_lease::tests::sp08_retry_after_failure_converges ... ok
+test tun_lease::tests::sp08_retry_still_failing_keeps_journal_and_refreshes_pending ... ok
+test tun_lease::tests::sp08_retry_without_journal_clears_stale_pending ... ok
+test tun_lease::tests::sp10_lease_ownership_key_normalizes_adapter_identity ... ok
+test tun_lease::tests::sp10_lease_ownership_key_separates_index_and_digest ... ok
+test session::tests::rr06_wait_socks_port_times_out_without_a_server ... ok
+test session::tests::rr10_failed_switch_restores_previous_session ... ok
+test session::tests::rr10_failed_switch_without_restorable_previous_reports_stopped ... ok
+test session::tests::rr10_precheck_rejects_bad_hash_without_stopping ... ok
+test session::tests::rr10_precheck_rejects_busy_port_owned_by_other ... ok
+test session::tests::rr10_precheck_rejects_unsupported_core_without_stopping ... ok
+test session::tests::sp04_failed_apply_releases_the_command_gate ... ok
+test session::tests::sp04_snapshot_stays_responsive_during_stop ... ok
+test session::tests::sp05_idle_stop_is_idempotent_and_still_records ... ok
+test session::tests::sp06_main_exit_reconciles_to_stopped_with_last_exit ... ok
+test session::tests::sp06_sidecar_exit_degrades_without_killing_main ... ok
+test session::tests::sp04_stop_waits_for_the_command_gate ... ok
+test session::tests::sp10_elevated_sidecar_exit_degrades_live_session ... ok
+test session::tests::sp10_live_sidecar_timeout_is_not_an_exit ... ok
+test session::tests::sp05_stop_records_terminal_operation_and_keeps_apply_history ... ok
+
+test result: ok. 116 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 31.41s
+
+     Running unittests src\bin\t03_client.rs (target\debug\deps\t03_client-7aff2fe562bc785e.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

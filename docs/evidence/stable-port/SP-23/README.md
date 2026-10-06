@@ -83,14 +83,62 @@
   最终消费者”完整证据；CP-SET-01/02/03（保存/重试）与 CP-SET-15（Rust 空/坏整树默认）
   为跨领域前置（SP-01/02/12）。
 
-## 4. 剩余工作
+## 4. 剩余工作（第二批后更新）
 
-- 180 − 18 = 162 个 ID 未登记（含 2 internal、23 container、137 leaf）。
+- 180 − 36 = 144 个 ID 未登记（含 23 container、121 leaf；internal 2 已齐）。
   容器/内部仅按结构/迁移/引用验收，不造开关；每叶仍须单实例卡。
-- 建议下一批：MsgUIItem（065/066）与 ClashUI 轮询组（131-135，CP-SET-03 关联）、
-  平台代理组（137-142，内容去重 CP-SET-09）、DNS 组（159-175）。
+- 建议下一批：MsgUI/ClashUI 剩余（132/134、147/148 更新组）、080/142 跨平台代理脚本、
+  DNS 组（159-175）。
 
-## 5. `git status --short`（收尾）
+## 5. `git status --short`（第一批收尾）
 
 见最终消息。要求：除本目录新建 19 文件 + `tasks/SP-23.md` 状态行 +
 `execution-manifest.json` SP-23 块 `status` 外无其它改动；生产代码零改动。
+
+## 6. 第二批：SP-28 审计缺口 18 ID（基线 `393fafd`，只写文档）
+
+状态：implemented（文档登记完成；正式入口→最终消费者实测未跑，不写 verified）。
+生产代码零改动；`work/` 只读核对；`execution-manifest.json` SP-23 块保持
+`implemented`（已能表达“实例登记中、未 verified”，不改 schema）；不 commit。
+
+| ID | 最终消费者（当前真实定位） | 唯一验收流程 | 移交 |
+|---|---|---|---|
+| FLD-CFG-001 IndexId | `engine.rs:1222 set_active` + canonical/镜像（`:442,630,1995-2099`） | 选 B→保存→重开仍 B；ZIP remap 往返 | SP-03 |
+| FLD-CFG-002 SubIndexId | `engine.rs:1401 switch_current_group` / `:2011-2013` 写即切换 | 切组→过滤→重开仍该组；删组回退 | SP-03 |
+| FLD-CFG-056 AutoRun | `settings_controller.dart:568-582`→`platform_service.rs:556-572`→`AutoStartBackend` | 勾选→重开→Run 键事实存在；失败重试可见 | SP-15/SP-32 |
+| FLD-CFG-065 MainMsgFilter | `logs_view.dart` 本地态（未播种 canonical） | 设过滤→重开→初始即该值；非法 regex 拒留旧 | SP-17 |
+| FLD-CFG-066 AutoRefresh | `logs_view.dart:109-110` 本地态（未播种） | 关→重开初始冻结；开→跟随；切换不丢 | SP-17 |
+| FLD-CFG-100 EnableIPv6Address | `codegen.rs:441` + `tun_plan.rs:185`；会话仅 mock | 开+地址→plan 含段→core 校验→真实会话 | SP-24 |
+| FLD-CFG-102 EnableLegacyProtect | `engine.rs:4726` 读；生产 core 路径缺 | 开/关→plan 上下文→真实 core 受保护与否 | SP-24 |
+| FLD-CFG-103 RouteExcludeAddress | `codegen.rs:443` + `tun_plan.rs:208` | 合法 CIDR→bypass；尾逗号按冻结语义 | SP-24 |
+| FLD-CFG-105 IPv6Address | `codegen.rs:442` + `tun_plan.rs:187`；全局 v6 上下文 false | 开+合法 CIDR→设备/路由生效 | SP-24 |
+| FLD-CFG-116 RoutingIndexId | `codegen.rs:436` + DTO；迁移缺失 | 旧 ID→IsActive 迁移→往返仍选中 | SP-13 |
+| FLD-CFG-117 列名 | `column_layout` UI 缓存；canonical 无消费者 | 改列/未知列→重开快照往返+保留 | SP-16 |
+| FLD-CFG-118 列宽 | 同上 | 拖宽→重开快照一致（含 DPI 说明） | SP-16 |
+| FLD-CFG-119 列序 | 同上 | 重排→重开一致；重复 Index 去重 | SP-16 |
+| FLD-CFG-131 ProxiesSorting | `proxies_view.dart:33-34` 播种；失败不回滚 | 改排序→重开初始一致；失败可见回滚 | SP-17 |
+| FLD-CFG-138 Bypass 列表 | `platform_controller:182-310`；去重键漏内容 | 改列表→重下发→隔离机查询一致 | SP-15/SP-32 |
+| FLD-CFG-139 本地 bypass 开关 | `proxy_settings_view:160-167`；去重键漏开关 | 翻转→重下发→合成含/不含本地段 | SP-15/SP-32 |
+| FLD-CFG-140 高级协议模板 | `proxy_settings_view:104-132`；去重键漏模板 | 改模板→重下发→落值一致 | SP-15/SP-32 |
+| FLD-CFG-141 自定义 PAC 路径 | 同组 + `validateCustomProxyScript`；fallback 语义分裂 | 设路径→重下发→文件/hash 一致 | SP-15/SP-32 |
+
+各文件含：原版入口与符号、当前 provider/caller/DTO（文件:行）、版本/错误/
+取消/持久化/生效时机、唯一验收命令、未验证前置。SP-23 登记通过不代表任一
+功能通过；每叶仍须逐实例完成正式入口/重开/最终消费者证据。
+
+### 6.1 新增缺口（接 G-01..G-09）
+
+- G-10（SP-03）：001/002 canonical 与 `active_index_id`/UI 组源分歧愈合缺正式证据。
+- G-11（SP-15/32）：056 `load()` 以 desired 伪报 OS 事实；admin/无权限路径未验证。
+- G-12（SP-17）：065/066 canonical 未向日志页播种；131 保存失败不展示/不回滚。
+- G-13（SP-24）：100/102/105 真实 TUN 会话仅 mock（全局 v6 上下文 false、
+  缺生产 core 路径）；103 切分/校验语义分裂（尾逗号）。
+- G-14（SP-13）：116 legacy→IsActive 迁移缺失。
+- G-15（SP-16）：117/118/119 canonical 列定义无实际表格消费者（UI 用独立缓存）。
+- G-16（SP-15/32）：138-141 去重键仅 mode/session/port，内容/开关/模板/路径
+  变化不重下发；141 不存在路径被创建而非上游 fallback。
+
+### 6.2 `git status --short`（第二批收尾）
+
+见最终消息。要求：除本目录新建 18 文件 + 本 README + `tasks/SP-23.md`
+状态行外无其它改动；生产代码零改动；不 commit。

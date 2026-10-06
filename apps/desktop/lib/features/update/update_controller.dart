@@ -168,45 +168,83 @@ class UpdateController extends Notifier<UpdateState> {
     return const <String, dynamic>{};
   }
 
-  /// Persist the current toggles/selection into the `CheckUpdateItem` group.
+  /// Persist the given toggles/selection into the `CheckUpdateItem` group.
   /// Upstream writes these back on every change
   /// (`CheckUpdateViewModel.OnCheckPreReleaseUpdateChanged` -> `SaveConfig`),
   /// so reopening the window restores them instead of resetting to defaults.
-  void _persistCheckUpdate() {
+  ///
+  /// Returns whether the write succeeded. Callers (SP-27) persist *first* and
+  /// only move the in-memory state on success; a failed write keeps the old
+  /// state and surfaces an error instead of optimistically showing the new
+  /// selection as saved (SP-12 audit contract 3).
+  bool _persistCheckUpdate(Map<String, dynamic> group) {
     try {
       final notifier = ref.read(settingsControllerProvider.notifier);
       if (!ref.read(settingsControllerProvider).loaded) {
         notifier.load();
       }
-      notifier.saveGroup('CheckUpdateItem', <String, dynamic>{
-        'CheckPreReleaseUpdate': state.prerelease,
-        'UpdateViaProxy': state.viaProxy,
-        'SelectedCoreTypes': state.selected.toList()..sort(),
-      });
-    } catch (_) {
-      // No settings backend (bare widget test): keep the in-memory state.
+      final result = notifier.saveGroup('CheckUpdateItem', group);
+      if (!result.ok) {
+        final error = result.error;
+        state = state.copyWith(
+          status: UpdateStatus(
+            kind: 'error',
+            message: '更新选项保存失败',
+            detail: error == null
+                ? 'unknown'
+                : '${error.code} / ${error.messageKey}',
+          ),
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      state = state.copyWith(
+        status: UpdateStatus(
+          kind: 'error',
+          message: '更新选项保存失败',
+          detail: error.toString(),
+        ),
+      );
+      return false;
     }
   }
 
+  Map<String, dynamic> _checkUpdateGroup({
+    bool? prerelease,
+    bool? viaProxy,
+    Set<String>? selected,
+  }) => <String, dynamic>{
+    'CheckPreReleaseUpdate': prerelease ?? state.prerelease,
+    'UpdateViaProxy': viaProxy ?? state.viaProxy,
+    'SelectedCoreTypes': (selected ?? state.selected).toList()..sort(),
+  };
+
   void toggleCore(String core, bool selected) {
+    if (selected == state.selected.contains(core)) return;
     final next = <String>{...state.selected};
     if (selected) {
       next.add(core);
     } else {
       next.remove(core);
     }
-    state = state.copyWith(selected: next);
-    _persistCheckUpdate();
+    if (_persistCheckUpdate(_checkUpdateGroup(selected: next))) {
+      state = state.copyWith(selected: next);
+    }
   }
 
   void setPrerelease(bool value) {
-    state = state.copyWith(prerelease: value);
-    _persistCheckUpdate();
+    if (value == state.prerelease) return;
+    if (_persistCheckUpdate(_checkUpdateGroup(prerelease: value))) {
+      state = state.copyWith(prerelease: value);
+    }
   }
 
   void setViaProxy(bool value) {
-    state = state.copyWith(viaProxy: value);
-    _persistCheckUpdate();
+    if (value == state.viaProxy) return;
+    if (_persistCheckUpdate(_checkUpdateGroup(viaProxy: value))) {
+      state = state.copyWith(viaProxy: value);
+    }
   }
 
   List<String> get _selectedCores => state.targets

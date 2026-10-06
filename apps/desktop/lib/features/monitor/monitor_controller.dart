@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/connections_columns.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 
@@ -278,6 +279,14 @@ class MonitorController extends Notifier<MonitorState> {
   int _proxiesRequest = 0;
   int _modeRequest = 0;
 
+  /// SP-22 log coalescing: high-frequency batches accumulate here and flush
+  /// at most once per [logCoalesceWindow], so the view is not rebuilt with a
+  /// full overlay per event. Counters/pause flags bypass this buffer and
+  /// apply immediately (lifecycle and final results are never squeezed out
+  /// by log floods); traffic batches bypass it entirely.
+  final List<m.LogLineDto> _pendingLogLines = <m.LogLineDto>[];
+  Timer? _logFlushTimer;
+
   MonitorBridge get _bridge => ref.read(monitorBridgeProvider);
 
   @override
@@ -286,6 +295,7 @@ class MonitorController extends Notifier<MonitorState> {
       _disposed = true;
       _trafficSub?.cancel();
       _logSub?.cancel();
+      _logFlushTimer?.cancel();
     });
     // Normal user entry for statistics: mirror the applied runtime session into
     // the Rust monitor. A core apply pushes the real core / statistics ports /
@@ -395,12 +405,18 @@ class MonitorController extends Notifier<MonitorState> {
     // still carry (RT-19): the read model only appends when collection is live.
     // Hidden pages and a manual auto-refresh pause also freeze the view while
     // the Rust ring keeps accumulating, so a later reload shows the tail.
-    final append =
+    //
+    // SP-22: counters/pause flags apply immediately on every batch; the row
+    // overlay itself coalesces into at most one bounded tail-merge per
+    // [logCoalesceWindow], so a 10k-line flood cannot rebuild the view per
+    // event nor squeeze out traffic/lifecycle updates.
+    final appendable =
         !batch.collectingPaused && _logsPageVisible && state.autoRefresh;
+    if (appendable) {
+      _pendingLogLines.addAll(batch.lines);
+      _logFlushTimer ??= Timer(logCoalesceWindow, _flushPendingLogs);
+    }
     state = state.copyWith(
-      logs: append
-          ? _trimLogs(<m.LogLineDto>[...state.logs, ...batch.lines])
-          : state.logs,
       droppedLines: batch.droppedLines,
       truncatedLines: batch.truncatedLines,
       collectingPaused: batch.collectingPaused,
@@ -408,10 +424,19 @@ class MonitorController extends Notifier<MonitorState> {
     );
   }
 
-  static List<m.LogLineDto> _trimLogs(List<m.LogLineDto> merged) =>
-      merged.length > maxDisplayedLogs
-      ? merged.sublist(merged.length - maxDisplayedLogs)
-      : merged;
+  /// Merge the buffered batches into one bounded tail update.
+  void _flushPendingLogs() {
+    _logFlushTimer = null;
+    if (_disposed || _pendingLogLines.isEmpty) {
+      _pendingLogLines.clear();
+      return;
+    }
+    final pending = List<m.LogLineDto>.of(_pendingLogLines);
+    _pendingLogLines.clear();
+    state = state.copyWith(
+      logs: mergeLogTail(state.logs, pending, maxDisplayedLogs),
+    );
+  }
 
   /// Reload the newest retained lines from the Rust ring (called when the page
   /// or auto-refresh resumes; the subscription stays idle until then).
@@ -569,9 +594,11 @@ class MonitorController extends Notifier<MonitorState> {
     final generation = _sessionGeneration;
     final result = await _bridge.clashProxyDelay(name);
     if (!_disposed && generation == _sessionGeneration) {
-      final delays = Map<String, int>.of(state.proxyDelays)
-        ..[result.name] = result.delay;
-      state = state.copyWith(proxyDelays: delays);
+      state = state.copyWith(
+        proxyDelays: mergeDelayMap(state.proxyDelays, <m.DelayResultDto>[
+          m.DelayResultDto(name: result.name, delay: result.delay),
+        ]),
+      );
     }
     return result.delay;
   }
@@ -580,11 +607,11 @@ class MonitorController extends Notifier<MonitorState> {
     final generation = _sessionGeneration;
     final result = await _bridge.clashGroupDelay(group);
     if (_disposed || generation != _sessionGeneration) return;
-    final delays = Map<String, int>.of(state.proxyDelays);
-    for (final item in result.items) {
-      delays[item.name] = item.delay;
-    }
-    state = state.copyWith(proxyDelays: delays);
+    // Incremental by-id overlay: each probed node updates its own row; the
+    // final map is complete even if an early probe was slow (SP-22: 最终结果不丢).
+    state = state.copyWith(
+      proxyDelays: mergeDelayMap(state.proxyDelays, result.items),
+    );
   }
 
   /// Close one connection. The target id and the session generation are
@@ -645,6 +672,7 @@ class MonitorController extends Notifier<MonitorState> {
   /// `ClearMsg`: clear the Rust ring and show the upstream clear marker line.
   void clearLogs() {
     _bridge.clearLogs();
+    _pendingLogLines.clear();
     state = state.copyWith(
       logs: const <m.LogLineDto>[
         m.LogLineDto(

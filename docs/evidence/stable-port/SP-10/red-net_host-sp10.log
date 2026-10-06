@@ -1,0 +1,20 @@
+RED (observed 2026-10-07, before fix; new contracts referenced symbols not yet implemented):
+
+error[E0425]: cannot find function `session_readiness` in this scope
+   --> services\net_host\src\lifecycle.rs:173:13
+error[E0433]: cannot find type `SessionReadiness` in this scope
+   --> services\net_host\src\lifecycle.rs:174:13
+error[E0425]: cannot find function `session_readiness` in this scope
+   --> services\net_host\src\lifecycle.rs:177:13
+error[E0433]: cannot find type `SessionReadiness` in this scope
+   --> services\net_host\src\lifecycle.rs:178:13
+
+(... same E0425/E0433 class for TimeoutConfirm, confirm_readiness_timeout,
+elevated_launch_verdict, lease_ownership_key, note_elevated_sidecar_exit,
+elevated_pid / elevated_exit_code fields ...)
+
+Dart red (by construction, pre-fix code had no dry-run branch and returned
+early on !desired):
+  old: if (!desired) return '未启用';   // no tun fact consulted
+  old: no dryRun branch -> dry-run lease read as enabled
+  new contracts expect '模拟 (v2rayn-tun if=9)' and '仍启用(关闭待确认)'.

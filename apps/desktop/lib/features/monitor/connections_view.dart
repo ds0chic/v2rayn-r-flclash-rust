@@ -6,6 +6,7 @@ import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/clash_ui_config.dart';
 import 'package:v2rayn_desktop/features/monitor/connections_columns.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
@@ -30,6 +31,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   bool _initialized = false;
   bool _autoRefresh = false;
   Timer? _timer;
+  Timer? _filterDebounce;
   final TextEditingController _filter = TextEditingController();
   String _needle = '';
   final Set<String> _selected = <String>{};
@@ -56,6 +58,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   @override
   void dispose() {
     _timer?.cancel();
+    _filterDebounce?.cancel();
     _filter.dispose();
     super.dispose();
   }
@@ -188,20 +191,14 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     );
   }
 
-  List<m.ClashConnectionDto> _filtered(List<m.ClashConnectionDto> items) {
-    final needle = _needle.trim().toLowerCase();
-    if (needle.isEmpty) return items;
-    return items.where((c) {
-      final haystack = <String?>[
-        c.host,
-        c.connectionType,
-        c.network,
-        c.processPath,
-        c.rule,
-        c.chains.join(' '),
-      ].whereType<String>().join(' ').toLowerCase();
-      return haystack.contains(needle);
-    }).toList();
+  /// SP-22 debounced needle: keystrokes only reschedule the 150ms window,
+  /// the synchronous scan runs once per pause instead of once per key.
+  void _onFilterChanged(String value) {
+    _filterDebounce?.cancel();
+    _filterDebounce = Timer(filterDebounceWindow, () {
+      if (!mounted) return;
+      setState(() => _needle = value);
+    });
   }
 
   @override
@@ -218,7 +215,8 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
       );
     }
 
-    final rows = _filtered(state.connections);
+    final filtered = filterConnections(state.connections, _needle);
+    final rows = filtered.items;
     final closeSelectedDisabled = _selected.isEmpty;
 
     return Column(
@@ -243,7 +241,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                       prefixIcon: Icon(Icons.search, size: 14),
                       hintText: '过滤 Host/Chain/进程',
                     ),
-                    onChanged: (value) => setState(() => _needle = value),
+                    onChanged: (value) => _onFilterChanged(value),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -302,7 +300,9 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                 ),
                 const SizedBox(width: 16),
                 Text(
-                  '↑${state.connectionsUpload} ↓${state.connectionsDownload}',
+                  filtered.truncated
+                      ? '显示 ${rows.length} / 命中 ${filtered.totalMatches}（仅显示前 $maxFilteredConnections 条，细化过滤查看更多）'
+                      : '↑${state.connectionsUpload} ↓${state.connectionsDownload} · ${filtered.totalMatches} 条',
                   style: const TextStyle(fontSize: 11.5),
                 ),
               ],

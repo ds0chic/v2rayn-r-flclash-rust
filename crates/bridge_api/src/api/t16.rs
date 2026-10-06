@@ -22,38 +22,15 @@ use crate::api::contract::{
 };
 use crate::api::engine::{engine, error_dto};
 
-/// Last update flags the user selected (RR-04).
-///
-/// The generated FRB signature of `t16_apply_app_update_spec` takes no
-/// arguments, so it cannot carry flags without regenerating bindings. The
-/// check / apply-core calls record the most recent selection here and the app
-/// self-update action reuses it; when nothing was selected yet the safe
-/// defaults (`prerelease=false`, direct connection) apply.
-#[frb(ignore)]
-#[derive(Clone, Default)]
-struct UpdateFlags {
-    prerelease: bool,
-    proxy: Option<String>,
-}
-
-fn update_flags() -> &'static std::sync::Mutex<UpdateFlags> {
-    static FLAGS: std::sync::OnceLock<std::sync::Mutex<UpdateFlags>> = std::sync::OnceLock::new();
-    FLAGS.get_or_init(|| std::sync::Mutex::new(UpdateFlags::default()))
-}
-
-fn remember_update_flags(prerelease: bool, proxy: Option<String>) {
-    if let Ok(mut flags) = update_flags().lock() {
-        flags.prerelease = prerelease;
-        flags.proxy = proxy;
-    }
-}
-
-fn last_update_flags() -> UpdateFlags {
-    update_flags()
-        .lock()
-        .map(|flags| flags.clone())
-        .unwrap_or_default()
-}
+// Per-operation update flags (SP-27).
+//
+// Every T16 check/apply entry takes its `prerelease` / `via_proxy` selection
+// as explicit arguments, so one operation never inherits another operation's
+// flags. The FRB bindings for `t16_apply_app_update_spec` take no arguments,
+// so the no-arg entry below always stages with the safe defaults
+// (`prerelease=false`, direct connection); the explicit per-operation entry
+// point is `t16_apply_app_update_spec_with_flags`. Verification of the
+// application package is never skippable on either path.
 
 fn work_dir(kind: &str) -> Result<PathBuf, DomainError> {
     let base = engine()
@@ -866,7 +843,6 @@ pub async fn t16_check_updates(
             error: Some(proxy_unavailable()),
         };
     }
-    remember_update_flags(prerelease, proxy.clone());
     let service = update_service();
     let selected = match cores {
         None => application::BUILTIN_TARGETS
@@ -941,7 +917,6 @@ pub async fn t16_apply_core_update(
             error: Some(proxy_unavailable()),
         };
     }
-    remember_update_flags(prerelease, proxy.clone());
     let service = update_service();
     let token = CancellationToken::new();
     let mut applied = Vec::new();
@@ -1241,11 +1216,16 @@ pub async fn t16_apply_app_update_spec_with_flags(
     app_update_spec_inner(prerelease, via_proxy).await
 }
 
-/// Backward-compatible no-arg entry point retained until the FRB bindings are
-/// regenerated; it reuses the last recorded check selection (R4-29 gap).
+/// Backward-compatible no-arg entry point (SP-27).
+///
+/// The generated FRB signature takes no arguments, so it cannot carry the
+/// current check toggles. It stages with the safe defaults (stable channel,
+/// direct connection) and never reuses another operation's flags; the
+/// per-operation selection travels through
+/// [`t16_apply_app_update_spec_with_flags`] once the Bridge/UI wiring lands
+/// (SP-00 follow-up).
 pub async fn t16_apply_app_update_spec() -> ExternalSpecDto {
-    let flags = last_update_flags();
-    app_update_spec_inner(flags.prerelease, flags.proxy.is_some()).await
+    app_update_spec_inner(false, false).await
 }
 
 /// `rollback_app_upgrade` — restore the `app.previous` payload kept by the last
@@ -1388,6 +1368,30 @@ mod tests {
             .block_on(t16_apply_app_update_spec_with_flags(false, true));
         assert!(!spec.ok);
         assert_eq!(spec.error.unwrap().code, codes::PROXY_UNAVAILABLE);
+    }
+
+    #[test]
+    fn app_update_spec_reports_unconfigured_source_without_network() {
+        // SP-27: with no own release source configured (the shipped default),
+        // both staging entries fail closed with
+        // `error.update_app_source_unconfigured` before any download/verify
+        // step, and never fabricate a spec. No network is touched.
+        if update_service().app_repo.is_some() {
+            return;
+        }
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .expect("current-thread runtime");
+        for spec in [
+            rt.block_on(t16_apply_app_update_spec_with_flags(false, false)),
+            rt.block_on(t16_apply_app_update_spec()),
+        ] {
+            assert!(!spec.ok);
+            assert!(spec.helper_exe.is_none());
+            assert!(spec.source.is_none());
+            let error = spec.error.expect("structured error");
+            assert_eq!(error.message_key, "error.update_app_source_unconfigured");
+        }
     }
 
     #[test]

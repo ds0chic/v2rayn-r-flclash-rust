@@ -758,9 +758,16 @@ impl UpdateService {
             let artifact = std::fs::read(staging.join(&request.asset_name))
                 .map_err(|e| io_error("error.update_signature", e))?;
             let signature = match signature_url.filter(|url| !url.is_empty()) {
-                Some(url) => {
-                    Some(download_signature(url, &staging, &self.tls_trust, cancellation).await?)
-                }
+                Some(url) => Some(
+                    download_signature(
+                        url,
+                        &staging,
+                        &self.tls_trust,
+                        request.proxy.as_deref(),
+                        cancellation,
+                    )
+                    .await?,
+                ),
                 None => None,
             };
             enforce_detached_signature(verifier, &artifact, signature.as_deref())?;
@@ -966,9 +973,11 @@ async fn download_signature(
     url: &str,
     staging: &Path,
     trust: &HttpsTrust,
+    proxy: Option<&str>,
     cancellation: &CancellationToken,
 ) -> Result<Vec<u8>, DomainError> {
     let options = DownloaderOptions {
+        proxy: proxy.map(str::to_string),
         timeout: DOWNLOAD_TIMEOUT,
         max_bytes: 4 * 1024 * 1024,
         ..DownloaderOptions::default()

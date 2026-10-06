@@ -912,7 +912,7 @@
       ],
       "test_scope": "update flags/signature/stage/install rollback",
       "upstream_symbols": "原版CheckUpdate/更新选择；updater with_flags",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {

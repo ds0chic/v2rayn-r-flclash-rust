@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_format.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
@@ -23,6 +26,7 @@ class LogsView extends ConsumerStatefulWidget {
 class _LogsViewState extends ConsumerState<LogsView> {
   final ScrollController _scroll = ScrollController();
   final TextEditingController _keyword = TextEditingController();
+  Timer? _keywordDebounce;
   late final MonitorController _controller;
   bool _initialized = false;
 
@@ -41,9 +45,20 @@ class _LogsViewState extends ConsumerState<LogsView> {
   @override
   void dispose() {
     _controller.setPageVisible('logs', false);
+    _keywordDebounce?.cancel();
     _scroll.dispose();
     _keyword.dispose();
     super.dispose();
+  }
+
+  /// SP-22: keyword scans the retained tail synchronously, so keystrokes are
+  /// debounced into one scan per pause instead of one full filter per key.
+  void _onKeywordChanged(String value) {
+    _keywordDebounce?.cancel();
+    _keywordDebounce = Timer(filterDebounceWindow, () {
+      if (!mounted) return;
+      _controller.setKeyword(value);
+    });
   }
 
   @override
@@ -81,7 +96,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
                       prefixIcon: Icon(Icons.search, size: 14),
                       hintText: '过滤',
                     ),
-                    onChanged: controller.setKeyword,
+                    onChanged: _onKeywordChanged,
                   ),
                 ),
                 const SizedBox(width: 8),

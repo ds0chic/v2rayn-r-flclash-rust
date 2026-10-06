@@ -343,6 +343,82 @@ pub fn tun_ownership_key(adapter_name: &str, interface_index: u32, route_digest:
     )
 }
 
+/// Injected IPv6 capability probe for TUN planning (SP-10, TUN-A06).
+///
+/// Production assembly today passes no probe (the codegen context stays
+/// false/empty); the read-only platform probe that feeds this is registered
+/// interface work (RT-12), not silently defaulted here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Ipv6Probe {
+    /// No probe result yet: never treated as "no IPv6", only as unverified.
+    #[default]
+    Unknown,
+    /// Probed: no global IPv6 on this machine.
+    NoGlobal,
+    /// Probed: global IPv6 is available.
+    HasGlobal,
+}
+
+/// Probe inputs the TUN plan consumes beyond persisted settings (SP-10).
+/// Defaults to all-unknown; the platform layer injects real probe results.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct TunProbeContext {
+    pub ipv6: Ipv6Probe,
+}
+
+/// Note key when IPv6 was requested but the probe is still unknown: coverage
+/// is unverified (isolated-environment check pending), never silently false.
+pub const TUN_IPV6_UNVERIFIED_NOTE: &str = "tun.ipv6_unverified";
+
+/// Note key when IPv6 was requested but the probe found no global IPv6: the
+/// plan refuses to claim IPv6.
+pub const TUN_IPV6_NO_GLOBAL_NOTE: &str = "tun.ipv6_no_global";
+
+/// How the requested IPv6 setting resolves against the probe (SP-10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ipv6PlanDecision {
+    /// Whether the plan should carry the requested IPv6 address.
+    pub include_ipv6: bool,
+    /// Readable diagnostic when the decision needs one; `None` means the
+    /// probe silently agrees with the request.
+    pub note: Option<&'static str>,
+}
+
+/// Resolve the requested IPv6 setting against the injected probe (SP-10).
+///
+/// An explicit user address is honored under `Unknown` (with an unverified
+/// diagnostic, never a silent drop) and refused under `NoGlobal` (with a
+/// diagnostic, never a false claim). Disabled or address-less IPv6 stays
+/// excluded with no note. Pure and side-effect-free; the codegen caller
+/// wiring (which today passes no probe) is SP-00 integrator work.
+pub fn resolve_ipv6_for_plan(item: &TunModeItem, ctx: &TunProbeContext) -> Ipv6PlanDecision {
+    let requested = item.enable_ipv6_address
+        && item
+            .ipv6_address
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty());
+    if !requested {
+        return Ipv6PlanDecision {
+            include_ipv6: false,
+            note: None,
+        };
+    }
+    match ctx.ipv6 {
+        Ipv6Probe::HasGlobal => Ipv6PlanDecision {
+            include_ipv6: true,
+            note: None,
+        },
+        Ipv6Probe::Unknown => Ipv6PlanDecision {
+            include_ipv6: true,
+            note: Some(TUN_IPV6_UNVERIFIED_NOTE),
+        },
+        Ipv6Probe::NoGlobal => Ipv6PlanDecision {
+            include_ipv6: false,
+            note: Some(TUN_IPV6_NO_GLOBAL_NOTE),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -627,5 +703,59 @@ Idx     Met    MTU          State                Name\r\n\
         assert_ne!(base, tun_ownership_key("v2rayn-tun", 11, "abc123"));
         assert_ne!(base, tun_ownership_key("v2rayn-tun", 9, "def456"));
         assert_ne!(base, tun_ownership_key("other-tun", 9, "abc123"));
+    }
+
+    // -- SP-10 injectable IPv6 probe (CP-12 / TUN-A06) ------------------------
+    //
+    // Red contract: the TUN plan consumes an explicit IPv6 capability probe
+    // instead of a hardcoded false/empty context. Unknown is never silently
+    // false (diagnostic note, coverage unverified); NoGlobal refuses to
+    // claim IPv6 (diagnostic note); only a positive probe includes IPv6
+    // silently. Disabled IPv6 stays excluded with no note.
+
+    #[test]
+    fn sp10_ipv6_probe_decision_matrix() {
+        let mut want_v6 = item();
+        want_v6.enable_ipv6_address = true;
+        want_v6.ipv6_address = Some("fd00::1/64".into());
+
+        let decided = resolve_ipv6_for_plan(
+            &want_v6,
+            &TunProbeContext {
+                ipv6: Ipv6Probe::HasGlobal,
+            },
+        );
+        assert!(decided.include_ipv6);
+        assert!(decided.note.is_none());
+
+        let decided = resolve_ipv6_for_plan(&want_v6, &TunProbeContext::default());
+        assert!(
+            decided.include_ipv6,
+            "an explicit user request is honored, not silently dropped"
+        );
+        assert_eq!(decided.note, Some(TUN_IPV6_UNVERIFIED_NOTE));
+
+        let decided = resolve_ipv6_for_plan(
+            &want_v6,
+            &TunProbeContext {
+                ipv6: Ipv6Probe::NoGlobal,
+            },
+        );
+        assert!(!decided.include_ipv6, "no global IPv6 must not claim IPv6");
+        assert_eq!(decided.note, Some(TUN_IPV6_NO_GLOBAL_NOTE));
+
+        let mut off = item();
+        off.enable_ipv6_address = false;
+        off.ipv6_address = Some("fd00::1/64".into());
+        let decided = resolve_ipv6_for_plan(&off, &TunProbeContext::default());
+        assert!(!decided.include_ipv6);
+        assert!(decided.note.is_none());
+
+        let mut enabled_no_addr = item();
+        enabled_no_addr.enable_ipv6_address = true;
+        enabled_no_addr.ipv6_address = None;
+        let decided = resolve_ipv6_for_plan(&enabled_no_addr, &TunProbeContext::default());
+        assert!(!decided.include_ipv6);
+        assert!(decided.note.is_none());
     }
 }

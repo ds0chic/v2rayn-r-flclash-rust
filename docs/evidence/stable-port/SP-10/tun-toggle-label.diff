@@ -1,0 +1,33 @@
+diff --git a/apps/desktop/lib/features/runtime/tun_toggle.dart b/apps/desktop/lib/features/runtime/tun_toggle.dart
+index 432f690..b550e7d 100644
+--- a/apps/desktop/lib/features/runtime/tun_toggle.dart
++++ b/apps/desktop/lib/features/runtime/tun_toggle.dart
+@@ -48,16 +48,23 @@ Future<TunToggleResult> toggleTunDesired({
+ 
+ /// Actual TUN state read from the live runtime snapshot, never from the desired
+ /// switch. The snapshot carries the real lease facts (adapter/interface), so a
+-/// live lease reads 宸插惎鐢? a helper refusal reads 澶辫触宸插洖婊? a stopped runtime
+-/// reads 鏈惎鐢?even when the switch is on; a running plan without a lease
+-/// reads 宸茶姹?鏈獙璇?.
++/// live lease reads 宸插惎鐢? a dry-run lease reads 妯℃嫙 (no session was built);
++/// desired=false with a live lease reads 浠嶅惎鐢?鍏抽棴寰呯‘璁?, never closed; a
++/// helper refusal reads 澶辫触宸插洖婊? a stopped runtime reads 鏈惎鐢?even when
++/// the switch is on; a running plan without a lease reads 宸茶姹?鏈獙璇?.
++/// Pending-cleanup leases still read from desired when the snapshot carries no
++/// pending facts (needs the N-H1 pending surface over IPC/FRB).
+ String tunActualLabel(bool desired, RuntimeView runtime) {
+-  if (!desired) return '鏈惎鐢?;
++  final tun = runtime.tun;
++  if (tun != null && tun.dryRun) {
++    return '妯℃嫙 (${tun.adapterName} if=${tun.interfaceIndex})';
++  }
+   if (runtime.error?.code == 'E_TUN_HELPER_UNAVAILABLE') return '澶辫触宸插洖婊?;
+   if (!runtime.isRunning) return '鏈惎鐢?;
+-  final tun = runtime.tun;
+   if (tun != null) {
++    if (!desired) return '浠嶅惎鐢?鍏抽棴寰呯‘璁?';
+     return '宸插惎鐢?(${tun.adapterName} if=${tun.interfaceIndex})';
+   }
++  if (!desired) return '鏈惎鐢?;
+   return '宸茶姹?鏈獙璇?';
+ }

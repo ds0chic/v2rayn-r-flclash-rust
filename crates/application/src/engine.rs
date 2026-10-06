@@ -4628,6 +4628,53 @@ impl AppEngine {
         )
     }
 
+    /// SP-24 G-06: mihomo user-mixin file name (upstream
+    /// `Global.ClashMixinConfigFileName`), resolved under `<data>/config/`.
+    pub const MIHOMO_MIXIN_FILE_NAME: &str = "Mixin.yaml";
+
+    /// SP-24 G-06: embedded mihomo TUN section, verbatim from upstream
+    /// `ServiceLib/Sample/clash_tun_yaml` (`EmbedUtils.GetEmbedText` source).
+    pub const MIHOMO_TUN_YAML: &str = "tun:\n  enable: true\n  stack: gvisor\n  dns-hijack:\n  - 0.0.0.0:53\n  auto-route: true\n  auto-detect-interface: true\n";
+
+    fn mihomo_mixin_path(data_dir: Option<&Path>) -> Option<PathBuf> {
+        data_dir.map(|dir| dir.join("config").join(Self::MIHOMO_MIXIN_FILE_NAME))
+    }
+
+    /// SP-24 G-06: read the user mixin text for one mihomo plan build (IO
+    /// stays here; the generator only sees the text). `None` when
+    /// `ClashUIItem.EnableMixinContent` is off (upstream `MixinContent` early
+    /// return), when there is no data dir, or when the file is
+    /// missing/unreadable/blank. Upstream logs a mixin failure and continues
+    /// without the merge; a missing file likewise means "no mixin". Plan
+    /// building stays side-effect free: unlike upstream startup, it never
+    /// creates the file from the embedded default.
+    fn read_mihomo_mixin_text(data_dir: Option<&Path>, mixin_enabled: bool) -> Option<String> {
+        if !mixin_enabled {
+            return None;
+        }
+        let path = Self::mihomo_mixin_path(data_dir)?;
+        std::fs::read_to_string(path)
+            .ok()
+            .filter(|text| !text.trim().is_empty())
+    }
+
+    fn mihomo_mixin_text(&self, settings: &AppSettings) -> Option<String> {
+        Self::read_mihomo_mixin_text(
+            self.data_dir.as_deref(),
+            settings.clash_ui_item.enable_mixin_content,
+        )
+    }
+
+    /// SP-24 G-06: embedded TUN YAML text for one mihomo plan build, gated on
+    /// `TunModeItem.EnableTun` (upstream `isTunEnabled` snapshot from
+    /// `CoreConfigContextBuilder`).
+    fn mihomo_tun_text(settings: &AppSettings) -> Option<&'static str> {
+        settings
+            .tun_mode_item
+            .enable_tun
+            .then_some(Self::MIHOMO_TUN_YAML)
+    }
+
     /// The runtime codegen context derived from the persisted settings
     /// (`AppManager.GetLocalPort` + state-port offsets). No free-port probing
     /// here: the state ports are only emitted when the matching feature is on.
@@ -4840,12 +4887,38 @@ impl AppEngine {
         let native_custom =
             target.config_type == ConfigType::Custom && !Self::core_uses_json_endpoints(core);
         let body = if native_custom {
-            input
+            let raw = input
                 .profile
                 .custom_config
                 .clone()
                 .filter(|text| !text.trim().is_empty())
-                .unwrap_or_else(|| serde_json::to_string(&generated.main).unwrap_or_default())
+                .unwrap_or_else(|| serde_json::to_string(&generated.main).unwrap_or_default());
+            // SP-24 G-06: a mihomo native custom plan merges the runtime
+            // rewrites, the TUN section and the user mixin before it is
+            // persisted (upstream
+            // `CoreConfigClashService.GenerateClientCustomConfig`). Only the
+            // mihomo path merges; every other native core keeps the verbatim
+            // text. A merge failure (`FIELD_FORMAT`) propagates with `?`, so
+            // the build fails before any plan exists and the caller keeps the
+            // old plan: nothing below persists a body that failed to merge.
+            if core == CoreType::Mihomo {
+                let plan_settings = self
+                    .settings
+                    .lock()
+                    .map(|guard| guard.settings.clone())
+                    .unwrap_or_default();
+                let mixin_text = self.mihomo_mixin_text(&plan_settings);
+                let tun_text = Self::mihomo_tun_text(&plan_settings);
+                crate::codegen::mihomo_body_for_plan(
+                    &raw,
+                    mixin_text.as_deref(),
+                    tun_text,
+                    &plan_settings,
+                    &opts,
+                )?
+            } else {
+                raw
+            }
         } else {
             serde_json::to_string(&generated.main).map_err(|error| {
                 DomainError::new(domain::codes::INTERNAL, "error.config_serialize_failed")
@@ -6842,5 +6915,197 @@ mod tests {
         let before = engine.restore_epoch();
         engine.prepare_restore().unwrap();
         assert_eq!(engine.restore_epoch(), before + 1);
+    }
+
+    // -- SP-24 G-06 mihomo native-plan wiring -------------------------------
+
+    const SP24_G06_BASE_YAML: &str =
+        "port: 7890\nmode: direct\nsecret: hunter2\nrules:\n  - DOMAIN,example.com,DIRECT\n";
+
+    fn sp24_g06_mihomo_node(yaml: &str) -> Profile {
+        let mut node = synthetic_full_profile(7);
+        node.config_type = ConfigType::Custom;
+        node.core_type = Some(CoreType::Mihomo);
+        node.address = "mihomo-custom.yaml".into();
+        node.proto_extra.extra.insert(
+            crate::codegen::CUSTOM_CONFIG_KEY.to_string(),
+            serde_json::json!(yaml),
+        );
+        node
+    }
+
+    fn sp24_g06_plan_body(plan: &domain::runtime_plan::RuntimePlan) -> String {
+        match &plan.target.config {
+            ConfigSource::Inline { body } => body.clone(),
+            other => panic!("expected inline plan body, got {other:?}"),
+        }
+    }
+
+    fn sp24_g06_settings(engine: &AppEngine, tun: bool, mixin: bool, ipv6: bool) {
+        let revision = engine.load_settings().unwrap().revision;
+        let mut settings = engine.load_settings().unwrap().settings;
+        settings.tun_mode_item.enable_tun = tun;
+        settings.clash_ui_item.enable_mixin_content = mixin;
+        settings.clash_ui_item.enable_ipv6 = ipv6;
+        if let Some(inbound) = settings.inbound.first_mut() {
+            inbound.local_port = 11808;
+        }
+        engine.save_settings(settings, revision).unwrap();
+    }
+
+    fn sp24_g06_hints() -> tun_plan::TunPlanHints {
+        tun_plan::TunPlanHints {
+            interface_index: 0,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn sp24_g06_mixin_file_name_matches_upstream() {
+        // Upstream `Global.ClashMixinConfigFileName` is `Mixin.yaml` under the
+        // config dir; the engine resolves the same name.
+        assert_eq!(AppEngine::MIHOMO_MIXIN_FILE_NAME, "Mixin.yaml");
+    }
+
+    #[test]
+    fn sp24_g06_read_mixin_text_gated_by_switch_and_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("config");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::write(config.join("Mixin.yaml"), "mode: rule\n").unwrap();
+        assert_eq!(
+            AppEngine::read_mihomo_mixin_text(Some(dir.path()), true).as_deref(),
+            Some("mode: rule\n")
+        );
+        assert!(AppEngine::read_mihomo_mixin_text(Some(dir.path()), false).is_none());
+        assert!(AppEngine::read_mihomo_mixin_text(None, true).is_none());
+        let empty = tempfile::tempdir().unwrap();
+        assert!(AppEngine::read_mihomo_mixin_text(Some(empty.path()), true).is_none());
+    }
+
+    #[test]
+    fn sp24_g06_mihomo_native_plan_merges_rewrites_and_tun() {
+        // G-06: a Mihomo native custom plan passes through
+        // `mihomo_body_for_plan` before it is persisted: runtime rewrites,
+        // the embedded TUN section (TunModeItem on) and ipv6 land in the body.
+        let engine = AppEngine::in_memory();
+        let node = sp24_g06_mihomo_node(SP24_G06_BASE_YAML);
+        engine.seed(vec![node.clone()]);
+        sp24_g06_settings(&engine, true, false, true);
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan_with_hints(&node.index_id, revision, &sp24_g06_hints())
+            .unwrap();
+        let body = sp24_g06_plan_body(&plan);
+        assert!(
+            body.contains("mixed-port: 11808"),
+            "runtime rewrite: {body}"
+        );
+        assert!(body.contains("ipv6: true"), "ipv6 switch: {body}");
+        assert!(!body.contains("hunter2"), "secret removed: {body}");
+        assert!(!body.contains("10808"), "never the live proxy port: {body}");
+        assert!(
+            body.contains("auto-route: true"),
+            "embedded TUN section: {body}"
+        );
+    }
+
+    #[test]
+    fn sp24_g06_mihomo_native_plan_tun_gate_off_skips_tun_section() {
+        let engine = AppEngine::in_memory();
+        let node = sp24_g06_mihomo_node(SP24_G06_BASE_YAML);
+        engine.seed(vec![node.clone()]);
+        sp24_g06_settings(&engine, false, false, false);
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan_with_hints(&node.index_id, revision, &sp24_g06_hints())
+            .unwrap();
+        let body = sp24_g06_plan_body(&plan);
+        assert!(body.contains("ipv6: false"), "ipv6 rewritten off: {body}");
+        assert!(
+            !body.contains("auto-route"),
+            "no TUN section when disabled: {body}"
+        );
+    }
+
+    #[test]
+    fn sp24_g06_mihomo_merge_failure_keeps_old_plan() {
+        // G-06: a bad base YAML is FIELD_FORMAT and the build fails before any
+        // plan exists, so the caller keeps the old plan (no half-written body
+        // is persisted).
+        let engine = AppEngine::in_memory();
+        let node = sp24_g06_mihomo_node("- just\n- a\n- list\n");
+        engine.seed(vec![node.clone()]);
+        sp24_g06_settings(&engine, false, false, false);
+        let revision = engine.desired_revision();
+        let err = engine
+            .build_runtime_plan_with_hints(&node.index_id, revision, &sp24_g06_hints())
+            .unwrap_err();
+        assert_eq!(err.code, domain::codes::FIELD_FORMAT);
+        assert!(engine.applied_session().is_none(), "no plan applied");
+        assert_eq!(engine.desired_revision(), revision, "revision untouched");
+    }
+
+    #[test]
+    fn sp24_g06_non_mihomo_native_custom_stays_verbatim() {
+        // G-06 only touches the Mihomo native path: any other native core
+        // (here naiveproxy) keeps its verbatim text even with TUN/switches on.
+        let engine = AppEngine::in_memory();
+        let mut node = synthetic_full_profile(7);
+        node.config_type = ConfigType::Custom;
+        node.core_type = Some(CoreType::NaiveProxy);
+        node.address = "naive-custom.txt".into();
+        node.proto_extra.extra.insert(
+            crate::codegen::CUSTOM_CONFIG_KEY.to_string(),
+            serde_json::json!(SP24_G06_BASE_YAML),
+        );
+        engine.seed(vec![node.clone()]);
+        sp24_g06_settings(&engine, true, true, true);
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan_with_hints(&node.index_id, revision, &sp24_g06_hints())
+            .unwrap();
+        assert_eq!(sp24_g06_plan_body(&plan), SP24_G06_BASE_YAML);
+    }
+
+    #[test]
+    fn sp24_g06_mihomo_native_plan_merges_mixin_file() {
+        // G-06 end to end: synthetic mixin text from `<data>/config/Mixin.yaml`
+        // merges into the Mihomo native plan when EnableMixinContent is on;
+        // with the switch off the same file is ignored.
+        let dir = tempfile::tempdir().unwrap();
+        let engine =
+            AppEngine::open_with_runtime(dir.path(), Arc::new(NullRuntimeClient::new())).unwrap();
+        let node = sp24_g06_mihomo_node(SP24_G06_BASE_YAML);
+        engine.seed(vec![node.clone()]);
+        sp24_g06_settings(&engine, false, true, false);
+        let config = dir.path().join("config");
+        std::fs::create_dir_all(&config).unwrap();
+        std::fs::write(
+            config.join(AppEngine::MIHOMO_MIXIN_FILE_NAME),
+            "unknown-kept: 42\nappend-rules:\n  - MATCH,DIRECT\n",
+        )
+        .unwrap();
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan_with_hints(&node.index_id, revision, &sp24_g06_hints())
+            .unwrap();
+        let body = sp24_g06_plan_body(&plan);
+        assert!(
+            body.contains("unknown-kept"),
+            "unknown keys retained: {body}"
+        );
+        assert!(body.contains("MATCH,DIRECT"), "mixin list merge: {body}");
+
+        sp24_g06_settings(&engine, false, false, false);
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan_with_hints(&node.index_id, revision, &sp24_g06_hints())
+            .unwrap();
+        let body = sp24_g06_plan_body(&plan);
+        assert!(
+            !body.contains("unknown-kept"),
+            "gate off skips merge: {body}"
+        );
     }
 }

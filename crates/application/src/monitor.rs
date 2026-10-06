@@ -37,6 +37,12 @@ pub const DELAY_TEST_URL: &str = "https://www.google.com/generate_204";
 pub const PROXY_RETRY_ATTEMPTS: usize = 3;
 pub const PROXY_RETRY_DELAY: Duration = Duration::from_secs(2);
 
+/// SP-22 backpressure budgets: group delay probes overlap instead of running
+/// serially, and one log burst is capped to its tail instead of growing the
+/// ring without bound in a single call.
+pub const MAX_GROUP_DELAY_CONCURRENCY: usize = 8;
+pub const MAX_LOG_BATCH_LINES: usize = 2000;
+
 /// Seconds in one day, for the `DateNow` epoch-day bucket.
 pub const SECONDS_PER_DAY: i64 = 86_400;
 
@@ -431,6 +437,27 @@ pub struct LogEntry {
     pub control: bool,
 }
 
+/// Incremental by-id overlay for speedtest delays: existing entries stay,
+/// probed names overwrite, new names append. Deletions never happen here
+/// (a probe only reports what it measured), so no row is lost to a refresh.
+pub fn merge_delay_map(existing: &mut HashMap<String, i32>, items: Vec<(String, i32)>) {
+    for (name, delay) in items {
+        existing.insert(name, delay);
+    }
+}
+
+/// Bound one log burst to its tail. A single huge batch (10k测速日志并发)
+/// keeps the newest `max` lines and reports how many head lines were shed,
+/// so one burst cannot grow memory without bound in a single call. Lifecycle
+/// and final-result markers travel in later batches and are never shed here.
+pub fn coalesce_log_batch(lines: Vec<LogLine>, max: usize) -> (Vec<LogLine>, usize) {
+    if lines.len() <= max {
+        return (lines, 0);
+    }
+    let dropped = lines.len() - max;
+    (lines.into_iter().skip(dropped).collect(), dropped)
+}
+
 /// A page of log lines plus the overflow counters.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogPage {
@@ -542,6 +569,18 @@ impl LogService {
         self.ingest_line(LogLine::new(text));
     }
 
+    /// Ingest one burst with a per-call cap: only the tail
+    /// ([`MAX_LOG_BATCH_LINES`]) enters the ring, so a single 10k burst
+    /// cannot grow memory without bound. The shed head is counted as
+    /// rejected (visible overflow), never silently kept.
+    pub fn ingest_lines(&mut self, lines: Vec<LogLine>) {
+        let (kept, shed) = coalesce_log_batch(lines, MAX_LOG_BATCH_LINES);
+        self.rejected = self.rejected.saturating_add(shed as u64);
+        for line in kept {
+            self.ingest_line(line);
+        }
+    }
+
     /// Ingest a run-event envelope (core/application logs + control markers).
     ///
     /// `log_batch` payloads carry `entries: [{text, truncated?}]` or
@@ -647,7 +686,7 @@ impl LogService {
 
 /// Read/observe/select client wrapper for the sing-box/mihomo controller.
 pub struct ClashApiService {
-    client: ClashApiClient,
+    client: Arc<ClashApiClient>,
     refresh: Duration,
     visible: bool,
     /// Delay-probe URL; upstream defaults to the configured SpeedPing test URL.
@@ -662,7 +701,7 @@ impl ClashApiService {
         refresh: Duration,
     ) -> Result<Self, ClashError> {
         Ok(Self {
-            client: ClashApiClient::new(port, secret, timeout)?,
+            client: Arc::new(ClashApiClient::new(port, secret, timeout)?),
             refresh,
             visible: false,
             delay_url: DELAY_TEST_URL.to_string(),
@@ -671,7 +710,7 @@ impl ClashApiService {
 
     pub fn from_client(client: ClashApiClient, refresh: Duration) -> Self {
         Self {
-            client,
+            client: Arc::new(client),
             refresh,
             visible: false,
             delay_url: DELAY_TEST_URL.to_string(),
@@ -736,30 +775,78 @@ impl ClashApiService {
 
     /// Group delay: probe every child of a selector/url-test group, using the
     /// provider healthcheck endpoint when the child came from a provider.
+    ///
+    /// Probes overlap with bounded concurrency ([`MAX_GROUP_DELAY_CONCURRENCY`])
+    /// instead of one serial pass, so it does not IO-block log/connection
+    /// browsing; the final vector keeps the controller order and every item
+    /// is reported (failures as `-1`, as upstream), so the final result
+    /// cannot be squeezed out by an early slow probe.
     pub async fn group_delay(&self, group: &str) -> Result<Vec<(String, i32)>, ClashError> {
+        let mut ordered: HashMap<String, i32> = HashMap::new();
+        let names = self
+            .group_delay_with_progress(group, &mut |name, delay| {
+                ordered.insert(name, delay);
+            })
+            .await?;
+        let mut out = Vec::with_capacity(names.len());
+        for name in names {
+            let delay = ordered.remove(&name).unwrap_or(-1);
+            out.push((name, delay));
+        }
+        Ok(out)
+    }
+
+    /// Same probes as [`Self::group_delay`], but `progress` fires per probe
+    /// as it completes (incremental overlay) while the returned names keep
+    /// the controller order. Dropping the returned future cancels at a safe
+    /// point: in-flight probes are aborted and nothing partial is published.
+    pub async fn group_delay_with_progress(
+        &self,
+        group: &str,
+        progress: &mut (dyn FnMut(String, i32) + Send),
+    ) -> Result<Vec<String>, ClashError> {
         let item = self.client.get_proxies().await?;
         let Some(proxy) = item.proxies.get(group) else {
             return Ok(Vec::new());
         };
-        let mut out = Vec::new();
-        for name in proxy.all.clone().unwrap_or_default() {
-            let provider = item.provider_index_map.get(&name).cloned();
-            let delay = match provider {
-                Some(provider) => self
-                    .client
-                    .try_get_provider_proxy_delay(
-                        &provider,
-                        &name,
-                        DEFAULT_DELAY_TIMEOUT_MS,
-                        &self.delay_url,
-                    )
-                    .await
-                    .unwrap_or(-1),
-                None => self.proxy_delay(&name).await,
-            };
-            out.push((name, delay));
+        let names: Vec<String> = proxy.all.clone().unwrap_or_default();
+        let providers: Vec<Option<String>> = names
+            .iter()
+            .map(|name| item.provider_index_map.get(name).cloned())
+            .collect();
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(MAX_GROUP_DELAY_CONCURRENCY));
+        let mut set = tokio::task::JoinSet::new();
+        for (name, provider) in names.iter().cloned().zip(providers) {
+            let client = Arc::clone(&self.client);
+            let semaphore = Arc::clone(&semaphore);
+            let url = self.delay_url.clone();
+            set.spawn(async move {
+                let _permit = semaphore.acquire_owned().await.map_err(|_| ())?;
+                let delay = match provider {
+                    Some(provider) => client
+                        .try_get_provider_proxy_delay(
+                            &provider,
+                            &name,
+                            DEFAULT_DELAY_TIMEOUT_MS,
+                            &url,
+                        )
+                        .await
+                        .unwrap_or(-1),
+                    None => {
+                        client
+                            .get_proxy_delay(&name, DEFAULT_DELAY_TIMEOUT_MS, &url)
+                            .await
+                    }
+                };
+                Ok::<(String, i32), ()>((name, delay))
+            });
         }
-        Ok(out)
+        while let Some(finished) = set.join_next().await {
+            if let Ok(Ok((name, delay))) = finished {
+                progress(name, delay);
+            }
+        }
+        Ok(names)
     }
 
     /// Current `mode`/`mode-list` from `/configs` (`GetClashMode`).
@@ -1570,5 +1657,191 @@ mod tests {
         );
         assert_eq!(second[0].width, 120);
         assert_eq!(second[1].width, 310);
+    }
+
+    // -- SP-22: incremental/coalesced backpressure (synthetic only, no host net) --
+    //
+    // Red contracts: log/speedtest/connection updates must merge by id with a
+    // bounded batch cap instead of one full overlay per event; high-frequency
+    // log floods must not squeeze out lifecycle markers or the final result;
+    // group probes must run with bounded concurrency and stream per-item
+    // progress instead of blocking on one serial pass.
+
+    #[test]
+    fn sp22_merge_delay_map_overlays_by_id() {
+        let mut existing = HashMap::from([("a".to_string(), 10), ("b".to_string(), -1)]);
+        merge_delay_map(
+            &mut existing,
+            vec![("b".to_string(), 42), ("c".to_string(), 7)],
+        );
+        assert_eq!(existing.get("a"), Some(&10));
+        assert_eq!(existing.get("b"), Some(&42));
+        assert_eq!(existing.get("c"), Some(&7));
+    }
+
+    #[test]
+    fn sp22_coalesce_log_batch_bounds_single_burst_to_tail() {
+        let lines: Vec<LogLine> = (0..5000)
+            .map(|i| LogLine::new(format!("line {i}")))
+            .collect();
+        let (kept, dropped) = coalesce_log_batch(lines, 2000);
+        assert_eq!(kept.len(), 2000);
+        assert_eq!(dropped, 3000);
+        assert_eq!(kept.first().expect("head").text, "line 3000");
+        assert_eq!(kept.last().expect("tail").text, "line 4999");
+    }
+
+    #[test]
+    fn sp22_ingest_lines_caps_burst_and_keeps_control_and_final_marker() {
+        let mut service = LogService::new(10_000, 0);
+        service
+            .buffer
+            .push_control(core_adapters::log_stream::ControlEvent::ProcessExit(0));
+        let burst: Vec<LogLine> = (0..5000)
+            .map(|i| LogLine::new(format!("flood {i}")))
+            .collect();
+        service.ingest_lines(burst);
+        assert!(service.snapshot(0, usize::MAX).total <= 10_000);
+        assert_eq!(service.buffer.control_len(), 1);
+        service.ingest_text("SPEEDTEST DONE id=syn-final delay=42ms");
+        let page = service.snapshot(0, usize::MAX);
+        assert!(
+            page.entries
+                .iter()
+                .any(|e| e.text.contains("SPEEDTEST DONE")),
+            "final result marker must survive the flood"
+        );
+    }
+
+    /// Delay stub with per-probe latency: 4 probes x 300ms take ~1200ms
+    /// serially, ~300ms with 8-way concurrency (budget 900ms).
+    struct Sp22DelayStub {
+        port: u16,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        handle: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl Sp22DelayStub {
+        fn start() -> Self {
+            use std::sync::atomic::Ordering;
+            let listener = sp20_floor_listener();
+            let port = listener.local_addr().expect("sp22 stub addr").port();
+            let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let flag = std::sync::Arc::clone(&stop);
+            let handle = std::thread::spawn(move || {
+                while !flag.load(Ordering::SeqCst) {
+                    let Ok((mut stream, _)) = listener.accept() else {
+                        return;
+                    };
+                    std::thread::spawn(move || {
+                        use std::io::{Read, Write};
+                        let _ = stream.set_read_timeout(Some(Duration::from_millis(2000)));
+                        let _ = stream.set_write_timeout(Some(Duration::from_millis(2000)));
+                        let mut request = Vec::new();
+                        let mut buf = [0u8; 512];
+                        while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+                            let Ok(n) = stream.read(&mut buf) else {
+                                return;
+                            };
+                            if n == 0 || request.len() > 16 * 1024 {
+                                return;
+                            }
+                            request.extend_from_slice(&buf[..n]);
+                        }
+                        let text = String::from_utf8_lossy(&request);
+                        let line = text.lines().next().unwrap_or_default().to_string();
+                        let mut parts = line.split_whitespace();
+                        let method = parts.next().unwrap_or_default();
+                        let path = parts.next().unwrap_or_default();
+                        let (status, body) = match (method, path) {
+                            ("GET", "/proxies") => (
+                                "200 OK",
+                                r#"{"proxies":{"g":{"name":"g","type":"Selector","now":"n0","all":["n0","n1","n2","n3"]}}}"#.to_string(),
+                            ),
+                            ("GET", p)
+                                if p.starts_with("/proxies/")
+                                    && p.contains("/delay") =>
+                            {
+                                std::thread::sleep(Duration::from_millis(300));
+                                ("200 OK", r#"{"delay":42}"#.to_string())
+                            }
+                            _ => ("404 Not Found", String::new()),
+                        };
+                        let response = format!(
+                            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            body.len()
+                        );
+                        let _ = stream.write_all(response.as_bytes());
+                        let _ = stream.flush();
+                    });
+                }
+            });
+            Self {
+                port,
+                stop,
+                handle: Some(handle),
+            }
+        }
+    }
+
+    impl Drop for Sp22DelayStub {
+        fn drop(&mut self) {
+            use std::sync::atomic::Ordering;
+            self.stop.store(true, Ordering::SeqCst);
+            let _ = std::net::TcpStream::connect(("127.0.0.1", self.port));
+            if let Some(handle) = self.handle.take() {
+                let _ = handle.join();
+            }
+        }
+    }
+
+    #[test]
+    fn sp22_group_delay_is_concurrent_reports_progress_and_keeps_order() {
+        let stub = Sp22DelayStub::start();
+        assert!(stub.port >= 11808 && stub.port != 10_808);
+        let service = ClashApiService::new(
+            stub.port,
+            None,
+            Duration::from_secs(5),
+            Duration::from_secs(1),
+        )
+        .expect("client builds");
+
+        let rt = sp20_runtime();
+        let started = Instant::now();
+        let mut progress: Vec<(String, i32)> = Vec::new();
+        let names = rt
+            .block_on(service.group_delay_with_progress("g", &mut |name, delay| {
+                progress.push((name, delay));
+            }))
+            .expect("group delay ok");
+        let elapsed = started.elapsed();
+        // Bounded concurrency: 4 x 300ms probes must not run serially (~1200ms).
+        assert!(
+            elapsed < Duration::from_millis(900),
+            "probes must overlap, took {elapsed:?}"
+        );
+        // Incremental progress streams every item; nothing is lost.
+        assert_eq!(progress.len(), 4, "progress must fire per item");
+        assert!(progress.iter().all(|(_, d)| *d == 42));
+        // The returned names keep the controller order.
+        assert_eq!(
+            names,
+            vec![
+                "n0".to_string(),
+                "n1".to_string(),
+                "n2".to_string(),
+                "n3".to_string()
+            ]
+        );
+        let mut merged = HashMap::new();
+        merge_delay_map(&mut merged, progress);
+        assert_eq!(merged.len(), 4);
+
+        // The single-call overlay keeps the same order with all delays applied.
+        let out = rt.block_on(service.group_delay("g")).expect("overlay ok");
+        let ordered: Vec<&str> = out.iter().map(|(n, _)| n.as_str()).collect();
+        assert_eq!(ordered, vec!["n0", "n1", "n2", "n3"]);
+        assert!(out.iter().all(|(_, d)| *d == 42));
     }
 }

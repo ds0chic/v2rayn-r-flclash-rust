@@ -1,8 +1,9 @@
 //! R3-03: a `Custom` node on a non-Xray/sing-box core carries a native config
-//! file (mihomo YAML, naive args file, mieru JSON via `MIERU_CONFIG_JSON_FILE`,
-//! ...). `build_runtime_plan` must keep that content verbatim instead of
-//! re-serialising it as JSON or rejecting it through the Xray `inbounds`
-//! parser. Only Xray-family / sing-box Custom configs are endpoint-parsed.
+//! file (mihomo YAML via the SP-24 G-06 merge, naive args file, mieru JSON via
+//! `MIERU_CONFIG_JSON_FILE`, ...). Non-mihomo native content stays verbatim
+//! instead of being re-serialised as JSON or rejected through the Xray
+//! `inbounds` parser. Only Xray-family / sing-box Custom configs are
+//! endpoint-parsed.
 //!
 //! Pure plan assertions: no core or OS is touched.
 
@@ -49,11 +50,27 @@ fn plan_body(engine: &AppEngine, core: CoreType, raw: &str) -> (CoreType, String
 }
 
 #[test]
-fn mihomo_yaml_custom_is_preserved_verbatim() {
+fn mihomo_yaml_custom_merges_runtime_rewrites() {
+    // SP-24 G-06 supersedes verbatim passthrough for mihomo: the native YAML
+    // passes through `mihomo_body_for_plan` (runtime rewrites + TUN/mixin
+    // merge) before it is persisted, while unknown keys are retained.
+    let engine = engine();
+    let revision = engine.load_settings().unwrap().revision;
+    let mut settings = engine.load_settings().unwrap().settings;
+    if let Some(inbound) = settings.inbound.first_mut() {
+        inbound.local_port = 11880;
+    }
+    engine.save_settings(settings, revision).unwrap();
     let raw = "mixed-port: 11880\nmode: rule\nproxies: []\n";
-    let (core, body) = plan_body(&engine(), CoreType::Mihomo, raw);
+    let (core, body) = plan_body(&engine, CoreType::Mihomo, raw);
     assert_eq!(core, CoreType::Mihomo);
-    assert_eq!(body, raw, "mihomo YAML must not be JSON-wrapped");
+    assert!(
+        body.contains("mixed-port: 11880"),
+        "local port rewrite: {body}"
+    );
+    assert!(body.contains("mode: rule"), "existing keys kept: {body}");
+    assert!(body.contains("proxies"), "unknown keys retained: {body}");
+    assert!(!body.contains("10808"), "never the live proxy port: {body}");
 }
 
 #[test]

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/clash_ui_config.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
@@ -100,26 +101,16 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
 
   /// Mirrors upstream `ClashProxiesViewModel.RefreshProxyDetails` sorting:
   /// `0` delay ascending (timeouts last), `1` name ascending, else core order.
-  void _applySorting(
+  ///
+  /// SP-22: pure copy-sort via [sortProxiesForDisplay]. The previous version
+  /// sorted the controller state's lists in place during `build`, so every
+  /// rebuild (e.g. a log batch or a delay probe landing mid-speedtest)
+  /// mutated the shared read model and forced a full overlay reorder.
+  SortedProxies _sortedProxies(
     List<m.ClashProxyDto> groups,
     List<m.ClashProxyDto> nodes,
     Map<String, int> delays,
-  ) {
-    if (_sorting == 0) {
-      nodes.sort(
-        (a, b) => _delayRank(a, delays).compareTo(_delayRank(b, delays)),
-      );
-      groups.sort((a, b) => a.name.compareTo(b.name));
-    } else if (_sorting == 1) {
-      groups.sort((a, b) => a.name.compareTo(b.name));
-      nodes.sort((a, b) => a.name.compareTo(b.name));
-    }
-  }
-
-  int _delayRank(m.ClashProxyDto proxy, Map<String, int> delays) {
-    final delay = delays[proxy.name] ?? proxy.delay;
-    return delay < 0 ? 1 << 30 : delay;
-  }
+  ) => sortProxiesForDisplay(groups, nodes, delays, _sorting);
 
   @override
   Widget build(BuildContext context) {
@@ -135,9 +126,13 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       );
     }
 
-    final groups = state.proxies.where((p) => p.isGroup).toList();
-    final nodes = state.proxies.where((p) => !p.isGroup).toList();
-    _applySorting(groups, nodes, state.proxyDelays);
+    final sorted = _sortedProxies(
+      state.proxies.where((p) => p.isGroup).toList(),
+      state.proxies.where((p) => !p.isGroup).toList(),
+      state.proxyDelays,
+    );
+    final groups = sorted.groups;
+    final nodes = sorted.nodes;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

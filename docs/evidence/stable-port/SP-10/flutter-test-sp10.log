@@ -1,0 +1,26 @@
+Resolving dependencies...
+Downloading packages...
+  cross_file 0.3.5+5 (0.4.0 available)
+  cupertino_icons 1.0.9 (2.0.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  meta 1.18.3 (1.19.0 available)
+  qr 3.0.2 (4.0.0 available)
+  system_tray 0.1.1 (2.0.3 available)
+  test_api 0.7.12 (0.7.14 available)
+  vector_math 2.4.0 (2.4.3 available)
+Got dependencies!
+8 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+00:00 +0: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_10_tun_label_test.dart
+00:00 +0: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_10_tun_label_test.dart: sp10 tunActualLabel reads live facts dry-run lease reads simulated, never enabled
+00:00 +1: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/repair/sp_10_tun_label_test.dart: sp10 tunActualLabel reads live facts desired off with a live lease reads still-enabled, never closed
+00:00 +2: loading C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart
+00:00 +2: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: toggleTunDesired failed persist never applies and reports failure
+00:00 +3: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: toggleTunDesired successful save then applies the plan
+00:00 +4: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: toggleTunDesired turning off persists false before applying
+00:00 +5: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: toggleTunDesired rejected apply is not reported as applied
+00:00 +6: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: tunActualLabel switch off is 鏈惎鐢?regardless of runtime
+00:00 +7: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: tunActualLabel desired but stopped is 鏈惎鐢? never a fake active
+00:00 +8: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: tunActualLabel helper refusal surfaces as 澶辫触宸插洖婊?00:00 +9: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: tunActualLabel live runtime reads 宸茶姹?鏈獙璇?, not a fabricated success
+00:00 +10: C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn/apps/desktop/test/fix13_tun_toggle_test.dart: tunActualLabel live lease reads the real adapter fact
+00:00 +11: All tests passed!

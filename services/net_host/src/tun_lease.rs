@@ -231,6 +231,25 @@ pub fn verify_lease(journal: &TunJournalEntry, lease: &TunLease) -> bool {
         && journal.lease.dry_run == lease.dry_run
 }
 
+/// Ownership key of one applied TUN lease (SP-10, CP-12 归属).
+///
+/// Host-side mirror of `application::tun_ownership_key` (same
+/// `adapter|index|digest` format and normalization: adapter display
+/// casing/spacing is not identity, the index and the route digest are).
+/// The literal format is pinned by SP-10 tests because net-host must not
+/// depend on the application crate; unifying the two is SP-00 integrator
+/// work. A reopened manager recovers by this journaled ownership, never by
+/// the current desired settings. Staged for the SP-00 wiring.
+#[allow(dead_code)]
+pub fn lease_ownership_key(lease: &TunLease) -> String {
+    format!(
+        "{}|{}|{}",
+        lease.adapter_name.trim().to_ascii_lowercase(),
+        lease.interface_index,
+        lease.route_digest.trim(),
+    )
+}
+
 /// Recompute the digest from the journaled descriptor and compare it with the
 /// stored one. Catches a truncated or hand-edited journal before cleanup.
 pub fn verify_journal_integrity(journal: &TunJournalEntry) -> bool {
@@ -925,5 +944,50 @@ mod tests {
         let back: PendingCleanup =
             serde_json::from_slice(&serde_json::to_vec(&pending).unwrap()).unwrap();
         assert_eq!(pending, back);
+    }
+
+    // -- SP-10 ownership key (CP-12 归属) -------------------------------------
+    //
+    // Red contract: the host-side ownership key of one applied lease uses the
+    // same normalization as `application::tun_ownership_key` (adapter
+    // casing/spacing-insensitive, index and route digest significant), so a
+    // reopened manager recovers by journaled ownership, never by current
+    // desired settings. The literal format is pinned here because net-host
+    // must not depend on the application crate.
+
+    #[test]
+    fn sp10_lease_ownership_key_normalizes_adapter_identity() {
+        let lease = TunLease::new("helper-session-9", spec(), false);
+        let key = lease_ownership_key(&lease);
+        assert_eq!(
+            key,
+            format!("v2rayn-tun|9|{}", lease.route_digest),
+            "key pins the shared adapter|index|digest format"
+        );
+        let mut renamed = spec();
+        renamed.adapter_name = "  V2RAYN-TUN ".into();
+        let other = TunLease::new("helper-session-9", renamed, false);
+        assert_eq!(
+            lease_ownership_key(&other),
+            key,
+            "display casing/spacing is not ownership"
+        );
+    }
+
+    #[test]
+    fn sp10_lease_ownership_key_separates_index_and_digest() {
+        let lease = TunLease::new("helper-session-9", spec(), false);
+        let base = lease_ownership_key(&lease);
+        let mut moved = spec();
+        moved.interface_index = 11;
+        for route in &mut moved.routes {
+            route.interface_index = 11;
+        }
+        let other = TunLease::new("helper-session-9", moved, false);
+        assert_ne!(
+            lease_ownership_key(&other),
+            base,
+            "an index change is a different ownership"
+        );
     }
 }

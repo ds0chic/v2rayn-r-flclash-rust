@@ -152,6 +152,24 @@ pub struct ConfigDocument {
     raw: Value,
 }
 
+/// Parse `guiNConfig.json` file text for the engine open path (SP-01).
+///
+/// A present-but-empty/whitespace file and syntactically invalid (truncated)
+/// JSON both become [`PersistenceError::Corrupt`], never a silent default
+/// document. A missing file is handled by the caller (first-run init).
+/// Type errors in known fields are *not* detectable here (any JSON value
+/// parses as [`Value`]); they fail later in the typed strict parse.
+pub fn parse_config_text(text: &str) -> Result<Value> {
+    if text.trim().is_empty() {
+        return Err(PersistenceError::corrupt(
+            "guiNConfig.json is present but empty",
+        ));
+    }
+    serde_json::from_str(text).map_err(|error| {
+        PersistenceError::corrupt(format!("guiNConfig.json is not valid JSON: {error}"))
+    })
+}
+
 impl ConfigDocument {
     /// Parse from JSON text. Comments are not accepted (upstream writes clean
     /// JSON); anything but an object is rejected as not-a-source.

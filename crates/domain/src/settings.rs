@@ -22,11 +22,13 @@
 //! root uses when the whole group is missing.
 
 use serde::{Deserialize, Deserializer, Serialize};
+use serde_json::Value;
 
 use crate::entities::{
     ColumnDefinition, CoreTypeBinding, GlobalHotkey, InboundListener, WindowState,
 };
 use crate::enums::{ConfigType, CoreType, GirdOrientation, SysProxyType};
+use crate::error::{codes, DomainError};
 use crate::profile::ExtraMap;
 
 /// Change-propagation class of a persisted setting (upstream `apply_timing`).
@@ -185,6 +187,29 @@ where
 
 fn non_empty(value: &Option<String>) -> bool {
     value.as_deref().is_some_and(|v| !v.is_empty())
+}
+
+/// Redact double-quoted scalars from a serde error message so a structured
+/// corruption diagnostic never echoes raw config values (e.g. a mistyped
+/// secret) back to logs or the UI.
+fn sanitize_serde_detail(error: &serde_json::Error) -> String {
+    let text = error.to_string();
+    let mut out = String::with_capacity(text.len());
+    let mut in_quotes = false;
+    for ch in text.chars() {
+        if ch == '"' {
+            if in_quotes {
+                out.push('?');
+            }
+            out.push(ch);
+            in_quotes = !in_quotes;
+        } else if in_quotes {
+            // Skip the quoted scalar itself.
+        } else {
+            out.push(ch);
+        }
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -988,6 +1013,20 @@ impl Default for AppSettings {
 }
 
 impl AppSettings {
+    /// Strictly parse a raw `guiNConfig.json` tree (engine meta keys already
+    /// stripped). A known-field type error is returned as a structured
+    /// `error.config_corrupt` failure instead of defaulting the whole tree
+    /// (SP-01/CP-06). Missing groups still get their `LoadConfig` defaults via
+    /// [`AppSettings::apply_load_defaults`]; explicit `null` groups behave
+    /// like missing ones (upstream `??=`); unknown keys survive in `extra`.
+    pub fn parse_strict(value: &Value) -> Result<Self, DomainError> {
+        serde_json::from_value(value.clone()).map_err(|error| {
+            DomainError::new(codes::FIELD_FORMAT, "error.config_corrupt")
+                .with_detail(sanitize_serde_detail(&error))
+                .retryable()
+        })
+    }
+
     /// Apply the object-level `ConfigHandler.LoadConfig` synthesis and
     /// corrections that cannot be expressed as serde field defaults.
     pub fn apply_load_defaults(&mut self) {
@@ -1328,6 +1367,39 @@ mod tests {
         assert_eq!(s.core_basic_item.loglevel.as_deref(), Some("warning"));
         assert_eq!(s.kcp_item.mtu, 1350);
         assert_eq!(s.inbound.len(), 1);
+    }
+
+    #[test]
+    fn parse_strict_rejects_bad_field_type_without_defaulting() {
+        // SP-01: a single mistyped known field must not silently reset the
+        // rest of the document to defaults.
+        let value: Value = serde_json::from_str(
+            r#"{"GuiItem": {"TrayMenuServersLimit": "oops-not-a-number"},
+                "UiItem": {"CurrentLanguage": "en"}}"#,
+        )
+        .unwrap();
+        let err = AppSettings::parse_strict(&value).expect_err("bad type must fail");
+        assert_eq!(err.code, codes::FIELD_FORMAT);
+        assert_eq!(err.message_key, "error.config_corrupt");
+        assert!(!err
+            .detail
+            .as_deref()
+            .unwrap_or("")
+            .contains("oops-not-a-number"));
+    }
+
+    #[test]
+    fn parse_strict_accepts_missing_null_and_unknown() {
+        let value: Value = serde_json::from_str(
+            r#"{"GuiItem": null, "UiItem": {"CurrentLanguage": "en"},
+                "FutureRoot": {"x": 1}}"#,
+        )
+        .unwrap();
+        let mut parsed = AppSettings::parse_strict(&value).expect("valid doc");
+        parsed.apply_load_defaults();
+        assert_eq!(parsed.gui_item.tray_menu_servers_limit, 20);
+        assert_eq!(parsed.ui_item.current_language.as_deref(), Some("en"));
+        assert!(parsed.extra.contains_key("FutureRoot"));
     }
 
     #[test]

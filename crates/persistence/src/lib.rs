@@ -53,7 +53,7 @@ pub use report::{EntityCount, ImportReport, ImportStatus, MigrationReport, Repor
 pub use rows::RawRow;
 pub use schema::{SqlType, Table, UPSTREAM_TABLES};
 pub use store::{MigrationLog, Store};
-pub use upstream_config::{ConfigDocument, ConfigStorage, FieldState};
+pub use upstream_config::{parse_config_text, ConfigDocument, ConfigStorage, FieldState};
 pub use upstream_db::{
     identify, identify_archive, identify_directory, snapshot, SourceKind, UpstreamSnapshot,
     UpstreamSource,

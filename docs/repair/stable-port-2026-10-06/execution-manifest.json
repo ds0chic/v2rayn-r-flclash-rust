@@ -59,7 +59,7 @@
       ],
       "test_scope": "坏TrayMenuServersLimit、截断、missing/null/unknown字段回归",
       "upstream_symbols": "ServiceLib/Handler/ConfigHandler.cs；ServiceLib/Models/Configs/Config.cs",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {

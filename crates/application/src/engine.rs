@@ -407,7 +407,7 @@ impl AppEngine {
             ))),
             active: Arc::new(Mutex::new(active)),
             templates: Arc::new(Mutex::new(read_templates(&config))),
-            settings: Arc::new(Mutex::new(read_settings_state(&config))),
+            settings: Arc::new(Mutex::new(read_settings_state(&config)?)),
             data_dir: Some(data_dir),
             jobs: JobManager::new(),
             runtime,
@@ -566,7 +566,7 @@ impl AppEngine {
             RevisionStore::with_desired(DesiredRevision::new(desired));
         *self.active.lock().map_err(|_| lock_error())? = active;
         *self.templates.lock().map_err(|_| lock_error())? = read_templates(&config);
-        *self.settings.lock().map_err(|_| lock_error())? = read_settings_state(&config);
+        *self.settings.lock().map_err(|_| lock_error())? = read_settings_state(&config)?;
         self.ensure_builtin_routing_dns();
         Ok(())
     }
@@ -3364,17 +3364,31 @@ fn lock_error() -> DomainError {
     DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
 }
 
-/// Read `guiNConfig.json` from the data directory (empty object when absent).
+/// Read `guiNConfig.json` from the data directory.
+///
+/// A missing file yields an empty object (first-run init, upstream
+/// `LoadConfig` "not found" branch). A present-but-empty/whitespace file or
+/// syntactically invalid JSON is a structured `error.config_corrupt` failure
+/// (SP-01/CP-06): the caller fails closed and the source file is never
+/// overwritten. Known-field type errors surface later in
+/// [`read_settings_state`].
 fn read_config(dir: &Path) -> Result<Value, DomainError> {
     let path = dir.join("guiNConfig.json");
     if !path.exists() {
         return Ok(Value::Object(serde_json::Map::new()));
     }
     let text = std::fs::read_to_string(&path).map_err(storage_error)?;
-    if text.trim().is_empty() {
-        return Ok(Value::Object(serde_json::Map::new()));
-    }
-    serde_json::from_str(&text).map_err(storage_error)
+    persistence::parse_config_text(&text).map_err(config_corrupt_error)
+}
+
+/// Map a `guiNConfig.json` text failure onto the stable corrupt-config
+/// contract. The failure is retryable because a fresh read after an
+/// out-of-band repair can succeed (re-reading is side-effect free); writes
+/// stay blocked until a valid document loads.
+fn config_corrupt_error(error: impl std::fmt::Display) -> DomainError {
+    DomainError::new(domain::codes::FIELD_FORMAT, "error.config_corrupt")
+        .with_detail(error.to_string())
+        .retryable()
 }
 
 /// Engine-owned keys that live next to the upstream `Config` tree. They are
@@ -3389,14 +3403,20 @@ pub const SETTINGS_META_KEYS: &[&str] = &[
 ];
 
 /// Parse the settings tree and its revision counters out of the raw config.
-fn read_settings_state(config: &Value) -> SettingsState {
+///
+/// A known-field type error is a structured `error.config_corrupt` failure
+/// (SP-01/CP-06), never a silent whole-tree default: the caller fails closed
+/// so the damaged source file is preserved for recovery. Missing groups get
+/// their `LoadConfig` defaults; engine-owned revision counters fall back to
+/// zero when absent (they are regenerated, not user data).
+fn read_settings_state(config: &Value) -> Result<SettingsState, DomainError> {
     let mut value = config.clone();
     if let Some(object) = value.as_object_mut() {
         for key in SETTINGS_META_KEYS {
             object.remove(*key);
         }
     }
-    let mut settings: AppSettings = serde_json::from_value(value).unwrap_or_default();
+    let mut settings = AppSettings::parse_strict(&value)?;
     settings.apply_load_defaults();
     let revision = config
         .get("settings_revision")
@@ -3406,11 +3426,11 @@ fn read_settings_state(config: &Value) -> SettingsState {
         .get("settings_group_revisions")
         .and_then(|value| serde_json::from_value(value.clone()).ok())
         .unwrap_or_default();
-    SettingsState {
+    Ok(SettingsState {
         settings,
         revision,
         group_revisions,
-    }
+    })
 }
 
 /// Atomically write `guiNConfig.json` (write temp + rename).

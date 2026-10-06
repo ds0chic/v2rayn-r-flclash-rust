@@ -245,6 +245,22 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               style: const TextStyle(fontSize: 11),
             ),
           ),
+        // SP-01: a failed settings read is a visible recovery entry, never a
+        // silent default draft. The retry re-runs the controller load; saves
+        // stay blocked until it succeeds, so the damaged source file is
+        // never defaulted over.
+        if (widget.host == null && state.loadFailed)
+          Padding(
+            padding: const EdgeInsets.all(4),
+            child: FilledButton.tonal(
+              key: const ValueKey('settings-load-retry-inline'),
+              onPressed: () {
+                ref.read(settingsControllerProvider.notifier).load();
+                if (mounted) setState(() {});
+              },
+              child: Text(context.tr('retry')),
+            ),
+          ),
         Expanded(
           child: TabBarView(
             controller: _tabs,

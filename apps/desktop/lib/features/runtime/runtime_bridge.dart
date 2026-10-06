@@ -195,6 +195,27 @@ class RuntimeActionResult {
   final RuntimeErrorView? error;
 }
 
+/// Read-only status of one prior runtime operation (SP-04 reconcile).
+///
+/// Returned by [RuntimeBridge.operationStatus]; `null` means the bridge
+/// cannot answer (unknown operation or no query capability) and the caller
+/// must fall back to the authoritative snapshot. Never throws.
+class RuntimeOperationView {
+  const RuntimeOperationView({
+    required this.found,
+    required this.operationId,
+    required this.state,
+    this.error,
+  });
+
+  final bool found;
+  final String operationId;
+
+  /// Backend lifecycle label (`running`/`done`/`failed`/`cancelled`, …).
+  final String state;
+  final RuntimeErrorView? error;
+}
+
 /// A raw runtime event (kind + JSON payload + stream position).
 class RuntimeEvent {
   const RuntimeEvent({
@@ -230,6 +251,17 @@ abstract class RuntimeBridge {
   Stream<RuntimeEvent> events();
 }
 
+/// Optional capability for a bridge that can answer the recorded status of a
+/// prior operation (SP-04 unknown-outcome reconcile).
+///
+/// Kept separate from [RuntimeBridge] so existing test doubles keep
+/// compiling; the real FRB bridge implements it from the existing
+/// `get_operation` endpoint (no new FRB surface). Callers always fall back
+/// to the authoritative snapshot on null.
+abstract class OperationQueryBridge {
+  Future<RuntimeOperationView?> operationStatus(String operationId);
+}
+
 /// Optional capability for a bridge that can apply an explicit frozen target
 /// and report the local persisted desired revision (R4-02).
 ///
@@ -247,7 +279,11 @@ abstract class ExplicitTargetRuntimeBridge {
   BigInt desiredRevision();
 }
 
-class FrbRuntimeBridge implements RuntimeBridge, ExplicitTargetRuntimeBridge {
+class FrbRuntimeBridge
+    implements
+        RuntimeBridge,
+        ExplicitTargetRuntimeBridge,
+        OperationQueryBridge {
   const FrbRuntimeBridge();
 
   @override
@@ -297,6 +333,24 @@ class FrbRuntimeBridge implements RuntimeBridge, ExplicitTargetRuntimeBridge {
   Future<RuntimeActionResult> stop() async {
     final result = await rust.stopRuntime();
     return RuntimeActionResult(ok: result.ok, error: _error(result.error));
+  }
+
+  /// Serve the SP-04 reconcile query from the existing `get_operation` FRB
+  /// endpoint. Never throws: any transport failure reads as "cannot answer".
+  @override
+  Future<RuntimeOperationView?> operationStatus(String operationId) async {
+    try {
+      final dto = await rust.getOperation(operationId: operationId);
+      if (!dto.found) return null;
+      return RuntimeOperationView(
+        found: true,
+        operationId: dto.operationId,
+        state: dto.state.name,
+        error: _error(dto.error),
+      );
+    } on Object catch (_) {
+      return null;
+    }
   }
 
   @override

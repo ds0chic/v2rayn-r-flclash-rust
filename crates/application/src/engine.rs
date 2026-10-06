@@ -179,6 +179,14 @@ pub struct AppEngine {
     /// briefly, recovery holds it for the whole pass. A save that cannot take
     /// it reports `RecoveryRequired` instead of queuing behind recovery.
     commit_lock: Arc<Mutex<()>>,
+    /// Serialises runtime-affecting commands in this process (SP-04): apply,
+    /// stop and cleanup join one authoritative sequence in admission order so
+    /// two windows/isolates cannot interleave submits behind the UI queue.
+    /// A stop admitted later always runs after the earlier command; queries
+    /// (`snapshot`, `operation_status`) never take it, so reconciliation
+    /// reads stay responsive while a command is in flight. Never held across
+    /// re-entrant engine calls (the runtime client never calls back in).
+    runtime_cmd_lock: Arc<Mutex<()>>,
     /// Completed mutations for engines without a data directory (memory only).
     mem_commits: Arc<Mutex<HashMap<String, MemCommit>>>,
     /// Unresolved mutation for engines without a data directory.
@@ -364,6 +372,7 @@ impl AppEngine {
             storage_error: Arc::new(Mutex::new(None)),
             commit_fault: Arc::new(Mutex::new(CommitTestFault::None)),
             commit_lock: Arc::new(Mutex::new(())),
+            runtime_cmd_lock: Arc::new(Mutex::new(())),
             mem_commits: Arc::new(Mutex::new(HashMap::new())),
             mem_pending: Arc::new(Mutex::new(None)),
             mem_recovery: Arc::new(AtomicBool::new(false)),
@@ -448,6 +457,7 @@ impl AppEngine {
             storage_error: Arc::new(Mutex::new(None)),
             commit_fault: Arc::new(Mutex::new(CommitTestFault::None)),
             commit_lock: Arc::new(Mutex::new(())),
+            runtime_cmd_lock: Arc::new(Mutex::new(())),
             mem_commits: Arc::new(Mutex::new(HashMap::new())),
             mem_pending: Arc::new(Mutex::new(None)),
             mem_recovery: Arc::new(AtomicBool::new(false)),
@@ -3164,6 +3174,15 @@ impl AppEngine {
         }
         plan.validate()?;
 
+        // SP-04: join the single in-process command sequence after the frozen
+        // revision check, so a stale submit never reaches the runtime and
+        // concurrent submits from several windows serialize in admission
+        // order instead of interleaving behind the UI queue.
+        let _cmd = self
+            .runtime_cmd_lock
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+
         match self.runtime.apply(&plan)? {
             ApplyOutcome::Accepted { operation_id } => {
                 // Remember which node this apply targets so the applied-session
@@ -3192,7 +3211,14 @@ impl AppEngine {
     }
 
     /// `stop_runtime` use case: ask net-host to stop the managed core.
+    ///
+    /// SP-04: joins the same in-process command sequence as `apply_runtime`
+    /// (stop is the cleanup barrier: never superseded, never overtaken).
     pub fn stop_runtime(&self) -> Result<(), DomainError> {
+        let _cmd = self
+            .runtime_cmd_lock
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         self.runtime.stop()
     }
 

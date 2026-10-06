@@ -151,7 +151,7 @@
       ],
       "test_scope": "runtime-contracts队列与unknown outcome正确合同",
       "upstream_symbols": "ServiceLib/Manager/CoreManager.cs；runtime_controller队列",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": false
     },
     {

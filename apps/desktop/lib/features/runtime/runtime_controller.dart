@@ -13,38 +13,45 @@ import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 final runtimeControllerProvider =
     NotifierProvider<RuntimeController, RuntimeView>(RuntimeController.new);
 
-/// A coalescing command intent. Apply intents merge by target (last wins);
-/// stop intents merge into one. Waiters are completed together with the
-/// superseding command so a coalesced caller never hangs (R4-04).
+/// One queued user intent in the single authoritative command sequence
+/// (SP-04; mirrors `ipc_contract::stable::RuntimeIntentAction` Start/Stop).
+///
+/// The controller owns exactly one FIFO: submission order is execution order.
+/// A stop is a cleanup barrier that is never superseded or merged away, not
+/// even when it has not started yet. Only consecutive unstarted applies may
+/// merge (last target wins); merging never crosses a stop barrier and never
+/// changes the applied semantics. Transport ACK is not a business commit:
+/// waiters complete with the command outcome once the backend truth has been
+/// re-read, never with a queued guess.
 class _RuntimeCommand {
-  _RuntimeCommand.apply(String? target, DateTime now)
-    : isStop = false,
-      targetId = target,
-      enqueuedAt = now;
+  _RuntimeCommand.apply(this.targetId, this.enqueuedAt, this.intentSeq)
+    : kind = _CommandKind.apply;
 
-  _RuntimeCommand.stop(DateTime now)
-    : isStop = true,
-      targetId = null,
-      enqueuedAt = now;
+  _RuntimeCommand.stop(this.enqueuedAt, this.intentSeq)
+    : kind = _CommandKind.stop,
+      targetId = null;
 
-  final bool isStop;
+  final _CommandKind kind;
   String? targetId;
   final DateTime enqueuedAt;
-  final List<Completer<void>> waiters = <Completer<void>>[];
 
-  void merge(_RuntimeCommand other) {
-    targetId = other.targetId;
-    waiters.addAll(other.waiters);
-  }
+  /// Monotonic submission order. A reply tagged with an older sequence must
+  /// never overwrite a newer view (SP-04 old-reply eviction).
+  final int intentSeq;
+  final List<Completer<bool>> waiters = <Completer<bool>>[];
 
-  void complete() {
-    final pending = List<Completer<void>>.of(waiters);
+  bool get isStop => kind == _CommandKind.stop;
+
+  void complete(bool ok) {
+    final pending = List<Completer<bool>>.of(waiters);
     waiters.clear();
     for (final waiter in pending) {
-      if (!waiter.isCompleted) waiter.complete();
+      if (!waiter.isCompleted) waiter.complete(ok);
     }
   }
 }
+
+enum _CommandKind { apply, stop }
 
 class RuntimeController extends Notifier<RuntimeView> {
   StreamSubscription<RuntimeEvent>? _events;
@@ -66,8 +73,12 @@ class RuntimeController extends Notifier<RuntimeView> {
   int _stateGeneration = 0;
 
   _RuntimeCommand? _activeCommand;
-  _RuntimeCommand? _pendingApply;
-  _RuntimeCommand? _pendingStop;
+
+  /// The single authoritative command sequence (SP-04). Submission order is
+  /// execution order; at most the tail may coalesce (unstarted apply merged
+  /// into an unstarted apply). Stops are barriers and always keep their slot.
+  final List<_RuntimeCommand> _commandQueue = <_RuntimeCommand>[];
+  int _intentSeq = 0;
   bool _pumping = false;
   int _staleResponsesDropped = 0;
 
@@ -97,6 +108,9 @@ class RuntimeController extends Notifier<RuntimeView> {
       _bridge is ExplicitTargetRuntimeBridge
       ? _bridge as ExplicitTargetRuntimeBridge
       : null;
+
+  OperationQueryBridge? get _queryBridge =>
+      _bridge is OperationQueryBridge ? _bridge as OperationQueryBridge : null;
 
   /// Subscribe to runtime events and load the initial snapshot once.
   Future<void> start() async {
@@ -159,13 +173,10 @@ class RuntimeController extends Notifier<RuntimeView> {
 
   /// True while a command is active or queued. Exposed through the read model,
   /// never confused with the backend's own Starting/Running fact.
-  bool get _commandBusy =>
-      _activeCommand != null || _pendingApply != null || _pendingStop != null;
+  bool get _commandBusy => _activeCommand != null || _commandQueue.isNotEmpty;
 
   int get _pendingCount =>
-      (_activeCommand != null ? 1 : 0) +
-      (_pendingApply != null ? 1 : 0) +
-      (_pendingStop != null ? 1 : 0);
+      (_activeCommand != null ? 1 : 0) + _commandQueue.length;
 
   void _publishCommandState() {
     state = state.copyWith(
@@ -248,15 +259,10 @@ class RuntimeController extends Notifier<RuntimeView> {
   /// Returns true only when the submitted plan really applied; a void
   /// completion is not an applied result (AUD-ROOT-02 / TUN-A03).
   Future<bool> applyActive({String? targetId}) async {
-    final command = _RuntimeCommand.apply(targetId, clock());
-    final waiter = Completer<void>();
+    final command = _RuntimeCommand.apply(targetId, clock(), ++_intentSeq);
+    final waiter = Completer<bool>();
     command.waiters.add(waiter);
-    final queued = _pendingApply;
-    if (queued == null) {
-      _pendingApply = command;
-    } else {
-      queued.merge(command);
-    }
+    _enqueue(command);
     // Local pending is visible synchronously, before any await: the UI shows
     // "requesting" immediately without claiming the backend is running.
     state = state.copyWith(
@@ -266,27 +272,60 @@ class RuntimeController extends Notifier<RuntimeView> {
       reconcileNeeded: false,
     );
     unawaited(_pumpCommands());
-    await waiter.future;
-    return state.error == null;
+    return waiter.future;
   }
 
-  /// Serialize and bound command execution. At most one command runs while one
-  /// apply and one stop may wait, so the queue never grows without limit.
+  /// Append [command] to the authoritative sequence. Only an unstarted apply
+  /// directly behind another unstarted apply coalesces (last target wins, and
+  /// the merged waiters observe the surviving intent's outcome so no caller
+  /// hangs). A stop is never merged or dropped: it keeps its barrier slot
+  /// even when newer applies arrive behind it.
+  void _enqueue(_RuntimeCommand command) {
+    if (!command.isStop &&
+        _commandQueue.isNotEmpty &&
+        !_commandQueue.last.isStop) {
+      final tail = _commandQueue.last;
+      tail.targetId = command.targetId;
+      tail.waiters.addAll(command.waiters);
+      _publishCommandState();
+      return;
+    }
+    _commandQueue.add(command);
+    _publishCommandState();
+  }
+
+  /// Drop every queued-but-unstarted command (SP-04 cancel semantics).
+  ///
+  /// Each dropped waiter completes with false: its intent never executed, so
+  /// no success may be reported. The active command, if any, runs to its safe
+  /// point first: an in-flight apply cannot be cancelled mid-flight (the
+  /// net-host client reports `NotCancellable`), it is only followed by
+  /// whatever the sequence still holds. Returns the number of dropped
+  /// commands.
+  Future<int> cancelPending() async {
+    final dropped = _commandQueue.length;
+    final pending = List<_RuntimeCommand>.of(_commandQueue);
+    _commandQueue.clear();
+    for (final command in pending) {
+      command.complete(false);
+    }
+    _publishCommandState();
+    return dropped;
+  }
+
+  /// Serialize and bound command execution in strict submission order
+  /// (SP-04). One command runs while the rest wait in [_commandQueue]; no
+  /// priority lane lets a later apply overtake an earlier stop.
   Future<void> _pumpCommands() async {
     if (_pumping) return;
     _pumping = true;
     try {
-      while (_pendingApply != null || _pendingStop != null) {
-        final next = _pendingApply ?? _pendingStop;
-        if (identical(next, _pendingApply)) {
-          _pendingApply = null;
-        } else {
-          _pendingStop = null;
-        }
+      while (_commandQueue.isNotEmpty) {
+        final next = _commandQueue.removeAt(0);
         _activeCommand = next;
         _publishCommandState();
 
-        if (clock().difference(next!.enqueuedAt) > commandDeadline) {
+        if (clock().difference(next.enqueuedAt) > commandDeadline) {
           // The queue deadline (which includes waiting) expired: reject the
           // stale intent instead of executing it late.
           state = state.copyWith(
@@ -296,13 +335,14 @@ class RuntimeController extends Notifier<RuntimeView> {
               detail: 'command expired while queued',
             ),
           );
-          next.complete();
+          next.complete(false);
           _activeCommand = null;
           _publishCommandState();
           continue;
         }
 
-        await _executeCommand(next);
+        final ok = await _executeCommand(next);
+        next.complete(ok);
         _activeCommand = null;
         _publishCommandState();
       }
@@ -312,7 +352,36 @@ class RuntimeController extends Notifier<RuntimeView> {
     }
   }
 
-  Future<void> _executeCommand(_RuntimeCommand command) async {
+  /// Reconcile an unknown outcome (SP-04): a timeout, disconnect or lost
+  /// reply proves nothing about the backend. Query the recorded operation
+  /// first (best effort, never throws), then re-read the authoritative
+  /// snapshot; the original error stays visible and [reconcileNeeded] tells
+  /// the UI the state came from reconciliation. Never re-executes the
+  /// command: a retried submit would be a second, non-idempotent write.
+  Future<void> _reconcileUnknown(
+    RuntimeErrorView error, {
+    String? operationId,
+  }) async {
+    final id = operationId;
+    if (id != null) {
+      try {
+        await _queryBridge?.operationStatus(id);
+      } on Object catch (_) {
+        // The query itself is best effort; the snapshot below is authoritative.
+      }
+    }
+    try {
+      await refresh();
+    } on Object catch (_) {
+      // Even a failed re-read must not hide the unknown outcome.
+    }
+    state = state.copyWith(error: error, reconcileNeeded: true);
+  }
+
+  /// Returns true only when the submitted plan really applied; a void
+  /// completion, a superseded intent or an unknown outcome is not an applied
+  /// result (AUD-ROOT-02 / TUN-A03 / SP-04).
+  Future<bool> _executeCommand(_RuntimeCommand command) async {
     if (command.isStop) {
       _stateGeneration++;
       final generation = _stateGeneration;
@@ -320,30 +389,33 @@ class RuntimeController extends Notifier<RuntimeView> {
         final result = await _bridge.stop();
         if (generation != _stateGeneration) {
           _noteStaleResponse();
-          return;
+          return false;
         }
         if (result.ok) {
           await refresh();
-          return;
+          return true;
         }
         if (_isUnknownOutcome(result.error)) {
           // Outcome unknown (timeout/disconnect): reconcile from truth instead
           // of reporting a success or a definitive failure.
-          await refresh();
-          state = state.copyWith(error: result.error, reconcileNeeded: true);
-          return;
+          await _reconcileUnknown(
+            result.error ?? _unknownError(),
+            operationId: result.operationId,
+          );
+          return false;
         }
         state = state.copyWith(error: result.error ?? _unknownError());
+        return false;
       } on Object catch (e) {
         if (generation != _stateGeneration) {
           _noteStaleResponse();
-          return;
+          return false;
         }
-        state = state.copyWith(error: _bridgeError(e));
-      } finally {
-        command.complete();
+        // A thrown transport error is an unknown outcome too (the request may
+        // have been applied before the reply was lost): reconcile, no replay.
+        await _reconcileUnknown(_bridgeError(e), operationId: null);
+        return false;
       }
-      return;
     }
 
     _stateGeneration++;
@@ -363,23 +435,32 @@ class RuntimeController extends Notifier<RuntimeView> {
                 _bridge.applyActive(expectedRevision: revision));
       if (generation != _stateGeneration) {
         _noteStaleResponse();
-        return;
+        return false;
       }
       if (!result.ok) {
+        if (_isUnknownOutcome(result.error)) {
+          // The backend may be Running despite the timeout: query first,
+          // show the reconciled truth, keep the original error visible.
+          await _reconcileUnknown(
+            result.error ?? _unknownError(),
+            operationId: result.operationId,
+          );
+          return false;
+        }
         // Keep the structured error; do not let the follow-up snapshot (which
         // reports Stopped) erase the reason apply failed.
         state = state.copyWith(error: result.error ?? _unknownError());
-        return;
+        return false;
       }
       await refresh();
+      return true;
     } on Object catch (e) {
       if (generation != _stateGeneration) {
         _noteStaleResponse();
-        return;
+        return false;
       }
-      state = state.copyWith(error: _bridgeError(e));
-    } finally {
-      command.complete();
+      await _reconcileUnknown(_bridgeError(e), operationId: null);
+      return false;
     }
   }
 
@@ -453,23 +534,26 @@ class RuntimeController extends Notifier<RuntimeView> {
     await applyActive();
   }
 
+  /// Enqueue a stop barrier (SP-04). Stops are never merged: two rapid
+  /// stops keep two barrier slots (stop is idempotent, so executing both is
+  /// safe), and a stop is never overtaken by a later apply.
   Future<void> stop() {
-    final command = _RuntimeCommand.stop(clock());
-    final waiter = Completer<void>();
+    final command = _RuntimeCommand.stop(clock(), ++_intentSeq);
+    final waiter = Completer<bool>();
     command.waiters.add(waiter);
-    final queued = _pendingStop;
-    if (queued == null) {
-      _pendingStop = command;
-    } else {
-      queued.merge(command);
-    }
+    _enqueueStop(command);
     state = state.copyWith(
       commandPending: true,
       pendingCommands: _pendingCount,
       reconcileNeeded: false,
     );
     unawaited(_pumpCommands());
-    return waiter.future;
+    return waiter.future.then((_) {});
+  }
+
+  void _enqueueStop(_RuntimeCommand command) {
+    _commandQueue.add(command);
+    _publishCommandState();
   }
 
   RuntimeErrorView _bridgeError(Object e) => RuntimeErrorView(

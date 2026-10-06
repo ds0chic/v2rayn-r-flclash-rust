@@ -256,6 +256,13 @@ pub struct HostState {
     pub bus: EventBus,
     pub config: HostConfig,
     pub shutdown: Arc<Notify>,
+    /// SP-04: the single authoritative command sequence for the managed
+    /// session. Apply, stop and shutdown serialize here in admission order;
+    /// a stop is a cleanup barrier that can never be overtaken by a later
+    /// apply. Queries (`ipc_snapshot`, `operation_status`, `detail_frame`)
+    /// never take this gate, so an in-flight command cannot block the
+    /// reconcile reads an unknown outcome depends on.
+    command_gate: tokio::sync::Mutex<()>,
     helper_factory: std::sync::Mutex<Option<HelperLinkFactory>>,
     tun_discovery: std::sync::Mutex<Option<TunInterfaceDiscovery>>,
 }
@@ -484,6 +491,7 @@ impl HostState {
             bus: EventBus::new(),
             config,
             shutdown: Arc::new(Notify::new()),
+            command_gate: tokio::sync::Mutex::new(()),
             helper_factory: std::sync::Mutex::new(None),
             tun_discovery: std::sync::Mutex::new(None),
         };
@@ -492,6 +500,12 @@ impl HostState {
         // helper connection is even attempted.
         state.reconcile_tun_leases();
         state
+    }
+
+    /// Test seam (SP-04): the serial command gate itself.
+    #[cfg(test)]
+    pub(crate) fn command_gate(&self) -> &tokio::sync::Mutex<()> {
+        &self.command_gate
     }
 
     /// Test seam: replace helper-link construction (in-memory fake, no pipe).
@@ -1040,6 +1054,13 @@ impl HostState {
             return Err(error);
         }
 
+        // SP-04: join the single command sequence. Precheck, stop of the old
+        // session, spawn and readiness all happen while holding the gate, so
+        // a concurrent stop (or a second apply from another connection) can
+        // neither interleave nor be swallowed. The gate is always released on
+        // return, including every failure path below.
+        let _command = self.command_gate.lock().await;
+
         let prepared = match self.precheck_plan(&plan).await {
             Ok(prepared) => prepared,
             Err(error) => {
@@ -1125,8 +1146,10 @@ impl HostState {
             return Err(error);
         }
 
-        // Stop any existing managed session before switching.
-        let _ = self.stop_managed(None).await;
+        // Stop any existing managed session before switching. The gate is
+        // already held, so this takes the inner (non-gated) path: taking the
+        // public `stop_managed` here would deadlock on the same gate.
+        let _ = self.stop_managed_inner(None).await;
         // A fresh runtime generation gets a new event epoch.
         self.bus.bump_epoch();
 
@@ -1881,29 +1904,52 @@ impl HostState {
     }
 
     /// Stop the managed session (idempotent).
-    pub async fn stop_managed(&self, _operation_id: Option<String>) -> Option<String> {
-        let mut inner = self.inner.lock().await;
-        let Some(mut session) = inner.session.take() else {
-            inner.detail.pid = None;
-            inner.detail.created_at_ms = None;
-            // No running session to restore from.
-            inner.last_plan = None;
-            inner.last_exe = None;
-            inner.detail.state = RuntimeState::Stopped;
-            // Withdraw the published endpoint: a stopped runtime must not keep
-            // reporting a stale listening port/config.
-            inner.detail.ports.clear();
-            inner.detail.session_id = None;
-            inner.detail.config_sha256 = None;
-            drop(inner);
-            // No core, but a TUN lease may still be pending (stop arriving
-            // between helper-apply and core-spawn); always release.
-            self.release_tun_lease().await;
-            return None;
+    ///
+    /// SP-04: joins the single command sequence behind any in-flight apply:
+    /// a stop admitted later always runs after the earlier command reaches
+    /// its safe point, and is never overtaken by a later apply. An in-flight
+    /// apply itself cannot be cancelled mid-flight (the client reports
+    /// `NotCancellable`); the stop waits for it instead of interrupting it.
+    pub async fn stop_managed(&self, operation_id: Option<String>) -> Option<String> {
+        let _command = self.command_gate.lock().await;
+        self.stop_managed_inner(operation_id).await
+    }
+
+    /// The stop body. The caller must hold [`command_gate`](HostState::command_gate).
+    async fn stop_managed_inner(&self, _operation_id: Option<String>) -> Option<String> {
+        let mut session = {
+            let mut inner = self.inner.lock().await;
+            match inner.session.take() {
+                Some(session) => {
+                    inner.detail.state = RuntimeState::RollingBack;
+                    session
+                }
+                None => {
+                    inner.detail.pid = None;
+                    inner.detail.created_at_ms = None;
+                    // No running session to restore from.
+                    inner.last_plan = None;
+                    inner.last_exe = None;
+                    inner.detail.state = RuntimeState::Stopped;
+                    // Withdraw the published endpoint: a stopped runtime must not keep
+                    // reporting a stale listening port/config.
+                    inner.detail.ports.clear();
+                    inner.detail.session_id = None;
+                    inner.detail.config_sha256 = None;
+                    drop(inner);
+                    // No core, but a TUN lease may still be pending (stop arriving
+                    // between helper-apply and core-spawn); always release.
+                    self.release_tun_lease().await;
+                    return None;
+                }
+            }
         };
         let session_id = session.session_id.clone();
         let pid = session.identity.pid;
-        inner.detail.state = RuntimeState::RollingBack;
+        // Terminate outside the inner lock (SP-04): snapshot/operation queries
+        // only need that lock briefly, so reconciliation reads stay responsive
+        // while the core tree shuts down. The command gate is still held, so
+        // no other apply/stop can interleave with this stop.
         session.terminate_and_wait(Duration::from_secs(5)).await;
         drop(session.job);
         let final_stage = JournalEntry {
@@ -1919,20 +1965,22 @@ impl HostState {
         };
         let _ = journal::write_entry(&self.config.run_root, &final_stage);
         journal::remove_staged_artifacts(&self.config.run_root, &session_id);
-        inner.detail.state = RuntimeState::Stopped;
-        inner.detail.pid = None;
-        inner.detail.created_at_ms = None;
-        inner.detail.error = None;
-        inner.active_operation = None;
-        // Withdraw the published endpoint on stop and drop the restore source:
-        // a stopped session has nothing to fall back to.
-        inner.detail.ports.clear();
-        inner.detail.session_id = None;
-        inner.detail.config_sha256 = None;
-        inner.last_plan = None;
-        inner.last_exe = None;
+        {
+            let mut inner = self.inner.lock().await;
+            inner.detail.state = RuntimeState::Stopped;
+            inner.detail.pid = None;
+            inner.detail.created_at_ms = None;
+            inner.detail.error = None;
+            inner.active_operation = None;
+            // Withdraw the published endpoint on stop and drop the restore source:
+            // a stopped session has nothing to fall back to.
+            inner.detail.ports.clear();
+            inner.detail.session_id = None;
+            inner.detail.config_sha256 = None;
+            inner.last_plan = None;
+            inner.last_exe = None;
+        }
         eprintln!("[net_host] session {session_id} STOPPED pid={pid}");
-        drop(inner);
         // Reverse cleanup after the core tree is gone.
         self.release_tun_lease().await;
         self.bus.emit_named(
@@ -2835,6 +2883,121 @@ mod tests {
 
         // Cleanup: stop the restored session.
         futures_block_on(state.stop_managed(None));
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    // -- SP-04 authoritative command sequence ----------------------------
+
+    #[tokio::test]
+    async fn sp04_stop_waits_for_the_command_gate() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let state = {
+            let _guard = rr10_lock();
+            std::sync::Arc::new(test_state("sp04-gate-stop"))
+        };
+        // Occupy the single command sequence from the test body: a stop
+        // admitted now must wait behind the in-flight command instead of
+        // interleaving with it.
+        let gate = state.command_gate().lock().await;
+        let finished = std::sync::Arc::new(AtomicBool::new(false));
+        let probe = {
+            let state = state.clone();
+            let finished = finished.clone();
+            tokio::spawn(async move {
+                let _ = state.stop_managed(None).await;
+                finished.store(true, Ordering::SeqCst);
+            })
+        };
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(
+            !finished.load(Ordering::SeqCst),
+            "stop must wait for the in-flight command, never interleave"
+        );
+        drop(gate);
+        tokio::time::timeout(Duration::from_secs(10), probe)
+            .await
+            .expect("stop completes once the gate releases")
+            .expect("stop task panicked");
+        assert!(finished.load(Ordering::SeqCst));
+        let snapshot = state.ipc_snapshot().await;
+        assert_eq!(snapshot.state, RuntimeState::Stopped);
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[tokio::test]
+    async fn sp04_failed_apply_releases_the_command_gate() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let state = {
+            let _guard = rr10_lock();
+            std::sync::Arc::new(test_state("sp04-gate-apply"))
+        };
+        // A hash mismatch fails precheck (no listener needed: the hash check
+        // runs before any port probe) after joining the command sequence.
+        let bad = plan_with_body("bad", "{}", 11_911, Some("00"));
+        let gate = state.command_gate().lock().await;
+        let finished = std::sync::Arc::new(AtomicBool::new(false));
+        let probe = {
+            let state = state.clone();
+            let finished = finished.clone();
+            tokio::spawn(async move {
+                let error = state
+                    .apply_plan(bad)
+                    .await
+                    .expect_err("hash mismatch must fail");
+                assert_eq!(error.code, domain::codes::INVALID_PLAN);
+                finished.store(true, Ordering::SeqCst);
+            })
+        };
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert!(
+            !finished.load(Ordering::SeqCst),
+            "apply must wait for the in-flight command, never interleave"
+        );
+        drop(gate);
+        tokio::time::timeout(Duration::from_secs(10), probe)
+            .await
+            .expect("failed apply completes once the gate releases")
+            .expect("apply task panicked");
+        assert!(finished.load(Ordering::SeqCst));
+        // The gate is usable again: a stop admitted after the failure runs.
+        let stopped = state.stop_managed(None).await;
+        assert!(stopped.is_none(), "nothing was running");
+        let snapshot = state.ipc_snapshot().await;
+        assert_eq!(snapshot.state, RuntimeState::Stopped);
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[test]
+    fn sp04_snapshot_stays_responsive_during_stop() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let _guard = rr10_lock();
+        let state = std::sync::Arc::new(test_state("sp04-snap"));
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stay = core_stub(&dir, "stay", "stay");
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stay);
+        // Port 0: readiness by process liveness, no listener is bound.
+        let good = plan_with_body("good", "{\"inbounds\":[],\"outbounds\":[]}", 0, None);
+        futures_block_on(state.apply_plan(good)).expect("good session starts");
+
+        // Queries only need the inner lock briefly: every read below must
+        // complete while the stop shuts the core tree down.
+        let reads = std::sync::Arc::new(AtomicUsize::new(0));
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                futures_block_on(state.stop_managed(None));
+            });
+            for _ in 0..20 {
+                let snapshot = futures_block_on(state.ipc_snapshot());
+                let _ = snapshot.state;
+                reads.fetch_add(1, Ordering::SeqCst);
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        });
+        assert_eq!(reads.load(Ordering::SeqCst), 20);
+        let snapshot = futures_block_on(state.ipc_snapshot());
+        assert_eq!(snapshot.state, RuntimeState::Stopped);
+        assert!(futures_block_on(state.inner.lock()).session.is_none());
         let _ = std::fs::remove_dir_all(&state.config.run_root);
     }
 

@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "hwa_rendering.h"
 #include "option_window_host.h"
 #include "routing_window_host.h"
 #include "runner_messages.h"
@@ -28,6 +29,9 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  // SP-26: record which DXGI adapter the engine actually renders with, so
+  // ON/OFF runs are observably comparable. Logging only; never fails startup.
+  hwa::LogGraphicsAdapter(flutter_controller_->engine());
   // Bind the option-settings window host to this engine so the menu can spawn
   // the independent top-level settings window.
   OptionWindowHost::Instance().Attach(flutter_controller_->engine(),

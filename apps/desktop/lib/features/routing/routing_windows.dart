@@ -1403,11 +1403,19 @@ class RoutingDraft {
     required this.schemes,
     required this.domainStrategy,
     required this.domainStrategySbox,
+    this.incrementalCommitted = false,
   });
 
   final List<RoutingSchemeSnapshot> schemes;
   final String domainStrategy;
   final String domainStrategySbox;
+
+  /// SP-13: true when every scheme mutation already went through an
+  /// incremental commit (the host implements [RoutingCommitHost]), so the
+  /// main engine must persist only the strategy fields on 确定 and must not
+  /// replay the stale full set (no resurrection, no clobber of concurrent
+  /// additions). False keeps the legacy whole-draft replay.
+  final bool incrementalCommitted;
 }
 
 /// The routing window's starting snapshot.
@@ -1619,6 +1627,7 @@ String encodeRoutingDraft(RoutingDraft draft) => jsonEncode({
   'schemes': draft.schemes.map(routingSchemeToJson).toList(),
   'domainStrategy': draft.domainStrategy,
   'domainStrategy4Singbox': draft.domainStrategySbox,
+  if (draft.incrementalCommitted) 'incrementalCommitted': true,
 });
 
 List<RoutingSchemeSnapshot> _decodeRoutingSchemes(Map<String, dynamic> map) =>
@@ -1649,11 +1658,15 @@ class RoutingDraftDecoded {
     required this.schemes,
     required this.domainStrategy,
     required this.domainStrategySbox,
+    this.incrementalCommitted = false,
   });
 
   final List<RoutingSchemeSnapshot> schemes;
   final String domainStrategy;
   final String domainStrategySbox;
+
+  /// SP-13: mirrors [RoutingDraft.incrementalCommitted]; absent means legacy.
+  final bool incrementalCommitted;
 }
 
 RoutingDraftDecoded? decodeRoutingDraft(String text) {
@@ -1669,6 +1682,7 @@ RoutingDraftDecoded? decodeRoutingDraft(String text) {
     schemes: _decodeRoutingSchemes(map),
     domainStrategy: map['domainStrategy'] as String? ?? '',
     domainStrategySbox: map['domainStrategy4Singbox'] as String? ?? '',
+    incrementalCommitted: map['incrementalCommitted'] == true,
   );
 }
 
@@ -2391,6 +2405,9 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
         schemes: _schemes,
         domainStrategy: _domainStrategy,
         domainStrategySbox: _domainStrategySbox,
+        // SP-13: scheme mutations already committed incrementally; the main
+        // engine must then persist only the strategy fields.
+        incrementalCommitted: widget.host is RoutingCommitHost,
       ),
     );
     if (!mounted) return;

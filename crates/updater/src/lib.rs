@@ -27,6 +27,7 @@ pub mod install;
 pub mod metadata;
 pub mod semver;
 pub mod signature;
+pub mod tls;
 pub mod unpack;
 
 pub use app_upgrade::{
@@ -58,6 +59,7 @@ pub use signature::{
     v2rayn_app_verifier, verify_app_release_asset, GpgCliVerifier, PgpDetachedVerifier,
     PrefixHashVerifier, SignatureVerifier, UnsupportedSignatureVerifier, V2RAYN_PUBLIC_KEY_ASC,
 };
+pub use tls::HttpsTrust;
 pub use unpack::{safe_join, safe_unpack_targz, safe_unpack_zip, UnpackLimits, Unpacked};
 
 /// Re-exported for callers and tests that drive cancellable downloads.

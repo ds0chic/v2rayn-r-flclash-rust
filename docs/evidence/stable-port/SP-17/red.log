@@ -1,0 +1,7 @@
+# 红阶段日志（实现前，新测试编译失败摘录）
+
+test/repair/sp_17_availability_probe_test.dart:17:26: Error: Method not found: 'probeLoopbackEndpoint'.
+test/repair/sp_17_availability_probe_test.dart:29:26: Error: Method not found: 'probeLoopbackEndpoint'.
+test/repair/sp_17_availability_probe_test.dart:36:26: Error: Method not found: 'probeLoopbackEndpoint'.
+(sp_17_actual_summary / sp_17_message_ordering 同因缺符号 failedTargetId / resolveStatusMessages / RuntimeNotice 加载失败，
+flutter test 汇总 Some tests failed，3 文件 loading [E]。)

@@ -57,3 +57,33 @@ runner patch 归主控指定的 runner owner；需先行 ADR（`docs/decisions/`
 
 命令与 exit：见 `probe_baseline_92d46dd.log`（probe exit 0）；`python3 tools/perf/engine_strings.py` exit 0。
 `git status --short`：见本卡 observations.json。
+
+## 6. runner 接线实施（本卡，基线 788adf6，runner owner）
+
+范围：仅 `apps/desktop/windows/runner/**`（新增 `hwa_rendering.h/.cpp`，改 `main.cpp`/
+`flutter_window.cpp`/`CMakeLists.txt`）+ ADR（`docs/decisions/SP-26-hwa-runner.md`）
++ 本目录证据/脚本。未改 Dart/crates/FRB/锁（写锁遵守）。
+
+结果：
+- 映射按 §4 方案 A：ON→Impeller Default+HighPerformance；OFF→Impeller Disabled+
+  LowPower；两处明示非 SoftwareOnly。读取优先级 CLI>`V2RAYNR_ENABLE_HWA`>
+  `<exe-dir>\v2raynr_hwa.ini`>默认 OFF；HWA-only CLI 不转发 Dart；重启语义复用
+  RestartApp（进程内固定）；adapter 经 `FlutterEngine::GetGraphicsAdapter` 记录到
+  `%TEMP%\v2raynr-hwa.log` + OutputDebugString。
+- `cargo check -p application --locked` exit 0（2026-10-07，含本卡无关的他卡修复后）。
+- `flutter build windows --release` exit 1（两次，日志 `build_788adf6.log`）：
+  (1) 他卡在途改动致 `crates/application/src/dns.rs:664` 多余 `}`（SP-13 owner 已修，
+  本卡未碰）；(2) MSBuild 已过全部 ClCompile（含本卡 C++，无 C1xxx/C2xxx）后
+  `LNK1104` 写 `runner/Release/v2rayn_desktop.exe` 失败——该文件被他方进程
+  PID 23292（启动 00:51:32，同路径 exe）占用中，本卡无权终止（AGENTS 硬性约束 3）。
+  新二进制未产出，ON/OFF 运行验证未能执行。
+
+未运行范围：release ON/OFF 运行（adapter 日志/截图，脚本已备 `verify_hwa.ps1`，
+待新二进制；隔离 `V2RAYN_R_DATA_DIR` + 自有进程方案已在脚本内）；
+`flutter analyze`（本卡零 Dart 改动，且工作树有他卡在途 Dart 编辑，跑了也无法归因）；
+帧耗时对比（SP-31 方法，待接线后候选）。
+
+登记返回（主控接线）：Rust 保存时同步 `<exe-dir>\v2raynr_hwa.ini`
+`[rendering] enable_hwa=<0|1>`（格式见 ADR）；Dart 开关文案追加"非软件渲染"说明；
+严格软件对等若被要求则标 blocked 另开任务。卡/manifest 状态见 observations.json
+（本卡写锁不含任务卡与 manifest，只如实记录）。

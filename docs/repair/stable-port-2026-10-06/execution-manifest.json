@@ -466,8 +466,10 @@
       ],
       "test_scope": "routing_partial_commit、bad schema/read error",
       "upstream_symbols": "ServiceLib/ViewModels/RoutingSettingViewModel.cs",
-      "status": "identified",
-      "instance_required": false
+      "status": "implemented",
+      "instance_required": false,
+      "evidence": "docs/evidence/stable-port/SP-13/README.md",
+      "note": "2026-10-07 directional green, see evidence; native/package/OS isolation pending"
     },
     {
       "id": "SP-14",
@@ -843,7 +845,7 @@
       ],
       "test_scope": "应用HTTPS trust source受控TLS矩阵",
       "upstream_symbols": "RootCertProvider上游HTTP初始化；SD-10",
-      "status": "identified",
+      "status": "implemented",
       "instance_required": true
     },
     {

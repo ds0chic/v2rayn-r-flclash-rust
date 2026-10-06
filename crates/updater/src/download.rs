@@ -13,6 +13,7 @@ use sha2::{Digest, Sha256};
 use tokio::io::AsyncWriteExt;
 
 use crate::error::UpdateError;
+use crate::tls::{self, HttpsTrust};
 
 /// Download behaviour with safe defaults.
 #[derive(Debug, Clone)]
@@ -84,7 +85,17 @@ pub struct FileDownloader {
 }
 
 impl FileDownloader {
+    /// Build trusting the OS/native store (upstream `system`).
     pub fn new(options: DownloaderOptions) -> Result<Self, UpdateError> {
+        Self::new_with_trust(options, HttpsTrust::System)
+    }
+
+    /// Build trusting `trust` (SP-25 `RootCertProvider` consumer).
+    /// `BundledPem` trusts exactly the bundle, never the OS store.
+    pub fn new_with_trust(
+        options: DownloaderOptions,
+        trust: HttpsTrust,
+    ) -> Result<Self, UpdateError> {
         let mut headers = reqwest::header::HeaderMap::new();
         for (name, value) in &options.headers {
             let name = reqwest::header::HeaderName::from_bytes(name.as_bytes())
@@ -101,10 +112,14 @@ impl FileDownloader {
             None => None,
         };
 
-        let mut builder = reqwest::Client::builder()
-            .connect_timeout(options.connect_timeout)
-            .timeout(options.timeout)
-            .redirect(reqwest::redirect::Policy::limited(10));
+        let mut builder = tls::apply_trust(
+            reqwest::Client::builder()
+                .connect_timeout(options.connect_timeout)
+                .timeout(options.timeout)
+                .redirect(reqwest::redirect::Policy::limited(10)),
+            &trust,
+        )
+        .map_err(UpdateError::Download)?;
         if let Some(proxy) = &options.proxy {
             let parsed = reqwest::Proxy::all(proxy)
                 .map_err(|e| UpdateError::Download(format!("proxy: {e}")))?;
@@ -291,7 +306,7 @@ fn classify(err: &reqwest::Error) -> UpdateError {
     } else if err.is_body() || err.is_decode() {
         UpdateError::Incomplete
     } else {
-        UpdateError::Download(err.to_string())
+        tls::classify_request(err)
     }
 }
 

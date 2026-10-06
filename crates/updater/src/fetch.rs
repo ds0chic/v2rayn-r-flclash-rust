@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use crate::error::UpdateError;
 use crate::metadata::{parse_releases, ReleaseInfo, ReleasesClient};
+use crate::tls::{self, HttpsTrust};
 
 /// A source that can return the releases list for a repository.
 pub trait ReleaseSource: Send + Sync {
@@ -19,6 +20,7 @@ pub trait ReleaseSource: Send + Sync {
 pub struct CoreReleaseApi {
     http: reqwest::Client,
     pub user_agent: String,
+    trust: HttpsTrust,
 }
 
 impl CoreReleaseApi {
@@ -31,11 +33,26 @@ impl CoreReleaseApi {
     ///
     /// The environment proxy is never read: `None` means direct, and a
     /// `Some("http://127.0.0.1:PORT")` uses only that endpoint (the running
-    /// session's local mixed port, resolved by the caller).
+    /// session's local mixed port, resolved by the caller). Trust is the
+    /// OS/native store; see [`Self::new_with_tls`] for the selection.
     pub fn new_with_proxy(timeout: Duration, proxy: Option<&str>) -> Result<Self, UpdateError> {
-        let mut builder = reqwest::Client::builder()
-            .timeout(timeout)
-            .connect_timeout(Duration::from_secs(10));
+        Self::new_with_tls(timeout, proxy, HttpsTrust::System)
+    }
+
+    /// Build trusting `trust` (SP-25 `RootCertProvider` consumer).
+    /// `BundledPem` trusts exactly the bundle, never the OS store.
+    pub fn new_with_tls(
+        timeout: Duration,
+        proxy: Option<&str>,
+        trust: HttpsTrust,
+    ) -> Result<Self, UpdateError> {
+        let mut builder = tls::apply_trust(
+            reqwest::Client::builder()
+                .timeout(timeout)
+                .connect_timeout(Duration::from_secs(10)),
+            &trust,
+        )
+        .map_err(UpdateError::Download)?;
         builder = match proxy.map(str::trim).filter(|s| !s.is_empty()) {
             Some(url) => builder.proxy(
                 reqwest::Proxy::all(url)
@@ -49,7 +66,13 @@ impl CoreReleaseApi {
         Ok(Self {
             http,
             user_agent: "v2rayN-updater".to_string(),
+            trust,
         })
+    }
+
+    /// The trust roots this instance was built with.
+    pub fn trust(&self) -> &HttpsTrust {
+        &self.trust
     }
 
     /// Fetch and parse `GET {releases_url}`.
@@ -61,13 +84,7 @@ impl CoreReleaseApi {
             .header(reqwest::header::USER_AGENT, &self.user_agent)
             .send()
             .await
-            .map_err(|e| {
-                if e.is_timeout() {
-                    UpdateError::Timeout
-                } else {
-                    UpdateError::Download(e.to_string())
-                }
-            })?;
+            .map_err(|e| tls::classify_request(&e))?;
         if !response.status().is_success() {
             return Err(UpdateError::Download(format!(
                 "releases status {}",

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
@@ -159,16 +161,36 @@ class StatusBarView extends ConsumerWidget {
     ];
 
     // Flexible centre: two-line service summary, matching
-    // `txtRunningServerDisplay` / `txtRunningInfoDisplay`.
-    final center = _twoLine(
-      _statusText(
-        '${context.tr('statusNode')}: ${runtime.statusLabel}',
-        key: const ValueKey('running-node'),
-      ),
-      _statusText(
-        _runningSummary(context, runtime),
-        key: const ValueKey('running-info'),
-      ),
+    // `txtRunningServerDisplay` / `txtRunningInfoDisplay`. Both lines read the
+    // actual session (SP-17 actual summary); double-click runs the original
+    // availability test (upstream PreviewMouseDown -> TestServerAvailability).
+    final center = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        GestureDetector(
+          key: const ValueKey('running-summary-gesture'),
+          onDoubleTap: () => runAvailabilityTest(ref),
+          child: _twoLine(
+            _statusText(
+              '${context.tr('statusNode')}: ${runtime.actualSummaryLabel}',
+              key: const ValueKey('running-node'),
+            ),
+            _statusText(
+              _runningSummary(context, runtime),
+              key: const ValueKey('running-info'),
+            ),
+          ),
+        ),
+        IconButton(
+          key: const ValueKey('running-availability-test'),
+          // No new l10n key: SP-17 keeps to existing strings, this entry is
+          // intentionally literal (same as other transient probe feedback).
+          tooltip: '测试可用性（双击运行信息也可触发）',
+          iconSize: AppTokens.iconSizeSmall,
+          onPressed: () => runAvailabilityTest(ref),
+          icon: Icon(AppTokens.icon('test')),
+        ),
+      ],
     );
 
     // Right partitions: two-line rates and the today aggregate.
@@ -230,6 +252,47 @@ class StatusBarView extends ConsumerWidget {
                   style: const TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: 4),
+                // SP-17 actual summary: session/operation/applied revision of
+                // the retained actual, never the desired target.
+                Text(
+                  'actual=${runtime.actualSummaryLabel} '
+                  'session=${runtime.sessionId ?? '--'} '
+                  'op=${runtime.operationId ?? '--'} '
+                  'applied=${runtime.appliedRevision ?? '-'}',
+                  key: const ValueKey('runtime-actual'),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if (runtime.hasCurrentFailure) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text(
+                    'failed target=${runtime.failedTargetId ?? '(默认)'} '
+                    'op=${runtime.failureOperationId ?? runtime.error?.operationId ?? '--'} '
+                    'at=${runtime.failedAtMs ?? '--'} '
+                    '${runtime.error!.code} (${runtime.error!.messageKey})',
+                    key: const ValueKey('runtime-failure'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+                if (runtime.notice != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text(
+                    'notice@${runtime.notice!.atMs}: ${runtime.notice!.text}',
+                    key: const ValueKey('runtime-notice'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+                // Demoted older platform message: kept viewable here while a
+                // current runtime failure holds the headline.
+                if (runtime.error != null &&
+                    platform.message != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  Text(
+                    'platform: ${platform.message}',
+                    key: const ValueKey('status-message-demoted'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 4),
                 Text(
                   'total=${profiles.totalCount} visible=${profiles.visible.length} '
                   'selected=${profiles.selectedCount}',
@@ -249,21 +312,61 @@ class StatusBarView extends ConsumerWidget {
       ),
     ];
 
-    final messages = <Widget>[
-      if (runtime.error != null)
-        _statusText(
-          // R4-30: bridge errors render as a readable cause + action; the stable
-          // code stays available in the details popup, never as the headline.
-          context.errorKeyText(runtime.error!.messageKey),
-          key: const ValueKey('runtime-error'),
-          color: scheme.error,
-        ),
-      if (platform.error != null)
-        _statusText(
-          ErrorLocalizer.withCode(
+    // SP-17 message ordering: the resolved headline/secondary order guarantees
+    // a current runtime failure stays the headline while an older platform
+    // message is demoted to the details popup (never covering a newer result).
+    // Keys 'runtime-error'/'status-message' are kept for existing coverage.
+    final platformErrorText = platform.error == null
+        ? null
+        : ErrorLocalizer.withCode(
             context.errorKeyText(platform.error!.messageKey),
             platform.error!.code,
-          ),
+          );
+    final resolved = resolveStatusMessages(
+      runtimeError: runtime.error,
+      runtimeNotice: runtime.notice,
+      platformErrorText: platformErrorText,
+      platformMessage: platform.message,
+      shellMessage: shell.message,
+    );
+    final messages = <Widget>[
+      if (resolved.headlineKind == StatusHeadlineKind.runtimeError &&
+          runtime.error != null)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            _statusText(
+              // R4-30: bridge errors render as a readable cause + action; the
+              // stable code stays available in the details popup.
+              context.errorKeyText(runtime.error!.messageKey),
+              key: const ValueKey('runtime-error'),
+              color: scheme.error,
+            ),
+            if (runtime.canRetryFailed) ...<Widget>[
+              const SizedBox(width: 4),
+              TextButton(
+                key: const ValueKey('runtime-error-retry'),
+                onPressed: () =>
+                    ref.read(runtimeControllerProvider.notifier).retryFailed(),
+                child: const Text('重试'),
+              ),
+              TextButton(
+                key: const ValueKey('runtime-error-view'),
+                onPressed: () => showFailureDetails(context, runtime),
+                child: const Text('查看失败'),
+              ),
+            ],
+          ],
+        )
+      else if (resolved.headlineKind == StatusHeadlineKind.runtimeError)
+        _statusText(
+          resolved.headlineText,
+          key: const ValueKey('status-sysproxy-error'),
+          color: scheme.error,
+        ),
+      if (platform.error != null && runtime.error != null)
+        _statusText(
+          platformErrorText!,
           key: const ValueKey('status-sysproxy-error'),
           color: scheme.error,
         ),
@@ -273,18 +376,19 @@ class StatusBarView extends ConsumerWidget {
           key: const ValueKey('status-sysproxy-conflict'),
           color: scheme.error,
         ),
-      if (platform.message != null)
+      if (resolved.headlineKind == StatusHeadlineKind.info)
         _statusText(
-          platform.message!,
-          key: const ValueKey('status-message'),
-          color: scheme.primary,
-        )
-      else if (shell.message != null)
-        _statusText(
-          shell.message!,
+          resolved.headlineText,
           key: const ValueKey('status-message'),
           color: scheme.primary,
         ),
+      // Under a failure headline only the fresh availability notice stays in
+      // the strip; older platform/shell messages are demoted to the details
+      // popup so they can never cover the newer result.
+      for (final secondary in resolved.secondaryTexts)
+        if (resolved.headlineKind != StatusHeadlineKind.runtimeError ||
+            secondary == runtime.notice?.text)
+          _statusText(secondary, color: scheme.onSurfaceVariant),
     ];
 
     return Material(
@@ -346,7 +450,52 @@ Widget _twoLine(
 
 String _runningSummary(BuildContext context, RuntimeView runtime) {
   final ports = runtime.ports.isEmpty ? '--' : runtime.ports.join(',');
-  return '${runtime.state} · ${context.tr('statusPorts')} $ports';
+  final session = runtime.sessionId == null
+      ? ''
+      : ' · 会话=${_shortId(runtime.sessionId!)}';
+  final applied = runtime.appliedRevision == null
+      ? ''
+      : ' · 已应用=${runtime.appliedRevision}';
+  return '${runtime.state} · ${context.tr('statusPorts')} $ports$session$applied';
+}
+
+String _shortId(String id) => id.length > 12 ? '${id.substring(0, 12)}…' : id;
+
+/// SP-17 "查看当前失败": the retained actual stays on screen while the dialog
+/// names the failed target, operation, time and structured cause with a retry
+/// entry. Never presents the failed desired target as applied.
+Future<void> showFailureDetails(BuildContext context, RuntimeView runtime) {
+  final error = runtime.error;
+  if (error == null) return Future.value();
+  return showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('当前失败'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            '失败目标=${runtime.failedTargetId ?? '(默认)'}',
+            key: const ValueKey('failure-details-target'),
+          ),
+          Text('操作=${runtime.failureOperationId ?? error.operationId ?? '--'}'),
+          Text('时间=${runtime.failedAtMs ?? '--'}'),
+          Text('${error.code} (${error.messageKey})'),
+          if (error.detail != null) Text(error.detail!),
+          const SizedBox(height: 8),
+          Text('仍在运行=${runtime.actualSummaryLabel}'),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const ValueKey('failure-details-close'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('关闭'),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Bordered selector face with a visible dropdown arrow, so the status-bar
@@ -434,6 +583,182 @@ String _activeSchemeLabel(RoutingState routing) {
     if (item.isActive) return item.remarks;
   }
   return routing.items.isEmpty ? '--' : routing.items.first.remarks;
+}
+
+/// SP-17 headline kind for the status-bar message strip.
+enum StatusHeadlineKind { runtimeError, info, none }
+
+/// Ordered status messages: one headline plus demoted secondary texts.
+///
+/// A current runtime failure is always the headline (with retry); older
+/// platform/shell messages move to [secondaryTexts] so they can never cover a
+/// newer result. With no failure, the newest info (availability notice, then
+/// platform message, then shell message) is the headline.
+class ResolvedStatusMessages {
+  const ResolvedStatusMessages({
+    required this.headlineKind,
+    required this.headlineText,
+    required this.headlineRetryable,
+    required this.secondaryTexts,
+  });
+
+  /// Error headlines carry the error messageKey (localized at render);
+  /// info headlines carry display text.
+  final StatusHeadlineKind headlineKind;
+  final String headlineText;
+  final bool headlineRetryable;
+  final List<String> secondaryTexts;
+}
+
+ResolvedStatusMessages resolveStatusMessages({
+  required RuntimeErrorView? runtimeError,
+  required RuntimeNotice? runtimeNotice,
+  required String? platformErrorText,
+  required String? platformMessage,
+  required String? shellMessage,
+}) {
+  if (runtimeError != null) {
+    final secondary = <String>[
+      ?platformErrorText,
+      ?platformMessage,
+      ?runtimeNotice?.text,
+      ?shellMessage,
+    ];
+    return ResolvedStatusMessages(
+      headlineKind: StatusHeadlineKind.runtimeError,
+      headlineText: runtimeError.messageKey,
+      // A failure headline always offers view/retry; the structured
+      // retryable flag only gates automatic retry, never the manual entry.
+      headlineRetryable: true,
+      secondaryTexts: secondary,
+    );
+  }
+  if (platformErrorText != null) {
+    return ResolvedStatusMessages(
+      headlineKind: StatusHeadlineKind.runtimeError,
+      headlineText: platformErrorText,
+      headlineRetryable: false,
+      secondaryTexts: <String>[
+        ?runtimeNotice?.text,
+        ?platformMessage,
+        ?shellMessage,
+      ],
+    );
+  }
+  final info = runtimeNotice?.text ?? platformMessage ?? shellMessage;
+  if (info == null) {
+    return const ResolvedStatusMessages(
+      headlineKind: StatusHeadlineKind.none,
+      headlineText: '',
+      headlineRetryable: false,
+      secondaryTexts: <String>[],
+    );
+  }
+  final rest = <String>[
+    if (runtimeNotice == null &&
+        platformMessage != null &&
+        platformMessage != info)
+      platformMessage,
+    if (runtimeNotice != null && platformMessage != null) platformMessage,
+    if (shellMessage != null && shellMessage != info) shellMessage,
+  ];
+  return ResolvedStatusMessages(
+    headlineKind: StatusHeadlineKind.info,
+    headlineText: info,
+    headlineRetryable: false,
+    secondaryTexts: rest,
+  );
+}
+
+/// Result of the original availability test against the actual applied
+/// endpoint (upstream `TestServerAvailability`).
+class AvailabilityProbeResult {
+  const AvailabilityProbeResult({
+    required this.reachable,
+    required this.endpoint,
+    required this.elapsedMs,
+    this.detail,
+  });
+
+  final bool reachable;
+  final String endpoint;
+  final int elapsedMs;
+  final String? detail;
+
+  String get label => reachable
+      ? '可用性 $endpoint 可达 ${elapsedMs}ms'
+      : '可用性 $endpoint 不可达${detail == null ? '' : '（$detail）'}';
+}
+
+/// Probe the actual applied local endpoint with a real loopback TCP connect.
+///
+/// Only ever dials 127.0.0.1 at the given applied port with a bounded timeout;
+/// the reserved 10808 proxy port is never probed. No success is fabricated:
+/// a refused/timeout port reports unreachable with its cause.
+Future<AvailabilityProbeResult> probeLoopbackEndpoint(
+  int port, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final endpoint = '127.0.0.1:$port';
+  if (port == 10808) {
+    return const AvailabilityProbeResult(
+      reachable: false,
+      endpoint: '127.0.0.1:10808',
+      elapsedMs: 0,
+      detail: '保留端口 10808 不探测',
+    );
+  }
+  final stopwatch = Stopwatch()..start();
+  try {
+    final socket = await Socket.connect(
+      InternetAddress.loopbackIPv4,
+      port,
+      timeout: timeout,
+    );
+    socket.destroy();
+    stopwatch.stop();
+    return AvailabilityProbeResult(
+      reachable: true,
+      endpoint: endpoint,
+      elapsedMs: stopwatch.elapsedMilliseconds,
+    );
+  } on Object catch (e) {
+    stopwatch.stop();
+    return AvailabilityProbeResult(
+      reachable: false,
+      endpoint: endpoint,
+      elapsedMs: stopwatch.elapsedMilliseconds,
+      detail: e.toString().split('\n').first,
+    );
+  }
+}
+
+/// Run the original availability test for the actual session (ACT-STAT-004):
+/// double-clicking the running texts (upstream PreviewMouseDown) or the test
+/// button probes the applied endpoint and records real loopback feedback.
+Future<void> runAvailabilityTest(WidgetRef ref) async {
+  final runtime = ref.read(runtimeControllerProvider);
+  final controller = ref.read(runtimeControllerProvider.notifier);
+  final shell = ref.read(uiShellControllerProvider.notifier);
+  final port = runtime.proxyPort;
+  if (port == null) {
+    controller.reportAvailabilityNotice(
+      text: '无已应用端点，未执行可用性测试',
+      severity: RuntimeNoticeSeverity.warning,
+    );
+    shell.setMessage('无已应用端点，未执行可用性测试');
+    return;
+  }
+  shell.setMessage('正在测试 127.0.0.1:$port …');
+  final result = await probeLoopbackEndpoint(port);
+  controller.reportAvailabilityNotice(
+    text: result.label,
+    severity: result.reachable
+        ? RuntimeNoticeSeverity.info
+        : RuntimeNoticeSeverity.warning,
+    operationId: 'avail-$port',
+  );
+  shell.setMessage(result.label);
 }
 
 class _Sep extends StatelessWidget {

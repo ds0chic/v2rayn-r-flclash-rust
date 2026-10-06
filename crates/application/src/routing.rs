@@ -669,4 +669,29 @@ mod tests {
         assert_eq!(kept[0].id, "rt-keep");
         assert_eq!(repo.count(), 1);
     }
+
+    /// SP-13/CP-08: a partial multi-delete reconciles against the
+    /// authoritative store. The committed delete stays gone, the failed id
+    /// stays listed for retry, and a later full read never resurrects it.
+    #[test]
+    fn sp13_partial_delete_reconciles_against_authoritative() {
+        let mut repo = InMemoryRoutingRepository::with_items(vec![
+            RoutingProfile {
+                id: "rt-a".into(),
+                remarks: "synthetic a".into(),
+                ..Default::default()
+            },
+            RoutingProfile {
+                id: "rt-b".into(),
+                remarks: "synthetic b".into(),
+                ..Default::default()
+            },
+        ]);
+        assert!(repo.remove("rt-a").unwrap());
+        assert!(!repo.remove("rt-missing").unwrap());
+        let ids: Vec<String> = repo.list().unwrap().into_iter().map(|p| p.id).collect();
+        assert_eq!(ids, vec!["rt-b".to_string()]);
+        assert_eq!(repo.count(), 1);
+        assert!(repo.get("rt-a").unwrap().is_none());
+    }
 }

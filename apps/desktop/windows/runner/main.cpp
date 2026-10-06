@@ -6,6 +6,7 @@
 #include <string>
 
 #include "flutter_window.h"
+#include "hwa_rendering.h"
 #include "runner_messages.h"
 #include "utils.h"
 
@@ -122,6 +123,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   flutter::DartProject project(L"data");
+
+  // SP-26: resolve EnableHWA before the engine exists (Dart/FRB are not up
+  // yet) and apply the renderer mapping. HWA-only CLI flags are consumed
+  // here so they never reach Dart. Restart-to-apply matches upstream: the
+  // mapping is fixed for the process lifetime.
+  const bool enable_hwa =
+      hwa::ResolveHardwareAcceleration(command_line_arguments);
+  hwa::StripHwaFlags(command_line_arguments);
+  hwa::ApplyHardwareAcceleration(project, enable_hwa);
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 

@@ -795,6 +795,141 @@ impl ClashApiService {
     }
 }
 
+// ---------------------------------------------------------------------------
+// SP-20 prep: connection column layout + close-target freeze (no I/O).
+//
+// Upstream reference (v2rayN 7.25.4 / 7d6a967, read-only `work/`):
+// `ClashConnectionsView.xaml` defaults Host=300 / Chain=500 / Network=80 /
+// Type=160 / ProcessPath=100 / Elapsed=100; `RestoreUI` restores by
+// `ConnectionsColumnItem.OrderBy(Index)` (width applied only when > 0);
+// `StorageUI` writes Name/ActualWidth/DisplayIndex back on exit.
+// `ClashConnectionsViewModel` freezes `SelectedSource.Id` for a single close
+// (empty id is not executable) and uses a separate empty-id path for close-all.
+//
+// Prep scope only: pure layout normalization over `domain::ColumnDefinition`
+// rows plus close-request freeze/staleness checks. Real connection management
+// (endpoint+generation binding, FRB/runtime wiring) waits on SP-17 (A08) and
+// lives outside this module. No socket, process, or OS state is touched here.
+
+/// Canonical connection columns: `(name, default width)` in upstream order.
+pub const DEFAULT_CONNECTION_COLUMNS: [(&str, i32); 6] = [
+    ("Host", 300),
+    ("Chain", 500),
+    ("Network", 80),
+    ("Type", 160),
+    ("ProcessPath", 100),
+    ("Elapsed", 100),
+];
+
+/// Build the upstream default column rows (`Index` 0..n-1).
+pub fn default_connection_columns() -> Vec<domain::ColumnDefinition> {
+    DEFAULT_CONNECTION_COLUMNS
+        .iter()
+        .enumerate()
+        .map(|(index, (name, width))| domain::ColumnDefinition {
+            name: (*name).to_string(),
+            width: *width,
+            index: index as i32,
+            ..Default::default()
+        })
+        .collect()
+}
+
+/// Normalize persisted `ConnectionsColumnItem` rows into visible order.
+///
+/// Mirrors upstream `RestoreUI`: order by `Index`, keep known names only,
+/// fall back to the upstream default width when `Width <= 0`, append missing
+/// defaults in canonical order, then re-number `Index` 0..n-1 for the next
+/// `StorageUI` write-back.
+pub fn normalize_connection_columns(
+    persisted: Vec<domain::ColumnDefinition>,
+) -> Vec<domain::ColumnDefinition> {
+    // De-duplicate by name, keeping the smallest (`Index`, first-seen) row and
+    // remembering its effective width.
+    let mut ranked: HashMap<String, (i32, usize, i32)> = HashMap::new();
+    for (seen, row) in persisted.into_iter().enumerate() {
+        let Some((_, default_width)) = DEFAULT_CONNECTION_COLUMNS
+            .iter()
+            .find(|(name, _)| *name == row.name.as_str())
+        else {
+            continue;
+        };
+        let width = if row.width > 0 {
+            row.width
+        } else {
+            *default_width
+        };
+        match ranked.entry(row.name.clone()) {
+            std::collections::hash_map::Entry::Vacant(slot) => {
+                slot.insert((row.index, seen, width));
+            }
+            std::collections::hash_map::Entry::Occupied(mut slot) => {
+                if (row.index, seen) < (slot.get().0, slot.get().1) {
+                    slot.insert((row.index, seen, width));
+                }
+            }
+        }
+    }
+    let mut ordered: Vec<(String, i32, i32)> = ranked
+        .iter()
+        .map(|(name, (index, _, width))| (name.clone(), *index, *width))
+        .collect();
+    ordered.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+    let mut names: Vec<String> = ordered.iter().map(|(name, _, _)| name.clone()).collect();
+    for (name, _) in DEFAULT_CONNECTION_COLUMNS {
+        if !names.iter().any(|n| n == name) {
+            names.push(name.to_string());
+        }
+    }
+    let widths: HashMap<String, i32> = ordered
+        .into_iter()
+        .map(|(name, _, width)| (name, width))
+        .collect();
+    names
+        .into_iter()
+        .enumerate()
+        .map(|(index, name)| {
+            let width = widths.get(name.as_str()).copied().unwrap_or_else(|| {
+                DEFAULT_CONNECTION_COLUMNS
+                    .iter()
+                    .find(|(n, _)| *n == name.as_str())
+                    .map(|(_, w)| *w)
+                    .unwrap_or(0)
+            });
+            domain::ColumnDefinition {
+                name,
+                width,
+                index: index as i32,
+                ..Default::default()
+            }
+        })
+        .collect()
+}
+
+/// A frozen single-close request: `id` + session `generation` captured together.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConnectionCloseRequest {
+    pub id: String,
+    pub generation: u64,
+}
+
+/// Freeze a single-close target. Empty ids return `None` (mirrors upstream
+/// `canEditRemove`); close-all uses its own path, never an empty single id.
+pub fn freeze_close_request(id: &str, generation: u64) -> Option<ConnectionCloseRequest> {
+    if id.is_empty() {
+        return None;
+    }
+    Some(ConnectionCloseRequest {
+        id: id.to_string(),
+        generation,
+    })
+}
+
+/// Only a response from the current generation may touch the live read model.
+pub fn close_response_is_current(request_generation: u64, current_generation: u64) -> bool {
+    request_generation == current_generation
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1129,5 +1264,78 @@ mod tests {
         // Compile-time check that `LogService::clear` can rebuild a ring.
         let ring = RingBuffer::new(1, 0);
         assert!(ring.is_empty());
+    }
+
+    // -- SP-20 prep: column layout + close freeze (synthetic only, no I/O) --
+
+    fn column(name: &str, width: i32, index: i32) -> domain::ColumnDefinition {
+        domain::ColumnDefinition {
+            name: name.to_string(),
+            width,
+            index,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn connection_column_defaults_match_upstream_xaml() {
+        let defaults = default_connection_columns();
+        let pairs: Vec<(&str, i32, i32)> = defaults
+            .iter()
+            .map(|c| (c.name.as_str(), c.width, c.index))
+            .collect();
+        assert_eq!(
+            pairs,
+            vec![
+                ("Host", 300, 0),
+                ("Chain", 500, 1),
+                ("Network", 80, 2),
+                ("Type", 160, 3),
+                ("ProcessPath", 100, 4),
+                ("Elapsed", 100, 5),
+            ]
+        );
+    }
+
+    #[test]
+    fn normalize_orders_drops_unknown_clamps_and_fills() {
+        let out = normalize_connection_columns(vec![
+            column("Elapsed", 120, 0),
+            column("Nope", 50, 1),
+            column("Host", 0, 5),
+            column("Chain", -3, 2),
+        ]);
+        let names: Vec<&str> = out.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["Elapsed", "Chain", "Host", "Network", "Type", "ProcessPath"]
+        );
+        let widths: Vec<i32> = out.iter().map(|c| c.width).collect();
+        assert_eq!(widths, vec![120, 500, 300, 80, 160, 100]);
+        let indexes: Vec<i32> = out.iter().map(|c| c.index).collect();
+        assert_eq!(indexes, vec![0, 1, 2, 3, 4, 5]);
+    }
+
+    #[test]
+    fn normalize_storage_roundtrip_is_stable() {
+        let first =
+            normalize_connection_columns(vec![column("Type", 170, 0), column("Host", 310, 1)]);
+        // Independent reopen: feed the stored rows back.
+        let second = normalize_connection_columns(first.clone());
+        let names = |rows: &[domain::ColumnDefinition]| {
+            rows.iter().map(|c| c.name.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(names(&first), names(&second));
+        assert_eq!(first[0].width, 170);
+        assert_eq!(second[0].width, 170);
+    }
+
+    #[test]
+    fn freeze_close_rejects_empty_id_and_checks_generation() {
+        assert!(freeze_close_request("", 7).is_none());
+        let request = freeze_close_request("conn-1", 7).expect("frozen");
+        assert_eq!(request.id, "conn-1");
+        assert!(close_response_is_current(request.generation, 7));
+        assert!(!close_response_is_current(request.generation, 8));
     }
 }

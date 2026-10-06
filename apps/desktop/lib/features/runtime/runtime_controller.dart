@@ -224,6 +224,14 @@ class RuntimeController extends Notifier<RuntimeView> {
             commandPending: _commandBusy,
             pendingCommands: _pendingCount,
             staleResponsesDropped: _staleResponsesDropped,
+            // SP-17: a snapshot replace must not drop the UI-side intent and
+            // failure identity (failed target/operation/notice for retry and
+            // message ordering); the snapshot carries actual facts only.
+            attemptedTargetId: state.attemptedTargetId,
+            failedTargetId: state.failedTargetId,
+            failureOperationId: state.failureOperationId,
+            failedAtMs: state.failedAtMs,
+            notice: state.notice,
           );
         } on Object catch (e) {
           if (generation != _stateGeneration) {
@@ -265,14 +273,50 @@ class RuntimeController extends Notifier<RuntimeView> {
     _enqueue(command);
     // Local pending is visible synchronously, before any await: the UI shows
     // "requesting" immediately without claiming the backend is running.
+    // SP-17: remember the frozen explicit target so a failure can name it
+    // for view/retry while the view keeps describing the retained actual.
     state = state.copyWith(
       clearError: true,
       commandPending: true,
       pendingCommands: _pendingCount,
       reconcileNeeded: false,
+      attemptedTargetId: targetId,
+      clearAttempted: targetId == null,
     );
     unawaited(_pumpCommands());
     return waiter.future;
+  }
+
+  /// SP-17: re-attempt the latest failed target (or the default path when the
+  /// failure carries no explicit target). Returns false when there is no
+  /// current failure to retry; never invents a target.
+  Future<bool> retryFailed() {
+    final failed = state.failedTargetId;
+    if (!state.hasCurrentFailure) return Future.value(false);
+    if (failed != null) return applyActive(targetId: failed);
+    return applyActive();
+  }
+
+  /// SP-17: store a timestamped availability notice (real loopback feedback
+  /// from the status bar probe). Shown by recency, never covering an error.
+  void reportAvailabilityNotice({
+    required String text,
+    RuntimeNoticeSeverity severity = RuntimeNoticeSeverity.info,
+    String? operationId,
+  }) {
+    state = state.copyWith(
+      notice: RuntimeNotice(
+        text: text,
+        severity: severity,
+        atMs: clock().millisecondsSinceEpoch,
+        operationId: operationId,
+      ),
+    );
+  }
+
+  /// Drop the current availability notice (e.g. a newer command superseded it).
+  void clearAvailabilityNotice() {
+    state = state.copyWith(clearNotice: true);
   }
 
   /// Append [command] to the authoritative sequence. Only an unstarted apply
@@ -361,6 +405,7 @@ class RuntimeController extends Notifier<RuntimeView> {
   Future<void> _reconcileUnknown(
     RuntimeErrorView error, {
     String? operationId,
+    String? failedTargetId,
   }) async {
     final id = operationId;
     if (id != null) {
@@ -375,7 +420,15 @@ class RuntimeController extends Notifier<RuntimeView> {
     } on Object catch (_) {
       // Even a failed re-read must not hide the unknown outcome.
     }
-    state = state.copyWith(error: error, reconcileNeeded: true);
+    // SP-17: the reconciled failure still names its target for view/retry;
+    // the refreshed view keeps describing the retained actual session.
+    state = state.copyWith(
+      error: error,
+      reconcileNeeded: true,
+      failedTargetId: failedTargetId,
+      failureOperationId: operationId,
+      failedAtMs: clock().millisecondsSinceEpoch,
+    );
   }
 
   /// Returns true only when the submitted plan really applied; a void
@@ -393,6 +446,9 @@ class RuntimeController extends Notifier<RuntimeView> {
         }
         if (result.ok) {
           await refresh();
+          // A completed stop ends the previous failure context: the view is
+          // honestly Stopped, not a stale retry offer for an older target.
+          state = state.copyWith(clearFailed: true, clearAttempted: true);
           return true;
         }
         if (_isUnknownOutcome(result.error)) {
@@ -444,22 +500,35 @@ class RuntimeController extends Notifier<RuntimeView> {
           await _reconcileUnknown(
             result.error ?? _unknownError(),
             operationId: result.operationId,
+            failedTargetId: command.targetId,
           );
           return false;
         }
         // Keep the structured error; do not let the follow-up snapshot (which
-        // reports Stopped) erase the reason apply failed.
-        state = state.copyWith(error: result.error ?? _unknownError());
+        // reports Stopped) erase the reason apply failed. SP-17: the retained
+        // actual view is untouched (copyWith keeps state/ports/session) while
+        // the failure names its target for view/retry.
+        state = state.copyWith(
+          error: result.error ?? _unknownError(),
+          failedTargetId: command.targetId,
+          failureOperationId: result.operationId,
+          failedAtMs: clock().millisecondsSinceEpoch,
+        );
         return false;
       }
       await refresh();
+      state = state.copyWith(clearFailed: true, clearAttempted: true);
       return true;
     } on Object catch (e) {
       if (generation != _stateGeneration) {
         _noteStaleResponse();
         return false;
       }
-      await _reconcileUnknown(_bridgeError(e), operationId: null);
+      await _reconcileUnknown(
+        _bridgeError(e),
+        operationId: null,
+        failedTargetId: command.targetId,
+      );
       return false;
     }
   }

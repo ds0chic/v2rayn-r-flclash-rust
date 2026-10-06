@@ -8,6 +8,7 @@
 use std::time::Duration;
 
 use domain::{codes, DomainError};
+use updater::tls::HttpsTrust;
 
 /// Upstream default remote directory (`BackupAndRestoreViewModel`).
 pub const DEFAULT_DIR: &str = "v2rayN_backup";
@@ -87,11 +88,23 @@ pub struct WebDavClient {
 impl WebDavClient {
     /// Build a client for `config`. `proxy` is an explicit endpoint (the
     /// running session's local port); `None` stays direct so loopback test
-    /// servers are always reachable.
+    /// servers are always reachable. Trust is the OS/native store; see
+    /// [`Self::new_with_tls`] for the `RootCertProvider` selection.
     pub fn new(
         config: WebDavConfig,
         timeout: Duration,
         proxy: Option<&str>,
+    ) -> Result<Self, DomainError> {
+        Self::new_with_tls(config, timeout, proxy, &HttpsTrust::System)
+    }
+
+    /// Build a client trusting `trust` (SP-25 `RootCertProvider` consumer).
+    /// `BundledPem` trusts exactly the bundle, never the OS store.
+    pub fn new_with_tls(
+        config: WebDavConfig,
+        timeout: Duration,
+        proxy: Option<&str>,
+        trust: &HttpsTrust,
     ) -> Result<Self, DomainError> {
         if config.url.trim().is_empty() {
             return Err(webdav_error(
@@ -107,9 +120,13 @@ impl WebDavClient {
                 "url must be http(s)",
             ));
         }
-        let mut builder = reqwest::Client::builder()
-            .timeout(timeout)
-            .connect_timeout(Duration::from_secs(10));
+        let mut builder = updater::tls::apply_trust(
+            reqwest::Client::builder()
+                .timeout(timeout)
+                .connect_timeout(Duration::from_secs(10)),
+            trust,
+        )
+        .map_err(|e| webdav_error(codes::INTERNAL, "error.webdav_client", e))?;
         builder = match proxy.map(str::trim).filter(|s| !s.is_empty()) {
             Some(url) => builder.proxy(reqwest::Proxy::all(url).map_err(|e| {
                 webdav_error(codes::FIELD_FORMAT, "error.webdav_proxy", e.to_string())
@@ -163,6 +180,12 @@ impl WebDavClient {
         if err.is_timeout() {
             DomainError::new(codes::TIMEOUT, "error.webdav_timeout")
                 .with_detail(err.to_string())
+                .retryable()
+        } else if let Some(detail) = updater::tls::trust_failure_of(&err) {
+            // A rejected peer certificate under the selected trust roots. The
+            // detail carries only the certificate error, never credentials.
+            DomainError::new(codes::UNAVAILABLE, "error.webdav_tls")
+                .with_detail(format!("tls trust rejected: {detail}"))
                 .retryable()
         } else {
             DomainError::new(codes::UNAVAILABLE, "error.webdav_network")

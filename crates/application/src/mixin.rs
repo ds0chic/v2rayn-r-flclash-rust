@@ -267,6 +267,37 @@ mod tests {
     }
 
     #[test]
+    fn ipv6_rewrite_follows_switch_unconditionally() {
+        // Upstream `CoreConfigClashService` assigns `fileContent["ipv6"]`
+        // unconditionally, so OFF overwrites a carried `ipv6: true`.
+        let base = "ipv6: true\nmode: rule\n";
+        let on = generate_mihomo(
+            base,
+            None,
+            None,
+            &MixinOptions {
+                ipv6: true,
+                ..MixinOptions::default()
+            },
+        )
+        .unwrap();
+        assert!(on.contains("ipv6: true"), "{on}");
+        let off = generate_mihomo(base, None, None, &MixinOptions::default()).unwrap();
+        assert!(off.contains("ipv6: false"), "{off}");
+    }
+
+    #[test]
+    fn mixin_merge_skipped_when_disabled() {
+        let mixin = "rules:\n  - MATCH,DIRECT\n";
+        let opts = MixinOptions {
+            mixin_enabled: false,
+            ..MixinOptions::default()
+        };
+        let out = generate_mihomo(BASE, Some(mixin), None, &opts).unwrap();
+        assert!(!out.contains("MATCH,DIRECT"), "{out}");
+    }
+
+    #[test]
     fn rejects_non_mapping_base() {
         let err = generate_mihomo(
             "- just\n- a\n- list\n",

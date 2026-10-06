@@ -1,0 +1,53 @@
+# SP-25 真实命令记录（2026-10-06，基线 788adf6）
+
+## 1. RED：合同缺失（实现前）
+
+$ cargo test -p subscriptions -p updater --locked --test tls_trust
+error[E0432]: unresolved import `subscriptions::tls`
+ --> crates\subscriptions\tests\tls_trust.rs:5:20
+error[E0432]: unresolved import `subscriptions::build_client_with_trust`
+ --> crates\subscriptions\tests\tls_trust.rs:6:35
+error: could not compile `subscriptions` (test "tls_trust") due to 2 previous errors
+exit != 0（红得证）
+
+## 2. GREEN：离线合同 + 全包回归（实现后）
+
+$ cargo test -p subscriptions -p updater --locked --test tls_trust
+running 5 tests (subscriptions) ... ok. 5 passed; 0 failed
+running 4 tests (updater) ... ok. 4 passed; 0 failed
+exit 0
+
+$ cargo test -p subscriptions -p updater --locked
+22 个 suite 全部 ok，合计 313 passed; 0 failed（单项见上：69/11/23/9/13/18/5/
+69/2/9/11/10/14/14/3/1/10/5/4/13/0/0；含新增 tls_trust 5+4 与 tls 单元测试）。
+exit 0
+
+## 3. 格式（本卡 12 文件）
+
+$ rustfmt --edition 2021 --check <12 files>
+FMT_EXIT=0
+
+## 4. Clippy（定向）
+
+$ cargo clippy -p subscriptions -p updater --all-targets --locked -- -D warnings
+Finished dev profile; CLIPPY_EXIT=0
+（中途 `derivable_impl` 已按建议改为 derive(Default)+#[default]。）
+
+## 5. application（阻塞，未运行，如实记录）
+
+$ cargo test -p application --locked --test sp25_root_cert_trust
+error: unexpected closing delimiter: `}`
+   --> crates\application\src\dns.rs:664:1
+error: could not compile `application` (lib) due to 1 previous error
+原因：工作树中外卡 SP-13 对 dns.rs 的改动提前闭合 `mod tests`（`git diff`
+`crates/application/src/dns.rs` +30 行，非本卡文件，未碰）。
+本卡 application 文件仅过 rustfmt 解析（语法有效）；类型检查与 live 运行待
+对方修复后执行：
+  cargo test -p application --locked --test sp25_root_cert_trust
+  cargo test -p application --locked --test t16_webdav --test t16_update
+  cargo clippy -p application --all-targets --locked -- -D warnings
+
+## 6. 未运行
+
+- `flutter analyze/test/build`：本卡无 Dart 改动，按 VALIDATION_POLICY 不跑。
+- workspace 全量门禁：发布候选（SP-34）范围，不在本卡刷。

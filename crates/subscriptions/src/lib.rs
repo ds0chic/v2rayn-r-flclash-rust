@@ -17,11 +17,13 @@ pub mod error;
 pub mod fmt;
 pub mod merge;
 pub mod parse;
+pub mod tls;
 pub mod util;
 
 pub use convert::{build_convert_url, punycode_url};
 pub use download::{
-    build_client, download_string, DownloadOptions, Downloaded, Downloader, ProxyConfig,
+    build_client, build_client_with_trust, download_string, DownloadOptions, Downloaded,
+    Downloader, ProxyConfig,
 };
 pub use error::{ParseIssue, SubError};
 pub use fmt::{
@@ -33,4 +35,5 @@ pub use merge::{
     RefreshOutcome,
 };
 pub use parse::{parse_content, ContentHint, ParseOptions, ParseResult, ParsedFormat};
+pub use tls::HttpsTrust;
 pub use util::CancellationWatcher;

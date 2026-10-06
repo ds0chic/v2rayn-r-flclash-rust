@@ -11,11 +11,20 @@ class RuntimeErrorView {
     required this.code,
     required this.messageKey,
     this.detail,
+    this.retryable = false,
+    this.operationId,
   });
 
   final String code;
   final String messageKey;
   final String? detail;
+
+  /// Whether the failed operation may be retried (mirrors `ErrorDto.retryable`).
+  final bool retryable;
+
+  /// Backend operation that produced this error, when known (SP-17 failure
+  /// identity for view/retry; mirrors `ErrorDto.operation_id`).
+  final String? operationId;
 
   @override
   String toString() =>
@@ -35,6 +44,27 @@ class RuntimeTunView {
   final int interfaceIndex;
   final int routeCount;
   final bool dryRun;
+}
+
+/// Severity of a status-bar notice (SP-17 message ordering).
+enum RuntimeNoticeSeverity { info, warning, error }
+
+/// A timestamped status-bar notice: availability results and other transient
+/// feedback. Carries time/severity/operation identity so the status bar can
+/// order it against older platform/shell messages instead of letting a stale
+/// message cover a newer result.
+class RuntimeNotice {
+  const RuntimeNotice({
+    required this.text,
+    required this.severity,
+    required this.atMs,
+    this.operationId,
+  });
+
+  final String text;
+  final RuntimeNoticeSeverity severity;
+  final int atMs;
+  final String? operationId;
 }
 
 /// A read model of the runtime, assembled only from snapshot/events.
@@ -58,6 +88,11 @@ class RuntimeView {
     this.pendingCommands = 0,
     this.staleResponsesDropped = 0,
     this.reconcileNeeded = false,
+    this.attemptedTargetId,
+    this.failedTargetId,
+    this.failureOperationId,
+    this.failedAtMs,
+    this.notice,
   });
 
   final String state;
@@ -94,6 +129,26 @@ class RuntimeView {
   /// reconciled from a fresh snapshot instead of being reported as a success or
   /// a definitive failure (R4-04).
   final bool reconcileNeeded;
+
+  /// Explicit target frozen at click time for the in-flight/queued apply
+  /// (SP-17); null for the default-path apply. UI-side intent record only,
+  /// never a substitute for the backend actual descriptor.
+  final String? attemptedTargetId;
+
+  /// Explicit target of the latest failed apply (SP-17 failure identity).
+  /// The running view still describes the retained actual session; this field
+  /// only tells retry/view-failure where to point. Cleared on success.
+  final String? failedTargetId;
+
+  /// Backend operation that produced the current failure, when known.
+  final String? failureOperationId;
+
+  /// Wall-clock ms when the current failure was recorded (message ordering).
+  final int? failedAtMs;
+
+  /// Latest timestamped notice (availability result, …). Shown by recency,
+  /// never covering a current error.
+  final RuntimeNotice? notice;
 
   /// Last event epoch observed by the controller (event stream only; the
   /// snapshot does not carry it). Used to detect a reconnecting/restarted host.
@@ -180,6 +235,30 @@ class RuntimeView {
     return '未运行';
   }
 
+  /// SP-17 actual summary for the status bar: built only from actual snapshot
+  /// facts (state/session/ports/applied revision/exit). A failed switch keeps
+  /// describing the retained actual session; the desired target is never shown
+  /// here as if it had applied.
+  String get actualSummaryLabel {
+    if (isRunning) {
+      final shortSession = sessionId == null
+          ? ''
+          : ' ${sessionId!.length > 12 ? '${sessionId!.substring(0, 12)}…' : sessionId!}';
+      final portText = ports.isEmpty ? '' : ' 端口=${ports.join(',')}';
+      final pidText = pid == null ? '' : ' PID=$pid';
+      return '运行中$shortSession$portText$pidText';
+    }
+    return exitStatusLabel;
+  }
+
+  /// A current structured failure is present (visible, retryable via the
+  /// recorded [failedTargetId]).
+  bool get hasCurrentFailure => error != null;
+
+  /// True when the current failure remembers its target, so the status bar can
+  /// offer view-failure/retry against the failed attempt (never a guess).
+  bool get canRetryFailed => error != null && failedTargetId != null;
+
   RuntimeView copyWith({
     RuntimeErrorView? error,
     bool clearError = false,
@@ -192,6 +271,14 @@ class RuntimeView {
     int? pendingCommands,
     int? staleResponsesDropped,
     bool? reconcileNeeded,
+    String? attemptedTargetId,
+    bool clearAttempted = false,
+    String? failedTargetId,
+    bool clearFailed = false,
+    String? failureOperationId,
+    int? failedAtMs,
+    RuntimeNotice? notice,
+    bool clearNotice = false,
   }) {
     return RuntimeView(
       state: state,
@@ -213,6 +300,17 @@ class RuntimeView {
       staleResponsesDropped:
           staleResponsesDropped ?? this.staleResponsesDropped,
       reconcileNeeded: reconcileNeeded ?? this.reconcileNeeded,
+      attemptedTargetId: clearAttempted
+          ? null
+          : (attemptedTargetId ?? this.attemptedTargetId),
+      failedTargetId: clearFailed
+          ? null
+          : (failedTargetId ?? this.failedTargetId),
+      failureOperationId: clearFailed
+          ? null
+          : (failureOperationId ?? this.failureOperationId),
+      failedAtMs: clearFailed ? null : (failedAtMs ?? this.failedAtMs),
+      notice: clearNotice ? null : (notice ?? this.notice),
     );
   }
 }
@@ -445,6 +543,8 @@ class FrbRuntimeBridge
       code: e.code,
       messageKey: e.messageKey,
       detail: e.detail,
+      retryable: e.retryable,
+      operationId: e.operationId,
     );
   }
 }

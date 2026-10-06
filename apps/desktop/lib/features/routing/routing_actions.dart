@@ -83,6 +83,55 @@ RoutingEditorSnapshot _buildRoutingSnapshot(WidgetRef ref) {
   );
 }
 
+/// SP-13: whole-window 确定 delete set.
+///
+/// Incremental windows already committed every scheme mutation, so 确定 must
+/// never delete from the stale full set (a concurrently added scheme, or a
+/// scheme touched after the last commit, would be clobbered). Legacy windows
+/// (no commit capability) still replay missing-ids as deletes.
+List<String> routingCommitDeletes({
+  required bool incrementalCommitted,
+  required Set<String> draftIds,
+  required List<r.RoutingProfileDto> authoritative,
+}) {
+  if (incrementalCommitted) return const <String>[];
+  return <String>[
+    for (final item in authoritative)
+      if (!draftIds.contains(item.id)) item.id,
+  ];
+}
+
+/// SP-13: verify one incremental commit against the authoritative snapshot
+/// re-queried after the write. Returns null when consistent, else a
+/// user-facing message. A mismatch is an unknown result: the caller reports
+/// failure and must not replay the write.
+String? verifyRoutingIncrement({
+  required String kind,
+  required String id,
+  required List<r.RoutingProfileDto> authoritative,
+}) {
+  switch (kind) {
+    case 'deleteScheme':
+      // Deleted id must be gone; still present means the commit is unconfirmed.
+      if (authoritative.any((e) => e.id == id)) {
+        return '删除路由方案失败';
+      }
+      return null;
+    case 'saveScheme':
+      if (authoritative.any((e) => e.id == id)) return null;
+      return '保存路由设置失败';
+    case 'setDefault':
+      // Active promotion follows the authoritative snapshot (concurrent or
+      // reopen changes win; never blind-overwrite here).
+      for (final item in authoritative) {
+        if (item.isActive) return item.id == id ? null : '切换默认路由失败';
+      }
+      return '切换默认路由失败';
+    default:
+      return null;
+  }
+}
+
 /// Persist a draft relayed from the routing window through the existing
 /// routing save/delete/set-default + settings-group paths, then reload the
 /// runtime so the change takes effect only after a successful save.
@@ -105,6 +154,15 @@ Future<RoutingEditorOutcome> _applyRoutingDraft(
   final decoded = decodeRoutingDraft(draftJson);
   if (decoded == null) {
     return const RoutingEditorOutcome(ok: false, message: '保存路由设置失败');
+  }
+  // SP-13: incremental windows already persisted every scheme mutation.
+  // Upstream `RoutingSettingViewModel.SaveSettingsAsync` stores only the two
+  // DomainStrategy fields here; the stale full set is never replayed (no
+  // resurrection of committed deletes, no clobber of concurrent additions).
+  // The authoritative list is re-queried so active promotion follows backend
+  // truth; 取消/close paths write nothing (window `_cancel` only closes).
+  if (decoded.incrementalCommitted) {
+    return _applyIncrementalOk(ref, decoded);
   }
   final controller = ref.read(routingControllerProvider.notifier);
   // Snapshot the pre-edit list so deletion detection is not affected by the
@@ -182,19 +240,21 @@ Future<RoutingEditorOutcome> _applyRoutingAction(
       if (!result.ok) {
         return _actionError(result.error?.messageKey);
       }
-      return _reloadAfterCommit(ref);
+      return _reloadAfterVerifiedCommit(ref, 'saveScheme', scheme.profile.id);
     case 'deleteScheme':
-      final result = controller.delete(action['id'] as String? ?? '');
+      final deleteId = action['id'] as String? ?? '';
+      final result = controller.delete(deleteId);
       if (!result.ok) {
         return _actionError(result.error?.messageKey);
       }
-      return _reloadAfterCommit(ref);
+      return _reloadAfterVerifiedCommit(ref, 'deleteScheme', deleteId);
     case 'setDefault':
-      final result = controller.setDefault(action['id'] as String? ?? '');
+      final defaultId = action['id'] as String? ?? '';
+      final result = controller.setDefault(defaultId);
       if (!result.ok) {
         return _actionError(result.error?.messageKey);
       }
-      return _reloadAfterCommit(ref);
+      return _reloadAfterVerifiedCommit(ref, 'setDefault', defaultId);
     case 'strategy':
       final settings = ref.read(settingsControllerProvider.notifier);
       final group = Map<String, dynamic>.of(
@@ -233,6 +293,48 @@ Future<RoutingEditorOutcome> _applyRoutingAction(
     default:
       return const RoutingEditorOutcome(ok: false, message: '未知的路由操作');
   }
+}
+
+/// SP-13 whole-window 确定 for incremental windows: persist only the two
+/// upstream strategy fields (via the existing settings save path, whose
+/// SP-12 receipt/retry contract stays untouched), then re-query the
+/// authoritative scheme list. Scheme rows are never written from the stale
+/// draft, and active promotion follows backend truth.
+Future<RoutingEditorOutcome> _applyIncrementalOk(
+  WidgetRef ref,
+  RoutingDraftDecoded decoded,
+) async {
+  final settings = ref.read(settingsControllerProvider.notifier);
+  final result = settings.saveGroup('RoutingBasicItem', <String, dynamic>{
+    ...ref.read(settingsControllerProvider).group('RoutingBasicItem'),
+    'DomainStrategy': decoded.domainStrategy,
+    'DomainStrategy4Singbox': decoded.domainStrategySbox,
+  });
+  if (!result.ok) {
+    return const RoutingEditorOutcome(ok: false, message: '保存路由策略失败');
+  }
+  ref.read(routingControllerProvider.notifier).reload();
+  return _reloadAfterCommit(ref);
+}
+
+/// SP-13: re-query the authoritative scheme list after an incremental write
+/// and verify it before the runtime reload. A mismatch is reported as failure
+/// without replaying the write (unknown result must not repeat effects).
+Future<RoutingEditorOutcome> _reloadAfterVerifiedCommit(
+  WidgetRef ref,
+  String kind,
+  String id,
+) async {
+  ref.read(routingControllerProvider.notifier).reload();
+  final mismatch = verifyRoutingIncrement(
+    kind: kind,
+    id: id,
+    authoritative: ref.read(routingControllerProvider).items,
+  );
+  if (mismatch != null) {
+    return RoutingEditorOutcome(ok: false, message: mismatch);
+  }
+  return _reloadAfterCommit(ref);
 }
 
 /// Reload the runtime after a successful routing write and report whether the

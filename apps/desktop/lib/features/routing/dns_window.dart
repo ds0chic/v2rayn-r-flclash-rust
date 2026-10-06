@@ -740,6 +740,14 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
   /// window open without a success report; `applyAfter` additionally applies
   /// the real plan after a successful save-and-close.
   void _save({bool applyAfter = false}) {
+    // SP-13/CP-08: a failed read must not become a write. Without a baseline
+    // the draft is empty and saving it would wipe stored DNS rows. Cancel
+    // still closes; reopening retries the read.
+    if (ref.read(dnsControllerProvider).loadFailed) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('读取 DNS 设置失败，请重试')));
+      return;
+    }
     final invalid = _validateCustomTexts();
     if (invalid != null) {
       ScaffoldMessenger.of(context)

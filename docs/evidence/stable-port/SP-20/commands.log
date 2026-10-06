@@ -1,0 +1,48 @@
+SP-20 prep command log (baseline 788adf6, no commit). Workdir root unless noted (apps/desktop for flutter).
+
+R1 RED (apps/desktop): flutter test test/repair/sp_20_connections_prep_test.dart
+  -> exit 1. Error: missing lib/features/monitor/connections_columns.dart
+     (method-not-found cascade). Red contract established before fix.
+
+R2 Rust fmt (root): cargo fmt -p application -- --check
+  -> exit 1 first (own new section needed reflow), then `cargo fmt -p application`
+     (own package only), re-check -> exit 0.
+
+R3 Clippy (root): cargo clippy -p application --all-targets --locked -- -D warnings
+  -> exit 0 (with SP-20 monitor.rs change present).
+
+R4 Rust lib tests (root): cargo test -p application --locked --lib
+  -> 315 passed / 0 failed (with SP-20 change present; before parallel-card breakage).
+
+R5 GREEN (apps/desktop): flutter test test/repair/sp_20_connections_prep_test.dart
+  -> All tests passed, 9/9 (defaults / normalize / storage roundtrip /
+     close freeze+staleness+close-all / synthetic 1k+10k, no sockets).
+
+R6 Dart format (apps/desktop):
+  dart format --output=none --set-exit-if-changed \
+    lib/features/monitor/connections_columns.dart test/repair/sp_20_connections_prep_test.dart
+  -> exit 0 after one write-format of the test file.
+
+R7 Analyze (apps/desktop): flutter analyze
+  -> 7 issues, all info-level in other cards' files (status_bar_view.dart etc.);
+     zero in SP-20 files.
+
+R8 Affected monitor tests (apps/desktop):
+  flutter test test/repair/sp_20_connections_prep_test.dart
+    test/fix16c_clash_ui_config_test.dart test/fix11_monitor_session_test.dart
+    test/fix11b_clash_panel_test.dart test/fix11c_logs_test.dart
+  -> run1: 2 fix11b items `did not complete` (no assertion failure; file untouched
+     by this card); run2: All tests passed (+32).
+
+R9 Rust re-run BLOCKED (root): cargo test -p application --locked --lib
+  -> compile error in OTHER cards' in-flight files, outside SP-20 write lock:
+     crates/application/src/dns.rs:664 unexpected closing delimiter;
+     crates/config_codegen/src/xray/dns.rs:225 mismatched types.
+     Not fixed here (single-writer rule). Re-run left to integrator.
+
+R10 Isolated harness (TEMP, exact SP-20 bodies, mechanical type-stub swap only):
+  rustc --edition 2021 --test TEMP/opencode/sp20_monitor_prep.rs -> 0 warnings;
+  binary -> 4/4 passed (defaults / normalize / roundtrip / freeze+staleness).
+
+NOT RUN (per VALIDATION_POLICY.md, no native/AOT wiring changed; full gate is SP-34):
+  flutter build windows --release; cargo test --workspace; tools/gates/run_all.ps1.

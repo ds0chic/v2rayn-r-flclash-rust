@@ -1,0 +1,10 @@
+# 定向检查日志摘录（apps/desktop）
+
+- dart format（7 自有文件）：Formatted 7 files（首轮 4 changed），复检 0 changed，exit 0。
+- flutter analyze：No issues found! exit 0（中途 6 info 均为新增代码，已修）。
+- flutter test sp_17 四文件：00:03 +10 All tests passed（首批 3 文件）；sp_17_status_bar 00:00 +2 All tests passed。
+  合计 sp_17_* 12/12 pass，exit 0（一次瞬态 loading flake，重跑即绿，属已知 flutter_tester flake）。
+- 既有：runtime_controller_test + sp_04_runtime_sequence + recheck_r01 + sp_17 三单测同批：+29 All tests passed，exit 0。
+  t13（2）、t15a（2）：单文件各 +2 pass，exit 0。
+- t18b：+1 pass 后第 2/3 项 did not complete；干净 worktree@788adf6 基线复现相同挂起（既有，非本卡引入）。
+- Rust：未改动，未运行 cargo 相关检查；flutter build windows 未运行。

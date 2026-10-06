@@ -222,7 +222,10 @@ pub(crate) fn build_dns(state: &mut XrayState<'_>) -> Result<(), CodegenError> {
             set_sockopt_domain_strategy(
                 outbound,
                 Some(&strategy4_freedom),
-                Some(&input.settings.happy_eyeballs4_ray),
+                Some((
+                    &input.settings.happy_eyeballs4_ray,
+                    simple.enable_happy_eyeballs,
+                )),
             );
         }
     }
@@ -259,7 +262,10 @@ pub(crate) fn build_dns(state: &mut XrayState<'_>) -> Result<(), CodegenError> {
                 set_sockopt_domain_strategy(
                     outbound,
                     Some(&strategy4_dial),
-                    Some(&input.settings.happy_eyeballs4_ray),
+                    Some((
+                        &input.settings.happy_eyeballs4_ray,
+                        simple.enable_happy_eyeballs,
+                    )),
                 );
             }
         }
@@ -350,7 +356,7 @@ fn add_rule(state: &mut XrayState<'_>, rule: Value) {
 fn set_sockopt_domain_strategy(
     outbound: &mut Value,
     strategy: Option<&str>,
-    happy_eyeballs: Option<&crate::input::HappyEyeballs4Ray>,
+    happy_eyeballs: Option<(&crate::input::HappyEyeballs4Ray, bool)>,
 ) {
     let Some(strategy) = strategy.filter(|s| !s.is_empty()) else {
         return;
@@ -371,16 +377,18 @@ fn set_sockopt_domain_strategy(
         return;
     };
     sockopt_map.insert("domainStrategy".into(), json!(strategy));
-    if let Some(item) = happy_eyeballs {
-        if item != &crate::input::HappyEyeballs4Ray::default() {
-            let mut happy = obj();
-            put_opt_i32(&mut happy, "tryDelayMs", item.try_delay_ms);
-            put_opt_bool(&mut happy, "prioritizeIPv6", item.prioritize_ipv6);
-            put_opt_i32(&mut happy, "interleave", item.interleave);
-            put_opt_i32(&mut happy, "maxConcurrentTry", item.max_concurrent_try);
-            sockopt_map.insert("happyEyeballs".into(), Value::Object(happy));
-        }
-    }
+    // Upstream `V2rayDnsService.FillSockoptDomainStrategy`: the block is
+    // emitted only when `SimpleDNSItem.EnableHappyEyeballs == true`; the
+    // object itself is always created then (`??= new()`, nulls dropped).
+    let Some((item, true)) = happy_eyeballs else {
+        return;
+    };
+    let mut happy = obj();
+    put_opt_i32(&mut happy, "tryDelayMs", item.try_delay_ms);
+    put_opt_bool(&mut happy, "prioritizeIPv6", item.prioritize_ipv6);
+    put_opt_i32(&mut happy, "interleave", item.interleave);
+    put_opt_i32(&mut happy, "maxConcurrentTry", item.max_concurrent_try);
+    sockopt_map.insert("happyEyeballs".into(), Value::Object(happy));
 }
 
 fn gen_dns_custom(state: &mut XrayState<'_>, raw: &crate::input::CodegenDns) {

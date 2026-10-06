@@ -553,6 +553,34 @@ mod tests {
         assert_eq!(repo.count(), 1);
     }
 
+    /// SP-13/CP-08: a partial multi-delete reconciles against the
+    /// authoritative store (committed ids stay gone, failed ids stay listed).
+    #[test]
+    fn sp13_partial_delete_reconciles_against_authoritative() {
+        let mut repo = InMemoryDnsRepository::with_items(vec![
+            DnsProfile {
+                id: "dns-a".into(),
+                remarks: "synthetic a".into(),
+                enabled: true,
+                core_type: CoreType::Xray,
+                ..Default::default()
+            },
+            DnsProfile {
+                id: "dns-b".into(),
+                remarks: "synthetic b".into(),
+                enabled: true,
+                core_type: CoreType::SingBox,
+                ..Default::default()
+            },
+        ]);
+        assert!(repo.remove("dns-a").unwrap());
+        assert!(!repo.remove("dns-missing").unwrap());
+        let ids: Vec<String> = repo.list().unwrap().into_iter().map(|p| p.id).collect();
+        assert_eq!(ids, vec!["dns-b".to_string()]);
+        assert_eq!(repo.count(), 1);
+        assert!(repo.get("dns-a").unwrap().is_none());
+    }
+
     #[test]
     fn parse_simple_dns_template_reads_fields() {
         let text = r#"{"FakeIP": true, "GlobalFakeIp": false,

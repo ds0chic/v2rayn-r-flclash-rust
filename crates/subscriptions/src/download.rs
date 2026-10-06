@@ -16,6 +16,7 @@ use reqwest::redirect::Policy;
 use reqwest::Url;
 
 use crate::error::SubError;
+use crate::tls::{self, HttpsTrust};
 use crate::util::{decode_body_bytes, CancellationWatcher};
 
 /// An explicit proxy endpoint (e.g. `http://127.0.0.1:7890`).
@@ -88,7 +89,19 @@ pub struct Downloader {
 }
 
 /// Build a [`Downloader`], validating headers and proxy configuration.
+///
+/// Trust is the OS/native store (upstream `system`); see
+/// [`build_client_with_trust`] for the `RootCertProvider` selection.
 pub fn build_client(options: &DownloadOptions) -> Result<Downloader, SubError> {
+    build_client_with_trust(options, &HttpsTrust::System)
+}
+
+/// Build a [`Downloader`] trusting `trust` (SP-25 `RootCertProvider`
+/// consumer). `BundledPem` trusts exactly the bundle, never the OS store.
+pub fn build_client_with_trust(
+    options: &DownloadOptions,
+    trust: &HttpsTrust,
+) -> Result<Downloader, SubError> {
     let mut headers = HeaderMap::new();
     for (name, value) in &options.headers {
         let name = HeaderName::from_bytes(name.as_bytes())
@@ -116,11 +129,15 @@ pub fn build_client(options: &DownloadOptions) -> Result<Downloader, SubError> {
         None => None,
     };
 
-    let mut builder = reqwest::Client::builder()
-        .redirect(Policy::none())
-        .connect_timeout(options.connect_timeout.unwrap_or(Duration::from_secs(10)))
-        .no_proxy()
-        .danger_accept_invalid_certs(options.accept_invalid_certs);
+    let mut builder = tls::apply_trust(
+        reqwest::Client::builder()
+            .redirect(Policy::none())
+            .connect_timeout(options.connect_timeout.unwrap_or(Duration::from_secs(10)))
+            .no_proxy(),
+        trust,
+    )
+    .map_err(SubError::Http)?;
+    builder = builder.danger_accept_invalid_certs(options.accept_invalid_certs);
     if let Some(proxy) = &options.proxy {
         if !proxy.url.starts_with("http://") && !proxy.url.starts_with("https://") {
             return Err(SubError::InvalidUri("proxy scheme".into()));
@@ -285,6 +302,10 @@ async fn wait_for_cancel(watcher: &CancellationWatcher) {
 fn map_reqwest_error(err: &reqwest::Error) -> SubError {
     if err.is_timeout() {
         SubError::Timeout
+    } else if let Some(detail) = tls::trust_failure_of(err) {
+        // A rejected peer certificate under the selected trust roots. The
+        // detail carries only the certificate error, never URLs or secrets.
+        SubError::Http(format!("tls trust rejected: {detail}"))
     } else if err.is_redirect() {
         SubError::Http("redirect".into())
     } else if err.is_decode() {

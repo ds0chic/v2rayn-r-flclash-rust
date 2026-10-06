@@ -24,6 +24,7 @@ use updater::install::{
 };
 use updater::metadata::ReleasesClient;
 use updater::semver::Semver;
+use updater::tls::HttpsTrust;
 use updater::unpack::{safe_unpack_targz, safe_unpack_zip, UnpackLimits};
 use updater::UpdateError;
 
@@ -302,6 +303,10 @@ pub struct UpdateService {
     pub runner_name: String,
     pub packaged: bool,
     pub timeout: Duration,
+    /// HTTPS trust roots for metadata fetch and artifact downloads (SP-25
+    /// `RootCertProvider` consumer). `System` is the shipped default; the
+    /// settings layer switches this with [`Self::with_tls_trust`].
+    pub tls_trust: HttpsTrust,
 }
 
 impl UpdateService {
@@ -322,7 +327,15 @@ impl UpdateService {
             runner_name: updater::DEFAULT_RUNNER_NAME.to_string(),
             packaged: false,
             timeout: UPDATE_TIMEOUT,
+            tls_trust: HttpsTrust::System,
         }
+    }
+
+    /// Trust `trust` for release-metadata fetch and artifact/signature
+    /// downloads (the `RootCertProvider` selection, frozen per service).
+    pub fn with_tls_trust(mut self, trust: HttpsTrust) -> Self {
+        self.tls_trust = trust;
+        self
     }
 
     /// Explicit releases API base override (loopback mocks in tests).
@@ -556,7 +569,8 @@ impl UpdateService {
             })?,
         };
         let client = ReleasesClient::new(repo).with_api_base(self.api_base.clone());
-        let api = CoreReleaseApi::new_with_proxy(self.timeout, proxy).map_err(update_error)?;
+        let api = CoreReleaseApi::new_with_tls(self.timeout, proxy, self.tls_trust.clone())
+            .map_err(update_error)?;
         let releases = api.fetch(&client).await.map_err(update_error)?;
         let release = match spec.locked_max_version {
             Some((major, minor, patch)) => {
@@ -744,7 +758,9 @@ impl UpdateService {
             let artifact = std::fs::read(staging.join(&request.asset_name))
                 .map_err(|e| io_error("error.update_signature", e))?;
             let signature = match signature_url.filter(|url| !url.is_empty()) {
-                Some(url) => Some(download_signature(url, &staging, cancellation).await?),
+                Some(url) => {
+                    Some(download_signature(url, &staging, &self.tls_trust, cancellation).await?)
+                }
                 None => None,
             };
             enforce_detached_signature(verifier, &artifact, signature.as_deref())?;
@@ -850,7 +866,8 @@ impl UpdateService {
             max_bytes: MAX_DOWNLOAD_BYTES,
             ..DownloaderOptions::default()
         };
-        let downloader = FileDownloader::new(options).map_err(update_error)?;
+        let downloader = FileDownloader::new_with_trust(options, self.tls_trust.clone())
+            .map_err(update_error)?;
         let download_request =
             DownloadRequest::new(request.download_url.clone(), asset_path.clone());
         let downloaded = downloader
@@ -948,6 +965,7 @@ pub fn enforce_detached_signature(
 async fn download_signature(
     url: &str,
     staging: &Path,
+    trust: &HttpsTrust,
     cancellation: &CancellationToken,
 ) -> Result<Vec<u8>, DomainError> {
     let options = DownloaderOptions {
@@ -955,7 +973,8 @@ async fn download_signature(
         max_bytes: 4 * 1024 * 1024,
         ..DownloaderOptions::default()
     };
-    let downloader = FileDownloader::new(options).map_err(update_error)?;
+    let downloader =
+        FileDownloader::new_with_trust(options, trust.clone()).map_err(update_error)?;
     let target = staging.join("artifact.sig");
     let request = DownloadRequest::new(url.to_string(), target.clone());
     downloader

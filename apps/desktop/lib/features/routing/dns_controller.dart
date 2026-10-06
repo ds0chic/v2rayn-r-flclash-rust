@@ -18,6 +18,7 @@ class DnsState {
     this.pendingUrls = const <String>[],
     this.busy = false,
     this.status,
+    this.loadFailed = false,
   });
 
   final List<d.DnsProfileDto> items;
@@ -27,6 +28,11 @@ class DnsState {
   final List<String> pendingUrls;
   final bool busy;
   final String? status;
+
+  /// SP-13/CP-08: true when the last reload read no usable baseline (both
+  /// reads failed on an empty cache). The window must then refuse to save:
+  /// persisting the empty draft would wipe stored DNS rows.
+  final bool loadFailed;
 
   d.DnsProfileDto? forCore(CoreType core) {
     for (final item in items) {
@@ -43,6 +49,7 @@ class DnsState {
     List<String>? pendingUrls,
     bool? busy,
     String? status,
+    bool? loadFailed,
   }) => DnsState(
     items: items ?? this.items,
     simple: simple ?? this.simple,
@@ -51,6 +58,7 @@ class DnsState {
     pendingUrls: pendingUrls ?? this.pendingUrls,
     busy: busy ?? this.busy,
     status: status ?? this.status,
+    loadFailed: loadFailed ?? this.loadFailed,
   );
 }
 
@@ -58,14 +66,32 @@ class DnsController extends Notifier<DnsState> {
   @override
   DnsState build() => const DnsState();
 
+  /// SP-13: a read counts as failed only when no usable baseline exists.
+  /// A partial failure over a cached baseline keeps the baseline editable;
+  /// a total failure on an empty cache must block saving the empty draft.
+  static bool loadFailedFor({
+    required bool listOk,
+    required bool simpleOk,
+    required bool hasItems,
+    required bool hasSimple,
+  }) => (!listOk || !simpleOk) && !hasItems && !hasSimple;
+
   void reload() {
     final page = ref.read(bridgePortProvider).listDns();
     final simple = ref.read(bridgePortProvider).loadSimpleDns();
+    final effectiveSimple = simple.item ?? state.simple;
     state = state.copyWith(
       items: page.items,
-      simple: simple.item ?? state.simple,
+      simple: effectiveSimple,
       revision: simple.revision.toInt(),
       status: page.error?.messageKey ?? simple.error?.messageKey,
+      loadFailed: loadFailedFor(
+        listOk: page.error == null,
+        simpleOk: simple.error == null,
+        // A partial failure over a cached baseline keeps it editable.
+        hasItems: page.items.isNotEmpty || state.items.isNotEmpty,
+        hasSimple: effectiveSimple != null,
+      ),
     );
   }
 

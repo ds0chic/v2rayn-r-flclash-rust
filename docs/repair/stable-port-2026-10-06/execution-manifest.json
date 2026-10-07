@@ -125,7 +125,7 @@
       "upstream_symbols": "ServiceLib/Models/Configs/Config.cs；备份与Restore上游处理",
       "status": "implemented",
       "instance_required": false,
-      "note": "open gaps: G-10 (001/002 canonical-ZIP roundtrip) + L1-002 (cert-chain leaf-only) + SD-17 t16 WebDAV acceptance (143-146) + G-09 acceptance"
+      "note": "open gaps: G-10 (001/002 canonical-ZIP roundtrip) + L1-002 (cert-chain leaf-only) + SD-17 t16 WebDAV acceptance (143-146) + G-09 acceptance | 2026-10-07 Wave B batch2: WebDAV 143-146 synthetic-local E2E (loopback PROPFIND/PUT/GET/DELETE harness; 6 tests + t16 7/7 regression; auth/500-retry/hash-gate/truncated-200 matrix; owner ruling SD-17/t16 -> SP-03); real remote TLS unverified."
     },
     {
       "id": "SP-04",
@@ -865,7 +865,7 @@
       "upstream_symbols": "RootCertProvider上游HTTP初始化；SD-10",
       "status": "implemented",
       "instance_required": true,
-      "note": "open gaps: G-04 (063 log) + G-05 (064 + 087 same class) + G-07 (086 SRS) + G-09 acceptance"
+      "note": "open gaps: G-04 (063 log) + G-05 (064 + 087 same class) + G-07 (086 SRS) + G-09 acceptance | 2026-10-07 Wave B batch2: G-04 app-log consumer (app_log.rs start/stop, 512KiB rotation keep-5, redaction matrix, canonical-derived; 8 tests; upstream has no GUI EnableLog control -> entry preserved); G-05/G-07 shared HttpClient + async fetch API (platform/http.rs single owner; subscriptions/updater/webdav/routing switched; 7 loopback tests; FRB binding gap registered); 085 download->plan (RuntimePlan.resources geo hashes wired; 3 tests)."
     },
     {
       "id": "SP-26",
@@ -893,7 +893,7 @@
       "upstream_symbols": "GuiItem.EnableHWA源与锁定Flutter engine头文件",
       "status": "identified",
       "instance_required": false,
-      "note": "open gaps: G-03 (062 HWA feasibility) + G-09 acceptance; 2026-10-07 renderer probe pass (tools/perf/renderer_probe.ps1 -> SP-26/runs/20261007/renderer-probe.txt; HWA chain wired in windows runner); real renderer/device result still needs a release GUI run"
+      "note": "open gaps: G-03 (062 HWA feasibility) + G-09 acceptance; 2026-10-07 renderer probe pass (tools/perf/renderer_probe.ps1 -> SP-26/runs/20261007/renderer-probe.txt; HWA chain wired in windows runner); real renderer/device result still needs a release GUI run | 2026-10-07 Wave B batch2: 084 convert->parse->transactional replace synthetic E2E closed (5 tests; no prod change needed)."
     },
     {
       "id": "SP-27",

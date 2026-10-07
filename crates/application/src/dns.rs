@@ -6,6 +6,8 @@
 //! edited through the same window; this module owns the DNS-item half plus
 //! the shared validation helpers.
 
+use std::path::Path;
+
 use domain::{CoreType, DnsProfile, DomainError, SimpleDnsItem};
 use persistence::RawRow;
 use serde_json::{json, Value};
@@ -257,6 +259,26 @@ pub fn effective_sub_convert_url(const_item: &domain::ConstItem) -> String {
 /// download failure is an explicit error, never a silent built-in fallback.
 pub fn effective_routing_template_source(const_item: &domain::ConstItem) -> Option<String> {
     non_empty_trim(const_item.route_rules_template_source_url.as_deref())
+}
+
+/// Geo `.dat` assets managed by the resource pass, in formal-plan order.
+pub const GEO_ASSET_FILES: [&str; 2] = ["geoip.dat", "geosite.dat"];
+
+/// Hash the landed Geo assets for the formal plan (`RuntimePlan.resources`,
+/// "geo files by hash").
+///
+/// Each present file contributes its SHA-256 in [`GEO_ASSET_FILES`] order.
+/// Missing or unreadable files are skipped: the plan still builds and the
+/// core falls back to its own asset resolution, exactly as before this
+/// wiring existed.
+pub fn geo_asset_hashes(bin_dir: &Path) -> Vec<domain::ContentHash> {
+    let mut hashes = Vec::new();
+    for name in GEO_ASSET_FILES {
+        if let Ok(bytes) = std::fs::read(bin_dir.join(name)) {
+            hashes.push(domain::ContentHash::new(runtime::sha256_hex(&bytes)));
+        }
+    }
+    hashes
 }
 
 /// Remote DNS template files that could not be downloaded offline.
@@ -657,6 +679,38 @@ mod tests {
         assert_eq!(
             effective_routing_template_source(&item).as_deref(),
             Some("https://mirror.example/template.json")
+        );
+    }
+
+    #[test]
+    fn geo_asset_hashes_cover_present_files_in_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        std::fs::write(bin.join("geoip.dat"), b"wave-b-geoip").unwrap();
+        std::fs::write(bin.join("geosite.dat"), b"wave-b-geosite").unwrap();
+        let hashes = geo_asset_hashes(&bin);
+        assert_eq!(
+            hashes,
+            vec![
+                domain::ContentHash::new(runtime::sha256_hex(b"wave-b-geoip")),
+                domain::ContentHash::new(runtime::sha256_hex(b"wave-b-geosite")),
+            ]
+        );
+    }
+
+    #[test]
+    fn geo_asset_hashes_skip_missing_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join("bin");
+        std::fs::create_dir_all(&bin).unwrap();
+        assert!(geo_asset_hashes(&bin).is_empty());
+        std::fs::write(bin.join("geosite.dat"), b"only-geosite").unwrap();
+        assert_eq!(
+            geo_asset_hashes(&bin),
+            vec![domain::ContentHash::new(runtime::sha256_hex(
+                b"only-geosite"
+            ))]
         );
     }
 }

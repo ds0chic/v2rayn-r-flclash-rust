@@ -75,10 +75,10 @@ pub struct DownloadedFile {
     pub final_url: String,
 }
 
-/// Reusable streaming downloader.
+/// Reusable streaming downloader (built on the shared `platform::http` facility).
 #[derive(Debug, Clone)]
 pub struct FileDownloader {
-    client: reqwest::Client,
+    client: platform::http::SharedHttpClient,
     headers: reqwest::header::HeaderMap,
     user_agent: Option<reqwest::header::HeaderValue>,
     options: DownloaderOptions,
@@ -112,24 +112,20 @@ impl FileDownloader {
             None => None,
         };
 
-        let mut builder = tls::apply_trust(
-            reqwest::Client::builder()
-                .connect_timeout(options.connect_timeout)
-                .timeout(options.timeout)
-                .redirect(reqwest::redirect::Policy::limited(10)),
-            &trust,
-        )
-        .map_err(UpdateError::Download)?;
-        if let Some(proxy) = &options.proxy {
-            let parsed = reqwest::Proxy::all(proxy)
-                .map_err(|e| UpdateError::Download(format!("proxy: {e}")))?;
-            builder = builder.proxy(parsed);
-        } else {
-            builder = builder.no_proxy();
-        }
-        let client = builder
-            .build()
-            .map_err(|e| UpdateError::Download(format!("client build: {e}")))?;
+        let shared_trust = match &trust {
+            HttpsTrust::System => platform::http::HttpsTrust::System,
+            HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
+        };
+        let policy = platform::http::HttpPolicy {
+            timeout: options.timeout,
+            connect_timeout: options.connect_timeout,
+            user_agent: options.user_agent.clone(),
+            proxy: options.proxy.clone(),
+            trust: shared_trust,
+            redirect: platform::http::RedirectPolicy::Limited(10),
+        };
+        let client =
+            platform::http::SharedHttpClient::shared(policy).map_err(UpdateError::Download)?;
 
         Ok(Self {
             client,
@@ -176,7 +172,7 @@ impl FileDownloader {
                 .map_err(|e| UpdateError::Io(e.to_string()))?;
         }
 
-        let mut builder = self.client.get(url).header(
+        let mut builder = self.client.client().get(url).header(
             reqwest::header::ACCEPT,
             reqwest::header::HeaderValue::from_static("*/*"),
         );

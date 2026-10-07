@@ -12,11 +12,10 @@ use reqwest::header::{
     HeaderMap, HeaderName, HeaderValue, ACCEPT, AUTHORIZATION, COOKIE, LOCATION,
     PROXY_AUTHORIZATION, USER_AGENT,
 };
-use reqwest::redirect::Policy;
 use reqwest::Url;
 
 use crate::error::SubError;
-use crate::tls::{self, HttpsTrust};
+use crate::tls::HttpsTrust;
 use crate::util::{decode_body_bytes, CancellationWatcher};
 
 /// An explicit proxy endpoint (e.g. `http://127.0.0.1:7890`).
@@ -77,10 +76,10 @@ pub struct Downloaded {
     pub bytes: usize,
 }
 
-/// Reusable client wrapper.
+/// Reusable client wrapper (built on the shared `platform::http` facility).
 #[derive(Debug, Clone)]
 pub struct Downloader {
-    client: reqwest::Client,
+    client: platform::http::SharedHttpClient,
     headers: HeaderMap,
     user_agent: Option<HeaderValue>,
     max_bytes: usize,
@@ -129,27 +128,35 @@ pub fn build_client_with_trust(
         None => None,
     };
 
-    let mut builder = tls::apply_trust(
-        reqwest::Client::builder()
-            .redirect(Policy::none())
-            .connect_timeout(options.connect_timeout.unwrap_or(Duration::from_secs(10)))
-            .no_proxy(),
-        trust,
-    )
-    .map_err(SubError::Http)?;
-    builder = builder.danger_accept_invalid_certs(options.accept_invalid_certs);
+    if options.accept_invalid_certs {
+        return Err(SubError::Http(
+            "accept_invalid_certs is not supported via the shared client".into(),
+        ));
+    }
     if let Some(proxy) = &options.proxy {
         if !proxy.url.starts_with("http://") && !proxy.url.starts_with("https://") {
             return Err(SubError::InvalidUri("proxy scheme".into()));
         }
-        let parsed = reqwest::Proxy::all(&proxy.url)
-            .map_err(|e| SubError::InvalidUri(format!("proxy: {e}")))?;
-        builder = builder.proxy(parsed);
     }
-
-    let client = builder
-        .build()
-        .map_err(|e| SubError::Http(format!("client build: {e}")))?;
+    let shared_trust = match trust {
+        HttpsTrust::System => platform::http::HttpsTrust::System,
+        HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
+    };
+    let policy = platform::http::HttpPolicy {
+        timeout: options.timeout,
+        connect_timeout: options.connect_timeout.unwrap_or(Duration::from_secs(10)),
+        user_agent: options.user_agent.clone(),
+        proxy: options.proxy.as_ref().map(|p| p.url.clone()),
+        trust: shared_trust,
+        redirect: platform::http::RedirectPolicy::None,
+    };
+    let client = platform::http::SharedHttpClient::shared(policy).map_err(|e| {
+        if e.contains("proxy") {
+            SubError::InvalidUri(e)
+        } else {
+            SubError::Http(e)
+        }
+    })?;
 
     Ok(Downloader {
         client,
@@ -199,7 +206,7 @@ impl Downloader {
         let mut headers = self.headers.clone();
         for hop in 0..=self.max_redirects {
             watcher.check()?;
-            let mut builder = self.client.get(url.clone()).header(ACCEPT, "*/*");
+            let mut builder = self.client.client().get(url.clone()).header(ACCEPT, "*/*");
             for (name, value) in headers.iter() {
                 builder = builder.header(name, value);
             }
@@ -302,7 +309,7 @@ async fn wait_for_cancel(watcher: &CancellationWatcher) {
 fn map_reqwest_error(err: &reqwest::Error) -> SubError {
     if err.is_timeout() {
         SubError::Timeout
-    } else if let Some(detail) = tls::trust_failure_of(err) {
+    } else if let Some(detail) = crate::tls::trust_failure_of(err) {
         // A rejected peer certificate under the selected trust roots. The
         // detail carries only the certificate error, never URLs or secrets.
         SubError::Http(format!("tls trust rejected: {detail}"))

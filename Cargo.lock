@@ -2204,8 +2204,11 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 name = "platform"
 version = "0.1.0"
 dependencies = [
+ "domain",
+ "reqwest",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -2996,6 +2999,7 @@ dependencies = [
  "flate2",
  "hex",
  "percent-encoding",
+ "platform",
  "regex",
  "reqwest",
  "serde",
@@ -3410,6 +3414,7 @@ dependencies = [
  "futures-util",
  "hex",
  "pgp",
+ "platform",
  "rand 0.8.8",
  "reqwest",
  "serde",

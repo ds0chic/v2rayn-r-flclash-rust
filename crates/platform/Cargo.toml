@@ -8,6 +8,22 @@ description = "Platform backends: system proxy, PAC server, autostart, single in
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
+domain.workspace = true
+reqwest = { version = "0.12", default-features = false, features = [
+    "rustls-tls-native-roots",
+    "stream",
+    "http2",
+] }
+tokio = { version = "1.53", features = [
+    "rt",
+    "time",
+    "sync",
+    "macros",
+    "net",
+] }
+
+[dev-dependencies]
+tokio = { version = "1.53", features = ["full"] }
 
 [lints]
 workspace = true

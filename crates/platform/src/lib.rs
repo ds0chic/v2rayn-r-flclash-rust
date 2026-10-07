@@ -15,12 +15,20 @@ pub mod autostart;
 pub mod cert;
 pub mod error;
 pub mod hash;
+pub mod http;
 pub mod pac;
 pub mod script;
 pub mod single_instance;
 pub mod sysproxy;
 
 pub use error::{PlatformError, Result};
+pub use http::{
+    apply_trust as apply_http_trust, clear_cache_for_tests, construction_count, fetch_bytes,
+    fetch_text, reset_construction_count_for_tests, FetchOptions, Fetched, HttpError, HttpPolicy,
+    HttpsTrust as HttpTrust, RedirectPolicy, SharedHttpClient,
+    DEFAULT_MAX_BYTES as HTTP_DEFAULT_MAX_BYTES,
+    DEFAULT_MAX_REDIRECTS as HTTP_DEFAULT_MAX_REDIRECTS, DEFAULT_USER_AGENT,
+};
 
 pub use autostart::{
     decode_run_command, encode_run_command, run_value_name, AutoStartBackend, AutoStartEntry,

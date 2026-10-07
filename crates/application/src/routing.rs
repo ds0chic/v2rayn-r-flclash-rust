@@ -192,38 +192,56 @@ impl RoutingRepository for InMemoryRoutingRepository {
 }
 
 /// Fetch URL body for rule import (loopback-friendly; short timeout).
+///
+/// Built on the shared `platform::http` async fetch API (FLD-CFG-087): the
+/// client is cached per policy, the body is bounded and the whole operation
+/// observes cooperative cancellation.
 pub async fn fetch_rules_text(
     url: &str,
     via_proxy: bool,
     proxy_url: Option<&str>,
 ) -> Result<String, DomainError> {
-    use subscriptions::{build_client, DownloadOptions, ProxyConfig};
+    fetch_rules_text_cancel(url, via_proxy, proxy_url, &domain::CancellationToken::new()).await
+}
+
+/// [`fetch_rules_text`] with caller cancellation (download cancels cleanly and
+/// never writes a rule).
+pub async fn fetch_rules_text_cancel(
+    url: &str,
+    via_proxy: bool,
+    proxy_url: Option<&str>,
+    cancellation: &domain::CancellationToken,
+) -> Result<String, DomainError> {
     let proxy = if via_proxy {
         proxy_url
             .map(str::trim)
             .filter(|s| !s.is_empty())
-            .map(|s| ProxyConfig { url: s.to_string() })
+            .map(str::to_string)
     } else {
         None
     };
-    let options = DownloadOptions {
-        proxy,
+    let policy = platform::http::HttpPolicy {
         timeout: std::time::Duration::from_secs(15),
-        ..Default::default()
+        connect_timeout: std::time::Duration::from_secs(10),
+        user_agent: None,
+        proxy,
+        trust: platform::http::HttpsTrust::System,
+        redirect: platform::http::RedirectPolicy::None,
     };
-    let downloader = build_client(&options).map_err(|e| {
-        DomainError::new(domain::codes::UNAVAILABLE, "error.fetch_failed")
-            .with_detail(e.to_string())
+    let client = platform::http::SharedHttpClient::shared(policy).map_err(|e| {
+        DomainError::new(domain::codes::UNAVAILABLE, "error.fetch_failed").with_detail(e)
     })?;
-    let cancellation = domain::CancellationToken::new();
-    downloader
-        .download(url, &cancellation)
+    let options = platform::http::FetchOptions::default();
+    platform::http::fetch_text(&client, url, &options, cancellation)
         .await
         .map_err(|e| {
-            DomainError::new(domain::codes::UNAVAILABLE, "error.fetch_failed")
-                .with_detail(e.to_string())
+            let code = match &e {
+                platform::http::HttpError::Cancelled => domain::codes::CANCELLED,
+                platform::http::HttpError::Timeout => domain::codes::TIMEOUT,
+                _ => domain::codes::UNAVAILABLE,
+            };
+            DomainError::new(code, "error.fetch_failed").with_detail(e.to_string())
         })
-        .map(|d| d.body)
 }
 
 /// Plan the `一键导入规则集` advanced import (upstream

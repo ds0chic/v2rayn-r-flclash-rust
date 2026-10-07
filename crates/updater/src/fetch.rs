@@ -15,10 +15,10 @@ pub trait ReleaseSource: Send + Sync {
     fn releases(&self, client: &ReleasesClient) -> Result<Vec<ReleaseInfo>, UpdateError>;
 }
 
-/// HTTP-backed release source.
+/// HTTP-backed release source (built on the shared `platform::http` facility).
 #[derive(Debug, Clone)]
 pub struct CoreReleaseApi {
-    http: reqwest::Client,
+    http: platform::http::SharedHttpClient,
     pub user_agent: String,
     trust: HttpsTrust,
 }
@@ -46,23 +46,23 @@ impl CoreReleaseApi {
         proxy: Option<&str>,
         trust: HttpsTrust,
     ) -> Result<Self, UpdateError> {
-        let mut builder = tls::apply_trust(
-            reqwest::Client::builder()
-                .timeout(timeout)
-                .connect_timeout(Duration::from_secs(10)),
-            &trust,
-        )
-        .map_err(UpdateError::Download)?;
-        builder = match proxy.map(str::trim).filter(|s| !s.is_empty()) {
-            Some(url) => builder.proxy(
-                reqwest::Proxy::all(url)
-                    .map_err(|e| UpdateError::Download(format!("proxy: {e}")))?,
-            ),
-            None => builder.no_proxy(),
+        let shared_trust = match &trust {
+            HttpsTrust::System => platform::http::HttpsTrust::System,
+            HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
         };
-        let http = builder
-            .build()
-            .map_err(|e| UpdateError::Download(format!("client build: {e}")))?;
+        let policy = platform::http::HttpPolicy {
+            timeout,
+            connect_timeout: Duration::from_secs(10),
+            user_agent: Some("v2rayN-updater".to_string()),
+            proxy: proxy
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string),
+            trust: shared_trust,
+            redirect: platform::http::RedirectPolicy::Limited(10),
+        };
+        let http =
+            platform::http::SharedHttpClient::shared(policy).map_err(UpdateError::Download)?;
         Ok(Self {
             http,
             user_agent: "v2rayN-updater".to_string(),
@@ -79,6 +79,7 @@ impl CoreReleaseApi {
     pub async fn fetch(&self, client: &ReleasesClient) -> Result<Vec<ReleaseInfo>, UpdateError> {
         let response = self
             .http
+            .client()
             .get(client.releases_url())
             .header(reqwest::header::ACCEPT, "application/vnd.github+json")
             .header(reqwest::header::USER_AGENT, &self.user_agent)

@@ -23,6 +23,7 @@ use domain::{
 };
 use serde_json::Value;
 
+use crate::app_log::AppLogService;
 use crate::jobs::{JobManager, JobView};
 use crate::net_host_client::NetHostClient;
 use crate::recoverable_commit::{
@@ -219,6 +220,10 @@ pub struct AppEngine {
     import_commits: Arc<Mutex<HashMap<String, crate::import_batch::ImportReceipt>>>,
     /// SP-14 fault injection: the next commit fails after staging (tests only).
     import_fault: Arc<AtomicBool>,
+    /// App diagnostic file logger (FLD-CFG-063, upstream `Logging`). Holds
+    /// only the rotation policy; the enabled flag is derived live from the
+    /// canonical settings, so a rolled-back save can never desync it.
+    app_log: Arc<Mutex<AppLogService>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -408,6 +413,7 @@ impl AppEngine {
             import_previews: Arc::new(Mutex::new(HashMap::new())),
             import_commits: Arc::new(Mutex::new(HashMap::new())),
             import_fault: Arc::new(AtomicBool::new(false)),
+            app_log: Arc::new(Mutex::new(AppLogService::new())),
         };
         engine.ensure_builtin_routing_dns();
         engine
@@ -499,6 +505,7 @@ impl AppEngine {
             import_previews: Arc::new(Mutex::new(HashMap::new())),
             import_commits: Arc::new(Mutex::new(HashMap::new())),
             import_fault: Arc::new(AtomicBool::new(false)),
+            app_log: Arc::new(Mutex::new(AppLogService::new())),
         };
         engine.ensure_builtin_routing_dns();
         // SP-05: reload the frozen applied history and the fact counters so an
@@ -1913,6 +1920,48 @@ impl AppEngine {
             revision: guard.revision,
             group_revisions: guard.group_revisions.clone(),
         })
+    }
+
+    /// App diagnostic logger state (FLD-CFG-063, upstream `Logging`).
+    ///
+    /// Derived live from the canonical `GuiItem.EnableLog`: a failed save
+    /// rolls the settings back, so the previous logger state survives with
+    /// no extra bookkeeping. Never confused with `CoreBasicItem.LogEnabled`.
+    pub fn app_log_enabled(&self) -> bool {
+        self.settings
+            .lock()
+            .map(|guard| crate::app_log::enabled_from_settings(&guard.settings))
+            .unwrap_or(false)
+    }
+
+    /// Test/embedding hook: redirect the diagnostic log root into a temp dir.
+    /// Production always uses `<data_dir>/guiLogs`.
+    pub fn set_app_log_dir_override(&self, dir: impl AsRef<Path>) {
+        if let Ok(mut guard) = self.app_log.lock() {
+            guard.set_dir_override(dir.as_ref());
+        }
+    }
+
+    /// Append one redacted line to the diagnostic log. `Ok(false)` without
+    /// touching the filesystem when `GuiItem.EnableLog` is off or when an
+    /// in-memory engine has no log root. The recovery journal never consults
+    /// this gate and stays usable while logging is off.
+    pub fn write_app_log(&self, line: &str) -> Result<bool, std::io::Error> {
+        let enabled = self.app_log_enabled();
+        let root = self
+            .app_log
+            .lock()
+            .map(|service| service.log_root(self.data_dir.as_deref()))
+            .unwrap_or(None);
+        let Some(root) = root else {
+            return Ok(false);
+        };
+        let service = self
+            .app_log
+            .lock()
+            .map(|guard| guard.clone())
+            .unwrap_or_default();
+        service.append(&root, &crate::app_log::today_ymd_now(), enabled, line)
     }
 
     /// `save_settings` — whole-tree optimistic save.
@@ -5108,6 +5157,10 @@ impl AppEngine {
             },
             resources: Vec::new(),
         };
+        // FLD-CFG-085: the formal plan consumes the `GeoSourceUrl`
+        // download set — record the landed `geoip.dat`/`geosite.dat`
+        // assets by hash. Missing files stay absent, never an error.
+        plan.resources = crate::dns::geo_asset_hashes(std::path::Path::new(&opts.bin_directory));
 
         // FIX-13 / R3-04: attach the real TUN descriptor. With a known
         // interface the resolved descriptor goes in and net-host applies it

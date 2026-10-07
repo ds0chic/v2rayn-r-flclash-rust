@@ -9,6 +9,7 @@
 // every signature, so the large-Err lint is allowed with intent (see `domain`).
 #![allow(clippy::result_large_err)]
 
+pub mod app_log;
 pub mod backup_service;
 pub mod codegen;
 pub mod custom;
@@ -42,6 +43,10 @@ pub use synthetic::{
     blocking_probe, generate_profiles_page, generate_synthetic_profiles, ping, synthetic_profile,
 };
 
+pub use app_log::{
+    enabled_from_settings, redact_line, today_ymd_now, ymd_from_unix, AppLogService,
+    DEFAULT_KEEP_ROTATED, DEFAULT_ROTATE_BYTES, GUI_LOG_DIR_NAME, REDACTED,
+};
 pub use backup_service::{
     extract_bundle_zip, persist_error, zip_bundle, zip_upstream_layout, BackupService, LocalBackup,
     APP_SOURCE_COMMIT, UPSTREAM_GUI_CONFIGS,

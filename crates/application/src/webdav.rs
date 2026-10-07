@@ -78,10 +78,10 @@ pub struct WebDavCheck {
     pub status: u16,
 }
 
-/// A configured WebDAV client.
+/// A configured WebDAV client (built on the shared `platform::http` facility).
 #[derive(Debug, Clone)]
 pub struct WebDavClient {
-    http: reqwest::Client,
+    http: platform::http::SharedHttpClient,
     config: WebDavConfig,
 }
 
@@ -120,22 +120,23 @@ impl WebDavClient {
                 "url must be http(s)",
             ));
         }
-        let mut builder = updater::tls::apply_trust(
-            reqwest::Client::builder()
-                .timeout(timeout)
-                .connect_timeout(Duration::from_secs(10)),
-            trust,
-        )
-        .map_err(|e| webdav_error(codes::INTERNAL, "error.webdav_client", e))?;
-        builder = match proxy.map(str::trim).filter(|s| !s.is_empty()) {
-            Some(url) => builder.proxy(reqwest::Proxy::all(url).map_err(|e| {
-                webdav_error(codes::FIELD_FORMAT, "error.webdav_proxy", e.to_string())
-            })?),
-            None => builder.no_proxy(),
+        let shared_trust = match trust {
+            HttpsTrust::System => platform::http::HttpsTrust::System,
+            HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
         };
-        let http = builder
-            .build()
-            .map_err(|e| webdav_error(codes::INTERNAL, "error.webdav_client", e.to_string()))?;
+        let policy = platform::http::HttpPolicy {
+            timeout,
+            connect_timeout: Duration::from_secs(10),
+            user_agent: None,
+            proxy: proxy
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string),
+            trust: shared_trust,
+            redirect: platform::http::RedirectPolicy::Limited(10),
+        };
+        let http = platform::http::SharedHttpClient::shared(policy)
+            .map_err(|e| webdav_error(codes::INTERNAL, "error.webdav_client", e))?;
         Ok(Self { http, config })
     }
 
@@ -148,7 +149,7 @@ impl WebDavClient {
     }
 
     fn request(&self, method: reqwest::Method, url: &str) -> reqwest::RequestBuilder {
-        let mut builder = self.http.request(method, url);
+        let mut builder = self.http.client().request(method, url);
         if !self.config.user_name.is_empty() {
             builder = builder.basic_auth(&self.config.user_name, Some(&self.config.password));
         }

@@ -1,0 +1,12 @@
+{
+  "mode": "launch-prep",
+  "baseline": "393fafd",
+  "status": "pass",
+  "failures": [],
+  "notes": [
+    "no -Zip given: package identity skipped (rebuild a clean candidate from baseline first, then fill P0; historic ZIPs must not be reused)"
+  ],
+  "ports_probed": "11808..11815",
+  "ports_busy": [],
+  "port_10808": "untouched (AGENTS.md forbids occupying/modifying it)"
+}

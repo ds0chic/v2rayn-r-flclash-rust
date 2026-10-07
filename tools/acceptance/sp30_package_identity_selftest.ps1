@@ -55,7 +55,14 @@ function Write-ShaFile([string]$Path, [string[]]$Lines) {
 function Invoke-Identity([string]$ArgList) {
   $outFile = Join-Path $Work ('out_' + [guid]::NewGuid().ToString('N') + '.txt')
   $errFile = Join-Path $Work ('err_' + [guid]::NewGuid().ToString('N') + '.txt')
-  $proc = Start-Process -FilePath 'powershell' -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -File "' + $Identity + '" ' + $ArgList) -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+  # Launch the child with the SAME interpreter as the current host: starting
+  # Windows PowerShell 5.1 from a pwsh 7 session inherits a PSModulePath that
+  # 5.1 cannot resolve, which breaks utility cmdlets like Get-FileHash inside
+  # the identity script (observed 2026-10-07). Real process exit codes are
+  # still asserted.
+  $hostExe = (Get-Process -Id $PID).Path
+  if ([string]::IsNullOrWhiteSpace($hostExe)) { $hostExe = 'powershell' }
+  $proc = Start-Process -FilePath $hostExe -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -File "' + $Identity + '" ' + $ArgList) -NoNewWindow -Wait -PassThru -RedirectStandardOutput $outFile -RedirectStandardError $errFile
   $text = ''
   if (Test-Path -LiteralPath $outFile) { $text = (Get-Content -LiteralPath $outFile -Raw) }
   if (Test-Path -LiteralPath $errFile) { $text = $text + (Get-Content -LiteralPath $errFile -Raw) }

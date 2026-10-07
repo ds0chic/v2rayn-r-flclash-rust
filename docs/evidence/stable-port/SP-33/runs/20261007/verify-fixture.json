@@ -1,0 +1,10 @@
+{
+  "mode": "launch-prep",
+  "baseline": "393fafd",
+  "status": "pass",
+  "failures": [],
+  "notes": [
+    "no -Zip given: package identity skipped (rebuild a clean candidate from baseline first, then fill P0; historic ZIPs must not be reused)"
+  ],
+  "fixture_lines": 4
+}

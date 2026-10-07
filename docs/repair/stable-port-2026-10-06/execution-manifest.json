@@ -786,7 +786,9 @@
       "test_scope": "字段实例schema/ID集合校验",
       "upstream_symbols": "compat/fields.settings.yaml source_file/source_symbol逐ID",
       "status": "implemented",
-      "instance_required": true
+      "instance_required": true,
+      "evidence": "docs/evidence/stable-port/SP-23/",
+      "note": "2026-10-07 coverage complete: 180/180 FLD-CFG instance documents written (containers/leaves separated, statuses honest: preserved_only for structure-only containers, implemented for wired leaves, identified for rows without consumers; none marked verified without a real run). Acceptance remains per-instance: end-to-end UI→FRB→save→reopen→effect evidence is still the gate, SP-23 docs passing does not mean 180 features pass"
     },
     {
       "id": "SP-24",

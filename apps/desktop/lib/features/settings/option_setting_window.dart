@@ -575,6 +575,32 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               style: TextStyle(fontSize: 11),
             ),
           ),
+          // FLD-CFG-036: Inbound[0].Protocol identity. Upstream exposes no
+          // Window control for it (`ConfigItems.InItem.Protocol`, always
+          // forced to "socks" by `ConfigHandler.LoadConfig`); the stored
+          // identity only picks the port offset while core emit is hardcoded
+          // to `mixed` (`V2rayInboundService.BuildInbound`,
+          // `codegen.rs:inbound_protocol_token`). The dropdown offers exactly
+          // the frozen `EInboundProtocol` names/values; an unknown persisted
+          // value is never silently remapped (shown unset, kept on save).
+          SettingsDropdown<int>(
+            key: const ValueKey('settings-inbound-protocol'),
+            label: '入站协议',
+            value: inbound['Protocol'] is num
+                ? (inbound['Protocol'] as num).toInt()
+                : null,
+            items: _items(const <(String, int)>[
+              ('socks', 0),
+              ('socks2', 1),
+              ('socks3', 2),
+              ('pac', 3),
+              ('api', 4),
+              ('api2', 5),
+              ('mixed', 6),
+              ('speedtest', 21),
+            ]),
+            onChanged: (v) => _set('Inbound', 'Protocol', v),
+          ),
           // Frozen XAML row 2: TbSettingsSecondLocalPortEnabled.
           SettingsCheckbox(
             label: '开启第二个本地监听端口',
@@ -652,6 +678,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           // Frozen XAML row 8: TbSettingsNewPort4LAN. Upstream renders it
           // unconditionally; only the User/Pass edits are disabled until set.
           SettingsCheckbox(
+            key: const ValueKey('settings-newport4lan'),
             label: '为局域网开启新的端口',
             value: _bool(inbound, 'NewPort4LAN'),
             onChanged: (v) => _set('Inbound', 'NewPort4LAN', v),
@@ -661,12 +688,14 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           // binds `togNewPort4LAN` to `txtuser.IsEnabled`/`txtpass.IsEnabled`,
           // so the auth fields are editable only when the LAN port is enabled.
           SettingsTextField(
+            key: const ValueKey('settings-inbound-user'),
             label: '认证用户名',
             value: _str(inbound, 'User'),
             enabled: _bool(inbound, 'NewPort4LAN'),
             onChanged: (v) => _set('Inbound', 'User', v),
           ),
           SettingsTextField(
+            key: const ValueKey('settings-inbound-pass'),
             label: '认证密码',
             value: _str(inbound, 'Pass'),
             enabled: _bool(inbound, 'NewPort4LAN'),
@@ -765,6 +794,40 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             label: '启用 sing-box (规则集文件) 的缓存文件',
             value: _bool(core, 'EnableCacheFile4Sbox'),
             onChanged: (v) => _set('CoreBasicItem', 'EnableCacheFile4Sbox', v),
+          ),
+        ],
+      ),
+      SettingsSection(
+        // FLD-CFG-052..055: GrpcItem has no OptionSettingWindow control
+        // upstream (defaults seeded by `ConfigHandler.LoadConfig`: 60 / 20 /
+        // false / 0; consumed by the xray/sing-box gRPC transport emit). Kept
+        // editable here without pretending upstream had a page. Null means
+        // "缺省" and renders the frozen default.
+        title: '历史保留（原版无 gRPC 设置页；出站 gRPC 传输参数）',
+        child: <Widget>[
+          SettingsNumberField(
+            key: const ValueKey('settings-grpc-idle-timeout'),
+            label: 'gRPC 空闲超时 (秒，缺省 60)',
+            value: _int(_group('GrpcItem'), 'IdleTimeout'),
+            onChanged: (v) => _set('GrpcItem', 'IdleTimeout', v),
+          ),
+          SettingsNumberField(
+            key: const ValueKey('settings-grpc-health-timeout'),
+            label: 'gRPC 健康检查超时 (秒，缺省 20)',
+            value: _int(_group('GrpcItem'), 'HealthCheckTimeout'),
+            onChanged: (v) => _set('GrpcItem', 'HealthCheckTimeout', v),
+          ),
+          SettingsCheckbox(
+            key: const ValueKey('settings-grpc-permit-without-stream'),
+            label: 'gRPC 无流许可 (PermitWithoutStream)',
+            value: _bool(_group('GrpcItem'), 'PermitWithoutStream'),
+            onChanged: (v) => _set('GrpcItem', 'PermitWithoutStream', v),
+          ),
+          SettingsNumberField(
+            key: const ValueKey('settings-grpc-initial-windows-size'),
+            label: 'gRPC 初始窗口 (缺省 0)',
+            value: _int(_group('GrpcItem'), 'InitialWindowsSize'),
+            onChanged: (v) => _set('GrpcItem', 'InitialWindowsSize', v),
           ),
         ],
       ),
@@ -892,6 +955,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('GuiItem', 'DisplayRealTimeSpeed', v),
           ),
           SettingsCheckbox(
+            key: const ValueKey('settings-keep-older-dedupl'),
             label: '去重时保留序号较小的项',
             value: _bool(gui, 'KeepOlderDedupl'),
             onChanged: (v) => _set('GuiItem', 'KeepOlderDedupl', v),
@@ -934,6 +998,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         title: '窗口与托盘',
         child: <Widget>[
           SettingsCheckbox(
+            key: const ValueKey('settings-hide2tray'),
             label: '关闭窗口时隐藏至托盘',
             value: _bool(ui, 'Hide2TrayWhenClose'),
             onChanged: (v) => _set('UiItem', 'Hide2TrayWhenClose', v),
@@ -961,6 +1026,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('GuiItem', 'TrayMenuServersLimit', v),
           ),
           SettingsNumberField(
+            key: const ValueKey('settings-auto-update-interval'),
             label: '自动更新 Geo 文件的间隔 (小时)',
             value: _int(gui, 'AutoUpdateInterval'),
             onChanged: (v) => _set('GuiItem', 'AutoUpdateInterval', v),
@@ -1041,6 +1107,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             onChanged: (v) => _set('SpeedTestItem', 'UdpTestTarget', v),
           ),
           SettingsTextField(
+            key: const ValueKey('settings-ipapi-url'),
             label: '当前连接信息测试地址',
             value: _str(_group('SpeedTestItem'), 'IPAPIUrl'),
             width: 320,

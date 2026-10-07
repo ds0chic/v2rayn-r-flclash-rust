@@ -87,7 +87,11 @@ $summary = [ordered]@{
   marker_file       = $file.FullName
   marker            = $json
 }
-$name = "gui_$Scenario" + $(if ($Tag -ne '') { "_$Tag" } else { '' }) + '.json'
+$name = if ($Scenario -eq 'scroll') {
+  "gui_$Scenario`_$Rows" + $(if ($Tag -ne '') { "_$Tag" } else { '' }) + '.json'
+} else {
+  "gui_$Scenario" + $(if ($Tag -ne '') { "_$Tag" } else { '' }) + '.json'
+}
 $out = Join-Path $EvidenceDir $name
 $summary | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $out -Encoding UTF8
 Write-Output "SP31_GUI_OK scenario=$Scenario wall_ms_to_marker=$($summary.wall_ms_to_marker) out=$out"

@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/profiles.dart' as rust;
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
+import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 
 /// T18 performance/stability benchmark switch.
 ///
@@ -106,6 +107,22 @@ class T18BenchBridgePort extends FrbBridgePort {
   @override
   List<ProfileSummary> fetchSummaries(int count) =>
       rust.generateProfiles(count: rowCount);
+
+  /// The controller's initial `build()` reads this snapshot, so the benchmark
+  /// must serve its synthetic rows here as well (otherwise the table starts
+  /// empty and the scroll scenario has nothing to measure).
+  @override
+  ProfileSnapshot fetchProfileSnapshot(
+    int count, {
+    String? text,
+    String? subid,
+  }) {
+    final summaries = rust.generateProfiles(count: rowCount);
+    return ProfileSnapshot(
+      summaries: summaries,
+      profiles: summaries.map(_benchDto).toList(growable: false),
+    );
+  }
 
   @override
   int rustProfileCount() => rowCount;

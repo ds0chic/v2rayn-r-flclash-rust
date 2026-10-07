@@ -1,0 +1,45 @@
+{
+  "scenario": "scroll",
+  "rows": 50000,
+  "steps": 600,
+  "tag": "canddf5",
+  "wall_ms_to_marker": 7295.3,
+  "marker_file": "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp31_gui_3cbbd2833f154e058ae4f360a884de94\\out\\scroll_50000_canddf5.json",
+  "marker": {
+    "label": "T18",
+    "method": "SchedulerBinding.addTimingsCallback",
+    "build_mode": "release",
+    "row_count": 50000,
+    "scroll_steps": 600,
+    "budget_ms": 16.7,
+    "samples": [
+      {
+        "build_us": 544,
+        "raster_us": 1665
+      },
+      {
+        "build_us": 498,
+        "raster_us": 850
+      },
+      {
+        "build_us": 542,
+        "raster_us": 1282
+      },
+      {
+        "build_us": 590,
+        "raster_us": 5506
+      }
+    ],
+    "summary": {
+      "sample_count": 4,
+      "build_p50_us": 544,
+      "build_p95_us": 590,
+      "raster_p50_us": 1665,
+      "raster_p95_us": 5506,
+      "total_p50_us": 2209,
+      "total_p95_us": 6096,
+      "dropped_frames": 0,
+      "dropped_rate": 0.0
+    }
+  }
+}

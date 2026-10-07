@@ -50,11 +50,20 @@ CP-SET-03/04/07/09/10/12/13/14. SP28-L1-001/002/003 have no FLD rows (SP-28 INC-
 
 | acceptance_state | n |
 |---|---|
-| implemented_unverified | 174 |
-| preserved_only | 5 (FLD-CFG-021..025) |
-| identified | 1 (FLD-CFG-080) |
-| effect_verified | 0 |
+| effect_verified | 97 (Wave A plan/emit-level acceptance passed, 2026-10-07) |
+| implemented_unverified | 81 (Wave B/C remain) |
+| preserved_only | 1 (FLD-CFG-022, Wave C OS hotkey) |
+| identified | 1 (FLD-CFG-080, macOS-only) |
 | not_applicable | 0 |
+
+Wave A (97) update 2026-10-07: every Wave A instance now has a real passing
+test run (see `waveA-persistence-2026-10-07.md`,
+`waveA-codegen-1-2026-10-07.md`, `waveA-codegen-2-2026-10-07.md`,
+`waveA-application-2026-10-07.md`, plus `wave_a_core_binding.rs` for
+FLD-CFG-093/094), so its `acceptance_state` moved to `effect_verified` at the
+plan/emit level. `impl_status` is unchanged (174 implemented / 5 preserved_only
+/ 1 identified). The GUI/real-core halves listed for some instances in the
+Wave B/C sections are NOT covered by this flip.
 
 `not_applicable = 0` as a row state by rule (no doc carries that status).
 Platform-N/A aspects are kept inside `required_evidence`/`next_action`:

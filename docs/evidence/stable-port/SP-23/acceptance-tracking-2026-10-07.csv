@@ -1,62 +1,62 @@
 id,owner_card,impl_status,acceptance_state,open_gaps,required_evidence,existing_evidence,next_action
 FLD-CFG-001,SP-03,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect + ZIP remap roundtrip,-,prove IndexId/mirror healing + ZIP roundtrip E2E
 FLD-CFG-002,SP-03,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect + ZIP remap roundtrip,-,prove group select/remap roundtrip E2E
-FLD-CFG-003,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:92,run group 5-state retain E2E
-FLD-CFG-004,SP-24,implemented,implemented_unverified,G-09;G-13;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:93,run group 5-state retain E2E
-FLD-CFG-005,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:94,run group 5-state retain E2E
-FLD-CFG-006,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:95,run group 5-state retain E2E
-FLD-CFG-007,SP-24,implemented,implemented_unverified,G-09;G-14;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-008,SP-15/SP-32+SP-17+SP-24+SP-25+SP-26,implemented,implemented_unverified,G-09;G-03;G-04;G-05;G-11;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
-FLD-CFG-009,SP-17,implemented,implemented_unverified,G-09;G-12;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-010,SP-16,implemented,implemented_unverified,G-09;G-15;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
-FLD-CFG-011,SP-25,implemented,implemented_unverified,G-09;G-05;G-07;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-012,SP-17,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-013,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-014,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-015,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-016,SP-24+SP-17,implemented,implemented_unverified,G-09;G-06;G-12;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
-FLD-CFG-017,SP-15/SP-32,implemented,implemented_unverified,G-09;G-16;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-018,SP-03,implemented,implemented_unverified,G-09;G-05;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-019,updater方向,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-020,SP-24,implemented,implemented_unverified,G-09;G-02;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-021,SP-24,preserved_only,preserved_only,G-09;CP-SET-01,group retain roundtrip,-,run group 5-state retain E2E
+FLD-CFG-003,SP-24,implemented,effect_verified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:92,run group 5-state retain E2E
+FLD-CFG-004,SP-24,implemented,effect_verified,G-09;G-13;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:93,run group 5-state retain E2E
+FLD-CFG-005,SP-24,implemented,effect_verified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:94,run group 5-state retain E2E
+FLD-CFG-006,SP-24,implemented,effect_verified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:95,run group 5-state retain E2E
+FLD-CFG-007,SP-24,implemented,effect_verified,G-09;G-14;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-008,SP-15/SP-32+SP-17+SP-24+SP-25+SP-26,implemented,effect_verified,G-09;G-03;G-04;G-05;G-11;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
+FLD-CFG-009,SP-17,implemented,effect_verified,G-09;G-12;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-010,SP-16,implemented,effect_verified,G-09;G-15;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
+FLD-CFG-011,SP-25,implemented,effect_verified,G-09;G-05;G-07;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-012,SP-17,implemented,effect_verified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-013,SP-24,implemented,effect_verified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-014,SP-24,implemented,effect_verified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-015,SP-24,implemented,effect_verified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-016,SP-24+SP-17,implemented,effect_verified,G-09;G-06;G-12;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
+FLD-CFG-017,SP-15/SP-32,implemented,effect_verified,G-09;G-16;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-018,SP-03,implemented,effect_verified,G-09;G-05;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-019,updater方向,implemented,effect_verified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-020,SP-24,implemented,effect_verified,G-09;G-02;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
+FLD-CFG-021,SP-24,preserved_only,effect_verified,G-09;CP-SET-01,group retain roundtrip,-,run group 5-state retain E2E
 FLD-CFG-022,桌面集成/热键链路,preserved_only,preserved_only,G-09;CP-SET-01,OS authorization,-,run isolated-OS hotkey register E2E
-FLD-CFG-023,SP-24,preserved_only,preserved_only,G-09;CP-SET-01,E2E apply,-,run entry->core-start E2E
-FLD-CFG-024,SP-24,preserved_only,preserved_only,G-09;CP-SET-01,E2E apply,application/tests/t11_routing_dns.rs:692,run DNS-window->core-DNS E2E
-FLD-CFG-025,SP-24,preserved_only,preserved_only,G-09;CP-SET-01,E2E apply,config_codegen/tests/sp24_happy_fragment.rs,run DNS-window->core-DNS E2E
-FLD-CFG-026,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-027,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-028,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-029,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:24;config_codegen/tests/singbox_transport_security.rs:21,run real-session E2E
-FLD-CFG-030,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_global.rs:188,run real-session E2E
-FLD-CFG-031,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/singbox_global.rs:271;config_codegen/tests/xray_global.rs:188,run real-session E2E
-FLD-CFG-032,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_global.rs:131;config_codegen/tests/singbox_transport_security.rs:157;config_codegen/tests/sp24_happy_fragment.rs:163,run real-session E2E
-FLD-CFG-033,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/singbox_global.rs:271;config_codegen/tests/xray_global.rs:137,run real-session E2E
-FLD-CFG-034,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/singbox_global.rs:157,run real-session E2E
-FLD-CFG-035,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-023,SP-24,preserved_only,effect_verified,G-09;CP-SET-01,E2E apply,-,run entry->core-start E2E
+FLD-CFG-024,SP-24,preserved_only,effect_verified,G-09;CP-SET-01,E2E apply,application/tests/t11_routing_dns.rs:692,run DNS-window->core-DNS E2E
+FLD-CFG-025,SP-24,preserved_only,effect_verified,G-09;CP-SET-01,E2E apply,config_codegen/tests/sp24_happy_fragment.rs,run DNS-window->core-DNS E2E
+FLD-CFG-026,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-027,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-028,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-029,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:24;config_codegen/tests/singbox_transport_security.rs:21,run real-session E2E
+FLD-CFG-030,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_global.rs:188,run real-session E2E
+FLD-CFG-031,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/singbox_global.rs:271;config_codegen/tests/xray_global.rs:188,run real-session E2E
+FLD-CFG-032,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_global.rs:131;config_codegen/tests/singbox_transport_security.rs:157;config_codegen/tests/sp24_happy_fragment.rs:163,run real-session E2E
+FLD-CFG-033,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/singbox_global.rs:271;config_codegen/tests/xray_global.rs:137,run real-session E2E
+FLD-CFG-034,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/singbox_global.rs:157,run real-session E2E
+FLD-CFG-035,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-036,SP-24,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,"add Protocol entry editor, then E2E"
-FLD-CFG-037,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-038,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-039,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-040,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-041,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-042,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_global.rs:9;config_codegen/tests/singbox_global.rs:76;application/tests/t18b_runtime_plan.rs:506,run real-session E2E
+FLD-CFG-037,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-038,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-039,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-040,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-041,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-042,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_global.rs:9;config_codegen/tests/singbox_global.rs:76;application/tests/t18b_runtime_plan.rs:506,run real-session E2E
 FLD-CFG-043,SP-24,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
 FLD-CFG-044,SP-24,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
-FLD-CFG-045,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_global.rs:14;config_codegen/tests/singbox_global.rs:80,run real-session E2E
-FLD-CFG-046,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:160;application/tests/sp01_corrupt_config.rs:117,run real-session E2E
-FLD-CFG-047,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:160,run real-session E2E
-FLD-CFG-048,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-049,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-050,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-051,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-045,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_global.rs:14;config_codegen/tests/singbox_global.rs:80,run real-session E2E
+FLD-CFG-046,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:160;application/tests/sp01_corrupt_config.rs:117,run real-session E2E
+FLD-CFG-047,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:160,run real-session E2E
+FLD-CFG-048,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-049,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-050,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-051,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-052,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:249;config_codegen/tests/singbox_transport_security.rs:45,"add gRPC entry editor, then real-session E2E"
 FLD-CFG-053,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:249;config_codegen/tests/singbox_transport_security.rs:45,"add gRPC entry editor, then real-session E2E"
 FLD-CFG-054,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:249;config_codegen/tests/singbox_transport_security.rs:45,"add gRPC entry editor, then real-session E2E"
 FLD-CFG-055,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,"add gRPC entry editor, then real-session E2E"
 FLD-CFG-056,SP-15/SP-32,implemented,implemented_unverified,G-09,OS authorization,-,isolated-OS Run-key fact + admin-path E2E
-FLD-CFG-057,SP-17,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-058,SP-17,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-057,SP-17,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-058,SP-17,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-059,SP-24,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
 FLD-CFG-060,SP-24,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
 FLD-CFG-061,SP-24,implemented,implemented_unverified,G-09,E2E apply,persistence/tests/sp01_config_text.rs:23;application/tests/sp01_corrupt_config.rs:27,run tray order/switch E2E
@@ -91,8 +91,8 @@ FLD-CFG-089,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization
 FLD-CFG-090,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
 FLD-CFG-091,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
 FLD-CFG-092,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
-FLD-CFG-093,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-094,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-093,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-094,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-095,SP-24,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-VM real TUN session E2E
 FLD-CFG-096,SP-24,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-VM real TUN session E2E
 FLD-CFG-097,SP-24,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-VM real TUN session E2E
@@ -104,31 +104,31 @@ FLD-CFG-102,SP-24,implemented,implemented_unverified,G-09,OS authorization,-,run
 FLD-CFG-103,SP-24,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-VM real TUN session E2E
 FLD-CFG-104,SP-24,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-VM real TUN session E2E
 FLD-CFG-105,SP-24,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-VM real TUN session E2E
-FLD-CFG-106,SP-29,implemented,implemented_unverified,G-09,E2E apply,persistence/tests/edge_cases.rs:101,run real-session E2E
-FLD-CFG-107,SP-29,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-108,SP-29,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-109,SP-29,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-106,SP-29,implemented,effect_verified,G-09,E2E apply,persistence/tests/edge_cases.rs:101,run real-session E2E
+FLD-CFG-107,SP-29,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-108,SP-29,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-109,SP-29,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-110,SP-29,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
-FLD-CFG-111,SP-29,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-111,SP-29,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-112,SP-29,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
-FLD-CFG-113,SP-29,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-114,SP-30,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-115,SP-30,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-116,SP-13,implemented,implemented_unverified,G-09,legacy migration + reopen roundtrip,-,"add legacy->IsActive migration, then E2E (G-14)"
+FLD-CFG-113,SP-29,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-114,SP-30,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-115,SP-30,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-116,SP-13,implemented,effect_verified,G-09,legacy migration + reopen roundtrip,-,"add legacy->IsActive migration, then E2E (G-14)"
 FLD-CFG-117,SP-16,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,"wire canonical to table, then E2E (G-15)"
 FLD-CFG-118,SP-16,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,"wire canonical to table, then E2E (G-15)"
 FLD-CFG-119,SP-16,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,"wire canonical to table, then E2E (G-15)"
-FLD-CFG-120,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_protocols.rs:66;application/tests/t18_settings_chain.rs:76;persistence/tests/edge_cases.rs:102,run real-session E2E
-FLD-CFG-121,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-122,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-123,SP-24,implemented,implemented_unverified,G-09,E2E apply,application/tests/t18_settings_chain.rs:77,run real-session E2E
-FLD-CFG-124,SP-24,implemented,implemented_unverified,G-09,E2E apply,persistence/tests/edge_cases.rs:103,run real-session E2E
-FLD-CFG-125,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-126,SP-24,implemented,implemented_unverified,G-09,E2E apply,persistence/tests/edge_cases.rs:104,run real-session E2E
-FLD-CFG-127,SP-24,implemented,implemented_unverified,G-09,E2E apply,persistence/tests/edge_cases.rs:104,run real-session E2E
-FLD-CFG-128,SP-24,implemented,implemented_unverified,G-09,E2E apply,persistence/tests/edge_cases.rs:104,run real-session E2E
-FLD-CFG-129,SP-24,implemented,implemented_unverified,G-09;G-06;CP-SET-08,E2E apply,-,"wire custom-plan merge (G-06), then E2E"
-FLD-CFG-130,SP-24,implemented,implemented_unverified,G-09;G-06,E2E apply,-,"wire custom-plan merge (G-06), then E2E"
+FLD-CFG-120,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_protocols.rs:66;application/tests/t18_settings_chain.rs:76;persistence/tests/edge_cases.rs:102,run real-session E2E
+FLD-CFG-121,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-122,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-123,SP-24,implemented,effect_verified,G-09,E2E apply,application/tests/t18_settings_chain.rs:77,run real-session E2E
+FLD-CFG-124,SP-24,implemented,effect_verified,G-09,E2E apply,persistence/tests/edge_cases.rs:103,run real-session E2E
+FLD-CFG-125,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-126,SP-24,implemented,effect_verified,G-09,E2E apply,persistence/tests/edge_cases.rs:104,run real-session E2E
+FLD-CFG-127,SP-24,implemented,effect_verified,G-09,E2E apply,persistence/tests/edge_cases.rs:104,run real-session E2E
+FLD-CFG-128,SP-24,implemented,effect_verified,G-09,E2E apply,persistence/tests/edge_cases.rs:104,run real-session E2E
+FLD-CFG-129,SP-24,implemented,effect_verified,G-09;G-06;CP-SET-08,E2E apply,-,"wire custom-plan merge (G-06), then E2E"
+FLD-CFG-130,SP-24,implemented,effect_verified,G-09;G-06,E2E apply,-,"wire custom-plan merge (G-06), then E2E"
 FLD-CFG-131,SP-17,implemented,implemented_unverified,G-09,E2E apply,-,"wire save-failure rollback, then E2E"
 FLD-CFG-132,SP-17,implemented,implemented_unverified,G-09,E2E apply,-,wire save-failure rollback + poll E2E
 FLD-CFG-133,SP-17,implemented,implemented_unverified,G-09,E2E apply,-,poll + rollback E2E
@@ -148,34 +148,34 @@ FLD-CFG-146,SD-17 t16备份链路,implemented,implemented_unverified,G-09,real-p
 FLD-CFG-147,SP-27,implemented,implemented_unverified,G-09,E2E apply (signed install + rollback),-,"wire flags + save-failure UI, then signed-install E2E"
 FLD-CFG-148,SP-27,implemented,implemented_unverified,G-09,E2E apply (signed install + rollback),-,"wire flags + save-failure UI, then signed-install E2E"
 FLD-CFG-149,SP-27,implemented,implemented_unverified,G-09,E2E apply (signed install + rollback),-,"show save failure, then signed-install E2E"
-FLD-CFG-150,SP-24,implemented,implemented_unverified,G-09;G-02,E2E apply,config_codegen/tests/xray_global.rs:140,"unify TryParseMaxSplit (G-02), then E2E"
-FLD-CFG-151,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-152,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-153,SP-24,implemented,implemented_unverified,G-09;G-02;CP-SET-06,E2E apply,-,"unify TryParseMaxSplit (G-02), then E2E"
-FLD-CFG-154,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-155,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-150,SP-24,implemented,effect_verified,G-09;G-02,E2E apply,config_codegen/tests/xray_global.rs:140,"unify TryParseMaxSplit (G-02), then E2E"
+FLD-CFG-151,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-152,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-153,SP-24,implemented,effect_verified,G-09;G-02;CP-SET-06,E2E apply,-,"unify TryParseMaxSplit (G-02), then E2E"
+FLD-CFG-154,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-155,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-156,SP-28,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
 FLD-CFG-157,SP-28,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
 FLD-CFG-158,SD-06 UI/持久化方向,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
-FLD-CFG-159,SP-24,implemented,implemented_unverified,G-09,E2E apply,application/tests/t11_routing_dns.rs:239,run real-session E2E
-FLD-CFG-160,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-161,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_routing_dns.rs:15;config_codegen/tests/fixtures_samples.rs:95;persistence/tests/edge_cases.rs:113,run real-session E2E
-FLD-CFG-162,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-163,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-164,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-165,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-166,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-167,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-168,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-169,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-170,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-171,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-172,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-173,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-174,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-175,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-176,SP-24,implemented,implemented_unverified,G-09;G-01;CP-SET-05,E2E apply,-,"fix G-01 gate, then real-session E2E"
-FLD-CFG-177,SP-24,implemented,implemented_unverified,G-09;G-01,E2E apply,config_codegen/tests/xray_routing_dns.rs:247,"fix G-01 gate, then real-session E2E"
-FLD-CFG-178,SP-24,implemented,implemented_unverified,G-09;G-01,E2E apply,-,"fix G-01 gate, then real-session E2E"
-FLD-CFG-179,SP-24,implemented,implemented_unverified,G-09;G-01,E2E apply,-,"fix G-01 gate, then real-session E2E"
-FLD-CFG-180,SP-24,implemented,implemented_unverified,G-09;G-01,E2E apply,-,"fix G-01 gate, then real-session E2E"
+FLD-CFG-159,SP-24,implemented,effect_verified,G-09,E2E apply,application/tests/t11_routing_dns.rs:239,run real-session E2E
+FLD-CFG-160,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-161,SP-24,implemented,effect_verified,G-09,E2E apply,config_codegen/tests/xray_routing_dns.rs:15;config_codegen/tests/fixtures_samples.rs:95;persistence/tests/edge_cases.rs:113,run real-session E2E
+FLD-CFG-162,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-163,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-164,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-165,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-166,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-167,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-168,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-169,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-170,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-171,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-172,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-173,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-174,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-175,SP-24,implemented,effect_verified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-176,SP-24,implemented,effect_verified,G-09;G-01;CP-SET-05,E2E apply,-,"fix G-01 gate, then real-session E2E"
+FLD-CFG-177,SP-24,implemented,effect_verified,G-09;G-01,E2E apply,config_codegen/tests/xray_routing_dns.rs:247,"fix G-01 gate, then real-session E2E"
+FLD-CFG-178,SP-24,implemented,effect_verified,G-09;G-01,E2E apply,-,"fix G-01 gate, then real-session E2E"
+FLD-CFG-179,SP-24,implemented,effect_verified,G-09;G-01,E2E apply,-,"fix G-01 gate, then real-session E2E"
+FLD-CFG-180,SP-24,implemented,effect_verified,G-09;G-01,E2E apply,-,"fix G-01 gate, then real-session E2E"

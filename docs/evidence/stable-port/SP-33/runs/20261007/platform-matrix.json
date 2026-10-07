@@ -1,0 +1,61 @@
+{
+  "mode": "platform-matrix",
+  "baseline": "393fafd",
+  "host": {
+    "os": "Windows 11 25H2",
+    "arch": "AMD64",
+    "flutter_pinned": true,
+    "cargo_pinned": true
+  },
+  "instances": [
+    {
+      "id": "O01",
+      "platform": "windows",
+      "arch": "x64",
+      "status": "available",
+      "reason": "Pinned Flutter 3.47.5 + Rust 1.98.1 present on this host; real build/smoke still follows the checklist",
+      "unblock": "none (runnable on this host)"
+    },
+    {
+      "id": "O02",
+      "platform": "windows",
+      "arch": "arm64",
+      "status": "blocked",
+      "reason": "Pinned Flutter CLI has no --target-platform (T20 measured exit 64); local x64 engine has no ARM64 target",
+      "unblock": "ARM64 Windows host + ARM64-capable Flutter Windows engine (Rust cross check 5/5 already, see platform-matrix 6.1)"
+    },
+    {
+      "id": "O03",
+      "platform": "macos",
+      "arch": "x64",
+      "status": "blocked",
+      "reason": "Needs Apple hardware + Xcode/SDK; a Windows host cannot produce macOS artifacts",
+      "unblock": "Intel Mac or macOS CI runner + xcode-select --install; build per tools/release/README-platforms.md"
+    },
+    {
+      "id": "O04",
+      "platform": "macos",
+      "arch": "arm64",
+      "status": "blocked",
+      "reason": "Same as O03 (Apple Silicon adds arm64 target verification)",
+      "unblock": "Apple Silicon host/CI + Xcode; also verify Dock accessory / LaunchAgent plist / non-Windows proxy branches"
+    },
+    {
+      "id": "O05",
+      "platform": "linux",
+      "arch": "x64",
+      "status": "blocked",
+      "reason": "No WSL distro / no docker on this host (wsl_state=no-distro-or-off (exit 50), docker_present=False; T21-A wsl exit 50)",
+      "unblock": "wsl --install (admin+reboot) or Docker Desktop; distro needs build-essential/pkg-config + matching rustup target"
+    },
+    {
+      "id": "O06",
+      "platform": "linux",
+      "arch": "arm64",
+      "status": "blocked",
+      "reason": "Same as O05 plus no ARM64 toolchain (wsl_state=no-distro-or-off (exit 50), docker_present=False)",
+      "unblock": "Same as O05 plus gcc-aarch64-linux-gnu or ARM64 Linux host; also verify sudo/TUN/.desktop autostart branches"
+    }
+  ],
+  "note": "Presence/version checks are environment inventory only; instance acceptance needs real build/package/runtime/tray/hotkey/window/DPI/update/cleanup per checklist, no cross-instance borrowing"
+}

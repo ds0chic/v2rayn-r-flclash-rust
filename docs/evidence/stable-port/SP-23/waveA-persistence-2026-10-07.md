@@ -76,3 +76,14 @@ Uncovered (in scope of the wave but not of this package gate):
 Not edited: any `FLD-CFG-*.md`, the ledger CSV, manifests, production code.
 No commit. 127.0.0.1:10808 untouched (no listener/harness uses it; tests
 assert the serialized docs never contain "10808").
+
+## Addendum 2026-10-07 — FLD-CFG-001/002 data-layer partial
+
+Existing `crates/persistence/tests/upstream_import.rs` (8/8 pass,
+`cargo test -p persistence --locked --test upstream_import`) covers the
+data-layer half of 001/002: archive/gui-configs ZIP import, group id remap
+(`v2_fixture_migrates_groups_and_normal_nodes`), transport migration,
+idempotent re-import and source-commit pinning
+(`archive_source_imports_via_gui_configs_layout`). The formal-list select-B ->
+save -> reopen and native import-window halves remain Wave B (GUI); the ledger
+keeps 001/002 in Wave B, not flipped.

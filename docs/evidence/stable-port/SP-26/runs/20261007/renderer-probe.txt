@@ -1,0 +1,84 @@
+=== SP-26 renderer probe ===
+time_utc=2026-10-07T15:54:22.6523986Z
+flutter=Flutter 3.47.5 鈥?channel stable 鈥?https://github.com/flutter/flutter.git
+Framework 鈥?revision 6a19cca564 (3 weeks ago) 鈥?2026-09-17 14:13:22 -0400
+Engine 鈥?hash ab598368592da0064197e2bc15c7f5b0a2c6bb1f (revision af7e796e16) (20 days ago) 鈥?2026-09-16 18:35:09.000Z
+
+=== GPU inventory (Win32_VideoController) ===
+name=GameViewer Virtual Display Adapter | driver=15.6.5.199 | arch=5
+name=Parsec Virtual Display Adapter | driver=0.45.0.0 | arch=5
+name=NVIDIA GeForce RTX 5070 Ti | driver=32.0.16.1692 | arch=5
+name=AMD Radeon(TM) Graphics | driver=32.0.21045.5002 | arch=5
+
+=== engine artifacts ===
+dll_sha256=8BD7B61EEE31AA436EDB182DB41624D1CD3B2688A7E03622320DBEAE067B5251
+dll_bytes=21274112
+hdr_sha256=BDA68D72DD864BC3C0745E451CBCCE90D77AED6E9BDAEA2883940A87938D4C2C
+
+=== renderer switch strings in flutter_windows.dll (ASCII scan) ===
+dll_bytes=21274112 --enable-impeller count=3 --enable-impeller=true count=1 --enable-impeller=false count=1 enable-software-rendering count=1 --impeller-use-sdfs count=2 --enable-flutter-gpu count=3 FlutterDesktopEngineGetGraphicsAdapter count=1 LowPowerPreference count=0 HighPerformancePreference count=0 software_rendering_help=b'h. Memory usage will continue to grow indefinitely however.\x00enable-software-rendering\x00Enable rendering using the Skia software backend. This is useful when testing Flutter on emulators. By default, Flutter will attempt t'
+
+=== embedder header knobs (flutter_windows.h enums) ===
+50:} FlutterDesktopGpuPreference;
+82:} FlutterDesktopImpellerSwitch;
+119:FlutterDesktopGpuPreference gpu_preference;
+130:FlutterDesktopImpellerSwitch impeller_switch;
+304:// DEPRECATED: Use |FlutterDesktopEngineGetGraphicsAdapter| instead.
+312:FLUTTER_EXPORT bool FlutterDesktopEngineGetGraphicsAdapter(
+
+=== runner wiring state (expect zero HWA/impeller/gpu hits) ===
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\flutter_window.cpp:6:#include "hwa_rendering.h"
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\flutter_window.cpp:34:  hwa::LogGraphicsAdapter(flutter_controller_->engine());
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:1:#include "hwa_rendering.h"
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:15:namespace hwa {
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:18:// Recognized CLI flags. `--hwa` alone means on; `--no-hwa`,
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:19:// `--disable-hwa` mean off; `--enable-hwa` means on.
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:20:constexpr char kEnvName[] = "V2RAYNR_ENABLE_HWA";
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:21:constexpr wchar_t kFlagFileName[] = L"v2raynr_hwa.ini";
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:22:constexpr wchar_t kLogFileName[] = L"v2raynr-hwa.log";
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:41:// Returns true when |arg| is an HWA-only flag; sets |out| when it carries a
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:42:// decision (bare `--hwa` = on).
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:44:  if (arg == "--hwa" || arg == "--enable-hwa") {
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:48:  if (arg == "--no-hwa" || arg == "--disable-hwa") {
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:52:  constexpr char kPrefix[] = "--hwa=";
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:73:      ::GetEnvironmentVariableW(L"V2RAYNR_ENABLE_HWA", buf, 16);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:81:// executable, `[rendering] enable_hwa=1|0`. Absent/unparsable = no opinion.
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:85:  ::GetPrivateProfileStringW(L"rendering", L"enable_hwa", L"", buf, 16,
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:99:  std::string full = std::string(stamp) + "[v2raynr-hwa pid=" +
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:144:void StripHwaFlags(std::vector<std::string>& args) {
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:153:void ApplyHardwareAcceleration(flutter::DartProject& project, bool enable_hwa) {
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:154:  if (enable_hwa) {
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:155:    project.set_impeller_switch(flutter::ImpellerSwitch::Default);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:156:    project.set_gpu_preference(flutter::GpuPreference::HighPerformancePreference);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:158:        "mode=ON impeller=Default gpu=HighPerformance (NOT SoftwareOnly)");
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:160:    project.set_impeller_switch(flutter::ImpellerSwitch::Disabled);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:161:    project.set_gpu_preference(flutter::GpuPreference::LowPowerPreference);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:163:        "mode=OFF impeller=Disabled gpu=LowPower (NOT SoftwareOnly: "
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:174:  if (!engine->GetGraphicsAdapter(&adapter) || adapter == nullptr) {
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:175:    EmitLine("adapter=unavailable(GetGraphicsAdapter-failed)");
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.cpp:193:}  // namespace hwa
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:1:#ifndef RUNNER_HWA_RENDERING_H_
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:2:#define RUNNER_HWA_RENDERING_H_
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:12:// SP-26: maps the persisted EnableHWA switch (upstream default false,
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:15:// equivalent, so OFF means low-power GPU + non-Impeller path, NOT software
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:16:// rendering. See docs/decisions/SP-26-hwa-runner.md.
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:17:namespace hwa {
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:20:// V2RAYNR_ENABLE_HWA environment variable, then the
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:21:// <exe-dir>\v2raynr_hwa.ini flag file (contract for the settings pipeline,
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:25:// Removes HWA-only CLI flags so they are not forwarded to Dart.
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:26:void StripHwaFlags(std::vector<std::string>& args);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:30:void ApplyHardwareAcceleration(flutter::DartProject& project, bool enable_hwa);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:36:}  // namespace hwa
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\hwa_rendering.h:38:#endif  // RUNNER_HWA_RENDERING_H_
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\main.cpp:9:#include "hwa_rendering.h"
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\main.cpp:127:  // SP-26: resolve EnableHWA before the engine exists (Dart/FRB are not up
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\main.cpp:128:  // yet) and apply the renderer mapping. HWA-only CLI flags are consumed
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\main.cpp:131:  const bool enable_hwa =
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\main.cpp:132:      hwa::ResolveHardwareAcceleration(command_line_arguments);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\main.cpp:133:  hwa::StripHwaFlags(command_line_arguments);
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\windows\runner\main.cpp:134:  hwa::ApplyHardwareAcceleration(project, enable_hwa);
+
+=== app-side HWA state (persist only) ===
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\lib\features\settings\option_setting_window.dart:1055:value: _bool(gui, 'EnableHWA'),
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\lib\features\settings\option_setting_window.dart:1056:onChanged: (v) => _set('GuiItem', 'EnableHWA', v),
+C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\apps\desktop\lib\features\settings\settings_defaults.dart:104:'EnableHWA': false,

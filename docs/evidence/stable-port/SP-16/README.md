@@ -346,3 +346,85 @@ group_reopen 绿、真实 G 保存重开、同名/普通组、取消/失败：�
 - 订阅窗更新（`update`）仍单目标（右键行/按钮语义未动）：上游批量更新
   语义（多选 update）是否在 SubSetting 覆盖内未核对，登记待查，
   不在本轮删除 parity 范围内伪造。
+
+## 12. 键盘多选 parity 轮（收敛 §11.4 两项待查）
+
+状态：implemented（独立接线完成；verified 不标：真机键盘 trace/DPI、
+真实 FRB/SQLite 重开未运行）。
+合成数据专用；无宿主网络/10808/系统代理/路由/TUN/DNS/Run-key 操作；
+不读用户秘密。不 commit。未动 `profiles_controller.dart`、`crates/**`、
+桥/FRB 文件、其他 feature。
+
+### 12.1 上游复核结论（冻结 7d6a967，只读 work/，本次重验）
+
+- WPF `v2rayN/Views/SubSettingWindow.xaml:84-95` 与 Avalonia
+  `v2rayN.Desktop/Views/SubSettingWindow.axaml:32-43` 的 DataGrid 均未声明
+  `SelectionMode` → 两端 Extended 默认生效（含 Shift+方向键扩展、
+  Ctrl+A 全选、Shift/Ctrl+单击、方向键行导航）；唯一显式 KeyBinding 是
+  Delete→SubDeleteCmd；两端右键菜单均只有 新增/删除/编辑/分享，
+  无“全选”菜单项——故本项目不加全选菜单/按钮，不发明。
+- `ServiceLib/ViewModels/SubSettingViewModel.cs`：多选集
+  `SelectedSources` + 主行 `SelectedSource`；只有 `DeleteSubAsync:84-96`
+  消费选中集（`SelectedSources ?? [SelectedSource]` 一次确认全删），
+  Edit/Share 取单行；SubSetting 内无 update 命令。
+- 更新路径只在主窗：`MainWindowViewModel.UpdateSubscriptionProcess`
+  (`subId, blProxy`) → `SubscriptionHandler.UpdateProcess` 单 id 过滤
+ （`""`=全部，`SubIndexId`=当前组），从不是选中集批量。
+  结论：订阅窗多选批量更新无上游对等物，记 `not_applicable`
+ （真要做需改桥 job 管线，超出本卡 scope），订阅窗单行 update 保持现状。
+
+### 12.2 做（本轮）
+
+- `subs_controller.dart`：`SubsState` +`selectionAnchorId`（Shift 扩展固定端；
+  普通选择/Ctrl+点移动锚点，Shift+click/Shift+方向键只从锚点扩展不挪锚点，
+  反复扩展累加不漂移；删除/reload 剪枝同步收敛锚点，只收缩不发明选择）；
+  +`selectAll`（Ctrl+A 对等：全选，primary 不动，无 primary 落末行，
+  空表 no-op）；+`movePrimary`（方向键行导航对等：收拢到邻行，端部钳制，
+  无选择从首行起）；+`extendKeyboardSelection`（Shift+方向键对等：锚点固定
+  单步扩展，端部钳制不坍缩）。
+- `sub_setting_window.dart`：对话框包 `Shortcuts`+`Actions`
+ （Ctrl+A / Shift+Up/Down / Up/Down → 上述控制器入口）；列表包
+  `Focus(autofocus: true)`（上游 `Window_Loaded` grid.Focus 对等）。
+  右键菜单/按钮/删除路径未动；update 路径未动。
+
+### 12.3 改动文件（写锁内）
+
+- `apps/desktop/lib/features/subs/subs_controller.dart`：
+  +`selectionAnchorId` 状态；`select`/`toggleMultiSelected`/`selectRange`
+  同步锚点；`_pruneSelection` 收敛锚点；+`selectAll`/`movePrimary`/
+  `extendKeyboardSelection`。
+- `apps/desktop/lib/features/subs/sub_setting_window.dart`：
+  +3 Intent；`build` 包 Shortcuts/Actions；列表包 autofocus Focus。
+- `apps/desktop/test/repair/sp_16_sub_keyboard_select_test.dart`：新增 9 项
+  （模型 6：全选保 primary/无 primary 落末行/方向键收拢钳制/Shift 连扩锚点
+  固定/上扩与顶端钳制/普通选择重定锚点；真窗 3：Ctrl+A 全选且 primary 不动、
+  Shift+Down 连扩、普通 Down 收拢到邻行）。
+- `docs/repair/stable-port-2026-10-06/execution-manifest.json`：SP-16 note。
+
+未动：`profiles_controller.dart`、`crates/**`、桥/FRB 文件、其他 feature、
+update 管线。
+
+### 12.4 定向检查（实际结果）
+
+- `dart format --output=none --set-exit-if-changed lib test`：0 changed。
+- `flutter analyze`：No issues found。
+- 新测：`sp_16_sub_keyboard_select_test` 9/9 passed。
+- 回归：`sp_16_sub_batch_delete` 11/11、`sp_16_sub_entry` 9/9、
+  `sp_16_group_persistence` 15/15、`sp_16_sub_delete` 8/8（同进程合跑
+  43/43）；`sp_16_sub_delete_toolbar` 1/1、`ux_space01_entries` 1/1、
+  `sp_16_group_chip_menu` 1/1、`table_actions` 6/6、`t09_sub_setting` 5/5、
+  `t09_sub_edit` 5/5、`sp_18_command_set` 8/8（整壳/重窗文件单跑）。
+- 过程记录：多整壳文件合跑时 `flutter_tester` 进程崩溃
+ （did not complete，无 Dart 栈；单跑各绿；另有一次加载期偶发崩溃，
+  重试即绿；均为已知单进程重窗构建崩溃，见 §10.3 注记）。
+- 未运行：cargo（无 Rust 改动）；全量 `flutter test`（按任务卡只跑受影响
+  文件）；真机/正式包/DPI。
+
+### 12.5 登记缺口（不发明接口）
+
+- §9.4/§10.4 既有缺口延续：engine `set_current_group` 无 FRB 暴露
+  （SP-00 整合）；engine 组写不校验存在性（Dart 读侧门控）；
+  真机 trace/DPI 未验证。
+- 订阅窗多选批量更新：`not_applicable`（见 §12.1；需桥 job 管线改动，
+  超出 scope）。
+- 右键“全选”菜单项：不上游对等物，不加（见 §12.1）。

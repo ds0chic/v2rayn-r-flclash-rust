@@ -120,3 +120,33 @@ filter 10k 17ms（命中 10000→返回 300 + 截断标记）；mergeLogTail 0ms
 2. `group_delay_with_progress` 逐项 UI 流式刷新仍缺 bridge/FRB 接口（上一轮已登记，不削减需求）。
 3. Workspace 全量门禁与 release 构建未跑（VALIDATION_POLICY：发布候选才跑，由 SP-34 整合）。
 4. 本轮 `monitor.rs` 与 Dart 业务代码零改动；`crates/subscriptions` 未动（仅回归测试）。
+
+## Continuation 2026-10-07 — real locked-core loopback sample
+
+The prior `sp22-realcore-2k-2026-10-07.log` is an incomplete pre-fix attempt and is not a pass. The corrected fixture was rerun with the locked Mihomo 1.19.32 binary on probed loopback ports 21808–21810, an explicit temporary data directory, and a `MATCH,DIRECT` route. It now resets accepted upstream sockets to blocking mode and keeps transient idle timeouts from prematurely closing them. The exact commands, core/source hashes, output metrics, cleanup result, and known limits are in [`logs/sp22-realcore-rerun-2026-10-07.log`](logs/sp22-realcore-rerun-2026-10-07.log).
+
+The 50-connection run passed in 6.56s: 50/50 echoed, table completeness 100%, and session totals matched 51,200 bytes in each direction. The default 2,000-connection run passed in 7.70s: 2,000/2,000 echoed, table completeness 100%, five controller polls at 37–54ms, session totals matched 2,048,000 bytes in each direction, the single-close action appeared in the live table, and the core exited with no residual test listener. `cargo fmt -p application -- --check` and targeted Clippy both exited 0.
+
+This closes the earlier 2,000-connection smoke-test failure, but SP-22 remains `implemented`, not `verified`: the 10k-node/10k-connection long-stability run, UI/FRB acceptance, and 24-hour memory/queue-growth checks remain outstanding.
+
+## Continuation 2026-10-07 — 10k real-connection run (integrator rerun)
+
+After the fixture fix above, the integrator reran the same locked-core test at
+the full scale with a strict wall-clock budget:
+`SP22_REALCORE_CONNS=10000 cargo test -p application --locked --test sp22_realcore -- --nocapture`
+(raw transcript: [`logs/sp22-realcore-10k-2026-10-07.log`](logs/sp22-realcore-10k-2026-10-07.log)).
+
+Result (passed in 12.96s, exit 0):
+
+- established 10000/10000 in 2.93s (dial fail 0); echo round trip io_fail=0,
+  upstream bytes 10,240,023 each way;
+- connection-table completeness 1.000 (10000/10000 seen), five controller
+  polls at 217–244ms at 10k live connections, session totals 10,240,000 bytes
+  each direction;
+- single-close of a live connection reflected in the table; core log flood
+  through the real pipeline: 20,008 lines ingested, ring kept 10,000,
+  dropped_lines=10,008 / dropped_bytes=1,055,794, rejected=0;
+- mihomo RSS 26.9MB → 432.8MB; core exited on teardown, no residual process.
+
+Remaining gaps for SP-22 stay as registered: UI/FRB acceptance of the overlay
+at 10k, and the long-stability (24h) memory/queue curve with SP-31/SP-35.

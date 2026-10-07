@@ -1,0 +1,48 @@
+# SP-22 real-core loopback rerun — 2026-10-07
+# HEAD: 8b533f0; test source was uncommitted during the run.
+# Core: Mihomo 1.19.32
+# Core SHA256: 0b54ea7b10e26f6ca628b49e77c13ad9b2587b23393a5b715769cbaeed012af6
+# Test source SHA256 after formatting: 45115f5b1e406508727c680a6d5c67827922048e857002f60f05d5486b5d8a57
+# Ports: mixed 21808, controller 21809, synthetic upstream 21810; all loopback.
+# 127.0.0.1:10808 was not touched. No system proxy, registry, route, TUN, DNS, or Run-key writes.
+# Synthetic payload only. Mihomo used a temporary data directory; post-run process/listener check was clean.
+
+## 50 connections
+
+$ $env:SP22_REALCORE_CONNS='50'; cargo test -p application --locked --test sp22_realcore -- --nocapture
+exit 0; elapsed 6.56s
+controller ready 516.7153ms
+established 50/50 in 13.8996ms; dial failures 0
+echo I/O failures 0; upstream accepted 51 connections including one preflight; upstream received/echoed 51,223 bytes
+connection-table completeness 50/50 (1.000)
+poll latency: 3.4676ms, 1.5292ms, 1.589ms, 1.6718ms, 1.5824ms
+proxy totals and session totals: up 51,200 bytes; down 51,200 bytes
+single-close reflected true
+core logs 108; dropped lines/bytes 0; process exited true
+
+## Default 2,000 connections
+
+$ Remove-Item Env:SP22_REALCORE_CONNS -ErrorAction SilentlyContinue; cargo test -p application --locked --test sp22_realcore -- --nocapture
+exit 0; elapsed 7.70s
+controller ready 507.5236ms
+established 2,000/2,000 in 528.6964ms; dial failures 0
+echo I/O failures 0; upstream accepted 2,001 connections including one preflight; upstream received/echoed 2,048,023 bytes
+connection-table completeness 2,000/2,000 (1.000)
+poll latency: 37.3542ms, 54.3778ms, 43.8033ms, 45.3969ms, 46.5046ms
+proxy totals and session totals: up 2,048,000 bytes; down 2,048,000 bytes
+single-close reflected true
+core logs 4,008; dropped lines/bytes 0; process exited true
+
+## Related checks
+
+$ cargo fmt -p application -- --check
+exit 0
+
+$ cargo clippy -p application --test sp22_realcore --locked -- -D warnings
+exit 0
+
+## Failure diagnosis and remaining scope
+
+The earlier test fixture's nonblocking listener left accepted sockets nonblocking on Windows. Its echo worker treated a transient WouldBlock/timeout as fatal. At 50 connections the core reached the upstream, but the fixture received only the preflight payload. Accepted sockets are now explicitly made blocking, transient idle timeouts are retried until shutdown, and both 50- and 2,000-connection runs pass. The test also seeds StatsService with zero counters before traffic and asserts that observed session totals equal the core totals.
+
+The test now uses a probed port range beginning at 21808, an explicit loopback bind and MATCH,DIRECT route, and a temporary Mihomo data directory. The earlier 11808-range attempt's separate contribution was not isolated. This evidence does not satisfy SP-22's full 10k-node/10k-connection long-stability requirement, UI/FRB user-flow acceptance, or 24-hour resource-growth check; SP-22 remains implemented, not verified.

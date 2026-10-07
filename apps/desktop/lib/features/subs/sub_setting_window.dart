@@ -75,6 +75,27 @@ Future<bool> confirmAndDeleteSub(
   id,
 ], confirmDelete: confirmDelete);
 
+/// Keyboard selection intents (upstream DataGrid Extended parity: the frozen
+/// `SubSettingWindow` grids set no `SelectionMode`, so the WPF/Avalonia
+/// Extended default — Shift+arrows extend, Ctrl+A select all, arrows move the
+/// current row — applies; only Delete has an explicit KeyBinding upstream,
+/// and neither context menu has a select-all item, so none is added here).
+class _SelectAllSubsIntent extends Intent {
+  const _SelectAllSubsIntent();
+}
+
+class _MoveSubSelectionIntent extends Intent {
+  const _MoveSubSelectionIntent(this.direction);
+
+  final int direction;
+}
+
+class _ExtendSubSelectionIntent extends Intent {
+  const _ExtendSubSelectionIntent(this.direction);
+
+  final int direction;
+}
+
 /// The subscription settings window (upstream `SubSettingWindow`,
 /// F-SUB-001/002/003). Opened from the 订阅分组 menu (ACT-MAIN-019).
 Future<void> showSubSettingWindow(BuildContext context, WidgetRef ref) {
@@ -105,68 +126,114 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
   Widget build(BuildContext context) {
     final state = ref.watch(subsControllerProvider);
     final controller = ref.read(subsControllerProvider.notifier);
-    return AlertDialog(
-      key: const ValueKey('sub-setting-window'),
-      title: const Text('订阅分组设置', style: TextStyle(fontSize: 15)),
-      contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
-      content: SizedBox(
-        width: 720,
-        height: 420,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            const _SubTableHeader(),
-            const Divider(height: 1),
-            Expanded(
-              child: state.items.isEmpty
-                  ? const Center(
-                      key: ValueKey('sub-empty'),
-                      child: Text('暂无订阅，请点击“新增”添加'),
-                    )
-                  : ListView.builder(
-                      key: const ValueKey('sub-list'),
-                      itemCount: state.items.length,
-                      itemBuilder: (context, index) {
-                        final item = state.items[index];
-                        return _SubRow(
-                          item: item,
-                          selected:
-                              item.id == state.selectedId ||
-                              state.selectedIds.contains(item.id),
-                          onTap: () => _tapRow(controller, state, item.id),
-                          onToggle: (v) => controller.setEnabled(item.id, v),
-                          onContext: () => _showContextMenu(context, item),
-                        );
-                      },
-                    ),
+    return Shortcuts(
+      shortcuts: const <ShortcutActivator, Intent>{
+        SingleActivator(LogicalKeyboardKey.keyA, control: true):
+            _SelectAllSubsIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowDown): _MoveSubSelectionIntent(
+          1,
+        ),
+        SingleActivator(LogicalKeyboardKey.arrowUp): _MoveSubSelectionIntent(
+          -1,
+        ),
+        SingleActivator(LogicalKeyboardKey.arrowDown, shift: true):
+            _ExtendSubSelectionIntent(1),
+        SingleActivator(LogicalKeyboardKey.arrowUp, shift: true):
+            _ExtendSubSelectionIntent(-1),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _SelectAllSubsIntent: CallbackAction<_SelectAllSubsIntent>(
+            onInvoke: (_) {
+              controller.selectAll();
+              return null;
+            },
+          ),
+          _MoveSubSelectionIntent: CallbackAction<_MoveSubSelectionIntent>(
+            onInvoke: (intent) {
+              controller.movePrimary(intent.direction);
+              return null;
+            },
+          ),
+          _ExtendSubSelectionIntent: CallbackAction<_ExtendSubSelectionIntent>(
+            onInvoke: (intent) {
+              controller.extendKeyboardSelection(intent.direction);
+              return null;
+            },
+          ),
+        },
+        child: AlertDialog(
+          key: const ValueKey('sub-setting-window'),
+          title: const Text('订阅分组设置', style: TextStyle(fontSize: 15)),
+          contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
+          content: SizedBox(
+            width: 720,
+            height: 420,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const _SubTableHeader(),
+                const Divider(height: 1),
+                Expanded(
+                  // Upstream focuses the grid on open
+                  // (`SubSettingWindow.axaml.cs` Window_Loaded).
+                  child: Focus(
+                    autofocus: true,
+                    child: state.items.isEmpty
+                        ? const Center(
+                            key: ValueKey('sub-empty'),
+                            child: Text('暂无订阅，请点击“新增”添加'),
+                          )
+                        : ListView.builder(
+                            key: const ValueKey('sub-list'),
+                            itemCount: state.items.length,
+                            itemBuilder: (context, index) {
+                              final item = state.items[index];
+                              return _SubRow(
+                                item: item,
+                                selected:
+                                    item.id == state.selectedId ||
+                                    state.selectedIds.contains(item.id),
+                                onTap: () =>
+                                    _tapRow(controller, state, item.id),
+                                onToggle: (v) =>
+                                    controller.setEnabled(item.id, v),
+                                onContext: () =>
+                                    _showContextMenu(context, item),
+                              );
+                            },
+                          ),
+                  ),
+                ),
+                if (state.status != null) _StatusLine(status: state.status!),
+              ],
             ),
-            if (state.status != null) _StatusLine(status: state.status!),
+          ),
+          actions: <Widget>[
+            _action('新增', const ValueKey('sub-add'), () => _add(context)),
+            _action(
+              '删除',
+              const ValueKey('sub-delete'),
+              state.deleteIds.isEmpty ? null : () => _delete(context, state),
+            ),
+            _action(
+              '编辑',
+              const ValueKey('sub-edit'),
+              state.selectedId == null ? null : () => _edit(context, state),
+            ),
+            _action(
+              '分享',
+              const ValueKey('sub-share'),
+              () => _share(context, state),
+            ),
+            _action(
+              '关闭',
+              const ValueKey('sub-close'),
+              () => Navigator.pop(context),
+            ),
           ],
         ),
       ),
-      actions: <Widget>[
-        _action('新增', const ValueKey('sub-add'), () => _add(context)),
-        _action(
-          '删除',
-          const ValueKey('sub-delete'),
-          state.deleteIds.isEmpty ? null : () => _delete(context, state),
-        ),
-        _action(
-          '编辑',
-          const ValueKey('sub-edit'),
-          state.selectedId == null ? null : () => _edit(context, state),
-        ),
-        _action(
-          '分享',
-          const ValueKey('sub-share'),
-          () => _share(context, state),
-        ),
-        _action(
-          '关闭',
-          const ValueKey('sub-close'),
-          () => Navigator.pop(context),
-        ),
-      ],
     );
   }
 
@@ -193,6 +260,8 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
   /// 行点选：普通单击收拢为单选（原有行为）；Ctrl+单击切换多选集成员；
   /// Shift+单击以当前 primary 为锚做区间选择（上游 DataGrid Extended
   /// 选择语义的对应；修饰键在事件时刻捕获，不做事后读取）。
+  /// 键盘扩展（Shift+方向键 / Ctrl+A / 方向键移动）走 build 中的
+  /// Shortcuts，锚点由控制器 `selectionAnchorId` 保持。
   void _tapRow(SubsController controller, SubsState state, String id) {
     final keyboard = HardwareKeyboard.instance;
     if (keyboard.isShiftPressed) {

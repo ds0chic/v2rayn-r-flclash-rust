@@ -1,0 +1,42 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running tests\sp22_realcore.rs (target\debug\deps\sp22_realcore-70113a414ed18c9f.exe)
+
+running 1 test
+sp22 realcore: mixed=21808 ctrl=21809 upstream=21810 conns=10000
+sp22 realcore: controller ready in 516.7629ms
+sp22 realcore: upstream preflight accepted=1
+sp22 realcore: dialed 500/10000
+sp22 realcore: dialed 1000/10000
+sp22 realcore: dialed 1500/10000
+sp22 realcore: dialed 2000/10000
+sp22 realcore: dialed 2500/10000
+sp22 realcore: dialed 3000/10000
+sp22 realcore: dialed 3500/10000
+sp22 realcore: dialed 4000/10000
+sp22 realcore: dialed 4500/10000
+sp22 realcore: dialed 5000/10000
+sp22 realcore: dialed 5500/10000
+sp22 realcore: dialed 6000/10000
+sp22 realcore: dialed 6500/10000
+sp22 realcore: dialed 7000/10000
+sp22 realcore: dialed 7500/10000
+sp22 realcore: dialed 8000/10000
+sp22 realcore: dialed 8500/10000
+sp22 realcore: dialed 9000/10000
+sp22 realcore: dialed 9500/10000
+sp22 realcore: dialed 10000/10000
+sp22 realcore: established 10000/10000 in 2.9259238s (fail=0, upstream_accepted=9995)
+sp22 realcore: echo round trip done (io_fail=0, upstream_accepted=10001, upstream_bytes=(10240023, 10240023), first_errors=[])
+sp22 realcore: upstream accepted=10001
+sp22 realcore: poll 0 latency=236.9042ms conns=10000 up=10240000 down=10240000
+sp22 realcore: poll 1 latency=233.5968ms conns=10000 up=10240000 down=10240000
+sp22 realcore: poll 2 latency=241.8615ms conns=10000 up=10240000 down=10240000
+sp22 realcore: poll 3 latency=242.2817ms conns=10000 up=10240000 down=10240000
+sp22 realcore: poll 4 latency=229.066ms conns=10000 up=10240000 down=10240000
+sp22 realcore: max_seen=10000/10000 completeness=1.000 latencies=[236.9042ms, 233.5968ms, 241.8615ms, 242.2817ms, 229.066ms] session_proxy_up=10240000 session_proxy_down=10240000
+sp22 realcore: single close of a8244ac3-5baa-4393-9947-3acadf56350e reflected=true
+sp22 realcore: core_lines=20008 log_total=10000 dropped_lines=10008 dropped_bytes=1055794 rejected=0 accepted=20008 rss_start=Some(26984448) rss_end=Some(432840704) exited=true
+test sp22_realcore_live_sample ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.96s
+

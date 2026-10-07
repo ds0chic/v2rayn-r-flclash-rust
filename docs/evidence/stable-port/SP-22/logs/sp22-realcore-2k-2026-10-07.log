@@ -1,0 +1,13 @@
+   Compiling application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.62s
+     Running tests\sp22_realcore.rs (target\debug\deps\sp22_realcore-70113a414ed18c9f.exe)
+
+running 1 test
+sp22 realcore: mixed=11808 ctrl=11809 upstream=11810 conns=2000
+sp22 realcore: controller ready in 511.7176ms
+sp22 realcore: dialed 500/2000
+sp22 realcore: dialed 1000/2000
+sp22 realcore: dialed 1500/2000
+sp22 realcore: dialed 2000/2000
+sp22 realcore: established 2000/2000 in 460.4901ms (fail=0)
+test sp22_realcore_live_sample has been running for over 60 seconds

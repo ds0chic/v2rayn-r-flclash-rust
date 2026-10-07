@@ -28,6 +28,7 @@ class SubsState {
     required this.items,
     this.selectedId,
     this.selectedIds = const <String>[],
+    this.selectionAnchorId,
     this.busy = false,
     this.status,
     this.lastJobId,
@@ -42,6 +43,12 @@ class SubsState {
   /// `SelectedSource`); a plain tap collapses this to the single row, so
   /// single-select callers keep working unchanged.
   final List<String> selectedIds;
+
+  /// Fixed end of a Shift-extended range (upstream DataGrid Extended
+  /// selection anchor). Plain select / Ctrl+click move it; Shift+click and
+  /// Shift+arrows extend from it without moving it, so repeated extends grow
+  /// the range instead of drifting.
+  final String? selectionAnchorId;
   final bool busy;
   final SubStatus? status;
   final String? lastJobId;
@@ -65,6 +72,7 @@ class SubsState {
     List<c.SubItemDto>? items,
     String? selectedId,
     List<String>? selectedIds,
+    String? selectionAnchorId,
     bool clearSelected = false,
     bool? busy,
     SubStatus? status,
@@ -76,6 +84,9 @@ class SubsState {
     selectedIds: clearSelected
         ? const <String>[]
         : (selectedIds ?? this.selectedIds),
+    selectionAnchorId: clearSelected
+        ? null
+        : (selectionAnchorId ?? this.selectionAnchorId),
     busy: busy ?? this.busy,
     status: status ?? this.status,
     lastJobId: lastJobId ?? this.lastJobId,
@@ -111,7 +122,11 @@ class SubsController extends Notifier<SubsState> {
       state = state.copyWith(clearSelected: true);
       return;
     }
-    state = state.copyWith(selectedId: id, selectedIds: <String>[id]);
+    state = state.copyWith(
+      selectedId: id,
+      selectedIds: <String>[id],
+      selectionAnchorId: id,
+    );
   }
 
   /// Ctrl+click toggle for the multi-select set (upstream DataGrid
@@ -123,11 +138,16 @@ class SubsController extends Notifier<SubsState> {
       current.remove(id);
       state = current.isEmpty
           ? state.copyWith(clearSelected: true)
-          : state.copyWith(selectedId: current.last, selectedIds: current);
+          : state.copyWith(
+              selectedId: current.last,
+              selectedIds: current,
+              selectionAnchorId: current.last,
+            );
     } else {
       state = state.copyWith(
         selectedId: id,
         selectedIds: <String>[...current, id],
+        selectionAnchorId: id,
       );
     }
   }
@@ -145,15 +165,68 @@ class SubsController extends Notifier<SubsState> {
     final lo = a < b ? a : b;
     final hi = a < b ? b : a;
     final range = ids.sublist(lo, hi + 1);
-    state = state.copyWith(selectedId: focusId, selectedIds: range);
+    state = state.copyWith(
+      selectedId: focusId,
+      selectedIds: range,
+      selectionAnchorId: anchorId,
+    );
+  }
+
+  /// Ctrl+A parity (upstream DataGrid Extended selects all rows; the primary
+  /// stays where it is). Empty list is a no-op.
+  void selectAll() {
+    if (state.items.isEmpty) return;
+    final all = [for (final s in state.items) s.id];
+    state = state.copyWith(
+      selectedId: state.selectedId ?? all.last,
+      selectedIds: all,
+      selectionAnchorId: state.selectionAnchorId ?? state.selectedId,
+    );
+  }
+
+  /// Plain arrow-key move (upstream DataGrid row navigation): collapse to the
+  /// neighbour row. Clamps at the ends; with no selection, starts at the
+  /// first row.
+  void movePrimary(int direction) {
+    if (state.items.isEmpty) return;
+    final ids = [for (final s in state.items) s.id];
+    final current = state.selectedId == null
+        ? (direction < 0 ? 1 : -1)
+        : ids.indexOf(state.selectedId!);
+    final next = (current + direction).clamp(0, ids.length - 1);
+    select(ids[next]);
+  }
+
+  /// Shift+arrow extend (upstream DataGrid Extended keyboard range): grow the
+  /// range from the fixed anchor by one row. The anchor never moves here, so
+  /// repeated extends accumulate instead of drifting.
+  void extendKeyboardSelection(int direction) {
+    if (state.items.isEmpty) return;
+    final ids = [for (final s in state.items) s.id];
+    final anchor =
+        (state.selectionAnchorId != null &&
+            ids.contains(state.selectionAnchorId))
+        ? state.selectionAnchorId!
+        : (state.selectedId != null && ids.contains(state.selectedId))
+        ? state.selectedId!
+        : ids.first;
+    final focus = (state.selectedId != null && ids.contains(state.selectedId))
+        ? state.selectedId!
+        : anchor;
+    final next = (ids.indexOf(focus) + direction).clamp(0, ids.length - 1);
+    selectRange(anchor, ids[next]);
   }
 
   /// Drop selected ids that no longer exist (deleted rows, reload races).
   /// Only ever shrinks the selection, never invents one.
   void _pruneSelection() {
     final live = {for (final s in state.items) s.id};
+    final anchorLive =
+        state.selectionAnchorId != null &&
+        live.contains(state.selectionAnchorId);
     if (state.selectedIds.any((id) => !live.contains(id)) ||
-        (state.selectedId != null && !live.contains(state.selectedId))) {
+        (state.selectedId != null && !live.contains(state.selectedId)) ||
+        (state.selectionAnchorId != null && !anchorLive)) {
       final kept = state.selectedIds.where(live.contains).toList();
       state = kept.isEmpty
           ? state.copyWith(clearSelected: true)
@@ -162,6 +235,11 @@ class SubsController extends Notifier<SubsState> {
                   ? state.selectedId
                   : kept.last,
               selectedIds: kept,
+              selectionAnchorId: anchorLive
+                  ? state.selectionAnchorId
+                  : (kept.contains(state.selectedId)
+                        ? state.selectedId
+                        : kept.last),
             );
     }
   }

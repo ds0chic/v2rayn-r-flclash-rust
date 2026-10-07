@@ -1,7 +1,7 @@
 # SP-23.FLD-CFG-133 — ClashUIItem.ProxiesRefreshInterval
 
 状态：implemented（实例登记完成；真实轮询间隔联动验收未跑，不写 verified）。
-任务 ID：SP-23.FLD-CFG-133（主 owner SP-23；消费者归属 SP-25）。
+任务 ID：SP-23.FLD-CFG-133（主 owner SP-23；消费者归属 SP-17）。
 
 本次唯一用户流程：Clash 代理页/设置窗修改刷新间隔（秒，默认 2）→保存→
 真实 core API 按 canonical ProxiesRefreshInterval 节流轮询；
@@ -25,7 +25,7 @@ FLD-CFG-134/135（connections 侧），SD-13/SD-14。
 持久化 save；生效 immediate。保存异步失败传播缺口同 131/132，已登记。
 平台写入仅授权隔离机；10808 禁占，测试端口 ≥11808 预探测。
 
-允许修改的模块（SP-25）：`apps/desktop/lib/features/monitor/clash_ui_config.dart`
+允许修改的模块（SP-17）：`apps/desktop/lib/features/monitor/clash_ui_config.dart`
 （interval 解析）、`apps/desktop/lib/features/monitor/proxies_view.dart`
 （轮询 timer）、`apps/desktop/lib/features/settings/option_setting_window.dart`
 （ClashUI 设置区）。
@@ -45,7 +45,7 @@ FLD-CFG-134/135（connections 侧），SD-13/SD-14。
 测试夹具和原版预期：合成间隔值；正向 2/5→轮询周期对应变化；
 负向 0/负数/坏类型→拒绝或冻结回退，保存失败→可见且回滚（待验证）。
 
-本次必须通过的命令/真实场景（SP-25，未运行）：`flutter test`
+本次必须通过的命令/真实场景（SP-17，未运行）：`flutter test`
 （`fix16c_clash_ui_config`）；
 补正式页→FRB→保存→真实 core API 频率观察→隐藏/切换→重开。最终门禁 SP-34。
 
@@ -53,4 +53,4 @@ FLD-CFG-134/135（connections 侧），SD-13/SD-14。
 
 完成条件：保存、重开和真实轮询频率三者一致 + 失败回滚；仅 UI 值变化不算。
 
-发现接口缺口时的处理：轮询联动 + 保存失败回滚缺口已登记；归属 SP-25。
+发现接口缺口时的处理：轮询联动 + 保存失败回滚缺口已登记；归属 SP-17。

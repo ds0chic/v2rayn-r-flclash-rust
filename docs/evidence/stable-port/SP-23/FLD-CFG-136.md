@@ -1,13 +1,13 @@
 # SP-23.FLD-CFG-136 — ClashUIItem.ConnectionsColumnItem
 
 状态：implemented（实例登记完成；canonical→真实连接表联动验收未跑，不写 verified）。
-任务 ID：SP-23.FLD-CFG-136（主 owner SP-23；消费者归属 SP-28/monitor）。
+任务 ID：SP-23.FLD-CFG-136（主 owner SP-23；消费者归属 SP-16）。
 
 本次唯一用户流程：连接表列设置（Name/Width/Index）→保存→重开→
 connections 真实表按 canonical 恢复列宽/排序；未知列保留。
 
 前置任务及已验证证据：SP-00；SP-01/02、SP-12（未 verified）。
-CSV dependencies：`SD-01/02/04; UI原版布局/窗口消费者；单次legacy迁移`；
+CSV dependencies：`SD-06、SD-13/17`；
 另涉 SD-13/17（monitor/profiles）。
 
 对应 ID：FLD-CFG-136；leaf；platform_scope=all；original_type=list<ColumnItem>；
@@ -25,7 +25,7 @@ original_default=[]。
 （`domain/src/settings_timing.rs:30`）。取消提交前不写。
 平台写入仅授权隔离机；10808 禁占，测试端口 ≥11808 预探测。
 
-允许修改的模块（SP-28/monitor）：`apps/desktop/lib/features/monitor/clash_ui_config.dart`
+允许修改的模块（SP-16）：`apps/desktop/lib/features/monitor/clash_ui_config.dart`
 （`:36` 行形状契约、`:70/:74` 组读写）、`crates/application/src/monitor.rs`
 （`:891` 宽>0 才应用注释、`:925` `normalize_connection_columns`、
 `:1641-1653` 重开归一化）、`crates/persistence/src/upstream_config.rs`
@@ -48,7 +48,7 @@ original_default=[]。
 测试夹具和原版预期：合成列组；正向 改宽/排序→重开表一致；
 负向 坏行→拒绝、宽≤0→默认；未知列保留。
 
-本次必须通过的命令/真实场景（SP-28，未运行）：`flutter test`
+本次必须通过的命令/真实场景（SP-16，未运行）：`flutter test`
 （monitor/表合同）+ `cargo test -p application --locked`（归一化）；
 补正式入口→保存→重开→真实连接表观察。最终门禁 SP-34。
 
@@ -56,4 +56,4 @@ original_default=[]。
 
 完成条件：保存、重开和真实连接表三者一致；仅归一化函数存在不算。
 
-发现接口缺口时的处理：连接表联动缺口已登记；归属 SP-28/monitor。
+发现接口缺口时的处理：连接表联动缺口已登记；归属 SP-16。

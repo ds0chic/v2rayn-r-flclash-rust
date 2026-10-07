@@ -2,7 +2,7 @@
 
 状态：identified（仅完成实例定位与存储/DTO 盘点；无任何平台 consumer，
 Windows 宿主 not_applicable，macOS 效果未验证）。
-任务 ID：SP-23.FLD-CFG-080（主 owner SP-23；消费者归属 SP-18/SD-06 macOS runner）。
+任务 ID：SP-23.FLD-CFG-080（主 owner SP-23；消费者归属 SP-32/SP-33；SD-18 平台 macOS runner，关联 SD-06）。
 
 本次唯一用户流程（macOS 专属，Windows 宿主不适用）：macOS 设置 Dock 显示→
 保存→重启应用→runner/window-manager 按 activation policy 显示/隐藏 Dock；
@@ -26,7 +26,7 @@ original_default=false。
 macOS release 实际 Dock 显示/隐藏 + 重启恢复；Windows 下无效果且不得有副作用。
 平台写入只授权隔离机；10808 禁占，测试端口 ≥11808 预探测。
 
-允许修改的模块（SP-18，将来）：macOS runner/window-manager activation-policy
+允许修改的模块（SP-32/SP-33，将来）：macOS runner/window-manager activation-policy
 读取点（当前缺失，见缺口）。本卡未改生产代码。
 
 禁止改变的已有行为：原版默认 false；Windows 行为零改变；其它 UiItem 不动。
@@ -42,7 +42,7 @@ macOS release 实际 Dock 显示/隐藏 + 重启恢复；Windows 下无效果且
 测试夹具和原版预期：macOS 隔离机合成开关；正向 开→Dock 显示、关→隐藏、
 重启恢复；Windows 下字段值变化零可观察效果（待验）。
 
-本次必须通过的命令/真实场景（SP-18，未运行）：macOS release 构建→真实 Dock
+本次必须通过的命令/真实场景（SP-32/SP-33，未运行）：macOS release 构建→真实 Dock
 显示/隐藏→重启恢复观察；Windows 下零副作用确认。最终门禁 SP-34。
 
 证据文件位置：本目录 `FLD-CFG-080.md`。
@@ -51,4 +51,4 @@ macOS release 实际 Dock 显示/隐藏 + 重启恢复；Windows 下无效果且
 identified。
 
 发现接口缺口时的处理：activation-policy reader 缺失已登记为接口缺口；
-归属 SP-18，不私定模块。
+归属 SP-32/SP-33，不私定模块。

@@ -5,7 +5,7 @@
 
 本次唯一用户流程：读取/迁移 guiNConfig 整树 `ConstItem` 结构（4 URL 属性）→
 组 patch 提交→未知键保留；子字段效果按 FLD-CFG-084/086/087 各自验收
-（086 本地合成源、087 显式 UNAVAILABL 缺口 G-07/G-05 按叶卡登记）。
+（086 本地合成源、087 显式 UNAVAILABLE 缺口 G-07/G-05 按叶卡登记）。
 
 前置任务及已验证证据：SP-00；SP-01/02、SP-12（未 verified）。
 CSV dependencies：`逐ID冻结schema/default/nullable; SD-02可恢复提交`。

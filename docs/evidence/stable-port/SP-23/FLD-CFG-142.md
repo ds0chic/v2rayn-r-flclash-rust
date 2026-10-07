@@ -1,7 +1,7 @@
 # SP-23.FLD-CFG-142 — SystemProxyItem.CustomSystemProxyScriptPath
 
 状态：implemented（路径校验已登记；脚本真实执行 consumer 缺失，不写 verified）。
-任务 ID：SP-23.FLD-CFG-142（主 owner SP-23；消费者归属 SP-18/SD-10 平台代理）。
+任务 ID：SP-23.FLD-CFG-142（主 owner SP-23；消费者归属 SP-32/SP-33；SD-18 平台代理，关联 SD-10）。
 
 本次唯一用户流程（macOS/Linux 专属）：填自定义代理脚本路径→保存→重开→
 冻结代理适配器按该路径执行脚本（超时/exit/取消按冻结语义）；
@@ -26,7 +26,7 @@ original_default=null。
 secret 不入日志。平台写入与执行只授权隔离机；10808 禁占，
 测试端口 ≥11808 预探测；不得改宿主系统代理。
 
-允许修改的模块（SP-18）：`crates/platform/src/script.rs`
+允许修改的模块（SP-32/SP-33）：`crates/platform/src/script.rs`
 （`:5` 字段契约、`:18` `CUSTOM_SCRIPT_FIELD`、`:26-51` 路径校验）、
 `crates/persistence/src/candidate.rs`（`:473` 双键表）、
 `crates/persistence/src/upstream_db.rs`（`:180` 键表）。
@@ -48,11 +48,11 @@ secret 不入日志。平台写入与执行只授权隔离机；10808 禁占，
 测试夹具和原版预期：合成脚本路径；正向 存在可执行→平台按冻结语义执行；
 负向 缺失/不可执行/超时→结构化错误且旧配置不变；取消→无残留。
 
-本次必须通过的命令/真实场景（SP-18，未运行）：`cargo test -p platform --locked`
+本次必须通过的命令/真实场景（SP-32/SP-33，未运行）：`cargo test -p platform --locked`
 （models_and_script）+ 授权隔离 macOS/Linux 真实执行→重开。最终门禁 SP-34。
 
 证据文件位置：本目录 `FLD-CFG-142.md`。
 
 完成条件：保存、真实脚本执行效果和重开三者一致；仅路径校验不算。
 
-发现接口缺口时的处理：脚本执行 consumer 缺失已登记为接口缺口；归属 SP-18。
+发现接口缺口时的处理：脚本执行 consumer 缺失已登记为接口缺口；归属 SP-32/SP-33。

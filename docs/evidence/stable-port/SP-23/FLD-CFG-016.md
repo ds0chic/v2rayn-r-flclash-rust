@@ -5,13 +5,13 @@
 
 本次唯一用户流程：读取/迁移 guiNConfig 整树 `ClashUIItem` 结构（8 属性，
 mihomo/clash 面板偏好）→组 patch 提交→未知键保留；子字段效果按
-FLD-CFG-129/130/131/132 各自验收（129/130 无生产调用者、131 保存失败不回滚缺口按叶卡登记）。
+FLD-CFG-129/130/131/132/133/134/135/136 各自验收（129/130 无生产调用者、131/132/133/134/135 保存失败不回滚缺口、136 连接表联动缺口按叶卡登记）。
 
 前置任务及已验证证据：SP-00；SP-01/02、SP-12（未 verified）。
 CSV dependencies：`逐ID冻结schema/default/nullable; SD-02可恢复提交`。
 
 对应 ID：FLD-CFG-016；container；platform_scope=all；original_type=object；original_default=null。
-关联：FLD-CFG-129/130（已登记，SP-24）、FLD-CFG-131/132（已登记，SP-17）、SD-01/SD-02/04。
+关联：FLD-CFG-129/130（已登记，SP-24）、FLD-CFG-131/132/133/134/135（已登记，SP-17）、FLD-CFG-136（已登记，归属见叶卡注记）、SD-01/SD-02/04。
 
 必读上游文件、符号和固定 commit：`Config.cs:28 :: Config.ClashUIItem`；
 只读核对 `work/research-v2rayn/source-latest/2dust-v2rayN-7d6a967/v2rayN/ServiceLib/Models/Configs/Config.cs:28`
@@ -40,7 +40,7 @@ stale 拒绝；保存/运行分离。
   Dart 侧 `api/settings.dart:115`。
 - 时机：`settings_timing.rs:53` Save。
 - 缺口：CSV current_gap——组级五态保留/隔离正式验收未跑；子字段缺口按各叶卡
-  （129/130 投影存在但无生产调用 G-06；131 保存失败不展示/不回滚 G-12）；
+  （129/130 投影存在但无生产调用 G-06；131/132/133/134/135 保存失败不展示/不回滚缺口见各叶卡 G-12 族；136 连接表联动缺口见叶卡）；
   整树 `unwrap_or_default` 移除与 CP-SET-01/02/03 为前置。
 
 测试夹具和原版预期：合成 guiNConfig；正向两组不同有效 ClashUIItem→patch→重开一致；
@@ -52,6 +52,6 @@ stale 拒绝；保存/运行分离。
 证据文件位置：本目录 `FLD-CFG-016.md`。
 
 完成条件：组 patch 往返、未知键保留、它组不受影响三项闭环 + 重开；
-子字段生效仍按 129/130/131/132 各卡验收，本容器不替代。
+子字段生效仍按 129/130/131/132/133/134/135/136 各卡验收，本容器不替代。
 
 发现接口缺口时的处理：组级验收缺口已登记；子字段缺口归属 SP-24/SP-17，不私定模块。

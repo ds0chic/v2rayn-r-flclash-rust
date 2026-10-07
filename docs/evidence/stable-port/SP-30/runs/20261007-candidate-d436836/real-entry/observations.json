@@ -1,0 +1,105 @@
+﻿{
+    "schema":  1,
+    "task":  "R4-32",
+    "method":  "tools/release/r4_32_real_entry.ps1",
+    "zip":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64.zip",
+    "zip_sha256":  "be10022d4092b2c17e3b345cc147848ef4f327beae72de9bc7ea544b6f855781",
+    "package":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_cd2623dcc5094e37864aa905d0261bff\\extract\\v2rayN-R-1.0.0+1-windows-x64",
+    "build_info":  {
+                       "git_commit":  "d43683629865ac4bf072d0f584751b490af54d2b",
+                       "git_dirty":  false,
+                       "smoke_armed":  false,
+                       "version":  "1.0.0",
+                       "target_platform":  "windows-x64"
+                   },
+    "layout":  {
+                   "expected":  [
+                                    "v2rayn_desktop.exe",
+                                    "bridge_api.dll",
+                                    "net_host.exe",
+                                    "privileged_helper.exe",
+                                    "v2rayN-upgrade.exe",
+                                    "build-info.json",
+                                    "CORE-NOTES.txt",
+                                    "data\\app.so",
+                                    "data\\flutter_assets\\AssetManifest.bin"
+                                ],
+                   "missing":  [
+
+                               ],
+                   "ok":  true
+               },
+    "runs":  [
+                 {
+                     "name":  "first_run",
+                     "data_dir":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_cd2623dcc5094e37864aa905d0261bff\\data",
+                     "started_pid":  84028,
+                     "window":  true,
+                     "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\real-entry\\r4-32-first-run.png",
+                     "guiNDB":  true,
+                     "guiNConfig":  true,
+                     "exited_on_close":  false,
+                     "forced_kill":  true,
+                     "notes":  [
+
+                               ]
+                 },
+                 {
+                     "name":  "reopen",
+                     "data_dir":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_cd2623dcc5094e37864aa905d0261bff\\data",
+                     "started_pid":  35892,
+                     "window":  true,
+                     "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\real-entry\\r4-32-reopen.png",
+                     "guiNDB":  true,
+                     "guiNConfig":  true,
+                     "exited_on_close":  false,
+                     "forced_kill":  true,
+                     "notes":  [
+
+                               ]
+                 },
+                 {
+                     "name":  "ui_update_hook",
+                     "data_dir":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_cd2623dcc5094e37864aa905d0261bff\\data_update",
+                     "started_pid":  48024,
+                     "window":  true,
+                     "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\real-entry\\r4-32-update-window.png",
+                     "guiNDB":  true,
+                     "guiNConfig":  true,
+                     "exited_on_close":  false,
+                     "forced_kill":  true,
+                     "notes":  [
+
+                               ]
+                 },
+                 {
+                     "name":  "ui_backup_hook",
+                     "data_dir":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_cd2623dcc5094e37864aa905d0261bff\\data_backup",
+                     "started_pid":  59696,
+                     "window":  true,
+                     "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\real-entry\\r4-32-backup-window.png",
+                     "guiNDB":  true,
+                     "guiNConfig":  true,
+                     "exited_on_close":  false,
+                     "forced_kill":  true,
+                     "notes":  [
+
+                               ]
+                 }
+             ],
+    "limitations":  [
+                        "import/active/start/stop of the packaged Flutter canvas is not automated here (no OS UI driver); the same-commit real-UI integration tests t21e_import_test.dart and ux_parity_fix07_active_test.dart cover that chain.",
+                        "the packaged app starts no core in this run; no port is bound and 10808 is never touched."
+                    ],
+    "work_root":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_cd2623dcc5094e37864aa905d0261bff",
+    "assessment":  {
+                       "build_info_unarmed":  true,
+                       "build_info_clean":  true,
+                       "layout_ok":  true,
+                       "first_run_window":  true,
+                       "first_run_db":  true,
+                       "reopen_window":  true,
+                       "reopen_db_persisted":  true,
+                       "ok":  true
+                   }
+}

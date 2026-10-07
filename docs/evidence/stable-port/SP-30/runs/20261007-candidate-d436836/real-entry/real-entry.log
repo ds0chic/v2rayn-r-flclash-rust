@@ -1,0 +1,16 @@
+﻿[03:09:00] first_run: started pid=84028
+[03:09:02] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-d436836\real-entry\r4-32-first-run.png (1200x800)
+[03:09:02] first_run: window=True guiNDB=True guiNConfig=True
+[03:09:11] first_run: force-stopped owned pid tree
+[03:09:13] reopen: started pid=35892
+[03:09:15] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-d436836\real-entry\r4-32-reopen.png (1200x800)
+[03:09:15] reopen: window=True guiNDB=True guiNConfig=True
+[03:09:23] reopen: force-stopped owned pid tree
+[03:09:25] ui_update_hook: started pid=48024
+[03:09:27] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-d436836\real-entry\r4-32-update-window.png (1200x800)
+[03:09:27] ui_update_hook: window=True guiNDB=True guiNConfig=True
+[03:09:35] ui_update_hook: force-stopped owned pid tree
+[03:09:37] ui_backup_hook: started pid=59696
+[03:09:39] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-d436836\real-entry\r4-32-backup-window.png (1200x800)
+[03:09:39] ui_backup_hook: window=True guiNDB=True guiNConfig=True
+[03:09:47] ui_backup_hook: force-stopped owned pid tree

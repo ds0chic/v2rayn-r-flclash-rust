@@ -1,0 +1,8 @@
+
+PACKAGE  v2rayN-R-1.0.0+1-windows-x64
+STAGE    C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64
+ZIP      C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip
+SHA256   9b0d924ae5316c55ed19a09bc9fc857dd80fb5e78478c9ab82cb445951bfac22
+ARMED    False
+ELAPSED  2.5s
+T20_BUILD_OK version=1.0.0+1 armed=False zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip sha256=9b0d924ae5316c55ed19a09bc9fc857dd80fb5e78478c9ab82cb445951bfac22

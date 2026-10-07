@@ -150,3 +150,39 @@ Result (passed in 12.96s, exit 0):
 
 Remaining gaps for SP-22 stay as registered: UI/FRB acceptance of the overlay
 at 10k, and the long-stability (24h) memory/queue curve with SP-31/SP-35.
+
+## Stale-test fix 2026-10-07 — SP-22 coalesce window (test-only, no lib change)
+
+SP-22 added a 150ms log coalescing window (`logCoalesceWindow` in
+`monitor_incremental.dart`, buffered in `monitor_controller.dart`
+`_pendingLogLines`/`_logFlushTimer`/`_flushPendingLogs`). Three older files
+asserted synchronously after `emitLogs` and saw 0 rows. Test-only fix: await
+the flush (`logCoalesceWindow + 100ms`) before reading rows; counters/pause
+flags still asserted immediately. No production code touched, no assertions
+weakened, no commit. Synthetic data only; no proxy/registry/TUN; 10808
+untouched.
+
+Files:
+
+- `apps/desktop/test/fix11c_logs_test.dart`: made async + `flushLogRows()` in
+  "keyword/level filtering is presentation-only", "clear empties the ring and
+  shows the upstream marker", "display buffer is bounded under a large burst".
+- `apps/desktop/test/t15a_logs_test.dart`: `pumpLogFlush()` (pump
+  `logCoalesceWindow + 100ms`) after `emitLogs` in "subscribes and renders
+  streamed lines" and "level filter hides lower-severity lines".
+- `apps/desktop/test/t15a_connections_test.dart`: pump
+  `filterDebounceWindow + 100ms` after `enterText` in "renders connection rows
+  and filters by host" (SP-22 150ms filter debounce).
+
+Commands (each its own process, `apps/desktop` as cwd,
+`C:\Users\Colby\toolchains\flutter\bin\flutter.bat`):
+
+- `dart format --output=none --set-exit-if-changed
+  test\fix11c_logs_test.dart test\t15a_logs_test.dart
+  test\t15a_connections_test.dart` → 0 changed, exit 0.
+- `flutter analyze` → No issues found, exit 0.
+- `flutter test test\fix11c_logs_test.dart` → 8/8 passed, exit 0.
+- `flutter test test\t15a_logs_test.dart` → 5/5 passed, exit 0.
+- `flutter test test\t15a_connections_test.dart` → 3/3 passed, exit 0.
+- No `did not complete` crash, so no retry was needed. No cargo,
+  whole-suite, or release build per scope.

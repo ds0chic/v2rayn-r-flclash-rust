@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/connections_view.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 
 import 'support/fake_monitor_bridge.dart';
 
@@ -71,6 +72,8 @@ void main() {
       find.byKey(const ValueKey('connections-filter')),
       'example',
     );
+    // SP-22: the filter needle is debounced for [filterDebounceWindow].
+    await tester.pump(filterDebounceWindow + const Duration(milliseconds: 100));
     await tester.pump();
     expect(find.text('example.com'), findsOneWidget);
     expect(find.text('other.org'), findsNothing);

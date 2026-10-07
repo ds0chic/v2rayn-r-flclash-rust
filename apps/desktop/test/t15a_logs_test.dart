@@ -5,8 +5,14 @@ import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/logs_view.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 
 import 'support/fake_monitor_bridge.dart';
+
+/// SP-22: log rows coalesce for [logCoalesceWindow]; pump past it so the
+/// flush timer fires before reading rows. Counters apply immediately.
+Future<void> pumpLogFlush(WidgetTester tester) =>
+    tester.pump(logCoalesceWindow + const Duration(milliseconds: 100));
 
 Future<FakeMonitorBridge> pumpLogs(WidgetTester tester) async {
   final fake = FakeMonitorBridge();
@@ -37,6 +43,7 @@ void main() {
       m.LogLineDto(text: '[Info] core started', level: 2, truncated: false),
       m.LogLineDto(text: '[Error] boom', level: 4, truncated: true),
     ]);
+    await pumpLogFlush(tester);
     await tester.pump();
 
     expect(find.byKey(const ValueKey('logs-list')), findsOneWidget);
@@ -59,6 +66,7 @@ void main() {
       m.LogLineDto(text: 'info one', level: 2, truncated: false),
       m.LogLineDto(text: 'error two', level: 4, truncated: false),
     ]);
+    await pumpLogFlush(tester);
     await tester.pump();
 
     final container = ProviderScope.containerOf(

@@ -4,8 +4,14 @@ import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_format.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 
 import 'support/fake_monitor_bridge.dart';
+
+/// SP-22: log rows coalesce for [logCoalesceWindow]; counters/pause flags
+/// still apply immediately. Await this after an emit before reading rows.
+Future<void> flushLogRows() =>
+    Future<void>.delayed(logCoalesceWindow + const Duration(milliseconds: 100));
 
 m.LogLineDto line(String text, {int level = 2, bool truncated = false}) =>
     m.LogLineDto(text: text, level: level, truncated: truncated);
@@ -41,7 +47,7 @@ void main() {
     );
   });
 
-  test('keyword/level filtering is presentation-only', () {
+  test('keyword/level filtering is presentation-only', () async {
     final h = harness();
     h.controller.setPageVisible('logs', true);
     h.bridge.emitLogs(<m.LogLineDto>[
@@ -49,6 +55,7 @@ void main() {
       line('warn disk', level: 3),
       line('error disk full', level: 4),
     ]);
+    await flushLogRows();
     final state = h.container.read(monitorControllerProvider);
     expect(state.logs.length, 3);
 
@@ -119,10 +126,11 @@ void main() {
     expect(h.container.read(monitorControllerProvider).scrollPaused, true);
   });
 
-  test('clear empties the ring and shows the upstream marker', () {
+  test('clear empties the ring and shows the upstream marker', () async {
     final h = harness();
     h.controller.setPageVisible('logs', true);
     h.bridge.emitLogs(<m.LogLineDto>[line('gone')]);
+    await flushLogRows();
     expect(h.container.read(monitorControllerProvider).logs.length, 1);
 
     h.controller.clearLogs();
@@ -131,12 +139,13 @@ void main() {
     expect(state.logs.single.text, '----- Message cleared -----');
   });
 
-  test('display buffer is bounded under a large burst', () {
+  test('display buffer is bounded under a large burst', () async {
     final h = harness();
     h.controller.setPageVisible('logs', true);
     h.bridge.emitLogs(<m.LogLineDto>[
       for (var i = 0; i < 2600; i++) line('line $i'),
     ]);
+    await flushLogRows();
     final state = h.container.read(monitorControllerProvider);
     expect(state.logs.length, maxDisplayedLogs);
     expect(state.logs.last.text, 'line 2599');

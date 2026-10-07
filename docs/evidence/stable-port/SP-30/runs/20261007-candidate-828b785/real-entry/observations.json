@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "task": "R4-32",
+  "method": "tools/release/r4_32_real_entry.ps1",
+  "zip": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64.zip",
+  "zip_sha256": "9b0d924ae5316c55ed19a09bc9fc857dd80fb5e78478c9ab82cb445951bfac22",
+  "package": "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_decc33b6f7dc46daa4425c7540029bd9\\extract\\v2rayN-R-1.0.0+1-windows-x64",
+  "build_info": {
+    "git_commit": "828b785ff11820dc08ba7a5a105918b11eb1146e",
+    "git_dirty": false,
+    "smoke_armed": false,
+    "version": "1.0.0",
+    "target_platform": "windows-x64"
+  },
+  "layout": {
+    "expected": [
+      "v2rayn_desktop.exe",
+      "bridge_api.dll",
+      "net_host.exe",
+      "privileged_helper.exe",
+      "v2rayN-upgrade.exe",
+      "build-info.json",
+      "CORE-NOTES.txt",
+      "data\\app.so",
+      "data\\flutter_assets\\AssetManifest.bin"
+    ],
+    "missing": [],
+    "ok": true
+  },
+  "runs": [
+    {
+      "name": "first_run",
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_decc33b6f7dc46daa4425c7540029bd9\\data",
+      "started_pid": 50528,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-828b785\\real-entry\\r4-32-first-run.png",
+      "guiNDB": true,
+      "guiNConfig": true,
+      "exited_on_close": false,
+      "forced_kill": true,
+      "notes": []
+    },
+    {
+      "name": "reopen",
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_decc33b6f7dc46daa4425c7540029bd9\\data",
+      "started_pid": 22300,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-828b785\\real-entry\\r4-32-reopen.png",
+      "guiNDB": true,
+      "guiNConfig": true,
+      "exited_on_close": false,
+      "forced_kill": true,
+      "notes": []
+    },
+    {
+      "name": "ui_update_hook",
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_decc33b6f7dc46daa4425c7540029bd9\\data_update",
+      "started_pid": 79732,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-828b785\\real-entry\\r4-32-update-window.png",
+      "guiNDB": true,
+      "guiNConfig": true,
+      "exited_on_close": false,
+      "forced_kill": true,
+      "notes": []
+    },
+    {
+      "name": "ui_backup_hook",
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_decc33b6f7dc46daa4425c7540029bd9\\data_backup",
+      "started_pid": 24356,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-828b785\\real-entry\\r4-32-backup-window.png",
+      "guiNDB": true,
+      "guiNConfig": true,
+      "exited_on_close": false,
+      "forced_kill": true,
+      "notes": []
+    }
+  ],
+  "limitations": [
+    "import/active/start/stop of the packaged Flutter canvas is not automated here (no OS UI driver); the same-commit real-UI integration tests t21e_import_test.dart and ux_parity_fix07_active_test.dart cover that chain.",
+    "the packaged app starts no core in this run; no port is bound and 10808 is never touched."
+  ],
+  "work_root": "C:\\Users\\Colby\\AppData\\Local\\Temp\\r4_32_real_decc33b6f7dc46daa4425c7540029bd9",
+  "assessment": {
+    "build_info_unarmed": true,
+    "build_info_clean": true,
+    "layout_ok": true,
+    "first_run_window": true,
+    "first_run_db": true,
+    "reopen_window": true,
+    "reopen_db_persisted": true,
+    "ok": true
+  }
+}

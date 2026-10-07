@@ -1,0 +1,40 @@
+[18:28:32] zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\v2rayN-R-1.0.0+1-windows-x64.zip
+[18:28:32] package=C:\Users\Colby\AppData\Local\Temp\t20_smoke_60b9bf1b7c22457dba7cc36382036f88\extract\v2rayN-R-1.0.0+1-windows-x64
+[18:28:32] mainExe=C:\Users\Colby\AppData\Local\Temp\t20_smoke_60b9bf1b7c22457dba7cc36382036f88\extract\v2rayN-R-1.0.0+1-windows-x64\v2rayn_desktop.exe
+[18:28:32] update: started pid=28472
+[18:28:34] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-828b785\smoke-seed\T20-smoke-update-window.png (1200x800)
+[18:29:35] update: window=True guiNConfig=True guiNNDB=False
+[18:29:43] update: did not exit on CloseMainWindow, force-stopped app pid
+[18:29:53] backup: started pid=59024
+[18:29:55] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-828b785\smoke-seed\T20-smoke-backup-window.png (1200x800)
+[18:30:55] backup: window=True guiNConfig=True guiNNDB=False
+[18:31:04] backup: did not exit on CloseMainWindow, force-stopped app pid
+[18:31:14] seeding C:\Users\Colby\AppData\Local\Temp\t20_smoke_60b9bf1b7c22457dba7cc36382036f88\data_seed_app via bridge_api example t18b_seed
+[18:31:15]    seed>    Compiling tokio v1.53.1
+[18:31:15]    seed>    Compiling windows v0.58.0
+[18:31:16]    seed>    Compiling runtime v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\runtime)
+[18:31:17]    seed>    Compiling tokio-util v0.7.18
+[18:31:17]    seed>    Compiling tokio-rustls v0.26.4
+[18:31:17]    seed>    Compiling async-compression v0.4.41
+[18:31:17]    seed>    Compiling tower v0.5.3
+[18:31:17]    seed>    Compiling tokio-tungstenite v0.26.2
+[18:31:17]    seed>    Compiling flutter_rust_bridge v2.13.0
+[18:31:18]    seed>    Compiling h2 v0.4.13
+[18:31:18]    seed>    Compiling tower-http v0.6.8
+[18:31:20]    seed>    Compiling hyper v1.9.0
+[18:31:21]    seed>    Compiling hyper-util v0.1.20
+[18:31:21]    seed>    Compiling hyper-rustls v0.27.9
+[18:31:22]    seed>    Compiling reqwest v0.12.28
+[18:31:23]    seed>    Compiling core_adapters v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\core_adapters)
+[18:31:23]    seed>    Compiling subscriptions v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\subscriptions)
+[18:31:23]    seed>    Compiling updater v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\updater)
+[18:31:25]    seed>    Compiling application v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\application)
+[18:31:35]    seed>    Compiling bridge_api v0.1.0 (C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\crates\bridge_api)
+[18:31:48]    seed>     Finished `release` profile [optimized] target(s) in 33.70s
+[18:31:48]    seed>      Running `target\release\examples\t18b_seed.exe C:\Users\Colby\AppData\Local\Temp\t20_smoke_60b9bf1b7c22457dba7cc36382036f88\data_seed_app`
+[18:31:48]    seed> seeded dir=C:\Users\Colby\AppData\Local\Temp\t20_smoke_60b9bf1b7c22457dba7cc36382036f88\data_seed_app active=t18b-node desired=3
+[18:31:48] seed_apply: started pid=45308
+[18:31:50] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-828b785\smoke-seed\T20-smoke-seed-apply.png (1200x800)
+[18:32:50] seed_apply: window=True guiNConfig=True guiNNDB=False
+[18:33:37] seed_apply: applied=False port11808=False coreChild=False
+[18:33:45] seed_apply: did not exit on CloseMainWindow, force-stopped app pid

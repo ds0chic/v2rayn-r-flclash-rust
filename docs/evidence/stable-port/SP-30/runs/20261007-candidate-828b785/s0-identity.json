@@ -1,0 +1,21 @@
+{
+  "zip": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64.zip",
+  "status": "pass",
+  "entry_count": 33,
+  "setup": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64-setup.exe",
+  "mode": "identity-check",
+  "setup_sha256": "3bd74ff00d2a3dee4608c045aa57159af3361078d30fc8c73e3e20c1f4169090",
+  "zip_sha256": "9b0d924ae5316c55ed19a09bc9fc857dd80fb5e78478c9ab82cb445951bfac22",
+  "failures": [],
+  "sha_file": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\SHA256SUMS",
+  "notes": [
+    "working tree clean (live check)",
+    "zip sha256 matches sha256sums entry",
+    "setup sha256 matches sha256sums entry"
+  ],
+  "build_info": {
+    "git_dirty": false,
+    "smoke_armed": false,
+    "git_commit": "828b785ff11820dc08ba7a5a105918b11eb1146e"
+  }
+}

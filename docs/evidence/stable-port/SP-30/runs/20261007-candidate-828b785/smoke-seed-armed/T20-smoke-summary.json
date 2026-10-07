@@ -1,0 +1,86 @@
+{
+  "zip": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\evidence-armed\\v2rayN-R-1.0.0+1-windows-x64.zip",
+  "package": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\extract\\v2rayN-R-1.0.0+1-windows-x64",
+  "main_exe": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\extract\\v2rayN-R-1.0.0+1-windows-x64\\v2rayn_desktop.exe",
+  "work_root": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75",
+  "runs": [
+    {
+      "name": "update",
+      "env": {
+        "V2RAYN_R_DATA_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\data_update",
+        "V2RAYN_R_OPEN_UPDATE": "1"
+      },
+      "started_pid": 52180,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-828b785\\smoke-seed-armed\\T20-smoke-update-window.png",
+      "data_files": {
+        "guiNNDB.db": false,
+        "guiNConfig.json": true
+      },
+      "exited_on_close": false,
+      "forced_kill": true,
+      "applied": false,
+      "notes": [
+        "cleaned remaining descendants: 84784,38656"
+      ],
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\data_update",
+      "self_alive_after": false
+    },
+    {
+      "name": "backup",
+      "env": {
+        "V2RAYN_R_DATA_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\data_backup",
+        "V2RAYN_R_OPEN_BACKUP": "1"
+      },
+      "started_pid": 51760,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-828b785\\smoke-seed-armed\\T20-smoke-backup-window.png",
+      "data_files": {
+        "guiNNDB.db": false,
+        "guiNConfig.json": true
+      },
+      "exited_on_close": false,
+      "forced_kill": true,
+      "applied": false,
+      "notes": [
+        "cleaned remaining descendants: 75012,55356"
+      ],
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\data_backup",
+      "self_alive_after": false
+    },
+    {
+      "name": "seed_apply",
+      "env": {
+        "V2RAYN_R_RUN_ROOT": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\run",
+        "V2RAYN_R_AUTO_SMOKE": "1",
+        "V2RAYN_R_XRAY_BIN": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\tools\\cores\\xray\\v26.3.27\\xray.exe",
+        "V2RAYN_R_NET_HOST": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\extract\\v2rayN-R-1.0.0+1-windows-x64\\net_host.exe",
+        "V2RAYN_R_DEV_MODE": "1",
+        "V2RAYN_R_PIPE": "\\\\.\\pipe\\t20smokefae28ff61e3744d0993613ae34dbee05",
+        "V2RAYN_R_DATA_DIR": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\data_seed_app"
+      },
+      "started_pid": 58656,
+      "window": true,
+      "screenshot": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-828b785\\smoke-seed-armed\\T20-smoke-seed-apply.png",
+      "data_files": {
+        "guiNNDB.db": false,
+        "guiNConfig.json": true
+      },
+      "exited_on_close": false,
+      "forced_kill": true,
+      "applied": true,
+      "notes": [
+        "cleaned remaining descendants: 62388,62012"
+      ],
+      "data_dir": "C:\\Users\\Colby\\AppData\\Local\\Temp\\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\\data_seed_app",
+      "has_core_descendant": true,
+      "port_11808_listening": true,
+      "screenshot_applied": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-828b785\\smoke-seed-armed\\T20-smoke-seed-apply_applied.png",
+      "self_alive_after": false
+    }
+  ],
+  "dev_path_dependency": "not_proven (no Process Monitor); GUI has no default file log",
+  "limitations": [
+    "packaged apply is only verified if run seed_apply reports applied=true; GUI click-through is not automated"
+  ]
+}

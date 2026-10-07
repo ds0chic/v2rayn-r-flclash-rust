@@ -319,6 +319,11 @@ if ($WithSeed) {
       $pipe = "\\.\pipe\t20smoke" + [guid]::NewGuid().ToString('N')
       $extra = @{
         V2RAYN_R_AUTO_SMOKE = '1'
+        # The per-exe override (V2RAYN_R_XRAY_BIN) is honored only in dev mode
+        # (plan §3.7: a packaged run must never silently pick up a checkout or
+        # stray binary). This smoke explicitly opts in so the evidence build
+        # resolves the repository core.
+        V2RAYN_R_DEV_MODE = '1'
         V2RAYN_R_XRAY_BIN = $XrayBin
         V2RAYN_R_NET_HOST = (Join-Path $pkg 'net_host.exe')
         V2RAYN_R_RUN_ROOT = $runRoot

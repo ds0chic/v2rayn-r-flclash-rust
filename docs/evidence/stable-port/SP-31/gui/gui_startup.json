@@ -1,0 +1,17 @@
+{
+  "scenario": "startup",
+  "rows": 10000,
+  "steps": 600,
+  "tag": "",
+  "wall_ms_to_marker": 502.2,
+  "marker_file": "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp31_gui_9dce0d6989394d3ca86c8e8ff1de29fa\\out\\startup.json",
+  "marker": {
+    "marker": "first_frame",
+    "scenario": "startup",
+    "rows": 10000,
+    "pid": 71964,
+    "main_epoch_us": 1791370168808352,
+    "first_frame_epoch_us": 1791370168915700,
+    "main_to_first_frame_ms": 107.348
+  }
+}

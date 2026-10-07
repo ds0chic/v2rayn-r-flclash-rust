@@ -115,4 +115,58 @@ class T18BenchBridgePort extends FrbBridgePort {
 
   @override
   String? getActiveProfile() => null;
+
+  /// SP-21 async page seam: the profiles controller walks pages through this
+  /// entry now, so the benchmark must serve its synthetic rows here too or the
+  /// table renders empty and the scroll scenario measures nothing.
+  @override
+  Future<c.ProfilePageDto> queryProfilesPageAsync({
+    required c.ProfileFilterDto filter,
+    required c.ProfileSortDto sort,
+    required int cursor,
+    required int pageSize,
+    required int requestGeneration,
+  }) async {
+    final rows = rust.generateProfiles(count: rowCount);
+    final start = cursor < 0 ? 0 : cursor;
+    if (start >= rows.length) {
+      return c.ProfilePageDto(
+        items: const <c.ProfileDto>[],
+        total: BigInt.from(rows.length),
+        nextCursor: null,
+        datasetRevision: BigInt.zero,
+        requestGeneration: BigInt.from(requestGeneration),
+      );
+    }
+    final end = (start + pageSize).clamp(start, rows.length);
+    return c.ProfilePageDto(
+      items: rows.sublist(start, end).map(_benchDto).toList(growable: false),
+      total: BigInt.from(rows.length),
+      nextCursor: end < rows.length ? BigInt.from(end) : null,
+      datasetRevision: BigInt.zero,
+      requestGeneration: BigInt.from(requestGeneration),
+    );
+  }
+
+  /// Minimal DTO for one synthetic bench row; the table only needs the
+  /// identity/display fields, never a real credential.
+  c.ProfileDto _benchDto(ProfileSummary s) => c.ProfileDto(
+    indexId: s.id,
+    configType: s.configType,
+    coreType: s.coreType,
+    configVersion: 4,
+    subid: s.subRemarks,
+    isSub: false,
+    displayLog: false,
+    remarks: s.remarks,
+    address: s.address,
+    port: s.port,
+    password: '',
+    username: '',
+    network: s.network,
+    security: const c.SecurityDto(),
+    protoExtra: const c.ProtocolExtraDto(extraJson: '{}'),
+    transportExtra: const c.TransportExtraDto(extraJson: '{}'),
+    extraJson: '{}',
+  );
 }

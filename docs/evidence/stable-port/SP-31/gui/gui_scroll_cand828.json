@@ -1,0 +1,41 @@
+{
+  "scenario": "scroll",
+  "rows": 50000,
+  "steps": 600,
+  "tag": "cand828",
+  "wall_ms_to_marker": 7137.8,
+  "marker_file": "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp31_gui_f61a276e8133412891e64eae09f4d55f\\out\\scroll_50000_cand828.json",
+  "marker": {
+    "label": "T18",
+    "method": "SchedulerBinding.addTimingsCallback",
+    "build_mode": "release",
+    "row_count": 50000,
+    "scroll_steps": 600,
+    "budget_ms": 16.7,
+    "samples": [
+      {
+        "build_us": 554,
+        "raster_us": 2458
+      },
+      {
+        "build_us": 511,
+        "raster_us": 865
+      },
+      {
+        "build_us": 557,
+        "raster_us": 1351
+      }
+    ],
+    "summary": {
+      "sample_count": 3,
+      "build_p50_us": 554,
+      "build_p95_us": 557,
+      "raster_p50_us": 1351,
+      "raster_p95_us": 2458,
+      "total_p50_us": 1908,
+      "total_p95_us": 3012,
+      "dropped_frames": 0,
+      "dropped_rate": 0.0
+    }
+  }
+}

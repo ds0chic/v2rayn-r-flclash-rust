@@ -1,0 +1,21 @@
+[18:43:23] zip=C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\dist\evidence-armed\v2rayN-R-1.0.0+1-windows-x64.zip
+[18:43:23] package=C:\Users\Colby\AppData\Local\Temp\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\extract\v2rayN-R-1.0.0+1-windows-x64
+[18:43:23] mainExe=C:\Users\Colby\AppData\Local\Temp\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\extract\v2rayN-R-1.0.0+1-windows-x64\v2rayn_desktop.exe
+[18:43:23] update: started pid=52180
+[18:43:25] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-828b785\smoke-seed-armed\T20-smoke-update-window.png (1200x800)
+[18:44:26] update: window=True guiNConfig=True guiNNDB=False
+[18:44:34] update: did not exit on CloseMainWindow, force-stopped app pid
+[18:44:44] backup: started pid=51760
+[18:44:46] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-828b785\smoke-seed-armed\T20-smoke-backup-window.png (1200x800)
+[18:45:46] backup: window=True guiNConfig=True guiNNDB=False
+[18:45:55] backup: did not exit on CloseMainWindow, force-stopped app pid
+[18:46:05] seeding C:\Users\Colby\AppData\Local\Temp\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\data_seed_app via bridge_api example t18b_seed
+[18:46:07]    seed>     Finished `release` profile [optimized] target(s) in 1.07s
+[18:46:07]    seed>      Running `target\release\examples\t18b_seed.exe C:\Users\Colby\AppData\Local\Temp\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\data_seed_app`
+[18:46:09]    seed> seeded dir=C:\Users\Colby\AppData\Local\Temp\t20_smoke_d9bf3b9884ba4344834c47fd12bc2b75\data_seed_app active=t18b-node desired=3
+[18:46:10] seed_apply: started pid=58656
+[18:46:12] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-828b785\smoke-seed-armed\T20-smoke-seed-apply.png (1200x800)
+[18:47:12] seed_apply: window=True guiNConfig=True guiNNDB=False
+[18:47:16] screenshot C:\Users\Colby\Documents\Codex\2026-10-01\v2rayn-flclash-rust-v2rayn\docs\evidence\stable-port\SP-30\runs\20261007-candidate-828b785\smoke-seed-armed\T20-smoke-seed-apply_applied.png (1200x800)
+[18:47:16] seed_apply: applied=True port11808=True coreChild=True
+[18:47:24] seed_apply: did not exit on CloseMainWindow, force-stopped app pid

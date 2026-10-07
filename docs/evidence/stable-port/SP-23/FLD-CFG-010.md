@@ -1,7 +1,7 @@
 # SP-23.FLD-CFG-010 — UiItem（container）
 
 状态：implemented（实例登记完成；组级保留/隔离正式验收未跑，不写 verified；容器只计台账覆盖，不替子字段生效）。
-任务 ID：SP-23.FLD-CFG-010（主 owner SP-23；叶子消费者分属 SP-16、SD-06 等）。
+任务 ID：SP-23.FLD-CFG-010（主 owner SP-23；叶子消费者 SP-16（SD-06，G-15 族）；080 例外归 SP-32/SP-33，见叶卡）。
 
 本次唯一用户流程：读取/迁移 guiNConfig 整树 `UiItem` 结构（17 属性，上游类名 `UIItem`，
 含列定义与窗口几何集合）→组 patch 提交→未知键保留；子字段效果按各叶卡验收

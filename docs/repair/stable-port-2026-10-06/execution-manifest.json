@@ -30,7 +30,8 @@
       "test_scope": "runtime/snapshot、settings receipt、window envelope、page/import接口编译合同",
       "upstream_symbols": "ServiceLib/Models/Configs/Config.cs；原方案§19；当前 domain/runtime_plan.rs、domain/job.rs",
       "status": "implemented",
-      "instance_required": false
+      "instance_required": false,
+      "note": "open gaps: G-08 (validate_plan.py stale all-identified assert) + G-09 field acceptance gate + CP-SET-01/02/03/15 cross-cutting contracts"
     },
     {
       "id": "SP-01",
@@ -123,7 +124,8 @@
       "test_scope": "审计backup活动A/B回归、实体引用迁移",
       "upstream_symbols": "ServiceLib/Models/Configs/Config.cs；备份与Restore上游处理",
       "status": "implemented",
-      "instance_required": false
+      "instance_required": false,
+      "note": "open gaps: G-10 (001/002 canonical-ZIP roundtrip) + L1-002 (cert-chain leaf-only) + SD-17 t16 WebDAV acceptance (143-146) + G-09 acceptance"
     },
     {
       "id": "SP-04",
@@ -471,7 +473,7 @@
       "status": "implemented",
       "instance_required": false,
       "evidence": "docs/evidence/stable-port/SP-13/README.md",
-      "note": "2026-10-07 directional green, see evidence; native/package/OS isolation pending"
+      "note": "2026-10-07 directional green, see evidence; native/package/OS isolation pending; open gaps: G-14 (116 legacy-IsActive migration) + G-09 acceptance"
     },
     {
       "id": "SP-14",
@@ -532,7 +534,8 @@
       "test_scope": "内容hash、不吞saveGroup失败、PAC fallback",
       "upstream_symbols": "原版SysProxyHandler/PAC/autostart处理",
       "status": "implemented",
-      "instance_required": false
+      "instance_required": false,
+      "note": "open gaps: G-11 (056 AutoRun) + G-16 (138-141, family 137) + G-09 acceptance"
     },
     {
       "id": "SP-16",
@@ -563,7 +566,7 @@
       "upstream_symbols": "ServiceLib/ViewModels/ProfilesViewModel.cs",
       "status": "implemented",
       "evidence": "docs/evidence/stable-port/SP-16/README.md",
-      "note": "group persistence/reopen wired through profiles_controller (canonical SubIndexId group write on switch, build restore, resync fallback with no repair persist) + subs save/delete unified refresh; synthetic reopen/failure tests green (15 new + collateral ux_space01 fix); delete parity round: main-window toolbar-sub-delete via deleteCurrentSub (DeleteSubAsync counterpart, All/missing gated, confirm, fail keeps group + surfaces error) + subs-window confirmAndDeleteSub (button + context menu, ShowYesNo parity, cancel zero-write); 9 new synthetic delete tests green (8 helper/dialog + 1 toolbar E2E in own file); no profiles_controller change; gaps: engine set_current_group has no FRB entry (settings-group seam used, SP-00), engine group write unvalidated (Dart read-side gate), native group_reopen trace/DPI unverified; batch round: main-window group-chip right-click menu (ListBox.ContextMenu parity, menuSubEdit/Add/Delete via existing sub_direct_edit entries, same gating/confirm, no profiles_controller/context_menu change) + subs-window multi-select batch delete (SelectedSources parity: selectedIds/toggle/range/deleteIds, one confirm for all, cancel/fail keep data+selection, single-select unchanged); 12 new synthetic tests green (11 batch + 1 chip-menu E2E in own file); no tester crash, no retry needed; gaps left: subs multi-select keyboard parity (select-all/shift-extend), subs batch-update path, native trace/DPI unverified; keyboard round: upstream re-verified in frozen 7d6a967 (both SubSetting grids omit SelectionMode, so WPF/Avalonia Extended default with Shift+arrows/Ctrl+A applies; only explicit KeyBinding is Delete; context menus have no select-all item; SubSetting has no update command, main-window update is a single-id filter) => implemented Ctrl+A select-all + Shift+arrow extend with fixed anchor + plain-arrow move in subs window via Shortcuts/Actions + list autofocus (grid-focus parity), no select-all menu item (not upstream); subs multi-select batch-update closed as not_applicable (no upstream counterpart; would need bridge job-pipeline change, out of scope); 9 new synthetic keyboard tests green; flutter analyze clean",
+      "note": "group persistence/reopen wired through profiles_controller (canonical SubIndexId group write on switch, build restore, resync fallback with no repair persist) + subs save/delete unified refresh; synthetic reopen/failure tests green (15 new + collateral ux_space01 fix); delete parity round: main-window toolbar-sub-delete via deleteCurrentSub (DeleteSubAsync counterpart, All/missing gated, confirm, fail keeps group + surfaces error) + subs-window confirmAndDeleteSub (button + context menu, ShowYesNo parity, cancel zero-write); 9 new synthetic delete tests green (8 helper/dialog + 1 toolbar E2E in own file); no profiles_controller change; gaps: engine set_current_group has no FRB entry (settings-group seam used, SP-00), engine group write unvalidated (Dart read-side gate), native group_reopen trace/DPI unverified; batch round: main-window group-chip right-click menu (ListBox.ContextMenu parity, menuSubEdit/Add/Delete via existing sub_direct_edit entries, same gating/confirm, no profiles_controller/context_menu change) + subs-window multi-select batch delete (SelectedSources parity: selectedIds/toggle/range/deleteIds, one confirm for all, cancel/fail keep data+selection, single-select unchanged); 12 new synthetic tests green (11 batch + 1 chip-menu E2E in own file); no tester crash, no retry needed; gaps left: subs multi-select keyboard parity (select-all/shift-extend), subs batch-update path, native trace/DPI unverified; keyboard round: upstream re-verified in frozen 7d6a967 (both SubSetting grids omit SelectionMode, so WPF/Avalonia Extended default with Shift+arrows/Ctrl+A applies; only explicit KeyBinding is Delete; context menus have no select-all item; SubSetting has no update command, main-window update is a single-id filter) => implemented Ctrl+A select-all + Shift+arrow extend with fixed anchor + plain-arrow move in subs window via Shortcuts/Actions + list autofocus (grid-focus parity), no select-all menu item (not upstream); subs multi-select batch-update closed as not_applicable (no upstream counterpart; would need bridge job-pipeline change, out of scope); 9 new synthetic keyboard tests green; flutter analyze clean; open gaps: G-15 family (117/118/119 + 067/068/069/081/082/083/136/156/157/158) + G-09 acceptance",
       "instance_required": false
     },
     {
@@ -597,7 +600,7 @@
       "status": "implemented",
       "instance_required": false,
       "evidence": "docs/evidence/stable-port/SP-17/README.md",
-      "note": "2026-10-07 integrator: SnapshotDto/FRB exposes the actual descriptor end-to-end (net_host RuntimeDetail → application ActualRuntimeView → bridge_api ActualRuntimeDto: target_profile_id/actual_generation/plan_hash/core_version/last_exit/last_error/ready_endpoints); runtime_bridge.dart maps it into RuntimeView.actual. Targeted checks green (runtime/net_host/application/bridge_api tests, sp05+sp17 Dart tests, t06a real-FRB, flutter analyze). Real GUI candidate trace pending → not verified"
+      "note": "2026-10-07 integrator: SnapshotDto/FRB exposes the actual descriptor end-to-end (net_host RuntimeDetail → application ActualRuntimeView → bridge_api ActualRuntimeDto: target_profile_id/actual_generation/plan_hash/core_version/last_exit/last_error/ready_endpoints); runtime_bridge.dart maps it into RuntimeView.actual. Targeted checks green (runtime/net_host/application/bridge_api tests, sp05+sp17 Dart tests, t06a real-FRB, flutter analyze). Real GUI candidate trace pending → not verified; open gaps: G-12 family (065/066/131 + 132/134; 133/135 same class) + G-09 acceptance"
     },
     {
       "id": "SP-18",
@@ -824,7 +827,7 @@
       "upstream_symbols": "V2rayOutboundService.cs、TryParseMaxSplit、CSV字段source",
       "status": "identified",
       "instance_required": true,
-      "note": "2026-10-07 SP-24 continuation (uncommitted): UI MaxSplit TryParseMaxSplit parity + Happy gate + String2List split parity, fragment_mask wire trim; Dart sp_24 widget 5/5 + config_codegen/application green, fmt/clippy/analyze clean. Formal UI->FRB->save->restart->xray/mihomo verify->reopen still unverified; G-07/G-13-rest/TUN-session blocked. Status stays identified for integrator promotion. 2026-10-07 FLD-CFG-103 Rust warn-filter (uncommitted, evidence FLD-CFG-103-tun-plan-warn-filter.md): tun_plan filters invalid route-exclude per entry with Diagnostic warnings (upstream CoreConfigContextBuilder parity), valid entries kept, all-invalid yields empty set; engine.rs diagnostics wiring registered but pending (engine locked); fmt/clippy green, application lib 350 + suites green except parallel-batch t10_core_matrix_live overtls block (unrelated). Status stays identified for integrator promotion"
+      "note": "2026-10-07 SP-24 continuation (uncommitted): UI MaxSplit TryParseMaxSplit parity + Happy gate + String2List split parity, fragment_mask wire trim; Dart sp_24 widget 5/5 + config_codegen/application green, fmt/clippy/analyze clean. Formal UI->FRB->save->restart->xray/mihomo verify->reopen still unverified; G-07/G-13-rest/TUN-session blocked. Status stays identified for integrator promotion. 2026-10-07 FLD-CFG-103 Rust warn-filter (uncommitted, evidence FLD-CFG-103-tun-plan-warn-filter.md): tun_plan filters invalid route-exclude per entry with Diagnostic warnings (upstream CoreConfigContextBuilder parity), valid entries kept, all-invalid yields empty set; engine.rs diagnostics wiring registered but pending (engine locked); fmt/clippy green, application lib 350 + suites green except parallel-batch t10_core_matrix_live overtls block (unrelated). Status stays identified for integrator promotion; open gaps: G-01 (176-180) + G-02 (150-155) + G-06 (129/130) + G-13 (100/102/103/105) + L1-003 (mihomo YAML preprocess) + G-09 acceptance"
     },
     {
       "id": "SP-25",
@@ -861,7 +864,8 @@
       "test_scope": "应用HTTPS trust source受控TLS矩阵",
       "upstream_symbols": "RootCertProvider上游HTTP初始化；SD-10",
       "status": "implemented",
-      "instance_required": true
+      "instance_required": true,
+      "note": "open gaps: G-04 (063 log) + G-05 (064 + 087 same class) + G-07 (086 SRS) + G-09 acceptance"
     },
     {
       "id": "SP-26",
@@ -888,7 +892,8 @@
       "test_scope": "renderer设备/模式证据、重启与失败rollback",
       "upstream_symbols": "GuiItem.EnableHWA源与锁定Flutter engine头文件",
       "status": "identified",
-      "instance_required": false
+      "instance_required": false,
+      "note": "open gaps: G-03 (062 HWA feasibility) + G-09 acceptance"
     },
     {
       "id": "SP-27",
@@ -926,7 +931,7 @@
       "status": "implemented",
       "instance_required": false,
       "evidence": "docs/evidence/stable-port/SP-27/README.md",
-      "note": "2026-10-07 UI接线落地：applyAppUpdate改走with-flags（冻结当次prerelease/viaProxy），check/apply单操作冻结同一份flags，no-arg默认入口保留；Dart定向21/21+r4_29 10/10+审计retry合同3/3绿。受控真实发行源/真实产品key、正式包/OS隔离验收未跑，不标verified"
+      "note": "2026-10-07 UI接线落地：applyAppUpdate改走with-flags（冻结当次prerelease/viaProxy），check/apply单操作冻结同一份flags，no-arg默认入口保留；Dart定向21/21+r4_29 10/10+审计retry合同3/3绿。受控真实发行源/真实产品key、正式包/OS隔离验收未跑，不标verified；open gaps: 147/148 save-failure family + L1-001 (GeoFiles row) + G-09 acceptance"
     },
     {
       "id": "SP-28",
@@ -1107,7 +1112,8 @@
       "test_scope": "授权隔离机专项，不在宿主运行",
       "upstream_symbols": "platform-matrix与原版Windows平台服务",
       "status": "identified",
-      "instance_required": true
+      "instance_required": true,
+      "note": "open gaps: 080 (macOS Dock, no consumer) + 142 (script exec consumer absent) + G-09 acceptance"
     },
     {
       "id": "SP-33",

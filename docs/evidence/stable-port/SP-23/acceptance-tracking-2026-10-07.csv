@@ -6,15 +6,15 @@ FLD-CFG-004,SP-24,implemented,implemented_unverified,G-09;G-13;CP-SET-01,group 5
 FLD-CFG-005,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:94,run group 5-state retain E2E
 FLD-CFG-006,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:95,run group 5-state retain E2E
 FLD-CFG-007,SP-24,implemented,implemented_unverified,G-09;G-14;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-008,unclear,implemented,implemented_unverified,G-09;G-03;G-04;G-05;G-11;CP-SET-01,group 5-state retain + patch isolation,-,"confirm split ownership, then group E2E"
+FLD-CFG-008,SP-15/SP-32+SP-17+SP-24+SP-25+SP-26,implemented,implemented_unverified,G-09;G-03;G-04;G-05;G-11;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
 FLD-CFG-009,SP-17,implemented,implemented_unverified,G-09;G-12;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-010,unclear,implemented,implemented_unverified,G-09;G-15;CP-SET-01,group 5-state retain + patch isolation,-,"confirm split ownership, then group E2E"
+FLD-CFG-010,SP-16,implemented,implemented_unverified,G-09;G-15;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
 FLD-CFG-011,SP-25,implemented,implemented_unverified,G-09;G-05;G-07;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
 FLD-CFG-012,SP-17,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
 FLD-CFG-013,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
 FLD-CFG-014,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
 FLD-CFG-015,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
-FLD-CFG-016,unclear,implemented,implemented_unverified,G-09;G-06;G-12;CP-SET-01,group 5-state retain + patch isolation,-,"confirm split ownership, then group E2E"
+FLD-CFG-016,SP-24+SP-17,implemented,implemented_unverified,G-09;G-06;G-12;CP-SET-01,group 5-state retain + patch isolation,-,"run group 5-state retain E2E"
 FLD-CFG-017,SP-15/SP-32,implemented,implemented_unverified,G-09;G-16;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
 FLD-CFG-018,SP-03,implemented,implemented_unverified,G-09;G-05;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E
 FLD-CFG-019,updater方向,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,-,run group 5-state retain E2E

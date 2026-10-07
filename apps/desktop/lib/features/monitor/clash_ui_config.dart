@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/features/monitor/connections_columns.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 
 /// Consumer view of `ClashUIItem` (upstream `ConfigItems.ClashUIItem`) for the
@@ -112,6 +113,29 @@ Map<String, dynamic> clashUiGroupWith(
   group.addAll(changes);
   return group;
 }
+
+/// Parse the document's canonical `ConnectionsColumnItem` rows (unknown names
+/// kept, bad rows refused; FLD-CFG-136, profiles G-15 mirror). The view keeps
+/// these for the unknown-preserving save path.
+List<ConnectionColumnEntry> connectionsColumnEntriesFromDocument(
+  Map<String, dynamic> document,
+) {
+  final raw = document['ClashUIItem'];
+  final group = raw is Map ? raw : const <String, dynamic>{};
+  return parseConnectionColumnItems(group['ConnectionsColumnItem']);
+}
+
+/// Encode display [columns] back to `ConnectionsColumnItem` storage rows while
+/// preserving unknown rows from [persisted] (unknown columns never reach the
+/// table but must survive a save; invalid widths already fell back at
+/// resolve time).
+List<Map<String, dynamic>> encodeConnectionsColumnStorage(
+  List<ConnectionColumn> columns,
+  List<Map<String, dynamic>> persisted,
+) => encodeConnectionColumns(
+  columns,
+  preserveUnknownFrom: parseConnectionColumnItems(persisted),
+);
 
 final clashUiConfigProvider = Provider<ClashUiConfig>((ref) {
   final document = ref.watch(settingsControllerProvider).document;

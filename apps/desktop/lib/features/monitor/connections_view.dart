@@ -74,12 +74,16 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   void _persistColumns() {
     final settings = ref.read(settingsControllerProvider);
     if (!settings.loaded) return;
+    final persisted = ref.read(clashUiConfigProvider).connectionsColumns;
     ref
         .read(settingsControllerProvider.notifier)
         .saveGroup(
           'ClashUIItem',
           clashUiGroupWith(settings.document, <String, Object>{
-            'ConnectionsColumnItem': connectionColumnsToStorage(_columns),
+            'ConnectionsColumnItem': encodeConnectionsColumnStorage(
+              _columns,
+              persisted,
+            ),
           }),
         );
   }
@@ -146,7 +150,10 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   }
 
   /// React to a settings change while the tab is open (save -> live refresh).
-  /// The timer always follows this canonical config, never a pending toggle.
+  /// The timer always follows this canonical config, never a pending toggle;
+  /// the column layout follows the canonical `ConnectionsColumnItem` rows so
+  /// an external save (or a reopen of the same document) is reflected without
+  /// reopening the tab.
   void _applyConfig(ClashUiConfig config) {
     if (!mounted) return;
     setState(() => _autoRefresh = config.connectionsAutoRefresh);
@@ -156,6 +163,26 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
         intervalSeconds: config.connectionsRefreshInterval,
       ),
     );
+    final next = resolveVisibleColumns(config.connectionsColumns);
+    if (!_sameColumns(_columns, next)) {
+      setState(() => _columns = next);
+    }
+  }
+
+  /// Column identity for the live-resync above (order + widths).
+  static bool _sameColumns(
+    List<ConnectionColumn> current,
+    List<ConnectionColumn> next,
+  ) {
+    if (current.length != next.length) return false;
+    for (var i = 0; i < current.length; i++) {
+      if (current[i].name != next[i].name ||
+          current[i].width != next[i].width ||
+          current[i].index != next[i].index) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _restartTimer(Duration? period) {

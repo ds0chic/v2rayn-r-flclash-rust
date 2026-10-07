@@ -40,6 +40,46 @@ List<ConnectionColumn> defaultConnectionColumns() => const <ConnectionColumn>[
   ConnectionColumn(name: 'Elapsed', width: 100, index: 5),
 ];
 
+/// One persisted canonical column row (`ClashUIItem.ConnectionsColumnItem[]`
+/// entry, upstream `ColumnItem`: Name / Width / Index).
+class ConnectionColumnEntry {
+  const ConnectionColumnEntry({
+    required this.name,
+    required this.width,
+    required this.index,
+  });
+
+  final String name;
+  final int width;
+  final int index;
+}
+
+/// Parse the raw `ConnectionsColumnItem` JSON value into canonical rows.
+///
+/// Unknown names are kept (roundtrip preservation, FLD-CFG-136); rows with an
+/// empty name or a mistyped Width/Index are refused (dropped). Mirrors the
+/// profiles G-15 `parseMainColumnItems` contract.
+List<ConnectionColumnEntry> parseConnectionColumnItems(Object? raw) {
+  if (raw is! List) return const <ConnectionColumnEntry>[];
+  final out = <ConnectionColumnEntry>[];
+  for (final row in raw) {
+    if (row is! Map) continue;
+    final name = row['Name'];
+    if (name is! String || name.isEmpty) continue;
+    final width = row['Width'];
+    final index = row['Index'];
+    if (width is! num || index is! num) continue;
+    out.add(
+      ConnectionColumnEntry(
+        name: name,
+        width: width.toInt(),
+        index: index.toInt(),
+      ),
+    );
+  }
+  return out;
+}
+
 int _asIndex(Object? value, int fallback) {
   if (value is num) return value.toInt();
   return int.tryParse('$value') ?? fallback;
@@ -118,10 +158,37 @@ List<ConnectionColumn> resolveVisibleColumns(
 /// 写入设置文档后独立重开读回；形状与上游 `StorageUI` 回写一致。
 List<Map<String, dynamic>> connectionColumnsToStorage(
   List<ConnectionColumn> columns,
-) => <Map<String, dynamic>>[
-  for (final c in columns)
-    <String, dynamic>{'Name': c.name, 'Width': c.width, 'Index': c.index},
-];
+) => encodeConnectionColumns(columns);
+
+/// Encode display columns back to canonical rows, preserving unknown rows
+/// (FLD-CFG-136, profiles G-15 mirror).
+///
+/// Visible columns store their width, hidden ones are not part of this table
+/// (widths are always positive here); Index is the display position. Rows in
+/// [preserveUnknownFrom] whose name is not a current display key (unknown
+/// columns) are rewritten verbatim after the known rows so a save never
+/// drops them.
+List<Map<String, dynamic>> encodeConnectionColumns(
+  List<ConnectionColumn> columns, {
+  List<ConnectionColumnEntry> preserveUnknownFrom =
+      const <ConnectionColumnEntry>[],
+}) {
+  final keys = columns.map((column) => column.name).toSet();
+  final out = <Map<String, dynamic>>[
+    for (final c in columns)
+      <String, dynamic>{'Name': c.name, 'Width': c.width, 'Index': c.index},
+  ];
+  for (final entry in preserveUnknownFrom) {
+    if (entry.name.isEmpty || keys.contains(entry.name)) continue;
+    if (out.any((row) => row['Name'] == entry.name)) continue;
+    out.add(<String, dynamic>{
+      'Name': entry.name,
+      'Width': entry.width,
+      'Index': entry.index,
+    });
+  }
+  return out;
+}
 
 /// 将 [from] 处的列移到 [to] 处并按 0..n-1 重编 `index`（表头拖拽排列用）。
 ///

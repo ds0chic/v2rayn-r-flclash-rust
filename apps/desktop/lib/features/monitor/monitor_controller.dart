@@ -653,6 +653,17 @@ class MonitorController extends Notifier<MonitorState> {
     if (enabled && _logsPageVisible) _reloadLogs();
   }
 
+  /// Wave B G-12 (FLD-CFG-065/066): seed the log view from the canonical
+  /// `MsgUIItem` group when the page opens. Only the filter/auto-refresh
+  /// presentation state is touched: pause flags, the retained tail and the
+  /// live stream are preserved, so a paused view stays paused across a filter
+  /// change and a live view keeps tailing. Enabling refresh resyncs the tail
+  /// (same as [setAutoRefresh]); disabling just freezes the view.
+  void seedLogView({required String keyword, required bool autoRefresh}) {
+    state = state.copyWith(keyword: keyword, autoRefresh: autoRefresh);
+    if (autoRefresh && _logsPageVisible) _reloadLogs();
+  }
+
   void setCollectingPaused(bool paused) {
     _bridge.setLogPause(
       collectingPaused: paused,

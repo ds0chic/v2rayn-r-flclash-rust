@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
+import 'package:v2rayn_desktop/features/monitor/log_ui_config.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_format.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
@@ -39,6 +41,10 @@ class _LogsViewState extends ConsumerState<LogsView> {
       if (!mounted || _initialized) return;
       _initialized = true;
       _controller.setPageVisible('logs', true);
+      // Wave B G-12: seed the filter/refresh presentation state from the
+      // canonical `MsgUIItem` group on every open (save -> reopen keeps the
+      // initial filter; null AutoRefresh falls back to live tailing).
+      _applyConfig(ref.read(logUiConfigProvider));
     });
   }
 
@@ -53,16 +59,98 @@ class _LogsViewState extends ConsumerState<LogsView> {
 
   /// SP-22: keyword scans the retained tail synchronously, so keystrokes are
   /// debounced into one scan per pause instead of one full filter per key.
+  /// Wave B G-12: the debounced value is committed through the canonical
+  /// `MsgUIItem` group (persist-first), so save -> reopen keeps the filter.
   void _onKeywordChanged(String value) {
     _keywordDebounce?.cancel();
     _keywordDebounce = Timer(filterDebounceWindow, () {
       if (!mounted) return;
-      _controller.setKeyword(value);
+      _commitKeyword(value);
     });
+  }
+
+  /// Apply the canonical config to the page-local view. Pause flags, the
+  /// retained tail and the live stream are untouched (controller side), so a
+  /// paused view stays paused across a filter change and a live view keeps
+  /// tailing.
+  void _applyConfig(LogUiConfig config) {
+    if (!mounted) return;
+    if (_keyword.text != config.keyword) {
+      _keyword.value = TextEditingValue(
+        text: config.keyword,
+        selection: TextSelection.collapsed(offset: config.keyword.length),
+      );
+    }
+    _controller.seedLogView(
+      keyword: config.keyword,
+      autoRefresh: config.autoRefresh,
+    );
+  }
+
+  /// Persist [changes] into `MsgUIItem`; true only when the write landed.
+  bool _persistMsgUi(Map<String, Object?> changes) {
+    final settings = ref.read(settingsControllerProvider);
+    if (!settings.loaded) return false;
+    final result = ref
+        .read(settingsControllerProvider.notifier)
+        .saveGroup('MsgUIItem', msgUiGroupWith(settings.document, changes));
+    return result.ok;
+  }
+
+  void _showNotice(String message, String key) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      SnackBar(
+        key: ValueKey(key),
+        content: Text(message, style: const TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
+  void _revertKeyword(String previous) {
+    _keyword.value = TextEditingValue(
+      text: previous,
+      selection: TextSelection.collapsed(offset: previous.length),
+    );
+  }
+
+  /// Commit a debounced keyword: invalid regex is rejected with the previous
+  /// filter kept (FLD-CFG-065); a failed save rolls back the text and keeps
+  /// the persisted filter (FLD-CFG-066 failure path).
+  void _commitKeyword(String value) {
+    if (!mounted) return;
+    final previous = ref.read(monitorControllerProvider).keyword;
+    if (value == previous) return;
+    if (!isValidLogFilter(value)) {
+      _revertKeyword(previous);
+      _showNotice('过滤表达式非法，已保留上次过滤', 'logs-filter-error');
+      return;
+    }
+    if (!_persistMsgUi(<String, Object?>{'MainMsgFilter': value})) {
+      _revertKeyword(previous);
+      _showNotice('日志选项保存失败，已恢复上次保存的值', 'logs-save-error');
+      return;
+    }
+    _applyConfig(ref.read(logUiConfigProvider));
+  }
+
+  /// Wave B G-12: persist-first auto-refresh toggle. A failed save keeps the
+  /// old (persisted) switch and shows a visible error; the view never runs on
+  /// an unpersisted value.
+  void _setAutoRefresh(bool value) {
+    if (value == ref.read(monitorControllerProvider).autoRefresh) return;
+    if (!_persistMsgUi(<String, Object?>{'AutoRefresh': value})) {
+      _showNotice('日志选项保存失败，已恢复上次保存的值', 'logs-save-error');
+      return;
+    }
+    _applyConfig(ref.read(logUiConfigProvider));
   }
 
   @override
   Widget build(BuildContext context) {
+    // React to a canonical change while the tab is open (save -> live
+    // refresh). Seeding only touches filter/refresh, never pause flags.
+    ref.listen(logUiConfigProvider, (_, next) => _applyConfig(next));
     final state = ref.watch(monitorControllerProvider);
     final controller = ref.read(monitorControllerProvider.notifier);
     final visible = state.visibleLogs;
@@ -123,7 +211,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
                     Switch(
                       key: const ValueKey('logs-autorefresh'),
                       value: state.autoRefresh,
-                      onChanged: controller.setAutoRefresh,
+                      onChanged: _setAutoRefresh,
                     ),
                   ],
                 ),

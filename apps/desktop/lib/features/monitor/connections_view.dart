@@ -44,7 +44,10 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     _autoRefresh = config.connectionsAutoRefresh;
     _columns = resolveVisibleColumns(config.connectionsColumns);
     _restartTimer(
-      config.connectionsRefreshEnabled ? config.connectionsRefreshPeriod : null,
+      clashPollPeriod(
+        autoRefresh: config.connectionsAutoRefresh,
+        intervalSeconds: config.connectionsRefreshInterval,
+      ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _initialized) return;
@@ -143,11 +146,15 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   }
 
   /// React to a settings change while the tab is open (save -> live refresh).
+  /// The timer always follows this canonical config, never a pending toggle.
   void _applyConfig(ClashUiConfig config) {
     if (!mounted) return;
     setState(() => _autoRefresh = config.connectionsAutoRefresh);
     _restartTimer(
-      config.connectionsRefreshEnabled ? config.connectionsRefreshPeriod : null,
+      clashPollPeriod(
+        autoRefresh: config.connectionsAutoRefresh,
+        intervalSeconds: config.connectionsRefreshInterval,
+      ),
     );
   }
 
@@ -164,14 +171,16 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     });
   }
 
+  /// Wave B (FLD-CFG-134): persist first, move the toggle only on success.
+  /// A failed save keeps the old (persisted) toggle and surfaces a visible
+  /// error instead of an unpersisted switch position (SP-12 audit contract).
   void _setAutoRefresh(bool value) {
-    setState(() => _autoRefresh = value);
-    _restartTimer(
-      value ? ref.read(clashUiConfigProvider).connectionsRefreshPeriod : null,
-    );
     final settings = ref.read(settingsControllerProvider);
-    if (!settings.loaded) return;
-    ref
+    if (!settings.loaded) {
+      _report('连接选项保存失败，已恢复上次保存的值');
+      return;
+    }
+    final result = ref
         .read(settingsControllerProvider.notifier)
         .saveGroup(
           'ClashUIItem',
@@ -179,6 +188,11 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
             'ConnectionsAutoRefresh': value,
           }),
         );
+    if (!result.ok) {
+      _report('连接选项保存失败，已恢复上次保存的值');
+      return;
+    }
+    _applyConfig(ref.read(clashUiConfigProvider));
   }
 
   void _report(String message) {

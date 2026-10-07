@@ -141,6 +141,34 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     });
   }
 
+  /// Wave B (FLD-CFG-131..135): the ClashUI poll/sort keys rolled back to the
+  /// persisted canonical when an in-process save fails, so the monitor tabs
+  /// (which read the canonical document) never disagree with this window.
+  static const _clashUiRollbackKeys = <String>[
+    'ProxiesSorting',
+    'ProxiesAutoRefresh',
+    'ProxiesRefreshInterval',
+    'ConnectionsAutoRefresh',
+    'ConnectionsRefreshInterval',
+  ];
+
+  void _rollbackClashUiDraft() {
+    if (widget.host != null) return;
+    final persisted = ref
+        .read(settingsControllerProvider)
+        .document['ClashUIItem'];
+    if (persisted is! Map) return;
+    final group = _draft['ClashUIItem'];
+    if (group is! Map<String, dynamic>) return;
+    for (final key in _clashUiRollbackKeys) {
+      if (persisted.containsKey(key)) {
+        group[key] = persisted[key];
+      } else {
+        group.remove(key);
+      }
+    }
+  }
+
   Map<String, dynamic> _inboundListener() {
     final value = _draft['Inbound'];
     if (value is List &&
@@ -479,7 +507,10 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     if (outcome.ok) {
       Navigator.of(context).pop();
     } else {
-      setState(() => _error = outcome.message ?? 'error.settings_save_failed');
+      setState(() {
+        _error = outcome.message ?? 'error.settings_save_failed';
+        _rollbackClashUiDraft();
+      });
     }
   }
 

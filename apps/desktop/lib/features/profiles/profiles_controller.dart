@@ -15,10 +15,12 @@ import 'package:v2rayn_desktop/features/profiles/profile_dedup.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
 import 'package:v2rayn_desktop/features/profiles/command_context.dart';
+import 'package:v2rayn_desktop/features/profiles/main_column_layout.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/sub_entry.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
+import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 final bridgePortProvider = Provider<BridgePort>((ref) => const FrbBridgePort());
@@ -494,7 +496,7 @@ class ProfilesController extends Notifier<ProfilesState> {
     final snapshot = _bridge.fetchProfileSnapshot(count);
     _baseSummaries = snapshot.summaries;
     final rows = _bridge.applyLiveOverlay(snapshot.summaries);
-    final columns = _applyStoredLayout(defaultProfileColumns());
+    final columns = _resolveInitialColumns();
     ref.onDispose(() => _testPoller?.cancel());
     // SP-16 reopen: the persisted `Config.SubIndexId` against the live
     // subscriptions (a dangling id resolves to the All view, never the first
@@ -1086,6 +1088,105 @@ class ProfilesController extends Notifier<ProfilesState> {
       if (profile.port > 0) return profile.indexId;
     }
     return null;
+  }
+
+  /// Initial table columns: the canonical `UiItem.MainColumnItem` layout when
+  /// persisted (G-15 / FLD-CFG-117/118/119), otherwise the local `column_layout`
+  /// UI cache (legacy widths included), otherwise the table defaults.
+  List<ProfileColumn> _resolveInitialColumns() {
+    return _readCanonicalColumns() ??
+        _applyStoredLayout(defaultProfileColumns());
+  }
+
+  /// Re-apply the canonical `UiItem.MainColumnItem` layout onto the live table
+  /// (e.g. after the settings window saved the `UiItem` group).
+  ///
+  /// Returns false and leaves the table untouched when no canonical layout is
+  /// persisted or the settings document is unreadable.
+  bool resyncColumnsFromCanonical() {
+    final columns = _readCanonicalColumns();
+    if (columns == null) return false;
+    state = state.copyWith(columns: columns);
+    _log('column-resync', 'columns=${columns.length}');
+    return true;
+  }
+
+  /// Read and apply the canonical layout; null when absent/unreadable so the
+  /// caller falls back to the UI cache (never a half-applied table).
+  List<ProfileColumn>? _readCanonicalColumns() {
+    try {
+      final load = _bridge.getSettings();
+      if (!load.ok || load.settingsJson.isEmpty) return null;
+      final decoded = jsonDecode(load.settingsJson);
+      if (decoded is! Map<String, dynamic>) return null;
+      final ui = decoded['UiItem'];
+      if (ui is! Map) return null;
+      final entries = parseMainColumnItems(ui['MainColumnItem']);
+      if (entries.isEmpty) return null;
+      final flags = _columnVisibilityFlags(decoded);
+      return applyMainColumnLayout(
+        defaultProfileColumns(),
+        entries,
+        showStatistics: flags.$1,
+        showIpInfo: flags.$2,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Sibling-setting gates for forced column visibility (upstream `RestoreUI`):
+  /// `GuiItem.EnableStatistics` for `to*` columns, `SpeedTestItem.IPAPIUrl` +
+  /// `UiItem.HideColumnIpInfo` for `IpInfo`.
+  (bool, bool) _columnVisibilityFlags(Map<String, dynamic> document) {
+    final gui = document['GuiItem'];
+    final ui = document['UiItem'];
+    final speed = document['SpeedTestItem'];
+    final showStatistics = gui is Map && gui['EnableStatistics'] == true;
+    final ipApi = speed is Map ? speed['IPAPIUrl'] : null;
+    final showIpInfo =
+        ipApi is String &&
+        ipApi.isNotEmpty &&
+        !(ui is Map && ui['HideColumnIpInfo'] == true);
+    return (showStatistics, showIpInfo);
+  }
+
+  /// Write the live layout back to the canonical `UiItem.MainColumnItem` group
+  /// (upstream `StorageUI` port; unknown rows preserved, hidden stored as -1).
+  ///
+  /// The whole `UiItem` group is rewritten with only `MainColumnItem` replaced,
+  /// matching the `saveSettingsGroup` group granularity. False when the
+  /// settings document is unreadable or the bridge rejects the write; the
+  /// caller keeps the optimistic table state and the UI-cache mirror.
+  bool _saveCanonicalColumns() {
+    try {
+      final load = _bridge.getSettings();
+      if (!load.ok || load.settingsJson.isEmpty) return false;
+      final decoded = jsonDecode(load.settingsJson);
+      if (decoded is! Map<String, dynamic>) return false;
+      final rawUi = decoded['UiItem'];
+      final Map<String, dynamic> ui;
+      if (rawUi is Map<String, dynamic>) {
+        ui = Map<String, dynamic>.of(rawUi);
+      } else if (rawUi is Map) {
+        ui = Map<String, dynamic>.from(rawUi);
+      } else {
+        final fallback = defaultSettingsJson()['UiItem'];
+        ui = fallback is Map<String, dynamic>
+            ? Map<String, dynamic>.of(fallback)
+            : Map<String, dynamic>.from(fallback as Map);
+      }
+      final previous = parseMainColumnItems(ui['MainColumnItem']);
+      ui['MainColumnItem'] = encodeMainColumnItems(
+        state.columns,
+        preserveUnknownFrom: previous,
+      );
+      final revision =
+          decodeGroupRevisions(load.groupRevisionsJson)['UiItem'] ?? 0;
+      return _bridge.saveSettingsGroup('UiItem', jsonEncode(ui), revision).ok;
+    } catch (_) {
+      return false;
+    }
   }
 
   List<ProfileColumn> _applyStoredLayout(List<ProfileColumn> defaults) {
@@ -2192,6 +2293,17 @@ class ProfilesController extends Notifier<ProfilesState> {
   }
 
   void _persistColumns() {
+    // G-15: the canonical `UiItem.MainColumnItem` is the persisted source of
+    // truth. On a successful write the table re-applies the canonical effect
+    // (int normalization included); a rejected write keeps the optimistic
+    // state and is logged, never silently reverted. The `column_layout`
+    // section stays as a local mirror of the live state for the
+    // no-bridge/legacy path, written last so it always matches the table.
+    if (_saveCanonicalColumns()) {
+      resyncColumnsFromCanonical();
+    } else {
+      _log('column-save-failed', 'canonical-unwritable');
+    }
     _store.saveSection(columnSection, <String, dynamic>{
       'order': state.columns.map((c) => c.key).toList(),
       'visible': <String, bool>{

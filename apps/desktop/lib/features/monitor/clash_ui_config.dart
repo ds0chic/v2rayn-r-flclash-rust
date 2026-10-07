@@ -51,6 +51,18 @@ class ClashUiConfig {
       Duration(seconds: connectionsRefreshInterval);
 }
 
+/// Wave B (FLD-CFG-131..135) shared poll wiring: the monitor tabs must drive
+/// their timers from this canonical period, never from an unpersisted toggle.
+/// A null return means the poller stays stopped (auto-refresh off or a
+/// non-positive interval, upstream parity).
+Duration? clashPollPeriod({
+  required bool autoRefresh,
+  required int intervalSeconds,
+}) {
+  if (!autoRefresh || intervalSeconds <= 0) return null;
+  return Duration(seconds: intervalSeconds);
+}
+
 const ClashUiConfig defaultClashUiConfig = ClashUiConfig();
 
 /// Parse the persisted settings document into a [ClashUiConfig]. Missing keys

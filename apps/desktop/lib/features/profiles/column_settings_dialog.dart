@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
 /// Column visibility/order editor. Mirrors upstream LAY-PROFILES-003
-/// (`UiItem.MainColumnItem`: Name / Width / DisplayIndex). Persisted through
-/// `ui_state.json`; no backend involved.
+/// (`UiItem.MainColumnItem`: Name / Width / DisplayIndex). Persisted to the
+/// canonical `UiItem.MainColumnItem` settings group with the `ui_state.json`
+/// `column_layout` section kept as a local mirror for the no-bridge path.
 Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
   final controller = ref.read(profilesControllerProvider.notifier);
   return showDialog<void>(

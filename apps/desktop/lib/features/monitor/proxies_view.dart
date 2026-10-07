@@ -34,7 +34,10 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     _autoRefresh = config.proxiesAutoRefresh;
     _sorting = config.proxiesSorting;
     _restartTimer(
-      config.proxiesRefreshEnabled ? config.proxiesRefreshPeriod : null,
+      clashPollPeriod(
+        autoRefresh: config.proxiesAutoRefresh,
+        intervalSeconds: config.proxiesRefreshInterval,
+      ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted || _initialized) return;
@@ -53,6 +56,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
   }
 
   /// React to a settings change while the tab is open (save -> live refresh).
+  /// The timer always follows this canonical config, never a pending toggle.
   void _applyConfig(ClashUiConfig config) {
     if (!mounted) return;
     setState(() {
@@ -60,7 +64,10 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
       _sorting = config.proxiesSorting;
     });
     _restartTimer(
-      config.proxiesRefreshEnabled ? config.proxiesRefreshPeriod : null,
+      clashPollPeriod(
+        autoRefresh: config.proxiesAutoRefresh,
+        intervalSeconds: config.proxiesRefreshInterval,
+      ),
     );
   }
 
@@ -77,26 +84,45 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     });
   }
 
+  /// Wave B (FLD-CFG-131/132): persist first, move the toggle only on
+  /// success. A failed save keeps the old (persisted) toggle, stops no poll
+  /// it did not start, and surfaces a visible error (SP-12 audit contract).
   void _setAutoRefresh(bool value) {
-    setState(() => _autoRefresh = value);
-    _restartTimer(
-      value ? ref.read(clashUiConfigProvider).proxiesRefreshPeriod : null,
-    );
-    _persistClash(<String, Object>{'ProxiesAutoRefresh': value});
+    if (!_persistClash(<String, Object>{'ProxiesAutoRefresh': value})) {
+      _reportSaveFailure();
+      return;
+    }
+    _applyConfig(ref.read(clashUiConfigProvider));
   }
 
+  /// Wave B (FLD-CFG-131): same persist-first contract for the sort toggle.
   void _toggleSorting() {
     final next = _sorting == 0 ? 1 : 0;
-    setState(() => _sorting = next);
-    _persistClash(<String, Object>{'ProxiesSorting': next});
+    if (!_persistClash(<String, Object>{'ProxiesSorting': next})) {
+      _reportSaveFailure();
+      return;
+    }
+    _applyConfig(ref.read(clashUiConfigProvider));
   }
 
-  void _persistClash(Map<String, Object> changes) {
+  void _reportSaveFailure() {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.showSnackBar(
+      const SnackBar(
+        key: ValueKey('proxies-save-error'),
+        content: Text('代理选项保存失败，已恢复上次保存的值', style: TextStyle(fontSize: 12)),
+      ),
+    );
+  }
+
+  /// Persist [changes] into `ClashUIItem`; true only when the write landed.
+  bool _persistClash(Map<String, Object> changes) {
     final settings = ref.read(settingsControllerProvider);
-    if (!settings.loaded) return;
-    ref
+    if (!settings.loaded) return false;
+    final result = ref
         .read(settingsControllerProvider.notifier)
         .saveGroup('ClashUIItem', clashUiGroupWith(settings.document, changes));
+    return result.ok;
   }
 
   /// Mirrors upstream `ClashProxiesViewModel.RefreshProxyDetails` sorting:

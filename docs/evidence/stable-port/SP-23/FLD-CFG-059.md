@@ -1,7 +1,7 @@
 # SP-23.FLD-CFG-059 — GuiItem.KeepOlderDedupl
 
 状态：implemented（实例登记完成；正式订阅去重端到端验收未跑，不写 verified）。
-任务 ID：SP-23.FLD-CFG-059（主 owner SP-23；消费者归属 SP-26）。
+任务 ID：SP-23.FLD-CFG-059（主 owner SP-23；消费者归属 SP-24）。
 
 本次唯一用户流程：设置窗选择去重保留旧/新→保存→重开→profiles 去重服务按
 KeepOlderDedupl 保留旧（true）或新（false）节点身份，active/sub 关联正确。
@@ -23,7 +23,7 @@ UI 草稿 `option_setting_window.dart:844-845`、默认 `settings_defaults.dart:
 合成重复节点新旧顺序、标签/订阅/当前节点关联及重开；不能仅 list 去重数量。
 平台写入仅授权隔离机；10808 禁占，测试端口 ≥11808 预探测。
 
-允许修改的模块（SP-26）：`apps/desktop/lib/features/settings/option_setting_window.dart`
+允许修改的模块（SP-24）：`apps/desktop/lib/features/settings/option_setting_window.dart`
 （`:844-845`）、`apps/desktop/lib/features/profiles/profiles_controller.dart`
 （`:58-74 readKeepOlderDedupl`、`:1828-1838` 去重调用）、
 `crates/subscriptions/src/merge.rs`（`:12` 语义）、`crates/bridge_api/src/api/subs.rs`
@@ -45,7 +45,7 @@ UI 草稿 `option_setting_window.dart:844-845`、默认 `settings_defaults.dart:
 测试夹具和原版预期：合成重复节点（新旧顺序、标签/订阅/当前节点）；
 正向 true→留旧、false→留新且关联正确；负向坏类型→拒绝。
 
-本次必须通过的命令/真实场景（SP-26，未运行）：`flutter test`
+本次必须通过的命令/真实场景（SP-24，未运行）：`flutter test`
 （`r4_13_s10_contract`、`recheck_r3_prof_controller`）+ `cargo test -p subscriptions --locked`；
 补正式窗→FRB→保存→合成订阅去重→重开→关联校验。最终门禁 SP-34。
 
@@ -53,4 +53,4 @@ UI 草稿 `option_setting_window.dart:844-845`、默认 `settings_defaults.dart:
 
 完成条件：保存、重开和去重身份/关联三者一致；仅 list 数量不算。
 
-发现接口缺口时的处理：端到端验收缺口已登记；归属 SP-26。
+发现接口缺口时的处理：端到端验收缺口已登记；归属 SP-24。

@@ -1,7 +1,7 @@
 # SP-23.FLD-CFG-058 — GuiItem.DisplayRealTimeSpeed
 
 状态：implemented（实例登记完成；真实流量→速率显示链路验收未跑，不写 verified）。
-任务 ID：SP-23.FLD-CFG-058（主 owner SP-23；消费者归属 SP-25）。
+任务 ID：SP-23.FLD-CFG-058（主 owner SP-23；消费者归属 SP-17）。
 
 本次唯一用户流程：设置窗勾选显示实时网速→保存→重启应用→实际流量→
 delta/rate→托盘/主窗速率展示开启；关闭后对应展示关闭，不只改 Dart bool。
@@ -22,7 +22,7 @@ UI 草稿 `option_setting_window.dart:839-840`、默认 `settings_defaults.dart:
 持久化 save；生效 restart_app（`settings_timing.rs:121`）。关后速率展示关闭，
 不伪造显示。平台写入仅授权隔离机；10808 禁占，测试端口 ≥11808 预探测。
 
-允许修改的模块（SP-25）：`apps/desktop/lib/features/settings/option_setting_window.dart`
+允许修改的模块（SP-17）：`apps/desktop/lib/features/settings/option_setting_window.dart`
 （`:839-840`）、`crates/application/src/engine.rs`（`:3772-3773` 显示门）、
 `crates/application/src/monitor.rs`（`:175` 采集激活判定）、
 `apps/desktop/lib/bridge/bridge_port.dart`（`:1192` stats 门注释）。
@@ -42,7 +42,7 @@ UI 草稿 `option_setting_window.dart:839-840`、默认 `settings_defaults.dart:
 测试夹具和原版预期：合成设置修订；正向 true→重启应用→合成流量下速率展示更新、
 false→展示关闭；负向坏类型→拒绝。
 
-本次必须通过的命令/真实场景（SP-25，未运行）：`flutter test`
+本次必须通过的命令/真实场景（SP-17，未运行）：`flutter test`
 （`r4_13_s10_contract`）+ `cargo test -p application --locked`（monitor 门控）；
 补正式窗→FRB→保存→重启应用→真实流量速率展示→重开。最终门禁 SP-34。
 
@@ -50,4 +50,4 @@ false→展示关闭；负向坏类型→拒绝。
 
 完成条件：保存、重开和真实速率展示三者一致；仅改 Dart bool 不算。
 
-发现接口缺口时的处理：真实显示链路缺口已登记；归属 SP-25。
+发现接口缺口时的处理：真实显示链路缺口已登记；归属 SP-17。

@@ -1,4 +1,4 @@
-﻿id,owner_card,impl_status,acceptance_state,open_gaps,required_evidence,existing_evidence,next_action
+id,owner_card,impl_status,acceptance_state,open_gaps,required_evidence,existing_evidence,next_action
 FLD-CFG-001,SP-03,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect + ZIP remap roundtrip,-,prove IndexId/mirror healing + ZIP roundtrip E2E
 FLD-CFG-002,SP-03,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect + ZIP remap roundtrip,-,prove group select/remap roundtrip E2E
 FLD-CFG-003,SP-24,implemented,implemented_unverified,G-09;CP-SET-01,group 5-state retain + patch isolation,persistence/tests/edge_cases.rs:92,run group 5-state retain E2E
@@ -55,11 +55,11 @@ FLD-CFG-053,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codeg
 FLD-CFG-054,SP-24,implemented,implemented_unverified,G-09,E2E apply,config_codegen/tests/xray_transport_security.rs:249;config_codegen/tests/singbox_transport_security.rs:45,"add gRPC entry editor, then real-session E2E"
 FLD-CFG-055,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,"add gRPC entry editor, then real-session E2E"
 FLD-CFG-056,SP-15/SP-32,implemented,implemented_unverified,G-09,OS authorization,-,isolated-OS Run-key fact + admin-path E2E
-FLD-CFG-057,SP-25,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-058,SP-25,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
-FLD-CFG-059,SP-26,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
-FLD-CFG-060,SP-26,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
-FLD-CFG-061,SP-27,implemented,implemented_unverified,G-09,E2E apply,persistence/tests/sp01_config_text.rs:23;application/tests/sp01_corrupt_config.rs:27,run tray order/switch E2E
+FLD-CFG-057,SP-17,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-058,SP-17,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
+FLD-CFG-059,SP-24,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
+FLD-CFG-060,SP-24,implemented,implemented_unverified,G-09,UI->FRB->save->reopen->effect,-,run formal-entry->reopen->effect E2E
+FLD-CFG-061,SP-24,implemented,implemented_unverified,G-09,E2E apply,persistence/tests/sp01_config_text.rs:23;application/tests/sp01_corrupt_config.rs:27,run tray order/switch E2E
 FLD-CFG-062,SP-26,implemented,implemented_unverified,G-09;G-03,feasibility + release observation,-,SP-26 feasibility first (G-03)
 FLD-CFG-063,SP-25,implemented,implemented_unverified,G-09;G-04;CP-SET-03,E2E apply,persistence/tests/edge_cases.rs:97,"add logger consumer + entry, then E2E (G-04)"
 FLD-CFG-064,SP-25,implemented,implemented_unverified,G-09;G-05;CP-SET-07,E2E apply,-,"shared HttpClient via SP-00, then E2E (G-05)"
@@ -86,11 +86,11 @@ FLD-CFG-084,SP-26,implemented,implemented_unverified,G-09,E2E apply,persistence/
 FLD-CFG-085,SP-25,implemented,implemented_unverified,G-09,E2E apply,-,"wire download into formal plan, then E2E"
 FLD-CFG-086,SP-25,implemented,implemented_unverified,G-09;G-07;CP-SET-08,E2E apply,config_codegen/tests/singbox_global.rs:254,"add local_srs_files producer, then E2E (G-07)"
 FLD-CFG-087,SP-25,implemented,implemented_unverified,G-09,E2E apply,-,"new async fetch API via SP-00, then E2E"
-FLD-CFG-088,SP-15,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
-FLD-CFG-089,SP-15,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
-FLD-CFG-090,SP-15,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
-FLD-CFG-091,SP-15,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
-FLD-CFG-092,SP-15,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
+FLD-CFG-088,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
+FLD-CFG-089,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
+FLD-CFG-090,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
+FLD-CFG-091,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
+FLD-CFG-092,SP-32/SP-33,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-OS key-combo register E2E
 FLD-CFG-093,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-094,SP-24,implemented,implemented_unverified,G-09,E2E apply,-,run real-session E2E
 FLD-CFG-095,SP-24,implemented,implemented_unverified,G-09,OS authorization,-,run isolated-VM real TUN session E2E

@@ -65,43 +65,48 @@ Platform-N/A aspects are kept inside `required_evidence`/`next_action`:
 
 | owner_card | n | IDs |
 |---|---|---|
-| SP-24 | 95 | 003-007,013-015,020,021,023-055,093-105,120-130,150-155,159-180 |
+| SP-24 | 98 | 003-007,013-015,020,021,023-055,059-061,093-105,120-130,150-155,159-180 |
 | SP-28 | 12 | 067-073,081-083,156,157 |
-| SP-25 | 8 | 011,057,058,063,064,085,086,087 |
-| SP-17 | 9 | 009,012,065,066,131,132,133,134,135 |
+| SP-17 | 11 | 009,012,057,058,065,066,131-135 |
+| SP-16 | 9 | 010,074-077,117-119,136 |
 | SP-29 | 8 | 106-113 |
-| SP-16 | 8 | 074-077,117-119,136 |
-| SP-15 | 6 | 088-092,137 |
+| SP-32/SP-33 | 7 | 080,088-092,142 |
 | SP-15/SP-32 | 6 | 017,056,138-141 |
-| SP-26 | 4 | 059,060,062,084 |
-| SP-27 | 4 | 061,147-149 |
+| SP-25 | 6 | 011,063,064,085,086,087 |
 | SD-17 t16备份链路 | 4 | 143-146 (non-SP; needs SP mapping, SP-28 INC-10) |
 | SP-03 | 3 | 001,002,018 |
-| unclear | 3 | 008,010,016 (split ownership, §4) |
-| SP-16/SP-18 | 2 | 078,079 |
+| SP-27 | 3 | 147-149 |
 | SP-30 | 2 | 114,115 |
-| SP-32/SP-33 | 2 | 080,142 |
+| SP-16/SP-18 | 2 | 078,079 |
+| SP-26 | 2 | 062,084 |
+| 桌面集成/热键链路 | 1 | 022 (non-SP link) |
+| SP-15/SP-32+SP-17+SP-24+SP-25+SP-26 | 1 | 008 (justified composite, §4) |
+| SP-15 | 1 | 137 |
 | SP-13 | 1 | 116 |
 | SD-06 UI/持久化方向 | 1 | 158 (non-SP direction) |
+| SP-24+SP-17 | 1 | 016 (justified composite, §4) |
 | updater方向 | 1 | 019 (non-SP direction) |
-| 桌面集成/热键链路 | 1 | 022 (non-SP link) |
 
-Check: 95+12+8+9+8+8+6+6+4+4+4+3+3+2+2+2+1+1+1+1 = 180.
+Check: 98+12+11+9+8+7+6+6+4+3+3+2+2+2+1+1+1+1+1+1+1 = 180.
 
-## 4. Ambiguous / unclear entries
+## 4. Ownership rulings (integrator, 2026-10-07; CSV deps authoritative)
 
-`unclear` cells in the CSV (3, all `owner_card`): FLD-CFG-008 (leaves split across
-SP-15/32, SP-13, SP-24/25/26, SD-07), FLD-CFG-010 (split SP-16, SD-06+),
-FLD-CFG-016 (split SP-24, SP-17). All other cells derived cleanly.
-Related observations (doc-stated, kept as-is, flagged for owner confirmation):
-- 080/142 docs now state `SP-32/SP-33` (agreeing with the matrix) — SP-28 INC-04's
-  SP-18-vs-SP-32/33 contradiction no longer reproduces on the doc side.
-- 133 doc states `SP-17` (not SP-25) — SP-28 INC-05's claim is stale on the doc side;
-  132 was also corrected to `SP-17` (integrator ruling against CSV `SD-13、SD-14`),
-  so the 131–135 family is now unified.
-- 136 doc corrected to `SP-16` (integrator ruling against CSV `SD-06、SD-13/17`);
-  the ledger CSV rows for 132/136 were updated in place accordingly.
-- 143-146 owner `SD-17 t16备份链路` is not an SP card (SP-28 INC-10 still open).
+All previously `unclear` owner cells are now ruled; the CSV rows and FLD docs
+were updated in place:
+
+- FLD-CFG-008 (GuiItem container) — **kept as justified composite**
+  `SP-15/SP-32+SP-17+SP-24+SP-25+SP-26`: no leaf majority; leaf SDs are
+  056 SD-05→SP-15/32, 057/058 SD-13→SP-17, 059–061 SD-07→SP-24, 062 SD-11→SP-26,
+  063/064 SD-12/SD-10→SP-25. The doc's earlier `SP-13` was wrong and was fixed.
+- FLD-CFG-010 (UiItem) — **primary `SP-16`** (all true UiItem leaves are
+  SD-06→SP-16, G-15 family); exception 080 (SD-18) → SP-32/SP-33.
+- FLD-CFG-016 (ClashUIItem container) — **kept as composite `SP-24+SP-17`**
+  (129/130 SD-14→SP-24, 131–135 SD-13→SP-17).
+- Leaf fixes against CSV deps: 057/058 → `SP-17` (SD-13), 059/060/061 → `SP-24`
+  (SD-07), 088-092 → `SP-32/SP-33` (SD-18). Docs and ledger rows updated.
+- Earlier rulings kept: 080/142 → `SP-32/SP-33`, 133 → `SP-17`, 132 → `SP-17`,
+  136 → `SP-16`.
+- Still open: 143-146 owner `SD-17 t16备份链路` is not an SP card (SP-28 INC-10).
 
 ## 5. required_evidence phrase counts (from the CSV)
 

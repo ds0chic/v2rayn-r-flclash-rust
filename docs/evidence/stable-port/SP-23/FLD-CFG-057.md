@@ -1,7 +1,7 @@
 # SP-23.FLD-CFG-057 — GuiItem.EnableStatistics
 
 状态：implemented（实例登记完成；真实统计采集/表格列联动验收未跑，不写 verified）。
-任务 ID：SP-23.FLD-CFG-057（主 owner SP-23；消费者归属 SP-25）。
+任务 ID：SP-23.FLD-CFG-057（主 owner SP-23；消费者归属 SP-17）。
 
 本次唯一用户流程：设置窗勾选启用统计→保存→重启应用→monitor/core API
 真实统计采集开启，表格统计列按冻结时机显隐；关闭不伪造零值。
@@ -22,7 +22,7 @@ UI 草稿 `option_setting_window.dart:834-835`、默认 `settings_defaults.dart:
 持久化 save；生效 restart_app（`settings_timing.rs:124`）。失败→旧行为保留，
 保存失败不更新 applied。平台写入仅授权隔离机；10808 禁占，测试端口 ≥11808 预探测。
 
-允许修改的模块（SP-25）：`apps/desktop/lib/features/settings/option_setting_window.dart`
+允许修改的模块（SP-17）：`apps/desktop/lib/features/settings/option_setting_window.dart`
 （`:834-835`）、`apps/desktop/lib/app/shell/ui_shell_controller.dart`（`:242 showStatistics`）、
 `crates/application/src/engine.rs`（`:3772-3773` 采集门、`settings.rs:254,268` 变更扇出）、
 `crates/application/src/monitor.rs`（`:175` 采集激活判定）。
@@ -44,7 +44,7 @@ UI 草稿 `option_setting_window.dart:834-835`、默认 `settings_defaults.dart:
 测试夹具和原版预期：合成设置修订；正向 true→重启应用→真实采集开、
 false→关；负向坏类型→拒绝，保存失败→回滚可见。
 
-本次必须通过的命令/真实场景（SP-25，未运行）：`cargo test -p application --locked`
+本次必须通过的命令/真实场景（SP-17，未运行）：`cargo test -p application --locked`
 （settings 扇出/monitor 门控）+ `flutter test`（`r4_13_s10_contract`、`t12a`）；
 补正式窗→FRB→保存→重启应用→真实采集/列显隐→重开。最终门禁 SP-34。
 
@@ -52,4 +52,4 @@ false→关；负向坏类型→拒绝，保存失败→回滚可见。
 
 完成条件：保存、重开和 monitor 真实采集/列显隐三者一致；仅落盘/仅单测不算。
 
-发现接口缺口时的处理：真实采集联动缺口已登记；归属 SP-25。
+发现接口缺口时的处理：真实采集联动缺口已登记；归属 SP-17。

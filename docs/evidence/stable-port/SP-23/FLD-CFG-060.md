@@ -1,7 +1,7 @@
 # SP-23.FLD-CFG-060 — GuiItem.AutoUpdateInterval
 
 状态：implemented（实例登记完成；真实调度启停/改周期端到端验收未跑，不写 verified）。
-任务 ID：SP-23.FLD-CFG-060（主 owner SP-23；消费者归属 SP-26）。
+任务 ID：SP-23.FLD-CFG-060（主 owner SP-23；消费者归属 SP-24）。
 
 本次唯一用户流程：设置窗填写自动更新订阅时间间隔（小时，0=关闭）→保存→
 application 订阅 scheduler 真实调度/取消/重新计划；退出后停止。
@@ -23,7 +23,7 @@ UI 草稿 `option_setting_window.dart:913-914`、默认 `settings_defaults.dart:
 虚拟 clock 故障注入 + 正式打开/改周期/不重叠/退出停止；失败订阅不覆盖旧组。
 平台写入仅授权隔离机；10808 禁占，测试端口 ≥11808 预探测。
 
-允许修改的模块（SP-26）：`apps/desktop/lib/features/settings/option_setting_window.dart`
+允许修改的模块（SP-24）：`apps/desktop/lib/features/settings/option_setting_window.dart`
 （`:913-914`）、`apps/desktop/lib/features/settings/resource_auto_update.dart`
 （`:19/47` 周期计划）、`crates/application/src/engine.rs`（`:323` 小时槽）、
 `crates/application/src/subs.rs`（`:1416` 间隔判定）。
@@ -44,7 +44,7 @@ UI 草稿 `option_setting_window.dart:913-914`、默认 `settings_defaults.dart:
 测试夹具和原版预期：合成周期值；正向 0→停、N→按 N 小时计划、改周期→重新计划不重叠；
 负向负数/坏类型→拒绝，失败订阅→旧组保留。
 
-本次必须通过的命令/真实场景（SP-26，未运行）：`flutter test`
+本次必须通过的命令/真实场景（SP-24，未运行）：`flutter test`
 （`r4_13_s10_contract`、`r4_34_contract`、`r4_34_repro`）；
 补正式窗→FRB→保存→虚拟 clock 调度断言→重开→退出停止。最终门禁 SP-34。
 
@@ -52,4 +52,4 @@ UI 草稿 `option_setting_window.dart:913-914`、默认 `settings_defaults.dart:
 
 完成条件：保存、重开和真实调度/取消/重计划三者一致；仅落盘不算。
 
-发现接口缺口时的处理：端到端调度验收缺口已登记；归属 SP-26。
+发现接口缺口时的处理：端到端调度验收缺口已登记；归属 SP-24。

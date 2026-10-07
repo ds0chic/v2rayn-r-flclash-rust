@@ -4,6 +4,11 @@
 # Writes (only): docs/evidence/stable-port/SP-28/field-gap-matrix.csv,
 #   docs/evidence/stable-port/SP-28/core-matrix.csv
 # Usage: python tools/sp28_readonly_audit.py  (exit 0 = matrices written)
+#
+# WARNING (2026-10-07): field-gap-matrix.csv is REGENERATED from the CSVs on
+# every run. The manually appended L1 continuation rows (SP28-L1-001..003,
+# see L1-tracking-2026-10-07.md) are NOT reproduced by this script; merge them
+# back after a re-run or extend the script before regenerating.
 import csv, json, os, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,11 +21,11 @@ LOCK = os.path.join(ROOT, "tools", "cores", "cores.lock.json")
 SP23_DIR = os.path.join(ROOT, "docs", "evidence", "stable-port", "SP-23")
 OUT_DIR = os.path.join(ROOT, "docs", "evidence", "stable-port", "SP-28")
 
-SP23_IDS = {"FLD-CFG-062", "FLD-CFG-063", "FLD-CFG-064", "FLD-CFG-086",
-            "FLD-CFG-087", "FLD-CFG-129", "FLD-CFG-130", "FLD-CFG-150",
-            "FLD-CFG-151", "FLD-CFG-152", "FLD-CFG-153", "FLD-CFG-154",
-            "FLD-CFG-155", "FLD-CFG-176", "FLD-CFG-177", "FLD-CFG-178",
-            "FLD-CFG-179", "FLD-CFG-180"}
+# SP-23 now covers all 180 rows (2026-10-07: FLD-CFG-001..180 all written), so
+# the old "not yet registered" filter is obsolete: the full set is kept so the
+# `gaps` computation below no longer flags covered rows. The remaining gap
+# signal is the CSV status/actual_effect_verified columns.
+SP23_IDS = {"FLD-CFG-%03d" % i for i in range(1, 181)}
 # SD owner -> suggested SP card (per INTERFACE_AND_OWNER_MAP.md section 2).
 SD_TO_SP = {"SD-01": "SP-01", "SD-02": "SP-02", "SD-03": "SP-03",
             "SD-04": "SP-11/SP-12", "SD-05": "SP-15/SP-32", "SD-06": "SP-16",

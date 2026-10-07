@@ -3,15 +3,15 @@
   "rows": 10000,
   "steps": 600,
   "tag": "",
-  "wall_ms_to_marker": 493.7,
-  "marker_file": "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp31_gui_dc18064254554a88a091f26069b4ff70\\out\\startup.json",
+  "wall_ms_to_marker": 506.0,
+  "marker_file": "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp31_gui_4c2a53341df14eaab6a81c6eea4ec93b\\out\\startup.json",
   "marker": {
     "marker": "first_frame",
     "scenario": "startup",
     "rows": 10000,
-    "pid": 66860,
-    "main_epoch_us": 1791370444686178,
-    "first_frame_epoch_us": 1791370444796831,
-    "main_to_first_frame_ms": 110.653
+    "pid": 76984,
+    "main_epoch_us": 1791370628726820,
+    "first_frame_epoch_us": 1791370628886051,
+    "main_to_first_frame_ms": 159.231
   }
 }

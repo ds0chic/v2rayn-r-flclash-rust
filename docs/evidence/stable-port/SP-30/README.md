@@ -54,3 +54,24 @@ SP-30 真实验收开始前须先复核 SP-03/06/07/12–20/22/24/25/27/28/29 �
    经 owner 正常退出（禁按名批杀），且重建需关闭正在运行的 exe。
 2. S2–S7 真实 GUI/重开需授权隔离机（宿主为日常使用机，不做真实 OS 副作用）。
 3. SP-29 门禁 fail+incomplete 未清：真实验收前复核前置卡当前证据。
+
+## 2026-10-07 候选包 828b785 实跑状态（重建 + 验收）
+
+候选：`dist/v2rayN-R-1.0.0+1-windows-x64.zip`（sha256 `9b0d924a…`，commit `828b785`，`git_dirty=false`、`smoke_armed=false`），安装包 `dist/…-setup.exe`（sha256 `3bd74ff0…`）。armed 证据包单独在 `dist/evidence-armed/`（`smoke_armed=true`，不混入正式包）。
+
+| 步骤 | 状态 | 证据 |
+|---|---|---|
+| S0 身份核对 | **pass** | `runs/20261007-candidate-828b785/s0-identity.json`（zip/setup hash 与 SHA256SUMS 绑定、commit 一致、clean tree、33 entries） |
+| S1 隔离数据目录 | **pass** | S2/S4 均使用 `%TEMP%` 隔离目录；`sp30_prepare_datadir.ps1 -DryRun` 计划输出已存档（identity-harden run） |
+| S2 首次使用/重开/UI 入口 | **pass** | `runs/…/real-entry/`（首启、重开、更新窗、备份窗截图 1200x800；guiNDB/guiNConfig 生成；`R4_32_REAL_ENTRY ok=True`） |
+| S3 合成订阅导入 | **blocked** | 无点击自动化；导入窗口入口可由 `V2RAYN_R_OPEN_SUBS=1` 打开，但导入动作需人工点击 → 未跑 |
+| S4 选择/应用 | **pass（armed 证据包）** | `runs/…/smoke-seed-armed/`：`applied=True port11808=True coreChild=True`，真实 xray 26.3.27 日志、PID、Running 截图；正式包按 ISSUE-08 正确忽略 AUTO_SMOKE |
+| S5 备份 | **blocked** | 备份窗口可打开（S2 截图），执行备份需点击 → 未跑 |
+| S6 停止重开 | **blocked** | 同 S3/S5（点击流） |
+| S7 恢复 | **blocked** | 同 S5 |
+| S8 实际描述符 | **partial** | 应用链路（真实 core Running + 端口）已由 S4 证明；in-app FRB `get_snapshot()` 断言需要 armed 快照导出钩子（未实现）→ 未跑 |
+| S9 TUN 事实 | **blocked** | 需授权真实 TUN；默认计划 `runtime_tun=None` 渲染“未启用”逻辑由单测覆盖 |
+| S10 更新 flags | **partial** | 更新窗口入口已开（S2 截图）；真实远端源/签名资产仍缺 → 端到端未跑 |
+| S11 monitor overlay | **blocked** | 需 seed loopback apply + 页面采样点击流；底层（SP-22 真实内核 10k）已单独验证 |
+
+重建流程本身也有证据：`runs/build-candidate-2026-10-07.log`、`build-repack-2026-10-07.log`、`iscc-2026-10-07.log`；`dist/build-info.json` 与 `dist/SHA256SUMS` 已作为 RC 元数据提交（commit `7b9e973`）。

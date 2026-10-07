@@ -893,7 +893,7 @@
       "upstream_symbols": "GuiItem.EnableHWA源与锁定Flutter engine头文件",
       "status": "identified",
       "instance_required": false,
-      "note": "open gaps: G-03 (062 HWA feasibility) + G-09 acceptance"
+      "note": "open gaps: G-03 (062 HWA feasibility) + G-09 acceptance; 2026-10-07 renderer probe pass (tools/perf/renderer_probe.ps1 -> SP-26/runs/20261007/renderer-probe.txt; HWA chain wired in windows runner); real renderer/device result still needs a release GUI run"
     },
     {
       "id": "SP-27",
@@ -1146,7 +1146,8 @@
       "test_scope": "单OS架构对应门禁及真实GUI",
       "upstream_symbols": "platform-matrix与Avalonia/Windows冻结源",
       "status": "identified",
-      "instance_required": true
+      "instance_required": true,
+      "note": "2026-10-07 launch prep + platform matrix rerun: -DryRun/-VerifyFixture/-ProbePorts pass (ports 11808-11815 free, 10808 untouched); matrix O01 Win-x64 available, O02 ARM64 / O03-O04 macOS / O05-O06 Linux blocked with reasons (SP-33/runs/20261007/)"
     },
     {
       "id": "SP-34",

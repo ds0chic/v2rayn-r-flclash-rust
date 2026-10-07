@@ -261,3 +261,88 @@ group_reopen 绿、真实 G 保存重开、同名/普通组、取消/失败：�
   仍登记（需菜单 owner 确认 id/文案后再补，不在本轮发明）。
 - 多选批量删除（上游订阅窗 `SelectedSources`）：本项目订阅窗为单选模型，
   仍单删；批量语义缺口登记，不强行引入多选。
+
+## 11. 菜单镜像 + 多选批量删除轮（收敛 §10.4 两项缺口）
+
+状态：implemented（独立接线完成；verified 不标：真机删除 trace/DPI、
+真实 FRB/SQLite 重开未运行）。
+合成数据专用；无宿主网络/10808/系统代理/路由/TUN/DNS/Run-key 操作；
+不读用户秘密。不 commit。未动 `profiles_controller.dart`、`crates/**`、
+桥/FRB 文件、其他 feature。
+
+### 11.1 做（本轮）
+
+- 主窗分组右键菜单（上游 `v2rayN.Desktop/Views/ProfilesView.axaml` 组
+  `ListBox.ContextMenu`：`menuSubEdit`/`menuSubAdd`/`menuSubDelete` 对等）：
+  `profiles_page.dart` 新增 `showGroupChipMenu`（键 `group-chip-menu-edit`/
+  `add`/`delete`），组 chip 包 `GestureDetector.onSecondaryTapUp` 弹出；
+  三项分别委托 `sub_direct_edit.dart` 既有入口
+ （`openEditCurrentSub`/`openAddSub`/`deleteCurrentSub`），门控/确认框/
+  失败语义与工具栏按钮同一。节点右键菜单模型（`context_menu.dart`）与
+  `profiles_controller.dart` 均未动——新菜单挂在组 chip 上，不需要改
+  菜单 owner 的 id/文案，故无 §10.4 所述那类改动。
+- 订阅窗多选批量删除（上游 `SubSettingViewModel.SelectedSources`/
+  `SelectedSource` + `DeleteSubAsync:84-96` 一次确认删全部对等）：
+  `subs_controller.SubsState` 新增 `selectedIds`（普通单击收拢单选，
+  单选行为不变；Ctrl+单击 `toggleMultiSelected`；Shift+单击 `selectRange`
+  以 primary 为锚区间选择）+ `deleteIds`
+ （`SelectedSources ?? [SelectedSource]` 对等）；`delete` 成功经
+  `reload` 裁剪已删选中、失败保留选中集；`reload` 顺带裁剪悬空选中
+  （只收缩、不发明选择）。`sub_setting_window.dart` 新增
+  `confirmAndDeleteSubs`（一次确认删全部选中行；原单行
+  `confirmAndDeleteSub` 转调，语义不变）；删除按钮与右键菜单删除项均走
+  批量路径（右键落在已选集内保留多选，与主窗 `handleRightTap` 一致；
+  编辑/分享/更新仍单目标，与上游 `EditSubAsync` 取 `SelectedSource` 一致）；
+  右键菜单项加 key（`sub-menu-edit/share/enable/update/delete`）。
+- 测试合成数据专用（见新文件头注记）。
+
+### 11.2 改动文件（写锁内）
+
+- `apps/desktop/lib/features/profiles/profiles_page.dart`：
+  +`showGroupChipMenu`；组 chip 包右键手势。
+- `apps/desktop/lib/features/subs/subs_controller.dart`：
+  `SubsState` +`selectedIds`/`deleteIds`；+`toggleMultiSelected`/
+  `selectRange`/`_pruneSelection`；`select` 收拢单选；`reload` 裁剪悬空。
+- `apps/desktop/lib/features/subs/sub_setting_window.dart`：
+  +`confirmAndDeleteSubs`（`confirmAndDeleteSub` 转调）；行点选 Ctrl/Shift
+  语义；`_delete` 与右键菜单删除项走批量路径；菜单项 key。
+- `apps/desktop/test/repair/sp_16_sub_batch_delete_test.dart`：新增 11 项
+  （模型 5：单选收拢/toggle 增删清空/Shift 区间/空集门控/成功仅裁剪已删；
+  批量入口 4：取消全留 + 确认只删批量 + 单行路径不碰他行 + 未知 id 免确认 +
+  失败保数据保选中报错；真窗 2：Ctrl+点多选 + 批量确认框计数与取消/确认、
+  右键已选行保留多选删批量）。
+- `apps/desktop/test/repair/sp_16_group_chip_menu_test.dart`：新增 1 项
+  （整壳 MainShell 独立文件、单次整壳构建：右键三项齐备；菜单删除取消保留/
+  确认删当前组回 All；All 视图右键删除直接门控免确认）。
+- `docs/repair/stable-port-2026-10-06/execution-manifest.json`：SP-16 note。
+
+未动：`profiles_controller.dart`、`context_menu.dart`、`crates/**`、
+桥/FRB 文件、其他 feature。
+
+### 11.3 定向检查（实际结果）
+
+- `dart format --output=none --set-exit-if-changed lib test`：0 changed。
+- `flutter analyze`：No issues found。
+- 新测：`sp_16_sub_batch_delete_test` 11/11、
+  `sp_16_group_chip_menu_test` 1/1。
+- 回归：`sp_16_sub_delete` 8/8、`sp_16_sub_delete_toolbar` 1/1、
+  `sp_16_group_persistence` 15/15、`sp_16_sub_entry` 9/9、
+  `t09_sub_setting` 5/5、`t09_sub_edit`（同跑文件内）、
+  `ux_space01_entries`、`r4_17_contract`、`recheck_rr02_03`、
+  `table_actions` 6/6、`t11_routing`、`r4_17_repro`——全部绿。
+- 过程记录：本轮无 flutter_tester 崩溃，未启用 per-file retry；
+  新整壳测试按注记独占一文件。
+- 未运行：cargo（无 Rust 改动）；全量 `flutter test`（按任务卡只跑受影响
+  文件）；真机/正式包/DPI。
+
+### 11.4 登记缺口（不发明接口）
+
+- §9.4/§10.4 既有缺口延续：engine `set_current_group` 无 FRB 暴露
+  （SP-00 整合）；engine 组写不校验存在性（Dart 读侧门控）；
+  真机 trace/DPI 未验证。
+- 订阅窗多选目前仅键鼠点选（Ctrl/Shift+单击）：无全选快捷键/按钮，
+  无 Shift+方向键键盘扩展（上游 DataGrid Extended 选择含键盘扩展语义，
+  本项目未补）；选择完整性缺口登记，不属删除 parity，不强行补。
+- 订阅窗更新（`update`）仍单目标（右键行/按钮语义未动）：上游批量更新
+  语义（多选 update）是否在 SubSetting 覆盖内未核对，登记待查，
+  不在本轮删除 parity 范围内伪造。

@@ -4875,6 +4875,21 @@ impl AppEngine {
         desired_revision: u64,
         tun_hints: &TunPlanHints,
     ) -> Result<RuntimePlan, DomainError> {
+        Ok(self
+            .build_runtime_plan_with_diagnostics(target_id, desired_revision, tun_hints)?
+            .0)
+    }
+
+    /// [`Self::build_runtime_plan_with_hints`] plus the non-fatal generation
+    /// diagnostics (proxy-chain warnings + TUN route-exclude warnings). The
+    /// plain entry points drop them; `apply_runtime` surfaces them so a
+    /// filtered-but-invalid settings entry is visible instead of silent.
+    pub fn build_runtime_plan_with_diagnostics(
+        &self,
+        target_id: &str,
+        desired_revision: u64,
+        tun_hints: &TunPlanHints,
+    ) -> Result<(RuntimePlan, Vec<config_codegen::Diagnostic>), DomainError> {
         let target = self
             .profile_by_id(target_id)?
             .ok_or_else(|| DomainError::not_found("profile", target_id))?;
@@ -5101,19 +5116,25 @@ impl AppEngine {
         // descriptor instead of rejecting the plan, and let net-host discover
         // the interface after the core starts.
         if settings.tun_mode_item.enable_tun && tun_hints.interface_index == 0 {
-            if let Some(spec) =
-                tun_plan::tun_deferred_spec_from_settings(&settings.tun_mode_item, tun_hints)?
-            {
+            let (spec, tun_warnings) = tun_plan::tun_deferred_spec_from_settings_with_warnings(
+                &settings.tun_mode_item,
+                tun_hints,
+            )?;
+            generated.diagnostics.extend(tun_warnings);
+            if let Some(spec) = spec {
                 tun_plan::attach_deferred_tun_to_plan(&mut plan, &spec)?;
             }
-        } else if let Some(spec) =
-            tun_plan::tun_spec_from_settings(&settings.tun_mode_item, tun_hints)?
-        {
-            tun_plan::attach_tun_to_plan(&mut plan, &spec)?;
+        } else {
+            let (spec, tun_warnings) =
+                tun_plan::tun_spec_from_settings_with_warnings(&settings.tun_mode_item, tun_hints)?;
+            generated.diagnostics.extend(tun_warnings);
+            if let Some(spec) = spec {
+                tun_plan::attach_tun_to_plan(&mut plan, &spec)?;
+            }
         }
 
         plan.validate()?;
-        Ok(plan)
+        Ok((plan, generated.diagnostics))
     }
 
     /// The JSON event payload for a refresh report.

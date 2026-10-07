@@ -12,15 +12,15 @@
     "run_args": [
       "run",
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\xray-dfb79e1c\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\xray-a7a606c2\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
     "stdout": [
       "Xray 26.3.27 (Xray, Penetrates Everything.) d2758a0 (go1.26.1 windows/amd64)",
       "A unified platform for anti-censorship.",
-      "2026/10/05 01:17:09.944178 [Info] infra/conf/serial: Reading config: &{Name:C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\xray-dfb79e1c\\config.json Format:json}",
-      "2026/10/05 01:17:09.945718 [Warning] core: Xray 26.3.27 started"
+      "2026/10/07 06:51:40.485406 [Info] infra/conf/serial: Reading config: &{Name:C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\xray-a7a606c2\\config.json Format:json}",
+      "2026/10/07 06:51:40.486939 [Warning] core: Xray 26.3.27 started"
     ],
     "stderr": null
   },
@@ -37,7 +37,7 @@
     "run_args": [
       "run",
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\sing-box-fac892de\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\sing-box-d675c03f\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
@@ -56,15 +56,15 @@
     "still_running": false,
     "run_args": [
       "-config",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\v2fly-8c39cbd8\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\v2fly-e4b49fa3\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
     "stdout": [
       "V2Ray 4.45.2 (V2Fly, a community-driven edition of V2Ray.) Custom (go1.18.3 windows/amd64)",
       "A unified platform for anti-censorship.",
-      "2026/10/05 01:17:11 [Info] main/jsonem: Reading config: C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\v2fly-8c39cbd8\\config.json",
-      "2026/10/05 01:17:11 [Warning] V2Ray 4.45.2 started"
+      "2026/10/07 06:51:42 [Info] main/jsonem: Reading config: C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\v2fly-e4b49fa3\\config.json",
+      "2026/10/07 06:51:42 [Warning] V2Ray 4.45.2 started"
     ],
     "stderr": null
   },
@@ -81,14 +81,14 @@
     "run_args": [
       "run",
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\v2fly_v5-760b32e6\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\v2fly_v5-d8afcf96\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
     "stdout": [
       "V2Ray 5.53.0 (V2Fly, a community-driven edition of V2Ray.) Custom (go1.26.1 windows/amd64)",
       "A unified platform for anti-censorship.",
-      "2026/10/05 01:17:12 [Warning] V2Ray 5.53.0 started"
+      "2026/10/07 06:51:43 [Warning] V2Ray 5.53.0 started"
     ],
     "stderr": null
   },
@@ -104,17 +104,17 @@
     "still_running": false,
     "run_args": [
       "-f",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\mihomo-c92cc7c4\\config.yaml",
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\mihomo-d288a266\\config.yaml",
       "-d",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\mihomo-c92cc7c4"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\mihomo-d288a266"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
     "stdout": [
-      "time=\"2026-10-05T01:17:13.997161500+08:00\" level=info msg=\"Start initial configuration in progress\"",
-      "time=\"2026-10-05T01:17:14.011442700+08:00\" level=info msg=\"Geodata Loader mode: memconservative\"",
-      "time=\"2026-10-05T01:17:14.012971700+08:00\" level=info msg=\"Geosite Matcher implementation: succinct\"",
-      "time=\"2026-10-05T01:17:14.024224500+08:00\" level=info msg=\"Initial configuration complete, total time: 12ms\""
+      "time=\"2026-10-07T06:51:45.309012400+08:00\" level=info msg=\"Start initial configuration in progress\"",
+      "time=\"2026-10-07T06:51:45.310533900+08:00\" level=info msg=\"Geodata Loader mode: memconservative\"",
+      "time=\"2026-10-07T06:51:45.311550700+08:00\" level=info msg=\"Geosite Matcher implementation: succinct\"",
+      "time=\"2026-10-07T06:51:45.325324800+08:00\" level=info msg=\"Initial configuration complete, total time: 14ms\""
     ],
     "stderr": null
   },
@@ -129,12 +129,12 @@
     "stopped": true,
     "still_running": false,
     "run_args": [],
-    "cwd": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\hysteria-fef809d4",
+    "cwd": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\hysteria-be5d654a",
     "env": [],
     "stdout": [
-      "2026-10-05T01:17:15+08:00\u001b[36m [INFO] [config:{Server:127.0.0.1:1 Protocol: Up: UpMbps:20 Down: DownMbps:20 Retry:0 RetryInterval:<nil> QuitOnDisconnect:false HandshakeTimeout:0 IdleTimeout:0 HopInterval:0 SOCKS5:{Listen:127.0.0.1:11808 Timeout:0 DisableUDP:false User: Password:} HTTP:{Listen: Timeout:0 User: Password: Cert: Key:} TUN:{Name: Timeout:0 MTU:0 TCPSendBufferSize: TCPReceiveBufferSize: TCPModerateReceiveBuffer:false} TCPRelays:[] TCPRelay:{Listen: Remote: Timeout:0} UDPRelays:[] UDPRelay:{Listen: Remote: Timeout:0} TCPTProxy:{Listen: Timeout:0} UDPTProxy:{Listen: Timeout:0} TCPRedirect:{Listen: Timeout:0} ACL: MMDB: Obfs: Auth:[] AuthString:synthetic ALPN: ServerName: Insecure:false CustomCA: ReceiveWindowConn:0 ReceiveWindow:0 DisableMTUDiscovery:false FastOpen:false LazyStart:true Resolver: ResolvePreference:}] \u001b[0mClient configuration loaded",
-      "2026-10-05T01:17:15+08:00\u001b[36m [INFO] [addr:127.0.0.1:1] \u001b[0mLazy start enabled, waiting for first connection",
-      "2026-10-05T01:17:15+08:00\u001b[36m [INFO] [addr:127.0.0.1:11808] \u001b[0mSOCKS5 server up and running"
+      "2026-10-07T06:51:46+08:00\u001b[36m [INFO] [config:{Server:127.0.0.1:1 Protocol: Up: UpMbps:20 Down: DownMbps:20 Retry:0 RetryInterval:<nil> QuitOnDisconnect:false HandshakeTimeout:0 IdleTimeout:0 HopInterval:0 SOCKS5:{Listen:127.0.0.1:11808 Timeout:0 DisableUDP:false User: Password:} HTTP:{Listen: Timeout:0 User: Password: Cert: Key:} TUN:{Name: Timeout:0 MTU:0 TCPSendBufferSize: TCPReceiveBufferSize: TCPModerateReceiveBuffer:false} TCPRelays:[] TCPRelay:{Listen: Remote: Timeout:0} UDPRelays:[] UDPRelay:{Listen: Remote: Timeout:0} TCPTProxy:{Listen: Timeout:0} UDPTProxy:{Listen: Timeout:0} TCPRedirect:{Listen: Timeout:0} ACL: MMDB: Obfs: Auth:[] AuthString:synthetic ALPN: ServerName: Insecure:false CustomCA: ReceiveWindowConn:0 ReceiveWindow:0 DisableMTUDiscovery:false FastOpen:false LazyStart:true Resolver: ResolvePreference:}] \u001b[0mClient configuration loaded",
+      "2026-10-07T06:51:46+08:00\u001b[36m [INFO] [addr:127.0.0.1:1] \u001b[0mLazy start enabled, waiting for first connection",
+      "2026-10-07T06:51:46+08:00\u001b[36m [INFO] [addr:127.0.0.1:11808] \u001b[0mSOCKS5 server up and running"
     ],
     "stderr": null
   },
@@ -149,7 +149,7 @@
     "stopped": true,
     "still_running": false,
     "run_args": [
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\naiveproxy-d43af6b4\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\naiveproxy-1a19573a\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
@@ -168,12 +168,12 @@
     "still_running": false,
     "run_args": [
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\tuic-6fc217ee\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\tuic-0bdcbad1\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
     "stdout": null,
-    "stderr": "[2026-10-04T17:17:17Z WARN ] [socks5] server started, listening on 127.0.0.1:11808"
+    "stderr": "[2026-10-06T22:51:48Z WARN ] [socks5] server started, listening on 127.0.0.1:11808"
   },
   {
     "core": "juicity",
@@ -188,7 +188,7 @@
     "run_args": [
       "run",
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\juicity-4567ace0\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\juicity-000f2e9b\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
@@ -212,21 +212,21 @@
     "negative_probe": {
       "exited": true,
       "exit_code": 1,
-      "waited_ms": 5372,
+      "waited_ms": 5332,
       "note": "client against a closed server port"
     },
     "cert": {
-      "sha256": "5f052bc8cb36d2ef593dc47fae20dde25ffa3ed134ee1085830c406822a6350b",
-      "pin_sha256": "84efdbd2439cfec0c2ce75c62a3d4e54352db3ee68dd4e01690af04491be718d",
+      "sha256": "e0918b6f4fe8145cca4cb09aec446dd636adc6b084860f4faca7319fb9cc7ebf",
+      "pin_sha256": "8cc31465fec53eeabdd651bd6d1428b33cac55c187baa20c9f765b7dc134a60e",
       "generator": "hysteria cert"
     },
     "adapter_run_args": [],
     "server_run_args": [
       "server",
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\hysteria2-pair-0475d148\\server\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\hysteria2-pair-fd94cf08\\server\\config.json"
     ],
-    "cwd": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\hysteria2-pair-0475d148\\client",
+    "cwd": "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\hysteria2-pair-fd94cf08\\client",
     "server_stopped": true,
     "server_still_running": false,
     "client_stopped": true,
@@ -237,19 +237,21 @@
     "target_still_running": false,
     "server_stdout": null,
     "server_stderr": [
-      "2026-10-05T01:17:25+08:00\t\u001b[34mINFO\u001b[0m\tserver mode",
-      "2026-10-05T01:17:25+08:00\t\u001b[34mINFO\u001b[0m\tserver up and running\t{\"listen\": \"127.0.0.1:11808\"}",
-      "2026-10-05T01:17:26+08:00\t\u001b[34mINFO\u001b[0m\tclient connected\t{\"addr\": \"127.0.0.1:56409\", \"id\": \"user\", \"tx\": 0}"
+      "2026-10-07T06:51:57+08:00\t\u001b[34mINFO\u001b[0m\tserver mode",
+      "2026-10-07T06:51:57+08:00\t\u001b[34mINFO\u001b[0m\tserver up and running\t{\"listen\": \"127.0.0.1:11808\"}",
+      "2026-10-07T06:51:58+08:00\t\u001b[34mINFO\u001b[0m\tclient connected\t{\"addr\": \"127.0.0.1:62845\", \"id\": \"user\", \"tx\": 0}",
+      "2026-10-07T06:51:58+08:00\t\u001b[34mINFO\u001b[0m\tupdate available\t{\"version\": \"v2.13.0\", \"url\": \"https://github.com/apernet/hysteria/releases\", \"urgent\": false}"
     ],
     "client_stdout": null,
     "client_stderr": [
-      "2026-10-05T01:17:26+08:00\t\u001b[34mINFO\u001b[0m\tclient mode",
-      "2026-10-05T01:17:26+08:00\t\u001b[34mINFO\u001b[0m\tconnected to server\t{\"addr\": \"127.0.0.1:11808\", \"udpEnabled\": true, \"tx\": 0, \"ech\": false, \"count\": 1}",
-      "2026-10-05T01:17:26+08:00\t\u001b[34mINFO\u001b[0m\tSOCKS5 server listening\t{\"addr\": \"127.0.0.1:11809\"}"
+      "2026-10-07T06:51:58+08:00\t\u001b[34mINFO\u001b[0m\tclient mode",
+      "2026-10-07T06:51:58+08:00\t\u001b[34mINFO\u001b[0m\tconnected to server\t{\"addr\": \"127.0.0.1:11808\", \"udpEnabled\": true, \"tx\": 0, \"ech\": false, \"count\": 1}",
+      "2026-10-07T06:51:58+08:00\t\u001b[34mINFO\u001b[0m\tSOCKS5 server listening\t{\"addr\": \"127.0.0.1:11809\"}",
+      "2026-10-07T06:51:59+08:00\t\u001b[34mINFO\u001b[0m\tupdate available\t{\"version\": \"v2.13.0\", \"url\": \"https://github.com/apernet/hysteria/releases\", \"urgent\": false}"
     ],
     "negative_stderr": [
-      "2026-10-05T01:17:20+08:00\t\u001b[34mINFO\u001b[0m\tclient mode",
-      "2026-10-05T01:17:25+08:00\t\u001b[31mFATAL\u001b[0m\tfailed to initialize client\t{\"error\": \"connect error: timeout: no recent network activity\"}"
+      "2026-10-07T06:51:52+08:00\t\u001b[34mINFO\u001b[0m\tclient mode",
+      "2026-10-07T06:51:57+08:00\t\u001b[31mFATAL\u001b[0m\tfailed to initialize client\t{\"error\": \"connect error: timeout: no recent network activity\"}"
     ]
   },
   {
@@ -263,7 +265,7 @@
     "stopped": true,
     "still_running": false,
     "run_args": [
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\brook-43acaeaa\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\brook-e388b7d4\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
@@ -287,25 +289,25 @@
     "negative_probe": {
       "exited": true,
       "exit_code": 1,
-      "waited_ms": 2227,
+      "waited_ms": 2258,
       "note": "client against a closed server port"
     },
     "cert": {
-      "sha256": "9800de8756aca27d9f42acee66a62cbbfef4da6be88e437965cfb86608ba595a",
-      "pin_sha256": "331d1d4ad517ad09aee1467f9fecd406e7175bc539ff6d93078ac76877eca581",
+      "sha256": "df4aeeb09923dcd46e30d2a10ec69ec7ef9729e66517e19f2aa8dca4c5e19898",
+      "pin_sha256": "9e9637f11de8c9b499eb694f70ed48a7899418b74d6724606daf3824574ee1e6",
       "generator": "hysteria cert"
     },
     "adapter_run_args": [
       "-r",
       "client",
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\overtls-pair-6eed9374\\client\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\overtls-pair-3fb81e26\\client\\config.json"
     ],
     "server_run_args": [
       "-r",
       "server",
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\overtls-pair-6eed9374\\server\\config.json"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\overtls-pair-3fb81e26\\server\\config.json"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "server_stopped": true,
@@ -318,15 +320,16 @@
     "target_still_running": false,
     "server_stdout": null,
     "server_stderr": [
-      "[2026-10-04T17:17:31Z INFO  overtls::server] starting overtls 0.3.15 (8f06366 2026-09-30 05:34:05) server...",
-      "[2026-10-04T17:17:31Z INFO  overtls::server] using TLS"
+      "[2026-10-06T22:52:04Z INFO  overtls::server] starting overtls 0.3.15 (8f06366 2026-09-30 05:34:05) server...",
+      "[2026-10-06T22:52:04Z INFO  overtls::server] using TLS"
     ],
     "client_stdout": null,
     "client_stderr": [
-      "[2026-10-04T17:17:32Z INFO  overtls::client] starting overtls 0.3.15 (8f06366 2026-09-30 05:34:05) client...",
-      "[2026-10-04T17:17:32Z INFO  connection_pool::connection_pool] Creating connection pool with max_size: 30, idle_timeout: 300s, connection_timeout: 10s, cleanup_enabled: true",
-      "[2026-10-04T17:17:32Z INFO  connection_pool::connection_pool] Background cleanup task started with interval: 30s",
-      "[2026-10-04T17:17:32Z WARN  overtls::client] Dangerous mode enabled, this will skip certificate verification. It is not recommended for production use"
+      "[2026-10-06T22:52:05Z INFO  overtls::client] starting overtls 0.3.15 (8f06366 2026-09-30 05:34:05) client...",
+      "[2026-10-06T22:52:05Z INFO  connection_pool::connection_pool] Creating connection pool with max_size: 30, idle_timeout: 300s, connection_timeout: 10s, cleanup_enabled: true",
+      "[2026-10-06T22:52:05Z INFO  connection_pool::connection_pool] Background cleanup task started with interval: 30s",
+      "[2026-10-06T22:52:05Z WARN  overtls::client] Dangerous mode enabled, this will skip certificate verification. It is not recommended for production use",
+      "[2026-10-06T22:52:06Z WARN  overtls::client] Dangerous mode enabled, this will skip certificate verification. It is not recommended for production use"
     ],
     "negative_stderr": "Error: Io(Os { code: 10061, kind: ConnectionRefused, message: \"由于目标计算机积极拒绝，无法连接。\" })"
   },
@@ -342,13 +345,13 @@
     "still_running": false,
     "run_args": [
       "-c",
-      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\shadowquic-393091ab\\config.yaml"
+      "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\shadowquic-1042172b\\config.yaml"
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [],
     "stdout": [
-      "26-10-05 01:17:33.677  INFO shadowquic 0.4.0 running",
-      "26-10-05 01:17:33.679  INFO current working directory: \"C:\\\\Users\\\\Colby\\\\Documents\\\\Codex\\\\2026-10-01\\\\v2rayn-flclash-rust-v2rayn\""
+      "26-10-07 06:52:06.853  INFO shadowquic 0.4.0 running",
+      "26-10-07 06:52:06.855  INFO current working directory: \"C:\\\\Users\\\\Colby\\\\Documents\\\\Codex\\\\2026-10-01\\\\v2rayn-flclash-rust-v2rayn\""
     ],
     "stderr": null
   },
@@ -367,16 +370,16 @@
     ],
     "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
     "env": [
-      "MIERU_CONFIG_JSON_FILE=C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\mieru-7e2b72b6\\config.json"
+      "MIERU_CONFIG_JSON_FILE=C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\mieru-b6f70839\\config.json"
     ],
     "stdout": [
-      "2026-10-05T01:17:34+08:00 INFO mieru client RPC server is running",
-      "2026-10-05T01:17:34+08:00 INFO Initializing client multiplexer",
-      "2026-10-05T01:17:34+08:00 INFO Mux DNS resolver has been updated",
-      "2026-10-05T01:17:34+08:00 INFO Mux traffic pattern has been updated",
-      "2026-10-05T01:17:34+08:00 INFO Mux multiplexing factor is set to 1",
-      "2026-10-05T01:17:34+08:00 INFO mieru client socks5 server is running",
-      "2026-10-05T01:17:34+08:00 INFO enabled metrics logging with duration 10m0s"
+      "2026-10-07T06:52:08+08:00 INFO mieru client RPC server is running",
+      "2026-10-07T06:52:08+08:00 INFO Initializing client multiplexer",
+      "2026-10-07T06:52:08+08:00 INFO Mux DNS resolver has been updated",
+      "2026-10-07T06:52:08+08:00 INFO Mux traffic pattern has been updated",
+      "2026-10-07T06:52:08+08:00 INFO Mux multiplexing factor is set to 1",
+      "2026-10-07T06:52:08+08:00 INFO mieru client socks5 server is running",
+      "2026-10-07T06:52:08+08:00 INFO enabled metrics logging with duration 10m0s"
     ],
     "stderr": null
   }

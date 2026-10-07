@@ -6139,12 +6139,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   ApplyRuntimeResult dco_decode_apply_runtime_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return ApplyRuntimeResult(
       ok: dco_decode_bool(arr[0]),
       operationId: dco_decode_opt_String(arr[1]),
       error: dco_decode_opt_box_autoadd_error_dto(arr[2]),
+      warnings: dco_decode_list_diagnostic_dto(arr[3]),
     );
   }
 
@@ -6734,6 +6735,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DiagnosticDto dco_decode_diagnostic_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
+    return DiagnosticDto(
+      level: dco_decode_String(arr[0]),
+      code: dco_decode_String(arr[1]),
+      message: dco_decode_String(arr[2]),
+      fieldPath: dco_decode_opt_String(arr[3]),
+    );
+  }
+
+  @protected
   DnsDtoResult dco_decode_dns_dto_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
@@ -7227,6 +7242,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<DelayResultDto> dco_decode_list_delay_result_dto(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_delay_result_dto).toList();
+  }
+
+  @protected
+  List<DiagnosticDto> dco_decode_list_diagnostic_dto(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_diagnostic_dto).toList();
   }
 
   @protected
@@ -9254,10 +9275,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_ok = sse_decode_bool(deserializer);
     var var_operationId = sse_decode_opt_String(deserializer);
     var var_error = sse_decode_opt_box_autoadd_error_dto(deserializer);
+    var var_warnings = sse_decode_list_diagnostic_dto(deserializer);
     return ApplyRuntimeResult(
       ok: var_ok,
       operationId: var_operationId,
       error: var_error,
+      warnings: var_warnings,
     );
   }
 
@@ -9933,6 +9956,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  DiagnosticDto sse_decode_diagnostic_dto(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_level = sse_decode_String(deserializer);
+    var var_code = sse_decode_String(deserializer);
+    var var_message = sse_decode_String(deserializer);
+    var var_fieldPath = sse_decode_opt_String(deserializer);
+    return DiagnosticDto(
+      level: var_level,
+      code: var_code,
+      message: var_message,
+      fieldPath: var_fieldPath,
+    );
+  }
+
+  @protected
   DnsDtoResult sse_decode_dns_dto_result(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_ok = sse_decode_bool(deserializer);
@@ -10579,6 +10617,20 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <DelayResultDto>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_delay_result_dto(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<DiagnosticDto> sse_decode_list_diagnostic_dto(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <DiagnosticDto>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_diagnostic_dto(deserializer));
     }
     return ans_;
   }
@@ -13349,6 +13401,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.ok, serializer);
     sse_encode_opt_String(self.operationId, serializer);
     sse_encode_opt_box_autoadd_error_dto(self.error, serializer);
+    sse_encode_list_diagnostic_dto(self.warnings, serializer);
   }
 
   @protected
@@ -13929,6 +13982,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_diagnostic_dto(DiagnosticDto self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.level, serializer);
+    sse_encode_String(self.code, serializer);
+    sse_encode_String(self.message, serializer);
+    sse_encode_opt_String(self.fieldPath, serializer);
+  }
+
+  @protected
   void sse_encode_dns_dto_result(DnsDtoResult self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_bool(self.ok, serializer);
@@ -14406,6 +14468,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_delay_result_dto(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_diagnostic_dto(
+    List<DiagnosticDto> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_diagnostic_dto(item, serializer);
     }
   }
 

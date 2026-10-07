@@ -6361,10 +6361,12 @@ impl SseDecode for crate::api::contract::ApplyRuntimeResult {
         let mut var_ok = <bool>::sse_decode(deserializer);
         let mut var_operationId = <Option<String>>::sse_decode(deserializer);
         let mut var_error = <Option<crate::api::contract::ErrorDto>>::sse_decode(deserializer);
+        let mut var_warnings = <Vec<crate::api::contract::DiagnosticDto>>::sse_decode(deserializer);
         return crate::api::contract::ApplyRuntimeResult {
             ok: var_ok,
             operation_id: var_operationId,
             error: var_error,
+            warnings: var_warnings,
         };
     }
 }
@@ -6919,6 +6921,22 @@ impl SseDecode for crate::api::contract::DeleteSubsResult {
             ok: var_ok,
             removed: var_removed,
             error: var_error,
+        };
+    }
+}
+
+impl SseDecode for crate::api::contract::DiagnosticDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_level = <String>::sse_decode(deserializer);
+        let mut var_code = <String>::sse_decode(deserializer);
+        let mut var_message = <String>::sse_decode(deserializer);
+        let mut var_fieldPath = <Option<String>>::sse_decode(deserializer);
+        return crate::api::contract::DiagnosticDto {
+            level: var_level,
+            code: var_code,
+            message: var_message,
+            field_path: var_fieldPath,
         };
     }
 }
@@ -7609,6 +7627,20 @@ impl SseDecode for Vec<crate::api::monitor::DelayResultDto> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<crate::api::monitor::DelayResultDto>::sse_decode(
+                deserializer,
+            ));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::api::contract::DiagnosticDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::contract::DiagnosticDto>::sse_decode(
                 deserializer,
             ));
         }
@@ -10800,6 +10832,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::contract::ApplyRuntimeResult 
             self.ok.into_into_dart().into_dart(),
             self.operation_id.into_into_dart().into_dart(),
             self.error.into_into_dart().into_dart(),
+            self.warnings.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -11536,6 +11569,29 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::contract::DeleteSubsResult>
     for crate::api::contract::DeleteSubsResult
 {
     fn into_into_dart(self) -> crate::api::contract::DeleteSubsResult {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::contract::DiagnosticDto {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.level.into_into_dart().into_dart(),
+            self.code.into_into_dart().into_dart(),
+            self.message.into_into_dart().into_dart(),
+            self.field_path.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::api::contract::DiagnosticDto
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::contract::DiagnosticDto>
+    for crate::api::contract::DiagnosticDto
+{
+    fn into_into_dart(self) -> crate::api::contract::DiagnosticDto {
         self
     }
 }
@@ -14602,6 +14658,7 @@ impl SseEncode for crate::api::contract::ApplyRuntimeResult {
         <bool>::sse_encode(self.ok, serializer);
         <Option<String>>::sse_encode(self.operation_id, serializer);
         <Option<crate::api::contract::ErrorDto>>::sse_encode(self.error, serializer);
+        <Vec<crate::api::contract::DiagnosticDto>>::sse_encode(self.warnings, serializer);
     }
 }
 
@@ -14979,6 +15036,16 @@ impl SseEncode for crate::api::contract::DeleteSubsResult {
         <bool>::sse_encode(self.ok, serializer);
         <u64>::sse_encode(self.removed, serializer);
         <Option<crate::api::contract::ErrorDto>>::sse_encode(self.error, serializer);
+    }
+}
+
+impl SseEncode for crate::api::contract::DiagnosticDto {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.level, serializer);
+        <String>::sse_encode(self.code, serializer);
+        <String>::sse_encode(self.message, serializer);
+        <Option<String>>::sse_encode(self.field_path, serializer);
     }
 }
 
@@ -15435,6 +15502,16 @@ impl SseEncode for Vec<crate::api::monitor::DelayResultDto> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <crate::api::monitor::DelayResultDto>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::api::contract::DiagnosticDto> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::contract::DiagnosticDto>::sse_encode(item, serializer);
         }
     }
 }

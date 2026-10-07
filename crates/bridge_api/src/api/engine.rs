@@ -24,11 +24,11 @@ use serde_json::Value;
 
 use crate::api::contract::{
     ActualRuntimeDto, AppliedInboundDto, ApplyRuntimeResult, CancelResult, CapabilityDto,
-    CopyProfilesResult, CustomFileResult, DeleteProfilesResult, ErrorDto, EventEnvelopeDto,
-    ExitFactDto, JobDto, OperationStatusDto, ProfileDto, ProfileFilterDto, ProfilePageDto,
-    ProfileSortDto, ProtocolExtraDto, RecoveryDto, ResourceFailureDto, ResourceUpdateReportDto,
-    RuntimeTunDto, SaveProfileResult, SecurityDto, SimpleResult, SnapshotDto, StopRuntimeResult,
-    TransportExtraDto,
+    CopyProfilesResult, CustomFileResult, DeleteProfilesResult, DiagnosticDto, ErrorDto,
+    EventEnvelopeDto, ExitFactDto, JobDto, OperationStatusDto, ProfileDto, ProfileFilterDto,
+    ProfilePageDto, ProfileSortDto, ProtocolExtraDto, RecoveryDto, ResourceFailureDto,
+    ResourceUpdateReportDto, RuntimeTunDto, SaveProfileResult, SecurityDto, SimpleResult,
+    SnapshotDto, StopRuntimeResult, TransportExtraDto,
 };
 
 use crate::frb_generated::StreamSink;
@@ -874,18 +874,31 @@ pub fn apply_runtime(target_id: String, expected_revision: u64) -> ApplyRuntimeR
                 DomainError::new(domain::codes::FIELD_REQUIRED, "error.no_active_profile")
                     .with_field("target_id"),
             )),
+            warnings: Vec::new(),
         };
     };
-    let plan = match engine().build_runtime_plan(&target, expected_revision) {
-        Ok(plan) => plan,
-        Err(error) => {
-            return ApplyRuntimeResult {
-                ok: false,
-                operation_id: None,
-                error: Some(error_dto(error)),
-            };
-        }
-    };
+    let hints = application::tun_hints_from_env();
+    let (plan, diagnostics) =
+        match engine().build_runtime_plan_with_diagnostics(&target, expected_revision, &hints) {
+            Ok(built) => built,
+            Err(error) => {
+                return ApplyRuntimeResult {
+                    ok: false,
+                    operation_id: None,
+                    error: Some(error_dto(error)),
+                    warnings: Vec::new(),
+                };
+            }
+        };
+    let warnings: Vec<DiagnosticDto> = diagnostics
+        .into_iter()
+        .map(|d| DiagnosticDto {
+            level: format!("{:?}", d.level).to_lowercase(),
+            code: d.code,
+            message: d.message,
+            field_path: d.field_path,
+        })
+        .collect();
     match engine().apply_runtime_for_target(plan, &target, DesiredRevision::new(expected_revision))
     {
         Ok(operation_id) => {
@@ -897,12 +910,14 @@ pub fn apply_runtime(target_id: String, expected_revision: u64) -> ApplyRuntimeR
                 ok: true,
                 operation_id: Some(operation_id),
                 error: None,
+                warnings,
             }
         }
         Err(e) => ApplyRuntimeResult {
             ok: false,
             operation_id: None,
             error: Some(error_dto(e)),
+            warnings,
         },
     }
 }

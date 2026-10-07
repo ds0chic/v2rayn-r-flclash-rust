@@ -163,14 +163,59 @@ fn tun_address(field: &str, cidr: &str) -> Result<TunAddress, DomainError> {
 /// the address/routes through the helper (R3-04).
 pub const TUN_DEFERRED_PROCESS_ID: &str = "tun-deferred";
 
-/// Assemble the descriptor fields shared by the resolved and deferred paths.
+/// Diagnostic code for a dropped TUN route-exclude entry (upstream
+/// `ResUI.MsgTunRouteExcludeInvalidAddress`, recorded as a warning by
+/// `CoreConfigContextBuilder.Build`, never a whole-list rejection).
+pub const TUN_ROUTE_EXCLUDE_INVALID_CODE: &str = "tun_route_exclude_invalid";
+/// Field path for route-exclude warnings (upstream `TunModeItem.RouteExcludeAddress`).
+pub const TUN_ROUTE_EXCLUDE_FIELD: &str = "RouteExcludeAddress";
+
+/// Upstream `CoreConfigContextBuilder.Build` parity
+/// (`CoreConfigContextBuilder.cs:100-118`, frozen `7d6a967`): every
+/// `RouteExcludeAddress` entry is tried with `IPNetwork2.Parse`; entries that
+/// parse are kept, entries that throw are dropped with one warning each
+/// (`ResUI.MsgTunRouteExcludeInvalidAddress`). The build itself keeps the
+/// valid entries and never rejects the whole list.
+///
+/// Validation here mirrors `IPNetwork2.Parse` with [`ipc_contract::parse_cidr`]
+/// (CIDR `address/prefix_len`, surrounding whitespace tolerated). Callers that
+/// can surface diagnostics use the returned warnings (the existing channel is
+/// `GeneratedConfigs.diagnostics`, fed by `engine.rs` alongside the
+/// `build_codegen_input_with_warnings` chain warnings); the plain
+/// [`tun_spec_from_settings`] / [`tun_deferred_spec_from_settings`] entry
+/// points keep their signatures for the locked engine call sites and apply the
+/// same filter.
+pub fn filter_route_exclude(entries: &[String]) -> (Vec<String>, Vec<config_codegen::Diagnostic>) {
+    let mut kept = Vec::with_capacity(entries.len());
+    let mut warnings = Vec::new();
+    for entry in entries {
+        if ipc_contract::parse_cidr(entry).is_ok() {
+            kept.push(entry.clone());
+        } else {
+            warnings.push(config_codegen::Diagnostic::warning(
+                TUN_ROUTE_EXCLUDE_INVALID_CODE,
+                format!("Invalid address in TUN route exclude list: {entry}"),
+                Some(TUN_ROUTE_EXCLUDE_FIELD),
+            ));
+        }
+    }
+    (kept, warnings)
+}
+
+/// Assemble the descriptor fields shared by the resolved and deferred paths,
+/// plus the per-entry route-exclude warnings from [`filter_route_exclude`].
 /// The caller decides whether the `interface_index` is final; the deferred path
 /// keeps `0` and lets net-host fill it after discovery.
-fn build_tun_spec_fields(
+///
+/// The plain builder (and through it the locked `engine.rs` call sites) applies
+/// the same filter; the engine integrator switches the TUN attach site to the
+/// public `_with_warnings` variants and extends `generated.diagnostics` with
+/// the warnings.
+fn build_tun_spec_fields_with_warnings(
     item: &TunModeItem,
     hints: &TunPlanHints,
     interface_index: u32,
-) -> Result<TunSpec, DomainError> {
+) -> Result<(TunSpec, Vec<config_codegen::Diagnostic>), DomainError> {
     let adapter_name = if hints.adapter_name.trim().is_empty() {
         DEFAULT_TUN_ADAPTER.to_string()
     } else {
@@ -198,15 +243,20 @@ fn build_tun_spec_fields(
     } else {
         item.mtu as u16
     };
-    Ok(TunSpec {
-        kind: TUN_CONFIG_KIND.to_string(),
-        adapter_name,
-        interface_index,
-        addresses,
-        mtu: Some(mtu),
-        routes: hints.routes.clone(),
-        route_exclude: item.route_exclude_address.clone().unwrap_or_default(),
-    })
+    let (route_exclude, warnings) =
+        filter_route_exclude(item.route_exclude_address.as_deref().unwrap_or(&[]));
+    Ok((
+        TunSpec {
+            kind: TUN_CONFIG_KIND.to_string(),
+            adapter_name,
+            interface_index,
+            addresses,
+            mtu: Some(mtu),
+            routes: hints.routes.clone(),
+            route_exclude,
+        },
+        warnings,
+    ))
 }
 
 /// Build the helper TUN descriptor from settings, or `Ok(None)` when TUN is
@@ -219,8 +269,21 @@ pub fn tun_spec_from_settings(
     item: &TunModeItem,
     hints: &TunPlanHints,
 ) -> Result<Option<TunSpec>, DomainError> {
+    tun_spec_from_settings_with_warnings(item, hints).map(|(spec, _)| spec)
+}
+
+/// [`tun_spec_from_settings`] plus the route-exclude warnings from
+/// [`filter_route_exclude`]. Registered caller wiring (engine.rs is locked):
+/// `build_runtime_plan_with_hints` keeps calling the plain entry point until
+/// the integrator switches the TUN attach site (`engine.rs:5103-5113`) to this
+/// variant and extends `generated.diagnostics` with the warnings, the same
+/// channel that already carries `build_codegen_input_with_warnings` output.
+pub fn tun_spec_from_settings_with_warnings(
+    item: &TunModeItem,
+    hints: &TunPlanHints,
+) -> Result<(Option<TunSpec>, Vec<config_codegen::Diagnostic>), DomainError> {
     if !item.enable_tun {
-        return Ok(None);
+        return Ok((None, Vec::new()));
     }
     if hints.interface_index == 0 {
         return Err(invalid(
@@ -228,9 +291,9 @@ pub fn tun_spec_from_settings(
             "TUN interface index is unknown (0); refusing to build a descriptor",
         ));
     }
-    let spec = build_tun_spec_fields(item, hints, hints.interface_index)?;
+    let (spec, warnings) = build_tun_spec_fields_with_warnings(item, hints, hints.interface_index)?;
     spec.validate()?;
-    Ok(Some(spec))
+    Ok((Some(spec), warnings))
 }
 
 /// Build a *deferred* TUN descriptor for the first-TUN path: TUN is enabled and
@@ -245,15 +308,27 @@ pub fn tun_deferred_spec_from_settings(
     item: &TunModeItem,
     hints: &TunPlanHints,
 ) -> Result<Option<TunSpec>, DomainError> {
+    tun_deferred_spec_from_settings_with_warnings(item, hints).map(|(spec, _)| spec)
+}
+
+/// [`tun_deferred_spec_from_settings`] plus the route-exclude warnings from
+/// [`filter_route_exclude`]. Same registered caller wiring as
+/// [`tun_spec_from_settings_with_warnings`]: the deferred attach site
+/// (`engine.rs:5103-5108`) extends `generated.diagnostics` once the
+/// integrator switches it to this variant.
+pub fn tun_deferred_spec_from_settings_with_warnings(
+    item: &TunModeItem,
+    hints: &TunPlanHints,
+) -> Result<(Option<TunSpec>, Vec<config_codegen::Diagnostic>), DomainError> {
     if !item.enable_tun || hints.interface_index != 0 {
-        return Ok(None);
+        return Ok((None, Vec::new()));
     }
-    let mut spec = build_tun_spec_fields(item, hints, 0)?;
+    let (mut spec, warnings) = build_tun_spec_fields_with_warnings(item, hints, 0)?;
     // Routes are discovered with the same adapter, so their index is pending too.
     for route in &mut spec.routes {
         route.interface_index = 0;
     }
-    Ok(Some(spec))
+    Ok((Some(spec), warnings))
 }
 
 /// Attach a validated descriptor to a plan: sets `network_policy.tun_enabled`,
@@ -555,11 +630,80 @@ mod tests {
         assert_eq!(spec.addresses.len(), 1);
     }
 
+    // -- FLD-CFG-103 warn-filter (upstream `CoreConfigContextBuilder.Build`) --
+    //
+    // Invalid exclude entries are dropped with one warning each; the valid
+    // entries still apply and the build never rejects the whole list. The
+    // strict boundary stays one layer down: a hand-built `TunSpec` carrying an
+    // invalid `route_exclude` still fails `TunSpec::validate`
+    // (`runtime::tun::rejects_bad_route_exclude`).
+
     #[test]
-    fn bad_route_exclude_is_rejected() {
+    fn mixed_route_exclude_keeps_valid_entries_and_warns() {
+        let mut mixed = item();
+        mixed.route_exclude_address =
+            Some(vec!["10.0.0.0/8".into(), "nope".into(), "fc00::/7".into()]);
+        let (spec, warnings) = tun_spec_from_settings_with_warnings(&mixed, &hints()).unwrap();
+        let spec = spec.expect("mixed list must still build");
+        assert_eq!(
+            spec.route_exclude,
+            vec!["10.0.0.0/8".to_string(), "fc00::/7".to_string()]
+        );
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0].code, TUN_ROUTE_EXCLUDE_INVALID_CODE);
+        assert_eq!(
+            warnings[0].field_path.as_deref(),
+            Some(TUN_ROUTE_EXCLUDE_FIELD)
+        );
+        assert!(warnings[0].message.contains("nope"));
+        // The plain entry point (locked engine call sites) applies the same
+        // filter, so the whole-list rejection is gone there too.
+        let plain = tun_spec_from_settings(&mixed, &hints()).unwrap().unwrap();
+        assert_eq!(plain.route_exclude, spec.route_exclude);
+    }
+
+    #[test]
+    fn all_invalid_route_exclude_yields_empty_set() {
         let mut bad = item();
-        bad.route_exclude_address = Some(vec!["nope".into()]);
-        assert!(tun_spec_from_settings(&bad, &hints()).is_err());
+        bad.route_exclude_address = Some(vec!["nope".into(), "10.0.0.0/99".into()]);
+        let (spec, warnings) = tun_spec_from_settings_with_warnings(&bad, &hints()).unwrap();
+        let spec = spec.expect("all-invalid list must still build");
+        assert!(spec.route_exclude.is_empty());
+        assert_eq!(warnings.len(), 2);
+        // An empty exclude set round-trips through plan validation: the core
+        // generator falls back to the whole-internet route table upstream.
+        let mut plan = blank_plan();
+        attach_tun_to_plan(&mut plan, &spec).unwrap();
+        plan.validate().unwrap();
+    }
+
+    #[test]
+    fn deferred_spec_filters_route_exclude_too() {
+        let mut mixed = item();
+        mixed.route_exclude_address = Some(vec!["10.0.0.0/8".into(), "nope".into()]);
+        let mut zero = hints();
+        zero.interface_index = 0;
+        let (spec, warnings) =
+            tun_deferred_spec_from_settings_with_warnings(&mixed, &zero).unwrap();
+        let spec = spec.expect("deferred mixed list must still build");
+        assert_eq!(spec.route_exclude, vec!["10.0.0.0/8".to_string()]);
+        assert_eq!(warnings.len(), 1);
+    }
+
+    #[test]
+    fn filter_route_exclude_unit_matrix() {
+        let (kept, warnings) = filter_route_exclude(&[]);
+        assert!(kept.is_empty());
+        assert!(warnings.is_empty());
+
+        let (kept, warnings) =
+            filter_route_exclude(&[" 10.0.0.0/8 ".to_string(), "192.168.1.0/24".to_string()]);
+        assert_eq!(kept.len(), 2, "surrounding whitespace is tolerated");
+        assert!(warnings.is_empty());
+
+        let (kept, warnings) = filter_route_exclude(&["".to_string(), "   ".to_string()]);
+        assert!(kept.is_empty());
+        assert_eq!(warnings.len(), 2);
     }
 
     #[test]

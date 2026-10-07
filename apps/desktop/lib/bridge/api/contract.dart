@@ -9,7 +9,7 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ApplyRuntimeRequest`, `RevisionDto`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `from`
 
 /// SP-17 actual-runtime descriptor: what is actually running/exited. Every
 /// fact is real (submit-time frozen target or net-host observation); absent
@@ -212,10 +212,21 @@ class ApplyRuntimeResult {
   final String? operationId;
   final ErrorDto? error;
 
-  const ApplyRuntimeResult({required this.ok, this.operationId, this.error});
+  /// SP-24 FLD-CFG-103: non-fatal generation diagnostics (filtered invalid
+  /// settings entries, chain warnings). Empty when the build is clean; a
+  /// warning never turns the apply into a failure.
+  final List<DiagnosticDto> warnings;
+
+  const ApplyRuntimeResult({
+    required this.ok,
+    this.operationId,
+    this.error,
+    required this.warnings,
+  });
 
   @override
-  int get hashCode => ok.hashCode ^ operationId.hashCode ^ error.hashCode;
+  int get hashCode =>
+      ok.hashCode ^ operationId.hashCode ^ error.hashCode ^ warnings.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -224,7 +235,8 @@ class ApplyRuntimeResult {
           runtimeType == other.runtimeType &&
           ok == other.ok &&
           operationId == other.operationId &&
-          error == other.error;
+          error == other.error &&
+          warnings == other.warnings;
 }
 
 /// Bundles discovered under a parent directory.
@@ -575,6 +587,36 @@ class DeleteSubsResult {
           ok == other.ok &&
           removed == other.removed &&
           error == other.error;
+}
+
+/// One non-fatal generation diagnostic (`warning`/`info`), mirrored from
+/// `config_codegen::Diagnostic`.
+class DiagnosticDto {
+  final String level;
+  final String code;
+  final String message;
+  final String? fieldPath;
+
+  const DiagnosticDto({
+    required this.level,
+    required this.code,
+    required this.message,
+    this.fieldPath,
+  });
+
+  @override
+  int get hashCode =>
+      level.hashCode ^ code.hashCode ^ message.hashCode ^ fieldPath.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DiagnosticDto &&
+          runtimeType == other.runtimeType &&
+          level == other.level &&
+          code == other.code &&
+          message == other.message &&
+          fieldPath == other.fieldPath;
 }
 
 /// One per-table row count inside a backup manifest.

@@ -27,6 +27,7 @@ class SubsState {
   const SubsState({
     required this.items,
     this.selectedId,
+    this.selectedIds = const <String>[],
     this.busy = false,
     this.status,
     this.lastJobId,
@@ -35,6 +36,12 @@ class SubsState {
 
   final List<c.SubItemDto> items;
   final String? selectedId;
+
+  /// Multi-select set (upstream `SubSettingViewModel.SelectedSources`
+  /// counterpart). `selectedId` stays the primary/last-tapped row (upstream
+  /// `SelectedSource`); a plain tap collapses this to the single row, so
+  /// single-select callers keep working unchanged.
+  final List<String> selectedIds;
   final bool busy;
   final SubStatus? status;
   final String? lastJobId;
@@ -47,9 +54,17 @@ class SubsState {
     return null;
   }
 
+  /// Rows the delete path acts on: the multi-select set when non-empty,
+  /// otherwise the single primary (upstream `SelectedSources ??
+  /// [SelectedSource]`).
+  List<String> get deleteIds => selectedIds.isNotEmpty
+      ? List<String>.unmodifiable(selectedIds)
+      : (selectedId == null ? const <String>[] : <String>[selectedId!]);
+
   SubsState copyWith({
     List<c.SubItemDto>? items,
     String? selectedId,
+    List<String>? selectedIds,
     bool clearSelected = false,
     bool? busy,
     SubStatus? status,
@@ -58,6 +73,9 @@ class SubsState {
   }) => SubsState(
     items: items ?? this.items,
     selectedId: clearSelected ? null : (selectedId ?? this.selectedId),
+    selectedIds: clearSelected
+        ? const <String>[]
+        : (selectedIds ?? this.selectedIds),
     busy: busy ?? this.busy,
     status: status ?? this.status,
     lastJobId: lastJobId ?? this.lastJobId,
@@ -85,12 +103,67 @@ class SubsController extends Notifier<SubsState> {
 
   void reload() {
     state = state.copyWith(items: _load());
+    _pruneSelection();
   }
 
   void select(String? id) {
-    state = id == null
-        ? state.copyWith(clearSelected: true)
-        : state.copyWith(selectedId: id);
+    if (id == null) {
+      state = state.copyWith(clearSelected: true);
+      return;
+    }
+    state = state.copyWith(selectedId: id, selectedIds: <String>[id]);
+  }
+
+  /// Ctrl+click toggle for the multi-select set (upstream DataGrid
+  /// Extended selection). Removing the primary falls back to the last
+  /// remaining row; emptying the set clears the primary too.
+  void toggleMultiSelected(String id) {
+    final current = state.selectedIds.toList();
+    if (current.contains(id)) {
+      current.remove(id);
+      state = current.isEmpty
+          ? state.copyWith(clearSelected: true)
+          : state.copyWith(selectedId: current.last, selectedIds: current);
+    } else {
+      state = state.copyWith(
+        selectedId: id,
+        selectedIds: <String>[...current, id],
+      );
+    }
+  }
+
+  /// Shift+click range over the current item order (inclusive), anchored at
+  /// [anchorId] (the primary before the shift press).
+  void selectRange(String anchorId, String focusId) {
+    final ids = [for (final s in state.items) s.id];
+    final a = ids.indexOf(anchorId);
+    final b = ids.indexOf(focusId);
+    if (a < 0 || b < 0) {
+      select(focusId);
+      return;
+    }
+    final lo = a < b ? a : b;
+    final hi = a < b ? b : a;
+    final range = ids.sublist(lo, hi + 1);
+    state = state.copyWith(selectedId: focusId, selectedIds: range);
+  }
+
+  /// Drop selected ids that no longer exist (deleted rows, reload races).
+  /// Only ever shrinks the selection, never invents one.
+  void _pruneSelection() {
+    final live = {for (final s in state.items) s.id};
+    if (state.selectedIds.any((id) => !live.contains(id)) ||
+        (state.selectedId != null && !live.contains(state.selectedId))) {
+      final kept = state.selectedIds.where(live.contains).toList();
+      state = kept.isEmpty
+          ? state.copyWith(clearSelected: true)
+          : state.copyWith(
+              selectedId: kept.contains(state.selectedId)
+                  ? state.selectedId
+                  : kept.last,
+              selectedIds: kept,
+            );
+    }
   }
 
   /// A fresh editable draft with the upstream defaults.

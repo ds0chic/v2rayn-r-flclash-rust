@@ -266,6 +266,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DeleteSubsResult dco_decode_delete_subs_result(dynamic raw);
 
   @protected
+  DiagnosticDto dco_decode_diagnostic_dto(dynamic raw);
+
+  @protected
   DnsDtoResult dco_decode_dns_dto_result(dynamic raw);
 
   @protected
@@ -389,6 +392,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<DelayResultDto> dco_decode_list_delay_result_dto(dynamic raw);
+
+  @protected
+  List<DiagnosticDto> dco_decode_list_diagnostic_dto(dynamic raw);
 
   @protected
   List<DnsProfileDto> dco_decode_list_dns_profile_dto(dynamic raw);
@@ -1133,6 +1139,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   DeleteSubsResult sse_decode_delete_subs_result(SseDeserializer deserializer);
 
   @protected
+  DiagnosticDto sse_decode_diagnostic_dto(SseDeserializer deserializer);
+
+  @protected
   DnsDtoResult sse_decode_dns_dto_result(SseDeserializer deserializer);
 
   @protected
@@ -1282,6 +1291,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<DelayResultDto> sse_decode_list_delay_result_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<DiagnosticDto> sse_decode_list_diagnostic_dto(
     SseDeserializer deserializer,
   );
 
@@ -2251,6 +2265,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_diagnostic_dto(DiagnosticDto self, SseSerializer serializer);
+
+  @protected
   void sse_encode_dns_dto_result(DnsDtoResult self, SseSerializer serializer);
 
   @protected
@@ -2442,6 +2459,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_delay_result_dto(
     List<DelayResultDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_diagnostic_dto(
+    List<DiagnosticDto> self,
     SseSerializer serializer,
   );
 

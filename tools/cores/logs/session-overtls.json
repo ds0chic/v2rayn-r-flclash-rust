@@ -1,0 +1,61 @@
+{
+  "core": "overtls",
+  "version": "v0.3.15",
+  "mode": "pair",
+  "status": "ok",
+  "reason": "",
+  "server_port": 11808,
+  "client_port": 11809,
+  "target_port": 11810,
+  "server_listen_protocol": "tcp",
+  "server_listened": true,
+  "client_listened": true,
+  "proxied_http_body": "OV-OK",
+  "proxied_curl_exit": 0,
+  "negative_probe": {
+    "exited": true,
+    "exit_code": 1,
+    "waited_ms": 2236,
+    "note": "client against a closed server port"
+  },
+  "cert": {
+    "sha256": "2f911a64551e0339d763f9480989f805ffe3dea4faaa1b769d932238d4b238d9",
+    "pin_sha256": "c42dc6354a17f3eaede93153c6d27e39ee1e5c4b4b346abc56374fd046df4aa8",
+    "generator": "hysteria cert"
+  },
+  "adapter_run_args": [
+    "-r",
+    "client",
+    "-c",
+    "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\overtls-pair-7ba62fac\\client\\config.json"
+  ],
+  "server_run_args": [
+    "-r",
+    "server",
+    "-c",
+    "C:\\Users\\Colby\\AppData\\Local\\Temp\\v2rayn-r-core-sessions\\overtls-pair-7ba62fac\\server\\config.json"
+  ],
+  "cwd": "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn",
+  "server_stopped": true,
+  "server_still_running": false,
+  "client_stopped": true,
+  "client_still_running": false,
+  "negative_stopped": true,
+  "negative_still_running": false,
+  "target_stopped": true,
+  "target_still_running": false,
+  "server_stdout": null,
+  "server_stderr": [
+    "[2026-10-06T22:57:25Z INFO  overtls::server] starting overtls 0.3.15 (8f06366 2026-09-30 05:34:05) server...",
+    "[2026-10-06T22:57:25Z INFO  overtls::server] using TLS"
+  ],
+  "client_stdout": null,
+  "client_stderr": [
+    "[2026-10-06T22:57:26Z INFO  overtls::client] starting overtls 0.3.15 (8f06366 2026-09-30 05:34:05) client...",
+    "[2026-10-06T22:57:26Z INFO  connection_pool::connection_pool] Creating connection pool with max_size: 30, idle_timeout: 300s, connection_timeout: 10s, cleanup_enabled: true",
+    "[2026-10-06T22:57:26Z INFO  connection_pool::connection_pool] Background cleanup task started with interval: 30s",
+    "[2026-10-06T22:57:26Z WARN  overtls::client] Dangerous mode enabled, this will skip certificate verification. It is not recommended for production use",
+    "[2026-10-06T22:57:27Z WARN  overtls::client] Dangerous mode enabled, this will skip certificate verification. It is not recommended for production use"
+  ],
+  "negative_stderr": "Error: Io(Os { code: 10061, kind: ConnectionRefused, message: \"由于目标计算机积极拒绝，无法连接。\" })"
+}

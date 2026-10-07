@@ -563,7 +563,7 @@
       "upstream_symbols": "ServiceLib/ViewModels/ProfilesViewModel.cs",
       "status": "implemented",
       "evidence": "docs/evidence/stable-port/SP-16/README.md",
-      "note": "group persistence/reopen wired through profiles_controller (canonical SubIndexId group write on switch, build restore, resync fallback with no repair persist) + subs save/delete unified refresh; synthetic reopen/failure tests green (15 new + collateral ux_space01 fix); delete parity round: main-window toolbar-sub-delete via deleteCurrentSub (DeleteSubAsync counterpart, All/missing gated, confirm, fail keeps group + surfaces error) + subs-window confirmAndDeleteSub (button + context menu, ShowYesNo parity, cancel zero-write); 9 new synthetic delete tests green (8 helper/dialog + 1 toolbar E2E in own file); no profiles_controller change; gaps: engine set_current_group has no FRB entry (settings-group seam used, SP-00), engine group write unvalidated (Dart read-side gate), native group_reopen trace/DPI unverified",
+      "note": "group persistence/reopen wired through profiles_controller (canonical SubIndexId group write on switch, build restore, resync fallback with no repair persist) + subs save/delete unified refresh; synthetic reopen/failure tests green (15 new + collateral ux_space01 fix); delete parity round: main-window toolbar-sub-delete via deleteCurrentSub (DeleteSubAsync counterpart, All/missing gated, confirm, fail keeps group + surfaces error) + subs-window confirmAndDeleteSub (button + context menu, ShowYesNo parity, cancel zero-write); 9 new synthetic delete tests green (8 helper/dialog + 1 toolbar E2E in own file); no profiles_controller change; gaps: engine set_current_group has no FRB entry (settings-group seam used, SP-00), engine group write unvalidated (Dart read-side gate), native group_reopen trace/DPI unverified; batch round: main-window group-chip right-click menu (ListBox.ContextMenu parity, menuSubEdit/Add/Delete via existing sub_direct_edit entries, same gating/confirm, no profiles_controller/context_menu change) + subs-window multi-select batch delete (SelectedSources parity: selectedIds/toggle/range/deleteIds, one confirm for all, cancel/fail keep data+selection, single-select unchanged); 12 new synthetic tests green (11 batch + 1 chip-menu E2E in own file); no tester crash, no retry needed; gaps left: subs multi-select has no select-all/keyboard-extend, subs update stays single-target, native trace/DPI unverified",
       "instance_required": false
     },
     {
@@ -822,7 +822,7 @@
       "upstream_symbols": "V2rayOutboundService.cs、TryParseMaxSplit、CSV字段source",
       "status": "identified",
       "instance_required": true,
-      "note": "2026-10-07 SP-24 continuation (uncommitted): UI MaxSplit TryParseMaxSplit parity + Happy gate + String2List split parity, fragment_mask wire trim; Dart sp_24 widget 5/5 + config_codegen/application green, fmt/clippy/analyze clean. Formal UI->FRB->save->restart->xray/mihomo verify->reopen still unverified; G-07/G-13-rest/TUN-session blocked. Status stays identified for integrator promotion"
+      "note": "2026-10-07 SP-24 continuation (uncommitted): UI MaxSplit TryParseMaxSplit parity + Happy gate + String2List split parity, fragment_mask wire trim; Dart sp_24 widget 5/5 + config_codegen/application green, fmt/clippy/analyze clean. Formal UI->FRB->save->restart->xray/mihomo verify->reopen still unverified; G-07/G-13-rest/TUN-session blocked. Status stays identified for integrator promotion. 2026-10-07 FLD-CFG-103 Rust warn-filter (uncommitted, evidence FLD-CFG-103-tun-plan-warn-filter.md): tun_plan filters invalid route-exclude per entry with Diagnostic warnings (upstream CoreConfigContextBuilder parity), valid entries kept, all-invalid yields empty set; engine.rs diagnostics wiring registered but pending (engine locked); fmt/clippy green, application lib 350 + suites green except parallel-batch t10_core_matrix_live overtls block (unrelated). Status stays identified for integrator promotion"
     },
     {
       "id": "SP-25",
@@ -961,7 +961,7 @@
       "status": "identified",
       "instance_required": true,
       "evidence": "docs/evidence/stable-port/SP-28/README.md",
-      "note": "2026-10-07 L1 continuation: 13/13 areas audited read-only; 3 new gaps (SP28-L1-001 update GeoFiles row → SP-27, SP28-L1-002 cert-chain leaf-only → SP-03, SP28-L1-003 mihomo YAML preprocessing → SP-24); matrix 34→37 rows; per-core GUI→host real-flow instances still pending"
+      "note": "2026-10-07 L1 continuation: 13/13 areas audited read-only; 3 new gaps (SP28-L1-001 update GeoFiles row → SP-27, SP28-L1-002 cert-chain leaf-only → SP-03, SP28-L1-003 mihomo YAML preprocessing → SP-24); matrix 34→37 rows. Host-level live matrix landed: 13/14 locked cores serve real loopback sessions (t10_core_matrix_live, floor-guarded; raw records docs/evidence/stable-port/SP-28/real-core-matrix/); overtls blocked by the server's hardcoded private-destination guard (exact logs recorded, PS-harness discrepancy open). GUI→FRB→host instances still pending candidate build"
     },
     {
       "id": "SP-29",

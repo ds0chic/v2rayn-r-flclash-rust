@@ -321,6 +321,20 @@ pub struct ApplyRuntimeResult {
     pub ok: bool,
     pub operation_id: Option<String>,
     pub error: Option<ErrorDto>,
+    /// SP-24 FLD-CFG-103: non-fatal generation diagnostics (filtered invalid
+    /// settings entries, chain warnings). Empty when the build is clean; a
+    /// warning never turns the apply into a failure.
+    pub warnings: Vec<DiagnosticDto>,
+}
+
+/// One non-fatal generation diagnostic (`warning`/`info`), mirrored from
+/// `config_codegen::Diagnostic`.
+#[derive(Clone)]
+pub struct DiagnosticDto {
+    pub level: String,
+    pub code: String,
+    pub message: String,
+    pub field_path: Option<String>,
 }
 
 /// Result of `stop_runtime`.

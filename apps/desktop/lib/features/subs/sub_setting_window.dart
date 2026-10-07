@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
@@ -6,27 +7,37 @@ import 'package:v2rayn_desktop/features/subs/sub_edit_window.dart';
 import 'package:v2rayn_desktop/features/subs/sub_share_dialog.dart';
 import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
 
-/// 订阅设置窗删除：先确认后删除（上游 `SubSettingViewModel.DeleteSubAsync`
-/// counterpart：`ShowYesNoInteraction(ResUI.RemoveServer)` 取消直接 return）。
+/// 订阅设置窗批量删除：先确认一次后删除（上游
+/// `SubSettingViewModel.DeleteSubAsync` counterpart：一次 `ShowYesNoInteraction`
+/// 确认，再删 `SelectedSources ?? [SelectedSource]` 全部选中行）。
 ///
 /// [confirmDelete] 覆盖确认框（默认弹确认框），便于测试注入取消/确认。
-/// 取消不写库；删除失败在窗内状态行报出错误并保留该组（控制器 delete 仅
-/// 成功才刷新/resync）。返回 true=已删除。
-Future<bool> confirmAndDeleteSub(
+/// 取消不写库；删除失败在窗内状态行报出错误并保留各组（控制器 delete 仅
+/// 成功才刷新/resync，且失败不裁剪选中集）。返回 true=已删除。
+Future<bool> confirmAndDeleteSubs(
   BuildContext context,
   WidgetRef ref,
-  String id, {
+  List<String> ids, {
   Future<bool> Function(String remarks)? confirmDelete,
 }) async {
   final items = ref.read(subsControllerProvider).items;
-  final current = items.where((s) => s.id == id).firstOrNull;
-  if (current == null) return false;
+  final targets = [
+    for (final s in items)
+      if (ids.contains(s.id)) s,
+  ];
+  if (targets.isEmpty) return false;
   final confirmed = await (confirmDelete != null
-      ? confirmDelete(current.remarks)
+      ? confirmDelete(
+          targets.length == 1
+              ? targets.single.remarks
+              : '${targets.length} 个订阅',
+        )
       : showAppConfirmDialog(
           context,
           title: '删除订阅',
-          message: '确认删除订阅“${current.remarks}”？',
+          message: targets.length == 1
+              ? '确认删除订阅“${targets.single.remarks}”？'
+              : '确认删除选中的 ${targets.length} 个订阅？',
           confirmLabel: '删除',
           destructive: true,
           dialogKey: const ValueKey('sub-delete-confirm'),
@@ -34,8 +45,8 @@ Future<bool> confirmAndDeleteSub(
           cancelKey: const ValueKey('sub-delete-cancel'),
         ));
   if (!confirmed) return false;
-  final result = ref.read(subsControllerProvider.notifier).delete(<String>[
-    current.id,
+  final result = ref.read(subsControllerProvider.notifier).delete([
+    for (final t in targets) t.id,
   ]);
   if (!result.ok) {
     final code = result.error?.messageKey ?? result.error?.code ?? '未知错误';
@@ -46,6 +57,23 @@ Future<bool> confirmAndDeleteSub(
   }
   return true;
 }
+
+/// 订阅设置窗删除：先确认后删除（上游 `SubSettingViewModel.DeleteSubAsync`
+/// counterpart：`ShowYesNoInteraction(ResUI.RemoveServer)` 取消直接 return）。
+///
+/// 单行便捷入口，走 [confirmAndDeleteSubs] 批量路径（单选行为保持不变）。
+///
+/// [confirmDelete] 覆盖确认框（默认弹确认框），便于测试注入取消/确认。
+/// 取消不写库；删除失败在窗内状态行报出错误并保留该组（控制器 delete 仅
+/// 成功才刷新/resync）。返回 true=已删除。
+Future<bool> confirmAndDeleteSub(
+  BuildContext context,
+  WidgetRef ref,
+  String id, {
+  Future<bool> Function(String remarks)? confirmDelete,
+}) => confirmAndDeleteSubs(context, ref, <String>[
+  id,
+], confirmDelete: confirmDelete);
 
 /// The subscription settings window (upstream `SubSettingWindow`,
 /// F-SUB-001/002/003). Opened from the 订阅分组 menu (ACT-MAIN-019).
@@ -102,8 +130,10 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
                         final item = state.items[index];
                         return _SubRow(
                           item: item,
-                          selected: item.id == state.selectedId,
-                          onTap: () => controller.select(item.id),
+                          selected:
+                              item.id == state.selectedId ||
+                              state.selectedIds.contains(item.id),
+                          onTap: () => _tapRow(controller, state, item.id),
                           onToggle: (v) => controller.setEnabled(item.id, v),
                           onContext: () => _showContextMenu(context, item),
                         );
@@ -119,7 +149,7 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
         _action(
           '删除',
           const ValueKey('sub-delete'),
-          state.selectedId == null ? null : () => _delete(context, state),
+          state.deleteIds.isEmpty ? null : () => _delete(context, state),
         ),
         _action(
           '编辑',
@@ -155,9 +185,26 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
   }
 
   Future<void> _delete(BuildContext context, SubsState state) async {
-    final id = state.selectedId;
-    if (id == null) return;
-    await confirmAndDeleteSub(context, ref, id);
+    final ids = state.deleteIds;
+    if (ids.isEmpty) return;
+    await confirmAndDeleteSubs(context, ref, ids);
+  }
+
+  /// 行点选：普通单击收拢为单选（原有行为）；Ctrl+单击切换多选集成员；
+  /// Shift+单击以当前 primary 为锚做区间选择（上游 DataGrid Extended
+  /// 选择语义的对应；修饰键在事件时刻捕获，不做事后读取）。
+  void _tapRow(SubsController controller, SubsState state, String id) {
+    final keyboard = HardwareKeyboard.instance;
+    if (keyboard.isShiftPressed) {
+      final anchor = state.selectedId ?? id;
+      controller.selectRange(anchor, id);
+      return;
+    }
+    if (keyboard.isControlPressed) {
+      controller.toggleMultiSelected(id);
+      return;
+    }
+    controller.select(id);
   }
 
   void _share(BuildContext context, SubsState state) {
@@ -178,14 +225,31 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
         overlay.size.height / 3,
       ),
       items: <PopupMenuEntry<String>>[
-        const PopupMenuItem(value: 'edit', child: Text('编辑')),
-        const PopupMenuItem(value: 'share', child: Text('分享')),
+        const PopupMenuItem(
+          key: ValueKey('sub-menu-edit'),
+          value: 'edit',
+          child: Text('编辑'),
+        ),
+        const PopupMenuItem(
+          key: ValueKey('sub-menu-share'),
+          value: 'share',
+          child: Text('分享'),
+        ),
         PopupMenuItem(
+          key: const ValueKey('sub-menu-enable'),
           value: item.enabled ? 'disable' : 'enable',
           child: Text(item.enabled ? '停用' : '启用'),
         ),
-        const PopupMenuItem(value: 'update', child: Text('更新')),
-        const PopupMenuItem(value: 'delete', child: Text('删除')),
+        const PopupMenuItem(
+          key: ValueKey('sub-menu-update'),
+          value: 'update',
+          child: Text('更新'),
+        ),
+        const PopupMenuItem(
+          key: ValueKey('sub-menu-delete'),
+          value: 'delete',
+          child: Text('删除'),
+        ),
       ],
     ).then((value) async {
       if (value == null || !context.mounted) return;
@@ -201,9 +265,16 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
         case 'update':
           controller.update(subIds: <String>[item.id]);
         case 'delete':
-          controller.select(item.id);
+          // 右键落在已选集内时保留多选（与主窗节点表 handleRightTap 一致），
+          // 删除走批量确认路径，一次确认删全部选中行。
+          final selected = ref.read(subsControllerProvider).deleteIds;
+          if (!selected.contains(item.id)) controller.select(item.id);
           if (context.mounted) {
-            await confirmAndDeleteSub(context, ref, item.id);
+            await confirmAndDeleteSubs(
+              context,
+              ref,
+              ref.read(subsControllerProvider).deleteIds,
+            );
           }
       }
     });

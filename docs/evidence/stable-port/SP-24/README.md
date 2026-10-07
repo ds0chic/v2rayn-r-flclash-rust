@@ -156,3 +156,46 @@ xray/mihomo 二进制校验→独立重开未跑，不写 verified；manifest SP
    `did not complete`（本仓 flutter_tester 现象）；新用例一律单泵结构。
 6. `127.0.0.1:10808` 未触碰；合成数据/夹具；无 OS 副作用；宿主代理/路由/TUN/
    DNS/Run-key 未改动。不 commit。
+
+---
+
+# SP-24 continuation（2026-10-07，FLD-CFG-103 Rust 侧警告过滤，未 commit）
+
+状态：implemented（plan 侧正确合同绿；`generated.diagnostics` 接线仍缺，不写 verified；
+manifest SP-24 保持 `identified`，由整合者按本证据提升）。
+基线：`36e7472`（工作树有并行批次在途改动，本卡仅动下列锁内文件）。
+详情见本目录 `FLD-CFG-103-tun-plan-warn-filter.md`。
+
+## 改动文件（本卡锁内）
+
+- `crates/application/src/tun_plan.rs`：新增 `filter_route_exclude`
+ （`IPNetwork2.Parse` 逐项镜像：合法保留、非法逐条 `Diagnostic::warning`
+  `tun_route_exclude_invalid` / `RouteExcludeAddress`，message 逐字对齐
+  `ResUI.MsgTunRouteExcludeInvalidAddress`）；resolved/deferred 两路统一过滤；
+  新增 `tun_spec_from_settings_with_warnings` /
+  `tun_deferred_spec_from_settings_with_warnings`；原两函数签名不变
+ （`engine.rs` 锁定零改动）；模块单测 `bad_route_exclude_is_rejected` 替换为
+  4 则（混合保留有效+警告 / 全非法得空集 / deferred 同过滤 / 切分矩阵，
+  `bare_ip`/`zero_interface`/`out_of_range_mtu` 严格项仍失败）。
+- `crates/application/tests/sp24_tun_route_exclude_warn_filter.rs`（新建）：
+  engine 级 3 则——混合表成 plan 只带有效项；全非法表成 plan 且 exclude 为空；
+  逐条结构化警告 code/field 断言。
+
+## 真实命令与 exit
+
+| 命令 | exit | 结果 |
+|---|---|---|
+| `cargo fmt -p application -- --check` | 0 | 绿 |
+| `cargo clippy -p application --all-targets --locked -- -D warnings` | 0 | 绿 |
+| `cargo test -p application --locked --lib tun_plan` | 0 | 24 pass |
+| `--test sp24_tun_route_exclude_warn_filter` | 0 | 3/3 |
+| `cargo test -p application --locked` 全包 | 非 0（1 项，他人在途） | lib 350 + 其余套件绿；唯一红 `t10_core_matrix_live`（并行批次 untracked 文件，overtls 真实二进制阻塞，与 route_exclude 零引用，非本卡回归） |
+
+## gap 3 推进（登记返回，主控接线）
+
+原 gap 3（FLD-CFG-103 Rust 侧：非法排除地址应警告过滤而非整单拒绝，
+`tun_plan.rs` A03 + 警告通道缺失）→ 本卡完成后：
+过滤已在 settings→spec 边界实现并生效；警告结构化返回，
+待 `engine.rs:5103-5113` 切换 `_with_warnings` 变体并
+`generated.diagnostics.extend(tun_warnings)`（精确接线见
+`FLD-CFG-103-tun-plan-warn-filter.md` 登记节）。正式 TUN 会话/真实路由验收仍缺。

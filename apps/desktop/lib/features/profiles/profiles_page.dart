@@ -82,6 +82,55 @@ class _ProfilesPageState extends ConsumerState<ProfilesPage> {
   }
 }
 
+/// Main-window group-chip context menu: mirror of the upstream
+/// `ProfilesView.axaml` group `ListBox.ContextMenu`
+/// (`menuSubEdit`/`menuSubAdd`/`menuSubDelete`).
+///
+/// All three entries delegate to the existing toolbar entries in
+/// `sub_direct_edit.dart`, so the All/missing gating, the confirm dialog and
+/// the failure semantics are identical to the toolbar buttons. Nothing here
+/// touches `profiles_controller.dart` or the node context-menu model.
+Future<void> showGroupChipMenu(
+  BuildContext context,
+  WidgetRef ref,
+  Offset globalPosition,
+) async {
+  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+  final choice = await showMenu<String>(
+    context: context,
+    position: RelativeRect.fromRect(
+      Rect.fromPoints(globalPosition, globalPosition),
+      Offset.zero & overlay.size,
+    ),
+    items: const <PopupMenuEntry<String>>[
+      PopupMenuItem(
+        key: ValueKey('group-chip-menu-edit'),
+        value: 'edit',
+        child: Text('编辑当前订阅'),
+      ),
+      PopupMenuItem(
+        key: ValueKey('group-chip-menu-add'),
+        value: 'add',
+        child: Text('新增订阅'),
+      ),
+      PopupMenuItem(
+        key: ValueKey('group-chip-menu-delete'),
+        value: 'delete',
+        child: Text('删除当前订阅'),
+      ),
+    ],
+  );
+  if (choice == null || !context.mounted) return;
+  switch (choice) {
+    case 'edit':
+      await openEditCurrentSub(context, ref);
+    case 'add':
+      await openAddSub(context, ref);
+    case 'delete':
+      await deleteCurrentSub(context, ref);
+  }
+}
+
 /// Top WrapPanel row (LAY-PROFILES-001). Everything flows through one [Wrap]
 /// so the original controls wrap as a unit at narrow widths instead of being
 /// clipped or pushed into a second text-command row.
@@ -102,18 +151,26 @@ class _Toolbar extends ConsumerWidget {
         spacing: AppTokens.toolbarIconGap,
         runSpacing: 4,
         children: <Widget>[
-          _GroupChip(
-            keyId: 'group-filter-all',
-            label: '全部',
-            selected: state.groupSubId == null,
-            onTap: () => controller.setGroupSubId(null),
+          GestureDetector(
+            onSecondaryTapUp: (details) =>
+                showGroupChipMenu(context, ref, details.globalPosition),
+            child: _GroupChip(
+              keyId: 'group-filter-all',
+              label: '全部',
+              selected: state.groupSubId == null,
+              onTap: () => controller.setGroupSubId(null),
+            ),
           ),
           for (final sub in subs)
-            _GroupChip(
-              keyId: 'group-filter-${sub.id}',
-              label: sub.remarks.isEmpty ? sub.id : sub.remarks,
-              selected: state.groupSubId == sub.id,
-              onTap: () => controller.setGroupSubId(sub.id),
+            GestureDetector(
+              onSecondaryTapUp: (details) =>
+                  showGroupChipMenu(context, ref, details.globalPosition),
+              child: _GroupChip(
+                keyId: 'group-filter-${sub.id}',
+                label: sub.remarks.isEmpty ? sub.id : sub.remarks,
+                selected: state.groupSubId == sub.id,
+                onTap: () => controller.setGroupSubId(sub.id),
+              ),
             ),
           _IconTool(
             keyId: 'toolbar-sub-edit',

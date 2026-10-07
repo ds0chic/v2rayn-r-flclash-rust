@@ -102,8 +102,10 @@ pub use subs::{
     SubUpdateEntry, SubUpdateOutcome, SubUpdateReport, SubUpdateRequest,
 };
 pub use tun_plan::{
-    attach_tun_to_plan, tun_hints_from_env, tun_spec_from_settings, TunPlanHints,
-    DEFAULT_TUN_ADAPTER, DEFAULT_TUN_IPV4_CIDR, DEFAULT_TUN_MTU_FALLBACK,
+    attach_tun_to_plan, filter_route_exclude, tun_deferred_spec_from_settings,
+    tun_deferred_spec_from_settings_with_warnings, tun_hints_from_env, tun_spec_from_settings,
+    tun_spec_from_settings_with_warnings, TunPlanHints, DEFAULT_TUN_ADAPTER, DEFAULT_TUN_IPV4_CIDR,
+    DEFAULT_TUN_MTU_FALLBACK,
 };
 pub use update_service::{
     app_signature_verifier, builtin_targets, cleanup_logs_tmp, enforce_detached_signature,

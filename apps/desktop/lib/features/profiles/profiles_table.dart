@@ -103,6 +103,12 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   /// Guards against scheduling the close-on-scroll twice in one frame.
   bool _scrollCloseScheduled = false;
 
+  /// SP-31 scroll-hotspot cache: per-row `TableSpan` keyed by row identity +
+  /// column/overlay revisions + resolved visuals. Span construction otherwise
+  /// runs for every visible row on every build (once per scroll frame).
+  /// Bounded: cleared once it grows past the scrolling working set.
+  final Map<String, TableSpan> _rowSpanCache = <String, TableSpan>{};
+
   /// Edge auto-scroll while drag-selecting beyond the viewport (-1 up, +1
   /// down). The timer scrolls one third of a row per frame and extends the
   /// range to the row entering the viewport, matching the WPF DataGrid.
@@ -120,6 +126,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   @override
   void dispose() {
     _stopDragAutoScroll();
+    _rowSpanCache.clear();
     WidgetsBinding.instance.removeObserver(this);
     _focusNode.dispose();
     for (final node in _menuRowFocusNodes) {
@@ -165,6 +172,53 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     // `UiItem.EnableDragDropSort`: only register row drag-reorder when the
     // persisted setting is true (upstream `ProfilesView.xaml:27-34`).
     final dragSortEnabled = ref.watch(profilesEnableDragDropSortProvider);
+    // SP-31: O(columns) revision hashes computed once per build so the
+    // per-row span cache below invalidates without any per-cell work.
+    final columnRevision = Object.hashAll(<int>[
+      for (final c in columns)
+        Object.hash(c.key, c.width, c.visible, c.flexible, c.minWidth),
+    ]);
+    // O(1) overlay revision. Span visuals never consume overlay content, so
+    // this key only needs structural/generation invalidation (conservative:
+    // a stale hit is impossible because visuals are part of the key too).
+    final overlayRevision = Object.hash(
+      state.speedTestGeneration,
+      state.lastAckSeq,
+      state.all.length,
+      state.visible.length,
+    );
+    // Visuals resolved once per build (one Theme/extension lookup); the
+    // per-row span path below reuses them instead of looking them up again.
+    final semantics = context.semantics;
+    final scheme = Theme.of(context).colorScheme;
+    final headerFill = scheme.surfaceContainerHighest;
+    final visualRevision = Object.hash(
+      _rowHeight,
+      headerFill.toARGB32(),
+      semantics.gridLine.toARGB32(),
+      semantics.zebraEnabled,
+      semantics.zebraStripe.toARGB32(),
+    );
+    // SP-31: per-build cell scope. Column layout, selection set, sort spec,
+    // drag flag, controller and resolved fills are computed once per frame;
+    // cellBuilder consumes them instead of repeating provider/Theme lookups
+    // per cell (rows x columns inherited lookups per scroll frame).
+    final cellScope = _CellBuildScope(
+      columns: columns,
+      rows: rows,
+      selected: state.selected,
+      activeId: state.activeId,
+      sort: state.sort,
+      dragSortEnabled: dragSortEnabled,
+      controller: ref.read(profilesControllerProvider.notifier),
+      selectedRowFill: semantics.selectedRow,
+      activeFill: activeRowFill(context),
+      activeMarker: activeRowMarkerColor(context),
+      numberBadgeFill: scheme.primaryContainer,
+      dragFeedbackFill: scheme.secondaryContainer,
+      dropTargetBorder: scheme.primary,
+    );
+    void onSortHeader(String key) => _sortWithAnchor(key, state);
 
     return MenuAnchor(
       controller: _menuController,
@@ -224,15 +278,21 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                       rowCount: rows.length + 1,
                       columnBuilder: (index) =>
                           _buildColumnSpan(context, index, widths),
-                      rowBuilder: (index) => _buildRowSpan(index, context),
-                      cellBuilder: (context, vicinity) => TableViewCell(
-                        child: _buildCell(
-                          context,
-                          vicinity,
-                          state,
-                          columns,
-                          rows,
-                          dragSortEnabled,
+                      rowBuilder: (index) => _buildRowSpan(
+                        index,
+                        context,
+                        rows,
+                        columnRevision,
+                        overlayRevision,
+                        visualRevision,
+                      ),
+                      cellBuilder: (_, vicinity) => TableViewCell(
+                        // SP-31: isolate cell paint so a partial update
+                        // (selection, delay overlay tick) does not repaint
+                        // sibling cells. Build still flows through; only
+                        // paint is isolated, so semantics are unchanged.
+                        child: RepaintBoundary(
+                          child: _buildCell(vicinity, cellScope, onSortHeader),
                         ),
                       ),
                     ),
@@ -276,12 +336,29 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     );
   }
 
-  TableSpan _buildRowSpan(int index, BuildContext context) {
+  TableSpan _buildRowSpan(
+    int index,
+    BuildContext context,
+    List<ProfileSummary> rows,
+    int columnRevision,
+    int overlayRevision,
+    int visualRevision,
+  ) {
     final isHeader = index == 0;
+    final rowKey = isHeader
+        ? 'header'
+        : (index - 1 < rows.length ? rows[index - 1].id : 'oob-$index');
+    // Index is part of the key so a reorder (same id, new position) recomputes
+    // the parity-dependent zebra fill instead of reusing a stale span.
+    final key =
+        '$index|$rowKey|$columnRevision|$overlayRevision|$visualRevision';
+    final cached = _rowSpanCache[key];
+    if (cached != null) return cached;
+    if (_rowSpanCache.length > 1024) _rowSpanCache.clear();
     final semantics = context.semantics;
     // Optional zebra striping; data rows only (row 0 is the header).
     final zebra = semantics.zebraEnabled && !isHeader && (index - 1).isOdd;
-    return TableSpan(
+    final span = TableSpan(
       extent: FixedTableSpanExtent(isHeader ? _headerHeight : _rowHeight),
       backgroundDecoration: TableSpanDecoration(
         color: isHeader
@@ -292,34 +369,32 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
         ),
       ),
     );
+    _rowSpanCache[key] = span;
+    return span;
   }
 
   Widget _buildCell(
-    BuildContext context,
     TableVicinity vicinity,
-    ProfilesState state,
-    List<ProfileColumn> columns,
-    List<ProfileSummary> rows,
-    bool dragSortEnabled,
+    _CellBuildScope scope,
+    void Function(String key) onSortHeader,
   ) {
     if (vicinity.row == 0) {
-      return _headerCell(context, vicinity.column, state, columns);
+      return _headerCell(vicinity.column, scope, onSortHeader);
     }
     final dataIndex = vicinity.row - 1;
-    if (dataIndex >= rows.length) return const SizedBox.shrink();
-    final row = rows[dataIndex];
+    if (dataIndex >= scope.rows.length) return const SizedBox.shrink();
+    final row = scope.rows[dataIndex];
     if (vicinity.column == 0) {
-      return _handleCell(context, row, dataIndex, state, dragSortEnabled);
+      return _handleCell(scope, row, dataIndex);
     }
-    final column = columns[vicinity.column - 1];
-    return _dataCell(context, row, column, state);
+    final column = scope.columns[vicinity.column - 1];
+    return _dataCell(scope, row, column);
   }
 
   Widget _headerCell(
-    BuildContext context,
     int columnIndex,
-    ProfilesState state,
-    List<ProfileColumn> columns,
+    _CellBuildScope scope,
+    void Function(String key) onSortHeader,
   ) {
     if (columnIndex == 0) {
       // Upstream DataGrid keeps an untitled 40px row header
@@ -327,22 +402,20 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       // structural deviation (R3-WPF-Main-Chrome M3).
       return Container(key: const ValueKey('header-handle'));
     }
-    final column = columns[columnIndex - 1];
+    final column = scope.columns[columnIndex - 1];
+    final sort = scope.sort;
     final sorted =
-        state.sort.columnKey == column.key &&
-        state.sort.direction != SortDirection.none;
+        sort.columnKey == column.key && sort.direction != SortDirection.none;
     final indicator = !sorted
         ? ''
-        : (state.sort.direction == SortDirection.ascending
-              ? ' \u25B2'
-              : ' \u25BC');
+        : (sort.direction == SortDirection.ascending ? ' \u25B2' : ' \u25BC');
     return Stack(
       children: <Widget>[
         Positioned.fill(
           child: GestureDetector(
             key: ValueKey('header-${column.title}'),
             behavior: HitTestBehavior.opaque,
-            onTap: () => _sortWithAnchor(column.key, state),
+            onTap: () => onSortHeader(column.key),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Padding(
@@ -370,9 +443,8 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
             child: GestureDetector(
               key: ValueKey('resize-${column.title}'),
               behavior: HitTestBehavior.opaque,
-              onHorizontalDragUpdate: (details) => ref
-                  .read(profilesControllerProvider.notifier)
-                  .resizeColumn(column.key, details.delta.dx),
+              onHorizontalDragUpdate: (details) =>
+                  scope.controller.resizeColumn(column.key, details.delta.dx),
             ),
           ),
         ),
@@ -538,15 +610,14 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   }
 
   Widget _dataCell(
-    BuildContext context,
+    _CellBuildScope scope,
     ProfileSummary row,
     ProfileColumn column,
-    ProfilesState state,
   ) {
-    final selected = state.selected.contains(row.id);
+    final selected = scope.selected.contains(row.id);
     // Active node marker, independent from the multi-select highlight: an
     // active row keeps its own fill even when a different row is selected.
-    final isActive = state.activeId == row.id;
+    final isActive = scope.activeId == row.id;
     final value = column.display(row);
     final label = Text(
       value,
@@ -563,8 +634,8 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       onDoubleTap: () => _onDoubleTap(row),
       child: Container(
         color: selected
-            ? context.semantics.selectedRow
-            : (isActive ? activeRowFill(context) : null),
+            ? scope.selectedRowFill
+            : (isActive ? scope.activeFill : null),
         alignment: column.numeric
             ? Alignment.centerRight
             : Alignment.centerLeft,
@@ -581,22 +652,16 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     );
   }
 
-  Widget _handleCell(
-    BuildContext context,
-    ProfileSummary row,
-    int index,
-    ProfilesState state,
-    bool dragSortEnabled,
-  ) {
-    final selected = state.selected.contains(row.id);
-    final isActive = state.activeId == row.id;
-    final controller = ref.read(profilesControllerProvider.notifier);
+  Widget _handleCell(_CellBuildScope scope, ProfileSummary row, int index) {
+    final selected = scope.selected.contains(row.id);
+    final isActive = scope.activeId == row.id;
+    final controller = scope.controller;
     final ordinal = Text('${index + 1}', style: const TextStyle(fontSize: 11));
 
     final numberBox = Container(
-      color: selected ? Theme.of(context).colorScheme.primaryContainer : null,
+      color: selected ? scope.numberBadgeFill : null,
       alignment: Alignment.center,
-      child: dragSortEnabled
+      child: scope.dragSortEnabled
           ? Draggable<ProfileSummary>(
               data: row,
               dragAnchorStrategy: pointerDragAnchorStrategy,
@@ -611,7 +676,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                     horizontal: 8,
                     vertical: 4,
                   ),
-                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  color: scope.dragFeedbackFill,
                   child: Text(row.remarks),
                 ),
               ),
@@ -629,16 +694,14 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           width: 3,
           child: ColoredBox(
             key: ValueKey('active-marker-${row.id}'),
-            color: isActive
-                ? activeRowMarkerColor(context)
-                : Colors.transparent,
+            color: isActive ? scope.activeMarker : Colors.transparent,
           ),
         ),
         Expanded(child: numberBox),
       ],
     );
 
-    if (!dragSortEnabled) {
+    if (!scope.dragSortEnabled) {
       return Container(key: ValueKey('handle-${row.id}'), child: cell);
     }
 
@@ -646,15 +709,12 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       key: ValueKey('drop-${row.id}'),
       onAcceptWithDetails: (details) =>
           controller.handleDrop(details.data.id, row.id),
-      builder: (context, candidate, rejected) => Container(
+      builder: (_, candidate, rejected) => Container(
         key: ValueKey('handle-${row.id}'),
         foregroundDecoration: candidate.isEmpty
             ? null
             : BoxDecoration(
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.primary,
-                  width: 2,
-                ),
+                border: Border.all(color: scope.dropTargetBorder, width: 2),
               ),
         child: cell,
       ),
@@ -1351,6 +1411,49 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       }
     }
   }
+}
+
+/// SP-31 per-build cell scope: everything `cellBuilder` needs that is constant
+/// for the whole frame, resolved once in `ProfilesTable.build`.
+///
+/// Previously each visible cell repeated the same provider read
+/// (`profilesControllerProvider.notifier`) and the same `Theme`/semantics
+/// inherited lookups (selected/active fills, badge, feedback and marker
+/// colors) — rows x columns lookups per scroll frame. The values are read from
+/// the same build context/state the per-cell code used, so the resolved
+/// colors, sort spec, selection set and controller instance are identical;
+/// only the lookup repetition is gone. Per-cell content (`column.display`,
+/// tooltip gating, selection membership) stays lazy in the cell builders.
+class _CellBuildScope {
+  const _CellBuildScope({
+    required this.columns,
+    required this.rows,
+    required this.selected,
+    required this.activeId,
+    required this.sort,
+    required this.dragSortEnabled,
+    required this.controller,
+    required this.selectedRowFill,
+    required this.activeFill,
+    required this.activeMarker,
+    required this.numberBadgeFill,
+    required this.dragFeedbackFill,
+    required this.dropTargetBorder,
+  });
+
+  final List<ProfileColumn> columns;
+  final List<ProfileSummary> rows;
+  final Set<String> selected;
+  final String? activeId;
+  final SortSpec sort;
+  final bool dragSortEnabled;
+  final ProfilesController controller;
+  final Color selectedRowFill;
+  final Color activeFill;
+  final Color activeMarker;
+  final Color numberBadgeFill;
+  final Color dragFeedbackFill;
+  final Color dropTargetBorder;
 }
 
 /// Background fill for the active node row, independent from the multi-select

@@ -1,0 +1,152 @@
+# SP-31 scroll row-build cost reductions (2026-10-08, local-only)
+
+Implements optimizations (1)-(3) from
+`scroll-hotspot-analysis-2026-10-07.md`, one at a time, in
+`apps/desktop/lib/features/profiles/profiles_table.dart` only.
+No builds, no cargo, no release/armed runs (integrator measures per the
+heavy-load plan in the analysis doc). No behavior, selection/context-menu,
+or column-persistence change. No commit.
+
+## Change 1 — per-row `TableSpan` cache
+
+`_ProfilesTableState._rowSpanCache: Map<String, TableSpan>`, keyed by
+`index | rowKey | columnRevision | overlayRevision | visualRevision`:
+
+- `rowKey`: `'header'` for row 0, else the row id
+  (`oob-$index` for an out-of-range index, same guard as before).
+- `columnRevision`: `Object.hashAll` over
+  `(key, width, visible, flexible, minWidth)` per visible column —
+  O(columns) ≈ 14 hashes, once per build.
+- `overlayRevision`: O(1) `Object.hash(speedTestGeneration, lastAckSeq,
+  all.length, visible.length)`. Span visuals never consume overlay content,
+  so this is structural/generation invalidation only; a stale hit is
+  impossible because resolved visuals are also in the key. Deliberately O(1):
+  hashing all 50k rows per frame would defeat the optimization.
+- `visualRevision`: `Object.hash` of the once-per-build resolved visuals
+  (row height, header fill, grid-line color, zebra flag/stripe), so a theme
+  or font-size change misses the cache and rebuilds spans.
+- `index` is in the key so a reorder (same id, new position) recomputes the
+  parity-dependent zebra fill instead of reusing a stale span.
+
+Why it reduces per-frame work: previously `_buildRowSpan` ran
+`context.semantics` (Theme.of + extension lookup) plus `Theme.of` and built
+fresh `TableSpan`/`TableSpanDecoration`/`BorderSide` objects for every
+visible row on every build (once per scroll frame). Now the per-build
+`build()` resolves Theme/semantics once, and a scroll frame with unchanged
+columns/overlay/visuals is one string key + one map lookup per visible row.
+Cache is bounded (cleared past 1024 entries ≈ 10x a viewport) and cleared in
+`dispose()`.
+
+## Change 2 — `RepaintBoundary` per cell; `const` audit
+
+- `cellBuilder` now returns
+  `TableViewCell(child: RepaintBoundary(child: _buildCell(...)))`.
+  Build still flows through every frame; only paint is isolated, so a
+  partial update (selection change, 150 ms delay-overlay tick on one row)
+  does not repaint sibling cells. No key/finder/hit-test change
+  (verified: no `ancestor`/`descendant` finder on table cells in the target
+  tests; `getRect`/tap/drag semantics unchanged).
+- `const` audit of the scroll hot path: padding, text styles, tooltip
+  `Duration`, `SizedBox.shrink`, and the header-handle `ValueKey` were
+  already `const`. Two attempted further `const`s were evaluated and
+  deliberately NOT kept:
+  - `SizedBox.shrink()` in place of the header-handle `Container` was
+    written, then reverted: `Container` with no child sizes to max
+    constraints while `SizedBox.shrink()` sizes to zero — not provably
+    identical under loose constraints, and it dropped the `header-handle`
+    key type some tests may rely on.
+  - `const Container(...)` fails analyze (`const_with_non_const`:
+    `Container` has no const constructor). Reverted to the original line.
+
+Known tradeoff for the integrator's measurement: one boundary per visible
+cell adds render objects/layers (~columns × visible rows). Raster is
+currently flat (~2 ms), so if the armed scroll run shows raster regression
+without build gain, this change is the first candidate to revert — it is a
+one-hunk revert (`cellBuilder` only).
+
+## Change 3 — per-build `_CellBuildScope` for `cellBuilder`
+
+New private `_CellBuildScope` (bottom of `profiles_table.dart`), built once
+in `build()` and consumed by `_buildCell`/`_headerCell`/`_dataCell`/
+`_handleCell` instead of per-cell recomputation:
+
+- Hoisted (were per cell / per handle-row per build): one
+  `ref.read(profilesControllerProvider.notifier)` (was once per visible
+  handle row), `semantics.selectedRow`, `activeRowFill`,
+  `activeRowMarkerColor`, `primaryContainer` (selected badge),
+  `secondaryContainer` (drag feedback, built eagerly by `Draggable` every
+  frame), `primary` (drop-target border). That is ~2-4 inherited-widget
+  lookups × visible cells per frame eliminated; remaining per-cell work is
+  the unavoidable content itself (`column.display(row)`, tooltip gating,
+  `Set.contains` membership).
+- `onSortHeader` closure (`(key) => _sortWithAnchor(key, state)`) allocated
+  once per build and passed down; header tap/resize behavior identical
+  (same state, same controller, same anchor logic).
+- The `DragTarget` hover builder keeps event-time semantics but now reads
+  the hoisted `scope.dropTargetBorder` instead of its own `Theme.of`.
+
+Behavior-identity argument: every hoisted value is resolved from the same
+build context/state the per-cell code read (no `Theme` scope sits between
+`build()`'s context and the cells), so colors/sort/selection/controller
+are value-identical; only lookup repetition is gone. Theme-change rebuild
+behavior is preserved (build subscribes once; scope is rebuilt with it).
+Column persistence untouched (no controller/store change).
+
+## Checks (all local, targeted only)
+
+Flutter: `C:\Users\Colby\toolchains\flutter\bin\flutter.bat`, workdir
+`apps/desktop`. Note: two task-listed paths were wrong; the real files are
+`test/table_actions_test.dart` and
+`test/ux_space01_column_persistence_test.dart` (top-level `test/`, not
+`test/repair/`).
+
+Per change: `dart format` (write, then check-mode `0 changed`),
+`flutter analyze` (`No issues found!`), and the 8 files run individually.
+A `Color.value` first draft of change 1 introduced 3
+`deprecated_member_use` infos; replaced with `toARGB32()` — analyze clean
+since.
+
+| file | ch1 | ch2 | ch3 |
+|---|---|---|---|
+| `test/repair/wave_b_g15_columns_test.dart` (11) | pass | pass | pass |
+| `test/re_prof_14_autofit_test.dart` (1) | pass | pass | pass |
+| `test/re_prof_14_drag_enabled_test.dart` (1) | pass¹ | pass | pass |
+| `test/re_prof_14_drag_disabled_test.dart` (1) | pass | pass | pass |
+| `test/t05_profiles_ui_test.dart` (1) | pass | pass | pass² |
+| `test/profiles_filter_test.dart` (1) | pass | pass | pass² |
+| `test/table_actions_test.dart` (6) | pass | pass | pass |
+| `test/ux_space01_column_persistence_test.dart` (1) | pass | pass | pass |
+
+¹ ch1 batch run hit one `did not complete` tester crash on
+`re_prof_14_drag_enabled_test.dart`; solo retry passed with no code change.
+² ch3 batch run hit `did not complete` on `t05` and `profiles_filter`;
+isolated retries passed with no code change (t05 needed two attempts).
+Pattern matches a flaky tester under back-to-back runs, not a code
+regression: both files passed in the ch1/ch2 rounds and again after retry
+with identical code.
+
+Final state: `dart format --output=none --set-exit-if-changed
+lib/features/profiles/profiles_table.dart` → `0 changed`;
+`flutter analyze` → `No issues found!`. No cargo, no release build, no
+whole-suite run, per instructions. `git status` shows only the one intended
+file modified; nothing committed.
+
+## Expected frame-cost effect (for the integrator's armed run)
+
+- Scroll frames with stable columns/overlay/theme: per-row span build →
+  map hit; per-cell inherited lookups → ~zero. Remaining per-frame build is
+  widget construction for visible cells only (unchanged count), minus the
+  eliminated lookups and span allocations.
+- Overlay-tick frames (150 ms poll): unchanged rows hit the span cache;
+  `RepaintBoundary` additionally isolates their repaint.
+- Nothing here changes dataset-size scaling of `visible`/sort/filter
+  (already O(visible) via virtualization); the win is the constant factor
+  per visible row/cell.
+
+## Left / notes
+
+- If the armed measurement regresses raster, revert change 2 first (one hunk).
+- Candidate (4) from the analysis (`ValueNotifier`-driven span cache keyed
+  on visible-range change) was not needed and not attempted.
+- `dart format --output=none` is check-only (does not write); the write pass
+  is `dart format <file>`, followed by the check pass expecting `0 changed`.

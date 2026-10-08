@@ -28,13 +28,19 @@ import 'package:flutter/rendering.dart';
 class SemanticsDumpHook {
   static String _env(String key) => Platform.environment[key] ?? '';
 
-  /// Absolute dump-file path from `V2RAYN_R_SEMANTICS_DUMP`.
-  static String get outPath => _env('V2RAYN_R_SEMANTICS_DUMP');
+  /// Optional suffix so secondary engines (settings/routing windows) write
+  /// their own snapshot next to the main window's file.
+  static String suffix = '';
+
+  /// Absolute dump-file path from `V2RAYN_R_SEMANTICS_DUMP` (+ [suffix]).
+  static String get basePath => _env('V2RAYN_R_SEMANTICS_DUMP');
+
+  static String get outPath => basePath + suffix;
 
   static bool get enabled =>
       const bool.fromEnvironment('V2RAYN_R_SMOKE_ARMED', defaultValue: false) &&
-      outPath.isNotEmpty &&
-      File(outPath).isAbsolute;
+      basePath.isNotEmpty &&
+      File(basePath).isAbsolute;
 
   static SemanticsHandle? _handle;
   static Timer? _timer;

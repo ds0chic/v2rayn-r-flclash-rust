@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window.dart';
 import 'package:v2rayn_desktop/features/settings/settings_window_host.dart';
+import 'package:v2rayn_desktop/perf/semantics_dump_hook.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Root widget of the independent settings window (second Flutter engine).
@@ -54,5 +55,11 @@ class OptionSettingsWindowApp extends StatelessWidget {
 /// (`lib/main.dart`), which is the actual Flutter entrypoint symbol.
 void runOptionSettingWindow() {
   WidgetsFlutterBinding.ensureInitialized();
+  // Armed-only semantics dump for this secondary engine (UIA gap workaround):
+  // writes next to the main window snapshot with a `.settings` suffix.
+  if (SemanticsDumpHook.enabled) {
+    SemanticsDumpHook.suffix = '.settings';
+    SemanticsDumpHook.start();
+  }
   runApp(OptionSettingsWindowApp(host: NativeSettingsEditorHost()));
 }

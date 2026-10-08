@@ -1,8 +1,8 @@
 ﻿{
     "mode":  "sp30-ui-e2e",
     "zip":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\evidence-armed\\v2rayN-R-1.0.0+1-windows-x64.zip",
-    "pid":  23708,
-    "ok":  false,
+    "pid":  54312,
+    "ok":  true,
     "steps":  [
                   {
                       "step":  "find-main-window",
@@ -10,9 +10,9 @@
                                      "ok":  true,
                                      "error":  "",
                                      "locatedBy":  "window-scan",
-                                     "hwnd":  27001184,
-                                     "hwndHex":  "0x19C0160",
-                                     "pid":  23708,
+                                     "hwnd":  41681972,
+                                     "hwndHex":  "0x27C0434",
+                                     "pid":  54312,
                                      "title":  "v2rayN",
                                      "className":  "FLUTTER_RUNNER_WIN32_WINDOW",
                                      "rect":  {
@@ -22,7 +22,7 @@
                                                   "height":  800
                                               },
                                      "attempts":  2,
-                                     "elapsedMs":  419,
+                                     "elapsedMs":  427,
                                      "diagnostics":  {
 
                                                      }
@@ -52,8 +52,8 @@
                                                     "x":  168,
                                                     "y":  61
                                                 },
-                                     "windowHwnd":  27001184,
-                                     "windowPid":  23708,
+                                     "windowHwnd":  41681972,
+                                     "windowPid":  54312,
                                      "identifier":  "15",
                                      "label":  "设置",
                                      "diagnostics":  {
@@ -62,13 +62,13 @@
                                                                               18,
                                                                               41
                                                                           ],
-                                                         "elapsedMs":  490,
-                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json"
+                                                         "elapsedMs":  484,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_1d82e71d698a4fc493dfbc3623b4b2f0\\semantics.json"
                                                      }
                                  }
                   },
                   {
-                      "step":  "click-settings-menu",
+                      "step":  "click-settings-menu#1",
                       "result":  {
                                      "ok":  true,
                                      "error":  "",
@@ -85,13 +85,13 @@
                                                },
                                      "button":  "left",
                                      "clicks":  1,
-                                     "pidVerified":  23708,
-                                     "hwndHex":  "0x19C0160",
+                                     "pidVerified":  54312,
+                                     "hwndHex":  "0x27C0434",
                                      "diagnostics":  {
                                                          "foregroundEnsured":  false,
                                                          "sendInputCalls":  3,
                                                          "op":  "Invoke-UiRealClick",
-                                                         "elapsedMs":  516,
+                                                         "elapsedMs":  504,
                                                          "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
                                                      }
                                  }
@@ -112,8 +112,8 @@
                                                     "x":  244,
                                                     "y":  109
                                                 },
-                                     "windowHwnd":  27001184,
-                                     "windowPid":  23708,
+                                     "windowHwnd":  41681972,
+                                     "windowPid":  54312,
                                      "identifier":  "96",
                                      "label":  "参数设置",
                                      "diagnostics":  {
@@ -122,8 +122,8 @@
                                                                               18,
                                                                               41
                                                                           ],
-                                                         "elapsedMs":  68,
-                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json"
+                                                         "elapsedMs":  70,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_1d82e71d698a4fc493dfbc3623b4b2f0\\semantics.json"
                                                      }
                                  }
                   },
@@ -145,13 +145,13 @@
                                                },
                                      "button":  "left",
                                      "clicks":  1,
-                                     "pidVerified":  23708,
-                                     "hwndHex":  "0x19C0160",
+                                     "pidVerified":  54312,
+                                     "hwndHex":  "0x27C0434",
                                      "diagnostics":  {
                                                          "foregroundEnsured":  true,
                                                          "sendInputCalls":  3,
                                                          "op":  "Invoke-UiRealClick",
-                                                         "elapsedMs":  484,
+                                                         "elapsedMs":  486,
                                                          "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
                                                      }
                                  }
@@ -162,9 +162,9 @@
                                      "ok":  true,
                                      "error":  "",
                                      "locatedBy":  "window-scan",
-                                     "hwnd":  13241724,
-                                     "hwndHex":  "0xCA0D7C",
-                                     "pid":  23708,
+                                     "hwnd":  27200456,
+                                     "hwndHex":  "0x19F0BC8",
+                                     "pid":  54312,
                                      "title":  "设置",
                                      "className":  "FLUTTER_RUNNER_WIN32_WINDOW",
                                      "rect":  {
@@ -174,7 +174,7 @@
                                                   "height":  700
                                               },
                                      "attempts":  4,
-                                     "elapsedMs":  1231,
+                                     "elapsedMs":  1238,
                                      "diagnostics":  {
 
                                                      }
@@ -204,8 +204,8 @@
                                                     "x":  619,
                                                     "y":  183
                                                 },
-                                     "windowHwnd":  13241724,
-                                     "windowPid":  23708,
+                                     "windowHwnd":  27200456,
+                                     "windowPid":  54312,
                                      "identifier":  "settings.tab.coretype",
                                      "label":  "Tab 5 of 5\nCore 类型设置",
                                      "diagnostics":  {
@@ -214,8 +214,8 @@
                                                                               128,
                                                                               151
                                                                           ],
-                                                         "elapsedMs":  434,
-                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json.settings"
+                                                         "elapsedMs":  459,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_1d82e71d698a4fc493dfbc3623b4b2f0\\semantics.json.settings"
                                                      }
                                  }
                   },
@@ -237,13 +237,13 @@
                                                },
                                      "button":  "left",
                                      "clicks":  1,
-                                     "pidVerified":  23708,
-                                     "hwndHex":  "0xCA0D7C",
+                                     "pidVerified":  54312,
+                                     "hwndHex":  "0x19F0BC8",
                                      "diagnostics":  {
                                                          "foregroundEnsured":  true,
                                                          "sendInputCalls":  3,
                                                          "op":  "Invoke-UiRealClick",
-                                                         "elapsedMs":  489,
+                                                         "elapsedMs":  483,
                                                          "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
                                                      }
                                  }
@@ -264,8 +264,8 @@
                                                     "x":  200,
                                                     "y":  183
                                                 },
-                                     "windowHwnd":  13241724,
-                                     "windowPid":  23708,
+                                     "windowHwnd":  27200456,
+                                     "windowPid":  54312,
                                      "identifier":  "settings.tab.core",
                                      "label":  "Tab 1 of 5\nCore: 基础设置",
                                      "diagnostics":  {
@@ -274,8 +274,8 @@
                                                                               128,
                                                                               151
                                                                           ],
-                                                         "elapsedMs":  12,
-                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json.settings"
+                                                         "elapsedMs":  16,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_1d82e71d698a4fc493dfbc3623b4b2f0\\semantics.json.settings"
                                                      }
                                  }
                   },
@@ -297,13 +297,13 @@
                                                },
                                      "button":  "left",
                                      "clicks":  1,
-                                     "pidVerified":  23708,
-                                     "hwndHex":  "0xCA0D7C",
+                                     "pidVerified":  54312,
+                                     "hwndHex":  "0x19F0BC8",
                                      "diagnostics":  {
                                                          "foregroundEnsured":  true,
                                                          "sendInputCalls":  3,
                                                          "op":  "Invoke-UiRealClick",
-                                                         "elapsedMs":  487,
+                                                         "elapsedMs":  489,
                                                          "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
                                                      }
                                  }
@@ -315,27 +315,27 @@
                                      "error":  "",
                                      "locatedBy":  "semantics",
                                      "rect":  {
-                                                  "x":  148,
-                                                  "y":  747,
-                                                  "width":  944,
-                                                  "height":  16
+                                                  "x":  316,
+                                                  "y":  750,
+                                                  "width":  240,
+                                                  "height":  13
                                               },
                                      "center":  {
-                                                    "x":  620,
-                                                    "y":  755
+                                                    "x":  436,
+                                                    "y":  756
                                                 },
-                                     "windowHwnd":  13241724,
-                                     "windowPid":  23708,
+                                     "windowHwnd":  27200456,
+                                     "windowPid":  54312,
                                      "identifier":  "settings.core.user_agent",
-                                     "label":  "用户代理 (User-Agent)",
+                                     "label":  "",
                                      "diagnostics":  {
                                                          "attempts":  1,
                                                          "clientOrigin":  [
                                                                               128,
                                                                               151
                                                                           ],
-                                                         "elapsedMs":  30,
-                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json.settings"
+                                                         "elapsedMs":  38,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_1d82e71d698a4fc493dfbc3623b4b2f0\\semantics.json.settings"
                                                      }
                                  }
                   },
@@ -346,24 +346,24 @@
                                      "error":  "",
                                      "locatedBy":  "semantics",
                                      "rect":  {
-                                                  "x":  148,
-                                                  "y":  747,
-                                                  "width":  944,
-                                                  "height":  16
+                                                  "x":  316,
+                                                  "y":  750,
+                                                  "width":  240,
+                                                  "height":  13
                                               },
                                      "point":  {
-                                                   "x":  620,
-                                                   "y":  755
+                                                   "x":  436,
+                                                   "y":  756
                                                },
                                      "button":  "left",
                                      "clicks":  1,
-                                     "pidVerified":  23708,
-                                     "hwndHex":  "0xCA0D7C",
+                                     "pidVerified":  54312,
+                                     "hwndHex":  "0x19F0BC8",
                                      "diagnostics":  {
                                                          "foregroundEnsured":  true,
                                                          "sendInputCalls":  3,
                                                          "op":  "Invoke-UiRealClick",
-                                                         "elapsedMs":  489,
+                                                         "elapsedMs":  496,
                                                          "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
                                                      }
                                  }
@@ -378,19 +378,19 @@
                                      "textLength":  16,
                                      "textSha256Prefix":  "2308fff8cad51f2e",
                                      "charsSent":  16,
-                                     "pidVerified":  23708,
+                                     "pidVerified":  54312,
                                      "diagnostics":  {
                                                          "foregroundEnsured":  true,
                                                          "method":  "SendInput unicode keystrokes (real input; text redacted)",
                                                          "op":  "Send-UiText",
-                                                         "elapsedMs":  635
+                                                         "elapsedMs":  624
                                                      }
                                  }
                   },
                   {
                       "step":  "confirm-user-agent-value",
                       "result":  {
-                                     "ok":  false,
+                                     "ok":  true,
                                      "valueRedacted":  "len=16"
                                  }
                   },
@@ -409,12 +409,12 @@
                                      "path":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-e2e\\e2e-settings-typed.png",
                                      "width":  1000,
                                      "height":  700,
-                                     "sizeBytes":  38328,
-                                     "sha256":  "abf9a3b2aee474d8e57420a9c812a3397973df348fe2642ee53895f5d25431ac",
+                                     "sizeBytes":  39015,
+                                     "sha256":  "2f4d98587c8936d694ae8fec133aa8e0f55823a6083048f4be17f1e4053da8c6",
                                      "diagnostics":  {
                                                          "op":  "Save-UiShot",
                                                          "broughtToFront":  false,
-                                                         "elapsedMs":  38
+                                                         "elapsedMs":  37
                                                      }
                                  }
                   },
@@ -434,9 +434,9 @@
                                                     "x":  1068,
                                                     "y":  788
                                                 },
-                                     "windowHwnd":  13241724,
-                                     "windowPid":  23708,
-                                     "identifier":  "116",
+                                     "windowHwnd":  27200456,
+                                     "windowPid":  54312,
+                                     "identifier":  "117",
                                      "label":  "取消",
                                      "diagnostics":  {
                                                          "attempts":  1,
@@ -444,8 +444,8 @@
                                                                               128,
                                                                               151
                                                                           ],
-                                                         "elapsedMs":  39,
-                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json.settings"
+                                                         "elapsedMs":  41,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_1d82e71d698a4fc493dfbc3623b4b2f0\\semantics.json.settings"
                                                      }
                                  }
                   },
@@ -467,13 +467,13 @@
                                                },
                                      "button":  "left",
                                      "clicks":  1,
-                                     "pidVerified":  23708,
-                                     "hwndHex":  "0xCA0D7C",
+                                     "pidVerified":  54312,
+                                     "hwndHex":  "0x19F0BC8",
                                      "diagnostics":  {
                                                          "foregroundEnsured":  true,
                                                          "sendInputCalls":  3,
                                                          "op":  "Invoke-UiRealClick",
-                                                         "elapsedMs":  486,
+                                                         "elapsedMs":  484,
                                                          "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
                                                      }
                                  }
@@ -482,6 +482,6 @@
     "screenshots":  [
                         "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-e2e\\e2e-settings-typed.png"
                     ],
-    "error":  "typed value not confirmed in semantics (valueRedacted=len16)",
+    "error":  null,
     "side_effects":  "none (isolated data dir; no core; no port bind; 10808 untouched; no proxy/registry/TUN/Run-key change)"
 }

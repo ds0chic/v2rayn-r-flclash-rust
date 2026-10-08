@@ -72,6 +72,10 @@ public static class UiAutoNative
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
     [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr h);
+    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+    [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
     [DllImport("user32.dll")] public static extern int GetSystemMetrics(int n);
     [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] p, int cb);
@@ -205,8 +209,25 @@ public static class UiAutoNative
 
     public static bool EnsureForeground(IntPtr h)
     {
-        ShowWindow(h, 9);
-        return SetForegroundWindow(h);
+      ShowWindow(h, 9);
+      BringWindowToTop(h);
+      bool ok = SetForegroundWindow(h);
+      if (!ok) {
+        // Windows foreground-lock: attach our input thread to the current
+        // foreground thread, retry, then detach.
+        IntPtr fg = GetForegroundWindow();
+        if (fg != IntPtr.Zero && fg != h) {
+          uint fgPid;
+          uint fgThread = GetWindowThreadProcessId(fg, out fgPid);
+          uint myThread = GetCurrentThreadId();
+          if (fgThread != 0 && fgThread != myThread) {
+            AttachThreadInput(myThread, fgThread, true);
+            ok = SetForegroundWindow(h);
+            AttachThreadInput(myThread, fgThread, false);
+          }
+        }
+      }
+      return ok;
     }
 
     public static IntPtr FindByPid(uint pid)

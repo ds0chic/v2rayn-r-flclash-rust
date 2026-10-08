@@ -119,3 +119,58 @@ becomes a matchable node. See `Get-UiSemantics` / `ConvertTo-UiRect` /
   `tools/acceptance/sp30_ui_hooks_capture.ps1`).
 - Neutral-target proof (notepad find + real-click + type + shot): see
   `docs/evidence/stable-port/SP-30/uia-semantics-bridge-2026-10-08.md`.
+
+## Semantics-bridge workflow (armed package) — verified 2026-10-08
+
+The pinned Flutter Windows engine ships **no accessibility bridge** (UIA/MSAA
+see only the FLUTTERVIEW pane; `flutter_windows.dll` lacks IAccessibleEx /
+AccessibilityBridgeWindows), so element location for the Flutter app uses the
+armed **semantics snapshot** instead of UIA:
+
+1. Build the armed evidence package (`build_windows.ps1 -SmokeArmed`).
+2. Launch it with an isolated data dir and:
+   - `V2RAYN_R_ENABLE_SEMANTICS=1`
+   - `V2RAYN_R_SEMANTICS_DUMP=<abs path>\semantics.json`
+   The main engine writes `semantics.json`; the settings engine writes
+   `semantics.json.settings` (same hook, `.settings` suffix). Each node carries
+   `identifier`/`label`/`value`/`rect` (logical, view-relative)/`actions`.
+3. Locate by `-Identifier`/`-Label` via `Get-UiElement -Window <win> -SemanticsPath <dump>`
+   (the module adds the window client origin so the returned rect/center are in
+   **screen** coordinates).
+4. Drive REAL input: `Invoke-UiRealClick/-DoubleClick/-RightClick -Element`,
+   `Send-UiText -Window`, `Send-UiKey`. No UIA InvokePattern, no app API.
+5. Verify state by re-reading the snapshot (`Get-UiSemantics` now exposes
+   `value`), then screenshot with `Save-UiShot`.
+
+### Verified end-to-end (real clicks)
+
+`tools/ui/e2e_settings_nav.ps1` (run under Windows PowerShell 5.1 with a fixed
+PSModulePath when invoked from pwsh):
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/ui/e2e_settings_nav.ps1 `
+  -Zip dist/evidence-armed/v2rayN-R-1.0.0+1-windows-x64.zip `
+  -EvidenceDir docs/evidence/stable-port/SP-30/runs/<candidate>/ui-e2e
+```
+
+Flow (all steps `ok`): find main window (UIA window-level) -> real-click 设置
+menu -> real-click 参数设置 (submenu) -> wait settings window -> real-click
+核心类型设置 tab -> back to Core tab -> real-click User-Agent field -> type
+`uia-synthetic-ua` -> confirm value from a fresh snapshot -> screenshot ->
+real-click 取消 (discard; nothing saved) -> stop the PID tree.
+Evidence: `docs/evidence/stable-port/SP-30/runs/.../ui-e2e/e2e-settings-nav.json`
++ `e2e-settings-typed.png`.
+
+### Limitations
+
+- Unarmed (official) builds expose no semantics: automation requires the armed
+  build + env flags (default MSAA/UIA behaviour of the official package is
+  unchanged; the runner IAccessibleEx opt-in is env-gated).
+- `Semantics.identifier` reaches the snapshot, not UIA AutomationId (engine
+  gap). Labels are matched case-insensitively but exactly.
+- Rects are logical pixels; the module assumes DPR 1.0 (host is 96 DPI) for
+  screen conversion; other DPIs need a DPR scale (recorded gap).
+- Real mouse/keyboard require the target window foreground and unobscured; the
+  module performs an AttachThreadInput-backed foreground ensure.
+- Input/coordinate fallback (`-X/-Y -AllowCoordinates`) exists but must be
+  explicitly opted into and is marked `locatedBy=coordinates`.

@@ -102,15 +102,25 @@ try {
   $menu = Get-UiElement -Window $main -SemanticsPath $dump -Label $labelSettings -TimeoutSec 10
   Step 'locate-settings-menu' $menu
   if (-not $menu.ok) { throw "settings menu not found: $($menu.error)" }
-  $click = Invoke-UiRealClick -Element $menu
-  Step 'click-settings-menu' $click
-  if (-not $click.ok) { throw "settings menu click failed: $($click.error)" }
 
-  # The top-level menu opens a dropdown; click the 参数设置 entry.
-  Start-Sleep -Milliseconds 800
-  $optionItem = Get-UiElement -Window $main -SemanticsPath $dump -Label $labelOptionSetting -TimeoutSec 10
+  # The top-level menu opens a dropdown; the first real click on a
+  # not-yet-focused window can just activate it, so retry the click and poll
+  # for the 参数设置 entry a couple of times.
+  $optionItem = $null
+  $click = $null
+  for ($attempt = 1; $attempt -le 3; $attempt++) {
+    Start-Sleep -Milliseconds 500
+    $click = Invoke-UiRealClick -Element $menu
+    Step ("click-settings-menu#$attempt") $click
+    if (-not $click.ok) { continue }
+    Start-Sleep -Milliseconds 900
+    $optionItem = Get-UiElement -Window $main -SemanticsPath $dump -Label $labelOptionSetting -TimeoutSec 4
+    if ($optionItem.ok) { break }
+  }
   Step 'locate-option-setting-item' $optionItem
-  if (-not $optionItem.ok) { throw "option-setting item not found: $($optionItem.error)" }
+  if (-not $optionItem -or -not $optionItem.ok) {
+    throw "option-setting item not found: $(if ($optionItem) { $optionItem.error } else { 'not-found' })"
+  }
   $clickOption = Invoke-UiRealClick -Element $optionItem
   Step 'click-option-setting-item' $clickOption
   if (-not $clickOption.ok) { throw "option-setting click failed: $($clickOption.error)" }

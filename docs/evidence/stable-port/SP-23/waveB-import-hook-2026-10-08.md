@@ -76,3 +76,28 @@ no `import-result.json` (official package unaffected).
   tests cover the group surface.)
 - NOT run per constraints: cargo, release/armed build (integrator builds),
   whole-suite gate.
+
+## Armed run results (2026-10-08, armed build commit 6c52456)
+
+Command (armed evidence build, isolated data dir, synthetic text fixture only):
+
+```
+V2RAYN_R_DATA_DIR=<temp>\data
+V2RAYN_R_IMPORT_SYNTHETIC=<repo>\fixtures\acceptance\sp30\synthetic-sub.txt
+V2RAYN_R_IMPORT_OUT=<repo>\docs\evidence\stable-port\SP-23\import-out
+```
+
+- Run 1: exit 0, `imported=4`, ids `p-...-0..3`, `activeId=null`, `groupIds=[]`
+  (`import-result-run1.json`). Real Dart bridge import path + real SQLite write.
+- Run 2 (same data dir, process restarted): exit 0, result contains the four
+  run-1 ids plus four new ones (`import-result-run2.json`) -> **persistence
+  across process restart proven**; text import appends (upstream clipboard
+  import does not content-dedup, so re-import adding rows is expected).
+- Negative: the official unarmed package with the same env stayed alive
+  (normal UI) and wrote no result file -> the hook is armed-gated as designed.
+
+Result files contain only counts/index ids (no subscription text, no
+credentials). Remaining for 001/002: the ZIP-specific import path is covered
+by the persistence archive test (`upstream_import` 8/8); activation is a user
+action (import does not auto-activate upstream), so the "activate" half stays
+manual (checklist appendix A).

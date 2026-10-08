@@ -791,7 +791,7 @@
       "status": "implemented",
       "instance_required": true,
       "evidence": "docs/evidence/stable-port/SP-23/",
-      "note": "2026-10-07 coverage complete: 180/180 FLD-CFG instance documents written (containers/leaves separated, statuses honest: preserved_only for structure-only containers, implemented for wired leaves, identified for rows without consumers; none marked verified without a real run). Acceptance remains per-instance: end-to-end UI→FRB→save→reopen→effect evidence is still the gate, SP-23 docs passing does not mean 180 features pass"
+      "note": "2026-10-07 coverage complete: 180/180 FLD-CFG instance documents written (containers/leaves separated, statuses honest: preserved_only for structure-only containers, implemented for wired leaves, identified for rows without consumers; none marked verified without a real run). Acceptance remains per-instance: end-to-end UI→FRB→save→reopen→effect evidence is still the gate, SP-23 docs passing does not mean 180 features pass | 2026-10-08 armed import hook (001/002): ImportSynthHook reuses the real Dart bridge import path; armed run imported 4 synthetic nodes and a second run on the same data dir read the persisted ids (restart persistence proven); official unarmed package ignores the hook (negative pass). Result files contain ids/counts only; ZIP path covered by persistence tests; activation stays a user action."
     },
     {
       "id": "SP-24",

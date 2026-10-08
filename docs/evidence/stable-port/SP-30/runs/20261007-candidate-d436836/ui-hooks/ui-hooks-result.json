@@ -1,0 +1,70 @@
+﻿{
+    "mode":  "sp30-ui-hooks",
+    "zip":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64.zip",
+    "evidence":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks",
+    "hooks_total":  10,
+    "hooks_ok":  10,
+    "results":  [
+                    {
+                        "hook":  "OPEN_SUBS",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_subs.png"
+                    },
+                    {
+                        "hook":  "OPEN_GROUP",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_group.png"
+                    },
+                    {
+                        "hook":  "OPEN_TEMPLATE",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_template.png"
+                    },
+                    {
+                        "hook":  "OPEN_SETTINGS",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_settings.png"
+                    },
+                    {
+                        "hook":  "OPEN_THEME",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_theme.png"
+                    },
+                    {
+                        "hook":  "OPEN_HOTKEY",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_hotkey.png"
+                    },
+                    {
+                        "hook":  "OPEN_ROUTING",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_routing.png"
+                    },
+                    {
+                        "hook":  "OPEN_DNS",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_dns.png"
+                    },
+                    {
+                        "hook":  "OPEN_BACKUP",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_backup.png"
+                    },
+                    {
+                        "hook":  "OPEN_UPDATE",
+                        "window_found":  true,
+                        "exited_before_shot":  false,
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-hooks\\ui-hook-open_update.png"
+                    }
+                ],
+    "side_effects":  "none (isolated temp data dirs; no core; no port bind; 10808 untouched; no proxy/registry/TUN/Run-key change)"
+}

@@ -1,0 +1,69 @@
+﻿{
+    "mode":  "sp30-gui-flows",
+    "zip":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\evidence-armed\\v2rayN-R-1.0.0+1-windows-x64.zip",
+    "results":  [
+                    {
+                        "id":  "001/002-import",
+                        "status":  "blocked",
+                        "detail":  "clipboard import executed; alias \u0027sp30-synth-01\u0027 visible=False",
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-gui-flows\\import-clipboard.png"
+                    },
+                    {
+                        "id":  "001/002-persist",
+                        "status":  "blocked",
+                        "detail":  "after relaunch alias visible=False",
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-gui-flows\\import-persist-reopen.png"
+                    },
+                    {
+                        "id":  "074-077-routing-window",
+                        "status":  "pass",
+                        "detail":  "window \u0027路由设置\u0027 opened",
+                        "screenshot":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-gui-flows\\window-routing.png"
+                    },
+                    {
+                        "id":  "070-073-dns-window",
+                        "status":  "blocked",
+                        "detail":  "window-not-opened: DNS 设置/DNS",
+                        "screenshot":  ""
+                    },
+                    {
+                        "id":  "078-083-template-window",
+                        "status":  "blocked",
+                        "detail":  "top-menu-not-found: semantics-no-match",
+                        "screenshot":  ""
+                    },
+                    {
+                        "id":  "088-092-hotkey-window",
+                        "status":  "blocked",
+                        "detail":  "top-menu-not-found: semantics-no-match",
+                        "screenshot":  ""
+                    },
+                    {
+                        "id":  "156-158-theme-window",
+                        "status":  "blocked",
+                        "detail":  "top-menu-not-found: semantics-no-match",
+                        "screenshot":  ""
+                    },
+                    {
+                        "id":  "143-146-backup-window",
+                        "status":  "blocked",
+                        "detail":  "top-menu-not-found: selector-required",
+                        "screenshot":  ""
+                    },
+                    {
+                        "id":  "070-info-tab",
+                        "status":  "blocked",
+                        "detail":  "tab not found: semantics-no-match",
+                        "screenshot":  ""
+                    },
+                    {
+                        "id":  "073-log-tab",
+                        "status":  "blocked",
+                        "detail":  "tab not found: semantics-no-match",
+                        "screenshot":  ""
+                    }
+                ],
+    "pass":  4,
+    "blocked":  9,
+    "side_effects":  "none (isolated data dir; synthetic clipboard; no core; no port bind; 10808 untouched; no proxy/registry/TUN/Run-key change)"
+}

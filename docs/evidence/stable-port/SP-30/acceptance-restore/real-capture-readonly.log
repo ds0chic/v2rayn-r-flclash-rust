@@ -1,0 +1,5 @@
+ACCEPTANCE_SNAPSHOT ok=true store=C:\Users\Colby\AppData\Local\v2rayn-r\acceptance protected20808=False categories=winInetProxy,runKey
+VALID ok=True protected20808=False categories=winInetProxy,runKey
+PLAN refused=False reason=
+  item winInetProxy noop already at baseline
+  item runKey noop recorded-only; no deletions

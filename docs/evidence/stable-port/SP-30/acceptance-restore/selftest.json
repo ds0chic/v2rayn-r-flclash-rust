@@ -1,0 +1,49 @@
+﻿{
+    "mode":  "acceptance-restore-selftest",
+    "backend":  "fake-only",
+    "pass":  8,
+    "total":  8,
+    "cases":  [
+                  {
+                      "case":  "create+restore",
+                      "pass":  true,
+                      "detail":  "ok=True serverRestored=True"
+                  },
+                  {
+                      "case":  "repeat-restore-idempotent",
+                      "pass":  true,
+                      "detail":  "secondRunAppliedAction=noop"
+                  },
+                  {
+                      "case":  "corrupted-rejected",
+                      "pass":  true,
+                      "detail":  "valid=False reason=parse-failed: 无效的 JSON 基元: amper\r\n。 restoreRefused=True"
+                  },
+                  {
+                      "case":  "missing-rejected",
+                      "pass":  true,
+                      "detail":  "reason=snapshot-missing"
+                  },
+                  {
+                      "case":  "baseline-20808-fail-closed",
+                      "pass":  true,
+                      "detail":  "protected=True refused=True"
+                  },
+                  {
+                      "case":  "current-20808-refused",
+                      "pass":  true,
+                      "detail":  "refused=True reason="
+                  },
+                  {
+                      "case":  "no-route-tun-rollback",
+                      "pass":  true,
+                      "detail":  "categories=winInetProxy,runKey"
+                  },
+                  {
+                      "case":  "no-host-proxy-write",
+                      "pass":  true,
+                      "detail":  "real WinINET proxy fingerprint unchanged (read-only comparison)"
+                  }
+              ],
+    "side_effects":  "none (fake in-memory state only; real proxy compared read-only)"
+}

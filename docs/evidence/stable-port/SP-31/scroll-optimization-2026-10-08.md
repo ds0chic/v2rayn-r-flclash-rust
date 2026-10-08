@@ -251,3 +251,25 @@ no build win, the likely cause is cache misses from `overlayRevision` churn,
 not the mechanism — consider keying overlay per-row or splitting the build
 scope per candidate (4) next. Revert is two hunks (`cellBuilder` call site +
 `_buildCachedCell`/cache field).
+
+## Pass 2 measurement + revert (2026-10-08, commit 87bdaa7 reverted)
+
+Armed build with the per-row cell-list cache; same host, same harness.
+
+| scenario | baseline 82d374e | pass 1 (0ce933b) | pass 2 (87bdaa7) |
+|---|---|---|---|
+| scroll 10k build p50 | 14.8ms | 14.0ms | 15.0ms |
+| scroll 10k dropped | 48.9% | 43.6% | 51.1% |
+| scroll 50k build p50 | 23.3ms | 23.5ms | 25.5ms |
+| raster p95 (10k) | 2.1ms | 2.0ms | 2.06ms |
+
+Pass 2 is neutral-to-worse: the cache key (row + revisions + selection) is
+recomputed per cell and likely misses on overlay-revision churn, so the extra
+key/map work is pure overhead. **Reverted to pass 1** (the small 10k win,
+raster unchanged). Conclusion: widget-construction caching is NOT the primary
+bottleneck; further work needs an actual CPU profile of a scroll frame (e.g.
+profile-mode DevTools timeline or `--profile` capture) before more changes,
+not more speculative caching. Budget 16.7ms/99% remains unmet and is recorded
+as an open SP-31 gap. Raw: `gui/gui_scroll_10000_opt2.json`,
+`gui/gui_scroll_50000_opt2.json`. The `dist/evidence-armed` zip currently
+contains pass-2 code; the next armed window should rebuild from this revert.

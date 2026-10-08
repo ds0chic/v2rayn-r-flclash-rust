@@ -109,20 +109,6 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   /// Bounded: cleared once it grows past the scrolling working set.
   final Map<String, TableSpan> _rowSpanCache = <String, TableSpan>{};
 
-  /// SP-31 second pass: per-row built cell subtrees (the fully wrapped
-  /// `TableViewCell(RepaintBoundary(...))` list for one data row, indexed by
-  /// column). On a cache hit `cellBuilder` returns the stored widget without
-  /// re-running `column.display`, `Text`/`Container`/`GestureDetector`
-  /// construction, or closure allocation. Keyed by the same row identity +
-  /// column/overlay revisions as the span cache, plus the cell visuals
-  /// revision, per-row selection/active flags, and the row value hash (so a
-  /// content change misses even when the id is unchanged). The header row is
-  /// never cached (its sort callback closes over the per-build state snapshot;
-  /// see `_buildCachedCell`). Bounded at 512 rows (entries are heavier than
-  /// spans: ~columns+1 widgets each); cleared on dispose.
-  final Map<String, List<TableViewCell>> _rowCellsCache =
-      <String, List<TableViewCell>>{};
-
   /// Edge auto-scroll while drag-selecting beyond the viewport (-1 up, +1
   /// down). The timer scrolls one third of a row per frame and extends the
   /// range to the row entering the viewport, matching the WPF DataGrid.
@@ -141,7 +127,6 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   void dispose() {
     _stopDragAutoScroll();
     _rowSpanCache.clear();
-    _rowCellsCache.clear();
     WidgetsBinding.instance.removeObserver(this);
     _focusNode.dispose();
     for (final node in _menuRowFocusNodes) {
@@ -234,20 +219,6 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       dropTargetBorder: scheme.primary,
     );
     void onSortHeader(String key) => _sortWithAnchor(key, state);
-    // SP-31 second pass: cell-visuals revision for the row-subtree cache. The
-    // span `visualRevision` above only covers span paints; cells additionally
-    // freeze selection/active/badge/feedback/drop-target colors plus the drag
-    // structure flag, so any of those changing must miss the cell cache.
-    final cellVisualRevision = Object.hash(
-      visualRevision,
-      cellScope.selectedRowFill.toARGB32(),
-      cellScope.activeFill.toARGB32(),
-      cellScope.activeMarker.toARGB32(),
-      cellScope.numberBadgeFill.toARGB32(),
-      cellScope.dragFeedbackFill.toARGB32(),
-      cellScope.dropTargetBorder.toARGB32(),
-      dragSortEnabled,
-    );
 
     return MenuAnchor(
       controller: _menuController,
@@ -315,13 +286,14 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                         overlayRevision,
                         visualRevision,
                       ),
-                      cellBuilder: (_, vicinity) => _buildCachedCell(
-                        vicinity,
-                        cellScope,
-                        onSortHeader,
-                        columnRevision,
-                        overlayRevision,
-                        cellVisualRevision,
+                      cellBuilder: (_, vicinity) => TableViewCell(
+                        // SP-31: isolate cell paint so a partial update
+                        // (selection, delay overlay tick) does not repaint
+                        // sibling cells. Build still flows through; only
+                        // paint is isolated, so semantics are unchanged.
+                        child: RepaintBoundary(
+                          child: _buildCell(vicinity, cellScope, onSortHeader),
+                        ),
                       ),
                     ),
                   ),
@@ -417,76 +389,6 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     }
     final column = scope.columns[vicinity.column - 1];
     return _dataCell(scope, row, column);
-  }
-
-  /// SP-31 second pass: row-subtree cache fronting [_buildCell].
-  ///
-  /// Data rows build all of their (already `RepaintBoundary`-wrapped) cells in
-  /// one go and keep the list; later frames with an unchanged key return the
-  /// stored widget for the requested column with no `display()` call and no
-  /// widget/closure allocation. The header row (row 0) is deliberately never
-  /// cached: `_headerCell` closes over the per-build `onSortHeader`, which
-  /// captures this build's `ProfilesState` snapshot for the sort scroll anchor,
-  /// so a cached header would sort against a stale anchor. Out-of-range rows
-  /// also bypass the cache (no row object to version).
-  ///
-  /// Reuse safety: every cached widget is mounted at exactly one
-  /// (row, column) slot per frame (never duplicated within a frame) with
-  /// stable keys (`cell-<id>-<col>`, `handle-<id>`, `drop-<id>`,
-  /// `active-marker-<id>`), so element state for `Draggable`/`DragTarget`/
-  /// `GestureDetector` updates in place. Frozen closures capture only the row
-  /// snapshot (versioned by `row.hashCode`, which covers every displayed
-  /// field plus `remarks` used by the drag feedback), the per-row
-  /// selection/active flags (in the key), the immutable scope colors (in
-  /// `cellVisualRevision`), and the long-lived controller (the cache is
-  /// per-`State` and cleared on dispose; drop callbacks use stable row ids).
-  /// The `DragTarget` hover builder still receives its live `candidate` list
-  /// at event time; only the border color is frozen (and versioned).
-  TableViewCell _buildCachedCell(
-    TableVicinity vicinity,
-    _CellBuildScope scope,
-    void Function(String key) onSortHeader,
-    int columnRevision,
-    int overlayRevision,
-    int cellVisualRevision,
-  ) {
-    TableViewCell wrap(Widget inner) =>
-        TableViewCell(child: RepaintBoundary(child: inner));
-    if (vicinity.row == 0) {
-      return wrap(_buildCell(vicinity, scope, onSortHeader));
-    }
-    final dataIndex = vicinity.row - 1;
-    final cellCount = scope.columns.length + 1;
-    if (dataIndex < 0 ||
-        dataIndex >= scope.rows.length ||
-        vicinity.column < 0 ||
-        vicinity.column >= cellCount) {
-      return wrap(_buildCell(vicinity, scope, onSortHeader));
-    }
-    final row = scope.rows[dataIndex];
-    final selected = scope.selected.contains(row.id);
-    final isActive = scope.activeId == row.id;
-    final key =
-        '${vicinity.row}|${row.id}|$columnRevision|$overlayRevision|'
-        '$cellVisualRevision|$selected|$isActive|${row.hashCode}';
-    final cached = _rowCellsCache[key];
-    if (cached != null && cached.length == cellCount) {
-      return cached[vicinity.column];
-    }
-    if (_rowCellsCache.length > 512) _rowCellsCache.clear();
-    final cells = List<TableViewCell>.generate(
-      cellCount,
-      (column) => wrap(
-        _buildCell(
-          TableVicinity(row: vicinity.row, column: column),
-          scope,
-          onSortHeader,
-        ),
-      ),
-      growable: false,
-    );
-    _rowCellsCache[key] = cells;
-    return cells[vicinity.column];
   }
 
   Widget _headerCell(

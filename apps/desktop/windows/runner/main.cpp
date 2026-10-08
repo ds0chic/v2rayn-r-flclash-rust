@@ -139,8 +139,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // semantics tree (and Semantics.identifier as AutomationId) to automation
   // clients. Default MSAA behaviour is unchanged when the env var is unset, so
   // the official package keeps its normal accessibility behaviour.
-  if (const char* uia_mode = std::getenv("V2RAYN_R_UIA_ACCESSIBLE_EX")) {
+  char* uia_mode = nullptr;
+  size_t uia_mode_len = 0;
+  if (_dupenv_s(&uia_mode, &uia_mode_len, "V2RAYN_R_UIA_ACCESSIBLE_EX") == 0 &&
+      uia_mode != nullptr) {
     const std::string value(uia_mode);
+    free(uia_mode);
     if (value == "1" || value == "true") {
       project.set_accessibility_mode(flutter::AccessibilityMode::IAccessibleEx);
     }

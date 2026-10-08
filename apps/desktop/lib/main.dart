@@ -8,6 +8,7 @@ import 'package:v2rayn_desktop/bridge/frb_generated.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_windows.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window_entry.dart';
+import 'package:v2rayn_desktop/perf/import_synth_hook.dart';
 import 'package:v2rayn_desktop/perf/t18_bench.dart';
 
 /// Compile-time arming flag for release-only evidence/benchmark hooks.
@@ -38,6 +39,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   RustBridgeInit.configure(RustLib.init);
   await RustBridgeInit.init();
+  // Armed-only FLD-CFG-001/002 evidence hook: synthetic import via the real
+  // path, then write import-result.json and exit. No-op unless the build is
+  // armed AND V2RAYN_R_IMPORT_SYNTHETIC is set; unarmed builds ignore it.
+  if (ImportSynthHook.enabled) {
+    await ImportSynthHook.runAndExit();
+    return;
+  }
   if (T18Bench.enabled) {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => T18Bench.onFirstFrame(),

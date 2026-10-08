@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/app.dart';
@@ -10,6 +11,19 @@ import 'package:v2rayn_desktop/features/routing/routing_windows.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window_entry.dart';
 import 'package:v2rayn_desktop/perf/import_synth_hook.dart';
 import 'package:v2rayn_desktop/perf/t18_bench.dart';
+
+/// Keeps the armed-only forced-semantics handle alive for the whole process so
+/// the Windows UIA bridge exposes the semantics tree to UI-automation clients.
+SemanticsHandle? _forcedSemanticsHandle;
+
+/// Armed-only UIA bridge switch: `V2RAYN_R_ENABLE_SEMANTICS=1` forces the
+/// Flutter semantics tree on (needed because the packaged release exposes only
+/// the FLUTTERVIEW pane to UIA otherwise). Unarmed/official builds ignore it.
+bool get forceSemantics {
+  if (!smokeArmed) return false;
+  final v = Platform.environment['V2RAYN_R_ENABLE_SEMANTICS'];
+  return v == '1' || v == 'true';
+}
 
 /// Compile-time arming flag for release-only evidence/benchmark hooks.
 ///
@@ -39,6 +53,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   RustBridgeInit.configure(RustLib.init);
   await RustBridgeInit.init();
+  // Armed-only UIA bridge: force the semantics tree so the Windows UIA client
+  // can see stable selectors (AutomationId/Name/ControlType).
+  if (forceSemantics) {
+    _forcedSemanticsHandle = SemanticsBinding.instance.ensureSemantics();
+  }
   // Armed-only FLD-CFG-001/002 evidence hook: synthetic import via the real
   // path, then write import-result.json and exit. No-op unless the build is
   // armed AND V2RAYN_R_IMPORT_SYNTHETIC is set; unarmed builds ignore it.

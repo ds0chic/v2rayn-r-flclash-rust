@@ -1,0 +1,73 @@
+﻿{
+    "mode":  "uia-probe",
+    "zip":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\v2rayN-R-1.0.0+1-windows-x64.zip",
+    "pid":  39984,
+    "window_found":  true,
+    "window_title":  "v2rayN",
+    "window_class":  "FLUTTER_RUNNER_WIN32_WINDOW",
+    "tree":  {
+                 "name":  "v2rayN",
+                 "controlType":  "ControlType.Window",
+                 "automationId":  "",
+                 "className":  "FLUTTER_RUNNER_WIN32_WINDOW",
+                 "enabled":  true,
+                 "offscreen":  false,
+                 "rect":  [
+                              10,
+                              10,
+                              1200,
+                              800
+                          ],
+                 "patterns":  [
+
+                              ],
+                 "children":  [
+                                  {
+                                      "name":  "FLUTTERVIEW",
+                                      "controlType":  "ControlType.Pane",
+                                      "automationId":  "",
+                                      "className":  "FLUTTERVIEW",
+                                      "enabled":  true,
+                                      "offscreen":  false,
+                                      "rect":  [
+                                                   18,
+                                                   41,
+                                                   1184,
+                                                   761
+                                               ],
+                                      "patterns":  [
+
+                                                   ]
+                                  }
+                              ]
+             },
+    "side_effects":  "none (isolated data dir; no core; no port bind; 10808 untouched; no proxy/registry/TUN/Run-key change)",
+    "descendant_count":  1,
+    "pane_descendant_count":  0,
+    "raw_tree":  {
+                     "name":  "v2rayN",
+                     "controlType":  "ControlType.Window",
+                     "automationId":  "",
+                     "className":  "FLUTTER_RUNNER_WIN32_WINDOW",
+                     "rect":  [
+                                  10,
+                                  10,
+                                  1200,
+                                  800
+                              ],
+                     "children":  [
+                                      {
+                                          "name":  "FLUTTERVIEW",
+                                          "controlType":  "ControlType.Pane",
+                                          "automationId":  "",
+                                          "className":  "FLUTTERVIEW",
+                                          "rect":  [
+                                                       18,
+                                                       41,
+                                                       1184,
+                                                       761
+                                                   ]
+                                      }
+                                  ]
+                 }
+}

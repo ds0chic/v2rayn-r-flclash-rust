@@ -519,6 +519,61 @@ fn parse_authority(authority: &str) -> (String, i32) {
     (authority.to_string(), 0)
 }
 
+/// Strict PEM-chain validation, the fail-closed counterpart of
+/// [`parse_pem_chain`] (SP28-L1-002).
+///
+/// Empty/blank input means "no certificate material" and is accepted. Any
+/// other input must consist of well-formed `CERTIFICATE` blocks: unterminated
+/// blocks, empty bodies and non-base64 bodies are rejected with a structured
+/// error so a broken chain can never silently fall back to system roots.
+pub fn validate_pem_chain(cert: &str) -> Result<(), crate::CodegenError> {
+    fn fail(detail: &str) -> crate::CodegenError {
+        crate::CodegenError::new(
+            "invalid_certificate_chain",
+            format!("profile certificate chain is malformed: {detail}"),
+            Some("profile.cert"),
+        )
+    }
+    if cert.trim().is_empty() {
+        return Ok(());
+    }
+    // Match the upstream `CertPemManager` line-ending normalization.
+    let normalized = cert.replace("\r\n", "\n").replace('\r', "\n");
+    const BEGIN: &str = "-----BEGIN CERTIFICATE-----";
+    const END: &str = "-----END CERTIFICATE-----";
+    let mut blocks = 0;
+    let mut rest = normalized.as_str();
+    while let Some(begin) = rest.find(BEGIN) {
+        let after_begin = &rest[begin + BEGIN.len()..];
+        let Some(end) = after_begin.find(END) else {
+            return Err(fail("unterminated CERTIFICATE block"));
+        };
+        let body: String = after_begin[..end]
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        if body.is_empty() {
+            return Err(fail("empty CERTIFICATE block"));
+        }
+        if !body
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/' || b == b'=')
+        {
+            return Err(fail("non-base64 content in CERTIFICATE block"));
+        }
+        let unpadded = body.trim_end_matches('=');
+        if unpadded.contains('=') || body.len() - unpadded.len() > 2 {
+            return Err(fail("bad base64 padding in CERTIFICATE block"));
+        }
+        blocks += 1;
+        rest = &after_begin[end + END.len()..];
+    }
+    if blocks == 0 {
+        return Err(fail("no CERTIFICATE block found"));
+    }
+    Ok(())
+}
+
 /// Upstream `CertPemManager.ParsePemChain` (best effort, no validation).
 pub fn parse_pem_chain(cert: &str) -> Vec<String> {
     const BEGIN: &str = "-----BEGIN CERTIFICATE-----";

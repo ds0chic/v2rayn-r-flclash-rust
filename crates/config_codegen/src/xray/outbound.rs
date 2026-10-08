@@ -610,6 +610,13 @@ pub(crate) fn fill_bound_stream_settings(
     node: &CodegenProfile,
     settings: &crate::input::CodegenSettings,
 ) -> Result<Map<String, Value>, CodegenError> {
+    // SP28-L1-002: fail closed on malformed profile certificate chains.
+    // Emission below (`parse_pem_chain`) preserves every block in order; a
+    // non-empty `cert` that parses to nothing must never silently fall back
+    // to system roots.
+    if node.stream_security == STREAM_SECURITY {
+        validate_pem_chain(&node.cert)?;
+    }
     let network = if node.config_type == ConfigType::Hysteria2 {
         "hysteria".to_string()
     } else {

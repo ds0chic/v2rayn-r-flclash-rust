@@ -201,7 +201,10 @@ try {
       }
     }
     if ($cliListened) {
-      $proxiedBody = (& curl.exe -s --max-time 10 --socks5 "127.0.0.1:$cp" "http://127.0.0.1:$tp/" 2>&1 | Out-String).Trim()
+      # --noproxy "" is REQUIRED: this host exports no_proxy=localhost,127.0.0.1,::1
+      # and curl honors it, bypassing the SOCKS proxy for loopback targets
+      # (false-green "OV-OK" recorded 2026-10-06; see SP-28 real-core-matrix).
+      $proxiedBody = (& curl.exe -s --max-time 10 --noproxy "" --socks5 "127.0.0.1:$cp" "http://127.0.0.1:$tp/" 2>&1 | Out-String).Trim()
       $proxiedExit = $LASTEXITCODE
     }
     if ($srvListened -and $cliListened -and ($proxiedBody -eq $Core.expected_body)) {

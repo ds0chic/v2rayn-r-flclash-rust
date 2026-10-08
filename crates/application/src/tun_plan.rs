@@ -170,6 +170,13 @@ pub const TUN_ROUTE_EXCLUDE_INVALID_CODE: &str = "tun_route_exclude_invalid";
 /// Field path for route-exclude warnings (upstream `TunModeItem.RouteExcludeAddress`).
 pub const TUN_ROUTE_EXCLUDE_FIELD: &str = "RouteExcludeAddress";
 
+/// Diagnostic code when TUN IPv6 is switched on but no IPv6 address is set
+/// (FLD-CFG-100/105 linkage): the plan still builds IPv4-only, but the gap
+/// is reported instead of silently running pure IPv4.
+pub const TUN_IPV6_ADDRESS_MISSING_CODE: &str = "tun_ipv6_address_missing";
+/// Field path for the missing-IPv6-address warning (upstream `TunModeItem.IPv6Address`).
+pub const TUN_IPV6_ADDRESS_FIELD: &str = "IPv6Address";
+
 /// Upstream `CoreConfigContextBuilder.Build` parity
 /// (`CoreConfigContextBuilder.cs:100-118`, frozen `7d6a967`): every
 /// `RouteExcludeAddress` entry is tried with `IPNetwork2.Parse`; entries that
@@ -243,8 +250,20 @@ fn build_tun_spec_fields_with_warnings(
     } else {
         item.mtu as u16
     };
-    let (route_exclude, warnings) =
+    let (route_exclude, mut warnings) =
         filter_route_exclude(item.route_exclude_address.as_deref().unwrap_or(&[]));
+    if item.enable_ipv6_address
+        && item
+            .ipv6_address
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+    {
+        warnings.push(config_codegen::Diagnostic::warning(
+            TUN_IPV6_ADDRESS_MISSING_CODE,
+            "IPv6 is enabled for TUN but no IPv6 address is set; carrying IPv4 only",
+            Some(TUN_IPV6_ADDRESS_FIELD),
+        ));
+    }
     Ok((
         TunSpec {
             kind: TUN_CONFIG_KIND.to_string(),
@@ -273,7 +292,8 @@ pub fn tun_spec_from_settings(
 }
 
 /// [`tun_spec_from_settings`] plus the route-exclude warnings from
-/// [`filter_route_exclude`]. Registered caller wiring (engine.rs is locked):
+/// [`filter_route_exclude`] and the IPv6-enabled-but-unset warning
+/// ([`TUN_IPV6_ADDRESS_MISSING_CODE`]). Registered caller wiring (engine.rs is locked):
 /// `build_runtime_plan_with_hints` keeps calling the plain entry point until
 /// the integrator switches the TUN attach site (`engine.rs:5103-5113`) to this
 /// variant and extends `generated.diagnostics` with the warnings, the same

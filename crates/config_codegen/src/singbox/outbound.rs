@@ -429,6 +429,11 @@ fn build_proxy_outbound(
 }
 
 fn fill_outbound(input: &CodegenInput, node: &CodegenProfile) -> Result<Value, CodegenError> {
+    // SP28-L1-002: fail closed on malformed profile certificate chains
+    // (covers the main TLS block and the Shadowsocks plugin path below).
+    if node.stream_security == STREAM_SECURITY {
+        validate_pem_chain(&node.cert)?;
+    }
     let protocol = node.config_type.protocol_type().ok_or_else(|| {
         CodegenError::unsupported_combination(
             format!(

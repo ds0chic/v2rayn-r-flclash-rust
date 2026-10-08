@@ -247,25 +247,35 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           // TbSettingsCore / TbSettingsN / TbSettingsSystemproxy /
           // TbSettingsTunMode / TbSettingsCoreType.
           tabs: <Tab>[
-            Semantics(
-              identifier: 'settings.tab.core',
-              child: Tab(text: context.tr('TbSettingsCore')),
+            Tab(
+              child: Semantics(
+                identifier: 'settings.tab.core',
+                child: Text(context.tr('TbSettingsCore')),
+              ),
             ),
-            Semantics(
-              identifier: 'settings.tab.v2rayn',
-              child: Tab(text: context.tr('TbSettingsN')),
+            Tab(
+              child: Semantics(
+                identifier: 'settings.tab.v2rayn',
+                child: Text(context.tr('TbSettingsN')),
+              ),
             ),
-            Semantics(
-              identifier: 'settings.tab.systemproxy',
-              child: Tab(text: context.tr('TbSettingsSystemproxy')),
+            Tab(
+              child: Semantics(
+                identifier: 'settings.tab.systemproxy',
+                child: Text(context.tr('TbSettingsSystemproxy')),
+              ),
             ),
-            Semantics(
-              identifier: 'settings.tab.tun',
-              child: Tab(text: context.tr('TbSettingsTunMode')),
+            Tab(
+              child: Semantics(
+                identifier: 'settings.tab.tun',
+                child: Text(context.tr('TbSettingsTunMode')),
+              ),
             ),
-            Semantics(
-              identifier: 'settings.tab.coretype',
-              child: Tab(text: context.tr('TbSettingsCoreType')),
+            Tab(
+              child: Semantics(
+                identifier: 'settings.tab.coretype',
+                child: Text(context.tr('TbSettingsCoreType')),
+              ),
             ),
           ],
         ),

@@ -1,0 +1,487 @@
+﻿{
+    "mode":  "sp30-ui-e2e",
+    "zip":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\dist\\evidence-armed\\v2rayN-R-1.0.0+1-windows-x64.zip",
+    "pid":  23708,
+    "ok":  false,
+    "steps":  [
+                  {
+                      "step":  "find-main-window",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "window-scan",
+                                     "hwnd":  27001184,
+                                     "hwndHex":  "0x19C0160",
+                                     "pid":  23708,
+                                     "title":  "v2rayN",
+                                     "className":  "FLUTTER_RUNNER_WIN32_WINDOW",
+                                     "rect":  {
+                                                  "x":  10,
+                                                  "y":  10,
+                                                  "width":  1200,
+                                                  "height":  800
+                                              },
+                                     "attempts":  2,
+                                     "elapsedMs":  419,
+                                     "diagnostics":  {
+
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "read-main-semantics",
+                      "result":  {
+                                     "ok":  true,
+                                     "nodeCount":  0,
+                                     "error":  ""
+                                 }
+                  },
+                  {
+                      "step":  "locate-settings-menu",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  140,
+                                                  "y":  41,
+                                                  "width":  56,
+                                                  "height":  40
+                                              },
+                                     "center":  {
+                                                    "x":  168,
+                                                    "y":  61
+                                                },
+                                     "windowHwnd":  27001184,
+                                     "windowPid":  23708,
+                                     "identifier":  "15",
+                                     "label":  "设置",
+                                     "diagnostics":  {
+                                                         "attempts":  2,
+                                                         "clientOrigin":  [
+                                                                              18,
+                                                                              41
+                                                                          ],
+                                                         "elapsedMs":  490,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "click-settings-menu",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  140,
+                                                  "y":  41,
+                                                  "width":  56,
+                                                  "height":  40
+                                              },
+                                     "point":  {
+                                                   "x":  168,
+                                                   "y":  61
+                                               },
+                                     "button":  "left",
+                                     "clicks":  1,
+                                     "pidVerified":  23708,
+                                     "hwndHex":  "0x19C0160",
+                                     "diagnostics":  {
+                                                         "foregroundEnsured":  false,
+                                                         "sendInputCalls":  3,
+                                                         "op":  "Invoke-UiRealClick",
+                                                         "elapsedMs":  516,
+                                                         "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "locate-option-setting-item",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  140,
+                                                  "y":  89,
+                                                  "width":  208,
+                                                  "height":  40
+                                              },
+                                     "center":  {
+                                                    "x":  244,
+                                                    "y":  109
+                                                },
+                                     "windowHwnd":  27001184,
+                                     "windowPid":  23708,
+                                     "identifier":  "96",
+                                     "label":  "参数设置",
+                                     "diagnostics":  {
+                                                         "attempts":  1,
+                                                         "clientOrigin":  [
+                                                                              18,
+                                                                              41
+                                                                          ],
+                                                         "elapsedMs":  68,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "click-option-setting-item",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  140,
+                                                  "y":  89,
+                                                  "width":  208,
+                                                  "height":  40
+                                              },
+                                     "point":  {
+                                                   "x":  244,
+                                                   "y":  109
+                                               },
+                                     "button":  "left",
+                                     "clicks":  1,
+                                     "pidVerified":  23708,
+                                     "hwndHex":  "0x19C0160",
+                                     "diagnostics":  {
+                                                         "foregroundEnsured":  true,
+                                                         "sendInputCalls":  3,
+                                                         "op":  "Invoke-UiRealClick",
+                                                         "elapsedMs":  484,
+                                                         "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "find-settings-window",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "window-scan",
+                                     "hwnd":  13241724,
+                                     "hwndHex":  "0xCA0D7C",
+                                     "pid":  23708,
+                                     "title":  "设置",
+                                     "className":  "FLUTTER_RUNNER_WIN32_WINDOW",
+                                     "rect":  {
+                                                  "x":  120,
+                                                  "y":  120,
+                                                  "width":  1000,
+                                                  "height":  700
+                                              },
+                                     "attempts":  4,
+                                     "elapsedMs":  1231,
+                                     "diagnostics":  {
+
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "read-settings-semantics",
+                      "result":  {
+                                     "ok":  true,
+                                     "nodeCount":  0,
+                                     "error":  ""
+                                 }
+                  },
+                  {
+                      "step":  "locate-coretype-tab",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  564,
+                                                  "y":  159,
+                                                  "width":  110,
+                                                  "height":  48
+                                              },
+                                     "center":  {
+                                                    "x":  619,
+                                                    "y":  183
+                                                },
+                                     "windowHwnd":  13241724,
+                                     "windowPid":  23708,
+                                     "identifier":  "settings.tab.coretype",
+                                     "label":  "Tab 5 of 5\nCore 类型设置",
+                                     "diagnostics":  {
+                                                         "attempts":  2,
+                                                         "clientOrigin":  [
+                                                                              128,
+                                                                              151
+                                                                          ],
+                                                         "elapsedMs":  434,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json.settings"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "click-coretype-tab",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  564,
+                                                  "y":  159,
+                                                  "width":  110,
+                                                  "height":  48
+                                              },
+                                     "point":  {
+                                                   "x":  619,
+                                                   "y":  183
+                                               },
+                                     "button":  "left",
+                                     "clicks":  1,
+                                     "pidVerified":  23708,
+                                     "hwndHex":  "0xCA0D7C",
+                                     "diagnostics":  {
+                                                         "foregroundEnsured":  true,
+                                                         "sendInputCalls":  3,
+                                                         "op":  "Invoke-UiRealClick",
+                                                         "elapsedMs":  489,
+                                                         "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "locate-core-tab",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  144,
+                                                  "y":  159,
+                                                  "width":  113,
+                                                  "height":  48
+                                              },
+                                     "center":  {
+                                                    "x":  200,
+                                                    "y":  183
+                                                },
+                                     "windowHwnd":  13241724,
+                                     "windowPid":  23708,
+                                     "identifier":  "settings.tab.core",
+                                     "label":  "Tab 1 of 5\nCore: 基础设置",
+                                     "diagnostics":  {
+                                                         "attempts":  1,
+                                                         "clientOrigin":  [
+                                                                              128,
+                                                                              151
+                                                                          ],
+                                                         "elapsedMs":  12,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json.settings"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "click-core-tab",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  144,
+                                                  "y":  159,
+                                                  "width":  113,
+                                                  "height":  48
+                                              },
+                                     "point":  {
+                                                   "x":  200,
+                                                   "y":  183
+                                               },
+                                     "button":  "left",
+                                     "clicks":  1,
+                                     "pidVerified":  23708,
+                                     "hwndHex":  "0xCA0D7C",
+                                     "diagnostics":  {
+                                                         "foregroundEnsured":  true,
+                                                         "sendInputCalls":  3,
+                                                         "op":  "Invoke-UiRealClick",
+                                                         "elapsedMs":  487,
+                                                         "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "locate-user-agent-field",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  148,
+                                                  "y":  747,
+                                                  "width":  944,
+                                                  "height":  16
+                                              },
+                                     "center":  {
+                                                    "x":  620,
+                                                    "y":  755
+                                                },
+                                     "windowHwnd":  13241724,
+                                     "windowPid":  23708,
+                                     "identifier":  "settings.core.user_agent",
+                                     "label":  "用户代理 (User-Agent)",
+                                     "diagnostics":  {
+                                                         "attempts":  1,
+                                                         "clientOrigin":  [
+                                                                              128,
+                                                                              151
+                                                                          ],
+                                                         "elapsedMs":  30,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json.settings"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "click-user-agent-field",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  148,
+                                                  "y":  747,
+                                                  "width":  944,
+                                                  "height":  16
+                                              },
+                                     "point":  {
+                                                   "x":  620,
+                                                   "y":  755
+                                               },
+                                     "button":  "left",
+                                     "clicks":  1,
+                                     "pidVerified":  23708,
+                                     "hwndHex":  "0xCA0D7C",
+                                     "diagnostics":  {
+                                                         "foregroundEnsured":  true,
+                                                         "sendInputCalls":  3,
+                                                         "op":  "Invoke-UiRealClick",
+                                                         "elapsedMs":  489,
+                                                         "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "type-user-agent",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "keyboard-text",
+                                     "rect":  null,
+                                     "textLength":  16,
+                                     "textSha256Prefix":  "2308fff8cad51f2e",
+                                     "charsSent":  16,
+                                     "pidVerified":  23708,
+                                     "diagnostics":  {
+                                                         "foregroundEnsured":  true,
+                                                         "method":  "SendInput unicode keystrokes (real input; text redacted)",
+                                                         "op":  "Send-UiText",
+                                                         "elapsedMs":  635
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "confirm-user-agent-value",
+                      "result":  {
+                                     "ok":  false,
+                                     "valueRedacted":  "len=16"
+                                 }
+                  },
+                  {
+                      "step":  "screenshot",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "window-rect",
+                                     "rect":  {
+                                                  "x":  120,
+                                                  "y":  120,
+                                                  "width":  1000,
+                                                  "height":  700
+                                              },
+                                     "path":  "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-e2e\\e2e-settings-typed.png",
+                                     "width":  1000,
+                                     "height":  700,
+                                     "sizeBytes":  38328,
+                                     "sha256":  "abf9a3b2aee474d8e57420a9c812a3397973df348fe2642ee53895f5d25431ac",
+                                     "diagnostics":  {
+                                                         "op":  "Save-UiShot",
+                                                         "broughtToFront":  false,
+                                                         "elapsedMs":  38
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "locate-cancel",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  1040,
+                                                  "y":  772,
+                                                  "width":  56,
+                                                  "height":  32
+                                              },
+                                     "center":  {
+                                                    "x":  1068,
+                                                    "y":  788
+                                                },
+                                     "windowHwnd":  13241724,
+                                     "windowPid":  23708,
+                                     "identifier":  "116",
+                                     "label":  "取消",
+                                     "diagnostics":  {
+                                                         "attempts":  1,
+                                                         "clientOrigin":  [
+                                                                              128,
+                                                                              151
+                                                                          ],
+                                                         "elapsedMs":  39,
+                                                         "semanticsPath":  "C:\\Users\\Colby\\AppData\\Local\\Temp\\sp30_e2e_700180ce0ae54a6990e6c3082dfe58af\\semantics.json.settings"
+                                                     }
+                                 }
+                  },
+                  {
+                      "step":  "click-cancel",
+                      "result":  {
+                                     "ok":  true,
+                                     "error":  "",
+                                     "locatedBy":  "semantics",
+                                     "rect":  {
+                                                  "x":  1040,
+                                                  "y":  772,
+                                                  "width":  56,
+                                                  "height":  32
+                                              },
+                                     "point":  {
+                                                   "x":  1068,
+                                                   "y":  788
+                                               },
+                                     "button":  "left",
+                                     "clicks":  1,
+                                     "pidVerified":  23708,
+                                     "hwndHex":  "0xCA0D7C",
+                                     "diagnostics":  {
+                                                         "foregroundEnsured":  true,
+                                                         "sendInputCalls":  3,
+                                                         "op":  "Invoke-UiRealClick",
+                                                         "elapsedMs":  486,
+                                                         "method":  "SendInput move + down/up (real input; no InvokePattern, no app API)"
+                                                     }
+                                 }
+                  }
+              ],
+    "screenshots":  [
+                        "C:\\Users\\Colby\\Documents\\Codex\\2026-10-01\\v2rayn-flclash-rust-v2rayn\\docs\\evidence\\stable-port\\SP-30\\runs\\20261007-candidate-d436836\\ui-e2e\\e2e-settings-typed.png"
+                    ],
+    "error":  "typed value not confirmed in semantics (valueRedacted=len16)",
+    "side_effects":  "none (isolated data dir; no core; no port bind; 10808 untouched; no proxy/registry/TUN/Run-key change)"
+}

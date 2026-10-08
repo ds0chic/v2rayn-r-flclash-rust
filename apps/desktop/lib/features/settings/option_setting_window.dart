@@ -753,13 +753,11 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _str(core, 'DefFingerprint'),
             onChanged: (v) => _set('CoreBasicItem', 'DefFingerprint', v),
           ),
-          Semantics(
+          SettingsTextField(
             identifier: 'settings.core.user_agent',
-            child: SettingsTextField(
-              label: '用户代理 (User-Agent)',
-              value: _str(core, 'DefUserAgent'),
-              onChanged: (v) => _set('CoreBasicItem', 'DefUserAgent', v),
-            ),
+            label: '用户代理 (User-Agent)',
+            value: _str(core, 'DefUserAgent'),
+            onChanged: (v) => _set('CoreBasicItem', 'DefUserAgent', v),
           ),
           const Padding(
             padding: EdgeInsets.only(left: 172, bottom: 2),

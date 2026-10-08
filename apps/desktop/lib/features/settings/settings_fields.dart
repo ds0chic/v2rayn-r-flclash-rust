@@ -49,6 +49,7 @@ class SettingsTextField extends StatefulWidget {
     this.hint,
     this.width = 240,
     this.enabled = true,
+    this.identifier,
   });
 
   final String label;
@@ -56,6 +57,10 @@ class SettingsTextField extends StatefulWidget {
   final ValueChanged<String?> onChanged;
   final String? hint;
   final double width;
+
+  /// Stable semantics identifier for UI-automation locators; applied to the
+  /// editable field itself so the located node carries the field value.
+  final String? identifier;
 
   /// Upstream gates some text boxes on a linked toggle (e.g.
   /// `togNewPort4LAN` -> `txtuser.IsEnabled`); a disabled box keeps its value.
@@ -97,20 +102,24 @@ class _SettingsTextFieldState extends State<SettingsTextField> {
           ),
           SizedBox(
             width: widget.width,
-            child: TextField(
-              controller: _controller,
-              enabled: widget.enabled,
-              decoration: InputDecoration(
-                isDense: true,
-                border: const OutlineInputBorder(),
-                hintText: widget.hint,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 8,
+            child: Semantics(
+              identifier: widget.identifier,
+              child: TextField(
+                controller: _controller,
+                enabled: widget.enabled,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                  hintText: widget.hint,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 8,
+                  ),
                 ),
+                style: const TextStyle(fontSize: 12),
+                onChanged: (text) =>
+                    widget.onChanged(text.isEmpty ? null : text),
               ),
-              style: const TextStyle(fontSize: 12),
-              onChanged: (text) => widget.onChanged(text.isEmpty ? null : text),
             ),
           ),
         ],

@@ -70,12 +70,22 @@ public static class UiAutoNative
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
     [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
     [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
     [DllImport("user32.dll")] public static extern int GetSystemMetrics(int n);
     [DllImport("user32.dll")] public static extern uint SendInput(uint n, INPUT[] p, int cb);
 
     [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
+    // Client-area origin in screen coordinates: the Flutter semantics rects are
+    // relative to the view's top-left (client area), so click points must add
+    // this origin to become screen coordinates.
+    public static int[] ClientOrigin(IntPtr h) {
+      POINT p; p.X = 0; p.Y = 0;
+      if (!ClientToScreen(h, ref p)) return new int[] { 0, 0 };
+      return new int[] { p.X, p.Y };
+    }
     [StructLayout(LayoutKind.Sequential)] public struct MOUSEINPUT { public int dx; public int dy; public int mouseData; public int dwFlags; public int time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)] public struct KEYBDINPUT { public short wVk; public short wScan; public int dwFlags; public int time; public IntPtr dwExtraInfo; }
     [StructLayout(LayoutKind.Sequential)] public struct HARDWAREINPUT { public int uMsg; public short wParamL; public short wParamH; }
@@ -583,10 +593,13 @@ function Get-UiSemantics {
       $rectRaw = $null
       if ($n.PSObject.Properties['rect'] -ne $null) { $rectRaw = $n.rect }
       $rect = ConvertTo-UiRect -Raw $rectRaw
+      $value = ''
+      if ($n.PSObject.Properties['value'] -ne $null) { $value = [string]$n.value }
       if ($identifier -eq '' -or $rect -eq $null) { $skipped++; continue }
       $nodes += [pscustomobject]@{
         identifier = $identifier
         label      = $label
+        value      = $value
         rect       = $rect
         center     = (Get-UiRectCenter -Rect $rect)
       }
@@ -731,14 +744,19 @@ function Get-UiElement {
             $idOk = ($Identifier -eq '' -or $n.identifier -ieq $Identifier)
             $labelOk = ($Label -eq '' -or $n.label -ieq $Label)
             if ($idOk -and $labelOk) {
+              # Semantics rects are client-area-relative; convert to screen
+              # coordinates so real input and screenshots use the same space.
+              $origin = [UiAutoNative]::ClientOrigin([IntPtr]$t.hwndLong)
+              $rectScreen = New-UiRect -X ($n.rect.X + $origin[0]) -Y ($n.rect.Y + $origin[1]) `
+                -Width $n.rect.Width -Height $n.rect.Height
               return [pscustomobject]@{
-                ok = $true; error = ''; locatedBy = 'semantics'; rect = $n.rect
-                center = $n.center
+                ok = $true; error = ''; locatedBy = 'semantics'; rect = $rectScreen
+                center = (Get-UiRectCenter -Rect $rectScreen)
                 windowHwnd = $t.hwndLong; windowPid = $t.expectedPid
                 identifier = $n.identifier; label = $n.label
                 diagnostics = @{
                   attempts = $attempts; elapsedMs = [long]((Get-Date) - $t0).TotalMilliseconds
-                  semanticsPath = $SemanticsPath
+                  semanticsPath = $SemanticsPath; clientOrigin = $origin
                 }
               }
             }

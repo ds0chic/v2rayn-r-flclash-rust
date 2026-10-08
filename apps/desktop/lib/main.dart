@@ -10,6 +10,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_windows.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window_entry.dart';
 import 'package:v2rayn_desktop/perf/import_synth_hook.dart';
+import 'package:v2rayn_desktop/perf/semantics_dump_hook.dart';
 import 'package:v2rayn_desktop/perf/t18_bench.dart';
 
 /// Keeps the armed-only forced-semantics handle alive for the whole process so
@@ -57,6 +58,12 @@ Future<void> main() async {
   // can see stable selectors (AutomationId/Name/ControlType).
   if (forceSemantics && _forcedSemanticsHandle == null) {
     _forcedSemanticsHandle = SemanticsBinding.instance.ensureSemantics();
+  }
+  // Armed-only semantics-dump bridge (SP-30): periodic read-only JSON dump of
+  // the semantics tree for UIA-blind agents. No-op unless the build is armed
+  // AND V2RAYN_R_SEMANTICS_DUMP is set; unarmed builds ignore it.
+  if (SemanticsDumpHook.enabled) {
+    SemanticsDumpHook.start();
   }
   // Armed-only FLD-CFG-001/002 evidence hook: synthetic import via the real
   // path, then write import-result.json and exit. No-op unless the build is

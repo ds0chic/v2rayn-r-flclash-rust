@@ -23,6 +23,7 @@ pub mod dgst;
 pub mod download;
 pub mod error;
 pub mod fetch;
+pub mod geo;
 pub mod install;
 pub mod metadata;
 pub mod semver;
@@ -49,6 +50,9 @@ pub use download::{
 };
 pub use error::UpdateError;
 pub use fetch::{CoreReleaseApi, ReleaseSource};
+pub use geo::{
+    geo_download_url, geo_file_requests, GeoFileRequest, GEO_BARE_NAMES, GEO_FILES_TARGET,
+};
 pub use install::{
     apply_atomic, external_upgrade_spec, restore_previous, verify_manifest, ApplyOutcome,
     FailPoint, InstallManifest, InstallPlan, InstalledEntry, UpgradeCoordinator,

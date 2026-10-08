@@ -115,7 +115,8 @@ pub use tun_plan::{
 pub use update_service::{
     app_signature_verifier, builtin_targets, cleanup_logs_tmp, enforce_detached_signature,
     parse_dgst_sha256, test_api_base_override, update_error, CleanupReport, CoreApplyOutcome,
-    CoreApplyRequest, CoreUpdateCheck, InstalledCore, UpdateService, UpdateTargetInfo,
-    API_BASE_ENV, BUILTIN_TARGETS, GITHUB_API_BASE, UPDATE_TIMEOUT,
+    CoreApplyRequest, CoreUpdateCheck, GeoApplyOutcome, GeoFileOutcome, InstalledCore,
+    UpdateService, UpdateTargetInfo, API_BASE_ENV, BUILTIN_TARGETS, GEO_FILES_TARGET,
+    GITHUB_API_BASE, UPDATE_TIMEOUT,
 };
 pub use webdav::{WebDavCheck, WebDavClient, WebDavConfig, WebDavEntry, BACKUP_FILE, DEFAULT_DIR};

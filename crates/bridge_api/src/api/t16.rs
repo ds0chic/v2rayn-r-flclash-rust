@@ -771,6 +771,14 @@ fn update_service() -> application::UpdateService {
     if let Some(root) = app_install_root() {
         service = service.with_app_install_root(root);
     }
+    // SP-27 / SP28-L1-001: the Geo `.dat` template follows the persisted
+    // `GeoSourceUrl` (falling back to the built-in) exactly like upstream
+    // `UpdateService.GetGeoFilesRequest`.
+    if let Ok(loaded) = engine().load_settings() {
+        service = service.with_geo_source(application::dns::effective_geo_source(
+            &loaded.settings.const_item,
+        ));
+    }
     service
 }
 
@@ -927,6 +935,39 @@ pub async fn t16_apply_core_update(
         // upgrade path (`t16_apply_app_update_spec`).
         if core == "v2rayN" {
             skipped.push(core);
+            continue;
+        }
+        // SP-27 / SP28-L1-001: Geo `.dat` files have no release/version row;
+        // apply refreshes them from the pinned template (stage-all then
+        // copy-over, old files intact on failure). The reported "version" is
+        // the content hash, never a fabricated remote version.
+        if core == application::GEO_FILES_TARGET {
+            match service.apply_geo_files(proxy.as_deref(), &token).await {
+                Ok(outcome) => {
+                    let version = outcome
+                        .files
+                        .iter()
+                        .map(|file| {
+                            format!("{}:{}", file.name, &file.sha256[..8.min(file.sha256.len())])
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    applied.push(AppliedCoreDto {
+                        core: outcome.target,
+                        version,
+                        installed_dir: Some(outcome.bin_dir.to_string_lossy().into_owned()),
+                        kept_previous: None,
+                    });
+                }
+                Err(error) => {
+                    return ApplyCoreResultDto {
+                        ok: false,
+                        applied,
+                        skipped,
+                        error: Some(error_dto(error)),
+                    }
+                }
+            }
             continue;
         }
         let check = match service

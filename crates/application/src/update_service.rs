@@ -19,6 +19,9 @@ use updater::arch::{binary_matches, detect_target, HostTarget};
 use updater::channel;
 use updater::download::{DownloadRequest, DownloaderOptions, FileDownloader};
 use updater::fetch::CoreReleaseApi;
+use updater::geo_file_requests;
+
+pub use updater::geo::GEO_FILES_TARGET;
 use updater::install::{
     apply_atomic, ExternalUpgradeSpec, InstallManifest, InstallPlan, UpgradeCoordinator,
 };
@@ -111,10 +114,12 @@ fn default_app_exe_name() -> String {
         })
 }
 
-/// Built-in auto-update targets, in upstream order
-/// (`CoreInfoManager.GetCheckUpdateCoreTypes`). These are the only rows the
-/// check/apply pipeline may download; every other proxy core is manual (R4-21).
-pub const BUILTIN_TARGETS: &[&str] = &["v2rayN", "xray", "mihomo", "sing_box"];
+/// Built-in auto-update targets: the upstream `CoreInfoManager`
+/// check-update core types plus the `GeoFiles` row the check-update view
+/// appends after the cores (`CheckUpdateViewModel.GetGeoFileCheckUpdateModel`).
+/// These are the rows the check pipeline reports; every other proxy core is
+/// manual (R4-21).
+pub const BUILTIN_TARGETS: &[&str] = &["v2rayN", "xray", "mihomo", "sing_box", GEO_FILES_TARGET];
 
 /// The 14 frozen proxy cores (R3-CORE-MATRIX) in the update pipeline's key
 /// spelling, derived from the runtime adapter list so the UI matrix can never
@@ -126,11 +131,13 @@ pub fn proxy_update_cores() -> Vec<&'static str> {
         .collect()
 }
 
-/// Every row the update window lists: the application identity plus all 14
-/// proxy cores, regardless of whether they can be auto-updated.
+/// Every row the update window lists: the application identity, all 14 proxy
+/// cores, and the trailing `GeoFiles` row (upstream appends it after the
+/// cores), regardless of whether they can be auto-updated.
 pub fn ui_targets() -> Vec<&'static str> {
     let mut targets = vec!["v2rayN"];
     targets.extend(proxy_update_cores());
+    targets.push(GEO_FILES_TARGET);
     targets
 }
 
@@ -210,6 +217,18 @@ pub fn builtin_targets(packaged: bool) -> Vec<UpdateTargetInfo> {
 }
 
 fn target_info(core: &str, packaged: bool) -> UpdateTargetInfo {
+    // The GeoFiles row has no release channel: it is always refreshable from
+    // its URL template and never version-compared.
+    if core == GEO_FILES_TARGET {
+        return UpdateTargetInfo {
+            core: GEO_FILES_TARGET.to_string(),
+            repo: String::new(),
+            supported: true,
+            prerelease_capable: false,
+            max_version: None,
+            note: None,
+        };
+    }
     let kind = core_entry_kind(core, packaged);
     let supported = kind == CoreEntryKind::Auto;
     let note = core_entry_note(kind).map(str::to_string);
@@ -267,6 +286,21 @@ pub struct CoreApplyOutcome {
     pub kept_previous: Option<PathBuf>,
 }
 
+/// One landed Geo `.dat` file with its recorded content hash.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeoFileOutcome {
+    pub name: String,
+    pub sha256: String,
+}
+
+/// Outcome of refreshing the managed Geo `.dat` files.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeoApplyOutcome {
+    pub target: String,
+    pub bin_dir: PathBuf,
+    pub files: Vec<GeoFileOutcome>,
+}
+
 /// An installed core directory discovered under `cores_root`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstalledCore {
@@ -307,6 +341,11 @@ pub struct UpdateService {
     /// `RootCertProvider` consumer). `System` is the shipped default; the
     /// settings layer switches this with [`Self::with_tls_trust`].
     pub tls_trust: HttpsTrust,
+    /// Explicit Geo `.dat` source template (`{0}` = bare asset name); `None`
+    /// means the upstream built-in. The settings layer sets this from
+    /// [`crate::dns::effective_geo_source`] (the stored `GeoSourceUrl` with
+    /// the upstream built-in fallback); tests point it at a loopback origin.
+    pub geo_source: Option<String>,
 }
 
 impl UpdateService {
@@ -328,6 +367,7 @@ impl UpdateService {
             packaged: false,
             timeout: UPDATE_TIMEOUT,
             tls_trust: HttpsTrust::System,
+            geo_source: None,
         }
     }
 
@@ -361,6 +401,119 @@ impl UpdateService {
     pub fn with_app_repo(mut self, repo: impl Into<String>) -> Self {
         self.app_repo = Some(repo.into());
         self
+    }
+
+    /// Override the Geo `.dat` source template (`{0}` = bare asset name).
+    pub fn with_geo_source(mut self, template: impl Into<String>) -> Self {
+        self.geo_source = Some(template.into());
+        self
+    }
+
+    /// Effective Geo `.dat` source template: the override when set and
+    /// non-blank, else the upstream built-in (`UpdateService.GetGeoFilesRequest`
+    /// falls back to `Global.GeoUrl` the same way).
+    pub fn effective_geo_template(&self) -> String {
+        self.geo_source
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .unwrap_or_else(|| crate::dns::BUILTIN_GEO_URL.to_string())
+    }
+
+    /// Managed Geo `.dat` destination directory (`<data>/bin`, next to the
+    /// managed cores root; upstream `Utils.GetBinPath`).
+    pub fn geo_bin_dir(&self) -> PathBuf {
+        self.cores_root
+            .parent()
+            .map(|parent| parent.join("bin"))
+            .unwrap_or_else(|| PathBuf::from("bin"))
+    }
+
+    /// The `GeoFiles` update row. Geo files carry no release version, so the
+    /// row never reports one: `remote_version` is always `None`, `has_update`
+    /// means a refresh is available from the configured source, and apply
+    /// recomputes the per-file URLs from the same template (no stale URLs
+    /// cross the check/apply boundary).
+    pub fn check_geo_files(&self) -> CoreUpdateCheck {
+        CoreUpdateCheck {
+            core: GEO_FILES_TARGET.to_string(),
+            supported: true,
+            note: None,
+            installed_version: None,
+            remote_version: None,
+            has_update: true,
+            asset_name: None,
+            download_url: None,
+            expected_sha256: None,
+            dgst_url: None,
+            sig_url: None,
+        }
+    }
+
+    /// Refresh the managed Geo `.dat` files (`geoip.dat`, `geosite.dat`) from
+    /// the effective source template into [`Self::geo_bin_dir`].
+    ///
+    /// Every file is staged under `<cores_root>/.staging` first and only
+    /// renamed into place after all downloads succeed, so a failed pass leaves
+    /// the previous files intact (upstream `DownloadGeoFiles` copies temp files
+    /// over only on success). The returned hashes record the landed content
+    /// (see also [`crate::dns::geo_asset_hashes`]).
+    pub async fn apply_geo_files(
+        &self,
+        proxy: Option<&str>,
+        cancellation: &CancellationToken,
+    ) -> Result<GeoApplyOutcome, DomainError> {
+        let template = self.effective_geo_template();
+        let bin_dir = self.geo_bin_dir();
+        let requests = geo_file_requests(&template, &bin_dir).map_err(update_error)?;
+        std::fs::create_dir_all(&bin_dir).map_err(|e| io_error("error.update_install", e))?;
+        let staging = self.cores_root.join(".staging").join("geo-pending");
+        reset_dir(&staging)?;
+        let options = DownloaderOptions {
+            proxy: proxy.map(str::to_string),
+            timeout: DOWNLOAD_TIMEOUT,
+            max_bytes: MAX_DOWNLOAD_BYTES,
+            ..DownloaderOptions::default()
+        };
+        let downloader = FileDownloader::new_with_trust(options, self.tls_trust.clone())
+            .map_err(update_error)?;
+        let mut staged = Vec::new();
+        for request in &requests {
+            let download =
+                DownloadRequest::new(request.url.clone(), staging.join(&request.file_name));
+            match downloader.download(&download, cancellation).await {
+                Ok(done) => staged.push((request.clone(), done)),
+                Err(error) => {
+                    let _ = std::fs::remove_dir_all(&staging);
+                    return Err(update_error(error));
+                }
+            }
+        }
+        for (request, done) in &staged {
+            if std::fs::rename(&done.path, &request.target).is_err()
+                && std::fs::copy(&done.path, &request.target).is_err()
+            {
+                let _ = std::fs::remove_dir_all(&staging);
+                return Err(DomainError::new(codes::INTERNAL, "error.update_install")
+                    .with_detail(request.target.display().to_string()));
+            }
+        }
+        let mut files = Vec::new();
+        for request in &requests {
+            let bytes =
+                std::fs::read(&request.target).map_err(|e| io_error("error.update_install", e))?;
+            files.push(GeoFileOutcome {
+                name: request.file_name.clone(),
+                sha256: updater::sha256_of(&bytes),
+            });
+        }
+        let _ = std::fs::remove_dir_all(&staging);
+        Ok(GeoApplyOutcome {
+            target: GEO_FILES_TARGET.to_string(),
+            bin_dir,
+            files,
+        })
     }
 
     /// The directory name a core is stored under (`cores/<dir>/<version>/`).
@@ -512,6 +665,11 @@ impl UpdateService {
         prerelease_requested: bool,
         proxy: Option<&str>,
     ) -> Result<CoreUpdateCheck, DomainError> {
+        // The GeoFiles row has no release channel; it is reported without any
+        // network access and never carries a fabricated remote version.
+        if core == GEO_FILES_TARGET {
+            return Ok(self.check_geo_files());
+        }
         let installed = self.installed_version(core);
         let spec = match channel::core_spec(core) {
             Some(spec) => spec,
@@ -1348,8 +1506,9 @@ mod tests {
     fn entry_matrix_lists_every_frozen_proxy_core() {
         let targets = builtin_targets(false);
         let cores: Vec<&str> = targets.iter().map(|t| t.core.as_str()).collect();
-        // no silent omission: all 14 proxy cores plus the application row.
-        assert_eq!(cores.len(), 15, "{cores:?}");
+        // no silent omission: all 14 proxy cores plus the application row plus
+        // the trailing GeoFiles row (upstream appends it after the cores).
+        assert_eq!(cores.len(), 16, "{cores:?}");
         for expected in [
             "v2fly",
             "v2fly_v5",
@@ -1369,13 +1528,21 @@ mod tests {
             assert!(cores.contains(&expected), "matrix omitted {expected}");
         }
         assert!(cores.contains(&"v2rayN"));
+        // The GeoFiles row trails the cores and is always refreshable.
+        assert_eq!(cores.last(), Some(&GEO_FILES_TARGET));
+        let geo = targets.iter().find(|t| t.core == GEO_FILES_TARGET).unwrap();
+        assert!(geo.supported);
+        assert!(geo.note.is_none());
 
         let auto: Vec<&str> = targets
             .iter()
             .filter(|t| t.supported)
             .map(|t| t.core.as_str())
             .collect();
-        assert_eq!(auto, vec!["v2rayN", "xray", "mihomo", "sing_box"]);
+        assert_eq!(
+            auto,
+            vec!["v2rayN", "xray", "mihomo", "sing_box", GEO_FILES_TARGET]
+        );
         // Every manual row carries the manual note, never "up to date".
         for core in ["v2fly_v5", "hysteria", "tuic", "mieru"] {
             let row = targets.iter().find(|t| t.core == core).unwrap();

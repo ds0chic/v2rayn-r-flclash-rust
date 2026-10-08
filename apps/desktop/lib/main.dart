@@ -55,7 +55,7 @@ Future<void> main() async {
   await RustBridgeInit.init();
   // Armed-only UIA bridge: force the semantics tree so the Windows UIA client
   // can see stable selectors (AutomationId/Name/ControlType).
-  if (forceSemantics) {
+  if (forceSemantics && _forcedSemanticsHandle == null) {
     _forcedSemanticsHandle = SemanticsBinding.instance.ensureSemantics();
   }
   // Armed-only FLD-CFG-001/002 evidence hook: synthetic import via the real

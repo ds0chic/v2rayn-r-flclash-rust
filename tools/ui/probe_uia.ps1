@@ -23,7 +23,8 @@ param(
   [string]$OutDir = '',
   [int]$WaitSec = 30,
   [int]$MaxDepth = 6,
-  [switch]$EnableSemantics
+  [switch]$EnableSemantics,
+  [switch]$AccessibleEx
 )
 
 $ErrorActionPreference = 'Stop'
@@ -100,6 +101,7 @@ New-Item -ItemType Directory -Path $data -Force | Out-Null
 
 $env:V2RAYN_R_DATA_DIR = $data
 if ($EnableSemantics) { $env:V2RAYN_R_ENABLE_SEMANTICS = '1' }
+if ($AccessibleEx) { $env:V2RAYN_R_UIA_ACCESSIBLE_EX = '1' }
 $proc = Start-Process -FilePath $exe -PassThru
 $root = [System.Windows.Automation.AutomationElement]::RootElement
 $pidCond = New-Object System.Windows.Automation.PropertyCondition(
@@ -178,4 +180,5 @@ $alive = -not $proc.HasExited
 if ($alive) { & taskkill.exe /PID $proc.Id /T /F 2>&1 | Out-Null }
 $env:V2RAYN_R_DATA_DIR = $null
 if ($EnableSemantics) { $env:V2RAYN_R_ENABLE_SEMANTICS = $null }
+if ($AccessibleEx) { $env:V2RAYN_R_UIA_ACCESSIBLE_EX = $null }
 Write-Output ("UIA_PROBE window_found=" + $result.window_found + " out=" + $out)

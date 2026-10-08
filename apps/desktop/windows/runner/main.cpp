@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 
 #include "flutter_window.h"
@@ -132,6 +133,18 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
       hwa::ResolveHardwareAcceleration(command_line_arguments);
   hwa::StripHwaFlags(command_line_arguments);
   hwa::ApplyHardwareAcceleration(project, enable_hwa);
+
+  // UI-automation bridge (test/armed only): opt into the experimental
+  // IAccessibleEx implementation so Windows UI Automation exposes the Flutter
+  // semantics tree (and Semantics.identifier as AutomationId) to automation
+  // clients. Default MSAA behaviour is unchanged when the env var is unset, so
+  // the official package keeps its normal accessibility behaviour.
+  if (const char* uia_mode = std::getenv("V2RAYN_R_UIA_ACCESSIBLE_EX")) {
+    const std::string value(uia_mode);
+    if (value == "1" || value == "true") {
+      project.set_accessibility_mode(flutter::AccessibilityMode::IAccessibleEx);
+    }
+  }
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 

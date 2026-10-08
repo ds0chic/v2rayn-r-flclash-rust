@@ -247,11 +247,26 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           // TbSettingsCore / TbSettingsN / TbSettingsSystemproxy /
           // TbSettingsTunMode / TbSettingsCoreType.
           tabs: <Tab>[
-            Tab(text: context.tr('TbSettingsCore')),
-            Tab(text: context.tr('TbSettingsN')),
-            Tab(text: context.tr('TbSettingsSystemproxy')),
-            Tab(text: context.tr('TbSettingsTunMode')),
-            Tab(text: context.tr('TbSettingsCoreType')),
+            Semantics(
+              identifier: 'settings.tab.core',
+              child: Tab(text: context.tr('TbSettingsCore')),
+            ),
+            Semantics(
+              identifier: 'settings.tab.v2rayn',
+              child: Tab(text: context.tr('TbSettingsN')),
+            ),
+            Semantics(
+              identifier: 'settings.tab.systemproxy',
+              child: Tab(text: context.tr('TbSettingsSystemproxy')),
+            ),
+            Semantics(
+              identifier: 'settings.tab.tun',
+              child: Tab(text: context.tr('TbSettingsTunMode')),
+            ),
+            Semantics(
+              identifier: 'settings.tab.coretype',
+              child: Tab(text: context.tr('TbSettingsCoreType')),
+            ),
           ],
         ),
         if (_error != null)
@@ -728,10 +743,13 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _str(core, 'DefFingerprint'),
             onChanged: (v) => _set('CoreBasicItem', 'DefFingerprint', v),
           ),
-          SettingsTextField(
-            label: '用户代理 (User-Agent)',
-            value: _str(core, 'DefUserAgent'),
-            onChanged: (v) => _set('CoreBasicItem', 'DefUserAgent', v),
+          Semantics(
+            identifier: 'settings.core.user_agent',
+            child: SettingsTextField(
+              label: '用户代理 (User-Agent)',
+              value: _str(core, 'DefUserAgent'),
+              onChanged: (v) => _set('CoreBasicItem', 'DefUserAgent', v),
+            ),
           ),
           const Padding(
             padding: EdgeInsets.only(left: 172, bottom: 2),

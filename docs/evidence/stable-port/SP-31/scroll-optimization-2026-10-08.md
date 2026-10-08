@@ -172,3 +172,82 @@ cell-build reduction is required next. Kept the changes (raster not worse,
 10k dropped improved); a second iteration needs another armed window.
 Raw: `gui/gui_scroll_10000_opt0ce.json`, `gui/gui_scroll_50000_opt0ce.json`,
 `gui/gui_startup.json`.
+
+## Second pass — row-subtree (cell list) cache (2026-10-08, local-only)
+
+`TableView.builder` has no row widget (only `rowBuilder` → `TableSpan` plus
+per-cell `cellBuilder`), so the "row subtree" is cached as the row's fully
+wrapped cell list: `_ProfilesTableState._rowCellsCache:
+Map<String, List<TableViewCell>>` (each entry holds the
+`TableViewCell(RepaintBoundary(...))` widgets for one data row, indexed by
+column). New `_buildCachedCell` fronts `_buildCell`: on a hit it returns the
+stored widget for the requested column with no `column.display()` call and no
+widget/closure allocation; on a miss it builds all `columns.length + 1` cells
+for that row once and stores the list. Span cache kept as-is (separate key).
+Bounded at 512 rows (entries are heavier than spans: ~15 widgets each;
+cleared past the limit) and cleared in `dispose()`.
+
+Key: `index | rowKey(id) | columnRevision | overlayRevision |
+cellVisualRevision | selected | isActive | row.hashCode`, where
+`cellVisualRevision = hash(span visualRevision, selectedRowFill, activeFill,
+activeMarker, numberBadgeFill, dragFeedbackFill, dropTargetBorder,
+dragSortEnabled)`. `ProfileSummary` has value equality covering every
+displayed field (`mirrors.dart:87-127`) and all 14 `display` functions are
+pure in the row (`profiles_models.dart:211-231`), so `row.hashCode` is a valid
+content version: same content hits, any edit/delay/speed/traffic change
+misses. Selection/active are per-row bools (O(1) `Set.contains` each), so a
+single-row selection change rebuilds only that row. Sort spec is not in the
+data-row key because data cells never read it.
+
+Reuse-safety audit (all data-row subtrees are immutable widget configs):
+
+- Each cached widget mounts at exactly one (row, column) slot per frame, never
+  duplicated within a frame, with stable keys (`cell-<id>-<col>`,
+  `handle-<id>`, `drop-<id>`, `active-marker-<id>`); `Draggable`/`DragTarget`/
+  `GestureDetector` element state therefore updates in place and hover/drag
+  state is preserved, not reset.
+- Frozen closures capture only the row snapshot (versioned), the immutable
+  scope colors (versioned), and the long-lived controller (cache is per-`State`,
+  cleared on dispose; drop callbacks key on stable row ids — a cached
+  `Draggable(data: row)` carries an equal-content snapshot whose `id` is
+  identical, so `handleDrop` behavior is unchanged).
+- The `DragTarget` hover builder still receives its live `candidate` list at
+  event time; only the border color is frozen (and versioned).
+- One part is deliberately NOT cached: the header row (row 0). Its sort tap
+  closes over the per-build `onSortHeader`, which captures that build's
+  `ProfilesState` snapshot for the sort scroll anchor — a cached header would
+  sort against a stale anchor. Headers and out-of-range rows build fresh every
+  frame. Column persistence untouched (no controller/store change; resize or
+  visibility change misses via `columnRevision`).
+
+Checks (same targeted set, run individually; `dart format` write then
+check-mode `0 changed`; `flutter analyze` `No issues found!`):
+
+| file | result |
+|---|---|
+| `test/repair/wave_b_g15_columns_test.dart` (11) | pass |
+| `test/re_prof_14_autofit_test.dart` (1) | pass after 1 retry¹ |
+| `test/re_prof_14_drag_enabled_test.dart` (1) | pass after 1 retry¹ |
+| `test/re_prof_14_drag_disabled_test.dart` (1) | pass |
+| `test/t05_profiles_ui_test.dart` (1) | pass after 1 retry¹ |
+| `test/profiles_filter_test.dart` (1) | pass |
+| `test/table_actions_test.dart` (6) | pass |
+| `test/ux_space01_column_persistence_test.dart` (1) | pass |
+
+¹ Same known flaky tester `did not complete` under back-to-back runs as the
+first pass (autofit/drag_enabled/t05); solo retries passed with no code
+change. No cargo, no release build, no whole-suite run, nothing committed.
+
+Expected frame-cost effect (for the integrator's armed run): scroll frames
+with stable columns/overlay/theme/selection should now skip per-cell
+`display()` + `Text`/`Container`/`GestureDetector`/`Tooltip` construction and
+closure allocation for unchanged data rows (the dominant remaining build cost
+after pass 1); per visible row the work becomes one string key + one map
+lookup per cell, plus one `Set.contains` × 2 for the key. New-row frames
+(scroll into fresh rows) still build those rows once, then re-hit.
+Overlay-tick frames that bump `speedTestGeneration`/`lastAckSeq` miss
+everything once and rebuild (same as the span cache). If the armed run shows
+no build win, the likely cause is cache misses from `overlayRevision` churn,
+not the mechanism — consider keying overlay per-row or splitting the build
+scope per candidate (4) next. Revert is two hunks (`cellBuilder` call site +
+`_buildCachedCell`/cache field).

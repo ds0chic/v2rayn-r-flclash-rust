@@ -150,3 +150,25 @@ file modified; nothing committed.
   on visible-range change) was not needed and not attempted.
 - `dart format --output=none` is check-only (does not write); the write pass
   is `dart format <file>`, followed by the check pass expecting `0 changed`.
+
+## Armed measurement after optimization (2026-10-08, commit 0ce933b)
+
+Armed evidence build `38f6e2c1` (git_dirty=false, smoke_armed=true), same host.
+
+| scenario | baseline 82d374e | optimized 0ce933b | note |
+|---|---|---|---|
+| startup main->first frame | 159.2ms | 174.4ms | host variance |
+| scroll 10k build p50/p95 | 14.8 / 22.9ms | 14.0 / 22.7ms | p50 -0.8ms |
+| scroll 10k dropped | 288 (48.9%) | 254 (43.6%) | -5.3pp |
+| scroll 10k raster p95 | 2.1ms | 2.0ms | slightly better |
+| scroll 50k build p50/p95 | 23.3 / 33.5ms | 23.5 / 38.0ms | p95 +4.5ms (noise / cache-miss overhead, ambiguous) |
+| scroll 50k dropped | 583 (99.7%) | 588 (99.8%) | flat |
+
+Conclusion: first optimization pass is a **marginal win at 10k and neutral at
+50k**; the 16.7ms/99% budget is still missed. The row-span cache likely misses
+on frames where `visualRevision`/`overlayRevision` change; candidate (4) from
+the hotspot analysis (notifier-driven cache / build-scope split) or a deeper
+cell-build reduction is required next. Kept the changes (raster not worse,
+10k dropped improved); a second iteration needs another armed window.
+Raw: `gui/gui_scroll_10000_opt0ce.json`, `gui/gui_scroll_50000_opt0ce.json`,
+`gui/gui_startup.json`.

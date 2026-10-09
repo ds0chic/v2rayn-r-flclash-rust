@@ -163,13 +163,18 @@ pub fn t16_backup_restore(bundle_dir: String) -> RestoreResultDto {
         service.restore_with_lifecycle(engine(), Path::new(&bundle_dir), &work)
     });
     match outcome {
-        Ok(report) => RestoreResultDto {
-            ok: report.restored,
-            restored: report.restored,
-            target_backup: report.target_backup,
-            message: report.message,
-            error: None,
-        },
+        Ok(report) => {
+            if report.restored {
+                super::speedtest::reload_profile_ex_after_restore();
+            }
+            RestoreResultDto {
+                ok: report.restored,
+                restored: report.restored,
+                target_backup: report.target_backup,
+                message: report.message,
+                error: None,
+            }
+        }
         Err(error) => restore_failed(error),
     }
 }
@@ -451,8 +456,9 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
     };
     // The remote file must be an upstream-interoperable `guiConfigs/` ZIP, not
     // this project's manifest bundle, so a v2rayN client can restore it.
-    let bytes = match application::zip_upstream_layout(&backup.root) {
-        Ok(bytes) => bytes,
+    let zip_path = work.join("backup.zip");
+    let length = match application::zip_upstream_layout_to_file(&backup.root, &zip_path) {
+        Ok(length) => length,
         Err(error) => {
             return WebDavOpDto {
                 ok: false,
@@ -462,7 +468,6 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
             }
         }
     };
-    let length = bytes.len() as u64;
     let client = match webdav_client(cfg) {
         Ok(client) => client,
         Err(error) => {
@@ -483,7 +488,7 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
             error: Some(error_dto(error)),
         };
     }
-    match client.upload(bytes).await {
+    match client.upload_file(&zip_path, length).await {
         Ok(bytes) => WebDavOpDto {
             ok: true,
             bytes,
@@ -508,11 +513,8 @@ async fn webdav_restore(cfg: WebDavConfigDto) -> Result<RestoreResultDto, Domain
     let service = backup_service()?;
     let work = work_dir("webdav-restore")?;
     let client = webdav_client(cfg)?;
-    let bytes = client.download().await?;
     let zip_path = work.join("remote-backup.zip");
-    std::fs::write(&zip_path, &bytes).map_err(|error| {
-        DomainError::new(codes::INTERNAL, "error.webdav_write").with_detail(error.to_string())
-    })?;
+    client.download_to_file(&zip_path).await?;
     // An upstream `guiConfigs/` archive (the layout this project now uploads)
     // goes through the same candidate + activation flow as a local FIX-14
     // import: quiesce -> swap/activate -> reopen. A project manifest bundle
@@ -527,6 +529,9 @@ async fn webdav_restore(cfg: WebDavConfigDto) -> Result<RestoreResultDto, Domain
             service.import_upstream_with_lifecycle(engine(), &zip_path, &work, now_epoch())?;
         let changed =
             report.status.changed_target() || report.status == ImportStatus::AlreadyImported;
+        if changed {
+            super::speedtest::reload_profile_ex_after_restore();
+        }
         return Ok(RestoreResultDto {
             ok: changed,
             restored: changed,
@@ -539,6 +544,9 @@ async fn webdav_restore(cfg: WebDavConfigDto) -> Result<RestoreResultDto, Domain
     application::extract_bundle_zip(&zip_path, &unpacked)?;
     // SR-03: lifecycle-aware restore; quiesce/reopen failures surface.
     let report = service.restore_with_lifecycle(engine(), &unpacked, &work)?;
+    if report.restored {
+        super::speedtest::reload_profile_ex_after_restore();
+    }
     Ok(RestoreResultDto {
         ok: report.restored,
         restored: report.restored,
@@ -824,6 +832,49 @@ pub async fn t16_apply_core_update(
                     applied,
                     skipped,
                     error: Some(error_dto(error)),
+                }
+            }
+        }
+    }
+    if !applied.is_empty() && engine().applied_session().is_some() {
+        if let Some(target_id) = engine().active_profile() {
+            let active_core = match engine().profile_by_id(&target_id).and_then(|profile| {
+                profile
+                    .ok_or_else(|| DomainError::not_found("profile", &target_id))
+                    .and_then(|profile| engine().resolve_target_core(&profile))
+            }) {
+                Ok(core) => core,
+                Err(error) => {
+                    return ApplyCoreResultDto {
+                        ok: false,
+                        applied,
+                        skipped,
+                        error: Some(error_dto(error)),
+                    }
+                }
+            };
+            if applied
+                .iter()
+                .any(|item| item.core.eq_ignore_ascii_case(active_core.as_str()))
+            {
+                let revision = engine().desired_revision();
+                let hints = application::tun_hints_from_env();
+                let result = engine()
+                    .build_runtime_plan_with_hints(&target_id, revision, &hints)
+                    .and_then(|plan| {
+                        engine().apply_runtime_for_target(
+                            plan,
+                            &target_id,
+                            domain::DesiredRevision::new(revision),
+                        )
+                    });
+                if let Err(error) = result {
+                    return ApplyCoreResultDto {
+                        ok: false,
+                        applied,
+                        skipped,
+                        error: Some(error_dto(error)),
+                    };
                 }
             }
         }

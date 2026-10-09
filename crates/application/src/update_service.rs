@@ -28,7 +28,7 @@ use updater::install::{
 use updater::metadata::ReleasesClient;
 use updater::semver::Semver;
 use updater::tls::HttpsTrust;
-use updater::unpack::{safe_unpack_targz, safe_unpack_zip, UnpackLimits};
+use updater::unpack::{safe_unpack_gzip, safe_unpack_targz, safe_unpack_zip, UnpackLimits};
 use updater::UpdateError;
 
 /// Maximum wall-clock for one metadata fetch or artifact download.
@@ -812,8 +812,11 @@ impl UpdateService {
 
         let keep_name = format!("{dir_name}.previous");
         let keep_dir = self.cores_root.join(&keep_name);
-        if keep_dir.exists() {
-            std::fs::remove_dir_all(&keep_dir).map_err(|e| io_error("error.update_install", e))?;
+        let saved_previous = versioned_parent.join("previous");
+        let had_previous = keep_dir.exists();
+        if had_previous {
+            std::fs::rename(&keep_dir, &saved_previous)
+                .map_err(|e| io_error("error.update_install", e))?;
         }
         let plan = InstallPlan::new(
             &self.cores_root,
@@ -825,10 +828,18 @@ impl UpdateService {
         let outcome = match apply_atomic(&plan) {
             Ok(outcome) => outcome,
             Err(error) => {
+                if had_previous {
+                    std::fs::rename(&saved_previous, &keep_dir)
+                        .map_err(|e| io_error("error.update_install", e))?;
+                }
                 let _ = std::fs::remove_dir_all(&versioned_parent);
                 return Err(update_error(error));
             }
         };
+        if had_previous {
+            std::fs::remove_dir_all(&saved_previous)
+                .map_err(|e| io_error("error.update_install", e))?;
+        }
         let _ = std::fs::remove_dir_all(&versioned_parent);
 
         let manifest_path = core_dir.join(INSTALL_MANIFEST_NAME);
@@ -1052,6 +1063,9 @@ impl UpdateService {
             safe_unpack_zip(&downloaded.path, &unpacked, limits).map_err(update_error)?;
         } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
             safe_unpack_targz(&downloaded.path, &unpacked, limits).map_err(update_error)?;
+        } else if name.ends_with(".gz") && request.core.eq_ignore_ascii_case("mihomo") {
+            safe_unpack_gzip(&downloaded.path, &unpacked, "mihomo", limits)
+                .map_err(update_error)?;
         } else {
             return Err(update_error(UpdateError::UnsupportedArchive(
                 request.asset_name.clone(),
@@ -1062,6 +1076,16 @@ impl UpdateService {
             return Err(update_error(UpdateError::UnsafeArchive(
                 "archive produced no directory".into(),
             )));
+        }
+        #[cfg(unix)]
+        if let Some(executable) = find_executable(&staged) {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = std::fs::metadata(&executable)
+                .map_err(|e| io_error("error.update_install", e))?
+                .permissions();
+            permissions.set_mode(permissions.mode() | 0o111);
+            std::fs::set_permissions(executable, permissions)
+                .map_err(|e| io_error("error.update_install", e))?;
         }
         Ok(staged)
     }

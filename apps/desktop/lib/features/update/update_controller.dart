@@ -573,21 +573,29 @@ class UpdateController extends Notifier<UpdateState> {
     // Runner waits on this PID, replaces files, then relaunches. Prefer the
     // real desktop lifecycle so the core is stopped and stats flushed before
     // the hand-off; fall back to the injected exit in tests / no-integration.
-    await handoffExit();
+    if (!await handoffExit()) {
+      state = state.copyWith(
+        status: const UpdateStatus(
+          kind: 'error',
+          message: '更新未交接',
+          detail: '退出清理未完成，应用保持运行。',
+        ),
+      );
+    }
   }
 
   /// Exit after a successful runner hand-off.
   ///
   /// When the real desktop integration is present it runs the bounded shutdown
-  /// first (stop core -> drain/flush -> platform restore) so the runner does
-  /// not replace files behind a live core holding them, then exits. Otherwise
-  /// the injected [AppExit] is used unchanged.
-  Future<void> handoffExit() async {
+  /// first (stop core -> drain/flush -> platform restore) and exits only when
+  /// cleanup succeeds. Otherwise the injected [AppExit] is used unchanged.
+  Future<bool> handoffExit() async {
     final integration = ref.read(desktopIntegrationProvider).value;
     if (integration != null) {
-      await integration.exitForUpdate();
+      return integration.exitForUpdate();
     } else {
       _exitApp();
+      return true;
     }
   }
 }

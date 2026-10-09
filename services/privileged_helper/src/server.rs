@@ -287,6 +287,23 @@ impl<B: HelperBackend> HelperServer<B> {
                 result: HelperResult::Error { error },
             };
         }
+        if self.config.session_token.is_empty()
+            || request.session.session_token != self.config.session_token
+        {
+            let error = HelperError::Unauthorized {
+                detail: "session token mismatch".to_string(),
+            };
+            self.audit.record(
+                &lease.session_id,
+                operation,
+                "session rejected",
+                AuditOutcome::Rejected,
+            );
+            return HelperResponse {
+                request_id,
+                result: HelperResult::Error { error },
+            };
+        }
         match self.dispatch(lease, &request.operation) {
             Ok((result, summary)) => {
                 self.audit
@@ -343,6 +360,11 @@ impl<B: HelperBackend> HelperServer<B> {
             }
             HelperOp::RemoveRoutes { entries } => {
                 validate_route_entries(entries)?;
+                if entries.iter().any(|entry| !lease.routes.contains(entry)) {
+                    return Err(HelperError::Unauthorized {
+                        detail: "route is not owned by this session".to_string(),
+                    });
+                }
                 let outcome = self.backend.remove_routes(entries)?;
                 lease.routes.retain(|owned| !entries.contains(owned));
                 for entry in entries {
@@ -412,6 +434,11 @@ impl<B: HelperBackend> HelperServer<B> {
                 ))
             }
             HelperOp::StopElevatedCore { handle } => {
+                if !lease.cores.contains(handle) {
+                    return Err(HelperError::Unauthorized {
+                        detail: "core handle is not owned by this session".to_string(),
+                    });
+                }
                 self.backend.stop_elevated_core(*handle)?;
                 lease.mark_core_released(*handle);
                 lease
@@ -880,6 +907,7 @@ mod tests {
         let server = Arc::new(HelperServer::new(
             backend,
             HelperServerConfig {
+                session_token: "tok".into(),
                 lease_policy: LeasePolicy::CleanOwned,
                 request_timeout: Duration::from_millis(50),
                 idle_timeout: Duration::from_secs(60),
@@ -911,6 +939,7 @@ mod tests {
         let server = HelperServer::new(
             backend.clone(),
             HelperServerConfig {
+                session_token: "tok".into(),
                 lease_policy: LeasePolicy::CleanOwned,
                 ..HelperServerConfig::default()
             },
@@ -954,6 +983,7 @@ mod tests {
         let server = HelperServer::new(
             backend,
             HelperServerConfig {
+                session_token: "tok".into(),
                 lease_policy: LeasePolicy::CleanOwned,
                 ..HelperServerConfig::default()
             },
@@ -968,5 +998,52 @@ mod tests {
         let records = server.audit().records();
         let last = records.last().expect("lease_cleanup audit record");
         assert_eq!(last.outcome, AuditOutcome::Ok);
+    }
+
+    #[test]
+    fn requests_require_the_configured_token_and_session_owned_routes() {
+        let backend = Arc::new(FakeBackend::new());
+        let server = HelperServer::new(
+            backend.clone(),
+            HelperServerConfig {
+                session_token: "tok".into(),
+                ..HelperServerConfig::default()
+            },
+        );
+
+        let mut bad_token = add_route_request();
+        bad_token.session.session_token = "wrong".into();
+        let response = server.handle(&mut ConnectionLease::new("bad"), &bad_token);
+        assert!(matches!(
+            response.result,
+            HelperResult::Error {
+                error: HelperError::Unauthorized { .. }
+            }
+        ));
+        assert_eq!(backend.attempt_count(FakeOp::AddRoutes), 0);
+
+        let mut owner = ConnectionLease::new("owner");
+        assert!(matches!(
+            server.handle(&mut owner, &add_route_request()).result,
+            HelperResult::RoutesAdded { .. }
+        ));
+        let mut other = ConnectionLease::new("other");
+        let response = server.handle(
+            &mut other,
+            &HelperRequest {
+                session: valid_session(),
+                request_id: "r2".into(),
+                operation: HelperOp::RemoveRoutes {
+                    entries: vec![valid_entry()],
+                },
+            },
+        );
+        assert!(matches!(
+            response.result,
+            HelperResult::Error {
+                error: HelperError::Unauthorized { .. }
+            }
+        ));
+        assert_eq!(backend.attempt_count(FakeOp::RemoveRoutes), 0);
     }
 }

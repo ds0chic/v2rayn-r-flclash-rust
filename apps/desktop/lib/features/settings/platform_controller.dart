@@ -217,9 +217,10 @@ class PlatformController extends Notifier<PlatformView> {
   }
 
   /// Stop the PAC server (idempotent).
-  void stopPac() {
-    _bridge.pacStop();
+  bool stopPac() {
+    final stopped = _bridge.pacStop();
     _applyPac(_bridge.pacState());
+    return stopped;
   }
 
   void _applyPac(PacHandleView handle) {

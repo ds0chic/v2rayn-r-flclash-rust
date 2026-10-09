@@ -335,10 +335,7 @@ pub fn generate_pre_socks_config(
     core: CoreType,
     dial_address: &str,
     dial_port: u16,
-    opts: &CodegenOptions,
-    settings: &domain::AppSettings,
-    routing: Option<CodegenRouting>,
-    dns: Option<CodegenDns>,
+    mut input: CodegenInput,
 ) -> Result<GeneratedConfigs, CodegenError> {
     let profile = CodegenProfile {
         index_id: "pre-socks".to_string(),
@@ -346,12 +343,6 @@ pub fn generate_pre_socks_config(
         remarks: "pre-socks".to_string(),
         address: dial_address.to_string(),
         port: dial_port as i32,
-        ..Default::default()
-    };
-    let mut input = CodegenInput {
-        settings: settings_from_app(settings, opts),
-        routing,
-        dns,
         ..Default::default()
     };
     input

@@ -64,7 +64,9 @@ pub use signature::{
     PrefixHashVerifier, SignatureVerifier, UnsupportedSignatureVerifier, V2RAYN_PUBLIC_KEY_ASC,
 };
 pub use tls::HttpsTrust;
-pub use unpack::{safe_join, safe_unpack_targz, safe_unpack_zip, UnpackLimits, Unpacked};
+pub use unpack::{
+    safe_join, safe_unpack_gzip, safe_unpack_targz, safe_unpack_zip, UnpackLimits, Unpacked,
+};
 
 /// Re-exported for callers and tests that drive cancellable downloads.
 pub use domain::CancellationToken;

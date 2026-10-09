@@ -92,7 +92,7 @@ Future<ShutdownReport> runBoundedShutdown(
 abstract class DesktopLifecycle {
   Future<void> hideToTray();
   Future<void> exitApp();
-  Future<void> exitForUpdate();
+  Future<bool> exitForUpdate();
   void removeListener();
 }
 
@@ -479,7 +479,7 @@ class DesktopIntegration with WindowListener implements DesktopLifecycle {
       // never a real exit (only the tray/菜单 exit path stops/restores).
       await windowManager.hide();
     } else {
-      await windowManager.destroy();
+      await exitApp();
     }
   }
 
@@ -503,20 +503,41 @@ class DesktopIntegration with WindowListener implements DesktopLifecycle {
     return runBoundedShutdown(
       <MapEntry<String, ShutdownStep>>[
         MapEntry('stop_runtime', () async {
-          await ref.read(runtimeControllerProvider.notifier).stop();
+          if (!await ref.read(runtimeControllerProvider.notifier).stop()) {
+            throw StateError('runtime stop failed');
+          }
         }),
         MapEntry('flush_stats', () async {
           await flush();
         }),
+        MapEntry('stop_pac', () async {
+          if (!_platform.stopPac()) throw StateError('PAC stop failed');
+        }),
         MapEntry('restore_platform', () async {
-          _platform.stopPac();
-          _platform.restoreOnExit(mode);
+          final result = _platform.restoreOnExit(mode);
+          if (!result.ok) {
+            throw StateError(
+              'system proxy restore failed: ${result.error?.code ?? 'unknown'}',
+            );
+          }
+          if (!result.clean) {
+            debugPrint('[desktop] system proxy restore preserved user changes');
+          }
         }),
         MapEntry('stop_scheduler', () async {
-          ref.read(bridgePortProvider).stopSubScheduler();
+          final result = ref.read(bridgePortProvider).stopSubScheduler();
+          if (!result.ok) {
+            throw StateError(
+              'subscription scheduler stop failed: ${result.error?.code ?? 'unknown'}',
+            );
+          }
         }),
         MapEntry('unregister_hotkeys', () async {
-          await ref.read(hotkeyControllerProvider.notifier).unregisterAll();
+          if (!await ref
+              .read(hotkeyControllerProvider.notifier)
+              .unregisterAll()) {
+            throw StateError('global hotkey unregister failed');
+          }
         }),
       ],
       stepTimeout: shutdownStepTimeout,
@@ -534,23 +555,29 @@ class DesktopIntegration with WindowListener implements DesktopLifecycle {
     if (!report.ok) {
       debugPrint('[desktop] exit cleanup incomplete: ${report.failures}');
       _platform.setMessage('退出清理未完成: ${report.failures.keys.join(', ')}');
+      _exiting = false;
+      await windowManager.show();
+      return;
     }
     await windowManager.destroy();
   }
 
   /// Self-update hand-off (R4-05): run the same bounded shutdown so the core is
-  /// stopped and statistics are flushed before the runner replaces files, then
-  /// exit the process the runner waits on. A cleanup failure is logged and the
-  /// exit still proceeds (the runner's result is the user-visible signal).
+  /// stopped and statistics are flushed before the runner replaces files. A
+  /// cleanup failure keeps the app open and blocks the hand-off.
   @override
-  Future<void> exitForUpdate() async {
-    if (_updateExiting) return;
+  Future<bool> exitForUpdate() async {
+    if (_updateExiting) return true;
     _updateExiting = true;
     final report = await runShutdown();
     if (!report.ok) {
       debugPrint(
         '[desktop] update handoff cleanup incomplete: ${report.failures}',
       );
+      _platform.setMessage('更新交接清理未完成: ${report.failures.keys.join(', ')}');
+      _updateExiting = false;
+      await windowManager.show();
+      return false;
     }
     exit(0);
   }

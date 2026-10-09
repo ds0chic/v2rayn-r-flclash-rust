@@ -26,7 +26,8 @@ reqwest = { version = "0.12", default-features = false, features = [
     "stream",
     "http2",
 ] }
-tokio = { version = "1.53", features = ["rt", "time", "sync"] }
+tokio = { version = "1.53", features = ["rt", "time", "sync", "fs", "io-util"] }
+tokio-util = { version = "0.7", features = ["io"] }
 # HTTPS speedtest probe (UX-TEST-02). `ring` is the provider already selected by
 # reqwest's rustls stack, so this adds no new crypto backend. Root trust is the
 # OS store by default; tests inject a synthetic CA through `TlsTrust`.

@@ -284,6 +284,37 @@ pub fn safe_unpack_targz(
     Ok(summary)
 }
 
+/// Extract a single gzip-compressed executable under `dest`.
+pub fn safe_unpack_gzip(
+    archive_path: &Path,
+    dest: &Path,
+    file_name: &str,
+    limits: UnpackLimits,
+) -> Result<Unpacked, UpdateError> {
+    if limits.max_entries == 0 {
+        return Err(UpdateError::UnsafeArchive("too many entries".into()));
+    }
+    std::fs::create_dir_all(dest).map_err(|e| UpdateError::Io(e.to_string()))?;
+    let output = safe_join(dest, file_name)?;
+    let file = std::fs::File::open(archive_path).map_err(|e| UpdateError::Io(e.to_string()))?;
+    let decoder = flate2::read::GzDecoder::new(file);
+    let mut limited = decoder.take(limits.max_entry_bytes.saturating_add(1));
+    let mut writer = std::fs::File::create(&output).map_err(|e| UpdateError::Io(e.to_string()))?;
+    let bytes =
+        std::io::copy(&mut limited, &mut writer).map_err(|e| UpdateError::Io(e.to_string()))?;
+    if bytes > limits.max_entry_bytes || bytes > limits.max_total_bytes {
+        let _ = std::fs::remove_file(&output);
+        return Err(UpdateError::UnsafeArchive(format!(
+            "gzip entry {file_name} exceeds extraction limit"
+        )));
+    }
+    Ok(Unpacked {
+        entries: 1,
+        bytes,
+        files: vec![output],
+    })
+}
+
 fn read_exact_or_eof<R: Read>(reader: &mut R, buf: &mut [u8]) -> std::io::Result<bool> {
     let mut filled = 0;
     while filled < buf.len() {
@@ -316,6 +347,29 @@ fn pad_tar<R: Read>(reader: &mut R, size: u64) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn safe_unpack_gzip_writes_the_core_binary_within_the_limit() {
+        use std::io::Write;
+
+        let dir = tempfile::tempdir().unwrap();
+        let archive = dir.path().join("mihomo.gz");
+        let mut encoder = flate2::write::GzEncoder::new(
+            std::fs::File::create(&archive).unwrap(),
+            flate2::Compression::default(),
+        );
+        encoder.write_all(b"synthetic-core").unwrap();
+        encoder.finish().unwrap();
+
+        let dest = dir.path().join("unpacked");
+        let unpacked =
+            safe_unpack_gzip(&archive, &dest, "mihomo", UnpackLimits::default()).unwrap();
+        assert_eq!(unpacked.entries, 1);
+        assert_eq!(
+            std::fs::read(dest.join("mihomo")).unwrap(),
+            b"synthetic-core"
+        );
+    }
 
     #[test]
     fn safe_join_rejects_escaping_paths() {

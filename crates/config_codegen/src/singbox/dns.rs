@@ -395,18 +395,17 @@ fn gen_dns_rules(state: &mut SboxState<'_>) {
                     if let Some(map) = expected_rule.as_object_mut() {
                         map.insert("geosite".into(), json!(region_geosites));
                     }
-                    let expected_rule_list = build_multi_rules(
+                    let mut expected_rule_list = build_multi_rules(
                         &expected_rule,
                         item,
                         &direct_dns_list,
                         simple.parallel_query,
                     );
-                    for mut response in expected_rule_list
-                        .iter()
-                        .filter(|r| r.get("action").and_then(Value::as_str) == Some("respond"))
-                        .cloned()
-                    {
-                        if let Some(map) = response.as_object_mut() {
+                    for expected_rule in &mut expected_rule_list {
+                        if expected_rule.get("action").and_then(Value::as_str) != Some("respond") {
+                            continue;
+                        }
+                        if let Some(map) = expected_rule.as_object_mut() {
                             if !expected_regions.is_empty() {
                                 map.insert("geoip".into(), json!(expected_regions));
                             }
@@ -414,14 +413,29 @@ fn gen_dns_rules(state: &mut SboxState<'_>) {
                                 map.insert("ip_cidr".into(), json!(expected_ip_cidr));
                             }
                         }
-                        rules.push(response);
                     }
+                    let speculative_fallback = expected_rule_list
+                        .last()
+                        .and_then(|rule| rule.get("race"))
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    rules.extend(expected_rule_list);
                     let fallback = build_multi_rules(
                         &expected_rule,
                         item,
                         &remote_dns_list,
                         simple.parallel_query,
                     );
+                    let mut fallback = fallback;
+                    if speculative_fallback {
+                        for evaluate in fallback.iter_mut().filter(|rule| {
+                            rule.get("action").and_then(Value::as_str) == Some("evaluate")
+                        }) {
+                            if let Some(map) = evaluate.as_object_mut() {
+                                map.insert("speculative".into(), json!(true));
+                            }
+                        }
+                    }
                     rules.extend(fallback);
                 }
                 let has_remaining = rule

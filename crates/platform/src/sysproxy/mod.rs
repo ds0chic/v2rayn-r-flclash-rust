@@ -274,10 +274,18 @@ pub trait SystemProxyBackend {
             }
         }
 
+        let mut written = Vec::new();
         for change in &changes {
-            self.set_field(change.field, change.after.as_deref())?;
+            if let Err(error) = self.set_field(change.field, change.after.as_deref()) {
+                rollback_partial_apply(self, &written, &error)?;
+                return Err(error);
+            }
+            written.push(change.clone());
         }
-        self.notify_changed()?;
+        if let Err(error) = self.notify_changed() {
+            rollback_partial_apply(self, &written, &error)?;
+            return Err(error);
+        }
         Ok(changes)
     }
 
@@ -309,6 +317,24 @@ pub trait SystemProxyBackend {
         }
         Ok(report)
     }
+}
+
+fn rollback_partial_apply<B: SystemProxyBackend + ?Sized>(
+    backend: &B,
+    written: &[AppliedChange],
+    original: &crate::error::PlatformError,
+) -> Result<()> {
+    for change in written.iter().rev() {
+        if let Err(error) = backend.set_field(change.field, change.before.as_deref()) {
+            return Err(crate::error::PlatformError::Backend(format!(
+                "system proxy apply failed ({original}); rollback failed ({error})"
+            )));
+        }
+    }
+    if !written.is_empty() {
+        backend.notify_changed()?;
+    }
+    Ok(())
 }
 
 /// Canonical applied-content hash (SP-12/SP-15 platform dedupe).
@@ -467,5 +493,33 @@ mod tests {
         let report = restore_if_owned(&applied, &current);
         assert!(report.restored.is_empty());
         assert!(report.is_clean());
+    }
+
+    #[test]
+    fn failed_apply_restores_fields_written_before_the_failure() {
+        let initial = ProxyState::default();
+        let backend = FakeSystemProxyBackend::new(initial.clone());
+        backend.fail_on_field(ProxyField::Server);
+
+        let error = backend
+            .apply(
+                SysProxyMode::ForcedChange,
+                &ProxySettings {
+                    server: Some("127.0.0.1:11809".into()),
+                    ..ProxySettings::default()
+                },
+            )
+            .unwrap_err();
+
+        assert!(error.to_string().contains("injected proxy write failure"));
+        assert_eq!(backend.state(), initial);
+        assert_eq!(
+            backend.writes(),
+            vec![
+                (ProxyField::Enabled, Some("1".into())),
+                (ProxyField::Server, Some("127.0.0.1:11809".into())),
+                (ProxyField::Enabled, Some("0".into())),
+            ]
+        );
     }
 }

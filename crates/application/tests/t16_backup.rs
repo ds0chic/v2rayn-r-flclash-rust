@@ -69,6 +69,10 @@ fn fixture_dir() -> PathBuf {
 fn local_backup_roundtrip_and_restore_is_clean() {
     let src = tempfile::tempdir().expect("src");
     seed_data_dir(src.path(), "source");
+    std::fs::create_dir_all(src.path().join("cores/xray/26.3.27")).expect("core dir");
+    std::fs::write(src.path().join("cores/xray/26.3.27/xray.exe"), b"core").expect("core binary");
+    std::fs::create_dir_all(src.path().join("guiLogs")).expect("logs dir");
+    std::fs::write(src.path().join("guiLogs/app.log"), b"log").expect("log file");
     let service = BackupService::new(src.path());
     let parent = tempfile::tempdir().expect("bundle parent");
     let bundle_root = parent.path().join("bundle");

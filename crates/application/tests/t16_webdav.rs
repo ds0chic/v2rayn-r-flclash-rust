@@ -160,11 +160,22 @@ fn check_list_upload_download_roundtrip() {
         assert!(entries.iter().any(|e| e.href.ends_with("backup.zip")));
         assert!(entries.iter().any(|e| e.href.ends_with('/')));
 
-        let payload = b"bundle-bytes".to_vec();
-        let uploaded = client.upload(payload.clone()).await.expect("upload");
+        let payload = b"bundle-bytes";
+        let work = tempfile::tempdir().expect("work");
+        let source = work.path().join("upload.zip");
+        std::fs::write(&source, payload).expect("stage upload");
+        let uploaded = client
+            .upload_file(&source, payload.len() as u64)
+            .await
+            .expect("upload");
         assert_eq!(uploaded, payload.len() as u64);
-        let downloaded = client.download().await.expect("download");
-        assert_eq!(downloaded, payload);
+        let destination = work.path().join("download.zip");
+        let downloaded = client
+            .download_to_file(&destination)
+            .await
+            .expect("download");
+        assert_eq!(downloaded, payload.len() as u64);
+        assert_eq!(std::fs::read(destination).expect("read download"), payload);
     });
 }
 

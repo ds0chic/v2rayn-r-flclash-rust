@@ -9,11 +9,11 @@
 //! last batch stream. Batches are pushed through an FRB [`StreamSink`]; the
 //! worker thread is joined-by-token (cancel is cooperative at safe points).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use application::codegen::{build_input, generate, CodegenOptions};
+use application::codegen::generate;
 use application::net_host_client::NetHostClient;
 use application::speedtest::{
     http_get_via_socks, release_test_port, reserve_free_test_port, DownloadOutcome, ProbeError,
@@ -224,21 +224,16 @@ impl NetHostTestSession {
         let profile = engine()
             .profile_by_id(&node.index_id)?
             .ok_or_else(|| DomainError::not_found("profile", &node.index_id))?;
-        let core = profile.core_type.unwrap_or_else(default_core);
-        let opts = CodegenOptions {
-            local_port: port as i32,
-            state_port: port.saturating_add(1) as i32,
-            state_port2: port.saturating_add(2) as i32,
-            ..CodegenOptions::default()
-        };
-        let input = build_input(
-            &profile,
-            std::slice::from_ref(&profile),
-            None,
-            BTreeMap::new(),
-            None,
-            &opts,
-        );
+        let app = engine();
+        let core = app.resolve_target_core(&profile)?;
+        let mut opts = app.runtime_codegen_options();
+        opts.local_port = port as i32;
+        opts.state_port = port.saturating_add(1) as i32;
+        opts.state_port2 = port.saturating_add(2) as i32;
+        let mut input = app.build_codegen_input(&profile.index_id, core, &opts)?;
+        // A speed-test core is isolated behind a temporary local proxy and
+        // never owns the user's TUN interface.
+        input.settings.tun.enabled = false;
         let generated = generate(core, &input).map_err(|e| {
             DomainError::new(domain::codes::INVALID_PLAN, "error.codegen_failed")
                 .with_detail(e.to_string())
@@ -355,6 +350,21 @@ fn ensure_profile_ex_loaded(h: &mut SpeedTestHub) {
             h.results.replace_all(rows);
         }
     }
+}
+
+pub(crate) fn reload_profile_ex_after_restore() {
+    with_hub(|h| {
+        let jobs = h.jobs.cancel_all();
+        let barrier = jobs.iter().map(|job| job.generation).max().unwrap_or(0) + 1;
+        for job in jobs {
+            for node in job.snapshot.nodes.iter() {
+                h.result_generation.insert(node.index_id.clone(), barrier);
+            }
+        }
+        h.results = ProfileExStore::new();
+        h.loaded = false;
+        ensure_profile_ex_loaded(h);
+    });
 }
 
 /// Persist the hub's `ProfileExItem` table through the engine (SQLite).

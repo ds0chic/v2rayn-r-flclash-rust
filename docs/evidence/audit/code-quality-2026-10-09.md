@@ -148,6 +148,7 @@
 | `cargo test --workspace --exclude net_host --locked --no-fail-fast` | 1706 通过 / 17 失败 / 1 忽略（见下） |
 | `dart format --output=none --set-exit-if-changed lib test` | 通过（450 文件，0 改动） |
 | `flutter analyze` | 无问题 |
+| `flutter test`（除 `scan_image_qr_test`、`scan_screen_qr_test`） | 1219 通过 / 10 跳过 / 14 失败 |
 
 - Rust 失败 17 项 = 第一轮同一组 16 项环境失败（缺 `tools/cores/**.exe`、Linux 重启桩）
   + `bridge_api::api::subs::tests::sp14_preview_custom_leaves_no_files`：与提交类测试共用
@@ -155,3 +156,24 @@
 - 新增 Rust 测试均通过：`rules_without_rule_type_apply_to_routing_and_dns`、
   `restoring_the_same_source_again_replaces_local_changes`、
   `refresh_renders_the_updated_proxy_rule`、`scheduler_pass_reports_unavailable_endpoint_not_fake_success`。
+- Flutter 失败 14 项与改动前基线（1212 通过 / 10 跳过 / 14 失败）逐条一致，均非本轮引入：
+  - 环境：`t21e_import_forms` ×5（测试未加载 Rust 原生库）、`fix03b_custom_browse` ×2、
+    `r3_root_03_actions` ×2（Windows 路径/`cmd`）。
+  - 测试过时：`r4_11`（未注入假平台桥，开机自启写入失败致窗口不关）、`r4_23`/`r4_31`
+    （日志合并刷新后未等待合并窗口）、`t18b`（错误码不再以文本显示）、`t11`（状态栏不再显示
+    “路由模式:” 字样）。
+- `scan_image_qr_test`、`scan_screen_qr_test`（9 项）在基线即卡死：测试未确认 SP-14 预览框；
+  本轮排除未运行。
+
+## 7. 未运行 / 未验证
+- `flutter build windows`、`net_host` 测试：未运行。Windows 平台行为：未验证。
+
+## 8. 已确认未修（按用户要求停止修复）
+- 路由设置 DomainStrategy 下拉为 `DomainStrategy4Freedoms` 列表（`routing_windows.dart:18`），
+  应为 `AsIs / IPIfNonMatch / IPOnDemand`（FLD-CFG-114）。
+- 备份恢复：失败时 `resyncAfterRestore` 会启动原本停止的内核；导入被拒绝时详情显示
+  `unknown`（应显示 `message`）；恢复后 WebDAV 输入框与更新窗口未刷新；压缩包恢复/导入
+  抛异常时未做失败后的状态恢复。
+- 节点编辑器：生成 UUID / 获取证书后输入框不刷新；VLESS UUID 校验比后端严格。
+- 日志面板 `_reloadLogs` 未清空待刷新缓冲，重载后出现重复行。
+- 上述过时测试与卡死的扫码测试。

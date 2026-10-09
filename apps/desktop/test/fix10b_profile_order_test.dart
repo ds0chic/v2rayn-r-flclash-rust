@@ -133,16 +133,14 @@ void main() {
       reason: 'whole group order includes rows hidden by the filter',
     );
 
-    // Empty visible set: sorting by result never throws and writes no new order.
+    // Empty visible set: sorting by result never throws and, like the header
+    // sort (`SortServers` over `ProfileModels(subId, "")`), still orders the
+    // whole group.
     bridge.appliedProfileOrders.clear();
     controller.setFilter('___no_such_node___');
     controller.submitFilter();
     expect(container.read(profilesControllerProvider).visible, isEmpty);
     controller.sortByResult();
-    expect(
-      bridge.appliedProfileOrders,
-      isEmpty,
-      reason: 'empty list writes nothing and does not throw',
-    );
+    expect(bridge.appliedProfileOrders.single.length, all.length);
   });
 }

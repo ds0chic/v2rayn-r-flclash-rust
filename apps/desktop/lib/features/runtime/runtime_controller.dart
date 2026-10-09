@@ -606,7 +606,7 @@ class RuntimeController extends Notifier<RuntimeView> {
   /// Enqueue a stop barrier (SP-04). Stops are never merged: two rapid
   /// stops keep two barrier slots (stop is idempotent, so executing both is
   /// safe), and a stop is never overtaken by a later apply.
-  Future<void> stop() {
+  Future<bool> stop() {
     final command = _RuntimeCommand.stop(clock(), ++_intentSeq);
     final waiter = Completer<bool>();
     command.waiters.add(waiter);
@@ -617,7 +617,7 @@ class RuntimeController extends Notifier<RuntimeView> {
       reconcileNeeded: false,
     );
     unawaited(_pumpCommands());
-    return waiter.future.then((_) {});
+    return waiter.future;
   }
 
   void _enqueueStop(_RuntimeCommand command) {

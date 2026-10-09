@@ -5,7 +5,6 @@
 //! parser only reads magic bytes; it never maps or executes the file.
 
 use crate::error::UpdateError;
-use crate::semver::Semver;
 
 /// Operating system family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -286,11 +285,6 @@ fn is_macho_magic(magic: u32) -> bool {
 /// A convenience wrapper: does `bytes` match `target`?
 pub fn binary_matches(bytes: &[u8], target: HostTarget) -> Result<bool, UpdateError> {
     Ok(parse_binary_arch(bytes)?.matches(target))
-}
-
-/// Version bound helper used by channel/capability rules.
-pub fn within_range(version: &Semver, max: &Semver) -> bool {
-    version <= max
 }
 
 #[cfg(test)]

@@ -20,8 +20,8 @@ use tokio::sync::{Mutex, Notify};
 
 use runtime::tun::{tun_spec_from_plan, TunSpec};
 use runtime::{
-    adapter_for, matches_identity, process_creation_time_ms, sha256_hex, CoreAdapter, CoreLocator,
-    JobGuard, ProcessIdentity, RuntimeDetail, RuntimeExitFact, RuntimeTunDetail, ServerFrame,
+    adapter_for, process_creation_time_ms, sha256_hex, CoreAdapter, CoreLocator, JobGuard,
+    ProcessIdentity, RuntimeDetail, RuntimeExitFact, RuntimeTunDetail, ServerFrame,
     NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
 };
 
@@ -909,6 +909,7 @@ impl HostState {
                 sidecar.terminate_and_wait(Duration::from_secs(5)).await;
             }
             drop(session.job);
+            let tun_cleanup = self.release_tun_lease().await;
             let _ = journal::write_entry(
                 &self.config.run_root,
                 &JournalEntry {
@@ -924,6 +925,12 @@ impl HostState {
                 },
             );
             journal::remove_staged_artifacts(&self.config.run_root, &exit.session_id);
+            if let Err(error) = tun_cleanup {
+                eprintln!(
+                    "[net_host] TUN cleanup failed after core exit for session {}: {:?}",
+                    exit.session_id, error.detail
+                );
+            }
             eprintln!(
                 "[net_host] session {} EXITED pid={} code={:?}; endpoint withdrawn",
                 exit.session_id, exit.pid, exit.code
@@ -3086,12 +3093,6 @@ fn tail_log(path: &std::path::Path, max_lines: usize) -> String {
     lines[start..].join(" | ")
 }
 
-/// Verify a recorded identity is still alive.
-#[allow(dead_code)]
-pub fn identity_alive(identity: &ProcessIdentity) -> bool {
-    matches_identity(identity)
-}
-
 /// Redacted TUN facts for [`RuntimeDetail`]: adapter label, interface index,
 /// route count and the dry-run flag only. Never addresses, next hops or tokens.
 fn tun_detail_from_lease(lease: &TunLease) -> RuntimeTunDetail {
@@ -4458,11 +4459,25 @@ mod tests {
             "polls until the interface appears"
         );
 
-        futures_block_on(state.stop_managed(None));
+        futures_block_on(async {
+            let mut inner = state.inner.lock().await;
+            let session = inner.session.as_mut().expect("core session runs");
+            let _ = session.child.start_kill();
+            let _ = tokio::time::timeout(Duration::from_secs(10), session.child.wait()).await;
+        });
+        let snapshot = futures_block_on(state.ipc_snapshot());
+        assert_eq!(snapshot.state, RuntimeState::Stopped);
         let inner = futures_block_on(state.inner.lock());
-        assert!(inner.tun_lease.is_none(), "lease released on stop");
-        assert!(inner.detail.tun.is_none());
+        assert!(inner.tun_lease.is_none(), "lease released after core exit");
+        assert!(
+            inner.detail.tun.is_none(),
+            "TUN detail withdrawn after exit"
+        );
         drop(inner);
+        assert!(
+            crate::tun_lease::read_tun_journal(&state.config.run_root, "r304").is_none(),
+            "confirmed TUN cleanup removes its durable lease"
+        );
         clear_discovery_env();
         let _ = std::fs::remove_dir_all(&state.config.run_root);
     }

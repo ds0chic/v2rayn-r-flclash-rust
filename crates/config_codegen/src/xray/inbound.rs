@@ -114,11 +114,18 @@ fn build_tun_inbound(input: &CodegenInput) -> Value {
         "enabled".into(),
         json!(input.settings.inbound.sniffing_enabled),
     );
-    if !input.settings.inbound.dest_override.is_empty() {
-        sniffing.insert(
-            "destOverride".into(),
-            json!(input.settings.inbound.dest_override),
-        );
+    let mut dest_override = input.settings.inbound.dest_override.clone();
+    if input
+        .dns
+        .as_ref()
+        .map(|dns| dns.simple.fake_ip)
+        .unwrap_or(false)
+        && !dest_override.iter().any(|value| value == "fakedns")
+    {
+        dest_override.push("fakedns".into());
+    }
+    if !dest_override.is_empty() {
+        sniffing.insert("destOverride".into(), json!(dest_override));
     }
     sniffing.insert("routeOnly".into(), json!(true));
 

@@ -17,6 +17,27 @@ import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
+/// Upstream `StatusBarViewModel.InboundDisplayStatus`: the local mixed port
+/// (plus socks2 = port+1 when enabled) and the LAN port (`none`, the shared
+/// port, or socks3 = port+2 with `NewPort4LAN`), all from the first inbound.
+({String local, String lan}) inboundDisplay(Map<String, dynamic> document) {
+  final list = document['Inbound'];
+  final first = list is List && list.isNotEmpty && list.first is Map
+      ? list.first as Map
+      : null;
+  final port = (first?['LocalPort'] as num?)?.toInt();
+  if (first == null || port == null || port <= 0) {
+    return (local: '--', lan: '--');
+  }
+  final local = first['SecondLocalPortEnabled'] == true
+      ? '[mixed:$port,socks2:${port + 1}]'
+      : '[mixed:$port]';
+  final lan = first['AllowLANConn'] != true
+      ? 'none'
+      : '[mixed:${first['NewPort4LAN'] == true ? port + 2 : port}]';
+  return (local: local, lan: lan);
+}
+
 /// Bottom status bar (compat/layouts.yaml LAY-STATUSBAR-001).
 ///
 /// Partitioned like the upstream `StatusBarView.xaml`: left two-line 本地/局域网
@@ -36,6 +57,7 @@ class StatusBarView extends ConsumerWidget {
     final runtime = ref.watch(runtimeControllerProvider);
     final settings = ref.watch(settingsControllerProvider);
     final desiredTun = _desiredTun(settings.document);
+    final inbound = inboundDisplay(settings.document);
     final routing = ref.watch(routingControllerProvider);
     final routingController = ref.read(routingControllerProvider.notifier);
     final platform = ref.watch(platformControllerProvider);
@@ -53,11 +75,11 @@ class StatusBarView extends ConsumerWidget {
       ),
       child: _twoLine(
         _statusText(
-          '${context.tr('statusLocal')}: ${shell.inbound ?? '--'}',
+          '${context.tr('statusLocal')}: ${inbound.local}',
           key: const ValueKey('status-inbound'),
         ),
         _statusText(
-          '${context.tr('statusLan')}: ${shell.inboundLan ?? '--'}',
+          '${context.tr('statusLan')}: ${inbound.lan}',
           key: const ValueKey('status-inbound-lan'),
         ),
       ),

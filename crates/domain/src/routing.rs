@@ -17,16 +17,6 @@ use crate::reference::{ReferenceExpr, ReferenceSource};
 pub const OUTBOUND_TAGS: &[&str] = &["proxy", "direct", "block"];
 /// `Global.ProxyTag` fallback for dangling references.
 pub const PROXY_TAG: &str = "proxy";
-/// `Global.DomainStrategy` candidates (Xray).
-pub const DOMAIN_STRATEGIES: &[&str] = &[
-    "AsIs",
-    "UseIP",
-    "UseIPv4v6",
-    "UseIPv6v4",
-    "UseIPv4",
-    "UseIPv6",
-    "",
-];
 /// `Global.DomainStrategies4Sbox` candidates (sing-box).
 pub const DOMAIN_STRATEGIES_SBOX: &[&str] =
     &["", "prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"];
@@ -215,28 +205,6 @@ pub fn move_rule(
         }
     }
     Ok(())
-}
-
-/// Parse imported rule JSON (file / clipboard / URL body). Each imported rule
-/// gets a fresh id (upstream `AddBatchRoutingRules` assigns new GUIDs).
-pub fn parse_imported_rules(text: &str) -> Result<Vec<RoutingRule>, DomainError> {
-    if text.trim().is_empty() {
-        return Err(DomainError::new(
-            codes::FIELD_FORMAT,
-            "error.routing_rules_empty",
-        ));
-    }
-    let mut rules: Vec<RoutingRule> = serde_json::from_str(text).map_err(|e| {
-        DomainError::new(codes::FIELD_FORMAT, "error.routing_rules_invalid")
-            .with_detail(e.to_string())
-    })?;
-    for rule in &mut rules {
-        rule.id = new_rule_id();
-    }
-    for rule in &rules {
-        validate_rule(rule)?;
-    }
-    Ok(rules)
 }
 
 /// Export rules to indented JSON (clipboard / file). Ids are cleared so a

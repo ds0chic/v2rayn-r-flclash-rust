@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -103,8 +104,18 @@ class SubsController extends Notifier<SubsState> {
   /// `subUpdateReport` getter replaces this carrier once FRB is regenerated.
   static const String reportStagePrefix = 'subs.report:';
 
+  /// How often the UI checks for background scheduler runs; matches the Rust
+  /// scheduler tick.
+  static const Duration schedulerWatchPeriod = Duration(seconds: 60);
+
+  /// Watches the Rust scheduler's `UpdateTime` stamps so a background update
+  /// refreshes the subscription list and the server table (upstream
+  /// `UpdateTaskHandler` -> `RefreshServers`).
+  Timer? _schedulerWatch;
+
   @override
   SubsState build() {
+    ref.onDispose(_stopSchedulerWatch);
     return SubsState(items: _load());
   }
 
@@ -345,17 +356,35 @@ class SubsController extends Notifier<SubsState> {
       ),
     );
     final bridge = ref.read(bridgePortProvider);
-    final started = await bridge.updateSubscriptions(subIds, viaProxy);
-    // Bind progress/cancel to the real job id immediately.
-    if (started.jobId != null) {
-      state = state.copyWith(lastJobId: started.jobId);
+    String? jobId;
+    c.SubUpdateResult result;
+    try {
+      final started = await bridge.updateSubscriptions(subIds, viaProxy);
+      jobId = started.jobId;
+      // Bind progress/cancel to the real job id immediately.
+      if (jobId != null) {
+        state = state.copyWith(lastJobId: jobId);
+      }
+      result = _isStarted(started)
+          ? await _awaitJob(bridge, started, subIds)
+          : started;
+    } catch (error) {
+      // A throwing bridge call must not latch the window busy.
+      result = c.SubUpdateResult(
+        ok: false,
+        success: 0,
+        cancelled: false,
+        entries: const <c.SubUpdateEntryDto>[],
+        error: c.ErrorDto(
+          code: 'E_UNAVAILABLE',
+          messageKey: '$error',
+          retryable: true,
+        ),
+      );
     }
-    final result = _isStarted(started)
-        ? await _awaitJob(bridge, started, subIds)
-        : started;
     state = state.copyWith(
       busy: false,
-      lastJobId: started.jobId ?? state.lastJobId,
+      lastJobId: jobId ?? state.lastJobId,
       lastUpdatedMs: DateTime.now().millisecondsSinceEpoch,
       status: SubStatus(
         kind: result.ok ? 'success' : (result.cancelled ? 'info' : 'error'),
@@ -364,6 +393,8 @@ class SubsController extends Notifier<SubsState> {
       ),
     );
     reload();
+    // The update replaced group nodes; the server table must follow.
+    ref.read(profilesControllerProvider.notifier).reload();
     return result;
   }
 
@@ -547,19 +578,26 @@ class SubsController extends Notifier<SubsState> {
   /// when already running so it does not overwrite startup status.
   void startScheduler({bool silent = false}) {
     final bridge = ref.read(bridgePortProvider);
-    if (bridge.subSchedulerRunning()) return;
-    final result = bridge.startSubScheduler();
-    if (result.ok && !silent) {
-      state = state.copyWith(
-        status: const SubStatus(kind: 'success', message: '定时更新已启动'),
-      );
+    if (!bridge.subSchedulerRunning()) {
+      final result = bridge.startSubScheduler();
+      if (!result.ok) return;
+      if (!silent) {
+        state = state.copyWith(
+          status: const SubStatus(kind: 'success', message: '定时更新已启动'),
+        );
+      }
     }
+    _schedulerWatch ??= Timer.periodic(
+      schedulerWatchPeriod,
+      (_) => _syncScheduledUpdates(),
+    );
   }
 
   /// FIX-09D shutdown hook: stop the updater so no timer survives exit.
   ///
   /// Idempotent; a no-op when the scheduler is not running.
   void stopScheduler({bool silent = false}) {
+    _stopSchedulerWatch();
     final bridge = ref.read(bridgePortProvider);
     if (!bridge.subSchedulerRunning()) return;
     bridge.stopSubScheduler();
@@ -570,14 +608,39 @@ class SubsController extends Notifier<SubsState> {
     }
   }
 
+  void _stopSchedulerWatch() {
+    _schedulerWatch?.cancel();
+    _schedulerWatch = null;
+  }
+
+  static String _updateStamps(List<c.SubItemDto> items) =>
+      items.map((s) => '${s.id}:${s.updateTime}').join(',');
+
+  /// Reload after a background scheduler run stamped any `UpdateTime`; a
+  /// manual update in flight reloads on its own.
+  void _syncScheduledUpdates() {
+    if (state.busy) return;
+    final List<c.SubItemDto> fresh;
+    try {
+      fresh = _load();
+    } on Object {
+      return;
+    }
+    if (_updateStamps(fresh) == _updateStamps(state.items)) return;
+    state = state.copyWith(items: fresh);
+    _pruneSelection();
+    ref.read(profilesControllerProvider.notifier).reload();
+  }
+
   String _summarize(c.SubUpdateResult result) {
     if (result.cancelled) return '更新已取消';
     if (result.entries.isEmpty) {
       return result.error == null ? '没有可更新的订阅' : '更新未成功，旧节点已保留';
     }
     final updated = result.entries.where((e) => e.status == 'updated').length;
+    // `preserved_error` is a failure (counted below), not also a preserve.
     final preserved = result.entries
-        .where((e) => e.status.startsWith('preserved'))
+        .where((e) => e.status == 'preserved_empty')
         .length;
     final skipped = result.entries.where((e) => e.status == 'skipped').length;
     final failed = result.entries

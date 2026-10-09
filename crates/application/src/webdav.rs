@@ -5,6 +5,7 @@
 //! when no directory is configured. Credentials are sent with HTTP Basic auth
 //! and are **never** written to logs or error detail.
 
+use std::path::Path;
 use std::time::Duration;
 
 use domain::{codes, DomainError};
@@ -120,10 +121,6 @@ impl WebDavClient {
                 "url must be http(s)",
             ));
         }
-        let shared_trust = match trust {
-            HttpsTrust::System => platform::http::HttpsTrust::System,
-            HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
-        };
         let policy = platform::http::HttpPolicy {
             timeout,
             connect_timeout: Duration::from_secs(10),
@@ -132,7 +129,7 @@ impl WebDavClient {
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .map(str::to_string),
-            trust: shared_trust,
+            trust: trust.clone(),
             redirect: platform::http::RedirectPolicy::Limited(10),
         };
         let http = platform::http::SharedHttpClient::shared(policy)
@@ -264,6 +261,25 @@ impl WebDavClient {
         Ok(length)
     }
 
+    /// Stream a ZIP file to `dir/backup.zip` without holding it in memory.
+    pub async fn upload_file(&self, path: &Path, length: u64) -> Result<u64, DomainError> {
+        let file = tokio::fs::File::open(path).await.map_err(|error| {
+            webdav_error(codes::INTERNAL, "error.webdav_write", error.to_string())
+        })?;
+        let body = reqwest::Body::wrap_stream(tokio_util::io::ReaderStream::new(file));
+        let response = self
+            .request(reqwest::Method::PUT, &self.config.backup_url())
+            .header(reqwest::header::CONTENT_LENGTH, length)
+            .body(body)
+            .send()
+            .await
+            .map_err(|e| self.network_error(e))?;
+        if !response.status().is_success() {
+            return Err(self.status_error(response.status()));
+        }
+        Ok(length)
+    }
+
     /// Download `dir/backup.zip`.
     pub async fn download(&self) -> Result<Vec<u8>, DomainError> {
         let response = self
@@ -276,6 +292,34 @@ impl WebDavClient {
         }
         let bytes = response.bytes().await.map_err(|e| self.network_error(e))?;
         Ok(bytes.to_vec())
+    }
+
+    /// Stream `dir/backup.zip` to disk without holding it in memory.
+    pub async fn download_to_file(&self, path: &Path) -> Result<u64, DomainError> {
+        use tokio::io::AsyncWriteExt;
+
+        let mut response = self
+            .request(reqwest::Method::GET, &self.config.backup_url())
+            .send()
+            .await
+            .map_err(|e| self.network_error(e))?;
+        if !response.status().is_success() {
+            return Err(self.status_error(response.status()));
+        }
+        let mut file = tokio::fs::File::create(path).await.map_err(|error| {
+            webdav_error(codes::INTERNAL, "error.webdav_write", error.to_string())
+        })?;
+        let mut length = 0_u64;
+        while let Some(chunk) = response.chunk().await.map_err(|e| self.network_error(e))? {
+            file.write_all(&chunk).await.map_err(|error| {
+                webdav_error(codes::INTERNAL, "error.webdav_write", error.to_string())
+            })?;
+            length += chunk.len() as u64;
+        }
+        file.flush().await.map_err(|error| {
+            webdav_error(codes::INTERNAL, "error.webdav_write", error.to_string())
+        })?;
+        Ok(length)
     }
 }
 

@@ -6,7 +6,7 @@
 //! - [`graph`] — deterministic start/stop/rollback order for `ProcessGraph`;
 //! - [`identity`] — `(pid, creation_time)` process identity;
 //! - [`job`] — Windows Job Object ownership (`KILL_ON_JOB_CLOSE`);
-//! - [`sha256`] — config hashing without extra crates;
+//! - [`sha256`] — config hashing;
 //! - [`wire`] — shared length-prefixed IPC frame helpers.
 //!
 //! It contains no business/domain policy and never touches the UI.
@@ -40,7 +40,7 @@ pub use identity::{
 };
 pub use install_layout::{version_key, CoreInstallLayout};
 pub use job::JobGuard;
-pub use sha256::{sha256, sha256_hex};
+pub use sha256::sha256_hex;
 pub use tun::{
     dry_run_from_env, dry_run_requested, route_digest, route_summary, tun_spec_from_plan, TunRoute,
     TunSpec, TUN_CLI_DRY_RUN, TUN_CONFIG_KIND, TUN_ENV_DRY_RUN, TUN_PROCESS_ID,

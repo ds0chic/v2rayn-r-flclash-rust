@@ -386,6 +386,18 @@ impl CoreAdapter for XrayAdapter {
     fn version_args(&self) -> Vec<OsString> {
         vec!["version".into()]
     }
+
+    fn env_vars(&self, _config: &Path) -> Vec<(String, String)> {
+        std::env::var_os("V2RAYN_R_ASSET_DIR")
+            .map(|dir| dir.to_string_lossy().into_owned())
+            .map(|dir| {
+                vec![
+                    ("XRAY_LOCATION_ASSET".into(), dir.clone()),
+                    ("XRAY_LOCATION_CERT".into(), dir),
+                ]
+            })
+            .unwrap_or_default()
+    }
 }
 
 /// sing-box adapter.

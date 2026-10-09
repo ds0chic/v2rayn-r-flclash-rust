@@ -281,7 +281,7 @@ Future<void> _offerAddSubscription(
     return;
   }
   final subs = ref.read(subsControllerProvider.notifier);
-  var added = 0;
+  final addedIds = <String>[];
   for (final url in urls) {
     final saved = subs.save(
       c.SubItemDto(
@@ -296,15 +296,16 @@ Future<void> _offerAddSubscription(
         updateTime: 0,
       ),
     );
-    if (saved.ok) added++;
+    final id = saved.item?.id;
+    if (saved.ok && id != null && id.isNotEmpty) addedIds.add(id);
   }
-  if (added == 0) {
+  if (addedIds.isEmpty) {
     _toast(ref, '订阅添加失败：未能保存任何订阅');
     return;
   }
-  _toast(ref, '已添加 $added 个订阅，正在更新…');
-  final update = await subs.update();
-  ref.read(profilesControllerProvider.notifier).reload();
+  _toast(ref, '已添加 ${addedIds.length} 个订阅，正在更新…');
+  // Only the subscriptions just added, not every configured one.
+  final update = await subs.update(subIds: addedIds);
   if (update.ok) {
     final nodes = update.entries.fold<int>(
       0,
@@ -426,7 +427,6 @@ Future<void> updateAllSubscriptions(
   final subs = ref.read(subsControllerProvider.notifier);
   ref.read(subsControllerProvider.notifier).reload();
   final result = await subs.update(viaProxy: viaProxy);
-  ref.read(profilesControllerProvider.notifier).reload();
   _toast(ref, subsUpdateSummary(result, viaProxy: viaProxy));
   if (hasSubUpdateFailures(result) && context.mounted) {
     await _showSubUpdateDetails(context, result);
@@ -528,7 +528,6 @@ Future<void> updateCurrentGroup(
   final result = (groupSubId == null || groupSubId.isEmpty)
       ? await subs.update(viaProxy: viaProxy)
       : await subs.update(subIds: <String>[groupSubId], viaProxy: viaProxy);
-  ref.read(profilesControllerProvider.notifier).reload();
   _toast(
     ref,
     '${_currentGroupLabel(ref, groupSubId)}：'

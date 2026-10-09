@@ -760,7 +760,14 @@ Future<void> openFullConfigTemplateWindow(
   );
   if (saved == true) {
     controller.reload();
-    _toast(ref, '完整配置模板已保存');
+    if (ref.read(runtimeControllerProvider).isRunning) {
+      final applied = await ref
+          .read(runtimeControllerProvider.notifier)
+          .applyActive();
+      _toast(ref, applied ? '完整配置模板已保存并应用' : '模板已保存，但运行中的配置应用失败');
+    } else {
+      _toast(ref, '完整配置模板已保存');
+    }
   } else {
     _toast(ref, '已取消模板设置');
   }

@@ -21,7 +21,6 @@ tokio = { version = "1.53", features = [
 reqwest = { version = "0.12", default-features = false }
 tokio-tungstenite = "0.26"
 futures-util = "0.3"
-percent-encoding = "2.3"
 urlencoding = "2.1"
 bytes = "1"
 

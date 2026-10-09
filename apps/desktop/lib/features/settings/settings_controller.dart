@@ -160,10 +160,10 @@ class SettingsController extends Notifier<SettingsViewState> {
   @override
   SettingsViewState build() => const SettingsViewState();
 
-  /// Revision captured when a draft was created, keyed by draft identity. A
-  /// save must submit the revision the editor started from, not whatever the
+  /// Revision captured when a draft was created, attached to the draft object.
+  /// A save must submit the revision the editor started from, not whatever the
   /// controller has advanced to since (AUD-DESK-02).
-  final Map<int, int> _draftRevisions = <int, int>{};
+  final Expando<int> _draftRevisions = Expando<int>('draftRevision');
 
   /// Last autostart value confirmed written to the OS, or null while unknown.
   /// A persisted `AutoRun` value is not proof the Run key write succeeded, so a
@@ -240,14 +240,12 @@ class SettingsController extends Notifier<SettingsViewState> {
   /// remembers the revision it was taken from so [saveDocument] can submit it.
   Map<String, dynamic> draft() {
     final copy = _deepCopy(state.document);
-    _draftRevisions[identityHashCode(copy)] = state.revision;
+    _draftRevisions[copy] = state.revision;
     return copy;
   }
 
   int _revisionFor(Map<String, dynamic> draft, int? expectedRevision) =>
-      expectedRevision ??
-      _draftRevisions[identityHashCode(draft)] ??
-      state.revision;
+      expectedRevision ?? _draftRevisions[draft] ?? state.revision;
 
   /// Canonical content hash of a settings document (SP-12 retry guard).
   ///
@@ -259,12 +257,11 @@ class SettingsController extends Notifier<SettingsViewState> {
 
   static Object? _canonicalize(Object? value) {
     if (value is Map) {
-      final keys = value.keys.map((k) => k.toString()).toList()..sort();
+      final entries =
+          value.entries.map((e) => MapEntry(e.key.toString(), e.value)).toList()
+            ..sort((a, b) => a.key.compareTo(b.key));
       return <String, Object?>{
-        for (final k in keys)
-          k: _canonicalize(
-            value[value.keys.firstWhere((e) => e.toString() == k)],
-          ),
+        for (final e in entries) e.key: _canonicalize(e.value),
       };
     }
     if (value is List) return value.map(_canonicalize).toList();
@@ -305,7 +302,7 @@ class SettingsController extends Notifier<SettingsViewState> {
         loaded: true,
         revision: newRevision,
         document: _deepCopy(draft),
-        status: _statusFor(result),
+        status: _statusKeyFor(result),
         needsCoreRestart: result.restartCoreFields.isNotEmpty,
         needsAppRestart: result.restartAppFields.isNotEmpty,
         needsNextLaunch: result.nextLaunchFields.isNotEmpty,
@@ -315,7 +312,7 @@ class SettingsController extends Notifier<SettingsViewState> {
           contentHash: _lastSavedHash,
         ),
       );
-      _draftRevisions[identityHashCode(draft)] = newRevision;
+      _draftRevisions[draft] = newRevision;
       // A whole save advances every group counter in the engine; refresh the
       // authoritative revisions so the next group save is not stale
       // (AUD-ROOT-01).
@@ -379,7 +376,7 @@ class SettingsController extends Notifier<SettingsViewState> {
         revision: result.newRevision?.toInt() ?? state.revision,
         document: document,
         groupRevisions: revisions,
-        status: _statusFor(result),
+        status: _statusKeyFor(result),
         needsCoreRestart: result.restartCoreFields.isNotEmpty,
         needsAppRestart: result.restartAppFields.isNotEmpty,
         needsNextLaunch: result.nextLaunchFields.isNotEmpty,
@@ -406,7 +403,7 @@ class SettingsController extends Notifier<SettingsViewState> {
     Map<String, dynamic> draft, {
     int? expectedRevision,
   }) async {
-    final previousAutoRun = _documentAutoRun(state.document);
+    final previousAutoRun = _autoRunOf(state.document);
     final result = saveDocument(draft, expectedRevision: expectedRevision);
     if (!result.ok) {
       // Idempotent window retry (SP-12): the window's own draft was already
@@ -426,7 +423,7 @@ class SettingsController extends Notifier<SettingsViewState> {
           saved: true,
           applied: retry.applied,
           message: retry.message,
-          statusKey: _statusKeyForSaveGroup(result),
+          statusKey: _statusKeyFor(result),
           newRevision: state.revision,
           contentHash: contentHashOf(state.document),
           coreOk: retry.coreOk,
@@ -509,7 +506,7 @@ class SettingsController extends Notifier<SettingsViewState> {
       savedRevision: savedRevision,
       savedContentHash: savedContentHash,
       statusKey: null,
-      previousAutoRun: _documentAutoRun(state.document),
+      previousAutoRun: _autoRunOf(state.document),
       phases: phases,
     );
   }
@@ -523,19 +520,6 @@ class SettingsController extends Notifier<SettingsViewState> {
     } on Object {
       return false;
     }
-  }
-
-  static String? _statusKeyForSaveGroup(settings.SaveSettingsResult result) {
-    if (result.restartAppFields.isNotEmpty) {
-      return 'settings.saved_need_app_restart';
-    }
-    if (result.restartCoreFields.isNotEmpty) {
-      return 'settings.saved_need_core_restart';
-    }
-    if (result.nextLaunchFields.isNotEmpty) {
-      return 'settings.saved_need_next_launch';
-    }
-    return 'settings.saved';
   }
 
   void _recordReceipt({
@@ -574,7 +558,7 @@ class SettingsController extends Notifier<SettingsViewState> {
     // `AutoRun` value is not proof the Run key exists (AUD-DESK-01, SP-12).
     bool? autostartOk;
     if (phases.contains('autostart')) {
-      final desiredAutoRun = _draftAutoRun(draft);
+      final desiredAutoRun = _autoRunOf(draft);
       if (desiredAutoRun != previousAutoRun ||
           _autostartApplied != desiredAutoRun) {
         final written = _writeAutostart(desiredAutoRun);
@@ -784,13 +768,8 @@ class SettingsController extends Notifier<SettingsViewState> {
     }
   }
 
-  static bool _documentAutoRun(Map<String, dynamic> document) {
+  static bool _autoRunOf(Map<String, dynamic> document) {
     final gui = document['GuiItem'];
-    return gui is Map && gui['AutoRun'] == true;
-  }
-
-  static bool _draftAutoRun(Map<String, dynamic> draft) {
-    final gui = draft['GuiItem'];
     return gui is Map && gui['AutoRun'] == true;
   }
 
@@ -809,8 +788,6 @@ class SettingsController extends Notifier<SettingsViewState> {
       return false;
     }
   }
-
-  void clearStatus() => state = state.copyWith(status: null);
 
   /// Upstream `OptionSettingViewModel.SaveSettingAsync`: `SendThrough.TrimEx()`
   /// and `BindInterface.TrimEx()`. A whitespace/empty value is written back as
@@ -849,19 +826,6 @@ class SettingsController extends Notifier<SettingsViewState> {
           .read(profilesControllerProvider.notifier)
           .setDoubleClick2Activate(ui['DoubleClick2Activate'] == true);
     }
-  }
-
-  String? _statusFor(settings.SaveSettingsResult result) {
-    if (result.restartAppFields.isNotEmpty) {
-      return 'settings.saved_need_app_restart';
-    }
-    if (result.restartCoreFields.isNotEmpty) {
-      return 'settings.saved_need_core_restart';
-    }
-    if (result.nextLaunchFields.isNotEmpty) {
-      return 'settings.saved_need_next_launch';
-    }
-    return 'settings.saved';
   }
 
   static Map<String, dynamic>? _tryDecode(String raw) {

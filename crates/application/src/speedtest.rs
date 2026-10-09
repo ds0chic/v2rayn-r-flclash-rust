@@ -798,6 +798,18 @@ impl SpeedTestJobs {
         job.token.cancel()
     }
 
+    pub fn cancel_all(&self) -> Vec<SpeedTestJob> {
+        let jobs: Vec<_> = self
+            .inner
+            .lock()
+            .map(|jobs| jobs.values().cloned().collect())
+            .unwrap_or_default();
+        for job in &jobs {
+            job.token.cancel();
+        }
+        jobs
+    }
+
     pub fn finish(&self, job_id: &str) {
         if let Ok(mut map) = self.inner.lock() {
             map.remove(job_id);
@@ -952,6 +964,10 @@ impl SpeedTestRunner {
                 SpeedTestAction::Mixedtest => {
                     self.run_mixed(nodes, self.settings.mixed_concurrency, ct, &pending, &stop);
                 }
+            }
+
+            if ct.is_cancelled() {
+                *stop.lock().expect("stop") = StopReason::Cancelled;
             }
 
             done.store(true, Ordering::Release);
@@ -1181,7 +1197,17 @@ impl SpeedTestRunner {
                     if ct.is_cancelled() {
                         break;
                     }
-                    let result = f(&batch[i]);
+                    let mut result = f(&batch[i]);
+                    if ct.is_cancelled() {
+                        result = SpeedTestResult {
+                            index_id: result.index_id,
+                            delay: result.delay.filter(|delay| *delay > 0),
+                            speed: None,
+                            message: Some("Speedtesting".to_string()),
+                            ip_info: result.ip_info,
+                            failed: false,
+                        };
+                    }
                     pending.lock().expect("pending").push(result);
                 });
             }
@@ -2488,6 +2514,8 @@ mod tests {
             "cancel must be prompt"
         );
         assert!(outcome.cancelled());
+        assert_eq!(outcome.results[0].delay, None);
+        assert!(!outcome.results[0].failed);
     }
 
     #[test]

@@ -1078,6 +1078,16 @@ pub async fn run_scheduler_pass(
         };
         let item_report =
             refresh_subscriptions_with_convert(engine, request, cancellation, max_items).await;
+        // Upstream `TaskManager.UpdateTaskRunSubscription` stamps `UpdateTime`
+        // after every attempt, so a failing URL waits a full interval instead
+        // of being downloaded again on every tick.
+        let cancelled = item_report
+            .entries
+            .iter()
+            .any(|e| matches!(e.outcome, SubUpdateOutcome::Cancelled));
+        if !cancelled {
+            let _ = engine.touch_sub_update_time(&item.id, now);
+        }
         report.entries.extend(item_report.entries);
     }
     report
@@ -1462,6 +1472,11 @@ mod tests {
             report.entries[0].outcome
         );
         assert!(engine.profiles_by_subid(&saved.id).unwrap().is_empty());
+        // The failed attempt is stamped, so the next tick does not retry it.
+        let reread = engine.get_sub_item(&saved.id).unwrap().unwrap();
+        assert_eq!(reread.update_time, 1_000_000);
+        let next = run_scheduler_pass(&engine, 100, 1_000_060, &CancellationToken::new()).await;
+        assert!(next.entries.is_empty(), "{:?}", next.entries);
     }
 
     #[tokio::test]

@@ -1316,11 +1316,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     final label = target?.remarks.isEmpty ?? true
         ? (target?.id ?? '无分组')
         : target!.remarks;
-    final result = profiles.moveProfilesToGroup(
-      command.targetIds,
-      subId,
-      subRemarks: target?.remarks ?? '',
-    );
+    final result = profiles.moveProfilesToGroup(command.targetIds, subId);
     if (result) {
       shell.setMessage(target == null ? '已移至无分组' : '已移至分组“$label”');
     } else {

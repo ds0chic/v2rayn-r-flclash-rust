@@ -1020,10 +1020,11 @@ impl PipeHelperLink {
             .bin
             .clone()
             .ok_or_else(|| tun_helper_unavailable("helper executable is not configured"))?;
-        launch_helper(&bin, &self.config, &token)?;
+        let token_file = launch_helper(&bin, &self.config, &token)?;
         let deadline = std::time::Instant::now() + Duration::from_secs(10);
         loop {
             if let Ok(file) = open_pipe(&self.config.pipe_name) {
+                let _ = std::fs::remove_file(&token_file);
                 self.conn = Some(PipeHelperConn {
                     file,
                     session_id: format!("nh-{}", runtime::current_identity().pid),
@@ -1032,6 +1033,7 @@ impl PipeHelperLink {
                 return Ok(());
             }
             if std::time::Instant::now() >= deadline {
+                let _ = std::fs::remove_file(&token_file);
                 return Err(tun_helper_unavailable(
                     "helper did not accept a connection within 10s",
                 ));
@@ -1216,31 +1218,54 @@ fn open_pipe(pipe_name: &str) -> std::io::Result<std::fs::File> {
         .open(pipe_name)
 }
 
-/// Launch the helper elevated through UAC (`runas`). The token and allowed run
-/// roots travel as command-line arguments (the helper also still honors the
-/// legacy environment variables), so a plain RC no longer needs the operator to
-/// export them. A user cancel (Windows error 1223) is a structured denial and
-/// leaves no half-started helper behind; any other `ShellExecuteW` failure is an
-/// unavailable-helper error. The caller never falls back to an unelevated path.
+/// Launch the helper elevated through UAC (`runas`). The token is passed through
+/// a short-lived file so it does not appear in the process command line. A user
+/// cancel (Windows error 1223) is a structured denial and leaves no helper
+/// behind; the caller never falls back to an unelevated path.
 #[cfg(windows)]
 fn launch_helper(
     bin: &std::path::Path,
     config: &HelperConfig,
     token: &str,
-) -> Result<(), DomainError> {
+) -> Result<std::path::PathBuf, DomainError> {
+    use std::io::Write;
+
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| tun_helper_unavailable(error.to_string()))?
+        .as_nanos();
+    let token_file = std::env::temp_dir().join(format!(
+        "v2rayn-helper-{}-{nonce}.token",
+        std::process::id()
+    ));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&token_file)
+        .map_err(|error| tun_helper_unavailable(error.to_string()))?;
+    if let Err(error) = file.write_all(token.as_bytes()) {
+        let _ = std::fs::remove_file(&token_file);
+        return Err(tun_helper_unavailable(error.to_string()));
+    }
     let params = format!(
-        "--serve --token {} --run-roots {}",
-        quote_arg(token),
+        "--serve --token-file {} --run-roots {}",
+        quote_arg(&token_file.to_string_lossy()),
         quote_arg(&config.allowed_run_roots.join(";")),
     );
     match elevation::shell_execute_runas(bin.as_os_str(), std::ffi::OsStr::new(&params)) {
-        Ok(()) => Ok(()),
-        Err(code) if elevation::is_user_cancelled(code) => Err(tun_helper_denied(
-            "TUN helper elevation was cancelled by the user",
-        )),
-        Err(code) => Err(tun_helper_unavailable(format!(
-            "failed to elevate TUN helper (ShellExecuteW code {code})"
-        ))),
+        Ok(()) => Ok(token_file),
+        Err(code) => {
+            let _ = std::fs::remove_file(&token_file);
+            if elevation::is_user_cancelled(code) {
+                Err(tun_helper_denied(
+                    "TUN helper elevation was cancelled by the user",
+                ))
+            } else {
+                Err(tun_helper_unavailable(format!(
+                    "failed to elevate TUN helper (ShellExecuteW code {code})"
+                )))
+            }
+        }
     }
 }
 

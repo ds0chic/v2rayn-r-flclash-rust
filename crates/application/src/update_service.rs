@@ -28,7 +28,7 @@ use updater::install::{
 use updater::metadata::ReleasesClient;
 use updater::semver::Semver;
 use updater::tls::HttpsTrust;
-use updater::unpack::{safe_unpack_targz, safe_unpack_zip, UnpackLimits};
+use updater::unpack::{safe_unpack_gzip, safe_unpack_targz, safe_unpack_zip, UnpackLimits};
 use updater::UpdateError;
 
 /// Maximum wall-clock for one metadata fetch or artifact download.
@@ -262,6 +262,25 @@ pub struct CoreUpdateCheck {
     /// Detached `.sig` asset URL (application targets only; cores ship
     /// sha256/`.dgst` instead).
     pub sig_url: Option<String>,
+}
+
+impl CoreUpdateCheck {
+    /// A check without any remote release, version or asset.
+    fn unsupported(core: &str, note: &str, installed_version: Option<String>) -> Self {
+        Self {
+            core: core.to_string(),
+            supported: false,
+            note: Some(note.to_string()),
+            installed_version,
+            remote_version: None,
+            has_update: false,
+            asset_name: None,
+            download_url: None,
+            expected_sha256: None,
+            dgst_url: None,
+            sig_url: None,
+        }
+    }
 }
 
 /// Request to download+verify+install one core artifact.
@@ -571,6 +590,9 @@ impl UpdateService {
                         executable: find_executable(&root)
                             .map(|p| p.to_string_lossy().into_owned()),
                     });
+                    // A managed install holds exactly its manifest version under
+                    // `<version>/`; scanning it again would list the core twice.
+                    continue;
                 }
             }
             let Ok(entries) = std::fs::read_dir(&root) else {
@@ -643,19 +665,11 @@ impl UpdateService {
     /// but never a fabricated remote release/asset, so the UI cannot present
     /// the upstream v2rayN release as an available self-update.
     pub fn app_source_unconfigured_check(&self) -> CoreUpdateCheck {
-        CoreUpdateCheck {
-            core: "v2rayN".to_string(),
-            supported: false,
-            note: Some("error.update_app_source_unconfigured".to_string()),
-            installed_version: self.installed_version("v2rayN"),
-            remote_version: None,
-            has_update: false,
-            asset_name: None,
-            download_url: None,
-            expected_sha256: None,
-            dgst_url: None,
-            sig_url: None,
-        }
+        CoreUpdateCheck::unsupported(
+            "v2rayN",
+            "error.update_app_source_unconfigured",
+            self.installed_version("v2rayN"),
+        )
     }
 
     async fn check_core_inner(
@@ -672,47 +686,17 @@ impl UpdateService {
         }
         let installed = self.installed_version(core);
         let spec = match channel::core_spec(core) {
-            Some(spec) => spec,
-            None => {
-                // A runnable core with no update-channel spec (the 11 manual
-                // cores) is reported as manual; an unknown key stays blocked.
+            Some(spec) if channel::is_check_update_supported(core, self.packaged) => spec,
+            // A runnable core with no update-channel spec (the 11 manual cores)
+            // or no in-app download asset (R4-21) is reported as manual, never
+            // as a fake update; a packaged self-update or an unknown key stays
+            // explicitly unsupported.
+            _ => {
                 let note = core_entry_note(core_entry_kind(core, self.packaged))
                     .unwrap_or("error.update_unsupported");
-                return Ok(CoreUpdateCheck {
-                    core: core.to_string(),
-                    supported: false,
-                    note: Some(note.to_string()),
-                    installed_version: installed,
-                    remote_version: None,
-                    has_update: false,
-                    asset_name: None,
-                    download_url: None,
-                    expected_sha256: None,
-                    dgst_url: None,
-                    sig_url: None,
-                });
+                return Ok(CoreUpdateCheck::unsupported(core, note, installed));
             }
         };
-        if !channel::is_check_update_supported(core, self.packaged) {
-            // R4-21: a runnable core with no in-app download asset is reported
-            // as manual (never as a fake update); a packaged self-update or an
-            // unknown key stays explicitly unsupported.
-            let note = core_entry_note(core_entry_kind(core, self.packaged))
-                .unwrap_or("error.update_unsupported");
-            return Ok(CoreUpdateCheck {
-                core: core.to_string(),
-                supported: false,
-                note: Some(note.to_string()),
-                installed_version: installed,
-                remote_version: None,
-                has_update: false,
-                asset_name: None,
-                download_url: None,
-                expected_sha256: None,
-                dgst_url: None,
-                sig_url: None,
-            });
-        }
         let prerelease = channel::check_pre_release(core, prerelease_requested);
         // The releases repository is resolved by the shared provider: an
         // explicit override wins, otherwise the application uses its own
@@ -828,8 +812,11 @@ impl UpdateService {
 
         let keep_name = format!("{dir_name}.previous");
         let keep_dir = self.cores_root.join(&keep_name);
-        if keep_dir.exists() {
-            std::fs::remove_dir_all(&keep_dir).map_err(|e| io_error("error.update_install", e))?;
+        let saved_previous = versioned_parent.join("previous");
+        let had_previous = keep_dir.exists();
+        if had_previous {
+            std::fs::rename(&keep_dir, &saved_previous)
+                .map_err(|e| io_error("error.update_install", e))?;
         }
         let plan = InstallPlan::new(
             &self.cores_root,
@@ -841,10 +828,18 @@ impl UpdateService {
         let outcome = match apply_atomic(&plan) {
             Ok(outcome) => outcome,
             Err(error) => {
+                if had_previous {
+                    std::fs::rename(&saved_previous, &keep_dir)
+                        .map_err(|e| io_error("error.update_install", e))?;
+                }
                 let _ = std::fs::remove_dir_all(&versioned_parent);
                 return Err(update_error(error));
             }
         };
+        if had_previous {
+            std::fs::remove_dir_all(&saved_previous)
+                .map_err(|e| io_error("error.update_install", e))?;
+        }
         let _ = std::fs::remove_dir_all(&versioned_parent);
 
         let manifest_path = core_dir.join(INSTALL_MANIFEST_NAME);
@@ -1068,6 +1063,9 @@ impl UpdateService {
             safe_unpack_zip(&downloaded.path, &unpacked, limits).map_err(update_error)?;
         } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
             safe_unpack_targz(&downloaded.path, &unpacked, limits).map_err(update_error)?;
+        } else if name.ends_with(".gz") && request.core.eq_ignore_ascii_case("mihomo") {
+            safe_unpack_gzip(&downloaded.path, &unpacked, "mihomo", limits)
+                .map_err(update_error)?;
         } else {
             return Err(update_error(UpdateError::UnsupportedArchive(
                 request.asset_name.clone(),
@@ -1078,6 +1076,16 @@ impl UpdateService {
             return Err(update_error(UpdateError::UnsafeArchive(
                 "archive produced no directory".into(),
             )));
+        }
+        #[cfg(unix)]
+        if let Some(executable) = find_executable(&staged) {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = std::fs::metadata(&executable)
+                .map_err(|e| io_error("error.update_install", e))?
+                .permissions();
+            permissions.set_mode(permissions.mode() | 0o111);
+            std::fs::set_permissions(executable, permissions)
+                .map_err(|e| io_error("error.update_install", e))?;
         }
         Ok(staged)
     }

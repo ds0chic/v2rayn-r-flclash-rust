@@ -138,16 +138,12 @@ pub fn build_client_with_trust(
             return Err(SubError::InvalidUri("proxy scheme".into()));
         }
     }
-    let shared_trust = match trust {
-        HttpsTrust::System => platform::http::HttpsTrust::System,
-        HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
-    };
     let policy = platform::http::HttpPolicy {
         timeout: options.timeout,
         connect_timeout: options.connect_timeout.unwrap_or(Duration::from_secs(10)),
         user_agent: options.user_agent.clone(),
         proxy: options.proxy.as_ref().map(|p| p.url.clone()),
-        trust: shared_trust,
+        trust: trust.clone(),
         redirect: platform::http::RedirectPolicy::None,
     };
     let client = platform::http::SharedHttpClient::shared(policy).map_err(|e| {

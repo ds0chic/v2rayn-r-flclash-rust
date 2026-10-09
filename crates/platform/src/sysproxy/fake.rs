@@ -14,6 +14,7 @@ pub struct FakeSystemProxyBackend {
     state: Mutex<ProxyState>,
     writes: Mutex<Vec<(ProxyField, Option<String>)>>,
     notify_count: Mutex<u32>,
+    fail_field: Mutex<Option<ProxyField>>,
 }
 
 impl FakeSystemProxyBackend {
@@ -46,6 +47,10 @@ impl FakeSystemProxyBackend {
         *self.notify_count.lock().expect("fake notify poisoned")
     }
 
+    pub fn fail_on_field(&self, field: ProxyField) {
+        *self.fail_field.lock().expect("fake failure poisoned") = Some(field);
+    }
+
     fn record(&self, field: ProxyField, value: Option<&str>) {
         self.writes
             .lock()
@@ -61,6 +66,11 @@ impl SystemProxyBackend for FakeSystemProxyBackend {
 
     fn set_field(&self, field: ProxyField, value: Option<&str>) -> Result<()> {
         self.record(field, value);
+        if *self.fail_field.lock().expect("fake failure poisoned") == Some(field) {
+            return Err(crate::error::PlatformError::Backend(
+                "injected proxy write failure".to_string(),
+            ));
+        }
         let mut state = self.state.lock().expect("fake proxy state poisoned");
         state.set_field(field, value);
         Ok(())

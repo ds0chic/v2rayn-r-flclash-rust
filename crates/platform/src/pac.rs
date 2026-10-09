@@ -195,6 +195,12 @@ impl PacServer {
             .map(|addr| format!("http://{}:{}{}", addr.ip(), addr.port(), self.config.path))
     }
 
+    /// Replace the proxy rule rendered by the next [`Self::start`]; a refresh of
+    /// a running server re-renders its content with it.
+    pub fn set_proxy_rule(&mut self, proxy_rule: Option<String>) {
+        self.config.proxy_rule = proxy_rule;
+    }
+
     /// Start serving `source`. Idempotent: a second call while running only
     /// refreshes the content and keeps the existing listener/port.
     pub fn start(&mut self, source: PacSource) -> Result<u16> {

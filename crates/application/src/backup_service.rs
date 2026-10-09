@@ -7,6 +7,7 @@
 //! configuration (plan §15). Upstream `guiConfigs/` ZIP archives are recognised
 //! and imported through the T04 candidate flow.
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use domain::{codes, DomainError};
@@ -514,8 +515,9 @@ impl BackupService {
         Ok(active)
     }
 
-    /// List bundles directly under `parent` (a directory with a manifest).
-    pub fn list(parent: &Path) -> Result<Vec<BackupManifest>, DomainError> {
+    /// List bundles directly under `parent` (a directory with a manifest),
+    /// newest first, each with its bundle root.
+    pub fn list(parent: &Path) -> Result<Vec<(PathBuf, BackupManifest)>, DomainError> {
         if !parent.is_dir() {
             return Ok(Vec::new());
         }
@@ -526,11 +528,11 @@ impl BackupService {
             let path = entry.path();
             if path.is_dir() && path.join(MANIFEST_NAME).is_file() {
                 if let Ok(manifest) = backup::read_manifest(&path) {
-                    manifests.push(manifest);
+                    manifests.push((path, manifest));
                 }
             }
         }
-        manifests.sort_by_key(|manifest| std::cmp::Reverse(manifest.created_at));
+        manifests.sort_by_key(|(_, manifest)| std::cmp::Reverse(manifest.created_at));
         Ok(manifests)
     }
 }
@@ -735,8 +737,14 @@ fn collect_resources(data_dir: &Path) -> Result<Vec<(String, PathBuf)>, DomainEr
             let path = entry.path();
             let file_type = entry.file_type().map_err(|e| internal(e.to_string()))?;
             if file_type.is_dir() {
-                // Never walk into the transient work dir (restore candidates).
-                if entry.file_name() == ".work" {
+                // Core installations and runtime logs are reproducible state,
+                // not user configuration. Never copy them into backups.
+                let name = entry.file_name();
+                if path.parent() == Some(data_dir)
+                    && [".work", "cores", "guilogs", "logs", "run"]
+                        .iter()
+                        .any(|excluded| name.to_string_lossy().eq_ignore_ascii_case(excluded))
+                {
                     continue;
                 }
                 stack.push(path);
@@ -836,13 +844,35 @@ pub const UPSTREAM_GUI_CONFIGS: &str = "guiConfigs";
 /// The project's own `manifest.json` is not part of the upstream layout and is
 /// dropped, so the remote `backup.zip` a `v2rayN` client GETs restores as-is.
 pub fn zip_upstream_layout(bundle_root: &Path) -> Result<Vec<u8>, DomainError> {
-    use std::io::Write;
+    let output = zip_upstream_layout_into(bundle_root, std::io::Cursor::new(Vec::new()))?;
+    Ok(output.into_inner())
+}
 
+/// Stream an upstream-compatible ZIP directly to disk for WebDAV upload.
+pub fn zip_upstream_layout_to_file(
+    bundle_root: &Path,
+    destination: &Path,
+) -> Result<u64, DomainError> {
+    if let Some(parent) = destination.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| internal(e.to_string()))?;
+    }
+    let file = std::fs::File::create(destination).map_err(|e| internal(e.to_string()))?;
+    let output = zip_upstream_layout_into(bundle_root, file)?;
+    Ok(output
+        .metadata()
+        .map_err(|e| internal(e.to_string()))?
+        .len())
+}
+
+fn zip_upstream_layout_into<W: Write + std::io::Seek>(
+    bundle_root: &Path,
+    output: W,
+) -> Result<W, DomainError> {
     if !bundle_root.is_dir() {
         return Err(DomainError::new(codes::NOT_FOUND, "error.backup_not_found")
             .with_detail(bundle_root.display().to_string()));
     }
-    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let mut writer = zip::ZipWriter::new(output);
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
     let mut stack = vec![bundle_root.to_path_buf()];
@@ -873,14 +903,11 @@ pub fn zip_upstream_layout(bundle_root: &Path) -> Result<Vec<u8>, DomainError> {
             writer
                 .start_file(format!("{UPSTREAM_GUI_CONFIGS}/{relative}"), options)
                 .map_err(|e| internal(e.to_string()))?;
-            let bytes = std::fs::read(&path).map_err(|e| internal(e.to_string()))?;
-            writer
-                .write_all(&bytes)
-                .map_err(|e| internal(e.to_string()))?;
+            let mut source = std::fs::File::open(&path).map_err(|e| internal(e.to_string()))?;
+            std::io::copy(&mut source, &mut writer).map_err(|e| internal(e.to_string()))?;
         }
     }
-    let cursor = writer.finish().map_err(|e| internal(e.to_string()))?;
-    Ok(cursor.into_inner())
+    writer.finish().map_err(|e| internal(e.to_string()))
 }
 
 fn copy_atomic(src: &Path, dest: &Path) -> Result<(), DomainError> {

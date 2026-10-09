@@ -1043,6 +1043,7 @@ fn fld175_direct_expected_ips_emit_and_reopen() {
     };
     let simple = SimpleDns {
         direct_expected_ips: Some("geoip:cn".into()),
+        parallel_query: true,
         ..Default::default()
     };
     let mut input = dns_input(175, simple, HappyEyeballs4Ray::default());
@@ -1068,6 +1069,19 @@ fn fld175_direct_expected_ips_emit_and_reopen() {
         }),
         "geoip respond rule"
     );
+    assert!(main["dns"]["rules"].as_array().unwrap().iter().any(|r| {
+        r.get("action").and_then(|v| v.as_str()) == Some("evaluate")
+            && r.get("server")
+                .and_then(|v| v.as_str())
+                .is_some_and(|server| server.starts_with("direct-dns-"))
+    }));
+    assert!(main["dns"]["rules"].as_array().unwrap().iter().any(|r| {
+        r.get("action").and_then(|v| v.as_str()) == Some("evaluate")
+            && r.get("server")
+                .and_then(|v| v.as_str())
+                .is_some_and(|server| server.starts_with("remote-dns-"))
+            && r.get("speculative").and_then(|v| v.as_bool()) == Some(true)
+    }));
     assert!(
         main["route"]["rule_set"]
             .as_array()

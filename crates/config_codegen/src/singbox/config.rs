@@ -1,6 +1,6 @@
 //! sing-box orchestration (`CoreConfigSingboxService` + `SingboxConfigTemplateService`).
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 use crate::input::CodegenInput;
 use crate::singbox::outbound::{build_all_proxy_outbounds, outbound_detour};
@@ -312,10 +312,4 @@ pub(crate) fn full_config_template(
 
     *main = template_value;
     Ok(())
-}
-
-/// Helper to keep `Map` import used across modules.
-#[allow(dead_code)]
-pub(crate) fn empty_map() -> Map<String, Value> {
-    obj()
 }

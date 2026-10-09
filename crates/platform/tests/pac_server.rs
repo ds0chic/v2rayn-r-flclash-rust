@@ -114,6 +114,24 @@ fn repeated_start_is_idempotent() {
 }
 
 #[test]
+fn refresh_renders_the_updated_proxy_rule() {
+    let config = PacConfig {
+        proxy_rule: Some("PROXY 127.0.0.1:11809;DIRECT;".to_string()),
+        ..PacConfig::default()
+    };
+    let mut server = PacServer::new(config).expect("config");
+    let script = || PacSource::Inline("var p = '__PROXY__';".to_string());
+    let port = server.start(script()).expect("start");
+
+    server.set_proxy_rule(Some("PROXY 127.0.0.1:11819;DIRECT;".to_string()));
+    assert_eq!(server.start(script()).expect("refresh"), port);
+
+    let (_, body) = http_get(port, "/pac");
+    assert!(body.contains("PROXY 127.0.0.1:11819;DIRECT;"), "{body}");
+    server.stop().expect("stop");
+}
+
+#[test]
 fn stop_then_restart_rebinds() {
     let port = free_port();
     let mut server = PacServer::new(PacConfig::with_port(port)).expect("config");

@@ -6,6 +6,7 @@
 //! replaces [`InMemoryProfileRepository`] with SQLite.
 
 use std::collections::HashMap;
+use std::net::{IpAddr, Ipv6Addr, SocketAddrV6, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -127,6 +128,21 @@ pub fn managed_cores_root(data_dir: Option<&Path>) -> PathBuf {
     match data_dir {
         Some(dir) => dir.join("cores"),
         None => AppEngine::default_data_dir().join("cores"),
+    }
+}
+
+fn has_global_ipv6_address() -> bool {
+    let socket = match UdpSocket::bind(SocketAddrV6::new(Ipv6Addr::UNSPECIFIED, 0, 0, 0)) {
+        Ok(socket) => socket,
+        Err(_) => return true,
+    };
+    let target = Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111);
+    if socket.connect(SocketAddrV6::new(target, 53, 0, 0)).is_err() {
+        return false;
+    }
+    match socket.local_addr().map(|address| address.ip()) {
+        Ok(IpAddr::V6(address)) => address.octets()[0] & 0xE0 == 0x20,
+        _ => true,
     }
 }
 
@@ -424,11 +440,13 @@ impl AppEngine {
     /// real net-host client.
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self, DomainError> {
         let data_dir = data_dir.as_ref().to_path_buf();
-        let runtime: Arc<dyn RuntimeClient> = Arc::new(NetHostClient::with_cores_root(
+        let client = NetHostClient::with_cores_root(
             std::env::var("V2RAYN_R_PIPE")
                 .unwrap_or_else(|_| runtime::NET_HOST_PIPE_NAME.to_string()),
             managed_cores_root(Some(&data_dir)),
-        ));
+        );
+        client.set_asset_dir(data_dir.join("bin"));
+        let runtime: Arc<dyn RuntimeClient> = Arc::new(client);
         Self::open_with_runtime(data_dir, runtime)
     }
 
@@ -547,6 +565,26 @@ impl AppEngine {
         match self.storage_failure() {
             Some(error) => Err(error),
             None => Ok(()),
+        }
+    }
+
+    fn rollback_profile_rows(
+        &self,
+        repo: &mut ProfileStore,
+        snapshot: &[(String, Option<Profile>)],
+        cause: DomainError,
+    ) -> DomainError {
+        match repo.restore_profiles(snapshot) {
+            Ok(()) => cause,
+            Err(rollback_error) => {
+                if let Ok(mut failure) = self.storage_error.lock() {
+                    *failure = Some(rollback_error.clone());
+                }
+                DomainError::new(domain::codes::INTERNAL, "error.storage").with_detail(format!(
+                    "profile rollback failed after {}: {}",
+                    cause.code, rollback_error.code
+                ))
+            }
         }
     }
 
@@ -888,9 +926,14 @@ impl AppEngine {
             .repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let snapshot = vec![(draft.index_id.clone(), repo.get(&draft.index_id)?)];
         repo.upsert(draft.clone())?;
-        let new_revision = revisions.bump();
-        self.persist_config(&revisions)?;
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        let new_revision = next_revision.bump();
+        if let Err(error) = self.persist_config(&next_revision) {
+            return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        }
+        *revisions = next_revision;
         Ok((draft, new_revision))
     }
 
@@ -946,9 +989,14 @@ impl AppEngine {
             .repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let snapshot = vec![(draft.index_id.clone(), repo.get(&draft.index_id)?)];
         repo.upsert(draft.clone())?;
-        let new_revision = revisions.bump();
-        self.persist_config(&revisions)?;
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        let new_revision = next_revision.bump();
+        if let Err(error) = self.persist_config(&next_revision) {
+            return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        }
+        *revisions = next_revision;
         Ok((draft, new_revision))
     }
 
@@ -963,15 +1011,29 @@ impl AppEngine {
             .repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut snapshot = Vec::new();
+        for id in ids {
+            if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
+                snapshot.push((id.clone(), repo.get(id)?));
+            }
+        }
         let mut removed = 0u64;
         for id in ids {
-            if repo.remove(id)? {
-                removed += 1;
+            match repo.remove(id) {
+                Ok(true) => removed += 1,
+                Ok(false) => {}
+                Err(error) => {
+                    return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+                }
             }
         }
         if removed > 0 {
-            revisions.bump();
-            self.persist_config(&revisions)?;
+            let mut next_revision = RevisionStore::with_desired(revisions.desired());
+            next_revision.bump();
+            if let Err(error) = self.persist_config(&next_revision) {
+                return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+            }
+            *revisions = next_revision;
         }
         Ok(removed)
     }
@@ -4185,10 +4247,37 @@ impl AppEngine {
             .repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut snapshot = Vec::new();
+        if remove_existing {
+            let old = repo.query(
+                &ProfileFilter {
+                    subid: Some(subid.to_string()),
+                    ..ProfileFilter::default()
+                },
+                ProfileSort::IndexId,
+                PageRequest {
+                    cursor: 0,
+                    page_size: u32::MAX,
+                },
+            )?;
+            snapshot.extend(
+                old.items
+                    .into_iter()
+                    .map(|profile| (profile.index_id.clone(), Some(profile))),
+            );
+        }
+        for profile in &profiles {
+            if !snapshot.iter().any(|(id, _)| id == &profile.index_id) {
+                snapshot.push((profile.index_id.clone(), repo.get(&profile.index_id)?));
+            }
+        }
         let (added, removed) = repo.replace_for_sub(subid, profiles, remove_existing, false)?;
-        revisions.bump();
-        drop(repo);
-        self.persist_config(&revisions)?;
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
+        if let Err(error) = self.persist_config(&next_revision) {
+            return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        }
+        *revisions = next_revision;
         Ok((added, removed))
     }
 
@@ -4320,6 +4409,10 @@ impl AppEngine {
             .into_iter()
             .map(|p| batch::normalize_batch(p, &target))
             .collect();
+        let staged_refs: Vec<(String, String)> = normalized
+            .iter()
+            .map(|profile| (profile.index_id.clone(), profile.address.clone()))
+            .collect();
         let count = normalized.len();
         let result = self.replace_sub_profiles(&target, normalized, false);
         match result {
@@ -4337,8 +4430,18 @@ impl AppEngine {
                 Ok(receipt)
             }
             Err(error) => {
-                for path in new_files {
-                    std::fs::remove_file(path).ok();
+                let files_still_referenced =
+                    staged_refs
+                        .iter()
+                        .any(|(id, address)| match self.profile_by_id(id) {
+                            Ok(Some(stored)) => stored.address == *address,
+                            Ok(None) => false,
+                            Err(_) => true,
+                        });
+                if !files_still_referenced {
+                    for path in new_files {
+                        std::fs::remove_file(path).ok();
+                    }
                 }
                 Err(error)
             }
@@ -4641,6 +4744,29 @@ impl AppEngine {
             }
         }
         Ok((input, warnings))
+    }
+
+    fn protect_core_executables(&self, generator_core: CoreType) -> Vec<String> {
+        let locator = runtime::CoreLocator::with_roots(vec![self.cores_root()], None);
+        let mut executables = Vec::new();
+        if generator_core == CoreType::Xray {
+            executables.push("xray/".to_string());
+            executables.push("self/".to_string());
+        } else if let Ok(path) = locator.resolve(CoreType::Xray, None) {
+            executables.push(path.to_string_lossy().into_owned());
+        }
+        for core in [CoreType::SingBox, generator_core] {
+            if core == CoreType::Xray {
+                continue;
+            }
+            if let Ok(path) = locator.resolve(core, None) {
+                let path = path.to_string_lossy().into_owned();
+                if !executables.contains(&path) {
+                    executables.push(path);
+                }
+            }
+        }
+        executables
     }
 
     /// Base local port for the runtime codegen context.
@@ -4946,19 +5072,25 @@ impl AppEngine {
         let opts = self.runtime_codegen_options();
         let (mut input, chain_warnings) =
             self.build_codegen_input_with_warnings(target_id, core, &opts)?;
+        let settings = self
+            .settings
+            .lock()
+            .map(|guard| guard.settings.clone())
+            .unwrap_or_default();
+        let has_ipv6 = settings.tun_mode_item.enable_tun && has_global_ipv6_address();
+        let protect_executables = if settings.tun_mode_item.enable_tun {
+            self.protect_core_executables(core)
+        } else {
+            Vec::new()
+        };
+        input.settings.has_global_ipv6_address = has_ipv6;
+        input.settings.protect_core_executables = protect_executables;
         // TUN-A02: with the LegacyProtect topology the front sing-box service
         // owns the TUN device, so the main core must not generate a second tun
         // provider (upstream runs exactly one). Suppress the main config's tun
         // inbound only when a pre-SOCKS sidecar will carry it; a sing-box main
         // core without a sidecar keeps its own tun.
-        let sidecar_owns_tun = {
-            let settings = self
-                .settings
-                .lock()
-                .map(|guard| guard.settings.clone())
-                .unwrap_or_default();
-            Self::pre_socks_of(&settings, &target, core).is_some()
-        };
+        let sidecar_owns_tun = Self::pre_socks_of(&settings, &target, core).is_some();
         if sidecar_owns_tun && input.settings.tun.enabled {
             input.settings.tun.enabled = false;
         }
@@ -5037,11 +5169,6 @@ impl AppEngine {
             None
         };
 
-        let settings = self
-            .settings
-            .lock()
-            .map(|guard| guard.settings.clone())
-            .unwrap_or_default();
         let local_port = opts.local_port;
         if custom_endpoints.is_none() && !(1..=65535).contains(&local_port) {
             return Err(
@@ -5106,14 +5233,22 @@ impl AppEngine {
             // The sidecar body is a real core config (a SOCKS listener),
             // generated by the same frozen generators the main core uses, not a
             // plan descriptor. net-host executes this node from the graph.
+            let mut sidecar_input = config_codegen::input::CodegenInput {
+                settings: crate::codegen::settings_from_app(&settings, &opts),
+                routing: input.routing.clone(),
+                dns: input.dns.clone(),
+                ..Default::default()
+            };
+            if settings.tun_mode_item.enable_tun {
+                sidecar_input.settings.protect_core_executables =
+                    self.protect_core_executables(decision.core);
+            }
+            sidecar_input.settings.has_global_ipv6_address = has_ipv6;
             let sidecar_config = crate::codegen::generate_pre_socks_config(
                 decision.core,
                 &decision.address,
                 decision.port,
-                &opts,
-                &settings,
-                input.routing.clone(),
-                input.dns.clone(),
+                sidecar_input,
             )
             .map_err(|error| {
                 DomainError::new(
@@ -5731,6 +5866,33 @@ mod tests {
     use super::*;
     use crate::synthetic::synthetic_full_profile;
     use domain::*;
+
+    #[test]
+    fn profile_save_and_delete_roll_back_when_config_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine =
+            AppEngine::open_with_runtime(dir.path(), Arc::new(NullRuntimeClient::new())).unwrap();
+        let original = synthetic_full_profile(1);
+        let id = original.index_id.clone();
+        engine
+            .save_profile(original.clone(), DesiredRevision::ZERO)
+            .unwrap();
+        let original = engine.profile_by_id(&id).unwrap().unwrap();
+        let revision = engine.desired_revision();
+        std::fs::create_dir(dir.path().join("guiNConfig.json.tmp")).unwrap();
+
+        let mut changed = original.clone();
+        changed.remarks = "changed but not saved".to_string();
+        assert!(engine
+            .save_profile(changed, DesiredRevision::new(revision))
+            .is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.profile_by_id(&id).unwrap().unwrap(), original);
+
+        assert!(engine.delete_profiles(std::slice::from_ref(&id)).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert!(engine.profile_by_id(&id).unwrap().is_some());
+    }
 
     // -- R4-34 resource task ------------------------------------------------
 

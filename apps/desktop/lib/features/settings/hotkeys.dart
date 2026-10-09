@@ -570,11 +570,14 @@ class HotkeyController extends Notifier<HotkeyState> {
     return state;
   }
 
-  Future<void> unregisterAll() async {
+  Future<bool> unregisterAll() async {
     try {
       await _registrar.unregisterAll();
-    } on Object catch (_) {
-      // Best-effort on teardown.
+      state = state.copyWith(registered: const <GlobalHotkeyAction>{});
+      return true;
+    } on Object catch (error) {
+      state = state.copyWith(status: '快捷键注销失败: $error');
+      return false;
     }
   }
 

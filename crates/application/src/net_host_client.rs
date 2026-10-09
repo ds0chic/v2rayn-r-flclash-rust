@@ -310,6 +310,8 @@ struct Shared {
     /// `V2RAYN_R_CORES_ROOT`, so install (`UpdateService`) and run
     /// (`CoreLocator`) share one root with no user-set environment.
     cores_root: Mutex<Option<PathBuf>>,
+    /// Asset directory used by cores such as Xray.
+    asset_dir: Mutex<Option<PathBuf>>,
     /// Serializes control requests and owns the single in-flight worker.
     gate: RequestGate,
     /// Serializes net-host launches across the event and control paths.
@@ -352,6 +354,7 @@ impl NetHostClient {
                 pipe_name: pipe_name.into(),
                 auto_launch: std::env::var_os("V2RAYN_R_NO_AUTOLAUNCH").is_none(),
                 cores_root: Mutex::new(None),
+                asset_dir: Mutex::new(None),
                 gate: RequestGate::new(),
                 launch_mutex: Mutex::new(()),
                 sink: Arc::new(Mutex::new(None)),
@@ -376,6 +379,14 @@ impl NetHostClient {
     pub fn set_cores_root(&self, cores_root: impl Into<PathBuf>) {
         if let Ok(mut slot) = self.shared.cores_root.lock() {
             *slot = Some(cores_root.into());
+        }
+    }
+
+    /// Set the data `bin` directory forwarded to net-host as
+    /// `V2RAYN_R_ASSET_DIR` for core asset and certificate lookup.
+    pub fn set_asset_dir(&self, asset_dir: impl Into<PathBuf>) {
+        if let Ok(mut slot) = self.shared.asset_dir.lock() {
+            *slot = Some(asset_dir.into());
         }
     }
 
@@ -865,8 +876,21 @@ fn apply_launch_env(command: &mut std::process::Command, shared: &Arc<Shared>) {
         .ok()
         .and_then(|slot| slot.clone())
         .or_else(|| std::env::var_os("V2RAYN_R_CORES_ROOT").map(PathBuf::from));
+    let asset_dir = shared
+        .asset_dir
+        .lock()
+        .ok()
+        .and_then(|slot| slot.clone())
+        .or_else(|| {
+            cores_root
+                .as_ref()
+                .and_then(|root| root.parent().map(|parent| parent.join("bin")))
+        });
     if let Some(root) = cores_root {
         command.env("V2RAYN_R_CORES_ROOT", root);
+    }
+    if let Some(dir) = asset_dir {
+        command.env("V2RAYN_R_ASSET_DIR", dir);
     }
 }
 
@@ -1043,6 +1067,14 @@ mod tests {
         assert_eq!(
             found.1.as_deref(),
             Some(std::ffi::OsStr::new("C:\\tmp\\data\\cores"))
+        );
+        let asset_dir = env
+            .iter()
+            .find(|(k, _)| k == "V2RAYN_R_ASSET_DIR")
+            .expect("asset directory must be forwarded with the data-root layout");
+        assert_eq!(
+            asset_dir.1.as_deref(),
+            Some(std::ffi::OsStr::new("C:\\tmp\\data\\bin"))
         );
     }
 

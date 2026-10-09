@@ -89,18 +89,9 @@ fn manifest_dto(manifest: &BackupManifest, root: Option<&Path>) -> BackupManifes
 /// `backup_local` — write a versioned bundle under `dest_root`. Async: copies
 /// files and hashes the database, so it must not run on the UI isolate.
 pub fn t16_backup_local(dest_root: String) -> BackupResultDto {
-    let service = match backup_service() {
-        Ok(service) => service,
-        Err(error) => {
-            return BackupResultDto {
-                ok: false,
-                root: None,
-                manifest: None,
-                error: Some(error_dto(error)),
-            }
-        }
-    };
-    match service.create_local(Path::new(&dest_root), now_epoch()) {
+    match backup_service()
+        .and_then(|service| service.create_local(Path::new(&dest_root), now_epoch()))
+    {
         Ok(backup) => BackupResultDto {
             ok: true,
             root: Some(backup.root.to_string_lossy().into_owned()),
@@ -120,7 +111,10 @@ pub fn t16_backup_local(dest_root: String) -> BackupResultDto {
 pub fn t16_backup_list(parent: String) -> BackupListDto {
     match BackupService::list(Path::new(&parent)) {
         Ok(items) => BackupListDto {
-            items: items.iter().map(|m| manifest_dto(m, None)).collect(),
+            items: items
+                .iter()
+                .map(|(root, m)| manifest_dto(m, Some(root)))
+                .collect(),
             error: None,
         },
         Err(error) => BackupListDto {
@@ -160,70 +154,45 @@ pub fn t16_backup_verify(bundle_dir: String) -> VerificationDto {
 /// `backup_restore` — verify then restore a bundle. Async: DB lifecycle swap +
 /// file I/O.
 pub fn t16_backup_restore(bundle_dir: String) -> RestoreResultDto {
-    let service = match backup_service() {
-        Ok(service) => service,
-        Err(error) => {
-            return RestoreResultDto {
-                ok: false,
-                restored: false,
-                target_backup: None,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
-    let work = match work_dir("restore") {
-        Ok(path) => path,
-        Err(error) => {
-            return RestoreResultDto {
-                ok: false,
-                restored: false,
-                target_backup: None,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
     // SR-03: stop the managed session/timer, quiesce, exchange and reopen in
     // one lifecycle. A failed quiesce/reopen is a structured error; it is never
     // dropped, so the UI cannot be told a swap succeeded when the engine is
     // still bound to the old (or no) storage.
-    let outcome = service.restore_with_lifecycle(engine(), Path::new(&bundle_dir), &work);
+    let outcome = backup_service().and_then(|service| {
+        let work = work_dir("restore")?;
+        service.restore_with_lifecycle(engine(), Path::new(&bundle_dir), &work)
+    });
     match outcome {
-        Ok(report) => RestoreResultDto {
-            ok: report.restored,
-            restored: report.restored,
-            target_backup: report.target_backup,
-            message: report.message,
-            error: None,
-        },
-        Err(error) => RestoreResultDto {
-            ok: false,
-            restored: false,
-            target_backup: None,
-            message: String::new(),
-            error: Some(error_dto(error)),
-        },
+        Ok(report) => {
+            if report.restored {
+                super::speedtest::reload_profile_ex_after_restore();
+            }
+            RestoreResultDto {
+                ok: report.restored,
+                restored: report.restored,
+                target_backup: report.target_backup,
+                message: report.message,
+                error: None,
+            }
+        }
+        Err(error) => restore_failed(error),
+    }
+}
+
+fn restore_failed(error: DomainError) -> RestoreResultDto {
+    RestoreResultDto {
+        ok: false,
+        restored: false,
+        target_backup: None,
+        message: String::new(),
+        error: Some(error_dto(error)),
     }
 }
 
 /// `backup_recognize` — recognise an upstream or project archive. Async: reads
 /// the archive directory/central directory.
 pub fn t16_backup_recognize(path: String) -> RecognitionDto {
-    let service = match backup_service() {
-        Ok(service) => service,
-        Err(error) => {
-            return RecognitionDto {
-                is_upstream: false,
-                has_config: false,
-                has_db: false,
-                layout: String::new(),
-                entries: Vec::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
-    match service.recognize(Path::new(&path)) {
+    match backup_service().and_then(|service| service.recognize(Path::new(&path))) {
         Ok(result) => RecognitionDto {
             is_upstream: result.is_upstream,
             has_config: result.has_config,
@@ -247,72 +216,7 @@ pub fn t16_backup_recognize(path: String) -> RecognitionDto {
 /// flow with replace semantics (the upstream `guiNDB.db` becomes the database).
 /// Async: DB lifecycle swap + file I/O.
 pub fn t16_backup_import_upstream(path: String) -> ImportSummaryDto {
-    let service = match backup_service() {
-        Ok(service) => service,
-        Err(error) => {
-            return ImportSummaryDto {
-                ok: false,
-                status: "failed".to_string(),
-                source_version: 0,
-                imported_rows: 0,
-                warnings: 0,
-                errors: 0,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
-    let work = match work_dir("import") {
-        Ok(path) => path,
-        Err(error) => {
-            return ImportSummaryDto {
-                ok: false,
-                status: "failed".to_string(),
-                source_version: 0,
-                imported_rows: 0,
-                warnings: 0,
-                errors: 0,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
-    // SR-03: same lifecycle as the local restore; quiesce/reopen failures are
-    // propagated as structured errors instead of being ignored.
-    let outcome =
-        service.import_upstream_with_lifecycle(engine(), Path::new(&path), &work, now_epoch());
-    match outcome {
-        Ok(report) => {
-            let imported_rows = report.counts.iter().map(|c| c.imported_rows).sum::<u64>();
-            let status = match report.status {
-                ImportStatus::Imported => "imported",
-                ImportStatus::AlreadyImported => "already_imported",
-                ImportStatus::Rejected => "rejected",
-                ImportStatus::Failed => "failed",
-            };
-            ImportSummaryDto {
-                ok: report.status.changed_target()
-                    || report.status == ImportStatus::AlreadyImported,
-                status: status.to_string(),
-                source_version: report.source_version,
-                imported_rows,
-                warnings: report.warnings.len() as u32,
-                errors: report.errors.len() as u32,
-                message: report.user_summary,
-                error: None,
-            }
-        }
-        Err(error) => ImportSummaryDto {
-            ok: false,
-            status: "failed".to_string(),
-            source_version: 0,
-            imported_rows: 0,
-            warnings: 0,
-            errors: 1,
-            message: String::new(),
-            error: Some(error_dto(error)),
-        },
-    }
+    import_upstream(&path, false)
 }
 
 /// `backup_import_upstream_merge` — the explicitly named migration/merge
@@ -323,42 +227,23 @@ pub fn t16_backup_import_upstream(path: String) -> ImportSummaryDto {
 /// [`t16_backup_import_upstream`] (replace).
 #[frb(sync)]
 pub fn t16_backup_import_upstream_merge(path: String) -> ImportSummaryDto {
-    let service = match backup_service() {
-        Ok(service) => service,
-        Err(error) => {
-            return ImportSummaryDto {
-                ok: false,
-                status: "failed".to_string(),
-                source_version: 0,
-                imported_rows: 0,
-                warnings: 0,
-                errors: 0,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
+    import_upstream(&path, true)
+}
+
+fn import_upstream(path: &str, merge: bool) -> ImportSummaryDto {
+    let kind = if merge { "import-merge" } else { "import" };
+    let prepared = backup_service().and_then(|service| work_dir(kind).map(|work| (service, work)));
+    let (service, work) = match prepared {
+        Ok(prepared) => prepared,
+        Err(error) => return import_failed(error, 0),
     };
-    let work = match work_dir("import-merge") {
-        Ok(path) => path,
-        Err(error) => {
-            return ImportSummaryDto {
-                ok: false,
-                status: "failed".to_string(),
-                source_version: 0,
-                imported_rows: 0,
-                warnings: 0,
-                errors: 0,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
+    // SR-03: same lifecycle as the local restore; quiesce/reopen failures are
+    // propagated as structured errors instead of being ignored.
+    let outcome = if merge {
+        service.import_upstream_merge_with_lifecycle(engine(), Path::new(path), &work, now_epoch())
+    } else {
+        service.import_upstream_with_lifecycle(engine(), Path::new(path), &work, now_epoch())
     };
-    let outcome = service.import_upstream_merge_with_lifecycle(
-        engine(),
-        Path::new(&path),
-        &work,
-        now_epoch(),
-    );
     match outcome {
         Ok(report) => {
             let imported_rows = report.counts.iter().map(|c| c.imported_rows).sum::<u64>();
@@ -380,16 +265,21 @@ pub fn t16_backup_import_upstream_merge(path: String) -> ImportSummaryDto {
                 error: None,
             }
         }
-        Err(error) => ImportSummaryDto {
-            ok: false,
-            status: "failed".to_string(),
-            source_version: 0,
-            imported_rows: 0,
-            warnings: 0,
-            errors: 1,
-            message: String::new(),
-            error: Some(error_dto(error)),
-        },
+        Err(error) => import_failed(error, 1),
+    }
+}
+
+/// `errors` is 0 when the import never started and 1 when it ran and failed.
+fn import_failed(error: DomainError, errors: u32) -> ImportSummaryDto {
+    ImportSummaryDto {
+        ok: false,
+        status: "failed".to_string(),
+        source_version: 0,
+        imported_rows: 0,
+        warnings: 0,
+        errors,
+        message: String::new(),
+        error: Some(error_dto(error)),
     }
 }
 
@@ -566,8 +456,9 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
     };
     // The remote file must be an upstream-interoperable `guiConfigs/` ZIP, not
     // this project's manifest bundle, so a v2rayN client can restore it.
-    let bytes = match application::zip_upstream_layout(&backup.root) {
-        Ok(bytes) => bytes,
+    let zip_path = work.join("backup.zip");
+    let length = match application::zip_upstream_layout_to_file(&backup.root, &zip_path) {
+        Ok(length) => length,
         Err(error) => {
             return WebDavOpDto {
                 ok: false,
@@ -577,7 +468,6 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
             }
         }
     };
-    let length = bytes.len() as u64;
     let client = match webdav_client(cfg) {
         Ok(client) => client,
         Err(error) => {
@@ -598,7 +488,7 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
             error: Some(error_dto(error)),
         };
     }
-    match client.upload(bytes).await {
+    match client.upload_file(&zip_path, length).await {
         Ok(bytes) => WebDavOpDto {
             ok: true,
             bytes,
@@ -616,71 +506,15 @@ pub async fn t16_webdav_backup(cfg: WebDavConfigDto) -> WebDavOpDto {
 
 /// `webdav_restore` — GET `backup.zip`, extract and restore it.
 pub async fn t16_webdav_restore(cfg: WebDavConfigDto) -> RestoreResultDto {
-    let service = match backup_service() {
-        Ok(service) => service,
-        Err(error) => {
-            return RestoreResultDto {
-                ok: false,
-                restored: false,
-                target_backup: None,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
-    let work = match work_dir("webdav-restore") {
-        Ok(path) => path,
-        Err(error) => {
-            return RestoreResultDto {
-                ok: false,
-                restored: false,
-                target_backup: None,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
-    let client = match webdav_client(cfg) {
-        Ok(client) => client,
-        Err(error) => {
-            return RestoreResultDto {
-                ok: false,
-                restored: false,
-                target_backup: None,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
-    let bytes = match client.download().await {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            return RestoreResultDto {
-                ok: false,
-                restored: false,
-                target_backup: None,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            }
-        }
-    };
+    webdav_restore(cfg).await.unwrap_or_else(restore_failed)
+}
+
+async fn webdav_restore(cfg: WebDavConfigDto) -> Result<RestoreResultDto, DomainError> {
+    let service = backup_service()?;
+    let work = work_dir("webdav-restore")?;
+    let client = webdav_client(cfg)?;
     let zip_path = work.join("remote-backup.zip");
-    if let Err(error) = std::fs::write(&zip_path, &bytes) {
-        return RestoreResultDto {
-            ok: false,
-            restored: false,
-            target_backup: None,
-            message: String::new(),
-            error: Some(ErrorDto {
-                code: codes::INTERNAL.to_string(),
-                message_key: "error.webdav_write".to_string(),
-                field_path: None,
-                retryable: false,
-                operation_id: None,
-                detail: Some(error.to_string()),
-            }),
-        };
-    }
+    client.download_to_file(&zip_path).await?;
     // An upstream `guiConfigs/` archive (the layout this project now uploads)
     // goes through the same candidate + activation flow as a local FIX-14
     // import: quiesce -> swap/activate -> reopen. A project manifest bundle
@@ -691,57 +525,35 @@ pub async fn t16_webdav_restore(cfg: WebDavConfigDto) -> RestoreResultDto {
         .unwrap_or(false);
     if upstream {
         // SR-03: lifecycle-aware import; quiesce/reopen failures surface.
-        let outcome =
-            service.import_upstream_with_lifecycle(engine(), &zip_path, &work, now_epoch());
-        return match outcome {
-            Ok(report) => {
-                let changed = report.status.changed_target()
-                    || report.status == ImportStatus::AlreadyImported;
-                RestoreResultDto {
-                    ok: changed,
-                    restored: changed,
-                    target_backup: None,
-                    message: report.user_summary,
-                    error: None,
-                }
-            }
-            Err(error) => RestoreResultDto {
-                ok: false,
-                restored: false,
-                target_backup: None,
-                message: String::new(),
-                error: Some(error_dto(error)),
-            },
-        };
+        let report =
+            service.import_upstream_with_lifecycle(engine(), &zip_path, &work, now_epoch())?;
+        let changed =
+            report.status.changed_target() || report.status == ImportStatus::AlreadyImported;
+        if changed {
+            super::speedtest::reload_profile_ex_after_restore();
+        }
+        return Ok(RestoreResultDto {
+            ok: changed,
+            restored: changed,
+            target_backup: None,
+            message: report.user_summary,
+            error: None,
+        });
     }
     let unpacked = work.join("unpacked");
-    if let Err(error) = application::extract_bundle_zip(&zip_path, &unpacked) {
-        return RestoreResultDto {
-            ok: false,
-            restored: false,
-            target_backup: None,
-            message: String::new(),
-            error: Some(error_dto(error)),
-        };
-    }
+    application::extract_bundle_zip(&zip_path, &unpacked)?;
     // SR-03: lifecycle-aware restore; quiesce/reopen failures surface.
-    let outcome = service.restore_with_lifecycle(engine(), &unpacked, &work);
-    match outcome {
-        Ok(report) => RestoreResultDto {
-            ok: report.restored,
-            restored: report.restored,
-            target_backup: report.target_backup,
-            message: report.message,
-            error: None,
-        },
-        Err(error) => RestoreResultDto {
-            ok: false,
-            restored: false,
-            target_backup: None,
-            message: String::new(),
-            error: Some(error_dto(error)),
-        },
+    let report = service.restore_with_lifecycle(engine(), &unpacked, &work)?;
+    if report.restored {
+        super::speedtest::reload_profile_ex_after_restore();
     }
+    Ok(RestoreResultDto {
+        ok: report.restored,
+        restored: report.restored,
+        target_backup: report.target_backup,
+        message: report.message,
+        error: None,
+    })
 }
 
 // -- update -----------------------------------------------------------------
@@ -1020,6 +832,49 @@ pub async fn t16_apply_core_update(
                     applied,
                     skipped,
                     error: Some(error_dto(error)),
+                }
+            }
+        }
+    }
+    if !applied.is_empty() && engine().applied_session().is_some() {
+        if let Some(target_id) = engine().active_profile() {
+            let active_core = match engine().profile_by_id(&target_id).and_then(|profile| {
+                profile
+                    .ok_or_else(|| DomainError::not_found("profile", &target_id))
+                    .and_then(|profile| engine().resolve_target_core(&profile))
+            }) {
+                Ok(core) => core,
+                Err(error) => {
+                    return ApplyCoreResultDto {
+                        ok: false,
+                        applied,
+                        skipped,
+                        error: Some(error_dto(error)),
+                    }
+                }
+            };
+            if applied
+                .iter()
+                .any(|item| item.core.eq_ignore_ascii_case(active_core.as_str()))
+            {
+                let revision = engine().desired_revision();
+                let hints = application::tun_hints_from_env();
+                let result = engine()
+                    .build_runtime_plan_with_hints(&target_id, revision, &hints)
+                    .and_then(|plan| {
+                        engine().apply_runtime_for_target(
+                            plan,
+                            &target_id,
+                            domain::DesiredRevision::new(revision),
+                        )
+                    });
+                if let Err(error) = result {
+                    return ApplyCoreResultDto {
+                        ok: false,
+                        applied,
+                        skipped,
+                        error: Some(error_dto(error)),
+                    };
                 }
             }
         }

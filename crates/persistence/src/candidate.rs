@@ -121,8 +121,10 @@ fn import_from_path_with_mode(
     let snapshot = upstream_db::snapshot(&source, &work_dir.join("snapshot"))?;
     let source_fingerprint = snapshot.fingerprint();
 
-    // Idempotency: same source fingerprint already recorded -> no-op.
-    if target_db.exists() {
+    // Idempotency: re-merging a recorded source is a no-op. A replace restore
+    // always rebuilds, so restoring the same backup after local edits still
+    // brings the backup back.
+    if mode == ImportMode::Merge && target_db.exists() {
         let existing = Store::open_readonly(target_db)?;
         if let Some(batch) = existing.find_batch(&source_fingerprint)? {
             return Ok(already_imported_report(&batch, &snapshot));
@@ -1096,6 +1098,32 @@ mod tests {
         let rows = store.read_rows("ProfileItem").unwrap();
         assert_eq!(rows.len(), 1, "restore must replace, not merge");
         assert_eq!(rows[0].string("Remarks"), "B");
+    }
+
+    #[test]
+    fn restoring_the_same_source_again_replaces_local_changes() {
+        let base = tempfile::tempdir().unwrap();
+        let target = base.path().join("target.db");
+        let work = tempfile::tempdir().unwrap();
+        let opts = ImportOptions {
+            now: 1,
+            fault: ImportFault::None,
+        };
+
+        let source_a = mk_upstream_source(base.path(), "a", "pA", "A", r#"{"IndexId":"pA"}"#);
+        let source_b = mk_upstream_source(base.path(), "b", "pB", "B", r#"{"IndexId":"pB"}"#);
+        let first = restore_from_path(&source_a, &target, work.path(), &opts).unwrap();
+        assert_eq!(first.status, ImportStatus::Imported);
+        // A local change after the restore: B's rows are merged in.
+        let merged = import_from_path(&source_b, &target, work.path(), &opts).unwrap();
+        assert_eq!(merged.status, ImportStatus::Imported);
+
+        let again = restore_from_path(&source_a, &target, work.path(), &opts).unwrap();
+        assert_eq!(again.status, ImportStatus::Imported);
+        let store = Store::open_readonly(&target).unwrap();
+        let rows = store.read_rows("ProfileItem").unwrap();
+        assert_eq!(rows.len(), 1, "the second restore must replace again");
+        assert_eq!(rows[0].string("Remarks"), "A");
     }
 
     #[test]

@@ -862,6 +862,48 @@ pub enum ProfileStore {
 }
 
 impl ProfileStore {
+    /// Restore exactly the profile rows touched by a mutation. SQLite applies
+    /// the compensation as one transaction so a failed config write cannot
+    /// leave a partially restored row set.
+    pub fn restore_profiles(
+        &mut self,
+        snapshot: &[(String, Option<Profile>)],
+    ) -> Result<(), DomainError> {
+        match self {
+            ProfileStore::Memory(repo) => {
+                for (id, profile) in snapshot {
+                    match profile {
+                        Some(profile) => repo.upsert(profile.clone())?,
+                        None => {
+                            repo.remove(id)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            ProfileStore::Sqlite(repo) => {
+                let tx = repo.store.begin().map_err(persistence_storage_error)?;
+                for (id, profile) in snapshot {
+                    match profile {
+                        Some(profile) => repo
+                            .store
+                            .upsert_row(&tx, &row_from_profile(profile))
+                            .map_err(persistence_storage_error)?,
+                        None => {
+                            tx.execute(
+                                "DELETE FROM \"ProfileItem\" WHERE \"IndexId\" = ?1",
+                                rusqlite::params![id],
+                            )
+                            .map_err(|error| persistence_storage_error(error.into()))?;
+                        }
+                    }
+                }
+                tx.commit()
+                    .map_err(|error| persistence_storage_error(error.into()))
+            }
+        }
+    }
+
     /// Transactional replace for one subscription (see
     /// [`SqliteProfileRepository::replace_for_sub`]). The in-memory backend
     /// snapshots the affected rows and restores them on failure so the

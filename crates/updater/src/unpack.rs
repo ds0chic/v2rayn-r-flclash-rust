@@ -313,19 +313,6 @@ fn pad_tar<R: Read>(reader: &mut R, size: u64) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Read a small `Read` fully with a cap.
-pub fn read_capped<R: Read>(mut reader: R, max: usize) -> Result<Vec<u8>, UpdateError> {
-    let mut buf = Vec::new();
-    (&mut reader)
-        .take(max as u64 + 1)
-        .read_to_end(&mut buf)
-        .map_err(|e| UpdateError::Io(e.to_string()))?;
-    if buf.len() > max {
-        return Err(UpdateError::TooLarge { limit: max as u64 });
-    }
-    Ok(buf)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

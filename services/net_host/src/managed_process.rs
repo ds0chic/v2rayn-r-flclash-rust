@@ -45,11 +45,6 @@ pub fn sidecar_exit_error(sidecar_id: &str, exit_code: Option<i32>) -> DomainErr
         .with_detail(format!("sidecar `{sidecar_id}` exited ({code})"))
 }
 
-#[allow(dead_code)]
-fn _codes_anchor() {
-    let _ = codes::INTERNAL;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

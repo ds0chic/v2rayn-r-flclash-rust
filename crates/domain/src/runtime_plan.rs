@@ -339,28 +339,22 @@ impl ProcessGraph {
             *indegree.get_mut(edge.after.as_str()).unwrap() += 1;
         }
 
-        let mut ready: Vec<&str> = indegree
+        // Ordered set: always start the smallest ready id, so the order is
+        // stable regardless of edge insertion order.
+        let mut ready: BTreeSet<&str> = indegree
             .iter()
             .filter(|(_, d)| **d == 0)
             .map(|(id, _)| *id)
             .collect();
-        ready.sort_unstable();
         let mut order = Vec::with_capacity(self.nodes.len());
-        while let Some(id) = ready.first().copied() {
-            ready.remove(0);
+        while let Some(id) = ready.pop_first() {
             order.push(id.to_string());
-            if let Some(nexts) = adj.get(id) {
-                let mut newly_ready = Vec::new();
-                for next in nexts {
-                    let d = indegree.get_mut(next).unwrap();
-                    *d -= 1;
-                    if *d == 0 {
-                        newly_ready.push(*next);
-                    }
+            for next in adj.get(id).into_iter().flatten() {
+                let d = indegree.get_mut(next).unwrap();
+                *d -= 1;
+                if *d == 0 {
+                    ready.insert(next);
                 }
-                newly_ready.sort_unstable();
-                ready.extend(newly_ready);
-                ready.sort_unstable();
             }
         }
 

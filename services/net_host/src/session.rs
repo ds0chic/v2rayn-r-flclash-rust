@@ -20,8 +20,8 @@ use tokio::sync::{Mutex, Notify};
 
 use runtime::tun::{tun_spec_from_plan, TunSpec};
 use runtime::{
-    adapter_for, matches_identity, process_creation_time_ms, sha256_hex, CoreAdapter, CoreLocator,
-    JobGuard, ProcessIdentity, RuntimeDetail, RuntimeExitFact, RuntimeTunDetail, ServerFrame,
+    adapter_for, process_creation_time_ms, sha256_hex, CoreAdapter, CoreLocator, JobGuard,
+    ProcessIdentity, RuntimeDetail, RuntimeExitFact, RuntimeTunDetail, ServerFrame,
     NET_HOST_PIPE_NAME, RUNTIME_DETAIL_EVENT,
 };
 
@@ -3084,12 +3084,6 @@ fn tail_log(path: &std::path::Path, max_lines: usize) -> String {
     let lines: Vec<&str> = content.lines().collect();
     let start = lines.len().saturating_sub(max_lines);
     lines[start..].join(" | ")
-}
-
-/// Verify a recorded identity is still alive.
-#[allow(dead_code)]
-pub fn identity_alive(identity: &ProcessIdentity) -> bool {
-    matches_identity(identity)
 }
 
 /// Redacted TUN facts for [`RuntimeDetail`]: adapter label, interface index,

@@ -17,19 +17,11 @@ use ipc_contract::{
 };
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use crate::audit::{AuditLog, AuditOutcome};
+use crate::audit::{now_ms, AuditLog, AuditOutcome};
 use crate::backend::{HelperBackend, RouteRemovalOutcome, StartedCore, TunResetOutcome};
 use crate::journal::{
     core_label, route_label, tun_label, JournalEntry, JournalKind, ResourceJournal,
 };
-
-/// Wall-clock Unix milliseconds. Used for lease expiry and exit timestamps.
-fn now_ms() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0)
-}
 
 /// Frame length prefix size in bytes (net-host convention).
 pub const LEN_PREFIX_BYTES: usize = 4;

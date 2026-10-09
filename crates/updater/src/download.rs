@@ -112,16 +112,12 @@ impl FileDownloader {
             None => None,
         };
 
-        let shared_trust = match &trust {
-            HttpsTrust::System => platform::http::HttpsTrust::System,
-            HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
-        };
         let policy = platform::http::HttpPolicy {
             timeout: options.timeout,
             connect_timeout: options.connect_timeout,
             user_agent: options.user_agent.clone(),
             proxy: options.proxy.clone(),
-            trust: shared_trust,
+            trust,
             redirect: platform::http::RedirectPolicy::Limited(10),
         };
         let client =

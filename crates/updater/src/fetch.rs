@@ -20,7 +20,6 @@ pub trait ReleaseSource: Send + Sync {
 pub struct CoreReleaseApi {
     http: platform::http::SharedHttpClient,
     pub user_agent: String,
-    trust: HttpsTrust,
 }
 
 impl CoreReleaseApi {
@@ -46,10 +45,6 @@ impl CoreReleaseApi {
         proxy: Option<&str>,
         trust: HttpsTrust,
     ) -> Result<Self, UpdateError> {
-        let shared_trust = match &trust {
-            HttpsTrust::System => platform::http::HttpsTrust::System,
-            HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
-        };
         let policy = platform::http::HttpPolicy {
             timeout,
             connect_timeout: Duration::from_secs(10),
@@ -58,7 +53,7 @@ impl CoreReleaseApi {
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .map(str::to_string),
-            trust: shared_trust,
+            trust,
             redirect: platform::http::RedirectPolicy::Limited(10),
         };
         let http =
@@ -66,13 +61,12 @@ impl CoreReleaseApi {
         Ok(Self {
             http,
             user_agent: "v2rayN-updater".to_string(),
-            trust,
         })
     }
 
     /// The trust roots this instance was built with.
     pub fn trust(&self) -> &HttpsTrust {
-        &self.trust
+        &self.http.policy().trust
     }
 
     /// Fetch and parse `GET {releases_url}`.

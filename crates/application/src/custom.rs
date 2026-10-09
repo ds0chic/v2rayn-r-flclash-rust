@@ -211,16 +211,13 @@ pub fn normalize_server(mut profile: Profile) -> Profile {
             profile.password = trim(&profile.password);
             profile.network = String::new();
             profile.security.fingerprint = None;
-            let control = profile.proto_extra.congestion_control.take();
-            let valid = control
-                .as_deref()
-                .map(|v| TUIC_CONGESTION_CONTROLS.contains(&v))
-                .unwrap_or(false);
-            profile.proto_extra.congestion_control = Some(if valid {
-                control.unwrap()
-            } else {
-                TUIC_CONGESTION_CONTROLS[0].to_string()
-            });
+            let control = profile
+                .proto_extra
+                .congestion_control
+                .take()
+                .filter(|v| TUIC_CONGESTION_CONTROLS.contains(&v.as_str()))
+                .unwrap_or_else(|| TUIC_CONGESTION_CONTROLS[0].to_string());
+            profile.proto_extra.congestion_control = Some(control);
             profile.security.stream_security = default_tls(profile.security.stream_security.take());
             if profile.security.alpn.as_deref().unwrap_or("").is_empty() {
                 profile.security.alpn = Some("h3".to_string());

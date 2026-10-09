@@ -120,10 +120,6 @@ impl WebDavClient {
                 "url must be http(s)",
             ));
         }
-        let shared_trust = match trust {
-            HttpsTrust::System => platform::http::HttpsTrust::System,
-            HttpsTrust::BundledPem(pem) => platform::http::HttpsTrust::BundledPem(pem.clone()),
-        };
         let policy = platform::http::HttpPolicy {
             timeout,
             connect_timeout: Duration::from_secs(10),
@@ -132,7 +128,7 @@ impl WebDavClient {
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
                 .map(str::to_string),
-            trust: shared_trust,
+            trust: trust.clone(),
             redirect: platform::http::RedirectPolicy::Limited(10),
         };
         let http = platform::http::SharedHttpClient::shared(policy)

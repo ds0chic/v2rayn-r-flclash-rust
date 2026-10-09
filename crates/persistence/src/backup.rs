@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::candidate::commit_candidate;
 use crate::error::{PersistenceError, Result};
-use crate::hash::{sha256_file, sha256_hex};
+use crate::hash::sha256_file;
 use crate::report::EntityCount;
 use crate::upstream_db::consistent_copy;
 
@@ -259,19 +259,6 @@ pub fn recognize_archive(path: &Path) -> Result<ArchiveRecognition> {
         layout,
         entries,
     })
-}
-
-/// Stable content digest of a bundle (manifest-independent helper for naming).
-pub fn bundle_digest(manifest: &BackupManifest) -> String {
-    sha256_hex(
-        format!(
-            "{}:{}:{}",
-            manifest.db_sha256,
-            manifest.config_sha256.as_deref().unwrap_or(""),
-            manifest.created_at
-        )
-        .as_bytes(),
-    )
 }
 
 #[cfg(test)]

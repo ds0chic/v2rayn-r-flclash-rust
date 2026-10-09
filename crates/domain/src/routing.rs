@@ -17,16 +17,6 @@ use crate::reference::{ReferenceExpr, ReferenceSource};
 pub const OUTBOUND_TAGS: &[&str] = &["proxy", "direct", "block"];
 /// `Global.ProxyTag` fallback for dangling references.
 pub const PROXY_TAG: &str = "proxy";
-/// `Global.DomainStrategy` candidates (Xray).
-pub const DOMAIN_STRATEGIES: &[&str] = &[
-    "AsIs",
-    "UseIP",
-    "UseIPv4v6",
-    "UseIPv6v4",
-    "UseIPv4",
-    "UseIPv6",
-    "",
-];
 /// `Global.DomainStrategies4Sbox` candidates (sing-box).
 pub const DOMAIN_STRATEGIES_SBOX: &[&str] =
     &["", "prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"];

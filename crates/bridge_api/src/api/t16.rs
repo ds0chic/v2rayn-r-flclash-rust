@@ -111,7 +111,10 @@ pub fn t16_backup_local(dest_root: String) -> BackupResultDto {
 pub fn t16_backup_list(parent: String) -> BackupListDto {
     match BackupService::list(Path::new(&parent)) {
         Ok(items) => BackupListDto {
-            items: items.iter().map(|m| manifest_dto(m, None)).collect(),
+            items: items
+                .iter()
+                .map(|(root, m)| manifest_dto(m, Some(root)))
+                .collect(),
             error: None,
         },
         Err(error) => BackupListDto {

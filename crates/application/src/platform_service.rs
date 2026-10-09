@@ -487,13 +487,13 @@ impl PlatformService {
             .pac
             .lock()
             .map_err(|_| platform::PlatformError::Backend("pac slot poisoned".to_string()))?;
-        // Identity input for SP-15: script text plus the requested rule. The
-        // refresh path keeps the server's original rule; hashing the requested
-        // pair may only cause an extra harmless re-apply, never a missed one.
+        // Identity input for SP-15: script text plus the requested rule.
         let text = source.read().ok();
         if let Some(server) = guard.as_mut() {
             if server.is_running() {
-                // Refresh content; port stays.
+                // Refresh content with the requested rule (a new local port or
+                // protocol must reach the served script); port stays.
+                server.set_proxy_rule(proxy_rule.clone());
                 server.start(source)?;
                 self.record_pac_content(text.as_deref(), proxy_rule.as_deref());
                 if let Ok(mut chosen) = self.pac_port.lock() {

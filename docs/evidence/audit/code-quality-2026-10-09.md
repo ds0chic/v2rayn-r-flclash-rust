@@ -96,3 +96,62 @@
   一个 `winreg` 小模块；需 Windows 构建验证。
 - `updater::semver`：数字前导零的预发布标识（`rc.01` vs `rc.1`）下 `Eq` 与 `Ord`
   不一致；SemVer 本身禁止前导零，实际影响很小。
+
+---
+
+# 第二轮：流程 / 前端逻辑 / bug（2026-10-09）
+
+## 5. 改动
+
+### Rust
+- `application/codegen.rs`：`RulesItem.RuleType` 为 null 时按 `All` 处理（上游可空，
+  null 同时进入路由与 DNS）；此前映射为 `Routing`，内置白/黑名单模板（无 `ruleType`）
+  的规则全部被排除出 DNS 生成。新增测试 `rules_without_rule_type_apply_to_routing_and_dns`。
+- `domain/routing.rs`：删除无引用且取值错误（混入 `DomainStrategy4Freedoms`）的
+  `DOMAIN_STRATEGIES`。
+- `persistence/candidate.rs`：幂等短路仅用于 Merge；Replace 恢复同一备份时重建，
+  此前本地改动后再恢复同一备份为空操作并报成功。新增测试
+  `restoring_the_same_source_again_replaces_local_changes`。
+- `application/backup_service.rs` + `bridge_api/t16.rs`：`list` 返回备份根路径，
+  列表项可直接恢复（此前 `root` 恒为空）。
+- `platform/pac.rs` + `application/platform_service.rs`：PAC 刷新使用新的代理规则
+  （此前运行中刷新保留旧端口）。新增测试 `refresh_renders_the_updated_proxy_rule`。
+- `application/subs.rs`：定时 tick 每次尝试后写 `UpdateTime`（取消除外），对齐
+  `TaskManager`；此前失败订阅每 60s 重复下载。见 `docs/tasks/FIX-09D.md`。
+- `application/update_service.rs`：托管安装的内核不再列出两次。
+
+### Flutter
+- `profiles_controller.dart`：
+  - `newDraft` 设 `isSub = false`（上游 `AddServerAsync`）；此前手动新增节点在
+    下次更新同组订阅时被删除。
+  - `moveSelected` 基于当前显示列表（上游 `MoveServer` 作用于 `_lstProfile`），
+    分组内/排序状态下不再移错。
+  - `sortByResult` 持久化整组顺序（同表头排序）；`_recompute`/`sortBy` 用全部列定义，
+    隐藏“延迟”列时按结果排序不再退回首列。
+  - `moveProfilesToGroup` 批量保存后只重载一次，删除未用参数 `subRemarks`。
+- `subs_controller.dart` / `subs_actions.dart`：
+  - `update()` 结束后刷新节点表（订阅窗口单条更新此前不刷新）；桥接异常不再锁死 busy。
+  - 定时更新运行时每 60s 比较 `UpdateTime`，有变化则刷新订阅列表与节点表。
+  - 粘贴添加订阅只更新新增项；`preserved_error` 不再同时计入“保留”。
+- `status_bar_view.dart`：本地/局域网按上游 `InboundDisplayStatus` 显示
+  （此前恒为 `--`）；`ui_shell_controller.dart` 删除无用字段/方法。
+- `settings_controller.dart`：删除无效 `clearStatus`；三份相同状态函数、两份
+  AutoRun 读取合并；草稿修订号改用 `Expando`；规范化哈希去掉 O(n²) 查找。
+- 测试：新增 `test/audit_r2_flows_test.dart`；`fix10b` 一条断言改为整组排序语义。
+
+## 6. 实际运行的命令与结果（Linux 容器）
+
+| 命令 | 结果 |
+|---|---|
+| `cargo fmt --all -- --check` | 通过 |
+| `cargo clippy --workspace --exclude net_host --all-targets --locked -- -D warnings` | 通过 |
+| `cargo test --workspace --exclude net_host --locked --no-fail-fast` | 1706 通过 / 17 失败 / 1 忽略（见下） |
+| `dart format --output=none --set-exit-if-changed lib test` | 通过（450 文件，0 改动） |
+| `flutter analyze` | 无问题 |
+
+- Rust 失败 17 项 = 第一轮同一组 16 项环境失败（缺 `tools/cores/**.exe`、Linux 重启桩）
+  + `bridge_api::api::subs::tests::sp14_preview_custom_leaves_no_files`：与提交类测试共用
+  临时目录的并发竞争，单独重跑 3 次 2 次通过；相关文件本轮未改。
+- 新增 Rust 测试均通过：`rules_without_rule_type_apply_to_routing_and_dns`、
+  `restoring_the_same_source_again_replaces_local_changes`、
+  `refresh_renders_the_updated_proxy_rule`、`scheduler_pass_reports_unavailable_endpoint_not_fake_success`。

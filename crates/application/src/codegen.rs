@@ -545,10 +545,13 @@ pub fn routing_to_codegen(
             .into_iter()
             .map(|r| config_codegen::input::CodegenRule {
                 enabled: r.enabled,
+                // Upstream `RulesItem.RuleType` is nullable and a null rule
+                // applies to both routing and DNS (the built-in templates carry
+                // no `ruleType`), so only an explicit value narrows it.
                 rule_type: match r.rule_type {
-                    Some(domain::RuleType::All) => config_codegen::input::RuleType::All,
+                    Some(domain::RuleType::Routing) => config_codegen::input::RuleType::Routing,
                     Some(domain::RuleType::Dns) => config_codegen::input::RuleType::Dns,
-                    _ => config_codegen::input::RuleType::Routing,
+                    Some(domain::RuleType::All) | None => config_codegen::input::RuleType::All,
                 },
                 outbound_tag: r.outbound_tag.unwrap_or_default(),
                 port: r.port,
@@ -1493,5 +1496,29 @@ mod tests {
             main["route"]["rule_set"][0]["path"],
             serde_json::json!("bin/srss/geosite-google.srs")
         );
+    }
+
+    #[test]
+    fn rules_without_rule_type_apply_to_routing_and_dns() {
+        let profile = domain::RoutingProfile {
+            rule_set: r#"[
+                {"outbound_tag":"direct","domain":["geosite:cn"],"enabled":true},
+                {"outbound_tag":"proxy","domain":["a.example"],"enabled":true,"rule_type":1},
+                {"outbound_tag":"proxy","domain":["b.example"],"enabled":true,"rule_type":2}
+            ]"#
+            .into(),
+            ..Default::default()
+        };
+        let rules = routing_to_codegen(&profile, None).rule_set;
+        let kinds: Vec<_> = rules.iter().map(|r| r.rule_type).collect();
+        assert_eq!(
+            kinds,
+            [
+                config_codegen::input::RuleType::All,
+                config_codegen::input::RuleType::Routing,
+                config_codegen::input::RuleType::Dns,
+            ]
+        );
+        assert!(!rules[0].is_routing() && !rules[0].is_dns());
     }
 }

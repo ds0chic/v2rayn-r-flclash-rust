@@ -514,8 +514,9 @@ impl BackupService {
         Ok(active)
     }
 
-    /// List bundles directly under `parent` (a directory with a manifest).
-    pub fn list(parent: &Path) -> Result<Vec<BackupManifest>, DomainError> {
+    /// List bundles directly under `parent` (a directory with a manifest),
+    /// newest first, each with its bundle root.
+    pub fn list(parent: &Path) -> Result<Vec<(PathBuf, BackupManifest)>, DomainError> {
         if !parent.is_dir() {
             return Ok(Vec::new());
         }
@@ -526,11 +527,11 @@ impl BackupService {
             let path = entry.path();
             if path.is_dir() && path.join(MANIFEST_NAME).is_file() {
                 if let Ok(manifest) = backup::read_manifest(&path) {
-                    manifests.push(manifest);
+                    manifests.push((path, manifest));
                 }
             }
         }
-        manifests.sort_by_key(|manifest| std::cmp::Reverse(manifest.created_at));
+        manifests.sort_by_key(|(_, manifest)| std::cmp::Reverse(manifest.created_at));
         Ok(manifests)
     }
 }

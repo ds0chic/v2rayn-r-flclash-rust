@@ -24,31 +24,6 @@ enum AppLayoutMode {
   }
 }
 
-/// The four system-proxy semantics from LAY-STATUSBAR-001 /
-/// outputs plan §09 (ForcedClear / ForcedChange / Unchanged / Pac).
-/// T05 only switches UI state; the real WinINET work lands in T13.
-class SystemProxyMode {
-  const SystemProxyMode(this.label);
-
-  final String label;
-
-  static const modes = <SystemProxyMode>[
-    SystemProxyMode('清除系统代理'),
-    SystemProxyMode('自动配置系统代理'),
-    SystemProxyMode('不改变系统代理'),
-    SystemProxyMode('Pac 模式'),
-  ];
-}
-
-class TrafficSpeed {
-  const TrafficSpeed({this.up = '--', this.down = '--'});
-
-  final String up;
-  final String down;
-
-  bool get hasData => up != '--' || down != '--';
-}
-
 /// Single UI-state source of truth for the shell. Values that require a live
 /// backend (kernel, subscription, Clash API) stay at their "unknown" defaults
 /// and are rendered as `--` / `未运行`; nothing is fabricated.
@@ -68,13 +43,6 @@ class UiShellState {
     this.autoAdjustColWidth = false,
     this.zebraStriping = false,
     this.trayMenuServersLimit = 20,
-    this.systemProxyIndex = 2,
-    this.routingLabel,
-    this.tunEnabled = false,
-    this.proxySpeed = const TrafficSpeed(),
-    this.directSpeed = const TrafficSpeed(),
-    this.inbound,
-    this.inboundLan,
     this.message,
   });
 
@@ -102,14 +70,6 @@ class UiShellState {
   final bool zebraStriping;
   final int trayMenuServersLimit;
 
-  final int systemProxyIndex;
-  final String? routingLabel;
-  final bool tunEnabled;
-  final TrafficSpeed proxySpeed;
-  final TrafficSpeed directSpeed;
-  final String? inbound;
-  final String? inboundLan;
-
   /// Last transient UI feedback, shown in the status bar. Used for
   /// "尚未实现" notices so the shell never pretends a backend action ran.
   final String? message;
@@ -132,13 +92,6 @@ class UiShellState {
     bool? autoAdjustColWidth,
     bool? zebraStriping,
     int? trayMenuServersLimit,
-    int? systemProxyIndex,
-    String? routingLabel,
-    bool? tunEnabled,
-    TrafficSpeed? proxySpeed,
-    TrafficSpeed? directSpeed,
-    String? inbound,
-    String? inboundLan,
     String? message,
     bool clearMessage = false,
   }) {
@@ -157,13 +110,6 @@ class UiShellState {
       autoAdjustColWidth: autoAdjustColWidth ?? this.autoAdjustColWidth,
       zebraStriping: zebraStriping ?? this.zebraStriping,
       trayMenuServersLimit: trayMenuServersLimit ?? this.trayMenuServersLimit,
-      systemProxyIndex: systemProxyIndex ?? this.systemProxyIndex,
-      routingLabel: routingLabel ?? this.routingLabel,
-      tunEnabled: tunEnabled ?? this.tunEnabled,
-      proxySpeed: proxySpeed ?? this.proxySpeed,
-      directSpeed: directSpeed ?? this.directSpeed,
-      inbound: inbound ?? this.inbound,
-      inboundLan: inboundLan ?? this.inboundLan,
       message: clearMessage ? null : (message ?? this.message),
     );
   }
@@ -175,7 +121,6 @@ final uiShellControllerProvider =
 class UiShellController extends Notifier<UiShellState> {
   static const layoutSection = 'layout';
   static const themeSection = 'theme';
-  static const statusSection = 'status_ui';
 
   UiStateStore get _store => ref.read(uiStateStoreProvider);
 
@@ -183,7 +128,6 @@ class UiShellController extends Notifier<UiShellState> {
   UiShellState build() {
     final layout = _store.loadSection(layoutSection) ?? const {};
     final theme = _store.loadSection(themeSection) ?? const {};
-    final status = _store.loadSection(statusSection) ?? const {};
     return UiShellState(
       layout: AppLayoutMode.fromId(layout['mode'] as String?),
       horizontalSplit: (layout['horizontal_split'] as num?)?.toDouble() ?? 0.5,
@@ -194,7 +138,6 @@ class UiShellController extends Notifier<UiShellState> {
       fontFamily: theme['font_family'] as String?,
       fontSize: (theme['font_size'] as num?)?.toDouble(),
       language: theme['language'] as String?,
-      systemProxyIndex: (status['system_proxy'] as num?)?.toInt() ?? 2,
     );
   }
 
@@ -323,17 +266,6 @@ class UiShellController extends Notifier<UiShellState> {
   void toggleZebraStriping() {
     state = state.copyWith(zebraStriping: !state.zebraStriping);
     _persistTheme();
-  }
-
-  void setSystemProxyIndex(int index) {
-    state = state.copyWith(systemProxyIndex: index);
-    _store.saveSection(statusSection, <String, dynamic>{'system_proxy': index});
-    setMessage('系统代理仅切换 UI 状态，后端接入见 T13');
-  }
-
-  void setTunEnabled(bool value) {
-    state = state.copyWith(tunEnabled: value);
-    setMessage('TUN 模式后端尚未接入');
   }
 
   void setMessage(String? message) {

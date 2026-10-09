@@ -686,11 +686,14 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// The draft inherits the currently selected group (upstream
   /// `AddServerAsync` -> `ProfileItem{Subid = _config.SubIndexId}`), so a node
   /// added while a group is visible lands in that group instead of "no group".
+  /// A hand-made node is never subscription-sourced (`IsSub = false`), so a
+  /// later update of that subscription keeps it.
   ProfileDraft newDraft(ConfigType configType) {
     return ProfileDraft()
       ..configType = configType
       ..coreType = ProfileCapabilities.defaultCore(configType)
       ..subid = state.groupSubId ?? ''
+      ..isSub = false
       ..remarks = ''
       ..address = ''
       ..port = 443
@@ -1241,7 +1244,7 @@ class ProfilesController extends Notifier<ProfilesState> {
       };
       grouped = filtered.where((r) => _rowSubId(subById, r) == group).toList();
     }
-    final sorted = applySort(grouped, base.visibleColumns, base.sort);
+    final sorted = applySort(grouped, base.columns, base.sort);
     // Upstream `RefreshServersBiz` rebuilds the visible list and the selection
     // from it; a row that is no longer visible (group/filter change, delete)
     // must not stay selected, otherwise a batch/keyboard action would hit a
@@ -1388,16 +1391,12 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// Move the given profiles to a subscription group (ACT-PROF-013).
   ///
   /// The real persistence path is the existing `saveProfile` seam: load each
-  /// stored `ProfileDto`, set its `subid`/`subRemarks`, and save it back under
-  /// the same optimistic revision. The bridge exposes no dedicated
+  /// stored `ProfileDto`, set its `subid`, and save it back under the current
+  /// optimistic revision; the table reloads once after the batch. The bridge exposes no dedicated
   /// move-to-group API, so this reuses the documented profile save. Empty
   /// [subId] moves the nodes to the "no group" bucket. Returns false when a
   /// target no longer exists or any save is rejected; no partial fake success.
-  bool moveProfilesToGroup(
-    List<String> ids,
-    String subId, {
-    String subRemarks = '',
-  }) {
+  bool moveProfilesToGroup(List<String> ids, String subId) {
     if (ids.isEmpty) return false;
     var allOk = true;
     for (final id in ids) {
@@ -1428,8 +1427,11 @@ class ProfilesController extends Notifier<ProfilesState> {
         transportExtra: dto.transportExtra,
         extraJson: dto.extraJson,
       );
-      final result = saveDraft(moved);
-      if (!result.ok) allOk = false;
+      final result = _bridge.saveProfile(moved, _bridge.profileRevision());
+      if (!result.ok) {
+        allOk = false;
+        _log('save-profile-failed', result.error?.code ?? 'unknown');
+      }
     }
     reload();
     _log(
@@ -1523,7 +1525,7 @@ class ProfilesController extends Notifier<ProfilesState> {
     // whole current group, ignoring the live text filter. The persisted `Sort`
     // therefore covers hidden rows too, while the table still shows the
     // filtered subsequence in the same order (R3-PROF-03).
-    final scoped = applySort(_groupScope(state), state.visibleColumns, sort);
+    final scoped = applySort(_groupScope(state), state.columns, sort);
     state = _recompute(state.copyWith(sort: sort));
     _persistOrder(ids: scoped.map((r) => r.id).toList());
     _log('sort', '$key ${sort.direction.name} scoped=${scoped.length}');
@@ -1573,8 +1575,11 @@ class ProfilesController extends Notifier<ProfilesState> {
       columnKey: 'DelayVal',
       direction: ascending ? SortDirection.ascending : SortDirection.descending,
     );
+    // Like a header sort, the persisted order covers the whole group, not
+    // only the rows the text filter currently shows.
+    final scoped = applySort(_groupScope(state), state.columns, sort);
     state = _recompute(state.copyWith(sort: sort));
-    _persistOrder();
+    _persistOrder(ids: scoped.map((r) => r.id).toList());
     _log(
       'sort-result',
       'rows=${state.visible.length} direction=${ascending ? "asc" : "desc"}',
@@ -2255,40 +2260,42 @@ class ProfilesController extends Notifier<ProfilesState> {
     _log('column-move', '$key $index -> $target');
   }
 
-  /// UI-only reorder of the selected rows, preserving relative order.
+  /// Reorder the selected rows within the displayed list, preserving their
+  /// relative order.
+  ///
+  /// Upstream `MoveServer` moves inside `_lstProfile` (current group + filter,
+  /// in display order), so the move starts from [ProfilesState.visible]; hidden
+  /// rows of other groups keep their slots.
   void moveSelected({int delta = 0, bool toStart = false, bool toEnd = false}) {
     if (state.selected.isEmpty) {
       _log('move', 'no-selection');
       return;
     }
-    final selected = state.all.where((r) => state.selected.contains(r.id));
-    final selectedIds = selected.map((r) => r.id).toSet();
-    final rest = state.all.where((r) => !selectedIds.contains(r.id)).toList();
-    final block = selected.toList();
-    late List<ProfileSummary> next;
+    final rows = state.visible;
+    bool isSelected(ProfileSummary r) => state.selected.contains(r.id);
+    final block = rows.where(isSelected).toList();
+    if (block.isEmpty) return;
+    final rest = rows.where((r) => !isSelected(r)).toList();
+    final int insertAt;
     if (toStart) {
-      next = <ProfileSummary>[...block, ...rest];
+      insertAt = 0;
     } else if (toEnd) {
-      next = <ProfileSummary>[...rest, ...block];
+      insertAt = rest.length;
     } else if (delta < 0) {
-      next = <ProfileSummary>[...rest];
-      final firstIndex = state.all.indexWhere(
-        (r) => selectedIds.contains(r.id),
-      );
-      final insertAt = (firstIndex - 1).clamp(0, next.length);
-      next.insertAll(insertAt, block);
+      insertAt = (rows.indexWhere(isSelected) - 1).clamp(0, rest.length);
     } else {
-      next = <ProfileSummary>[...rest];
-      final lastIndex = state.all.lastIndexWhere(
-        (r) => selectedIds.contains(r.id),
+      insertAt = (rows.lastIndexWhere(isSelected) + 2 - block.length).clamp(
+        0,
+        rest.length,
       );
-      final insertAt = (lastIndex + 1 - block.length + 1).clamp(0, next.length);
-      next.insertAll(insertAt, block);
     }
+    final next = <ProfileSummary>[...rest]..insertAll(insertAt, block);
     // A manual reorder defines the new order; an active column sort would
     // immediately override it, so clear it (upstream `MoveServer` is a manual
     // move independent of `SortServers`).
-    state = _recompute(state.copyWith(all: next, sort: const SortSpec()));
+    state = _recompute(
+      state.copyWith(all: _withVisibleOrder(next), sort: const SortSpec()),
+    );
     _persistOrder();
   }
 

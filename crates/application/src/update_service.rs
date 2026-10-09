@@ -590,6 +590,9 @@ impl UpdateService {
                         executable: find_executable(&root)
                             .map(|p| p.to_string_lossy().into_owned()),
                     });
+                    // A managed install holds exactly its manifest version under
+                    // `<version>/`; scanning it again would list the core twice.
+                    continue;
                 }
             }
             let Ok(entries) = std::fs::read_dir(&root) else {

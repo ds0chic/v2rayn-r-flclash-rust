@@ -16,7 +16,9 @@ affiliated with or endorsed by the upstream project or its authors.
 
 The frozen upstream source used as the specification baseline is kept outside
 the distributed package under `work/` (see `compat/upstream-lock.json` and
-`outputs/UPSTREAM_INVENTORY.md`). Portions of behavior, settings schemas, and UI
+`outputs/UPSTREAM_INVENTORY.md`). In slim audit/distribution clones without a
+`work/` tree, the frozen upstream baseline is available at `upstream/v2rayN`.
+Portions of behavior, settings schemas, and UI
 structure are derived from that source. Per GPL-3.0, the full source of this
 derived work is available from this repository; the upstream attribution and
 license notices are preserved.

@@ -840,7 +840,9 @@ fn t10_live_core_matrix() {
         println!(
             "SKIPPED: missing core binaries (checked {} paths, e.g. {})",
             exes.len(),
-            exes.first().map(|exe| exe.display().to_string()).unwrap_or_default()
+            exes.first()
+                .map(|exe| exe.display().to_string())
+                .unwrap_or_default()
         );
         return;
     }

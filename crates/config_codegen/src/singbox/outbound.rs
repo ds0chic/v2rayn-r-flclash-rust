@@ -273,7 +273,11 @@ fn build_chain_outbounds_list(
     let children = resolve_children(input, node)?;
     let nodes_reverse: Vec<&&CodegenProfile> = children.iter().rev().collect();
     let count = nodes_reverse.len();
-    let mut result = BuiltServers::default();
+    // Combined processing-order sequence of (is_endpoint, server). Upstream
+    // keeps outbounds and endpoints in one list; the fan-out below must clone
+    // and rewire both (S3-03). Split back into `BuiltServers` at the end.
+    let mut seq: Vec<(bool, Value)> = Vec::new();
+    let mut custom_tags: Vec<(String, String)> = Vec::new();
 
     for (i, child) in nodes_reverse.iter().enumerate() {
         let child: &CodegenProfile = child;
@@ -311,22 +315,18 @@ fn build_chain_outbounds_list(
                     0 => {}
                     1 => {
                         let first = chain_start_tags[0].clone();
-                        for existed in result
-                            .outbounds
-                            .iter_mut()
-                            .chain(result.endpoints.iter_mut())
-                        {
+                        for (_, existed) in seq.iter_mut() {
                             if outbound_detour(existed).as_deref() == Some(current_tag.as_str()) {
                                 fill_detour(existed, &first);
                             }
                         }
                     }
                     _ => {
-                        let existed_clones = result.outbounds.clone();
-                        result.outbounds.clear();
+                        let existed_clones = seq.clone();
+                        seq.clear();
                         for (j, chain_start_tag) in chain_start_tags.iter().enumerate() {
                             let mut clone_list = existed_clones.clone();
-                            for existed in clone_list.iter_mut() {
+                            for (_, existed) in clone_list.iter_mut() {
                                 if let Some(tag) = existed.get("tag").and_then(Value::as_str) {
                                     let clone_tag = format!("{tag}-clone-{}", j + 1);
                                     if let Some(map) = existed.as_object_mut() {
@@ -337,15 +337,15 @@ fn build_chain_outbounds_list(
                             let len = clone_list.len();
                             let clone_tags: Vec<String> = clone_list
                                 .iter()
-                                .map(|v| {
+                                .map(|(_, v)| {
                                     v.get("tag")
                                         .and_then(Value::as_str)
                                         .unwrap_or("")
                                         .to_string()
                                 })
                                 .collect();
-                            for (k, existed) in clone_list.iter_mut().enumerate() {
-                                let previous = outbound_detour(existed);
+                            for k in 0..len {
+                                let previous = outbound_detour(&clone_list[k].1);
                                 let next_tag = if k + 1 < len {
                                     clone_tags[k + 1].clone()
                                 } else {
@@ -356,16 +356,16 @@ fn build_chain_outbounds_list(
                                 } else {
                                     next_tag
                                 };
-                                fill_detour(existed, &target);
-                                result.outbounds.push(existed.clone());
+                                fill_detour(&mut clone_list[k].1, &target);
+                                seq.push(clone_list[k].clone());
                             }
                         }
                     }
                 }
             }
-            result.outbounds.extend(built.outbounds);
-            result.endpoints.extend(built.endpoints);
-            result.custom_tags.extend(built.custom_tags);
+            seq.extend(built.outbounds.into_iter().map(|v| (false, v)));
+            seq.extend(built.endpoints.into_iter().map(|v| (true, v)));
+            custom_tags.extend(built.custom_tags);
             continue;
         }
 
@@ -376,8 +376,20 @@ fn build_chain_outbounds_list(
         if let Some(detour) = &dialer_proxy_tag {
             fill_detour(&mut value, detour);
         }
-        result.push(value, is_endpoint, custom, &current_tag);
+        if let Some(index_id) = custom {
+            custom_tags.push((current_tag.clone(), index_id));
+        }
+        seq.push((is_endpoint, value));
     }
+    let mut result = BuiltServers::default();
+    for (is_endpoint, value) in seq {
+        if is_endpoint {
+            result.endpoints.push(value);
+        } else {
+            result.outbounds.push(value);
+        }
+    }
+    result.custom_tags = custom_tags;
     Ok(result)
 }
 

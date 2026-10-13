@@ -506,7 +506,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
         OutlinedButton.icon(
           key: const ValueKey('group-pick-open'),
           onPressed: _candidates.isEmpty ? null : _pickNodes,
-          icon: const Icon(Icons.add, size: 16),
+          icon: Icon(AppTokens.icon('add'), size: 16),
           label: const Text(
             '选择节点... (多选)',
             style: TextStyle(fontSize: AppTokens.fontSize),
@@ -521,7 +521,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                   _childIds.removeWhere(_selectedChildren.contains);
                   _selectedChildren.clear();
                 }),
-          icon: const Icon(Icons.delete_outline, size: 16),
+          icon: Icon(AppTokens.icon('delete'), size: 16),
           label: Text(
             '移除选中 ($selectedCount)',
             style: const TextStyle(fontSize: AppTokens.fontSize),
@@ -595,7 +595,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
               _childIds.remove(id);
               _selectedChildren.remove(id);
             }),
-            icon: const Icon(Icons.close, size: 14),
+            icon: Icon(AppTokens.icon('dismiss'), size: 14),
           ),
         ],
       ),

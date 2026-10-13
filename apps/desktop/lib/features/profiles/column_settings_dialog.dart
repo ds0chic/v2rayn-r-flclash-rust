@@ -69,7 +69,7 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                                       column.key,
                                       -10,
                                     ),
-                              icon: const Icon(Icons.remove),
+                              icon: Icon(AppTokens.icon('remove')),
                             ),
                             SizedBox(
                               width: 40,
@@ -93,7 +93,7 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                                   ? null
                                   : () =>
                                         controller.resizeColumn(column.key, 10),
-                              icon: const Icon(Icons.add),
+                              icon: Icon(AppTokens.icon('add')),
                             ),
                             IconButton(
                               key: ValueKey<String>('colup-${column.key}'),
@@ -102,7 +102,7 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                               onPressed: index == 0
                                   ? null
                                   : () => controller.moveColumn(column.key, -1),
-                              icon: const Icon(Icons.arrow_upward),
+                              icon: Icon(AppTokens.icon('arrowUp')),
                             ),
                             IconButton(
                               key: ValueKey<String>('coldown-${column.key}'),
@@ -111,7 +111,7 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                               onPressed: index == columns.length - 1
                                   ? null
                                   : () => controller.moveColumn(column.key, 1),
-                              icon: const Icon(Icons.arrow_downward),
+                              icon: Icon(AppTokens.icon('arrowDown')),
                             ),
                           ],
                         );

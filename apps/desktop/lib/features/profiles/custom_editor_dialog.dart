@@ -416,7 +416,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                     OutlinedButton.icon(
                       key: const ValueKey('custom-browse'),
                       onPressed: _busy ? null : _browse,
-                      icon: const Icon(Icons.folder_open, size: 16),
+                      icon: Icon(AppTokens.icon('folder'), size: 16),
                       label: const Text(
                         '浏览',
                         style: TextStyle(fontSize: AppTokens.fontSize),
@@ -426,7 +426,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                     OutlinedButton.icon(
                       key: const ValueKey('custom-edit'),
                       onPressed: _busy ? null : _edit,
-                      icon: const Icon(Icons.edit, size: 16),
+                      icon: Icon(AppTokens.icon('editSolid'), size: 16),
                       label: const Text(
                         '编辑',
                         style: TextStyle(fontSize: AppTokens.fontSize),

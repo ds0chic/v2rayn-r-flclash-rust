@@ -74,6 +74,11 @@ void main() {
     expect(AppTokens.icon('settings'), Icons.settings_outlined);
     expect(AppTokens.icon('logs'), Icons.message_outlined);
     expect(AppTokens.icon('missing-semantic'), Icons.circle_outlined);
+    expect(AppTokens.icon('dismiss'), Icons.close);
+    expect(AppTokens.icon('download'), Icons.download);
+    expect(AppTokens.icon('link'), Icons.link);
+    expect(AppTokens.icon('bolt'), Icons.bolt_outlined);
+    expect(AppTokens.icon('dropdown'), Icons.arrow_drop_down);
   });
 
   test('window metrics match the ledger minimums', () {

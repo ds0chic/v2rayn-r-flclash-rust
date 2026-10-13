@@ -2,19 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Main-window grid orientation, mirroring upstream `EGirdOrientation`
 /// (compat/layouts.yaml LAY-MAIN-001/002/003).
 enum AppLayoutMode {
-  horizontal('horizontal', '水平布局', Icons.view_column_outlined),
-  vertical('vertical', '垂直布局', Icons.view_agenda_outlined),
-  tab('tab', '标签布局', Icons.tab_outlined);
+  horizontal('horizontal', '水平布局', 'layout-horizontal'),
+  vertical('vertical', '垂直布局', 'layout-vertical'),
+  tab('tab', '标签布局', 'layout-tab');
 
-  const AppLayoutMode(this.id, this.label, this.icon);
+  const AppLayoutMode(this.id, this.label, this.iconName);
 
   final String id;
   final String label;
-  final IconData icon;
+
+  /// Semantic name resolved through the shared icon family.
+  final String iconName;
+
+  IconData get icon => AppTokens.icon(iconName);
 
   static AppLayoutMode fromId(String? id) {
     return AppLayoutMode.values.firstWhere(

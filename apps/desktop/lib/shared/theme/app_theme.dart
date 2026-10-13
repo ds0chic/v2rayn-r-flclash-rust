@@ -212,6 +212,19 @@ class AppTokens {
     'empty': Icons.inbox_outlined,
     'running': Icons.play_circle_outline,
     'stopped': Icons.stop_circle_outlined,
+    'bolt': Icons.bolt_outlined,
+    'speed': Icons.speed,
+    'dismiss': Icons.close,
+    'download': Icons.download,
+    'link': Icons.link,
+    'folder': Icons.folder_open,
+    'arrowUp': Icons.arrow_upward,
+    'arrowDown': Icons.arrow_downward,
+    'remove': Icons.remove,
+    'autoColumns': Icons.vertical_split_outlined,
+    'dropdown': Icons.arrow_drop_down,
+    'copyAll': Icons.content_copy,
+    'editSolid': Icons.edit,
   };
 
   static IconData icon(String semantic) =>

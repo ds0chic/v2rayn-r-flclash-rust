@@ -11,16 +11,20 @@ import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 ///   信息 (MsgView) / 当前代理 (ClashProxies) / 当前连接 (ClashConnections)
 /// and, in tab layout, a leading 配置项 (profiles) tab.
 enum AppTab {
-  profiles('profiles', '配置项', Icons.dns_outlined),
-  info('info', '信息', Icons.message_outlined),
-  proxies('proxies', '当前代理', Icons.call_split_outlined),
-  connections('connections', '当前连接', Icons.lan_outlined);
+  profiles('profiles', '配置项', 'dns'),
+  info('info', '信息', 'logs'),
+  proxies('proxies', '当前代理', 'proxies'),
+  connections('connections', '当前连接', 'connections');
 
-  const AppTab(this.id, this.label, this.icon);
+  const AppTab(this.id, this.label, this.iconName);
 
   final String id;
   final String label;
-  final IconData icon;
+
+  /// Semantic name resolved through the shared icon family.
+  final String iconName;
+
+  IconData get icon => AppTokens.icon(iconName);
 }
 
 enum TabStripPlacement { top, left }

@@ -187,9 +187,9 @@ class _LogsViewState extends ConsumerState<LogsView> {
                     key: const ValueKey('logs-keyword'),
                     controller: _keyword,
                     style: const TextStyle(fontSize: AppTokens.fontSize),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      prefixIcon: Icon(Icons.search, size: 14),
+                      prefixIcon: Icon(AppTokens.icon('search'), size: 14),
                       hintText: '过滤',
                     ),
                     onChanged: _onKeywordChanged,
@@ -258,7 +258,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
                       : () => Clipboard.setData(
                           ClipboardData(text: formatLogsForCopy(visible)),
                         ),
-                  icon: const Icon(Icons.content_copy, size: 14),
+                  icon: Icon(AppTokens.icon('copyAll'), size: 14),
                   label: const Text(
                     '复制全部',
                     style: TextStyle(fontSize: AppTokens.fontSize),

@@ -286,9 +286,9 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                     key: const ValueKey('connections-filter'),
                     controller: _filter,
                     style: const TextStyle(fontSize: AppTokens.fontSize),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isDense: true,
-                      prefixIcon: Icon(Icons.search, size: 14),
+                      prefixIcon: Icon(AppTokens.icon('search'), size: 14),
                       hintText: '过滤 Host/Chain/进程',
                     ),
                     onChanged: (value) => _onFilterChanged(value),
@@ -459,7 +459,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                                   tooltip: '关闭连接',
                                   onPressed: () =>
                                       controller.closeConnection(c.id),
-                                  icon: const Icon(Icons.close),
+                                  icon: Icon(AppTokens.icon('dismiss')),
                                 ),
                               ),
                             ],

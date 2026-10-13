@@ -92,14 +92,14 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                 TextButton.icon(
                   key: const ValueKey('routing-add'),
                   onPressed: () => _openRuleset(null),
-                  icon: const Icon(Icons.add, size: 16),
+                  icon: Icon(AppTokens.icon('add'), size: 16),
                   label: Text(context.tr('menuRoutingAdvancedAdd')),
                 ),
                 const SizedBox(width: 4),
                 TextButton.icon(
                   key: const ValueKey('routing-import-builtin'),
                   onPressed: _importBuiltinRules,
-                  icon: const Icon(Icons.download, size: 16),
+                  icon: Icon(AppTokens.icon('download'), size: 16),
                   label: Text(context.tr('menuRoutingAdvancedImportRules')),
                 ),
               ],
@@ -209,7 +209,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
           style: TextStyle(fontSize: AppTokens.fontSize, color: primary),
         ),
         const SizedBox(width: 2),
-        Icon(Icons.link, size: 14, color: primary),
+        Icon(AppTokens.icon('link'), size: 14, color: primary),
         const SizedBox(width: 8),
         SizedBox(
           width: 300,
@@ -2566,14 +2566,14 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                     TextButton.icon(
                       key: const ValueKey('routing-add'),
                       onPressed: () => _openSchemeEditor(null),
-                      icon: const Icon(Icons.add, size: 16),
+                      icon: Icon(AppTokens.icon('add'), size: 16),
                       label: Text(context.tr('menuRoutingAdvancedAdd')),
                     ),
                     const SizedBox(width: 4),
                     TextButton.icon(
                       key: const ValueKey('routing-import-builtin'),
                       onPressed: _importBuiltin,
-                      icon: const Icon(Icons.download, size: 16),
+                      icon: Icon(AppTokens.icon('download'), size: 16),
                       label: Text(context.tr('menuRoutingAdvancedImportRules')),
                     ),
                   ],
@@ -2705,7 +2705,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
           style: TextStyle(fontSize: AppTokens.fontSize, color: primary),
         ),
         const SizedBox(width: 2),
-        Icon(Icons.link, size: 14, color: primary),
+        Icon(AppTokens.icon('link'), size: 14, color: primary),
         const SizedBox(width: 8),
         SizedBox(
           width: 300,

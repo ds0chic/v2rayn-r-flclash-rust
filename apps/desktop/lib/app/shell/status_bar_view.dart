@@ -681,7 +681,7 @@ class _SelectorFace extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Flexible(child: child),
-          const Icon(Icons.arrow_drop_down, size: 16),
+          Icon(AppTokens.icon('dropdown'), size: 16),
         ],
       ),
     );

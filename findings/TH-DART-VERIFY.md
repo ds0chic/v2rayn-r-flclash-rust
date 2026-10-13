@@ -22,7 +22,8 @@
 - chunk `103-152`（50 文件，Idle + `-j 1` 串行）：44 exit 0；4 exit 1（`r4_18_p01`、`r4_19`、`r4_22` did not complete 待 solo；**`r4_23_contract_test` +9 -1，`log filtering…` 失败——与基线 C2 一致，确定性复现**）；2 exit 79（`r4_14_contract`、`r4_18_p11_contract` loader 待 solo）。build 已删，generated_plugin* 噪声已还原。
 - chunk `153-202`（50 文件，Idle + `-j 1` 串行）：42 exit 0；2 exit 1（`repair/r4_11_repro_test` did not complete 待 solo；**`r4_31_contract_test` +4 -1，`log read model stays bounded` 失败——与基线 C3 一致，确定性复现**）；6 exit 79（`re_prof_13_active_marker`、`re_prof_14_drag_disabled/enabled`、`recheck_r3_prof_menu_target_a`、`recheck_r3_prof08_picker_esc`、`repair/r4_08_repro` loader 待 solo）。build 已删，generated_plugin* 噪声已还原。
 - chunk `203-252`（50 文件，Idle + `-j 1` 串行）：47 exit 0；2 exit 1（`repair/r4_13_s23_repro`、`repair/sp_16_sub_keyboard_select` did not complete 待 solo）；1 exit 79（`repair/r4_19_repro` loader 待 solo）。本 chunk 无确定性断言失败。build 已删，generated_plugin* 噪声已还原。
-- 未完成（低负载恢复后按序跑）：chunk `253-302`、`303-349`，共 97 文件（第 1–252 行已跑：252/349）。跑完每 chunk 后删 `apps/desktop/build` + 还原 generated_plugin* 噪声。
+- chunk `253-302`（50 文件，Idle + `-j 1` 串行）：39 exit 0；7 exit 1（`wave_b_g12_log_seed`、`wave_b_grpc_052`、`wave_b_settings_059_079`、`t10_custom_editor` did-not-complete/部分断言待 solo——含基线 E 组 flaky；**`runtime_controller_test`、`sp21_async_page_test`、`t06a_editor_save_test` 系 loading 期 `Connection closed before test suite loaded`（tester 加载崩溃，非断言失败，待 solo）**）；4 exit 79（`sp_24_settings_entry`、`wave_b_rollback_131_135`、`wave_b_settings_110_112`、`t05_shell_chrome` loader 待 solo）。build 已删，generated_plugin* 噪声已还原。
+- 未完成（低负载恢复后按序跑）：chunk `303-349`，共 47 文件（第 1–302 行已跑：302/349）。跑完每 chunk 后删 `apps/desktop/build` + 还原 generated_plugin* 噪声。
 - 与 `BASELINE.md` Flutter 清单（10 deterministic / 5 load failures / 9 flaky）的逐项对比：**待跑完后补**。
 
 ## 3. 未完成清单（恢复后继续）

@@ -7105,6 +7105,65 @@ mod tests {
     }
 
     #[test]
+    fn custom_file_text_rejects_symlink_escape() {
+        let outer = tempfile::tempdir().unwrap();
+        let data = outer.path().join("data");
+        let engine =
+            AppEngine::open_with_runtime(&data, Arc::new(NullRuntimeClient::new())).unwrap();
+        let config_dir = data.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(outer.path().join("linked-secret.txt"), "SECRET-VIA-LINK").unwrap();
+        // A symlink that lives inside <data>/config but resolves outside it.
+        #[cfg(windows)]
+        let link_result = std::os::windows::fs::symlink_file(
+            outer.path().join("linked-secret.txt"),
+            config_dir.join("link.json"),
+        );
+        #[cfg(not(windows))]
+        let link_result = std::os::unix::fs::symlink(
+            outer.path().join("linked-secret.txt"),
+            config_dir.join("link.json"),
+        );
+        if let Err(error) = link_result {
+            eprintln!("SKIP symlink escape sub-case: cannot create symlink: {error}");
+            return;
+        }
+
+        let mut profile = synthetic_full_profile(1);
+        profile.config_type = ConfigType::Custom;
+        profile.remarks = "link".into();
+        let (saved, _) = engine
+            .save_imported_profile(profile, DesiredRevision::ZERO)
+            .unwrap();
+        let mut linked = saved.clone();
+        linked.address = "link.json".into();
+        {
+            let mut repo = engine.repo.lock().unwrap();
+            repo.upsert(linked.clone()).unwrap();
+        }
+        let (input, diagnostics) = engine
+            .build_codegen_input_with_warnings(
+                &saved.index_id,
+                CoreType::Xray,
+                &crate::codegen::CodegenOptions::default(),
+            )
+            .unwrap();
+        assert!(
+            !input
+                .custom_outbound_content
+                .values()
+                .any(|t| t.contains("SECRET-VIA-LINK")),
+            "symlink escape content must never reach codegen input"
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.message.contains("link.json") && !d.message.contains("SECRET")),
+            "symlink escape must be diagnosed by filename only, got {diagnostics:?}"
+        );
+    }
+
+    #[test]
     fn applied_facts_use_plan_target_not_desired() {
         let runtime = std::sync::Arc::new(NullRuntimeClient::new());
         let engine = AppEngine::with_runtime(runtime.clone());
@@ -8960,14 +9019,21 @@ mod tests {
             config_codegen::input::ConfigType::Vless
         );
 
-        // `Custom` is excluded even when it carries a subscription id.
+        // `Custom` is excluded even when it carries a subscription id. Its
+        // address does not resolve to a staged file, so S4a-05 reports a
+        // filename-only warning instead of failing silently.
         let mut custom = active.clone();
         custom.config_type = ConfigType::Custom;
         engine.seed(vec![custom.clone()]);
         let (input, warnings) = engine
             .build_codegen_input_with_warnings(&custom.index_id, CoreType::Xray, &opts)
             .unwrap();
-        assert!(warnings.is_empty());
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings[0].code, "custom-file-out-of-bounds");
+        assert!(
+            !warnings[0].message.contains('/') && !warnings[0].message.contains('\\'),
+            "unresolvable custom address must be diagnosed by filename only, got {warnings:?}"
+        );
         assert_eq!(
             input.profile.config_type,
             config_codegen::input::ConfigType::Custom

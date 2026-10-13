@@ -829,6 +829,22 @@ fn t10_live_core_matrix() {
     let root = repo_root();
     let dir = out_dir();
 
+    // Skip (never fail) when no pinned binary exists at all; when at least
+    // one exists the matrix runs strictly and the floor still applies.
+    let exes: Vec<std::path::PathBuf> = singles()
+        .iter()
+        .map(|spec| root.join(spec.exe))
+        .chain(pairs().iter().map(|spec| root.join(spec.exe)))
+        .collect();
+    if !exes.iter().any(|exe| exe.is_file()) {
+        println!(
+            "SKIPPED: missing core binaries (checked {} paths, e.g. {})",
+            exes.len(),
+            exes.first().map(|exe| exe.display().to_string()).unwrap_or_default()
+        );
+        return;
+    }
+
     let mut results: Vec<serde_json::Value> = Vec::new();
     for (index, spec) in singles().iter().enumerate() {
         // Staggered bases keep every probed port distinct and >= 11808.

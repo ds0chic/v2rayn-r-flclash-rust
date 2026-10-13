@@ -68,7 +68,9 @@ fn test_runtime() -> tokio::runtime::Runtime {
         .expect("sp22 realcore runtime")
 }
 
-fn mihomo_exe() -> std::path::PathBuf {
+/// Locked mihomo binary, if present. Missing binaries skip (never fail):
+/// only file absence skips; an existing-but-broken binary still fails.
+fn mihomo_exe() -> Option<std::path::PathBuf> {
     let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let dir = root.join("../../tools/cores/mihomo/v1.19.32");
     for name in [
@@ -78,13 +80,11 @@ fn mihomo_exe() -> std::path::PathBuf {
     ] {
         let candidate = dir.join(name);
         if candidate.is_file() {
-            return candidate;
+            return Some(candidate);
         }
     }
-    panic!(
-        "sp22 realcore blocked: no locked mihomo binary under {}",
-        dir.display()
-    );
+    println!("SKIPPED: missing core binary under {}", dir.display());
+    None
 }
 
 /// The real core plus its captured stdout lines.
@@ -97,7 +97,7 @@ struct RealCore {
 }
 
 impl RealCore {
-    fn start(mixed: u16, ctrl: u16) -> Self {
+    fn start(mixed: u16, ctrl: u16) -> Option<Self> {
         let dir = tempfile::tempdir().expect("sp22 realcore tempdir");
         let config = format!(
             "mixed-port: {mixed}\n\
@@ -111,7 +111,9 @@ impl RealCore {
              ipv6: false\n"
         );
         std::fs::write(dir.path().join("config.yaml"), config).expect("write core config");
-        let exe = mihomo_exe();
+        let Some(exe) = mihomo_exe() else {
+            return None;
+        };
         let mut child = Command::new(&exe)
             .arg("-f")
             .arg(dir.path().join("config.yaml"))
@@ -169,13 +171,13 @@ impl RealCore {
             "sp22 realcore: controller ready in {:?}",
             ready_at.elapsed()
         );
-        Self {
+        Some(Self {
             child,
             _dir: dir,
             lines,
             log_done,
             log_handles,
-        }
+        })
     }
 
     fn pid(&self) -> u32 {
@@ -405,7 +407,9 @@ fn sp22_realcore_live_sample() {
     }
     eprintln!("sp22 realcore: mixed={mixed} ctrl={ctrl} upstream={up} conns={n}");
 
-    let core = RealCore::start(mixed, ctrl);
+    let Some(core) = RealCore::start(mixed, ctrl) else {
+        return;
+    };
     let core_pid = core.pid();
     let rss_start = core.rss_bytes();
     let mut upstream = Upstream::start(up);

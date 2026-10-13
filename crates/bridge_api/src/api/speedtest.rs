@@ -17,8 +17,8 @@ use application::codegen::generate;
 use application::net_host_client::NetHostClient;
 use application::speedtest::{
     http_get_via_socks, release_test_port, reserve_free_test_port, DownloadOutcome, ProbeError,
-    ProfileExStore, SpeedTestJobs, SpeedTestResult, SpeedTestRunner, SpeedTestSession,
-    SpeedTestSettings, SpeedTestSnapshot, TestNode, TestSession, TlsTrust,
+    ProfileExStore, SpeedTestJob, SpeedTestJobs, SpeedTestResult, SpeedTestRunner,
+    SpeedTestSession, SpeedTestSettings, SpeedTestSnapshot, TestNode, TestSession, TlsTrust,
 };
 use domain::{
     ConfigSource, ContentHash, CoreType, DomainError, NetworkPolicy, OutboundGraph, PortRequest,
@@ -420,10 +420,15 @@ pub fn speedtest_configure(
     delay_interval_secs: u32,
 ) -> SimpleResult {
     with_hub(|h| {
+        let (page_size, mixed_concurrency, timeout) = SpeedTestSettings::normalize_parts(
+            page_size as usize,
+            mixed_concurrency as usize,
+            timeout_secs as u64,
+        );
         h.settings = SpeedTestSettings {
-            page_size: page_size.max(1) as usize,
-            mixed_concurrency: mixed_concurrency.max(1) as usize,
-            timeout: Duration::from_secs(timeout_secs.max(10) as u64),
+            page_size,
+            mixed_concurrency,
+            timeout,
             speed_test_url,
             speed_ping_test_url,
             ipapi_url: ipapi_url.filter(|s| !s.trim().is_empty()),
@@ -597,12 +602,40 @@ pub fn speedtest_start(kind: i32, index_ids: Vec<String>) -> SpeedTestStartDto {
 }
 
 /// Idempotent cancel of a running speedtest job.
+///
+/// On a successful cancel the run's claimed nodes are stamped above the run's
+/// own generation (same barrier idea as `reload_profile_ex_after_restore`, but
+/// scoped to this run so surviving runs are unaffected). Late same-generation
+/// batches arriving after the cancel are then evicted by `apply_job_batch`,
+/// while already-accepted partial results stay: upstream writes each node as it
+/// completes (`SpeedtestService.RunTcpingAsync`: `SetTestDelay` + `UpdateFunc`
+/// per item, cancel rethrows after keeping completed rows), so completed rows
+/// survive a cancel there too.
 #[frb(sync)]
 pub fn speedtest_cancel(job_id: String) -> SimpleResult {
-    let cancelled = with_hub(|h| h.jobs.cancel(&job_id));
+    let cancelled = with_hub(|h| {
+        let cancelled = h.jobs.cancel(&job_id);
+        if cancelled {
+            if let Some(job) = h.jobs.get(&job_id) {
+                evict_job_results(h, &job);
+            }
+        }
+        cancelled
+    });
     SimpleResult {
         ok: cancelled,
         error: None,
+    }
+}
+
+/// Raise the per-node generation stamps of `job` above its own generation so
+/// post-cancel batches of the same run are evicted. Scoped to this run's nodes:
+/// a newer run that re-claimed a shared node keeps a stamp at least this high,
+/// and `apply_job_batch` accepts on `>=`, so the newer run is unaffected.
+fn evict_job_results(h: &mut SpeedTestHub, job: &SpeedTestJob) {
+    let barrier = job.generation.saturating_add(1);
+    for node in &job.snapshot.nodes {
+        h.result_generation.insert(node.index_id.clone(), barrier);
     }
 }
 
@@ -990,6 +1023,46 @@ mod tests {
     }
 
     #[test]
+    fn cancel_evicts_same_generation_late_batches() {
+        // S8-06: cancelling a run stamps its nodes above the run's generation,
+        // so batches that arrive after the cancel are evicted even though they
+        // carry the same generation; already-accepted partials stay.
+        let _guard = lock();
+        reset_speedtest_for_test();
+        let node = |id: &str| TestNode {
+            index_id: id.to_string(),
+            address: "192.0.2.1".to_string(),
+            port: 443,
+            config_type: 0,
+            core_type: 0,
+        };
+        let (job_id, generation) = with_hub(|h| {
+            let job = h.jobs.start(
+                SpeedTestAction::Tcping,
+                SpeedTestSnapshot {
+                    source_revision: 1,
+                    nodes: vec![node("a"), node("b")],
+                },
+            );
+            begin_job_results(h, job.generation, &["a".to_string(), "b".to_string()]);
+            let accepted = apply_job_batch(h, job.generation, &[SpeedTestResult::delay("a", 50)]);
+            assert_eq!(accepted.len(), 1);
+            (job.job_id.as_str().to_string(), job.generation)
+        });
+        assert!(speedtest_cancel(job_id).ok);
+        with_hub(|h| {
+            let late = apply_job_batch(h, generation, &[SpeedTestResult::delay("b", 7)]);
+            assert!(
+                late.is_empty(),
+                "post-cancel same-generation batch must be evicted"
+            );
+            flush_profile_ex(h);
+            assert_eq!(h.results.get("a").unwrap().delay, 50);
+            assert_eq!(h.results.get("b").unwrap().delay, 0);
+        });
+    }
+
+    #[test]
     fn udp_support_is_gated_by_the_socks_associate_path() {
         let support = speedtest_supported();
         assert!(support.tcp_ping && support.real_ping && support.download);
@@ -1032,8 +1105,40 @@ mod tests {
         assert!(result.ok);
         with_hub(|h| {
             assert_eq!(h.settings.timeout, Duration::from_secs(10));
-            assert_eq!(h.settings.mixed_concurrency, 1);
+            // 0/1 means "unset": raised to the shared concurrency floor.
+            assert_eq!(
+                h.settings.mixed_concurrency,
+                application::speedtest::MIN_MIXED_CONCURRENCY
+            );
             assert!(h.settings.ipapi_url.is_none());
+        });
+    }
+
+    #[test]
+    fn configure_enforces_floor_and_ceiling() {
+        let _guard = lock();
+        reset_speedtest_for_test();
+        let result = speedtest_configure(
+            u32::MAX,
+            1,
+            u32::MAX,
+            "http://x/big".into(),
+            "http://x/204".into(),
+            None,
+            None,
+            1,
+        );
+        assert!(result.ok);
+        with_hub(|h| {
+            assert_eq!(h.settings.page_size, application::speedtest::MAX_PAGE_SIZE);
+            assert_eq!(
+                h.settings.mixed_concurrency,
+                application::speedtest::MIN_MIXED_CONCURRENCY
+            );
+            assert_eq!(
+                h.settings.timeout,
+                Duration::from_secs(application::speedtest::MAX_SPEEDTEST_TIMEOUT_SECS)
+            );
         });
     }
 

@@ -114,6 +114,38 @@ fn marker_path(data_dir: &Path) -> PathBuf {
     journal_dir(data_dir).join(MARKER_FILE)
 }
 
+/// Mutation ids are caller-supplied and become file/directory names, so they
+/// are bounded to a restricted alphabet and length (S1-06). Anything else —
+/// separators, `..`, drive/ADS syntax — is a path rejection, never a write.
+const MAX_MUTATION_ID_LEN: usize = 128;
+
+fn validate_mutation_id(mutation_id: &str) -> Result<()> {
+    if mutation_id.is_empty()
+        || mutation_id.len() > MAX_MUTATION_ID_LEN
+        || !mutation_id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    {
+        return Err(PersistenceError::PathRejected(mutation_id.to_string()));
+    }
+    Ok(())
+}
+
+/// Staged/target relatives must stay inside the data dir: no absolute paths,
+/// no parent traversal, no drive letters or ADS streams (same bar as the
+/// backup path's `reject_unsafe_relative`).
+fn validate_relative_path(path: &str) -> Result<()> {
+    if path.trim().is_empty()
+        || path.starts_with('/')
+        || path.starts_with('\\')
+        || path.contains("..")
+        || path.contains(':')
+    {
+        return Err(PersistenceError::PathRejected(path.to_string()));
+    }
+    Ok(())
+}
+
 fn now_secs() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -163,6 +195,8 @@ pub fn begin(
             "E_FAULT_INJECTED: journal write failed",
         ));
     }
+    validate_mutation_id(&record.mutation_id)?;
+    validate_relative_path(&record.staged_file)?;
     let staged = data_dir.join(&record.staged_file);
     if let Some(parent) = staged.parent() {
         std::fs::create_dir_all(parent)?;
@@ -179,6 +213,7 @@ pub fn begin(
 
 /// Advance a journal to [`CommitStage::DbCommitted`].
 pub fn mark_db_committed(data_dir: &Path, mutation_id: &str) -> Result<JournalRecord> {
+    validate_mutation_id(mutation_id)?;
     let mut record = load(data_dir, mutation_id)?.ok_or_else(|| {
         PersistenceError::internal(format!("missing journal for mutation {mutation_id}"))
     })?;
@@ -197,9 +232,14 @@ pub fn publish_staged(data_dir: &Path, mutation_id: &str, fault: CommitFault) ->
             "E_FAULT_INJECTED: staged file publish failed",
         ));
     }
+    validate_mutation_id(mutation_id)?;
     let record = load(data_dir, mutation_id)?.ok_or_else(|| {
         PersistenceError::internal(format!("missing journal for mutation {mutation_id}"))
     })?;
+    // The journal is read back from disk, so its paths are re-validated
+    // here rather than trusted from `begin` time.
+    validate_relative_path(&record.staged_file)?;
+    validate_relative_path(&record.target_file)?;
     let staged = data_dir.join(&record.staged_file);
     let target = data_dir.join(&record.target_file);
     sync_file(&staged)?;
@@ -214,6 +254,7 @@ pub fn publish_staged(data_dir: &Path, mutation_id: &str, fault: CommitFault) ->
 /// Record completion: store the done receipt, then remove the journal and any
 /// staged payload. Idempotent for an already-finished mutation.
 pub fn finish(data_dir: &Path, mutation_id: &str, done: &DoneRecord) -> Result<()> {
+    validate_mutation_id(mutation_id)?;
     let path = done_path(data_dir, mutation_id);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
@@ -234,6 +275,7 @@ pub fn finish(data_dir: &Path, mutation_id: &str, done: &DoneRecord) -> Result<(
 /// Roll back a mutation that never reached the DB commit: discard the staged
 /// payload and its journal. The live target was never touched.
 pub fn abandon(data_dir: &Path, mutation_id: &str) -> Result<()> {
+    validate_mutation_id(mutation_id)?;
     let journal = journal_path(data_dir, mutation_id);
     if journal.exists() {
         std::fs::remove_file(&journal)?;
@@ -246,6 +288,10 @@ pub fn abandon(data_dir: &Path, mutation_id: &str) -> Result<()> {
 }
 
 /// All unresolved journals, oldest first.
+///
+/// A single damaged file does not fail the whole enumeration (S1-17): it is
+/// skipped and the recovery marker is set so the caller re-verifies before
+/// accepting new writes. Intact journals are still returned.
 pub fn pending(data_dir: &Path) -> Result<Vec<JournalRecord>> {
     let dir = journal_dir(data_dir);
     if !dir.exists() {
@@ -259,21 +305,42 @@ pub fn pending(data_dir: &Path) -> Result<Vec<JournalRecord>> {
         }
         let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         if !name.ends_with(JOURNAL_SUFFIX)
-            || name.ends_with(&format!("{TMP_SUFFIX}{JOURNAL_SUFFIX}"))
+            || name.ends_with(&format!("{JOURNAL_SUFFIX}{TMP_SUFFIX}"))
         {
             continue;
         }
         if name == MARKER_FILE {
             continue;
         }
-        let text = std::fs::read_to_string(&path)?;
-        out.push(serde_json::from_str::<JournalRecord>(&text)?);
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(_) => {
+                let _ = set_recovery_required(data_dir);
+                continue;
+            }
+        };
+        match serde_json::from_str::<JournalRecord>(&text) {
+            Ok(record) => {
+                if validate_mutation_id(&record.mutation_id).is_ok()
+                    && validate_relative_path(&record.staged_file).is_ok()
+                    && validate_relative_path(&record.target_file).is_ok()
+                {
+                    out.push(record);
+                } else {
+                    let _ = set_recovery_required(data_dir);
+                }
+            }
+            Err(_) => {
+                let _ = set_recovery_required(data_dir);
+            }
+        }
     }
     out.sort_by_key(|r| (r.created_at_secs, r.mutation_id.clone()));
     Ok(out)
 }
 
 pub fn load(data_dir: &Path, mutation_id: &str) -> Result<Option<JournalRecord>> {
+    validate_mutation_id(mutation_id)?;
     let path = journal_path(data_dir, mutation_id);
     if !path.exists() {
         return Ok(None);
@@ -284,6 +351,7 @@ pub fn load(data_dir: &Path, mutation_id: &str) -> Result<Option<JournalRecord>>
 }
 
 pub fn load_receipt(data_dir: &Path, mutation_id: &str) -> Result<Option<DoneRecord>> {
+    validate_mutation_id(mutation_id)?;
     let path = done_path(data_dir, mutation_id);
     if !path.exists() {
         return Ok(None);
@@ -459,5 +527,49 @@ mod tests {
                 "unexpected journal key {key}"
             );
         }
+    }
+
+    #[test]
+    fn begin_rejects_traversal_mutation_id() {
+        // S1-06: a caller-controlled `mutation_id` must not escape the
+        // journal directory; the attempt fails before any file is written.
+        let dir = tempfile::tempdir().unwrap();
+        let mut rec = record("ok");
+        rec.mutation_id = format!("../../evil-b04-{}-traversal", std::process::id());
+        let err = begin(dir.path(), &rec, "{}", CommitFault::None).unwrap_err();
+        assert_eq!(err.code(), crate::error::codes::PATH_REJECTED);
+        // The `..` resolves outside the data dir: nothing may appear there.
+        let outside = dir
+            .path()
+            .join(format!("../evil-b04-{}-traversal.json", std::process::id()));
+        assert!(
+            !outside.exists(),
+            "traversal journal must not be written outside the data dir"
+        );
+        assert!(pending(dir.path()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn begin_rejects_traversal_staged_file() {
+        // S1-06: the staged/target relatives are bounded the same way.
+        let dir = tempfile::tempdir().unwrap();
+        let mut rec = record("m-stage");
+        rec.staged_file = "../../evil-b04-staged.json".into();
+        let err = begin(dir.path(), &rec, "{}", CommitFault::None).unwrap_err();
+        assert_eq!(err.code(), crate::error::codes::PATH_REJECTED);
+    }
+
+    #[test]
+    fn pending_skips_corrupt_journal_and_returns_the_rest() {
+        // S1-17: one half-written journal must not starve recovery of the
+        // intact ones.
+        let dir = tempfile::tempdir().unwrap();
+        let rec = record("good-1");
+        begin(dir.path(), &rec, "{}", CommitFault::None).unwrap();
+        std::fs::write(journal_dir(dir.path()).join("bad-x.json"), "{half-written").unwrap();
+        let list = pending(dir.path()).unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].mutation_id, "good-1");
+        assert!(recovery_required(dir.path()));
     }
 }

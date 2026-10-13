@@ -6634,6 +6634,20 @@ impl AppEngine {
     fn swap_read(&self) -> Option<std::sync::RwLockReadGuard<'_, ()>> {
         self.store_swap.read().ok()
     }
+
+    /// Backend discriminants of the four swapped stores read as one snapshot
+    /// (S4a-07 soak test only): `true` = SQLite-backed. Takes the read guard
+    /// so the four discriminants come from a single backend generation.
+    #[cfg(test)]
+    pub(crate) fn store_kinds_snapshot(&self) -> (bool, bool, bool, bool) {
+        let _swap = self.swap_read();
+        (
+            matches!(*self.repo.lock().unwrap(), ProfileStore::Sqlite(_)),
+            matches!(*self.subs.lock().unwrap(), SubStore::Sqlite(_)),
+            matches!(*self.routing.lock().unwrap(), RoutingStore::Sqlite(_)),
+            matches!(*self.dns_items.lock().unwrap(), DnsStore::Sqlite(_)),
+        )
+    }
 }
 
 /// Split the compound `"<operation_id>:<job_id>"` correlation
@@ -8045,7 +8059,61 @@ mod tests {
     }
 
     // -- S4a-07 store_swap (quiesce/reopen atomicity) ----------------------
-    // Soak test + `store_kinds_snapshot` helper land in the follow-up commit.
+
+    #[test]
+    fn quiesce_reopen_keeps_store_views_consistent() {
+        // S4a-07: readers must never observe a partially exchanged backend
+        // set (e.g. repo already Memory while subs is still SQLite). Readers
+        // snapshot backend kinds while the main thread cycles quiesce/reopen;
+        // every snapshot must be all-SQLite or all-Memory. Fixed iteration
+        // counts, bounded well under 60s, no listeners involved.
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        engine
+            .save_profile(synthetic_full_profile(1), DesiredRevision::ZERO)
+            .unwrap();
+        engine
+            .save_sub_item(crate::subs::SubItem {
+                id: "s-soak".into(),
+                remarks: "soak".into(),
+                url: "https://example.com/soak".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        let engine = std::sync::Arc::new(engine);
+        // Readers sample for the whole swap run (a fixed read count would
+        // finish long before the swaps do and miss every race window).
+        let done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let started = std::time::Instant::now();
+        std::thread::scope(|scope| {
+            for _ in 0..4 {
+                let reader = engine.clone();
+                let done = done.clone();
+                scope.spawn(move || {
+                    while !done.load(std::sync::atomic::Ordering::Relaxed) {
+                        let kinds = reader.store_kinds_snapshot();
+                        assert!(
+                            kinds == (true, true, true, true)
+                                || kinds == (false, false, false, false),
+                            "mixed backend view across quiesce/reopen: {kinds:?}"
+                        );
+                    }
+                });
+            }
+            for _ in 0..100 {
+                engine.quiesce().unwrap();
+                engine.reopen().unwrap();
+            }
+            done.store(true, std::sync::atomic::Ordering::Relaxed);
+        });
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(60),
+            "soak exceeded its time budget"
+        );
+        // The engine still serves its rows after the exchange cycles.
+        assert_eq!(engine.profile_count(), 1);
+        assert!(engine.get_sub_item("s-soak").unwrap().is_some());
+    }
 
     #[tokio::test]
     async fn refresh_reports_target_failure() {

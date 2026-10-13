@@ -36,3 +36,17 @@ fn empty_name_is_invalid() {
         Err(PlatformError::Invalid(_))
     ));
 }
+
+#[test]
+fn fallback_name_maps_global_to_session_local() {
+    // S7b-09: pure mapping; the access-denied fallback path itself needs a
+    // restricted token and is not exercised here.
+    assert_eq!(
+        platform::fallback_name("Global\\v2rayN-R-single-instance"),
+        Some("Local\\v2rayN-R-single-instance".to_string())
+    );
+    assert_eq!(platform::fallback_name("Local\\x"), None);
+    assert_eq!(platform::fallback_name("v2rayN"), None);
+    assert_eq!(platform::fallback_name("Global\\"), None);
+    assert_eq!(platform::fallback_name(""), None);
+}

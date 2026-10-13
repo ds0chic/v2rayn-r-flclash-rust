@@ -48,7 +48,7 @@ pub use pac::{
 pub use protect::DpapiBackend;
 pub use protect::{FakeProtectBackend, PlainBackend, ProtectBackend};
 pub use script::{CustomSystemProxySetting, CUSTOM_PAC_FIELD, CUSTOM_SCRIPT_FIELD};
-pub use single_instance::SingleInstanceGuard;
+pub use single_instance::{fallback_name, SingleInstanceGuard};
 pub use sysproxy::{
     restore_if_owned, AppliedChange, FakeSystemProxyBackend, JournalLoad, OwnershipJournal,
     ProxyField, ProxySettings, ProxyState, RestoreAction, RestoreConflict, RestoreReport,

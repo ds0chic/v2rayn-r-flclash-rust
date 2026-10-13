@@ -64,7 +64,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('sub-edit-save')));
     await tester.pump();
 
-    expect(find.text('该订阅使用 http 明文传输，请注意安全'), findsOneWidget);
+    expect(
+      find.text('该订阅使用 http 明文传输，请注意安全'),
+      findsNWidgets(2),
+      reason: 'persistent banner plus the save-time snackbar',
+    );
     expect(result, isNotNull);
     expect(result!.url, 'http://203.0.2.1/sub');
   });

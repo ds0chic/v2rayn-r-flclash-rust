@@ -69,6 +69,17 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
 
   String? _errorText;
 
+  /// D-LEFT: persistent form of the http plaintext warning (the save-time
+  /// snackbar stays as a second channel). Non-blocking, like upstream
+  /// `InsecureUrlProtocol`.
+  bool get _showHttpWarning {
+    final uri = Uri.tryParse(_url.text.trim());
+    return uri != null &&
+        uri.scheme == 'http' &&
+        uri.host.isNotEmpty &&
+        !isPrivateNetworkHost(uri.host);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -93,10 +104,16 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
       text: s.customCoreType?.toString() ?? '',
     );
     _enabled = s.enabled;
+    _url.addListener(_onUrlChanged);
+  }
+
+  void _onUrlChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _url.removeListener(_onUrlChanged);
     for (final c in <TextEditingController>[
       _remarks,
       _url,
@@ -223,6 +240,16 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
                 'sub-field-url',
                 help: '空着＝普通分组，只分类不下载；填远程地址才会更新。',
               ),
+              if (_showHttpWarning)
+                Padding(
+                  key: const ValueKey('sub-http-warn'),
+                  padding: const EdgeInsets.only(left: 2, top: 2),
+                  child: Text(
+                    '该订阅使用 http 明文传输，请注意安全',
+                    style: AppForm.helperStyle(Theme.of(context))
+                        .copyWith(color: context.semantics.warning),
+                  ),
+                ),
               _field(
                 '自动更新间隔（分钟，0=禁用）',
                 _autoUpdateInterval,

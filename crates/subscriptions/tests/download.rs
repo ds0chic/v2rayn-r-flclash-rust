@@ -307,6 +307,42 @@ async fn url_without_userinfo_sends_no_basic_auth() {
 }
 
 #[tokio::test]
+async fn non_http_redirect_is_rejected() {
+    let server = spawn(vec![Reply::Raw(http_redirect("ftp://127.0.0.1:21/x"))]).await;
+    let err = download_string(
+        &server.base,
+        &DownloadOptions::default(),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(err, SubError::InvalidUri(_)));
+    server.abort();
+}
+
+#[tokio::test]
+async fn cross_origin_redirect_drops_custom_headers() {
+    let target = spawn(vec![Reply::RequireHeader {
+        name: "X-Token".into(),
+        value: "secret-value".into(),
+        body: b"ok".to_vec(),
+    }])
+    .await;
+    let target_location = format!("{}/final", target.base);
+    let redirector = spawn(vec![Reply::Raw(http_redirect(&target_location))]).await;
+    let options = DownloadOptions {
+        headers: vec![("X-Token".into(), "secret-value".into())],
+        ..DownloadOptions::default()
+    };
+    let err = download_string(&redirector.base, &options, &CancellationToken::new())
+        .await
+        .unwrap_err();
+    assert!(matches!(err, SubError::Http(_)));
+    redirector.abort();
+    target.abort();
+}
+
+#[tokio::test]
 async fn missing_required_header_is_rejected_by_server() {
     let server = spawn(vec![Reply::RequireHeader {
         name: "X-Token".into(),

@@ -2,15 +2,14 @@
 //!
 //! The client never consults the environment proxy: `no_proxy()` is set unless
 //! an explicit [`ProxyConfig`] is supplied. Redirects are followed manually so
-//! authentication/cookie headers are dropped when the origin changes, and the
-//! body read is capped and observes cooperative cancellation.
+//! configured headers and URL userinfo are dropped when the origin changes,
+//! and the body read is capped and observes cooperative cancellation.
 
 use std::time::Duration;
 
 use domain::CancellationToken;
 use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, AUTHORIZATION, COOKIE, LOCATION,
-    PROXY_AUTHORIZATION, USER_AGENT,
+    HeaderMap, HeaderName, HeaderValue, ACCEPT, LOCATION, USER_AGENT,
 };
 use reqwest::Url;
 
@@ -230,14 +229,21 @@ impl Downloader {
                 let location = location
                     .to_str()
                     .map_err(|_| SubError::Http("invalid Location".into()))?;
-                let next = url
+                let mut next = url
                     .join(location)
                     .map_err(|e| SubError::Http(format!("bad redirect: {e}")))?;
+                if next.scheme() != "http" && next.scheme() != "https" {
+                    return Err(SubError::InvalidUri(
+                        "redirect scheme must be http(s)".into(),
+                    ));
+                }
                 if origin_differs(&url, &next) {
-                    // Do not leak credentials across origins.
-                    headers.remove(AUTHORIZATION);
-                    headers.remove(COOKIE);
-                    headers.remove(PROXY_AUTHORIZATION);
+                    // Do not leak credentials across origins: drop every
+                    // configured header (only `Accept`/`User-Agent` are resent)
+                    // and strip URL userinfo the target did not ask for.
+                    headers.clear();
+                    let _ = next.set_username("");
+                    let _ = next.set_password(None);
                 }
                 url = next;
                 continue;

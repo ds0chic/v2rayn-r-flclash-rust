@@ -151,11 +151,26 @@ pub struct RestoreConflict {
     pub current_value: Option<String>,
 }
 
+/// A field whose restore write failed. The remaining owned fields were still
+/// attempted, so callers must inspect [`RestoreReport::failed`] instead of
+/// treating the restore as all-or-nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RestoreFailure {
+    pub field: ProxyField,
+    /// The value that was supposed to be written back.
+    pub restore_to: Option<String>,
+    /// Backend error text for the failed write.
+    pub error: String,
+}
+
 /// Outcome of [`restore_if_owned`].
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RestoreReport {
     pub restored: Vec<RestoreAction>,
     pub conflicts: Vec<RestoreConflict>,
+    /// Fields whose restore write failed (S7b-04). Empty on full success.
+    #[serde(default)]
+    pub failed: Vec<RestoreFailure>,
 }
 
 impl RestoreReport {
@@ -163,8 +178,17 @@ impl RestoreReport {
         self.conflicts.is_empty()
     }
 
+    /// True when at least one owned field could not be written back.
+    pub fn has_failures(&self) -> bool {
+        !self.failed.is_empty()
+    }
+
     pub fn restored_fields(&self) -> Vec<ProxyField> {
         self.restored.iter().map(|a| a.field).collect()
+    }
+
+    pub fn failed_fields(&self) -> Vec<ProxyField> {
+        self.failed.iter().map(|f| f.field).collect()
     }
 
     pub fn conflicted_fields(&self) -> Vec<ProxyField> {
@@ -306,11 +330,24 @@ pub trait SystemProxyBackend {
     }
 
     /// Restore only the fields this application still owns.
+    ///
+    /// Every owned field is attempted even when an earlier write fails; failed
+    /// writes are recorded on the returned report. Callers must check
+    /// [`RestoreReport::has_failures`] — a returned report is not a guarantee
+    /// that every field was written back.
     fn restore(&self, applied: &[AppliedChange]) -> Result<RestoreReport> {
         let current = self.snapshot()?;
-        let report = restore_if_owned(applied, &current);
-        for action in &report.restored {
-            self.set_field(action.field, action.restore_to.as_deref())?;
+        let mut report = restore_if_owned(applied, &current);
+        let owned = std::mem::take(&mut report.restored);
+        for action in owned {
+            match self.set_field(action.field, action.restore_to.as_deref()) {
+                Ok(()) => report.restored.push(action),
+                Err(error) => report.failed.push(RestoreFailure {
+                    field: action.field,
+                    restore_to: action.restore_to,
+                    error: error.to_string(),
+                }),
+            }
         }
         if !report.restored.is_empty() {
             self.notify_changed()?;

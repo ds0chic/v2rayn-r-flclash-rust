@@ -745,7 +745,9 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
         final rowId = _rowIdAt(event.localPosition, state.visible);
         _dragAnchorId = rowId;
         // Freeze the row list for the gesture (D1-10); cleared on pointer up.
-        _dragRows = rowId == null ? null : List<ProfileSummary>.of(state.visible);
+        _dragRows = rowId == null
+            ? null
+            : List<ProfileSummary>.of(state.visible);
         _dragSelecting = false;
         if (rowId != null) {
           // Select on pointer-down: the click takes effect immediately instead
@@ -809,10 +811,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     _stopDragAutoScroll();
     final state = ref.read(profilesControllerProvider);
     // Resolve against the drag-start snapshot (D1-10), not the live list.
-    final currentId = _rowIdAt(
-      event.localPosition,
-      _dragRows ?? state.visible,
-    );
+    final currentId = _rowIdAt(event.localPosition, _dragRows ?? state.visible);
     if (currentId == null) return;
     if (!_dragSelecting && currentId == anchorId) return;
     _dragSelecting = true;

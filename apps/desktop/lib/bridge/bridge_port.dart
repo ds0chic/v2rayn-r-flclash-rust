@@ -1058,8 +1058,7 @@ class FrbBridgePort implements BridgePort {
       t16.t16RollbackCore(core: core);
 
   @override
-  c.AppRollbackResultDto t16RollbackAppUpgrade() =>
-      t16.t16RollbackAppUpgrade();
+  c.AppRollbackResultDto t16RollbackAppUpgrade() => t16.t16RollbackAppUpgrade();
 }
 
 /// Overlay `ProfileExItem` results onto the node-table summaries. A missing

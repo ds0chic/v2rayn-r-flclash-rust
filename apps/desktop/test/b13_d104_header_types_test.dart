@@ -5,9 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
 
 List<String?> dropdownValues(String network, String key) {
-  final field = transportFields(
-    network,
-  ).firstWhere((f) => f.key == key, orElse: () => throw StateError(key));
+  final field = transportFields(network)
+      .firstWhere((f) => f.key == key, orElse: () => throw StateError(key));
   return [for (final o in field.options ?? const []) o.value];
 }
 

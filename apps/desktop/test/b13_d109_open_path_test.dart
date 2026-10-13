@@ -19,10 +19,7 @@ void main() {
   test('isSafeExternalOpenPath accepts ordinary config paths', () {
     expect(isSafeExternalOpenPath('my-node.json'), isTrue);
     expect(isSafeExternalOpenPath('C:\\data\\config\\my file.json'), isTrue);
-    expect(
-      isSafeExternalOpenPath('\\\\srv\\share\\my file (1).json'),
-      isTrue,
-    );
+    expect(isSafeExternalOpenPath('\\\\srv\\share\\my file (1).json'), isTrue);
   });
 
   test('quoteExternalOpenPath double-quotes for start', () {

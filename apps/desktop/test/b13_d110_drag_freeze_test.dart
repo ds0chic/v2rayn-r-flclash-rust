@@ -22,11 +22,9 @@ void main() {
 
     final gesture = await tester.startGesture(from);
     await tester.pump();
-    expect(
-      readState(container).selected,
-      <String>{'syn-000002'},
-      reason: 'pointer-down selects the anchor',
-    );
+    expect(readState(container).selected, <String>{
+      'syn-000002',
+    }, reason: 'pointer-down selects the anchor');
 
     // Flip the visible order mid-gesture (what a live resort does).
     controller.sortBy('Remarks');

@@ -25,10 +25,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('remarks-dialog')), findsNothing);
-    expect(
-      container.read(uiShellControllerProvider).message,
-      '备注已更新',
-    );
+    expect(container.read(uiShellControllerProvider).message, '备注已更新');
     final controller = container.read(profilesControllerProvider.notifier);
     expect(controller.profileById('syn-000001')?.remarks, 'renamed-node');
   });
@@ -48,9 +45,6 @@ void main() {
 
     expect(find.byKey(const ValueKey('remarks-dialog')), findsNothing);
     final controller = container.read(profilesControllerProvider.notifier);
-    expect(
-      controller.profileById('syn-000001')?.remarks,
-      isNot('discarded'),
-    );
+    expect(controller.profileById('syn-000001')?.remarks, isNot('discarded'));
   });
 }

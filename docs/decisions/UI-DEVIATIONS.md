@@ -9,23 +9,23 @@
 
 | ID | 波次 | 位置/文件 | 与上游的差异 | 默认状态 | 影响持久化业务字段 | 可回退方式/如何关闭 | 备注 |
 |---|---|---|---|---|---|---|---|
-| UI-ACCENT-DEFAULT | U-A | 全局主题（`app_theme.dart` 显示兜底） | 未设强调色时的显示种子 Blue `#2196F3` → TealGreen `#0E6B5E`；仅显示兜底 | 青绿显示 | 否（持久化默认仍 null，测试锁定） | 在主题设置里显式选强调色即覆盖 | 待用户决策 (8) |
-| UI-THEME-OPTIONS | U-A | 主题下拉 | 去掉 Aquatic/Desert/Dusk/NightSky（本就无映射）；旧值读回 system | 收敛后选项 | 否 | 以报告为准/待核实（旧值回退即兼容） | UX-IMPL-PLAN 决策 4（方案 B） |
-| UI-FONT-12 | U-A | 全局文本 | 裸 12px 统一为 body 12.5（+0.5px） | 新字号 | 否 | 以报告为准/待核实 |  |
+| UI-ACCENT-DEFAULT | U-A | 全局主题（`app_theme.dart` 显示兜底） | 未设强调色时的显示种子 Blue `#2196F3` → TealGreen `#0E6B5E`；仅显示兜底 | 青绿显示 | 否（持久化默认仍 null，测试锁定） | 在主题设置里显式选强调色即覆盖 | 待用户决策 (8)；已核实（D-LEFT）：显示种子 `app_theme.dart:439,461`，持久化默认 null（`theme_setting_dialog.dart:197-203`，空选项写 null） |
+| UI-THEME-OPTIONS | U-A | 主题下拉 | 去掉 Aquatic/Desert/Dusk/NightSky（本就无映射）；旧值读回 system | 收敛后选项 | 否 | 以报告为准/待核实（旧值回退即兼容） | UX-IMPL-PLAN 决策 4（方案 B）；已核实（D-LEFT）：`theme_setting_dialog.dart:184-193`，旧值经 `_themeModeFrom` 默认分支回 system |
+| UI-FONT-12 | U-A | 全局文本 | 裸 12px 统一为 body 12.5（+0.5px） | 新字号 | 否 | 以报告为准/待核实 | 已核实（D-LEFT）：`app_theme.dart:40` fontSize=12.5 |
 | UI-THEME-DIALOG-SECTIONS | U-A | 主题窗 | 新增"外观/语言"分组标题 | 常显 | 否 | 以报告为准/待核实 |  |
-| UI-FORM-GAP | U-A | 表单 | fieldGap 10→12、checkbox 行高 28→32 | 新间距 | 否 | 以报告为准/待核实 |  |
-| UI-SELECTION-TINT | U-A | 路由表选中底 | `Colors.blue@8%` → `scheme.primary@8%`（随强调色，权重不变） | 跟随强调色 | 否 | 换强调色即变 |  |
+| UI-FORM-GAP | U-A | 表单 | fieldGap 10→12、checkbox 行高 28→32 | 新间距 | 否 | 以报告为准/待核实 | 部分核实（D-LEFT）：fieldGap=12 见 `app_theme.dart:256`；checkbox 行高 28→32 未在本轮核实，仍待核实 |
+| UI-SELECTION-TINT | U-A | 路由表选中底 | `Colors.blue@8%` → `scheme.primary@8%`（随强调色，权重不变） | 跟随强调色 | 否 | 换强调色即变 | 已核实（D-LEFT）：`routing_windows.dart:445,1008` primary 8% |
 | （label 168→148 放弃） | U-A | — | 未实施：二分证实顶掉 fix16 证书下拉 tap，已回退 | 未实施 | 否 | — | 计划偏离备忘，非偏离 |
-| UI-ONBOARDING | U-B1 | 帮助菜单＋主壳（`features/onboarding/`、`main_menu.dart`、`main_shell.dart`） | 新增首次启动三步向导（编排既有 ACT-MAIN-016/017/019＋启停/探测）；自动弹仅生产开启、证据环境强制抑制 | 按需弹出 | 否（完成标记写 `ui_state_store`，见边界） | 帮助/重置界面提示可清 hint 状态 |  |
-| UI-RESET-HINTS | U-B1 | 帮助菜单 | 新增"重置界面提示"：仅清 hint 类状态（向导完成标记＋确认免打扰），密度/布局/业务不动 | 手动触发 | 否（只清 ui_state） | 以报告为准/待核实 |  |
-| UI-SUB-MORE | U-B1 | 主菜单订阅入口 | `更新订阅`直通 ACT-MAIN-022；原 020/021/022/023 四项移入"更多方式"子菜单（折叠非删除） | 主入口单叶＋子菜单 | 否 | 以报告为准/待核实 | 智能默认未做，见待决策 (6) |
-| UI-DENSITY-DEFAULT | U-B1 | 节点表（`UiShellState.tableDensity`＋工具条循环按钮） | compact24/standard28/relaxed32，默认 28（相对现状 26 的 +2px） | standard 28 | 否（存 `ui_state_store` layout 区，见边界；非业务字段） | 工具条密度按钮可切 | 待用户决策 (7) |
-| UI-STATUS-BADGE（UX2-02＋UX1-02） | U-B1 | 状态条头（`status_badge.dart`） | 新增语义徽标＋聚合胶囊（失败优先；仅失败可点进日志）；只读展示，启停仍只在 `_RuntimeToolbar` | 常显 | 否 | 以报告为准/待核实 | 报告未给 UI- 编号，以报告为准 |
+| UI-ONBOARDING | U-B1 | 帮助菜单＋主壳（`features/onboarding/`、`main_menu.dart`、`main_shell.dart`） | 新增首次启动三步向导（编排既有 ACT-MAIN-016/017/019＋启停/探测）；自动弹仅生产开启、证据环境强制抑制 | 按需弹出 | 否（完成标记写 `ui_state_store`，见边界） | 帮助/重置界面提示可清 hint 状态 | 已核实（D-LEFT）：`features/onboarding/` 两文件＋`u_b1_onboarding_test.dart`（本轮串行绿） |
+| UI-RESET-HINTS | U-B1 | 帮助菜单 | 新增"重置界面提示"：仅清 hint 类状态（向导完成标记＋确认免打扰），密度/布局/业务不动 | 手动触发 | 否（只清 ui_state） | 以报告为准/待核实 | 已核实（D-LEFT）：`main_menu.dart:363`＋`main_shell.dart:479`（仅清 hint，密度布局不动） |
+| UI-SUB-MORE | U-B1 | 主菜单订阅入口 | `更新订阅`直通 ACT-MAIN-022；原 020/021/022/023 四项移入"更多方式"子菜单（折叠非删除） | 主入口单叶＋子菜单 | 否 | 以报告为准/待核实 | 智能默认未做，见待决策 (6)；结构已核实（D-LEFT）：`main_menu.dart:180-182` |
+| UI-DENSITY-DEFAULT | U-B1 | 节点表（`UiShellState.tableDensity`＋工具条循环按钮） | compact24/standard28/relaxed32，默认 28（相对现状 26 的 +2px） | standard 28 | 否（存 `ui_state_store` layout 区，见边界；非业务字段） | 工具条密度按钮可切 | 待用户决策 (7)（默认值本体不动）；档位已核实（D-LEFT）：`ui_shell_controller.dart:35-38`＋默认 standard（`:68`） |
+| UI-STATUS-BADGE（UX2-02＋UX1-02） | U-B1 | 状态条头（`status_badge.dart`） | 新增语义徽标＋聚合胶囊（失败优先；仅失败可点进日志）；只读展示，启停仍只在 `_RuntimeToolbar` | 常显 | 否 | 以报告为准/待核实 | 报告未给 UI- 编号，以报告为准；已核实（D-LEFT）：`status_badge.dart`＋`u_b1_status_badge_test.dart`（本轮串行绿，初跑 loader flake、solo 全绿） |
 | UI-ERROR-ACTIONS（UX1-04） | U-B1 | 状态条＋失败详情对话框 | 错误可操作化（`errorNextTarget` 保守映射；详情加"查看日志/重试/（禁用）回滚"） | 常显；回滚禁用 | 否 | 以报告为准/待核实 | 回滚禁用见待决策 (4) |
 | UI-SPEEDTEST-GLOBAL（UX1-09） | U-B1 | Row B 全局投影＋节点页指示器 | 任意 tab 可见可停（同一 controller 第二视图） | 常显 | 否 | 以报告为准/待核实 | 报告未给 UI- 编号，以报告为准 |
-| UI-DANGER-CONFIRM（UX1-03） | U-B1 | 新增 `danger_confirm.dart`＋`undo_snackbar.dart` | 危险确认（目标/影响/上游按钮序/破坏性默认聚焦/Esc 取消/按 key 免打扰）；TUN 仅启用侧 `tun-enable-confirm` 门；forcedChange/PAC 经 `sysproxy-apply-confirm` 门 | 按需弹出 | 否（免打扰写 ui_state，见边界） | 勾"不再提示"可跳过；帮助可重置 |  |
+| UI-DANGER-CONFIRM（UX1-03） | U-B1 | 新增 `danger_confirm.dart`＋`undo_snackbar.dart` | 危险确认（目标/影响/上游按钮序/破坏性默认聚焦/Esc 取消/按 key 免打扰）；TUN 仅启用侧 `tun-enable-confirm` 门；forcedChange/PAC 经 `sysproxy-apply-confirm` 门 | 按需弹出 | 否（免打扰写 ui_state，见边界） | 勾"不再提示"可跳过；帮助可重置 | 已核实（D-LEFT）：两文件＋`u_b1_danger_confirm_test.dart`（本轮串行绿） |
 | UI-FOCUS-RING（UX2-08） | U-B1 | 节点表 | 键盘焦点环（前导标记；大表无逐行动画） | 常显 | 否 | 以报告为准/待核实 | 报告未给 UI- 编号，以报告为准 |
-| UI-ROUTING-FOLD（UX1-10） | U-B1 | 路由窗工具条 | `routing-import-builtin` 默认折进 `routing-advanced-toggle`（布局高度不变）；选择器分组 caption（`label-sysproxy/label-rule-mode/label-routing-scheme`） | 默认折叠 | 否 | 点"高级…"即展开 |  |
+| UI-ROUTING-FOLD（UX1-10） | U-B1 | 路由窗工具条 | `routing-import-builtin` 默认折进 `routing-advanced-toggle`（布局高度不变）；选择器分组 caption（`label-sysproxy/label-rule-mode/label-routing-scheme`） | 默认折叠 | 否 | 点"高级…"即展开 | 已核实（D-LEFT，范围限嵌入式窗）：`routing_windows.dart:106-117`；独立窗（`:2640`）常显未折，行为差异如实记录 |
 | ACT-TRAY-016 | U-B1 | 托盘 | 新增"重启服务"叶（复用 ACT-MAIN-035）；超限子菜单由空改单 hint 条（哨兵永不作节点 id） | 常显 | 否 | 以报告为准/待核实 |  |
 | （托盘"停止"/"测速当前节点"） | U-B1 | — | 未做（dropped，无 ACT／接线即新动作面） | 未实施 | 否 | — | 待用户决策 (5) |
 | UI-SETTINGS-HELP | U-B2 | 设置窗四行（`settings_fields.dart`） | 新增 helpText/risk；无 help 时零像素变化 | 常显 | 否 | 以报告为准/待核实 |  |

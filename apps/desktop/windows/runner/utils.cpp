@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <iostream>
+#include <limits>
 
 void CreateAndAttachConsole() {
   if (::AllocConsole()) {
@@ -66,4 +67,64 @@ std::string Utf8FromUtf16(const wchar_t* utf16_string) {
     return std::string();
   }
   return utf8_string;
+}
+
+std::wstring Utf16FromUtf8(const std::string& utf8_string) {
+  if (utf8_string.empty() ||
+      utf8_string.size() > static_cast<size_t>((std::numeric_limits<int>::max)())) {
+    return std::wstring();
+  }
+  const int input_length = static_cast<int>(utf8_string.size());
+  const int target_length =
+      ::MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
+                            utf8_string.data(), input_length, nullptr, 0);
+  std::wstring utf16_string;
+  if (target_length == 0) {
+    return utf16_string;
+  }
+  utf16_string.resize(target_length);
+  const int converted_length = ::MultiByteToWideChar(
+      CP_UTF8, MB_ERR_INVALID_CHARS, utf8_string.data(), input_length,
+      utf16_string.data(), target_length);
+  if (converted_length == 0) {
+    return std::wstring();
+  }
+  return utf16_string;
+}
+
+std::wstring GetOwnExecutablePath() {
+  // S11-06: MAX_PATH truncates long install paths (wrong mutex/state path).
+  std::vector<wchar_t> buffer(MAX_PATH);
+  for (;;) {
+    const DWORD capacity = static_cast<DWORD>(buffer.size());
+    const DWORD length =
+        ::GetModuleFileNameW(nullptr, buffer.data(), capacity);
+    if (length == 0) {
+      return std::wstring();
+    }
+    if (length < capacity) {
+      return std::wstring(buffer.data(), length);
+    }
+    buffer.resize(buffer.size() * 2);
+  }
+}
+
+std::wstring GetEnvironmentVariableString(const wchar_t* name) {
+  if (name == nullptr) {
+    return std::wstring();
+  }
+  std::vector<wchar_t> buffer(256);
+  for (;;) {
+    const DWORD capacity = static_cast<DWORD>(buffer.size());
+    ::SetLastError(ERROR_SUCCESS);
+    const DWORD length =
+        ::GetEnvironmentVariableW(name, buffer.data(), capacity);
+    if (length == 0) {
+      return std::wstring();
+    }
+    if (length < capacity) {
+      return std::wstring(buffer.data(), length);
+    }
+    buffer.resize(buffer.size() * 2);
+  }
 }

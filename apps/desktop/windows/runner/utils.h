@@ -12,6 +12,18 @@ void CreateAndAttachConsole();
 // encoded in UTF-8. Returns an empty std::string on failure.
 std::string Utf8FromUtf16(const wchar_t* utf16_string);
 
+// Takes a UTF-8 std::string and returns a UTF-16 std::wstring.
+// Returns an empty std::wstring on failure.
+std::wstring Utf16FromUtf8(const std::string& utf8_string);
+
+// Returns the current executable's full path without MAX_PATH truncation
+// (grows the buffer until it fits). Returns empty on failure.
+std::wstring GetOwnExecutablePath();
+
+// Returns an environment variable's value without truncation.
+// Returns empty when missing or on failure.
+std::wstring GetEnvironmentVariableString(const wchar_t* name);
+
 // Gets the command line arguments passed in as a std::vector<std::string>,
 // encoded in UTF-8. Returns an empty std::vector<std::string> on failure.
 std::vector<std::string> GetCommandLineArguments();

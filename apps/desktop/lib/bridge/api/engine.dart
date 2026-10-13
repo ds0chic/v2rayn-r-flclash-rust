@@ -10,7 +10,7 @@ import 'mirrors.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These functions are ignored because they are not marked as `pub`: `broadcast`, `dto_to_profile`, `emit_control`, `empty_snapshot_dto`, `engine_dir`, `engine_failure_slot`, `engine`, `ensure_runtime_subscription`, `envelope_to_dto`, `epoch_counter`, `error_dto`, `error_snapshot_dto`, `failed_engine`, `initialize_engine`, `job_dto`, `job_view_dto`, `json_map`, `multiple_load_from_value`, `multiple_load_value`, `next_event`, `operation_status_dto`, `profile_dto`, `profile_from_dto`, `profile_to_dto`, `proto_from_dto`, `proto_to_dto`, `query_profiles_page_inner`, `resolve_engine_dir`, `resource_report_dto`, `security_from_dto`, `security_to_dto`, `seq_counter`, `set_engine_failure`, `snapshot_to_dto`, `subscribers`, `test_only_smoke_body`, `transport_from_dto`, `transport_to_dto`
-// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `t18b_test_only_smoke_config_json`
+// These functions are ignored (category: IgnoreBecauseExplicitAttribute): `emit_test_event`, `mark_job_past_safe_point`, `seed_synthetic_profiles`, `t18b_test_only_smoke_config_json`
 
 /// Open the application engine against an explicit data directory (tests and
 /// portable installs). Must be called before any other API for it to take
@@ -177,24 +177,8 @@ ResourceUpdateReportDto resourceUpdateStatus() =>
 Stream<EventEnvelopeDto> subscribeEvents() =>
     RustLib.instance.api.crateApiEngineSubscribeEvents();
 
-/// Test helper: emit a synthetic control event to the stream.
-void emitTestEvent({required String kind, required String payloadJson}) =>
-    RustLib.instance.api.crateApiEngineEmitTestEvent(
-      kind: kind,
-      payloadJson: payloadJson,
-    );
-
 /// Number of active subscribers (diagnostics / tests).
 int subscriberCount() => RustLib.instance.api.crateApiEngineSubscriberCount();
-
-/// Mark a job as running its compensating path (test helper for cancel flow).
-void markJobPastSafePoint({required String jobId}) =>
-    RustLib.instance.api.crateApiEngineMarkJobPastSafePoint(jobId: jobId);
-
-/// Seed the in-memory engine with `count` synthetic profiles (bootstrap +
-/// tests). Addresses are RFC5737 / example domains only.
-void seedSyntheticProfiles({required int count}) =>
-    RustLib.instance.api.crateApiEngineSeedSyntheticProfiles(count: count);
 
 /// Number of profiles currently held by the in-memory engine.
 BigInt profileCount() => RustLib.instance.api.crateApiEngineProfileCount();

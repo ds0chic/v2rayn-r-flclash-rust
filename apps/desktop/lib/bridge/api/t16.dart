@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `app_install_root`, `app_update_spec_inner`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
+// These functions are ignored because they are not marked as `pub`: `app_install_root`, `app_update_spec_inner`, `app_update_spec_stage`, `apply_core_update_inner`, `backup_service`, `check_updates_inner`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `import_failed`, `import_upstream_inner`, `import_upstream`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `restore_failed`, `update_service`, `update_step`, `update_target_dto`, `update_timeout`, `webdav_client`, `webdav_dto`, `webdav_restore`, `work_dir`
 
 /// `backup_local` — write a versioned bundle under `dest_root`. Async: copies
 /// files and hashes the database, so it must not run on the UI isolate.

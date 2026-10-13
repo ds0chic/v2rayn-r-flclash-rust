@@ -101,6 +101,10 @@ class ErrorLocalizer {
     'error.runtime_apply_failed': 'errorRuntimeApplyFailed',
     'error.sub_headers_invalid': 'errorSubHeadersInvalid',
     'error.sub_update_unconfirmed': 'errorSubUpdateUnconfirmed',
+    // D-LEFT: contract keys that reach the UI (keys frozen, mappings added).
+    'error.recovery_required': 'errorRecoveryRequired',
+    'error.sub_update_failed': 'errorSubUpdateFailed',
+    'error.storage': 'errorStorage',
     'error.backup_invalid': 'errorBackupInvalid',
     'error.webdav_permission': 'errorWebdavPermission',
     'error.order_persist': 'errorOrderPersist',

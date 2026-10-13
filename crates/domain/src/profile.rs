@@ -385,18 +385,37 @@ const SS_METHODS_SINGBOX: [&str; 18] = [
     "xchacha20",
 ];
 
-/// Upstream `Utils.IsGuidByParse`: `8-4-4-4-12` hex with braces/parentheses
-/// rejected (only the canonical dashed form counts here).
+/// Upstream `Utils.IsGuidByParse` is `Guid.TryParse`
+/// (`ServiceLib/Common/Utils.cs:959-962`): the `N` (32 contiguous hex),
+/// `D` (`8-4-4-4-12` dashed) and `B`/`P` (braced/parenthesised `D`) formats.
+/// Anything else — including mismatched wrappers — is rejected.
 fn is_guid(value: &str) -> bool {
     const GROUPS: [usize; 5] = [8, 4, 4, 4, 12];
-    let parts: Vec<&str> = value.split('-').collect();
-    if parts.len() != GROUPS.len() {
+    let inner = value.trim();
+    let inner = inner
+        .strip_prefix('{')
+        .and_then(|rest| rest.strip_suffix('}'))
+        .or_else(|| {
+            inner
+                .strip_prefix('(')
+                .and_then(|rest| rest.strip_suffix(')'))
+        })
+        .unwrap_or(inner);
+    if inner.is_empty() {
         return false;
     }
-    parts
-        .iter()
-        .zip(GROUPS)
-        .all(|(part, len)| part.len() == len && part.bytes().all(|b| b.is_ascii_hexdigit()))
+    if inner.contains('-') {
+        let parts: Vec<&str> = inner.split('-').collect();
+        if parts.len() != GROUPS.len() {
+            return false;
+        }
+        parts
+            .iter()
+            .zip(GROUPS)
+            .all(|(part, len)| part.len() == len && part.bytes().all(|b| b.is_ascii_hexdigit()))
+    } else {
+        inner.len() == 32 && inner.bytes().all(|b| b.is_ascii_hexdigit())
+    }
 }
 
 #[cfg(test)]
@@ -542,5 +561,40 @@ mod tests {
         assert!(!reality.is_valid());
         reality.security.public_key = Some("key".into());
         assert!(reality.is_valid());
+    }
+
+    #[test]
+    fn is_guid_accepts_upstream_try_parse_formats() {
+        // S1-04: upstream `Utils.IsGuidByParse` is `Guid.TryParse`, which
+        // accepts the N/D/B/P formats. Subscription-fed UUIDs in any of
+        // these shapes must not be dropped as invalid nodes.
+        let dashed = "11111111-2222-3333-4444-555555555555";
+        let plain: String = dashed.chars().filter(|c| *c != '-').collect();
+        assert_eq!(plain.len(), 32);
+        for guid in [
+            dashed.to_string(),
+            format!("{{{dashed}}}"),
+            format!("({dashed})"),
+            plain,
+        ] {
+            let vmess = Profile {
+                config_type: ConfigType::Vmess,
+                address: "192.0.2.1".into(),
+                port: 443,
+                password: guid.clone(),
+                ..Default::default()
+            };
+            assert!(vmess.is_valid(), "guid format must be valid: {guid}");
+        }
+        for bad in [
+            "not-a-guid",
+            "{11111111-2222-3333-4444-555555555555)",
+            "11111111-2222-3333-4444-55555555555",
+            "1111111122223333444455555555555",
+            "g1111111-2222-3333-4444-555555555555",
+            "",
+        ] {
+            assert!(!is_guid(bad), "must stay invalid: {bad}");
+        }
     }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 
@@ -209,28 +210,25 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
                     ),
                   ),
                 ),
-              _field('备注 *', _remarks, 'sub-field-remarks'),
-              _field('Url（留空为普通分组）', _url, 'sub-field-url'),
-              _field('MoreUrl（逗号分隔）', _moreUrl, 'sub-field-moreurl'),
-              _field('UserAgent', _userAgent, 'sub-field-useragent'),
+              const SettingsSection(title: '基础', child: <Widget>[]),
               _field(
-                'RequestHeaders (JSON)',
-                _requestHeaders,
-                'sub-field-headers',
-                maxLines: 2,
+                '备注 *',
+                _remarks,
+                'sub-field-remarks',
+                help: '给订阅起个名，重名难分。',
               ),
-              _field('过滤 Filter (正则)', _filter, 'sub-field-filter'),
+              _field(
+                'Url（留空为普通分组）',
+                _url,
+                'sub-field-url',
+                help: '空着＝普通分组，只分类不下载；填远程地址才会更新。',
+              ),
               _field(
                 '自动更新间隔（分钟，0=禁用）',
                 _autoUpdateInterval,
                 'sub-field-interval',
+                help: '单个订阅多久自动更新一次。0＝手动；家用建议 60–720，太小会被限流。',
               ),
-              _field('转换目标 ConvertTarget', _convertTarget, 'sub-field-convert'),
-              _field('前置节点 PrevProfile', _prevProfile, 'sub-field-prev'),
-              _field('后置节点 NextProfile', _nextProfile, 'sub-field-next'),
-              _field('前置 SOCKS 端口', _preSocksPort, 'sub-field-presocks'),
-              _field('自定义内核 CustomCoreType', _customCoreType, 'sub-field-core'),
-              _field('备注 Memo', _memo, 'sub-field-memo'),
               SwitchListTile(
                 key: const ValueKey('sub-field-enabled'),
                 dense: true,
@@ -239,8 +237,77 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
                   '启用',
                   style: TextStyle(fontSize: AppTokens.fontSizeSubtitle),
                 ),
+                subtitle: Text(
+                  '关闭后“更新全部”会跳过它。',
+                  style: AppForm.helperStyle(Theme.of(context))
+                      .copyWith(color: context.semantics.muted),
+                ),
                 value: _enabled,
                 onChanged: (v) => setState(() => _enabled = v),
+              ),
+              const SettingsSection(title: '进阶', child: <Widget>[]),
+              _field(
+                'MoreUrl（逗号分隔）',
+                _moreUrl,
+                'sub-field-moreurl',
+                help: '备用更新地址，逗号分隔。',
+              ),
+              _field(
+                'UserAgent',
+                _userAgent,
+                'sub-field-useragent',
+                help: '订阅请求的 UA。留空用默认；乱填会导致 403。',
+              ),
+              _field(
+                '过滤 Filter (正则)',
+                _filter,
+                'sub-field-filter',
+                help: '按节点名过滤的正则。写错会把节点全滤掉，先在别处验证再贴。',
+              ),
+              _field(
+                '转换目标 ConvertTarget',
+                _convertTarget,
+                'sub-field-convert',
+                help: '配合“订阅转换网址”使用；单设无效。与原版差异：原版为下拉，待补。',
+              ),
+              _field('备注 Memo', _memo, 'sub-field-memo', help: '纯备注，不影响行为。'),
+              SettingsSection(
+                title: '专家',
+                collapsed: true,
+                child: <Widget>[
+                  const SettingsNote('以下填错可能导致整组不通，教程没让填就别填。'),
+                  _field(
+                    'RequestHeaders (JSON)',
+                    _requestHeaders,
+                    'sub-field-headers',
+                    maxLines: 2,
+                    help: '订阅请求头，必须是 JSON 对象。写错存不上。',
+                  ),
+                  _field(
+                    '前置节点 PrevProfile',
+                    _prevProfile,
+                    'sub-field-prev',
+                    help: '链式代理的前置节点，填节点 id。与原版差异：原版有节点选择按钮，待补；填错整组不通。',
+                  ),
+                  _field(
+                    '后置节点 NextProfile',
+                    _nextProfile,
+                    'sub-field-next',
+                    help: '链式代理的后置节点，填节点 id。与原版差异：原版有节点选择按钮，待补；填错整组不通。',
+                  ),
+                  _field(
+                    '前置 SOCKS 端口',
+                    _preSocksPort,
+                    'sub-field-presocks',
+                    help: '前置 SOCKS 端口。别和前置节点混淆；端口被占会失败。',
+                  ),
+                  _field(
+                    '自定义内核 CustomCoreType',
+                    _customCoreType,
+                    'sub-field-core',
+                    help: '该订阅强制使用的内核编号。与原版差异：原版为下拉，待补；填错对应错内核。',
+                  ),
+                ],
               ),
             ],
           ),
@@ -266,18 +333,34 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
     TextEditingController controller,
     String key, {
     int maxLines = 1,
+    String? help,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: TextField(
-        key: ValueKey(key),
-        controller: controller,
-        maxLines: maxLines,
-        decoration: InputDecoration(
-          labelText: label,
-          isDense: true,
-          border: const OutlineInputBorder(),
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          TextField(
+            key: ValueKey(key),
+            controller: controller,
+            maxLines: maxLines,
+            decoration: InputDecoration(
+              labelText: label,
+              isDense: true,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          if (help != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 2, top: 2),
+              child: Text(
+                help,
+                style: AppForm.helperStyle(Theme.of(context))
+                    .copyWith(color: context.semantics.muted),
+              ),
+            ),
+        ],
       ),
     );
   }

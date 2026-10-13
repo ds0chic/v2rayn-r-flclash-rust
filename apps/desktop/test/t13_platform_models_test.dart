@@ -30,6 +30,8 @@ void main() {
           'ACT-TRAY-010',
           'ACT-TRAY-011',
           'ACT-TRAY-012',
+          // U-B1 UX1-11: restart-service leaf reusing ACT-MAIN-035; exit last.
+          'ACT-TRAY-016',
           'ACT-TRAY-013',
         ]);
         final checked = items.where((i) => i.checked).toList();
@@ -39,7 +41,7 @@ void main() {
         expect(items[4].separatorBefore, isTrue); // routing
         expect(items[6].separatorBefore, isTrue); // clipboard import
         expect(items[10].separatorBefore, isTrue); // copy proxy cmd
-        expect(items[11].separatorBefore, isTrue); // exit
+        expect(items[12].separatorBefore, isTrue); // exit
       },
     );
 
@@ -49,7 +51,7 @@ void main() {
         pacVisible: false,
       );
       expect(without.any((i) => i.actionId == 'ACT-TRAY-005'), isFalse);
-      expect(without.length, 11);
+      expect(without.length, 12);
     });
 
     test('node submenu hides above TrayMenuServersLimit', () {

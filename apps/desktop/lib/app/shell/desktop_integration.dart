@@ -389,6 +389,12 @@ class DesktopIntegration with WindowListener implements DesktopLifecycle {
   }
 
   void _onTrayNode(String id) {
+    if (isTrayServersOverflowHint(id)) {
+      // UX1-11: the over-limit hint entry is not a node; explain the fold
+      // instead of attempting a switch.
+      _platform.setMessage('托盘节点过多已折叠，请在主窗口切换节点');
+      return;
+    }
     final delegate = ref.read(trayCommandDelegateProvider).value;
     if (delegate?.onSelectNode != null) {
       delegate!.onSelectNode!(id);

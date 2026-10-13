@@ -38,7 +38,7 @@ void main() {
       expect(servers.children.map((c) => c.id), <String>['n1', 'n2']);
     });
 
-    test('nodes submenu hides above the configured limit', () {
+    test('nodes submenu shows a fold hint above the configured limit', () {
       final items = trayMenuModel(
         currentMode: SysProxyMode.unchanged,
         pacVisible: false,
@@ -48,7 +48,9 @@ void main() {
         serversLimit: 20,
       );
       final servers = items.firstWhere((i) => i.actionId == 'ACT-TRAY-007');
-      expect(servers.children, isEmpty);
+      // U-B1 UX1-11: the fold explains itself instead of opening empty.
+      expect(servers.children, hasLength(1));
+      expect(servers.children.single.id, trayServersOverflowHintId);
     });
 
     test('TrayAction exposes the shared command for a menu item', () {

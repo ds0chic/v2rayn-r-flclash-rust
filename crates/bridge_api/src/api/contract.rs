@@ -296,6 +296,10 @@ pub struct ProfilePageDto {
     pub dataset_revision: u64,
     /// SP-21: caller-supplied request generation, echoed back unchanged.
     pub request_generation: u64,
+    /// S8-03: storage failure that produced this page. `Some` only when the
+    /// read failed (items are then empty); the cursor loops must treat such a
+    /// page as an error, never as end-of-list.
+    pub error: Option<ErrorDto>,
 }
 
 /// Result of `save_profile`: either the saved profile or a field error.

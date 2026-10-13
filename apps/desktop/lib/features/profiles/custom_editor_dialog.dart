@@ -35,13 +35,42 @@ Future<String?> pickCustomConfigFile() async {
 /// Open [fullPath] with the OS default handler (upstream
 /// `ProcUtils.ProcessStart`). Returns false when the file does not exist.
 Future<bool> openConfigFileExternally(String fullPath) async {
-  if (fullPath.trim().isEmpty || !File(fullPath).existsSync()) return false;
+  if (!isSafeExternalOpenPath(fullPath) || !File(fullPath).existsSync()) {
+    return false;
+  }
   if (Platform.isWindows) {
-    await Process.run('cmd', <String>['/c', 'start', '', fullPath]);
+    await Process.run('cmd', <String>[
+      '/c',
+      'start',
+      '',
+      quoteExternalOpenPath(fullPath),
+    ]);
     return true;
   }
   return false;
 }
+
+/// Whether [path] may be handed to the external-open command (D1-09).
+///
+/// `cmd /c start` re-parses its arguments, so any shell metacharacter in a
+/// stored `Address` would break out of the path argument. Only plain config
+/// paths are accepted; the caller reports a rejection as a file error instead
+/// of launching anything.
+bool isSafeExternalOpenPath(String path) {
+  final trimmed = path.trim();
+  if (trimmed.isEmpty) return false;
+  // Control characters (including CR/LF), cmd metacharacters and
+  // PowerShell statement separators. Spaces, dots, dashes, parentheses and
+  // CJK letters stay allowed so ordinary `C:\dir\my file (1).json` paths
+  // keep working; the remaining rejects fail safe with a file error.
+  if (RegExp('["&|<>^%`\$;\\x00-\\x1f]').hasMatch(trimmed)) return false;
+  return true;
+}
+
+/// Double-quote [path] for `cmd /c start "" <path>` so spaces survive.
+/// Only call with a path that passed [isSafeExternalOpenPath] (a quote
+/// inside the path is rejected there, so wrapping is injection-free).
+String quoteExternalOpenPath(String path) => '"${path.trim()}"';
 
 /// Absolute path used as-is; a bare file name joins
 /// `<dataDir>/config/<name>` (upstream `Utils.GetConfigPath`).

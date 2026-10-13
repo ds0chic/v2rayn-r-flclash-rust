@@ -165,10 +165,7 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
           .read(uiShellControllerProvider.notifier)
           .setLayout(AppLayoutMode.fromId(layoutEnv));
     }
-    final themeEnv = evidenceStringHook(
-      Platform.environment,
-      'V2RAYN_R_THEME',
-    );
+    final themeEnv = evidenceStringHook(Platform.environment, 'V2RAYN_R_THEME');
     if (themeEnv != null) {
       ref
           .read(uiShellControllerProvider.notifier)

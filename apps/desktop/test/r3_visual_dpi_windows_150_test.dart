@@ -1,7 +1,9 @@
 // R3-VISUAL-DPI-TRAY: the settings window (all five pages) and the routing
-// window must not overflow/truncate across the 100/125/150/200% DPI matrix.
-// One page build drives both windows through a ValueListenableBuilder, so the
-// locked flutter_tester does not rebuild the whole app per window.
+// window must not overflow/truncate at 150% DPI.
+//
+// Split from `r3_visual_dpi_windows_test.dart` (via the 150/200 half): the
+// locked flutter_tester segfaults under multi-scale matrices in one process,
+// so each scale keeps its own file (see `runShellDpiCase` in dpi_assertions).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,13 +19,16 @@ import 'support/dpi_assertions.dart';
 import 'support/fake_monitor_bridge.dart';
 import 'support/fake_platform_bridge.dart';
 
+/// The single scale covered by this file; see the 100/125/200 companions.
+const List<double> _scales = <double>[1.5];
+
 void main() {
   final windows = <(String, Widget Function())>[
     ('设置', OptionSettingWindow.new),
     ('路由', RoutingSettingWindow.new),
   ];
 
-  testWidgets('settings/routing windows survive the 100-200% DPI matrix', (
+  testWidgets('settings/routing windows survive the 150% DPI matrix', (
     tester,
   ) async {
     addTearDown(tester.view.resetPhysicalSize);
@@ -54,7 +59,7 @@ void main() {
     );
     await tester.pump();
 
-    for (final scale in kDpiScales) {
+    for (final scale in _scales) {
       for (final logical in kLogicalSizes) {
         applyDpi(tester, scale, logical);
 

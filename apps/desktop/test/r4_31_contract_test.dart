@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
@@ -179,7 +180,7 @@ void main() {
     },
   );
 
-  test('the log read model stays bounded under a flood', () {
+  test('the log read model stays bounded under a flood', () async {
     final monitor = FakeMonitorBridge(clashApiSupported: true);
     final runtime = _FakeRuntimeBridge(_runningA);
     final container = ProviderContainer(
@@ -200,6 +201,9 @@ void main() {
         for (var i = 0; i < 2000; i++) _line(batch * 2000 + i),
       ], droppedLines: BigInt.from(90000));
     }
+    // SP-22: batches coalesce into at most one tail-merge per
+    // [logCoalesceWindow]; the read model is empty until the flush fires.
+    await Future<void>.delayed(logCoalesceWindow * 2);
 
     final state = container.read(monitorControllerProvider);
     expect(state.logs.length, maxDisplayedLogs);

@@ -1139,7 +1139,10 @@ pub fn subscribe_events(sink: StreamSink<EventEnvelopeDto>) {
 }
 
 /// Test helper: emit a synthetic control event to the stream.
-#[frb(sync)]
+///
+/// Not part of the Dart API (`#[frb(ignore)]`): production UI must never
+/// inject control events; tests drive the engine directly.
+#[frb(ignore)]
 pub fn emit_test_event(kind: String, payload_json: String) {
     let payload: Value = serde_json::from_str(&payload_json).unwrap_or(Value::String(payload_json));
     emit_control(&kind, payload);
@@ -1152,14 +1155,20 @@ pub fn subscriber_count() -> u32 {
 }
 
 /// Mark a job as running its compensating path (test helper for cancel flow).
-#[frb(sync)]
+///
+/// Not part of the Dart API (`#[frb(ignore)]`): flipping job internals from
+/// the UI would corrupt cancellation semantics.
+#[frb(ignore)]
 pub fn mark_job_past_safe_point(job_id: String) {
     engine().jobs().mark_past_safe_point(&JobId::new(job_id));
 }
 
 /// Seed the in-memory engine with `count` synthetic profiles (bootstrap +
 /// tests). Addresses are RFC5737 / example domains only.
-#[frb(sync)]
+///
+/// Not part of the Dart API (`#[frb(ignore)]`): replacing the live profile
+/// store from the UI would detach production persistence.
+#[frb(ignore)]
 pub fn seed_synthetic_profiles(count: u32) {
     let profiles: Vec<Profile> = (0..count)
         .map(application::synthetic::synthetic_full_profile)
@@ -1436,6 +1445,17 @@ mod tests {
         let dto = applied_inbound();
         assert_eq!(dto.protocol, None);
         assert_eq!(dto.port, None);
+    }
+
+    #[test]
+    fn gated_test_helpers_stay_callable_from_rust() {
+        // S8-01: `#[frb(ignore)]` removes the Dart bindings but must not break
+        // direct Rust callers (bootstrap/tests).
+        let _guard = engine_test_lock();
+        seed_synthetic_profiles(2);
+        assert!(profile_count() >= 2);
+        emit_test_event("b07b-probe".into(), "{}".into());
+        mark_job_past_safe_point("no-such-job".into());
     }
 
     #[test]

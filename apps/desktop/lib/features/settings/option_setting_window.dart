@@ -54,6 +54,13 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
   bool _loadFailed = false;
   String? _error;
 
+  /// Whole-document revision the in-process draft was seeded from. The draft
+  /// passes through `mergeWithSettingsDefaults` (a deep copy), which drops the
+  /// controller's Expando-captured revision, so it is recorded here and
+  /// submitted back on save (AUD-DESK-02): an interim save from another surface
+  /// fails this dialog stale instead of being silently overwritten.
+  int? _draftRevision;
+
   @override
   void initState() {
     super.initState();
@@ -206,6 +213,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       _draft = mergeWithSettingsDefaults(
         ref.read(settingsControllerProvider.notifier).draft(),
       );
+      _draftRevision = state.revision;
       _draftInit = true;
     }
     if (widget.host != null && !_draftInit) {
@@ -526,7 +534,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     final outcome = applyAfter
         ? await ref
               .read(settingsControllerProvider.notifier)
-              .saveAndApply(_draft)
+              .saveAndApply(_draft, expectedRevision: _draftRevision)
         : _saveOnly();
     if (!mounted) return;
     if (outcome.ok) {

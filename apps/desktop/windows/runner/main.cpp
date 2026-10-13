@@ -22,9 +22,7 @@ constexpr UINT kDefaultHeight = 800;
 // separate installs / isolated test data dirs independent, matching the
 // upstream single-instance lock which is scoped to the running app.
 std::wstring InstanceMutexName() {
-  wchar_t path[MAX_PATH];
-  const DWORD length = ::GetModuleFileNameW(nullptr, path, MAX_PATH);
-  const std::wstring full(path, length);
+  const std::wstring full = GetOwnExecutablePath();
   unsigned long long hash = 1469598103934665603ULL;
   for (const wchar_t c : full) {
     hash ^= static_cast<unsigned long long>(c);
@@ -35,21 +33,79 @@ std::wstring InstanceMutexName() {
   return std::wstring(buffer);
 }
 
+// The top-level window class is shared by every Flutter app, so a candidate
+// window must be verified to belong to our own executable before it is
+// poked (S11-05).
+struct ActivateSearch {
+  std::wstring own_path;
+  DWORD own_pid = 0;
+  HWND found = nullptr;
+};
+
+BOOL CALLBACK FindOwnTopWindow(HWND hwnd, LPARAM lparam) {
+  auto* search = reinterpret_cast<ActivateSearch*>(lparam);
+  if (search->found != nullptr) {
+    return FALSE;
+  }
+  if (::IsWindowVisible(hwnd) == FALSE) {
+    return TRUE;
+  }
+  wchar_t class_name[64];
+  if (::GetClassNameW(hwnd, class_name, 64) == 0 ||
+      ::wcscmp(class_name, kFlutterWindowClassName) != 0) {
+    return TRUE;
+  }
+  DWORD pid = 0;
+  ::GetWindowThreadProcessId(hwnd, &pid);
+  if (pid == 0 || pid == search->own_pid) {
+    return TRUE;
+  }
+  HANDLE process =
+      ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+  if (process == nullptr) {
+    return TRUE;
+  }
+  std::vector<wchar_t> image(512);
+  BOOL ok = FALSE;
+  DWORD image_size = 0;
+  for (;;) {
+    image_size = static_cast<DWORD>(image.size());
+    ::SetLastError(ERROR_SUCCESS);
+    ok = ::QueryFullProcessImageNameW(process, 0, image.data(), &image_size);
+    if (ok != FALSE || ::GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+      break;
+    }
+    image.resize(image.size() * 2);
+  }
+  ::CloseHandle(process);
+  if (ok == FALSE || search->own_path.empty()) {
+    return TRUE;
+  }
+  if (::CompareStringOrdinal(image.data(), static_cast<int>(image_size),
+                             search->own_path.c_str(),
+                             static_cast<int>(search->own_path.size()),
+                             TRUE) == CSTR_EQUAL) {
+    search->found = hwnd;
+    return FALSE;
+  }
+  return TRUE;
+}
+
 // Wake the first instance: locate its window by class and post the show
 // message (ROOT-06 / ACT-WIN-012).
 void ActivateExistingInstance() {
-  HWND existing = ::FindWindowW(kFlutterWindowClassName, nullptr);
-  if (existing != nullptr) {
-    ::PostMessageW(existing, kShowWindowMessage, 0, 0);
+  ActivateSearch search{GetOwnExecutablePath(), ::GetCurrentProcessId(),
+                        nullptr};
+  ::EnumWindows(FindOwnTopWindow, reinterpret_cast<LPARAM>(&search));
+  if (search.found != nullptr) {
+    ::PostMessageW(search.found, kShowWindowMessage, 0, 0);
   }
 }
 
 // Draft T01 window-size persistence next to the executable; the final
 // AppSettings/WindowSizeItem contract is a later task (FLD-CFG-156..158).
 std::wstring StateFilePath() {
-  wchar_t path[MAX_PATH];
-  DWORD length = ::GetModuleFileNameW(nullptr, path, MAX_PATH);
-  std::wstring full(path, length);
+  std::wstring full = GetOwnExecutablePath();
   const size_t slash = full.find_last_of(L"\\/");
   if (slash != std::wstring::npos) {
     full = full.substr(0, slash + 1);

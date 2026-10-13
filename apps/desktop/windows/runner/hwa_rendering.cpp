@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <flutter/dart_project.h>
 #include <flutter/flutter_engine.h>
@@ -20,6 +21,7 @@ namespace {
 constexpr char kEnvName[] = "V2RAYNR_ENABLE_HWA";
 constexpr wchar_t kFlagFileName[] = L"v2raynr_hwa.ini";
 constexpr wchar_t kLogFileName[] = L"v2raynr-hwa.log";
+constexpr std::uint64_t kMaxLogBytes = 1024 * 1024;
 
 bool ParseBool(const std::string& raw, bool& out) {
   std::string v = raw;
@@ -57,9 +59,7 @@ bool MatchCliFlag(const std::string& arg, bool& out) {
 }
 
 std::wstring ExeDir() {
-  wchar_t path[MAX_PATH];
-  const DWORD length = ::GetModuleFileNameW(nullptr, path, MAX_PATH);
-  std::wstring full(path, length);
+  std::wstring full = GetOwnExecutablePath();
   const size_t slash = full.find_last_of(L"\\/");
   if (slash != std::wstring::npos) {
     full.resize(slash + 1);
@@ -100,17 +100,30 @@ void EmitLine(const std::string& line) {
                      std::to_string(::GetCurrentProcessId()) + "] " + line +
                      "\n";
 
-  std::wstring wfull(full.begin(), full.end());
-  ::OutputDebugStringW(wfull.c_str());
+  const std::wstring wfull = Utf16FromUtf8(full);
+  if (!wfull.empty()) {
+    ::OutputDebugStringW(wfull.c_str());
+  }
   ::fputs(full.c_str(), stderr);
 
-  wchar_t tmp[MAX_PATH];
-  const DWORD n =
-      ::GetEnvironmentVariableW(L"TEMP", tmp, MAX_PATH);
-  std::wstring log = (n > 0 && n < MAX_PATH)
-                         ? std::wstring(tmp) + L"\\" + kLogFileName
-                         : ExeDir() + kLogFileName;
-  std::ofstream f(log, std::ios::app | std::ios::binary);
+  const std::wstring temp = GetEnvironmentVariableString(L"TEMP");
+  const std::wstring log = temp.empty()
+                               ? ExeDir() + kLogFileName
+                               : temp + L"\\" + kLogFileName;
+  // S11-07: bound growth; restart the log once it exceeds 1 MiB.
+  bool truncate = false;
+  {
+    std::ifstream probe(log, std::ios::binary | std::ios::ate);
+    if (probe) {
+      const std::ifstream::pos_type end = probe.tellg();
+      if (end != std::ifstream::pos_type(-1) &&
+          static_cast<std::uint64_t>(end) >= kMaxLogBytes) {
+        truncate = true;
+      }
+    }
+  }
+  std::ofstream f(log, std::ios::binary |
+                           (truncate ? std::ios::trunc : std::ios::app));
   if (f) {
     f.write(full.data(), (std::streamsize)full.size());
   }

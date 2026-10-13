@@ -2068,6 +2068,43 @@ mod tests {
     }
 
     #[test]
+    fn sp21_real_sqlite_100k_worker_walk_opt_in() {
+        use std::sync::Arc;
+        // Scale proof kept out of the default suite: 100k rows cost ~58s
+        // and dominated it. Opt in with SP21_SCALE_100K=1; default prints
+        // a note and passes without seeding.
+        if std::env::var("SP21_SCALE_100K").ok().as_deref() != Some("1") {
+            println!("SP21 100k walk skipped (set SP21_SCALE_100K=1 to run)");
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sp21-scale-100k.db");
+        let total = 100_000usize;
+        let mut expected = sp21_seed_file_db(&path, total, false);
+        expected.sort();
+
+        let pager = Arc::new(ProfilePageQuery::new());
+        pager.notify_mutated();
+        let worker = AsyncPageWorker::open_readonly(&path, pager.clone()).unwrap();
+        let revision = pager.dataset_revision();
+        let generation = pager.next_generation();
+
+        let timer = std::time::Instant::now();
+        let (seen, pages) = sp21_worker_walk_all(&worker, revision, generation, 500);
+        let elapsed = timer.elapsed();
+        println!(
+            "SP21 real-sqlite 100k worker walk rows={total} pages={pages} elapsed_ms={}",
+            elapsed.as_millis()
+        );
+
+        let mut seen_sorted = seen;
+        seen_sorted.sort();
+        assert_eq!(seen_sorted, expected, "every row exactly once");
+        assert!(pages > 1, "large store is read in bounded pages");
+        drop(worker);
+    }
+
+    #[test]
     fn sp21_real_sqlite_id_tiebreak_is_stable_across_worker_pages() {
         use std::sync::Arc;
         let dir = tempfile::tempdir().unwrap();

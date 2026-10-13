@@ -20,7 +20,7 @@ pub struct HyRealm {
 impl HyRealm {
     pub fn rendezvous_host_port(&self) -> String {
         if self.rendezvous_port > 0 {
-            format!("{}:{}", self.rendezvous_host, self.rendezvous_port)
+            format!("{}:{}", bracket_ipv6(&self.rendezvous_host), self.rendezvous_port)
         } else {
             self.rendezvous_host.clone()
         }
@@ -77,7 +77,7 @@ impl HyRealm {
         let mut uri = format!(
             "{prefix}{}@{}:{}/{}",
             url_encode(&self.token),
-            self.rendezvous_host,
+            bracket_ipv6(&self.rendezvous_host),
             self.rendezvous_port,
             self.realm_name
         );
@@ -432,5 +432,23 @@ mod tests {
         assert_eq!(realm.realm_name, "57f9be7c");
         assert_eq!(realm.stun_list.len(), 2);
         assert_eq!(realm.to_server_url(), "https://realm.hy2.io:443");
+    }
+
+    #[test]
+    fn ipv6_realm_uris_bracket_the_host() {
+        let realm = HyRealm {
+            is_http: false,
+            token: "tok".into(),
+            rendezvous_host: "2001:db8::1".into(),
+            rendezvous_port: 443,
+            realm_name: "cabin".into(),
+            stun_list: Vec::new(),
+        };
+        let uri = realm.to_uri();
+        assert!(uri.contains("@[2001:db8::1]:443/"), "got {uri}");
+        let reparsed = HyRealm::try_parse(&uri).expect("ipv6 realm reparse");
+        assert_eq!(reparsed.rendezvous_host, "2001:db8::1");
+        assert_eq!(reparsed.rendezvous_port, 443);
+        assert_eq!(realm.to_server_url(), "https://[2001:db8::1]:443");
     }
 }

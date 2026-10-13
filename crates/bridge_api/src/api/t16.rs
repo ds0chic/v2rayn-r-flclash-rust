@@ -358,11 +358,24 @@ pub fn t16_webdav_config_save(
     cfg: WebDavConfigDto,
     expected_revision: u64,
 ) -> WebDavConfigResultDto {
+    // Bridge save-time gate: reuse the application-level `validated_dir()`
+    // check so an illegal remote directory is rejected with the existing
+    // FIELD_FORMAT / error.webdav_url_invalid contract before anything is
+    // persisted. No new keys.
+    let validated = dto_to_webdav(cfg);
+    if let Err(error) = validated.validated_dir() {
+        return WebDavConfigResultDto {
+            ok: false,
+            config: None,
+            revision: expected_revision,
+            error: Some(error_dto(error)),
+        };
+    }
     let patch = serde_json::json!({
-        "Url": cfg.url,
-        "UserName": cfg.user_name,
-        "Password": cfg.password,
-        "DirName": cfg.dir_name,
+        "Url": validated.url,
+        "UserName": validated.user_name,
+        "Password": validated.password,
+        "DirName": validated.dir_name,
     });
     match engine().save_settings_group("WebDavItem", patch, expected_revision) {
         Ok(_) => t16_webdav_config_get(),
@@ -2024,5 +2037,32 @@ mod tests {
         assert!(cores.join("xray").join("26.4.0").is_dir());
         assert!(engine.applied_session().is_none());
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn s8w_webdav_config_save_rejects_traversing_dir() {
+        // Bridge save-time gate: an illegal dir_name must be rejected with
+        // the existing error contract before anything is persisted.
+        let _guard = crate::api::engine::engine_test_lock();
+        let before = t16_webdav_config_get();
+        let original = before.config.clone().expect("webdav config present");
+        let bad = WebDavConfigDto {
+            url: original.url.clone(),
+            user_name: original.user_name.clone(),
+            password: original.password.clone(),
+            dir_name: "../other".to_string(),
+        };
+        let saved = t16_webdav_config_save(bad, before.revision);
+        // Restore before asserting so even the pre-fix failure leaves the
+        // shared test engine exactly as found.
+        let cur = t16_webdav_config_get();
+        let restored = t16_webdav_config_save(original.clone(), cur.revision);
+        assert!(restored.ok, "restore must succeed");
+        assert!(!saved.ok, "traversing dir_name must be rejected");
+        let error = saved.error.expect("structured error");
+        assert_eq!(error.code, codes::FIELD_FORMAT);
+        assert_eq!(error.message_key, "error.webdav_url_invalid");
+        let after = t16_webdav_config_get();
+        assert_eq!(after.config.expect("config").dir_name, original.dir_name);
     }
 }

@@ -6268,6 +6268,356 @@ mod tests {
         assert!(engine.profile_by_id(&id).unwrap().is_some());
     }
 
+    // -- B02 engine rollback (S4a-01 / S4b-01 / S4a-03 / S4a-06) --------------
+
+    /// Open a real SQLite-backed engine over `dir` (persist writes real files).
+    fn rollback_test_engine(dir: &tempfile::TempDir) -> AppEngine {
+        AppEngine::open_with_runtime(dir.path(), Arc::new(NullRuntimeClient::new())).unwrap()
+    }
+
+    /// Break `guiNConfig.json` writes the same way the H10 test does: a
+    /// directory at the temp path makes the atomic write+rename fail.
+    fn break_config_persist(dir: &tempfile::TempDir) {
+        std::fs::create_dir(dir.path().join("guiNConfig.json.tmp")).unwrap();
+    }
+
+    fn unbreak_config_persist(dir: &tempfile::TempDir) {
+        std::fs::remove_dir(dir.path().join("guiNConfig.json.tmp")).unwrap();
+    }
+
+    #[test]
+    fn copy_profiles_rolls_back_when_config_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let original = synthetic_full_profile(1);
+        let id = original.index_id.clone();
+        engine
+            .save_profile(original, DesiredRevision::ZERO)
+            .unwrap();
+        let revision = engine.desired_revision();
+        let count = engine.profile_count();
+        break_config_persist(&dir);
+
+        assert!(engine.copy_profiles(&[id]).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.profile_count(), count);
+
+        // The SQLite row must be gone too: a reopen sees no resurrected copy.
+        unbreak_config_persist(&dir);
+        drop(engine);
+        let reopened = rollback_test_engine(&dir);
+        assert_eq!(reopened.profile_count(), count);
+    }
+
+    #[test]
+    fn set_remarks_rolls_back_when_config_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let original = synthetic_full_profile(1);
+        let id = original.index_id.clone();
+        engine
+            .save_profile(original, DesiredRevision::ZERO)
+            .unwrap();
+        let before = engine.profile_by_id(&id).unwrap().unwrap();
+        let revision = engine.desired_revision();
+        break_config_persist(&dir);
+
+        assert!(engine
+            .set_remarks(&id, "changed but not saved".into())
+            .is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.profile_by_id(&id).unwrap().unwrap(), before);
+    }
+
+    #[test]
+    fn routing_mutations_roll_back_when_config_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let before = engine.list_routings().unwrap();
+        assert!(before.len() >= 2, "builtins must be seeded");
+        let revision = engine.desired_revision();
+        let default_id = engine.default_routing().unwrap().unwrap().id;
+        let other_id = before
+            .iter()
+            .find(|r| r.id != default_id)
+            .map(|r| r.id.clone())
+            .unwrap();
+        let target = before.iter().find(|r| r.id == other_id).cloned().unwrap();
+        break_config_persist(&dir);
+
+        let mut changed = target.clone();
+        changed.remarks = "changed but not saved".to_string();
+        assert!(engine.save_routing(changed).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(
+            engine.get_routing(&target.id).unwrap().unwrap().remarks,
+            target.remarks
+        );
+
+        assert!(engine.delete_routing(&other_id).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.list_routings().unwrap().len(), before.len());
+        assert!(engine.get_routing(&other_id).unwrap().is_some());
+
+        assert!(engine.set_default_routing(&other_id).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.default_routing().unwrap().unwrap().id, default_id);
+    }
+
+    #[test]
+    fn dns_and_rule_mode_roll_back_when_config_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let xray = engine
+            .get_dns_for_core(CoreType::Xray)
+            .unwrap()
+            .expect("xray dns row");
+        let revision = engine.desired_revision();
+        assert_eq!(engine.rule_mode(), RuleMode::Rule);
+        break_config_persist(&dir);
+
+        let mut changed = xray.clone();
+        changed.normal_dns = Some("8.8.8.8,1.1.1.1".to_string());
+        changed.enabled = true;
+        assert!(engine.save_dns(changed).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        let kept = engine
+            .get_dns_for_core(CoreType::Xray)
+            .unwrap()
+            .expect("xray dns row");
+        assert_eq!(kept.normal_dns, xray.normal_dns);
+        assert_eq!(kept.enabled, xray.enabled);
+
+        assert!(engine.set_rule_mode(RuleMode::Direct).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.rule_mode(), RuleMode::Rule);
+    }
+
+    #[test]
+    fn sub_mutations_roll_back_when_config_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        for (id, remarks) in [("s-rb", "rb"), ("s-rb2", "rb2")] {
+            engine
+                .save_sub_item(crate::subs::SubItem {
+                    id: id.into(),
+                    remarks: remarks.into(),
+                    url: format!("https://example.com/{id}"),
+                    ..Default::default()
+                })
+                .unwrap();
+        }
+        let mut seed = vec![synthetic_full_profile(1)];
+        for p in &mut seed {
+            p.subid = "s-rb".to_string();
+        }
+        engine.replace_sub_profiles("s-rb", seed, true).unwrap();
+        let revision = engine.desired_revision();
+        break_config_persist(&dir);
+
+        // Update one row.
+        let mut changed = engine.get_sub_item("s-rb").unwrap().unwrap();
+        changed.remarks = "changed but not saved".into();
+        assert!(engine.save_sub_item(changed).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.get_sub_item("s-rb").unwrap().unwrap().remarks, "rb");
+
+        // Reorder.
+        assert!(engine
+            .reorder_sub_items(&["s-rb2".to_string(), "s-rb".to_string()])
+            .is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        let sorts: Vec<(String, i32)> = engine
+            .list_sub_items()
+            .unwrap()
+            .into_iter()
+            .map(|s| (s.id, s.sort))
+            .collect();
+        assert!(
+            sorts.windows(2).all(|w| w[0].1 <= w[1].1),
+            "order must be unchanged: {sorts:?}"
+        );
+        assert_eq!(
+            engine.get_sub_item("s-rb").unwrap().unwrap().sort,
+            sorts.iter().find(|(id, _)| id == "s-rb").unwrap().1
+        );
+
+        // Delete (also removes the dependent node).
+        assert!(engine.delete_sub_items(&["s-rb".to_string()]).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert!(engine.get_sub_item("s-rb").unwrap().is_some());
+        assert_eq!(engine.profiles_by_subid("s-rb").unwrap().len(), 1);
+
+        // SQLite rows survive the rollback: a reopen still sees them.
+        unbreak_config_persist(&dir);
+        drop(engine);
+        let reopened = rollback_test_engine(&dir);
+        assert!(reopened.get_sub_item("s-rb").unwrap().is_some());
+        assert_eq!(reopened.profiles_by_subid("s-rb").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn template_mutations_roll_back_when_config_write_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let before = engine.list_templates().unwrap();
+        assert!(!before.is_empty(), "builtin templates must be seeded");
+        let revision = engine.desired_revision();
+        break_config_persist(&dir);
+
+        let mut changed = before[0].clone();
+        changed.remarks = "changed but not saved".to_string();
+        assert!(engine.save_template(changed).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(
+            engine.list_templates().unwrap()[0].remarks,
+            before[0].remarks
+        );
+
+        let victim = before[0].id.clone();
+        assert!(engine.delete_template(&victim).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.list_templates().unwrap().len(), before.len());
+    }
+
+    #[test]
+    fn regional_preset_default_rolls_back_and_bumps_desired() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let settings_before =
+            serde_json::to_value(engine.load_settings().unwrap().settings).unwrap();
+        let settings_revision_before = engine.load_settings().unwrap().revision;
+        let dns_before: Vec<(String, bool, Option<String>)> = engine
+            .list_dns()
+            .unwrap()
+            .into_iter()
+            .map(|d| (d.id, d.enabled, d.normal_dns))
+            .collect();
+        let revision = engine.desired_revision();
+        break_config_persist(&dir);
+
+        assert!(engine
+            .apply_regional_preset(crate::dns::RegionalPreset::Default)
+            .is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(
+            engine.load_settings().unwrap().revision,
+            settings_revision_before
+        );
+        assert_eq!(
+            serde_json::to_value(engine.load_settings().unwrap().settings).unwrap(),
+            settings_before
+        );
+        let dns_after: Vec<(String, bool, Option<String>)> = engine
+            .list_dns()
+            .unwrap()
+            .into_iter()
+            .map(|d| (d.id, d.enabled, d.normal_dns))
+            .collect();
+        assert_eq!(dns_after, dns_before);
+
+        // Success path bumps desired so the UI can show "saved, not applied".
+        unbreak_config_persist(&dir);
+        engine
+            .apply_regional_preset(crate::dns::RegionalPreset::Default)
+            .unwrap();
+        assert!(
+            engine.desired_revision() > revision,
+            "preset must bump desired on success"
+        );
+    }
+
+    #[test]
+    fn regional_preset_offline_propagates_dns_error_and_rolls_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let settings_before =
+            serde_json::to_value(engine.load_settings().unwrap().settings).unwrap();
+        let dns_before: Vec<(String, bool)> = engine
+            .list_dns()
+            .unwrap()
+            .into_iter()
+            .map(|d| (d.id, d.enabled))
+            .collect();
+        let revision = engine.desired_revision();
+        break_config_persist(&dir);
+
+        // The DNS persist failure must reach the caller, not be swallowed.
+        engine
+            .apply_regional_preset(crate::dns::RegionalPreset::RussiaOffline)
+            .unwrap_err();
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(
+            serde_json::to_value(engine.load_settings().unwrap().settings).unwrap(),
+            settings_before
+        );
+        let dns_after: Vec<(String, bool)> = engine
+            .list_dns()
+            .unwrap()
+            .into_iter()
+            .map(|d| (d.id, d.enabled))
+            .collect();
+        assert_eq!(dns_after, dns_before);
+    }
+
+    #[test]
+    fn prepare_restore_failure_keeps_epoch() {
+        let engine = AppEngine::in_memory();
+        let epoch = engine.restore_epoch();
+        // A subscription job that never reaches a terminal state makes the
+        // bounded drain time out instead of succeeding.
+        let _stuck = engine.jobs.start("update_subscription");
+        let error = engine.prepare_restore().unwrap_err();
+        assert_eq!(error.code, domain::codes::UNAVAILABLE);
+        assert_eq!(engine.restore_epoch(), epoch);
+    }
+
+    #[test]
+    fn import_commits_table_is_bounded() {
+        let engine = AppEngine::in_memory();
+        for i in 0..200 {
+            let profiles = vec![domain::Profile {
+                index_id: String::new(),
+                config_type: domain::ConfigType::Vless,
+                remarks: format!("cap-{i:03}"),
+                address: "192.0.2.1".to_string(),
+                port: 443,
+                ..Default::default()
+            }];
+            let token = engine.register_import_preview(&format!("cap-text-{i:03}"), &profiles);
+            let commit = crate::import_batch::ImportCommit {
+                profiles,
+                target_group: None,
+                expected_revision: engine.desired_revision(),
+                mutation_id: format!("cap-m-{i:03}"),
+                preview_token: token,
+            };
+            engine.commit_import_batch(commit).unwrap();
+        }
+        let len = engine.import_commits.lock().unwrap().len();
+        assert!(len <= 128, "import_commits must stay bounded, got {len}");
+        // The newest receipt still replays.
+        let profiles = vec![domain::Profile {
+            index_id: String::new(),
+            config_type: domain::ConfigType::Vless,
+            remarks: "cap-199".to_string(),
+            address: "192.0.2.1".to_string(),
+            port: 443,
+            ..Default::default()
+        }];
+        let token = engine.register_import_preview("cap-text-199", &profiles);
+        let replay = engine
+            .commit_import_batch(crate::import_batch::ImportCommit {
+                profiles,
+                target_group: None,
+                expected_revision: 0,
+                mutation_id: "cap-m-199".to_string(),
+                preview_token: token,
+            })
+            .unwrap();
+        assert!(replay.ok);
+    }
+
     // -- R4-34 resource task ------------------------------------------------
 
     /// Bind a loopback test port at `>= 11808` (never 10808).

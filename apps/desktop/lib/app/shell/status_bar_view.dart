@@ -16,6 +16,7 @@ import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/shared/widgets/status_badge.dart';
 
 /// Upstream `StatusBarViewModel.InboundDisplayStatus`: the local mixed port
 /// (plus socks2 = port+1 when enabled) and the LAN port (`none`, the shared
@@ -159,7 +160,29 @@ class StatusBarView extends ConsumerWidget {
     // 160-wide system-proxy and routing combos, the flex service summary and
     // the right-docked two-line rates. Width-capped so the whole row shares
     // the initial 800px viewport with no horizontal scroller.
+    // U-B1 connection badge (UX2-02 + UX1-02 aggregate capsule): read-only
+    // projection of the runtime snapshot + routing mode at the head of Row A.
+    // Tapping is wired in the failed state only (opens the failure details);
+    // start/stop stays on the toolbar buttons (D1: the badge owns no command).
+    final badgeKind = badgeKindForRuntime(runtime);
+    final badge = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 300),
+      child: StatusBadge(
+        key: const ValueKey('status-badge'),
+        kind: badgeKind,
+        label: badgeLabelFor(
+          badgeKind,
+          mode: routing.ruleMode,
+          hasUnappliedChanges: runtime.hasUnappliedChanges,
+        ),
+        onTap: badgeKind == StatusBadgeKind.failed
+            ? () => showFailureDetails(context, runtime)
+            : null,
+      ),
+    );
     final left = <Widget>[
+      badge,
+      const _Sep(),
       inboundBlock,
       const _Sep(),
       // F-SYSPROXY-001 / ACT-STAT-001: the four system-proxy modes, applied

@@ -141,20 +141,27 @@ class StatusBarView extends ConsumerWidget {
       required String labelKey,
       required Widget selector,
     }) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Text(
-            labelText,
-            key: ValueKey<String>(labelKey),
-            style: TextStyle(
-              fontSize: AppTokens.fontSizeTiny,
-              color: context.semantics.muted,
+      // U-FIX2 (r4_07): the selector face keeps full content width when
+      // measured loose, so Row A can overflow at narrow widths. Loose fit:
+      // inner values already ellipsize, wide layouts render as before.
+      return Flexible(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              labelText,
+              key: ValueKey<String>(labelKey),
+              style: TextStyle(
+                fontSize: AppTokens.fontSizeTiny,
+                color: context.semantics.muted,
+              ),
             ),
-          ),
-          const SizedBox(width: 3),
-          selector,
-        ],
+            const SizedBox(width: 3),
+            // The face keeps full content width when measured loose; it
+            // must also flex so the tight share ellipsizes the value.
+            Flexible(child: selector),
+          ],
+        ),
       );
     }
 
@@ -511,33 +518,41 @@ class StatusBarView extends ConsumerWidget {
                   color: scheme.error,
                 ),
               ),
+              // U-FIX2 (r4_07): the action buttons keep fixed minimums, so a
+              // long headline plus three buttons overflows the tight share.
+              // The cluster scrolls instead; at fitting widths it renders
+              // exactly as before (offset zero, same sizes and keys).
               if (runtime.canRetryFailed) ...<Widget>[
                 const SizedBox(width: 4),
-                TextButton(
-                  key: const ValueKey('runtime-error-retry'),
-                  style: _noticeButtonStyle(),
-                  onPressed: () => ref
-                      .read(runtimeControllerProvider.notifier)
-                      .retryFailed(),
-                  child: const Text('重试'),
-                ),
-                TextButton(
-                  key: const ValueKey('runtime-error-view'),
-                  style: _noticeButtonStyle(),
-                  onPressed: () => showFailureDetails(context, ref, runtime),
-                  child: const Text('查看失败'),
-                ),
+                _noticeActions(<Widget>[
+                  TextButton(
+                    key: const ValueKey('runtime-error-retry'),
+                    style: _noticeButtonStyle(),
+                    onPressed: () => ref
+                        .read(runtimeControllerProvider.notifier)
+                        .retryFailed(),
+                    child: const Text('重试'),
+                  ),
+                  TextButton(
+                    key: const ValueKey('runtime-error-view'),
+                    style: _noticeButtonStyle(),
+                    onPressed: () => showFailureDetails(context, ref, runtime),
+                    child: const Text('查看失败'),
+                  ),
+                ]),
               ],
               // U-B1 actionable errors: every runtime failure offers a next
               // step routed by the error code (P4). Rendered for any runtime
               // error, not only retryable ones.
               const SizedBox(width: 4),
-              TextButton(
-                key: const ValueKey('runtime-error-next'),
-                style: _noticeButtonStyle(),
-                onPressed: () => _onErrorNext(context, ref, runtime),
-                child: const Text('下一步'),
-              ),
+              _noticeActions(<Widget>[
+                TextButton(
+                  key: const ValueKey('runtime-error-next'),
+                  style: _noticeButtonStyle(),
+                  onPressed: () => _onErrorNext(context, ref, runtime),
+                  child: const Text('下一步'),
+                ),
+              ]),
             ],
           ),
         )
@@ -607,14 +622,16 @@ class StatusBarView extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              TextButton(
-                key: const ValueKey('speedtest-global-stop'),
-                style: _noticeButtonStyle(),
-                onPressed: () => ref
-                    .read(profilesControllerProvider.notifier)
-                    .cancelSpeedTest(),
-                child: const Text('停止'),
-              ),
+              _noticeActions(<Widget>[
+                TextButton(
+                  key: const ValueKey('speedtest-global-stop'),
+                  style: _noticeButtonStyle(),
+                  onPressed: () => ref
+                      .read(profilesControllerProvider.notifier)
+                      .cancelSpeedTest(),
+                  child: const Text('停止'),
+                ),
+              ]),
             ],
           ),
         ),
@@ -637,13 +654,15 @@ class StatusBarView extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              TextButton(
-                key: const ValueKey('subs-global-cancel'),
-                style: _noticeButtonStyle(),
-                onPressed: () =>
-                    ref.read(subsControllerProvider.notifier).cancel(),
-                child: const Text('取消'),
-              ),
+              _noticeActions(<Widget>[
+                TextButton(
+                  key: const ValueKey('subs-global-cancel'),
+                  style: _noticeButtonStyle(),
+                  onPressed: () =>
+                      ref.read(subsControllerProvider.notifier).cancel(),
+                  child: const Text('取消'),
+                ),
+              ]),
             ],
           ),
         ),
@@ -682,7 +701,11 @@ class StatusBarView extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Expanded(child: center),
                       const SizedBox(width: 8),
-                      ratesBlock,
+                      // U-FIX2 (r4_07): the rates text has no intrinsic
+                      // minimum shrink (CJK/long values keep full width), so
+                      // the block must flex; inner lines already ellipsize.
+                      // Loose fit: pixel-identical while space suffices.
+                      Flexible(child: ratesBlock),
                     ],
                   ),
                   Row(
@@ -696,7 +719,15 @@ class StatusBarView extends ConsumerWidget {
                         const _Sep(),
                         Expanded(child: notice),
                       ],
-                      if (narrow) ...<Widget>[const _Sep(), badge],
+                      // U-FIX2 (r4_07): the badge content keeps full width
+                      // (icon + label), which overflows Row B once the error
+                      // notice buttons claim their minimums. Loose fit: the
+                      // badge's inner label already ellipsizes, so wide
+                      // layouts render exactly as before.
+                      if (narrow) ...<Widget>[
+                        const _Sep(),
+                        Flexible(child: badge),
+                      ],
                     ],
                   ),
                 ],
@@ -764,6 +795,19 @@ ButtonStyle _noticeButtonStyle() {
     minimumSize: const Size(0, 24),
     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     textStyle: const TextStyle(fontSize: AppTokens.fontSize),
+  );
+}
+
+/// Notice action cluster for Row B. Buttons keep fixed minimums, so the
+/// cluster scrolls horizontally instead of overflowing the tight share on
+/// narrow strips; at fitting widths the offset stays zero and every button
+/// keeps its size, key and tooltip.
+Widget _noticeActions(List<Widget> buttons) {
+  return Flexible(
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(mainAxisSize: MainAxisSize.min, children: buttons),
+    ),
   );
 }
 

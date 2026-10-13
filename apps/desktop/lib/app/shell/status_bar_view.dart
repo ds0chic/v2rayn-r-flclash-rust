@@ -14,6 +14,7 @@ import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
+import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
@@ -66,6 +67,7 @@ class StatusBarView extends ConsumerWidget {
     final platform = ref.watch(platformControllerProvider);
     final platformController = ref.read(platformControllerProvider.notifier);
     final monitor = ref.watch(monitorControllerProvider);
+    final subs = ref.watch(subsControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
     // Left partitions, in the upstream DockPanel order. Each partition is
@@ -571,6 +573,35 @@ class StatusBarView extends ConsumerWidget {
                     .read(profilesControllerProvider.notifier)
                     .cancelSpeedTest(),
                 child: const Text('停止'),
+              ),
+            ],
+          ),
+        ),
+      // U-B1 subscription progress (UX1-07): the subs controller already
+      // exposes busy/status/lastJobId + cancel, so an update stays visible
+      // (and cancellable) after switching tabs.
+      if (subs.busy)
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppTokens.statusNoticeMaxWidth,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Flexible(
+                child: _statusText(
+                  subs.status?.message ?? '正在更新订阅…',
+                  key: const ValueKey('subs-global-progress'),
+                  color: scheme.primary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              TextButton(
+                key: const ValueKey('subs-global-cancel'),
+                style: _noticeButtonStyle(),
+                onPressed: () =>
+                    ref.read(subsControllerProvider.notifier).cancel(),
+                child: const Text('取消'),
               ),
             ],
           ),

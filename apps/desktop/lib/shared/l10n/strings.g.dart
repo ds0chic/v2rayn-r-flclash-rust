@@ -664,6 +664,16 @@ kResUiStrings = <String, Map<String, String>>{
     'zh-Hans': '重置界面提示',
     'zh-Hant': '重置界面提示',
   },
+  'uiSubUpdate': {
+    'en': 'Update subscriptions',
+    'zh-Hans': '更新订阅',
+    'zh-Hant': '更新訂閱',
+  },
+  'uiSubMoreWays': {
+    'en': 'More update options…',
+    'zh-Hans': '更多更新方式…',
+    'zh-Hant': '更多更新方式…',
+  },
   'uiStart': {
     'en': 'Start',
     'zh-Hans': '启动',

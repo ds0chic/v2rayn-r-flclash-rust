@@ -165,6 +165,11 @@ const _serverEntries = <AppMenuEntry>[
 ];
 
 /// ACT-MAIN-019 (sub settings) and ACT-* subscription update entries.
+///
+/// U-B1 convergence (UX1-07): the default entry updates the current group
+/// without proxy (ACT-MAIN-022, behavior unchanged); the original four stay
+/// intact inside the "more ways" submenu (ledger rows kept, folded by
+/// default).
 const _subscriptionEntries = <AppMenuEntry>[
   AppMenuEntry(
     label: '订阅分组设置',
@@ -172,25 +177,33 @@ const _subscriptionEntries = <AppMenuEntry>[
     actionId: 'ACT-MAIN-019',
     separatorAfter: true,
   ),
+  AppMenuEntry(label: '更新订阅', l10nKey: 'uiSubUpdate', actionId: 'ACT-MAIN-022'),
   AppMenuEntry(
-    label: '更新全部订阅 (不通过代理)',
-    l10nKey: 'menuSubUpdate',
-    actionId: 'ACT-MAIN-020',
-  ),
-  AppMenuEntry(
-    label: '更新全部订阅 (通过代理)',
-    l10nKey: 'menuSubUpdateViaProxy',
-    actionId: 'ACT-MAIN-021',
-  ),
-  AppMenuEntry(
-    label: '更新当前订阅 (不通过代理)',
-    l10nKey: 'menuSubGroupUpdate',
-    actionId: 'ACT-MAIN-022',
-  ),
-  AppMenuEntry(
-    label: '更新当前订阅 (通过代理)',
-    l10nKey: 'menuSubGroupUpdateViaProxy',
-    actionId: 'ACT-MAIN-023',
+    label: '更多更新方式…',
+    l10nKey: 'uiSubMoreWays',
+    actionId: 'UI-SUB-MORE',
+    submenu: <AppMenuEntry>[
+      AppMenuEntry(
+        label: '更新全部订阅 (不通过代理)',
+        l10nKey: 'menuSubUpdate',
+        actionId: 'ACT-MAIN-020',
+      ),
+      AppMenuEntry(
+        label: '更新全部订阅 (通过代理)',
+        l10nKey: 'menuSubUpdateViaProxy',
+        actionId: 'ACT-MAIN-021',
+      ),
+      AppMenuEntry(
+        label: '更新当前订阅 (不通过代理)',
+        l10nKey: 'menuSubGroupUpdate',
+        actionId: 'ACT-MAIN-022',
+      ),
+      AppMenuEntry(
+        label: '更新当前订阅 (通过代理)',
+        l10nKey: 'menuSubGroupUpdateViaProxy',
+        actionId: 'ACT-MAIN-023',
+      ),
+    ],
   ),
 ];
 

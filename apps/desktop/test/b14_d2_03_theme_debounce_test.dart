@@ -39,9 +39,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(
-          home: Scaffold(body: ThemeSettingDialog()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: ThemeSettingDialog())),
       ),
     );
     await tester.pumpAndSettle();

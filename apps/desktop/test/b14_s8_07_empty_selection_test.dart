@@ -20,8 +20,8 @@ void main() {
     );
     addTearDown(container.dispose);
     // The synthetic bridge has no proxy; check directly instead.
-    (container.read(bridgePortProvider) as SyntheticBridgePort)
-        .proxyAvailable = true;
+    (container.read(bridgePortProvider) as SyntheticBridgePort).proxyAvailable =
+        true;
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -32,12 +32,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Deselect every supported core.
-    for (final core in const <String>[
-      'v2rayN',
-      'xray',
-      'mihomo',
-      'sing_box',
-    ]) {
+    for (final core in const <String>['v2rayN', 'xray', 'mihomo', 'sing_box']) {
       final box = find.byKey(ValueKey('update-core-$core'));
       expect(box, findsOneWidget, reason: 'missing checkbox for $core');
       await tester.tap(box);

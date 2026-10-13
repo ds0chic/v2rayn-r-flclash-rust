@@ -133,6 +133,9 @@ void main() {
         probe.context,
         probe.ref,
         picker: () async => _makeQrPng(_scanUri),
+        // D-LEFT: no real decode in scan tests; the isolate seam is covered
+        // by d_left_qr_isolate_test.dart.
+        decoder: (_) async => _scanUri,
       );
     });
 
@@ -169,7 +172,12 @@ void main() {
     final before = _page().total.toInt();
 
     await tester.runAsync(() async {
-      await scanImageQr(probe.context, probe.ref, picker: () async => null);
+      await scanImageQr(
+        probe.context,
+        probe.ref,
+        picker: () async => null,
+        decoder: (_) => throw StateError('must not decode'),
+      );
     });
     expect(_page().total.toInt(), before);
 
@@ -178,6 +186,7 @@ void main() {
         probe.context,
         probe.ref,
         picker: () async => Uint8List(0),
+        decoder: (_) => throw StateError('must not decode'),
       );
     });
     expect(_page().total.toInt(), before);

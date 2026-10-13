@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image/image.dart' as img;
@@ -43,8 +42,11 @@ Future<Uint8List?> pickQrImageFile() async {
 ///
 /// Returns null for unreadable files, images without a QR code, or empty
 /// payloads. Mirrors upstream `QRCodeUtils.ReaderBarcode`: one direct pass,
-/// then a horizontally flipped retry for mirrored codes. Like upstream
-/// `ParseBarcode` this runs synchronously on the calling isolate.
+/// then a horizontally flipped retry for mirrored codes.
+///
+/// D3a-11: this stays a synchronous pure core so unit tests can call it
+/// directly. Production callers go through [decodeQrImageAsync] (off-isolate);
+/// tests inject a fake [QrDecoder] instead of running any real decode.
 String? decodeQrImage(Uint8List bytes) {
   if (bytes.isEmpty) return null;
   img.Image? decoded;
@@ -84,12 +86,26 @@ String? _decodeWithZxing(img.Image image) {
   }
 }
 
+/// Injectable QR decode step. Production default is [decodeQrImageAsync];
+/// tests pass a fake (canned text / null / throw) and never run real decode.
+typedef QrDecoder = Future<String?> Function(Uint8List bytes);
+
+/// `compute` entry: runs the unchanged sync [decodeQrImage] core on a worker
+/// isolate. Results are identical to the sync call by construction.
+String? _decodeQrImageEntry(Uint8List bytes) => decodeQrImage(bytes);
+
+/// D3a-11: decode off the UI isolate (full-screen PNGs are multi-megapixel).
+/// An isolate failure throws; callers map it to the existing no-QR-found UX.
+Future<String?> decodeQrImageAsync(Uint8List bytes) =>
+    compute(_decodeQrImageEntry, bytes);
+
 /// ACT-MAIN-018: choose an image, decode its QR code, and hand the text to the
 /// existing import pipeline. Cancelling is silent; errors are actionable.
 Future<void> scanImageQr(
   BuildContext context,
   WidgetRef ref, {
   QrImagePicker picker = pickQrImageFile,
+  QrDecoder decoder = decodeQrImageAsync,
 }) async {
   Uint8List? bytes;
   try {
@@ -103,7 +119,12 @@ Future<void> scanImageQr(
     _toast(ref, '所选图片为空，请重新选择');
     return;
   }
-  final text = decodeQrImage(bytes);
+  String? text;
+  try {
+    text = await decoder(bytes);
+  } catch (_) {
+    text = null; // Decode/isolate failure reads as "no QR found" below.
+  }
   if (text == null || text.trim().isEmpty) {
     _toast(ref, '扫描完成，未发现有效二维码（请选择含清晰二维码的 PNG/JPG 图片）');
     return;

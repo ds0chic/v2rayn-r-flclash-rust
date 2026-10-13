@@ -1024,12 +1024,13 @@ fn build_transport(input: &CodegenInput, node: &CodegenProfile) -> Option<Value>
     Some(Value::Object(transport))
 }
 
-/// Extract `?ed=N` / `?eh=...` out of a websocket path.
+/// Extract `ed=N` / `eh=...` out of a websocket path. Upstream matches
+/// `[?&]ed=` / `[?&]eh=` (S3-02); `ed` is stripped from the path, `eh` stays.
 fn parse_ws_path(path: &str) -> (Option<String>, Option<i32>, Option<String>) {
     let mut result = path.to_string();
     let mut max_early_data = None;
     let mut eh = None;
-    if let Some(idx) = result.find("?ed=") {
+    if let Some(idx) = query_marker(&result, "ed") {
         let rest = &result[idx + 4..];
         let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
         if let Ok(value) = digits.parse::<i32>() {
@@ -1038,7 +1039,7 @@ fn parse_ws_path(path: &str) -> (Option<String>, Option<i32>, Option<String>) {
             result = result.replace("?&", "?").trim_end_matches('?').to_string();
         }
     }
-    if let Some(idx) = result.find("?eh=") {
+    if let Some(idx) = query_marker(&result, "eh") {
         let rest = &result[idx + 4..];
         let value: String = rest.chars().take_while(|c| *c != '&').collect();
         eh = Some(percent_decode(&value));
@@ -1049,6 +1050,17 @@ fn parse_ws_path(path: &str) -> (Option<String>, Option<i32>, Option<String>) {
         Some(result)
     };
     (path, max_early_data, eh)
+}
+
+/// Locate a `?name=` / `&name=` query marker, earliest first.
+fn query_marker(haystack: &str, name: &str) -> Option<usize> {
+    let question = format!("?{name}=");
+    let ampersand = format!("&{name}=");
+    haystack
+        .find(question.as_str())
+        .into_iter()
+        .chain(haystack.find(ampersand.as_str()))
+        .min()
 }
 
 fn percent_decode(value: &str) -> String {

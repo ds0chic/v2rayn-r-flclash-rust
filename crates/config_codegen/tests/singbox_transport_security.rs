@@ -245,3 +245,32 @@ fn singbox_utls_ignores_global_default_fingerprint() {
         "firefox"
     );
 }
+
+// S3-02: upstream parses ws `ed`/`eh` params with `[?&]ed=` / `[?&]eh=`, so
+// non-leading `&ed=` / `&eh=` params must also be honoured (and `ed` stripped
+// from the path).
+#[test]
+fn singbox_ws_early_data_ampersand_params() {
+    let mut p = vless_with_network("ws");
+    p.transport_extra.host = Some("ws.test".into());
+    p.transport_extra.path = Some("/p?x=1&ed=100".into());
+    let generated = generate_singbox(&codegen_input(p)).expect("ws");
+    let main = &generated.main;
+    assert_eq!(
+        json_at(main, "/outbounds/0/transport/max_early_data"),
+        json!(100),
+        "{main}"
+    );
+    assert_eq!(string_at(main, "/outbounds/0/transport/path"), "/p?x=1");
+
+    let mut p = vless_with_network("ws");
+    p.transport_extra.host = Some("ws.test".into());
+    p.transport_extra.path = Some("/p?x=1&eh=SGVsbG8".into());
+    let generated = generate_singbox(&codegen_input(p)).expect("ws");
+    let main = &generated.main;
+    assert_eq!(
+        string_at(main, "/outbounds/0/transport/early_data_header_name"),
+        "SGVsbG8",
+        "{main}"
+    );
+}

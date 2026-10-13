@@ -1234,8 +1234,7 @@ impl SpeedTestRunner {
         let next = AtomicUsize::new(0);
         let workers = concurrency
             .min(batch.len().max(1))
-            .min(MAX_POOL_WORKERS)
-            .max(1);
+            .clamp(1, MAX_POOL_WORKERS);
         debug_assert!(workers <= MAX_POOL_WORKERS);
         std::thread::scope(|scope| {
             for _ in 0..workers {

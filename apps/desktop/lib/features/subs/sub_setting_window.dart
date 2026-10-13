@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/features/subs/sub_edit_window.dart';
@@ -164,7 +165,10 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
         },
         child: AlertDialog(
           key: const ValueKey('sub-setting-window'),
-          title: const Text('订阅分组设置', style: TextStyle(fontSize: 15)),
+          title: const Text(
+            '订阅分组设置',
+            style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+          ),
           contentPadding: const EdgeInsets.fromLTRB(0, 12, 0, 0),
           content: SizedBox(
             width: 720,
@@ -354,7 +358,10 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
   Widget _action(String label, Key key, VoidCallback? onPressed) => TextButton(
     key: key,
     onPressed: onPressed,
-    child: Text(label, style: const TextStyle(fontSize: 13)),
+    child: Text(
+      label,
+      style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+    ),
   );
 }
 
@@ -363,7 +370,10 @@ class _SubTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 12, fontWeight: FontWeight.w600);
+    const style = TextStyle(
+      fontSize: AppTokens.fontSize,
+      fontWeight: FontWeight.w600,
+    );
     return const Padding(
       padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
@@ -419,7 +429,7 @@ class _SubRow extends StatelessWidget {
               flex: 3,
               child: Text(
                 item.remarks.isEmpty ? '(未命名)' : item.remarks,
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -427,7 +437,7 @@ class _SubRow extends StatelessWidget {
               flex: 5,
               child: Text(
                 item.url,
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -437,20 +447,23 @@ class _SubRow extends StatelessWidget {
                 item.autoUpdateInterval > 0
                     ? '${item.autoUpdateInterval} 分'
                     : '手动',
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
             ),
             Expanded(
               flex: 2,
               child: Text(
                 item.userAgent,
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
             SizedBox(
               width: 40,
-              child: Text('${item.sort}', style: const TextStyle(fontSize: 12)),
+              child: Text(
+                '${item.sort}',
+                style: const TextStyle(fontSize: AppTokens.fontSize),
+              ),
             ),
           ],
         ),
@@ -481,7 +494,7 @@ class _StatusLine extends StatelessWidget {
         status.detail == null
             ? status.message
             : '${status.message} — ${status.detail}',
-        style: TextStyle(fontSize: 12, color: color),
+        style: TextStyle(fontSize: AppTokens.fontSize, color: color),
       ),
     );
   }

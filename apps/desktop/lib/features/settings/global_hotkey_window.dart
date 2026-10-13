@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/features/settings/hotkey_keycodec.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
@@ -217,7 +218,10 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
     // misleading "unbound" rows (mirrors the option window recovery entry).
     if (state.loadFailed) {
       return AlertDialog(
-        title: const Text('全局热键设置', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          '全局热键设置',
+          style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+        ),
         content: Text(
           context.messageText(state.status ?? 'error.settings_load_failed'),
           key: const ValueKey('hotkey-load-error'),
@@ -240,7 +244,10 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
       );
     }
     return AlertDialog(
-      title: const Text('全局热键设置', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '全局热键设置',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 460,
         child: Focus(
@@ -264,7 +271,7 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
                         width: 150,
                         child: Text(
                           action.label,
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: AppTokens.fontSize),
                         ),
                       ),
                       Expanded(
@@ -273,7 +280,7 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
                           key: ValueKey<String>(
                             'hotkey-label-${action.action}',
                           ),
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: AppTokens.fontSize),
                         ),
                       ),
                       TextButton(
@@ -285,7 +292,9 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
                         ),
                         child: Text(
                           _recording == action.action ? '按下组合…' : '录制',
-                          style: const TextStyle(fontSize: 11),
+                          style: const TextStyle(
+                            fontSize: AppTokens.fontSizeCaption,
+                          ),
                         ),
                       ),
                     ],
@@ -294,7 +303,10 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
               if (_status != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text(_status!, style: const TextStyle(fontSize: 11)),
+                  child: Text(
+                    _status!,
+                    style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+                  ),
                 ),
             ],
           ),

@@ -11,6 +11,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/subs/import_persistence.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/features/subs/sub_setting_window.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// ACT-MAIN-016: import share links from the clipboard (F-IMPORT-001/002/005).
 ///
@@ -45,7 +46,10 @@ Future<void> importFromTextDialog(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('import-paste-dialog'),
-      title: const Text('从文本导入节点', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '从文本导入节点',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         height: 240,
@@ -173,7 +177,10 @@ Future<bool> _confirmImportPreview(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('import-preview-dialog'),
-      title: const Text('预览导入', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '预览导入',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -185,13 +192,19 @@ Future<bool> _confirmImportPreview(
               const SizedBox(height: 8),
               Text(
                 '${preview.errors.length} 行未识别，将跳过（首项：${preview.errors.first.message}）。',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             ],
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '取消不产生任何文件或节点；提交失败不留半批。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(
+                fontSize: AppTokens.fontSize,
+                color: context.semantics.muted,
+              ),
             ),
           ],
         ),
@@ -240,7 +253,10 @@ Future<void> _offerAddSubscription(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('sub-url-import-dialog'),
-      title: const Text('检测到订阅链接', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '检测到订阅链接',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -254,10 +270,16 @@ Future<void> _offerAddSubscription(
                 url,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             if (urls.length > 5)
-              Text('…共 ${urls.length} 条', style: const TextStyle(fontSize: 12)),
+              Text(
+                '…共 ${urls.length} 条',
+                style: const TextStyle(fontSize: AppTokens.fontSize),
+              ),
             const SizedBox(height: 12),
             const Text('是否将其作为订阅添加并立即更新？'),
           ],
@@ -400,7 +422,10 @@ Future<void> shareProfilesQr(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('profile-share-qr'),
-      title: const Text('分享节点', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '分享节点',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 256,
         height: 256,
@@ -491,7 +516,10 @@ Future<void> _showSubUpdateDetails(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('subs-update-failures'),
-      title: const Text('订阅更新失败详情', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '订阅更新失败详情',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 520,
         child: ListView(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 
 /// Renders a subscription's download URL as a scannable QR code (F-SUB-001 /
@@ -10,7 +11,10 @@ Future<void> showSubShareDialog(BuildContext context, c.SubItemDto item) {
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('sub-share-dialog'),
-      title: const Text('分享订阅', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '分享订阅',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 320,
         child: Column(
@@ -18,11 +22,14 @@ Future<void> showSubShareDialog(BuildContext context, c.SubItemDto item) {
           children: <Widget>[
             Text(
               item.remarks.isEmpty ? item.url : item.remarks,
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
             ),
             const SizedBox(height: 12),
             if (item.url.trim().isEmpty)
-              const Text('该订阅没有可分享的 URL', style: TextStyle(fontSize: 12))
+              const Text(
+                '该订阅没有可分享的 URL',
+                style: TextStyle(fontSize: AppTokens.fontSize),
+              )
             else
               SizedBox(
                 key: const ValueKey('sub-share-qr'),
@@ -41,7 +48,7 @@ Future<void> showSubShareDialog(BuildContext context, c.SubItemDto item) {
             const SizedBox(height: 12),
             Text(
               item.url,
-              style: const TextStyle(fontSize: 11),
+              style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
               textAlign: TextAlign.center,
             ),
           ],

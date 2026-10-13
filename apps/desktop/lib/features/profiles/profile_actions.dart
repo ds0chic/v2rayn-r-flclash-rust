@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -466,7 +467,10 @@ Future<void> shareProfileQr(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('profile-share-qr'),
-      title: const Text('分享节点', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '分享节点',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 256,
         height: 256,
@@ -780,7 +784,10 @@ class _RemarksDialogState extends State<_RemarksDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       key: const ValueKey('remarks-dialog'),
-      title: const Text('修改备注', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '修改备注',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: TextField(
         key: const ValueKey('remarks-field'),
         controller: _textController,

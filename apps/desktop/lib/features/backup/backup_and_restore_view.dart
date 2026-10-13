@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/backup/backup_controller.dart';
 
@@ -64,7 +65,10 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
     final controller = ref.read(backupControllerProvider.notifier);
     return AlertDialog(
       key: const ValueKey('backup-window'),
-      title: const Text('备份与还原', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '备份与还原',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       content: SizedBox(
         width: 760,
@@ -89,7 +93,10 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                   children: <Widget>[
                     const SizedBox(
                       width: 96,
-                      child: Text('本地恢复', style: TextStyle(fontSize: 12)),
+                      child: Text(
+                        '本地恢复',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                     OutlinedButton(
                       key: const ValueKey('backup-restore-zip-btn'),
@@ -98,7 +105,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                           : () => controller.restoreFromArchive(),
                       child: const Text(
                         '选择备份 ZIP 恢复',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: AppTokens.fontSize),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -109,7 +116,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                           : () => controller.restoreFromDirectory(),
                       child: const Text(
                         '选择备份包目录恢复',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: AppTokens.fontSize),
                       ),
                     ),
                   ],
@@ -134,7 +141,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                         : () => controller.importUpstream(_archivePath.text),
                     child: const Text(
                       '导入原版 ZIP',
-                      style: TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: AppTokens.fontSize),
                     ),
                   ),
                 ],
@@ -155,7 +162,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                     children: <Widget>[
                       Text(
                         '已发现 ${state.bundles.length} 个备份包',
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: AppTokens.fontSize),
                       ),
                       for (var i = 0; i < state.bundles.length; i++)
                         Row(
@@ -164,7 +171,9 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                             Expanded(
                               child: Text(
                                 _bundleLabel(state.bundles[i]),
-                                style: const TextStyle(fontSize: 12),
+                                style: const TextStyle(
+                                  fontSize: AppTokens.fontSize,
+                                ),
                               ),
                             ),
                             OutlinedButton(
@@ -176,7 +185,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                                     ),
                               child: const Text(
                                 '恢复',
-                                style: TextStyle(fontSize: 12),
+                                style: TextStyle(fontSize: AppTokens.fontSize),
                               ),
                             ),
                           ],
@@ -199,35 +208,50 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                     onPressed: state.busy
                         ? null
                         : () => controller.saveWebdav(_webdav),
-                    child: const Text('保存配置', style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      '保存配置',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                   OutlinedButton(
                     key: const ValueKey('webdav-check-btn'),
                     onPressed: state.busy
                         ? null
                         : () => controller.webdavCheck(_webdav),
-                    child: const Text('检查连接', style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      '检查连接',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                   OutlinedButton(
                     key: const ValueKey('webdav-list-btn'),
                     onPressed: state.busy
                         ? null
                         : () => controller.webdavList(_webdav),
-                    child: const Text('列出远程', style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      '列出远程',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                   OutlinedButton(
                     key: const ValueKey('webdav-backup-btn'),
                     onPressed: state.busy
                         ? null
                         : () => controller.webdavBackup(_webdav),
-                    child: const Text('远程备份', style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      '远程备份',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                   OutlinedButton(
                     key: const ValueKey('webdav-restore-btn'),
                     onPressed: state.busy
                         ? null
                         : () => controller.webdavRestore(_webdav),
-                    child: const Text('远程恢复', style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      '远程恢复',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                 ],
               ),
@@ -236,7 +260,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     '远程文件：${state.remotes.map((e) => e.href.split('/').last).join(', ')}',
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                 ),
               const Divider(height: 24),
@@ -246,7 +270,10 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                   OutlinedButton(
                     key: const ValueKey('backup-open-dir-btn'),
                     onPressed: controller.openConfigDir,
-                    child: const Text('打开配置目录', style: TextStyle(fontSize: 12)),
+                    child: const Text(
+                      '打开配置目录',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                   const SizedBox(width: 8),
                   OutlinedButton(
@@ -254,7 +281,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                     onPressed: controller.cleanupLogsTmp,
                     child: const Text(
                       '清理日志/临时文件',
-                      style: TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: AppTokens.fontSize),
                     ),
                   ),
                 ],
@@ -264,7 +291,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     '已安装内核：${state.coreVersions.map((e) => '${e.core} ${e.version}').join('，')}',
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                 ),
               const SizedBox(height: 8),
@@ -324,7 +351,10 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(
       title,
-      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      style: const TextStyle(
+        fontSize: AppTokens.fontSizeSubtitle,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   );
 
@@ -341,13 +371,16 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
       children: <Widget>[
         SizedBox(
           width: 96,
-          child: Text(label, style: const TextStyle(fontSize: 12)),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: AppTokens.fontSize),
+          ),
         ),
         Expanded(
           child: TextField(
             key: ValueKey(fieldKey),
             controller: controller,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
             decoration: const InputDecoration(
               isDense: true,
               border: OutlineInputBorder(),
@@ -358,7 +391,10 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
         OutlinedButton(
           key: ValueKey(buttonKey),
           onPressed: onPressed,
-          child: Text(buttonLabel, style: const TextStyle(fontSize: 12)),
+          child: Text(
+            buttonLabel,
+            style: const TextStyle(fontSize: AppTokens.fontSize),
+          ),
         ),
       ],
     ),
@@ -375,14 +411,17 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
       children: <Widget>[
         SizedBox(
           width: 96,
-          child: Text(label, style: const TextStyle(fontSize: 12)),
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: AppTokens.fontSize),
+          ),
         ),
         Expanded(
           child: TextField(
             key: ValueKey(fieldKey),
             controller: controller,
             obscureText: obscure,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
             decoration: const InputDecoration(
               isDense: true,
               border: OutlineInputBorder(),
@@ -419,7 +458,10 @@ class _StatusArea extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       color: scheme.surfaceContainerHighest,
-      child: Text(message, style: TextStyle(fontSize: 12, color: color)),
+      child: Text(
+        message,
+        style: TextStyle(fontSize: AppTokens.fontSize, color: color),
+      ),
     );
   }
 }

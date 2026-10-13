@@ -430,7 +430,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                   '${column.title}$indicator',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    fontSize: AppTokens.fontSize,
                   ),
                   overflow: TextOverflow.clip,
                   softWrap: false,
@@ -629,7 +629,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       value,
       overflow: TextOverflow.ellipsis,
       maxLines: 1,
-      style: const TextStyle(fontSize: AppTokens.fontSize),
+      style: TextStyle(
+        fontSize: AppTokens.fontSize,
+        fontFeatures: column.numeric ? AppTokens.tabularFigures : null,
+      ),
     );
     // Selection happens on pointer-down at the table level; this detector only
     // distinguishes the double-click business action so the first click is not
@@ -662,7 +665,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     final selected = scope.selected.contains(row.id);
     final isActive = scope.activeId == row.id;
     final controller = scope.controller;
-    final ordinal = Text('${index + 1}', style: const TextStyle(fontSize: 11));
+    final ordinal = Text(
+      '${index + 1}',
+      style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+    );
 
     final numberBox = Container(
       color: selected ? scope.numberBadgeFill : null,
@@ -676,7 +682,11 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                 controller.handleDragStart(row.id);
               },
               feedback: Material(
-                elevation: 4,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(color: scope.dropTargetBorder),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -1172,7 +1182,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           Flexible(
             child: Text(
               entry.label,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1182,7 +1192,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
               padding: const EdgeInsets.only(left: 24),
               child: Text(
                 entry.shortcut!,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSizeTiny,
+                  color: context.semantics.muted,
+                ),
               ),
             ),
         ],

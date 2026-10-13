@@ -164,66 +164,84 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
     final language = (_ui['CurrentLanguage'] as String?) ?? 'zh-Hans';
     final size = (_ui['CurrentFontSize'] as num?)?.toInt() ?? 0;
     return AlertDialog(
-      title: const Text('主题设置', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '主题设置',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 420,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            SettingsDropdown<String>(
-              label: '主题',
-              value: theme,
-              width: 200,
-              items: _dropdown(const <String>[
-                'FollowSystem',
-                'Light',
-                'Dark',
-                'Aquatic',
-                'Desert',
-                'Dusk',
-                'NightSky',
-              ]),
-              onChanged: (v) => _set('CurrentTheme', v),
+            SettingsSection(
+              title: '外观',
+              child: <Widget>[
+                SettingsDropdown<String>(
+                  label: '主题',
+                  value: theme,
+                  width: 200,
+                  items: _dropdown(const <String>[
+                    'FollowSystem',
+                    'Light',
+                    'Dark',
+                    // UX2-10(B): Aquatic/Desert/Dusk/NightSky had no mapping in
+                    // buildAppTheme and silently fell back; the options are
+                    // retired. Previously persisted values still read back
+                    // through _themeModeFrom's default branch (system), so
+                    // existing configurations keep rendering as before.
+                  ]),
+                  onChanged: (v) => _set('CurrentTheme', v),
+                ),
+                SettingsDropdown<String>(
+                  label: '强调色',
+                  value: accent,
+                  width: 200,
+                  items: _dropdown(<String>['', ...accentColors.keys]),
+                  onChanged: (v) =>
+                      _set('ColorPrimaryName', v == '' ? null : v),
+                ),
+                SettingsTextField(
+                  label: '字体族',
+                  value: _ui['CurrentFontFamily'] as String?,
+                  onChanged: (v) => _set('CurrentFontFamily', v),
+                ),
+                SettingsNumberField(
+                  label: '字号',
+                  value: size,
+                  onChanged: (v) => _set('CurrentFontSize', v),
+                ),
+              ],
             ),
-            SettingsDropdown<String>(
-              label: '强调色',
-              value: accent,
-              width: 200,
-              items: _dropdown(<String>['', ...accentColors.keys]),
-              onChanged: (v) => _set('ColorPrimaryName', v == '' ? null : v),
-            ),
-            SettingsTextField(
-              label: '字体族',
-              value: _ui['CurrentFontFamily'] as String?,
-              onChanged: (v) => _set('CurrentFontFamily', v),
-            ),
-            SettingsNumberField(
-              label: '字号',
-              value: size,
-              onChanged: (v) => _set('CurrentFontSize', v),
-            ),
-            SettingsDropdown<String>(
-              label: '语言 (需重启应用)',
-              value: language,
-              width: 200,
-              items: _dropdown(const <String>[
-                'zh-Hans',
-                'zh-Hant',
-                'en',
-                'fa',
-                'fr',
-                'ru',
-                'hu',
-                'id',
-                'az',
-              ]),
-              onChanged: (v) => _set('CurrentLanguage', v),
+            SettingsSection(
+              title: '语言',
+              child: <Widget>[
+                SettingsDropdown<String>(
+                  label: '语言 (需重启应用)',
+                  value: language,
+                  width: 200,
+                  items: _dropdown(const <String>[
+                    'zh-Hans',
+                    'zh-Hant',
+                    'en',
+                    'fa',
+                    'fr',
+                    'ru',
+                    'hu',
+                    'id',
+                    'az',
+                  ]),
+                  onChanged: (v) => _set('CurrentLanguage', v),
+                ),
+              ],
             ),
             if (_status != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(_status!, style: const TextStyle(fontSize: 11)),
+                child: Text(
+                  _status!,
+                  style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+                ),
               ),
           ],
         ),
@@ -243,7 +261,7 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
           value: v,
           child: Text(
             v.isEmpty ? '（默认）' : v,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
           ),
         ),
       )

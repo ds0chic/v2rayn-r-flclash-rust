@@ -181,7 +181,7 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
       ),
       child: Text(
         '保存失败: ${error.messageKey} (${error.code})',
@@ -389,7 +389,10 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
           initialValue: value,
           minLines: 2,
           maxLines: 4,
-          style: contentStyle.copyWith(fontFamily: AppTokens.monoFontFamily),
+          style: contentStyle.copyWith(
+            fontFamily: AppTokens.monoFontFamily,
+            fontFamilyFallback: AppTokens.monoFontFallback,
+          ),
           decoration: decoration(hint: spec.hint),
           onChanged: (v) {
             spec.set(_draft, v);

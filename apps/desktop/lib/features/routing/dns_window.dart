@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/dns_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// The DNS settings window (upstream `DNSSettingWindow`, LAY-DNSSET-001,
 /// F-DNS-001/002). Four tabs: basic / advanced / custom Xray / custom
@@ -290,7 +291,10 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     final state = ref.watch(dnsControllerProvider);
     return AlertDialog(
       key: const ValueKey('dns-setting-window'),
-      title: Text(context.tr('TbDNS'), style: const TextStyle(fontSize: 15)),
+      title: Text(
+        context.tr('TbDNS'),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       content: SizedBox(
         width: 720,
@@ -299,7 +303,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
           children: <Widget>[
             TabBar(
               controller: _tabs,
-              labelStyle: const TextStyle(fontSize: 13),
+              labelStyle: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
               tabs: <Tab>[
                 Tab(text: context.tr('dnsBasicTab')),
                 Tab(text: context.tr('dnsAdvancedTab')),
@@ -360,7 +364,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
               children: <Widget>[
                 Text(
                   context.tr('dnsRegionPreset'),
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
                 const SizedBox(width: 8),
                 DropdownButton<String>(
@@ -394,9 +398,9 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                       context.trf('dnsPendingUrls', <Object?>[
                         state.pendingUrls.length,
                       ]),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.orange,
+                      style: TextStyle(
+                        fontSize: AppTokens.fontSizeTiny,
+                        color: context.semantics.warning,
                       ),
                     ),
                   ),
@@ -408,7 +412,10 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                 child: Text(
                   context.messageText(state.status!),
                   key: const ValueKey('dns-status'),
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.muted,
+                  ),
                 ),
               ),
           ],
@@ -490,7 +497,10 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
               child: Text(
                 context.tr('dnsDisabledHint'),
                 key: const ValueKey('dns-simple-disabled-hint'),
-                style: const TextStyle(fontSize: 11, color: Colors.orange),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSizeTiny,
+                  color: context.semantics.warning,
+                ),
               ),
             ),
         ],
@@ -582,10 +592,13 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                 onPressed: onImport,
                 child: const Text('导入兼容默认配置'),
               ),
-              const Expanded(
+              Expanded(
                 child: Text(
                   '未联网时使用内置模板',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.muted,
+                  ),
                 ),
               ),
             ],
@@ -620,7 +633,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
           border: const OutlineInputBorder(),
           isDense: true,
         ),
-        style: const TextStyle(fontSize: 13),
+        style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
       ),
     );
   }
@@ -633,7 +646,12 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
   ) {
     return Row(
       children: <Widget>[
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 13))),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+          ),
+        ),
         Switch(key: key, value: value, onChanged: onChanged),
       ],
     );

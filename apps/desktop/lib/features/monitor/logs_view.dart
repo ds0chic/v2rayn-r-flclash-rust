@@ -106,7 +106,10 @@ class _LogsViewState extends ConsumerState<LogsView> {
     messenger?.showSnackBar(
       SnackBar(
         key: ValueKey(key),
-        content: Text(message, style: const TextStyle(fontSize: 12)),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: AppTokens.fontSize),
+        ),
       ),
     );
   }
@@ -183,10 +186,10 @@ class _LogsViewState extends ConsumerState<LogsView> {
                   child: TextField(
                     key: const ValueKey('logs-keyword'),
                     controller: _keyword,
-                    style: const TextStyle(fontSize: 12),
-                    decoration: const InputDecoration(
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                    decoration: InputDecoration(
                       isDense: true,
-                      prefixIcon: Icon(Icons.search, size: 14),
+                      prefixIcon: Icon(AppTokens.icon('search'), size: 14),
                       hintText: '过滤',
                     ),
                     onChanged: _onKeywordChanged,
@@ -196,7 +199,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
                 DropdownButton<int>(
                   key: const ValueKey('logs-level'),
                   value: state.minLevel,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                   onChanged: (value) => controller.setMinLevel(value ?? 0),
                   items: const <DropdownMenuItem<int>>[
                     DropdownMenuItem(value: 0, child: Text('Trace+')),
@@ -212,7 +215,10 @@ class _LogsViewState extends ConsumerState<LogsView> {
                 // ring keeps collecting; resuming resyncs the tail.
                 Row(
                   children: <Widget>[
-                    const Text('自动刷新', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      '自动刷新',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     Switch(
                       key: const ValueKey('logs-autorefresh'),
                       value: state.autoRefresh,
@@ -223,7 +229,10 @@ class _LogsViewState extends ConsumerState<LogsView> {
                 // Scroll-to-end, independent of refresh/collection.
                 Row(
                   children: <Widget>[
-                    const Text('自动滚动', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      '自动滚动',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     Switch(
                       key: const ValueKey('logs-autoscroll'),
                       value: !state.scrollPaused,
@@ -238,7 +247,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
                       controller.setCollectingPaused(!state.collectingPaused),
                   child: Text(
                     state.collectingPaused ? '继续采集' : '暂停采集',
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -249,15 +258,21 @@ class _LogsViewState extends ConsumerState<LogsView> {
                       : () => Clipboard.setData(
                           ClipboardData(text: formatLogsForCopy(visible)),
                         ),
-                  icon: const Icon(Icons.content_copy, size: 14),
-                  label: const Text('复制全部', style: TextStyle(fontSize: 12)),
+                  icon: Icon(AppTokens.icon('copyAll'), size: 14),
+                  label: const Text(
+                    '复制全部',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
                 const SizedBox(width: 6),
                 // Upstream MsgView.ClearMsg clears the box and inserts a marker.
                 OutlinedButton(
                   key: const ValueKey('logs-clear'),
                   onPressed: controller.clearLogs,
-                  child: const Text('清空', style: TextStyle(fontSize: 12)),
+                  child: const Text(
+                    '清空',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 if (state.droppedLines > BigInt.zero ||
@@ -266,7 +281,7 @@ class _LogsViewState extends ConsumerState<LogsView> {
                     '溢出 ${state.droppedLines} 行 / 截断 ${state.truncatedLines} 行',
                     key: const ValueKey('logs-overflow'),
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: AppTokens.fontSizeSmall,
                       color: Theme.of(context).colorScheme.error,
                     ),
                   ),
@@ -316,7 +331,12 @@ class _LogRow extends StatelessWidget {
             width: 48,
             child: Text(
               _levelLabel(line.level),
-              style: TextStyle(fontSize: 11, color: color),
+              style: TextStyle(
+                fontSize: AppTokens.fontSizeCaption,
+                fontFamily: AppTokens.monoFontFamily,
+                fontFamilyFallback: AppTokens.monoFontFallback,
+                color: color,
+              ),
             ),
           ),
           Expanded(
@@ -325,13 +345,17 @@ class _LogRow extends StatelessWidget {
               style: const TextStyle(
                 fontSize: AppTokens.monoFontSize,
                 fontFamily: AppTokens.monoFontFamily,
+                fontFamilyFallback: AppTokens.monoFontFallback,
               ),
             ),
           ),
           if (line.truncated)
-            const Text(
+            Text(
               '[截断]',
-              style: TextStyle(fontSize: 11, color: Colors.orange),
+              style: TextStyle(
+                fontSize: AppTokens.fontSizeTiny,
+                color: context.semantics.warning,
+              ),
             ),
         ],
       ),

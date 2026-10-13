@@ -73,6 +73,9 @@ pub struct ResponseEnvelope {
 
 /// The operation set. Unknown operations cannot be represented; the enum is
 /// closed on purpose so no arbitrary command can be smuggled through.
+///
+/// Wire compatibility: variants are only ever *added*; existing tags keep
+/// their shape so an older peer still decodes every operation it knows.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case")]
 pub enum IpcOperation {
@@ -88,6 +91,11 @@ pub enum IpcOperation {
     SubscribeEvents { epoch: EventEpoch, from_seq: u64 },
     /// Graceful shutdown of net-host after cleanup.
     Shutdown,
+    /// Retry every unconfirmed TUN cleanup (SP-08 explicit retry entry). The
+    /// in-memory lease is tried first with its live link; journals left by a
+    /// previous process get a fresh link each. Idempotent: with nothing
+    /// pending it succeeds without backend work.
+    RetryTunCleanup,
     /// Restricted test-session operations (temporary test cores only).
     TestSession(TestSessionOperation),
 }
@@ -111,6 +119,9 @@ pub enum TestSessionOperation {
 }
 
 /// Result payload of an IPC call.
+///
+/// Wire compatibility: variants are only ever *added*. A peer that never
+/// sends the matching operation never receives the new shape.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum IpcResult {
@@ -120,6 +131,9 @@ pub enum IpcResult {
     EventStreamOpened { epoch: EventEpoch, from_seq: u64 },
     Stopped,
     Shutdown,
+    /// Outcome of `IpcOperation::RetryTunCleanup`: every pending TUN cleanup
+    /// is confirmed released (or there was nothing pending).
+    TunCleanupRetried,
     TestSession { session_id: String, state: JobState },
     Error(DomainError),
 }
@@ -234,6 +248,12 @@ pub fn check_frame_size(len: usize) -> Result<(), IpcError> {
 }
 
 /// Validate a peer session against the host protocol version.
+///
+/// Shape check only: a non-empty token passes here. The caller must then
+/// bind the token value to the authenticated transport peer (compare with
+/// [`expected_session_token`] in constant time via [`constant_time_eq`])
+/// and re-verify `peer_pid`/`peer_created_at_ms` against the OS; see
+/// `net_host::server` for the reference check.
 pub fn check_session(session: &SessionIdentity) -> Result<(), IpcError> {
     if session.protocol_version != IPC_PROTOCOL_VERSION {
         return Err(IpcError::VersionMismatch {
@@ -249,10 +269,36 @@ pub fn check_session(session: &SessionIdentity) -> Result<(), IpcError> {
     Ok(())
 }
 
+/// The session token a legitimate peer presents: derived from its own OS
+/// process id (`v2rayn-<pid>`). The server recomputes this from the
+/// transport-authenticated peer pid, so a token stolen from another process
+/// never matches the thief's own connection. The string itself is public
+/// knowledge; the binding to the pipe peer is the actual check.
+pub fn expected_session_token(peer_pid: u32) -> String {
+    format!("v2rayn-{peer_pid}")
+}
+
+/// Constant-time string equality for secret comparison (session/helper
+/// tokens). Lengths leak; contents do not. Hand-rolled so the contract
+/// crate gains no new dependency.
+pub fn constant_time_eq(a: &str, b: &str) -> bool {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for i in 0..a.len() {
+        diff |= a[i] ^ b[i];
+    }
+    diff == 0
+}
+
 /// Request/response timeout for an operation.
 pub fn timeout_for(operation: &IpcOperation) -> u64 {
     match operation {
-        IpcOperation::ApplyPlan { .. } | IpcOperation::StopRuntime { .. } => IPC_APPLY_TIMEOUT_MS,
+        IpcOperation::ApplyPlan { .. }
+        | IpcOperation::StopRuntime { .. }
+        | IpcOperation::RetryTunCleanup => IPC_APPLY_TIMEOUT_MS,
         IpcOperation::Shutdown => IPC_APPLY_TIMEOUT_MS,
         _ => IPC_REQUEST_TIMEOUT_MS,
     }
@@ -393,5 +439,39 @@ mod tests {
             ..done
         };
         assert!(!running.is_terminal());
+    }
+
+    #[test]
+    fn session_token_binds_to_peer_pid() {
+        assert_eq!(expected_session_token(4242), "v2rayn-4242");
+        assert_ne!(expected_session_token(1), expected_session_token(2));
+    }
+
+    #[test]
+    fn token_compare_is_constant_time_shape() {
+        assert!(constant_time_eq("v2rayn-4242", "v2rayn-4242"));
+        assert!(!constant_time_eq("v2rayn-4242", "v2rayn-4243"));
+        assert!(!constant_time_eq("v2rayn-4242", "v2rayn-424"));
+        assert!(!constant_time_eq("", "v2rayn-4242"));
+    }
+
+    #[test]
+    fn retry_tun_cleanup_is_wired_and_slow() {
+        let op = IpcOperation::RetryTunCleanup;
+        assert_eq!(timeout_for(&op), IPC_APPLY_TIMEOUT_MS);
+        let req = RequestEnvelope {
+            session: session(IPC_PROTOCOL_VERSION),
+            request_id: "r9".into(),
+            operation: op,
+        };
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(json.contains("retry_tun_cleanup"), "new op keeps a stable tag");
+        let back: RequestEnvelope = serde_json::from_str(&json).unwrap();
+        assert_eq!(req, back);
+        let ok = IpcResult::TunCleanupRetried;
+        let json = serde_json::to_string(&ok).unwrap();
+        assert!(json.contains("tun_cleanup_retried"));
+        let back: IpcResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(ok, back);
     }
 }

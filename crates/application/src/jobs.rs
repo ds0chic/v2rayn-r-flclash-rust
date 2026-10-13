@@ -1,11 +1,11 @@
-//! Serialized job manager.
+//! Job registry: cancellation tokens, progress views and idempotent cancel.
 //!
-//! Runtime-affecting operations are serialized (plan §8: "运行相关动作串行收敛").
-//! A new operation supersedes a not-yet-started one; the manager exposes a
-//! `CancellationToken` per job and implements idempotent `cancel`.
-//!
-//! This is an in-memory skeleton: it does not spawn threads. Callers drive the
-//! job body and report transitions back through [`JobManager::finish`].
+//! This manager does not serialize or queue work: every `start` begins
+//! immediately and concurrently; any serialization lives with the callers (or
+//! a downstream single-flight gate). It does not spawn threads. Callers drive
+//! the job body and report transitions back through [`JobManager::finish`].
+//! Finished entries are retained up to [`MAX_RETAINED_FINISHED_JOBS`] for
+//! post-hoc polling, then evicted oldest-first; live jobs are never evicted.
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -13,6 +13,11 @@ use std::sync::{Arc, Mutex};
 
 use domain::{CancelOutcome, CancellationToken, DomainError, JobId, JobState};
 use serde::{Deserialize, Serialize};
+
+/// How many finished jobs are retained for post-hoc `get` polling. Older
+/// finished entries are evicted so a long-lived process cannot accumulate them
+/// without bound; live jobs are never evicted.
+pub const MAX_RETAINED_FINISHED_JOBS: usize = 64;
 
 /// Public view of a job.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -177,7 +182,8 @@ impl JobManager {
         })
     }
 
-    /// Transition a job to a terminal state.
+    /// Transition a job to a terminal state, evicting the oldest finished
+    /// entries beyond [`MAX_RETAINED_FINISHED_JOBS`].
     pub fn finish(&self, job_id: &JobId, state: JobState, error: Option<DomainError>) {
         if let Ok(mut jobs) = self.inner.jobs.lock() {
             if let Some(entry) = jobs.get_mut(job_id.as_str()) {
@@ -185,6 +191,36 @@ impl JobManager {
                 entry.error = error;
             }
         }
+        self.evict_finished_beyond_cap();
+    }
+
+    /// Drop the oldest finished entries past the retention cap (plus their
+    /// `order` slots). Live jobs are untouched.
+    fn evict_finished_beyond_cap(&self) {
+        let Ok(mut jobs) = self.inner.jobs.lock() else {
+            return;
+        };
+        let Ok(mut order) = self.inner.order.lock() else {
+            return;
+        };
+        let finished: Vec<String> = order
+            .iter()
+            .filter(|id| {
+                jobs.get(id.as_str())
+                    .is_some_and(|entry| entry.state.is_terminal())
+            })
+            .cloned()
+            .collect();
+        if finished.len() <= MAX_RETAINED_FINISHED_JOBS {
+            return;
+        }
+        for id in finished
+            .iter()
+            .take(finished.len() - MAX_RETAINED_FINISHED_JOBS)
+        {
+            jobs.remove(id);
+        }
+        order.retain(|id| jobs.contains_key(id));
     }
 
     pub fn get(&self, job_id: &JobId) -> Option<JobView> {
@@ -276,5 +312,35 @@ mod tests {
         assert_eq!(active.len(), 1);
         assert_eq!(active[0].kind, "b");
         let _ = b;
+    }
+
+    #[test]
+    fn finished_jobs_are_evicted_beyond_cap() {
+        let mgr = JobManager::new();
+        let mut ids = Vec::new();
+        for i in 0..70 {
+            let job = mgr.start(format!("job-{i}"));
+            mgr.finish(&job.job_id, JobState::Done, None);
+            ids.push(job.job_id);
+        }
+        assert!(
+            mgr.get(&ids[0]).is_none(),
+            "oldest finished job must be evicted"
+        );
+        assert!(
+            mgr.get(&ids[69]).is_some(),
+            "newest finished job must be kept"
+        );
+    }
+
+    #[test]
+    fn active_jobs_survive_retention_cap() {
+        let mgr = JobManager::new();
+        let mut ids = Vec::new();
+        for i in 0..70 {
+            ids.push(mgr.start(format!("job-{i}")).job_id);
+        }
+        assert!(ids.iter().all(|id| mgr.get(id).is_some()));
+        assert_eq!(mgr.active().len(), 70);
     }
 }

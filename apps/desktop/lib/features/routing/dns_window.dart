@@ -7,6 +7,7 @@ import 'package:v2rayn_desktop/bridge/api/dns.dart' as d;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/dns_controller.dart';
+import 'package:v2rayn_desktop/features/routing/help_bits.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
@@ -406,6 +407,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                   ),
               ],
             ),
+            const HelpText('俄/伊预设需联网下载模板；离线只应用本地部分并提示待下载数（回退语义待核实）。'),
             if (state.status != null)
               Align(
                 alignment: Alignment.centerLeft,
@@ -451,46 +453,98 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             context.tr('dnsDirectDns'),
             _direct,
             const ValueKey('dns-direct'),
+            help: '国内网站用什么查（默认 119.29.29.29）。不出问题别动；在国外解析慢才换。',
           ),
           _field(
             context.tr('dnsRemoteDns'),
             _remote,
             const ValueKey('dns-remote'),
+            help: '国外网站走代理链路用什么查（默认 Cloudflare DoH）。打不开但能 ping 通时可换一个候选试试；不要填国内 DNS。',
           ),
           _field(
             context.tr('dnsBootstrapDns'),
             _bootstrap,
             const ValueKey('dns-bootstrap'),
+            help: '给 DoH 地址“带路”的纯 IP DNS。默认跟直连 DNS；DoH 全超时先查它。',
           ),
           _field(
             context.tr('dnsFakeIpRange'),
             _fakeIpRange,
             const ValueKey('dns-fakeip-range'),
+            help: '假 IP 号段（默认 198.18.0.0/15）。别改成 192.168.x 这类家里在用的段（冲突后果待核实）。',
           ),
-          _switch('使用系统 hosts', _useSystemHosts, (v) {
-            setState(() => _useSystemHosts = v);
-          }, const ValueKey('dns-use-system-hosts')),
-          _switch('附加公共 hosts', _addCommonHosts, (v) {
-            setState(() => _addCommonHosts = v);
-          }, const ValueKey('dns-add-common-hosts')),
-          _switch('FakeIP', _fakeIp, (v) {
-            setState(() => _fakeIp = v);
-          }, const ValueKey('dns-fakeip')),
-          _switch('屏蔽绑定查询', _blockBinding, (v) {
-            setState(() => _blockBinding = v);
-          }, const ValueKey('dns-block-binding')),
-          _switch('屏蔽 AAAA 查询', _blockAaaa, (v) {
-            setState(() => _blockAaaa = v);
-          }, const ValueKey('dns-block-aaaa')),
-          _switch('并行查询', _parallelQuery, (v) {
-            setState(() => _parallelQuery = v);
-          }, const ValueKey('dns-parallel')),
-          _switch('ServeStale', _serveStale, (v) {
-            setState(() => _serveStale = v);
-          }, const ValueKey('dns-serve-stale')),
-          _switch('HappyEyeballs', _happyEyeballs, (v) {
-            setState(() => _happyEyeballs = v);
-          }, const ValueKey('dns-happy-eyeballs')),
+          _switch(
+            '使用系统 hosts',
+            _useSystemHosts,
+            (v) {
+              setState(() => _useSystemHosts = v);
+            },
+            const ValueKey('dns-use-system-hosts'),
+            help: '顺便用 Windows 的 hosts 文件。默认关；开后系统 hosts 的条目会掺进代理解析。',
+          ),
+          _switch(
+            '附加公共 hosts',
+            _addCommonHosts,
+            (v) {
+              setState(() => _addCommonHosts = v);
+            },
+            const ValueKey('dns-add-common-hosts'),
+            help: '内置 14 个 DNS 服务商的 IP 备忘（DoH 建连用）。默认开，别关。',
+          ),
+          _switch(
+            'FakeIP',
+            _fakeIp,
+            (v) {
+              setState(() => _fakeIp = v);
+            },
+            const ValueKey('dns-fakeip'),
+            help: '给国外域名发“假 IP”，真实地址出站时再查。局域网共享或直连应用多时别开（它们拿到假 IP 可能异常，待核实）。',
+          ),
+          _switch(
+            '屏蔽绑定查询',
+            _blockBinding,
+            (v) {
+              setState(() => _blockBinding = v);
+            },
+            const ValueKey('dns-block-binding'),
+            help: '上游默认开。默认别动（确切语义待核实）。',
+          ),
+          _switch(
+            '屏蔽 AAAA 查询',
+            _blockAaaa,
+            (v) {
+              setState(() => _blockAaaa = v);
+            },
+            const ValueKey('dns-block-aaaa'),
+            help: '屏蔽 IPv6 查询。纯 IPv4 宽带开着能提速（待核实）；有 IPv6 需求必须关。',
+          ),
+          _switch(
+            '并行查询',
+            _parallelQuery,
+            (v) {
+              setState(() => _parallelQuery = v);
+            },
+            const ValueKey('dns-parallel'),
+            help: '并行向上游查询取最快结果（效果待核实）。默认关。',
+          ),
+          _switch(
+            'ServeStale',
+            _serveStale,
+            (v) {
+              setState(() => _serveStale = v);
+            },
+            const ValueKey('dns-serve-stale'),
+            help: '缓存过期也先顶上旧结果（效果待核实）。默认关。',
+          ),
+          _switch(
+            'HappyEyeballs',
+            _happyEyeballs,
+            (v) {
+              setState(() => _happyEyeballs = v);
+            },
+            const ValueKey('dns-happy-eyeballs'),
+            help: 'IPv4/IPv6 双栈竞速（效果待核实）。单栈宽带开了没用，默认关。',
+          ),
           if (!_simpleDnsEnabled)
             Padding(
               padding: const EdgeInsets.only(top: 4),
@@ -518,27 +572,32 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             '直连策略 (Strategy4Freedom)',
             _strategyFreedom,
             const ValueKey('dns-strategy-freedom'),
+            help: '直连出站的解析策略。默认空=跟随；拼写照候选抄，写错可能被忽略（内核行为待核实）。',
           ),
           _field(
             '代理策略 (Strategy4Proxy)',
             _strategyProxy,
             const ValueKey('dns-strategy-proxy'),
+            help: '代理出站的解析策略。默认空=跟随；写错可能被忽略（待核实）。',
           ),
           _field(
             '代理拨号策略 (Strategy4ProxyDial)',
             _strategyProxyDial,
             const ValueKey('dns-strategy-proxy-dial'),
+            help: '找代理服务器 IP 时用的策略；代理域名被污染又强制直连会连不上（待核实）。',
           ),
           _field(
             '期望 IP (DirectExpectedIPs)',
             _expectedIps,
             const ValueKey('dns-expected-ips'),
+            help: '直连结果的“验货标准”（如 geoip:cn）。被污染的 IP 通不过验货就不会被当直连用（机制待核实）。',
           ),
           _field(
             '自定义 hosts（每行：域名 IP）',
             _hosts,
             const ValueKey('dns-hosts'),
             lines: 5,
+            help: '一行“域名+空格+IP”，# 开头是注释。优先级最高；写错的行会被跳过且不报错，改完要测。',
           ),
         ],
       ),
@@ -567,6 +626,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             enabled,
             onEnabled,
             const ValueKey('dns-custom-enable'),
+            help: '开了它，基础/高级页就被顶掉；两个核心双开则 SimpleDNS 全顶掉。',
           ),
           if (useSystemHosts != null && onUseSystemHosts != null)
             _switch(
@@ -608,8 +668,15 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             normal,
             const ValueKey('dns-custom-normal'),
             lines: 5,
+            help: '非 TUN 流量的完整 DNS 配置段。格式不对保存会被拦下；先导出备份再改。',
           ),
-          _field('TunDNS', tun, const ValueKey('dns-custom-tun'), lines: 5),
+          _field(
+            'TunDNS',
+            tun,
+            const ValueKey('dns-custom-tun'),
+            lines: 5,
+            help: 'TUN 模式下的 DNS 配置段；与上面配错位会导致“开 TUN 就断网”（待核实）。',
+          ),
         ],
       ),
     );
@@ -620,20 +687,28 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     TextEditingController controller,
     ValueKey<String> key, {
     int lines = 1,
+    String? help,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: TextField(
-        key: key,
-        controller: controller,
-        maxLines: lines,
-        minLines: lines,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          isDense: true,
-        ),
-        style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          TextField(
+            key: key,
+            controller: controller,
+            maxLines: lines,
+            minLines: lines,
+            decoration: InputDecoration(
+              labelText: label,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+          ),
+          if (help != null) HelpText(help),
+        ],
       ),
     );
   }
@@ -642,18 +717,29 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     String label,
     bool value,
     ValueChanged<bool> onChanged,
-    ValueKey<String> key,
-  ) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+    ValueKey<String> key, {
+    String? help,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+                ),
+              ),
+              Switch(key: key, value: value, onChanged: onChanged),
+            ],
           ),
-        ),
-        Switch(key: key, value: value, onChanged: onChanged),
-      ],
+          if (help != null) HelpText(help),
+        ],
+      ),
     );
   }
 

@@ -141,6 +141,13 @@ class AppTokens {
   // bar stays square (0) and the scrollbar thumb keeps its functional 4.
   static const double radiusMedium = 6;
 
+  // -- Motion (UX2-12): dialog/menu/badge transitions only ------------------
+  // The table and log row builders must never use Animated* or own an
+  // AnimationController (SP-31 frame budget); grep-gated in review.
+  static const Duration motionFast = Duration(milliseconds: 120);
+  static const Duration motionStandard = Duration(milliseconds: 200);
+  static const Curve motionCurve = Curves.easeOutCubic;
+
   // -- Neutrals (light, cool grey) ----------------------------------------
   static const Color lightSurface = Color(0xFFF4F6F7);
   static const Color lightSurfaceContainer = Color(0xFFE8ECEF);

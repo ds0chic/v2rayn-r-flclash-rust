@@ -97,6 +97,22 @@ function Get-ToolVersion {
   }
 }
 
+# PII guard (SECRETS.md): build-info.json must never carry absolute local
+# paths (C:\Users\<name>...). Tool outputs occasionally embed them, so every
+# toolchain string is redacted before serialization.
+function Protect-BuildInfoText {
+  param([string]$Text)
+  if ([string]::IsNullOrEmpty($Text)) { return $Text }
+  $redacted = $Text
+  foreach ($root in @($env:USERPROFILE, $env:LOCALAPPDATA, $env:APPDATA, $env:TEMP, $env:TMP)) {
+    if (-not [string]::IsNullOrEmpty($root)) {
+      $redacted = $redacted.Replace($root, '<USERDIR>')
+    }
+  }
+  $redacted = [regex]::Replace($redacted, '[A-Za-z]:\\Users\\[^\\"\s]+', '<USERDIR>')
+  return $redacted
+}
+
 if ($Version -eq '') { $Version = Get-PubspecVersion }
 $RustVersion = Get-RustWorkspaceVersion
 
@@ -143,13 +159,33 @@ try {
   if (Test-Path -LiteralPath $stageDir) { Remove-Item -LiteralPath $stageDir -Recurse -Force }
   New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
+  # Allow-list staging (S11-03): only known build outputs enter the package.
+  # Top level: executables, native DLLs and the native-assets manifest.
+  # Subtree: the whole data\ tree (app.so, icudtl.dat, flutter_assets).
+  # Anything else (.pdb/.exp/.lib/.log, ui_state.json, stray dev files)
+  # is skipped with a warning instead of being silently bundled.
+  $stageSkipped = [System.Collections.Generic.List[string]]::new()
   Get-ChildItem -LiteralPath $ReleaseDir -Recurse -File | ForEach-Object {
     $rel = $_.FullName.Substring($ReleaseDir.Length).TrimStart('\')
-    if ($rel -eq 'ui_state.json') { return }  # runtime UI-state draft, never ship
+    if ([System.IO.Path]::GetFileName($rel) -eq 'ui_state.json') {
+      $stageSkipped.Add($rel) | Out-Null
+      return  # runtime UI-state draft, never ship (any depth)
+    }
+    $ext = [System.IO.Path]::GetExtension($rel).ToLowerInvariant()
+    $isData = ($rel -eq 'data') -or ($rel -like 'data\*')
+    $isTopBin = ($rel -notlike '*\*') -and ($ext -in '.exe', '.dll')
+    $isTopMeta = ($rel -eq 'native_assets.json')
+    if (-not ($isData -or $isTopBin -or $isTopMeta)) {
+      $stageSkipped.Add($rel) | Out-Null
+      return
+    }
     $dest = Join-Path $stageDir $rel
     $destDir = Split-Path -Parent $dest
     if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
     Copy-Item -LiteralPath $_.FullName -Destination $dest -Force
+  }
+  if ($stageSkipped.Count -gt 0) {
+    Write-Host ("STAGE-SKIPPED ({0}): {1}" -f $stageSkipped.Count, ($stageSkipped -join ', '))
   }
 
   Copy-Item -LiteralPath (Join-Path $TargetRelease 'net_host.exe') -Destination $stageDir -Force
@@ -193,6 +229,9 @@ try {
       frb       = '2.13.0'
     }
     cores_policy   = 'not_bundled; downloaded at runtime, pinned by tools/cores/cores.lock.json'
+  }
+  foreach ($k in @($buildInfo.toolchain.Keys)) {
+    $buildInfo.toolchain[$k] = Protect-BuildInfoText ([string]$buildInfo.toolchain[$k])
   }
   $buildInfoJson = $buildInfo | ConvertTo-Json -Depth 5
   if (-not (Test-Path -LiteralPath $OutRoot)) { New-Item -ItemType Directory -Path $OutRoot -Force | Out-Null }

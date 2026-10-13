@@ -27,7 +27,8 @@ param(
   [string]$XrayBin = '',
   [int]$WindowWaitSec = 60,
   [int]$ApplyWaitSec = 45,
-  [switch]$WithSeed
+  [switch]$WithSeed,
+  [string]$ExpectedCommit = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,6 +42,21 @@ if ($Zip -eq '') {
 }
 if (-not $Zip -or -not (Test-Path -LiteralPath $Zip)) { throw "zip not found: $Zip" }
 $Zip = (Resolve-Path -LiteralPath $Zip).Path
+
+# S11-13: package identity gate. When the sibling SHA256SUMS exists, the
+# candidate must pass sp30 identity (sha pin + unarmed build-info + flat
+# layout + no bundled core) before anything is extracted or launched.
+$shaFile = Join-Path (Split-Path -Parent $Zip) 'SHA256SUMS'
+if (Test-Path -LiteralPath $shaFile) {
+  $idParams = @{ Zip = $Zip; ShaFile = $shaFile }
+  if ($ExpectedCommit -ne '') { $idParams['ExpectedCommit'] = $ExpectedCommit }
+  $idScript = Join-Path $RepoRoot 'tools\acceptance\sp30_package_identity.ps1'
+  $idOut = (& $idScript @idParams 2>&1 | Out-String)
+  if ($LASTEXITCODE -ne 0) { throw "package identity check failed for $Zip : $idOut" }
+  Write-Host "   package identity: pass (sha256sums pinned)"
+} else {
+  Write-Host "   package identity: skipped (no SHA256SUMS next to zip)"
+}
 
 Add-Type -AssemblyName System.Drawing
 Add-Type @'

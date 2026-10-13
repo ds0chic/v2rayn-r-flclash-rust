@@ -9,13 +9,20 @@ Writes only: compat/{layouts,fields.settings,fields.entities,actions,features,fi
 
 import copy
 import json
+import os
 import sys
 
 import yaml
 
-ROOT = r"C:/Users/Colby/Documents/Codex/2026-10-01/v2rayn-flclash-rust-v2rayn"
+# S11-09: ROOT used to be a hardcoded path to a different, long-gone checkout;
+# running the script would read/write the wrong tree. Derive the repo root from
+# this script's location and refuse to run anywhere unexpected.
+ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 COMPAT = f"{ROOT}/compat"
 COMMIT = "7d6a967c18c697f28dc6917122ed3a4993fcf336"
+
+if not os.path.isdir(COMPAT):
+    sys.exit(f"refusing to run: compat/ not found under derived ROOT ({ROOT})")
 
 changes = []
 

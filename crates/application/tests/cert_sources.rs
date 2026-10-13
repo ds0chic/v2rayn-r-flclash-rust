@@ -3,8 +3,7 @@
 //!
 //! Read-only. No network access, no credential handling.
 
-use std::fs::File;
-use std::io::BufReader;
+use rustls_pki_types::pem::PemObject;
 use std::path::PathBuf;
 
 fn sample_dir() -> PathBuf {
@@ -18,10 +17,9 @@ fn sample_dir() -> PathBuf {
 }
 
 fn count_pem_certs(path: &PathBuf) -> Result<usize, String> {
-    let file = File::open(path).map_err(|e| format!("open {}: {e}", path.display()))?;
-    let mut reader = BufReader::new(file);
+    let pem = std::fs::read(path).map_err(|e| format!("open {}: {e}", path.display()))?;
     let mut count = 0usize;
-    for item in rustls_pemfile::certs(&mut reader) {
+    for item in rustls_pki_types::CertificateDer::pem_slice_iter(&pem) {
         item.map_err(|e| format!("parse {}: {e}", path.display()))?;
         count += 1;
     }

@@ -84,6 +84,17 @@ pub fn remove_staged_artifacts(run_root: &Path, session_id: &str) {
     let _ = std::fs::remove_file(dir.join("core.log"));
 }
 
+/// Drop one session's journal file (S7a-08). Test sessions have no recovery
+/// semantics, so a closed test session leaves no journal behind; without this
+/// every speedtest leaves a phantom `Applying` record that the next boot
+/// misreads as needing recovery. The now-empty session directory is removed
+/// best-effort (ignored when it still holds files).
+pub fn remove_session_journal(run_root: &Path, session_id: &str) {
+    let dir = session_dir(run_root, session_id);
+    let _ = std::fs::remove_file(dir.join("journal.json"));
+    let _ = std::fs::remove_dir(&dir);
+}
+
 /// Read all journals under a run root.
 pub fn read_all(run_root: &Path) -> Vec<JournalEntry> {
     let mut entries = Vec::new();

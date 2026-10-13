@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -11,7 +11,9 @@ use domain::event::{EventKind, RuntimeStateChanged};
 use domain::runtime_plan::ConfigSource;
 use domain::{CoreType, DomainError, RuntimePlan, RuntimeState};
 use ipc_contract::stable::CoreExitFact;
-use ipc_contract::{OperationStatus, RecoveryStage, RecoveryStatus, RuntimeSnapshot};
+use ipc_contract::{
+    CoreExitObservation, OperationStatus, RecoveryStage, RecoveryStatus, RuntimeSnapshot,
+};
 use serde_json::json;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
@@ -306,6 +308,10 @@ pub struct HostState {
     command_gate: tokio::sync::Mutex<()>,
     helper_factory: std::sync::Mutex<Option<HelperLinkFactory>>,
     tun_discovery: std::sync::Mutex<Option<TunInterfaceDiscovery>>,
+    /// S7a-01 singleflight: at most one `reconcile_exits` pass runs the
+    /// blocking helper poll at a time; concurrent reads skip the pass and
+    /// read current state instead of queueing behind a hung helper.
+    reconcile_in_flight: AtomicBool,
 }
 
 static SESSION_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -482,6 +488,24 @@ async fn run_bounded_output(
     }
 }
 
+/// Apply one adapter's launch constraints to a child command (S7a-04): the
+/// core's environment (mieru takes its config path only via
+/// `MIERU_CONFIG_JSON_FILE`) and working directory (hysteria reads
+/// `./config.json` from its cwd). Shared by the managed, sidecar and test
+/// spawns so no path silently drops them.
+fn apply_adapter_launch_constraints(
+    command: &mut Command,
+    adapter: &dyn CoreAdapter,
+    config_path: &Path,
+) {
+    for (key, value) in adapter.env_vars(config_path) {
+        command.env(key, value);
+    }
+    if let Some(dir) = adapter.working_dir(config_path) {
+        command.current_dir(dir);
+    }
+}
+
 /// Structured error for a core that could not be bound into the ownership job.
 /// Non-retryable: the caller must not keep an unowned core alive.
 fn job_assign_failed(operation_id: &str, detail: impl Into<String>) -> DomainError {
@@ -540,6 +564,7 @@ impl HostState {
             command_gate: tokio::sync::Mutex::new(()),
             helper_factory: std::sync::Mutex::new(None),
             tun_discovery: std::sync::Mutex::new(None),
+            reconcile_in_flight: AtomicBool::new(false),
         };
         // Reconcile TUN leases from a previous process. Only session dirs that
         // still carry a lease journal are touched; with no stale leases no
@@ -666,13 +691,23 @@ impl HostState {
 
     /// Whether the host has been idle long enough to terminate itself so a real
     /// exit leaves no residual service process. Never true while a managed
-    /// session, TUN lease or test session is outstanding: the core tree must be
-    /// gone first, so this can only run after the reclaim path.
+    /// session, live TUN lease or test session is outstanding: the core tree
+    /// must be gone first, so this can only run after the reclaim path. A TUN
+    /// lease retained only because its cleanup failed (journaled for retry,
+    /// S7a-05) does not block: recoverability survives through the durable
+    /// journal (next boot) and the helper's disconnect cleanup on exit.
     pub async fn should_exit_idle(&self) -> bool {
         let inner = self.inner.lock().await;
+        let has_tun_lease = inner.tun_lease.is_some();
+        let tun_failed_only = has_tun_lease
+            && inner.session.is_none()
+            && inner.tun_session_id.as_deref().is_some_and(|sid| {
+                tun_lease::read_pending_cleanup(&self.config.run_root, sid).is_some()
+            });
         idle_exit_due(
             inner.session.is_some(),
-            inner.tun_lease.is_some(),
+            has_tun_lease,
+            tun_failed_only,
             inner.test_sessions.len(),
             inner.active_connections,
             inner.no_client_since,
@@ -759,7 +794,26 @@ impl HostState {
             code: Option<i32>,
         }
 
-        let (session, main_exit, _sidecar_exits, emit) = {
+        // S7a-01 singleflight: a second read arriving while a pass is inside
+        // the blocking helper poll skips the pass and reads current state.
+        // Exit facts are still advanced exactly once, by the running pass.
+        if self.reconcile_in_flight.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        struct ResetReconcile<'a>(&'a AtomicBool);
+        impl Drop for ResetReconcile<'_> {
+            fn drop(&mut self) {
+                self.0.store(false, Ordering::Release);
+            }
+        }
+        let _reset = ResetReconcile(&self.reconcile_in_flight);
+
+        // Phase A (short lock): gate the pass and detach the elevated helper
+        // links. The blocking pipe RPCs in phase B then run without holding
+        // `inner`, so a hung helper stalls at most this pass — never every
+        // IPC read queued behind the mutex.
+        let at_ms = journal::now_ms();
+        let (session_id, detached) = {
             let mut inner = self.inner.lock().await;
             if !lifecycle::should_reconcile(
                 inner.active_operation.as_deref(),
@@ -767,16 +821,61 @@ impl HostState {
             ) {
                 return;
             }
-            let at_ms = journal::now_ms();
             let session = inner.session.as_mut().expect("reconcile gated a session");
-            // Helper protocol v2 observation (SP-09/SP-10): drain
-            // helper-observed elevated exits into the staged record, then
-            // renew the leases due for renewal. Both are gated (no helper
-            // link or no non-zero handle means no calls) and never
-            // fabricate: a failed poll/renew only defers to the next read,
-            // and a dead lease stages through the same exit record below.
-            poll_elevated_sidecars(&mut session.sidecars);
-            renew_elevated_leases(&mut session.sidecars, at_ms.max(0) as u64);
+            let session_id = session.session_id.clone();
+            let detached =
+                detach_elevated_links(&mut session.sidecars, at_ms.max(0) as u64);
+            (session_id, detached)
+        };
+        // Phase B (no lock): blocking helper RPCs on a blocking-pool thread.
+        // Panic-safe: outcomes that never come back are treated as lost links
+        // and staged as lease-loss exits in phase C, never stranded silently.
+        let detached_ids: Vec<(String, u64)> = detached
+            .iter()
+            .map(|taken| (taken.id.clone(), taken.handle))
+            .collect();
+        let outcomes = match tokio::task::spawn_blocking(move || {
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+                run_detached_elevated_poll(detached, true)
+            }))
+            .unwrap_or_default()
+        })
+        .await
+        {
+            Ok(outcomes) => outcomes,
+            Err(_) => Vec::new(),
+        };
+
+        let (session, main_exit, _sidecar_exits, emit) = {
+            let mut inner = self.inner.lock().await;
+            // Phase C (short lock): restore the links and stage the outcomes.
+            // When the session moved on mid-pass the detached links drop here
+            // and the helper reclaims them on disconnect. Staging is skipped
+            // once a command owns the session, but the links are always
+            // restored so no sidecar strands helperless.
+            let stage =
+                lifecycle::should_reconcile(inner.active_operation.as_deref(), inner.session.is_some());
+            let same_session = inner
+                .session
+                .as_ref()
+                .is_some_and(|session| session.session_id == session_id);
+            if same_session {
+                let returned: std::collections::HashSet<(String, u64)> = outcomes
+                    .iter()
+                    .map(|outcome| (outcome.id.clone(), outcome.handle))
+                    .collect();
+                let lost: Vec<(String, u64)> = detached_ids
+                    .iter()
+                    .filter(|id| !returned.contains(id))
+                    .cloned()
+                    .collect();
+                let session = inner.session.as_mut().expect("session checked");
+                attach_elevated_outcomes(&mut session.sidecars, outcomes, &lost, stage);
+            }
+            if !stage {
+                return;
+            }
+            let session = inner.session.as_mut().expect("reconcile gated a session");
             // An unreadable status never fabricates a transition.
             let main_status = session.child.try_wait().ok().flatten();
             let mut sidecar_exits = Vec::new();
@@ -1087,10 +1186,8 @@ impl HostState {
     /// (SP-08 explicit retry entry). The in-memory lease is tried first with
     /// its live link; journals left by a previous process get a fresh link
     /// each. `Ok` means every pending lease is confirmed released; otherwise
-    /// the first error is returned and the rest stay pending. Staged until
-    /// the SP-00 integrator exposes it over IPC/FRB (need N-H1); covered by
-    /// SP-08 tests.
-    #[allow(dead_code)]
+    /// the first error is returned and the rest stay pending. Exposed over
+    /// IPC as `RetryTunCleanup` (S7a-05); covered by SP-08 tests.
     pub async fn retry_tun_cleanup(&self) -> Result<(), DomainError> {
         let mut first_error: Option<DomainError> = None;
 
@@ -1177,7 +1274,6 @@ impl HostState {
     /// Retry one in-memory lease against its journaled owned record. On
     /// success the triple is consumed; on failure it is restored so the next
     /// retry (or the next boot) can continue.
-    #[allow(dead_code)]
     async fn retry_one_tun_cleanup(
         &self,
         session_id: String,
@@ -1908,12 +2004,7 @@ impl HostState {
         // R3-03: cores like mieru take their config path only via the
         // environment (`MIERU_CONFIG_JSON_FILE`), and some cores expect a
         // specific working directory. Both come from the adapter contract.
-        for (key, value) in adapter.env_vars(&config_path) {
-            command.env(key, value);
-        }
-        if let Some(dir) = adapter.working_dir(&config_path) {
-            command.current_dir(dir);
-        }
+        apply_adapter_launch_constraints(&mut command, adapter.as_ref(), &config_path);
         #[cfg(windows)]
         {
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -1934,13 +2025,16 @@ impl HostState {
         };
 
         let pid = child.id().unwrap_or(0);
-        let created_at_ms = process_creation_time_ms(pid).unwrap_or(0);
-        let identity = ProcessIdentity::new(pid, created_at_ms);
         #[cfg(windows)]
         {
             // Binding the fresh core into the ownership job is mandatory: an
             // unbound core would survive a net-host crash and leak a port. A
             // failure therefore aborts the session and kills the child.
+            // S7a-10: the assign runs immediately after spawn (before the
+            // creation-time query) so a grandchild spawned in the gap cannot
+            // escape the job. Tokio cannot spawn atomically into a job
+            // (`PROC_THREAD_ATTRIBUTE_JOB_LIST` needs raw `CreateProcess`),
+            // so a microsecond window inherently remains.
             let assignment = match child.raw_handle() {
                 Some(handle) => job.assign(handle),
                 None => Err(std::io::Error::other("core process handle unavailable")),
@@ -1952,15 +2046,17 @@ impl HostState {
                 return result;
             }
         }
+        let created_at_ms = process_creation_time_ms(pid).unwrap_or(0);
+        let identity = ProcessIdentity::new(pid, created_at_ms);
 
         // Stream stdout/stderr to the session log, with bounded memory, and
         // forward each line as a `log_line` event (T15a minimal change) so the
         // application log pipeline does not have to tail the file.
         if let Some(stdout) = child.stdout.take() {
-            spawn_log_reader(stdout, log_path.clone(), "stdout", self.bus.clone());
+            spawn_log_reader(stdout, log_path.clone(), "stdout".to_string(), self.bus.clone());
         }
         if let Some(stderr) = child.stderr.take() {
-            spawn_log_reader(stderr, log_path.clone(), "stderr", self.bus.clone());
+            spawn_log_reader(stderr, log_path.clone(), "stderr".to_string(), self.bus.clone());
         }
 
         let _ = journal::write_entry(
@@ -2297,27 +2393,18 @@ impl HostState {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        for (key, value) in sidecar.adapter.env_vars(&sidecar_config) {
-            command.env(key, value);
-        }
-        if let Some(dir) = sidecar.adapter.working_dir(&sidecar_config) {
-            command.current_dir(dir);
-        }
+        apply_adapter_launch_constraints(&mut command, sidecar.adapter.as_ref(), &sidecar_config);
         #[cfg(windows)]
         {
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
             command.creation_flags(CREATE_NO_WINDOW);
         }
-        let mut child = command.spawn().map_err(|e| {
-            DomainError::new(domain::codes::UNAVAILABLE, "error.core_spawn_failed")
-                .with_operation(operation_id)
-                .with_detail(format!("{}: {e}", sidecar.exe.display()))
-        })?;
+        // S7a-10: the ownership job is created before the spawn so the assign
+        // below runs immediately after it (same narrowing as the main spawn;
+        // a microsecond window inherently remains without raw CreateProcess).
         let sidecar_job = match JobGuard::create_kill_on_close() {
             Ok(job) => job,
             Err(e) => {
-                let _ = child.start_kill();
-                let _ = tokio::time::timeout(Duration::from_secs(5), child.wait()).await;
                 return Err(DomainError::new(
                     domain::codes::UNAVAILABLE,
                     "error.job_create_failed",
@@ -2326,6 +2413,11 @@ impl HostState {
                 .with_detail(e.to_string()));
             }
         };
+        let mut child = command.spawn().map_err(|e| {
+            DomainError::new(domain::codes::UNAVAILABLE, "error.core_spawn_failed")
+                .with_operation(operation_id)
+                .with_detail(format!("{}: {e}", sidecar.exe.display()))
+        })?;
         #[cfg(windows)]
         {
             let assignment = match child.raw_handle() {
@@ -2339,10 +2431,11 @@ impl HostState {
             }
         }
         if let Some(stdout) = child.stdout.take() {
+            // Owned label (S7a-12): no per-start `Box::leak` for sidecar ids.
             spawn_log_reader(
                 stdout,
                 sidecar_log.clone(),
-                Box::leak(sidecar.id.clone().into_boxed_str()),
+                sidecar.id.clone(),
                 self.bus.clone(),
             );
         }
@@ -2350,7 +2443,7 @@ impl HostState {
             spawn_log_reader(
                 stderr,
                 sidecar_log.clone(),
-                Box::leak(sidecar.id.clone().into_boxed_str()),
+                sidecar.id.clone(),
                 self.bus.clone(),
             );
         }
@@ -2728,6 +2821,9 @@ impl HostState {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        // Same adapter contract as the managed spawn (S7a-04): a test core
+        // for mieru/hysteria needs its env/working directory too.
+        apply_adapter_launch_constraints(&mut command, adapter.as_ref(), &config_path);
         #[cfg(windows)]
         {
             const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -2740,10 +2836,10 @@ impl HostState {
         })?;
 
         let pid = child.id().unwrap_or(0);
-        let created_at_ms = process_creation_time_ms(pid).unwrap_or(0);
-        let identity = ProcessIdentity::new(pid, created_at_ms);
         #[cfg(windows)]
         {
+            // S7a-10: assign immediately after spawn, before the
+            // creation-time query (same narrowing as the managed spawn).
             let assignment = match child.raw_handle() {
                 Some(handle) => job.assign(handle),
                 None => Err(std::io::Error::other("core process handle unavailable")),
@@ -2759,13 +2855,15 @@ impl HostState {
                 .with_detail(e.to_string()));
             }
         }
+        let created_at_ms = process_creation_time_ms(pid).unwrap_or(0);
+        let identity = ProcessIdentity::new(pid, created_at_ms);
 
         let log_path = dir.join("core.log");
         if let Some(stdout) = child.stdout.take() {
-            spawn_log_reader(stdout, log_path.clone(), "test-stdout", self.bus.clone());
+            spawn_log_reader(stdout, log_path.clone(), "test-stdout".to_string(), self.bus.clone());
         }
         if let Some(stderr) = child.stderr.take() {
-            spawn_log_reader(stderr, log_path.clone(), "test-stderr", self.bus.clone());
+            spawn_log_reader(stderr, log_path.clone(), "test-stderr".to_string(), self.bus.clone());
         }
         let _ = journal::write_entry(
             &self.config.run_root,
@@ -2855,6 +2953,9 @@ impl HostState {
         // Windows. Confirm (bounded) before the caller may reserve it again.
         wait_port_released(port, Duration::from_millis(1500)).await;
         journal::remove_staged_artifacts(&self.config.run_root, session_id);
+        // A test session has no recovery semantics: drop its journal too, or
+        // every speedtest leaves a phantom `Applying` record behind (S7a-08).
+        journal::remove_session_journal(&self.config.run_root, session_id);
         eprintln!(
             "[net_host] test session {session_id} STOPPED pid={pid} core={core:?} port={port}"
         );
@@ -3005,8 +3106,12 @@ async fn wait_socks_port(port: u16, timeout: Duration, interval: Duration) -> bo
             use tokio::io::{AsyncReadExt, AsyncWriteExt};
             if stream.write_all(&[0x05, 0x01, 0x00]).await.is_ok() {
                 let mut buf = [0u8; 2];
+                // A single `read` may return a 1-byte half packet (legal TCP
+                // segmentation); `read_exact` waits for the full greeting
+                // instead of failing a ready core (S7a-11).
                 if let Ok(read) =
-                    tokio::time::timeout(Duration::from_millis(500), stream.read(&mut buf)).await
+                    tokio::time::timeout(Duration::from_millis(500), stream.read_exact(&mut buf))
+                        .await
                 {
                     if matches!(read, Ok(n) if n == 2 && buf[0] == 0x05) {
                         return true;
@@ -3054,7 +3159,16 @@ async fn wait_port_released(port: u16, timeout: Duration) {
     }
 }
 
-fn spawn_log_reader<S>(stream: S, path: PathBuf, label: &'static str, bus: EventBus)
+/// Hard cap for one session's `core.log` (S7a-09): a verbose core on a
+/// long-lived session must not fill the disk. When the cap is exceeded the
+/// writer keeps the tail and drops the head.
+const MAX_CORE_LOG_BYTES: u64 = 10 * 1024 * 1024;
+/// Bytes of tail preserved across one log rotation.
+const CORE_LOG_KEEP_BYTES: u64 = 1024 * 1024;
+/// Lines between size checks in the log writer (amortizes the metadata call).
+const CORE_LOG_CHECK_EVERY_LINES: u32 = 256;
+
+fn spawn_log_reader<S>(stream: S, path: PathBuf, label: String, bus: EventBus)
 where
     S: tokio::io::AsyncRead + Unpin + Send + 'static,
 {
@@ -3069,6 +3183,7 @@ where
             Ok(file) => file,
             Err(_) => return,
         };
+        let mut since_check = 0u32;
         while let Ok(Some(line)) = reader.next_line().await {
             let _ = file
                 .write_all(format!("[{label}] {line}\n").as_bytes())
@@ -3080,17 +3195,88 @@ where
                 "log_line",
                 serde_json::json!({ "text": line, "stream": label }),
             );
+            since_check += 1;
+            if since_check >= CORE_LOG_CHECK_EVERY_LINES {
+                since_check = 0;
+                // The append handle's cursor goes stale across a truncate, so
+                // the file is closed, rotated, and reopened.
+                drop(file);
+                rotate_log_if_over_cap(&path).await;
+                file = match tokio::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&path)
+                    .await
+                {
+                    Ok(file) => file,
+                    Err(_) => return,
+                };
+            }
         }
     });
 }
 
-fn tail_log(path: &std::path::Path, max_lines: usize) -> String {
-    let Ok(content) = std::fs::read_to_string(path) else {
-        return "<no log>".to_string();
+/// Truncate an overgrown core log to its tail (S7a-09). Best-effort: any I/O
+/// failure leaves the file as is and the writer carries on.
+async fn rotate_log_if_over_cap(path: &std::path::Path) {
+    let Ok(meta) = tokio::fs::metadata(path).await else {
+        return;
     };
-    let lines: Vec<&str> = content.lines().collect();
-    let start = lines.len().saturating_sub(max_lines);
-    lines[start..].join(" | ")
+    if meta.len() <= MAX_CORE_LOG_BYTES {
+        return;
+    }
+    let Ok(content) = tokio::fs::read(path).await else {
+        return;
+    };
+    let keep = (content.len() as u64).min(CORE_LOG_KEEP_BYTES) as usize;
+    let tail = &content[content.len() - keep..];
+    // Start at a line boundary so the kept tail never begins mid-line.
+    let start = tail
+        .iter()
+        .position(|byte| *byte == b'\n')
+        .map(|index| index + 1)
+        .unwrap_or(0);
+    let _ = tokio::fs::write(path, &tail[start..]).await;
+    eprintln!("[net_host] core log rotated (kept tail): {}", path.display());
+}
+
+fn tail_log(path: &std::path::Path, max_lines: usize) -> String {
+    // Bounded tail (S7a-09): only the last 256 KiB are scanned for the final
+    // `max_lines` lines, so a GiB-scale log can never force a GiB allocation
+    // for an 8-line error tail.
+    const TAIL_SCAN_BYTES: u64 = 256 * 1024;
+    let mut file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(_) => return "<no log>".to_string(),
+    };
+    let len = file.metadata().map(|meta| meta.len()).unwrap_or(0);
+    let start = len.saturating_sub(TAIL_SCAN_BYTES);
+    use std::io::{Read, Seek, SeekFrom};
+    if file.seek(SeekFrom::Start(start)).is_err() {
+        return "<no log>".to_string();
+    }
+    let mut buf = Vec::new();
+    if file.read_to_end(&mut buf).is_err() {
+        return "<no log>".to_string();
+    }
+    let text = String::from_utf8_lossy(&buf);
+    // A scan window that cut a line in half drops the partial head line.
+    let text = if start > 0 {
+        match text.find('\n') {
+            Some(index) => &text[index + 1..],
+            None => "",
+        }
+    } else {
+        &text
+    };
+    let lines: Vec<&str> = text.lines().collect();
+    let skip = lines.len().saturating_sub(max_lines);
+    let tail = lines[skip..].join(" | ");
+    if tail.is_empty() {
+        "<no log>".to_string()
+    } else {
+        tail
+    }
 }
 
 /// Redacted TUN facts for [`RuntimeDetail`]: adapter label, interface index,
@@ -3138,50 +3324,224 @@ fn stage_elevated_sidecar_exit(
 /// transition. Observations for handles the caller does not own are dropped.
 /// The helper-reported PID is attribution identity, never a kill target:
 /// this function never signals any process.
-fn poll_elevated_sidecars(sidecars: &mut [SidecarSession]) {
-    let targets: Vec<(String, u64)> = sidecars
-        .iter()
-        .filter_map(|sidecar| match (sidecar.helper.is_some(), sidecar.handle) {
-            (true, Some(handle))
-                if sidecar.child.is_none()
-                    && handle != 0
-                    && sidecar.elevated_exit_code.is_none() =>
-            {
-                Some((sidecar.id.clone(), handle))
-            }
-            _ => None,
-        })
-        .collect();
-    for (id, handle) in targets {
-        let exits = {
-            let Some(sidecar) = sidecars
-                .iter_mut()
-                .find(|sidecar| sidecar.id == id && sidecar.helper.is_some())
-            else {
-                continue;
-            };
-            let link = sidecar.helper.as_mut().expect("gated helper link");
-            match link.poll_core_exits(&[handle]) {
-                Ok(exits) => exits,
-                Err(_) => continue,
-            }
+/// One elevated sidecar's helper link detached for off-lock polling (S7a-01).
+/// The link is owned here while the blocking pipe RPC runs; phase C always
+/// puts it back into its sidecar slot (or drops it when the session moved
+/// on, letting the helper reclaim the lease on disconnect).
+struct DetachedElevatedLink {
+    id: String,
+    handle: u64,
+    link: Box<dyn HelperLink>,
+    renew_due: bool,
+    at_ms: u64,
+    last_confirmed_ms: u64,
+    renew_failures: u32,
+}
+
+/// Outcome of the off-lock blocking pass, staged under a short lock.
+struct DetachedElevatedOutcome {
+    id: String,
+    handle: u64,
+    link: Box<dyn HelperLink>,
+    exits: Vec<CoreExitObservation>,
+    renew_ms: Option<u64>,
+    confirmed_ms: u64,
+    failures: u32,
+    reconcile_lease_loss: bool,
+}
+
+/// Take the poll-eligible elevated links out of the slice (short lock).
+/// Eligibility mirrors [`poll_elevated_sidecars`]: a helper link, a non-zero
+/// handle, no local child, no staged exit yet.
+fn detach_elevated_links(
+    sidecars: &mut [SidecarSession],
+    now_ms: u64,
+) -> Vec<DetachedElevatedLink> {
+    let mut out = Vec::new();
+    for sidecar in sidecars.iter_mut() {
+        let eligible = sidecar.helper.is_some()
+            && matches!(sidecar.handle, Some(handle) if handle != 0)
+            && sidecar.child.is_none()
+            && sidecar.elevated_exit_code.is_none();
+        if !eligible {
+            continue;
+        }
+        let handle = sidecar.handle.expect("gated non-zero handle");
+        let Some(link) = sidecar.helper.take() else {
+            continue;
         };
-        for exit in exits {
+        out.push(DetachedElevatedLink {
+            id: sidecar.id.clone(),
+            handle,
+            link,
+            renew_due: lifecycle::renew_due(sidecar.lease_last_renew_ms, now_ms),
+            at_ms: now_ms,
+            last_confirmed_ms: sidecar.lease_last_confirmed_ms,
+            renew_failures: sidecar.lease_renew_failures,
+        });
+    }
+    out
+}
+
+/// Run the blocking helper RPCs for detached links. No locks are held here;
+/// the caller runs this on a blocking-pool thread. Logic mirrors the legacy
+/// [`poll_elevated_sidecars`]/[`renew_elevated_leases`] pass: poll first
+/// (drain-once per handle, unless `drain_exits` is false for a renew-only
+/// pass), then renew on the SP-09 cadence, with one bounded status peek to
+/// disambiguate a confirmed release. Never fabricates: a failed poll/renew
+/// only defers to the next read.
+fn run_detached_elevated_poll(
+    detached: Vec<DetachedElevatedLink>,
+    drain_exits: bool,
+) -> Vec<DetachedElevatedOutcome> {
+    let mut outcomes = Vec::with_capacity(detached.len());
+    for mut taken in detached {
+        let mut exits = Vec::new();
+        if drain_exits {
+            if let Ok(polled) = taken.link.poll_core_exits(&[taken.handle]) {
+                exits.extend(
+                    polled
+                        .into_iter()
+                        .filter(|exit| exit.handle == taken.handle),
+                );
+            }
+        }
+        let (renew_ms, confirmed_ms, failures, reconcile_lease_loss) = if taken.renew_due {
+            match taken.link.renew_lease(taken.handle) {
+                Ok(_) => (Some(taken.at_ms), taken.at_ms, 0, false),
+                Err(_) => {
+                    let failures = taken.renew_failures.saturating_add(1);
+                    let released = matches!(
+                        taken.link.get_lease_status(taken.handle),
+                        Ok(status) if status.state == ipc_contract::LeaseState::Released
+                    );
+                    let reconcile = released
+                        || lifecycle::lease_expired(taken.last_confirmed_ms, taken.at_ms)
+                        || lifecycle::renew_reconcile_due(failures);
+                    (Some(taken.at_ms), taken.last_confirmed_ms, failures, reconcile)
+                }
+            }
+        } else {
+            (None, taken.last_confirmed_ms, taken.renew_failures, false)
+        };
+        outcomes.push(DetachedElevatedOutcome {
+            id: taken.id,
+            handle: taken.handle,
+            link: taken.link,
+            exits,
+            renew_ms,
+            confirmed_ms,
+            failures,
+            reconcile_lease_loss,
+        });
+    }
+    outcomes
+}
+
+/// Restore detached links and stage their outcomes (short lock). Links always
+/// go back into their sidecar slot (unless a newer link is already there, in
+/// which case the stale one is dropped); exits and lease bookkeeping are
+/// staged only when `stage` holds, so a command that took the session
+/// mid-pass never sees a foreign transition. `lost` carries detached
+/// `(id, handle)` pairs whose outcome never came back (blocking-pool failure):
+/// those sidecars stage a lease-loss exit instead of stranding helperless.
+fn attach_elevated_outcomes(
+    sidecars: &mut [SidecarSession],
+    outcomes: Vec<DetachedElevatedOutcome>,
+    lost: &[(String, u64)],
+    stage: bool,
+) {
+    for outcome in outcomes {
+        let DetachedElevatedOutcome {
+            id,
+            handle,
+            link,
+            exits,
+            renew_ms,
+            confirmed_ms,
+            failures,
+            reconcile_lease_loss,
+        } = outcome;
+        if let Some(sidecar) = sidecars.iter_mut().find(|sidecar| sidecar.id == id) {
+            if sidecar.helper.is_none() {
+                sidecar.helper = Some(link);
+            }
+            // Else a newer link is already in place; dropping `link` closes
+            // its pipe so the helper reclaims that stale session.
+        }
+        if !stage {
+            continue;
+        }
+        // A direct exit report may have landed mid-pass; never overwrite it.
+        let awaiting = sidecars
+            .iter()
+            .find(|sidecar| sidecar.id == id)
+            .is_some_and(|sidecar| sidecar.elevated_exit_code.is_none());
+        if !awaiting {
+            continue;
+        }
+        let pid_unset = sidecars
+            .iter()
+            .find(|sidecar| sidecar.id == id)
+            .is_some_and(|sidecar| sidecar.elevated_pid.is_none());
+        if pid_unset {
+            if let Some(first) = exits.first() {
+                if let Some(sidecar) = sidecars.iter_mut().find(|sidecar| sidecar.id == id) {
+                    sidecar.elevated_pid = Some(first.pid);
+                }
+            }
+        }
+        for exit in &exits {
             if exit.handle != handle {
                 continue;
             }
-            if let Some(sidecar) = sidecars.iter_mut().find(|sidecar| sidecar.id == id) {
-                if sidecar.elevated_pid.is_none() {
-                    sidecar.elevated_pid = Some(exit.pid);
-                }
-            }
             stage_elevated_sidecar_exit(sidecars, &id, exit.exit_code);
+        }
+        if let Some(renew_ms) = renew_ms {
+            if let Some(sidecar) = sidecars.iter_mut().find(|sidecar| sidecar.id == id) {
+                sidecar.lease_last_renew_ms = renew_ms;
+                sidecar.lease_last_confirmed_ms = confirmed_ms;
+                sidecar.lease_renew_failures = failures;
+            }
+        }
+        if reconcile_lease_loss {
+            stage_elevated_sidecar_exit(sidecars, &id, None);
+        }
+    }
+    if stage {
+        for (id, _) in lost {
+            let awaiting = sidecars
+                .iter()
+                .find(|sidecar| sidecar.id == *id)
+                .is_some_and(|sidecar| sidecar.elevated_exit_code.is_none());
+            if awaiting {
+                stage_elevated_sidecar_exit(sidecars, id, None);
+            }
         }
     }
 }
 
+/// Poll helper-owned elevated-sidecar exits into the staged record (SP-10).
+/// Synchronous form of one reconcile poll pass, kept for direct unit tests;
+/// production detaches the links and runs [`run_detached_elevated_poll`] off
+/// the async lock instead. Never fabricates: a failed poll defers to the
+/// next read.
+#[cfg(test)]
+fn poll_elevated_sidecars(sidecars: &mut [SidecarSession]) {
+    let mut detached = detach_elevated_links(sidecars, journal::now_ms().max(0) as u64);
+    for taken in &mut detached {
+        taken.renew_due = false;
+    }
+    let outcomes = run_detached_elevated_poll(detached, true);
+    attach_elevated_outcomes(sidecars, outcomes, &[], true);
+}
+
 /// Renew helper-owned elevated-sidecar leases due for renewal (SP-09,
 /// helper protocol v2).
+///
+/// Synchronous form of one reconcile renew pass, kept for direct unit tests;
+/// production detaches the links and runs [`run_detached_elevated_poll`] off
+/// the async lock instead.
 ///
 /// Gated like the poll path: no helper link or no non-zero handle means no
 /// call, and a link is only touched once its 15s renew cadence is due. A
@@ -3191,59 +3551,11 @@ fn poll_elevated_sidecars(sidecars: &mut [SidecarSession]) {
 /// (code unknown) through the same staged record `reconcile_exits`
 /// consumes, so the session degrades exactly once instead of reporting a
 /// lease it no longer owns as healthy.
+#[cfg(test)]
 fn renew_elevated_leases(sidecars: &mut [SidecarSession], now_ms: u64) {
-    let targets: Vec<(String, u64)> = sidecars
-        .iter()
-        .filter_map(|sidecar| match (sidecar.helper.is_some(), sidecar.handle) {
-            (true, Some(handle))
-                if sidecar.child.is_none()
-                    && handle != 0
-                    && sidecar.elevated_exit_code.is_none()
-                    && lifecycle::renew_due(sidecar.lease_last_renew_ms, now_ms) =>
-            {
-                Some((sidecar.id.clone(), handle))
-            }
-            _ => None,
-        })
-        .collect();
-    for (id, handle) in targets {
-        let reconcile = {
-            let Some(sidecar) = sidecars
-                .iter_mut()
-                .find(|sidecar| sidecar.id == id && sidecar.helper.is_some())
-            else {
-                continue;
-            };
-            let link = sidecar.helper.as_mut().expect("gated helper link");
-            match link.renew_lease(handle) {
-                Ok(_) => {
-                    sidecar.lease_last_renew_ms = now_ms;
-                    sidecar.lease_last_confirmed_ms = now_ms;
-                    sidecar.lease_renew_failures = 0;
-                    false
-                }
-                Err(_) => {
-                    sidecar.lease_last_renew_ms = now_ms;
-                    sidecar.lease_renew_failures = sidecar.lease_renew_failures.saturating_add(1);
-                    // One bounded disambiguation: a helper-confirmed release
-                    // needs no retries — reconcile now. Anything else (still
-                    // active, unknown, or an unreachable helper) keeps the
-                    // retry accounting, which the term / failure rules below
-                    // convert into reconciliation.
-                    let released = matches!(
-                        link.get_lease_status(handle),
-                        Ok(status) if status.state == ipc_contract::LeaseState::Released
-                    );
-                    released
-                        || lifecycle::lease_expired(sidecar.lease_last_confirmed_ms, now_ms)
-                        || lifecycle::renew_reconcile_due(sidecar.lease_renew_failures)
-                }
-            }
-        };
-        if reconcile {
-            stage_elevated_sidecar_exit(sidecars, &id, None);
-        }
-    }
+    let detached = detach_elevated_links(sidecars, now_ms);
+    let outcomes = run_detached_elevated_poll(detached, false);
+    attach_elevated_outcomes(sidecars, outcomes, &[], true);
 }
 
 /// Pure lease-reclaim decision (unit-testable without a process or runtime).
@@ -3275,17 +3587,24 @@ const IDLE_EXIT_MIN: Duration = Duration::from_secs(15);
 /// Pure idle-exit decision (unit-testable without a process or runtime).
 ///
 /// The host terminates itself only after every client is gone for at least
-/// `max(grace, IDLE_EXIT_MIN)` and no managed session, TUN lease or test
+/// `max(grace, IDLE_EXIT_MIN)` and no managed session, live TUN lease or test
 /// session remains. A running core keeps it alive regardless of the client.
+/// A failed-only TUN lease (`tun_failed_only`: cleanup failed and journaled,
+/// kept solely for an explicit retry) never blocks on its own (S7a-05).
 fn idle_exit_due(
     has_session: bool,
     has_tun_lease: bool,
+    tun_failed_only: bool,
     test_sessions: usize,
     active_connections: usize,
     no_client_since: Option<Instant>,
     grace: Duration,
 ) -> bool {
-    if has_session || has_tun_lease || test_sessions > 0 || active_connections > 0 {
+    if has_session
+        || (has_tun_lease && !tun_failed_only)
+        || test_sessions > 0
+        || active_connections > 0
+    {
         return false;
     }
     let threshold = if grace > IDLE_EXIT_MIN {
@@ -3334,6 +3653,7 @@ mod tests {
     fn idle(
         has_session: bool,
         has_tun_lease: bool,
+        tun_failed_only: bool,
         test_sessions: usize,
         active: usize,
         no_client_since: Option<Instant>,
@@ -3341,6 +3661,7 @@ mod tests {
         idle_exit_due(
             has_session,
             has_tun_lease,
+            tun_failed_only,
             test_sessions,
             active,
             no_client_since,
@@ -3353,16 +3674,20 @@ mod tests {
         let min_ago = Instant::now() - IDLE_EXIT_MIN - Duration::from_secs(1);
         let short_ago = Instant::now() - Duration::from_secs(7);
         // No client, no work, idle long enough -> exit.
-        assert!(idle(false, false, 0, 0, Some(min_ago)));
+        assert!(idle(false, false, false, 0, 0, Some(min_ago)));
         // Only just past the reclaim grace, not the idle minimum yet.
-        assert!(!idle(false, false, 0, 0, Some(short_ago)));
+        assert!(!idle(false, false, false, 0, 0, Some(short_ago)));
         // A connected client or outstanding work always keeps it alive.
-        assert!(!idle(false, false, 0, 1, Some(min_ago)));
-        assert!(!idle(true, false, 0, 0, Some(min_ago)));
-        assert!(!idle(false, true, 0, 0, Some(min_ago)));
-        assert!(!idle(false, false, 1, 0, Some(min_ago)));
+        assert!(!idle(false, false, false, 0, 1, Some(min_ago)));
+        assert!(!idle(true, false, false, 0, 0, Some(min_ago)));
+        assert!(!idle(false, true, false, 0, 0, Some(min_ago)));
+        assert!(!idle(false, false, false, 1, 0, Some(min_ago)));
+        // A failed-only TUN lease (cleanup journaled, kept for explicit
+        // retry) never blocks idle exit on its own (S7a-05).
+        assert!(idle(false, true, true, 0, 0, Some(min_ago)));
+        assert!(!idle(false, true, true, 0, 0, Some(short_ago)));
         // Never had a client -> stay up.
-        assert!(!idle(false, false, 0, 0, None));
+        assert!(!idle(false, false, false, 0, 0, None));
     }
 
     #[test]
@@ -4920,6 +5245,359 @@ Idx     Met    MTU          State                Name\r\n\
             "a live-but-silent sidecar is a timeout, never a fabricated exit"
         );
         let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    // -- S7a batch regression tests --------------------------------------
+    //
+    // Synthetic fixtures only: in-memory links, temp run roots, stub cores.
+    // No helper pipe, no OS routes/DNS/adapter writes, no 10808.
+
+    /// A free loopback port at or above the 11808 test floor, probed before
+    /// use. Scans upward from `base` (each test uses its own base) because
+    /// this machine allocates ephemeral ports bottom-up from 1024.
+    fn free_test_port(base: u16) -> u16 {
+        for port in base..base.saturating_add(500) {
+            if port < 11_808 {
+                continue;
+            }
+            if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+                return port;
+            }
+        }
+        panic!("no free loopback port near {base}");
+    }
+
+    /// HelperLink whose poll sleeps (S7a-01 regression seam): models a hung
+    /// helper pipe with no OS helper involved.
+    struct SlowPollLink {
+        inner: crate::helper_client::FakeHelperLink,
+        delay: Duration,
+    }
+
+    impl HelperLink for SlowPollLink {
+        fn session_id(&self) -> String {
+            self.inner.session_id()
+        }
+
+        fn dry_run(&self) -> bool {
+            false
+        }
+
+        fn available(&mut self) -> Result<(), DomainError> {
+            Ok(())
+        }
+
+        fn apply(&mut self, spec: &TunSpec) -> Result<TunLease, DomainError> {
+            self.inner.apply(spec)
+        }
+
+        fn cleanup(&mut self, lease: &TunLease) -> Result<(), DomainError> {
+            self.inner.cleanup(lease)
+        }
+
+        fn poll_core_exits(
+            &mut self,
+            handles: &[u64],
+        ) -> Result<Vec<CoreExitObservation>, DomainError> {
+            std::thread::sleep(self.delay);
+            self.inner.poll_core_exits(handles)
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn reconcile_does_not_hold_inner_during_helper_poll() {
+        use crate::helper_client::FakeHelperLink;
+
+        // S7a-01: with an elevated sidecar whose helper poll hangs, a first
+        // read sits in the poll while a second read must still return
+        // promptly (pre-fix both queued behind `inner` for the full delay).
+        let root = std::env::temp_dir().join(format!(
+            "v2rayn-s7a01-noblock-{}-{}",
+            std::process::id(),
+            crate::journal::now_ms()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = std::sync::Arc::new(HostState::new(sp08_config(root.clone(), false)));
+        // `ping` (not `timeout`: it refuses redirected stdin) sleeps ~29s.
+        let child = tokio::process::Command::new("cmd")
+            .args(["/c", "ping -n 30 127.0.0.1 >nul"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("sleeper core spawns");
+        let pid = child.id().unwrap_or(0);
+        let created = process_creation_time_ms(pid).unwrap_or(0);
+        {
+            let mut inner = state.inner.lock().await;
+            inner.session = Some(Session {
+                session_id: "sess-s7a01".into(),
+                plan_id: "p".into(),
+                desired_revision: 1,
+                port: 0,
+                config_sha256: "ab".into(),
+                exe: PathBuf::from("cmd"),
+                child,
+                identity: ProcessIdentity::new(pid, created),
+                sidecars: vec![SidecarSession {
+                    id: "tun-sidecar".into(),
+                    child: None,
+                    _job: None,
+                    helper: Some(Box::new(SlowPollLink {
+                        inner: FakeHelperLink::new(),
+                        delay: Duration::from_secs(3),
+                    })),
+                    handle: Some(7),
+                    elevated_pid: None,
+                    elevated_exit_code: None,
+                    // Freshly established: the renew cadence is not due, so
+                    // each pass performs exactly one (slow) poll.
+                    lease_last_renew_ms: wall_ms_u64(),
+                    lease_last_confirmed_ms: wall_ms_u64(),
+                    lease_renew_failures: 0,
+                }],
+                job: JobGuard::create_kill_on_close().expect("test job"),
+            });
+        }
+
+        let first = tokio::spawn({
+            let state = state.clone();
+            async move { state.ipc_snapshot().await }
+        });
+        // Let the first read enter the slow poll before the second starts.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let start = Instant::now();
+        let _second = state.ipc_snapshot().await;
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "a concurrent read must not queue behind the helper poll (took {elapsed:?})"
+        );
+        let _first = first.await.expect("first read completes");
+        {
+            let inner = state.inner.lock().await;
+            let session = inner.session.as_ref().expect("session survives");
+            assert!(
+                session.sidecars[0].helper.is_some(),
+                "the detached link is restored after the pass"
+            );
+        }
+        drop(state);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn adapter_launch_constraints_apply_env_and_cwd() {
+        // S7a-04: the shared helper carries every adapter's launch contract.
+        let mieru = adapter_for(domain::CoreType::Mieru).expect("mieru adapter");
+        let config = Path::new("C:\\run\\test-1\\config.json");
+        let mut command = Command::new("stub");
+        apply_adapter_launch_constraints(&mut command, &*mieru, config);
+        let mieru_env = command
+            .as_std()
+            .get_envs()
+            .find(|(key, _)| *key == "MIERU_CONFIG_JSON_FILE")
+            .and_then(|(_, value)| value)
+            .map(|value| value.to_string_lossy().into_owned());
+        assert_eq!(
+            mieru_env.as_deref(),
+            Some("C:\\run\\test-1\\config.json"),
+            "mieru takes its config path only via the environment"
+        );
+
+        let hysteria = adapter_for(domain::CoreType::Hysteria).expect("hysteria adapter");
+        let mut command = Command::new("stub");
+        apply_adapter_launch_constraints(&mut command, &*hysteria, config);
+        assert_eq!(
+            command.as_std().get_current_dir(),
+            Some(Path::new("C:\\run\\test-1")),
+            "hysteria reads ./config.json from its working directory"
+        );
+    }
+
+    #[test]
+    fn open_test_session_applies_adapter_env() {
+        // S7a-04 end to end: a stub core dumps the environment the test spawn
+        // gave it; pre-fix the adapter variables were missing here.
+        let _guard = rr10_lock();
+        let state = test_state("s7a04-env");
+        let dir = state.config.run_root.join("stubs");
+        std::fs::create_dir_all(&dir).unwrap();
+        let stub = dir.join("dump.cmd");
+        std::fs::write(
+            &stub,
+            "@echo off\r\necho ASSET=%XRAY_LOCATION_ASSET% > \"%~dp0dump.txt\"\r\necho CERT=%XRAY_LOCATION_CERT% >> \"%~dp0dump.txt\"\r\nping -n 2 127.0.0.1 >nul\r\n",
+        )
+        .unwrap();
+        std::env::set_var("V2RAYN_R_XRAY_BIN", &stub);
+        let asset_dir = state.config.run_root.join("assets");
+        std::fs::create_dir_all(&asset_dir).unwrap();
+        std::env::set_var("V2RAYN_R_ASSET_DIR", &asset_dir);
+        let port = free_test_port(12_100);
+        let plan = plan_with_body("s7a04", "{\"inbounds\":[],\"outbounds\":[]}", port, None);
+        let state = std::sync::Arc::new(state);
+        // The stub never listens, so readiness fails; the env dump written at
+        // startup is the assertion.
+        let _ = futures_block_on(state.open_test_session(plan, 5_000));
+        let dump =
+            std::fs::read_to_string(dir.join("dump.txt")).expect("stub ran and dumped env");
+        assert!(
+            dump.contains(&asset_dir.to_string_lossy().into_owned()),
+            "test spawn must carry XRAY_LOCATION_ASSET (got: {dump})"
+        );
+        std::env::remove_var("V2RAYN_R_ASSET_DIR");
+        let _ = std::fs::remove_dir_all(&state.config.run_root);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn closed_test_session_leaves_no_stale_journal() {
+        // S7a-08: closing a test session removes its journal; pre-fix an
+        // `Applying` record lingered and the next boot misread it as needing
+        // recovery.
+        let root = std::env::temp_dir().join(format!(
+            "v2rayn-s7a08-journal-{}-{}",
+            std::process::id(),
+            crate::journal::now_ms()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let state = std::sync::Arc::new(HostState::new(sp08_config(root.clone(), false)));
+        let session_id = "test-s7a08-1";
+        let dir = journal::session_dir(&root, session_id);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("config.json"), b"{}").unwrap();
+        let child = tokio::process::Command::new("cmd")
+            .args(["/c", "ping -n 30 127.0.0.1 >nul"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("sleeper core spawns");
+        let pid = child.id().unwrap_or(0);
+        let _ = journal::write_entry(
+            &root,
+            &JournalEntry {
+                session_id: session_id.into(),
+                plan_id: "p".into(),
+                desired_revision: 0,
+                config_sha256: "ab".into(),
+                stage: RecoveryStage::Applying,
+                pid: Some(pid),
+                created_at_ms: Some(process_creation_time_ms(pid).unwrap_or(0)),
+                port: 0,
+                updated_at_ms: journal::now_ms(),
+            },
+        );
+        {
+            let mut inner = state.inner.lock().await;
+            inner.test_sessions.insert(
+                session_id.into(),
+                TestSessionChild {
+                    core: domain::CoreType::Xray,
+                    port: 0,
+                    child,
+                    identity: ProcessIdentity::new(pid, 0),
+                    _job: JobGuard::create_kill_on_close().expect("test job"),
+                },
+            );
+        }
+        state
+            .close_test_session(session_id)
+            .await
+            .expect("close succeeds");
+        assert!(
+            !dir.join("journal.json").exists(),
+            "a closed test session keeps no journal"
+        );
+        assert!(
+            journal::read_all(&root)
+                .iter()
+                .all(|entry| entry.session_id != session_id),
+            "no phantom record may survive for the next boot"
+        );
+        drop(state);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn wait_socks_port_accepts_split_greeting() {
+        // S7a-11: a 2-byte greeting split across two packets is a ready core,
+        // not a failure (pre-fix the single `read` saw 1 byte and gave up).
+        let port = free_test_port(12_200);
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
+            .await
+            .expect("bind test listener");
+        tokio::spawn(async move {
+            loop {
+                let Ok((mut stream, _)) = listener.accept().await else {
+                    return;
+                };
+                tokio::spawn(async move {
+                    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                    let mut greeting = [0u8; 3];
+                    let _ = stream.read_exact(&mut greeting).await;
+                    let _ = stream.write_all(&[0x05]).await;
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    let _ = stream.write_all(&[0x00]).await;
+                });
+            }
+        });
+        assert!(
+            wait_socks_port(port, Duration::from_secs(5), Duration::from_millis(20)).await,
+            "a greeting split across packets must still read as ready"
+        );
+    }
+
+    #[test]
+    fn tail_log_scans_only_the_tail() {
+        // S7a-09: the tail of a multi-MB log is correct without reading the
+        // whole file into the assertion path.
+        let root = std::env::temp_dir().join(format!(
+            "v2rayn-s7a09-tail-{}-{}",
+            std::process::id(),
+            crate::journal::now_ms()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("core.log");
+        let mut body = String::new();
+        for index in 0..50_000 {
+            body.push_str(&format!("line-{index:06}\n"));
+        }
+        std::fs::write(&path, &body).unwrap();
+        assert!(path.metadata().unwrap().len() > 500_000);
+        let tail = tail_log(&path, 8);
+        let parts: Vec<&str> = tail.split(" | ").collect();
+        assert_eq!(parts.len(), 8);
+        assert_eq!(parts[0], "line-049992");
+        assert_eq!(parts[7], "line-049999");
+        assert_eq!(tail_log(&root.join("missing.log"), 8), "<no log>");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[tokio::test]
+    async fn overgrown_core_log_keeps_only_its_tail() {
+        // S7a-09: an over-cap log is truncated to its tail (pre-fix it grew
+        // without bound).
+        let root = std::env::temp_dir().join(format!(
+            "v2rayn-s7a09-rotate-{}-{}",
+            std::process::id(),
+            crate::journal::now_ms()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("core.log");
+        let line = "x".repeat(100) + "\n";
+        let repeats = (MAX_CORE_LOG_BYTES as usize) / line.len() + 100;
+        let body = line.repeat(repeats);
+        std::fs::write(&path, body.as_bytes()).unwrap();
+        assert!(path.metadata().unwrap().len() > MAX_CORE_LOG_BYTES);
+        rotate_log_if_over_cap(&path).await;
+        let len = path.metadata().unwrap().len();
+        assert!(
+            len <= MAX_CORE_LOG_BYTES,
+            "rotated log must fit the cap (got {len})"
+        );
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.ends_with(&line), "rotation keeps the tail");
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     // -- SP-09/SP-10 helper protocol v2 adoption (fake helper link) ---------

@@ -504,34 +504,9 @@ Future<void> renameSelectedProfile(
     return;
   }
   final current = controller.profileById(id);
-  final textController = TextEditingController(text: current?.remarks ?? '');
   final remarks = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      key: const ValueKey('remarks-dialog'),
-      title: const Text('修改备注', style: TextStyle(fontSize: 15)),
-      content: TextField(
-        key: const ValueKey('remarks-field'),
-        controller: textController,
-        autofocus: true,
-        decoration: const InputDecoration(
-          isDense: true,
-          border: OutlineInputBorder(),
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          key: const ValueKey('remarks-cancel'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          key: const ValueKey('remarks-save'),
-          onPressed: () => Navigator.of(context).pop(textController.text),
-          child: const Text('保存'),
-        ),
-      ],
-    ),
+    builder: (context) => _RemarksDialog(initial: current?.remarks ?? ''),
   );
   if (remarks == null) {
     _toast(ref, '已取消修改备注');
@@ -775,4 +750,58 @@ Future<void> openFullConfigTemplateWindow(
 
 void _toast(WidgetRef ref, String message) {
   ref.read(uiShellControllerProvider.notifier).setMessage(message);
+}
+
+/// Rename dialog owning its [TextEditingController] (D1-06): the controller
+/// lives exactly as long as the dialog route, so every exit path (save,
+/// cancel, barrier dismiss) releases it after unmount instead of leaking it
+/// or disposing it under a still-animating route.
+class _RemarksDialog extends StatefulWidget {
+  const _RemarksDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_RemarksDialog> createState() => _RemarksDialogState();
+}
+
+class _RemarksDialogState extends State<_RemarksDialog> {
+  late final TextEditingController _textController = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('remarks-dialog'),
+      title: const Text('修改备注', style: TextStyle(fontSize: 15)),
+      content: TextField(
+        key: const ValueKey('remarks-field'),
+        controller: _textController,
+        autofocus: true,
+        decoration: const InputDecoration(
+          isDense: true,
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const ValueKey('remarks-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const ValueKey('remarks-save'),
+          onPressed: () => Navigator.of(context).pop(_textController.text),
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
 }

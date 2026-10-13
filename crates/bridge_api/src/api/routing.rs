@@ -502,9 +502,19 @@ pub fn import_routing_rules(
     }
 }
 
-/// `export_routing_rules` — all rules (or the `ids` selection) as JSON.
+/// `export_routing_rules` — the `ids` selection as JSON.
+///
+/// S8-09: an empty selection is rejected instead of widening to all rules
+/// (contrast `speedtest_start`, where empty means "nothing to test" and never
+/// widens to the whole database).
 #[frb(sync)]
 pub fn export_routing_rules(routing_id: String, ids: Vec<String>) -> RoutingRulesTextResult {
+    if ids.is_empty() {
+        return export_error(
+            DomainError::new(domain::codes::NOT_FOUND, "error.routing_no_selection")
+                .with_field("ids"),
+        );
+    }
     let profile = match engine().get_routing(&routing_id) {
         Ok(Some(profile)) => profile,
         Ok(None) => return export_error(DomainError::not_found("routing", &routing_id)),
@@ -514,11 +524,10 @@ pub fn export_routing_rules(routing_id: String, ids: Vec<String>) -> RoutingRule
         Ok(rules) => rules,
         Err(e) => return export_error(e),
     };
-    let selected: Vec<domain::RoutingRule> = if ids.is_empty() {
-        rules
-    } else {
-        rules.into_iter().filter(|r| ids.contains(&r.id)).collect()
-    };
+    let selected: Vec<domain::RoutingRule> = rules
+        .into_iter()
+        .filter(|r| ids.contains(&r.id))
+        .collect();
     if selected.is_empty() {
         return export_error(
             DomainError::new(domain::codes::NOT_FOUND, "error.routing_no_selection")
@@ -653,5 +662,29 @@ mod r4_14_import_tests {
         engine()
             .save_settings(settings, loaded.revision)
             .expect("restore");
+    }
+
+    #[test]
+    fn export_routing_rules_rejects_empty_selection() {
+        // S8-09: an empty id set must not widen to "all rules".
+        let _guard = crate::api::engine::engine_test_lock();
+        let saved = save_routing(RoutingProfileDto {
+            id: String::new(),
+            remarks: "b07b-export".into(),
+            ..Default::default()
+        });
+        assert!(saved.ok, "{:?}", saved.error.map(|e| e.code));
+        let id = saved.item.expect("saved profile").id;
+        let rule = RoutingRuleDto {
+            outbound_tag: Some("proxy".into()),
+            ..Default::default()
+        };
+        let stored = save_routing_rules(id.clone(), vec![rule]);
+        assert!(stored.ok, "{:?}", stored.error.map(|e| e.code));
+        let exported = export_routing_rules(id.clone(), Vec::new());
+        assert!(!exported.ok, "empty selection must not export all rules");
+        let error = exported.error.expect("structured error");
+        assert_eq!(error.code, domain::codes::NOT_FOUND);
+        let _ = engine().delete_routing(&id);
     }
 }

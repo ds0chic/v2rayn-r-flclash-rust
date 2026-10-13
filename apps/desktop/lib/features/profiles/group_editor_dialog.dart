@@ -847,6 +847,15 @@ const Map<String, double> _pickerDefaultWidths = <String, double>{
   'speed': 60,
 };
 
+/// Autofit sampling cap, shared with the main table (`_autofitSampleRows =
+/// 500` in the profiles controller): measuring runs on UI-thread
+/// `TextPainter.layout`, so only the first [cap] rows are sampled and a huge
+/// candidate set cannot freeze the picker (D1-07).
+const int pickerAutofitSampleRows = 500;
+
+List<T> capAutofitRows<T>(List<T> rows, [int cap = pickerAutofitSampleRows]) =>
+    rows.length > cap ? rows.sublist(0, cap) : rows;
+
 class _NodePickerDialog extends StatefulWidget {
   const _NodePickerDialog({
     required this.candidates,
@@ -970,7 +979,9 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
       for (final p in list) _summaryById[p.indexId] ?? _fallbackSummary(p),
     ];
     final ordered = _sortKey.isEmpty
-        ? orderByPersistedSort(models, _persistedOrder)
+        // Stable merge like the main table (D1-02): candidates without a
+        // result row hold their slots instead of sinking to the bottom.
+        ? mergeResultOrder(models, _persistedOrder)
         : applySort(
             models,
             defaultProfileColumns(),
@@ -1155,7 +1166,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
   void _autofit() {
     const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
     const cellStyle = TextStyle(fontSize: 12);
-    final rows = _rows;
+    final rows = capAutofitRows(_rows);
     final updated = <String, double>{};
     for (final column in _pickerColumns) {
       var width = _measure('${column.title} \u25B2', headerStyle);

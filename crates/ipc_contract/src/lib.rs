@@ -36,6 +36,14 @@ pub const IPC_REQUEST_TIMEOUT_MS: u64 = 5_000;
 /// Longer timeout for `ApplyPlan`, which may start/stop processes.
 pub const IPC_APPLY_TIMEOUT_MS: u64 = 60_000;
 
+/// Upper bound for `TestSessionOperation::Open.max_duration_ms` (S1-18).
+/// Mirrors the net-host watchdog cap (`max_duration_ms.clamp(1_000, 60_000)`):
+/// anything longer never took effect server-side, so rejecting it at the gate
+/// converts a silent cap into an explicit error. Basis: the apply-class
+/// timeout — a test session may legitimately run as long as an apply, and the
+/// only in-repo caller (`bridge_api` speedtest) sends 30s, well inside.
+pub const MAX_TEST_SESSION_DURATION_MS: u64 = 60_000;
+
 /// Heartbeat interval used for liveness (plan §5: ~2s, 3 misses).
 pub const IPC_HEARTBEAT_INTERVAL_MS: u64 = 2_000;
 
@@ -299,6 +307,10 @@ pub fn timeout_for(operation: &IpcOperation) -> u64 {
         IpcOperation::ApplyPlan { .. }
         | IpcOperation::StopRuntime { .. }
         | IpcOperation::RetryTunCleanup => IPC_APPLY_TIMEOUT_MS,
+        // Opening a test session spawns a core and waits for readiness
+        // (up to the 20s readiness timeout): the 5s default would fire on a
+        // slow machine while the server keeps running.
+        IpcOperation::TestSession(TestSessionOperation::Open { .. }) => IPC_APPLY_TIMEOUT_MS,
         IpcOperation::Shutdown => IPC_APPLY_TIMEOUT_MS,
         _ => IPC_REQUEST_TIMEOUT_MS,
     }
@@ -310,6 +322,20 @@ pub fn check_test_ports(ports: &[u16]) -> Result<(), IpcError> {
     if let Some(bad) = ports.iter().find(|p| **p < TEST_PORT_FLOOR) {
         return Err(IpcError::Malformed {
             detail: format!("test port {bad} is below the required floor {TEST_PORT_FLOOR}"),
+        });
+    }
+    Ok(())
+}
+
+/// Enforce the test-session duration bound (S1-18). Only the top is gated:
+/// the server normalizes the low end with its watchdog clamp, so short
+/// requests keep working and only unbounded ones are rejected.
+pub fn check_test_session_duration(max_duration_ms: u64) -> Result<(), IpcError> {
+    if max_duration_ms > MAX_TEST_SESSION_DURATION_MS {
+        return Err(IpcError::Malformed {
+            detail: format!(
+                "test session duration {max_duration_ms}ms exceeds the {MAX_TEST_SESSION_DURATION_MS}ms cap"
+            ),
         });
     }
     Ok(())
@@ -473,5 +499,45 @@ mod tests {
         assert!(json.contains("tun_cleanup_retried"));
         let back: IpcResult = serde_json::from_str(&json).unwrap();
         assert_eq!(ok, back);
+    }
+
+    #[test]
+    fn test_session_duration_bound_and_open_timeout() {
+        // S1-18: unbounded durations are rejected; everything the server can
+        // actually honor (including the 30s speedtest value) passes.
+        assert!(check_test_session_duration(0).is_ok());
+        assert!(check_test_session_duration(30_000).is_ok());
+        assert!(check_test_session_duration(MAX_TEST_SESSION_DURATION_MS).is_ok());
+        assert!(check_test_session_duration(MAX_TEST_SESSION_DURATION_MS + 1).is_err());
+        assert!(check_test_session_duration(u64::MAX).is_err());
+
+        let open = |duration| {
+            IpcOperation::TestSession(TestSessionOperation::Open {
+                plan: Box::new(RuntimePlan {
+                    plan_id: "p1".into(),
+                    desired_revision: 1,
+                    target: RuntimeTarget {
+                        core_type: domain::CoreType::Xray,
+                        version: None,
+                        config: ConfigSource::Inline { body: "{}".into() },
+                        config_sha256: ContentHash::new("ab"),
+                    },
+                    process_graph: ProcessGraph::default(),
+                    outbound_graph: OutboundGraph::default(),
+                    ports: vec![],
+                    privileges: vec![],
+                    network_policy: NetworkPolicy::default(),
+                    resources: vec![],
+                }),
+                max_duration_ms: duration,
+            })
+        };
+        assert_eq!(timeout_for(&open(30_000)), IPC_APPLY_TIMEOUT_MS);
+        assert_eq!(
+            timeout_for(&IpcOperation::TestSession(TestSessionOperation::Close {
+                session_id: "s".into()
+            })),
+            IPC_REQUEST_TIMEOUT_MS
+        );
     }
 }

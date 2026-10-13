@@ -70,6 +70,12 @@ class StatusBarView extends ConsumerWidget {
     final subs = ref.watch(subsControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
+    // U-FIX3: the U-FIX contract holds at window widths >= 800 (faces keep
+    // full text, chrome never truncates). The U-FIX2 flex/scroll degradation
+    // is only allowed below 800 (e.g. the 700px menu-edge viewport), where
+    // faces may flex and ellipsize instead of overflowing.
+    final sub800 = MediaQuery.sizeOf(context).width < 800;
+
     // Left partitions, in the upstream DockPanel order. Each partition is
     // width-capped (SP-19 AppTokens budgets) so the whole strip fits the
     // upstream 800px minimum without a horizontal scroller; long labels
@@ -141,28 +147,26 @@ class StatusBarView extends ConsumerWidget {
       required String labelKey,
       required Widget selector,
     }) {
-      // U-FIX2 (r4_07): the selector face keeps full content width when
-      // measured loose, so Row A can overflow at narrow widths. Loose fit:
-      // inner values already ellipsize, wide layouts render as before.
-      return Flexible(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(
-              labelText,
-              key: ValueKey<String>(labelKey),
-              style: TextStyle(
-                fontSize: AppTokens.fontSizeTiny,
-                color: context.semantics.muted,
-              ),
+      // U-FIX2 (r4_07) + U-FIX3: below 800 the selector face keeps full
+      // content width when measured loose, so Row A can overflow; the
+      // outer/inner flex lets the tight share ellipsize the value. At >= 800
+      // the plain row renders exactly as pre-U-FIX2 (faces keep full text).
+      final captioned = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            labelText,
+            key: ValueKey<String>(labelKey),
+            style: TextStyle(
+              fontSize: AppTokens.fontSizeTiny,
+              color: context.semantics.muted,
             ),
-            const SizedBox(width: 3),
-            // The face keeps full content width when measured loose; it
-            // must also flex so the tight share ellipsizes the value.
-            Flexible(child: selector),
-          ],
-        ),
+          ),
+          const SizedBox(width: 3),
+          sub800 ? Flexible(child: selector) : selector,
+        ],
       );
+      return sub800 ? Flexible(child: captioned) : captioned;
     }
 
     // F-ROUTING-001: Rule / Global / Direct mode switch (real backend switch
@@ -701,11 +705,11 @@ class StatusBarView extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Expanded(child: center),
                       const SizedBox(width: 8),
-                      // U-FIX2 (r4_07): the rates text has no intrinsic
-                      // minimum shrink (CJK/long values keep full width), so
-                      // the block must flex; inner lines already ellipsize.
-                      // Loose fit: pixel-identical while space suffices.
-                      Flexible(child: ratesBlock),
+                      // U-FIX2 (r4_07) + U-FIX3: below 800 the rates text has
+                      // no intrinsic minimum shrink, so the block must flex;
+                      // inner lines already ellipsize. At >= 800 the plain
+                      // block renders exactly as pre-U-FIX2.
+                      sub800 ? Flexible(child: ratesBlock) : ratesBlock,
                     ],
                   ),
                   Row(
@@ -719,14 +723,14 @@ class StatusBarView extends ConsumerWidget {
                         const _Sep(),
                         Expanded(child: notice),
                       ],
-                      // U-FIX2 (r4_07): the badge content keeps full width
-                      // (icon + label), which overflows Row B once the error
-                      // notice buttons claim their minimums. Loose fit: the
-                      // badge's inner label already ellipsizes, so wide
-                      // layouts render exactly as before.
+                      // U-FIX2 (r4_07) + U-FIX3: below 800 the badge content
+                      // keeps full width (icon + label), which overflows Row B
+                      // once the error notice buttons claim their minimums; it
+                      // flexes so the inner label ellipsizes. At >= 800 the
+                      // plain badge renders exactly as pre-U-FIX2.
                       if (narrow) ...<Widget>[
                         const _Sep(),
-                        Flexible(child: badge),
+                        sub800 ? Flexible(child: badge) : badge,
                       ],
                     ],
                   ),

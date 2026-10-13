@@ -117,4 +117,67 @@ void main() {
             as Map<String, dynamic>?;
     expect(stored?['CurrentTheme'] ?? 'FollowSystem', isNot('Dark'));
   });
+
+  testWidgets('UX2-10: unmapped theme names are gone from the dialog', (
+    tester,
+  ) async {
+    final bridge = SyntheticBridgePort(count: 4);
+    final container = ProviderContainer(
+      overrides: [
+        bridgePortProvider.overrideWithValue(bridge),
+        uiStateStoreProvider.overrideWithValue(MemoryUiStateStore()),
+        profileRowCountProvider.overrideWithValue(4),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: ThemeSettingDialog())),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text('FollowSystem'));
+    await tester.pumpAndSettle();
+    for (final name in <String>[
+      'Light',
+      'Dark',
+      'Aquatic',
+      'Desert',
+      'Dusk',
+      'NightSky',
+    ]) {
+      if (name == 'Light' || name == 'Dark') {
+        expect(find.text(name), findsWidgets);
+      } else {
+        expect(
+          find.text(name),
+          findsNothing,
+          reason: '$name has no theme mapping and must not be offered',
+        );
+      }
+    }
+    await tester.tap(find.text('Dark').last);
+    await tester.pumpAndSettle();
+  });
+
+  test('UX2-10: persisted legacy theme names fall back to system', () {
+    final container = ProviderContainer(
+      overrides: [uiStateStoreProvider.overrideWithValue(MemoryUiStateStore())],
+    );
+    addTearDown(container.dispose);
+
+    container.read(uiShellControllerProvider.notifier).applySettingsDocument(
+      <String, dynamic>{
+        'UiItem': <String, dynamic>{'CurrentTheme': 'Aquatic'},
+      },
+    );
+    expect(
+      container.read(uiShellControllerProvider).themeMode,
+      ThemeMode.system,
+      reason: 'legacy values keep rendering exactly as before (system)',
+    );
+  });
 }

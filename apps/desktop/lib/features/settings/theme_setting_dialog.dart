@@ -182,10 +182,11 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
                 'FollowSystem',
                 'Light',
                 'Dark',
-                'Aquatic',
-                'Desert',
-                'Dusk',
-                'NightSky',
+                // UX2-10(B): Aquatic/Desert/Dusk/NightSky had no mapping in
+                // buildAppTheme and silently fell back; the options are
+                // retired. Previously persisted values still read back
+                // through _themeModeFrom's default branch (system), so
+                // existing configurations keep rendering as before.
               ]),
               onChanged: (v) => _set('CurrentTheme', v),
             ),

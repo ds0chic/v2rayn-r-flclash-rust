@@ -1,6 +1,6 @@
 # TH-DART 阶段 1：合并后 Dart 验证（进度版，2026-10-13，已暂停）
 
-> 状态：**PAUSED**（用户在游戏，高负载任务暂停）。本文记录已完成部分与未完成清单，恢复后继续。
+> 状态：**低负载串行中**（用户在游戏：一次一文件、Idle 优先级、`-j 1`；禁 cargo/build/全量 analyze）。
 > 集成分支 HEAD：`e45c6c7`（B01…B17 全部合入）。worktree：`C:\Users\Colby\work\v2rayn-audit\worktrees\TH-DART`，分支 `fix/TH-DART`。
 
 ## 1. 门禁（阶段 1 只验证，不修）
@@ -19,7 +19,8 @@
 - 已完成：冒烟 2 文件全绿——`test\audit_r2_flows_test.dart`（exit 0，10/10）、`test\b07b_bridge_seams_test.dart`（exit 0，9/9）；`run_chunk.ps1 -Start 3 -End 3`（`b13_d102_picker_order_test`，exit 0）。
 - chunk `4-52`（49 文件，Idle + `-j 1` 串行）：44 exit 0；4 exit 1（均为 did not complete：`fix02_tuic_editor`、`fix03c_proxy_chain_editor`、`fix08c_routing_draft`、`fix15c_autostart_timing`——Idle 下疑似饿死，待 solo 复判）；1 exit 79（`fix08_option_apply_test`，`No tests were found`——疑似 D 组同类 loader，待 solo 复判）。build 已删，generated_plugin* 噪声已还原。
 - chunk `53-102`（50 文件，Idle + `-j 1` 串行）：38 exit 0；3 exit 1（`r3_wpf_option_window`、`r3_wpf_routing_window` did not complete，Idle 下疑似饿死待 solo；**`r4_11_contract_test` +4 -1，`edit-save-reopen` 失败——与基线 C1 一致，确定性复现**）；9 exit 79（`fix16b_settings_source`、`profiles_drag_scroll_down/up`、`profiles_drag_scroll_up`、`profiles_keyboard`、`r3_visual_dpi_shell_125/150`、`r3_visual_dpi_windows`、`r4_07_contract`、`r4_08_contract`——did-not-complete + `No tests were found`；含基线 D 组 r3-150/r4_07，余下待 solo 复判是否同类 loader）。build 已删，generated_plugin* 噪声已还原。
-- 未完成（低负载恢复后按序跑）：chunk `103-152`、`153-202`、`203-252`、`253-302`、`303-349`，共 247 文件（第 1–102 行已跑：102/349）。跑完每 chunk 后删 `apps/desktop/build` + 还原 generated_plugin* 噪声。
+- chunk `103-152`（50 文件，Idle + `-j 1` 串行）：44 exit 0；4 exit 1（`r4_18_p01`、`r4_19`、`r4_22` did not complete 待 solo；**`r4_23_contract_test` +9 -1，`log filtering…` 失败——与基线 C2 一致，确定性复现**）；2 exit 79（`r4_14_contract`、`r4_18_p11_contract` loader 待 solo）。build 已删，generated_plugin* 噪声已还原。
+- 未完成（低负载恢复后按序跑）：chunk `153-202`、`203-252`、`253-302`、`303-349`，共 197 文件（第 1–152 行已跑：152/349）。跑完每 chunk 后删 `apps/desktop/build` + 还原 generated_plugin* 噪声。
 - 与 `BASELINE.md` Flutter 清单（10 deterministic / 5 load failures / 9 flaky）的逐项对比：**待跑完后补**。
 
 ## 3. 未完成清单（恢复后继续）

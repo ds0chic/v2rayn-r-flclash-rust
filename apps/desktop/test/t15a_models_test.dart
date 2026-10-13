@@ -9,13 +9,22 @@ import 'support/fake_monitor_bridge.dart';
 
 void main() {
   test('byte and rate formatting scales and shows placeholders', () {
-    expect(formatBytes(null), '--');
+    expect(formatTraffic(null), '--');
     expect(formatRate(null), '--');
-    expect(formatBytes(0), '0 B/s');
-    expect(formatBytes(1024), '1.00 KB/s');
+    expect(formatRate(0), '0 B/s');
+    expect(formatRate(1024), '1.00 KB/s');
     expect(formatTraffic(1024 * 1024), '1.00 MB');
     expect(formatRate(BigInt.from(2048)), '2.00 KB/s');
     expect(formatRate(-1), '--');
+  });
+
+  test('huge wire counters saturate instead of wrapping', () {
+    // D3b-05: 2^70 exceeds 64 bits; the old `toInt()` truncation rendered it
+    // as a small/wrong value instead of saturating at the top of the ladder.
+    final huge = BigInt.from(2).pow(70);
+    expect(formatTraffic(huge), '4096.00 PB');
+    expect(formatRate(huge), '4096.00 PB/s');
+    expect(formatTraffic(BigInt.from(-5)), '--');
   });
 
   test('visibleLogs applies level and keyword filters', () {

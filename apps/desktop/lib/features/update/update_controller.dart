@@ -286,6 +286,14 @@ class UpdateController extends Notifier<UpdateState> {
 
   Future<void> checkOnly() async {
     if (state.busy) return;
+    if (_selectedCores.isEmpty) {
+      // UB2-05: visible empty-selection guard; skip the bridge roundtrip and
+      // report the same message the empty result used to produce.
+      state = state.copyWith(
+        status: UpdateStatus(kind: 'info', message: '未选择检查目标'),
+      );
+      return;
+    }
     // Freeze the current selection for this operation (SP-27): the check
     // carries its own prerelease/viaProxy instead of re-reading live state.
     final prerelease = state.prerelease;
@@ -341,6 +349,13 @@ class UpdateController extends Notifier<UpdateState> {
 
   Future<void> checkAndApply() async {
     if (state.busy) return;
+    if (_selectedCores.isEmpty) {
+      // UB2-05: same empty-selection guard as [checkOnly].
+      state = state.copyWith(
+        status: UpdateStatus(kind: 'info', message: '未选择检查目标'),
+      );
+      return;
+    }
     // Frozen per-operation selection (SP-27): check and apply share the
     // toggles as they were when the user pressed the button.
     final prerelease = state.prerelease;

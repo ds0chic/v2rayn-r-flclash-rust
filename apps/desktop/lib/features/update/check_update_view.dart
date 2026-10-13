@@ -60,6 +60,12 @@ class CheckUpdateView extends ConsumerWidget {
                       '预览版（预发布）',
                       style: TextStyle(fontSize: AppTokens.fontSize),
                     ),
+                    // UB2-05: novice caption.
+                    subtitle: Text(
+                      '是否接收测试版。新手保持关闭。',
+                      style: AppForm.helperStyle(Theme.of(context))
+                          .copyWith(color: context.semantics.muted),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -74,6 +80,12 @@ class CheckUpdateView extends ConsumerWidget {
                     title: const Text(
                       '经代理',
                       style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
+                    // UB2-05: novice caption.
+                    subtitle: Text(
+                      '更新走不走当前代理。能直连外网就关；更新失败先看代理本身通不通。',
+                      style: AppForm.helperStyle(Theme.of(context))
+                          .copyWith(color: context.semantics.muted),
                     ),
                   ),
                 ),

@@ -122,6 +122,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                   ],
                 ),
               ),
+              _warn('恢复会覆盖当前配置，建议先本地备份。', context),
               const SizedBox(height: 6),
               _pathRow(
                 label: '原版 ZIP 路径',
@@ -146,6 +147,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                   ),
                 ],
               ),
+              _warn('导入会覆盖当前配置，建议先本地备份。', context),
               _pathRow(
                 label: '备份列表目录',
                 fieldKey: 'backup-list-field',
@@ -198,7 +200,9 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
               _fieldRow('地址', 'webdav-url', _url),
               _fieldRow('用户名', 'webdav-user', _userName),
               _fieldRow('密码', 'webdav-pass', _password, obscure: true),
+              _caption('密码明文保存（与原版一致），借用电脑时注意。', context),
               _fieldRow('远程目录', 'webdav-dir', _dirName),
+              _caption('目录不存在时的行为待核实，先用“列出远程”确认。', context),
               Wrap(
                 spacing: 8,
                 runSpacing: 4,
@@ -255,6 +259,7 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
                   ),
                 ],
               ),
+              _warn('远程恢复会覆盖当前配置，建议先本地备份。', context),
               if (state.remotes.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -346,6 +351,24 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
     return '${local.year}-${two(local.month)}-${two(local.day)} '
         '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
   }
+
+  Widget _warn(String text, BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      text,
+      style: AppForm.helperStyle(Theme.of(context))
+          .copyWith(color: context.semantics.warning),
+    ),
+  );
+
+  Widget _caption(String text, BuildContext context) => Padding(
+    padding: const EdgeInsets.only(left: 96, bottom: 4),
+    child: Text(
+      text,
+      style: AppForm.helperStyle(Theme.of(context))
+          .copyWith(color: context.semantics.muted),
+    ),
+  );
 
   Widget _section(String title) => Padding(
     padding: const EdgeInsets.only(bottom: 6),

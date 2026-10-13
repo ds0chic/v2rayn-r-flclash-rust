@@ -22,6 +22,12 @@ void main() {
     );
     await tester.pump();
 
+    // UB2-03: expert rows live in a collapsed section; open it first.
+    await tester.ensureVisible(find.text('专家'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('专家'));
+    await tester.pumpAndSettle();
+
     for (final key in <String>[
       'sub-field-remarks',
       'sub-field-url',

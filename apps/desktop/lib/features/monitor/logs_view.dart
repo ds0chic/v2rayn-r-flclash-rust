@@ -215,9 +215,12 @@ class _LogsViewState extends ConsumerState<LogsView> {
                 // ring keeps collecting; resuming resyncs the tail.
                 Row(
                   children: <Widget>[
-                    const Text(
-                      '自动刷新',
-                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    const Tooltip(
+                      message: '关闭后画面冻结，后台采集继续',
+                      child: Text(
+                        '自动刷新',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                     Switch(
                       key: const ValueKey('logs-autorefresh'),
@@ -229,9 +232,12 @@ class _LogsViewState extends ConsumerState<LogsView> {
                 // Scroll-to-end, independent of refresh/collection.
                 Row(
                   children: <Widget>[
-                    const Text(
-                      '自动滚动',
-                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    const Tooltip(
+                      message: '只决定是否跟随到最新一行，不影响采集',
+                      child: Text(
+                        '自动滚动',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                     Switch(
                       key: const ValueKey('logs-autoscroll'),
@@ -241,13 +247,16 @@ class _LogsViewState extends ConsumerState<LogsView> {
                   ],
                 ),
                 // Collection pause: real lines stop entering the Rust ring.
-                OutlinedButton(
-                  key: const ValueKey('logs-pause-collect'),
-                  onPressed: () =>
-                      controller.setCollectingPaused(!state.collectingPaused),
-                  child: Text(
-                    state.collectingPaused ? '继续采集' : '暂停采集',
-                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                Tooltip(
+                  message: '暂停后新日志不再进入（采集真正停止），已收录的不动',
+                  child: OutlinedButton(
+                    key: const ValueKey('logs-pause-collect'),
+                    onPressed: () =>
+                        controller.setCollectingPaused(!state.collectingPaused),
+                    child: Text(
+                      state.collectingPaused ? '继续采集' : '暂停采集',
+                      style: const TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),

@@ -6,10 +6,14 @@ import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 /// so no fake Running implementation (hard-coded pid) can ever ship in `lib/`.
 /// It never reports a running process unless a test explicitly drives it.
 class SyntheticRuntimeBridge implements RuntimeBridge {
-  SyntheticRuntimeBridge({RuntimeView? initial})
+  SyntheticRuntimeBridge({RuntimeView? initial, this.failApply = false})
     : _view = initial ?? const RuntimeView();
 
   RuntimeView _view;
+
+  /// UB2-11 seam: when true, [applyActive] reports failure so tests can
+  /// drive the saved-but-unapplied path without a real core.
+  final bool failApply;
   final StreamController<RuntimeEvent> _controller =
       StreamController<RuntimeEvent>.broadcast();
 
@@ -23,6 +27,12 @@ class SyntheticRuntimeBridge implements RuntimeBridge {
   Future<RuntimeActionResult> applyActive({
     required BigInt expectedRevision,
   }) async {
+    if (failApply) {
+      return const RuntimeActionResult(
+        ok: false,
+        operationId: 'op-synthetic-fail',
+      );
+    }
     _view = RuntimeView(
       state: 'Running',
       hostAlive: true,

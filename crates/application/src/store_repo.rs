@@ -471,8 +471,11 @@ impl ProfileRepository for SqliteProfileRepository {
             ProfileSort::Remarks => " ORDER BY \"Remarks\" COLLATE NOCASE ASC, \"IndexId\" ASC",
             ProfileSort::Address => " ORDER BY \"Address\" ASC, \"IndexId\" ASC",
             ProfileSort::Delay => {
-                " ORDER BY (SELECT \"Delay\" FROM \"ProfileExItem\" e WHERE e.\"IndexId\" = \
-                 \"ProfileItem\".\"IndexId\") ASC, \"IndexId\" ASC"
+                // Untested nodes (no `ProfileExItem` row) sort as delay 0,
+                // matching upstream `SortServers` (`t33?.Delay ?? 0`); failed
+                // tests (-1) come first, then measured delays ascending (S6-07).
+                " ORDER BY COALESCE((SELECT \"Delay\" FROM \"ProfileExItem\" e WHERE e.\"IndexId\" = \
+                 \"ProfileItem\".\"IndexId\"), 0) ASC, \"IndexId\" ASC"
             }
             ProfileSort::IndexId => " ORDER BY \"IndexId\" ASC",
         };
@@ -667,8 +670,11 @@ fn build_where(filter: &ProfileFilter) -> (String, Vec<String>) {
     let mut parts: Vec<String> = Vec::new();
     let mut params: Vec<String> = Vec::new();
     if let Some(text) = &filter.text {
-        let needle = format!("%{text}%");
-        parts.push("(\"Remarks\" LIKE ? OR \"Address\" LIKE ?)".to_string());
+        // User input is a literal substring (S6-06): escape LIKE
+        // metacharacters so `%`/`_` match themselves, matching the in-memory
+        // backend's plain-substring semantics.
+        let needle = format!("%{}%", escape_like(text));
+        parts.push("(\"Remarks\" LIKE ? ESCAPE '\\' OR \"Address\" LIKE ? ESCAPE '\\')".to_string());
         params.push(needle.clone());
         params.push(needle);
     }
@@ -691,6 +697,18 @@ fn build_where(filter: &ProfileFilter) -> (String, Vec<String>) {
         format!(" WHERE {}", parts.join(" AND "))
     };
     (where_sql, params)
+}
+
+/// Escape a user-supplied substring for a `LIKE ? ESCAPE '\'` pattern.
+fn escape_like(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if matches!(c, '\\' | '%' | '_') {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
 }
 
 /// Build a `ProfileItem` row from a domain profile.
@@ -783,6 +801,12 @@ pub fn row_from_profile(profile: &Profile) -> RawRow {
 }
 
 /// Build a domain profile from a `ProfileItem` row.
+///
+/// Note (S6-14): `outbound_tag` is intentionally not round-tripped. Upstream
+/// `ProfileItem` has no such column — `OutboundTag` exists only on routing
+/// rules (mirrored here by `RoutingRule.outbound_tag`) — and no production
+/// logic consumes the profile-level field, so there is nothing to project it
+/// into. The field stays (public API); the database simply carries no value.
 pub fn profile_from_row(row: &RawRow) -> Profile {
     let config_type = row
         .opt_i64("ConfigType")
@@ -1355,6 +1379,52 @@ mod tests {
             .unwrap()
             .items;
         assert_eq!(kept.len(), 2);
+    }
+
+    #[test]
+    fn text_filter_escapes_like_wildcards() {
+        // S6-06: `%`/`_` in user input match literally on both backends.
+        use crate::repository::{PageRequest, ProfileFilter, ProfileRepository, ProfileSort};
+        use crate::synthetic::synthetic_full_profile;
+        fn seed(repo: &mut dyn ProfileRepository) {
+            for (i, remarks) in ["100%", "1000", "10_0"].iter().enumerate() {
+                let mut p = synthetic_full_profile(i as u32 + 1);
+                p.index_id = format!("like-{i}");
+                p.remarks = remarks.to_string();
+                repo.upsert(p).unwrap();
+            }
+        }
+        fn query_remarks(repo: &dyn ProfileRepository, text: &str) -> Vec<String> {
+            repo.query(
+                &ProfileFilter {
+                    text: Some(text.to_string()),
+                    ..Default::default()
+                },
+                ProfileSort::IndexId,
+                PageRequest {
+                    cursor: 0,
+                    page_size: u32::MAX,
+                },
+            )
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|p| p.remarks)
+            .collect()
+        }
+        let mut mem = InMemoryProfileRepository::new();
+        seed(&mut mem);
+        let mut sql = SqliteProfileRepository::open(":memory:").unwrap();
+        seed(&mut sql);
+        for text in ["%", "_", "100%"] {
+            assert_eq!(
+                query_remarks(&mem, text),
+                query_remarks(&sql, text),
+                "backend mismatch for {text:?}"
+            );
+        }
+        assert_eq!(query_remarks(&sql, "%"), vec!["100%".to_string()]);
+        assert_eq!(query_remarks(&sql, "_"), vec!["10_0".to_string()]);
     }
 
     #[test]

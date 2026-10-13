@@ -40,6 +40,12 @@ pub enum ProfileSort {
     #[default]
     Remarks,
     Address,
+    /// Delay ascending. The in-memory backend holds no speedtest results, so
+    /// it falls back to `IndexId` alphabetical order there (documented
+    /// limitation, S6-07 — note this differs from `IndexId` sort itself,
+    /// which is stable insertion order); the SQLite backend orders failed
+    /// (-1), untested (0, upstream `t33?.Delay ?? 0`), then measured delays
+    /// ascending.
     Delay,
     /// Stable insertion order.
     IndexId,

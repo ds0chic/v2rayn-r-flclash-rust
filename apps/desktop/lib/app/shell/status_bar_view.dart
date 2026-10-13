@@ -209,6 +209,9 @@ class StatusBarView extends ConsumerWidget {
             : null,
       ),
     );
+    // U-FIX: the Row-A partitions as a plain list; the LayoutBuilder at the
+    // Row assembly decides whether the badge stays here (wide) or moves to
+    // Row B (narrow). `left.skip(2)` drops exactly [badge, separator].
     final left = <Widget>[
       badge,
       const _Sep(),
@@ -296,7 +299,6 @@ class StatusBarView extends ConsumerWidget {
         ),
       ),
     ];
-    final rowALeft = left;
 
     // Flexible centre: two-line service summary, matching
     // `txtRunningServerDisplay` / `txtRunningInfoDisplay`. Both lines read the
@@ -661,32 +663,44 @@ class StatusBarView extends ConsumerWidget {
         height: AppTokens.statusBarHeight,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // U-FIX (54px overflow family): the badge (+separator, ~91px)
+              // is what pushes Row A past the 800px budget. Below 1000
+              // logical px it moves to Row B (which has room); everything
+              // keeps full text, keys and tooltips, so no information is
+              // removed, truncated or resized. Wide layout is pixel-identical.
+              final narrow = constraints.maxWidth < 1000;
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
-                  ...rowALeft,
-                  const SizedBox(width: 8),
-                  Expanded(child: center),
-                  const SizedBox(width: 8),
-                  ratesBlock,
+                  Row(
+                    children: <Widget>[
+                      // `left` starts with [badge, separator].
+                      ...(narrow ? left.skip(2) : left),
+                      const SizedBox(width: 8),
+                      Expanded(child: center),
+                      const SizedBox(width: 8),
+                      ratesBlock,
+                    ],
+                  ),
+                  Row(
+                    children: <Widget>[
+                      tunBlock,
+                      const _Sep(),
+                      todayBlock,
+                      const _Sep(),
+                      detailsButton,
+                      for (final notice in notices) ...<Widget>[
+                        const _Sep(),
+                        Expanded(child: notice),
+                      ],
+                      if (narrow) ...<Widget>[const _Sep(), badge],
+                    ],
+                  ),
                 ],
-              ),
-              Row(
-                children: <Widget>[
-                  tunBlock,
-                  const _Sep(),
-                  todayBlock,
-                  const _Sep(),
-                  detailsButton,
-                  for (final notice in notices) ...<Widget>[
-                    const _Sep(),
-                    Expanded(child: notice),
-                  ],
-                ],
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),

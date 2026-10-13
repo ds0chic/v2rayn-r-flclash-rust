@@ -29,11 +29,7 @@ class _HangingJobBridge extends SeededSubsBridge {
 
   @override
   c.JobDto? jobView(String jobId) {
-    return c.JobDto(
-      jobId: jobId,
-      kind: 'update_subscription',
-      state: _state,
-    );
+    return c.JobDto(jobId: jobId, kind: 'update_subscription', state: _state);
   }
 
   @override

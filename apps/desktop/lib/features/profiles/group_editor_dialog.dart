@@ -860,7 +860,12 @@ const List<_PickerColumn> _pickerColumns = <_PickerColumn>[
 ];
 
 const Map<String, double> _pickerDefaultWidths = <String, double>{
-  'configType': 70,
+  // U-FIX (r3_picker "vless" truncation): 5-char names need >62px at the
+  // current body token size (measured 62.5 in-test for vless/vmess; longest
+  // enum names shadowsocks/policyGroup measure 137.5), so the default fits
+  // the closed enum max plus the 8px cell padding instead of truncating.
+  // Autofit can still shrink it per content.
+  'configType': 146,
   'remarks': 140,
   'address': 180,
   'port': 60,

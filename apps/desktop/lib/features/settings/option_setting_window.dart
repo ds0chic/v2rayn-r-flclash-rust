@@ -969,33 +969,87 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             label: '启用流量统计 (需重启)',
             value: _bool(gui, 'EnableStatistics'),
             onChanged: (v) => _set('GuiItem', 'EnableStatistics', v),
+            helpText: '在状态栏显示今日流量与节点统计。关闭时显示 --，不是故障。',
           ),
           SettingsCheckbox(
             label: '显示实时速度 (需重启)',
             value: _bool(gui, 'DisplayRealTimeSpeed'),
             onChanged: (v) => _set('GuiItem', 'DisplayRealTimeSpeed', v),
+            helpText: '在状态栏显示实时上传/下载速率。',
           ),
+        ],
+      ),
+      SettingsSection(
+        title: '启动与托盘',
+        child: <Widget>[
+          // F-DESKTOP-003: the toggle only edits the draft. The real Run key
+          // is written after a successful save (upstream `SaveSettingAsync`
+          // runs `AutoStartupHandler.UpdateTask` after `SaveConfig`), so
+          // Cancel never touches host autostart.
+          SettingsCheckbox(
+            key: const ValueKey('autorun-toggle'),
+            label: '开机启动 (可能会不成功)',
+            value: _bool(gui, 'AutoRun'),
+            onChanged: (v) => _set('GuiItem', 'AutoRun', v),
+            helpText: '开机自动运行。可能因权限或杀软拦截而不成功，属正常现象。',
+          ),
+          SettingsCheckbox(
+            key: const ValueKey('settings-hide2tray'),
+            label: '关闭窗口时隐藏至托盘',
+            value: _bool(ui, 'Hide2TrayWhenClose'),
+            onChanged: (v) => _set('UiItem', 'Hide2TrayWhenClose', v),
+            helpText: '点 X 后程序继续在后台运行（到托盘区找图标）。关闭后点 X 即真正退出。',
+          ),
+          SettingsCheckbox(
+            label: '启动后隐藏窗口',
+            value: _bool(ui, 'AutoHideStartup'),
+            onChanged: (v) => _set('UiItem', 'AutoHideStartup', v),
+            helpText: '启动时只留托盘图标、不弹窗口。建议与开机启动配合使用，否则可能误以为没启动。',
+          ),
+          SettingsNumberField(
+            label: '托盘右键菜单配置展示数量限制',
+            value: _int(gui, 'TrayMenuServersLimit'),
+            onChanged: (v) => _set('GuiItem', 'TrayMenuServersLimit', v),
+            helpText: '托盘右键菜单列出的节点个数。默认 20。',
+          ),
+          // Upstream binds this row to IsMacOS visibility; keep the same gate.
+          if (Platform.isMacOS)
+            SettingsCheckbox(
+              label: 'macOS 在 Dock 栏中显示 (需重启)',
+              value: _bool(ui, 'MacOSShowInDock'),
+              onChanged: (v) => _set('UiItem', 'MacOSShowInDock', v),
+            ),
+        ],
+      ),
+      SettingsSection(
+        title: '列表与操作习惯',
+        child: <Widget>[
           SettingsCheckbox(
             key: const ValueKey('settings-keep-older-dedupl'),
             label: '去重时保留序号较小的项',
             value: _bool(gui, 'KeepOlderDedupl'),
             onChanged: (v) => _set('GuiItem', 'KeepOlderDedupl', v),
+            helpText: '导入或订阅去重时，保留序号较小的一条。',
           ),
           SettingsCheckbox(
             label: '自动调整配置列宽在更新订阅后',
             value: _bool(ui, 'EnableAutoAdjustMainLvColWidth'),
             onChanged: (v) =>
                 _set('UiItem', 'EnableAutoAdjustMainLvColWidth', v),
+            helpText: '更新订阅后自动调整节点表格列宽。打开后手动调的宽度会被覆盖。',
           ),
           SettingsCheckbox(
             label: '隐藏 IP 信息',
             value: _bool(ui, 'HideColumnIpInfo'),
             onChanged: (v) => _set('UiItem', 'HideColumnIpInfo', v),
+            helpText: '隐藏节点表的 IP 列，截图分享时建议打开。',
           ),
           SettingsCheckbox(
             label: '主界面双击设为活动',
             value: _bool(ui, 'DoubleClick2Activate'),
             onChanged: (v) => _set('UiItem', 'DoubleClick2Activate', v),
+            helpText: '双击节点直接切换为活动线路。',
+            risk: '误双击会立即切换线路并断流重连。',
           ),
           SettingsDropdown<String>(
             label: '主界面布局方向 (需重启)',
@@ -1012,70 +1066,33 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               'MainGirdOrientation',
               int.tryParse(v ?? '') ?? 1,
             ),
+            helpText: '主界面分栏方向。切“标签”后原来的上下分栏就找不到了。',
           ),
-        ],
-      ),
-      SettingsSection(
-        title: '窗口与托盘',
-        child: <Widget>[
-          SettingsCheckbox(
-            key: const ValueKey('settings-hide2tray'),
-            label: '关闭窗口时隐藏至托盘',
-            value: _bool(ui, 'Hide2TrayWhenClose'),
-            onChanged: (v) => _set('UiItem', 'Hide2TrayWhenClose', v),
-          ),
-          SettingsCheckbox(
-            label: '启动后隐藏窗口',
-            value: _bool(ui, 'AutoHideStartup'),
-            onChanged: (v) => _set('UiItem', 'AutoHideStartup', v),
-          ),
-          // Upstream binds this row to IsMacOS visibility; keep the same gate.
-          if (Platform.isMacOS)
-            SettingsCheckbox(
-              label: 'macOS 在 Dock 栏中显示 (需重启)',
-              value: _bool(ui, 'MacOSShowInDock'),
-              onChanged: (v) => _set('UiItem', 'MacOSShowInDock', v),
-            ),
           SettingsCheckbox(
             label: '启用配置拖放排序 (需重启)',
             value: _bool(ui, 'EnableDragDropSort'),
             onChanged: (v) => _set('UiItem', 'EnableDragDropSort', v),
-          ),
-          SettingsNumberField(
-            label: '托盘右键菜单配置展示数量限制',
-            value: _int(gui, 'TrayMenuServersLimit'),
-            onChanged: (v) => _set('GuiItem', 'TrayMenuServersLimit', v),
-          ),
-          SettingsNumberField(
-            key: const ValueKey('settings-auto-update-interval'),
-            label: '自动更新 Geo 文件的间隔 (小时)',
-            value: _int(gui, 'AutoUpdateInterval'),
-            onChanged: (v) => _set('GuiItem', 'AutoUpdateInterval', v),
-          ),
-          // F-DESKTOP-003: the toggle only edits the draft. The real Run key
-          // is written after a successful save (upstream `SaveSettingAsync`
-          // runs `AutoStartupHandler.UpdateTask` after `SaveConfig`), so
-          // Cancel never touches host autostart.
-          SettingsCheckbox(
-            key: const ValueKey('autorun-toggle'),
-            label: '开机启动 (可能会不成功)',
-            value: _bool(gui, 'AutoRun'),
-            onChanged: (v) => _set('GuiItem', 'AutoRun', v),
+            helpText: '允许在节点表拖拽排序。打开后误拖会打乱顺序。',
           ),
         ],
       ),
       SettingsSection(
-        title: '字体与语言',
+        title: '字体、语言与主题入口',
         child: <Widget>[
           SettingsTextField(
             label: '当前字体 (需重启)',
             value: _str(ui, 'CurrentFontFamily'),
             onChanged: (v) => _set('UiItem', 'CurrentFontFamily', v),
+            helpText: '界面字体。填不存在的名字会回退默认（待核实）。',
           ),
           SettingsNumberField(
             label: '字体大小',
             value: _int(ui, 'CurrentFontSize'),
             onChanged: (v) => _set('UiItem', 'CurrentFontSize', v),
+            // U-B2: display-only "默认" for the canonical 0 (persistence kept).
+            helpText: _int(ui, 'CurrentFontSize') == 0
+                ? '字号。当前：默认（跟随系统）。看不清再调大，过大可能错位。'
+                : '字号。当前：${_int(ui, 'CurrentFontSize')}。调回 0 即恢复默认。',
           ),
           SettingsDropdown<String>(
             key: const ValueKey('settings-language'),
@@ -1093,6 +1110,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               ('Azərbaycan', 'az'),
             ]),
             onChanged: (v) => _set('UiItem', 'CurrentLanguage', v),
+            helpText: '界面语言，需重启生效。建议到主题设置统一调整，此处同样可改。',
           ),
         ],
       ),
@@ -1103,29 +1121,36 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             label: '测速单个超时值',
             value: _int(_group('SpeedTestItem'), 'SpeedTestTimeout'),
             onChanged: (v) => _set('SpeedTestItem', 'SpeedTestTimeout', v),
+            helpText: '单个节点测速最多等几秒。设过大整组测速极慢。',
+            risk: '小于 10 会被自动改回 10。',
           ),
           SettingsNumberField(
             label: '多线程测试时的并发数量',
             value: _int(_group('SpeedTestItem'), 'MixedConcurrencyCount'),
             onChanged: (v) => _set('SpeedTestItem', 'MixedConcurrencyCount', v),
+            helpText: '同时测几个节点。越大越快，也越容易被限流；默认 10 别动。',
+            risk: '小于 10 会被自动改回 10。',
           ),
           SettingsTextField(
             label: '测速文件地址',
             value: _str(_group('SpeedTestItem'), 'SpeedTestUrl'),
             width: 360,
             onChanged: (v) => _set('SpeedTestItem', 'SpeedTestUrl', v),
+            helpText: '下载测速用的文件地址。文件越小越不准，站越慢整组越容易超时。',
           ),
           SettingsTextField(
             label: '真连接测试地址',
             value: _str(_group('SpeedTestItem'), 'SpeedPingTestUrl'),
             width: 360,
             onChanged: (v) => _set('SpeedTestItem', 'SpeedPingTestUrl', v),
+            helpText: '延迟/连通探测地址。国内直连可能不通，可换备选；全组延迟虚高时先看这里。',
           ),
           SettingsTextField(
             label: 'UDP 测试地址',
             value: _str(_group('SpeedTestItem'), 'UdpTestTarget'),
             width: 320,
             onChanged: (v) => _set('SpeedTestItem', 'UdpTestTarget', v),
+            helpText: 'UDP 探测目标。改错会导致 UDP 测试全失败。',
           ),
           SettingsTextField(
             key: const ValueKey('settings-ipapi-url'),
@@ -1133,18 +1158,27 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _str(_group('SpeedTestItem'), 'IPAPIUrl'),
             width: 320,
             onChanged: (v) => _set('SpeedTestItem', 'IPAPIUrl', v),
+            helpText: '“当前连接信息”查询地址。留空用缺省服务，一般不动。',
           ),
         ],
       ),
       SettingsSection(
-        title: '资源与证书',
+        title: '资源、证书与自动更新',
         child: <Widget>[
+          SettingsNumberField(
+            key: const ValueKey('settings-auto-update-interval'),
+            label: '自动更新 Geo 文件的间隔 (小时)',
+            value: _int(gui, 'AutoUpdateInterval'),
+            onChanged: (v) => _set('GuiItem', 'AutoUpdateInterval', v),
+            helpText: '自动更新 Geo/规则集文件的间隔（小时）。0＝关闭；关闭后规则库长期不更新而不自知。',
+          ),
           SettingsTextField(
             key: const ValueKey('settings-sub-convert-url'),
             label: '订阅转换网址 (可选)',
             value: _str(_group('ConstItem'), 'SubConvertUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'SubConvertUrl', v),
+            helpText: '订阅转换服务地址。留空用内置；填错会导致带转换目标的订阅全失败。',
           ),
           SettingsTextField(
             key: const ValueKey('settings-geo-source-url'),
@@ -1152,6 +1186,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _str(_group('ConstItem'), 'GeoSourceUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'GeoSourceUrl', v),
+            helpText: 'Geo 文件下载源。留空用内置，最稳。',
           ),
           SettingsTextField(
             key: const ValueKey('settings-srs-source-url'),
@@ -1159,6 +1194,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             value: _str(_group('ConstItem'), 'SrsSourceUrl'),
             width: 360,
             onChanged: (v) => _set('ConstItem', 'SrsSourceUrl', v),
+            helpText: 'sing-box 规则集下载源。留空用内置。',
           ),
           SettingsTextField(
             key: const ValueKey('settings-route-rules-source-url'),
@@ -1167,12 +1203,14 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             width: 360,
             onChanged: (v) =>
                 _set('ConstItem', 'RouteRulesTemplateSourceUrl', v),
+            helpText: '路由规则集下载源。留空用内置。',
           ),
           SettingsCheckbox(
             key: const ValueKey('settings-enable-hwa'),
             label: '启用硬件加速 (需重启)',
             value: _bool(gui, 'EnableHWA'),
             onChanged: (v) => _set('GuiItem', 'EnableHWA', v),
+            helpText: '界面渲染用显卡加速。老机器花屏/黑窗就关掉。',
           ),
           SettingsDropdown<String>(
             key: const ValueKey('settings-root-cert'),
@@ -1184,6 +1222,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               ('Chrome', 'chrome'),
             ]),
             onChanged: (v) => _set('GuiItem', 'RootCertProvider', v),
+            helpText: '软件自己下载东西时信任谁。默认 system；下载失败才换。',
           ),
         ],
       ),
@@ -1253,42 +1292,50 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       SettingsSection(
         title: '历史保留（原版 Clash UI 设置）',
         child: <Widget>[
+          const SettingsNote('代理/连接面板中也可即时调整自动刷新与排序，此处保留兼容，改一处处处生效。'),
           SettingsCheckbox(
             label: '启用 IPv6',
             value: _bool(_group('ClashUIItem'), 'EnableIPv6'),
             onChanged: (v) => _set('ClashUIItem', 'EnableIPv6', v),
+            helpText: '待核实：mihomo 相关，语义待核实，请勿凭字面开启。',
           ),
           SettingsCheckbox(
             label: '合并 Mixin',
             value: _bool(_group('ClashUIItem'), 'EnableMixinContent'),
             onChanged: (v) => _set('ClashUIItem', 'EnableMixinContent', v),
+            helpText: '待核实：语义待核实，请勿凭字面开启。',
           ),
           SettingsDropdown<int>(
             label: '代理排序',
             value: _int(_group('ClashUIItem'), 'ProxiesSorting'),
             items: _items(<(String, int)>[('延迟', 0), ('名称', 1)]),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesSorting', v),
+            helpText: '代理面板排序：按延迟快的在前（超时沉底不是丢了）。',
           ),
           SettingsCheckbox(
             label: '代理自动刷新',
             value: _bool(_group('ClashUIItem'), 'ProxiesAutoRefresh'),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesAutoRefresh', v),
+            helpText: '代理面板每隔几秒自动刷一次。',
           ),
           SettingsNumberField(
             label: '代理刷新间隔',
             value: _int(_group('ClashUIItem'), 'ProxiesRefreshInterval'),
             onChanged: (v) => _set('ClashUIItem', 'ProxiesRefreshInterval', v),
+            helpText: '自动刷新的间隔（秒）。设为 0 或负数等同关闭。',
           ),
           SettingsCheckbox(
             label: '连接自动刷新',
             value: _bool(_group('ClashUIItem'), 'ConnectionsAutoRefresh'),
             onChanged: (v) => _set('ClashUIItem', 'ConnectionsAutoRefresh', v),
+            helpText: '连接表每隔几秒自动刷一次。',
           ),
           SettingsNumberField(
             label: '连接刷新间隔',
             value: _int(_group('ClashUIItem'), 'ConnectionsRefreshInterval'),
             onChanged: (v) =>
                 _set('ClashUIItem', 'ConnectionsRefreshInterval', v),
+            helpText: '自动刷新的间隔（秒）。设为 0 或负数等同关闭。',
           ),
         ],
       ),

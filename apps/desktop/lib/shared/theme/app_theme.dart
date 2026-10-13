@@ -109,21 +109,21 @@ class AppTokens {
   static const double toolbarGroupFilterGap = 12;
   static const double toolbarFilterWidth = 200;
 
-  // -- Neutrals (light) --------------------------------------------------
-  static const Color lightSurface = Color(0xFFF3F4F6);
-  static const Color lightSurfaceContainer = Color(0xFFEAECEF);
-  static const Color lightSurfaceHighest = Color(0xFFE1E4E8);
-  static const Color lightOutline = Color(0xFFB9BEC6);
+  // -- Neutrals (light, cool grey) ----------------------------------------
+  static const Color lightSurface = Color(0xFFF4F6F7);
+  static const Color lightSurfaceContainer = Color(0xFFE8ECEF);
+  static const Color lightSurfaceHighest = Color(0xFFDDE3E8);
+  static const Color lightOutline = Color(0xFFAEB8C2);
   static const Color lightGrid = Color(0x33000000);
   static const Color lightHover = Color(0x14000000);
   static const Color lightZebra = Color(0x08000000);
   static const Color lightDisabled = Color(0x61000000);
 
-  // -- Neutrals (dark) ---------------------------------------------------
-  static const Color darkSurface = Color(0xFF1E2126);
-  static const Color darkSurfaceContainer = Color(0xFF262A31);
-  static const Color darkSurfaceHighest = Color(0xFF2E333B);
-  static const Color darkOutline = Color(0xFF4A505A);
+  // -- Neutrals (dark, layered slate, never pure black) --------------------
+  static const Color darkSurface = Color(0xFF1B2228);
+  static const Color darkSurfaceContainer = Color(0xFF232C33);
+  static const Color darkSurfaceHighest = Color(0xFF2C3640);
+  static const Color darkOutline = Color(0xFF4A5560);
   static const Color darkGrid = Color(0x33FFFFFF);
   static const Color darkHover = Color(0x1FFFFFFF);
   static const Color darkZebra = Color(0x0AFFFFFF);
@@ -363,8 +363,12 @@ extension AppSemanticContext on BuildContext {
 }
 
 /// Upstream `UIItem.ColorPrimaryName` values are Material swatch names. Map
-/// them onto concrete seeds; unknown names fall back to the default blue.
+/// them onto concrete seeds; unknown names fall back to the default teal-green.
+/// `TealGreen` is a v2rayN-R addition (display-only seed choice); the persisted
+/// `ColorPrimaryName` default stays `null` (see `settings_defaults.dart`), so
+/// this fallback never rewrites any saved configuration.
 const Map<String, Color> accentColors = <String, Color>{
+  'TealGreen': Color(0xFF0E6B5E),
   'Red': Color(0xFFF44336),
   'Pink': Color(0xFFE91E63),
   'Purple': Color(0xFF9C27B0),
@@ -386,7 +390,7 @@ const Map<String, Color> accentColors = <String, Color>{
   'BlueGrey': Color(0xFF607D8B),
 };
 
-const Color defaultAccent = Color(0xFF1565C0);
+const Color defaultAccent = Color(0xFF0E6B5E);
 
 Color accentColorFor(String? name) => accentColors[name] ?? defaultAccent;
 

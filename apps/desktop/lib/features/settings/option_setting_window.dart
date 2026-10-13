@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/preset_dialog.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
@@ -69,6 +70,16 @@ class OptionSettingWindow extends ConsumerStatefulWidget {
       _OptionSettingWindowState();
 }
 
+/// UB2-11: Enter-to-save gate (condition C: save only when a single-line,
+/// non-search text field holds focus; multiline fields, dropdowns, buttons
+/// and the settings search keep their native behavior). Pure for testability;
+/// the window feeds it from the focused [TextField].
+bool enterTriggersSave({
+  required bool focusedIsTextField,
+  required bool focusedIsMultiline,
+  required bool focusedIsSearch,
+}) => focusedIsTextField && !focusedIsMultiline && !focusedIsSearch;
+
 class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 5, vsync: this);
@@ -76,6 +87,34 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
   bool _draftInit = false;
   bool _loadFailed = false;
   String? _error;
+
+  /// UB2-11: last-saved snapshot of the draft (deep copy). Null before the
+  /// first seed; dirty = leaf differences vs this snapshot.
+  Map<String, dynamic>? _savedDraft;
+
+  /// UB2-11: latest in-process save left the window open saved-but-unapplied.
+  bool _savedUnapplied = false;
+
+  /// UB2-11: PopScope gate. Set before any programmatic close so the dirty
+  /// guard never intercepts our own pops.
+  bool _allowPop = false;
+
+  bool get _isDirty =>
+      _savedDraft != null && countDraftDifferences(_draft, _savedDraft!) > 0;
+
+  int get _dirtyCount =>
+      _savedDraft == null ? 0 : countDraftDifferences(_draft, _savedDraft!);
+
+  void _markClean() {
+    _savedDraft = jsonDecode(jsonEncode(_draft)) as Map<String, dynamic>;
+  }
+
+  void _markGroupsClean(Iterable<String> groups) {
+    if (_savedDraft == null) return;
+    for (final group in groups) {
+      _savedDraft![group] = jsonDecode(jsonEncode(_draft[group]));
+    }
+  }
 
   /// Whole-document revision the in-process draft was seeded from. The draft
   /// passes through `mergeWithSettingsDefaults` (a deep copy), which drops the
@@ -145,6 +184,11 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         _draft = mergeWithSettingsDefaults(document);
         _draftInit = true;
         _loadFailed = false;
+        // UB2-11: see the independent seed site — snapshot after first build.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _markClean();
+        });
       });
     } on Object {
       if (!mounted) return;
@@ -365,6 +409,15 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       );
       _draftRevision = state.revision;
       _draftInit = true;
+      // UB2-11: snapshot after the first full build, not here. Row builders
+      // lazily create absent groups in the draft during build (e.g. the
+      // null-default CoreTypeItem); snapshotting now would flag that
+      // build-time creation as user dirt. No setState: pre-snapshot the
+      // dirty count reads 0 either way.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _markClean();
+      });
     }
     if (widget.host != null && !_draftInit) {
       if (_loadFailed) {
@@ -606,7 +659,9 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     if (widget.standalone) {
       return CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
-          const SingleActivator(LogicalKeyboardKey.escape): _cancel,
+          // UB2-11: Esc confirms first when dirty (condition C).
+          const SingleActivator(LogicalKeyboardKey.escape): _maybeCancel,
+          const SingleActivator(LogicalKeyboardKey.enter): _handleEnter,
         },
         child: Focus(
           autofocus: true,
@@ -628,6 +683,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: <Widget>[
+                      // UB2-11 tri-state row; button order unchanged.
+                      Expanded(child: _stateRow()),
                       for (final action in actions)
                         Padding(
                           padding: const EdgeInsets.only(left: 8),
@@ -643,26 +700,134 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       );
     }
 
-    return AlertDialog(
-      // Upstream `OptionSettingWindow` Title = ResUI.menuSetting (设置).
-      title: Text(
-        context.tr('menuSetting'),
-        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+    // UB2-11: route-level Esc lands here (barrier is non-dismissible, see
+    // show()); dirty drafts confirm first, clean ones pop natively. The
+    // Cancel button keeps its direct-discard contract (fix08); only Esc
+    // confirms. Enter saves only from single-line fields ([_handleEnter]).
+    // The explicit Esc binding consumes the key event (no double confirm
+    // with the route DismissAction); PopScope backstops any other pop.
+    return PopScope(
+      canPop: _allowPop || !_isDirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _maybeCancel();
+      },
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          const SingleActivator(LogicalKeyboardKey.escape): _maybeCancel,
+          const SingleActivator(LogicalKeyboardKey.enter): _handleEnter,
+        },
+        child: AlertDialog(
+          // Upstream `OptionSettingWindow` Title = ResUI.menuSetting (设置).
+          title: Text(
+            context.tr('menuSetting'),
+            style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+          ),
+          contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          content: SizedBox(width: 720, height: 520, child: tabColumn),
+          // UB2-11 tri-state row first; button order unchanged.
+          actions: <Widget>[_stateRow(), ...actions],
+        ),
       ),
-      contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      content: SizedBox(width: 720, height: 520, child: tabColumn),
-      actions: actions,
     );
   }
 
-  /// 取消 / Esc / title-bar close discard the draft without saving.
+  /// 取消 / Esc-clean / title-bar close discard the draft without saving.
+  /// The Cancel button always discards directly (fix08 contract); Esc goes
+  /// through [_maybeCancel] and confirms first when dirty (condition C).
   void _cancel() {
+    _allowPop = true;
     final host = widget.host;
     if (host != null) {
       host.close();
       return;
     }
     Navigator.of(context).pop();
+  }
+
+  /// UB2-11 (condition C): Esc confirms when dirty, closes directly when
+  /// clean. Shared by the standalone shortcut, the dialog route PopScope and
+  /// the host (second-engine) path, which funnels through [_cancel].
+  Future<void> _maybeCancel() async {
+    if (!_isDirty) {
+      _cancel();
+      return;
+    }
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(
+          '放弃未保存的修改？',
+          style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+        ),
+        content: Text(
+          '有 $_dirtyCount 处修改尚未保存，退出将丢弃它们。',
+          style: const TextStyle(fontSize: AppTokens.fontSize),
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const ValueKey('settings-discard-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('继续编辑'),
+          ),
+          FilledButton(
+            key: const ValueKey('settings-discard-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('放弃修改'),
+          ),
+        ],
+      ),
+    );
+    if (discard == true && mounted) _cancel();
+  }
+
+  /// UB2-11 (condition C): Enter saves only when a single-line, non-search
+  /// text field holds focus. Multiline fields, dropdowns, buttons and the
+  /// settings search keep their native behavior.
+  void _handleEnter() {
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    final field = focusedContext?.findAncestorWidgetOfExactType<TextField>();
+    if (enterTriggersSave(
+      focusedIsTextField: field != null,
+      focusedIsMultiline: field != null && field.maxLines != 1,
+      focusedIsSearch:
+          field != null && identical(field.controller, _searchController),
+    )) {
+      _save();
+    }
+  }
+
+  /// UB2-11 tri-state row for the bottom bar: unsaved-draft count, saved-but-
+  /// unapplied, or the applied desired/applied revision pair (same
+  /// `runtimeControllerProvider` source the status bar renders).
+  Widget _stateRow() {
+    final dirty = _dirtyCount;
+    final String text;
+    final Color color;
+    if (dirty > 0) {
+      text = '草稿未保存 $dirty 处';
+      color = context.semantics.warning;
+    } else if (_savedUnapplied) {
+      text = '已保存，未应用';
+      color = context.semantics.warning;
+    } else {
+      // UB2-11: the standalone second-engine path can build without a
+      // ProviderScope (r3_wpf pumps it scopeless); fall back to the unknown
+      // pair instead of crashing on containerOf's StateError. With a scope
+      // the watch stays live like the status bar.
+      String rev;
+      try {
+        rev = ref.watch(runtimeControllerProvider).revisionLabel;
+      } on StateError {
+        rev = 'rev: -/-';
+      }
+      text = '已应用 $rev';
+      color = context.semantics.muted;
+    }
+    return Text(
+      text,
+      key: const ValueKey('settings-tristate'),
+      style: TextStyle(fontSize: AppTokens.fontSizeCaption, color: color),
+    );
   }
 
   /// Upstream `OptionSettingViewModel.SaveSettingAsync` rejects a non-numeric
@@ -783,8 +948,15 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         .read(settingsControllerProvider.notifier)
         .saveAndApply(_draft, expectedRevision: _draftRevision);
     if (!mounted) return;
+    // UB2-11: remember a saved-but-unapplied outcome for the tri-state row;
+    // a full success closes the window (snapshot refresh is moot but kept).
+    // The snapshot refreshes on every accepted save (persisted == draft now),
+    // so the row can show saved-unapplied instead of stale dirt.
+    if (outcome.saved) _markClean();
+    _savedUnapplied = outcome.saved && !outcome.applied;
     if (outcome.ok) {
-      Navigator.of(context).pop();
+      _markClean();
+      _cancel();
     } else {
       setState(() {
         _error = outcome.message ?? 'error.settings_save_failed';
@@ -892,6 +1064,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         _draft[group] = canonicalCopy(_canonical[group]);
       }
       _draftRevision = ref.read(settingsControllerProvider).revision;
+      // UB2-11: the reset groups now match the persisted document again.
+      _markGroupsClean(groups);
     });
   }
 
@@ -938,6 +1112,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           _draft[group] = jsonDecode(jsonEncode(doc[group]));
         }
         _draftRevision = ref.read(settingsControllerProvider).revision;
+        // UB2-11: applied groups match the persisted document again.
+        _markGroupsClean(outcome.groups);
       });
     } else {
       setState(() {});

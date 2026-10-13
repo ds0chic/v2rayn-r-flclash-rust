@@ -93,6 +93,37 @@ bool _settingsGroupEquals(Object? draftValue, Object? canonicalValue) {
   return settingsValueEquals(draftValue, canonicalValue);
 }
 
+/// UB2-11: leaf-level difference count between the settings-window draft and
+/// its last-saved snapshot (tri-state row + Esc-dirty-confirm source). Maps
+/// recurse; a differing list counts once; a key missing on one side counts
+/// only when the present value is meaningfully non-blank (a missing key reads
+/// as its null default, matching the UB2-08 missing≡null semantics). Pure.
+int countDraftDifferences(Object? draft, Object? saved) {
+  if (draft is Map && saved is Map) {
+    var count = 0;
+    final keys = <Object?>{...draft.keys, ...saved.keys};
+    for (final key in keys) {
+      final hasDraft = draft.containsKey(key);
+      final hasSaved = saved.containsKey(key);
+      if (!hasDraft || !hasSaved) {
+        if (!_isBlankValue(hasDraft ? draft[key] : saved[key])) count++;
+        continue;
+      }
+      count += countDraftDifferences(draft[key], saved[key]);
+    }
+    return count;
+  }
+  return settingsValueEquals(draft, saved) ? 0 : 1;
+}
+
+bool _isBlankValue(Object? value) {
+  if (value == null) return true;
+  if (value is String && value.isEmpty) return true;
+  if (value is List && value.isEmpty) return true;
+  if (value is Map && value.isEmpty) return true;
+  return false;
+}
+
 /// Per-phase apply fact for the last save/retry (SP-12).
 ///
 /// `save` is the persistence fact; `core`/`platform`/`autostart` are the

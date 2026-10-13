@@ -674,7 +674,8 @@ fn build_where(filter: &ProfileFilter) -> (String, Vec<String>) {
         // metacharacters so `%`/`_` match themselves, matching the in-memory
         // backend's plain-substring semantics.
         let needle = format!("%{}%", escape_like(text));
-        parts.push("(\"Remarks\" LIKE ? ESCAPE '\\' OR \"Address\" LIKE ? ESCAPE '\\')".to_string());
+        parts
+            .push("(\"Remarks\" LIKE ? ESCAPE '\\' OR \"Address\" LIKE ? ESCAPE '\\')".to_string());
         params.push(needle.clone());
         params.push(needle);
     }

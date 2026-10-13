@@ -309,13 +309,26 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      child: const IgnorePointer(
-                        child: EmptyState(
-                          message: '暂无节点',
-                          semanticIcon: 'empty',
-                          detail: '可从剪贴板导入或添加节点',
-                          messageKey: ValueKey('profiles-empty'),
-                        ),
+                      // U-B1: the empty state carries tappable actions, so it
+                      // must receive pointer events (the old IgnorePointer
+                      // would swallow the buttons).
+                      child: EmptyState(
+                        message: '暂无节点',
+                        semanticIcon: 'empty',
+                        detail: '可从剪贴板导入或添加订阅',
+                        messageKey: const ValueKey('profiles-empty'),
+                        actions: <Widget>[
+                          FilledButton.tonal(
+                            key: const ValueKey('empty-action-import'),
+                            onPressed: () => importFromClipboard(context, ref),
+                            child: const Text('从剪贴板导入'),
+                          ),
+                          OutlinedButton(
+                            key: const ValueKey('empty-action-sub'),
+                            onPressed: () => openSubSettings(context, ref),
+                            child: const Text('添加订阅'),
+                          ),
+                        ],
                       ),
                     ),
                 ],

@@ -8,6 +8,7 @@ import 'package:v2rayn_desktop/features/monitor/clash_ui_config.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/features/update/check_update_view.dart';
 import 'package:v2rayn_desktop/shared/widgets/empty_state.dart';
 
 /// Clash proxies tab (F-MONITOR-004, LAY-CLASHPROXY-001).
@@ -158,6 +159,13 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
         message: state.proxiesMessage ?? '当前内核不提供 Clash API',
         semanticIcon: 'proxies',
         messageKey: const ValueKey('proxies-unsupported'),
+        actions: <Widget>[
+          OutlinedButton(
+            key: const ValueKey('empty-action-update'),
+            onPressed: () => showCheckUpdateWindow(context, ref),
+            child: const Text('查看内核更新'),
+          ),
+        ],
       );
     }
 
@@ -232,11 +240,18 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
         const Divider(height: 1),
         Expanded(
           child: state.proxies.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   message: '暂无代理数据',
                   semanticIcon: 'proxies',
                   detail: '内核提供 Clash API 后自动加载',
-                  messageKey: ValueKey('proxies-empty'),
+                  messageKey: const ValueKey('proxies-empty'),
+                  actions: <Widget>[
+                    OutlinedButton(
+                      key: const ValueKey('empty-action-refresh'),
+                      onPressed: controller.refreshProxies,
+                      child: const Text('刷新'),
+                    ),
+                  ],
                 )
               : ListView(
                   key: const ValueKey('proxies-list'),

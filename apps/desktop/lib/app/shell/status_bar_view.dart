@@ -13,6 +13,7 @@ import 'package:v2rayn_desktop/features/runtime/tun_toggle.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
+import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
@@ -176,7 +177,7 @@ class StatusBarView extends ConsumerWidget {
           hasUnappliedChanges: runtime.hasUnappliedChanges,
         ),
         onTap: badgeKind == StatusBadgeKind.failed
-            ? () => showFailureDetails(context, runtime)
+            ? () => showFailureDetails(context, ref, runtime)
             : null,
       ),
     );
@@ -469,17 +470,7 @@ class StatusBarView extends ConsumerWidget {
                 const SizedBox(width: 4),
                 TextButton(
                   key: const ValueKey('runtime-error-retry'),
-                  // Compact desktop density (SP-19): the notice row stays at
-                  // text height instead of forcing mobile-size tap targets.
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    minimumSize: const Size(0, 24),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: const TextStyle(fontSize: AppTokens.fontSize),
-                  ),
+                  style: _noticeButtonStyle(),
                   onPressed: () => ref
                       .read(runtimeControllerProvider.notifier)
                       .retryFailed(),
@@ -487,19 +478,21 @@ class StatusBarView extends ConsumerWidget {
                 ),
                 TextButton(
                   key: const ValueKey('runtime-error-view'),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    minimumSize: const Size(0, 24),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: const TextStyle(fontSize: AppTokens.fontSize),
-                  ),
-                  onPressed: () => showFailureDetails(context, runtime),
+                  style: _noticeButtonStyle(),
+                  onPressed: () => showFailureDetails(context, ref, runtime),
                   child: const Text('查看失败'),
                 ),
               ],
+              // U-B1 actionable errors: every runtime failure offers a next
+              // step routed by the error code (P4). Rendered for any runtime
+              // error, not only retryable ones.
+              const SizedBox(width: 4),
+              TextButton(
+                key: const ValueKey('runtime-error-next'),
+                style: _noticeButtonStyle(),
+                onPressed: () => _onErrorNext(context, ref, runtime),
+                child: const Text('下一步'),
+              ),
             ],
           ),
         )
@@ -642,10 +635,80 @@ String _runningSummary(BuildContext context, RuntimeView runtime) {
 
 String _shortId(String id) => id.length > 12 ? '${id.substring(0, 12)}…' : id;
 
+/// Compact desktop density (SP-19): notice-row buttons stay at text height
+/// instead of forcing mobile-size tap targets. Shared by the retry / view /
+/// next entries so they read as one row.
+ButtonStyle _noticeButtonStyle() {
+  return TextButton.styleFrom(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    minimumSize: const Size(0, 24),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    textStyle: const TextStyle(fontSize: AppTokens.fontSize),
+  );
+}
+
+/// Where the "下一步" button routes a runtime failure. Conservative prefix
+/// matching: unknown codes fall through to the logs tab (never a guess).
+enum ErrorNextTarget { adminGuidance, availabilityProbe, subSettings, logs }
+
+ErrorNextTarget errorNextTarget(String code) {
+  final upper = code.toUpperCase();
+  if (upper.contains('TUN') ||
+      upper.contains('ADMIN') ||
+      upper.contains('PRIVILEG') ||
+      upper.contains('UAC') ||
+      upper.contains('HELPER')) {
+    return ErrorNextTarget.adminGuidance;
+  }
+  if (upper.contains('PORT') ||
+      upper.contains('BIND') ||
+      upper.contains('ADDR') ||
+      upper.contains('LISTEN')) {
+    return ErrorNextTarget.availabilityProbe;
+  }
+  if (upper.contains('SUB') || upper.contains('FEED')) {
+    return ErrorNextTarget.subSettings;
+  }
+  return ErrorNextTarget.logs;
+}
+
+/// Switch to the logs tab, honouring the tab-layout index shift (tab layout
+/// leads with the profiles tab, so logs sits at index 1 there).
+void _openLogsTab(WidgetRef ref) {
+  final shell = ref.read(uiShellControllerProvider.notifier);
+  final layout = ref.read(uiShellControllerProvider).layout;
+  shell.setTabIndex(layout == AppLayoutMode.tab ? 1 : 0);
+}
+
+/// U-B1 actionable errors (UX1-04): route a runtime failure to its most
+/// useful next step. Guidance is text only (the elevated relaunch stays an
+/// explicit menu action); probes and navigation reuse existing commands.
+void _onErrorNext(BuildContext context, WidgetRef ref, RuntimeView runtime) {
+  final shell = ref.read(uiShellControllerProvider.notifier);
+  switch (errorNextTarget(runtime.error?.code ?? '')) {
+    case ErrorNextTarget.adminGuidance:
+      shell.setMessage('TUN 需要管理员权限：请用“设置 → 以管理员身份重启”后重试');
+    case ErrorNextTarget.availabilityProbe:
+      runAvailabilityTest(ref);
+    case ErrorNextTarget.subSettings:
+      openSubSettings(context, ref);
+    case ErrorNextTarget.logs:
+      _openLogsTab(ref);
+  }
+}
+
 /// SP-17 "查看当前失败": the retained actual stays on screen while the dialog
 /// names the failed target, operation, time and structured cause with a retry
 /// entry. Never presents the failed desired target as applied.
-Future<void> showFailureDetails(BuildContext context, RuntimeView runtime) {
+///
+/// U-B1: the dialog is actionable (view logs / retry navigate with existing
+/// commands). Rollback ships disabled: no snapshot API exists on the backend,
+/// so the entry explains instead of pretending.
+Future<void> showFailureDetails(
+  BuildContext context,
+  WidgetRef ref,
+  RuntimeView runtime,
+) {
   final error = runtime.error;
   if (error == null) return Future.value();
   return showDialog<void>(
@@ -669,6 +732,30 @@ Future<void> showFailureDetails(BuildContext context, RuntimeView runtime) {
         ],
       ),
       actions: <Widget>[
+        Tooltip(
+          message: '需要后端配置快照支持，暂未提供',
+          child: TextButton(
+            key: const ValueKey('failure-details-rollback'),
+            onPressed: null,
+            child: const Text('回退到上一个可用节点'),
+          ),
+        ),
+        TextButton(
+          key: const ValueKey('failure-details-logs'),
+          onPressed: () {
+            Navigator.of(context).pop();
+            _openLogsTab(ref);
+          },
+          child: const Text('查看日志'),
+        ),
+        TextButton(
+          key: const ValueKey('failure-details-retry'),
+          onPressed: () {
+            Navigator.of(context).pop();
+            ref.read(runtimeControllerProvider.notifier).retryFailed();
+          },
+          child: const Text('重试'),
+        ),
         TextButton(
           key: const ValueKey('failure-details-close'),
           onPressed: () => Navigator.of(context).pop(),

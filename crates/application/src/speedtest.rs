@@ -23,7 +23,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use domain::{CancellationToken, DomainError, Profile, SpeedTestAction};
@@ -1302,18 +1302,43 @@ pub fn tcping(address: &str, port: i32, timeout: Duration, ct: &CancellationToke
     let Some(addr) = addrs.next() else {
         return -1;
     };
-    let start = Instant::now();
-    match TcpStream::connect_timeout(&addr, timeout.min(TCPING_CONNECT_TIMEOUT)) {
-        Ok(_stream) => {
-            if ct.is_cancelled() {
-                return -1;
-            }
-            // A loopback connect can be sub-millisecond. Report at least 1 ms so
-            // a successful measurement is never confused with "not tested"
-            // (upstream `Delay == 0` is the untested default).
-            (start.elapsed().as_millis() as i32).max(1)
+    let effective = timeout.min(TCPING_CONNECT_TIMEOUT);
+    // `connect_timeout` is uninterruptible, and std has no cancellable connect
+    // (upstream links its own CTS into `ConnectAsync` instead). Run the blocking
+    // connect on a short-lived helper thread and poll for it, so a cancel
+    // preempts the wait instead of riding out the full timeout. A helper left
+    // behind by a cancel always terminates on its own: the connect itself is
+    // still bounded by `effective`, and its result is simply dropped.
+    let (tx, rx) = mpsc::channel();
+    let spawned = std::thread::Builder::new()
+        .name("tcping-connect".into())
+        .spawn(move || {
+            let start = Instant::now();
+            let connected = TcpStream::connect_timeout(&addr, effective).is_ok();
+            let _ = tx.send((connected, start.elapsed()));
+        })
+        .is_ok();
+    if !spawned {
+        return -1;
+    }
+    loop {
+        if ct.is_cancelled() {
+            return -1;
         }
-        Err(_) => -1,
+        match rx.recv_timeout(Duration::from_millis(50)) {
+            Ok((true, elapsed)) => {
+                if ct.is_cancelled() {
+                    return -1;
+                }
+                // A loopback connect can be sub-millisecond. Report at least 1 ms so
+                // a successful measurement is never confused with "not tested"
+                // (upstream `Delay == 0` is the untested default).
+                return (elapsed.as_millis() as i32).max(1);
+            }
+            Ok((false, _)) => return -1,
+            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(mpsc::RecvTimeoutError::Disconnected) => return -1,
+        }
     }
 }
 
@@ -2619,6 +2644,45 @@ mod tests {
         assert!(outcome.cancelled());
         assert_eq!(outcome.results[0].delay, None);
         assert!(!outcome.results[0].failed);
+    }
+
+    #[test]
+    fn cancel_preempts_blocked_tcping_run() {
+        // S5-03: cancelling while Tcping connects are blocked must return
+        // promptly, not wait out the 5s connect timeout per worker.
+        // `10.255.255.1` is TEST-NET documentation space: unroutable, so the
+        // connects stay blocked until the timeout on a normal host.
+        let ns: Vec<TestNode> = (0..4)
+            .map(|i| TestNode {
+                index_id: format!("c{i}"),
+                address: "10.255.255.1".into(),
+                port: 81,
+                config_type: 5,
+                core_type: 1,
+            })
+            .collect();
+        let runner = SpeedTestRunner::new(
+            SpeedTestSettings {
+                page_size: 100,
+                delay_interval: Duration::from_secs(0),
+                ..SpeedTestSettings::default()
+            },
+            Arc::new(UnsupportedSession),
+        );
+        let token = CancellationToken::new();
+        let canceller = token.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            canceller.cancel();
+        });
+        let start = Instant::now();
+        let outcome = runner.run(SpeedTestAction::Tcping, &ns, &token, |_| {});
+        let elapsed = start.elapsed();
+        assert_eq!(outcome.stop_reason, StopReason::Cancelled);
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "cancel must preempt blocked connects, took {elapsed:?}"
+        );
     }
 
     #[test]

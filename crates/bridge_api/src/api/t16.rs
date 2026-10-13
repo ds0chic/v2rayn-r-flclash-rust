@@ -838,6 +838,7 @@ pub async fn t16_apply_core_update(
     let service = update_service();
     apply_core_update_inner(
         &service,
+        engine(),
         cores,
         prerelease,
         proxy,
@@ -847,10 +848,14 @@ pub async fn t16_apply_core_update(
     .await
 }
 
-// S8-05 seam: same rationale as `check_updates_inner`; the post-loop
-// runtime-plan restart stays inside because it is local engine work.
+// S8-05 seam: same rationale as `check_updates_inner`. The engine travels
+// explicitly so tests can run the managed stop/replace/restart cycle against
+// an isolated engine; production passes the global one. The old post-loop
+// restart is gone: `apply_core_managed` restarts only a previously running
+// target, so keeping the tail would restart twice.
 async fn apply_core_update_inner(
     service: &application::UpdateService,
+    engine: &AppEngine,
     cores: Vec<String>,
     prerelease: bool,
     proxy: Option<String>,
@@ -946,10 +951,13 @@ async fn apply_core_update_inner(
             dgst_url: check.dgst_url,
             proxy: proxy.clone(),
         };
+        // Managed wiring: a running target stops its project-held session,
+        // replaces, then restarts from its run plan; an idle target installs
+        // exactly like the original path. Failure rollback lives inside.
         match update_step(
             "apply_core_update",
             stage_timeout,
-            service.apply_core(&request, &token),
+            service.apply_core_managed(engine, &request, &token),
         )
         .await
         {
@@ -967,49 +975,6 @@ async fn apply_core_update_inner(
                     applied,
                     skipped,
                     error: Some(error),
-                }
-            }
-        }
-    }
-    if !applied.is_empty() && engine().applied_session().is_some() {
-        if let Some(target_id) = engine().active_profile() {
-            let active_core = match engine().profile_by_id(&target_id).and_then(|profile| {
-                profile
-                    .ok_or_else(|| DomainError::not_found("profile", &target_id))
-                    .and_then(|profile| engine().resolve_target_core(&profile))
-            }) {
-                Ok(core) => core,
-                Err(error) => {
-                    return ApplyCoreResultDto {
-                        ok: false,
-                        applied,
-                        skipped,
-                        error: Some(error_dto(error)),
-                    }
-                }
-            };
-            if applied
-                .iter()
-                .any(|item| item.core.eq_ignore_ascii_case(active_core.as_str()))
-            {
-                let revision = engine().desired_revision();
-                let hints = application::tun_hints_from_env();
-                let result = engine()
-                    .build_runtime_plan_with_hints(&target_id, revision, &hints)
-                    .and_then(|plan| {
-                        engine().apply_runtime_for_target(
-                            plan,
-                            &target_id,
-                            domain::DesiredRevision::new(revision),
-                        )
-                    });
-                if let Err(error) = result {
-                    return ApplyCoreResultDto {
-                        ok: false,
-                        applied,
-                        skipped,
-                        error: Some(error_dto(error)),
-                    };
                 }
             }
         }
@@ -1320,6 +1285,14 @@ pub fn t16_app_restart_command() -> AppRestartCommandDto {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use application::runtime_client::{
+        ApplyOutcome, OperationStatusView, RuntimeClient, RuntimeSnapshot,
+    };
+    use domain::{CancelOutcome, ConfigType, DesiredRevision, JobId, Profile, RuntimeState};
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    };
 
     #[test]
     fn update_targets_list_builtins_with_caps() {
@@ -1639,6 +1612,7 @@ mod tests {
         let service = s8_05_mock_service("apply", false);
         let result = s8_05_block_on(apply_core_update_inner(
             &service,
+            engine(),
             vec!["xray".to_string()],
             false,
             None,
@@ -1703,5 +1677,352 @@ mod tests {
             Err(error) => error,
         };
         assert_eq!(inner_err.code, codes::UNAVAILABLE);
+    }
+
+    // Managed-update wiring: `t16_apply_core_update` must route a running
+    // target through `apply_core_managed` (stop -> replace -> restart) while
+    // an idle target keeps the original plain-install path. Loopback mock
+    // serves the release metadata and a synthetic zip (std only, no exe
+    // inside so the arch gate passes, every file dotted); ports >= 11808.
+    struct S8wFake {
+        calls: Mutex<Vec<String>>,
+        next_op: AtomicUsize,
+        running: Mutex<bool>,
+        port: Mutex<u16>,
+    }
+
+    impl S8wFake {
+        fn new() -> Self {
+            Self {
+                calls: Mutex::new(Vec::new()),
+                next_op: AtomicUsize::new(0),
+                running: Mutex::new(false),
+                port: Mutex::new(0),
+            }
+        }
+
+        fn calls(&self) -> Vec<String> {
+            self.calls.lock().unwrap().clone()
+        }
+    }
+
+    impl RuntimeClient for S8wFake {
+        fn snapshot(&self) -> Result<RuntimeSnapshot, DomainError> {
+            let running = *self.running.lock().unwrap();
+            Ok(RuntimeSnapshot {
+                state: if running {
+                    RuntimeState::Running
+                } else {
+                    RuntimeState::Stopped
+                },
+                ports: vec![*self.port.lock().unwrap()],
+                ..RuntimeSnapshot::default()
+            })
+        }
+
+        fn operation_status(&self, operation_id: &str) -> Result<OperationStatusView, DomainError> {
+            Ok(OperationStatusView {
+                operation_id: operation_id.to_string(),
+                job_id: None,
+                state: domain::JobState::Running,
+                cancel: None,
+                error: None,
+            })
+        }
+
+        fn apply(&self, _plan: &domain::RuntimePlan) -> Result<ApplyOutcome, DomainError> {
+            self.calls.lock().unwrap().push("apply".to_string());
+            *self.running.lock().unwrap() = true;
+            Ok(ApplyOutcome::Accepted {
+                operation_id: format!("op-{}", self.next_op.fetch_add(1, Ordering::SeqCst) + 1),
+            })
+        }
+
+        fn stop(&self) -> Result<(), DomainError> {
+            self.calls.lock().unwrap().push("stop".to_string());
+            *self.running.lock().unwrap() = false;
+            Ok(())
+        }
+
+        fn cancel(&self, _job_id: &JobId) -> Result<CancelOutcome, DomainError> {
+            Ok(CancelOutcome::AlreadyFinished)
+        }
+    }
+
+    fn s8w_crc32(bytes: &[u8]) -> u32 {
+        let mut table = [0u32; 256];
+        for (i, slot) in table.iter_mut().enumerate() {
+            let mut c = i as u32;
+            for _ in 0..8 {
+                c = if c & 1 != 0 {
+                    0xEDB8_8320 ^ (c >> 1)
+                } else {
+                    c >> 1
+                };
+            }
+            *slot = c;
+        }
+        let mut crc = 0xFFFF_FFFFu32;
+        for b in bytes {
+            crc = table[((crc ^ u32::from(*b)) & 0xFF) as usize] ^ (crc >> 8);
+        }
+        crc ^ 0xFFFF_FFFF
+    }
+
+    fn s8w_push_u16(buf: &mut Vec<u8>, v: u16) {
+        buf.extend_from_slice(&v.to_le_bytes());
+    }
+
+    fn s8w_push_u32(buf: &mut Vec<u8>, v: u32) {
+        buf.extend_from_slice(&v.to_le_bytes());
+    }
+
+    /// Minimal stored (uncompressed) zip: `payload/note.txt`. Every name is
+    /// dotted and none is an `.exe`, so the arch gate finds no candidate and
+    /// passes; the single top-level dir survives `flatten_single_dir`.
+    fn s8w_zip() -> Vec<u8> {
+        let entries: &[(&str, &[u8])] = &[
+            ("payload/", b""),
+            ("payload/note.txt", b"synthetic core payload"),
+        ];
+        let mut out = Vec::new();
+        let mut central = Vec::new();
+        for (name, data) in entries {
+            let is_dir = name.ends_with('/');
+            let crc = s8w_crc32(data);
+            let offset = out.len() as u32;
+            s8w_push_u32(&mut out, 0x0403_4B50);
+            s8w_push_u16(&mut out, 20);
+            s8w_push_u16(&mut out, 0);
+            s8w_push_u16(&mut out, 0);
+            s8w_push_u16(&mut out, 0);
+            s8w_push_u16(&mut out, 0);
+            s8w_push_u32(&mut out, crc);
+            s8w_push_u32(&mut out, data.len() as u32);
+            s8w_push_u32(&mut out, data.len() as u32);
+            s8w_push_u16(&mut out, name.len() as u16);
+            s8w_push_u16(&mut out, 0);
+            out.extend_from_slice(name.as_bytes());
+            if !is_dir {
+                out.extend_from_slice(data);
+            }
+            s8w_push_u32(&mut central, 0x0201_4B50);
+            s8w_push_u16(&mut central, 20);
+            s8w_push_u16(&mut central, 20);
+            s8w_push_u16(&mut central, 0);
+            s8w_push_u16(&mut central, 0);
+            s8w_push_u16(&mut central, 0);
+            s8w_push_u16(&mut central, 0);
+            s8w_push_u32(&mut central, crc);
+            s8w_push_u32(&mut central, data.len() as u32);
+            s8w_push_u32(&mut central, data.len() as u32);
+            s8w_push_u16(&mut central, name.len() as u16);
+            s8w_push_u16(&mut central, 0);
+            s8w_push_u16(&mut central, 0);
+            s8w_push_u16(&mut central, 0);
+            s8w_push_u16(&mut central, 0);
+            s8w_push_u32(&mut central, if is_dir { 0x10 } else { 0 });
+            s8w_push_u32(&mut central, offset);
+            central.extend_from_slice(name.as_bytes());
+        }
+        let cd_offset = out.len() as u32;
+        let cd_size = central.len() as u32;
+        out.extend_from_slice(&central);
+        s8w_push_u32(&mut out, 0x0605_4B50);
+        s8w_push_u16(&mut out, 0);
+        s8w_push_u16(&mut out, 0);
+        s8w_push_u16(&mut out, entries.len() as u16);
+        s8w_push_u16(&mut out, entries.len() as u16);
+        s8w_push_u32(&mut out, cd_size);
+        s8w_push_u32(&mut out, cd_offset);
+        s8w_push_u16(&mut out, 0);
+        out
+    }
+
+    /// Loopback release mock: metadata JSON (no digest, so hash verification
+    /// is skipped exactly like a digest-less upstream asset) plus the zip.
+    fn s8w_mock_api_base() -> String {
+        let zip = s8w_zip();
+        let listener = (11808..=11888)
+            .find_map(|port| std::net::TcpListener::bind(("127.0.0.1", port)).ok())
+            .expect("wiring mock port");
+        let addr = listener.local_addr().expect("mock addr");
+        let base = format!("http://{addr}");
+        let json = format!(
+            "[{{\"tag_name\":\"v26.4.0\",\"name\":\"Xray\",\"prerelease\":false,\"assets\":[{{\"name\":\"Xray-windows-64.zip\",\"size\":{},\"browser_download_url\":\"{base}/assets/xray.zip\"}}]}}]",
+            zip.len()
+        );
+        std::thread::spawn(move || {
+            for mut s in listener.incoming().flatten() {
+                let mut buf = [0u8; 4096];
+                let n = std::io::Read::read(&mut s, &mut buf).unwrap_or(0);
+                let path = String::from_utf8_lossy(&buf[..n])
+                    .split("\r\n")
+                    .next()
+                    .unwrap_or("")
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap_or("")
+                    .to_string();
+                let (status, content_type, body) = if path == "/repos/XTLS/Xray-core/releases" {
+                    ("200 OK", "application/json", json.clone().into_bytes())
+                } else if path == "/assets/xray.zip" {
+                    ("200 OK", "application/zip", zip.clone())
+                } else {
+                    ("404 Not Found", "text/plain", b"nope".to_vec())
+                };
+                let head = format!(
+                    "HTTP/1.1 {status}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = std::io::Write::write_all(&mut s, head.as_bytes());
+                let _ = std::io::Write::write_all(&mut s, &body);
+            }
+        });
+        format!("{base}/repos")
+    }
+
+    fn s8w_seed(engine: &application::AppEngine) {
+        engine.seed(vec![Profile {
+            index_id: "node-a".to_string(),
+            config_type: ConfigType::Vless,
+            remarks: "synthetic-node-a".to_string(),
+            address: "192.0.2.10".into(),
+            port: 443,
+            password: "11111111-2222-3333-4444-555555555555".into(),
+            ..Default::default()
+        }]);
+        engine.set_active(Some("node-a".to_string())).unwrap();
+    }
+
+    fn s8w_free_port(mut base: u16) -> u16 {
+        loop {
+            assert!(base < 60000, "port scan exhausted");
+            if base == 10808 {
+                base += 1;
+                continue;
+            }
+            if std::net::TcpListener::bind(("127.0.0.1", base)).is_ok() {
+                return base;
+            }
+            base += 1;
+        }
+    }
+
+    fn s8w_start_session(engine: &application::AppEngine, fake: &S8wFake, base: u16) {
+        let port = s8w_free_port(base);
+        *fake.port.lock().unwrap() = port;
+        let loaded = engine.load_settings().expect("load settings");
+        let mut settings = loaded.settings;
+        if let Some(first) = settings.inbound.first_mut() {
+            first.local_port = i32::from(port);
+        }
+        engine
+            .save_settings(settings, loaded.revision)
+            .expect("save settings");
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan("node-a", revision)
+            .expect("synthetic plan must build");
+        engine
+            .apply_runtime(plan, DesiredRevision::new(revision))
+            .expect("session must start");
+        engine.snapshot().expect("snapshot must reconcile");
+        assert!(
+            engine.applied_session().is_some(),
+            "test setup: a session must be running"
+        );
+    }
+
+    fn s8w_service(cores: &Path, api_base: String) -> application::UpdateService {
+        application::UpdateService::new(cores).with_api_base(api_base)
+    }
+
+    fn s8w_result_error(result: &ApplyCoreResultDto) -> String {
+        result
+            .error
+            .as_ref()
+            .map(|e| {
+                format!(
+                    "{} {} {}",
+                    e.code,
+                    e.message_key,
+                    e.detail.as_deref().unwrap_or("")
+                )
+            })
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn s8w_apply_running_core_stops_replaces_and_restarts() {
+        let api_base = s8w_mock_api_base();
+        let root = std::env::temp_dir().join(format!("b07a-s8w-{}-running", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let cores = root.join("cores");
+        std::fs::create_dir_all(&cores).expect("cores dir");
+        let service = s8w_service(&cores, api_base);
+        let fake = Arc::new(S8wFake::new());
+        let engine = application::AppEngine::with_runtime(fake.clone());
+        s8w_seed(&engine);
+        s8w_start_session(&engine, &fake, 11961);
+        // An older installed version, so the replacement keeps `.previous`.
+        let old = cores.join("xray").join("26.3.27");
+        std::fs::create_dir_all(&old).expect("old dir");
+        std::fs::write(old.join("xray.exe"), b"old-synthetic").expect("old exe");
+
+        let result = s8_05_block_on(apply_core_update_inner(
+            &service,
+            &engine,
+            vec!["xray".to_string()],
+            false,
+            None,
+            T16_CHECK_STEP_TIMEOUT,
+            T16_APPLY_STEP_TIMEOUT,
+        ));
+        assert!(result.ok, "apply ok: {}", s8w_result_error(&result));
+        assert_eq!(result.applied.len(), 1);
+        assert_eq!(result.applied[0].core, "xray");
+        assert_eq!(result.applied[0].version, "26.4.0");
+        // Setup apply, managed stop, managed restart: no other order is safe.
+        assert_eq!(fake.calls(), vec!["apply", "stop", "apply"]);
+        engine.snapshot().expect("snapshot must reconcile");
+        assert!(
+            engine.applied_session().is_some(),
+            "the previous version must be running again after replace"
+        );
+        assert!(cores.join("xray").join("26.4.0").is_dir());
+        assert!(cores.join("xray.previous").is_dir());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn s8w_apply_idle_core_takes_original_path() {
+        let api_base = s8w_mock_api_base();
+        let root = std::env::temp_dir().join(format!("b07a-s8w-{}-idle", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let cores = root.join("cores");
+        std::fs::create_dir_all(&cores).expect("cores dir");
+        let service = s8w_service(&cores, api_base);
+        let fake = Arc::new(S8wFake::new());
+        let engine = application::AppEngine::with_runtime(fake.clone());
+        s8w_seed(&engine);
+
+        let result = s8_05_block_on(apply_core_update_inner(
+            &service,
+            &engine,
+            vec!["xray".to_string()],
+            false,
+            None,
+            T16_CHECK_STEP_TIMEOUT,
+            T16_APPLY_STEP_TIMEOUT,
+        ));
+        assert!(result.ok, "apply ok: {}", s8w_result_error(&result));
+        assert_eq!(result.applied.len(), 1);
+        assert_eq!(result.applied[0].version, "26.4.0");
+        // Nothing was running: no stop, no restart, plain install.
+        assert!(fake.calls().is_empty());
+        assert!(cores.join("xray").join("26.4.0").is_dir());
+        assert!(engine.applied_session().is_none());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

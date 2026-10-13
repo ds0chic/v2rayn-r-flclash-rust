@@ -32,6 +32,10 @@ class _LogsViewState extends ConsumerState<LogsView> {
   late final MonitorController _controller;
   bool _initialized = false;
 
+  /// Tail length at the last autoscroll (D3b-06): traffic-only rebuilds must
+  /// not re-register a jump callback that yanks a user reading history.
+  int _lastAutoScrollCount = -1;
+
   @override
   void initState() {
     super.initState();
@@ -155,7 +159,8 @@ class _LogsViewState extends ConsumerState<LogsView> {
     final controller = ref.read(monitorControllerProvider.notifier);
     final visible = state.visibleLogs;
 
-    if (!state.scrollPaused) {
+    if (!state.scrollPaused && state.logs.length != _lastAutoScrollCount) {
+      _lastAutoScrollCount = state.logs.length;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_scroll.hasClients) return;
         _scroll.jumpTo(_scroll.position.maxScrollExtent);

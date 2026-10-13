@@ -304,11 +304,11 @@ try {
   if (-not (Test-Path -LiteralPath $unins)) { throw "uninstaller missing: $unins" }
   $unsw = [System.Diagnostics.Stopwatch]::StartNew()
   $up = Start-Process -FilePath $unins -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -PassThru
-  # Inno's uninstaller relaunches a temp copy, so wait on completion by polling.
-  $unsw.Stop()
-  $result.uninstall.exit = $up.ExitCode
-  $result.uninstall.duration_ms = [int]$unsw.ElapsedMilliseconds
-  Log "uninstaller launched pid=$($up.Id) exit=$($up.ExitCode); polling cleanup"
+  # S11-08: Inno's uninstaller relaunches a temp copy, so the launcher
+  # handle's ExitCode is meaningless (it was read before exit: always null).
+  # Completion is the poll loop below; duration covers launch -> cleaned.
+  $launcherPid = $up.Id
+  Log "uninstaller launched pid=$launcherPid; polling cleanup"
 
   $deadline = (Get-Date).AddSeconds(120)
   while ((Get-Date) -lt $deadline) {
@@ -317,6 +317,10 @@ try {
     if ($dirGone -and -not $regNow) { break }
     Start-Sleep -Milliseconds 500
   }
+  $unsw.Stop()
+  $result.uninstall.exit = $null
+  $result.uninstall.launcher_pid = $launcherPid
+  $result.uninstall.duration_ms = [int]$unsw.ElapsedMilliseconds
   $result.uninstall.dir_removed = -not (Test-Path -LiteralPath $installDir)
   $result.uninstall.shortcuts_removed = (-not (Test-Path -LiteralPath $result.shortcuts.start_menu)) -and (-not (Test-Path -LiteralPath $result.shortcuts.desktop))
   $result.uninstall.registry_removed = ($null -eq (Find-UninstallKey))

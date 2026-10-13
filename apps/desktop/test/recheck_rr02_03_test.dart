@@ -155,6 +155,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Pac 模式').last);
       await tester.pumpAndSettle();
+      // U-B1 danger gate (UX1-03): Pac selection asks for confirmation first.
+      expect(
+        find.byKey(const ValueKey('sysproxy-apply-confirm')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('danger-confirm-ok')));
+      await tester.pumpAndSettle();
 
       expect(platform.appliedModes, contains(SysProxyMode.pac));
       expect(platform.pacStartCount, 1);
@@ -180,6 +187,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('system-proxy-selector')));
       await tester.pumpAndSettle();
       await tester.tap(find.textContaining('Pac 模式').last);
+      await tester.pumpAndSettle();
+      // U-B1 danger gate (UX1-03): the honest no-session error surfaces
+      // after confirming.
+      expect(
+        find.byKey(const ValueKey('sysproxy-apply-confirm')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('danger-confirm-ok')));
       await tester.pumpAndSettle();
 
       expect(platform.pacStartCount, 0);

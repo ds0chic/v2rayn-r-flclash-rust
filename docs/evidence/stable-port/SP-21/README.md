@@ -12,15 +12,18 @@ prep 测试走 `:memory:` 直调 `query_page`；本次新增 4 个文件型 SQLi
 
 - `sp21_real_sqlite_10k_worker_walk_covers_every_row_once`：10k 行全量
   worker walk（500 行/页，20 页），断言有界页/cursor 推进/无重复遗漏。
-- `sp21_real_sqlite_100k_worker_walk_covers_every_row_once`：100k 行全量
-  worker walk（500 行/页，200 页），同上。
+- `sp21_real_sqlite_20k_worker_walk_covers_every_row_once`：20k 行全量
+  worker walk（500 行/页，40 页），同上（原 100k walk 因耗时 ~58s 主导
+  整个套件，已降为 20k 常驻；100k 仍保留为 opt-in：
+  `SP21_SCALE_100K=1` 运行 `sp21_real_sqlite_100k_worker_walk_opt_in`，
+  默认跳过并打印说明）。
 - `sp21_real_sqlite_id_tiebreak_is_stable_across_worker_pages`：5000 行同
   Remarks 经 worker 跨页，断言全程 `IndexId` 回退序。
 - `sp21_real_sqlite_worker_stale_revision_and_cancel`：真实文件上首
   页→写提交→旧 revision 下一页得 `StaleCursor`；预取消 token 得
   `Cancelled`；`QueryHandle::cancel()` 同步 `<1s` 且迟到结果丢弃。
-- 跨页全选 = walk 收集的 id 全集恰为库全集（10k/100k 两 walk 内断言，
-  排序后逐项相等）。
+- 跨页全选 = walk 收集的 id 全集恰为库全集（10k/20k 两 walk 内断言，
+  排序后逐项相等；opt-in 100k 内同样断言）。
 
 ### 新增 UI 消费接线（仅 `apps/desktop/lib/features/profiles/**`，未碰 FRB）
 

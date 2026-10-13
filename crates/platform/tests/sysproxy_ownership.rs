@@ -287,3 +287,33 @@ fn pure_restore_matrix_handles_absent_fields() {
     assert_eq!(report.conflicted_fields(), vec![ProxyField::Server]);
     assert_eq!(report.restored_fields(), vec![ProxyField::Bypass]);
 }
+
+#[test]
+fn restore_partial_failure_keeps_report_and_continues() {
+    // S7b-04: when one field's restore write fails, the remaining owned
+    // fields must still be restored and the outcome must stay observable
+    // instead of losing the whole report behind an `Err`.
+    let fake = FakeSystemProxyBackend::new(rich_initial());
+    let applied = fake
+        .apply(
+            SysProxyMode::ForcedChange,
+            &settings(Some("127.0.0.1:11809"), Some("remote")),
+        )
+        .expect("apply");
+    // Applied order is Server then Bypass: Server restores, Bypass fails.
+    fake.fail_on_field(ProxyField::Bypass);
+    let result = fake.restore(&applied);
+    assert!(
+        result.is_ok(),
+        "restore must report partial failure, got {result:?}"
+    );
+    let report = result.expect("ok");
+    assert_eq!(report.failed_fields(), vec![ProxyField::Bypass]);
+    assert!(report.has_failures());
+    assert_eq!(report.restored_fields(), vec![ProxyField::Server]);
+    // The field restored before the failure keeps its original value...
+    assert_eq!(fake.state().server.as_deref(), Some("127.0.0.1:10809"));
+    // ...while the failed field still carries the value we wrote.
+    assert_eq!(fake.state().bypass.as_deref(), Some("remote"));
+    assert_eq!(report.failed[0].restore_to.as_deref(), Some("localhost"));
+}

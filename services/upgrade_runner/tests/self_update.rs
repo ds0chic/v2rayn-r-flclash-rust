@@ -454,3 +454,82 @@ fn write_restart_stub(dir: &Path, marker: &Path) -> PathBuf {
         script
     }
 }
+
+/// S7b-07: `--manifest-name` must be a bare file name; a traversal must fail
+/// closed without writing anything outside the install root.
+#[test]
+fn manifest_name_traversal_is_rejected() {
+    let work = tempfile::tempdir().expect("work");
+    let root = work.path().join("install");
+    std::fs::create_dir_all(&root).expect("root");
+    let staged = root.join(".staging").join("app-9.9.9");
+    std::fs::create_dir_all(&staged).expect("staged");
+    std::fs::write(staged.join("new.txt"), b"new").expect("payload");
+    let plan = updater::install::InstallPlan::flat_overlay(&root, &staged, "app.previous", "9.9.9");
+    let plan_path = root.join(".staging").join("plan.json");
+    std::fs::write(&plan_path, serde_json::to_vec_pretty(&plan).unwrap()).expect("plan");
+    let result_path = root.join(".staging").join("result.json");
+
+    let escape = work.path().join("escape.json");
+    let status = Command::new(runner_exe())
+        .arg("--plan")
+        .arg(&plan_path)
+        .arg("--result")
+        .arg(&result_path)
+        .arg("--no-restart")
+        .arg("--manifest-name")
+        .arg("../escape.json")
+        .status()
+        .expect("run runner");
+    assert!(!status.success(), "traversal manifest must fail");
+    assert!(
+        !escape.is_file(),
+        "nothing may be written outside the install root"
+    );
+    let result = read_result(&result_path);
+    assert_eq!(result["ok"], false);
+    let error = result["error"].as_str().unwrap_or_default();
+    assert!(
+        error.contains("manifest"),
+        "error must name the manifest, got {error:?}"
+    );
+}
+
+/// S7b-07: restart paths must be absolute; a relative target must be refused
+/// before the runner touches the install root.
+#[test]
+fn relative_restart_paths_are_rejected_before_apply() {
+    let work = tempfile::tempdir().expect("work");
+    let root = work.path().join("install");
+    std::fs::create_dir_all(&root).expect("root");
+    let staged = root.join(".staging").join("app-9.9.9");
+    std::fs::create_dir_all(&staged).expect("staged");
+    std::fs::write(staged.join("new.txt"), b"new").expect("payload");
+    let plan = updater::install::InstallPlan::flat_overlay(&root, &staged, "app.previous", "9.9.9");
+    let plan_path = root.join(".staging").join("plan.json");
+    std::fs::write(&plan_path, serde_json::to_vec_pretty(&plan).unwrap()).expect("plan");
+    let result_path = root.join(".staging").join("result.json");
+
+    let status = Command::new(runner_exe())
+        .arg("--plan")
+        .arg(&plan_path)
+        .arg("--result")
+        .arg(&result_path)
+        .arg("--restart-exe")
+        .arg("relative-stub.cmd")
+        .arg("--restart-cwd")
+        .arg(&root)
+        .status()
+        .expect("run runner");
+    assert!(!status.success(), "relative restart target must fail");
+    assert!(
+        !root.join("new.txt").is_file(),
+        "a refused run must not touch the install root"
+    );
+    let result = read_result(&result_path);
+    let error = result["error"].as_str().unwrap_or_default();
+    assert!(
+        error.contains("absolute"),
+        "error must demand an absolute path, got {error:?}"
+    );
+}

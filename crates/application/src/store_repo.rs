@@ -2034,11 +2034,15 @@ mod tests {
     }
 
     #[test]
-    fn sp21_real_sqlite_100k_worker_walk_covers_every_row_once() {
+    fn sp21_real_sqlite_20k_worker_walk_covers_every_row_once() {
         use std::sync::Arc;
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("sp21-scale-100k.db");
-        let total = 100_000usize;
+        let path = dir.path().join("sp21-scale-20k.db");
+        // TH-RUST P2: 100k rows cost ~58s (seed ~21s + 200-page walk ~37s)
+        // and dominated the suite. 20k rows still walks 40 bounded pages
+        // with the same every-row-once assertions; the row count is purely
+        // test-local, no production default changes.
+        let total = 20_000usize;
         let mut expected = sp21_seed_file_db(&path, total, false);
         expected.sort();
 
@@ -2052,7 +2056,7 @@ mod tests {
         let (seen, pages) = sp21_worker_walk_all(&worker, revision, generation, 500);
         let elapsed = timer.elapsed();
         println!(
-            "SP21 real-sqlite 100k worker walk rows={total} pages={pages} elapsed_ms={}",
+            "SP21 real-sqlite 20k worker walk rows={total} pages={pages} elapsed_ms={}",
             elapsed.as_millis()
         );
 

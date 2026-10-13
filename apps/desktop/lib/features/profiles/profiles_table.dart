@@ -100,6 +100,12 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   String? _dragAnchorId;
   bool _dragSelecting = false;
 
+  /// Row list frozen when the drag started. Pointer positions resolve against
+  /// this snapshot for the whole gesture, so a mid-drag reorder (e.g. the
+  /// 150 ms speedtest poll re-sorting an active column) cannot retarget the
+  /// range endpoint to another row (D1-10). Null outside a drag.
+  List<ProfileSummary>? _dragRows;
+
   /// Guards against scheduling the close-on-scroll twice in one frame.
   bool _scrollCloseScheduled = false;
 
@@ -738,6 +744,8 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
         final state = ref.read(profilesControllerProvider);
         final rowId = _rowIdAt(event.localPosition, state.visible);
         _dragAnchorId = rowId;
+        // Freeze the row list for the gesture (D1-10); cleared on pointer up.
+        _dragRows = rowId == null ? null : List<ProfileSummary>.of(state.visible);
         _dragSelecting = false;
         if (rowId != null) {
           // Select on pointer-down: the click takes effect immediately instead
@@ -755,6 +763,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
         }
       } else {
         _dragAnchorId = null;
+        _dragRows = null;
       }
     }
     if (_menuController.isOpen) {
@@ -799,7 +808,11 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     }
     _stopDragAutoScroll();
     final state = ref.read(profilesControllerProvider);
-    final currentId = _rowIdAt(event.localPosition, state.visible);
+    // Resolve against the drag-start snapshot (D1-10), not the live list.
+    final currentId = _rowIdAt(
+      event.localPosition,
+      _dragRows ?? state.visible,
+    );
     if (currentId == null) return;
     if (!_dragSelecting && currentId == anchorId) return;
     _dragSelecting = true;
@@ -837,7 +850,8 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
 
   void _extendRangeToEdge(String anchorId, int direction, {double? atOffset}) {
     final state = ref.read(profilesControllerProvider);
-    final rows = state.visible;
+    // Same frozen list as the pointer path (D1-10).
+    final rows = _dragRows ?? state.visible;
     if (rows.isEmpty || !_vertical.hasClients) return;
     final position = _vertical.position;
     final offset = atOffset ?? position.pixels;
@@ -858,6 +872,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
   void _onPointerUp(PointerEvent event) {
     _stopDragAutoScroll();
     _dragAnchorId = null;
+    _dragRows = null;
     _dragSelecting = false;
   }
 

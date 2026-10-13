@@ -333,6 +333,8 @@ class _LogRow extends StatelessWidget {
               _levelLabel(line.level),
               style: TextStyle(
                 fontSize: AppTokens.fontSizeCaption,
+                fontFamily: AppTokens.monoFontFamily,
+                fontFamilyFallback: AppTokens.monoFontFallback,
                 color: color,
               ),
             ),
@@ -343,6 +345,7 @@ class _LogRow extends StatelessWidget {
               style: const TextStyle(
                 fontSize: AppTokens.monoFontSize,
                 fontFamily: AppTokens.monoFontFamily,
+                fontFamilyFallback: AppTokens.monoFontFallback,
               ),
             ),
           ),

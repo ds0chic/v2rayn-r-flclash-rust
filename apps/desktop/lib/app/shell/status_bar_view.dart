@@ -584,7 +584,11 @@ Widget _statusText(String data, {Key? key, Color? color}) {
     maxLines: 1,
     softWrap: false,
     overflow: TextOverflow.ellipsis,
-    style: TextStyle(fontSize: AppTokens.fontSizeSmall, color: color),
+    style: TextStyle(
+      fontSize: AppTokens.fontSizeSmall,
+      fontFeatures: AppTokens.tabularFigures,
+      color: color,
+    ),
   );
 }
 

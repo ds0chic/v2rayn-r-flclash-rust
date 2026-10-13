@@ -629,7 +629,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       value,
       overflow: TextOverflow.ellipsis,
       maxLines: 1,
-      style: const TextStyle(fontSize: AppTokens.fontSize),
+      style: TextStyle(
+        fontSize: AppTokens.fontSize,
+        fontFeatures: column.numeric ? AppTokens.tabularFigures : null,
+      ),
     );
     // Selection happens on pointer-down at the table level; this detector only
     // distinguishes the double-click business action so the first click is not

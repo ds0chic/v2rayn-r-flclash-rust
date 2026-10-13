@@ -429,6 +429,7 @@ class _GroupCard extends StatelessWidget {
                       key: ValueKey('proxies-child-delay-$child'),
                       style: const TextStyle(
                         fontSize: AppTokens.fontSizeCaption,
+                        fontFeatures: AppTokens.tabularFigures,
                       ),
                     ),
                     IconButton(
@@ -473,7 +474,10 @@ class _NodeRow extends StatelessWidget {
         children: <Widget>[
           Text(
             formatDelayMs(delay),
-            style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+            style: const TextStyle(
+              fontSize: AppTokens.fontSizeCaption,
+              fontFeatures: AppTokens.tabularFigures,
+            ),
           ),
           IconButton(
             key: ValueKey('proxies-node-delay-${node.name}'),

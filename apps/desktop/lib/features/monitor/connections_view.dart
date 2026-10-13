@@ -444,6 +444,8 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                                         _valueFor(c, column.name) ?? '-',
                                         style: const TextStyle(
                                           fontSize: AppTokens.fontSizeSmall,
+                                          fontFeatures:
+                                              AppTokens.tabularFigures,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),

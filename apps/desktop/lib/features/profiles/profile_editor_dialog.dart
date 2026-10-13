@@ -389,7 +389,10 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
           initialValue: value,
           minLines: 2,
           maxLines: 4,
-          style: contentStyle.copyWith(fontFamily: AppTokens.monoFontFamily),
+          style: contentStyle.copyWith(
+            fontFamily: AppTokens.monoFontFamily,
+            fontFamilyFallback: AppTokens.monoFontFallback,
+          ),
           decoration: decoration(hint: spec.hint),
           onChanged: (v) {
             spec.set(_draft, v);

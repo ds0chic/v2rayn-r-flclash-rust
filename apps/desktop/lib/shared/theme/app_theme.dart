@@ -42,7 +42,28 @@ class AppTokens {
   static const double fontSizeTiny = 11;
   static const double fontSizeCaption = 11;
   static const double monoFontSize = 12;
-  static const String monoFontFamily = 'monospace';
+  static const String monoFontFamily = 'Cascadia Mono';
+  static const List<String> monoFontFallback = <String>[
+    'Consolas',
+    'Microsoft YaHei UI',
+    'monospace',
+  ];
+
+  /// Default UI font stack (used only when the user has no `CurrentFontFamily`).
+  /// Western variable font first, then CJK fallbacks; never overrides a saved
+  /// user choice.
+  static const String fontFamily = 'Segoe UI Variable';
+  static const List<String> fontFamilyFallback = <String>[
+    'Segoe UI',
+    'Microsoft YaHei UI',
+    'Microsoft YaHei',
+  ];
+
+  /// Tabular (fixed-width) figures for rates/ports/latencies so live numbers
+  /// never make their column jitter.
+  static const List<FontFeature> tabularFigures = <FontFeature>[
+    FontFeature.tabularFigures(),
+  ];
 
   // -- Compact desktop chrome heights ------------------------------------
   static const double menuBarHeight = 30;
@@ -442,7 +463,10 @@ ThemeData buildAppTheme(
       : AppTokens.fontSize;
   final family = (fontFamily != null && fontFamily.isNotEmpty)
       ? fontFamily
-      : null;
+      : AppTokens.fontFamily;
+  final familyFallback = (fontFamily != null && fontFamily.isNotEmpty)
+      ? null
+      : AppTokens.fontFamilyFallback;
   final rowHeight = AppTokens.rowHeightFor(
     (fontSize != null && fontSize >= 8) ? fontSize : null,
   );
@@ -458,6 +482,7 @@ ThemeData buildAppTheme(
     colorScheme: scheme,
     visualDensity: VisualDensity.compact,
     fontFamily: family,
+    fontFamilyFallback: familyFallback,
     extensions: <ThemeExtension<dynamic>>[semantics],
     dividerTheme: DividerThemeData(
       space: 1,

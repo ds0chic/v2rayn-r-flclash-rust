@@ -107,7 +107,7 @@ class MonitorState {
     if (pattern.isEmpty) {
       return logs.where((line) => line.level >= minLevel).toList();
     }
-    final regex = _compileKeyword(pattern);
+    final regex = compileLogFilter(pattern);
     return logs.where((line) {
       if (line.level < minLevel) return false;
       if (regex != null) return regex.hasMatch(line.text);
@@ -227,6 +227,19 @@ RegExp? _compileKeyword(String pattern) {
   } on FormatException {
     return null;
   }
+}
+
+/// Single-entry memo for the log keyword regex (D3b-06): every rebuild scans
+/// through [MonitorState.visibleLogs], so without this the same pattern is
+/// recompiled on every build. Null = invalid pattern (substring fallback).
+String _filterCachePattern = '';
+RegExp? _filterCacheRegex;
+
+RegExp? compileLogFilter(String pattern) {
+  if (pattern == _filterCachePattern) return _filterCacheRegex;
+  _filterCachePattern = pattern;
+  _filterCacheRegex = _compileKeyword(pattern);
+  return _filterCacheRegex;
 }
 
 /// Normalize a `PlatformInt64` wire counter to a non-negative [BigInt] (int on
@@ -482,7 +495,24 @@ class MonitorController extends Notifier<MonitorState> {
     }
     final generation = _sessionGeneration;
     final request = ++_proxiesRequest;
-    final future = _bridge.clashProxies().then((result) {
+    // D3b-03: a transport throw (not an error DTO) must surface a message,
+    // never escape to the zone; a late response never touches a new session.
+    final future = () async {
+      late final m.ClashProxiesDto result;
+      try {
+        result = await _bridge.clashProxies();
+      } on Object catch (_) {
+        if (_disposed ||
+            generation != _sessionGeneration ||
+            request != _proxiesRequest) {
+          return;
+        }
+        state = state.copyWith(
+          proxiesMessage: 'Clash 代理读取失败',
+          error: 'E_BRIDGE',
+        );
+        return;
+      }
       if (_disposed ||
           generation != _sessionGeneration ||
           request != _proxiesRequest) {
@@ -498,7 +528,7 @@ class MonitorController extends Notifier<MonitorState> {
         error: result.error?.code,
         clearError: result.error == null,
       );
-    });
+    }();
     _proxiesInFlight = future;
     return future.whenComplete(() {
       if (identical(_proxiesInFlight, future)) _proxiesInFlight = null;
@@ -514,7 +544,23 @@ class MonitorController extends Notifier<MonitorState> {
     }
     final generation = _sessionGeneration;
     final request = ++_connectionsRequest;
-    final future = _bridge.clashConnections().then((result) {
+    // D3b-03: see [_fetchProxies].
+    final future = () async {
+      late final m.ClashConnectionsDto result;
+      try {
+        result = await _bridge.clashConnections();
+      } on Object catch (_) {
+        if (_disposed ||
+            generation != _sessionGeneration ||
+            request != _connectionsRequest) {
+          return;
+        }
+        state = state.copyWith(
+          connectionsMessage: 'Clash 连接读取失败',
+          error: 'E_BRIDGE',
+        );
+        return;
+      }
       if (_disposed ||
           generation != _sessionGeneration ||
           request != _connectionsRequest) {
@@ -532,7 +578,7 @@ class MonitorController extends Notifier<MonitorState> {
         error: result.error?.code,
         clearError: result.error == null,
       );
-    });
+    }();
     _connectionsInFlight = future;
     return future.whenComplete(() {
       if (identical(_connectionsInFlight, future)) _connectionsInFlight = null;
@@ -542,7 +588,19 @@ class MonitorController extends Notifier<MonitorState> {
   Future<void> refreshClashMode() async {
     final generation = _sessionGeneration;
     final request = ++_modeRequest;
-    final result = await _bridge.clashModeState();
+    late final m.ClashModeDto result;
+    try {
+      result = await _bridge.clashModeState();
+    } on Object catch (_) {
+      // D3b-03: transport failure reads as a message, never a throw.
+      if (_disposed ||
+          generation != _sessionGeneration ||
+          request != _modeRequest) {
+        return;
+      }
+      state = state.copyWith(modeMessage: 'Clash 模式读取失败', error: 'E_BRIDGE');
+      return;
+    }
     if (_disposed ||
         generation != _sessionGeneration ||
         request != _modeRequest) {
@@ -563,8 +621,15 @@ class MonitorController extends Notifier<MonitorState> {
   }
 
   /// Switch the Clash routing mode; refreshes the live value on success.
+  /// A transport throw reads as a message + false, never an exception (D3b-03).
   Future<bool> setClashMode(String mode) async {
-    final result = await _bridge.updateClashMode(mode);
+    late final m.MonitorActionResult result;
+    try {
+      result = await _bridge.updateClashMode(mode);
+    } on Object catch (_) {
+      state = state.copyWith(modeMessage: 'Clash 模式切换失败');
+      return false;
+    }
     if (result.ok) {
       await refreshClashMode();
     } else {
@@ -585,14 +650,27 @@ class MonitorController extends Notifier<MonitorState> {
   void setDelayUrl(String? url) => _bridge.setDelayUrl(url);
 
   Future<bool> selectProxy(String group, String name) async {
-    final result = await _bridge.selectClashProxy(group, name);
+    late final m.MonitorActionResult result;
+    try {
+      result = await _bridge.selectClashProxy(group, name);
+    } on Object catch (_) {
+      // D3b-03: the caller (view) already toasts on false.
+      return false;
+    }
     if (result.ok) await _fetchProxies(coalesce: false);
     return result.ok;
   }
 
+  /// Probe one node. `-1` keeps the upstream timeout/unreachable convention,
+  /// including for a transport throw (D3b-03).
   Future<int> testProxy(String name) async {
     final generation = _sessionGeneration;
-    final result = await _bridge.clashProxyDelay(name);
+    late final m.DelayResultDto result;
+    try {
+      result = await _bridge.clashProxyDelay(name);
+    } on Object catch (_) {
+      return -1;
+    }
     if (!_disposed && generation == _sessionGeneration) {
       state = state.copyWith(
         proxyDelays: mergeDelayMap(state.proxyDelays, <m.DelayResultDto>[
@@ -605,7 +683,14 @@ class MonitorController extends Notifier<MonitorState> {
 
   Future<void> testGroup(String group) async {
     final generation = _sessionGeneration;
-    final result = await _bridge.clashGroupDelay(group);
+    late final m.GroupDelayDto result;
+    try {
+      result = await _bridge.clashGroupDelay(group);
+    } on Object catch (_) {
+      // D3b-03: a failed probe leaves the delay map untouched, like the
+      // result-error path below never fabricates a value.
+      return;
+    }
     if (_disposed || generation != _sessionGeneration) return;
     // Incremental by-id overlay: each probed node updates its own row; the
     // final map is complete even if an early probe was slow (SP-22: 最终结果不丢).
@@ -623,7 +708,13 @@ class MonitorController extends Notifier<MonitorState> {
   Future<bool> closeConnection(String id) async {
     final target = freezeConnectionClose(id, _sessionGeneration);
     if (target == null) return false;
-    final result = await _bridge.closeClashConnection(target.id);
+    late final m.MonitorActionResult result;
+    try {
+      result = await _bridge.closeClashConnection(target.id);
+    } on Object catch (_) {
+      // D3b-03: the caller (view) already toasts on false.
+      return false;
+    }
     if (_disposed ||
         !closeResponseIsCurrent(target.generation, _sessionGeneration)) {
       return false;
@@ -634,7 +725,13 @@ class MonitorController extends Notifier<MonitorState> {
 
   Future<bool> closeAllConnections() async {
     final generation = _sessionGeneration;
-    final result = await _bridge.closeAllClashConnections();
+    late final m.MonitorActionResult result;
+    try {
+      result = await _bridge.closeAllClashConnections();
+    } on Object catch (_) {
+      // D3b-03: the caller (view) already toasts on false.
+      return false;
+    }
     if (_disposed || generation != _sessionGeneration) return false;
     if (result.ok) await _fetchConnections(coalesce: false);
     return result.ok;

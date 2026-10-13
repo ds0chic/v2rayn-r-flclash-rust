@@ -73,6 +73,17 @@ class FakeMonitorBridge implements MonitorBridge {
   bool pollingStarted = false;
   int syncSessionCount = 0;
 
+  /// When true, every Clash read/act call throws a transport error instead of
+  /// answering (D3b-03: the controller must surface a message, never leak the
+  /// exception to the zone).
+  bool throwOnClashReads = false;
+
+  void _maybeThrowClash() {
+    if (throwOnClashReads) {
+      throw StateError('synthetic clash transport failure');
+    }
+  }
+
   // Synchronous broadcast so a test that `emit`s then pumps one frame sees the
   // state update; asynchronous delivery would need an extra microtask drain.
   final StreamController<m.TrafficBatchDto> _traffic =
@@ -237,6 +248,7 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.ClashModeDto> clashModeState() async {
+    _maybeThrowClash();
     if (!clashApiSupported) {
       return m.ClashModeDto(
         ok: false,
@@ -257,6 +269,7 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.MonitorActionResult> updateClashMode(String mode) async {
+    _maybeThrowClash();
     if (modeFails) {
       return m.MonitorActionResult(ok: false, supported: true, message: null);
     }
@@ -266,6 +279,7 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.ClashProxiesDto> clashProxies() async {
+    _maybeThrowClash();
     clashProxiesCount++;
     final gate = proxiesGate;
     if (gate != null) await gate;
@@ -296,6 +310,7 @@ class FakeMonitorBridge implements MonitorBridge {
     String group,
     String name,
   ) async {
+    _maybeThrowClash();
     selectedProxies.add('$group/$name');
     final updated = proxies
         .map(
@@ -318,12 +333,14 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.DelayResultDto> clashProxyDelay(String name) async {
+    _maybeThrowClash();
     testedProxies.add(name);
     return m.DelayResultDto(name: name, delay: proxyDelayValue);
   }
 
   @override
   Future<m.GroupDelayDto> clashGroupDelay(String group) async {
+    _maybeThrowClash();
     testedGroups.add(group);
     final target = proxies.firstWhere(
       (p) => p.name == group,
@@ -349,6 +366,7 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.ClashConnectionsDto> clashConnections() async {
+    _maybeThrowClash();
     clashConnectionsCount++;
     final gate = connectionsGate;
     if (gate != null) await gate;
@@ -376,6 +394,7 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.MonitorActionResult> closeClashConnection(String id) async {
+    _maybeThrowClash();
     closedConnections.add(id);
     connections = connections.where((c) => c.id != id).toList();
     return _ok();
@@ -383,6 +402,7 @@ class FakeMonitorBridge implements MonitorBridge {
 
   @override
   Future<m.MonitorActionResult> closeAllClashConnections() async {
+    _maybeThrowClash();
     closeAllCount++;
     if (closeAllFails) {
       return m.MonitorActionResult(ok: false, supported: true, message: null);

@@ -554,6 +554,16 @@ class _MenuToolbarBar extends ConsumerWidget {
               ),
             ),
           ),
+          // U-B1 table density (UX2-07): cycles compact 24 / standard 28 /
+          // relaxed 32. The settings-window dropdown (U-B2) will reuse the
+          // same UiShellState field when it lands.
+          IconButton(
+            key: const ValueKey('density-cycle'),
+            tooltip: '表格密度：${shell.tableDensity.label}（点击切换）',
+            iconSize: 18,
+            onPressed: controller.cycleDensity,
+            icon: Icon(AppTokens.icon('columns')),
+          ),
           IconButton(
             key: const ValueKey('theme-toggle'),
             tooltip: context.tr('uiTheme'),

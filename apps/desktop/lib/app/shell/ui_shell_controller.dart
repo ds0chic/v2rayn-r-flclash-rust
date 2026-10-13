@@ -29,6 +29,33 @@ enum AppLayoutMode {
   }
 }
 
+/// Node-table density (UX2-07, U-B1). Persisted in the UI-state `layout`
+/// section (never in the business settings document). Default `standard`
+/// renders at 28 (see UI-DENSITY-DEFAULT).
+enum TableDensity {
+  compact('compact', '紧凑', 24),
+  standard('standard', '标准', 28),
+  relaxed('relaxed', '宽松', 32);
+
+  const TableDensity(this.id, this.label, this.height);
+
+  final String id;
+  final String label;
+  final double height;
+
+  static TableDensity fromId(String? id) {
+    return TableDensity.values.firstWhere(
+      (m) => m.id == id,
+      orElse: () => TableDensity.standard,
+    );
+  }
+
+  TableDensity get next {
+    final values = TableDensity.values;
+    return values[(index + 1) % values.length];
+  }
+}
+
 /// Single UI-state source of truth for the shell. Values that require a live
 /// backend (kernel, subscription, Clash API) stay at their "unknown" defaults
 /// and are rendered as `--` / `未运行`; nothing is fabricated.
@@ -38,6 +65,7 @@ class UiShellState {
     this.horizontalSplit = 0.5,
     this.verticalSplit = 0.5,
     this.tabIndex = 0,
+    this.tableDensity = TableDensity.standard,
     this.themeMode = ThemeMode.light,
     this.accentName,
     this.fontFamily,
@@ -60,6 +88,7 @@ class UiShellState {
   final double verticalSplit;
 
   final int tabIndex;
+  final TableDensity tableDensity;
   final ThemeMode themeMode;
 
   /// `UIItem.ColorPrimaryName` (Material swatch name), applied immediately.
@@ -84,6 +113,7 @@ class UiShellState {
     double? horizontalSplit,
     double? verticalSplit,
     int? tabIndex,
+    TableDensity? tableDensity,
     ThemeMode? themeMode,
     String? accentName,
     bool clearAccent = false,
@@ -105,6 +135,7 @@ class UiShellState {
       horizontalSplit: horizontalSplit ?? this.horizontalSplit,
       verticalSplit: verticalSplit ?? this.verticalSplit,
       tabIndex: tabIndex ?? this.tabIndex,
+      tableDensity: tableDensity ?? this.tableDensity,
       themeMode: themeMode ?? this.themeMode,
       accentName: clearAccent ? null : (accentName ?? this.accentName),
       fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
@@ -137,6 +168,7 @@ class UiShellController extends Notifier<UiShellState> {
       layout: AppLayoutMode.fromId(layout['mode'] as String?),
       horizontalSplit: (layout['horizontal_split'] as num?)?.toDouble() ?? 0.5,
       verticalSplit: (layout['vertical_split'] as num?)?.toDouble() ?? 0.5,
+      tableDensity: TableDensity.fromId(layout['density'] as String?),
       themeMode: _themeModeFrom(theme['mode'] as String?),
       accentName: theme['accent'] as String?,
       zebraStriping: theme['zebra'] == true,
@@ -253,6 +285,13 @@ class UiShellController extends Notifier<UiShellState> {
 
   void setTabIndex(int index) => state = state.copyWith(tabIndex: index);
 
+  void setDensity(TableDensity density) {
+    state = state.copyWith(tableDensity: density);
+    _persistLayout();
+  }
+
+  void cycleDensity() => setDensity(state.tableDensity.next);
+
   void toggleTheme() {
     final next = state.themeMode == ThemeMode.light
         ? ThemeMode.dark
@@ -289,6 +328,7 @@ class UiShellController extends Notifier<UiShellState> {
       'mode': state.layout.id,
       'horizontal_split': state.horizontalSplit,
       'vertical_split': state.verticalSplit,
+      'density': state.tableDensity.id,
     });
   }
 }

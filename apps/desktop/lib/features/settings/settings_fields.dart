@@ -10,38 +10,53 @@ class SettingsCheckbox extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.helpText,
+    this.risk,
   });
 
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
 
+  /// UB2-01: persistent one-line explainer rendered under the row.
+  final String? helpText;
+
+  /// UB2-01: risk note rendered under [helpText] in the warning color.
+  final String? risk;
+
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => onChanged(!value),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Row(
-          children: <Widget>[
-            SizedBox(
-              height: 28,
-              child: Checkbox(
-                value: value,
-                visualDensity: VisualDensity.compact,
-                onChanged: (v) => onChanged(v ?? false),
-              ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        InkWell(
+          onTap: () => onChanged(!value),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(
+              children: <Widget>[
+                SizedBox(
+                  height: 28,
+                  child: Checkbox(
+                    value: value,
+                    visualDensity: VisualDensity.compact,
+                    onChanged: (v) => onChanged(v ?? false),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: AppTokens.fontSize),
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        _HelpLines(helpText: helpText, risk: risk, indent: 28),
+      ],
     );
   }
 }
@@ -56,6 +71,8 @@ class SettingsTextField extends StatefulWidget {
     this.width = 240,
     this.enabled = true,
     this.identifier,
+    this.helpText,
+    this.risk,
   });
 
   final String label;
@@ -63,6 +80,10 @@ class SettingsTextField extends StatefulWidget {
   final ValueChanged<String?> onChanged;
   final String? hint;
   final double width;
+
+  /// UB2-01: explainer / risk note under the row (see [SettingsCheckbox]).
+  final String? helpText;
+  final String? risk;
 
   /// Stable semantics identifier for UI-automation locators; applied to the
   /// editable field itself so the located node carries the field value.
@@ -100,37 +121,44 @@ class _SettingsTextFieldState extends State<SettingsTextField> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SizedBox(
-            width: 168,
-            child: Text(
-              widget.label,
-              style: const TextStyle(fontSize: AppTokens.fontSize),
-            ),
-          ),
-          SizedBox(
-            width: widget.width,
-            child: Semantics(
-              identifier: widget.identifier,
-              child: TextField(
-                controller: _controller,
-                enabled: widget.enabled,
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                  hintText: widget.hint,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 8,
+          Row(
+            children: <Widget>[
+              SizedBox(
+                width: 168,
+                child: Text(
+                  widget.label,
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
+                ),
+              ),
+              SizedBox(
+                width: widget.width,
+                child: Semantics(
+                  identifier: widget.identifier,
+                  child: TextField(
+                    controller: _controller,
+                    enabled: widget.enabled,
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                      hintText: widget.hint,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                    ),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                    onChanged: (text) =>
+                        widget.onChanged(text.isEmpty ? null : text),
                   ),
                 ),
-                style: const TextStyle(fontSize: AppTokens.fontSize),
-                onChanged: (text) =>
-                    widget.onChanged(text.isEmpty ? null : text),
               ),
-            ),
+            ],
           ),
+          _HelpLines(helpText: widget.helpText, risk: widget.risk, indent: 168),
         ],
       ),
     );
@@ -144,12 +172,18 @@ class SettingsNumberField extends StatefulWidget {
     required this.value,
     required this.onChanged,
     this.width = 120,
+    this.helpText,
+    this.risk,
   });
 
   final String label;
   final int? value;
   final ValueChanged<int?> onChanged;
   final double width;
+
+  /// UB2-01: explainer / risk note under the row (see [SettingsCheckbox]).
+  final String? helpText;
+  final String? risk;
 
   @override
   State<SettingsNumberField> createState() => _SettingsNumberFieldState();
@@ -179,34 +213,41 @@ class _SettingsNumberFieldState extends State<SettingsNumberField> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SizedBox(
-            width: 168,
-            child: Text(
-              widget.label,
-              style: const TextStyle(fontSize: AppTokens.fontSize),
-            ),
-          ),
-          SizedBox(
-            width: widget.width,
-            child: TextField(
-              controller: _controller,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                isDense: true,
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 8,
+          Row(
+            children: <Widget>[
+              SizedBox(
+                width: 168,
+                child: Text(
+                  widget.label,
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
               ),
-              style: const TextStyle(fontSize: AppTokens.fontSize),
-              onChanged: (text) => widget.onChanged(
-                text.trim().isEmpty ? null : int.tryParse(text.trim()),
+              SizedBox(
+                width: widget.width,
+                child: TextField(
+                  controller: _controller,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                  ),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
+                  onChanged: (text) => widget.onChanged(
+                    text.trim().isEmpty ? null : int.tryParse(text.trim()),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
+          _HelpLines(helpText: widget.helpText, risk: widget.risk, indent: 168),
         ],
       ),
     );
@@ -221,6 +262,8 @@ class SettingsDropdown<T> extends StatelessWidget {
     required this.items,
     required this.onChanged,
     this.width = 200,
+    this.helpText,
+    this.risk,
   });
 
   final String label;
@@ -229,29 +272,74 @@ class SettingsDropdown<T> extends StatelessWidget {
   final ValueChanged<T?> onChanged;
   final double width;
 
+  /// UB2-01: explainer / risk note under the row (see [SettingsCheckbox]).
+  final String? helpText;
+  final String? risk;
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SizedBox(
-            width: 168,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: AppTokens.fontSize),
-            ),
+          Row(
+            children: <Widget>[
+              SizedBox(
+                width: 168,
+                child: Text(
+                  label,
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
+                ),
+              ),
+              SizedBox(
+                width: width,
+                child: DropdownButton<T>(
+                  isExpanded: true,
+                  isDense: true,
+                  value: items.any((i) => i.value == value) ? value : null,
+                  items: items,
+                  onChanged: onChanged,
+                ),
+              ),
+            ],
           ),
-          SizedBox(
-            width: width,
-            child: DropdownButton<T>(
-              isExpanded: true,
-              isDense: true,
-              value: items.any((i) => i.value == value) ? value : null,
-              items: items,
-              onChanged: onChanged,
+          _HelpLines(helpText: helpText, risk: risk, indent: 168),
+        ],
+      ),
+    );
+  }
+}
+
+/// Explainer / risk lines shared by the [SettingsCheckbox],
+/// [SettingsTextField], [SettingsNumberField] and [SettingsDropdown] rows
+/// (UB2-01). Renders nothing when both are null, so existing rows are
+/// pixel-identical. [indent] aligns the text with the control column.
+class _HelpLines extends StatelessWidget {
+  const _HelpLines({this.helpText, this.risk, this.indent = 0});
+
+  final String? helpText;
+  final String? risk;
+  final double indent;
+
+  @override
+  Widget build(BuildContext context) {
+    if (helpText == null && risk == null) return const SizedBox.shrink();
+    final base = AppForm.helperStyle(Theme.of(context));
+    return Padding(
+      padding: EdgeInsets.only(left: indent, right: 4, top: 1, bottom: 3),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (helpText != null)
+            Text(
+              helpText!,
+              style: base.copyWith(color: context.semantics.muted),
             ),
-          ),
+          if (risk != null)
+            Text(risk!, style: base.copyWith(color: context.semantics.warning)),
         ],
       ),
     );
@@ -259,26 +347,56 @@ class SettingsDropdown<T> extends StatelessWidget {
 }
 
 /// A labelled sub-section inside a tab.
-class SettingsSection extends StatelessWidget {
-  const SettingsSection({super.key, required this.title, required this.child});
+class SettingsSection extends StatefulWidget {
+  const SettingsSection({
+    super.key,
+    required this.title,
+    required this.child,
+    this.collapsed = false,
+  });
 
   final String title;
   final List<Widget> child;
+
+  /// UB2-01: start folded (advanced/legacy groups). Tapping the header
+  /// expands; folding never touches persisted values (display only).
+  final bool collapsed;
+
+  @override
+  State<SettingsSection> createState() => _SettingsSectionState();
+}
+
+class _SettingsSectionState extends State<SettingsSection> {
+  late bool _open = !widget.collapsed;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 4),
-          child: Text(
-            title,
-            style: AppForm.sectionTitleStyle(Theme.of(context)),
+        InkWell(
+          onTap: () => setState(() => _open = !_open),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 4),
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: AppForm.sectionTitleStyle(Theme.of(context)),
+                  ),
+                ),
+                Icon(
+                  AppTokens.icon(_open ? 'arrowUp' : 'dropdown'),
+                  size: 16,
+                  color: context.semantics.muted,
+                ),
+              ],
+            ),
           ),
         ),
         const Divider(height: 1),
-        ...child,
+        if (_open) ...widget.child,
         const SizedBox(height: 8),
       ],
     );

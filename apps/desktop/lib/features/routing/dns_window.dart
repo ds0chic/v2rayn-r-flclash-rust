@@ -675,7 +675,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             tun,
             const ValueKey('dns-custom-tun'),
             lines: 5,
-            help: 'TUN 模式下的 DNS 配置段；与上面配错位会导致“开 TUN 就断网”。',
+            help: 'TUN 模式下的 DNS 配置段；与上面配错位会导致“开 TUN 就断网”（待核实）。',
           ),
         ],
       ),

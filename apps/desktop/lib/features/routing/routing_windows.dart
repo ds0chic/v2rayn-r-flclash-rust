@@ -685,7 +685,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
     final draft = ref.read(routingControllerProvider.notifier).newRuleDraft();
     final saved = await showRoutingRuleDetailsDialog(context, ref, draft);
     if (saved != null && mounted) {
-      setState(() => _rules = [..._rules, saved]);
+      // Upstream `RuleEditAsync(true)` inserts the new rule at the top
+      // (`_rules.Insert(0, item)`); routing is first-match-wins, so appending
+      // would silently demote it to the lowest priority.
+      setState(() => _rules = [saved, ..._rules]);
     }
   }
 
@@ -807,6 +810,7 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
         ],
       ),
     );
+    urlController.dispose();
     if (url == null || !mounted) return;
     pickRulesFromUrl(context, url).then(_mergeImported);
   }
@@ -2964,7 +2968,8 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
       ),
     );
     if (saved != null && mounted) {
-      setState(() => _rules = <r.RoutingRuleDto>[..._rules, saved]);
+      // Same upstream `Insert(0)` order as the embedded ruleset editor above.
+      setState(() => _rules = <r.RoutingRuleDto>[saved, ..._rules]);
     }
   }
 
@@ -3084,6 +3089,7 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
         ],
       ),
     );
+    urlController.dispose();
     if (url == null || !mounted) return;
     pickRulesFromUrl(context, url).then(_mergeImported);
   }

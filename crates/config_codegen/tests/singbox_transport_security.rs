@@ -211,3 +211,37 @@ fn singbox_tls_reality_fragment_ech() {
         json!(["-----BEGIN ECH CONFIGS-----\nAEXD+abc\n-----END ECH CONFIGS-----"])
     );
 }
+
+// S3-01: sing-box uTLS comes only from the node fingerprint. Upstream
+// `FillOutboundTls` guards the utls block with
+// `_node.Fingerprint.IsNotEmpty()`; the global DefFingerprint fallback exists
+// only on the Xray side and must not leak into sing-box TLS.
+#[test]
+fn singbox_utls_ignores_global_default_fingerprint() {
+    let mut p = vless_with_network("raw");
+    p.stream_security = "tls".into();
+    p.sni = "tls.test".into();
+    let mut settings = settings();
+    settings.core_basic.def_fingerprint = Some("chrome".into());
+    let mut input = codegen_input(p);
+    input.settings = settings;
+
+    let generated = generate_singbox(&input).expect("tls");
+    assert!(
+        json_at(&generated.main, "/outbounds/0/tls/utls").is_null(),
+        "global DefFingerprint must not emit sing-box utls: {}",
+        json_at(&generated.main, "/outbounds/0/tls")
+    );
+
+    // Control: an explicit node fingerprint still emits utls.
+    let mut p = vless_with_network("raw");
+    p.stream_security = "tls".into();
+    p.sni = "tls.test".into();
+    p.fingerprint = "firefox".into();
+    let input = codegen_input(p);
+    let generated = generate_singbox(&input).expect("tls");
+    assert_eq!(
+        string_at(&generated.main, "/outbounds/0/tls/utls/fingerprint"),
+        "firefox"
+    );
+}

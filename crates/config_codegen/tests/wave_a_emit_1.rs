@@ -122,10 +122,9 @@ fn wave_a_028_def_fingerprint_default_and_override() {
     );
     assert_no_live_port(&main);
     let main = generate_singbox(&input).expect("singbox").main;
-    assert_eq!(
-        string_at(&main, "/outbounds/0/tls/utls/fingerprint"),
-        "chrome"
-    );
+    // S3-01: upstream sing-box ignores the global DefFingerprint (utls is
+    // guarded by `_node.Fingerprint.IsNotEmpty()`); only Xray inherits it.
+    assert!(json_at(&main, "/outbounds/0/tls/utls").is_null(), "{main}");
     assert_no_live_port(&main);
 
     // Explicit node fingerprint wins over the default.

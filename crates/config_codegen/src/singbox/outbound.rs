@@ -876,20 +876,13 @@ fn fill_outbound_tls(
         tls.insert("fragment".into(), json!(true));
         tls.insert("record_fragment".into(), json!(true));
     }
-    let fingerprint = if !node.fingerprint.trim().is_empty() {
-        Some(node.fingerprint.trim().to_string())
-    } else {
-        input
-            .settings
-            .core_basic
-            .def_fingerprint
-            .clone()
-            .filter(|s| !s.is_empty())
-    };
-    if let Some(fingerprint) = fingerprint {
+    // Upstream `FillOutboundTls` emits utls only for an explicit node
+    // fingerprint; the global DefFingerprint fallback exists on the Xray side
+    // only (S3-01).
+    if !node.fingerprint.trim().is_empty() {
         tls.insert(
             "utls".into(),
-            json!({"enabled": true, "fingerprint": fingerprint}),
+            json!({"enabled": true, "fingerprint": node.fingerprint.trim()}),
         );
     }
     if node.stream_security == STREAM_SECURITY {

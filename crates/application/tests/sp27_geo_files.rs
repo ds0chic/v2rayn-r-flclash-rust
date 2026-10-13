@@ -101,11 +101,47 @@ fn isolated_cores_root(data: &tempfile::TempDir) -> std::path::PathBuf {
 }
 
 fn no_staging_residue(cores_root: &std::path::Path) {
-    assert!(
-        !cores_root.join(".staging").join("geo-pending").exists(),
-        "staging residue under {}",
-        cores_root.display()
+    let staging = cores_root.join(".staging");
+    if !staging.exists() {
+        return;
+    }
+    for entry in std::fs::read_dir(&staging).expect("read staging") {
+        let entry = entry.expect("staging entry");
+        assert!(
+            !entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("geo-pending"),
+            "staging residue under {}",
+            cores_root.display()
+        );
+    }
+}
+
+#[test]
+fn second_file_install_failure_rolls_back_first() {
+    let (_port, template) = bind_mock();
+    let data = tempfile::tempdir().expect("data");
+    let cores_root = isolated_cores_root(&data);
+    let bin = data.path().join("bin");
+    std::fs::create_dir_all(&bin).expect("bin");
+    std::fs::write(bin.join("geoip.dat"), b"OLD-GEOIP").expect("old geoip");
+    // Block the second landing (`geosite.dat` installs after `geoip.dat`): a
+    // directory there makes both rename and copy fail.
+    std::fs::create_dir_all(bin.join("geosite.dat")).expect("blocking dir");
+
+    let service = service_with_template(&cores_root, &template);
+    let error = runtime()
+        .block_on(service.apply_geo_files(None, &application::CancellationToken::new()))
+        .expect_err("blocked second file must fail");
+    assert_eq!(error.message_key, "error.update_install");
+    assert_eq!(
+        std::fs::read(bin.join("geoip.dat")).expect("geoip"),
+        b"OLD-GEOIP",
+        "the already-replaced first file must roll back"
     );
+    assert!(bin.join("geosite.dat").is_dir());
+    no_staging_residue(&cores_root);
 }
 
 #[test]

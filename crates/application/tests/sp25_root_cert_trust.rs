@@ -23,6 +23,8 @@ use application::UpdateService;
 use domain::CancellationToken;
 use rustls::pki_types::CertificateDer;
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
+use rustls_pki_types::pem::PemObject;
+use rustls_pki_types::PrivateKeyDer;
 use subscriptions::tls::HttpsTrust as SubTrust;
 use subscriptions::{build_client_with_trust, DownloadOptions};
 use updater::arch::{HostTarget, Os, PlatformArch};
@@ -52,11 +54,14 @@ fn runtime() -> tokio::runtime::Runtime {
 }
 
 fn server_config() -> Arc<ServerConfig> {
-    let certs: Vec<CertificateDer<'static>> =
-        rustls_pemfile::certs(&mut std::io::Cursor::new(SERVER_PEM))
-            .collect::<Result<_, _>>()
-            .expect("server certs");
-    let key = rustls_pemfile::private_key(&mut std::io::Cursor::new(SERVER_KEY_PEM))
+    let certs: Vec<CertificateDer<'static>> = CertificateDer::pem_slice_iter(SERVER_PEM)
+        .collect::<Result<_, _>>()
+        .expect("server certs");
+    // First-key wins, malformed sections error out: same contract as the
+    // retired rustls_pemfile::private_key (locked by tests/pem_parsing.rs).
+    let key = PrivateKeyDer::pem_slice_iter(SERVER_KEY_PEM)
+        .next()
+        .transpose()
         .expect("key parse")
         .expect("key present");
     let provider = Arc::new(rustls::crypto::ring::default_provider());

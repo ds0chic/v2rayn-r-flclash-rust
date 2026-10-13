@@ -29,6 +29,7 @@ use std::time::{Duration, Instant};
 use domain::{CancellationToken, DomainError, Profile, SpeedTestAction};
 use rustls::pki_types::ServerName;
 use rustls::{ClientConnection, RootCertStore, StreamOwned};
+use rustls_pki_types::pem::PemObject;
 use serde::{Deserialize, Serialize};
 
 /// Test-port floor: the reserved live proxy port `10808` can never be used.
@@ -547,8 +548,7 @@ fn native_root_store() -> Arc<RootCertStore> {
             }
             if let Ok(path) = std::env::var(EXTRA_CA_ENV) {
                 if let Ok(pem) = std::fs::read(path) {
-                    let mut cursor = std::io::Cursor::new(pem);
-                    for cert in rustls_pemfile::certs(&mut cursor).flatten() {
+                    for cert in rustls_pki_types::CertificateDer::pem_slice_iter(&pem).flatten() {
                         let _ = store.add(cert);
                     }
                 }

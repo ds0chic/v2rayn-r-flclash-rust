@@ -21,6 +21,8 @@ use application::speedtest::{
 use domain::{CancellationToken, DomainError, SpeedTestAction};
 use rustls::pki_types::CertificateDer;
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
+use rustls_pki_types::pem::PemObject;
+use rustls_pki_types::PrivateKeyDer;
 
 const CA_PEM: &[u8] = include_bytes!("fixtures/tls/ca.pem");
 const SERVER_PEM: &[u8] = include_bytes!("fixtures/tls/server.pem");
@@ -28,19 +30,21 @@ const SERVER_KEY_PEM: &[u8] = include_bytes!("fixtures/tls/server.key.pem");
 
 fn ca_store() -> RootCertStore {
     let mut store = RootCertStore::empty();
-    let mut cursor = std::io::Cursor::new(CA_PEM);
-    for cert in rustls_pemfile::certs(&mut cursor) {
+    for cert in CertificateDer::pem_slice_iter(CA_PEM) {
         store.add(cert.expect("ca cert")).expect("add ca");
     }
     store
 }
 
 fn server_config() -> Arc<ServerConfig> {
-    let certs: Vec<CertificateDer<'static>> =
-        rustls_pemfile::certs(&mut std::io::Cursor::new(SERVER_PEM))
-            .collect::<Result<_, _>>()
-            .expect("server certs");
-    let key = rustls_pemfile::private_key(&mut std::io::Cursor::new(SERVER_KEY_PEM))
+    let certs: Vec<CertificateDer<'static>> = CertificateDer::pem_slice_iter(SERVER_PEM)
+        .collect::<Result<_, _>>()
+        .expect("server certs");
+    // First-key wins, malformed sections error out: same contract as the
+    // retired rustls_pemfile::private_key (locked by tests/pem_parsing.rs).
+    let key = PrivateKeyDer::pem_slice_iter(SERVER_KEY_PEM)
+        .next()
+        .transpose()
         .expect("key parse")
         .expect("key present");
     let provider = Arc::new(rustls::crypto::ring::default_provider());

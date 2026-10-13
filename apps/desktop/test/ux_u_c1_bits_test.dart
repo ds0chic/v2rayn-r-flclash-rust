@@ -24,12 +24,7 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      _wrap(
-        const FoldSection(
-          title: '专家匹配条件',
-          child: Text('内藏项'),
-        ),
-      ),
+      _wrap(const FoldSection(title: '专家匹配条件', child: Text('内藏项'))),
     );
     expect(find.text('专家匹配条件'), findsOneWidget);
     expect(find.text('内藏项'), findsNothing);

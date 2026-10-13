@@ -407,9 +407,7 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                   ),
               ],
             ),
-            const HelpText(
-              '俄/伊预设需联网下载模板；离线只应用本地部分并提示待下载数（回退语义待核实）。',
-            ),
+            const HelpText('俄/伊预设需联网下载模板；离线只应用本地部分并提示待下载数（回退语义待核实）。'),
             if (state.status != null)
               Align(
                 alignment: Alignment.centerLeft,
@@ -475,36 +473,78 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
             const ValueKey('dns-fakeip-range'),
             help: '假 IP 号段（默认 198.18.0.0/15）。别改成 192.168.x 这类家里在用的段（冲突后果待核实）。',
           ),
-          _switch('使用系统 hosts', _useSystemHosts, (v) {
-            setState(() => _useSystemHosts = v);
-          }, const ValueKey('dns-use-system-hosts'),
-              help: '顺便用 Windows 的 hosts 文件。默认关；开后系统 hosts 的条目会掺进代理解析。'),
-          _switch('附加公共 hosts', _addCommonHosts, (v) {
-            setState(() => _addCommonHosts = v);
-          }, const ValueKey('dns-add-common-hosts'),
-              help: '内置 14 个 DNS 服务商的 IP 备忘（DoH 建连用）。默认开，别关。'),
-          _switch('FakeIP', _fakeIp, (v) {
-            setState(() => _fakeIp = v);
-          }, const ValueKey('dns-fakeip'),
-              help: '给国外域名发“假 IP”，真实地址出站时再查。局域网共享或直连应用多时别开（它们拿到假 IP 可能异常，待核实）。'),
-          _switch('屏蔽绑定查询', _blockBinding, (v) {
-            setState(() => _blockBinding = v);
-          }, const ValueKey('dns-block-binding'),
-              help: '上游默认开。默认别动（确切语义待核实）。'),
-          _switch('屏蔽 AAAA 查询', _blockAaaa, (v) {
-            setState(() => _blockAaaa = v);
-          }, const ValueKey('dns-block-aaaa'),
-              help: '屏蔽 IPv6 查询。纯 IPv4 宽带开着能提速（待核实）；有 IPv6 需求必须关。'),
-          _switch('并行查询', _parallelQuery, (v) {
-            setState(() => _parallelQuery = v);
-          }, const ValueKey('dns-parallel'), help: '并行向上游查询取最快结果（效果待核实）。默认关。'),
-          _switch('ServeStale', _serveStale, (v) {
-            setState(() => _serveStale = v);
-          }, const ValueKey('dns-serve-stale'), help: '缓存过期也先顶上旧结果（效果待核实）。默认关。'),
-          _switch('HappyEyeballs', _happyEyeballs, (v) {
-            setState(() => _happyEyeballs = v);
-          }, const ValueKey('dns-happy-eyeballs'),
-              help: 'IPv4/IPv6 双栈竞速（效果待核实）。单栈宽带开了没用，默认关。'),
+          _switch(
+            '使用系统 hosts',
+            _useSystemHosts,
+            (v) {
+              setState(() => _useSystemHosts = v);
+            },
+            const ValueKey('dns-use-system-hosts'),
+            help: '顺便用 Windows 的 hosts 文件。默认关；开后系统 hosts 的条目会掺进代理解析。',
+          ),
+          _switch(
+            '附加公共 hosts',
+            _addCommonHosts,
+            (v) {
+              setState(() => _addCommonHosts = v);
+            },
+            const ValueKey('dns-add-common-hosts'),
+            help: '内置 14 个 DNS 服务商的 IP 备忘（DoH 建连用）。默认开，别关。',
+          ),
+          _switch(
+            'FakeIP',
+            _fakeIp,
+            (v) {
+              setState(() => _fakeIp = v);
+            },
+            const ValueKey('dns-fakeip'),
+            help: '给国外域名发“假 IP”，真实地址出站时再查。局域网共享或直连应用多时别开（它们拿到假 IP 可能异常，待核实）。',
+          ),
+          _switch(
+            '屏蔽绑定查询',
+            _blockBinding,
+            (v) {
+              setState(() => _blockBinding = v);
+            },
+            const ValueKey('dns-block-binding'),
+            help: '上游默认开。默认别动（确切语义待核实）。',
+          ),
+          _switch(
+            '屏蔽 AAAA 查询',
+            _blockAaaa,
+            (v) {
+              setState(() => _blockAaaa = v);
+            },
+            const ValueKey('dns-block-aaaa'),
+            help: '屏蔽 IPv6 查询。纯 IPv4 宽带开着能提速（待核实）；有 IPv6 需求必须关。',
+          ),
+          _switch(
+            '并行查询',
+            _parallelQuery,
+            (v) {
+              setState(() => _parallelQuery = v);
+            },
+            const ValueKey('dns-parallel'),
+            help: '并行向上游查询取最快结果（效果待核实）。默认关。',
+          ),
+          _switch(
+            'ServeStale',
+            _serveStale,
+            (v) {
+              setState(() => _serveStale = v);
+            },
+            const ValueKey('dns-serve-stale'),
+            help: '缓存过期也先顶上旧结果（效果待核实）。默认关。',
+          ),
+          _switch(
+            'HappyEyeballs',
+            _happyEyeballs,
+            (v) {
+              setState(() => _happyEyeballs = v);
+            },
+            const ValueKey('dns-happy-eyeballs'),
+            help: 'IPv4/IPv6 双栈竞速（效果待核实）。单栈宽带开了没用，默认关。',
+          ),
           if (!_simpleDnsEnabled)
             Padding(
               padding: const EdgeInsets.only(top: 4),

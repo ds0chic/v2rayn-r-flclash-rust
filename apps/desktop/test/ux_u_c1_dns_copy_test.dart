@@ -82,11 +82,7 @@ void main() {
     await _pumpDns(tester, _container());
     await tester.tap(find.text('高级 DNS'));
     await tester.pumpAndSettle();
-    for (final needle in <String>[
-      '跟随',
-      '验货',
-      '跳过',
-    ]) {
+    for (final needle in <String>['跟随', '验货', '跳过']) {
       expect(find.textContaining(needle), findsWidgets, reason: needle);
     }
   });

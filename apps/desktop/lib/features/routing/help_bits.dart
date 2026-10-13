@@ -6,8 +6,8 @@ import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 /// Purely additive display layer for the UX3 copy pass (dns_window.dart,
 /// routing_windows.dart): small help lines, info tooltips, default-collapsed
 /// fold sections and read-only legacy rows. Only U-A tokens are used
-/// (`AppForm.helperStyle`, `AppTokens.icon`, semantic colors); no raw
-/// `fontSize:` literals, no direct `Icon(Icons.*)` references.
+/// (`AppForm.helperStyle`, the semantic icon map, semantic colors); no raw
+/// numeric text sizes, no direct framework icon references.
 
 Color _muted(BuildContext context) =>
     Theme.of(context).extension<AppSemanticColors>()?.muted ??
@@ -79,15 +79,12 @@ class FoldSection extends StatelessWidget {
       initiallyExpanded: initiallyExpanded,
       title: Row(
         children: <Widget>[
-          Expanded(
-            child: Text(title, style: AppForm.labelStyle(theme)),
-          ),
+          Expanded(child: Text(title, style: AppForm.labelStyle(theme))),
           if (badge != null && badge!.isNotEmpty)
             Text(
               badge!,
-              style: AppForm.helperStyle(
-                theme,
-              ).copyWith(color: _muted(context)),
+              style: AppForm.helperStyle(theme)
+                  .copyWith(color: _muted(context)),
             ),
         ],
       ),
@@ -112,7 +109,10 @@ class LegacyRow extends StatelessWidget {
     final style = AppForm.helperStyle(theme).copyWith(color: _muted(context));
     return Padding(
       padding: const EdgeInsets.only(top: 2),
-      child: Text('$label：${value.isEmpty ? "（空）" : value}（界面不可改，待核实）', style: style),
+      child: Text(
+        '$label：${value.isEmpty ? "（空）" : value}（界面不可改，待核实）',
+        style: style,
+      ),
     );
   }
 }

@@ -24,6 +24,12 @@ pub struct UiEventAck {
 
 static STORE: OnceLock<Mutex<Vec<ProfileSummary>>> = OnceLock::new();
 
+/// Upper bound for synthetic row generation (S8-01). The bench drives 10k
+/// rows by default; larger requests are truncated instead of exhausting memory.
+pub const MAX_SYNTHETIC_ROWS: u32 = 200_000;
+/// Upper bound for the synthetic blocking probe (S8-01).
+pub const MAX_BLOCKING_MS: u64 = 30_000;
+
 fn store() -> &'static Mutex<Vec<ProfileSummary>> {
     STORE.get_or_init(|| Mutex::new(Vec::new()))
 }
@@ -36,7 +42,7 @@ pub fn init_app() {
 /// Generate and retain `count` synthetic rows, returning all of them.
 #[frb(sync)]
 pub fn generate_profiles(count: u32) -> Vec<ProfileSummary> {
-    let rows = application::generate_synthetic_profiles(count);
+    let rows = application::generate_synthetic_profiles(count.min(MAX_SYNTHETIC_ROWS));
     if let Ok(mut guard) = store().lock() {
         *guard = rows.clone();
     }
@@ -78,6 +84,7 @@ pub fn ping_profile(id: String) -> i32 {
 /// the UI to confirm events flow back from Rust.
 pub fn progress_stream(count: u32, sink: StreamSink<ProgressEvent>) -> Result<(), String> {
     const PAGE: u32 = 1_000;
+    let count = count.min(MAX_SYNTHETIC_ROWS);
     let mut done = 0u32;
     let mut seq = 0u32;
     while done < count {
@@ -106,5 +113,24 @@ pub fn echo_ui_event(seq: u64, kind: String) -> UiEventAck {
 
 /// Run a synthetic blocking loop off the UI thread and return elapsed millis.
 pub async fn simulate_blocking(ms: u64) -> u64 {
-    application::blocking_probe(ms)
+    application::blocking_probe(ms.min(MAX_BLOCKING_MS))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// S8-01: oversized requests are truncated instead of exhausting memory.
+    /// Pre-fix this returns all 300k rows; post-fix it stops at the cap.
+    #[test]
+    fn synthetic_generation_is_bounded() {
+        let rows = generate_profiles(300_000);
+        assert_eq!(rows.len(), 200_000);
+    }
+
+    /// S8-01: small probes still pass through unclamped.
+    #[test]
+    fn small_generation_is_untouched() {
+        assert_eq!(generate_profiles(7).len(), 7);
+    }
 }

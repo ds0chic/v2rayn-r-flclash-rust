@@ -89,7 +89,10 @@ void main() {
     // rows 0..99 carry sub-000; rows 100..199 carry sub-001.
     expect(readState(container).visible.length, 100);
     for (final row in readState(container).visible) {
-      expect(row.subRemarks, 'sub-000');
+      // D1-01: the column shows the joined subscription remarks ('sub-001'
+      // is sub A's remark, colliding with sub B's id by design), while the
+      // filter above still resolved by id.
+      expect(row.subRemarks, 'sub-001');
     }
   });
 }

@@ -592,20 +592,36 @@ fn query_profiles_page_inner(
         page_size,
     };
     let dataset_revision = engine().desired_revision();
-    match engine().query_profiles(filter, sort, page) {
+    page_dto_from_query(
+        engine().query_profiles(filter, sort, page),
+        dataset_revision,
+        request_generation,
+    )
+}
+
+/// Map one store query outcome onto the page DTO. Separated for testing: the
+/// error arm must stay visible instead of collapsing into an empty page.
+fn page_dto_from_query(
+    result: Result<application::ProfilePage, DomainError>,
+    dataset_revision: u64,
+    request_generation: u64,
+) -> ProfilePageDto {
+    match result {
         Ok(p) => ProfilePageDto {
             items: p.items.into_iter().map(profile_to_dto).collect(),
             total: p.total as u64,
             next_cursor: p.next_cursor.map(|c| c as u64),
             dataset_revision,
             request_generation,
+            error: None,
         },
-        Err(_) => ProfilePageDto {
+        Err(error) => ProfilePageDto {
             items: Vec::new(),
             total: 0,
             next_cursor: None,
             dataset_revision,
             request_generation,
+            error: Some(error_dto(error)),
         },
     }
 }
@@ -1139,7 +1155,10 @@ pub fn subscribe_events(sink: StreamSink<EventEnvelopeDto>) {
 }
 
 /// Test helper: emit a synthetic control event to the stream.
-#[frb(sync)]
+///
+/// Not part of the Dart API (`#[frb(ignore)]`): production UI must never
+/// inject control events; tests drive the engine directly.
+#[frb(ignore)]
 pub fn emit_test_event(kind: String, payload_json: String) {
     let payload: Value = serde_json::from_str(&payload_json).unwrap_or(Value::String(payload_json));
     emit_control(&kind, payload);
@@ -1152,14 +1171,20 @@ pub fn subscriber_count() -> u32 {
 }
 
 /// Mark a job as running its compensating path (test helper for cancel flow).
-#[frb(sync)]
+///
+/// Not part of the Dart API (`#[frb(ignore)]`): flipping job internals from
+/// the UI would corrupt cancellation semantics.
+#[frb(ignore)]
 pub fn mark_job_past_safe_point(job_id: String) {
     engine().jobs().mark_past_safe_point(&JobId::new(job_id));
 }
 
 /// Seed the in-memory engine with `count` synthetic profiles (bootstrap +
 /// tests). Addresses are RFC5737 / example domains only.
-#[frb(sync)]
+///
+/// Not part of the Dart API (`#[frb(ignore)]`): replacing the live profile
+/// store from the UI would detach production persistence.
+#[frb(ignore)]
 pub fn seed_synthetic_profiles(count: u32) {
     let profiles: Vec<Profile> = (0..count)
         .map(application::synthetic::synthetic_full_profile)
@@ -1436,6 +1461,39 @@ mod tests {
         let dto = applied_inbound();
         assert_eq!(dto.protocol, None);
         assert_eq!(dto.port, None);
+    }
+
+    #[test]
+    fn gated_test_helpers_stay_callable_from_rust() {
+        // S8-01: `#[frb(ignore)]` removes the Dart bindings but must not break
+        // direct Rust callers (bootstrap/tests).
+        let _guard = engine_test_lock();
+        seed_synthetic_profiles(2);
+        assert!(profile_count() >= 2);
+        emit_test_event("b07b-probe".into(), "{}".into());
+        mark_job_past_safe_point("no-such-job".into());
+    }
+
+    #[test]
+    fn failed_page_query_carries_a_structured_error() {
+        // S8-03: a storage failure must be visible on the page, never an
+        // empty "all good" page that the cursor loops mistake for completion.
+        let _guard = engine_test_lock();
+        let dto = page_dto_from_query(
+            Err(DomainError::new(
+                domain::codes::UNAVAILABLE,
+                "error.storage",
+            )),
+            7,
+            9,
+        );
+        assert!(dto.items.is_empty());
+        assert_eq!(dto.total, 0);
+        assert_eq!(dto.next_cursor, None);
+        assert_eq!(dto.dataset_revision, 7);
+        assert_eq!(dto.request_generation, 9);
+        let error = dto.error.expect("storage failure must be surfaced");
+        assert_eq!(error.code, domain::codes::UNAVAILABLE);
     }
 
     #[test]

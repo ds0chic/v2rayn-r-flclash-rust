@@ -8,7 +8,7 @@ import 'contract.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `app_install_root`, `app_update_spec_inner`, `backup_service`, `core_update_dto`, `cores_root`, `dto_to_webdav`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `update_service`, `update_target_dto`, `webdav_client`, `webdav_dto`, `work_dir`
+// These functions are ignored because they are not marked as `pub`: `app_install_root`, `app_update_spec_inner`, `app_update_spec_stage`, `apply_core_update_inner`, `backup_service`, `cancelled_dto`, `check_updates_inner`, `clear_update_token`, `core_update_dto`, `cores_root`, `current_update_token`, `dto_to_webdav`, `import_failed`, `import_upstream_inner`, `import_upstream`, `install_update_token`, `manifest_dto`, `now_epoch`, `open_path`, `proxy_unavailable`, `restore_failed`, `rollback_core_allowed`, `update_service`, `update_step`, `update_target_dto`, `update_timeout`, `webdav_client`, `webdav_dto`, `webdav_restore`, `work_dir`
 
 /// `backup_local` — write a versioned bundle under `dest_root`. Async: copies
 /// files and hashes the database, so it must not run on the UI isolate.
@@ -82,6 +82,24 @@ Future<RestoreResultDto> t16WebdavRestore({required WebDavConfigDto cfg}) =>
 /// carry a note and must be rendered disabled).
 List<UpdateTargetDto> t16UpdateTargets() =>
     RustLib.instance.api.crateApiT16T16UpdateTargets();
+
+/// `cancel_update` — cancel the in-flight update operation, if any (B07b).
+///
+/// `ok: true` means a cancellation was newly requested; `ok: false` with a
+/// structured `NOT_FOUND` means no update is running. The running op observes
+/// the token at step boundaries and inside downloads, then reports
+/// `E_CANCELLED` / `error.cancelled` with whatever partial results exist.
+SimpleResult t16CancelUpdate() =>
+    RustLib.instance.api.crateApiT16T16CancelUpdate();
+
+/// `rollback_core` — restore the `<core>.previous` version kept by a prior
+/// install (B07b).
+///
+/// The core name must be one of the frozen proxy update keys; anything else
+/// (including `v2rayN`, `GeoFiles`, paths) is rejected before touching the
+/// filesystem, so a crafted name can never escape the cores root.
+SimpleResult t16RollbackCore({required String core}) =>
+    RustLib.instance.api.crateApiT16T16RollbackCore(core: core);
 
 /// `check_updates` — check the selected cores. Upstream contract: `null`
 /// means every built-in target, an empty list means none (the user unchecked

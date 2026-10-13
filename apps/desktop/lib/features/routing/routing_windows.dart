@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
+import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
@@ -1286,14 +1287,21 @@ class _RoutingRuleDetailsDialogState
     final options = supplied != null
         ? List<String>.of(supplied)
         : () {
+            // S8-03: a storage failure leaves the built-in tags, without the
+            // live node remarks.
             final bridge = ref.read(bridgePortProvider);
-            final remarks =
-                bridge
-                    .queryAllProfiles()
-                    .where((p) => p.configType != ConfigType.custom)
-                    .map((p) => p.remarks)
-                    .toList()
-                  ..sort();
+            List<String> remarks = const [];
+            try {
+              remarks =
+                  bridge
+                      .queryAllProfiles()
+                      .where((p) => p.configType != ConfigType.custom)
+                      .map((p) => p.remarks)
+                      .toList()
+                    ..sort();
+            } on BridgeDataError {
+              remarks = const [];
+            }
             return <String>['proxy', 'direct', 'block', ...remarks];
           }();
     final picked = await showDialog<String>(

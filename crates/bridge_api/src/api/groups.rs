@@ -151,14 +151,16 @@ pub fn group_children(index_id: String) -> ProfilePageDto {
                 next_cursor: None,
                 dataset_revision,
                 request_generation: 0,
+                error: None,
             }
         }
-        Err(_) => ProfilePageDto {
+        Err(error) => ProfilePageDto {
             items: Vec::new(),
             total: 0,
             next_cursor: None,
             dataset_revision,
             request_generation: 0,
+            error: Some(error_dto(error)),
         },
     }
 }

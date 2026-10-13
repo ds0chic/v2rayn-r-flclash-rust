@@ -7,6 +7,7 @@
 //! here replaces a live installation outside the managed cores directory.
 
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
 use application::{
@@ -708,18 +709,143 @@ fn update_timeout(op: &str) -> ErrorDto {
     )
 }
 
+fn cancelled_dto() -> ErrorDto {
+    error_dto(DomainError::new(codes::CANCELLED, "error.cancelled"))
+}
+
+/// B07b: the update operation currently in flight, if any. The desktop runs a
+/// single update window (guarded by its busy latch), so one slot suffices; a
+/// second concurrent op would replace the first here, which is documented
+/// rather than supported.
+static CURRENT_UPDATE_TOKEN: OnceLock<Mutex<Option<Arc<CancellationToken>>>> = OnceLock::new();
+
+fn current_update_token() -> &'static Mutex<Option<Arc<CancellationToken>>> {
+    CURRENT_UPDATE_TOKEN.get_or_init(|| Mutex::new(None))
+}
+
+/// Install a fresh token for an update entry and publish it as current.
+fn install_update_token() -> Arc<CancellationToken> {
+    let token = Arc::new(CancellationToken::new());
+    if let Ok(mut slot) = current_update_token().lock() {
+        *slot = Some(Arc::clone(&token));
+    }
+    token
+}
+
+/// Drop the current token, but only if it is still ours: a newer op keeps its
+/// own token so a late finish cannot disarm its cancel.
+fn clear_update_token(token: &Arc<CancellationToken>) {
+    if let Ok(mut slot) = current_update_token().lock() {
+        if slot.as_ref().is_some_and(|t| Arc::ptr_eq(t, token)) {
+            *slot = None;
+        }
+    }
+}
+
+/// Test-only peek: whether an entry currently holds the slot, without
+/// cancelling anybody. Sibling entry tests run in parallel and briefly hold
+/// the process-wide slot; the slot-mechanics test polls this to quiescence
+/// instead of racing them.
+#[cfg(test)]
+fn update_slot_occupied() -> bool {
+    current_update_token()
+        .lock()
+        .map(|slot| slot.is_some())
+        .unwrap_or(false)
+}
+
+/// `cancel_update` — cancel the in-flight update operation, if any (B07b).
+///
+/// `ok: true` means a cancellation was newly requested; `ok: false` with a
+/// structured `NOT_FOUND` means no update is running. The running op observes
+/// the token at step boundaries and inside downloads, then reports
+/// `E_CANCELLED` / `error.cancelled` with whatever partial results exist.
+#[frb(sync)]
+pub fn t16_cancel_update() -> SimpleResult {
+    let requested = current_update_token()
+        .lock()
+        .map(|slot| slot.as_ref().map(|token| token.cancel()).unwrap_or(false))
+        .unwrap_or(false);
+    if requested {
+        SimpleResult {
+            ok: true,
+            error: None,
+        }
+    } else {
+        SimpleResult {
+            ok: false,
+            error: Some(error_dto(DomainError::not_found("update", "current"))),
+        }
+    }
+}
+
+/// `rollback_core` — restore the `<core>.previous` version kept by a prior
+/// install (B07b).
+///
+/// The core name must be one of the frozen proxy update keys; anything else
+/// (including `v2rayN`, `GeoFiles`, paths) is rejected before touching the
+/// filesystem, so a crafted name can never escape the cores root.
+#[frb(sync)]
+pub fn t16_rollback_core(core: String) -> SimpleResult {
+    if !rollback_core_allowed(&core) {
+        return SimpleResult {
+            ok: false,
+            error: Some(error_dto(
+                DomainError::new(codes::INVALID_ARGUMENT, "error.update_unsupported")
+                    .with_field("core"),
+            )),
+        };
+    }
+    let normalized = core.trim().to_ascii_lowercase().replace('-', "_");
+    match update_service().rollback_core(&normalized) {
+        Ok(()) => SimpleResult {
+            ok: true,
+            error: None,
+        },
+        Err(error) => SimpleResult {
+            ok: false,
+            error: Some(error_dto(error)),
+        },
+    }
+}
+
+/// Whether `core` names a rollback-eligible proxy core: canonical update-key
+/// spelling (case/`-` tolerant), excluding the app and the GeoFiles row.
+fn rollback_core_allowed(core: &str) -> bool {
+    let normalized = core.trim().to_ascii_lowercase().replace('-', "_");
+    runtime::adapter::core_type_for_update_key(&normalized).is_some()
+}
+
 /// S8-05: bound one network step; a stall surfaces as
 /// `E_TIMEOUT` / `error.timeout` so the existing `Err` branches return a
 /// structured DTO (with the partial results so far) instead of hanging.
+///
+/// B07b: the step additionally aborts on `cancellation`, reporting
+/// `E_CANCELLED` / `error.cancelled` the same way.
 async fn update_step<T>(
     op: &str,
     timeout: Duration,
     step: impl std::future::Future<Output = Result<T, DomainError>>,
+    cancellation: &CancellationToken,
 ) -> Result<T, ErrorDto> {
-    match tokio::time::timeout(timeout, step).await {
-        Ok(Ok(value)) => Ok(value),
-        Ok(Err(error)) => Err(error_dto(error)),
-        Err(_) => Err(update_timeout(op)),
+    if cancellation.is_cancelled() {
+        return Err(cancelled_dto());
+    }
+    let bounded = tokio::time::timeout(timeout, step);
+    tokio::pin!(bounded);
+    let cancelled = async {
+        while !cancellation.is_cancelled() {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    };
+    tokio::pin!(cancelled);
+    tokio::select! {
+        out = &mut bounded => match out {
+            Ok(Ok(value)) => Ok(value),
+            Ok(Err(error)) => Err(error_dto(error)),
+            Err(_) => Err(update_timeout(op)),
+        },
+        () = &mut cancelled => Err(cancelled_dto()),
     }
 }
 
@@ -753,14 +879,18 @@ pub async fn t16_check_updates(
             .collect::<Vec<_>>(),
         Some(list) => list,
     };
-    check_updates_inner(
+    let token = install_update_token();
+    let report = check_updates_inner(
         &service,
         selected,
         prerelease,
         proxy,
         T16_CHECK_STEP_TIMEOUT,
+        &token,
     )
-    .await
+    .await;
+    clear_update_token(&token);
+    report
 }
 
 // S8-05 seam: the check body takes its service/selection/timeout explicitly
@@ -772,9 +902,17 @@ async fn check_updates_inner(
     prerelease: bool,
     proxy: Option<String>,
     step_timeout: Duration,
+    cancellation: &CancellationToken,
 ) -> UpdateReportDto {
     let mut checks = Vec::new();
     for core in selected {
+        if cancellation.is_cancelled() {
+            return UpdateReportDto {
+                ok: false,
+                checks,
+                error: Some(cancelled_dto()),
+            };
+        }
         // R3-08: the application target must be checked against its own release
         // source, never the upstream `2dust/v2rayN` repo. When this build has no
         // source configured the row is reported explicitly blocked instead of
@@ -788,6 +926,7 @@ async fn check_updates_inner(
                 "check_updates",
                 step_timeout,
                 service.check_app_update(prerelease, proxy.as_deref()),
+                cancellation,
             )
             .await
             {
@@ -806,6 +945,7 @@ async fn check_updates_inner(
             "check_updates",
             step_timeout,
             service.check_core(&core, prerelease, proxy.as_deref()),
+            cancellation,
         )
         .await
         {
@@ -849,7 +989,8 @@ pub async fn t16_apply_core_update(
         };
     }
     let service = update_service();
-    apply_core_update_inner(
+    let token = install_update_token();
+    let report = apply_core_update_inner(
         &service,
         engine(),
         cores,
@@ -857,8 +998,11 @@ pub async fn t16_apply_core_update(
         proxy,
         T16_CHECK_STEP_TIMEOUT,
         T16_APPLY_STEP_TIMEOUT,
+        &token,
     )
-    .await
+    .await;
+    clear_update_token(&token);
+    report
 }
 
 // S8-05 seam: same rationale as `check_updates_inner`. The engine travels
@@ -866,6 +1010,7 @@ pub async fn t16_apply_core_update(
 // an isolated engine; production passes the global one. The old post-loop
 // restart is gone: `apply_core_managed` restarts only a previously running
 // target, so keeping the tail would restart twice.
+#[allow(clippy::too_many_arguments)]
 async fn apply_core_update_inner(
     service: &application::UpdateService,
     engine: &AppEngine,
@@ -874,12 +1019,22 @@ async fn apply_core_update_inner(
     proxy: Option<String>,
     check_timeout: Duration,
     stage_timeout: Duration,
+    cancellation: &CancellationToken,
 ) -> ApplyCoreResultDto {
     // S8-05: every network step below runs under the bridge time budget.
-    let token = CancellationToken::new();
+    // B07b: the token is the entry's published one, so `t16_cancel_update`
+    // aborts the run; downloads observe it directly.
     let mut applied = Vec::new();
     let mut skipped = Vec::new();
     for core in cores {
+        if cancellation.is_cancelled() {
+            return ApplyCoreResultDto {
+                ok: false,
+                applied,
+                skipped,
+                error: Some(cancelled_dto()),
+            };
+        }
         // The application is not a runnable core and must never be unpacked
         // into the cores directory; its update goes through the external
         // upgrade path (`t16_apply_app_update_spec`).
@@ -895,7 +1050,8 @@ async fn apply_core_update_inner(
             match update_step(
                 "apply_core_update",
                 stage_timeout,
-                service.apply_geo_files(proxy.as_deref(), &token),
+                service.apply_geo_files(proxy.as_deref(), cancellation),
+                cancellation,
             )
             .await
             {
@@ -930,6 +1086,7 @@ async fn apply_core_update_inner(
             "apply_core_update",
             check_timeout,
             service.check_core(&core, prerelease, proxy.as_deref()),
+            cancellation,
         )
         .await
         {
@@ -970,7 +1127,8 @@ async fn apply_core_update_inner(
         match update_step(
             "apply_core_update",
             stage_timeout,
-            service.apply_core_managed(engine, &request, &token),
+            service.apply_core_managed(engine, &request, cancellation),
+            cancellation,
         )
         .await
         {
@@ -1022,14 +1180,18 @@ async fn app_update_spec_inner(prerelease: bool, via_proxy: bool) -> ExternalSpe
             error: Some(proxy_unavailable()),
         };
     }
-    app_update_spec_stage(
+    let token = install_update_token();
+    let spec = app_update_spec_stage(
         &service,
         proxy,
         prerelease,
         T16_CHECK_STEP_TIMEOUT,
         T16_APP_STAGE_TIMEOUT,
+        &token,
     )
-    .await
+    .await;
+    clear_update_token(&token);
+    spec
 }
 
 // S8-05 seam: same rationale as `check_updates_inner`.
@@ -1039,12 +1201,14 @@ async fn app_update_spec_stage(
     prerelease: bool,
     check_timeout: Duration,
     stage_timeout: Duration,
+    cancellation: &CancellationToken,
 ) -> ExternalSpecDto {
     // S8-05: every network step below runs under the bridge time budget.
     let check = match update_step(
         "apply_app_update_spec",
         check_timeout,
         service.check_app_update(prerelease, proxy.as_deref()),
+        cancellation,
     )
     .await
     {
@@ -1109,7 +1273,6 @@ async fn app_update_spec_stage(
         proxy: proxy.clone(),
     };
     let helper = service.app_layout().runner_exe();
-    let token = CancellationToken::new();
     match update_step(
         "apply_app_update_spec",
         stage_timeout,
@@ -1119,8 +1282,9 @@ async fn app_update_spec_stage(
             verifier.as_ref(),
             helper,
             std::process::id(),
-            &token,
+            cancellation,
         ),
+        cancellation,
     )
     .await
     {
@@ -1617,6 +1781,7 @@ mod tests {
             false,
             None,
             Duration::from_millis(200),
+            &CancellationToken::new(),
         ));
         assert!(!report.ok);
         let error = report.error.expect("structured timeout error");
@@ -1635,6 +1800,7 @@ mod tests {
             None,
             Duration::from_millis(200),
             Duration::from_millis(200),
+            &CancellationToken::new(),
         ));
         assert!(!result.ok);
         let error = result.error.expect("structured timeout error");
@@ -1651,6 +1817,7 @@ mod tests {
             false,
             Duration::from_millis(200),
             Duration::from_millis(200),
+            &CancellationToken::new(),
         ));
         assert!(!spec.ok);
         let error = spec.error.expect("structured timeout error");
@@ -1667,6 +1834,7 @@ mod tests {
             "probe",
             Duration::from_millis(50),
             std::future::pending(),
+            &CancellationToken::new(),
         )) {
             Ok(_) => panic!("hung step times out"),
             Err(error) => error,
@@ -1677,6 +1845,7 @@ mod tests {
             "probe",
             Duration::from_secs(60),
             std::future::ready(Ok(7u8)),
+            &CancellationToken::new(),
         )) {
             Ok(value) => value,
             Err(_) => panic!("ready ok passes through"),
@@ -1689,11 +1858,161 @@ mod tests {
                 codes::UNAVAILABLE,
                 "error.engine_not_persistent",
             ))),
+            &CancellationToken::new(),
         )) {
             Ok(_) => panic!("domain errors pass through"),
             Err(error) => error,
         };
         assert_eq!(inner_err.code, codes::UNAVAILABLE);
+    }
+
+    #[test]
+    fn b07b_precancelled_check_updates_reports_cancelled() {
+        // A cancelled token short-circuits before any network step, even
+        // against a hanging backend (which would otherwise take the timeout).
+        let service = s8_05_mock_service("check", false);
+        let token = CancellationToken::new();
+        assert!(token.cancel());
+        let report = s8_05_block_on(check_updates_inner(
+            &service,
+            vec!["xray".to_string()],
+            false,
+            None,
+            Duration::from_secs(60),
+            &token,
+        ));
+        assert!(!report.ok);
+        let error = report.error.expect("structured cancelled error");
+        assert_eq!(error.code, codes::CANCELLED);
+        assert_eq!(error.message_key, "error.cancelled");
+    }
+
+    #[test]
+    fn b07b_precancelled_apply_reports_cancelled() {
+        let service = s8_05_mock_service("apply", false);
+        let token = CancellationToken::new();
+        assert!(token.cancel());
+        let result = s8_05_block_on(apply_core_update_inner(
+            &service,
+            engine(),
+            vec!["xray".to_string()],
+            false,
+            None,
+            Duration::from_secs(60),
+            Duration::from_secs(60),
+            &token,
+        ));
+        assert!(!result.ok);
+        assert!(result.applied.is_empty());
+        let error = result.error.expect("structured cancelled error");
+        assert_eq!(error.code, codes::CANCELLED);
+    }
+
+    #[test]
+    fn b07b_cancel_update_slot_mechanics() {
+        // Sibling entry tests run in parallel and briefly hold the
+        // process-wide slot. Poll to quiescence without cancelling (a cancel
+        // would perturb their assertions); entries finish in seconds.
+        for _ in 0..300 {
+            if !update_slot_occupied() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(
+            !update_slot_occupied(),
+            "update slot never quiesced for the mechanics test"
+        );
+        // No op in flight: structured NOT_FOUND, never a fake success.
+        let idle = t16_cancel_update();
+        assert!(!idle.ok);
+        assert_eq!(
+            idle.error.as_ref().map(|e| e.code.as_str()),
+            Some(domain::codes::NOT_FOUND)
+        );
+        // Installed op: first cancel requests, second is a no-op (idempotent).
+        let token = install_update_token();
+        assert!(t16_cancel_update().ok);
+        assert!(!t16_cancel_update().ok);
+        assert!(token.is_cancelled());
+        clear_update_token(&token);
+        // A sibling entry may install between the clear and this read; poll
+        // back to quiescence before asserting the idle contract again.
+        for _ in 0..300 {
+            if !update_slot_occupied() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(!t16_cancel_update().ok);
+    }
+
+    #[test]
+    fn b07b_rollback_allow_list_tracks_proxy_cores() {
+        // Drift assertion: the accepted set must equal the 14 frozen proxy
+        // update keys; a rename/addition upstream forces a conscious update.
+        let mut keys: Vec<&str> = domain::CoreType::PROXY_CORES
+            .iter()
+            .map(|c| runtime::adapter::update_core_key(*c))
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            vec![
+                "brook",
+                "hysteria",
+                "hysteria2",
+                "juicity",
+                "mieru",
+                "mihomo",
+                "naiveproxy",
+                "overtls",
+                "shadowquic",
+                "sing_box",
+                "tuic",
+                "v2fly",
+                "v2fly_v5",
+                "xray",
+            ]
+        );
+        for key in &keys {
+            assert!(
+                rollback_core_allowed(key),
+                "{key} must be rollback-eligible"
+            );
+        }
+        // Case/`-` tolerant spellings of real keys stay accepted.
+        assert!(rollback_core_allowed("Xray"));
+        assert!(rollback_core_allowed("sing-box"));
+        // Everything else is rejected before touching the filesystem.
+        for bad in [
+            "",
+            "v2rayN",
+            "V2RAYN",
+            "GeoFiles",
+            "..",
+            "../xray",
+            "C:\\xray",
+            "\\\\host\\share",
+            "xray.exe",
+            "xray.previous",
+            "x|y",
+        ] {
+            assert!(!rollback_core_allowed(bad), "{bad} must be rejected");
+            let result = t16_rollback_core(bad.to_string());
+            assert!(!result.ok);
+            assert_eq!(
+                result.error.as_ref().map(|e| e.code.as_str()),
+                Some(domain::codes::INVALID_ARGUMENT)
+            );
+        }
+        // A known core with no `.previous` reports NOT_FOUND, not success.
+        let missing = t16_rollback_core("brook".to_string());
+        assert!(!missing.ok);
+        assert_eq!(
+            missing.error.as_ref().map(|e| e.message_key.as_str()),
+            Some("error.update_no_rollback")
+        );
     }
 
     // Managed-update wiring: `t16_apply_core_update` must route a running
@@ -1995,6 +2314,7 @@ mod tests {
             None,
             T16_CHECK_STEP_TIMEOUT,
             T16_APPLY_STEP_TIMEOUT,
+            &CancellationToken::new(),
         ));
         assert!(result.ok, "apply ok: {}", s8w_result_error(&result));
         assert_eq!(result.applied.len(), 1);
@@ -2032,6 +2352,7 @@ mod tests {
             None,
             T16_CHECK_STEP_TIMEOUT,
             T16_APPLY_STEP_TIMEOUT,
+            &CancellationToken::new(),
         ));
         assert!(result.ok, "apply ok: {}", s8w_result_error(&result));
         assert_eq!(result.applied.len(), 1);

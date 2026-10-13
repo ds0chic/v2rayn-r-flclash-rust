@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -50003262;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 783210886;
 
 // Section: executor
 
@@ -5360,6 +5360,35 @@ fn wire__crate__api__t16__t16_backup_verify_impl(
         },
     )
 }
+fn wire__crate__api__t16__t16_cancel_update_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "t16_cancel_update",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Ok::<_, ()>(crate::api::t16::t16_cancel_update())?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__t16__t16_check_updates_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -5516,6 +5545,36 @@ fn wire__crate__api__t16__t16_rollback_app_upgrade_impl(
             deserializer.end();
             transform_result_sse::<_, ()>((move || {
                 let output_ok = Ok::<_, ()>(crate::api::t16::t16_rollback_app_upgrade())?;
+                std::result::Result::Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__t16__t16_rollback_core_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "t16_rollback_core",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_core = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, ()>((move || {
+                let output_ok = Ok::<_, ()>(crate::api::t16::t16_rollback_core(api_core))?;
                 std::result::Result::Ok(output_ok)
             })())
         },
@@ -8589,12 +8648,14 @@ impl SseDecode for crate::api::contract::ProfilePageDto {
         let mut var_nextCursor = <Option<u64>>::sse_decode(deserializer);
         let mut var_datasetRevision = <u64>::sse_decode(deserializer);
         let mut var_requestGeneration = <u64>::sse_decode(deserializer);
+        let mut var_error = <Option<crate::api::contract::ErrorDto>>::sse_decode(deserializer);
         return crate::api::contract::ProfilePageDto {
             items: var_items,
             total: var_total,
             next_cursor: var_nextCursor,
             dataset_revision: var_datasetRevision,
             request_generation: var_requestGeneration,
+            error: var_error,
         };
     }
 }
@@ -10370,20 +10431,20 @@ fn pde_ffi_dispatcher_primary_impl(
         162 => wire__crate__api__t16__t16_backup_recognize_impl(port, ptr, rust_vec_len, data_len),
         163 => wire__crate__api__t16__t16_backup_restore_impl(port, ptr, rust_vec_len, data_len),
         164 => wire__crate__api__t16__t16_backup_verify_impl(port, ptr, rust_vec_len, data_len),
-        165 => wire__crate__api__t16__t16_check_updates_impl(port, ptr, rust_vec_len, data_len),
-        171 => wire__crate__api__t16__t16_webdav_backup_impl(port, ptr, rust_vec_len, data_len),
-        172 => wire__crate__api__t16__t16_webdav_check_impl(port, ptr, rust_vec_len, data_len),
-        175 => wire__crate__api__t16__t16_webdav_list_impl(port, ptr, rust_vec_len, data_len),
-        176 => wire__crate__api__t16__t16_webdav_restore_impl(port, ptr, rust_vec_len, data_len),
-        177 => wire__crate__api__contract__transport_extra_dto_default_impl(
+        166 => wire__crate__api__t16__t16_check_updates_impl(port, ptr, rust_vec_len, data_len),
+        173 => wire__crate__api__t16__t16_webdav_backup_impl(port, ptr, rust_vec_len, data_len),
+        174 => wire__crate__api__t16__t16_webdav_check_impl(port, ptr, rust_vec_len, data_len),
+        177 => wire__crate__api__t16__t16_webdav_list_impl(port, ptr, rust_vec_len, data_len),
+        178 => wire__crate__api__t16__t16_webdav_restore_impl(port, ptr, rust_vec_len, data_len),
+        179 => wire__crate__api__contract__transport_extra_dto_default_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        178 => wire__crate__api__monitor__update_clash_mode_impl(port, ptr, rust_vec_len, data_len),
-        179 => wire__crate__api__subs__update_subscription_impl(port, ptr, rust_vec_len, data_len),
-        180 => wire__crate__api__subs__update_subscriptions_impl(port, ptr, rust_vec_len, data_len),
+        180 => wire__crate__api__monitor__update_clash_mode_impl(port, ptr, rust_vec_len, data_len),
+        181 => wire__crate__api__subs__update_subscription_impl(port, ptr, rust_vec_len, data_len),
+        182 => wire__crate__api__subs__update_subscriptions_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -10538,23 +10599,25 @@ fn pde_ffi_dispatcher_sync_impl(
             rust_vec_len,
             data_len,
         ),
-        166 => wire__crate__api__t16__t16_cleanup_logs_tmp_impl(ptr, rust_vec_len, data_len),
-        167 => wire__crate__api__t16__t16_get_core_versions_impl(ptr, rust_vec_len, data_len),
-        168 => wire__crate__api__t16__t16_open_config_dir_impl(ptr, rust_vec_len, data_len),
-        169 => wire__crate__api__t16__t16_rollback_app_upgrade_impl(ptr, rust_vec_len, data_len),
-        170 => wire__crate__api__t16__t16_update_targets_impl(ptr, rust_vec_len, data_len),
-        173 => wire__crate__api__t16__t16_webdav_config_get_impl(ptr, rust_vec_len, data_len),
-        174 => wire__crate__api__t16__t16_webdav_config_save_impl(ptr, rust_vec_len, data_len),
-        181 => {
+        165 => wire__crate__api__t16__t16_cancel_update_impl(ptr, rust_vec_len, data_len),
+        167 => wire__crate__api__t16__t16_cleanup_logs_tmp_impl(ptr, rust_vec_len, data_len),
+        168 => wire__crate__api__t16__t16_get_core_versions_impl(ptr, rust_vec_len, data_len),
+        169 => wire__crate__api__t16__t16_open_config_dir_impl(ptr, rust_vec_len, data_len),
+        170 => wire__crate__api__t16__t16_rollback_app_upgrade_impl(ptr, rust_vec_len, data_len),
+        171 => wire__crate__api__t16__t16_rollback_core_impl(ptr, rust_vec_len, data_len),
+        172 => wire__crate__api__t16__t16_update_targets_impl(ptr, rust_vec_len, data_len),
+        175 => wire__crate__api__t16__t16_webdav_config_get_impl(ptr, rust_vec_len, data_len),
+        176 => wire__crate__api__t16__t16_webdav_config_save_impl(ptr, rust_vec_len, data_len),
+        183 => {
             wire__crate__api__settings__validate_current_settings_impl(ptr, rust_vec_len, data_len)
         }
-        182 => wire__crate__api__platform__validate_custom_proxy_script_impl(
+        184 => wire__crate__api__platform__validate_custom_proxy_script_impl(
             ptr,
             rust_vec_len,
             data_len,
         ),
-        183 => wire__crate__api__subs__validate_sub_item_impl(ptr, rust_vec_len, data_len),
-        184 => wire__crate__api__subs__write_export_file_impl(ptr, rust_vec_len, data_len),
+        185 => wire__crate__api__subs__validate_sub_item_impl(ptr, rust_vec_len, data_len),
+        186 => wire__crate__api__subs__write_export_file_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -12513,6 +12576,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::contract::ProfilePageDto {
             self.next_cursor.into_into_dart().into_dart(),
             self.dataset_revision.into_into_dart().into_dart(),
             self.request_generation.into_into_dart().into_dart(),
+            self.error.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -16181,6 +16245,7 @@ impl SseEncode for crate::api::contract::ProfilePageDto {
         <Option<u64>>::sse_encode(self.next_cursor, serializer);
         <u64>::sse_encode(self.dataset_revision, serializer);
         <u64>::sse_encode(self.request_generation, serializer);
+        <Option<crate::api::contract::ErrorDto>>::sse_encode(self.error, serializer);
     }
 }
 

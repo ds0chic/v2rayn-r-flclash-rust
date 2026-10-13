@@ -15,6 +15,33 @@ import 'package:v2rayn_desktop/bridge/api/t16.dart' as t16;
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 
+/// Error page from a profile-store read (S8-03).
+///
+/// Thrown by the cursor-following helpers when the Rust side reports a storage
+/// failure instead of rows. Callers must not mistake the partial rows read so
+/// far for a complete store.
+class BridgeDataError implements Exception {
+  const BridgeDataError({
+    required this.code,
+    required this.messageKey,
+    this.detail,
+  });
+
+  final String code;
+  final String messageKey;
+  final String? detail;
+
+  static BridgeDataError fromDto(c.ErrorDto error) => BridgeDataError(
+    code: error.code,
+    messageKey: error.messageKey,
+    detail: error.detail,
+  );
+
+  @override
+  String toString() =>
+      'BridgeDataError($code/$messageKey${detail == null ? '' : ': $detail'})';
+}
+
 /// Thin, testable seam over the flutter_rust_bridge generated API.
 ///
 /// The application always uses [FrbBridgePort]; [SyntheticBridgePort] only
@@ -155,6 +182,10 @@ abstract class BridgePort {
   bool subSchedulerRunning();
 
   c.JobDto? jobView(String jobId);
+
+  /// Latest parked terminal report for a finished subscription job, if the
+  /// Rust side still retains it (S8-08; bounded retention, may be null).
+  String? subUpdateReport(String jobId);
 
   /// Idempotent cancellation of an in-flight job (F-SUB-003).
   c.CancelResult cancelJob(String jobId);
@@ -388,6 +419,14 @@ abstract class BridgePort {
   c.SimpleResult t16OpenConfigDir();
 
   c.CoreVersionsDto t16GetCoreVersions();
+
+  /// Request cancellation of the in-flight core/app update, if any.
+  /// `ok:false` + NOT_FOUND means there was nothing to cancel (B07b).
+  c.SimpleResult t16CancelUpdate();
+
+  /// Roll back [core] to its `.previous` snapshot, if one exists (B07b).
+  /// Not wired to any UI; the allow-list lives on the Rust side.
+  c.SimpleResult t16RollbackCore(String core);
 }
 
 class FrbBridgePort implements BridgePort {
@@ -443,6 +482,8 @@ class FrbBridgePort implements BridgePort {
       cursor: BigInt.from(cursor),
       pageSize: pageSize,
     );
+    final pageError = page.error;
+    if (pageError != null) throw BridgeDataError.fromDto(pageError);
     return ProfileSummaryPage(
       items: page.items.map(dtoToSummary).toList(growable: false),
       total: page.total.toInt(),
@@ -471,13 +512,18 @@ class FrbBridgePort implements BridgePort {
     required int cursor,
     required int pageSize,
     required int requestGeneration,
-  }) => engine.queryProfilesPageAsync(
-    filter: filter,
-    sort: sort,
-    cursor: BigInt.from(cursor),
-    pageSize: pageSize,
-    requestGeneration: BigInt.from(requestGeneration),
-  );
+  }) async {
+    final page = await engine.queryProfilesPageAsync(
+      filter: filter,
+      sort: sort,
+      cursor: BigInt.from(cursor),
+      pageSize: pageSize,
+      requestGeneration: BigInt.from(requestGeneration),
+    );
+    final pageError = page.error;
+    if (pageError != null) throw BridgeDataError.fromDto(pageError);
+    return page;
+  }
 
   @override
   ProfileSnapshot fetchProfileSnapshot(
@@ -485,16 +531,39 @@ class FrbBridgePort implements BridgePort {
     String? text,
     String? subid,
   }) {
-    // One cursor-following read of the stored profiles; the persisted display
-    // order (`ProfileExItem.Sort`) is applied from the same pass, so a reload
-    // never falls back to index-id order and never reads the table twice.
+    // One cursor-following read of the stored profiles. `queryAllProfiles`
+    // throws [BridgeDataError] on a storage failure, so a partial read never
+    // masquerades as a complete snapshot (S8-03).
     final profiles = queryAllProfiles();
-    final results = speedTestResults();
-    final summaries = orderByPersistedSort(
-      profiles.map(dtoToSummary).toList(),
-      results.map((r) => r.indexId).toList(),
+    // D1-01: join subscription remarks onto the subscription column (upstream
+    // `AppManager.ProfileModels` left-joins `SubItem.remarks`); a profile with
+    // no matching subscription keeps its raw `subid`.
+    final remarksById = <String, String>{
+      for (final s in listSubItems().items)
+        s.id: (s.remarks.isEmpty ? s.id : s.remarks),
+    };
+    final base = <ProfileSummary>[
+      for (final dto in profiles)
+        _withSubRemarks(dtoToSummary(dto), remarksById[dto.subid] ?? dto.subid),
+    ];
+    // D1-02: rows without a speedtest result row sort as `Sort = 0` (upstream
+    // `GetProfileItemsEx`), so they keep their store order ahead of the
+    // result-ordered rows instead of sinking to the bottom.
+    final order = speedTestResults().map((r) => r.indexId).toList();
+    final rank = <String, int>{};
+    for (var i = 0; i < order.length; i++) {
+      rank.putIfAbsent(order[i], () => i);
+    }
+    final missing = <ProfileSummary>[];
+    final present = <ProfileSummary>[];
+    for (final row in base) {
+      (rank.containsKey(row.id) ? present : missing).add(row);
+    }
+    present.sort((a, b) => rank[a.id]!.compareTo(rank[b.id]!));
+    return ProfileSnapshot(
+      summaries: [...missing, ...present],
+      profiles: profiles,
     );
-    return ProfileSnapshot(summaries: summaries, profiles: profiles);
   }
 
   @override
@@ -528,6 +597,8 @@ class FrbBridgePort implements BridgePort {
         cursor: BigInt.from(cursor),
         pageSize: kProfileQueryPageSize,
       );
+      final pageError = page.error;
+      if (pageError != null) throw BridgeDataError.fromDto(pageError);
       out.addAll(page.items);
       final next = page.nextCursor?.toInt();
       if (next == null || next <= cursor || page.items.isEmpty) break;
@@ -640,6 +711,9 @@ class FrbBridgePort implements BridgePort {
   c.JobDto? jobView(String jobId) => subs.jobView(jobId: jobId);
 
   @override
+  String? subUpdateReport(String jobId) => subs.subUpdateReport(jobId: jobId);
+
+  @override
   c.CancelResult cancelJob(String jobId) => engine.cancelJob(jobId: jobId);
 
   @override
@@ -696,8 +770,12 @@ class FrbBridgePort implements BridgePort {
   c.SimpleResult deleteTemplate(String id) => groups.deleteTemplate(id: id);
 
   @override
-  c.ProfilePageDto groupChildren(String indexId) =>
-      groups.groupChildren(indexId: indexId);
+  c.ProfilePageDto groupChildren(String indexId) {
+    final page = groups.groupChildren(indexId: indexId);
+    final pageError = page.error;
+    if (pageError != null) throw BridgeDataError.fromDto(pageError);
+    return page;
+  }
 
   @override
   c.SaveProfileResult genGroupAll(String subId) =>
@@ -980,6 +1058,13 @@ class FrbBridgePort implements BridgePort {
 
   @override
   c.CoreVersionsDto t16GetCoreVersions() => t16.t16GetCoreVersions();
+
+  @override
+  c.SimpleResult t16CancelUpdate() => t16.t16CancelUpdate();
+
+  @override
+  c.SimpleResult t16RollbackCore(String core) =>
+      t16.t16RollbackCore(core: core);
 }
 
 /// Overlay `ProfileExItem` results onto the node-table summaries. A missing
@@ -1165,6 +1250,29 @@ ProfileSummary dtoToSummary(c.ProfileDto dto) => ProfileSummary(
   totalDown: BigInt.zero,
   coreType: dto.coreType ?? CoreType.xray,
 );
+
+/// Rebuild [row] with a joined subscription remark (D1-01). `ProfileSummary`
+/// is a generated value class with no `copyWith`, so every field is carried
+/// over explicitly and only `subRemarks` changes.
+ProfileSummary _withSubRemarks(ProfileSummary row, String subRemarks) =>
+    ProfileSummary(
+      id: row.id,
+      configType: row.configType,
+      remarks: row.remarks,
+      address: row.address,
+      port: row.port,
+      network: row.network,
+      streamSecurity: row.streamSecurity,
+      subRemarks: subRemarks,
+      delay: row.delay,
+      speed: row.speed,
+      todayUp: row.todayUp,
+      ipInfo: row.ipInfo,
+      todayDown: row.todayDown,
+      totalUp: row.totalUp,
+      totalDown: row.totalDown,
+      coreType: row.coreType,
+    );
 
 /// Loads the FRB dynamic library; isolated so tests can avoid touching it.
 class RustBridgeInit {
@@ -1427,10 +1535,29 @@ class SyntheticBridgePort implements BridgePort {
     String? text,
     String? subid,
   }) {
+    // Synthetic mirror of the Frb read: same remarks join (D1-01) and the same
+    // untested-first two-segment order (D1-02), over the seeded rows.
     _ensureProfiles();
-    final summaries = orderByPersistedSort(generate(count), _persistedOrder);
+    final remarksById = <String, String>{
+      for (final s in _subs) s.id: (s.remarks.isEmpty ? s.id : s.remarks),
+    };
+    final base = <ProfileSummary>[
+      for (final dto in _profiles)
+        _withSubRemarks(dtoToSummary(dto), remarksById[dto.subid] ?? dto.subid),
+    ];
+    final rank = <String, int>{};
+    var i = 0;
+    for (final id in _speedResults.keys) {
+      rank.putIfAbsent(id, () => i++);
+    }
+    final missing = <ProfileSummary>[];
+    final present = <ProfileSummary>[];
+    for (final row in base) {
+      (rank.containsKey(row.id) ? present : missing).add(row);
+    }
+    present.sort((a, b) => rank[a.id]!.compareTo(rank[b.id]!));
     return ProfileSnapshot(
-      summaries: summaries,
+      summaries: [...missing, ...present],
       profiles: List<c.ProfileDto>.of(_profiles),
     );
   }
@@ -1813,6 +1940,9 @@ class SyntheticBridgePort implements BridgePort {
 
   @override
   c.JobDto? jobView(String jobId) => null;
+
+  @override
+  String? subUpdateReport(String jobId) => null;
 
   /// Jobs cancelled through the synthetic bridge, in call order. Widget
   /// tests assert against this; it is not a success signal.
@@ -3619,5 +3749,17 @@ class SyntheticBridgePort implements BridgePort {
           ),
       ],
     );
+  }
+
+  @override
+  c.SimpleResult t16CancelUpdate() {
+    t16Calls.add('cancel_update');
+    return const c.SimpleResult(ok: true);
+  }
+
+  @override
+  c.SimpleResult t16RollbackCore(String core) {
+    t16Calls.add('rollback_core:$core');
+    return const c.SimpleResult(ok: true);
   }
 }

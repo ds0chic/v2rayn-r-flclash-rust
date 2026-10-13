@@ -493,7 +493,15 @@ class ProfilesController extends Notifier<ProfilesState> {
   @override
   ProfilesState build() {
     final count = ref.read(profileRowCountProvider);
-    final snapshot = _bridge.fetchProfileSnapshot(count);
+    // S8-03: a storage failure surfaces as an empty table, never a partial
+    // read mistaken for the full store.
+    ProfileSnapshot snapshot;
+    try {
+      snapshot = _bridge.fetchProfileSnapshot(count);
+    } on BridgeDataError catch (e) {
+      _log('build-snapshot-failed', e.messageKey);
+      snapshot = const ProfileSnapshot(summaries: [], profiles: []);
+    }
     _baseSummaries = snapshot.summaries;
     final rows = _bridge.applyLiveOverlay(snapshot.summaries);
     final columns = _resolveInitialColumns();
@@ -717,8 +725,15 @@ class ProfilesController extends Notifier<ProfilesState> {
     final count = ref.read(profileRowCountProvider);
     // One structural read of the store: the ordered base rows and the full
     // DTOs come from the same cursor-following pass, so a reload no longer
-    // queries the whole table twice (D08/D09).
-    final snapshot = _bridge.fetchProfileSnapshot(count);
+    // queries the whole table twice (D08/D09). S8-03: a storage failure
+    // keeps the current table instead of showing a partial read.
+    ProfileSnapshot snapshot;
+    try {
+      snapshot = _bridge.fetchProfileSnapshot(count);
+    } on BridgeDataError catch (e) {
+      _log('reload-snapshot-failed', e.messageKey);
+      return;
+    }
     _baseSummaries = snapshot.summaries;
     final rows = _bridge.applyLiveOverlay(snapshot.summaries);
     final active = _bridge.getActiveProfile();
@@ -887,6 +902,10 @@ class ProfilesController extends Notifier<ProfilesState> {
         'reload-paged',
         'profiles=${walkedProfiles.length} rows=${rows.length}',
       );
+    } on BridgeDataError catch (e) {
+      // S8-03: keep the previous table on a storage failure (D1-08 backup
+      // semantics stay untouched: `_baseSummaries` is only replaced per page).
+      _log('reload-paged-failed', e.messageKey);
     } finally {
       if (state.pagedLoading && _pagedLoadOwner == generation) {
         state = state.copyWith(pagedLoading: false);
@@ -913,13 +932,20 @@ class ProfilesController extends Notifier<ProfilesState> {
     const sort = c.ProfileSortDto.indexId;
     for (;;) {
       if (!_pagePager.isCurrent(generation)) return state.selected;
-      final page = await _bridge.queryProfilesPageAsync(
-        filter: filter,
-        sort: sort,
-        cursor: cursor,
-        pageSize: size,
-        requestGeneration: generation,
-      );
+      // S8-03: a storage failure leaves the previous selection untouched.
+      c.ProfilePageDto page;
+      try {
+        page = await _bridge.queryProfilesPageAsync(
+          filter: filter,
+          sort: sort,
+          cursor: cursor,
+          pageSize: size,
+          requestGeneration: generation,
+        );
+      } on BridgeDataError catch (e) {
+        _log('select-all-failed', e.messageKey);
+        return state.selected;
+      }
       if (!_pagePager.isCurrent(generation)) return state.selected;
       if (page.requestGeneration != BigInt.from(generation)) {
         return state.selected;

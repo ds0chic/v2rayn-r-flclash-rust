@@ -433,10 +433,12 @@ pub fn job_view(job_id: String) -> Option<JobDto> {
 /// `CustomOutboundObj`) are left untouched, so the file-type and inline-type
 /// forms never impersonate each other.
 ///
-/// With no data directory (in-memory test engine) the payload is written to the
-/// system temp dir and the absolute path is stored instead of the bare name.
+/// With no data directory the payload is staged in the engine's
+/// process-private staging directory and the absolute path is stored
+/// instead of the bare name (S4a-05-regression: the shared system temp dir
+/// is not inside `confined_custom_file`, so staging there produces rows
+/// codegen must refuse).
 fn materialize_custom_configs(profiles: &mut [Profile]) {
-    let data_dir = engine().data_dir().map(|dir| dir.to_path_buf());
     for profile in profiles.iter_mut() {
         if !matches!(
             profile.config_type,
@@ -454,24 +456,15 @@ fn materialize_custom_configs(profiles: &mut [Profile]) {
         // instead of leaving an orphan behind. Identical configs share a file
         // (their content is byte-for-byte the same).
         let name = format!("import-{}{}", content_stem(&raw), ext);
-        let (dir, stored) = match &data_dir {
-            Some(base) => (base.join("config"), name.clone()),
-            None => {
-                let dir = std::env::temp_dir();
-                let absolute = dir.join(&name).to_string_lossy().into_owned();
-                (dir, absolute)
+        match engine().stage_custom_payload(&name, &raw) {
+            Ok(stored) => profile.address = stored,
+            Err(_) => {
+                // Never drop the payload silently; keep it for a later retry.
+                profile.extra.insert(
+                    subscriptions::fmt::batch::RAW_CONFIG_KEY.to_string(),
+                    serde_json::Value::String(raw),
+                );
             }
-        };
-        let written =
-            std::fs::create_dir_all(&dir).is_ok() && std::fs::write(dir.join(&name), &raw).is_ok();
-        if written {
-            profile.address = stored;
-        } else {
-            // Never drop the payload silently; keep it for a later retry.
-            profile.extra.insert(
-                subscriptions::fmt::batch::RAW_CONFIG_KEY.to_string(),
-                serde_json::Value::String(raw),
-            );
         }
     }
 }
@@ -676,19 +669,12 @@ pub fn commit_import_text(profiles: Vec<ProfileDto>, subid: Option<String>) -> I
             continue;
         };
         let name = application::import_batch::staged_file_name(&raw);
-        let data_dir = engine().data_dir().map(|dir| dir.to_path_buf());
-        let (dir, stored) = match &data_dir {
-            Some(base) => (base.join("config"), name.clone()),
-            None => {
-                let dir = std::env::temp_dir();
-                let absolute = dir.join(&name).to_string_lossy().into_owned();
-                (dir, absolute)
-            }
-        };
-        let existed = dir.join(&name).exists();
-        let written =
-            std::fs::create_dir_all(&dir).is_ok() && std::fs::write(dir.join(&name), &raw).is_ok();
-        if !written {
+        // S4a-05-regression: stage through the engine (private staging dir
+        // when datadir-less), never the shared system temp dir.
+        let staged_path = engine().custom_staging_dir().map(|dir| dir.join(&name));
+        let existed = staged_path.as_ref().is_some_and(|path| path.exists());
+        let stored = engine().stage_custom_payload(&name, &raw).ok();
+        let Some(stored) = stored else {
             for path in staged_new {
                 std::fs::remove_file(path).ok();
             }
@@ -711,9 +697,11 @@ pub fn commit_import_text(profiles: Vec<ProfileDto>, subid: Option<String>) -> I
                     detail: Some("import commit: failed to stage custom config".to_string()),
                 }),
             };
-        }
+        };
         if !existed {
-            staged_new.push(dir.join(&name));
+            if let Some(path) = staged_path {
+                staged_new.push(path);
+            }
         }
         profile.address = stored;
     }
@@ -1382,15 +1370,16 @@ mod tests {
             "pure preview must not set a file Address"
         );
         let staged = application::import_batch::staged_file_name(&raw);
-        let data_dir = engine().data_dir().map(|dir| dir.to_path_buf());
-        let staged_path = match &data_dir {
-            Some(base) => base.join("config").join(&staged),
-            None => std::env::temp_dir().join(&staged),
-        };
+        // The preview must stage nothing where the commit would stage it
+        // (S4a-05-regression: datadir-less staging is the engine's private
+        // directory, never the shared system temp dir).
+        let staged_path = engine().custom_staging_dir().map(|dir| dir.join(&staged));
         assert!(
-            !staged_path.exists(),
+            staged_path.as_ref().is_none_or(|path| !path.exists()),
             "preview must not stage {}",
-            staged_path.display()
+            staged_path
+                .map(|path| path.display().to_string())
+                .unwrap_or_default()
         );
     }
 

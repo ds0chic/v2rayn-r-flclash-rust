@@ -289,6 +289,54 @@ impl AppEngine {
         std::fs::create_dir_all(&dir).ok()?;
         Some(dir)
     }
+
+    /// Directory Custom/Outbound payloads are staged into: `<data>/config`
+    /// for persistent engines, else this engine's process-private staging
+    /// directory (S4b-06). Every writer must route through
+    /// [`Self::stage_custom_payload`] so stored addresses always resolve
+    /// under [`Self::confined_custom_file`]; writing anywhere else (e.g. the
+    /// shared system temp dir) produces rows codegen must refuse (S4a-05).
+    pub fn custom_staging_dir(&self) -> Option<PathBuf> {
+        if let Some(data_dir) = self.data_dir() {
+            let dir = data_dir.join("config");
+            std::fs::create_dir_all(&dir).ok()?;
+            Some(dir)
+        } else {
+            self.private_import_dir()
+        }
+    }
+
+    /// Stage one Custom/Outbound payload and return the address to store on
+    /// the row: the bare file name for persistent engines (resolved under
+    /// `<data>/config` on read), the absolute path for datadir-less engines
+    /// (resolved under the private staging directory). Same-directory
+    /// rewrites of identical content-addressed bytes are harmless.
+    pub fn stage_custom_payload(&self, file_name: &str, raw: &str) -> Result<String, DomainError> {
+        let file_name = file_name.trim();
+        if file_name.is_empty()
+            || file_name.contains(['/', '\\'])
+            || std::path::Path::new(file_name).is_absolute()
+        {
+            return Err(DomainError::new(
+                domain::codes::INVALID_ARGUMENT,
+                "error.invalid_mutation",
+            )
+            .with_detail("stage_custom_payload: file_name must be a bare file name"));
+        }
+        let Some(dir) = self.custom_staging_dir() else {
+            return Err(DomainError::new(domain::codes::INTERNAL, "error.storage")
+                .with_detail("stage custom config: no staging directory"));
+        };
+        std::fs::write(dir.join(file_name), raw).map_err(|_| {
+            DomainError::new(domain::codes::INTERNAL, "error.storage")
+                .with_detail("stage custom config: failed to write staged file")
+        })?;
+        if self.data_dir().is_some() {
+            Ok(file_name.to_string())
+        } else {
+            Ok(dir.join(file_name).to_string_lossy().into_owned())
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1480,16 +1528,17 @@ impl AppEngine {
 
     /// Resolve a stored custom-file reference into its owning directory.
     ///
-    /// Read/write symmetry (S4a-05): `import_custom_file` and SP-14 staging
-    /// only ever produce `<data>/config/<name>` (persistent engines) or the
-    /// private staging directory (datadir-less engines, S4b-06). Anything
-    /// else in `Profile.address` — absolute paths elsewhere, `..` escapes —
-    /// can only arrive via untrusted input (subscriptions/imports), so both
-    /// sides are canonicalized (resolving symlinks) and the read is refused
-    /// unless the result stays inside the canonical base. `None` means "treat
-    /// as missing". Upstream (`Utils.GetConfigPath` + `CoreConfigHandler`)
-    /// likewise scopes `Address` to its `guiConfigs` directory but never
-    /// checks the escape, so this confinement is a hardening over upstream.
+    /// Read/write symmetry (S4a-05): `import_custom_file`, SP-14 staging and
+    /// [`Self::stage_custom_payload`] only ever produce `<data>/config/<name>`
+    /// (persistent engines) or the private staging directory (datadir-less
+    /// engines, S4b-06). Anything else in `Profile.address` — absolute paths
+    /// elsewhere, `..` escapes — can only arrive via untrusted input
+    /// (subscriptions/imports), so both sides are canonicalized (resolving
+    /// symlinks) and the read is refused unless the result stays inside the
+    /// canonical base. `None` means "treat as missing". Upstream
+    /// (`Utils.GetConfigPath` + `CoreConfigHandler`) likewise scopes `Address`
+    /// to its `guiConfigs` directory but never checks the escape, so this
+    /// confinement is a hardening over upstream.
     fn confined_custom_file(&self, address: &str) -> Option<PathBuf> {
         let address = address.trim();
         if address.is_empty() {
@@ -7161,6 +7210,68 @@ mod tests {
                 .any(|d| d.message.contains("link.json") && !d.message.contains("SECRET")),
             "symlink escape must be diagnosed by filename only, got {diagnostics:?}"
         );
+    }
+
+    #[test]
+    fn staged_custom_payload_resolves_in_both_engine_modes() {
+        // S4a-05-regression: engine-staged payloads must resolve for codegen
+        // in both engine modes, while out-of-bounds addresses stay refused.
+        let raw = r#"{"tag":"s4a05-regression"}"#;
+        let outer = tempfile::tempdir().unwrap();
+        std::fs::write(outer.path().join("outside.txt"), "SECRET-OUTSIDE").unwrap();
+
+        // Persistent engine: bare name under `<data>/config`.
+        let data = outer.path().join("data");
+        let engine =
+            AppEngine::open_with_runtime(&data, Arc::new(NullRuntimeClient::new())).unwrap();
+        let stored = engine
+            .stage_custom_payload("staged-regression.json", raw)
+            .unwrap();
+        assert_eq!(stored, "staged-regression.json");
+
+        // Datadir-less engine: absolute path under the private staging dir
+        // (never the shared system temp dir).
+        let memory = AppEngine::in_memory();
+        let stored_abs = memory
+            .stage_custom_payload("staged-regression.json", raw)
+            .unwrap();
+        assert!(std::path::Path::new(&stored_abs).is_absolute());
+        assert!(
+            stored_abs.contains("v2rayn-r-import-"),
+            "datadir-less staging must use the private dir, got {stored_abs}"
+        );
+
+        for (engine, address) in [(&engine, stored), (&memory, stored_abs)] {
+            let mut profile = synthetic_full_profile(1);
+            profile.config_type = ConfigType::Custom;
+            profile.address = address;
+            let (text, diagnostic) = engine.custom_file_text_full(&profile);
+            assert_eq!(text.as_deref(), Some(raw));
+            assert!(diagnostic.is_none());
+
+            // Out-of-bounds absolute path: the file exists, refusal is by
+            // policy, not by absence.
+            let mut evil = synthetic_full_profile(1);
+            evil.config_type = ConfigType::Custom;
+            evil.address = outer
+                .path()
+                .join("outside.txt")
+                .to_string_lossy()
+                .into_owned();
+            let (text, diagnostic) = engine.custom_file_text_full(&evil);
+            assert!(text.is_none());
+            assert!(diagnostic.is_some());
+        }
+
+        // `\\?\`-prefixed canonical form (Windows `canonicalize` morphology)
+        // resolves like the bare name.
+        let canonical =
+            std::fs::canonicalize(data.join("config").join("staged-regression.json")).unwrap();
+        let mut profile = synthetic_full_profile(1);
+        profile.config_type = ConfigType::Custom;
+        profile.address = canonical.to_string_lossy().into_owned();
+        let (text, _) = engine.custom_file_text_full(&profile);
+        assert_eq!(text.as_deref(), Some(raw));
     }
 
     #[test]

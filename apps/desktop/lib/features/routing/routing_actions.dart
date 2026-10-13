@@ -438,25 +438,26 @@ Future<DraftRuleImport?> pickRulesFromUrl(
     _toast(context, '请先填写规则 URL');
     return null;
   }
-  String text;
+  final client = HttpClient();
+  client.connectionTimeout = const Duration(seconds: 15);
+  String? text;
   try {
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 15);
     final request = await client.getUrl(Uri.parse(url.trim()));
     final response = await request.close().timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (!context.mounted) return null;
       _toast(context, '下载失败：HTTP ${response.statusCode}');
-      client.close();
       return null;
     }
     text = await response.transform(utf8.decoder).join();
-    client.close();
   } catch (_) {
     if (!context.mounted) return null;
     _toast(context, '下载失败，请检查 URL');
     return null;
+  } finally {
+    client.close(force: true);
   }
+  // Every path that skips the assignment returns above.
   if (!context.mounted) return null;
   return _parseAndAsk(context, text);
 }

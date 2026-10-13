@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
@@ -63,9 +64,12 @@ class RoutingController extends Notifier<RoutingState> {
 
   /// Fresh draft rule id (upstream `RoutingRuleDetailsViewModel` assigns a
   /// GUID when a new rule enters; the draft keeps it stable across edits).
+  /// The trailing random segment keeps ids unique across isolates/engines
+  /// even within the same microsecond.
   static String newRuleId() {
     final micros = DateTime.now().microsecondsSinceEpoch.toRadixString(16);
-    return 'r$micros-${(_ruleSeq++).toRadixString(16).padLeft(4, '0')}';
+    final rand = Random().nextInt(1 << 32).toRadixString(16).padLeft(8, '0');
+    return 'r$micros-${(_ruleSeq++).toRadixString(16).padLeft(4, '0')}-$rand';
   }
 
   /// Parse imported rule JSON into draft DTOs (file/clipboard/URL bodies).
@@ -433,8 +437,24 @@ class RoutingController extends Notifier<RoutingState> {
     return '导入内置规则集失败';
   }
 
-  r.RoutingRulesTextResult exportRules(String routingId, List<String> ids) =>
-      ref.read(bridgePortProvider).exportRoutingRules(routingId, ids);
+  /// S8-09: an empty selection is rejected up front (same error the backend
+  /// returns), never forwarded as an "export all" request.
+  r.RoutingRulesTextResult exportRules(String routingId, List<String> ids) {
+    if (ids.isEmpty) {
+      return const r.RoutingRulesTextResult(
+        ok: false,
+        text: '',
+        ruleCount: 0,
+        error: c.ErrorDto(
+          code: 'E_NOT_FOUND',
+          messageKey: 'error.routing_no_selection',
+          fieldPath: 'ids',
+          retryable: false,
+        ),
+      );
+    }
+    return ref.read(bridgePortProvider).exportRoutingRules(routingId, ids);
+  }
 
   c.SimpleResult setRuleMode(String mode) {
     final result = ref.read(bridgePortProvider).setRuleMode(mode);

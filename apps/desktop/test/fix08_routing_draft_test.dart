@@ -111,6 +111,14 @@ void main() {
     await _addRule(tester, 'direct', 'geosite:cn');
     expect(find.byKey(const ValueKey('rule-row-0')), findsOneWidget);
     expect(find.byKey(const ValueKey('rule-row-1')), findsOneWidget);
+    // New rules enter at the top (upstream `Insert(0)`, B15-D3a-01).
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('rule-row-0')),
+        matching: find.text('direct'),
+      ),
+      findsOneWidget,
+    );
     // Nothing reached storage yet: the draft is window-local.
     expect(bridge.listRoutingRules(scheme.id).rules, isEmpty);
 
@@ -120,6 +128,13 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('rule-row-0')),
+        matching: find.text('proxy'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('rule-row-1')),
         matching: find.text('direct'),
       ),
       findsOneWidget,

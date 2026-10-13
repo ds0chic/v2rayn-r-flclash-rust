@@ -28,6 +28,27 @@ class SubEditWindow extends ConsumerStatefulWidget {
   ConsumerState<SubEditWindow> createState() => _SubEditWindowState();
 }
 
+/// True for loopback / RFC 1918 / link-local hosts (upstream
+/// `Utils.IsPrivateNetwork` counterpart). Used only for the http warning below.
+bool isPrivateNetworkHost(String host) {
+  final h = host.trim().toLowerCase();
+  if (h.isEmpty) return false;
+  if (h == 'localhost' || h == '::1' || h == '[::1]') return true;
+  final v4 = RegExp(r'^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$')
+      .firstMatch(h);
+  if (v4 != null) {
+    final o = [1, 2, 3, 4].map((i) => int.parse(v4.group(i)!)).toList();
+    if (o.any((e) => e > 255)) return false;
+    if (o[0] == 10) return true;
+    if (o[0] == 172 && o[1] >= 16 && o[1] <= 31) return true;
+    if (o[0] == 192 && o[1] == 168) return true;
+    if (o[0] == 127) return true;
+    if (o[0] == 169 && o[1] == 254) return true;
+    return false;
+  }
+  return false;
+}
+
 class _SubEditWindowState extends ConsumerState<SubEditWindow> {
   late final TextEditingController _remarks;
   late final TextEditingController _url;
@@ -132,7 +153,16 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
     // An empty URL is a plain group (upstream `SubEditViewModel`): it saves
     // without downloading. A non-empty URL is validated by the Rust bridge
     // (`error.url_invalid`, `E_FIELD_FORMAT`), so the scheme rule has a single
-    // source of truth.
+    // source of truth. A non-private `http://` URL only warns (upstream
+    // `InsecureUrlProtocol` is likewise non-blocking) and still saves.
+    final uri = Uri.tryParse(draft.url);
+    if (uri != null &&
+        uri.scheme == 'http' &&
+        uri.host.isNotEmpty &&
+        !isPrivateNetworkHost(uri.host)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('该订阅使用 http 明文传输，请注意安全')));
+    }
     final headers = draft.requestHeaders;
     if (headers != null && !headers.trimLeft().startsWith('{')) {
       setState(() {

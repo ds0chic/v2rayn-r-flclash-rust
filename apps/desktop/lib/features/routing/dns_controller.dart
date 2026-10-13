@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/dns.dart' as d;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
@@ -149,11 +148,4 @@ class DnsController extends Notifier<DnsState> {
 
   String defaultText(String kind) =>
       ref.read(bridgePortProvider).defaultDnsText(kind);
-
-  /// Field-level validation mirroring the Rust side (empty = fallback).
-  c.ErrorDto? validateSimple(d.SimpleDnsDto draft) {
-    // Direct/remote/bootstrap are free-form address lists; only the custom
-    // DNS JSON texts are strictly validated by the backend on save.
-    return null;
-  }
 }

@@ -546,24 +546,11 @@ class FrbBridgePort implements BridgePort {
       for (final dto in profiles)
         _withSubRemarks(dtoToSummary(dto), remarksById[dto.subid] ?? dto.subid),
     ];
-    // D1-02: rows without a speedtest result row sort as `Sort = 0` (upstream
-    // `GetProfileItemsEx`), so they keep their store order ahead of the
-    // result-ordered rows instead of sinking to the bottom.
-    final order = speedTestResults().map((r) => r.indexId).toList();
-    final rank = <String, int>{};
-    for (var i = 0; i < order.length; i++) {
-      rank.putIfAbsent(order[i], () => i);
-    }
-    final missing = <ProfileSummary>[];
-    final present = <ProfileSummary>[];
-    for (final row in base) {
-      (rank.containsKey(row.id) ? present : missing).add(row);
-    }
-    present.sort((a, b) => rank[a.id]!.compareTo(rank[b.id]!));
-    return ProfileSnapshot(
-      summaries: [...missing, ...present],
-      profiles: profiles,
+    final summaries = mergeResultOrder(
+      base,
+      speedTestResults().map((r) => r.indexId).toList(),
     );
+    return ProfileSnapshot(summaries: summaries, profiles: profiles);
   }
 
   @override
@@ -1274,6 +1261,41 @@ ProfileSummary _withSubRemarks(ProfileSummary row, String subRemarks) =>
       coreType: row.coreType,
     );
 
+/// Stable merge of the store-ordered [base] with the result-table [order]
+/// (D1-02).
+///
+/// The Rust `ProfileExStore::all` reports rows by `(sort, index_id)` and a
+/// fresh result row carries `sort = 0`, so [order] already encodes any
+/// persisted manual order while untested rows sort as `0` (upstream
+/// `GetProfileItemsEx`). Rows absent from [order] therefore hold their store
+/// positions and rows present in it take the result-table relative order in
+/// the remaining slots: a reload never sinks untested rows to the bottom
+/// (nor lifts tested ones), and a persisted order still rules the rows it
+/// covers. Unknown ids in [order] (deleted rows) are ignored.
+List<ProfileSummary> mergeResultOrder(
+  List<ProfileSummary> base,
+  List<String> order,
+) {
+  if (base.length < 2 || order.isEmpty) {
+    return List<ProfileSummary>.of(base);
+  }
+  final rank = <String, int>{};
+  for (var i = 0; i < order.length; i++) {
+    rank.putIfAbsent(order[i], () => i);
+  }
+  final present = base.where((r) => rank.containsKey(r.id)).toList();
+  if (present.isEmpty) return List<ProfileSummary>.of(base);
+  present.sort((a, b) => rank[a.id]!.compareTo(rank[b.id]!));
+  final missing = base.where((r) => !rank.containsKey(r.id)).toList();
+  final merged = <ProfileSummary>[];
+  var pi = 0;
+  var mi = 0;
+  for (final row in base) {
+    merged.add(rank.containsKey(row.id) ? present[pi++] : missing[mi++]);
+  }
+  return merged;
+}
+
 /// Loads the FRB dynamic library; isolated so tests can avoid touching it.
 class RustBridgeInit {
   static Future<void> Function()? _delegate;
@@ -1553,24 +1575,13 @@ class SyntheticBridgePort implements BridgePort {
     ];
     // An explicitly persisted order (drag/column/sort writes) reads back as
     // stored, modelling the Rust `(sort, index_id)` result order. Otherwise
-    // rows without a result row keep generated order ahead of the
-    // result-ordered rows (D1-02: upstream `Sort = t33?.Sort ?? 0`).
+    // the result order is stable-merged so a reload never sinks untested
+    // rows (D1-02).
     final List<ProfileSummary> summaries;
     if (_persistedOrder.isNotEmpty) {
       summaries = orderByPersistedSort(joined, _persistedOrder);
     } else {
-      final rank = <String, int>{};
-      var i = 0;
-      for (final id in _speedResults.keys) {
-        rank.putIfAbsent(id, () => i++);
-      }
-      final missing = <ProfileSummary>[];
-      final present = <ProfileSummary>[];
-      for (final row in joined) {
-        (rank.containsKey(row.id) ? present : missing).add(row);
-      }
-      present.sort((a, b) => rank[a.id]!.compareTo(rank[b.id]!));
-      summaries = [...missing, ...present];
+      summaries = mergeResultOrder(joined, _speedResults.keys.toList());
     }
     return ProfileSnapshot(
       summaries: summaries,

@@ -75,7 +75,7 @@ void main() {
     expect(snapshot.summaries.first.subRemarks, '我的订阅');
   });
 
-  test('fetchProfileSnapshot keeps untested rows first (D1-02)', () {
+  test('fetchProfileSnapshot keeps store order with fresh results (D1-02)', () {
     final bridge = SyntheticBridgePort(count: 5);
     final ids = bridge
         .fetchProfileSnapshot(5)
@@ -83,16 +83,49 @@ void main() {
         .map((p) => p.indexId)
         .toList();
     expect(ids, hasLength(5));
-    bridge.seedSpeedResult(ids[0], 10, 1.0);
-    bridge.seedSpeedResult(ids[1], 20, 2.0);
+    // Fresh result rows carry `sort = 0` (Rust `ProfileExStore::apply`), so
+    // upstream keeps the table order: a reload must neither sink untested
+    // rows nor lift tested ones. Middle rows pin both directions at once.
+    bridge.seedSpeedResult(ids[2], 10, 1.0);
+    bridge.seedSpeedResult(ids[3], 20, 2.0);
     final order = bridge
         .fetchProfileSnapshot(5)
         .summaries
         .map((s) => s.id)
         .toList();
-    // Untested rows keep store order ahead of the result-ordered rows
-    // (upstream `Sort = t33?.Sort ?? 0` semantics).
-    expect(order, [...ids.sublist(2), ids[0], ids[1]]);
+    expect(order, ids);
+  });
+
+  test('mergeResultOrder follows a full persisted order', () {
+    final bridge = SyntheticBridgePort(count: 5);
+    final base = bridge.fetchProfileSnapshot(5).summaries;
+    final ids = base.map((s) => s.id).toList();
+    final merged = mergeResultOrder(base, ids.reversed.toList());
+    expect(merged.map((s) => s.id).toList(), ids.reversed.toList());
+  });
+
+  test('mergeResultOrder holds untested rows in place', () {
+    final bridge = SyntheticBridgePort(count: 5);
+    final base = bridge.fetchProfileSnapshot(5).summaries;
+    final ids = base.map((s) => s.id).toList();
+    // A result subset in the middle must not sink the rows around it (old
+    // append-last) nor lift itself (untested-first): positions hold.
+    final merged = mergeResultOrder(base, [ids[3], ids[2]]);
+    expect(merged.map((s) => s.id).toList(), [
+      ids[0],
+      ids[1],
+      ids[3],
+      ids[2],
+      ids[4],
+    ]);
+  });
+
+  test('mergeResultOrder ignores unknown result ids', () {
+    final bridge = SyntheticBridgePort(count: 3);
+    final base = bridge.fetchProfileSnapshot(3).summaries;
+    final ids = base.map((s) => s.id).toList();
+    final merged = mergeResultOrder(base, ['gone-1', ids[2], 'gone-2']);
+    expect(merged.map((s) => s.id).toList(), [ids[0], ids[1], ids[2]]);
   });
 
   test('controller build survives a storage failure (S8-03)', () {

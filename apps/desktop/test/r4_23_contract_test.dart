@@ -7,6 +7,7 @@ import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/monitor_bridge.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_format.dart';
+import 'package:v2rayn_desktop/features/monitor/monitor_incremental.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 
 import 'support/fake_monitor_bridge.dart';
@@ -281,7 +282,7 @@ void main() {
     expect(h.container.read(monitorControllerProvider).connections, isNotEmpty);
   });
 
-  test('log filtering, scroll pause and copy are presentation-only', () {
+  test('log filtering, scroll pause and copy are presentation-only', () async {
     final h = _harness(bridge: FakeMonitorBridge(clashApiSupported: true));
     final controller = h.container.read(monitorControllerProvider.notifier);
     controller.syncRuntimeSession(_runningA);
@@ -291,6 +292,9 @@ void main() {
       const m.LogLineDto(text: 'warn disk', level: 3, truncated: false),
       const m.LogLineDto(text: 'error disk full', level: 4, truncated: false),
     ]);
+    // SP-22: batches coalesce into at most one tail-merge per
+    // [logCoalesceWindow]; the read model is empty until the flush fires.
+    await Future<void>.delayed(logCoalesceWindow * 2);
 
     controller.setMinLevel(3);
     controller.setKeyword('disk');

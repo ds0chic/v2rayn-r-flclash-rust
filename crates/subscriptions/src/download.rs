@@ -8,9 +8,7 @@
 use std::time::Duration;
 
 use domain::CancellationToken;
-use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, LOCATION, USER_AGENT,
-};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, LOCATION, USER_AGENT};
 use reqwest::Url;
 
 use crate::error::SubError;
@@ -131,9 +129,7 @@ pub fn build_client_with_trust(
         }
         // Upstream sends the version token when no UA is configured; never
         // send a bare request.
-        None => Some(
-            HeaderValue::from_static(DEFAULT_USER_AGENT),
-        ),
+        None => Some(HeaderValue::from_static(DEFAULT_USER_AGENT)),
     };
 
     if options.accept_invalid_certs {

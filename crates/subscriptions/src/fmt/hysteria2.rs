@@ -20,7 +20,11 @@ pub struct HyRealm {
 impl HyRealm {
     pub fn rendezvous_host_port(&self) -> String {
         if self.rendezvous_port > 0 {
-            format!("{}:{}", bracket_ipv6(&self.rendezvous_host), self.rendezvous_port)
+            format!(
+                "{}:{}",
+                bracket_ipv6(&self.rendezvous_host),
+                self.rendezvous_port
+            )
         } else {
             self.rendezvous_host.clone()
         }

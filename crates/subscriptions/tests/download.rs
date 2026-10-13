@@ -352,7 +352,11 @@ async fn transport_errors_redact_the_subscription_url() {
     let err = download_string(&url, &DownloadOptions::default(), &CancellationToken::new())
         .await
         .unwrap_err();
-    for view in [format!("{err}"), format!("{err:?}"), format!("{:?}", err.to_domain())] {
+    for view in [
+        format!("{err}"),
+        format!("{err:?}"),
+        format!("{:?}", err.to_domain()),
+    ] {
         assert!(!view.contains("secret-token-abc"), "leaked URL: {view}");
     }
 }

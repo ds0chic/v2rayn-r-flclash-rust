@@ -18,6 +18,19 @@ class ErrorLocalizer {
 
   final L10n _l10n;
 
+  /// Localizer outside the widget tree (ref-driven toasts and controller
+  /// messages): `ErrorLocalizer.forLanguage(ref.read(productLanguageProvider))`.
+  /// Pure keys localize, human text passes through, unknown keys degrade to
+  /// generic — never a raw key.
+  factory ErrorLocalizer.forLanguage(String? languageCode) =>
+      ErrorLocalizer(L10n(languageCode ?? L10n.defaultLanguage));
+
+  /// Ref-driven shorthand: localizes [rawKey] in the persisted product
+  /// language. Takes the language code (not the ref) so both `Ref` and
+  /// `WidgetRef` call sites share one signature.
+  static String localizeStatusKey(String? languageCode, String? rawKey) =>
+      ErrorLocalizer.forLanguage(languageCode).key(rawKey);
+
   /// Localize an [ErrorDto] to a readable cause + action. The `code` is kept out
   /// of the headline; callers that want it for diagnostics render
   /// `label (code)`. A `detail` payload is never shown here (it may carry

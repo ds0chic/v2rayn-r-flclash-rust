@@ -10,6 +10,8 @@ import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
+import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
 
 /// Riverpod view of the persisted `guiNConfig.json` settings document.
 ///
@@ -691,12 +693,15 @@ class SettingsController extends Notifier<SettingsViewState> {
         coreOk = applied;
         if (!applied) {
           final error = ref.read(runtimeControllerProvider).error;
-          applyMessage = '配置已保存，但应用失败：${error?.messageKey ?? 'unknown'}';
+          // D-LEFT2: keys/exceptions are localized here; the shell message
+          // line and the outcome message render raw.
+          applyMessage =
+              '配置已保存，但应用失败：${ErrorLocalizer.localizeStatusKey(ref.read(productLanguageProvider), error?.messageKey)}';
           errors.add(error?.code ?? 'E_CORE_APPLY');
         }
-      } on Object catch (e) {
+      } on Object catch (_) {
         coreOk = false;
-        applyMessage = '配置已保存，但应用失败：$e';
+        applyMessage = '配置已保存，但应用失败';
         errors.add('E_CORE_APPLY');
       }
       if (coreOk == false) {

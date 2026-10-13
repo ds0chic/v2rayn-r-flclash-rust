@@ -568,24 +568,97 @@ impl AppEngine {
         }
     }
 
-    fn rollback_profile_rows(
+    /// Shared persist-failure compensation: apply an already-computed store
+    /// restore and return the original persist error. A failed restore marks
+    /// the engine storage-broken and replaces the error so the caller never
+    /// sees `Ok` over a half-restored store.
+    fn rollback_store(
         &self,
-        repo: &mut ProfileStore,
-        snapshot: &[(String, Option<Profile>)],
+        what: &str,
+        restore: Result<(), DomainError>,
         cause: DomainError,
     ) -> DomainError {
-        match repo.restore_profiles(snapshot) {
+        match restore {
             Ok(()) => cause,
             Err(rollback_error) => {
                 if let Ok(mut failure) = self.storage_error.lock() {
                     *failure = Some(rollback_error.clone());
                 }
                 DomainError::new(domain::codes::INTERNAL, "error.storage").with_detail(format!(
-                    "profile rollback failed after {}: {}",
+                    "{what} rollback failed after {}: {}",
                     cause.code, rollback_error.code
                 ))
             }
         }
+    }
+
+    fn rollback_profile_rows(
+        &self,
+        repo: &mut ProfileStore,
+        snapshot: &[(String, Option<Profile>)],
+        cause: DomainError,
+    ) -> DomainError {
+        self.rollback_store("profile", repo.restore_profiles(snapshot), cause)
+    }
+
+    /// Restore a settings snapshot taken before a preset mutation.
+    fn rollback_settings(&self, previous_settings: AppSettings, previous_revision: u64) {
+        if let Ok(mut guard) = self.settings.lock() {
+            guard.settings = previous_settings;
+            guard.revision = previous_revision;
+        }
+    }
+
+    /// Restore the DNS rows touched by a preset and delete rows the preset
+    /// added (e.g. re-seeded builtins), so a persist failure leaves the DNS
+    /// store exactly as it was before the call.
+    fn rollback_dns_snapshot(
+        &self,
+        dns: &mut DnsStore,
+        snapshot: &[(String, Option<DnsProfile>)],
+        cause: DomainError,
+    ) -> DomainError {
+        let cause = self.rollback_store("dns", dns.restore_dns(snapshot), cause);
+        let current = dns.list().unwrap_or_default();
+        for item in current {
+            if snapshot.iter().any(|(id, _)| id == &item.id) {
+                continue;
+            }
+            if let Err(cleanup_error) = dns.remove(&item.id) {
+                if let Ok(mut failure) = self.storage_error.lock() {
+                    *failure = Some(cleanup_error.clone());
+                }
+                return DomainError::new(domain::codes::INTERNAL, "error.storage").with_detail(
+                    format!(
+                        "dns rollback failed after {}: {}",
+                        cause.code, cleanup_error.code
+                    ),
+                );
+            }
+        }
+        cause
+    }
+
+    /// Roll a failed regional preset back to its entry snapshots: DNS rows
+    /// (plus rows the preset added), the settings tree and the desired
+    /// revision.
+    fn rollback_regional_preset(
+        &self,
+        previous_dns: &[(String, Option<DnsProfile>)],
+        previous_settings: AppSettings,
+        previous_settings_revision: u64,
+        previous_desired: DesiredRevision,
+        cause: DomainError,
+    ) -> DomainError {
+        let mut cause = cause;
+        if let Ok(mut dns) = self.dns_items.lock() {
+            cause = self.rollback_dns_snapshot(&mut dns, previous_dns, cause);
+        }
+        if let Ok(mut revisions) = self.revisions.lock() {
+            *revisions = RevisionStore::with_desired(previous_desired);
+        }
+        self.rollback_settings(previous_settings, previous_settings_revision);
+        cause
     }
 
     /// Resolve the application data directory: `V2RAYN_R_DATA_DIR` when set,
@@ -813,20 +886,39 @@ impl AppEngine {
     /// touched; an idle or unreachable runtime is left alone so a backup-only
     /// session can still restore. Quiesce failures are propagated for the same
     /// reason.
+    /// The restore epoch is bumped first so a slow subscription download that
+    /// finishes mid-restore is rejected as stale instead of writing into the
+    /// swapped database. Every failure below returns *before* any file is
+    /// touched and rolls the epoch back, so a failed restore never leaves a
+    /// ghost fence that rejects later legitimate subscription commits.
     pub fn prepare_restore(&self) -> Result<(), DomainError> {
+        let epoch = self.restore_epoch();
         self.bump_restore_epoch();
         let timeout = std::time::Duration::from_millis(2000);
-        self.cancel_and_drain_sub_tasks(timeout)?;
-        self.stop_sub_scheduler_blocking(timeout)?;
+        if let Err(error) = self.cancel_and_drain_sub_tasks(timeout) {
+            self.restore_epoch.store(epoch, Ordering::Release);
+            return Err(error);
+        }
+        if let Err(error) = self.stop_sub_scheduler_blocking(timeout) {
+            self.restore_epoch.store(epoch, Ordering::Release);
+            return Err(error);
+        }
         let live = self
             .runtime
             .snapshot()
             .map(|snapshot| !matches!(snapshot.state, RuntimeState::Stopped))
             .unwrap_or(false);
         if live {
-            self.stop_runtime()?;
+            if let Err(error) = self.stop_runtime() {
+                self.restore_epoch.store(epoch, Ordering::Release);
+                return Err(error);
+            }
         }
-        self.quiesce()
+        if let Err(error) = self.quiesce() {
+            self.restore_epoch.store(epoch, Ordering::Release);
+            return Err(error);
+        }
+        Ok(())
     }
 
     /// Seed profiles (test/bootstrap helper).
@@ -1222,6 +1314,9 @@ impl AppEngine {
     }
 
     /// Copy a set of profiles, assigning fresh stable ids and a "(副本)" suffix.
+    ///
+    /// A persist failure removes the copied rows again (H10 pattern), so the
+    /// SQLite rows never outlive the revision that announced them.
     pub fn copy_profiles(&self, ids: &[String]) -> Result<Vec<Profile>, DomainError> {
         self.guard_storage()?;
         let mut revisions = self
@@ -1233,25 +1328,41 @@ impl AppEngine {
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         let mut copies = Vec::new();
+        let mut snapshot = Vec::new();
         for id in ids {
-            if let Some(source) = repo.get(id)? {
+            let source = match repo.get(id) {
+                Ok(source) => source,
+                Err(error) => {
+                    return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+                }
+            };
+            if let Some(source) = source {
                 let mut copy = source;
                 copy.index_id = crate::repository::new_index_id();
                 if !copy.remarks.is_empty() {
                     copy.remarks = format!("{} (副本)", copy.remarks);
                 }
-                repo.upsert(copy.clone())?;
+                snapshot.push((copy.index_id.clone(), None));
+                if let Err(error) = repo.upsert(copy.clone()) {
+                    return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+                }
                 copies.push(copy);
             }
         }
         if !copies.is_empty() {
-            revisions.bump();
-            self.persist_config(&revisions)?;
+            let mut next_revision = RevisionStore::with_desired(revisions.desired());
+            next_revision.bump();
+            if let Err(error) = self.persist_config(&next_revision) {
+                return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+            }
+            *revisions = next_revision;
         }
         Ok(copies)
     }
 
     /// Update only the remarks of one profile.
+    ///
+    /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn set_remarks(&self, id: &str, remarks: String) -> Result<Profile, DomainError> {
         self.guard_storage()?;
         let mut revisions = self
@@ -1271,10 +1382,17 @@ impl AppEngine {
                     .with_field("remarks"),
             );
         }
+        let snapshot = vec![(id.to_string(), Some(profile.clone()))];
         profile.remarks = remarks;
-        repo.upsert(profile.clone())?;
-        revisions.bump();
-        self.persist_config(&revisions)?;
+        if let Err(error) = repo.upsert(profile.clone()) {
+            return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        }
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
+        if let Err(error) = self.persist_config(&next_revision) {
+            return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        }
+        *revisions = next_revision;
         Ok(profile)
     }
 
@@ -1599,6 +1717,8 @@ impl AppEngine {
 
     /// Save (insert or replace) one routing profile. Remarks are required and
     /// the embedded rules must each carry a match criterion.
+    ///
+    /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn save_routing(&self, profile: RoutingProfile) -> Result<RoutingProfile, DomainError> {
         let mut normalized = crate::routing::normalize_routing(profile)?;
         // The DTO shape has no room for unknown keys: merge stored extras
@@ -1613,52 +1733,84 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        self.routing
+        let mut store = self
+            .routing
             .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
-            .upsert(normalized.clone())?;
-        revisions.bump();
-        self.persist_config(&revisions)?;
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let snapshot = vec![(normalized.id.clone(), store.get(&normalized.id)?)];
+        if let Err(error) = store.upsert(normalized.clone()) {
+            return Err(self.rollback_store("routing", store.restore_routing(&snapshot), error));
+        }
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
+        if let Err(error) = self.persist_config(&next_revision) {
+            return Err(self.rollback_store("routing", store.restore_routing(&snapshot), error));
+        }
+        *revisions = next_revision;
         Ok(normalized)
     }
 
     /// Delete one routing profile. Deleting the active profile promotes the
     /// first remaining row to active (upstream always has a default).
+    ///
+    /// A persist failure restores the removed and re-promoted rows (H10
+    /// pattern).
     pub fn delete_routing(&self, id: &str) -> Result<bool, DomainError> {
         let mut revisions = self
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let was_active = self.get_routing(id)?.map(|r| r.is_active).unwrap_or(false);
-        let removed = self
+        let mut store = self
             .routing
             .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
-            .remove(id)?;
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let previous = store.get(id)?;
+        let was_active = previous.as_ref().is_some_and(|r| r.is_active);
+        let mut snapshot = vec![(id.to_string(), previous)];
+        let removed = match store.remove(id) {
+            Ok(removed) => removed,
+            Err(error) => {
+                return Err(self.rollback_store(
+                    "routing",
+                    store.restore_routing(&snapshot),
+                    error,
+                ));
+            }
+        };
         if removed && was_active {
-            let items = self
-                .routing
-                .lock()
-                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
-                .list()?;
+            let items = store.list()?;
             if let Some(first) = items.into_iter().next() {
+                snapshot.push((first.id.clone(), Some(first.clone())));
                 let mut first = first;
                 first.is_active = true;
-                self.routing
-                    .lock()
-                    .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
-                    .upsert(first)?;
+                if let Err(error) = store.upsert(first) {
+                    return Err(self.rollback_store(
+                        "routing",
+                        store.restore_routing(&snapshot),
+                        error,
+                    ));
+                }
             }
         }
         if removed {
-            revisions.bump();
-            self.persist_config(&revisions)?;
+            let mut next_revision = RevisionStore::with_desired(revisions.desired());
+            next_revision.bump();
+            if let Err(error) = self.persist_config(&next_revision) {
+                return Err(self.rollback_store(
+                    "routing",
+                    store.restore_routing(&snapshot),
+                    error,
+                ));
+            }
+            *revisions = next_revision;
         }
         Ok(removed)
     }
 
     /// Mark one routing profile as the default (`IsActive` switch, upstream
     /// `ConfigHandler.SetDefaultRouting`). Already-active is a no-op error.
+    ///
+    /// A persist failure restores the previous default (H10 pattern).
     pub fn set_default_routing(&self, id: &str) -> Result<(), DomainError> {
         let mut revisions = self
             .revisions
@@ -1678,13 +1830,31 @@ impl AppEngine {
         if !items.iter().any(|r| r.id == id) {
             return Err(DomainError::not_found("routing", id));
         }
+        let snapshot: Vec<(String, Option<RoutingProfile>)> = items
+            .iter()
+            .map(|item| (item.id.clone(), Some(item.clone())))
+            .collect();
         for mut item in items {
             item.is_active = item.id == id;
-            store.upsert(item)?;
+            if let Err(error) = store.upsert(item) {
+                return Err(self.rollback_store(
+                    "routing",
+                    store.restore_routing(&snapshot),
+                    error,
+                ));
+            }
         }
-        revisions.bump();
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
         drop(store);
-        self.persist_config(&revisions)?;
+        if let Err(error) = self.persist_config(&next_revision) {
+            let mut store = self
+                .routing
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            return Err(self.rollback_store("routing", store.restore_routing(&snapshot), error));
+        }
+        *revisions = next_revision;
         Ok(())
     }
 
@@ -1780,6 +1950,8 @@ impl AppEngine {
     }
 
     /// Save (insert or replace) one DNS profile with per-core validation.
+    ///
+    /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn save_dns(&self, profile: DnsProfile) -> Result<DnsProfile, DomainError> {
         let mut normalized = crate::dns::normalize_dns(profile)?;
         if !normalized.id.trim().is_empty() {
@@ -1794,12 +1966,20 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        self.dns_items
+        let mut store = self
+            .dns_items
             .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
-            .upsert(normalized.clone())?;
-        revisions.bump();
-        self.persist_config(&revisions)?;
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let snapshot = vec![(normalized.id.clone(), store.get(&normalized.id)?)];
+        if let Err(error) = store.upsert(normalized.clone()) {
+            return Err(self.rollback_store("dns", store.restore_dns(&snapshot), error));
+        }
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
+        if let Err(error) = self.persist_config(&next_revision) {
+            return Err(self.rollback_store("dns", store.restore_dns(&snapshot), error));
+        }
+        *revisions = next_revision;
         Ok(normalized)
     }
 
@@ -1846,6 +2026,23 @@ impl AppEngine {
         &self,
         preset: crate::dns::RegionalPreset,
     ) -> Result<(Vec<String>, crate::dns::RegionalPreset), DomainError> {
+        // Snapshot first: every branch below mutates the settings tree and/or
+        // the DNS rows, and a persist failure must restore all of them plus
+        // the desired revision (S4a-01 class half-write).
+        let lock_error = || DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned");
+        let (previous_settings, previous_settings_revision) = {
+            let guard = self.settings.lock().map_err(|_| lock_error())?;
+            (guard.settings.clone(), guard.revision)
+        };
+        let previous_dns: Vec<(String, Option<DnsProfile>)> = self
+            .dns_items
+            .lock()
+            .map_err(|_| lock_error())?
+            .list()?
+            .into_iter()
+            .map(|item| (item.id.clone(), Some(item)))
+            .collect();
+        let previous_desired = self.revisions.lock().map_err(|_| lock_error())?.desired();
         {
             let mut settings = self
                 .settings
@@ -1880,26 +2077,48 @@ impl AppEngine {
             settings.revision += 1;
         }
         if preset == crate::dns::RegionalPreset::Default {
-            let mut store = self
-                .dns_items
-                .lock()
-                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-            for item in store.list()? {
-                let _ = store.remove(&item.id.clone());
+            {
+                let mut store = self.dns_items.lock().map_err(|_| {
+                    DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
+                })?;
+                for (id, _) in &previous_dns {
+                    let _ = store.remove(id);
+                }
             }
-            drop(store);
             self.ensure_builtin_routing_dns();
-            let revisions = self
-                .revisions
-                .lock()
-                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-            self.persist_config(&revisions)?;
+            if let Err(error) = self.persist_config_standalone() {
+                return Err(self.rollback_regional_preset(
+                    &previous_dns,
+                    previous_settings,
+                    previous_settings_revision,
+                    previous_desired,
+                    error,
+                ));
+            }
+            // The preset changes what the next generate/apply produces, so the
+            // planted runtime is stale until re-applied (same contract as
+            // `save_settings`).
+            self.bump_desired_for_change()?;
             return Ok((Vec::new(), preset));
         }
         // Offline fallback: enable custom DNS rows with the embedded defaults
         // so generation keeps working; remote region templates stay pending.
+        // A DNS persist failure is returned to the caller (never swallowed)
+        // and rolls the whole preset back.
         for core in [CoreType::Xray, CoreType::SingBox] {
-            let mut profile = self.get_dns_for_core(core)?.unwrap_or(DnsProfile {
+            let existing = match self.get_dns_for_core(core) {
+                Ok(existing) => existing,
+                Err(error) => {
+                    return Err(self.rollback_regional_preset(
+                        &previous_dns,
+                        previous_settings,
+                        previous_settings_revision,
+                        previous_desired,
+                        error,
+                    ));
+                }
+            };
+            let mut profile = existing.unwrap_or(DnsProfile {
                 id: String::new(),
                 remarks: if core == CoreType::SingBox {
                     "sing-box".to_string()
@@ -1930,9 +2149,18 @@ impl AppEngine {
                 profile.normal_dns = Some(normal);
                 profile.tun_dns = Some(tun);
             }
-            let _ = self.save_dns(profile);
+            if let Err(error) = self.save_dns(profile) {
+                return Err(self.rollback_regional_preset(
+                    &previous_dns,
+                    previous_settings,
+                    previous_settings_revision,
+                    previous_desired,
+                    error,
+                ));
+            }
         }
         let pending = crate::dns::pending_remote_templates(&preset);
+        self.bump_desired_for_change()?;
         Ok((pending, preset))
     }
 
@@ -1946,17 +2174,24 @@ impl AppEngine {
     }
 
     /// Switch the routing mode (persisted in `guiNConfig.json`).
+    ///
+    /// A persist failure restores the previous mode and revision (H10 pattern).
+    /// The mode guard is never held across [`Self::persist_config`], which
+    /// re-locks it for the write.
     pub fn set_rule_mode(&self, mode: RuleMode) -> Result<(), DomainError> {
-        let mut revisions = self
-            .revisions
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        *self
-            .rule_mode
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))? = mode;
-        revisions.bump();
-        self.persist_config(&revisions)?;
+        let lock_error = || DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned");
+        let mut revisions = self.revisions.lock().map_err(|_| lock_error())?;
+        let previous = *self.rule_mode.lock().map_err(|_| lock_error())?;
+        *self.rule_mode.lock().map_err(|_| lock_error())? = mode;
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
+        if let Err(error) = self.persist_config(&next_revision) {
+            if let Ok(mut guard) = self.rule_mode.lock() {
+                *guard = previous;
+            }
+            return Err(error);
+        }
+        *revisions = next_revision;
         Ok(())
     }
 
@@ -3815,8 +4050,10 @@ impl AppEngine {
     /// The local proxy endpoint as an explicit URL, when known.
     ///
     /// Prefers the actual applied-session port; the explicit
-    /// [`Self::set_local_proxy_port`] hook remains only as a test/override
-    /// fallback and is never set by the production session path.
+    /// [`Self::set_local_proxy_port`] hook remains as a test/override
+    /// fallback. It is also mirrored from the applied session by
+    /// `reconcile_applied_session`, so the fallback keeps working when no
+    /// applied session is recorded.
     pub fn local_proxy_url(&self) -> Option<String> {
         let applied_port = self
             .applied_session
@@ -3954,6 +4191,7 @@ impl AppEngine {
     /// `save_sub_item` use case: validates, persists and bumps the revision.
     ///
     /// A new item without an id is assigned a stable id and the next `Sort`.
+    /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn save_sub_item(&self, mut item: SubItem) -> Result<SubItem, DomainError> {
         item.validate()?;
         let mut revisions = self
@@ -3975,10 +4213,21 @@ impl AppEngine {
                 .max()
                 .map_or(1, |m| m + 1);
         }
-        subs.upsert(item.clone())?;
-        revisions.bump();
+        let snapshot = vec![(item.id.clone(), subs.get(&item.id)?)];
+        if let Err(error) = subs.upsert(item.clone()) {
+            return Err(self.rollback_store("subscription", subs.restore_subs(&snapshot), error));
+        }
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
         drop(subs);
-        self.persist_config(&revisions)?;
+        if let Err(error) = self.persist_config(&next_revision) {
+            let mut subs = self
+                .subs
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            return Err(self.rollback_store("subscription", subs.restore_subs(&snapshot), error));
+        }
+        *revisions = next_revision;
         Ok(item)
     }
 
@@ -3991,14 +4240,19 @@ impl AppEngine {
     /// subscription intact rather than orphaning its nodes. (Upstream also
     /// deletes on-disk custom-config files for Custom/Outbound rows; this
     /// engine keeps those contents inline, so there is no file to delete.)
+    ///
+    /// A persist failure restores both the subscription rows and the dependent
+    /// profile rows (H10 pattern), so a failed delete never resurrects half
+    /// its data on the next reopen.
     pub fn delete_sub_items(&self, ids: &[String]) -> Result<u64, DomainError> {
         let mut revisions = self
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        // Remove dependent nodes first (upstream `RemoveServersViaSubid`).
+        // Snapshot every row the delete can touch before removing anything.
+        let mut profile_snapshot = Vec::new();
         {
-            let mut repo = self
+            let repo = self
                 .repo
                 .lock()
                 .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
@@ -4015,24 +4269,84 @@ impl AppEngine {
                     },
                 )?;
                 for profile in existing.items {
-                    repo.remove(&profile.index_id)?;
+                    if !profile_snapshot
+                        .iter()
+                        .any(|(saved_id, _)| saved_id == &profile.index_id)
+                    {
+                        profile_snapshot.push((profile.index_id.clone(), Some(profile)));
+                    }
                 }
             }
         }
-        let mut subs = self
-            .subs
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut sub_snapshot = Vec::new();
+        {
+            let subs = self
+                .subs
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for id in ids {
+                if !sub_snapshot.iter().any(|(saved_id, _)| saved_id == id) {
+                    sub_snapshot.push((id.clone(), subs.get(id)?));
+                }
+            }
+        }
+        // Remove dependent nodes first (upstream `RemoveServersViaSubid`).
+        {
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for (index_id, _) in &profile_snapshot {
+                if let Err(error) = repo.remove(index_id) {
+                    return Err(self.rollback_profile_rows(&mut repo, &profile_snapshot, error));
+                }
+            }
+        }
         let mut removed = 0u64;
-        for id in ids {
-            if subs.remove(id)? {
-                removed += 1;
+        {
+            let mut subs = self
+                .subs
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for id in ids {
+                match subs.remove(id) {
+                    Ok(true) => removed += 1,
+                    Ok(false) => {}
+                    Err(error) => {
+                        let error = self.rollback_store(
+                            "subscription",
+                            subs.restore_subs(&sub_snapshot),
+                            error,
+                        );
+                        drop(subs);
+                        let error = match self.repo.lock() {
+                            Ok(mut repo) => {
+                                self.rollback_profile_rows(&mut repo, &profile_snapshot, error)
+                            }
+                            Err(_) => error,
+                        };
+                        return Err(error);
+                    }
+                }
             }
         }
         if removed > 0 {
-            revisions.bump();
-            drop(subs);
-            self.persist_config(&revisions)?;
+            let mut next_revision = RevisionStore::with_desired(revisions.desired());
+            next_revision.bump();
+            if let Err(error) = self.persist_config(&next_revision) {
+                let error = match self.subs.lock() {
+                    Ok(mut subs) => {
+                        self.rollback_store("subscription", subs.restore_subs(&sub_snapshot), error)
+                    }
+                    Err(_) => error,
+                };
+                let error = match self.repo.lock() {
+                    Ok(mut repo) => self.rollback_profile_rows(&mut repo, &profile_snapshot, error),
+                    Err(_) => error,
+                };
+                return Err(error);
+            }
+            *revisions = next_revision;
         }
         Ok(removed)
     }
@@ -4047,6 +4361,9 @@ impl AppEngine {
     }
 
     /// Persist a new `Sort` order. `ids` is the intended display order.
+    ///
+    /// A persist failure restores the previous order and revision (H10
+    /// pattern).
     pub fn reorder_sub_items(&self, ids: &[String]) -> Result<(), DomainError> {
         let mut revisions = self
             .revisions
@@ -4056,15 +4373,43 @@ impl AppEngine {
             .subs
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut snapshot = Vec::new();
         for (index, id) in ids.iter().enumerate() {
-            if let Some(mut item) = subs.get(id)? {
+            let item = match subs.get(id) {
+                Ok(item) => item,
+                Err(error) => {
+                    return Err(self.rollback_store(
+                        "subscription",
+                        subs.restore_subs(&snapshot),
+                        error,
+                    ));
+                }
+            };
+            if let Some(mut item) = item {
+                if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
+                    snapshot.push((id.clone(), Some(item.clone())));
+                }
                 item.sort = (index + 1) as i32;
-                subs.upsert(item)?;
+                if let Err(error) = subs.upsert(item) {
+                    return Err(self.rollback_store(
+                        "subscription",
+                        subs.restore_subs(&snapshot),
+                        error,
+                    ));
+                }
             }
         }
-        revisions.bump();
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
         drop(subs);
-        self.persist_config(&revisions)?;
+        if let Err(error) = self.persist_config(&next_revision) {
+            let mut subs = self
+                .subs
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            return Err(self.rollback_store("subscription", subs.restore_subs(&snapshot), error));
+        }
+        *revisions = next_revision;
         Ok(())
     }
 
@@ -4283,6 +4628,10 @@ impl AppEngine {
 
     // -- SP-14 All纯预览批导入 --------------------------------------------------
 
+    /// Bound for the preview/commit replay tables: old ids fall back to the
+    /// normal submit path (revision/token checks still apply).
+    const IMPORT_TABLE_CAP: usize = 128;
+
     /// Register a parse-only preview: memory only, never SQLite/受控文件.
     ///
     /// Returns the `preview_token` binding this exact content; the later
@@ -4292,7 +4641,7 @@ impl AppEngine {
         let token = crate::import_batch::preview_token(text);
         let digest = crate::import_batch::content_digest(profiles);
         if let Ok(mut previews) = self.import_previews.lock() {
-            if previews.len() >= 128 {
+            if previews.len() >= Self::IMPORT_TABLE_CAP {
                 if let Some(first) = previews.keys().next().cloned() {
                     previews.remove(&first);
                 }
@@ -4425,6 +4774,11 @@ impl AppEngine {
                     new_revision,
                 };
                 if let Ok(mut commits) = self.import_commits.lock() {
+                    if commits.len() >= Self::IMPORT_TABLE_CAP {
+                        if let Some(first) = commits.keys().next().cloned() {
+                            commits.remove(&first);
+                        }
+                    }
                     commits.insert(commit.mutation_id, receipt.clone());
                 }
                 Ok(receipt)
@@ -4560,6 +4914,8 @@ impl AppEngine {
     ///
     /// Upstream keeps one row per core; a draft without an id therefore
     /// updates the existing row for its core instead of adding a duplicate.
+    /// A persist failure restores the previous rows and revision (H10
+    /// pattern).
     pub fn save_template(
         &self,
         item: FullConfigTemplate,
@@ -4573,6 +4929,7 @@ impl AppEngine {
             .templates
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let snapshot = templates.clone();
         let mut item = crate::templates::normalize(item, crate::repository::new_index_id());
         if item.id.trim().is_empty() {
             item.id = crate::repository::new_index_id();
@@ -4586,13 +4943,22 @@ impl AppEngine {
             templates.push(item.clone());
         }
         templates.sort_by_key(|t| t.core_type.value());
-        revisions.bump();
+        let mut next_revision = RevisionStore::with_desired(revisions.desired());
+        next_revision.bump();
         drop(templates);
-        self.persist_config(&revisions)?;
+        if let Err(error) = self.persist_config(&next_revision) {
+            if let Ok(mut templates) = self.templates.lock() {
+                *templates = snapshot;
+            }
+            return Err(error);
+        }
+        *revisions = next_revision;
         Ok(item)
     }
 
     /// Delete one template row by id. Returns whether a row was removed.
+    ///
+    /// A persist failure restores the removed row and revision (H10 pattern).
     pub fn delete_template(&self, id: &str) -> Result<bool, DomainError> {
         let mut revisions = self
             .revisions
@@ -4602,13 +4968,21 @@ impl AppEngine {
             .templates
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let snapshot = templates.clone();
         let before = templates.len();
         templates.retain(|t| t.id != id);
         let removed = templates.len() != before;
         if removed {
-            revisions.bump();
+            let mut next_revision = RevisionStore::with_desired(revisions.desired());
+            next_revision.bump();
             drop(templates);
-            self.persist_config(&revisions)?;
+            if let Err(error) = self.persist_config(&next_revision) {
+                if let Ok(mut templates) = self.templates.lock() {
+                    *templates = snapshot;
+                }
+                return Err(error);
+            }
+            *revisions = next_revision;
         }
         Ok(removed)
     }

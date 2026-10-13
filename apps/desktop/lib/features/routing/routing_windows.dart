@@ -3293,8 +3293,14 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
     }
     final existing = widget.scheme?.profile;
     final profile = r.RoutingProfileDto(
-      // A new scheme carries a stable id before it is committed, so the relayed
-      // save and the window's local list agree on the row identity.
+      // A new scheme carries a stable client id before it is committed, so the
+      // relayed save and the window's local list agree on the row identity.
+      // D-LEFT: deliberately NOT `''` — the SP-13 relay verifies the commit by
+      // re-querying the authoritative list for this exact id
+      // (`verifyRoutingIncrement`, routing_actions.dart); an empty id would
+      // fail verification after a successful save and a retry would duplicate
+      // the row. The backend keeps client ids (`normalize_routing` only
+      // allocates when empty), so both paths stay consistent.
       id: existing?.id ?? 'rt-${DateTime.now().microsecondsSinceEpoch}',
       remarks: _remarks.text.trim(),
       url: _url.text.trim(),

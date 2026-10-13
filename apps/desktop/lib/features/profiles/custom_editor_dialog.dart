@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -270,8 +271,9 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
     setState(() {
       _busy = false;
       if (!result.ok || result.fileName == null) {
+        // D-LEFT2: the key is localized; the dialog renders raw.
         _fileError =
-            '导入失败: ${result.error?.messageKey ?? 'error.import_custom_failed'}';
+            '导入失败: ${context.messageText(result.error?.messageKey ?? 'error.import_custom_failed')}';
         return;
       }
       _draft.address = result.fileName!;
@@ -347,7 +349,8 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                       ),
                     ),
                     child: Text(
-                      '保存失败: ${_serverError!.messageKey} (${_serverError!.code})',
+                      // D-LEFT2: the key is localized; the dialog renders raw.
+                      '保存失败: ${context.messageText(_serverError!.messageKey)} (${_serverError!.code})',
                       style: TextStyle(
                         fontSize: AppTokens.fontSize,
                         color: theme.colorScheme.onErrorContainer,

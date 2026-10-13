@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -318,7 +319,8 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                       ),
                     ),
                     child: Text(
-                      '保存失败: ${_serverError!.messageKey} (${_serverError!.code})',
+                      // D-LEFT2: the key is localized; the dialog renders raw.
+                      '保存失败: ${context.messageText(_serverError!.messageKey)} (${_serverError!.code})',
                       style: TextStyle(
                         fontSize: AppTokens.fontSize,
                         color: theme.colorScheme.onErrorContainer,

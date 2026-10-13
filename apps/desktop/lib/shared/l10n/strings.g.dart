@@ -2010,6 +2010,13 @@ kResUiStrings = <String, Map<String, String>>{
     'zh-Hans': '存储写入失败，请重试',
     'zh-Hant': '存儲寫入失敗，請重試',
   },
+  // D-LEFT2: Dart-fabricated fallback shown when a custom import fails without
+  // a bridge error. Only en + zh authored; other locales fall back to en.
+  'errorImportCustomFailed': {
+    'en': 'Custom config import failed',
+    'zh-Hans': '自定义配置导入失败',
+    'zh-Hant': '自定義配置導入失敗',
+  },
   'errorBackupInvalid': {
     'en': 'The backup file is invalid or unsupported',
     'zh-Hans': '备份文件无效或不受支持',

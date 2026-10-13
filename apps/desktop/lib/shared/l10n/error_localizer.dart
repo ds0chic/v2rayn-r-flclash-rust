@@ -118,6 +118,8 @@ class ErrorLocalizer {
     'error.recovery_required': 'errorRecoveryRequired',
     'error.sub_update_failed': 'errorSubUpdateFailed',
     'error.storage': 'errorStorage',
+    // D-LEFT2: Dart-fabricated custom-import fallback (key frozen, mapping added).
+    'error.import_custom_failed': 'errorImportCustomFailed',
     'error.backup_invalid': 'errorBackupInvalid',
     'error.webdav_permission': 'errorWebdavPermission',
     'error.order_persist': 'errorOrderPersist',

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/groups.dart' as g;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -299,10 +300,11 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
       g.TemplateDtoResult result;
       try {
         result = widget.onSave(item);
-      } catch (error) {
+      } catch (_) {
         setState(() {
           _submitting = false;
-          _serverError = '${entry.$2}: 保存失败 ($error)';
+          // D-LEFT2: never interpolate the caught exception into UI text.
+          _serverError = '${entry.$2}: 保存失败';
         });
         return;
       }
@@ -312,7 +314,8 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
           final error = result.error;
           _serverError = error == null
               ? '${entry.$2}: 保存失败'
-              : '${entry.$2}: ${error.messageKey} (${error.code})';
+              // D-LEFT2: the key is localized; the dialog renders raw.
+              : '${entry.$2}: ${context.messageText(error.messageKey)} (${error.code})';
         });
         return;
       }

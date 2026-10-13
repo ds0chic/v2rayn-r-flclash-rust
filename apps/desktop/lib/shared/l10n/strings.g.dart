@@ -1992,6 +1992,24 @@ kResUiStrings = <String, Map<String, String>>{
     'id': 'Pembaruan langganan tidak terkonfirmasi; node lama dipertahankan',
     'az': 'Abunə yeniləməsi təsdiqlənmədi; əvvəlki node-lar saxlanıldı',
   },
+  // D-LEFT: keys that reach the UI need human text (contract keys unchanged).
+  // Only en + zh-Hans/zh-Hant are authored; other locales fall back to en
+  // through `L10n.t`, the table's documented mechanism.
+  'errorRecoveryRequired': {
+    'en': 'Recovering, please retry in a moment',
+    'zh-Hans': '恢复中，请稍后重试',
+    'zh-Hant': '恢復中，請稍後重試',
+  },
+  'errorSubUpdateFailed': {
+    'en': 'Subscription update failed',
+    'zh-Hans': '订阅更新失败',
+    'zh-Hant': '訂閱更新失敗',
+  },
+  'errorStorage': {
+    'en': 'Storage write failed, please retry',
+    'zh-Hans': '存储写入失败，请重试',
+    'zh-Hant': '存儲寫入失敗，請重試',
+  },
   'errorBackupInvalid': {
     'en': 'The backup file is invalid or unsupported',
     'zh-Hans': '备份文件无效或不受支持',

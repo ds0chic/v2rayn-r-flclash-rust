@@ -33,45 +33,72 @@ Future<String?> pickCustomConfigFile() async {
   return file?.path;
 }
 
+/// OS-handler opener without a shell (D1-09): `explorer.exe <target>` takes the
+/// target through CreateProcess directly, so no cmd re-parse ever sees it and
+/// `!&|^%` are all literal. Only http(s) URLs and existing absolute file/dir
+/// paths may reach it (enforced by the callers' gates below).
+const String osOpenProgram = 'explorer';
+
+/// Single-argument launch: the target travels as one argv element, never
+/// re-split. Dart quotes it for CreateProcess when it contains spaces.
+List<String> buildOsOpenArgs(String target) => <String>[target];
+
+/// Process-spawn seam for the OS opener (same shape as the settings-side
+/// `DesktopLauncher`, so recording fakes are interchangeable in tests).
+typedef OsProcessLauncher = Future<ProcessResult> Function(
+  String program,
+  List<String> arguments,
+);
+
+/// Real spawn: no shell, so metacharacters stay literal.
+Future<ProcessResult> defaultOsProcessLauncher(
+  String program,
+  List<String> arguments,
+) => Process.run(program, arguments, runInShell: false);
+
 /// Open [fullPath] with the OS default handler (upstream
-/// `ProcUtils.ProcessStart`). Returns false when the file does not exist.
-Future<bool> openConfigFileExternally(String fullPath) async {
+/// `ProcUtils.ProcessStart`). Returns false when the file does not exist or
+/// the path is not a plain absolute config path.
+///
+/// `explorer.exe` reports exit code 1 even on success, so only a spawn
+/// exception counts as failure; the exit code is deliberately ignored.
+Future<bool> openConfigFileExternally(
+  String fullPath, {
+  OsProcessLauncher launcher = defaultOsProcessLauncher,
+}) async {
   if (!isSafeExternalOpenPath(fullPath) || !File(fullPath).existsSync()) {
     return false;
   }
-  if (Platform.isWindows) {
-    await Process.run('cmd', <String>[
-      '/c',
-      'start',
-      '',
-      quoteExternalOpenPath(fullPath),
-    ]);
+  if (!Platform.isWindows) return false;
+  try {
+    await launcher(osOpenProgram, buildOsOpenArgs(fullPath));
     return true;
+  } catch (_) {
+    return false;
   }
-  return false;
 }
 
 /// Whether [path] may be handed to the external-open command (D1-09).
 ///
-/// `cmd /c start` re-parses its arguments, so any shell metacharacter in a
-/// stored `Address` would break out of the path argument. Only plain config
-/// paths are accepted; the caller reports a rejection as a file error instead
-/// of launching anything.
+/// Only drive-letter absolute paths pass: UNC/device paths, `/`-rooted paths
+/// and anything parsing as a flag are rejected, as are shell metacharacters,
+/// `%`-expansion syntax and control characters. `!` is allowed: with no shell
+/// left in the launch path it has no special meaning. Bare file names are
+/// rejected here; the caller resolves them under `<dataDir>/config` first.
 bool isSafeExternalOpenPath(String path) {
   final trimmed = path.trim();
   if (trimmed.isEmpty) return false;
-  // Control characters (including CR/LF), cmd metacharacters and
-  // PowerShell statement separators. Spaces, dots, dashes, parentheses and
-  // CJK letters stay allowed so ordinary `C:\dir\my file (1).json` paths
-  // keep working; the remaining rejects fail safe with a file error.
+  // Shell metacharacters, %-expansion, statement separators, controls.
   if (RegExp('["&|<>^%`\$;\\x00-\\x1f]').hasMatch(trimmed)) return false;
-  return true;
+  // UNC/device paths, /-rooted paths, flags.
+  if (trimmed.startsWith(r'\\') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith('/') ||
+      trimmed.startsWith('-')) {
+    return false;
+  }
+  return RegExp(r'^[A-Za-z]:[\\/]').hasMatch(trimmed);
 }
-
-/// Double-quote [path] for `cmd /c start "" <path>` so spaces survive.
-/// Only call with a path that passed [isSafeExternalOpenPath] (a quote
-/// inside the path is rejected there, so wrapping is injection-free).
-String quoteExternalOpenPath(String path) => '"${path.trim()}"';
 
 /// Absolute path used as-is; a bare file name joins
 /// `<dataDir>/config/<name>` (upstream `Utils.GetConfigPath`).

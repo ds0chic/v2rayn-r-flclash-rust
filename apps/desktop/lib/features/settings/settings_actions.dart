@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/dns.dart' as dns;
+import 'package:v2rayn_desktop/features/profiles/custom_editor_dialog.dart'
+    show buildOsOpenArgs, osOpenProgram;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/settings/global_hotkey_window.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
@@ -280,19 +282,24 @@ LoopbackExemptionCommand buildLoopbackExemptionCommand({
   );
 }
 
-/// Open a URL through the OS handler (`cmd /c start "" <url>`), matching
-/// upstream `ProcUtils.ProcessStart`. The application issues no HTTP request.
-List<String> buildOpenUrlArgs(String url) => <String>['/c', 'start', '', url];
-
+/// Open a URL through the OS handler (`explorer.exe <url>`), matching upstream
+/// `ProcUtils.ProcessStart`. No shell is involved; only http(s) URLs are
+/// accepted and the application issues no HTTP request itself.
+///
+/// `explorer.exe` reports exit code 1 even on success, so only a spawn
+/// exception counts as failure; the exit code is deliberately ignored.
 Future<bool> openCoreWebsite({
   String coreName = 'Xray',
   DesktopLauncher launcher = defaultDesktopLauncher,
 }) async {
   final url = coreWebsiteUrl(coreName);
-  if (url.isEmpty || !Platform.isWindows) return false;
+  final scheme = Uri.tryParse(url)?.scheme;
+  if ((scheme != 'http' && scheme != 'https') || !Platform.isWindows) {
+    return false;
+  }
   try {
-    final result = await launcher('cmd', buildOpenUrlArgs(url));
-    return result.exitCode == 0;
+    await launcher(osOpenProgram, buildOsOpenArgs(url));
+    return true;
   } on ProcessException {
     return false;
   }

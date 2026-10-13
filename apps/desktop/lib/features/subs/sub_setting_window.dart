@@ -6,6 +6,7 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/features/subs/sub_edit_window.dart';
 import 'package:v2rayn_desktop/features/subs/sub_share_dialog.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
 
 /// 订阅设置窗批量删除：先确认一次后删除（上游
@@ -491,9 +492,11 @@ class _StatusLine extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       color: scheme.surfaceContainerHighest,
       child: Text(
+        // D-LEFT: a bare contract key in the detail slot renders as human
+        // text; already-human text passes through unchanged.
         status.detail == null
             ? status.message
-            : '${status.message} — ${status.detail}',
+            : '${status.message} — ${context.messageText(status.detail!)}',
         style: TextStyle(fontSize: AppTokens.fontSize, color: color),
       ),
     );

@@ -377,8 +377,11 @@ class SubsController extends Notifier<SubsState> {
         entries: const <c.SubUpdateEntryDto>[],
         error: c.ErrorDto(
           code: 'E_UNAVAILABLE',
-          messageKey: '$error',
+          // D-LEFT: a contract key, never interpolated exception text; the
+          // exception stays in `detail` for diagnostics.
+          messageKey: 'error.bridge_unavailable',
           retryable: true,
+          detail: '$error',
         ),
       );
     }

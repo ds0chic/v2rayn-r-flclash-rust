@@ -103,6 +103,9 @@ void main() {
         capture: () async => _makeQrPng(_scanUri),
         window: window,
         settle: Duration.zero,
+        // D-LEFT: no real decode in scan tests; the isolate seam is covered
+        // by d_left_qr_isolate_test.dart.
+        decoder: (_) async => _scanUri,
       ),
     );
 
@@ -129,6 +132,7 @@ void main() {
         capture: () async => null,
         window: window,
         settle: Duration.zero,
+        decoder: (_) => throw StateError('must not decode'),
       ),
     );
 
@@ -151,6 +155,7 @@ void main() {
         capture: () async => _blankPng(),
         window: window,
         settle: Duration.zero,
+        decoder: (_) async => null,
       ),
     );
 
@@ -176,6 +181,7 @@ void main() {
         capture: () async => throw const ScreenCaptureException('boom'),
         window: window,
         settle: Duration.zero,
+        decoder: (_) => throw StateError('must not decode'),
       ),
     );
 

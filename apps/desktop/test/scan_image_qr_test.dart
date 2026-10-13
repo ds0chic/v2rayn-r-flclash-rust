@@ -107,6 +107,9 @@ void main() {
       probe.context,
       probe.ref,
       picker: () async => makeQrPng(_scanUri),
+      // D-LEFT: no real decode in scan tests; the isolate seam is covered by
+      // d_left_qr_isolate_test.dart.
+      decoder: (_) async => _scanUri,
     );
 
     expect(
@@ -140,7 +143,12 @@ void main() {
     final probe = await pumpProbe(tester, container);
     final before = container.read(uiShellControllerProvider).message;
 
-    await scanImageQr(probe.context, probe.ref, picker: () async => null);
+    await scanImageQr(
+      probe.context,
+      probe.ref,
+      picker: () async => null,
+      decoder: (_) => throw StateError('must not decode'),
+    );
 
     expect(container.read(uiShellControllerProvider).message, before);
     expect(bridge.queryAllProfiles(), isEmpty);
@@ -158,6 +166,7 @@ void main() {
       probe.context,
       probe.ref,
       picker: () async => makeBlankPng(),
+      decoder: (_) async => null,
     );
 
     expect(
@@ -177,6 +186,7 @@ void main() {
       probe.context,
       probe.ref,
       picker: () async => Uint8List(0),
+      decoder: (_) => throw StateError('must not decode'),
     );
 
     expect(
@@ -195,6 +205,7 @@ void main() {
       probe.context,
       probe.ref,
       picker: () async => throw Exception('dialog unavailable'),
+      decoder: (_) => throw StateError('must not decode'),
     );
 
     expect(

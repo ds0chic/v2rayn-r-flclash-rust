@@ -108,15 +108,9 @@ void main() {
     // v2fly and hysteria are excluded from the upstream help menu.
     expect(coreWebsiteUrl('V2fly'), '');
     expect(coreWebsiteUrl('Hysteria'), '');
-    expect(buildOpenUrlArgs('https://github.com/XTLS/Xray-core'), <String>[
-      '/c',
-      'start',
-      '',
-      'https://github.com/XTLS/Xray-core',
-    ]);
   });
 
-  test('openCoreWebsite launches cmd start with the resolved URL', () async {
+  test('openCoreWebsite launches explorer with the resolved URL', () async {
     final calls = <List<String>>[];
     Future<ProcessResult> recording(String program, List<String> args) async {
       calls.add(<String>[program, ...args]);
@@ -128,10 +122,7 @@ void main() {
       isTrue,
     );
     expect(calls.single, <String>[
-      'cmd',
-      '/c',
-      'start',
-      '',
+      'explorer',
       'https://github.com/XTLS/Xray-core',
     ]);
   });

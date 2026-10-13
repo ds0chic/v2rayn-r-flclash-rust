@@ -155,6 +155,9 @@ class RuntimeController extends Notifier<RuntimeView> {
       // changed underneath us; stale snapshots/results from the old epoch must
       // not overwrite the new state (R4-04).
       if (_activeCommand == null) _stateGeneration++;
+      // The warning belongs to the old epoch's stream; a new session starts
+      // without it (D3b-04).
+      state = state.copyWith(clearSequenceWarning: true);
       debugPrint('[runtime] event epoch changed: $previousEpoch -> $epoch');
     }
     _lastEpoch = epoch;

@@ -37,9 +37,13 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   final Set<String> _selected = <String>{};
   List<ConnectionColumn> _columns = defaultConnectionColumns();
 
+  /// Cached once: `ref` is unsafe in dispose(), the notifier is not.
+  MonitorController? _monitor;
+
   @override
   void initState() {
     super.initState();
+    _monitor = ref.read(monitorControllerProvider.notifier);
     final config = ref.read(clashUiConfigProvider);
     _autoRefresh = config.connectionsAutoRefresh;
     _columns = resolveVisibleColumns(config.connectionsColumns);
@@ -60,6 +64,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
 
   @override
   void dispose() {
+    _monitor?.setPageVisible('connections', false);
     _timer?.cancel();
     _filterDebounce?.cancel();
     _filter.dispose();

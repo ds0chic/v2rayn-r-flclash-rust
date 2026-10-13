@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/evidence_hooks.dart';
 import 'package:v2rayn_desktop/app/menu/main_menu.dart';
 import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/app/shell/side_tabs.dart';
@@ -111,24 +112,21 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (openUpdate == '1' || openUpdate == 'true') {
         showCheckUpdateWindow(context, ref);
       }
-      // T15a evidence hooks: configure the monitor against a loopback Xray
-      // stats port and open a monitor tab for release screenshots. No-ops in
-      // normal runs.
-      final xrayPort = Platform.environment['V2RAYN_R_MONITOR_XRAY_PORT'];
-      if (xrayPort != null) {
-        final port = int.tryParse(xrayPort);
-        if (port != null && port > 0) {
-          final monitor = ref.read(monitorControllerProvider.notifier);
-          monitor.configure(
-            core: 2, // domain CoreType::Xray
-            statePort: port,
-            statePort2: 0,
-            enableStatistics: true,
-            displayRealTimeSpeed: true,
-            refreshIntervalMs: 1000,
-          );
-          monitor.startPolling();
-        }
+      // T15a evidence hook, armed-only (ISSUE-08): unarmed builds ignore the
+      // variable entirely, and the reserved user-proxy port is never polled
+      // (hard constraint 1).
+      final monitorPort = evidenceMonitorXrayPort(Platform.environment);
+      if (monitorPort != null) {
+        final monitor = ref.read(monitorControllerProvider.notifier);
+        monitor.configure(
+          core: 2, // domain CoreType::Xray
+          statePort: monitorPort,
+          statePort2: 0,
+          enableStatistics: true,
+          displayRealTimeSpeed: true,
+          refreshIntervalMs: 1000,
+        );
+        monitor.startPolling();
       }
       // T15a/T20 evidence hook (only in smoke-armed builds, see main.dart):
       // apply the real persisted plan on launch so the logs tab has real core

@@ -18,14 +18,9 @@ String formatLogsForCopy(Iterable<m.LogLineDto> lines) {
 ///
 /// Upstream shows raw byte counters scaled to B/KB/MB/GB/TB (1024-based) and
 /// rate values as `x/s`. Unknown values render as `--`, never `0`, so an idle
-/// session is distinguishable from "no data".
-String formatBytes(Object? bytes) {
-  if (bytes == null) return '--';
-  final value = _asInt(bytes);
-  if (value == null || value < 0) return '--';
-  return '${_scale(value)}/s';
-}
-
+/// session is distinguishable from "no data". Totals use [formatTraffic],
+/// rates use [formatRate].
+///
 /// Traffic totals use no `/s` suffix.
 String formatTraffic(Object? bytes) {
   if (bytes == null) return '--';
@@ -42,10 +37,22 @@ String formatRate(Object? bps) {
   return '${_scale(value)}/s';
 }
 
-int? _asInt(Object value) {
-  if (value is int) return value;
-  if (value is BigInt) return value.toInt();
-  if (value is num) return value.toInt();
+/// Display magnitudes only: saturate instead of truncating, so wire counters
+/// beyond 64 bits (or negative unknowns) never wrap into a wrong unit.
+const int _maxDisplay = 0x3FFFFFFFFFFFFFFF;
+
+int? _asInt(Object? value) {
+  if (value == null) return null;
+  if (value is int) return value < 0 ? -1 : value;
+  if (value is BigInt) {
+    if (value.isNegative) return -1;
+    if (value > BigInt.from(_maxDisplay)) return _maxDisplay;
+    return value.toInt();
+  }
+  if (value is num) {
+    final v = value.toInt();
+    return v < 0 ? -1 : v;
+  }
   return null;
 }
 

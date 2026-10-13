@@ -315,6 +315,7 @@ class RuntimeView {
     BigInt? epoch,
     BigInt? lastSeq,
     String? sequenceWarning,
+    bool clearSequenceWarning = false,
     bool? commandPending,
     int? pendingCommands,
     int? staleResponsesDropped,
@@ -343,7 +344,9 @@ class RuntimeView {
       actual: actual,
       epoch: epoch ?? this.epoch,
       lastSeq: lastSeq ?? this.lastSeq,
-      sequenceWarning: sequenceWarning ?? this.sequenceWarning,
+      sequenceWarning: clearSequenceWarning
+          ? null
+          : (sequenceWarning ?? this.sequenceWarning),
       commandPending: commandPending ?? this.commandPending,
       pendingCommands: pendingCommands ?? this.pendingCommands,
       staleResponsesDropped:

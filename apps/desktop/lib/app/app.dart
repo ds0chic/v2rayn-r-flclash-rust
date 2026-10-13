@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/evidence_hooks.dart';
 import 'package:v2rayn_desktop/app/locale_config.dart';
 import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/app/shell/main_shell.dart';
@@ -149,17 +150,25 @@ class _RuntimeBootstrapState extends ConsumerState<_RuntimeBootstrap> {
   }
 
   /// Evidence-only: `V2RAYN_R_LAYOUT` / `V2RAYN_R_THEME` override the persisted
-  /// UI state after it has loaded. `V2RAYN_R_THEME` is applied by writing the
+  /// UI state after it has loaded. Armed-only (ISSUE-08): unarmed builds
+  /// ignore both variables so the environment can never rewrite persisted UI
+  /// state. `V2RAYN_R_THEME` is applied by writing the
   /// mode without toggling twice; layout is set through the controller so the
   /// split values remain consistent.
   static void _applyEvidenceLayoutAndTheme(WidgetRef ref) {
-    final layoutEnv = Platform.environment['V2RAYN_R_LAYOUT'];
+    final layoutEnv = evidenceStringHook(
+      Platform.environment,
+      'V2RAYN_R_LAYOUT',
+    );
     if (layoutEnv != null) {
       ref
           .read(uiShellControllerProvider.notifier)
           .setLayout(AppLayoutMode.fromId(layoutEnv));
     }
-    final themeEnv = Platform.environment['V2RAYN_R_THEME'];
+    final themeEnv = evidenceStringHook(
+      Platform.environment,
+      'V2RAYN_R_THEME',
+    );
     if (themeEnv != null) {
       ref
           .read(uiShellControllerProvider.notifier)

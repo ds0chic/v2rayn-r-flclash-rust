@@ -20,14 +20,14 @@
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -DryRun
 .EXAMPLE
-  powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -Zip dist/v2rayN-R-*-windows-x64.zip -ShaFile dist/SHA256SUMS -ExpectedCommit 3635392ed519a26b4da1862d99019f07e6a8de5c -RequireCleanTree
+  powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -Zip dist/v2rayN-R-*-windows-x64.zip -ShaFile dist/SHA256SUMS -ExpectedCommit <当前基线commit> -RequireCleanTree
 #>
 [CmdletBinding()]
 param(
   [string]$Zip = '',
   [string]$ShaFile = '',
   [string]$Setup = '',
-  [string]$ExpectedCommit = '3635392ed519a26b4da1862d99019f07e6a8de5c',
+  [string]$ExpectedCommit = '',
   [switch]$VerifyFixture,
   [switch]$RequireCleanTree,
   [string]$RepoRootOverride = '',
@@ -48,7 +48,7 @@ if ($DryRun -and $Zip -eq '' -and -not $VerifyFixture) {
       'sha256(zip) 并与 -ShaFile（RC 传 dist/SHA256SUMS）同名条目比对；缺文件/缺条目/不一致即 fail'
       '-Setup <setup.exe>：同文件内同名条目比对（可选；传了才验）'
       '读取 zip 内 build-info.json：断言 smoke_armed=false, git_dirty=false；缺文件/缺字段即 fail'
-      '断言 build-info.git_commit == ExpectedCommit（RC 重建时传新基线 commit）'
+      '断言 build-info.git_commit == ExpectedCommit（RC 重建时显式传新基线 commit；未传则跳过并记录）'
       '断言 flat layout 四 exe 齐全；断言无 xray/sing-box 被捆绑'
       '-RequireCleanTree：git status --porcelain 非空即 fail（dirty tree live 侧）'
       '-VerifyFixture：合成订阅形状校验（只读）'
@@ -164,7 +164,11 @@ if ($Zip -ne '') {
       }
       if ($info.smoke_armed -ne $false) { $report.failures += 'smoke_armed != false' }
       if ($info.git_dirty -ne $false) { $report.failures += 'git_dirty != false' }
-      if ($info.git_commit -ne $ExpectedCommit) { $report.failures += "git_commit $($info.git_commit) != expected $ExpectedCommit" }
+      # S11-11: a stale default commit produced false failures after every
+      # baseline move. Empty means "not pinned": skip with a note; RC runs
+      # pass the current baseline explicitly via -ExpectedCommit.
+      if ($ExpectedCommit -eq '') { $report.notes += 'git_commit pinning skipped (no -ExpectedCommit given)' }
+      elseif ($info.git_commit -ne $ExpectedCommit) { $report.failures += "git_commit $($info.git_commit) != expected $ExpectedCommit" }
       }
     }
   } finally { $fs.Close() }

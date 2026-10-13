@@ -111,9 +111,7 @@ impl RealCore {
              ipv6: false\n"
         );
         std::fs::write(dir.path().join("config.yaml"), config).expect("write core config");
-        let Some(exe) = mihomo_exe() else {
-            return None;
-        };
+        let exe = mihomo_exe()?;
         let mut child = Command::new(&exe)
             .arg("-f")
             .arg(dir.path().join("config.yaml"))

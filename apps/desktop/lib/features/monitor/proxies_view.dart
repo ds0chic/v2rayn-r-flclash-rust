@@ -27,9 +27,13 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
   int _sorting = 0;
   Timer? _timer;
 
+  /// Cached once: `ref` is unsafe in dispose(), the notifier is not.
+  MonitorController? _monitor;
+
   @override
   void initState() {
     super.initState();
+    _monitor = ref.read(monitorControllerProvider.notifier);
     final config = ref.read(clashUiConfigProvider);
     _autoRefresh = config.proxiesAutoRefresh;
     _sorting = config.proxiesSorting;
@@ -51,6 +55,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
 
   @override
   void dispose() {
+    _monitor?.setPageVisible('proxies', false);
     _timer?.cancel();
     super.dispose();
   }

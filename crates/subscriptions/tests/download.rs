@@ -343,6 +343,21 @@ async fn cross_origin_redirect_drops_custom_headers() {
 }
 
 #[tokio::test]
+async fn transport_errors_redact_the_subscription_url() {
+    // Closed loopback port: connect fails fast without any network.
+    let listener = bind().await;
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let url = format!("http://127.0.0.1:{port}/sub?token=secret-token-abc");
+    let err = download_string(&url, &DownloadOptions::default(), &CancellationToken::new())
+        .await
+        .unwrap_err();
+    for view in [format!("{err}"), format!("{err:?}"), format!("{:?}", err.to_domain())] {
+        assert!(!view.contains("secret-token-abc"), "leaked URL: {view}");
+    }
+}
+
+#[tokio::test]
 async fn missing_required_header_is_rejected_by_server() {
     let server = spawn(vec![Reply::RequireHeader {
         name: "X-Token".into(),

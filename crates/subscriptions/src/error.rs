@@ -151,10 +151,14 @@ impl SubError {
     }
 
     /// A short, credential-free detail string. Never includes the raw payload.
+    /// `Http` text is re-scrubbed here so a URL-bearing variant built outside
+    /// the downloader still cannot leak into the front-end contract.
     fn redacted_detail(&self) -> String {
         match self {
             SubError::LimitExceeded { kind, value, max } => format!("{kind}={value} max={max}"),
-            SubError::Http(status) => format!("status/transport: {status}"),
+            SubError::Http(status) => {
+                format!("status/transport: {}", crate::download::redact_urls(status))
+            }
             _ => String::new(),
         }
     }

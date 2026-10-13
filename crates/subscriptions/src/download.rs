@@ -155,6 +155,8 @@ pub fn build_client_with_trust(
         redirect: platform::http::RedirectPolicy::None,
     };
     let client = platform::http::SharedHttpClient::shared(policy).map_err(|e| {
+        // The message may echo the configured proxy URL.
+        let e = redact_urls(&e);
         if e.contains("proxy") {
             SubError::InvalidUri(e)
         } else {
@@ -329,8 +331,35 @@ fn map_reqwest_error(err: &reqwest::Error) -> SubError {
     } else if err.is_decode() {
         SubError::Decode("response".into())
     } else {
-        SubError::Http(err.to_string())
+        SubError::Http(redact_urls(&err.to_string()))
     }
+}
+
+/// Strip `http(s)://...` spans from error text. Subscription and proxy URLs
+/// carry tokens, so they must never surface in errors, details or logs.
+pub(crate) fn redact_urls(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    loop {
+        let pos = match (rest.find("http://"), rest.find("https://")) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
+        let Some(pos) = pos else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..pos]);
+        out.push_str("[redacted]");
+        let end = rest[pos..]
+            .find(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '(' | ')' | '<' | '>'))
+            .map(|e| pos + e)
+            .unwrap_or(rest.len());
+        rest = &rest[end..];
+    }
+    out
 }
 
 #[cfg(test)]
@@ -359,6 +388,18 @@ mod tests {
             build_client(&options),
             Err(SubError::HeaderInvalid(_))
         ));
+    }
+
+    #[test]
+    fn url_redaction_strips_urls_but_keeps_context() {
+        let redacted = redact_urls(
+            "error sending request for url (https://h.example/s?token=s) done http://a.b/c",
+        );
+        assert!(!redacted.contains("h.example"));
+        assert!(!redacted.contains("token=s"));
+        assert!(!redacted.contains("a.b"));
+        assert!(redacted.contains("error sending request for url"));
+        assert_eq!(redact_urls("no url here"), "no url here");
     }
 
     #[test]

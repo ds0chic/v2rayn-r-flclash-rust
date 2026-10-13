@@ -259,6 +259,54 @@ async fn default_user_agent_is_sent() {
 }
 
 #[tokio::test]
+async fn url_userinfo_is_sent_as_basic_auth() {
+    // "user:pass" -> "dXNlcjpwYXNz".
+    let server = spawn(vec![Reply::RequireHeader {
+        name: "Authorization".into(),
+        value: "Basic dXNlcjpwYXNz".into(),
+        body: b"ok".to_vec(),
+    }])
+    .await;
+    let url = server.base.replacen("://", "://user:pass@", 1);
+    let result = download_string(&url, &DownloadOptions::default(), &CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(result.body, "ok");
+    server.abort();
+}
+
+#[tokio::test]
+async fn url_without_userinfo_sends_no_basic_auth() {
+    // Negative control for the test above: the same gate must reject a
+    // credential-less request, proving the positive case is not vacuous.
+    let server = spawn(vec![
+        Reply::RequireHeader {
+            name: "Authorization".into(),
+            value: "Basic dXNlcjpwYXNz".into(),
+            body: b"ok".to_vec(),
+        },
+        Reply::RequireHeader {
+            name: "Authorization".into(),
+            value: "Basic dXNlcjpwYXNz".into(),
+            body: b"ok".to_vec(),
+        },
+    ])
+    .await;
+    let url = server.base.replacen("://", "://user:pass@", 1);
+    let ok = download_string(&url, &DownloadOptions::default(), &CancellationToken::new()).await;
+    assert!(ok.is_ok());
+    let err = download_string(
+        &server.base,
+        &DownloadOptions::default(),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(err, SubError::Http(_)));
+    server.abort();
+}
+
+#[tokio::test]
 async fn missing_required_header_is_rejected_by_server() {
     let server = spawn(vec![Reply::RequireHeader {
         name: "X-Token".into(),

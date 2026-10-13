@@ -677,6 +677,7 @@ mod r4_14_import_tests {
         let id = saved.item.expect("saved profile").id;
         let rule = RoutingRuleDto {
             outbound_tag: Some("proxy".into()),
+            network: Some("tcp".into()),
             ..Default::default()
         };
         let stored = save_routing_rules(id.clone(), vec![rule]);

@@ -7,6 +7,7 @@
 //! here replaces a live installation outside the managed cores directory.
 
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use application::{
     AppEngine, BackupManifest, BackupService, ImportStatus, WebDavClient, WebDavConfig,
@@ -671,6 +672,44 @@ pub fn t16_update_targets() -> Vec<UpdateTargetDto> {
         .collect()
 }
 
+/// S8-05: bridge-layer backstop timeouts for the T16 update operations.
+///
+/// The inner clients already bound each hop (`UPDATE_TIMEOUT` = 30s metadata,
+/// `DOWNLOAD_TIMEOUT` = 180s artifact stream, 30s WebDAV client), but a stall
+/// those do not bound (half-open proxy connection, TLS stall, unresponsive
+/// mirror) must surface as a structured error instead of wedging the UI in a
+/// busy state. Values derive from the inner bounds: check steps double the
+/// 30s metadata bound; apply steps cover a 30s check plus a 180s download
+/// plus install/hash margin; the application stage is the most generous
+/// because its package dwarfs any core archive. No new error keys: timeouts
+/// reuse the established `E_TIMEOUT` / `error.timeout` contract. (A
+/// user-cancellable channel needs a new FRB function and stays with B07b.)
+const T16_CHECK_STEP_TIMEOUT: Duration = Duration::from_secs(60);
+const T16_APPLY_STEP_TIMEOUT: Duration = Duration::from_secs(300);
+const T16_APP_STAGE_TIMEOUT: Duration = Duration::from_secs(600);
+
+fn update_timeout(op: &str) -> ErrorDto {
+    error_dto(
+        DomainError::new(codes::TIMEOUT, "error.timeout")
+            .with_detail(format!("{op} exceeded the bridge time budget")),
+    )
+}
+
+/// S8-05: bound one network step; a stall surfaces as
+/// `E_TIMEOUT` / `error.timeout` so the existing `Err` branches return a
+/// structured DTO (with the partial results so far) instead of hanging.
+async fn update_step<T>(
+    op: &str,
+    timeout: Duration,
+    step: impl std::future::Future<Output = Result<T, DomainError>>,
+) -> Result<T, ErrorDto> {
+    match tokio::time::timeout(timeout, step).await {
+        Ok(Ok(value)) => Ok(value),
+        Ok(Err(error)) => Err(error_dto(error)),
+        Err(_) => Err(update_timeout(op)),
+    }
+}
+
 /// `check_updates` — check the selected cores. Upstream contract: `null`
 /// means every built-in target, an empty list means none (the user unchecked
 /// every row) and is never expanded back to all.
@@ -701,6 +740,26 @@ pub async fn t16_check_updates(
             .collect::<Vec<_>>(),
         Some(list) => list,
     };
+    check_updates_inner(
+        &service,
+        selected,
+        prerelease,
+        proxy,
+        T16_CHECK_STEP_TIMEOUT,
+    )
+    .await
+}
+
+// S8-05 seam: the check body takes its service/selection/timeout explicitly
+// so tests can drive it against a loopback mock without touching the FRB
+// entry point above (whose signature is frozen).
+async fn check_updates_inner(
+    service: &application::UpdateService,
+    selected: Vec<String>,
+    prerelease: bool,
+    proxy: Option<String>,
+    step_timeout: Duration,
+) -> UpdateReportDto {
     let mut checks = Vec::new();
     for core in selected {
         // R3-08: the application target must be checked against its own release
@@ -712,28 +771,37 @@ pub async fn t16_check_updates(
                 checks.push(core_update_dto(service.app_source_unconfigured_check()));
                 continue;
             }
-            match service.check_app_update(prerelease, proxy.as_deref()).await {
+            match update_step(
+                "check_updates",
+                step_timeout,
+                service.check_app_update(prerelease, proxy.as_deref()),
+            )
+            .await
+            {
                 Ok(check) => checks.push(core_update_dto(check)),
                 Err(error) => {
                     return UpdateReportDto {
                         ok: false,
                         checks,
-                        error: Some(error_dto(error)),
+                        error: Some(error),
                     }
                 }
             }
             continue;
         }
-        match service
-            .check_core(&core, prerelease, proxy.as_deref())
-            .await
+        match update_step(
+            "check_updates",
+            step_timeout,
+            service.check_core(&core, prerelease, proxy.as_deref()),
+        )
+        .await
         {
             Ok(check) => checks.push(core_update_dto(check)),
             Err(error) => {
                 return UpdateReportDto {
                     ok: false,
                     checks,
-                    error: Some(error_dto(error)),
+                    error: Some(error),
                 }
             }
         }
@@ -768,6 +836,28 @@ pub async fn t16_apply_core_update(
         };
     }
     let service = update_service();
+    apply_core_update_inner(
+        &service,
+        cores,
+        prerelease,
+        proxy,
+        T16_CHECK_STEP_TIMEOUT,
+        T16_APPLY_STEP_TIMEOUT,
+    )
+    .await
+}
+
+// S8-05 seam: same rationale as `check_updates_inner`; the post-loop
+// runtime-plan restart stays inside because it is local engine work.
+async fn apply_core_update_inner(
+    service: &application::UpdateService,
+    cores: Vec<String>,
+    prerelease: bool,
+    proxy: Option<String>,
+    check_timeout: Duration,
+    stage_timeout: Duration,
+) -> ApplyCoreResultDto {
+    // S8-05: every network step below runs under the bridge time budget.
     let token = CancellationToken::new();
     let mut applied = Vec::new();
     let mut skipped = Vec::new();
@@ -784,7 +874,13 @@ pub async fn t16_apply_core_update(
         // copy-over, old files intact on failure). The reported "version" is
         // the content hash, never a fabricated remote version.
         if core == application::GEO_FILES_TARGET {
-            match service.apply_geo_files(proxy.as_deref(), &token).await {
+            match update_step(
+                "apply_core_update",
+                stage_timeout,
+                service.apply_geo_files(proxy.as_deref(), &token),
+            )
+            .await
+            {
                 Ok(outcome) => {
                     let version = outcome
                         .files
@@ -806,15 +902,18 @@ pub async fn t16_apply_core_update(
                         ok: false,
                         applied,
                         skipped,
-                        error: Some(error_dto(error)),
+                        error: Some(error),
                     }
                 }
             }
             continue;
         }
-        let check = match service
-            .check_core(&core, prerelease, proxy.as_deref())
-            .await
+        let check = match update_step(
+            "apply_core_update",
+            check_timeout,
+            service.check_core(&core, prerelease, proxy.as_deref()),
+        )
+        .await
         {
             Ok(check) => check,
             Err(error) => {
@@ -822,7 +921,7 @@ pub async fn t16_apply_core_update(
                     ok: false,
                     applied,
                     skipped,
-                    error: Some(error_dto(error)),
+                    error: Some(error),
                 }
             }
         };
@@ -847,7 +946,13 @@ pub async fn t16_apply_core_update(
             dgst_url: check.dgst_url,
             proxy: proxy.clone(),
         };
-        match service.apply_core(&request, &token).await {
+        match update_step(
+            "apply_core_update",
+            stage_timeout,
+            service.apply_core(&request, &token),
+        )
+        .await
+        {
             Ok(outcome) => applied.push(AppliedCoreDto {
                 core: outcome.core,
                 version: outcome.version,
@@ -861,7 +966,7 @@ pub async fn t16_apply_core_update(
                     ok: false,
                     applied,
                     skipped,
-                    error: Some(error_dto(error)),
+                    error: Some(error),
                 }
             }
         }
@@ -939,7 +1044,32 @@ async fn app_update_spec_inner(prerelease: bool, via_proxy: bool) -> ExternalSpe
             error: Some(proxy_unavailable()),
         };
     }
-    let check = match service.check_app_update(prerelease, proxy.as_deref()).await {
+    app_update_spec_stage(
+        &service,
+        proxy,
+        prerelease,
+        T16_CHECK_STEP_TIMEOUT,
+        T16_APP_STAGE_TIMEOUT,
+    )
+    .await
+}
+
+// S8-05 seam: same rationale as `check_updates_inner`.
+async fn app_update_spec_stage(
+    service: &application::UpdateService,
+    proxy: Option<String>,
+    prerelease: bool,
+    check_timeout: Duration,
+    stage_timeout: Duration,
+) -> ExternalSpecDto {
+    // S8-05: every network step below runs under the bridge time budget.
+    let check = match update_step(
+        "apply_app_update_spec",
+        check_timeout,
+        service.check_app_update(prerelease, proxy.as_deref()),
+    )
+    .await
+    {
         Ok(check) => check,
         Err(error) => {
             return ExternalSpecDto {
@@ -949,7 +1079,7 @@ async fn app_update_spec_inner(prerelease: bool, via_proxy: bool) -> ExternalSpe
                 install_root: None,
                 wait_for_pid: 0,
                 args: Vec::new(),
-                error: Some(error_dto(error)),
+                error: Some(error),
             }
         }
     };
@@ -1002,16 +1132,19 @@ async fn app_update_spec_inner(prerelease: bool, via_proxy: bool) -> ExternalSpe
     };
     let helper = service.app_layout().runner_exe();
     let token = CancellationToken::new();
-    match service
-        .app_update_spec_verified(
+    match update_step(
+        "apply_app_update_spec",
+        stage_timeout,
+        service.app_update_spec_verified(
             &request,
             signature_url.as_deref(),
             verifier.as_ref(),
             helper,
             std::process::id(),
             &token,
-        )
-        .await
+        ),
+    )
+    .await
     {
         Ok(spec) => ExternalSpecDto {
             ok: true,
@@ -1029,7 +1162,7 @@ async fn app_update_spec_inner(prerelease: bool, via_proxy: bool) -> ExternalSpe
             install_root: None,
             wait_for_pid: 0,
             args: Vec::new(),
-            error: Some(error_dto(error)),
+            error: Some(error),
         },
     }
 }
@@ -1444,5 +1577,131 @@ mod tests {
     #[test]
     fn s8_02_import_merge_resets_stale_speedtest_overlay() {
         s8_02_import_resets_stale_overlay(true, "merge");
+    }
+
+    // S8-05: a stall the inner clients do not bound must surface as the
+    // structured E_TIMEOUT / error.timeout contract, never a wedged UI.
+    // The loopback mock accepts the connection and then never answers.
+    fn s8_05_hang_api_base() -> String {
+        // Probe first-free like the other plan tests; 10808 is never touched.
+        let listener = (11808..=11888)
+            .find_map(|port| std::net::TcpListener::bind(("127.0.0.1", port)).ok())
+            .expect("hang mock port");
+        let addr = listener.local_addr().expect("mock addr");
+        std::thread::spawn(move || {
+            for mut s in listener.incoming().flatten() {
+                let mut buf = [0u8; 1024];
+                let _ = std::io::Read::read(&mut s, &mut buf);
+                std::thread::sleep(Duration::from_secs(120));
+            }
+        });
+        format!("http://{addr}/repos")
+    }
+
+    fn s8_05_mock_service(tag: &str, with_app_repo: bool) -> application::UpdateService {
+        let cores = std::env::temp_dir().join(format!("b07a-s8-05-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&cores);
+        std::fs::create_dir_all(&cores).expect("cores dir");
+        let mut service =
+            application::UpdateService::new(&cores).with_api_base(s8_05_hang_api_base());
+        if with_app_repo {
+            service.app_repo = Some("owner/name".to_string());
+        }
+        service
+    }
+
+    fn s8_05_block_on<F: std::future::Future>(future: F) -> F::Output {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("current-thread runtime")
+            .block_on(future)
+    }
+
+    #[test]
+    fn s8_05_check_updates_hang_returns_timeout() {
+        let service = s8_05_mock_service("check", false);
+        let report = s8_05_block_on(check_updates_inner(
+            &service,
+            vec!["xray".to_string()],
+            false,
+            None,
+            Duration::from_millis(200),
+        ));
+        assert!(!report.ok);
+        let error = report.error.expect("structured timeout error");
+        assert_eq!(error.code, codes::TIMEOUT);
+        assert_eq!(error.message_key, "error.timeout");
+    }
+
+    #[test]
+    fn s8_05_apply_core_update_hang_returns_timeout() {
+        let service = s8_05_mock_service("apply", false);
+        let result = s8_05_block_on(apply_core_update_inner(
+            &service,
+            vec!["xray".to_string()],
+            false,
+            None,
+            Duration::from_millis(200),
+            Duration::from_millis(200),
+        ));
+        assert!(!result.ok);
+        let error = result.error.expect("structured timeout error");
+        assert_eq!(error.code, codes::TIMEOUT);
+        assert_eq!(error.message_key, "error.timeout");
+    }
+
+    #[test]
+    fn s8_05_app_update_spec_hang_returns_timeout() {
+        let service = s8_05_mock_service("spec", true);
+        let spec = s8_05_block_on(app_update_spec_stage(
+            &service,
+            None,
+            false,
+            Duration::from_millis(200),
+            Duration::from_millis(200),
+        ));
+        assert!(!spec.ok);
+        let error = spec.error.expect("structured timeout error");
+        assert_eq!(error.code, codes::TIMEOUT);
+        assert_eq!(error.message_key, "error.timeout");
+    }
+
+    #[test]
+    fn s8_05_update_step_bounds_a_hung_future_without_network() {
+        // Fast guard on the shared helper every update path uses: a future
+        // that never resolves becomes E_TIMEOUT, and ready values (ok and
+        // domain errors) pass through untouched.
+        let timeout_err = match s8_05_block_on(update_step::<u8>(
+            "probe",
+            Duration::from_millis(50),
+            std::future::pending(),
+        )) {
+            Ok(_) => panic!("hung step times out"),
+            Err(error) => error,
+        };
+        assert_eq!(timeout_err.code, codes::TIMEOUT);
+        assert_eq!(timeout_err.message_key, "error.timeout");
+        let ok_value = match s8_05_block_on(update_step(
+            "probe",
+            Duration::from_secs(60),
+            std::future::ready(Ok(7u8)),
+        )) {
+            Ok(value) => value,
+            Err(_) => panic!("ready ok passes through"),
+        };
+        assert_eq!(ok_value, 7);
+        let inner_err = match s8_05_block_on(update_step(
+            "probe",
+            Duration::from_secs(60),
+            std::future::ready(Result::<u8, DomainError>::Err(DomainError::new(
+                codes::UNAVAILABLE,
+                "error.engine_not_persistent",
+            ))),
+        )) {
+            Ok(_) => panic!("domain errors pass through"),
+            Err(error) => error,
+        };
+        assert_eq!(inner_err.code, codes::UNAVAILABLE);
     }
 }

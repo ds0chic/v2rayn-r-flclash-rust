@@ -13,6 +13,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
+import 'package:v2rayn_desktop/features/onboarding/first_run_wizard.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
 import 'package:v2rayn_desktop/shared/widgets/context_menu_session.dart';
@@ -327,6 +328,11 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                             key: const ValueKey('empty-action-sub'),
                             onPressed: () => openSubSettings(context, ref),
                             child: const Text('添加订阅'),
+                          ),
+                          TextButton(
+                            key: const ValueKey('empty-action-wizard'),
+                            onPressed: () => showFirstRunWizard(context, ref),
+                            child: const Text('新手向导'),
                           ),
                         ],
                       ),

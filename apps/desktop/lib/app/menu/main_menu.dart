@@ -331,6 +331,19 @@ const _helpEntries = <AppMenuEntry>[
     l10nKey: 'menuWebsiteItem',
     actionId: 'ACT-WIN-008',
   ),
+  // U-B1 onboarding entries (new UI-* ids, upstream rows untouched): reopen
+  // the first-run wizard any time, and reset hint-class UI state (confirm
+  // suppressions + wizard completion; density/layout/business untouched).
+  AppMenuEntry(
+    label: '首次启动向导…',
+    l10nKey: 'uiOnboardingWizard',
+    actionId: 'UI-ONBOARDING',
+  ),
+  AppMenuEntry(
+    label: '重置界面提示',
+    l10nKey: 'uiResetHints',
+    actionId: 'UI-RESET-HINTS',
+  ),
 ];
 
 /// Top-level menu groups in upstream order: 配置项 / 订阅分组 / 设置 / 帮助 /

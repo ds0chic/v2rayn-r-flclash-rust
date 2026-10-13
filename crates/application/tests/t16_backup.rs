@@ -680,3 +680,44 @@ fn restore_prior_config_snapshot_failure_rolls_back_database() {
     let config = std::fs::read_to_string(target.path().join("guiNConfig.json")).expect("config");
     assert_eq!(config, r#"{"IndexId":"existing"}"#);
 }
+
+#[test]
+fn restore_epoch_failure_rolls_back_resources() {
+    let src = tempfile::tempdir().expect("src");
+    seed_data_dir(src.path(), "source");
+    let service = BackupService::new(src.path());
+    let parent = tempfile::tempdir().expect("bundle parent");
+    let bundle_root = parent.path().join("bundle");
+    service.create_local(&bundle_root, 1).expect("backup");
+
+    // The bundle carries no config, so the live config survives until the
+    // epoch publish; the live resource is re-pointed at a sentinel.
+    std::fs::remove_file(bundle_root.join("guiNConfig.json")).expect("drop bundled config");
+    let manifest_path = bundle_root.join("manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&manifest_path).expect("read manifest"))
+            .expect("parse manifest");
+    manifest["config_sha256"] = serde_json::Value::Null;
+    std::fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).expect("json"),
+    )
+    .expect("write manifest");
+
+    std::fs::write(src.path().join("custom-notes.txt"), b"live-sentinel").expect("sentinel");
+    // The epoch publish parses the live config: corrupt it so the tail fails
+    // after the resources are already installed.
+    std::fs::write(src.path().join("guiNConfig.json"), b"not json{{{").expect("corrupt");
+
+    let result = service.restore(&bundle_root, &parent.path().join("work"));
+    assert!(
+        result.is_err(),
+        "corrupt live config must fail the epoch publish"
+    );
+
+    assert_eq!(
+        std::fs::read(src.path().join("custom-notes.txt")).expect("notes"),
+        b"live-sentinel",
+        "installed resources must roll back when the epoch publish fails"
+    );
+}

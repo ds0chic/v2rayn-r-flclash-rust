@@ -5,7 +5,6 @@ import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
-import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';

@@ -1,0 +1,53 @@
+# Line-ending and binary policy (FINAL-A EOL unification).
+# Text is stored LF in the repo regardless of each machine's core.autocrlf;
+# binary paths are never converted.
+
+* text=auto
+
+# Code and prose: enforce LF (matches current repo content).
+# NOTE (adjudicated): no per-file eol=crlf exception. An exception for
+# outputs/UPSTREAM_INVENTORY.md was tried and falsified — the file has
+# MIXED endings (122 CRLF + 99 LF lines in both blob and worktree), so any
+# text rule stages a one-time conversion; crlf would convert LF->CRLF.
+# Under *.md eol=lf it normalizes once to uniform LF (content-identical).
+*.dart text eol=lf
+*.rs text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.cc text eol=lf
+*.cmake text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.ps1 text eol=lf
+*.iss text eol=lf
+*.sh text eol=lf
+*.bat text eol=lf
+*.cmd text eol=lf
+*.gradle text eol=lf
+*.podspec text eol=lf
+*.rc text eol=lf
+
+# Evidence logs (*.log): NO special rule (adjudicated option c).
+# A `*.log -text` rule was tried and falsified: the log blobs in the repo
+# are LF-normalized (committed under core.autocrlf=true), while worktree
+# copies are CRLF; -text makes renormalize stage worktree CRLF bytes back
+# into the blobs, rewriting dozens of evidence files. Keeping `* text=auto`
+# leaves logs untouched by renormalize. Do NOT re-add `*.log -text`.
+
+# Binary: no conversion, no diff text treatment.
+*.png binary
+*.ico binary
+*.icns binary
+*.dll binary
+*.exe binary
+*.so binary
+*.dat binary
+*.db binary
+*.db-shm binary
+*.db-wal binary
+*.zip binary
+*.cer binary

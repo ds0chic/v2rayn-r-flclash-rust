@@ -675,7 +675,7 @@ class _SelectorFace extends StatelessWidget {
       padding: const EdgeInsets.only(left: 6, right: 2, top: 2, bottom: 2),
       decoration: BoxDecoration(
         border: Border.all(color: scheme.outline),
-        borderRadius: BorderRadius.circular(3),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

@@ -302,7 +302,7 @@ class SettingsNote extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
       ),
       child: Text(
         text,

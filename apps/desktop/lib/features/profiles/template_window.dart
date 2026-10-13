@@ -120,7 +120,7 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
                 ),
                 child: Text(
                   '保存失败: $_serverError',

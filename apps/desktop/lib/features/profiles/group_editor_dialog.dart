@@ -313,7 +313,9 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        AppTokens.radiusMedium,
+                      ),
                     ),
                     child: Text(
                       '保存失败: ${_serverError!.messageKey} (${_serverError!.code})',

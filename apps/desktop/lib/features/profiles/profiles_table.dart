@@ -682,7 +682,11 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                 controller.handleDragStart(row.id);
               },
               feedback: Material(
-                elevation: 4,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(color: scope.dropTargetBorder),
+                  borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
+                ),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

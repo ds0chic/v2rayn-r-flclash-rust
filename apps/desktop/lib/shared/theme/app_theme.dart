@@ -136,6 +136,11 @@ class AppTokens {
   static const double toolbarGroupFilterGap = 12;
   static const double toolbarFilterWidth = 200;
 
+  // -- Shape: one radius for every control and dialog ----------------------
+  // Menus, inputs, tooltips, selector faces and dialogs all use 6. The menu
+  // bar stays square (0) and the scrollbar thumb keeps its functional 4.
+  static const double radiusMedium = 6;
+
   // -- Neutrals (light, cool grey) ----------------------------------------
   static const Color lightSurface = Color(0xFFF4F6F7);
   static const Color lightSurfaceContainer = Color(0xFFE8ECEF);
@@ -511,7 +516,9 @@ ThemeData buildAppTheme(
         backgroundColor: WidgetStatePropertyAll(scheme.surface),
         shape: const WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(4)),
+            borderRadius: BorderRadius.all(
+              Radius.circular(AppTokens.radiusMedium),
+            ),
           ),
         ),
         visualDensity: VisualDensity.compact,
@@ -523,7 +530,7 @@ ThemeData buildAppTheme(
       surfaceTintColor: Colors.transparent,
       elevation: 4,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(4)),
+        borderRadius: BorderRadius.all(Radius.circular(AppTokens.radiusMedium)),
       ),
       textStyle: TextStyle(fontSize: AppTokens.fontSize),
     ),
@@ -532,7 +539,9 @@ ThemeData buildAppTheme(
       textStyle: TextStyle(fontSize: AppTokens.fontSizeSmall),
       decoration: BoxDecoration(
         color: isLight ? const Color(0xE6303030) : const Color(0xF0E6E6E6),
-        borderRadius: const BorderRadius.all(Radius.circular(3)),
+        borderRadius: const BorderRadius.all(
+          Radius.circular(AppTokens.radiusMedium),
+        ),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
@@ -561,7 +570,7 @@ ThemeData buildAppTheme(
         color: scheme.onSurfaceVariant,
       ),
       border: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(3)),
+        borderRadius: BorderRadius.all(Radius.circular(AppTokens.radiusMedium)),
       ),
     ),
     dialogTheme: DialogThemeData(
@@ -569,7 +578,7 @@ ThemeData buildAppTheme(
       backgroundColor: scheme.surfaceContainerHigh,
       surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(6)),
+        borderRadius: BorderRadius.all(Radius.circular(AppTokens.radiusMedium)),
       ),
       titleTextStyle: TextStyle(
         fontSize: AppTokens.fontSizeTitle,

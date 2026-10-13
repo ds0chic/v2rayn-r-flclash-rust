@@ -290,7 +290,10 @@ impl ProfileExStore {
     }
 
     /// Apply one result. Only present fields overwrite (upstream semantics:
-    /// a progress-only message must not clear a measured delay).
+    /// a progress-only message must not clear a measured delay). A present
+    /// speed always overwrites, including `0.0`: the only `Some(0.0)` producer
+    /// is a failed download, and keeping the previous run's speed next to a
+    /// failure would show a stale value. Speed-less results use `None`.
     pub fn apply(&mut self, result: &SpeedTestResult) {
         let entry = self
             .rows
@@ -307,9 +310,7 @@ impl ProfileExStore {
             entry.delay = delay;
         }
         if let Some(speed) = result.speed {
-            if speed > 0.0 {
-                entry.speed = speed;
-            }
+            entry.speed = speed;
         }
         if let Some(message) = &result.message {
             entry.message = message.clone();
@@ -2755,6 +2756,49 @@ mod tests {
         assert_eq!(store.remove_invalid(), 1);
         assert!(store.get("a").is_some());
         assert!(store.get("b").is_none());
+    }
+
+    #[test]
+    fn failed_download_clears_stale_speed() {
+        let mut store = ProfileExStore::new();
+        store.apply(&SpeedTestResult {
+            index_id: "a".into(),
+            delay: Some(20),
+            speed: Some(42.5),
+            message: Some("42.5".into()),
+            ip_info: None,
+            failed: false,
+        });
+        // A later run pings fine but the download fails: the stored speed must
+        // become 0.0, not keep the previous run's 42.5 next to a failure.
+        store.apply(&SpeedTestResult {
+            index_id: "a".into(),
+            delay: Some(20),
+            speed: Some(0.0),
+            message: Some("speedtest.timeout".into()),
+            ip_info: None,
+            failed: true,
+        });
+        assert_eq!(store.get("a").unwrap().speed, 0.0);
+    }
+
+    #[test]
+    fn ping_only_result_preserves_prior_speed() {
+        let mut store = ProfileExStore::new();
+        store.apply(&SpeedTestResult {
+            index_id: "a".into(),
+            delay: Some(20),
+            speed: Some(42.5),
+            message: Some("42.5".into()),
+            ip_info: None,
+            failed: false,
+        });
+        // A ping-only result carries no speed (`None`): the prior measured
+        // speed survives, only the delay is refreshed.
+        store.apply(&SpeedTestResult::delay("a", 30));
+        let row = store.get("a").unwrap();
+        assert_eq!(row.delay, 30);
+        assert_eq!(row.speed, 42.5);
     }
 
     #[test]

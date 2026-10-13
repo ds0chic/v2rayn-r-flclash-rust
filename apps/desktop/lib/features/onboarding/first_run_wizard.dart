@@ -181,6 +181,16 @@ class _FirstRunWizardState extends ConsumerState<FirstRunWizard> {
               onPressed: () => widget.onAction('ACT-MAIN-019'),
               child: const Text('添加订阅（推荐，有订阅地址时）'),
             ),
+            const SizedBox(height: 8),
+            // U-C2 (UX1-05): recommended setup opens the U-B2 preset dialog
+            // through the same menu dispatch as every other wizard button; the
+            // wizard owns no preset logic. Opens above the wizard; closing it
+            // returns here.
+            OutlinedButton(
+              key: const ValueKey('wizard-go-preset'),
+              onPressed: () => widget.onAction('UI-PRESET-DLG'),
+              child: const Text('使用推荐配置…'),
+            ),
           ],
         );
       case 1:

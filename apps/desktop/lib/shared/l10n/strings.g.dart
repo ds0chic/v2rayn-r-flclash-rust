@@ -664,6 +664,12 @@ kResUiStrings = <String, Map<String, String>>{
     'zh-Hans': '重置界面提示',
     'zh-Hant': '重置界面提示',
   },
+  // ---- U-C2 preset entry (not upstream ResUI; same fallback rule as U-B1).
+  'uiPresetDialog': {
+    'en': 'Recommended setup…',
+    'zh-Hans': '推荐配置…',
+    'zh-Hant': '推薦配置…',
+  },
   'uiSubUpdate': {
     'en': 'Update subscriptions',
     'zh-Hans': '更新订阅',

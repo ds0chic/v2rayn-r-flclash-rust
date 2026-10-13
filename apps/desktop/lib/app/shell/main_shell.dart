@@ -26,7 +26,9 @@ import 'package:v2rayn_desktop/features/routing/routing_actions.dart'
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
+import 'package:v2rayn_desktop/features/settings/preset_dialog.dart';
 import 'package:v2rayn_desktop/features/settings/settings_actions.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/subs/scan_image_qr.dart';
 import 'package:v2rayn_desktop/features/subs/scan_screen_qr.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
@@ -475,6 +477,8 @@ class _MainShellState extends ConsumerState<MainShell> {
       case 'UI-RESET-HINTS':
         resetInterfaceHints(ref);
         shell.setMessage('已重置界面提示（密度与布局保持不变）');
+      case 'UI-PRESET-DLG':
+        _openPresetDialogFromShell(context, ref);
       default:
         final entry = _findMenuEntry(actionId);
         if (entry != null && entry.preservedOnly) {
@@ -491,6 +495,35 @@ class _MainShellState extends ConsumerState<MainShell> {
           );
         }
     }
+  }
+
+  /// U-C2 (UX1-05): open the U-B2 preset dialog in independent mode (the same
+  /// dialog the settings window hosts). Only the dialog's public surface is
+  /// used (`showPresetDialog` + `settingsControllerProvider.document/saveGroup`
+  /// + the dialog's own routing `setDefault`); no settings implementation is
+  /// touched. Writes go through the desired chain only; undo stays disabled
+  /// (no snapshot API, UX3-12), so the post-apply message only records.
+  Future<void> _openPresetDialogFromShell(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final shell = ref.read(uiShellControllerProvider.notifier);
+    final outcome = await showPresetDialog(
+      context: context,
+      hostMode: false,
+      readDocument: () => ref.read(settingsControllerProvider).document,
+      writeGroup: (group, fullValue) async {
+        final result = ref
+            .read(settingsControllerProvider.notifier)
+            .saveGroup(group, fullValue);
+        return result.ok;
+      },
+    );
+    if (outcome == null || !context.mounted) return;
+    shell.setMessage(
+      '已应用 ${outcome.wroteCount} 项设置'
+      '${outcome.routingChanged ? '＋路由方案已切换' : ''}（系统代理/TUN/端口未动）',
+    );
   }
 }
 

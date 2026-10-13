@@ -17,6 +17,7 @@ import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
 import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/shared/widgets/danger_confirm.dart';
 import 'package:v2rayn_desktop/shared/widgets/status_badge.dart';
 
 /// Upstream `StatusBarViewModel.InboundDisplayStatus`: the local mixed port
@@ -194,7 +195,8 @@ class StatusBarView extends ConsumerWidget {
         child: PopupMenuButton<SysProxyMode>(
           key: const ValueKey('system-proxy-selector'),
           tooltip: context.tr('menuSystemproxy'),
-          onSelected: (mode) => platformController.applyModeFromConfig(mode),
+          onSelected: (mode) =>
+              _onSysProxySelected(context, ref, platformController, mode),
           itemBuilder: (context) => <PopupMenuEntry<SysProxyMode>>[
             for (final mode in SysProxyMode.values)
               PopupMenuItem<SysProxyMode>(
@@ -838,6 +840,31 @@ bool _desiredTun(Map<String, dynamic> document) {
   return false;
 }
 
+/// U-B1 danger gate (UX1-03): writing the host proxy (forcedChange/pac)
+/// confirms first; restoring modes (forcedClear/unchanged) apply directly.
+/// Cancel never reaches the platform bridge.
+Future<void> _onSysProxySelected(
+  BuildContext context,
+  WidgetRef ref,
+  PlatformController platformController,
+  SysProxyMode mode,
+) async {
+  if (mode == SysProxyMode.forcedChange || mode == SysProxyMode.pac) {
+    final confirmed = await showDangerConfirm(
+      context,
+      ref,
+      title: '更改系统代理',
+      target: '目标：将系统代理设为“${mode.label}”',
+      impact: '会影响本机浏览器与部分应用的联网。',
+      confirmLabel: '更改',
+      dontAskKey: 'sysproxy-apply',
+      dialogKey: const ValueKey('sysproxy-apply-confirm'),
+    );
+    if (!confirmed) return;
+  }
+  platformController.applyModeFromConfig(mode);
+}
+
 /// Persist the desired TUN flag first; only a successful save re-applies the
 /// real plan. A failed save leaves the running session untouched and reports
 /// the failure; a denied/absent elevation helper surfaces through the runtime
@@ -851,6 +878,21 @@ Future<void> _onTunToggle(
   // BuildContext across async gaps (avoids the use_build_context lint and a
   // stale element).
   final l10n = context.l10n;
+  // U-B1 danger gate (UX1-03): enabling TUN needs elevation and moves all
+  // traffic. Cancel leaves the persisted flag and the session untouched.
+  if (value) {
+    final confirmed = await showDangerConfirm(
+      context,
+      ref,
+      title: '开启 TUN',
+      target: '目标：开启 TUN 模式',
+      impact: '需要管理员权限，开启后影响全局流量。',
+      confirmLabel: '开启',
+      dontAskKey: 'tun-enable',
+      dialogKey: const ValueKey('tun-enable-confirm'),
+    );
+    if (!confirmed) return;
+  }
   final localizer = ErrorLocalizer(l10n);
   final settings = ref.read(settingsControllerProvider.notifier);
   final shell = ref.read(uiShellControllerProvider.notifier);

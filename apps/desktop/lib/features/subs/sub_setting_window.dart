@@ -258,14 +258,16 @@ class _SubSettingWindowState extends ConsumerState<SubSettingWindow> {
   }
 
   /// 行点选：普通单击收拢为单选（原有行为）；Ctrl+单击切换多选集成员；
-  /// Shift+单击以当前 primary 为锚做区间选择（上游 DataGrid Extended
+  /// Shift+单击以固定锚点做区间选择（上游 DataGrid Extended
   /// 选择语义的对应；修饰键在事件时刻捕获，不做事后读取）。
+  /// 锚点用控制器的 `selectionAnchorId`（首次 Shift 点按时即为初选行），
+  /// 否则重复 Shift 点按会以上次焦点为锚导致区间漂移。
   /// 键盘扩展（Shift+方向键 / Ctrl+A / 方向键移动）走 build 中的
-  /// Shortcuts，锚点由控制器 `selectionAnchorId` 保持。
+  /// Shortcuts，锚点同样由控制器保持。
   void _tapRow(SubsController controller, SubsState state, String id) {
     final keyboard = HardwareKeyboard.instance;
     if (keyboard.isShiftPressed) {
-      final anchor = state.selectedId ?? id;
+      final anchor = state.selectionAnchorId ?? state.selectedId ?? id;
       controller.selectRange(anchor, id);
       return;
     }

@@ -427,6 +427,10 @@ abstract class BridgePort {
   /// Roll back [core] to its `.previous` snapshot, if one exists (B07b).
   /// Not wired to any UI; the allow-list lives on the Rust side.
   c.SimpleResult t16RollbackCore(String core);
+
+  /// Roll back the last external app upgrade from its `app.previous`
+  /// payload, if one exists (B13, B14 request). Not wired to any UI.
+  c.AppRollbackResultDto t16RollbackAppUpgrade();
 }
 
 class FrbBridgePort implements BridgePort {
@@ -1052,6 +1056,10 @@ class FrbBridgePort implements BridgePort {
   @override
   c.SimpleResult t16RollbackCore(String core) =>
       t16.t16RollbackCore(core: core);
+
+  @override
+  c.AppRollbackResultDto t16RollbackAppUpgrade() =>
+      t16.t16RollbackAppUpgrade();
 }
 
 /// Overlay `ProfileExItem` results onto the node-table summaries. A missing
@@ -3801,5 +3809,18 @@ class SyntheticBridgePort implements BridgePort {
   c.SimpleResult t16RollbackCore(String core) {
     t16Calls.add('rollback_core:$core');
     return const c.SimpleResult(ok: true);
+  }
+
+  /// Queued `t16RollbackAppUpgrade` results (B13, B14 request); an empty
+  /// queue yields a no-op success with no restored payload.
+  final List<c.AppRollbackResultDto> rollbackAppResults = [];
+
+  @override
+  c.AppRollbackResultDto t16RollbackAppUpgrade() {
+    t16Calls.add('rollback_app_upgrade');
+    if (rollbackAppResults.isNotEmpty) {
+      return rollbackAppResults.removeAt(0);
+    }
+    return const c.AppRollbackResultDto(ok: true);
   }
 }

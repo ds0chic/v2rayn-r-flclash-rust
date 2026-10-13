@@ -21,7 +21,8 @@
 - chunk `53-102`（50 文件，Idle + `-j 1` 串行）：38 exit 0；3 exit 1（`r3_wpf_option_window`、`r3_wpf_routing_window` did not complete，Idle 下疑似饿死待 solo；**`r4_11_contract_test` +4 -1，`edit-save-reopen` 失败——与基线 C1 一致，确定性复现**）；9 exit 79（`fix16b_settings_source`、`profiles_drag_scroll_down/up`、`profiles_drag_scroll_up`、`profiles_keyboard`、`r3_visual_dpi_shell_125/150`、`r3_visual_dpi_windows`、`r4_07_contract`、`r4_08_contract`——did-not-complete + `No tests were found`；含基线 D 组 r3-150/r4_07，余下待 solo 复判是否同类 loader）。build 已删，generated_plugin* 噪声已还原。
 - chunk `103-152`（50 文件，Idle + `-j 1` 串行）：44 exit 0；4 exit 1（`r4_18_p01`、`r4_19`、`r4_22` did not complete 待 solo；**`r4_23_contract_test` +9 -1，`log filtering…` 失败——与基线 C2 一致，确定性复现**）；2 exit 79（`r4_14_contract`、`r4_18_p11_contract` loader 待 solo）。build 已删，generated_plugin* 噪声已还原。
 - chunk `153-202`（50 文件，Idle + `-j 1` 串行）：42 exit 0；2 exit 1（`repair/r4_11_repro_test` did not complete 待 solo；**`r4_31_contract_test` +4 -1，`log read model stays bounded` 失败——与基线 C3 一致，确定性复现**）；6 exit 79（`re_prof_13_active_marker`、`re_prof_14_drag_disabled/enabled`、`recheck_r3_prof_menu_target_a`、`recheck_r3_prof08_picker_esc`、`repair/r4_08_repro` loader 待 solo）。build 已删，generated_plugin* 噪声已还原。
-- 未完成（低负载恢复后按序跑）：chunk `203-252`、`253-302`、`303-349`，共 147 文件（第 1–202 行已跑：202/349）。跑完每 chunk 后删 `apps/desktop/build` + 还原 generated_plugin* 噪声。
+- chunk `203-252`（50 文件，Idle + `-j 1` 串行）：47 exit 0；2 exit 1（`repair/r4_13_s23_repro`、`repair/sp_16_sub_keyboard_select` did not complete 待 solo）；1 exit 79（`repair/r4_19_repro` loader 待 solo）。本 chunk 无确定性断言失败。build 已删，generated_plugin* 噪声已还原。
+- 未完成（低负载恢复后按序跑）：chunk `253-302`、`303-349`，共 97 文件（第 1–252 行已跑：252/349）。跑完每 chunk 后删 `apps/desktop/build` + 还原 generated_plugin* 噪声。
 - 与 `BASELINE.md` Flutter 清单（10 deterministic / 5 load failures / 9 flaky）的逐项对比：**待跑完后补**。
 
 ## 3. 未完成清单（恢复后继续）

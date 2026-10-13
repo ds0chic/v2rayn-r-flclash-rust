@@ -62,9 +62,12 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       _draft.coreType = ProfileCapabilities.defaultCore(_draft.configType);
     }
     if (_draft.port <= 0) _draft.port = 443;
-    // Clamp a persisted network (e.g. synthetic "tcp") to the protocol's set.
-    final networks = ProfileCapabilities.allowedNetworks(_draft.configType);
-    if (!networks.contains(_draft.network)) _draft.network = 'raw';
+    // A persisted non-empty network outside the per-protocol candidate subset
+    // is kept as-is (upstream only resets a network missing from the global
+    // Networks list on save): the dropdown preserves it as an unknown
+    // candidate, so a remarks-only save stays lossless (D1-03). Only a blank
+    // network falls back to the upstream default, matching the save behavior.
+    if (_draft.network.isEmpty) _draft.network = 'raw';
     // Upstream `AddHysteria2Server`/`AddTuicServer`/`AddAnytlsServer`/
     // `AddNaiveServer` force `Global.StreamSecurity` ("tls") when the imported
     // value is empty; never touch a non-empty (imported) value so a remarks-only

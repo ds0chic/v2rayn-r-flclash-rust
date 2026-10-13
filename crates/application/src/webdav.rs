@@ -53,14 +53,80 @@ impl WebDavConfig {
         }
     }
 
+    /// The validated remote directory: empty falls back to the upstream
+    /// default; empty, `.` and `..` segments are rejected instead of riding
+    /// the URL path (servers normalize `..` differently).
+    pub fn validated_dir(&self) -> Result<String, DomainError> {
+        let dir = self.effective_dir();
+        let dir = if dir.is_empty() { DEFAULT_DIR } else { dir };
+        for segment in dir.split('/') {
+            if segment.is_empty() || segment == "." || segment == ".." {
+                return Err(webdav_error(
+                    codes::FIELD_FORMAT,
+                    "error.webdav_url_invalid",
+                    format!("dir_name must not contain empty, `.` or `..` segments: {dir}"),
+                ));
+            }
+        }
+        Ok(dir.to_string())
+    }
+
+    /// The validated directory with every segment percent-encoded, so spaces
+    /// and non-ASCII names produce a parseable URL instead of a 404/400.
+    fn encoded_validated_dir(&self) -> Result<String, DomainError> {
+        Ok(self
+            .validated_dir()?
+            .split('/')
+            .map(encode_segment)
+            .collect::<Vec<_>>()
+            .join("/"))
+    }
+
+    /// The validated directory percent-encoded without failing: display and
+    /// request-line building for already-validated configs.
+    fn encoded_dir(&self) -> String {
+        self.effective_dir()
+            .split('/')
+            .map(encode_segment)
+            .collect::<Vec<_>>()
+            .join("/")
+    }
+
     fn base(&self) -> String {
         self.url.trim().trim_end_matches('/').to_string()
     }
 
     /// The full URL of the remote backup file.
     pub fn backup_url(&self) -> String {
-        format!("{}/{}/{}", self.base(), self.effective_dir(), BACKUP_FILE)
+        format!("{}/{}/{}", self.base(), self.encoded_dir(), BACKUP_FILE)
     }
+
+    /// The full backup URL against the validated directory (network ops use
+    /// this so a `..` dir can never ride the request line).
+    fn validated_backup_url(&self) -> Result<String, DomainError> {
+        Ok(format!(
+            "{}/{}/{}",
+            self.base(),
+            self.encoded_validated_dir()?,
+            BACKUP_FILE
+        ))
+    }
+}
+
+/// Percent-encode one URL path segment (RFC 3986 unreserved set stays
+/// literal; everything else — including `/`-adjacent dots callers must have
+/// validated away — becomes `%XX` over the UTF-8 bytes).
+fn encode_segment(segment: &str) -> String {
+    let mut out = String::with_capacity(segment.len());
+    for byte in segment.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(*byte as char);
+            }
+            _ => out.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    out
 }
 
 /// One remote entry returned by `list`.
@@ -121,6 +187,9 @@ impl WebDavClient {
                 "url must be http(s)",
             ));
         }
+        // Fail fast on a traversing or malformed remote directory: every
+        // network op re-checks, but a bad config should never be constructed.
+        config.validated_dir()?;
         let policy = platform::http::HttpPolicy {
             timeout,
             connect_timeout: Duration::from_secs(10),
@@ -141,8 +210,12 @@ impl WebDavClient {
         &self.config
     }
 
-    fn dir_url(&self) -> String {
-        format!("{}/{}/", self.config.base(), self.config.effective_dir())
+    fn dir_url(&self) -> Result<String, DomainError> {
+        Ok(format!(
+            "{}/{}/",
+            self.config.base(),
+            self.config.encoded_validated_dir()?
+        ))
     }
 
     fn request(&self, method: reqwest::Method, url: &str) -> reqwest::RequestBuilder {
@@ -194,7 +267,7 @@ impl WebDavClient {
 
     /// Ensure the remote directory exists and is listable.
     pub async fn check(&self) -> Result<WebDavCheck, DomainError> {
-        let dir_url = self.dir_url();
+        let dir_url = self.dir_url()?;
         let probe = self
             .request(propfind(), &dir_url)
             .header("Depth", "0")
@@ -233,7 +306,7 @@ impl WebDavClient {
     /// List the remote backup directory (Depth: 1).
     pub async fn list(&self) -> Result<Vec<WebDavEntry>, DomainError> {
         let response = self
-            .request(propfind(), &self.dir_url())
+            .request(propfind(), &self.dir_url()?)
             .header("Depth", "1")
             .send()
             .await
@@ -249,7 +322,7 @@ impl WebDavClient {
     pub async fn upload(&self, bytes: Vec<u8>) -> Result<u64, DomainError> {
         let length = bytes.len() as u64;
         let response = self
-            .request(reqwest::Method::PUT, &self.config.backup_url())
+            .request(reqwest::Method::PUT, &self.config.validated_backup_url()?)
             .header(reqwest::header::CONTENT_LENGTH, length)
             .body(bytes)
             .send()
@@ -268,7 +341,7 @@ impl WebDavClient {
         })?;
         let body = reqwest::Body::wrap_stream(tokio_util::io::ReaderStream::new(file));
         let response = self
-            .request(reqwest::Method::PUT, &self.config.backup_url())
+            .request(reqwest::Method::PUT, &self.config.validated_backup_url()?)
             .header(reqwest::header::CONTENT_LENGTH, length)
             .body(body)
             .send()
@@ -283,7 +356,7 @@ impl WebDavClient {
     /// Download `dir/backup.zip`.
     pub async fn download(&self) -> Result<Vec<u8>, DomainError> {
         let response = self
-            .request(reqwest::Method::GET, &self.config.backup_url())
+            .request(reqwest::Method::GET, &self.config.validated_backup_url()?)
             .send()
             .await
             .map_err(|e| self.network_error(e))?;
@@ -299,7 +372,7 @@ impl WebDavClient {
         use tokio::io::AsyncWriteExt;
 
         let mut response = self
-            .request(reqwest::Method::GET, &self.config.backup_url())
+            .request(reqwest::Method::GET, &self.config.validated_backup_url()?)
             .send()
             .await
             .map_err(|e| self.network_error(e))?;
@@ -408,4 +481,27 @@ fn decode_entities(text: &str) -> String {
         .replace("&gt;", ">")
         .replace("&quot;", "\"")
         .replace("&apos;", "'")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backup_url_rejects_dotdot_and_encodes() {
+        // A `..` directory must fail closed at construction, not ride the
+        // URL path and depend on server normalization.
+        let evil = WebDavConfig::new("http://127.0.0.1:11808", "u", "p", "../other");
+        assert!(evil.validated_dir().is_err(), "`..` must not validate");
+        assert!(
+            WebDavClient::new(evil, Duration::from_secs(5), None).is_err(),
+            "`..` dir_name must be rejected"
+        );
+        // Spaces and non-ASCII names must be percent-encoded per segment.
+        let spaced = WebDavConfig::new("http://127.0.0.1:11808", "u", "p", "my dir/中文");
+        let url = spaced.backup_url();
+        assert!(url.contains("my%20dir/"), "{url}");
+        assert!(url.contains("%E4%B8%AD%E6%96%87"), "{url}");
+        assert!(!url.contains(' '), "{url}");
+    }
 }

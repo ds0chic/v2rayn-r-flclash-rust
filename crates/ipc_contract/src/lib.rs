@@ -134,15 +134,23 @@ pub enum TestSessionOperation {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum IpcResult {
     Snapshot(Box<RuntimeSnapshot>),
-    Accepted { operation_id: String },
+    Accepted {
+        operation_id: String,
+    },
     Operation(Box<OperationStatus>),
-    EventStreamOpened { epoch: EventEpoch, from_seq: u64 },
+    EventStreamOpened {
+        epoch: EventEpoch,
+        from_seq: u64,
+    },
     Stopped,
     Shutdown,
     /// Outcome of `IpcOperation::RetryTunCleanup`: every pending TUN cleanup
     /// is confirmed released (or there was nothing pending).
     TunCleanupRetried,
-    TestSession { session_id: String, state: JobState },
+    TestSession {
+        session_id: String,
+        state: JobState,
+    },
     Error(DomainError),
 }
 
@@ -491,7 +499,10 @@ mod tests {
             operation: op,
         };
         let json = serde_json::to_string(&req).unwrap();
-        assert!(json.contains("retry_tun_cleanup"), "new op keeps a stable tag");
+        assert!(
+            json.contains("retry_tun_cleanup"),
+            "new op keeps a stable tag"
+        );
         let back: RequestEnvelope = serde_json::from_str(&json).unwrap();
         assert_eq!(req, back);
         let ok = IpcResult::TunCleanupRetried;

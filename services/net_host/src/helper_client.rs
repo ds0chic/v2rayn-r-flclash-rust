@@ -1427,7 +1427,10 @@ mod tests {
     #[test]
     fn token_file_name_is_pid_scoped() {
         let name = helper_token_file_name(7, 9);
-        assert!(name.starts_with("v2rayn-helper-7-"), "sweep keys on our pid");
+        assert!(
+            name.starts_with("v2rayn-helper-7-"),
+            "sweep keys on our pid"
+        );
         assert!(name.ends_with(".token"));
         assert_ne!(name, helper_token_file_name(8, 9));
     }
@@ -1436,8 +1439,7 @@ mod tests {
     #[test]
     fn stale_helper_token_files_are_swept_by_pid_prefix() {
         // Our stale file (same pid prefix) goes; anyone else's stays.
-        let ours =
-            std::env::temp_dir().join(helper_token_file_name(std::process::id(), 4242));
+        let ours = std::env::temp_dir().join(helper_token_file_name(std::process::id(), 4242));
         let alien = std::env::temp_dir().join(helper_token_file_name(
             std::process::id().wrapping_add(1),
             4242,

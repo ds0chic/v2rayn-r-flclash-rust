@@ -327,6 +327,11 @@ fn sp08_wrong_session_token_is_rejected_without_backend_work() {
     ));
     assert_eq!(fake.call_count(), 0, "rejected before any backend work");
     assert_eq!(lease.owned_route_count(), 0);
-    let last = server.audit().records().last().expect("audit record").clone();
+    let last = server
+        .audit()
+        .records()
+        .last()
+        .expect("audit record")
+        .clone();
     assert_eq!(last.outcome, privileged_helper::AuditOutcome::Rejected);
 }

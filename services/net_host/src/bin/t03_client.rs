@@ -18,8 +18,8 @@ use domain::runtime_plan::{
 };
 use domain::CoreType;
 use ipc_contract::{
-    IpcOperation, IpcResult, RequestEnvelope, SessionIdentity, IPC_PROTOCOL_VERSION,
-    expected_session_token,
+    expected_session_token, IpcOperation, IpcResult, RequestEnvelope, SessionIdentity,
+    IPC_PROTOCOL_VERSION,
 };
 use runtime::{
     current_identity, decode_payload, encode_frame, frame_len, sha256_hex, ServerFrame,

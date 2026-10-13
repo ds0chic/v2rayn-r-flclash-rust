@@ -124,7 +124,7 @@ fn pipe_peer(pipe: &NamedPipeServer) -> Option<PipePeer> {
     use windows::Win32::Foundation::HANDLE;
     use windows::Win32::System::Pipes::GetNamedPipeClientProcessId;
 
-    let handle = HANDLE(pipe.as_raw_handle() as *mut core::ffi::c_void);
+    let handle = HANDLE(pipe.as_raw_handle());
     let mut pid = 0u32;
     // SAFETY: `handle` is the live, connected pipe instance owned by this
     // task; the call only reads the peer pid into `pid`.
@@ -245,8 +245,14 @@ async fn handle_connection(pipe: NamedPipeServer, state: Arc<HostState>) {
             .await;
             continue;
         }
-        dispatch_operation(&state, &request.request_id, request.operation, &tx, &mut forwarders)
-            .await;
+        dispatch_operation(
+            &state,
+            &request.request_id,
+            request.operation,
+            &tx,
+            &mut forwarders,
+        )
+        .await;
     }
 
     for forwarder in forwarders {
@@ -268,160 +274,156 @@ async fn dispatch_operation(
     tx: &Tx,
     forwarders: &mut Vec<tokio::task::JoinHandle<()>>,
 ) {
-        match operation {
-            IpcOperation::GetSnapshot => {
-                let _ = tx.send(state.detail_frame().await).await;
-                let snapshot = state.ipc_snapshot().await;
-                let _ =
-                    send_result(&tx, &request_id, IpcResult::Snapshot(Box::new(snapshot))).await;
-            }
-            IpcOperation::ApplyPlan { plan } => {
-                let result = match state.apply_plan(*plan).await {
-                    Ok(operation_id) => IpcResult::Accepted { operation_id },
-                    Err(error) => IpcResult::Error(error),
-                };
-                let _ = tx.send(state.detail_frame().await).await;
-                let _ = send_result(&tx, &request_id, result).await;
-            }
-            IpcOperation::StopRuntime { operation_id } => {
-                let _ = state.stop_managed(operation_id).await;
-                let _ = tx.send(state.detail_frame().await).await;
-                let _ = send_result(&tx, &request_id, IpcResult::Stopped).await;
-            }
-            IpcOperation::GetOperation { operation_id } => {
-                let status = state.operation_status(&operation_id).await;
-                let result = match status {
-                    Some(status) => IpcResult::Operation(Box::new(status)),
-                    None => IpcResult::Error(DomainError::not_found("operation", &operation_id)),
-                };
-                let _ = send_result(&tx, &request_id, result).await;
-            }
-            IpcOperation::SubscribeEvents { epoch, from_seq } => {
-                let current_epoch = state.bus.epoch().get();
-                let current_last_seq = state.bus.last_seq();
-                let mut receiver = state.bus.subscribe();
-                let forward_tx = tx.clone();
-                let bus = state.bus.clone();
-                forwarders.push(tokio::spawn(async move {
-                    let mut last_operation_id: Option<String> = None;
-                    let mut last_generation: Option<u64> = None;
-                    loop {
-                        match classify_recv(receiver.recv().await) {
-                            ForwardAction::Forward(event) => {
-                                let (operation_id, generation) =
-                                    crate::events::parse_event_identity(&event);
-                                if operation_id.is_some() {
-                                    last_operation_id = operation_id;
-                                }
-                                if generation.is_some() {
-                                    last_generation = generation;
-                                }
-                                if forward_tx.send(ServerFrame::Event(event)).await.is_err() {
-                                    break;
-                                }
+    match operation {
+        IpcOperation::GetSnapshot => {
+            let _ = tx.send(state.detail_frame().await).await;
+            let snapshot = state.ipc_snapshot().await;
+            let _ = send_result(tx, request_id, IpcResult::Snapshot(Box::new(snapshot))).await;
+        }
+        IpcOperation::ApplyPlan { plan } => {
+            let result = match state.apply_plan(*plan).await {
+                Ok(operation_id) => IpcResult::Accepted { operation_id },
+                Err(error) => IpcResult::Error(error),
+            };
+            let _ = tx.send(state.detail_frame().await).await;
+            let _ = send_result(tx, request_id, result).await;
+        }
+        IpcOperation::StopRuntime { operation_id } => {
+            let _ = state.stop_managed(operation_id).await;
+            let _ = tx.send(state.detail_frame().await).await;
+            let _ = send_result(tx, request_id, IpcResult::Stopped).await;
+        }
+        IpcOperation::GetOperation { operation_id } => {
+            let status = state.operation_status(&operation_id).await;
+            let result = match status {
+                Some(status) => IpcResult::Operation(Box::new(status)),
+                None => IpcResult::Error(DomainError::not_found("operation", &operation_id)),
+            };
+            let _ = send_result(tx, request_id, result).await;
+        }
+        IpcOperation::SubscribeEvents { epoch, from_seq } => {
+            let current_epoch = state.bus.epoch().get();
+            let current_last_seq = state.bus.last_seq();
+            let mut receiver = state.bus.subscribe();
+            let forward_tx = tx.clone();
+            let bus = state.bus.clone();
+            forwarders.push(tokio::spawn(async move {
+                let mut last_operation_id: Option<String> = None;
+                let mut last_generation: Option<u64> = None;
+                loop {
+                    match classify_recv(receiver.recv().await) {
+                        ForwardAction::Forward(event) => {
+                            let (operation_id, generation) =
+                                crate::events::parse_event_identity(&event);
+                            if operation_id.is_some() {
+                                last_operation_id = operation_id;
                             }
-                            ForwardAction::Resync(reason) => {
-                                let notice = bus.resync_notice_attributed(
-                                    reason,
-                                    bus.epoch().get(),
-                                    bus.last_seq(),
-                                    last_operation_id.as_deref(),
-                                    last_generation,
-                                );
-                                let _ = forward_tx.send(ServerFrame::Event(notice)).await;
+                            if generation.is_some() {
+                                last_generation = generation;
+                            }
+                            if forward_tx.send(ServerFrame::Event(event)).await.is_err() {
                                 break;
                             }
-                            ForwardAction::Closed => break,
                         }
+                        ForwardAction::Resync(reason) => {
+                            let notice = bus.resync_notice_attributed(
+                                reason,
+                                bus.epoch().get(),
+                                bus.last_seq(),
+                                last_operation_id.as_deref(),
+                                last_generation,
+                            );
+                            let _ = forward_tx.send(ServerFrame::Event(notice)).await;
+                            break;
+                        }
+                        ForwardAction::Closed => break,
                     }
-                }));
-                // Authoritative origin, never an echo of stale parameters: the
-                // client advances its subscription cursor to these values.
-                if let Some(reason) =
-                    resync_needed(epoch.get(), from_seq, current_epoch, current_last_seq)
-                {
-                    let notice = state
-                        .bus
-                        .resync_notice(reason, current_epoch, current_last_seq);
-                    let _ = tx.send(ServerFrame::Event(notice)).await;
                 }
-                let _ = send_result(
-                    &tx,
-                    &request_id,
-                    IpcResult::EventStreamOpened {
-                        epoch: EventEpoch(current_epoch),
-                        from_seq: current_last_seq.saturating_add(1),
-                    },
-                )
-                .await;
+            }));
+            // Authoritative origin, never an echo of stale parameters: the
+            // client advances its subscription cursor to these values.
+            if let Some(reason) =
+                resync_needed(epoch.get(), from_seq, current_epoch, current_last_seq)
+            {
+                let notice = state
+                    .bus
+                    .resync_notice(reason, current_epoch, current_last_seq);
+                let _ = tx.send(ServerFrame::Event(notice)).await;
             }
-            IpcOperation::Shutdown => {
-                let _ = state.stop_managed(None).await;
-                state.stop_all_test_sessions().await;
-                let _ = send_result(&tx, &request_id, IpcResult::Shutdown).await;
-                state.shutdown.notify_one();
-            }
-            // SP-08 explicit retry entry (S7a-05): re-attempt every
-            // unconfirmed TUN cleanup with the live link (or a fresh link
-            // for journals left by a previous process). A confirmed retry
-            // with nothing left outstanding restores the closed state.
-            IpcOperation::RetryTunCleanup => {
-                let result = match state.retry_tun_cleanup().await {
-                    Ok(()) => IpcResult::TunCleanupRetried,
-                    Err(error) => IpcResult::Error(error),
-                };
-                let _ = send_result(&tx, request_id, result).await;
-            }
-            IpcOperation::TestSession(test_op) => {
-                let result = match test_op {
-                    ipc_contract::TestSessionOperation::Open {
-                        plan,
-                        max_duration_ms,
-                    } => {
-                        let ports: Vec<u16> = plan.ports.iter().map(|p| p.port).collect();
-                        match check_test_ports(&ports)
-                            .and(check_test_session_duration(max_duration_ms))
-                        {
-                            Err(IpcError::Malformed { detail }) => IpcResult::Error(
-                                DomainError::new(domain::codes::INVALID_ARGUMENT, "error.invalid")
-                                    .with_detail(detail),
-                            ),
-                            Err(other) => IpcResult::Error(other.to_domain()),
-                            Ok(()) => {
-                                match HostState::open_test_session(&state, *plan, max_duration_ms)
-                                    .await
-                                {
-                                    Ok(session_id) => IpcResult::TestSession {
-                                        session_id,
-                                        state: domain::JobState::Running,
-                                    },
-                                    Err(error) => IpcResult::Error(error),
-                                }
+            let _ = send_result(
+                tx,
+                request_id,
+                IpcResult::EventStreamOpened {
+                    epoch: EventEpoch(current_epoch),
+                    from_seq: current_last_seq.saturating_add(1),
+                },
+            )
+            .await;
+        }
+        IpcOperation::Shutdown => {
+            let _ = state.stop_managed(None).await;
+            state.stop_all_test_sessions().await;
+            let _ = send_result(tx, request_id, IpcResult::Shutdown).await;
+            state.shutdown.notify_one();
+        }
+        // SP-08 explicit retry entry (S7a-05): re-attempt every
+        // unconfirmed TUN cleanup with the live link (or a fresh link
+        // for journals left by a previous process). A confirmed retry
+        // with nothing left outstanding restores the closed state.
+        IpcOperation::RetryTunCleanup => {
+            let result = match state.retry_tun_cleanup().await {
+                Ok(()) => IpcResult::TunCleanupRetried,
+                Err(error) => IpcResult::Error(error),
+            };
+            let _ = send_result(tx, request_id, result).await;
+        }
+        IpcOperation::TestSession(test_op) => {
+            let result = match test_op {
+                ipc_contract::TestSessionOperation::Open {
+                    plan,
+                    max_duration_ms,
+                } => {
+                    let ports: Vec<u16> = plan.ports.iter().map(|p| p.port).collect();
+                    match check_test_ports(&ports).and(check_test_session_duration(max_duration_ms))
+                    {
+                        Err(IpcError::Malformed { detail }) => IpcResult::Error(
+                            DomainError::new(domain::codes::INVALID_ARGUMENT, "error.invalid")
+                                .with_detail(detail),
+                        ),
+                        Err(other) => IpcResult::Error(other.to_domain()),
+                        Ok(()) => {
+                            match HostState::open_test_session(state, *plan, max_duration_ms).await
+                            {
+                                Ok(session_id) => IpcResult::TestSession {
+                                    session_id,
+                                    state: domain::JobState::Running,
+                                },
+                                Err(error) => IpcResult::Error(error),
                             }
                         }
                     }
-                    ipc_contract::TestSessionOperation::Close { session_id } => {
-                        match state.close_test_session(&session_id).await {
-                            Ok(()) => IpcResult::TestSession {
-                                session_id,
-                                state: domain::JobState::Done,
-                            },
-                            Err(error) => IpcResult::Error(error),
+                }
+                ipc_contract::TestSessionOperation::Close { session_id } => {
+                    match state.close_test_session(&session_id).await {
+                        Ok(()) => IpcResult::TestSession {
+                            session_id,
+                            state: domain::JobState::Done,
+                        },
+                        Err(error) => IpcResult::Error(error),
+                    }
+                }
+                ipc_contract::TestSessionOperation::Status { session_id } => {
+                    match state.test_session_status(&session_id).await {
+                        Some(state) => IpcResult::TestSession { session_id, state },
+                        None => {
+                            IpcResult::Error(DomainError::not_found("test_session", &session_id))
                         }
                     }
-                    ipc_contract::TestSessionOperation::Status { session_id } => {
-                        match state.test_session_status(&session_id).await {
-                            Some(state) => IpcResult::TestSession { session_id, state },
-                            None => IpcResult::Error(DomainError::not_found(
-                                "test_session",
-                                &session_id,
-                            )),
-                        }
-                    }
-                };
-                let _ = send_result(&tx, &request_id, result).await;
-            }
+                }
+            };
+            let _ = send_result(tx, request_id, result).await;
         }
+    }
 }
 
 /// Watchdog implementing the disconnect/heartbeat policy (plan §5).
@@ -578,14 +580,8 @@ mod tests {
             ))
         }
 
-        fn cleanup(
-            &mut self,
-            _lease: &crate::helper_client::TunLease,
-        ) -> Result<(), DomainError> {
-            if self
-                .fail
-                .load(std::sync::atomic::Ordering::SeqCst)
-            {
+        fn cleanup(&mut self, _lease: &crate::helper_client::TunLease) -> Result<(), DomainError> {
+            if self.fail.load(std::sync::atomic::Ordering::SeqCst) {
                 return Err(crate::helper_client::tun_helper_unavailable(
                     "synthetic helper outage",
                 ));

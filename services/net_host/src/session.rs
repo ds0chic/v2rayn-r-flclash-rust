@@ -823,8 +823,7 @@ impl HostState {
             }
             let session = inner.session.as_mut().expect("reconcile gated a session");
             let session_id = session.session_id.clone();
-            let detached =
-                detach_elevated_links(&mut session.sidecars, at_ms.max(0) as u64);
+            let detached = detach_elevated_links(&mut session.sidecars, at_ms.max(0) as u64);
             (session_id, detached)
         };
         // Phase B (no lock): blocking helper RPCs on a blocking-pool thread.
@@ -834,17 +833,14 @@ impl HostState {
             .iter()
             .map(|taken| (taken.id.clone(), taken.handle))
             .collect();
-        let outcomes = match tokio::task::spawn_blocking(move || {
+        let outcomes = tokio::task::spawn_blocking(move || {
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
                 run_detached_elevated_poll(detached, true)
             }))
-            .unwrap_or_default()
+            .unwrap_or_else(|_| Vec::new())
         })
         .await
-        {
-            Ok(outcomes) => outcomes,
-            Err(_) => Vec::new(),
-        };
+        .unwrap_or_default();
 
         let (session, main_exit, _sidecar_exits, emit) = {
             let mut inner = self.inner.lock().await;
@@ -853,8 +849,10 @@ impl HostState {
             // and the helper reclaims them on disconnect. Staging is skipped
             // once a command owns the session, but the links are always
             // restored so no sidecar strands helperless.
-            let stage =
-                lifecycle::should_reconcile(inner.active_operation.as_deref(), inner.session.is_some());
+            let stage = lifecycle::should_reconcile(
+                inner.active_operation.as_deref(),
+                inner.session.is_some(),
+            );
             let same_session = inner
                 .session
                 .as_ref()
@@ -2053,10 +2051,20 @@ impl HostState {
         // forward each line as a `log_line` event (T15a minimal change) so the
         // application log pipeline does not have to tail the file.
         if let Some(stdout) = child.stdout.take() {
-            spawn_log_reader(stdout, log_path.clone(), "stdout".to_string(), self.bus.clone());
+            spawn_log_reader(
+                stdout,
+                log_path.clone(),
+                "stdout".to_string(),
+                self.bus.clone(),
+            );
         }
         if let Some(stderr) = child.stderr.take() {
-            spawn_log_reader(stderr, log_path.clone(), "stderr".to_string(), self.bus.clone());
+            spawn_log_reader(
+                stderr,
+                log_path.clone(),
+                "stderr".to_string(),
+                self.bus.clone(),
+            );
         }
 
         let _ = journal::write_entry(
@@ -2860,10 +2868,20 @@ impl HostState {
 
         let log_path = dir.join("core.log");
         if let Some(stdout) = child.stdout.take() {
-            spawn_log_reader(stdout, log_path.clone(), "test-stdout".to_string(), self.bus.clone());
+            spawn_log_reader(
+                stdout,
+                log_path.clone(),
+                "test-stdout".to_string(),
+                self.bus.clone(),
+            );
         }
         if let Some(stderr) = child.stderr.take() {
-            spawn_log_reader(stderr, log_path.clone(), "test-stderr".to_string(), self.bus.clone());
+            spawn_log_reader(
+                stderr,
+                log_path.clone(),
+                "test-stderr".to_string(),
+                self.bus.clone(),
+            );
         }
         let _ = journal::write_entry(
             &self.config.run_root,
@@ -3237,7 +3255,10 @@ async fn rotate_log_if_over_cap(path: &std::path::Path) {
         .map(|index| index + 1)
         .unwrap_or(0);
     let _ = tokio::fs::write(path, &tail[start..]).await;
-    eprintln!("[net_host] core log rotated (kept tail): {}", path.display());
+    eprintln!(
+        "[net_host] core log rotated (kept tail): {}",
+        path.display()
+    );
 }
 
 fn tail_log(path: &std::path::Path, max_lines: usize) -> String {
@@ -3418,7 +3439,12 @@ fn run_detached_elevated_poll(
                     let reconcile = released
                         || lifecycle::lease_expired(taken.last_confirmed_ms, taken.at_ms)
                         || lifecycle::renew_reconcile_due(failures);
-                    (Some(taken.at_ms), taken.last_confirmed_ms, failures, reconcile)
+                    (
+                        Some(taken.at_ms),
+                        taken.last_confirmed_ms,
+                        failures,
+                        reconcile,
+                    )
                 }
             }
         } else {
@@ -5439,8 +5465,7 @@ Idx     Met    MTU          State                Name\r\n\
         // The stub never listens, so readiness fails; the env dump written at
         // startup is the assertion.
         let _ = futures_block_on(state.open_test_session(plan, 5_000));
-        let dump =
-            std::fs::read_to_string(dir.join("dump.txt")).expect("stub ran and dumped env");
+        let dump = std::fs::read_to_string(dir.join("dump.txt")).expect("stub ran and dumped env");
         assert!(
             dump.contains(&asset_dir.to_string_lossy().into_owned()),
             "test spawn must carry XRAY_LOCATION_ASSET (got: {dump})"

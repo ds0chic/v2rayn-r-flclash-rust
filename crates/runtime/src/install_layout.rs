@@ -312,7 +312,9 @@ mod tests {
         std::fs::write(escaped.join(exe), b"stub").unwrap();
         let layout = CoreInstallLayout::new(&root);
         assert!(
-            layout.resolve_exe(CoreType::Xray, Some("../../evil")).is_none(),
+            layout
+                .resolve_exe(CoreType::Xray, Some("../../evil"))
+                .is_none(),
             "a traversal pinned version must never resolve outside the core dir"
         );
         assert!(layout.resolve_exe_str("xray", Some("../evil")).is_none());

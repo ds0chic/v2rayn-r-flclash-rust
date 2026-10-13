@@ -978,6 +978,7 @@ fn unexpected(operation: &str, result: &IpcResult) -> DomainError {
         IpcResult::EventStreamOpened { .. } => "event_stream_opened",
         IpcResult::Stopped => "stopped",
         IpcResult::Shutdown => "shutdown",
+        IpcResult::TunCleanupRetried => "tun_cleanup_retried",
         IpcResult::TestSession { .. } => "test_session",
         IpcResult::Error(_) => "error",
     };

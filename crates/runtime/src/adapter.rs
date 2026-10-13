@@ -88,12 +88,14 @@ impl CoreLocator {
         // reject it before any path is built from it.
         if let Some(version) = pinned {
             if version_key(version).is_none() {
-                return Err(DomainError::new(domain::codes::NOT_FOUND, "error.core_not_found")
-                    .with_field("core")
-                    .with_detail(format!(
-                        "{} has no version shaped like {version:?}",
-                        core.as_str()
-                    )));
+                return Err(
+                    DomainError::new(domain::codes::NOT_FOUND, "error.core_not_found")
+                        .with_field("core")
+                        .with_detail(format!(
+                            "{} has no version shaped like {version:?}",
+                            core.as_str()
+                        )),
+                );
             }
         }
         let mut searched = Vec::new();
@@ -1216,13 +1218,14 @@ mod tests {
     #[test]
     fn pinned_version_cannot_escape_the_core_dir() {
         // S7a-06: a traversal pinned version must be rejected even when a
-        // runnable executable sits exactly where it lands (pre-fix this
-        // resolved to the outside file and returned Ok).
+        // runnable (non-empty, so it passes the executable sanity check)
+        // file sits exactly where it lands (pre-fix this resolved to the
+        // outside file and returned Ok).
         let root = temp_root("pinned-escape");
         let exe = if cfg!(windows) { "xray.exe" } else { "xray" };
         let escaped = root.join("xray").join("../../evil");
         std::fs::create_dir_all(&escaped).unwrap();
-        std::fs::write(escaped.join(exe), core_stub()).unwrap();
+        std::fs::write(escaped.join(exe), b"runnable-outside-stub").unwrap();
         let locator = CoreLocator::with_roots(vec![root.clone()], None);
         let err = locator
             .resolve(CoreType::Xray, Some("../../evil"))

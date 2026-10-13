@@ -665,12 +665,13 @@ class StatusBarView extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           child: LayoutBuilder(
             builder: (context, constraints) {
-              // U-FIX (54px overflow family): the badge (+separator, ~91px)
-              // is what pushes Row A past the 800px budget. Below 1000
-              // logical px it moves to Row B (which has room); everything
-              // keeps full text, keys and tooltips, so no information is
-              // removed, truncated or resized. Wide layout is pixel-identical.
-              final narrow = constraints.maxWidth < 1000;
+              // U-FIX (54px overflow family): the badge (+separator, ~91px
+              // stopped, ~250px running with mode + unapplied suffix) is what
+              // pushes Row A past narrow budgets. Below 1280 logical px it
+              // moves to Row B (which has room); everything keeps full text,
+              // keys and tooltips, so no information is removed, truncated or
+              // resized. Wide layout is pixel-identical.
+              final narrow = constraints.maxWidth < 1280;
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[

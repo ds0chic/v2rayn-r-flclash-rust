@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/settings/hotkey_keycodec.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/settings/hotkeys.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
@@ -211,6 +212,32 @@ class _GlobalHotkeyWindowState extends ConsumerState<GlobalHotkeyWindow> {
     if (!_draftInit && state.loaded) {
       _ensureDraft();
       _draftInit = true;
+    }
+    // D2-06: a failed load is an explicit error + retry entry, never five
+    // misleading "unbound" rows (mirrors the option window recovery entry).
+    if (state.loadFailed) {
+      return AlertDialog(
+        title: const Text('全局热键设置', style: TextStyle(fontSize: 15)),
+        content: Text(
+          context.messageText(state.status ?? 'error.settings_load_failed'),
+          key: const ValueKey('hotkey-load-error'),
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const ValueKey('hotkey-load-retry'),
+            onPressed: () {
+              ref.read(settingsControllerProvider.notifier).load();
+              if (mounted) setState(() {});
+            },
+            child: Text(context.tr('retry')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+        ],
+      );
     }
     return AlertDialog(
       title: const Text('全局热键设置', style: TextStyle(fontSize: 15)),

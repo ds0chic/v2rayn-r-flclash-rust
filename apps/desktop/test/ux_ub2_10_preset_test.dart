@@ -194,7 +194,10 @@ void main() {
           as Map<String, dynamic>)['User'],
       '',
     );
-    expect(find.textContaining('已应用'), findsOneWidget);
+    // The apply snackbar ('已应用 N 项设置…'); scoped to '项设置' because the
+    // UB2-11 tri-state row also renders '已应用 rev: …' once the reseed marks
+    // the draft clean.
+    expect(find.textContaining('项设置'), findsOneWidget);
   });
 
   testWidgets('UB2-10: undo stays disabled with the UX3-12 snapshot note', (

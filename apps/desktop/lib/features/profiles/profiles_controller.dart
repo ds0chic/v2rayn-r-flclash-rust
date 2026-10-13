@@ -854,6 +854,11 @@ class ProfilesController extends Notifier<ProfilesState> {
     var restarts = 0;
     final rows = <ProfileSummary>[];
     final walkedProfiles = <c.ProfileDto>[];
+    // D1-08: snapshot the pre-walk base so a cancelled walk restores it
+    // instead of leaving a partial base behind for the live overlay.
+    final baseBackup = _baseSummaries;
+    List<ProfileSummary>? publishedPartial;
+    var completed = false;
     state = state.copyWith(pagedLoading: true);
     _pagedLoadOwner = generation;
     const filter = c.ProfileFilterDto(text: null, configTypes: [], subid: null);
@@ -886,7 +891,8 @@ class ProfilesController extends Notifier<ProfilesState> {
         }
         rows.addAll(page.items.map(dtoToSummary));
         walkedProfiles.addAll(page.items);
-        _baseSummaries = List<ProfileSummary>.of(rows);
+        publishedPartial = List<ProfileSummary>.of(rows);
+        _baseSummaries = publishedPartial;
         state = _recompute(
           state.copyWith(
             all: _bridge.applyLiveOverlay(_baseSummaries),
@@ -917,11 +923,25 @@ class ProfilesController extends Notifier<ProfilesState> {
         'reload-paged',
         'profiles=${walkedProfiles.length} rows=${rows.length}',
       );
+      completed = true;
     } on BridgeDataError catch (e) {
       // S8-03: keep the previous table on a storage failure (D1-08 backup
       // semantics stay untouched: `_baseSummaries` is only replaced per page).
       _log('reload-paged-failed', e.messageKey);
     } finally {
+      if (!completed &&
+          _pagedLoadOwner == generation &&
+          publishedPartial != null &&
+          identical(_baseSummaries, publishedPartial)) {
+        // The walk died before committing (cancel, stale echo, restart
+        // overflow, storage failure) and nobody else replaced the base
+        // meanwhile (e.g. a full reload): restore the pre-walk view instead
+        // of a partial walk that the live overlay would then shrink to.
+        _baseSummaries = baseBackup;
+        state = _recompute(
+          state.copyWith(all: _bridge.applyLiveOverlay(_baseSummaries)),
+        );
+      }
       if (state.pagedLoading && _pagedLoadOwner == generation) {
         state = state.copyWith(pagedLoading: false);
       }

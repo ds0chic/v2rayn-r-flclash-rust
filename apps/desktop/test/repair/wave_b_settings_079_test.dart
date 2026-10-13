@@ -91,9 +91,6 @@ Future<void> _reopen(WidgetTester tester, SyntheticBridgePort bridge) async {
 Map<String, dynamic> _persisted(SyntheticBridgePort bridge) =>
     jsonDecode(bridge.getSettings().settingsJson) as Map<String, dynamic>;
 
-Finder _field(ValueKey<String> key) =>
-    find.descendant(of: find.byKey(key), matching: find.byType(TextField));
-
 bool _checkbox(WidgetTester tester, ValueKey<String> key) =>
     tester
         .widget<Checkbox>(

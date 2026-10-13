@@ -64,10 +64,12 @@ pub fn identify_directory(dir: &Path) -> Result<UpstreamSource> {
     }
     let config_path = dir.join(CONFIG_NAME);
     let db_path = dir.join(DB_NAME);
+    // S1-08: a hand-broken config degrades to "no config" instead of failing
+    // the whole import; the database half stays usable. `config_member`
+    // records that the file exists so the import gate can warn about the
+    // downgrade.
     let config = if config_path.is_file() {
-        Some(ConfigDocument::parse(&std::fs::read_to_string(
-            &config_path,
-        )?)?)
+        ConfigDocument::parse(&std::fs::read_to_string(&config_path)?).ok()
     } else {
         None
     };
@@ -90,7 +92,7 @@ pub fn identify_directory(dir: &Path) -> Result<UpstreamSource> {
         kind: SourceKind::Directory,
         path: dir.to_path_buf(),
         db_member: db_path.is_file().then(|| DB_NAME.to_string()),
-        config_member: config.is_some().then(|| CONFIG_NAME.to_string()),
+        config_member: config_path.is_file().then(|| CONFIG_NAME.to_string()),
         version,
         present_tables,
         config,
@@ -101,7 +103,11 @@ pub fn identify_directory(dir: &Path) -> Result<UpstreamSource> {
 /// Identify a ZIP archive source (upstream `guiConfigs/` layout supported).
 pub fn identify_archive(path: &Path) -> Result<UpstreamSource> {
     let file = File::open(path)?;
-    let mut archive = zip::ZipArchive::new(file)?;
+    // S1-08: a non-zip file is not a source at all — a structured rejection,
+    // not an archive error that aborts the whole import.
+    let mut archive = zip::ZipArchive::new(file).map_err(|err| {
+        PersistenceError::NotASource(format!("{} is not a zip archive: {err}", path.display()))
+    })?;
     let mut config_member = None;
     let mut db_member = None;
     for name in archive.file_names() {
@@ -122,7 +128,9 @@ pub fn identify_archive(path: &Path) -> Result<UpstreamSource> {
             let mut file = archive.by_name(name)?;
             let mut text = String::new();
             std::io::Read::read_to_string(&mut file, &mut text)?;
-            Some(ConfigDocument::parse(&text)?)
+            // Same downgrade as directories: a broken config leaves the
+            // database half importable; the gate warns (S1-08).
+            ConfigDocument::parse(&text).ok()
         }
         None => None,
     };
@@ -265,9 +273,10 @@ pub fn snapshot(source: &UpstreamSource, work_dir: &Path) -> Result<UpstreamSnap
     }
 
     let config = if config_dest.is_file() {
-        Some(ConfigDocument::parse(&std::fs::read_to_string(
-            &config_dest,
-        )?)?)
+        match std::fs::read_to_string(&config_dest) {
+            Ok(text) => ConfigDocument::parse(&text).ok(),
+            Err(_) => None,
+        }
     } else {
         None
     };
@@ -412,6 +421,40 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let result = identify_directory(dir.path());
         assert!(matches!(result, Err(PersistenceError::NotASource(_))));
+    }
+
+    #[test]
+    fn non_zip_file_is_not_a_source() {
+        // S1-08: opening a plain file as an archive is a polite rejection,
+        // so the import gate reports `Rejected` instead of erroring out.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("note.txt");
+        std::fs::write(&path, "hello").unwrap();
+        assert!(matches!(
+            identify_archive(&path),
+            Err(PersistenceError::NotASource(_))
+        ));
+    }
+
+    #[test]
+    fn corrupt_config_in_directory_degrades_to_no_config() {
+        // S1-08: a broken config beside a healthy database degrades to
+        // "no config"; the database half of the source stays usable.
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(CONFIG_NAME), r#"{"IndexId":broken,,,"#).unwrap();
+        let conn = Connection::open(dir.path().join(DB_NAME)).unwrap();
+        conn.execute_batch(&schema::UPSTREAM_TABLES[1].create_sql())
+            .unwrap();
+        conn.execute(
+            "INSERT INTO ProfileItem (IndexId, ConfigType, ConfigVersion, Remarks) \
+             VALUES ('p1', 5, 4, 'node')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        let source = identify_directory(dir.path()).unwrap();
+        assert!(source.config.is_none());
+        assert_eq!(source.db_member.as_deref(), Some(DB_NAME));
     }
 
     #[test]

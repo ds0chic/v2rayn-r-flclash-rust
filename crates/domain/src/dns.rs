@@ -247,10 +247,12 @@ pub fn validate_dns_profile(profile: &DnsProfile, is_singbox: bool) -> Result<()
     Ok(())
 }
 
-/// Parse `domain ip` / `domain ip1,ip2` lines into a host -> ips map
-/// (upstream `Utils.ParseHostsToDictionary`).
+/// Parse `domain ip...` lines into a host -> ips map
+/// (upstream `Utils.ParseHostsToDictionary`, `Utils.cs:359-381`): a line must
+/// contain a literal space, tokens split on spaces/tabs only (commas stay
+/// inside tokens), and repeated domains concatenate.
 pub fn parse_hosts_to_map(text: Option<&str>) -> BTreeMap<String, Vec<String>> {
-    let mut map = BTreeMap::new();
+    let mut map: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let Some(text) = text else {
         return map;
     };
@@ -259,37 +261,42 @@ pub fn parse_hosts_to_map(text: Option<&str>) -> BTreeMap<String, Vec<String>> {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let mut parts = line.splitn(2, char::is_whitespace);
-        let domain = parts.next().unwrap_or("").trim();
-        let ips = parts.next().unwrap_or("").trim();
-        if domain.is_empty() || ips.is_empty() {
+        if !line.contains(' ') {
             continue;
         }
-        let list: Vec<String> = ips
-            .split([',', ' ', '\t'])
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(ToString::to_string)
-            .collect();
-        if !list.is_empty() {
-            map.insert(domain.to_string(), list);
+        let mut parts = line.split([' ', '\t']).filter(|s| !s.is_empty());
+        let Some(domain) = parts.next() else {
+            continue;
+        };
+        let ips: Vec<String> = parts.map(ToString::to_string).collect();
+        if ips.is_empty() {
+            continue;
         }
+        map.entry(domain.to_string()).or_default().extend(ips);
     }
     map
 }
 
-/// Read the OS hosts file (read-only) into a host -> first-ip map.
+/// Read the OS hosts file (read-only) into a host -> ip map.
 /// Failures yield an empty map; the caller decides whether that matters.
 pub fn read_system_hosts() -> BTreeMap<String, String> {
-    let path = if cfg!(windows) {
-        "C:\\Windows\\System32\\drivers\\etc\\hosts".to_string()
+    if cfg!(windows) {
+        // Upstream `Utils.GetSystemHosts()` (`Utils.cs:1032-1053`) merges
+        // `hosts.ics` over `hosts`; a missing file reads as empty.
+        let mut merged = read_hosts_file("C:\\Windows\\System32\\drivers\\etc\\hosts");
+        merged.extend(read_hosts_file(
+            "C:\\Windows\\System32\\drivers\\etc\\hosts.ics",
+        ));
+        merged
     } else {
-        "/etc/hosts".to_string()
-    };
-    read_hosts_file(&path)
+        read_hosts_file("/etc/hosts")
+    }
 }
 
-/// Parse a hosts file into host -> ip (first address wins per host token).
+/// Parse a hosts file into host -> ip, mirroring upstream
+/// `Utils.GetSystemHosts(path)` (`Utils.cs:964-1030`): only the second token
+/// is a hostname, later rows overwrite earlier ones, and `localhost` entries
+/// are kept. Non-IP first tokens and over-long names are skipped.
 pub fn read_hosts_file(path: &str) -> BTreeMap<String, String> {
     let mut map = BTreeMap::new();
     let Ok(text) = std::fs::read_to_string(path) else {
@@ -302,22 +309,18 @@ pub fn read_hosts_file(path: &str) -> BTreeMap<String, String> {
         }
         // Strip inline comments.
         let line = line.split('#').next().unwrap_or("").trim();
-        let mut tokens = line.split_whitespace();
-        let Some(ip) = tokens.next() else {
+        let mut tokens = line.split([' ', '\t']).filter(|s| !s.is_empty());
+        let (Some(ip), Some(host)) = (tokens.next(), tokens.next()) else {
             continue;
         };
-        // Skip non-IP first tokens.
-        if ip.contains('/') || !(ip.contains('.') || ip.contains(':')) {
+        // Upstream `IsIpAddress` gate.
+        if ip.parse::<std::net::IpAddr>().is_err() {
             continue;
         }
-        for host in tokens {
-            let host = host.trim();
-            if host.is_empty() || host == "localhost" {
-                continue;
-            }
-            map.entry(host.to_string())
-                .or_insert_with(|| ip.to_string());
+        if host.is_empty() || host.len() > 255 {
+            continue;
         }
+        map.insert(host.to_string(), ip.to_string());
     }
     map
 }
@@ -373,4 +376,49 @@ pub fn builtin_dns_profiles() -> Vec<DnsProfile> {
             extra: Default::default(),
         },
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_hosts_matches_upstream_dictionary_semantics() {
+        // S1-10, upstream `Utils.ParseHostsToDictionary` (`Utils.cs:359-381`):
+        // comma-separated addresses stay one token (no comma split).
+        let map = parse_hosts_to_map(Some("d ip1,ip2"));
+        assert_eq!(map.get("d"), Some(&vec!["ip1,ip2".to_string()]));
+        // A line without a literal space is dropped, even if tab-separated.
+        let map = parse_hosts_to_map(Some("d\t10.0.0.1"));
+        assert!(map.is_empty(), "tab-only line must be dropped: {map:?}");
+        // Repeated domains concatenate (GroupBy + SelectMany), not overwrite.
+        let map = parse_hosts_to_map(Some("d 1.1.1.1\nd 2.2.2.2"));
+        assert_eq!(
+            map.get("d"),
+            Some(&vec!["1.1.1.1".to_string(), "2.2.2.2".to_string()])
+        );
+    }
+
+    #[test]
+    fn read_hosts_file_matches_upstream_get_system_hosts() {
+        // S1-11, upstream `Utils.GetSystemHosts(path)` (`Utils.cs:964-1030`):
+        // only the second token is a hostname, later rows overwrite,
+        // `localhost` is kept.
+        static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!(
+            "b04-hosts-{}-{}.txt",
+            std::process::id(),
+            N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        ));
+        std::fs::write(
+            &path,
+            "1.2.3.4 a b c\n1.2.3.5 a\n127.0.0.1 localhost\n# comment\n\n",
+        )
+        .unwrap();
+        let map = read_hosts_file(path.to_str().unwrap());
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(map.get("a"), Some(&"1.2.3.5".to_string()));
+        assert!(!map.contains_key("b") && !map.contains_key("c"));
+        assert_eq!(map.get("localhost"), Some(&"127.0.0.1".to_string()));
+    }
 }

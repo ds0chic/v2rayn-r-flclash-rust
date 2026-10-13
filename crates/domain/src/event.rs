@@ -45,8 +45,10 @@ impl EventSeq {
     }
 
     /// Whether `other` is the expected immediate successor of `self`.
+    /// Checked at the top: past `u64::MAX` nothing is contiguous, and the
+    /// check never panics in debug builds on untrusted IPC input.
     pub fn is_contiguous_with(self, other: EventSeq) -> bool {
-        other.0 == self.0 + 1
+        self.0.checked_add(1).is_some_and(|next| other.0 == next)
     }
 }
 
@@ -241,5 +243,14 @@ mod tests {
     fn seq_contiguity() {
         assert!(EventSeq(4).is_contiguous_with(EventSeq(5)));
         assert!(!EventSeq(4).is_contiguous_with(EventSeq(6)));
+    }
+
+    #[test]
+    fn max_seq_never_panics_or_wraps() {
+        // S1-12: `self.0 + 1` overflows in debug builds when fed u64::MAX
+        // over IPC; the top value simply has no successor.
+        assert!(!EventSeq(u64::MAX).is_contiguous_with(EventSeq(0)));
+        assert!(!EventSeq(u64::MAX).is_contiguous_with(EventSeq(u64::MAX)));
+        assert!(EventSeq(u64::MAX - 1).is_contiguous_with(EventSeq(u64::MAX)));
     }
 }

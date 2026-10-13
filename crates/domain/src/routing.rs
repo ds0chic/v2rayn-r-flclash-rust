@@ -9,7 +9,6 @@
 use serde::{Deserialize, Serialize};
 
 use crate::entities::{RoutingProfile, RoutingRule};
-use crate::enums::RuleType;
 use crate::error::{codes, DomainError};
 use crate::reference::{ReferenceExpr, ReferenceSource};
 
@@ -92,21 +91,15 @@ pub fn validate_rule(rule: &RoutingRule) -> Result<(), DomainError> {
         || rule.protocol.as_ref().is_some_and(|v| !v.is_empty())
         || rule.domain.as_ref().is_some_and(|v| !v.is_empty())
         || rule.ip.as_ref().is_some_and(|v| !v.is_empty())
-        || rule.process.as_ref().is_some_and(|v| !v.is_empty())
-        || rule.inbound_tag.as_ref().is_some_and(|v| !v.is_empty());
+        || rule.process.as_ref().is_some_and(|v| !v.is_empty());
     if !has {
         return Err(
             DomainError::new(codes::FIELD_REQUIRED, "error.routing_rule_empty").with_field("rule"),
         );
     }
-    if let Some(rule_type) = rule.rule_type {
-        if !matches!(rule_type, RuleType::All | RuleType::Routing | RuleType::Dns) {
-            return Err(
-                DomainError::new(codes::FIELD_RANGE, "error.routing_rule_type_invalid")
-                    .with_field("ruleType"),
-            );
-        }
-    }
+    // `rule_type` is a decoded `Option<RuleType>`: any present value is valid
+    // by construction. An unrecognised raw integer never reaches this type —
+    // the persistence mapping preserves it in `extra["RuleType"]` instead.
     Ok(())
 }
 
@@ -287,18 +280,20 @@ pub fn builtin_profiles() -> Vec<(RoutingProfile, Vec<RoutingRule>)> {
     out
 }
 
-/// Fresh stable id for imported rules (matches `application::new_index_id`
-/// shape: millisecond timestamp + counter + random suffix).
+/// Fresh stable id for imported rules: nanosecond timestamp + process id +
+/// process-local counter (`r<time>-<pid>-<seq>`). The pid segment keeps ids
+/// unique across processes (and restarts) sharing one millisecond, which the
+/// old counter-alone suffix could not.
 pub fn new_rule_id() -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let millis = SystemTime::now()
+    let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
+        .map(|d| d.as_nanos() as u64)
         .unwrap_or(0);
     let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("r{millis:x}-{seq:04x}")
+    format!("r{nanos:x}-{:x}-{seq:04x}", std::process::id())
 }
 
 /// Remarks reference for an outbound tag (REF-ENT-001).
@@ -307,4 +302,47 @@ pub fn outbound_reference(raw: &str) -> Option<ReferenceExpr> {
         return None;
     }
     Some(ReferenceExpr::remarks(raw, ReferenceSource::Imported))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn inbound_tag_only_rule_is_rejected_like_upstream() {
+        // S1-09: upstream `hasRule` ignores `inbound_tag`; a rule with only
+        // an inbound tag must not validate.
+        let rule = RoutingRule {
+            inbound_tag: Some(vec!["socks".into()]),
+            ..Default::default()
+        };
+        assert_eq!(
+            validate_rule(&rule).unwrap_err().code,
+            codes::FIELD_REQUIRED
+        );
+        // Sanity: a rule with a real criterion still passes.
+        let ok = RoutingRule {
+            port: Some("443".into()),
+            inbound_tag: Some(vec!["socks".into()]),
+            ..Default::default()
+        };
+        assert!(validate_rule(&ok).is_ok());
+    }
+
+    #[test]
+    fn rule_ids_are_unique_and_carry_process_entropy() {
+        // S1-16: the id must differ across rapid successive calls and must
+        // contain a process-scoped segment (pid), so two processes in the
+        // same millisecond cannot mint the same id.
+        let mut seen = HashSet::new();
+        for _ in 0..1000 {
+            assert!(seen.insert(new_rule_id()));
+        }
+        assert_eq!(
+            new_rule_id().chars().filter(|c| *c == '-').count(),
+            2,
+            "id must be r<time>-<pid>-<seq>"
+        );
+    }
 }

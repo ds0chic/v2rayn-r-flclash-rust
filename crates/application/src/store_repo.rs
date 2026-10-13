@@ -18,10 +18,12 @@ use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc};
 
+use crate::dns::DnsRepository;
 use crate::repository::{
     InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage, ProfileRepository,
     ProfileSort, SubRepository,
 };
+use crate::routing::RoutingRepository;
 use crate::subs::SubItem;
 
 /// Columns retained verbatim in `Profile::extra` (superseded by the JSON
@@ -1005,6 +1007,51 @@ pub enum SubStore {
     Sqlite(SqliteSubRepository),
 }
 
+impl SubStore {
+    /// Restore exactly the subscription rows touched by a mutation. Mirrors
+    /// [`ProfileStore::restore_profiles`]: the SQLite path applies the
+    /// compensation as one transaction so a failed config write cannot leave
+    /// a partially restored row set.
+    pub fn restore_subs(
+        &mut self,
+        snapshot: &[(String, Option<SubItem>)],
+    ) -> Result<(), DomainError> {
+        match self {
+            SubStore::Memory(repo) => {
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo.upsert(item.clone())?,
+                        None => {
+                            repo.remove(id)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            SubStore::Sqlite(repo) => {
+                let tx = repo.store.begin().map_err(persistence_storage_error)?;
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo
+                            .store
+                            .upsert_row(&tx, &item.to_row())
+                            .map_err(persistence_storage_error)?,
+                        None => {
+                            tx.execute(
+                                "DELETE FROM \"SubItem\" WHERE \"Id\" = ?1",
+                                rusqlite::params![id],
+                            )
+                            .map_err(|error| persistence_storage_error(error.into()))?;
+                        }
+                    }
+                }
+                tx.commit()
+                    .map_err(|error| persistence_storage_error(error.into()))
+            }
+        }
+    }
+}
+
 impl SubRepository for SubStore {
     fn list(&self) -> Result<Vec<SubItem>, DomainError> {
         match self {
@@ -1048,6 +1095,49 @@ pub enum RoutingStore {
     Sqlite(SqliteRoutingRepository),
 }
 
+impl RoutingStore {
+    /// Restore exactly the routing rows touched by a mutation. Mirrors
+    /// [`ProfileStore::restore_profiles`].
+    pub fn restore_routing(
+        &mut self,
+        snapshot: &[(String, Option<domain::RoutingProfile>)],
+    ) -> Result<(), DomainError> {
+        match self {
+            RoutingStore::Memory(repo) => {
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo.upsert(item.clone())?,
+                        None => {
+                            repo.remove(id)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            RoutingStore::Sqlite(repo) => {
+                let tx = repo.store.begin().map_err(persistence_storage_error)?;
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo
+                            .store
+                            .upsert_row(&tx, &crate::routing::routing_to_row(item))
+                            .map_err(persistence_storage_error)?,
+                        None => {
+                            tx.execute(
+                                "DELETE FROM \"RoutingItem\" WHERE \"Id\" = ?1",
+                                rusqlite::params![id],
+                            )
+                            .map_err(|error| persistence_storage_error(error.into()))?;
+                        }
+                    }
+                }
+                tx.commit()
+                    .map_err(|error| persistence_storage_error(error.into()))
+            }
+        }
+    }
+}
+
 impl crate::routing::RoutingRepository for RoutingStore {
     fn list(&self) -> Result<Vec<domain::RoutingProfile>, DomainError> {
         match self {
@@ -1089,6 +1179,49 @@ impl crate::routing::RoutingRepository for RoutingStore {
 pub enum DnsStore {
     Memory(crate::dns::InMemoryDnsRepository),
     Sqlite(SqliteDnsRepository),
+}
+
+impl DnsStore {
+    /// Restore exactly the DNS rows touched by a mutation. Mirrors
+    /// [`ProfileStore::restore_profiles`].
+    pub fn restore_dns(
+        &mut self,
+        snapshot: &[(String, Option<domain::DnsProfile>)],
+    ) -> Result<(), DomainError> {
+        match self {
+            DnsStore::Memory(repo) => {
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo.upsert(item.clone())?,
+                        None => {
+                            repo.remove(id)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            DnsStore::Sqlite(repo) => {
+                let tx = repo.store.begin().map_err(persistence_storage_error)?;
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo
+                            .store
+                            .upsert_row(&tx, &crate::dns::dns_to_row(item))
+                            .map_err(persistence_storage_error)?,
+                        None => {
+                            tx.execute(
+                                "DELETE FROM \"DNSItem\" WHERE \"Id\" = ?1",
+                                rusqlite::params![id],
+                            )
+                            .map_err(|error| persistence_storage_error(error.into()))?;
+                        }
+                    }
+                }
+                tx.commit()
+                    .map_err(|error| persistence_storage_error(error.into()))
+            }
+        }
+    }
 }
 
 impl crate::dns::DnsRepository for DnsStore {

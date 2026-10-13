@@ -55,6 +55,11 @@ class RoutingSettingWindow extends ConsumerStatefulWidget {
 }
 
 class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
+  // U-B1 default fold (UX1-10): the bulk builtin-rules import hides behind an
+  // "高级" toggle so newcomers don't overwrite rules by accident. The entry
+  // keeps its key and action; only its default visibility changes.
+  bool _showAdvanced = false;
+
   @override
   void initState() {
     super.initState();
@@ -86,7 +91,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             // Upstream ToolBarTray (RoutingSettingWindow.xaml:27):
-            // 添加规则集 / 一键导入规则集 sit above the strategy rows.
+            // 添加规则集 stays visible; 一键导入规则集 folds into 高级.
             Row(
               children: <Widget>[
                 TextButton.icon(
@@ -96,12 +101,19 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                   label: Text(context.tr('menuRoutingAdvancedAdd')),
                 ),
                 const SizedBox(width: 4),
-                TextButton.icon(
-                  key: const ValueKey('routing-import-builtin'),
-                  onPressed: _importBuiltinRules,
-                  icon: Icon(AppTokens.icon('download'), size: 16),
-                  label: Text(context.tr('menuRoutingAdvancedImportRules')),
+                TextButton(
+                  key: const ValueKey('routing-advanced-toggle'),
+                  onPressed: () =>
+                      setState(() => _showAdvanced = !_showAdvanced),
+                  child: Text(_showAdvanced ? '收起高级' : '高级…'),
                 ),
+                if (_showAdvanced)
+                  TextButton.icon(
+                    key: const ValueKey('routing-import-builtin'),
+                    onPressed: _importBuiltinRules,
+                    icon: Icon(AppTokens.icon('download'), size: 16),
+                    label: Text(context.tr('menuRoutingAdvancedImportRules')),
+                  ),
               ],
             ),
             const Divider(height: 1),

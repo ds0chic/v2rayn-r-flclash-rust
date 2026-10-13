@@ -133,6 +133,31 @@ class StatusBarView extends ConsumerWidget {
       );
     }
 
+    // U-B1 group captions (UX1-10): the three adjacent selectors read as
+    // 代理 (host proxy) / 模式 (routing mode) / 方案 (routing scheme). Tiny
+    // muted text, never interactive; full control names stay in tooltips.
+    Widget labeledSelector({
+      required String labelText,
+      required String labelKey,
+      required Widget selector,
+    }) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            labelText,
+            key: ValueKey<String>(labelKey),
+            style: TextStyle(
+              fontSize: AppTokens.fontSizeTiny,
+              color: context.semantics.muted,
+            ),
+          ),
+          const SizedBox(width: 3),
+          selector,
+        ],
+      );
+    }
+
     // F-ROUTING-001: Rule / Global / Direct mode switch (real backend switch
     // through the routing controller). It stays in row A between the two
     // upstream combos, so the R4-06 selector order (sysproxy, mode, routing)
@@ -192,67 +217,81 @@ class StatusBarView extends ConsumerWidget {
       // F-SYSPROXY-001 / ACT-STAT-001: the four system-proxy modes, applied
       // through the real platform bridge. State is read back from the backend,
       // never fabricated from the click.
-      cappedSelector(
-        maxWidth: AppTokens.statusSysProxyMaxWidth,
-        child: PopupMenuButton<SysProxyMode>(
-          key: const ValueKey('system-proxy-selector'),
-          tooltip: context.tr('menuSystemproxy'),
-          onSelected: (mode) =>
-              _onSysProxySelected(context, ref, platformController, mode),
-          itemBuilder: (context) => <PopupMenuEntry<SysProxyMode>>[
-            for (final mode in SysProxyMode.values)
-              PopupMenuItem<SysProxyMode>(
-                value: mode,
-                child: Text(
-                  platform.desiredMode == mode ? '✓ ${mode.label}' : mode.label,
-                  style: const TextStyle(fontSize: AppTokens.fontSize),
+      labeledSelector(
+        labelText: '代理',
+        labelKey: 'label-sysproxy',
+        selector: cappedSelector(
+          maxWidth: AppTokens.statusSysProxyMaxWidth,
+          child: PopupMenuButton<SysProxyMode>(
+            key: const ValueKey('system-proxy-selector'),
+            tooltip: context.tr('menuSystemproxy'),
+            onSelected: (mode) =>
+                _onSysProxySelected(context, ref, platformController, mode),
+            itemBuilder: (context) => <PopupMenuEntry<SysProxyMode>>[
+              for (final mode in SysProxyMode.values)
+                PopupMenuItem<SysProxyMode>(
+                  value: mode,
+                  child: Text(
+                    platform.desiredMode == mode
+                        ? '✓ ${mode.label}'
+                        : mode.label,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
+            ],
+            child: _SelectorFace(
+              // SP-19: value only (upstream combo shows the selected item, the
+              // hint names the control). The full "control: value (state)" string
+              // stays in the tooltip and the menu lists every mode.
+              child: _statusText(
+                '${platform.desiredMode.label} (${platform.stateLabel})',
+                key: const ValueKey('status-sysproxy'),
               ),
-          ],
-          child: _SelectorFace(
-            // SP-19: value only (upstream combo shows the selected item, the
-            // hint names the control). The full "control: value (state)" string
-            // stays in the tooltip and the menu lists every mode.
-            child: _statusText(
-              '${platform.desiredMode.label} (${platform.stateLabel})',
-              key: const ValueKey('status-sysproxy'),
             ),
           ),
         ),
       ),
       const SizedBox(width: 6),
-      ruleModeSelector,
+      labeledSelector(
+        labelText: '模式',
+        labelKey: 'label-rule-mode',
+        selector: ruleModeSelector,
+      ),
       const SizedBox(width: 6),
       // Active routing scheme (upstream cmbRoutings2): switch default.
-      cappedSelector(
-        maxWidth: AppTokens.statusRoutingMaxWidth,
-        child: PopupMenuButton<String>(
-          key: const ValueKey('routing-selector'),
-          tooltip: context.tr('menuRouting'),
-          onSelected: routingController.setDefaultAndReload,
-          itemBuilder: (context) => <PopupMenuEntry<String>>[
-            if (routing.items.isEmpty)
-              PopupMenuItem<String>(
-                value: '',
-                enabled: false,
-                child: Text(
-                  context.tr('statusRoutingEmpty'),
-                  style: const TextStyle(fontSize: AppTokens.fontSize),
+      labeledSelector(
+        labelText: '方案',
+        labelKey: 'label-routing-scheme',
+        selector: cappedSelector(
+          maxWidth: AppTokens.statusRoutingMaxWidth,
+          child: PopupMenuButton<String>(
+            key: const ValueKey('routing-selector'),
+            tooltip: context.tr('menuRouting'),
+            onSelected: routingController.setDefaultAndReload,
+            itemBuilder: (context) => <PopupMenuEntry<String>>[
+              if (routing.items.isEmpty)
+                PopupMenuItem<String>(
+                  value: '',
+                  enabled: false,
+                  child: Text(
+                    context.tr('statusRoutingEmpty'),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
-              ),
-            for (final item in routing.items)
-              PopupMenuItem<String>(
-                value: item.id,
-                child: Text(
-                  item.isActive ? '✓ ${item.remarks}' : item.remarks,
-                  style: const TextStyle(fontSize: AppTokens.fontSize),
+              for (final item in routing.items)
+                PopupMenuItem<String>(
+                  value: item.id,
+                  child: Text(
+                    item.isActive ? '✓ ${item.remarks}' : item.remarks,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
-              ),
-          ],
-          child: _SelectorFace(
-            // SP-19: remarks only (upstream DisplayMemberPath="Remarks"); the
-            // control name stays in the tooltip, over-long names ellipsize.
-            child: _statusText(_activeSchemeLabel(routing)),
+            ],
+            child: _SelectorFace(
+              // SP-19: remarks only (upstream DisplayMemberPath="Remarks"); the
+              // control name stays in the tooltip, over-long names ellipsize.
+              child: _statusText(_activeSchemeLabel(routing)),
+            ),
           ),
         ),
       ),

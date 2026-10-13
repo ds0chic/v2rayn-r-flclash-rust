@@ -345,7 +345,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       // error shown and never reports success or applies a stale document.
       FilledButton(
         key: const ValueKey('settings-save'),
-        onPressed: () => _save(applyAfter: true),
+        onPressed: () => _save(),
         child: Text(context.tr('TbConfirm')),
       ),
       TextButton(
@@ -489,7 +489,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     return from >= 0 && to <= 10000 && from <= to;
   }
 
-  Future<void> _save({bool applyAfter = false}) async {
+  Future<void> _save() async {
     final localError = _validateDraft();
     if (localError != null) {
       setState(() => _error = localError);
@@ -531,11 +531,9 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     // In-process path: the controller persists the draft, syncs autostart and
     // awaits the real plan apply. The outcome distinguishes "已保存" from
     // "已应用" so an apply failure stays visible instead of a fake success.
-    final outcome = applyAfter
-        ? await ref
-              .read(settingsControllerProvider.notifier)
-              .saveAndApply(_draft, expectedRevision: _draftRevision)
-        : _saveOnly();
+    final outcome = await ref
+        .read(settingsControllerProvider.notifier)
+        .saveAndApply(_draft, expectedRevision: _draftRevision);
     if (!mounted) return;
     if (outcome.ok) {
       Navigator.of(context).pop();
@@ -545,23 +543,6 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         _rollbackClashUiDraft();
       });
     }
-  }
-
-  /// Legacy save-only path (used when [applyAfter] is false): persists the
-  /// draft and reports the restart hint without driving the runtime apply.
-  SettingsApplyOutcome _saveOnly() {
-    final result = ref
-        .read(settingsControllerProvider.notifier)
-        .saveDocument(_draft);
-    return SettingsApplyOutcome(
-      ok: result.ok,
-      saved: result.ok,
-      applied: false,
-      message: result.ok
-          ? null
-          : (result.error?.messageKey ?? 'error.settings_save_failed'),
-      statusKey: result.ok ? 'settings.saved' : null,
-    );
   }
 
   // -- helpers -----------------------------------------------------------

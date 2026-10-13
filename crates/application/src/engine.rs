@@ -240,6 +240,55 @@ pub struct AppEngine {
     /// only the rotation policy; the enabled flag is derived live from the
     /// canonical settings, so a rolled-back save can never desync it.
     app_log: Arc<Mutex<AppLogService>>,
+    /// Process-private staging directory for Custom/Outbound payloads on
+    /// engines without a data directory (S4b-06). The name is unique per
+    /// engine (never the content-predictable shared temp file), and the
+    /// directory is removed when the last engine clone drops. Cloning shares
+    /// it like all other state.
+    import_tmp: Option<Arc<PrivateImportDir>>,
+}
+
+/// Process-private import staging directory. Removed on drop (best effort),
+/// which runs when the last `AppEngine` clone drops, so staged files can
+/// never outlive the engine that reads them yet stay readable while any
+/// clone is alive.
+struct PrivateImportDir {
+    dir: PathBuf,
+}
+
+impl Drop for PrivateImportDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+impl AppEngine {
+    /// Create this engine's private staging directory (S4b-06). Unique per
+    /// engine via pid + time + a process-wide counter; `std`-only (no new
+    /// dependency). `None` when the system temp directory is unusable — the
+    /// staging write then fails with a storage error instead of falling back
+    /// to a predictable shared-temp file.
+    fn make_private_import_dir() -> Option<Arc<PrivateImportDir>> {
+        static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let seq = SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!(
+            "v2rayn-r-import-{}-{nanos:x}-{seq:x}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).ok()?;
+        Some(Arc::new(PrivateImportDir { dir }))
+    }
+
+    /// This engine's private staging directory, ensured to exist.
+    fn private_import_dir(&self) -> Option<PathBuf> {
+        let dir = self.import_tmp.as_ref()?.dir.clone();
+        std::fs::create_dir_all(&dir).ok()?;
+        Some(dir)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -430,6 +479,7 @@ impl AppEngine {
             import_commits: Arc::new(Mutex::new(HashMap::new())),
             import_fault: Arc::new(AtomicBool::new(false)),
             app_log: Arc::new(Mutex::new(AppLogService::new())),
+            import_tmp: Self::make_private_import_dir(),
         };
         engine.ensure_builtin_routing_dns();
         engine
@@ -524,6 +574,7 @@ impl AppEngine {
             import_commits: Arc::new(Mutex::new(HashMap::new())),
             import_fault: Arc::new(AtomicBool::new(false)),
             app_log: Arc::new(Mutex::new(AppLogService::new())),
+            import_tmp: Self::make_private_import_dir(),
         };
         engine.ensure_builtin_routing_dns();
         // SP-05: reload the frozen applied history and the fact counters so an
@@ -637,6 +688,61 @@ impl AppEngine {
             }
         }
         cause
+    }
+
+    /// Delete `<data>/config/import-*` files orphaned by removed
+    /// Custom/Outbound rows (S4b-03, upstream `RemoveServersViaSubid`
+    /// parity for the file half).
+    ///
+    /// Runs only after a successful persist: a rolled-back delete keeps its
+    /// files because its rows are back. A file is deleted only when no
+    /// remaining row references its address (shared content survives a
+    /// partial delete) and only when the address resolves, confined, to a
+    /// bare `import-*` name in the config directory (see
+    /// [`Self::confined_custom_file`]). Delete failures are logged with the
+    /// filename only, never fatal.
+    fn cleanup_orphaned_import_files(&self, removed: &[(String, Profile)]) {
+        if removed.is_empty() || self.data_dir().is_none() {
+            return;
+        }
+        let referenced: Vec<String> = match self.query_profiles(
+            ProfileFilter::default(),
+            ProfileSort::IndexId,
+            PageRequest {
+                cursor: 0,
+                page_size: u32::MAX,
+            },
+        ) {
+            Ok(page) => page.items.into_iter().map(|p| p.address).collect(),
+            Err(_) => return,
+        };
+        for (_, old) in removed {
+            if !matches!(
+                old.config_type,
+                ConfigType::Custom | ConfigType::Outbound
+            ) {
+                continue;
+            }
+            if old.address.trim().is_empty() || referenced.contains(&old.address) {
+                continue;
+            }
+            let Some(path) = self.confined_custom_file(&old.address) else {
+                continue;
+            };
+            let is_staged = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("import-"));
+            if !is_staged {
+                continue;
+            }
+            if std::fs::remove_file(&path).is_err() {
+                let _ = self.write_app_log(&format!(
+                    "staged import file not cleaned: {}",
+                    Self::custom_file_label(&old.address)
+                ));
+            }
+        }
     }
 
     /// Roll a failed regional preset back to its entry snapshots: DNS rows
@@ -1126,6 +1232,15 @@ impl AppEngine {
                 return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
             }
             *revisions = next_revision;
+            // Only now that the delete is durable: drop orphaned staged
+            // import files (S4b-03). The repo guard must be released first;
+            // the cleanup re-locks it for the reference check.
+            let removed_rows: Vec<(String, Profile)> = snapshot
+                .into_iter()
+                .filter_map(|(id, old)| old.map(|profile| (id, profile)))
+                .collect();
+            drop(repo);
+            self.cleanup_orphaned_import_files(&removed_rows);
         }
         Ok(removed)
     }
@@ -1231,6 +1346,13 @@ impl AppEngine {
 
     /// `ConfigHandler.DedupServerList`: collapse transport-identical,
     /// non-complex profiles of `subid`. Returns `(total, kept, removed_ids)`.
+    /// Plan a deduplication of one subscription's nodes (pure computation).
+    ///
+    /// This deliberately deletes nothing: it reports `(total, kept,
+    /// removed_ids)` so a caller can confirm before deleting. Upstream
+    /// `ConfigHandler.DedupServerList` deletes inside the same action; here
+    /// deletion is the explicit follow-up
+    /// [`Self::apply_deduplicate_profiles`].
     pub fn deduplicate_profiles(
         &self,
         subid: &str,
@@ -1249,6 +1371,65 @@ impl AppEngine {
         )?;
         let (kept, removed_ids) = crate::speedtest::deduplicate_profiles(&page.items, keep_older);
         Ok((page.items.len(), kept, removed_ids))
+    }
+
+    /// Delete the duplicate nodes of one subscription (upstream
+    /// `ConfigHandler.DedupServerList` parity for the delete half).
+    ///
+    /// `subid` must name one subscription: upstream only ever dedups the
+    /// current group, so an empty id is rejected instead of matching every
+    /// ungrouped manual node. The delete is atomic under the H10 pattern: a
+    /// persist failure restores the removed rows and revision. Returns how
+    /// many rows were removed.
+    pub fn apply_deduplicate_profiles(
+        &self,
+        subid: &str,
+        keep_older: bool,
+    ) -> Result<u64, DomainError> {
+        if subid.trim().is_empty() {
+            return Err(
+                DomainError::new(domain::codes::FIELD_REQUIRED, "error.subid_required")
+                    .with_field("subid"),
+            );
+        }
+        self.guard_storage()?;
+        let (_, _, removed_ids) = self.deduplicate_profiles(subid, keep_older)?;
+        if removed_ids.is_empty() {
+            return Ok(0);
+        }
+        let mut revisions = self
+            .revisions
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut repo = self
+            .repo
+            .lock()
+            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+        let mut snapshot = Vec::new();
+        for id in &removed_ids {
+            if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
+                snapshot.push((id.clone(), repo.get(id)?));
+            }
+        }
+        let mut removed = 0u64;
+        for id in &removed_ids {
+            match repo.remove(id) {
+                Ok(true) => removed += 1,
+                Ok(false) => {}
+                Err(error) => {
+                    return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+                }
+            }
+        }
+        if removed > 0 {
+            let mut next_revision = RevisionStore::with_desired(revisions.desired());
+            next_revision.bump();
+            if let Err(error) = self.persist_config(&next_revision) {
+                return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+            }
+            *revisions = next_revision;
+        }
+        Ok(removed)
     }
 
     /// `ConfigHandler.MoveServer`/`SortServers`: rewrite the manual `Sort`
@@ -1296,21 +1477,92 @@ impl AppEngine {
         Ok(new_name)
     }
 
-    /// Resolve a custom/outbound profile's config text for codegen (RT-08):
-    /// inline `customConfigText` first, then a file referenced by `address`
-    /// (absolute path, or a stored name under `<data>/config/`).
-    fn custom_file_text(&self, profile: &Profile) -> Option<String> {
-        let address = profile.address.trim();
+    /// Resolve a stored custom-file reference into its owning directory.
+    ///
+    /// Read/write symmetry (S4a-05): `import_custom_file` and SP-14 staging
+    /// only ever produce `<data>/config/<name>` (persistent engines) or the
+    /// private staging directory (datadir-less engines, S4b-06). Anything
+    /// else in `Profile.address` — absolute paths elsewhere, `..` escapes —
+    /// can only arrive via untrusted input (subscriptions/imports), so both
+    /// sides are canonicalized (resolving symlinks) and the read is refused
+    /// unless the result stays inside the canonical base. `None` means "treat
+    /// as missing". Upstream (`Utils.GetConfigPath` + `CoreConfigHandler`)
+    /// likewise scopes `Address` to its `guiConfigs` directory but never
+    /// checks the escape, so this confinement is a hardening over upstream.
+    fn confined_custom_file(&self, address: &str) -> Option<PathBuf> {
+        let address = address.trim();
         if address.is_empty() {
             return None;
         }
+        let base = if let Some(data_dir) = self.data_dir() {
+            data_dir.join("config")
+        } else {
+            self.import_tmp.as_ref()?.dir.clone()
+        };
+        let base = base.canonicalize().ok()?;
         let path = std::path::Path::new(address);
-        let resolved = if path.is_absolute() {
+        let candidate = if path.is_absolute() {
             path.to_path_buf()
         } else {
-            self.data_dir()?.join("config").join(path)
+            base.join(path)
         };
-        std::fs::read_to_string(resolved).ok()
+        let resolved = candidate.canonicalize().ok()?;
+        resolved.starts_with(&base).then_some(resolved)
+    }
+
+    /// File name for diagnostics (desensitized: never a full path or content).
+    fn custom_file_label(address: &str) -> String {
+        let name = std::path::Path::new(address.trim())
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .filter(|n| !n.is_empty())
+            .unwrap_or_else(|| "(unnamed)".to_string());
+        // Cap length so a hostile address cannot flood the log.
+        name.chars().take(64).collect()
+    }
+
+    /// Resolve a custom/outbound profile's config text for codegen (RT-08):
+    /// inline `customConfigText` first, then a file referenced by `address`
+    /// confined to the owning directory (see [`Self::confined_custom_file`]).
+    /// The second element carries a filename-only diagnostic when the file is
+    /// refused or unreadable; reads never fail silently.
+    fn custom_file_text_full(
+        &self,
+        profile: &Profile,
+    ) -> (Option<String>, Option<config_codegen::Diagnostic>) {
+        if let Some(inline) = crate::codegen::custom_config_text(profile) {
+            return (Some(inline), None);
+        }
+        let address = profile.address.trim();
+        if address.is_empty() {
+            return (None, None);
+        }
+        let label = Self::custom_file_label(address);
+        let Some(path) = self.confined_custom_file(address) else {
+            let _ = self.write_app_log(&format!("custom config file refused: {label}"));
+            return (
+                None,
+                Some(config_codegen::Diagnostic::warning(
+                    "custom-file-out-of-bounds",
+                    format!("custom config reference '{label}' is outside the config directory"),
+                    Some("address"),
+                )),
+            );
+        };
+        match std::fs::read_to_string(&path) {
+            Ok(text) => (Some(text), None),
+            Err(_) => {
+                let _ = self.write_app_log(&format!("custom config file unreadable: {label}"));
+                (
+                    None,
+                    Some(config_codegen::Diagnostic::warning(
+                        "custom-file-unreadable",
+                        format!("custom config file '{label}' could not be read"),
+                        Some("address"),
+                    )),
+                )
+            }
+        }
     }
 
     /// Copy a set of profiles, assigning fresh stable ids and a "(副本)" suffix.
@@ -2489,6 +2741,31 @@ impl AppEngine {
         }
     }
 
+    /// Mutation-id shape guard (S1-06 engine half): journal/receipt file
+    /// names derive from this id, so it must be a short ASCII token, never a
+    /// path. Mirrors the persistence-side rejection.
+    fn validate_mutation_id(mutation_id: &str) -> Result<(), DomainError> {
+        let valid = !mutation_id.is_empty()
+            && mutation_id.len() <= 128
+            && mutation_id
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+            && !mutation_id.contains("..")
+            && !mutation_id.contains(['/', '\\']);
+        if valid {
+            Ok(())
+        } else {
+            Err(DomainError::new(
+                domain::codes::INVALID_ARGUMENT,
+                "error.invalid_mutation",
+            )
+            .with_detail(
+                "mutation_id must be 1..=128 chars of [A-Za-z0-9-_.], \
+                 with no path separators or '..'",
+            ))
+        }
+    }
+
     fn commit_fault(&self) -> CommitTestFault {
         self.commit_fault
             .lock()
@@ -2553,17 +2830,12 @@ impl AppEngine {
             Ok(guard) => guard,
             Err(_) => return blocked_receipt(mutation_id, dataset_epoch),
         };
-        if mutation_id.trim().is_empty() {
+        if let Err(error) = Self::validate_mutation_id(mutation_id) {
             return rejected_receipt(
                 mutation_id,
                 dataset_epoch,
                 "mutation",
-                contract_error(
-                    domain::codes::INVALID_ARGUMENT,
-                    "error.invalid_mutation",
-                    Some("mutation_id must not be empty".to_string()),
-                    false,
-                ),
+                domain_to_contract(&error),
             );
         }
         if dataset_epoch != self.dataset_epoch() {
@@ -3655,7 +3927,21 @@ impl AppEngine {
                 // Record the core + statistics/API ports of the accepted plan
                 // so the monitor pipeline can poll the applied session without
                 // re-deriving facts from a later desired plan.
-                let facts = self.applied_facts_for(&plan);
+                let target_profile = self.profile_by_id(target_id).ok().flatten();
+                let fallback_active;
+                let target_ref = match target_profile.as_ref() {
+                    Some(profile) => profile,
+                    None => {
+                        // The target row vanished mid-apply; fall back to the
+                        // legacy desired-default read rather than inventing a type.
+                        fallback_active = self
+                            .active_profile()
+                            .and_then(|id| self.profile_by_id(&id).ok().flatten())
+                            .unwrap_or_default();
+                        &fallback_active
+                    }
+                };
+                let facts = self.applied_facts_for(&plan, target_ref);
                 if let Ok(mut guard) = self.apply_facts.lock() {
                     *guard = Some(facts);
                 }
@@ -3665,10 +3951,14 @@ impl AppEngine {
                 }
                 // Persist the frozen history so an independent reopen reports
                 // the same applied-vs-actual truth. A persist failure keeps
-                // the in-memory fact (still correct for this process); the
-                // reopen path then treats history as absent, never as B.
-                if let Ok(revisions) = self.revisions.lock() {
-                    let _ = self.persist_config(&revisions);
+                // the in-memory fact (still correct for this process) but is
+                // reported: the caller sees "applied but not persisted" and
+                // the reopen path treats history as absent, never as B.
+                {
+                    let revisions = self.revisions.lock().map_err(|_| {
+                        DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
+                    })?;
+                    self.persist_config(&revisions)?;
                 }
                 // The correlation the UI uses is the job id; the runtime's
                 // operation id is embedded in the plan correlation.
@@ -3734,8 +4024,14 @@ impl AppEngine {
             self.set_local_proxy_port(None);
             self.actual_generation.fetch_add(1, Ordering::AcqRel);
         }
-        if let Ok(revisions) = self.revisions.lock() {
-            let _ = self.persist_config(&revisions);
+        // The withdraw happened; a persist failure is still reported so the
+        // caller knows the frozen history was not durably updated.
+        {
+            let revisions = self
+                .revisions
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            self.persist_config(&revisions)?;
         }
         Ok(())
     }
@@ -4077,7 +4373,7 @@ impl AppEngine {
     /// the emitted JSON (RR-07 / R3-07). A Custom config that declares no API
     /// gets zero endpoints so the poller idles instead of probing the default
     /// statistics port.
-    fn applied_facts_for(&self, plan: &RuntimePlan) -> AppliedFacts {
+    fn applied_facts_for(&self, plan: &RuntimePlan, target: &Profile) -> AppliedFacts {
         let opts = self.runtime_codegen_options();
         let core = plan.target.core_type;
         let mut facts = AppliedFacts {
@@ -4088,11 +4384,10 @@ impl AppEngine {
             api_kind: None,
             api_secret: None,
         };
-        let is_custom = self
-            .active_profile()
-            .and_then(|id| self.profile_by_id(&id).ok().flatten())
-            .map(|profile| profile.config_type == ConfigType::Custom)
-            .unwrap_or(false);
+        // The facts describe the accepted plan's target, never the desired
+        // default: an explicit `applyTarget(B)` issued while the default is A
+        // must report B's ports/scheme/secret (S4b-02).
+        let is_custom = target.config_type == ConfigType::Custom;
         if is_custom {
             // Never fall back to a default statistics API for a Custom config:
             // the ports exist only if the config declares them.
@@ -4174,6 +4469,7 @@ impl AppEngine {
 
     /// `list_sub_items` use case, ordered by `Sort`.
     pub fn list_sub_items(&self) -> Result<Vec<SubItem>, DomainError> {
+        self.guard_storage()?;
         self.subs
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -4182,6 +4478,7 @@ impl AppEngine {
 
     /// One subscription by id.
     pub fn get_sub_item(&self, id: &str) -> Result<Option<SubItem>, DomainError> {
+        self.guard_storage()?;
         self.subs
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -4193,6 +4490,7 @@ impl AppEngine {
     /// A new item without an id is assigned a stable id and the next `Sort`.
     /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn save_sub_item(&self, mut item: SubItem) -> Result<SubItem, DomainError> {
+        self.guard_storage()?;
         item.validate()?;
         let mut revisions = self
             .revisions
@@ -4237,14 +4535,16 @@ impl AppEngine {
     /// also deletes every `ProfileItem` with that `subid`
     /// (`RemoveServersViaSubid(config, id, isSub: false)`). Profile rows are
     /// removed before the subscription row so a mid-way failure leaves the
-    /// subscription intact rather than orphaning its nodes. (Upstream also
-    /// deletes on-disk custom-config files for Custom/Outbound rows; this
-    /// engine keeps those contents inline, so there is no file to delete.)
+    /// subscription intact rather than orphaning its nodes. Staged
+    /// Custom/Outbound import files of the removed rows are deleted once the
+    /// delete is durable, when no remaining row references them (upstream
+    /// `RemoveServersViaSubid` parity for the file half, S4b-03).
     ///
     /// A persist failure restores both the subscription rows and the dependent
     /// profile rows (H10 pattern), so a failed delete never resurrects half
     /// its data on the next reopen.
     pub fn delete_sub_items(&self, ids: &[String]) -> Result<u64, DomainError> {
+        self.guard_storage()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -4347,6 +4647,13 @@ impl AppEngine {
                 return Err(error);
             }
             *revisions = next_revision;
+            // Durable now: drop orphaned staged import files of the removed
+            // dependent nodes (S4b-03). No store guard is held here.
+            let removed_rows: Vec<(String, Profile)> = profile_snapshot
+                .into_iter()
+                .filter_map(|(id, old)| old.map(|profile| (id, profile)))
+                .collect();
+            self.cleanup_orphaned_import_files(&removed_rows);
         }
         Ok(removed)
     }
@@ -4365,6 +4672,7 @@ impl AppEngine {
     /// A persist failure restores the previous order and revision (H10
     /// pattern).
     pub fn reorder_sub_items(&self, ids: &[String]) -> Result<(), DomainError> {
+        self.guard_storage()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -4444,7 +4752,19 @@ impl AppEngine {
         let epoch = self.restore_epoch();
         let targets = match self.target_subs(&request) {
             Ok(items) => items,
-            Err(_) => return report,
+            Err(error) => {
+                // A listing failure (e.g. broken storage, now fail-closed via
+                // S4b-04) must not look like a successful empty update.
+                report.entries.push(SubUpdateEntry {
+                    sub_id: String::new(),
+                    remarks: String::new(),
+                    outcome: SubUpdateOutcome::Failed {
+                        code: error.code,
+                        message: error.message_key,
+                    },
+                });
+                return report;
+            }
         };
         for item in targets {
             if cancellation.is_cancelled() {
@@ -4569,6 +4889,7 @@ impl AppEngine {
         remove_existing: bool,
         expected_epoch: u64,
     ) -> Result<(usize, usize), DomainError> {
+        self.guard_storage()?;
         if self.restore_epoch() != expected_epoch {
             return Err(
                 DomainError::new(domain::codes::CONFLICT, "error.restore_in_progress")
@@ -4623,6 +4944,15 @@ impl AppEngine {
             return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
         }
         *revisions = next_revision;
+        // Durable now: drop staged import files of replaced-away Custom rows
+        // that no remaining row references (S4b-03). The repo guard must be
+        // released first; the cleanup re-locks it for the reference check.
+        let replaced_rows: Vec<(String, Profile)> = snapshot
+            .into_iter()
+            .filter_map(|(id, old)| old.map(|profile| (id, profile)))
+            .collect();
+        drop(repo);
+        self.cleanup_orphaned_import_files(&replaced_rows);
         Ok((added, removed))
     }
 
@@ -4703,13 +5033,20 @@ impl AppEngine {
             return Err(batch::token_mismatch_error());
         }
         let target = commit.target_group.clone().unwrap_or_default();
-        // Stage Custom/Outbound payloads before the DB transaction.
+        // Stage Custom/Outbound payloads before the DB transaction: the
+        // `<data>/config` directory when persistent, else this engine's
+        // process-private staging directory (S4b-06: never a predictable
+        // shared-temp file).
         let mut staged = commit.profiles.clone();
         let mut new_files: Vec<std::path::PathBuf> = Vec::new();
-        let config_dir = self
+        let staging_dir = self
             .data_dir()
             .map(|dir| dir.join("config"))
-            .unwrap_or_else(std::env::temp_dir);
+            .or_else(|| self.private_import_dir());
+        let Some(staging_dir) = staging_dir else {
+            return Err(DomainError::new(domain::codes::INTERNAL, "error.storage")
+                .with_detail("import commit: no staging directory for custom config"));
+        };
         for profile in staged.iter_mut() {
             if !matches!(
                 profile.config_type,
@@ -4721,20 +5058,17 @@ impl AppEngine {
                 continue;
             };
             let name = batch::staged_file_name(&raw);
-            let existed = if self.data_dir().is_some() {
-                config_dir.join(&name).exists()
+            let existed = staging_dir.join(&name).exists();
+            // Persistent engines store the bare name (resolved under
+            // `<data>/config` on read); datadir-less engines keep the
+            // private absolute path so the row still resolves.
+            let stored = if self.data_dir().is_some() {
+                name.clone()
             } else {
-                std::env::temp_dir().join(&name).exists()
+                staging_dir.join(&name).to_string_lossy().into_owned()
             };
-            let (dir, stored) = if self.data_dir().is_some() {
-                (config_dir.clone(), name.clone())
-            } else {
-                let dir = std::env::temp_dir();
-                let absolute = dir.join(&name).to_string_lossy().into_owned();
-                (dir, absolute)
-            };
-            let written = std::fs::create_dir_all(&dir).is_ok()
-                && std::fs::write(dir.join(&name), &raw).is_ok();
+            let written = std::fs::create_dir_all(&staging_dir).is_ok()
+                && std::fs::write(staging_dir.join(&name), &raw).is_ok();
             if !written {
                 for path in new_files {
                     std::fs::remove_file(path).ok();
@@ -4743,7 +5077,7 @@ impl AppEngine {
                     .with_detail("import commit: failed to stage custom config"));
             }
             if !existed {
-                new_files.push(dir.join(&name));
+                new_files.push(staging_dir.join(&name));
             }
             profile.address = stored;
         }
@@ -4804,6 +5138,7 @@ impl AppEngine {
 
     /// Overwrite only `UpdateTime` for a subscription (scheduler bookkeeping).
     pub fn touch_sub_update_time(&self, id: &str, time: i64) -> Result<(), DomainError> {
+        self.guard_storage()?;
         let mut item = self
             .get_sub_item(id)?
             .ok_or_else(|| DomainError::not_found("subscription", id))?;
@@ -4844,6 +5179,7 @@ impl AppEngine {
     /// Ordered, de-duplicated child profiles of a group/chain node: subscription
     /// matches first, then the explicit `ChildItems` order.
     pub fn group_children(&self, index_id: &str) -> Result<Vec<Profile>, DomainError> {
+        self.guard_storage()?;
         let all = self.all_profiles_map_locked()?;
         let group = all
             .get(index_id)
@@ -4893,6 +5229,7 @@ impl AppEngine {
 
     /// All full-config templates in stable order.
     pub fn list_templates(&self) -> Result<Vec<FullConfigTemplate>, DomainError> {
+        self.guard_storage()?;
         self.templates
             .lock()
             .map(|guard| guard.clone())
@@ -4920,6 +5257,7 @@ impl AppEngine {
         &self,
         item: FullConfigTemplate,
     ) -> Result<FullConfigTemplate, DomainError> {
+        self.guard_storage()?;
         crate::templates::validate(&item)?;
         let mut revisions = self
             .revisions
@@ -4960,6 +5298,7 @@ impl AppEngine {
     ///
     /// A persist failure restores the removed row and revision (H10 pattern).
     pub fn delete_template(&self, id: &str) -> Result<bool, DomainError> {
+        self.guard_storage()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -5026,13 +5365,16 @@ impl AppEngine {
             .clone();
         let profiles: Vec<Profile> = all.values().cloned().collect();
         let mut outbound_contents = std::collections::BTreeMap::new();
+        let mut file_diagnostics = Vec::new();
         for profile in &profiles {
             if matches!(
                 profile.config_type,
                 ConfigType::Custom | ConfigType::Outbound
             ) {
-                let text = crate::codegen::custom_config_text(profile)
-                    .or_else(|| self.custom_file_text(profile));
+                let (text, diagnostic) = self.custom_file_text_full(profile);
+                if let Some(diagnostic) = diagnostic {
+                    file_diagnostics.push(diagnostic);
+                }
                 if let Some(text) = text {
                     outbound_contents.insert(profile.index_id.clone(), text);
                 }
@@ -5104,6 +5446,7 @@ impl AppEngine {
         // (`CoreConfigContextBuilder.BuildSubscriptionChainNodeAsync`). The
         // synthesis stays generation-only and is never written back to storage.
         let mut warnings = Vec::new();
+        warnings.extend(file_diagnostics);
         if !active.subid.trim().is_empty() {
             let sub = self.get_sub_item(&active.subid)?;
             let (chain, chain_warnings) =
@@ -6616,6 +6959,499 @@ mod tests {
             })
             .unwrap();
         assert!(replay.ok);
+    }
+
+    // -- B03 engine state (S1-06-engine / S4a-04 / S4a-05 / S4a-08 / S4b-02 /
+    //    S4b-03 / S4b-04 / S4b-07) -------------------------------------------
+
+    #[test]
+    fn mutation_id_shape_is_rejected() {
+        use ipc_contract::stable::SettingsSaveState;
+        let engine = AppEngine::in_memory();
+        let long = "m".repeat(200);
+        let commit = |id: &str| {
+            let loaded = engine.load_settings().unwrap();
+            engine.save_settings_commit(
+                engine.dataset_epoch(),
+                loaded.revision,
+                id,
+                loaded.settings,
+            )
+        };
+        for bad in ["", "../x", "..\\x", "a/b", "a\\b", "m..m", long.as_str()] {
+            let receipt = commit(bad);
+            assert_eq!(
+                receipt.save,
+                SettingsSaveState::Rejected,
+                "mutation id {bad:?} must be rejected"
+            );
+            assert_eq!(receipt.new_revision, None);
+        }
+        let receipt = commit("m-abc_123.X-9");
+        assert_eq!(
+            receipt.save,
+            SettingsSaveState::Committed,
+            "a well-formed id must commit"
+        );
+    }
+
+    #[test]
+    fn custom_file_text_rejects_escape() {
+        let outer = tempfile::tempdir().unwrap();
+        let data = outer.path().join("data");
+        let engine =
+            AppEngine::open_with_runtime(&data, Arc::new(NullRuntimeClient::new())).unwrap();
+        std::fs::write(outer.path().join("outside.txt"), "SECRET-OUTSIDE").unwrap();
+        let config_dir = data.join("config");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(config_dir.join("ok.json"), "INSIDE-OK").unwrap();
+
+        let mut evil = synthetic_full_profile(1);
+        evil.config_type = ConfigType::Custom;
+        evil.remarks = "evil".into();
+        let (saved, _) = engine
+            .save_imported_profile(evil, DesiredRevision::ZERO)
+            .unwrap();
+        // Point the stored row at files outside <data>/config.
+        let mut escape = saved.clone();
+        escape.address = "../../outside.txt".into();
+        {
+            let mut repo = engine.repo.lock().unwrap();
+            repo.upsert(escape.clone()).unwrap();
+        }
+        let mut absolute = saved.clone();
+        absolute.index_id = "evil-absolute".into();
+        absolute.address = outer
+            .path()
+            .join("outside.txt")
+            .to_string_lossy()
+            .into_owned();
+        {
+            let mut repo = engine.repo.lock().unwrap();
+            repo.upsert(absolute.clone()).unwrap();
+        }
+        let mut inside = saved.clone();
+        inside.index_id = "ok-inside".into();
+        inside.address = "ok.json".into();
+        {
+            let mut repo = engine.repo.lock().unwrap();
+            repo.upsert(inside.clone()).unwrap();
+        }
+
+        let (input, diagnostics) = engine
+            .build_codegen_input_with_warnings(
+                &inside.index_id,
+                CoreType::Xray,
+                &crate::codegen::CodegenOptions::default(),
+            )
+            .unwrap();
+        let texts: Vec<&String> = input.custom_outbound_content.values().collect();
+        assert!(
+            !texts.iter().any(|t| t.contains("SECRET-OUTSIDE")),
+            "out-of-bounds content must never reach codegen input"
+        );
+        assert!(
+            texts.iter().any(|t| t.contains("INSIDE-OK")),
+            "in-bounds files must still resolve"
+        );
+        assert!(
+            diagnostics.iter().any(|d| d.message.contains("outside.txt")
+                && !d.message.contains("SECRET")),
+            "escape attempts must be diagnosed by filename only, got {diagnostics:?}"
+        );
+    }
+
+    #[test]
+    fn applied_facts_use_plan_target_not_desired() {
+        let runtime = std::sync::Arc::new(NullRuntimeClient::new());
+        let engine = AppEngine::with_runtime(runtime.clone());
+        let ordinary = synthetic_full_profile(2);
+        let mut custom = synthetic_full_profile(1);
+        custom.config_type = ConfigType::Custom;
+        custom.core_type = Some(CoreType::Xray);
+        custom.address = "custom.json".into();
+        custom.proto_extra.extra.insert(
+            crate::codegen::CUSTOM_CONFIG_KEY.to_string(),
+            serde_json::json!(
+                r#"{"inbounds":[{"port":11950,"protocol":"socks"}],"metrics":{"listen":"127.0.0.1:11955"},"outbounds":[{"protocol":"freedom"}]}"#
+            ),
+        );
+        engine.seed(vec![ordinary.clone(), custom.clone()]);
+        // The desired default stays an ordinary node; the Custom node is
+        // applied through the explicit-target entry point.
+        engine.set_active(Some(ordinary.index_id.clone())).unwrap();
+        let revision = engine.desired_revision();
+        let plan = engine
+            .build_runtime_plan(&custom.index_id, revision)
+            .unwrap();
+        engine
+            .apply_runtime_for_target(plan, &custom.index_id, DesiredRevision::new(revision))
+            .unwrap();
+        runtime.mark_running_with("s-c", vec![11950], AppliedRevision::new(revision));
+        engine.snapshot().unwrap();
+
+        let session = engine.monitor_session().expect("running custom session");
+        assert_eq!(
+            session.state_port, 11955,
+            "monitor facts must come from the applied Custom target, not the desired default"
+        );
+    }
+
+    #[test]
+    fn staged_import_file_cleaned_on_delete() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let raw = r#"{"inbounds":[],"outbounds":[{"protocol":"freedom"}]}"#;
+        let mut a = synthetic_full_profile(1);
+        a.index_id = "s4b3-a".into();
+        a.config_type = ConfigType::Custom;
+        a.remarks = "s4b3-a".into();
+        a.extra
+            .insert("RawConfig".into(), serde_json::json!(raw));
+        let mut b = a.clone();
+        b.index_id = "s4b3-b".into();
+        b.remarks = "s4b3-b".into();
+        let profiles = vec![a, b];
+        let token = engine.register_import_preview("s4b3-text", &profiles);
+        let receipt = engine
+            .commit_import_batch(crate::import_batch::ImportCommit {
+                profiles,
+                target_group: Some("s-x".into()),
+                expected_revision: engine.desired_revision(),
+                mutation_id: "s4b3-m-1".into(),
+                preview_token: token,
+            })
+            .unwrap();
+        assert!(receipt.ok);
+        // Same content stages one shared file.
+        let addr_a = engine.profile_by_id("s4b3-a").unwrap().unwrap().address;
+        let addr_b = engine.profile_by_id("s4b3-b").unwrap().unwrap().address;
+        assert_eq!(addr_a, addr_b);
+        let staged = dir.path().join("config").join(&addr_a);
+        assert!(staged.is_file(), "staged file must exist");
+
+        // Deleting one of two rows sharing the file must not orphan the other.
+        engine.delete_profiles(&["s4b3-a".into()]).unwrap();
+        assert!(staged.is_file(), "shared staged file must survive");
+        assert!(engine.profile_by_id("s4b3-b").unwrap().is_some());
+
+        // Deleting the last row removes the file.
+        engine.delete_profiles(&["s4b3-b".into()]).unwrap();
+        assert!(!staged.exists(), "unreferenced staged file must be cleaned");
+    }
+
+    #[test]
+    fn staged_import_file_kept_when_delete_rolls_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let raw = r#"{"inbounds":[],"outbounds":[{"protocol":"freedom"}]}"#;
+        let mut a = synthetic_full_profile(1);
+        a.index_id = "s4b3-r".into();
+        a.config_type = ConfigType::Custom;
+        a.remarks = "s4b3-r".into();
+        a.extra
+            .insert("RawConfig".into(), serde_json::json!(raw));
+        let profiles = vec![a];
+        let token = engine.register_import_preview("s4b3-rollback", &profiles);
+        engine
+            .commit_import_batch(crate::import_batch::ImportCommit {
+                profiles,
+                target_group: Some("s-x".into()),
+                expected_revision: engine.desired_revision(),
+                mutation_id: "s4b3-m-2".into(),
+                preview_token: token,
+            })
+            .unwrap();
+        let addr = engine.profile_by_id("s4b3-r").unwrap().unwrap().address;
+        let staged = dir.path().join("config").join(&addr);
+        assert!(staged.is_file());
+        break_config_persist(&dir);
+
+        // The persist failure rolls the row back; the file must still be there.
+        assert!(engine.delete_profiles(&["s4b3-r".into()]).is_err());
+        assert!(engine.profile_by_id("s4b3-r").unwrap().is_some());
+        assert!(staged.is_file(), "file must survive a rolled-back delete");
+    }
+
+    #[test]
+    fn storage_unavailable_blocks_use_cases() {
+        let error = DomainError::new(domain::codes::INTERNAL, "error.storage")
+            .with_detail("synthetic storage failure");
+        let engine = AppEngine::storage_unavailable(None, error);
+        let code = domain::codes::INTERNAL;
+        let revision = engine.desired_revision();
+
+        let item = crate::subs::SubItem {
+            id: "s-g".into(),
+            remarks: "g".into(),
+            url: "https://example.com/s".into(),
+            ..Default::default()
+        };
+        assert_eq!(engine.save_sub_item(item).unwrap_err().code, code);
+        assert_eq!(
+            engine
+                .reorder_sub_items(&["s-g".to_string()])
+                .unwrap_err()
+                .code,
+            code
+        );
+        assert_eq!(
+            engine.delete_sub_items(&["s-g".to_string()]).unwrap_err().code,
+            code
+        );
+        assert_eq!(
+            engine
+                .replace_sub_profiles_at_epoch("s-g", Vec::new(), false, engine.restore_epoch())
+                .unwrap_err()
+                .code,
+            code
+        );
+        assert_eq!(engine.touch_sub_update_time("s-g", 0).unwrap_err().code, code);
+        let template = crate::templates::builtins()[0].clone();
+        assert_eq!(engine.save_template(template).unwrap_err().code, code);
+        assert_eq!(engine.delete_template("builtin-xray").unwrap_err().code, code);
+        assert_eq!(engine.list_sub_items().unwrap_err().code, code);
+        assert_eq!(engine.get_sub_item("s-g").unwrap_err().code, code);
+        assert_eq!(engine.group_children("s-g").unwrap_err().code, code);
+        assert_eq!(engine.list_templates().unwrap_err().code, code);
+        assert_eq!(
+            engine.desired_revision(),
+            revision,
+            "no failed write may advance desired"
+        );
+    }
+
+    #[test]
+    fn apply_and_stop_propagate_persist_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        // A Custom node avoids the reserved live-proxy port in plan validation.
+        let mut p = synthetic_full_profile(1);
+        p.config_type = ConfigType::Custom;
+        p.core_type = Some(CoreType::Xray);
+        p.address = "custom.json".into();
+        p.proto_extra.extra.insert(
+            crate::codegen::CUSTOM_CONFIG_KEY.to_string(),
+            serde_json::json!(
+                r#"{"inbounds":[{"port":11980,"protocol":"socks"}],"outbounds":[{"protocol":"freedom"}]}"#
+            ),
+        );
+        engine.seed(vec![p.clone()]);
+        engine.set_active(Some(p.index_id.clone())).unwrap();
+        let revision = engine.desired_revision();
+        let plan = engine.build_runtime_plan(&p.index_id, revision).unwrap();
+        break_config_persist(&dir);
+
+        // The core session is accepted, but the history persist fails: the
+        // caller must see the error instead of a quiet Ok.
+        let error = engine
+            .apply_runtime_for_target(plan, &p.index_id, DesiredRevision::new(revision))
+            .unwrap_err();
+        assert_eq!(error.code, domain::codes::INTERNAL);
+        assert!(
+            engine.applied_frozen.lock().unwrap().is_some(),
+            "the accepted session fact stays live in memory"
+        );
+
+        let error = engine.stop_runtime().unwrap_err();
+        assert_eq!(error.code, domain::codes::INTERNAL);
+    }
+
+    #[test]
+    fn apply_deduplicate_deletes_atomically() {
+        // `deduplicate_profiles` stays pure: it only computes the removal set.
+        // `apply_deduplicate_profiles` deletes it (new API: verified post-fix;
+        // no failing-first run applies to a new function).
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let mut dup = synthetic_full_profile(1);
+        dup.subid = "s-dd".to_string();
+        let mut dup2 = dup.clone();
+        dup2.index_id = "dup-second".into();
+        engine
+            .replace_sub_profiles("s-dd", vec![dup, dup2], true)
+            .unwrap();
+        let (total, _, removed_ids) = engine.deduplicate_profiles("s-dd", true).unwrap();
+        assert_eq!(total, 2);
+        assert_eq!(removed_ids.len(), 1);
+        assert_eq!(
+            engine.profiles_by_subid("s-dd").unwrap().len(),
+            2,
+            "planning must not delete"
+        );
+
+        let revision = engine.desired_revision();
+        let removed = engine.apply_deduplicate_profiles("s-dd", true).unwrap();
+        assert_eq!(removed, 1);
+        assert_eq!(engine.profiles_by_subid("s-dd").unwrap().len(), 1);
+        assert_eq!(engine.desired_revision(), revision + 1);
+
+        assert_eq!(
+            engine
+                .apply_deduplicate_profiles("", true)
+                .unwrap_err()
+                .code,
+            domain::codes::FIELD_REQUIRED,
+            "an empty subid must be rejected, never expanded"
+        );
+
+        // A persist failure restores the removed row.
+        let mut dup3 = synthetic_full_profile(3);
+        dup3.subid = "s-dd".to_string();
+        dup3.address = "192.0.2.1".into();
+        dup3.port = 443;
+        dup3.password = "11111111-2222-3333-4444-555555555555".into();
+        let mut dup4 = dup3.clone();
+        dup4.index_id = "dup-fourth".into();
+        engine
+            .replace_sub_profiles("s-dd", vec![dup3, dup4], true)
+            .unwrap();
+        assert_eq!(engine.profiles_by_subid("s-dd").unwrap().len(), 2);
+        let revision = engine.desired_revision();
+        break_config_persist(&dir);
+        assert!(engine.apply_deduplicate_profiles("s-dd", true).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(engine.profiles_by_subid("s-dd").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn memory_import_stages_into_private_dir_and_cleans_up() {
+        let engine = AppEngine::in_memory();
+        let private = engine
+            .import_tmp
+            .as_ref()
+            .expect("private staging dir")
+            .dir
+            .clone();
+        let raw = r#"{"inbounds":[],"outbounds":[]}"#;
+        let mut p = synthetic_full_profile(1);
+        p.config_type = ConfigType::Custom;
+        p.extra
+            .insert("RawConfig".into(), serde_json::json!(raw));
+        let id = p.index_id.clone();
+        let profiles = vec![p];
+        let token = engine.register_import_preview("s4b6-text", &profiles);
+        engine
+            .commit_import_batch(crate::import_batch::ImportCommit {
+                profiles,
+                target_group: None,
+                expected_revision: engine.desired_revision(),
+                mutation_id: "s4b6-m".into(),
+                preview_token: token,
+            })
+            .unwrap();
+        let addr = engine.profile_by_id(&id).unwrap().unwrap().address;
+        let path = std::path::PathBuf::from(&addr);
+        assert_eq!(
+            path.parent(),
+            Some(private.as_path()),
+            "staged file must sit directly in the private dir, not shared temp"
+        );
+        assert!(path.is_file());
+        drop(engine);
+        assert!(
+            !private.exists(),
+            "private staging must be cleaned when the engine drops"
+        );
+    }
+
+    #[test]
+    fn delay_sort_orders_failed_untested_measured() {
+        // S6-07: SQLite Delay order matches upstream `SortServers`
+        // (`t33?.Delay ?? 0`): failed (-1), untested (0), then ascending.
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let mut profiles = Vec::new();
+        for (i, id) in ["d-ok", "d-failed", "d-untested"].iter().enumerate() {
+            let mut p = synthetic_full_profile(i as u32 + 1);
+            p.index_id = id.to_string();
+            profiles.push(p);
+        }
+        engine.replace_sub_profiles("s", profiles, true).unwrap();
+        engine
+            .profile_ex_flush(&[
+                crate::speedtest::ProfileExItem {
+                    index_id: "d-failed".into(),
+                    delay: -1,
+                    ..Default::default()
+                },
+                crate::speedtest::ProfileExItem {
+                    index_id: "d-ok".into(),
+                    delay: 150,
+                    ..Default::default()
+                },
+            ])
+            .unwrap();
+        let page = engine
+            .query_profiles(
+                ProfileFilter::default(),
+                ProfileSort::Delay,
+                PageRequest {
+                    cursor: 0,
+                    page_size: u32::MAX,
+                },
+            )
+            .unwrap();
+        let ids: Vec<&str> = page.items.iter().map(|p| p.index_id.as_str()).collect();
+        assert_eq!(ids, vec!["d-failed", "d-untested", "d-ok"]);
+    }
+
+    #[test]
+    fn delay_sort_in_memory_falls_back_to_index_id() {
+        // S6-07 characterization: the in-memory backend holds no speedtest
+        // results, so Delay order is documented to be IndexId alphabetical
+        // (which differs from `IndexId` sort itself = insertion order).
+        let engine = AppEngine::in_memory();
+        let mut profiles = Vec::new();
+        for (i, id) in ["m-b", "m-a", "m-c"].iter().enumerate() {
+            let mut p = synthetic_full_profile(i as u32 + 1);
+            p.index_id = id.to_string();
+            profiles.push(p);
+        }
+        engine.replace_sub_profiles("s", profiles, true).unwrap();
+        let ids = engine
+            .query_profiles(
+                ProfileFilter::default(),
+                ProfileSort::Delay,
+                PageRequest {
+                    cursor: 0,
+                    page_size: u32::MAX,
+                },
+            )
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|p| p.index_id)
+            .collect::<Vec<_>>();
+        assert_eq!(ids, vec!["m-a", "m-b", "m-c"]);
+    }
+
+    #[tokio::test]
+    async fn refresh_reports_target_failure() {
+        let error = DomainError::new(domain::codes::INTERNAL, "error.storage")
+            .with_detail("synthetic storage failure");
+        let engine = AppEngine::storage_unavailable(None, error);
+        let report = engine
+            .refresh_subscriptions(
+                crate::subs::SubUpdateRequest::default(),
+                &domain::CancellationToken::new(),
+                100,
+            )
+            .await;
+        assert_eq!(
+            report.entries.len(),
+            1,
+            "a target-listing failure must surface, not return a blank success"
+        );
+        assert_eq!(report.entries[0].sub_id, "");
+        assert!(
+            matches!(
+                report.entries[0].outcome,
+                crate::subs::SubUpdateOutcome::Failed { .. }
+            ),
+            "got {:?}",
+            report.entries[0].outcome
+        );
     }
 
     // -- R4-34 resource task ------------------------------------------------

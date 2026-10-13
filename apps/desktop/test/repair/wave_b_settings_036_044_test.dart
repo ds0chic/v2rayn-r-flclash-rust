@@ -162,6 +162,10 @@ void main() {
         isFalse,
       );
 
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('settings-newport4lan')),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('settings-newport4lan')));
       await tester.pump();
       expect(

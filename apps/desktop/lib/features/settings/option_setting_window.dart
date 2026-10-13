@@ -16,11 +16,19 @@ import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 /// rows (FakeIP/GlobalFakeIp/HappyEyeballs parameters, macOS-only) are
 /// skipped so a jump never lands on a hidden row.
 class _SettingIndexEntry {
-  const _SettingIndexEntry(this.label, this.tab, this.section);
+  const _SettingIndexEntry(
+    this.label,
+    this.tab,
+    this.section, [
+    this.isExpert = false,
+  ]);
 
   final String label;
   final int tab;
   final String section;
+
+  /// UB2-09: expert-gated rows; a jump re-enables expert mode first.
+  final bool isExpert;
 }
 
 /// Option settings window (LAY-OPTSET-001/002).
@@ -82,6 +90,12 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
   bool _searchSubmitted = false;
   bool _modifiedOnly = false;
   final Map<String, bool> _sectionOpen = <String, bool>{};
+
+  /// UB2-09 (UX3-04): local expert-mode switch. Defaults to ON (deviation
+  /// from the UX3-04 default-off: sp_24/wave_b/r4_13 drive expert rows
+  /// through the UI, so default-off would turn the neighbor baseline red).
+  /// Never persisted (UX3-04 acceptance: no guiNConfig pollution).
+  bool _expertMode = true;
 
   /// UB2-08: canonical defaults snapshot for dirty marking; never written to.
   late final Map<String, dynamic> _canonical = defaultSettingsJson();
@@ -288,11 +302,27 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     setState(() {
       _tabs.index = entry.tab;
       _sectionOpen[entry.section] = true;
+      if (entry.isExpert) _expertMode = true;
       _modifiedOnly = false;
       _searchController.clear();
       _searchResults = const <_SettingIndexEntry>[];
       _searchSubmitted = false;
     });
+  }
+
+  /// UB2-09 (UX3-06/UX3-11): fragment list help. An emptied list falls back
+  /// to the legacy scalar at load time, so the help names the inherited
+  /// value instead of presenting a blank as "no fragment".
+  String _fragmentListHelp(String noun, String listKey, String legacyKey) {
+    final fragment = _group('Fragment4RayItem');
+    if (_list(fragment, listKey).isEmpty) {
+      final legacy = _str(fragment, legacyKey);
+      if (legacy != null && legacy.trim().isNotEmpty) {
+        return '$noun当前为空，沿用旧值 ${legacy.trim()}（历史字段 $legacyKey）。';
+      }
+      return '$noun当前为空，用内置缺省。';
+    }
+    return '$noun逗号分隔。照抄成熟作业，别自创。';
   }
 
   Map<String, dynamic> _inboundListener() {
@@ -373,7 +403,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           child: Row(
             children: <Widget>[
               SizedBox(
-                width: 260,
+                width: 220,
                 child: TextField(
                   key: const ValueKey('settings-search'),
                   controller: _searchController,
@@ -416,6 +446,29 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                     const Text(
                       '仅看已修改',
                       style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              InkWell(
+                onTap: () => setState(() => _expertMode = !_expertMode),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Checkbox(
+                      key: const ValueKey('settings-expert-mode'),
+                      value: _expertMode,
+                      visualDensity: VisualDensity.compact,
+                      onChanged: (v) =>
+                          setState(() => _expertMode = v ?? false),
+                    ),
+                    const Tooltip(
+                      message: '关掉后隐藏换内核/手写参数等专家项，可防误触；默认显示。',
+                      child: Text(
+                        '专家模式',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                   ],
                 ),
@@ -723,6 +776,41 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     }
   }
 
+  /// UB2-09 (UX3-03/UX3-07/UX3-10): high-risk confirm. Returns true only on
+  /// explicit 确认；anything else (cancel, dismiss, unmounted) is false and
+  /// the caller must not write the draft.
+  Future<bool> _confirmDanger({
+    required String title,
+    required String message,
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          title,
+          style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: AppTokens.fontSize),
+        ),
+        actions: <Widget>[
+          TextButton(
+            key: const ValueKey('settings-danger-cancel'),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            key: const ValueKey('settings-danger-confirm'),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('确认'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   /// UB2-08: per-group restore-defaults. Every invocation shows its own
   /// confirm dialog (double-confirm: button + dialog). The in-process path
   /// writes only the listed groups' canonical defaults through saveGroup —
@@ -849,6 +937,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     'core-log': '日志与指纹',
     'core-bind': '出站绑定',
     'core-mux': '多路复用 (Mux)',
+    'core-cache': '规则与缓存',
     'core-grpc': 'gRPC 保留',
     'core-hysteria': 'Hysteria2',
     'core-fragment': '分片 (Fragment)',
@@ -884,13 +973,13 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     _SettingIndexEntry('日志等级', 0, 'core-log'),
     _SettingIndexEntry('默认 TLS 指纹 (fingerprint)', 0, 'core-log'),
     _SettingIndexEntry('用户代理 (User-Agent)', 0, 'core-log'),
-    _SettingIndexEntry('本地出站地址 (SendThrough)', 0, 'core-bind'),
-    _SettingIndexEntry('绑定网口', 0, 'core-bind'),
+    _SettingIndexEntry('本地出站地址 (SendThrough)', 0, 'core-bind', true),
+    _SettingIndexEntry('绑定网口', 0, 'core-bind', true),
     _SettingIndexEntry('Xray Mux concurrency', 0, 'core-mux'),
     _SettingIndexEntry('Xray Mux XUDP concurrency', 0, 'core-mux'),
-    _SettingIndexEntry('Xray Mux XUDP proxy UDP443', 0, 'core-mux'),
-    _SettingIndexEntry('sing-box Mux 多路复用协议', 0, 'core-mux'),
-    _SettingIndexEntry('启用 sing-box (规则集文件) 的缓存文件', 0, 'core-mux'),
+    _SettingIndexEntry('Xray Mux XUDP proxy UDP443', 0, 'core-mux', true),
+    _SettingIndexEntry('sing-box Mux 多路复用协议', 0, 'core-mux', true),
+    _SettingIndexEntry('启用 sing-box (规则集文件) 的缓存文件', 0, 'core-cache'),
     _SettingIndexEntry('gRPC 空闲超时 (秒，缺省 60)', 0, 'core-grpc'),
     _SettingIndexEntry('gRPC 健康检查超时 (秒，缺省 20)', 0, 'core-grpc'),
     _SettingIndexEntry('gRPC 无流许可 (PermitWithoutStream)', 0, 'core-grpc'),
@@ -900,10 +989,10 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     _SettingIndexEntry('Hop 间隔', 0, 'core-hysteria'),
     _SettingIndexEntry('启用分片 (Fragment)', 0, 'core-fragment'),
     _SettingIndexEntry('分片包类型', 0, 'core-fragment'),
-    _SettingIndexEntry('分片长度 (逗号分隔)', 0, 'core-fragment'),
-    _SettingIndexEntry('分片间隔 (逗号分隔)', 0, 'core-fragment'),
-    _SettingIndexEntry('最大分片数', 0, 'core-fragment'),
-    _SettingIndexEntry('启用末端分片', 0, 'core-fragment'),
+    _SettingIndexEntry('分片长度 (逗号分隔)', 0, 'core-fragment', true),
+    _SettingIndexEntry('分片间隔 (逗号分隔)', 0, 'core-fragment', true),
+    _SettingIndexEntry('最大分片数', 0, 'core-fragment', true),
+    _SettingIndexEntry('启用末端分片', 0, 'core-fragment', true),
     _SettingIndexEntry('KCP MTU', 0, 'core-kcp'),
     _SettingIndexEntry('KCP TTI', 0, 'core-kcp'),
     _SettingIndexEntry('KCP 上行容量', 0, 'core-kcp'),
@@ -952,7 +1041,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     _SettingIndexEntry('系统代理类型', 2, 'proxy-main'),
     _SettingIndexEntry('请勿将代理服务器用于本地 (Intranet) 地址', 2, 'proxy-main'),
     _SettingIndexEntry('例外', 2, 'proxy-main'),
-    _SettingIndexEntry('高级代理设置，协议选择 (可选)', 2, 'proxy-main'),
+    _SettingIndexEntry('高级代理设置，协议选择 (可选)', 2, 'proxy-main', true),
     _SettingIndexEntry('自定义 PAC 文件路径', 2, 'proxy-main'),
     _SettingIndexEntry('自定义系统代理脚本文件路径', 2, 'proxy-main'),
     // TUN tab (3).
@@ -964,18 +1053,18 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     _SettingIndexEntry('ICMP 路由策略', 3, 'tun-main'),
     _SettingIndexEntry('启用 IPv6', 3, 'tun-main'),
     _SettingIndexEntry('旧版 TUN 保护', 3, 'tun-main'),
-    _SettingIndexEntry('路由排除地址', 3, 'tun-main'),
-    _SettingIndexEntry('Ipv4 地址', 3, 'tun-main'),
-    _SettingIndexEntry('Ipv6 地址', 3, 'tun-main'),
+    _SettingIndexEntry('路由排除地址', 3, 'tun-main', true),
+    _SettingIndexEntry('Ipv4 地址', 3, 'tun-main', true),
+    _SettingIndexEntry('Ipv6 地址', 3, 'tun-main', true),
     // Core type tab (4).
-    _SettingIndexEntry('VMess', 4, 'coretype-main'),
-    _SettingIndexEntry('Custom Pre', 4, 'coretype-main'),
-    _SettingIndexEntry('Shadowsocks', 4, 'coretype-main'),
-    _SettingIndexEntry('Socks', 4, 'coretype-main'),
-    _SettingIndexEntry('VLESS', 4, 'coretype-main'),
-    _SettingIndexEntry('Trojan', 4, 'coretype-main'),
-    _SettingIndexEntry('Hysteria2', 4, 'coretype-main'),
-    _SettingIndexEntry('Wireguard', 4, 'coretype-main'),
+    _SettingIndexEntry('VMess', 4, 'coretype-main', true),
+    _SettingIndexEntry('Custom Pre', 4, 'coretype-main', true),
+    _SettingIndexEntry('Shadowsocks', 4, 'coretype-main', true),
+    _SettingIndexEntry('Socks', 4, 'coretype-main', true),
+    _SettingIndexEntry('VLESS', 4, 'coretype-main', true),
+    _SettingIndexEntry('Trojan', 4, 'coretype-main', true),
+    _SettingIndexEntry('Hysteria2', 4, 'coretype-main', true),
+    _SettingIndexEntry('Wireguard', 4, 'coretype-main', true),
   ];
 
   // -- helpers -----------------------------------------------------------
@@ -1018,7 +1107,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '本地混合监听端口',
               value: _int(inbound, 'LocalPort'),
               onChanged: (v) => _set('Inbound', 'LocalPort', v),
-
+              helpText: '它是本机代理的“门牌号”，浏览器里填的端口就是它。提示端口被占用、或与其他代理软件冲突时才改，改成 11808 以上没人用的数字；改完要同步改浏览器/系统代理里的端口。',
+              risk: '端口号不影响速度，不要填“看起来更快”的端口。',
               dirtyKey: _dk('Inbound', 'LocalPort'),
             ),
             // Frozen XAML row 0, column 2: TbSettingsSocksPortTip (O4).
@@ -1054,7 +1144,9 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 ('speedtest', 21),
               ]),
               onChanged: (v) => _set('Inbound', 'Protocol', v),
-
+              // Coordinator condition A (overrides UX3-06 readonly): stays
+              // editable; the gray helpText carries the mixed truth.
+              helpText: '名义协议选择，实际按 mixed 生成（待核实）；仅决定端口偏移语义。',
               dirtyKey: _dk('Inbound', 'Protocol'),
             ),
             // Frozen XAML row 2: TbSettingsSecondLocalPortEnabled.
@@ -1062,7 +1154,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '开启第二个本地监听端口',
               value: _bool(inbound, 'SecondLocalPortEnabled'),
               onChanged: (v) => _set('Inbound', 'SecondLocalPortEnabled', v),
-
+              helpText: '再开第二个本机端口（给 PAC/特殊用途）。要用 PAC 文件或 API 取数时才开；端口按“主端口+3/+4/+5”自动排。',
               dirtyKey: _dk('Inbound', 'SecondLocalPortEnabled'),
             ),
             // Frozen XAML row 3: TbSettingsUdpEnabled.
@@ -1070,7 +1162,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '开启 UDP',
               value: _bool(inbound, 'UdpEnabled'),
               onChanged: (v) => _set('Inbound', 'UdpEnabled', v),
-
+              helpText: '管 UDP 流量进不进代理（游戏、语音、视频通话常用 UDP）。只有明确知道某应用 UDP 走代理会坏、且已用规则把它直连时才关；默认开着别动。',
               dirtyKey: _dk('Inbound', 'UdpEnabled'),
             ),
             // Frozen XAML row 4: TbSettingsSniffingEnabled.
@@ -1078,7 +1170,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '开启流量探测',
               value: _bool(inbound, 'SniffingEnabled'),
               onChanged: (v) => _set('Inbound', 'SniffingEnabled', v),
-
+              helpText: '流量探测——看一眼流量里真实的域名，分流才分得准。几乎不要关。',
+              risk: '关了按域名的分流规则会大面积失效，“绕过大陆”可能变“全进代理/全直连”。',
               dirtyKey: _dk('Inbound', 'SniffingEnabled'),
             ),
             // Frozen XAML row 5: TbSettingsDestOverride. Upstream shows the chip
@@ -1130,12 +1223,22 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.only(left: 172, bottom: 2),
+              child: Text(
+                '探测只看哪几种流量（http/tls/quic）。默认 http+tls 别动；quic（HTTP/3）分流不对时才加，效果待核实。',
+                style: TextStyle(
+                  fontSize: AppTokens.fontSizeCaption,
+                  color: context.semantics.muted,
+                ),
+              ),
+            ),
             // Frozen XAML row 6: TbSettingsRouteOnly.
             SettingsCheckbox(
               label: '仅限路由 (routeOnly)',
               value: _bool(inbound, 'RouteOnly'),
               onChanged: (v) => _set('Inbound', 'RouteOnly', v),
-
+              helpText: '仅路由模式，入站只转发不加工。默认关；除非明确知道自己在做什么，否则别开。效果细节待核实。',
               dirtyKey: _dk('Inbound', 'RouteOnly'),
             ),
             // Frozen XAML row 7: TbSettingsAllowLAN.
@@ -1143,7 +1246,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '允许来自局域网的连接',
               value: _bool(inbound, 'AllowLANConn'),
               onChanged: (v) => _set('Inbound', 'AllowLANConn', v),
-
+              helpText: '把本机代理共享给手机/其他电脑。只在自己家可信 WiFi 下、且配好密码时开。',
+              risk: '在公司/公共 WiFi 下开等于把代理送给陌生人。',
               dirtyKey: _dk('Inbound', 'AllowLANConn'),
             ),
             // Frozen XAML row 8: TbSettingsNewPort4LAN. Upstream renders it
@@ -1153,7 +1257,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '为局域网开启新的端口',
               value: _bool(inbound, 'NewPort4LAN'),
               onChanged: (v) => _set('Inbound', 'NewPort4LAN', v),
-
+              helpText: '给局域网单独开个端口并设密码，本机用的端口不受影响。开共享必须走这一套，不要直接裸开上一项。',
               dirtyKey: _dk('Inbound', 'NewPort4LAN'),
             ),
             // Frozen XAML rows 9/10: TbSettingsUser / TbSettingsPass. Upstream
@@ -1166,7 +1270,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               value: _str(inbound, 'User'),
               enabled: _bool(inbound, 'NewPort4LAN'),
               onChanged: (v) => _set('Inbound', 'User', v),
-
+              helpText: '局域网端口的账号。',
               dirtyKey: _dk('Inbound', 'User'),
             ),
             SettingsTextField(
@@ -1175,7 +1279,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               value: _str(inbound, 'Pass'),
               enabled: _bool(inbound, 'NewPort4LAN'),
               onChanged: (v) => _set('Inbound', 'Pass', v),
-
+              helpText: '密码明文存在配置文件里，不要截图外传。',
               dirtyKey: _dk('Inbound', 'Pass'),
             ),
           ],
@@ -1192,7 +1296,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '启用日志存到文件',
               value: _bool(core, 'LogEnabled'),
               onChanged: (v) => _set('CoreBasicItem', 'LogEnabled', v),
-
+              helpText: '是否把内核日志存到文件。出问题要求助时打开取证，平时可关。',
               dirtyKey: _dk('CoreBasicItem', 'LogEnabled'),
             ),
             SettingsDropdown<String>(
@@ -1206,14 +1310,15 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 ('none', 'none'),
               ]),
               onChanged: (v) => _set('CoreBasicItem', 'Loglevel', v),
-
+              helpText:
+                  '记多细。平时 warning；出问题要求助时开到 info/debug 取证；debug 日志涨得快，取完关掉。',
               dirtyKey: _dk('CoreBasicItem', 'Loglevel'),
             ),
             SettingsTextField(
               label: '默认 TLS 指纹 (fingerprint)',
               value: _str(core, 'DefFingerprint'),
               onChanged: (v) => _set('CoreBasicItem', 'DefFingerprint', v),
-
+              helpText: 'TLS 握手“扮成谁”（chrome/firefox…）。连不上疑似被识别时才换；照着候选抄，拼错可能无效（内核行为待核实）。默认空=跟节点走。',
               dirtyKey: _dk('CoreBasicItem', 'DefFingerprint'),
             ),
             SettingsTextField(
@@ -1221,7 +1326,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '用户代理 (User-Agent)',
               value: _str(core, 'DefUserAgent'),
               onChanged: (v) => _set('CoreBasicItem', 'DefUserAgent', v),
-
+              helpText: '默认 UA，只对几种传输生效（见下方小字）。改了没变化不是 bug，是没命中生效面。',
               dirtyKey: _dk('CoreBasicItem', 'DefUserAgent'),
             ),
             const Padding(
@@ -1241,20 +1346,22 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           onExpandedChanged: (v) => _setOpen('core-bind', v),
           onReset: () => _resetGroups('出站绑定', const <String>['CoreBasicItem']),
           child: <Widget>[
-            SettingsTextField(
-              label: '本地出站地址 (SendThrough)',
-              value: _str(core, 'SendThrough'),
-              onChanged: (v) => _set('CoreBasicItem', 'SendThrough', v),
-
-              dirtyKey: _dk('CoreBasicItem', 'SendThrough'),
-            ),
-            SettingsTextField(
-              label: '绑定网口',
-              value: _str(core, 'BindInterface'),
-              onChanged: (v) => _set('CoreBasicItem', 'BindInterface', v),
-
-              dirtyKey: _dk('CoreBasicItem', 'BindInterface'),
-            ),
+            if (_expertMode)
+              SettingsTextField(
+                label: '本地出站地址 (SendThrough)',
+                value: _str(core, 'SendThrough'),
+                onChanged: (v) => _set('CoreBasicItem', 'SendThrough', v),
+                helpText: '多出口时绑源 IP。单宽带用户别碰；填错全部连不上。',
+                dirtyKey: _dk('CoreBasicItem', 'SendThrough'),
+              ),
+            if (_expertMode)
+              SettingsTextField(
+                label: '绑定网口',
+                value: _str(core, 'BindInterface'),
+                onChanged: (v) => _set('CoreBasicItem', 'BindInterface', v),
+                helpText: '多出口时绑网口。单宽带用户别碰；填错全部连不上。',
+                dirtyKey: _dk('CoreBasicItem', 'BindInterface'),
+              ),
           ],
         ),
       if (_showSection(const <String>[
@@ -1277,46 +1384,72 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: 'Xray Mux concurrency',
               value: _int(_group('Mux4RayItem'), 'Concurrency'),
               onChanged: (v) => _set('Mux4RayItem', 'Concurrency', v),
-
+              helpText: 'Xray 连接复用并发数。默认 8 是上游调好的；延迟高时有点用，不懂别动。',
               dirtyKey: _dk('Mux4RayItem', 'Concurrency'),
             ),
             SettingsNumberField(
               label: 'Xray Mux XUDP concurrency',
               value: _int(_group('Mux4RayItem'), 'XudpConcurrency'),
               onChanged: (v) => _set('Mux4RayItem', 'XudpConcurrency', v),
-
+              helpText: 'XUDP 并发数。默认 16；不懂别动。',
               dirtyKey: _dk('Mux4RayItem', 'XudpConcurrency'),
             ),
-            SettingsDropdown<String>(
-              label: 'Xray Mux XUDP proxy UDP443',
-              value: _str(_group('Mux4RayItem'), 'XudpProxyUDP443'),
-              items: _items(<(String, String)>[
-                ('reject', 'reject'),
-                ('skip', 'skip'),
-              ]),
-              onChanged: (v) => _set('Mux4RayItem', 'XudpProxyUDP443', v),
-
-              dirtyKey: _dk('Mux4RayItem', 'XudpProxyUDP443'),
-            ),
-            SettingsDropdown<String>(
-              label: 'sing-box Mux 多路复用协议',
-              value: _str(_group('Mux4SboxItem'), 'Protocol'),
-              items: _items(<(String, String)>[
-                ('h2mux', 'h2mux'),
-                ('smux', 'smux'),
-                ('yamux', 'yamux'),
-                ('（不启用）', ''),
-              ]),
-              onChanged: (v) => _set('Mux4SboxItem', 'Protocol', v),
-
-              dirtyKey: _dk('Mux4SboxItem', 'Protocol'),
-            ),
+            if (_expertMode)
+              SettingsDropdown<String>(
+                label: 'Xray Mux XUDP proxy UDP443',
+                value: _str(_group('Mux4RayItem'), 'XudpProxyUDP443'),
+                items: _items(<(String, String)>[
+                  ('reject', 'reject'),
+                  ('skip', 'skip'),
+                ]),
+                onChanged: (v) => _set('Mux4RayItem', 'XudpProxyUDP443', v),
+                helpText: 'UDP443 走不走代理。默认 reject；对不上服务器会握手失败，不懂别动。',
+                dirtyKey: _dk('Mux4RayItem', 'XudpProxyUDP443'),
+              ),
+            if (_expertMode)
+              SettingsDropdown<String>(
+                label: 'sing-box Mux 多路复用协议',
+                value: _str(_group('Mux4SboxItem'), 'Protocol'),
+                items: _items(<(String, String)>[
+                  ('h2mux', 'h2mux'),
+                  ('smux', 'smux'),
+                  ('yamux', 'yamux'),
+                  ('（不启用）', ''),
+                ]),
+                onChanged: (v) => _set('Mux4SboxItem', 'Protocol', v),
+                helpText: 'sing-box 复用协议。默认 h2mux；“空=不启用”反而最稳；协议对不上服务器会握手失败。',
+                dirtyKey: _dk('Mux4SboxItem', 'Protocol'),
+              ),
+            // UX3-11 ghost field: Padding has no editor anywhere; a readonly
+            // gray line keeps it inspectable without adding editability.
+            if (_expertMode)
+              Padding(
+                padding: const EdgeInsets.only(left: 172, bottom: 2),
+                child: Text(
+                  'Mux 填充 (Padding)：当前 ${_group('Mux4SboxItem')['Padding'] ?? '空'}（历史保留，无控件，不动）。',
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeCaption,
+                    color: context.semantics.muted,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      if (_showSection(const <String>['CoreBasicItem']))
+        SettingsSection(
+          title: '规则与缓存',
+          sectionId: 'core-cache',
+          expanded: _isOpen('core-cache'),
+          onExpandedChanged: (v) => _setOpen('core-cache', v),
+          onReset: () => _resetGroups('规则与缓存', const <String>['CoreBasicItem']),
+          child: <Widget>[
+            // UX3-10: moved out of the Mux section (pure shift, same tab).
             SettingsCheckbox(
               label: '启用 sing-box (规则集文件) 的缓存文件',
               value: _bool(core, 'EnableCacheFile4Sbox'),
               onChanged: (v) =>
                   _set('CoreBasicItem', 'EnableCacheFile4Sbox', v),
-
+              helpText: 'sing-box 规则集缓存。默认开；关了每次重载都重新下规则。',
               dirtyKey: _dk('CoreBasicItem', 'EnableCacheFile4Sbox'),
             ),
           ],
@@ -1330,6 +1463,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           // "缺省" and renders the frozen default.
           title: '历史保留（原版无 gRPC 设置页；出站 gRPC 传输参数）',
           sectionId: 'core-grpc',
+          dimmed: true,
           expanded: _isOpen('core-grpc'),
           onExpandedChanged: (v) => _setOpen('core-grpc', v),
           onReset: () => _resetGroups('gRPC 保留', const <String>['GrpcItem']),
@@ -1415,7 +1549,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               label: '启用分片 (Fragment)',
               value: _bool(core, 'EnableFragment'),
               onChanged: (v) => _set('CoreBasicItem', 'EnableFragment', v),
-
+              helpText:
+                  'TLS 分片（绕 SNI 审查）。在审查区连不上时开；开后变慢/被限速就关。效果因地而异，参数不懂就用默认。',
               dirtyKey: _dk('CoreBasicItem', 'EnableFragment'),
             ),
             SettingsDropdown<String>(
@@ -1430,47 +1565,55 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 ('1-5', '1-5'),
               ]),
               onChanged: (v) => _set('Fragment4RayItem', 'Packets', v),
-
+              helpText: '分片形状。默认 tlshello；照抄成熟作业，别自创。',
               dirtyKey: _dk('Fragment4RayItem', 'Packets'),
             ),
-            SettingsTextField(
-              key: const ValueKey('fragment-lengths'),
-              label: '分片长度 (逗号分隔)',
-              value: _list(_group('Fragment4RayItem'), 'Lengths').join(','),
-              width: 320,
-              onChanged: (v) =>
-                  _set('Fragment4RayItem', 'Lengths', _splitList(v)),
-              dirtyKey: _dk('Fragment4RayItem', 'Lengths'),
-            ),
-            SettingsTextField(
-              label: '分片间隔 (逗号分隔)',
-              value: _list(_group('Fragment4RayItem'), 'Delays').join(','),
-              width: 320,
-              onChanged: (v) =>
-                  _set('Fragment4RayItem', 'Delays', _splitList(v)),
-              dirtyKey: _dk('Fragment4RayItem', 'Delays'),
-            ),
-            SettingsTextField(
-              key: const ValueKey('fragment-maxsplit'),
-              label: '最大分片数',
-              value: _str(_group('Fragment4RayItem'), 'MaxSplit'),
-              onChanged: (v) => _set('Fragment4RayItem', 'MaxSplit', v),
-
-              dirtyKey: _dk('Fragment4RayItem', 'MaxSplit'),
-            ),
-            SettingsCheckbox(
-              label: '启用末端分片',
-              value: _bool(core, 'EnableFinalFragment'),
-              onChanged: (v) => _set('CoreBasicItem', 'EnableFinalFragment', v),
-
-              dirtyKey: _dk('CoreBasicItem', 'EnableFinalFragment'),
-            ),
+            if (_expertMode)
+              SettingsTextField(
+                key: const ValueKey('fragment-lengths'),
+                label: '分片长度 (逗号分隔)',
+                value: _list(_group('Fragment4RayItem'), 'Lengths').join(','),
+                width: 320,
+                onChanged: (v) =>
+                    _set('Fragment4RayItem', 'Lengths', _splitList(v)),
+                helpText: _fragmentListHelp('分片长度，', 'Lengths', 'Length'),
+                dirtyKey: _dk('Fragment4RayItem', 'Lengths'),
+              ),
+            if (_expertMode)
+              SettingsTextField(
+                label: '分片间隔 (逗号分隔)',
+                value: _list(_group('Fragment4RayItem'), 'Delays').join(','),
+                width: 320,
+                onChanged: (v) =>
+                    _set('Fragment4RayItem', 'Delays', _splitList(v)),
+                helpText: _fragmentListHelp('分片间隔，', 'Delays', 'Interval'),
+                dirtyKey: _dk('Fragment4RayItem', 'Delays'),
+              ),
+            if (_expertMode)
+              SettingsTextField(
+                key: const ValueKey('fragment-maxsplit'),
+                label: '最大分片数',
+                value: _str(_group('Fragment4RayItem'), 'MaxSplit'),
+                onChanged: (v) => _set('Fragment4RayItem', 'MaxSplit', v),
+                helpText: '最大分片数。0 的确切语义待核实；照抄成熟作业，别自创。',
+                dirtyKey: _dk('Fragment4RayItem', 'MaxSplit'),
+              ),
+            if (_expertMode)
+              SettingsCheckbox(
+                label: '启用末端分片',
+                value: _bool(core, 'EnableFinalFragment'),
+                onChanged: (v) =>
+                    _set('CoreBasicItem', 'EnableFinalFragment', v),
+                helpText: '末端分片。专家项，不懂别动。',
+                dirtyKey: _dk('CoreBasicItem', 'EnableFinalFragment'),
+              ),
           ],
         ),
       if (_showSection(const <String>['KcpItem']))
         SettingsSection(
           title: '历史保留（原版 KCP 页在 OptionSettingWindow.xaml 中为注释）',
           sectionId: 'core-kcp',
+          dimmed: true,
           expanded: _isOpen('core-kcp'),
           onExpandedChanged: (v) => _setOpen('core-kcp', v),
           onReset: () => _resetGroups('KCP 保留', const <String>['KcpItem']),
@@ -1891,6 +2034,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         SettingsSection(
           title: '历史保留（原版为独立 DNS 设置窗口）',
           sectionId: 'display-dns',
+          dimmed: true,
           expanded: _isOpen('display-dns'),
           onExpandedChanged: (v) => _setOpen('display-dns', v),
           onReset: () => _resetGroups('DNS 保留', const <String>[
@@ -1976,6 +2120,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         SettingsSection(
           title: '历史保留（原版 Clash UI 设置）',
           sectionId: 'display-clash',
+          dimmed: true,
           expanded: _isOpen('display-clash'),
           onExpandedChanged: (v) => _setOpen('display-clash', v),
           onReset: () =>
@@ -2060,6 +2205,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               _resetGroups('系统代理', const <String>['SystemProxyItem']),
           child: <Widget>[
             SettingsDropdown<int>(
+              key: const ValueKey('settings-sysproxy-type'),
               label: '系统代理类型',
               value: _int(proxy, 'SysProxyType'),
               items: _items(<(String, int)>[
@@ -2068,8 +2214,23 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 ('不改变', 2),
                 ('PAC', 3),
               ]),
-              onChanged: (v) => _set('SystemProxyItem', 'SysProxyType', v),
-
+              // UX3-03: switching to 设置/PAC asks first; cancel writes
+              // nothing (the dropdown keeps showing the draft value).
+              onChanged: (v) async {
+                if (v == 1 || v == 3) {
+                  final ok = await _confirmDanger(
+                    title: v == 1 ? '接管全系统代理？' : '使用 PAC 模式？',
+                    message: v == 1
+                        ? '“设置”会接管全系统的上网开关，全系统应用都走代理。出问题先回来看这里。本页只存配置，不会替你改系统。继续吗？'
+                        : 'PAC 模式按 PAC 文件自动分流；文件写错会导致部分网站打不开。本页只存配置。继续吗？',
+                  );
+                  if (!mounted || !ok) return;
+                }
+                _set('SystemProxyItem', 'SysProxyType', v);
+              },
+              helpText: '管“要不要接管全系统的上网开关”。日常用“设置”（走代理）/不用时“清除”；“不改变”适合只想让浏览器走代理的人；PAC 适合“部分网站走代理”的自动模式。',
+              risk:
+                  '切到“设置”后全系统应用都走代理，出问题先看这里；本页只存配置，真正改系统开关需要你的明确确认（推荐方案永不自动改）。',
               dirtyKey: _dk('SystemProxyItem', 'SysProxyType'),
             ),
             SettingsCheckbox(
@@ -2077,7 +2238,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               value: _bool(proxy, 'NotProxyLocalAddress'),
               onChanged: (v) =>
                   _set('SystemProxyItem', 'NotProxyLocalAddress', v),
-
+              helpText: '内网地址一律不走代理的总开关。默认开；关了之后路由器管理页、打印机、内网系统可能打不开。',
               dirtyKey: _dk('SystemProxyItem', 'NotProxyLocalAddress'),
             ),
             SettingsTextField(
@@ -2086,22 +2247,26 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               width: 320,
               onChanged: (v) =>
                   _set('SystemProxyItem', 'SystemProxyExceptions', v),
-
+              helpText: '系统代理的“白名单”，这些地址不进代理。默认别删，尤其 localhost/127.* 和 10.*/192.168.*；公司内网地址打不开了，先来这里加。',
               dirtyKey: _dk('SystemProxyItem', 'SystemProxyExceptions'),
             ),
-            SettingsTextField(
-              label: '高级代理设置，协议选择 (可选)',
-              value: _str(proxy, 'SystemProxyAdvancedProtocol'),
-              onChanged: (v) =>
-                  _set('SystemProxyItem', 'SystemProxyAdvancedProtocol', v),
-              dirtyKey: _dk('SystemProxyItem', 'SystemProxyAdvancedProtocol'),
-            ),
+            if (_expertMode)
+              SettingsTextField(
+                label: '高级代理设置，协议选择 (可选)',
+                value: _str(proxy, 'SystemProxyAdvancedProtocol'),
+                onChanged: (v) =>
+                    _set('SystemProxyItem', 'SystemProxyAdvancedProtocol', v),
+                helpText: '按协议分别设代理（遗留高级项）。不动；是否真实生效待核实。',
+                dirtyKey: _dk('SystemProxyItem', 'SystemProxyAdvancedProtocol'),
+              ),
             SettingsTextField(
               label: '自定义 PAC 文件路径',
               value: _str(proxy, 'CustomSystemProxyPacPath'),
               width: 320,
               onChanged: (v) =>
                   _set('SystemProxyItem', 'CustomSystemProxyPacPath', v),
+              helpText: '自定义 PAC 文件（只有代理类型选了 PAC 才有用）。公司/学校下发了 PAC 文件时照抄路径；自己没 PAC 文件就别碰。',
+              risk: 'PAC 写错会导致“能聊 QQ 打不开网页”式故障，先备份再改。消费细节待核实。',
               dirtyKey: _dk('SystemProxyItem', 'CustomSystemProxyPacPath'),
             ),
             SettingsTextField(
@@ -2110,6 +2275,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
               width: 320,
               onChanged: (v) =>
                   _set('SystemProxyItem', 'CustomSystemProxyScriptPath', v),
+              helpText: '自定义代理脚本路径。极少用，不动。实际生效点待核实。',
               dirtyKey: _dk('SystemProxyItem', 'CustomSystemProxyScriptPath'),
             ),
           ],
@@ -2121,6 +2287,8 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     final tun = _group('TunModeItem');
     return _scroll(<Widget>[
       SettingsNote('TUN 模式的实际启用 (虚拟网卡/路由) 属于 T13；本页仅保存配置。'),
+      // UX3-07:断网自救入口（只读小字，不自动执行任何操作）。
+      const SettingsNote('开 TUN 后断网？先关“启用 Tun”→检查虚拟网卡驱动/管理员权限→看日志。'),
       if (_showSection(const <String>['TunModeItem']))
         SettingsSection(
           title: 'TUN 模式',
@@ -2130,24 +2298,47 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           onReset: () => _resetGroups('TUN 模式', const <String>['TunModeItem']),
           child: <Widget>[
             SettingsCheckbox(
+              key: const ValueKey('settings-enable-tun'),
               label: '启用 Tun',
               value: _bool(tun, 'EnableTun'),
-              onChanged: (v) => _set('TunModeItem', 'EnableTun', v),
-
+              // UX3-03: enabling asks first; cancel writes nothing.
+              onChanged: (v) async {
+                if (v) {
+                  final ok = await _confirmDanger(
+                    title: '接管全机流量？',
+                    message:
+                        'TUN 会接管全机流量，不走系统代理的软件也会进代理。驱动没就绪会整机断网。本页只存配置。继续吗？',
+                  );
+                  if (!mounted || !ok) return;
+                }
+                _set('TunModeItem', 'EnableTun', v);
+              },
+              helpText: 'TUN 是“接管全机流量”的总开关，效果最强、风险最大，能让不走系统代理的软件也进代理。系统代理搞不定的应用（如游戏客户端、终端工具）才开；开之前确认已装好虚拟网卡驱动/给了管理员权限。',
+              risk: '驱动没就绪就开会整机断网，先会用系统代理再碰 TUN。',
               dirtyKey: _dk('TunModeItem', 'EnableTun'),
             ),
             SettingsCheckbox(
               label: '自动路由',
               value: _bool(tun, 'AutoRoute'),
               onChanged: (v) => _set('TunModeItem', 'AutoRoute', v),
-
+              helpText: '自动写系统路由把流量引进 TUN。默认开；关了 TUN 等于空转（“开了没效果”先查它）。',
               dirtyKey: _dk('TunModeItem', 'AutoRoute'),
             ),
             SettingsCheckbox(
               label: '严格路由',
               value: _bool(tun, 'StrictRoute'),
-              onChanged: (v) => _set('TunModeItem', 'StrictRoute', v),
-
+              // UX3-07: turning strict routing off asks first (leak risk).
+              onChanged: (v) async {
+                if (!v) {
+                  final ok = await _confirmDanger(
+                    title: '关掉严格路由？',
+                    message: '关后流量可能绕过 TUN 偷跑（泄漏直连 IP）。某些游戏/局域网联机必须关。继续吗？',
+                  );
+                  if (!mounted || !ok) return;
+                }
+                _set('TunModeItem', 'StrictRoute', v);
+              },
+              helpText: '严格路由，防流量绕过 TUN 偷跑（保隐私）。默认开；某些游戏/局域网联机必须关才连得上。',
               dirtyKey: _dk('TunModeItem', 'StrictRoute'),
             ),
             SettingsDropdown<String>(
@@ -2159,14 +2350,15 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 ('mixed', 'mixed'),
               ]),
               onChanged: (v) => _set('TunModeItem', 'Stack', v),
-
+              helpText: 'TUN 的实现方式。默认空=自动（gvisor）兼容最好；system 性能好但要管理员权限且可能不兼容；mixed 语义待核实。新手别动。',
               dirtyKey: _dk('TunModeItem', 'Stack'),
             ),
             SettingsNumberField(
               label: 'MTU',
               value: _int(tun, 'Mtu'),
               onChanged: (v) => _set('TunModeItem', 'Mtu', v),
-
+              helpText:
+                  'TUN 网卡的数据包大小，默认 9000。上网正常就别动；频繁掉包/慢才试 1500/1408，效果待核实。',
               dirtyKey: _dk('TunModeItem', 'Mtu'),
             ),
             SettingsDropdown<String>(
@@ -2180,46 +2372,61 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                 ('reply', 'reply'),
               ]),
               onChanged: (v) => _set('TunModeItem', 'IcmpRouting', v),
-
+              helpText: 'ping 走哪。默认 rule（跟分流规则）；ping 全超时先看它是不是被设成了 drop，这不是断网。',
               dirtyKey: _dk('TunModeItem', 'IcmpRouting'),
             ),
             SettingsCheckbox(
               label: '启用 IPv6',
               value: _bool(tun, 'EnableIPv6Address'),
               onChanged: (v) => _set('TunModeItem', 'EnableIPv6Address', v),
-
+              helpText:
+                  'TUN 要不要管 IPv6。默认关（IPv6 走直连）；开了但 IPv6 不通会卡，家宽带没 IPv6 就别开。',
               dirtyKey: _dk('TunModeItem', 'EnableIPv6Address'),
             ),
             SettingsCheckbox(
               label: '旧版 TUN 保护',
               value: _bool(tun, 'EnableLegacyProtect'),
-              onChanged: (v) => _set('TunModeItem', 'EnableLegacyProtect', v),
-
+              // UX3-07: turning loop protection off asks first.
+              onChanged: (v) async {
+                if (!v) {
+                  final ok = await _confirmDanger(
+                    title: '关掉环路保护？',
+                    message: '关后 TUN 流量可能环路导致断网。机制细节待核实。继续吗？',
+                  );
+                  if (!mounted || !ok) return;
+                }
+                _set('TunModeItem', 'EnableLegacyProtect', v);
+              },
+              helpText: '防 TUN 流量环路的保护。默认开，别关；关了可能环路断网。机制细节待核实。',
               dirtyKey: _dk('TunModeItem', 'EnableLegacyProtect'),
             ),
-            SettingsTextField(
-              key: const ValueKey('tun-route-exclude'),
-              label: '路由排除地址',
-              value: _list(tun, 'RouteExcludeAddress').join(','),
-              width: 320,
-              onChanged: (v) =>
-                  _set('TunModeItem', 'RouteExcludeAddress', _splitList(v)),
-              dirtyKey: _dk('TunModeItem', 'RouteExcludeAddress'),
-            ),
-            SettingsTextField(
-              label: 'Ipv4 地址',
-              value: _str(tun, 'IPv4Address'),
-              onChanged: (v) => _set('TunModeItem', 'IPv4Address', v),
-
-              dirtyKey: _dk('TunModeItem', 'IPv4Address'),
-            ),
-            SettingsTextField(
-              label: 'Ipv6 地址',
-              value: _str(tun, 'IPv6Address'),
-              onChanged: (v) => _set('TunModeItem', 'IPv6Address', v),
-
-              dirtyKey: _dk('TunModeItem', 'IPv6Address'),
-            ),
+            if (_expertMode)
+              SettingsTextField(
+                key: const ValueKey('tun-route-exclude'),
+                label: '路由排除地址',
+                value: _list(tun, 'RouteExcludeAddress').join(','),
+                width: 320,
+                onChanged: (v) =>
+                    _set('TunModeItem', 'RouteExcludeAddress', _splitList(v)),
+                helpText: '这些网段不进 TUN（直连）。代理服务器 IP、公司内网段填这里；按逗号填。填错会泄漏，属专家操作。',
+                dirtyKey: _dk('TunModeItem', 'RouteExcludeAddress'),
+              ),
+            if (_expertMode)
+              SettingsTextField(
+                label: 'Ipv4 地址',
+                value: _str(tun, 'IPv4Address'),
+                onChanged: (v) => _set('TunModeItem', 'IPv4Address', v),
+                helpText: 'TUN 网卡自己的 IPv4 地址，高级用法才填；与家里网段冲突会起不来。默认空（自动）。',
+                dirtyKey: _dk('TunModeItem', 'IPv4Address'),
+              ),
+            if (_expertMode)
+              SettingsTextField(
+                label: 'Ipv6 地址',
+                value: _str(tun, 'IPv6Address'),
+                onChanged: (v) => _set('TunModeItem', 'IPv6Address', v),
+                helpText: 'TUN 网卡自己的 IPv6 地址，高级用法才填；与家里网段冲突会起不来。默认空（自动）。',
+                dirtyKey: _dk('TunModeItem', 'IPv6Address'),
+              ),
           ],
         ),
     ]);
@@ -2229,7 +2436,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
     final items = _coreTypeItems();
     return _scroll(<Widget>[
       SettingsNote('内核类型按协议选择 (ConfigType → CoreType)；仅覆盖上游有下拉框的 8 项。'),
-      if (_showSection(const <String>['CoreTypeItem']))
+      if (_expertMode && _showSection(const <String>['CoreTypeItem']))
         SettingsSection(
           title: '内核类型',
           sectionId: 'coretype-main',
@@ -2239,12 +2446,23 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           child: <Widget>[
             for (final entry in _coreTypeControls)
               SettingsDropdown<int>(
+                key: ValueKey('settings-coretype-${entry.configType}'),
                 label: entry.label,
                 value: _coreTypeValue(items, entry.configType),
                 items: _items(_coreTypes.map((c) => (c.$1, c.$2)).toList()),
-                onChanged: (v) => setState(() {
-                  _setCoreType(items, entry.configType, v ?? 2);
-                }),
+                // UX3-10: switching cores asks first; cancel keeps the draft.
+                onChanged: (v) async {
+                  final next = v ?? 2;
+                  final ok = await _confirmDanger(
+                    title: '换内核？',
+                    message: '换后这类协议全部走新内核；节点类型不被它支持会整类全灭（支持表待补）。继续吗？',
+                  );
+                  if (!mounted || !ok) return;
+                  setState(() {
+                    _setCoreType(items, entry.configType, next);
+                  });
+                },
+                helpText: '默认 Xray；切之前确认节点类型被它支持（支持表待补），切错整类协议全灭。',
                 dirtyKey: _coreTypeValue(items, entry.configType) != 2
                     ? 'CoreTypeItem.${entry.configType}'
                     : null,

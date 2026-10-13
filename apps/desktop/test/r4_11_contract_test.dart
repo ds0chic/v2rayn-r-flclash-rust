@@ -177,7 +177,10 @@ void main() {
     );
     expect(userField().enabled, isFalse);
 
-    // Toggle "为局域网开启新的端口".
+    // Toggle "为局域网开启新的端口". (UB2-09 added help lines above this
+    // row; ensure it is scrolled into view before tapping.)
+    await tester.ensureVisible(find.text('为局域网开启新的端口'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('为局域网开启新的端口'));
     await tester.pumpAndSettle();
     expect(userField().enabled, isTrue);

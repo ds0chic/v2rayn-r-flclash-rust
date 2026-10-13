@@ -406,6 +406,7 @@ class SettingsSection extends StatefulWidget {
     this.expanded,
     this.onExpandedChanged,
     this.onReset,
+    this.dimmed = false,
   });
 
   final String title;
@@ -427,6 +428,9 @@ class SettingsSection extends StatefulWidget {
   /// UB2-08: per-group "restore defaults" entry (with its own confirm
   /// dialog at the call site). Null renders no button.
   final VoidCallback? onReset;
+
+  /// UB2-09: legacy保留区标题灰显（折叠能力与默认展开不变）。
+  final bool dimmed;
 
   @override
   State<SettingsSection> createState() => _SettingsSectionState();
@@ -466,7 +470,10 @@ class _SettingsSectionState extends State<SettingsSection> {
                 Expanded(
                   child: Text(
                     widget.title,
-                    style: AppForm.sectionTitleStyle(Theme.of(context)),
+                    style: AppForm.sectionTitleStyle(Theme.of(context))
+                        .copyWith(
+                          color: widget.dimmed ? context.semantics.muted : null,
+                        ),
                   ),
                 ),
                 if (widget.onReset != null && widget.sectionId != null)

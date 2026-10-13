@@ -6,7 +6,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use domain::CancellationToken;
-use subscriptions::download::{build_client, download_string, DownloadOptions, ProxyConfig};
+use subscriptions::download::{
+    build_client, download_string, DownloadOptions, ProxyConfig, DEFAULT_USER_AGENT,
+};
 use subscriptions::SubError;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -235,6 +237,128 @@ async fn custom_header_and_user_agent_are_sent() {
         .unwrap();
     assert_eq!(result.body, "ok");
     server.abort();
+}
+
+#[tokio::test]
+async fn default_user_agent_is_sent() {
+    let server = spawn(vec![Reply::RequireHeader {
+        name: "User-Agent".into(),
+        value: DEFAULT_USER_AGENT.into(),
+        body: b"ok".to_vec(),
+    }])
+    .await;
+    let result = download_string(
+        &server.base,
+        &DownloadOptions::default(),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(result.body, "ok");
+    server.abort();
+}
+
+#[tokio::test]
+async fn url_userinfo_is_sent_as_basic_auth() {
+    // "user:pass" -> "dXNlcjpwYXNz".
+    let server = spawn(vec![Reply::RequireHeader {
+        name: "Authorization".into(),
+        value: "Basic dXNlcjpwYXNz".into(),
+        body: b"ok".to_vec(),
+    }])
+    .await;
+    let url = server.base.replacen("://", "://user:pass@", 1);
+    let result = download_string(&url, &DownloadOptions::default(), &CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(result.body, "ok");
+    server.abort();
+}
+
+#[tokio::test]
+async fn url_without_userinfo_sends_no_basic_auth() {
+    // Negative control for the test above: the same gate must reject a
+    // credential-less request, proving the positive case is not vacuous.
+    let server = spawn(vec![
+        Reply::RequireHeader {
+            name: "Authorization".into(),
+            value: "Basic dXNlcjpwYXNz".into(),
+            body: b"ok".to_vec(),
+        },
+        Reply::RequireHeader {
+            name: "Authorization".into(),
+            value: "Basic dXNlcjpwYXNz".into(),
+            body: b"ok".to_vec(),
+        },
+    ])
+    .await;
+    let url = server.base.replacen("://", "://user:pass@", 1);
+    let ok = download_string(&url, &DownloadOptions::default(), &CancellationToken::new()).await;
+    assert!(ok.is_ok());
+    let err = download_string(
+        &server.base,
+        &DownloadOptions::default(),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(err, SubError::Http(_)));
+    server.abort();
+}
+
+#[tokio::test]
+async fn non_http_redirect_is_rejected() {
+    let server = spawn(vec![Reply::Raw(http_redirect("ftp://127.0.0.1:21/x"))]).await;
+    let err = download_string(
+        &server.base,
+        &DownloadOptions::default(),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(err, SubError::InvalidUri(_)));
+    server.abort();
+}
+
+#[tokio::test]
+async fn cross_origin_redirect_drops_custom_headers() {
+    let target = spawn(vec![Reply::RequireHeader {
+        name: "X-Token".into(),
+        value: "secret-value".into(),
+        body: b"ok".to_vec(),
+    }])
+    .await;
+    let target_location = format!("{}/final", target.base);
+    let redirector = spawn(vec![Reply::Raw(http_redirect(&target_location))]).await;
+    let options = DownloadOptions {
+        headers: vec![("X-Token".into(), "secret-value".into())],
+        ..DownloadOptions::default()
+    };
+    let err = download_string(&redirector.base, &options, &CancellationToken::new())
+        .await
+        .unwrap_err();
+    assert!(matches!(err, SubError::Http(_)));
+    redirector.abort();
+    target.abort();
+}
+
+#[tokio::test]
+async fn transport_errors_redact_the_subscription_url() {
+    // Closed loopback port: connect fails fast without any network.
+    let listener = bind().await;
+    let port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let url = format!("http://127.0.0.1:{port}/sub?token=secret-token-abc");
+    let err = download_string(&url, &DownloadOptions::default(), &CancellationToken::new())
+        .await
+        .unwrap_err();
+    for view in [
+        format!("{err}"),
+        format!("{err:?}"),
+        format!("{:?}", err.to_domain()),
+    ] {
+        assert!(!view.contains("secret-token-abc"), "leaked URL: {view}");
+    }
 }
 
 #[tokio::test]

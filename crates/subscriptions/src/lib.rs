@@ -23,7 +23,7 @@ pub mod util;
 pub use convert::{build_convert_url, punycode_url};
 pub use download::{
     build_client, build_client_with_trust, download_string, DownloadOptions, Downloaded,
-    Downloader, ProxyConfig,
+    Downloader, ProxyConfig, DEFAULT_USER_AGENT,
 };
 pub use error::{ParseIssue, SubError};
 pub use fmt::{

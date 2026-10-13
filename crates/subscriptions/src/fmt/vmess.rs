@@ -228,7 +228,7 @@ fn get_i64(obj: &Map<String, Value>, key: &str) -> i64 {
 }
 
 fn get_i32(obj: &Map<String, Value>, key: &str) -> i32 {
-    get_i64(obj, key) as i32
+    i32::try_from(get_i64(obj, key)).unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -273,5 +273,14 @@ mod tests {
     #[test]
     fn invalid_json_base64_is_rejected() {
         assert!(parse("vmess://not-base64-@@@").is_err());
+    }
+
+    #[test]
+    fn oversized_json_port_does_not_wrap() {
+        // 2^32 + 443 wraps to 443 with `as i32`; it must clamp to 0 instead.
+        let json = r#"{"port": 4294967759}"#;
+        let uri = format!("{}{}", base::VMESS, crate::util::base64_encode(json));
+        let parsed = parse(&uri).unwrap();
+        assert_eq!(parsed.port, 0);
     }
 }

@@ -2,21 +2,23 @@
 //!
 //! The client never consults the environment proxy: `no_proxy()` is set unless
 //! an explicit [`ProxyConfig`] is supplied. Redirects are followed manually so
-//! authentication/cookie headers are dropped when the origin changes, and the
-//! body read is capped and observes cooperative cancellation.
+//! configured headers and URL userinfo are dropped when the origin changes,
+//! and the body read is capped and observes cooperative cancellation.
 
 use std::time::Duration;
 
 use domain::CancellationToken;
-use reqwest::header::{
-    HeaderMap, HeaderName, HeaderValue, ACCEPT, AUTHORIZATION, COOKIE, LOCATION,
-    PROXY_AUTHORIZATION, USER_AGENT,
-};
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, LOCATION, USER_AGENT};
 use reqwest::Url;
 
 use crate::error::SubError;
 use crate::tls::HttpsTrust;
 use crate::util::{decode_body_bytes, CancellationWatcher};
+
+/// User-Agent sent when [`DownloadOptions::user_agent`] is unset or empty.
+/// Upstream `DownloadService` falls back to the app version token in that
+/// case; a fixed token keeps fingerprinting stable and documented.
+pub const DEFAULT_USER_AGENT: &str = "v2rayN-R";
 
 /// An explicit proxy endpoint (e.g. `http://127.0.0.1:7890`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,7 +127,9 @@ pub fn build_client_with_trust(
                     .map_err(|_| SubError::HeaderInvalid("user agent".into()))?,
             )
         }
-        None => None,
+        // Upstream sends the version token when no UA is configured; never
+        // send a bare request.
+        None => Some(HeaderValue::from_static(DEFAULT_USER_AGENT)),
     };
 
     if options.accept_invalid_certs {
@@ -147,6 +151,8 @@ pub fn build_client_with_trust(
         redirect: platform::http::RedirectPolicy::None,
     };
     let client = platform::http::SharedHttpClient::shared(policy).map_err(|e| {
+        // The message may echo the configured proxy URL.
+        let e = redact_urls(&e);
         if e.contains("proxy") {
             SubError::InvalidUri(e)
         } else {
@@ -221,14 +227,21 @@ impl Downloader {
                 let location = location
                     .to_str()
                     .map_err(|_| SubError::Http("invalid Location".into()))?;
-                let next = url
+                let mut next = url
                     .join(location)
                     .map_err(|e| SubError::Http(format!("bad redirect: {e}")))?;
+                if next.scheme() != "http" && next.scheme() != "https" {
+                    return Err(SubError::InvalidUri(
+                        "redirect scheme must be http(s)".into(),
+                    ));
+                }
                 if origin_differs(&url, &next) {
-                    // Do not leak credentials across origins.
-                    headers.remove(AUTHORIZATION);
-                    headers.remove(COOKIE);
-                    headers.remove(PROXY_AUTHORIZATION);
+                    // Do not leak credentials across origins: drop every
+                    // configured header (only `Accept`/`User-Agent` are resent)
+                    // and strip URL userinfo the target did not ask for.
+                    headers.clear();
+                    let _ = next.set_username("");
+                    let _ = next.set_password(None);
                 }
                 url = next;
                 continue;
@@ -314,8 +327,35 @@ fn map_reqwest_error(err: &reqwest::Error) -> SubError {
     } else if err.is_decode() {
         SubError::Decode("response".into())
     } else {
-        SubError::Http(err.to_string())
+        SubError::Http(redact_urls(&err.to_string()))
     }
+}
+
+/// Strip `http(s)://...` spans from error text. Subscription and proxy URLs
+/// carry tokens, so they must never surface in errors, details or logs.
+pub(crate) fn redact_urls(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    loop {
+        let pos = match (rest.find("http://"), rest.find("https://")) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (None, None) => None,
+        };
+        let Some(pos) = pos else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..pos]);
+        out.push_str("[redacted]");
+        let end = rest[pos..]
+            .find(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '(' | ')' | '<' | '>'))
+            .map(|e| pos + e)
+            .unwrap_or(rest.len());
+        rest = &rest[end..];
+    }
+    out
 }
 
 #[cfg(test)]
@@ -344,6 +384,18 @@ mod tests {
             build_client(&options),
             Err(SubError::HeaderInvalid(_))
         ));
+    }
+
+    #[test]
+    fn url_redaction_strips_urls_but_keeps_context() {
+        let redacted = redact_urls(
+            "error sending request for url (https://h.example/s?token=s) done http://a.b/c",
+        );
+        assert!(!redacted.contains("h.example"));
+        assert!(!redacted.contains("token=s"));
+        assert!(!redacted.contains("a.b"));
+        assert!(redacted.contains("error sending request for url"));
+        assert_eq!(redact_urls("no url here"), "no url here");
     }
 
     #[test]

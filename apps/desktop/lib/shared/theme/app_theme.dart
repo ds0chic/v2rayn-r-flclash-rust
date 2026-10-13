@@ -245,8 +245,8 @@ class AppForm {
   /// Target height for a single-line outlined input at the default font size.
   static const double controlHeight = 36;
 
-  /// Net vertical gap between two adjacent field rows.
-  static const double fieldGap = 10;
+  /// Net vertical gap between two adjacent field rows (4px grid).
+  static const double fieldGap = 12;
 
   /// Net vertical gap between two section groups.
   static const double groupGap = 16;

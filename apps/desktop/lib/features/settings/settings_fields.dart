@@ -21,7 +21,7 @@ class SettingsCheckbox extends StatelessWidget {
     return InkWell(
       onTap: () => onChanged(!value),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Row(
           children: <Widget>[
             SizedBox(
@@ -274,10 +274,7 @@ class SettingsSection extends StatelessWidget {
           padding: const EdgeInsets.only(top: 10, bottom: 4),
           child: Text(
             title,
-            style: const TextStyle(
-              fontSize: AppTokens.fontSize,
-              fontWeight: FontWeight.w600,
-            ),
+            style: AppForm.sectionTitleStyle(Theme.of(context)),
           ),
         ),
         const Divider(height: 1),

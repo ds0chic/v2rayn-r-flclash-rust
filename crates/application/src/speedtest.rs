@@ -43,6 +43,15 @@ pub const DEFAULT_PAGE_SIZE: usize = 1_000;
 /// Upstream `Global.SpeedTestConcurrencyCountMin`.
 pub const MIN_MIXED_CONCURRENCY: usize = 10;
 
+/// Ceiling for `mixed_concurrency` (both the settings item and the FRB path).
+pub const MAX_MIXED_CONCURRENCY: usize = 64;
+
+/// Ceiling for `page_size` on the FRB configure path.
+pub const MAX_PAGE_SIZE: usize = 5_000;
+
+/// Ceiling for the speedtest timeout, in seconds.
+pub const MAX_SPEEDTEST_TIMEOUT_SECS: u64 = 300;
+
 /// Upstream `Global.LocalFetch` used by RealPing per request.
 pub const LOCAL_FETCH_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -99,27 +108,41 @@ impl Default for SpeedTestSettings {
 }
 
 impl SpeedTestSettings {
+    /// Shared normalize-not-reject for the numeric knobs. A zero page means
+    /// "unset" and falls back to [`DEFAULT_PAGE_SIZE`]; the rest are clamped
+    /// into their floors and ceilings. Both [`Self::from_item`] and the FRB
+    /// `speedtest_configure` entry go through here so the two paths agree.
+    pub fn normalize_parts(
+        page_size: usize,
+        mixed_concurrency: usize,
+        timeout_secs: u64,
+    ) -> (usize, usize, Duration) {
+        let page = if page_size == 0 {
+            DEFAULT_PAGE_SIZE
+        } else {
+            page_size.clamp(1, MAX_PAGE_SIZE)
+        };
+        let mixed = mixed_concurrency.clamp(MIN_MIXED_CONCURRENCY, MAX_MIXED_CONCURRENCY);
+        let timeout = timeout_secs.clamp(
+            MIN_SPEEDTEST_TIMEOUT_SECS as u64,
+            MAX_SPEEDTEST_TIMEOUT_SECS,
+        );
+        (page, mixed, Duration::from_secs(timeout))
+    }
+
     /// Apply the same normalize-not-reject corrections as
     /// `domain::settings::AppSettings::normalize`.
     pub fn from_item(item: &domain::SpeedTestItem) -> Self {
-        let timeout = if item.speed_test_timeout < MIN_SPEEDTEST_TIMEOUT_SECS as i32 {
-            MIN_SPEEDTEST_TIMEOUT_SECS as u64
-        } else {
-            item.speed_test_timeout as u64
-        };
-        let mut mixed = item.mixed_concurrency_count.max(0) as usize;
-        if mixed < MIN_MIXED_CONCURRENCY {
-            mixed = MIN_MIXED_CONCURRENCY;
-        }
-        let mut page = item.speed_test_page_size.unwrap_or(0).max(0) as usize;
-        if page == 0 {
-            page = DEFAULT_PAGE_SIZE;
-        }
+        let (page, mixed, timeout) = Self::normalize_parts(
+            item.speed_test_page_size.unwrap_or(0).max(0) as usize,
+            item.mixed_concurrency_count.max(0) as usize,
+            item.speed_test_timeout.max(0) as u64,
+        );
         let delay = item.speed_test_delay_interval.unwrap_or(1).max(0) as u64;
         Self {
             page_size: page,
             mixed_concurrency: mixed,
-            timeout: Duration::from_secs(timeout),
+            timeout,
             speed_test_url: non_empty(&item.speed_test_url)
                 .unwrap_or_else(|| DEFAULT_SPEED_URL.to_string()),
             speed_ping_test_url: non_empty(&item.speed_ping_test_url)
@@ -2870,6 +2893,20 @@ mod tests {
         assert_eq!(s.mixed_concurrency, MIN_MIXED_CONCURRENCY);
         assert_eq!(s.page_size, DEFAULT_PAGE_SIZE);
         assert_eq!(s.speed_test_url, DEFAULT_SPEED_URL);
+    }
+
+    #[test]
+    fn settings_normalize_enforces_ceilings() {
+        let item = domain::SpeedTestItem {
+            speed_test_timeout: 9_999,
+            mixed_concurrency_count: 999,
+            speed_test_page_size: Some(999_999),
+            ..Default::default()
+        };
+        let s = SpeedTestSettings::from_item(&item);
+        assert_eq!(s.timeout, Duration::from_secs(MAX_SPEEDTEST_TIMEOUT_SECS));
+        assert_eq!(s.mixed_concurrency, MAX_MIXED_CONCURRENCY);
+        assert_eq!(s.page_size, MAX_PAGE_SIZE);
     }
 
     #[test]

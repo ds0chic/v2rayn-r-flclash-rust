@@ -420,10 +420,15 @@ pub fn speedtest_configure(
     delay_interval_secs: u32,
 ) -> SimpleResult {
     with_hub(|h| {
+        let (page_size, mixed_concurrency, timeout) = SpeedTestSettings::normalize_parts(
+            page_size as usize,
+            mixed_concurrency as usize,
+            timeout_secs as u64,
+        );
         h.settings = SpeedTestSettings {
-            page_size: page_size.max(1) as usize,
-            mixed_concurrency: mixed_concurrency.max(1) as usize,
-            timeout: Duration::from_secs(timeout_secs.max(10) as u64),
+            page_size,
+            mixed_concurrency,
+            timeout,
             speed_test_url,
             speed_ping_test_url,
             ipapi_url: ipapi_url.filter(|s| !s.trim().is_empty()),
@@ -1032,8 +1037,40 @@ mod tests {
         assert!(result.ok);
         with_hub(|h| {
             assert_eq!(h.settings.timeout, Duration::from_secs(10));
-            assert_eq!(h.settings.mixed_concurrency, 1);
+            // 0/1 means "unset": raised to the shared concurrency floor.
+            assert_eq!(
+                h.settings.mixed_concurrency,
+                application::speedtest::MIN_MIXED_CONCURRENCY
+            );
             assert!(h.settings.ipapi_url.is_none());
+        });
+    }
+
+    #[test]
+    fn configure_enforces_floor_and_ceiling() {
+        let _guard = lock();
+        reset_speedtest_for_test();
+        let result = speedtest_configure(
+            u32::MAX,
+            1,
+            u32::MAX,
+            "http://x/big".into(),
+            "http://x/204".into(),
+            None,
+            None,
+            1,
+        );
+        assert!(result.ok);
+        with_hub(|h| {
+            assert_eq!(h.settings.page_size, application::speedtest::MAX_PAGE_SIZE);
+            assert_eq!(
+                h.settings.mixed_concurrency,
+                application::speedtest::MIN_MIXED_CONCURRENCY
+            );
+            assert_eq!(
+                h.settings.timeout,
+                Duration::from_secs(application::speedtest::MAX_SPEEDTEST_TIMEOUT_SECS)
+            );
         });
     }
 

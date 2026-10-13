@@ -270,7 +270,10 @@ fn check_references(view: &CandidateView<'_>, outcome: &mut ValidationOutcome) {
 }
 
 fn is_builtin_tag(tag: &str) -> bool {
-    matches!(tag, "proxy" | "direct" | "block" | "dns")
+    // Upstream `Global.OutboundTags` is proxy/direct/block only (`Global.cs`):
+    // the generated `dns` outbound is not a builtin reference target, matching
+    // `domain::OUTBOUND_TAGS` and `domain::resolve_outbound_tag`.
+    matches!(tag, "proxy" | "direct" | "block")
 }
 
 fn check_active_nodes(view: &CandidateView<'_>, outcome: &mut ValidationOutcome) {
@@ -383,9 +386,13 @@ fn detect_cycle(
 }
 
 fn count_unknown_fields(view: &CandidateView<'_>) -> u32 {
+    // S1-13: count retained unknown keys (objects contribute their key
+    // count plus descendants), not a constant zero.
     fn count(value: &Value) -> u32 {
         match value {
-            Value::Object(map) => map.values().map(count).sum(),
+            Value::Object(map) => {
+                (map.len() as u32).saturating_add(map.values().map(count).sum::<u32>())
+            }
             Value::Array(items) => items.iter().map(count).sum(),
             _ => 0,
         }
@@ -517,6 +524,54 @@ mod tests {
                 .filter(|w| w.code == warn::PATH)
                 .count(),
             1
+        );
+    }
+
+    #[test]
+    fn unknown_fields_are_counted_not_zero() {
+        // S1-13: the report's `unknown_fields_preserved` must count the
+        // retained unknown keys instead of staying a dead zero metric.
+        let mut p = profile("a", "A");
+        p.extra.insert("FutureOne".into(), serde_json::json!(1));
+        p.extra
+            .insert("FutureTwo".into(), serde_json::json!({"nested": [1, 2]}));
+        let profiles = vec![p];
+        let view = CandidateView {
+            profiles: &profiles,
+            ..Default::default()
+        };
+        let outcome = validate_candidate(&view);
+        assert!(
+            outcome.summary.unknown_fields_preserved >= 2,
+            "unknown keys must be counted, got {}",
+            outcome.summary.unknown_fields_preserved
+        );
+    }
+
+    #[test]
+    fn dns_outbound_reference_warns_like_other_dangling_tags() {
+        // S1-18: upstream `Global.OutboundTags` is only proxy/direct/block;
+        // a rule pointing at `dns` is dangling here exactly as in
+        // `domain::resolve_outbound_tag`, so validation must warn.
+        let profiles = vec![profile("a", "A")];
+        let routing = vec![RoutingProfile {
+            id: "route".into(),
+            rule_set: r#"[{"Id":"r1","OutboundTag":"dns","Enabled":true,"RuleType":1}]"#.into(),
+            ..Default::default()
+        }];
+        let view = CandidateView {
+            profiles: &profiles,
+            routing: &routing,
+            ..Default::default()
+        };
+        let outcome = validate_candidate(&view);
+        assert!(
+            outcome
+                .warnings
+                .iter()
+                .any(|w| w.code == warn::REF_OUTBOUND),
+            "dns outbound must warn, warnings: {:?}",
+            outcome.warnings
         );
     }
 }

@@ -1424,7 +1424,11 @@ mod tests {
         if update_service().app_repo.is_some() {
             return;
         }
+        // S8-05: the update pipeline now bounds every network step with a
+        // bridge timeout, so tests driving it need a timer driver (the
+        // production FRB runtime always has one). No network is touched.
         let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
             .build()
             .expect("current-thread runtime");
         for spec in [

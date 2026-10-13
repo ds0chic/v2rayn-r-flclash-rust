@@ -6,7 +6,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use domain::CancellationToken;
-use subscriptions::download::{build_client, download_string, DownloadOptions, ProxyConfig};
+use subscriptions::download::{
+    build_client, download_string, DownloadOptions, ProxyConfig, DEFAULT_USER_AGENT,
+};
 use subscriptions::SubError;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
@@ -233,6 +235,25 @@ async fn custom_header_and_user_agent_are_sent() {
     let result = download_string(&server.base, &options, &CancellationToken::new())
         .await
         .unwrap();
+    assert_eq!(result.body, "ok");
+    server.abort();
+}
+
+#[tokio::test]
+async fn default_user_agent_is_sent() {
+    let server = spawn(vec![Reply::RequireHeader {
+        name: "User-Agent".into(),
+        value: DEFAULT_USER_AGENT.into(),
+        body: b"ok".to_vec(),
+    }])
+    .await;
+    let result = download_string(
+        &server.base,
+        &DownloadOptions::default(),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
     assert_eq!(result.body, "ok");
     server.abort();
 }

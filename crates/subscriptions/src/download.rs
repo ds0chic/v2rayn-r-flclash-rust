@@ -18,6 +18,11 @@ use crate::error::SubError;
 use crate::tls::HttpsTrust;
 use crate::util::{decode_body_bytes, CancellationWatcher};
 
+/// User-Agent sent when [`DownloadOptions::user_agent`] is unset or empty.
+/// Upstream `DownloadService` falls back to the app version token in that
+/// case; a fixed token keeps fingerprinting stable and documented.
+pub const DEFAULT_USER_AGENT: &str = "v2rayN-R";
+
 /// An explicit proxy endpoint (e.g. `http://127.0.0.1:7890`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProxyConfig {
@@ -125,7 +130,11 @@ pub fn build_client_with_trust(
                     .map_err(|_| SubError::HeaderInvalid("user agent".into()))?,
             )
         }
-        None => None,
+        // Upstream sends the version token when no UA is configured; never
+        // send a bare request.
+        None => Some(
+            HeaderValue::from_static(DEFAULT_USER_AGENT),
+        ),
     };
 
     if options.accept_invalid_certs {

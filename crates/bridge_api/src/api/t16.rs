@@ -8,7 +8,9 @@
 
 use std::path::{Path, PathBuf};
 
-use application::{BackupManifest, BackupService, ImportStatus, WebDavClient, WebDavConfig};
+use application::{
+    AppEngine, BackupManifest, BackupService, ImportStatus, WebDavClient, WebDavConfig,
+};
 use domain::{codes, CancellationToken, DomainError};
 use flutter_rust_bridge::frb;
 
@@ -237,15 +239,43 @@ fn import_upstream(path: &str, merge: bool) -> ImportSummaryDto {
         Ok(prepared) => prepared,
         Err(error) => return import_failed(error, 0),
     };
+    import_upstream_inner(
+        &service,
+        engine(),
+        Path::new(path),
+        &work,
+        merge,
+        now_epoch(),
+    )
+}
+
+// S8-02 seam: the import body takes its service/engine/work explicitly so
+// tests can drive it against an isolated engine without touching the FRB
+// entry points above (whose signatures are frozen).
+fn import_upstream_inner(
+    service: &BackupService,
+    engine: &AppEngine,
+    path: &Path,
+    work: &Path,
+    merge: bool,
+    now: i64,
+) -> ImportSummaryDto {
     // SR-03: same lifecycle as the local restore; quiesce/reopen failures are
     // propagated as structured errors instead of being ignored.
     let outcome = if merge {
-        service.import_upstream_merge_with_lifecycle(engine(), Path::new(path), &work, now_epoch())
+        service.import_upstream_merge_with_lifecycle(engine, path, work, now)
     } else {
-        service.import_upstream_with_lifecycle(engine(), Path::new(path), &work, now_epoch())
+        service.import_upstream_with_lifecycle(engine, path, work, now)
     };
     match outcome {
         Ok(report) => {
+            // S8-02: same overlay reset as the local/WebDAV restore paths. A
+            // changed target invalidates every cached delay/speed row; without
+            // this a stale entry survives and a later flush writes it back
+            // over the freshly imported ProfileEx.
+            if report.status.changed_target() {
+                super::speedtest::reload_profile_ex_after_restore();
+            }
             let imported_rows = report.counts.iter().map(|c| c.imported_rows).sum::<u64>();
             let status = match report.status {
                 ImportStatus::Imported => "imported",
@@ -1320,5 +1350,99 @@ mod tests {
             application::parse_dgst_sha256(text).as_deref(),
             Some("d004c392aabb")
         );
+    }
+
+    // S8-02: the upstream import must reset the speedtest in-memory overlay
+    // exactly like the local/WebDAV restore paths do, or a stale overlay
+    // entry (old delay for a node id) survives the import and a later flush
+    // writes it back over the freshly imported ProfileEx.
+    fn s8_02_live_root(tag: &str, seed_db: bool) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("b07a-s8-02-{}-{tag}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("live")).expect("live dir");
+        let fixture =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/synthetic/upstream-v2");
+        // The checked-in fixture databases predate the current schema (no
+        // `EchForceQuery` column). Replace swaps the whole file so a raw copy
+        // is fine; merge inserts rows into the live file, so the live
+        // database is created fresh (current schema, like a migrated app
+        // database) by the engine open below.
+        if seed_db {
+            std::fs::copy(
+                fixture.join("guiNDB.db"),
+                root.join("live").join("guiNDB.db"),
+            )
+            .expect("fixture db copy");
+        }
+        std::fs::copy(
+            fixture.join("guiNConfig.json"),
+            root.join("live").join("guiNConfig.json"),
+        )
+        .expect("fixture config copy");
+        root
+    }
+
+    fn s8_02_import_resets_stale_overlay(merge: bool, tag: &str) {
+        let _guard = crate::api::engine::engine_test_lock();
+        crate::api::speedtest::reset_speedtest_for_test();
+        let stale_id = format!("s8-02-stale-{tag}");
+        crate::api::speedtest::apply_speedtest_result_for_test(
+            stale_id.clone(),
+            88,
+            1.0,
+            "stale".to_string(),
+        );
+        assert!(
+            crate::api::speedtest::speedtest_results()
+                .iter()
+                .any(|r| r.index_id == stale_id),
+            "stale overlay entry seeded"
+        );
+
+        let root = s8_02_live_root(tag, !merge);
+        let live = root.join("live");
+        let engine = application::AppEngine::open_with_runtime(
+            &live,
+            std::sync::Arc::new(application::runtime_client::NullRuntimeClient::new()),
+        )
+        .expect("open test engine");
+        let service = BackupService::new(&live);
+        let work = root.join("work");
+        std::fs::create_dir_all(&work).expect("work dir");
+        let source =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/synthetic/upstream-v3");
+        let summary = import_upstream_inner(&service, &engine, &source, &work, merge, now_epoch());
+        let err_text = summary.error.as_ref().map(|e| {
+            format!(
+                "{} {} {}",
+                e.code,
+                e.message_key,
+                e.detail.as_deref().unwrap_or("")
+            )
+        });
+        assert!(
+            summary.ok,
+            "import ok: {} err={err_text:?}",
+            summary.message
+        );
+        assert_eq!(summary.status, "imported");
+        let stale_left = crate::api::speedtest::speedtest_results()
+            .iter()
+            .any(|r| r.index_id == stale_id);
+        let _ = std::fs::remove_dir_all(&root);
+        assert!(
+            !stale_left,
+            "stale overlay entry survived the upstream import"
+        );
+    }
+
+    #[test]
+    fn s8_02_import_replace_resets_stale_speedtest_overlay() {
+        s8_02_import_resets_stale_overlay(false, "replace");
+    }
+
+    #[test]
+    fn s8_02_import_merge_resets_stale_speedtest_overlay() {
+        s8_02_import_resets_stale_overlay(true, "merge");
     }
 }

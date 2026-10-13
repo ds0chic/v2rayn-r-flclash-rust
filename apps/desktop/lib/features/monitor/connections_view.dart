@@ -355,12 +355,15 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                OutlinedButton(
-                  key: const ValueKey('connections-autofit'),
-                  onPressed: _autofitColumns,
-                  child: const Text(
-                    '列宽自适应',
-                    style: TextStyle(fontSize: AppTokens.fontSize),
+                Tooltip(
+                  message: '恢复默认列宽并保存，下次打开仍是这一套',
+                  child: OutlinedButton(
+                    key: const ValueKey('connections-autofit'),
+                    onPressed: _autofitColumns,
+                    child: const Text(
+                      '列宽自适应',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),

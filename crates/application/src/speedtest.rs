@@ -49,6 +49,15 @@ pub const LOCAL_FETCH_TIMEOUT: Duration = Duration::from_secs(15);
 /// TCPing connect timeout (upstream `GetTcpingTime` hard-codes 5 s).
 pub const TCPING_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Hard cap on concurrent Tcping workers. Upstream `RunTcpingAsync` fans out one
+/// async task per page item (`MaxDegreeOfParallelism = lst.Count`, page default
+/// 1000); C# tasks are cheap, but this port spawns one OS thread per worker, so
+/// the page-bounded fan-out is clamped here (deliberate adaptation, not parity).
+pub const TCPING_MAX_CONCURRENCY: usize = 64;
+
+/// Hard cap on [`SpeedTestRunner::pool`] workers (second line of defence).
+pub const MAX_POOL_WORKERS: usize = 64;
+
 /// Result batch cadence (plan: 50-100 ms batches, never per-item UI churn).
 pub const BATCH_FLUSH_MS: u64 = 75;
 
@@ -981,6 +990,15 @@ impl SpeedTestRunner {
         }
     }
 
+    /// Tcping worker budget for one page: the normalized mixed-concurrency
+    /// floor applies, then the OS-thread hard cap.
+    fn tcping_concurrency(&self, batch_len: usize) -> usize {
+        batch_len
+            .max(1)
+            .min(self.settings.mixed_concurrency.max(MIN_MIXED_CONCURRENCY))
+            .min(TCPING_MAX_CONCURRENCY)
+    }
+
     fn run_tcping(
         &self,
         nodes: &[TestNode],
@@ -993,7 +1011,7 @@ impl SpeedTestRunner {
                 *stop.lock().expect("stop") = StopReason::Cancelled;
                 return;
             }
-            let concurrency = batch.len().max(1);
+            let concurrency = self.tcping_concurrency(batch.len());
             self.pool(batch, concurrency, ct, pending, |node| {
                 if ct.is_cancelled() {
                     return SpeedTestResult::failed(node.index_id.clone(), "cancelled");
@@ -1175,6 +1193,10 @@ impl SpeedTestRunner {
 
     /// Bounded worker pool over one batch. Results are pushed to `pending` as
     /// they complete (the emitter throttles them into batches).
+    ///
+    /// `concurrency` is additionally clamped to [`MAX_POOL_WORKERS`]: no caller
+    /// may fan out an unbounded OS-thread burst by passing a huge page as the
+    /// worker count.
     fn pool<F>(
         &self,
         batch: &[TestNode],
@@ -1186,7 +1208,11 @@ impl SpeedTestRunner {
         F: Fn(&TestNode) -> SpeedTestResult + Sync,
     {
         let next = AtomicUsize::new(0);
-        let workers = concurrency.min(batch.len().max(1));
+        let workers = concurrency
+            .min(batch.len().max(1))
+            .min(MAX_POOL_WORKERS)
+            .max(1);
+        debug_assert!(workers <= MAX_POOL_WORKERS);
         std::thread::scope(|scope| {
             for _ in 0..workers {
                 scope.spawn(|| loop {
@@ -2465,6 +2491,59 @@ mod tests {
         assert_eq!(ids, vec!["n0", "n1", "n2", "n3"]);
         assert!(outcome.results.iter().all(|r| r.delay.unwrap() >= 0));
         assert!(!batches.is_empty(), "results must be emitted in batches");
+    }
+
+    #[test]
+    fn pool_clamps_workers_to_hard_cap() {
+        use std::sync::atomic::Ordering as Ord;
+        let runner =
+            SpeedTestRunner::new(SpeedTestSettings::default(), Arc::new(UnsupportedSession));
+        let nodes: Vec<TestNode> = (0..100)
+            .map(|i| TestNode {
+                index_id: format!("n{i}"),
+                address: "127.0.0.1".into(),
+                port: 1,
+                config_type: 5,
+                core_type: 1,
+            })
+            .collect();
+        let active = AtomicI64::new(0);
+        let max_seen = AtomicI64::new(0);
+        let pending = Mutex::new(Vec::new());
+        runner.pool(
+            &nodes,
+            nodes.len(),
+            &CancellationToken::new(),
+            &pending,
+            |node| {
+                let cur = active.fetch_add(1, Ord::AcqRel) + 1;
+                max_seen.fetch_max(cur, Ord::AcqRel);
+                std::thread::sleep(Duration::from_millis(5));
+                active.fetch_sub(1, Ord::AcqRel);
+                SpeedTestResult::delay(node.index_id.clone(), 1)
+            },
+        );
+        let max = max_seen.load(Ord::Acquire);
+        assert!(
+            max <= MAX_POOL_WORKERS as i64,
+            "pool burst must be capped at {MAX_POOL_WORKERS}, saw {max}"
+        );
+    }
+
+    #[test]
+    fn tcping_concurrency_follows_mixed_floor_and_hard_cap() {
+        let capped = SpeedTestRunner::new(
+            SpeedTestSettings {
+                mixed_concurrency: 1_000,
+                ..SpeedTestSettings::default()
+            },
+            Arc::new(UnsupportedSession),
+        );
+        assert_eq!(capped.tcping_concurrency(1000), TCPING_MAX_CONCURRENCY);
+        let floored =
+            SpeedTestRunner::new(SpeedTestSettings::default(), Arc::new(UnsupportedSession));
+        assert_eq!(floored.tcping_concurrency(1000), MIN_MIXED_CONCURRENCY);
+        assert_eq!(floored.tcping_concurrency(3), 3);
     }
 
     #[test]

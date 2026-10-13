@@ -288,6 +288,7 @@ class SettingsController extends Notifier<SettingsViewState> {
     if (!state.loaded || state.loadFailed) return _notLoadedSaveFailure();
     _normalizeCoreBasicBindings(draft);
     _normalizeRootCertProvider(draft);
+    _normalizeMuxConcurrency(draft);
     final result = ref
         .read(bridgePortProvider)
         .saveSettingsJson(
@@ -800,6 +801,17 @@ class SettingsController extends Notifier<SettingsViewState> {
       if (value is! String) continue;
       final trimmed = value.trim();
       core[key] = trimmed.isEmpty ? null : trimmed;
+    }
+  }
+
+  /// Upstream `OptionSettingViewModel.SaveSettingAsync`: `Mux4RayConcurrency`
+  /// and `Mux4RayXudpConcurrency` are stored as null unless positive.
+  static void _normalizeMuxConcurrency(Map<String, dynamic> draft) {
+    final mux = draft['Mux4RayItem'];
+    if (mux is! Map) return;
+    for (final key in const <String>['Concurrency', 'XudpConcurrency']) {
+      final value = mux[key];
+      if (value is num && value <= 0) mux[key] = null;
     }
   }
 

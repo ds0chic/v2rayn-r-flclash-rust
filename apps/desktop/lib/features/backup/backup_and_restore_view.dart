@@ -278,6 +278,14 @@ class _BackupAndRestoreViewState extends ConsumerState<BackupAndRestoreView> {
         ),
       ),
       actions: <Widget>[
+        // D2-05: a running operation can be cancelled from the window; the
+        // controller's generation guard drops the late engine outcome.
+        if (state.busy)
+          TextButton(
+            key: const ValueKey('backup-cancel'),
+            onPressed: controller.cancel,
+            child: const Text('取消'),
+          ),
         TextButton(
           key: const ValueKey('backup-close'),
           onPressed: () => Navigator.pop(context),

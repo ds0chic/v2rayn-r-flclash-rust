@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
+import 'package:v2rayn_desktop/features/settings/preset_dialog.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
@@ -400,80 +401,96 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
         // every tab; results navigate (switch tab + expand section).
         Padding(
           padding: const EdgeInsets.fromLTRB(0, 4, 0, 4),
-          child: Row(
-            children: <Widget>[
-              SizedBox(
-                width: 220,
-                child: TextField(
-                  key: const ValueKey('settings-search'),
-                  controller: _searchController,
-                  style: const TextStyle(fontSize: AppTokens.fontSize),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    prefixIcon: Icon(AppTokens.icon('search'), size: 14),
-                    hintText: '搜索设置项…',
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 8,
-                    ),
-                  ),
-                  onSubmitted: (_) => _runSearch(),
-                ),
-              ),
-              const SizedBox(width: 6),
-              OutlinedButton(
-                key: const ValueKey('settings-search-go'),
-                onPressed: _runSearch,
-                child: const Text(
-                  '搜索',
-                  style: TextStyle(fontSize: AppTokens.fontSize),
-                ),
-              ),
-              const SizedBox(width: 16),
-              InkWell(
-                onTap: () => setState(() => _modifiedOnly = !_modifiedOnly),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Checkbox(
-                      key: const ValueKey('settings-modified-only'),
-                      value: _modifiedOnly,
-                      visualDensity: VisualDensity.compact,
-                      onChanged: (v) =>
-                          setState(() => _modifiedOnly = v ?? false),
-                    ),
-                    const Text(
-                      '仅看已修改',
-                      style: TextStyle(fontSize: AppTokens.fontSize),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              InkWell(
-                onTap: () => setState(() => _expertMode = !_expertMode),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Checkbox(
-                      key: const ValueKey('settings-expert-mode'),
-                      value: _expertMode,
-                      visualDensity: VisualDensity.compact,
-                      onChanged: (v) =>
-                          setState(() => _expertMode = v ?? false),
-                    ),
-                    const Tooltip(
-                      message: '关掉后隐藏换内核/手写参数等专家项，可防误触；默认显示。',
-                      child: Text(
-                        '专家模式',
-                        style: TextStyle(fontSize: AppTokens.fontSize),
+          // UB2-10: horizontal scroll guard so the extra preset entry never
+          // overflows narrow/DPI-scaled windows (scrolls instead of breaking).
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: <Widget>[
+                SizedBox(
+                  width: 220,
+                  child: TextField(
+                    key: const ValueKey('settings-search'),
+                    controller: _searchController,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      prefixIcon: Icon(AppTokens.icon('search'), size: 14),
+                      hintText: '搜索设置项…',
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
                       ),
                     ),
-                  ],
+                    onSubmitted: (_) => _runSearch(),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                OutlinedButton(
+                  key: const ValueKey('settings-search-go'),
+                  onPressed: _runSearch,
+                  child: const Text(
+                    '搜索',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                InkWell(
+                  onTap: () => setState(() => _modifiedOnly = !_modifiedOnly),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Checkbox(
+                        key: const ValueKey('settings-modified-only'),
+                        value: _modifiedOnly,
+                        visualDensity: VisualDensity.compact,
+                        onChanged: (v) =>
+                            setState(() => _modifiedOnly = v ?? false),
+                      ),
+                      const Text(
+                        '仅看已修改',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                InkWell(
+                  onTap: () => setState(() => _expertMode = !_expertMode),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Checkbox(
+                        key: const ValueKey('settings-expert-mode'),
+                        value: _expertMode,
+                        visualDensity: VisualDensity.compact,
+                        onChanged: (v) =>
+                            setState(() => _expertMode = v ?? false),
+                      ),
+                      const Tooltip(
+                        message: '关掉后隐藏换内核/手写参数等专家项，可防误触；默认显示。',
+                        child: Text(
+                          '专家模式',
+                          style: TextStyle(fontSize: AppTokens.fontSize),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // UB2-10: one-click recommended scenarios (UX3 §4.2). Lives in
+                // the settings top bar because the main menu belongs to U-B1.
+                OutlinedButton(
+                  key: const ValueKey('settings-preset-open'),
+                  onPressed: _openPresetDialog,
+                  child: const Text(
+                    '一键推荐方案…',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         if (_searchSubmitted) _searchResultsPanel(),
@@ -876,6 +893,64 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       }
       _draftRevision = ref.read(settingsControllerProvider).revision;
     });
+  }
+
+  /// UB2-10: one-click recommended scenarios (UX3 §4.2). The dialog computes
+  /// a forced diff preview; apply writes only listed fields through the
+  /// desired chain (independent window: saveGroup per group; host mode:
+  /// draft merge only, the host relay still owns saving). Afterwards the
+  /// touched draft groups are reseeded and the revision recaptured, mirroring
+  /// [_resetGroups].
+  Future<void> _openPresetDialog() async {
+    Map<String, dynamic> readDocument() {
+      if (widget.host != null) return _draft;
+      return ref.read(settingsControllerProvider).document;
+    }
+
+    Future<bool> writeGroup(String group, Object? fullValue) async {
+      if (widget.host != null) {
+        setState(() => _draft[group] = fullValue);
+        return true;
+      }
+      final result = ref
+          .read(settingsControllerProvider.notifier)
+          .saveGroup(group, fullValue);
+      if (!result.ok && mounted) {
+        setState(
+          () =>
+              _error = result.error?.messageKey ?? 'error.settings_save_failed',
+        );
+      }
+      return result.ok;
+    }
+
+    final outcome = await showPresetDialog(
+      context: context,
+      hostMode: widget.host != null,
+      readDocument: readDocument,
+      writeGroup: writeGroup,
+    );
+    if (outcome == null || !mounted) return;
+    if (widget.host == null) {
+      final doc = ref.read(settingsControllerProvider).document;
+      setState(() {
+        for (final group in outcome.groups) {
+          _draft[group] = jsonDecode(jsonEncode(doc[group]));
+        }
+        _draftRevision = ref.read(settingsControllerProvider).revision;
+      });
+    } else {
+      setState(() {});
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '已应用 ${outcome.wroteCount} 项设置'
+          '${outcome.routingChanged ? '＋路由方案已切换' : ''}（系统代理/TUN/端口未动）',
+        ),
+      ),
+    );
   }
 
   /// UB2-08: the submitted-search hit list. Hidden until a submit; tapping a

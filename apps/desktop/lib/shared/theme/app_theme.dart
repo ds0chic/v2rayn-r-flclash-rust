@@ -30,11 +30,17 @@ class AppTokens {
   const AppTokens._();
 
   // -- Typography scale --------------------------------------------------
+  // Six rungs: caption 11 / body 12.5 / small 11.5 / subtitle 13 /
+  // title 14 / dialogTitle 15, plus mono 12. Bare numeric fontSize
+  // literals are banned outside this block; body (12.5) is the default
+  // for anything that used to say 12.
   static const double fontSizeTitle = 14;
+  static const double fontSizeDialogTitle = 15;
   static const double fontSizeSubtitle = 13;
   static const double fontSize = 12.5;
   static const double fontSizeSmall = 11.5;
   static const double fontSizeTiny = 11;
+  static const double fontSizeCaption = 11;
   static const double monoFontSize = 12;
   static const String monoFontFamily = 'monospace';
 

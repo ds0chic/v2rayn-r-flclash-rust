@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
@@ -250,7 +251,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
           controller: _tabs,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          labelStyle: const TextStyle(fontSize: 12),
+          labelStyle: const TextStyle(fontSize: AppTokens.fontSize),
           // Frozen `OptionSettingWindow.xaml` TabItem headers:
           // TbSettingsCore / TbSettingsN / TbSettingsSystemproxy /
           // TbSettingsTunMode / TbSettingsCoreType.
@@ -293,7 +294,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             child: Text(
               context.messageText(_error!),
               style: TextStyle(
-                fontSize: 11,
+                fontSize: AppTokens.fontSizeCaption,
                 color: Theme.of(context).colorScheme.error,
               ),
             ),
@@ -303,7 +304,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             padding: const EdgeInsets.all(4),
             child: Text(
               context.messageText(state.status!),
-              style: const TextStyle(fontSize: 11),
+              style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
             ),
           ),
         // SP-01: a failed settings read is a visible recovery entry, never a
@@ -399,7 +400,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
       // Upstream `OptionSettingWindow` Title = ResUI.menuSetting (设置).
       title: Text(
         context.tr('menuSetting'),
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       contentPadding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       content: SizedBox(width: 720, height: 520, child: tabColumn),
@@ -586,7 +587,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             padding: EdgeInsets.only(left: 172, bottom: 2),
             child: Text(
               'Pac 端口 = +3；Xray API 端口 = +4；mihomo API 端口 = +5；',
-              style: TextStyle(fontSize: 11),
+              style: TextStyle(fontSize: AppTokens.fontSizeCaption),
             ),
           ),
           // FLD-CFG-036: Inbound[0].Protocol identity. Upstream exposes no
@@ -644,7 +645,10 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                   width: 168,
                   child: Padding(
                     padding: EdgeInsets.only(top: 2),
-                    child: Text('流量探测类型', style: TextStyle(fontSize: 12)),
+                    child: Text(
+                      '流量探测类型',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -655,7 +659,9 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
                         FilterChip(
                           label: Text(
                             option,
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(
+                              fontSize: AppTokens.fontSizeCaption,
+                            ),
                           ),
                           selected: _list(
                             inbound,
@@ -752,7 +758,7 @@ class _OptionSettingWindowState extends ConsumerState<OptionSettingWindow>
             padding: EdgeInsets.only(left: 172, bottom: 2),
             child: Text(
               '仅对 raw/http、ws、gRPC、xhttp 生效',
-              style: TextStyle(fontSize: 11),
+              style: TextStyle(fontSize: AppTokens.fontSizeCaption),
             ),
           ),
         ],

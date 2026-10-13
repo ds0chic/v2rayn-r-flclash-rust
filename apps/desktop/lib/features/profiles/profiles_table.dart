@@ -430,7 +430,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                   '${column.title}$indicator',
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    fontSize: AppTokens.fontSize,
                   ),
                   overflow: TextOverflow.clip,
                   softWrap: false,
@@ -662,7 +662,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     final selected = scope.selected.contains(row.id);
     final isActive = scope.activeId == row.id;
     final controller = scope.controller;
-    final ordinal = Text('${index + 1}', style: const TextStyle(fontSize: 11));
+    final ordinal = Text(
+      '${index + 1}',
+      style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+    );
 
     final numberBox = Container(
       color: selected ? scope.numberBadgeFill : null,
@@ -1172,7 +1175,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
           Flexible(
             child: Text(
               entry.label,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

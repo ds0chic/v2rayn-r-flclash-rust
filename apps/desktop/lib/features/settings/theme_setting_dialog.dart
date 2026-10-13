@@ -164,7 +164,10 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
     final language = (_ui['CurrentLanguage'] as String?) ?? 'zh-Hans';
     final size = (_ui['CurrentFontSize'] as num?)?.toInt() ?? 0;
     return AlertDialog(
-      title: const Text('主题设置', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '主题设置',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 420,
         child: Column(
@@ -223,7 +226,10 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
             if (_status != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(_status!, style: const TextStyle(fontSize: 11)),
+                child: Text(
+                  _status!,
+                  style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+                ),
               ),
           ],
         ),
@@ -243,7 +249,7 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
           value: v,
           child: Text(
             v.isEmpty ? '（默认）' : v,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
           ),
         ),
       )

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 
 /// Column visibility/order editor. Mirrors upstream LAY-PROFILES-003
@@ -16,7 +17,10 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
           final columns = ref.watch(profilesControllerProvider).columns;
           return AlertDialog(
             key: const ValueKey<String>('column-settings-dialog'),
-            title: const Text('显示列设置', style: TextStyle(fontSize: 15)),
+            title: const Text(
+              '显示列设置',
+              style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+            ),
             content: SizedBox(
               width: 420,
               height: 420,
@@ -27,7 +31,7 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                     padding: EdgeInsets.only(bottom: 6),
                     child: Text(
                       '顺序 / 显隐 / 宽度会保存到 ui_state.json（与 Clash 连接列同一状态源，迁移与备份不丢）',
-                      style: TextStyle(fontSize: 11),
+                      style: TextStyle(fontSize: AppTokens.fontSizeCaption),
                     ),
                   ),
                   Expanded(
@@ -46,7 +50,9 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                             Expanded(
                               child: Text(
                                 column.title,
-                                style: const TextStyle(fontSize: 12),
+                                style: const TextStyle(
+                                  fontSize: AppTokens.fontSize,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -71,7 +77,9 @@ Future<void> showColumnSettingsDialog(BuildContext context, WidgetRef ref) {
                                 '${column.width.round()}',
                                 key: ValueKey<String>('colwidth-${column.key}'),
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(fontSize: 11),
+                                style: const TextStyle(
+                                  fontSize: AppTokens.fontSizeCaption,
+                                ),
                               ),
                             ),
                             IconButton(

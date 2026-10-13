@@ -522,7 +522,7 @@ class _MenuToolbarBar extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Text(
                         _layoutLabel(context, mode),
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: AppTokens.fontSize),
                       ),
                     ],
                   ),
@@ -536,7 +536,7 @@ class _MenuToolbarBar extends ConsumerWidget {
                   const SizedBox(width: 4),
                   Text(
                     _layoutLabel(context, shell.layout),
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                 ],
               ),
@@ -568,7 +568,7 @@ class _MenuToolbarBar extends ConsumerWidget {
                 ),
                 child: Text(
                   context.tr('NewUpdate'),
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
               ),
             ),
@@ -673,7 +673,7 @@ class _MenuToolbarBar extends ConsumerWidget {
         Expanded(
           child: Text(
             entry.labelFor(context.l10n),
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
           ),
         ),
         if (entry.shortcut != null)
@@ -722,7 +722,7 @@ class _RuntimeToolbar extends ConsumerWidget {
               ? '${context.tr('statusRuntime')}: ${runtime.state} (${context.tr('statusUnapplied')})'
               : '${context.tr('statusRuntime')}: ${runtime.state}',
           key: const ValueKey('runtime-state-chip'),
-          style: const TextStyle(fontSize: 12),
+          style: const TextStyle(fontSize: AppTokens.fontSize),
         ),
         const SizedBox(width: 8),
         Tooltip(
@@ -743,7 +743,7 @@ class _RuntimeToolbar extends ConsumerWidget {
                   },
             child: Text(
               context.tr('uiStart'),
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
             ),
           ),
         ),
@@ -755,7 +755,7 @@ class _RuntimeToolbar extends ConsumerWidget {
             onPressed: controller.stop,
             child: Text(
               context.tr('uiStop'),
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
             ),
           ),
         ),

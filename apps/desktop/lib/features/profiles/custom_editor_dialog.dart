@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
@@ -296,7 +297,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
         widget.initial.isNew
             ? '添加 [${_draft.configType.name}]'
             : '编辑 [${_draft.configType.name}]',
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       content: SizedBox(
         width: 640,
@@ -319,7 +320,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                     child: Text(
                       '保存失败: ${_serverError!.messageKey} (${_serverError!.code})',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTokens.fontSize,
                         color: theme.colorScheme.onErrorContainer,
                       ),
                     ),
@@ -339,14 +340,14 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                         value: 'custom',
                         child: Text(
                           '自定义配置 (Custom)',
-                          style: TextStyle(fontSize: 12),
+                          style: TextStyle(fontSize: AppTokens.fontSize),
                         ),
                       ),
                       DropdownMenuItem<String>(
                         value: 'outbound',
                         child: Text(
                           '自定义出站 (Outbound)',
-                          style: TextStyle(fontSize: 12),
+                          style: TextStyle(fontSize: AppTokens.fontSize),
                         ),
                       ),
                     ],
@@ -371,7 +372,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                         value: core.name,
                         child: Text(
                           core.name,
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: AppTokens.fontSize),
                         ),
                       ),
                   ],
@@ -385,7 +386,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                 TextFormField(
                   key: const ValueKey('custom-remarks'),
                   controller: _remarks,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                   decoration: const InputDecoration(
                     labelText: '备注',
                     isDense: true,
@@ -398,7 +399,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                 TextFormField(
                   key: const ValueKey('custom-address'),
                   controller: _address,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                   decoration: const InputDecoration(
                     labelText: '配置文件路径 (Address)',
                     isDense: true,
@@ -414,14 +415,20 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                       key: const ValueKey('custom-browse'),
                       onPressed: _busy ? null : _browse,
                       icon: const Icon(Icons.folder_open, size: 16),
-                      label: const Text('浏览', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        '浏览',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
                       key: const ValueKey('custom-edit'),
                       onPressed: _busy ? null : _edit,
                       icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('编辑', style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        '编辑',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                   ],
                 ),
@@ -432,7 +439,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                     child: Text(
                       _fileError!,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTokens.fontSize,
                         color: theme.colorScheme.error,
                       ),
                     ),
@@ -443,7 +450,10 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   controller: _configText,
                   minLines: 8,
                   maxLines: 14,
-                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                  style: const TextStyle(
+                    fontSize: AppTokens.fontSize,
+                    fontFamily: 'monospace',
+                  ),
                   decoration: InputDecoration(
                     labelText: '透传配置 (JSON 对象 / YAML 映射, 空=用文件)',
                     isDense: true,
@@ -457,7 +467,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   key: const ValueKey('custom-pre-socks-port'),
                   initialValue: _draft.preSocksPort?.toString() ?? '',
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                   decoration: const InputDecoration(
                     labelText: '前置 SOCKS 端口 (PreSocksPort, 空=不使用)',
                     isDense: true,
@@ -482,7 +492,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   dense: true,
                   title: const Text(
                     '显示日志 (DisplayLog)',
-                    style: TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: AppTokens.fontSize),
                   ),
                   value: _draft.displayLog,
                   onChanged: (v) => setState(() => _draft.displayLog = v),
@@ -493,7 +503,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   tristate: true,
                   title: const Text(
                     'sing-box 端点 (IsSingboxEndpoint, 空=未设置)',
-                    style: TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: AppTokens.fontSize),
                   ),
                   value: _draft.isSingboxEndpoint,
                   onChanged: (v) =>

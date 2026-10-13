@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/groups.dart' as g;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 
@@ -102,7 +103,10 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
     final theme = Theme.of(context);
     return AlertDialog(
       key: const ValueKey('template-window'),
-      title: const Text('完整配置模板设置', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '完整配置模板设置',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 680,
         height: 600,
@@ -121,7 +125,7 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
                 child: Text(
                   '保存失败: $_serverError',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: AppTokens.fontSize,
                     color: theme.colorScheme.onErrorContainer,
                   ),
                 ),
@@ -129,7 +133,7 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
             TabBar(
               key: const ValueKey('template-tabs'),
               controller: _tabs,
-              labelStyle: const TextStyle(fontSize: 13),
+              labelStyle: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
               tabs: const <Widget>[
                 Tab(text: 'V2ray (Xray)'),
                 Tab(text: 'sing-box'),
@@ -171,7 +175,10 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
           SwitchListTile(
             key: ValueKey('template-enabled-$prefix'),
             dense: true,
-            title: const Text('启用完整配置模板', style: TextStyle(fontSize: 12)),
+            title: const Text(
+              '启用完整配置模板',
+              style: TextStyle(fontSize: AppTokens.fontSize),
+            ),
             value: state.item.enabled,
             onChanged: (v) =>
                 setState(() => state.item = _copyWith(state.item, enabled: v)),
@@ -181,7 +188,7 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
             dense: true,
             title: const Text(
               '仅追加代理 (AddProxyOnly)',
-              style: TextStyle(fontSize: 12),
+              style: TextStyle(fontSize: AppTokens.fontSize),
             ),
             value: state.item.addProxyOnly ?? false,
             onChanged: (v) => setState(
@@ -191,7 +198,7 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
           TextFormField(
             key: ValueKey('template-detour-$prefix'),
             controller: state.proxyDetour,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
             decoration: const InputDecoration(
               labelText: '代理前置 (ProxyDetour, 空=不使用)',
               isDense: true,
@@ -204,7 +211,10 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
             controller: state.config,
             minLines: 8,
             maxLines: 12,
-            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            style: const TextStyle(
+              fontSize: AppTokens.fontSize,
+              fontFamily: 'monospace',
+            ),
             decoration: InputDecoration(
               labelText: '完整配置 (Config, JSON 对象)',
               isDense: true,
@@ -219,7 +229,10 @@ class _FullConfigTemplateWindowState extends State<FullConfigTemplateWindow>
             controller: state.tunConfig,
             minLines: 4,
             maxLines: 8,
-            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            style: const TextStyle(
+              fontSize: AppTokens.fontSize,
+              fontFamily: 'monospace',
+            ),
             decoration: InputDecoration(
               labelText: 'TUN 配置 (TunConfig, JSON 对象)',
               isDense: true,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/clash_ui_config.dart';
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
@@ -115,7 +116,10 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
     messenger?.showSnackBar(
       const SnackBar(
         key: ValueKey('proxies-save-error'),
-        content: Text('代理选项保存失败，已恢复上次保存的值', style: TextStyle(fontSize: 12)),
+        content: Text(
+          '代理选项保存失败，已恢复上次保存的值',
+          style: TextStyle(fontSize: AppTokens.fontSize),
+        ),
       ),
     );
   }
@@ -178,12 +182,18 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
                 OutlinedButton(
                   key: const ValueKey('proxies-refresh'),
                   onPressed: controller.refreshProxies,
-                  child: const Text('刷新', style: TextStyle(fontSize: 12)),
+                  child: const Text(
+                    '刷新',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Row(
                   children: <Widget>[
-                    const Text('自动刷新', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      '自动刷新',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     Switch(
                       key: const ValueKey('proxies-auto-refresh'),
                       value: _autoRefresh,
@@ -200,7 +210,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
                   ),
                   label: Text(
                     _sorting == 1 ? '排序: 名称' : '排序: 延迟',
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -213,7 +223,7 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
                 const SizedBox(width: 16),
                 Text(
                   '组 ${groups.length} / 节点 ${nodes.length}',
-                  style: const TextStyle(fontSize: 11.5),
+                  style: const TextStyle(fontSize: AppTokens.fontSizeSmall),
                 ),
               ],
             ),
@@ -244,7 +254,10 @@ class _ProxiesViewState extends ConsumerState<ProxiesView> {
                     if (nodes.isNotEmpty) ...<Widget>[
                       const Padding(
                         padding: EdgeInsets.only(top: 8, bottom: 4),
-                        child: Text('节点', style: TextStyle(fontSize: 12)),
+                        child: Text(
+                          '节点',
+                          style: TextStyle(fontSize: AppTokens.fontSize),
+                        ),
                       ),
                       for (final node in nodes)
                         _NodeRow(
@@ -298,23 +311,32 @@ class _ModeSelector extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Text('模式', style: TextStyle(fontSize: 12)),
+          const Text('模式', style: TextStyle(fontSize: AppTokens.fontSize)),
           const SizedBox(width: 4),
           DropdownButton<String>(
             key: const ValueKey('proxies-mode'),
             value: current != null && choices.contains(current)
                 ? current
                 : null,
-            hint: const Text('--', style: TextStyle(fontSize: 12)),
+            hint: const Text(
+              '--',
+              style: TextStyle(fontSize: AppTokens.fontSize),
+            ),
             isDense: true,
-            style: TextStyle(fontSize: 12, color: scheme.onSurface),
+            style: TextStyle(
+              fontSize: AppTokens.fontSize,
+              color: scheme.onSurface,
+            ),
             underline: const SizedBox.shrink(),
             items: <DropdownMenuItem<String>>[
               for (final choice in choices)
                 DropdownMenuItem<String>(
                   key: ValueKey('proxies-mode-$choice'),
                   value: choice,
-                  child: Text(choice, style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    choice,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
             ],
             onChanged: (value) {
@@ -359,20 +381,26 @@ class _GroupCard extends StatelessWidget {
                   child: Text(
                     '${group.name}  [${group.proxyType}]',
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: AppTokens.fontSizeSubtitle,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 Text(
                   '当前: ${group.now ?? '--'}',
-                  style: TextStyle(fontSize: 12, color: scheme.primary),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSize,
+                    color: scheme.primary,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton(
                   key: ValueKey('proxies-group-delay-${group.name}'),
                   onPressed: onTestGroup,
-                  child: const Text('测试延迟', style: TextStyle(fontSize: 11)),
+                  child: const Text(
+                    '测试延迟',
+                    style: TextStyle(fontSize: AppTokens.fontSizeCaption),
+                  ),
                 ),
               ],
             ),
@@ -389,14 +417,19 @@ class _GroupCard extends StatelessWidget {
                       : Icons.radio_button_unchecked,
                   size: 16,
                 ),
-                title: Text(child, style: const TextStyle(fontSize: 12)),
+                title: Text(
+                  child,
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
+                ),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(
                       formatDelayMs(delays[child] ?? -1),
                       key: ValueKey('proxies-child-delay-$child'),
-                      style: const TextStyle(fontSize: 11),
+                      style: const TextStyle(
+                        fontSize: AppTokens.fontSizeCaption,
+                      ),
                     ),
                     IconButton(
                       key: ValueKey('proxies-child-test-$child'),
@@ -433,12 +466,15 @@ class _NodeRow extends StatelessWidget {
       dense: true,
       title: Text(
         '${node.name}  [${node.proxyType}]',
-        style: const TextStyle(fontSize: 12),
+        style: const TextStyle(fontSize: AppTokens.fontSize),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Text(formatDelayMs(delay), style: const TextStyle(fontSize: 11)),
+          Text(
+            formatDelayMs(delay),
+            style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+          ),
           IconButton(
             key: ValueKey('proxies-node-delay-${node.name}'),
             iconSize: 14,

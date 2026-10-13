@@ -13,7 +13,7 @@ double _linearChannel(int c) {
 }
 
 double _luminance(Color c) {
-  final v = c.value;
+  final v = c.toARGB32();
   return 0.2126 * _linearChannel((v >> 16) & 0xFF) +
       0.7152 * _linearChannel((v >> 8) & 0xFF) +
       0.0722 * _linearChannel(v & 0xFF);

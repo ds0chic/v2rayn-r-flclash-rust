@@ -46,7 +46,10 @@ Future<void> importFromTextDialog(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('import-paste-dialog'),
-      title: const Text('从文本导入节点', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '从文本导入节点',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         height: 240,
@@ -174,7 +177,10 @@ Future<bool> _confirmImportPreview(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('import-preview-dialog'),
-      title: const Text('预览导入', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '预览导入',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -247,7 +253,10 @@ Future<void> _offerAddSubscription(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('sub-url-import-dialog'),
-      title: const Text('检测到订阅链接', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '检测到订阅链接',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -267,7 +276,10 @@ Future<void> _offerAddSubscription(
                 ),
               ),
             if (urls.length > 5)
-              Text('…共 ${urls.length} 条', style: const TextStyle(fontSize: 12)),
+              Text(
+                '…共 ${urls.length} 条',
+                style: const TextStyle(fontSize: AppTokens.fontSize),
+              ),
             const SizedBox(height: 12),
             const Text('是否将其作为订阅添加并立即更新？'),
           ],
@@ -410,7 +422,10 @@ Future<void> shareProfilesQr(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('profile-share-qr'),
-      title: const Text('分享节点', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '分享节点',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 256,
         height: 256,
@@ -501,7 +516,10 @@ Future<void> _showSubUpdateDetails(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('subs-update-failures'),
-      title: const Text('订阅更新失败详情', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '订阅更新失败详情',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 520,
         child: ListView(

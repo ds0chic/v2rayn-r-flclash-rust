@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/monitor.dart' as m;
 import 'package:v2rayn_desktop/features/monitor/clash_ui_config.dart';
 import 'package:v2rayn_desktop/features/monitor/connections_columns.dart';
@@ -232,7 +233,10 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
     messenger?.showSnackBar(
       SnackBar(
         key: const ValueKey('connections-action-error'),
-        content: Text(message, style: const TextStyle(fontSize: 12)),
+        content: Text(
+          message,
+          style: const TextStyle(fontSize: AppTokens.fontSize),
+        ),
       ),
     );
   }
@@ -281,7 +285,7 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                   child: TextField(
                     key: const ValueKey('connections-filter'),
                     controller: _filter,
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
                     decoration: const InputDecoration(
                       isDense: true,
                       prefixIcon: Icon(Icons.search, size: 14),
@@ -294,12 +298,18 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                 OutlinedButton(
                   key: const ValueKey('connections-refresh'),
                   onPressed: controller.refreshConnections,
-                  child: const Text('刷新', style: TextStyle(fontSize: 12)),
+                  child: const Text(
+                    '刷新',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Row(
                   children: <Widget>[
-                    const Text('自动刷新', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      '自动刷新',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     Switch(
                       key: const ValueKey('connections-auto-refresh'),
                       value: _autoRefresh,
@@ -324,7 +334,10 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                             }
                           }
                         },
-                  child: const Text('关闭选中', style: TextStyle(fontSize: 12)),
+                  child: const Text(
+                    '关闭选中',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
                 const SizedBox(width: 6),
                 OutlinedButton(
@@ -336,20 +349,26 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                       if (!ok) _report('关闭全部连接失败');
                     }
                   },
-                  child: const Text('关闭全部', style: TextStyle(fontSize: 12)),
+                  child: const Text(
+                    '关闭全部',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
                 const SizedBox(width: 6),
                 OutlinedButton(
                   key: const ValueKey('connections-autofit'),
                   onPressed: _autofitColumns,
-                  child: const Text('列宽自适应', style: TextStyle(fontSize: 12)),
+                  child: const Text(
+                    '列宽自适应',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Text(
                   filtered.truncated
                       ? '显示 ${rows.length} / 命中 ${filtered.totalMatches}（仅显示前 $maxFilteredConnections 条，细化过滤查看更多）'
                       : '↑${state.connectionsUpload} ↓${state.connectionsDownload} · ${filtered.totalMatches} 条',
-                  style: const TextStyle(fontSize: 11.5),
+                  style: const TextStyle(fontSize: AppTokens.fontSizeSmall),
                 ),
               ],
             ),
@@ -423,7 +442,9 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
                                       width: column.width.toDouble(),
                                       child: Text(
                                         _valueFor(c, column.name) ?? '-',
-                                        style: const TextStyle(fontSize: 11.5),
+                                        style: const TextStyle(
+                                          fontSize: AppTokens.fontSizeSmall,
+                                        ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -451,7 +472,10 @@ class _ConnectionsViewState extends ConsumerState<ConnectionsView> {
   }
 }
 
-const _head = TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600);
+const _head = TextStyle(
+  fontSize: AppTokens.fontSizeSmall,
+  fontWeight: FontWeight.w600,
+);
 
 /// Cell text for a persisted column key (`ExName` parity, never localized).
 String? _valueFor(m.ClashConnectionDto c, String name) {

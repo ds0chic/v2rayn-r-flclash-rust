@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/update/update_controller.dart';
 
@@ -33,7 +34,10 @@ class CheckUpdateView extends ConsumerWidget {
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
       key: const ValueKey('update-window'),
-      title: const Text('检查更新', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '检查更新',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       content: SizedBox(
         width: 760,
@@ -54,7 +58,7 @@ class CheckUpdateView extends ConsumerWidget {
                         : (value) => controller.setPrerelease(value ?? false),
                     title: const Text(
                       '预览版（预发布）',
-                      style: TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: AppTokens.fontSize),
                     ),
                   ),
                 ),
@@ -67,7 +71,10 @@ class CheckUpdateView extends ConsumerWidget {
                     onChanged: state.busy
                         ? null
                         : (value) => controller.setViaProxy(value ?? false),
-                    title: const Text('经代理', style: TextStyle(fontSize: 12)),
+                    title: const Text(
+                      '经代理',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                   ),
                 ),
               ],
@@ -86,7 +93,7 @@ class CheckUpdateView extends ConsumerWidget {
                       child: Text(
                         '缺少内核：${state.missingCores.join("、")}。安装后即可再次启动。',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: AppTokens.fontSize,
                           color: scheme.onErrorContainer,
                         ),
                       ),
@@ -99,7 +106,7 @@ class CheckUpdateView extends ConsumerWidget {
                           : controller.installMissingCores,
                       child: const Text(
                         '安装缺失内核',
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: AppTokens.fontSize),
                       ),
                     ),
                   ],
@@ -141,7 +148,7 @@ class CheckUpdateView extends ConsumerWidget {
                 child: Text(
                   '外部升级：${state.lastSpec!.helperExe} ← ${state.lastSpec!.source}',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: AppTokens.fontSizeCaption,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -153,17 +160,26 @@ class CheckUpdateView extends ConsumerWidget {
         TextButton(
           key: const ValueKey('update-check-only-btn'),
           onPressed: state.busy ? null : controller.checkOnly,
-          child: const Text('仅检查', style: TextStyle(fontSize: 12)),
+          child: const Text(
+            '仅检查',
+            style: TextStyle(fontSize: AppTokens.fontSize),
+          ),
         ),
         FilledButton(
           key: const ValueKey('update-apply-btn'),
           onPressed: state.busy ? null : controller.checkAndApply,
-          child: const Text('检查更新', style: TextStyle(fontSize: 12)),
+          child: const Text(
+            '检查更新',
+            style: TextStyle(fontSize: AppTokens.fontSize),
+          ),
         ),
         OutlinedButton(
           key: const ValueKey('update-app-spec-btn'),
           onPressed: state.busy ? null : controller.applyAppUpdate,
-          child: const Text('应用自身更新', style: TextStyle(fontSize: 12)),
+          child: const Text(
+            '应用自身更新',
+            style: TextStyle(fontSize: AppTokens.fontSize),
+          ),
         ),
         TextButton(
           key: const ValueKey('update-close'),
@@ -225,7 +241,7 @@ class _TargetRow extends StatelessWidget {
             width: 96,
             child: Text(
               target.core,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -234,7 +250,7 @@ class _TargetRow extends StatelessWidget {
               target.maxVersion == null
                   ? target.repo
                   : '${target.repo}（上限 ${target.maxVersion}）',
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -244,7 +260,7 @@ class _TargetRow extends StatelessWidget {
               statusText,
               textAlign: TextAlign.right,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: AppTokens.fontSize,
                 color: blocked
                     ? scheme.error
                     : manual
@@ -309,7 +325,10 @@ class _StatusArea extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       color: scheme.surfaceContainerHighest,
-      child: Text(message, style: TextStyle(fontSize: 12, color: color)),
+      child: Text(
+        message,
+        style: TextStyle(fontSize: AppTokens.fontSize, color: color),
+      ),
     );
   }
 }

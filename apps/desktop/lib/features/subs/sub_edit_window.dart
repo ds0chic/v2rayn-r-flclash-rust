@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 
@@ -186,7 +187,7 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
       key: const ValueKey('sub-edit-window'),
       title: Text(
         widget.initial.id.isEmpty ? '新增订阅' : '编辑订阅',
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       content: SizedBox(
         width: 560,
@@ -203,7 +204,7 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
                   child: Text(
                     _errorText!,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: AppTokens.fontSize,
                       color: Theme.of(context).colorScheme.onErrorContainer,
                     ),
                   ),
@@ -234,7 +235,10 @@ class _SubEditWindowState extends ConsumerState<SubEditWindow> {
                 key: const ValueKey('sub-field-enabled'),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('启用', style: TextStyle(fontSize: 13)),
+                title: const Text(
+                  '启用',
+                  style: TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+                ),
                 value: _enabled,
                 onChanged: (v) => setState(() => _enabled = v),
               ),

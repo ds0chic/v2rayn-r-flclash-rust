@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Small form primitives bound to a mutable settings group map. They keep the
 /// option window declarative while the document stays a plain JSON map.
@@ -32,7 +33,12 @@ class SettingsCheckbox extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 12))),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: AppTokens.fontSize),
+              ),
+            ),
           ],
         ),
       ),
@@ -98,7 +104,10 @@ class _SettingsTextFieldState extends State<SettingsTextField> {
         children: <Widget>[
           SizedBox(
             width: 168,
-            child: Text(widget.label, style: const TextStyle(fontSize: 12)),
+            child: Text(
+              widget.label,
+              style: const TextStyle(fontSize: AppTokens.fontSize),
+            ),
           ),
           SizedBox(
             width: widget.width,
@@ -116,7 +125,7 @@ class _SettingsTextFieldState extends State<SettingsTextField> {
                     vertical: 8,
                   ),
                 ),
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
                 onChanged: (text) =>
                     widget.onChanged(text.isEmpty ? null : text),
               ),
@@ -174,7 +183,10 @@ class _SettingsNumberFieldState extends State<SettingsNumberField> {
         children: <Widget>[
           SizedBox(
             width: 168,
-            child: Text(widget.label, style: const TextStyle(fontSize: 12)),
+            child: Text(
+              widget.label,
+              style: const TextStyle(fontSize: AppTokens.fontSize),
+            ),
           ),
           SizedBox(
             width: widget.width,
@@ -189,7 +201,7 @@ class _SettingsNumberFieldState extends State<SettingsNumberField> {
                   vertical: 8,
                 ),
               ),
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
               onChanged: (text) => widget.onChanged(
                 text.trim().isEmpty ? null : int.tryParse(text.trim()),
               ),
@@ -225,7 +237,10 @@ class SettingsDropdown<T> extends StatelessWidget {
         children: <Widget>[
           SizedBox(
             width: 168,
-            child: Text(label, style: const TextStyle(fontSize: 12)),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: AppTokens.fontSize),
+            ),
           ),
           SizedBox(
             width: width,
@@ -259,7 +274,10 @@ class SettingsSection extends StatelessWidget {
           padding: const EdgeInsets.only(top: 10, bottom: 4),
           child: Text(
             title,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: AppTokens.fontSize,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
         const Divider(height: 1),
@@ -288,7 +306,10 @@ class SettingsNote extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+        style: const TextStyle(
+          fontSize: AppTokens.fontSizeCaption,
+          fontStyle: FontStyle.italic,
+        ),
       ),
     );
   }

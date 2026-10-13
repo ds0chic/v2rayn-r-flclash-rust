@@ -76,7 +76,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
       key: const ValueKey('routing-setting-window'),
       title: Text(
         context.tr('menuRoutingSetting'),
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
@@ -131,7 +131,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                 context.tr('TbRoutingTabRuleList'),
                 key: const ValueKey('routing-block-title'),
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: AppTokens.fontSizeSubtitle,
                   color: primary,
                   decoration: TextDecoration.underline,
                 ),
@@ -204,7 +204,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
     final primary = Theme.of(context).colorScheme.primary;
     return Row(
       children: <Widget>[
-        Text(label, style: TextStyle(fontSize: 12, color: primary)),
+        Text(
+          label,
+          style: TextStyle(fontSize: AppTokens.fontSize, color: primary),
+        ),
         const SizedBox(width: 2),
         Icon(Icons.link, size: 14, color: primary),
         const SizedBox(width: 8),
@@ -218,7 +221,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
               for (final s in options)
                 DropdownMenuItem(
                   value: s,
-                  child: Text(s, style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    s,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
             ],
             onChanged: (v) => onChanged(v ?? ''),
@@ -341,7 +347,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除路由方案', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '删除路由方案',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         content: const Text('确定删除选中的路由方案吗？'),
         actions: <Widget>[
           TextButton(
@@ -531,7 +540,7 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
       key: const ValueKey('routing-ruleset-window'),
       title: Text(
         isNew ? '新增路由方案' : '编辑路由方案',
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
@@ -572,7 +581,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
                 const SizedBox(width: 8),
                 Row(
                   children: <Widget>[
-                    const Text('启用', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      '启用',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     Switch(
                       key: const ValueKey('ruleset-enabled'),
                       value: _enabled,
@@ -686,7 +698,7 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
           border: const OutlineInputBorder(),
           isDense: true,
         ),
-        style: const TextStyle(fontSize: 13),
+        style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
       ),
     );
   }
@@ -726,7 +738,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('rule-delete-confirm-dialog'),
-        title: const Text('删除规则', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '删除规则',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         content: Text('确定删除选中的 ${_selectedRuleIds.length} 条规则吗？'),
         actions: <Widget>[
           TextButton(
@@ -802,7 +817,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('routing-import-url-dialog'),
-        title: const Text('从 URL 导入规则', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          '从 URL 导入规则',
+          style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+        ),
         content: SizedBox(
           width: 420,
           child: TextField(
@@ -1002,7 +1020,10 @@ class _RuleRow extends StatelessWidget {
         key: ValueKey('${key.value}-$index'),
         onPressed: onPressed,
         style: TextButton.styleFrom(padding: EdgeInsets.zero),
-        child: Text(label, style: const TextStyle(fontSize: 12)),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: AppTokens.fontSize),
+        ),
       ),
     );
   }
@@ -1093,7 +1114,10 @@ class _RoutingRuleDetailsDialogState
   Widget build(BuildContext context) {
     return AlertDialog(
       key: const ValueKey('routing-rule-details-window'),
-      title: const Text('规则详情', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '规则详情',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
         width: 720,
@@ -1114,7 +1138,10 @@ class _RoutingRuleDetailsDialogState
                   const SizedBox(width: 8),
                   Row(
                     children: <Widget>[
-                      const Text('启用', style: TextStyle(fontSize: 12)),
+                      const Text(
+                        '启用',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                       Switch(
                         key: const ValueKey('rule-enabled'),
                         value: _enabled,
@@ -1165,7 +1192,10 @@ class _RoutingRuleDetailsDialogState
                   Expanded(
                     child: Row(
                       children: <Widget>[
-                        const Text('网络', style: TextStyle(fontSize: 12)),
+                        const Text(
+                          '网络',
+                          style: TextStyle(fontSize: AppTokens.fontSize),
+                        ),
                         const SizedBox(width: 8),
                         DropdownButton<String>(
                           key: const ValueKey('rule-network'),
@@ -1178,7 +1208,9 @@ class _RoutingRuleDetailsDialogState
                                 value: n,
                                 child: Text(
                                   n.isEmpty ? '(空)' : n,
-                                  style: const TextStyle(fontSize: 12),
+                                  style: const TextStyle(
+                                    fontSize: AppTokens.fontSize,
+                                  ),
                                 ),
                               ),
                           ],
@@ -1204,7 +1236,10 @@ class _RoutingRuleDetailsDialogState
               ),
               Row(
                 children: <Widget>[
-                  const Text('自动排序列表', style: TextStyle(fontSize: 12)),
+                  const Text(
+                    '自动排序列表',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                   Switch(
                     key: const ValueKey('rule-autosort'),
                     value: _autoSort,
@@ -1262,7 +1297,7 @@ class _RoutingRuleDetailsDialogState
           border: const OutlineInputBorder(),
           isDense: true,
         ),
-        style: const TextStyle(fontSize: 13),
+        style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
       ),
     );
   }
@@ -1281,7 +1316,10 @@ class _RoutingRuleDetailsDialogState
         children: <Widget>[
           SizedBox(
             width: 64,
-            child: Text(label, style: const TextStyle(fontSize: 12)),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: AppTokens.fontSize),
+            ),
           ),
           Expanded(
             child: Wrap(
@@ -1290,7 +1328,10 @@ class _RoutingRuleDetailsDialogState
                 for (final option in options)
                   FilterChip(
                     key: ValueKey('${key.value}-$option'),
-                    label: Text(option, style: const TextStyle(fontSize: 12)),
+                    label: Text(
+                      option,
+                      style: const TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     selected: selected.contains(option),
                     onSelected: (v) => setState(() {
                       if (v) {
@@ -1337,7 +1378,10 @@ class _RoutingRuleDetailsDialogState
       context: context,
       builder: (context) => SimpleDialog(
         key: const ValueKey('rule-outbound-picker'),
-        title: const Text('选择目标出站', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '选择目标出站',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         children: [
           for (final option in options)
             SimpleDialogOption(
@@ -2308,7 +2352,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除路由方案', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '删除路由方案',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         content: Text('确定删除选中的 ${ids.length} 个路由方案吗？'),
         actions: <Widget>[
           TextButton(
@@ -2555,7 +2602,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                     context.tr('TbRoutingTabRuleList'),
                     key: const ValueKey('routing-block-title'),
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: AppTokens.fontSizeSubtitle,
                       color: Theme.of(context).colorScheme.primary,
                       decoration: TextDecoration.underline,
                     ),
@@ -2653,7 +2700,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     final primary = Theme.of(context).colorScheme.primary;
     return Row(
       children: <Widget>[
-        Text(label, style: TextStyle(fontSize: 12, color: primary)),
+        Text(
+          label,
+          style: TextStyle(fontSize: AppTokens.fontSize, color: primary),
+        ),
         const SizedBox(width: 2),
         Icon(Icons.link, size: 14, color: primary),
         const SizedBox(width: 8),
@@ -2667,7 +2717,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
               for (final s in options)
                 DropdownMenuItem(
                   value: s,
-                  child: Text(s, style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    s,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
             ],
             onChanged: (v) => onChanged(v ?? ''),
@@ -2835,7 +2888,7 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
       key: const ValueKey('routing-ruleset-window'),
       title: Text(
         isNew ? '新增路由方案' : '编辑路由方案',
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
@@ -2876,7 +2929,10 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
                 const SizedBox(width: 8),
                 Row(
                   children: <Widget>[
-                    const Text('启用', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      '启用',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     Switch(
                       key: const ValueKey('ruleset-enabled'),
                       value: _enabled,
@@ -2978,7 +3034,7 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
           border: const OutlineInputBorder(),
           isDense: true,
         ),
-        style: const TextStyle(fontSize: 13),
+        style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
       ),
     );
   }
@@ -3025,7 +3081,10 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('rule-delete-confirm-dialog'),
-        title: const Text('删除规则', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '删除规则',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         content: Text('确定删除选中的 ${_selectedRuleIds.length} 条规则吗？'),
         actions: <Widget>[
           TextButton(
@@ -3095,7 +3154,10 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('routing-import-url-dialog'),
-        title: const Text('从 URL 导入规则', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          '从 URL 导入规则',
+          style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+        ),
         content: SizedBox(
           width: 420,
           child: TextField(

@@ -138,7 +138,7 @@ class _TabButton extends StatelessWidget {
       children: <Widget>[
         Icon(tab.icon, size: 16),
         const SizedBox(width: 6),
-        Text(tab.label, style: const TextStyle(fontSize: 12)),
+        Text(tab.label, style: const TextStyle(fontSize: AppTokens.fontSize)),
       ],
     );
     return InkWell(

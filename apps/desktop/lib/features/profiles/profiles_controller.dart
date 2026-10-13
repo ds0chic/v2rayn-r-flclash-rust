@@ -2248,7 +2248,10 @@ class ProfilesController extends Notifier<ProfilesState> {
   /// are measured, mirroring the real DataGrid; a large list is bounded so the
   /// command stays responsive.
   void autofitColumns() {
-    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
+    const headerStyle = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: AppTokens.fontSize,
+    );
     const cellStyle = TextStyle(fontSize: AppTokens.fontSize);
     final rows = state.visible;
     final sampled = rows.length > _autofitSampleRows

@@ -251,7 +251,7 @@ class _Toolbar extends ConsumerWidget {
                   state.speedTestMessage!,
                   key: const ValueKey('speedtest-message'),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: AppTokens.fontSize,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   maxLines: 1,
@@ -268,7 +268,7 @@ class _Toolbar extends ConsumerWidget {
                   state.orderMessage!,
                   key: const ValueKey('order-message'),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: AppTokens.fontSize,
                     color: Theme.of(context).colorScheme.error,
                   ),
                   maxLines: 1,
@@ -303,7 +303,10 @@ class _GroupChip extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 360),
       child: ChoiceChip(
         key: ValueKey(keyId),
-        label: Text(label, style: const TextStyle(fontSize: 12)),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: AppTokens.fontSize),
+        ),
         selected: selected,
         onSelected: (_) => onTap(),
         visualDensity: VisualDensity.compact,

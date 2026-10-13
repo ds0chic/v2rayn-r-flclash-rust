@@ -91,7 +91,7 @@ class StatusBarView extends ConsumerWidget {
         children: <Widget>[
           Text(
             context.tr('TbEnableTunAs'),
-            style: const TextStyle(fontSize: 11.5),
+            style: const TextStyle(fontSize: AppTokens.fontSizeSmall),
           ),
           Switch(
             key: const ValueKey('tun-toggle'),
@@ -144,7 +144,7 @@ class StatusBarView extends ConsumerWidget {
               value: mode,
               child: Text(
                 mode == routing.ruleMode ? '✓ $mode' : mode,
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
             ),
         ],
@@ -177,7 +177,7 @@ class StatusBarView extends ConsumerWidget {
                 value: mode,
                 child: Text(
                   platform.desiredMode == mode ? '✓ ${mode.label}' : mode.label,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
               ),
           ],
@@ -209,7 +209,7 @@ class StatusBarView extends ConsumerWidget {
                 enabled: false,
                 child: Text(
                   context.tr('statusRoutingEmpty'),
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
               ),
             for (final item in routing.items)
@@ -217,7 +217,7 @@ class StatusBarView extends ConsumerWidget {
                 value: item.id,
                 child: Text(
                   item.isActive ? '✓ ${item.remarks}' : item.remarks,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
               ),
           ],
@@ -344,7 +344,7 @@ class StatusBarView extends ConsumerWidget {
                 'PID=${runtime.pid ?? '--'} '
                 '${context.tr('statusPorts')}=${runtime.ports.isEmpty ? '--' : runtime.ports.join(',')}',
                 key: const ValueKey('runtime-info'),
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
               const SizedBox(height: 4),
               Text(
@@ -352,13 +352,13 @@ class StatusBarView extends ConsumerWidget {
                     ? '${runtime.revisionLabel} (${context.tr('statusUnapplied')})'
                     : runtime.revisionLabel,
                 key: const ValueKey('runtime-revision'),
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
               const SizedBox(height: 4),
               Text(
                 'epoch=${runtime.epoch ?? '--'} seq=${runtime.lastSeq ?? '--'}',
                 key: const ValueKey('runtime-stream-position'),
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
               const SizedBox(height: 4),
               // SP-17 actual summary: session/operation/applied revision of
@@ -369,7 +369,7 @@ class StatusBarView extends ConsumerWidget {
                 'op=${runtime.operationId ?? '--'} '
                 'applied=${runtime.appliedRevision ?? '-'}',
                 key: const ValueKey('runtime-actual'),
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
               if (runtime.hasCurrentFailure) ...<Widget>[
                 const SizedBox(height: 4),
@@ -379,7 +379,7 @@ class StatusBarView extends ConsumerWidget {
                   'at=${runtime.failedAtMs ?? '--'} '
                   '${runtime.error!.code} (${runtime.error!.messageKey})',
                   key: const ValueKey('runtime-failure'),
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
               ],
               if (runtime.notice != null) ...<Widget>[
@@ -387,7 +387,7 @@ class StatusBarView extends ConsumerWidget {
                 Text(
                   'notice@${runtime.notice!.atMs}: ${runtime.notice!.text}',
                   key: const ValueKey('runtime-notice'),
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
               ],
               // Demoted secondary messages: kept viewable here while the
@@ -396,14 +396,17 @@ class StatusBarView extends ConsumerWidget {
               // widen the main row.
               for (final secondary in resolved.secondaryTexts) ...<Widget>[
                 const SizedBox(height: 4),
-                Text(secondary, style: const TextStyle(fontSize: 12)),
+                Text(
+                  secondary,
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
+                ),
               ],
               const SizedBox(height: 4),
               Text(
                 'total=${profiles.totalCount} visible=${profiles.visible.length} '
                 'selected=${profiles.selectedCount}',
                 key: const ValueKey('status-counts'),
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
             ],
           ),
@@ -412,7 +415,7 @@ class StatusBarView extends ConsumerWidget {
       child: _SelectorFace(
         child: Text(
           context.tr('statusDetails'),
-          style: const TextStyle(fontSize: 11.5),
+          style: const TextStyle(fontSize: AppTokens.fontSizeSmall),
         ),
       ),
     );
@@ -452,7 +455,7 @@ class StatusBarView extends ConsumerWidget {
                     ),
                     minimumSize: const Size(0, 24),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: const TextStyle(fontSize: 12),
+                    textStyle: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                   onPressed: () => ref
                       .read(runtimeControllerProvider.notifier)
@@ -468,7 +471,7 @@ class StatusBarView extends ConsumerWidget {
                     ),
                     minimumSize: const Size(0, 24),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    textStyle: const TextStyle(fontSize: 12),
+                    textStyle: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                   onPressed: () => showFailureDetails(context, runtime),
                   child: const Text('查看失败'),

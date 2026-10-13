@@ -54,8 +54,33 @@ fn validate_custom_text(text: &str) -> Result<(), DomainError> {
                 .with_field("proto_extra.extra.customConfigText"),
         );
     }
+    // W2 budget (RUSTSEC-2024-0449 hardening): pre-parse caps first so a
+    // hostile document never reaches the C parser unbounded.
+    if let Err(detail) = crate::mixin::check_yaml_budget(text) {
+        return Err(
+            DomainError::new(codes::FIELD_FORMAT, "error.custom_config_invalid")
+                .with_field("proto_extra.extra.customConfigText")
+                .with_detail(detail),
+        );
+    }
     match serde_yaml::from_str::<serde_yaml::Value>(text) {
-        Ok(serde_yaml::Value::Mapping(_)) => Ok(()),
+        Ok(value) => {
+            // W2 budget (RUSTSEC-2024-0449 hardening); same caps as mixin.
+            if let Err(detail) = crate::mixin::check_yaml_shape(&value) {
+                return Err(
+                    DomainError::new(codes::FIELD_FORMAT, "error.custom_config_invalid")
+                        .with_field("proto_extra.extra.customConfigText")
+                        .with_detail(detail),
+                );
+            }
+            match value {
+                serde_yaml::Value::Mapping(_) => Ok(()),
+                _ => Err(
+                    DomainError::new(codes::FIELD_FORMAT, "error.custom_config_invalid")
+                        .with_field("proto_extra.extra.customConfigText"),
+                ),
+            }
+        }
         _ => Err(
             DomainError::new(codes::FIELD_FORMAT, "error.custom_config_invalid")
                 .with_field("proto_extra.extra.customConfigText"),
@@ -441,6 +466,32 @@ mod tests {
             serde_json::Value::String("mixed-port: 11808\nmode: rule\n".into()),
         );
         assert!(validate_custom(&p).is_ok());
+    }
+
+    #[test]
+    fn rejects_hostile_yaml_text() {
+        // Oversize and alias spam fail closed with FIELD_FORMAT.
+        let big = format!("k: \"{}\"", "x".repeat(2 * 1024 * 1024));
+        assert_eq!(
+            validate_custom_text(&big).unwrap_err().code,
+            codes::FIELD_FORMAT
+        );
+        let mut spam = String::from("base: &a\n  x: 1\ntop:\n");
+        for i in 0..1500 {
+            spam.push_str(&format!("  k{i}: *a\n"));
+        }
+        assert_eq!(
+            validate_custom_text(&spam).unwrap_err().code,
+            codes::FIELD_FORMAT
+        );
+    }
+
+    #[test]
+    fn dotted_rule_globs_do_not_trip_alias_guard() {
+        // `*.example.com` style routing rules are plain scalars, not aliases.
+        let text =
+            "rules:\n  - DOMAIN-SUFFIX,*.example.com,DIRECT\n  - DOMAIN,example.org,REJECT\n";
+        assert!(validate_custom_text(text).is_ok());
     }
 
     #[test]

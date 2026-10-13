@@ -49,11 +49,128 @@ fn key(name: &str) -> Value {
     Value::String(name.to_string())
 }
 
+/// YAML input budget (W2, RUSTSEC-2024-0449 hardening).
+///
+/// `serde_yaml`/`unsafe-libyaml` is unmaintained C parsing remote
+/// subscription / user-supplied YAML. These caps bound what reaches it:
+///
+/// - bytes: real mihomo configs (even with large rule lists) stay well
+///   under ~300 KB; in-repo fixtures are ~4 KB. 1 MiB leaves several
+///   times headroom while bounding parser input.
+/// - anchors/aliases: legitimate configs barely use anchors (a handful for
+///   `<<` merges, see SP28-L1-003); 64 defs / 1024 uses sit an order of
+///   magnitude above any real config and starve alias bombs.
+/// - depth/nodes (post-parse walk): legitimate depth stays under ~16;
+///   64 depth / 100k nodes cap runaway expansion that survived parsing.
+///
+/// The anchor/alias scan is lexical with no comment stripping: it can only
+/// over-count (fail-closed direction). Dotted runs (`*.example.com`) are
+/// excluded so routing rules never trip it.
+pub(crate) const MAX_YAML_BYTES: usize = 1024 * 1024;
+pub(crate) const MAX_YAML_ANCHORS: usize = 64;
+pub(crate) const MAX_YAML_ALIAS_USES: usize = 1024;
+pub(crate) const MAX_YAML_DEPTH: usize = 64;
+pub(crate) const MAX_YAML_NODES: usize = 100_000;
+
+fn is_yaml_word_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'-' || b == b'_'
+}
+
+fn scan_anchor_alias(text: &str) -> (usize, usize) {
+    let bytes = text.as_bytes();
+    let mut anchors = 0usize;
+    let mut aliases = 0usize;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let marker = bytes[i];
+        let boundary = i == 0 || !is_yaml_word_byte(bytes[i - 1]);
+        if (marker == b'&' || marker == b'*') && boundary {
+            let mut j = i + 1;
+            while j < bytes.len() && is_yaml_word_byte(bytes[j]) {
+                j += 1;
+            }
+            if j > i + 1 {
+                // Dotted runs (`*.example.com`) are plain scalars, not aliases.
+                let dotted = marker == b'*' && j < bytes.len() && bytes[j] == b'.';
+                if !dotted {
+                    if marker == b'&' {
+                        anchors += 1;
+                    } else {
+                        aliases += 1;
+                    }
+                }
+                i = j;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    (anchors, aliases)
+}
+
+/// Pre-parse budget check. Returns a detail string; callers wrap it in
+/// their own `DomainError` code so no error taxonomy changes.
+pub(crate) fn check_yaml_budget(text: &str) -> Result<(), String> {
+    if text.len() > MAX_YAML_BYTES {
+        return Err(format!(
+            "yaml over byte budget: {} > {MAX_YAML_BYTES}",
+            text.len()
+        ));
+    }
+    let (anchors, aliases) = scan_anchor_alias(text);
+    if anchors > MAX_YAML_ANCHORS || aliases > MAX_YAML_ALIAS_USES {
+        return Err(format!(
+            "yaml over anchor/alias budget: {anchors} anchors, {aliases} uses"
+        ));
+    }
+    Ok(())
+}
+
+/// Post-parse shape check (iterative walk; depth-bounded by construction).
+pub(crate) fn check_yaml_shape(value: &Value) -> Result<(), String> {
+    let mut nodes = 0usize;
+    let mut stack = vec![(value, 1usize)];
+    while let Some((item, depth)) = stack.pop() {
+        if depth > MAX_YAML_DEPTH {
+            return Err(format!("yaml over depth budget: > {MAX_YAML_DEPTH}"));
+        }
+        nodes += 1;
+        if nodes > MAX_YAML_NODES {
+            return Err(format!("yaml over node budget: > {MAX_YAML_NODES}"));
+        }
+        match item {
+            Value::Mapping(map) => {
+                for (k, v) in map {
+                    stack.push((k, depth + 1));
+                    stack.push((v, depth + 1));
+                }
+            }
+            Value::Sequence(seq) => {
+                for v in seq {
+                    stack.push((v, depth + 1));
+                }
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 fn parse_mapping(text: &str, field: &str) -> Result<Mapping, DomainError> {
+    check_yaml_budget(text).map_err(|detail| {
+        DomainError::new(codes::FIELD_FORMAT, "error.mixin_yaml_invalid")
+            .with_field(field)
+            .with_detail(detail)
+    })?;
     let value: Value = serde_yaml::from_str(text).map_err(|error| {
         DomainError::new(codes::FIELD_FORMAT, "error.mixin_yaml_invalid")
             .with_field(field)
             .with_detail(error.to_string())
+    })?;
+    check_yaml_shape(&value).map_err(|detail| {
+        DomainError::new(codes::FIELD_FORMAT, "error.mixin_yaml_invalid")
+            .with_field(field)
+            .with_detail(detail)
     })?;
     // SP28-L1-003: canonical pre-pass (upstream `YamlUtils.PreprocessYaml`).
     let value = resolve_merge_keys(value).map_err(|detail| {
@@ -567,5 +684,46 @@ mod tests {
         let err =
             generate_mihomo(BASE, Some(bad_mixin), None, &MixinOptions::default()).unwrap_err();
         assert_eq!(err.code, codes::FIELD_FORMAT);
+    }
+
+    // W2 yaml-budget guard (RUSTSEC-2024-0449 hardening): hostile documents
+    // are rejected instead of being fed unbounded to the C YAML parser.
+    #[test]
+    fn yaml_budget_rejects_oversize_input() {
+        let big = format!("padding: \"{}\"", "x".repeat(2 * 1024 * 1024));
+        let err = parse_mapping(&big, "f").unwrap_err();
+        assert_eq!(err.code, codes::FIELD_FORMAT);
+    }
+
+    #[test]
+    fn yaml_budget_rejects_alias_spam() {
+        let mut doc = String::from("base: &a\n  x: 1\ntop:\n");
+        for i in 0..1500 {
+            doc.push_str(&format!("  k{i}: *a\n"));
+        }
+        let err = parse_mapping(&doc, "f").unwrap_err();
+        assert_eq!(err.code, codes::FIELD_FORMAT);
+    }
+
+    #[test]
+    fn yaml_budget_rejects_deep_nesting() {
+        let mut doc = String::from("top: ");
+        for _ in 0..200 {
+            doc.push_str("{k: ");
+        }
+        doc.push('1');
+        for _ in 0..200 {
+            doc.push('}');
+        }
+        doc.push('\n');
+        let err = parse_mapping(&doc, "f").unwrap_err();
+        assert_eq!(err.code, codes::FIELD_FORMAT);
+    }
+
+    #[test]
+    fn yaml_budget_allows_merge_key_anchors() {
+        // SP28-L1-003 behavior must keep working: a few anchors + `<<` merge.
+        let doc = "base: &b\n  x: 1\ntop:\n  <<: *b\n  y: 2\n";
+        parse_mapping(doc, "f").expect("legit anchors must pass");
     }
 }

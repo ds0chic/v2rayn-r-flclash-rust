@@ -540,6 +540,39 @@ class StatusBarView extends ConsumerWidget {
             color: scheme.primary,
           ),
         ),
+      // U-B1 speedtest globalization (UX1-09): the same controller projection
+      // the node-page toolbar shows, so progress stays visible (and stoppable)
+      // on every tab. The node-page indicator is kept; both read the one
+      // profiles controller, never a second busy flag.
+      if (profiles.speedTestRunning)
+        ConstrainedBox(
+          constraints: const BoxConstraints(
+            maxWidth: AppTokens.statusNoticeMaxWidth,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Flexible(
+                child: _statusText(
+                  profiles.speedTestMessage?.isNotEmpty == true
+                      ? '测速中：${profiles.speedTestMessage}'
+                      : '测速中：${profiles.speedTestStage}（可取消）',
+                  key: const ValueKey('speedtest-global'),
+                  color: scheme.primary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              TextButton(
+                key: const ValueKey('speedtest-global-stop'),
+                style: _noticeButtonStyle(),
+                onPressed: () => ref
+                    .read(profilesControllerProvider.notifier)
+                    .cancelSpeedTest(),
+                child: const Text('停止'),
+              ),
+            ],
+          ),
+        ),
     ];
 
     // SP-19 two-row bar. Row A keeps the upstream DockPanel order (two-line

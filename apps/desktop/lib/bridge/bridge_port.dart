@@ -1535,29 +1535,45 @@ class SyntheticBridgePort implements BridgePort {
     String? text,
     String? subid,
   }) {
-    // Synthetic mirror of the Frb read: same remarks join (D1-01) and the same
-    // untested-first two-segment order (D1-02), over the seeded rows.
+    // Synthetic mirror of the Frb read. Uses `_ensureProfiles` directly
+    // rather than `queryAllProfiles` so the structural read stays a single
+    // counted call (r4_09: no double full read). The summaries honor `count`
+    // through the generated window (the SP-21 async slices page through
+    // `fetchSummaries`, which funnels here).
     _ensureProfiles();
+    // D1-01: join subscription remarks onto the subscription column. A
+    // generated row carries its subscription id in `subRemarks` (the same
+    // value `_ensureProfiles` stores as `subid`).
     final remarksById = <String, String>{
       for (final s in _subs) s.id: (s.remarks.isEmpty ? s.id : s.remarks),
     };
-    final base = <ProfileSummary>[
-      for (final dto in _profiles)
-        _withSubRemarks(dtoToSummary(dto), remarksById[dto.subid] ?? dto.subid),
+    final joined = <ProfileSummary>[
+      for (final row in generate(count))
+        _withSubRemarks(row, remarksById[row.subRemarks] ?? row.subRemarks),
     ];
-    final rank = <String, int>{};
-    var i = 0;
-    for (final id in _speedResults.keys) {
-      rank.putIfAbsent(id, () => i++);
+    // An explicitly persisted order (drag/column/sort writes) reads back as
+    // stored, modelling the Rust `(sort, index_id)` result order. Otherwise
+    // rows without a result row keep generated order ahead of the
+    // result-ordered rows (D1-02: upstream `Sort = t33?.Sort ?? 0`).
+    final List<ProfileSummary> summaries;
+    if (_persistedOrder.isNotEmpty) {
+      summaries = orderByPersistedSort(joined, _persistedOrder);
+    } else {
+      final rank = <String, int>{};
+      var i = 0;
+      for (final id in _speedResults.keys) {
+        rank.putIfAbsent(id, () => i++);
+      }
+      final missing = <ProfileSummary>[];
+      final present = <ProfileSummary>[];
+      for (final row in joined) {
+        (rank.containsKey(row.id) ? present : missing).add(row);
+      }
+      present.sort((a, b) => rank[a.id]!.compareTo(rank[b.id]!));
+      summaries = [...missing, ...present];
     }
-    final missing = <ProfileSummary>[];
-    final present = <ProfileSummary>[];
-    for (final row in base) {
-      (rank.containsKey(row.id) ? present : missing).add(row);
-    }
-    present.sort((a, b) => rank[a.id]!.compareTo(rank[b.id]!));
     return ProfileSnapshot(
-      summaries: [...missing, ...present],
+      summaries: summaries,
       profiles: List<c.ProfileDto>.of(_profiles),
     );
   }
@@ -3099,10 +3115,23 @@ class SyntheticBridgePort implements BridgePort {
     String routingId,
     List<String> ids,
   ) {
+    // S8-09: mirror the Rust rejection of an empty selection (an empty export
+    // is never "all rules").
+    if (ids.isEmpty) {
+      return const routing.RoutingRulesTextResult(
+        ok: false,
+        text: '',
+        ruleCount: 0,
+        error: c.ErrorDto(
+          code: 'E_NOT_FOUND',
+          messageKey: 'error.routing_no_selection',
+          fieldPath: 'ids',
+          retryable: false,
+        ),
+      );
+    }
     final list = _rules[routingId] ?? const [];
-    final selected = ids.isEmpty
-        ? list
-        : list.where((r) => ids.contains(r.id)).toList();
+    final selected = list.where((r) => ids.contains(r.id)).toList();
     return routing.RoutingRulesTextResult(
       ok: true,
       text: jsonEncode(

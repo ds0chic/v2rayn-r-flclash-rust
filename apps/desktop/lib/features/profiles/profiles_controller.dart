@@ -494,12 +494,14 @@ class ProfilesController extends Notifier<ProfilesState> {
   ProfilesState build() {
     final count = ref.read(profileRowCountProvider);
     // S8-03: a storage failure surfaces as an empty table, never a partial
-    // read mistaken for the full store.
+    // read mistaken for the full store. `_log` reads `state`, which does not
+    // exist yet during build, so the failure is recorded as the initial event.
     ProfileSnapshot snapshot;
+    String? snapshotFailure;
     try {
       snapshot = _bridge.fetchProfileSnapshot(count);
     } on BridgeDataError catch (e) {
-      _log('build-snapshot-failed', e.messageKey);
+      snapshotFailure = e.messageKey;
       snapshot = const ProfileSnapshot(summaries: [], profiles: []);
     }
     _baseSummaries = snapshot.summaries;
@@ -525,6 +527,19 @@ class ProfilesController extends Notifier<ProfilesState> {
       activeId: _bridge.getActiveProfile(),
       groupSubId: restored,
     );
+    final failure = snapshotFailure;
+    if (failure != null) {
+      _seq += 1;
+      initial = initial.copyWith(
+        events: [
+          TableEvent(
+            seq: _seq,
+            action: 'build-snapshot-failed',
+            detail: failure,
+          ),
+        ],
+      );
+    }
     if (restored != null) initial = _recompute(initial);
     return initial;
   }

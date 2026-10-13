@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
@@ -63,6 +65,33 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
   /// draft entry back to this snapshot and keeps the old theme applied.
   Map<String, dynamic> _lastSaved = <String, dynamic>{};
 
+  /// Debounced persist timer: rapid edits coalesce into one group save instead
+  /// of one `saveGroup` per keystroke (D2-03).
+  Timer? _saveTimer;
+
+  /// True while the draft holds edits not yet persisted.
+  bool _dirty = false;
+
+  @override
+  void dispose() {
+    _saveTimer?.cancel();
+    if (_dirty && _draftInit) {
+      // Flush pending edits without touching widget state: the route is gone,
+      // so no status update may run. A failed flush keeps the old theme.
+      try {
+        final result = ref
+            .read(settingsControllerProvider.notifier)
+            .saveGroup('UiItem', _ui);
+        if (result.ok) {
+          _applyTheme(_ui);
+        } else {
+          _applyTheme(_lastSaved);
+        }
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
   void _ensureDraft() {
     final state = ref.read(settingsControllerProvider);
     if (!state.loaded) return;
@@ -73,7 +102,10 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
     _lastSaved = Map<String, dynamic>.of(_ui);
   }
 
-  void _apply(String key) {
+  void _apply() {
+    _saveTimer?.cancel();
+    if (!_dirty) return;
+    _dirty = false;
     final result = ref
         .read(settingsControllerProvider.notifier)
         .saveGroup('UiItem', _ui);
@@ -84,9 +116,10 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
         _status = '已应用';
       });
     } else {
-      // Save first, apply second: on failure the old theme stays applied
-      // and the draft entry is reverted so the UI cannot diverge from it.
-      _ui[key] = _lastSaved[key];
+      // Save first, apply second: on failure nothing was persisted, so the
+      // whole draft returns to the last saved snapshot and the old theme
+      // stays applied; the UI cannot diverge from storage.
+      _ui = Map<String, dynamic>.of(_lastSaved);
       _applyTheme(_lastSaved);
       setState(() {
         _status = result.error?.messageKey ?? '保存失败';
@@ -110,7 +143,11 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
 
   void _set(String key, Object? value) {
     setState(() => _ui[key] = value);
-    _apply(key);
+    _dirty = true;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _apply();
+    });
   }
 
   bool _draftInit = false;

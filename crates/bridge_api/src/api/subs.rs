@@ -1502,8 +1502,7 @@ mod tests {
 
     #[test]
     fn write_export_file_accepts_temp_paths() {
-        let probe =
-            std::env::temp_dir().join(format!("b07b-inside-{}.txt", std::process::id()));
+        let probe = std::env::temp_dir().join(format!("b07b-inside-{}.txt", std::process::id()));
         let _ = std::fs::remove_file(&probe);
         let result = write_export_file(
             probe.to_string_lossy().into_owned(),
@@ -1521,7 +1520,10 @@ mod tests {
             remember_sub_report(&format!("b07b-job-{i}"), format!("{{\"n\":{i}}}"));
         }
         let len = sub_reports().lock().map(|r| r.len()).unwrap_or(0);
-        assert!(len <= MAX_SUB_REPORTS, "reports must stay bounded, got {len}");
+        assert!(
+            len <= MAX_SUB_REPORTS,
+            "reports must stay bounded, got {len}"
+        );
         assert!(sub_update_report(format!("b07b-job-{}", MAX_SUB_REPORTS + 4)).is_some());
         assert!(sub_update_report("b07b-job-0".to_string()).is_none());
     }

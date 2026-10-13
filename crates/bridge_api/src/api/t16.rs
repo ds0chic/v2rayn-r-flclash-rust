@@ -717,8 +717,7 @@ fn cancelled_dto() -> ErrorDto {
 /// single update window (guarded by its busy latch), so one slot suffices; a
 /// second concurrent op would replace the first here, which is documented
 /// rather than supported.
-static CURRENT_UPDATE_TOKEN: OnceLock<Mutex<Option<Arc<CancellationToken>>>> =
-    OnceLock::new();
+static CURRENT_UPDATE_TOKEN: OnceLock<Mutex<Option<Arc<CancellationToken>>>> = OnceLock::new();
 
 fn current_update_token() -> &'static Mutex<Option<Arc<CancellationToken>>> {
     CURRENT_UPDATE_TOKEN.get_or_init(|| Mutex::new(None))
@@ -753,11 +752,7 @@ fn clear_update_token(token: &Arc<CancellationToken>) {
 pub fn t16_cancel_update() -> SimpleResult {
     let requested = current_update_token()
         .lock()
-        .map(|slot| {
-            slot.as_ref()
-                .map(|token| token.cancel())
-                .unwrap_or(false)
-        })
+        .map(|slot| slot.as_ref().map(|token| token.cancel()).unwrap_or(false))
         .unwrap_or(false);
     if requested {
         SimpleResult {
@@ -1003,6 +998,7 @@ pub async fn t16_apply_core_update(
 // an isolated engine; production passes the global one. The old post-loop
 // restart is gone: `apply_core_managed` restarts only a previously running
 // target, so keeping the tail would restart twice.
+#[allow(clippy::too_many_arguments)]
 async fn apply_core_update_inner(
     service: &application::UpdateService,
     engine: &AppEngine,
@@ -1947,7 +1943,10 @@ mod tests {
             ]
         );
         for key in &keys {
-            assert!(rollback_core_allowed(key), "{key} must be rollback-eligible");
+            assert!(
+                rollback_core_allowed(key),
+                "{key} must be rollback-eligible"
+            );
         }
         // Case/`-` tolerant spellings of real keys stay accepted.
         assert!(rollback_core_allowed("Xray"));

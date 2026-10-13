@@ -524,10 +524,8 @@ pub fn export_routing_rules(routing_id: String, ids: Vec<String>) -> RoutingRule
         Ok(rules) => rules,
         Err(e) => return export_error(e),
     };
-    let selected: Vec<domain::RoutingRule> = rules
-        .into_iter()
-        .filter(|r| ids.contains(&r.id))
-        .collect();
+    let selected: Vec<domain::RoutingRule> =
+        rules.into_iter().filter(|r| ids.contains(&r.id)).collect();
     if selected.is_empty() {
         return export_error(
             DomainError::new(domain::codes::NOT_FOUND, "error.routing_no_selection")

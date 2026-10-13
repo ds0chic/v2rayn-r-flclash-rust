@@ -38,6 +38,12 @@ void main() {
     );
     expect(find.text('路由设置'), findsOneWidget);
 
+    // U-B1 UX1-10 folds the bulk import behind 高级 by default: hidden
+    // first, then expanded before the upstream toolbar assertions.
+    expect(find.text('一键导入规则集'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('routing-advanced-toggle')));
+    await tester.pumpAndSettle();
+
     // Upstream ToolBarTray.
     expect(find.text('添加规则集'), findsOneWidget);
     expect(find.text('一键导入规则集'), findsOneWidget);
@@ -87,6 +93,11 @@ void main() {
     tester,
   ) async {
     await _open(tester);
+
+    // Same U-B1 UX1-10 fold: expand 高级 so the toolbar import entry joins
+    // the context-menu one in the count below.
+    await tester.tap(find.byKey(const ValueKey('routing-advanced-toggle')));
+    await tester.pumpAndSettle();
 
     await tester.tap(
       find.text('V4-绕过大陆(Whitelist)'),

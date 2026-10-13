@@ -717,10 +717,7 @@ impl AppEngine {
             Err(_) => return,
         };
         for (_, old) in removed {
-            if !matches!(
-                old.config_type,
-                ConfigType::Custom | ConfigType::Outbound
-            ) {
+            if !matches!(old.config_type, ConfigType::Custom | ConfigType::Outbound) {
                 continue;
             }
             if old.address.trim().is_empty() || referenced.contains(&old.address) {
@@ -1090,6 +1087,7 @@ impl AppEngine {
         expected_revision: DesiredRevision,
     ) -> Result<(Profile, DesiredRevision), DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         // Read the Reality fallback default before taking the profile-revision
         // lock, so the settings lock is never nested inside it.
         let def_fingerprint = self.default_reality_fingerprint();
@@ -1150,6 +1148,7 @@ impl AppEngine {
         expected_revision: DesiredRevision,
     ) -> Result<(Profile, DesiredRevision), DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         // See `save_profile`: read the Reality fallback default before locking
         // the profile revisions.
         let def_fingerprint = self.default_reality_fingerprint();
@@ -1201,6 +1200,7 @@ impl AppEngine {
     /// Delete a set of profiles. Returns how many rows were removed.
     pub fn delete_profiles(&self, ids: &[String]) -> Result<u64, DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -1393,6 +1393,7 @@ impl AppEngine {
             );
         }
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let (_, _, removed_ids) = self.deduplicate_profiles(subid, keep_older)?;
         if removed_ids.is_empty() {
             return Ok(0);
@@ -1571,6 +1572,7 @@ impl AppEngine {
     /// SQLite rows never outlive the revision that announced them.
     pub fn copy_profiles(&self, ids: &[String]) -> Result<Vec<Profile>, DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -1617,6 +1619,7 @@ impl AppEngine {
     /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn set_remarks(&self, id: &str, remarks: String) -> Result<Profile, DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -1662,6 +1665,7 @@ impl AppEngine {
     /// and a restore never drifts back to a stale default.
     pub fn set_active(&self, id: Option<String>) -> Result<(), DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         if let Some(target) = &id {
             let repo = self
                 .repo
@@ -1845,6 +1849,7 @@ impl AppEngine {
     /// touches the default node or the desired revision.
     pub fn set_current_group(&self, id: Option<String>) -> Result<(), DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let normalized = present_id(id.as_deref()).map(str::to_string);
         if let Some(target) = &normalized {
             if self.get_sub_item(target)?.is_none() {
@@ -1972,6 +1977,7 @@ impl AppEngine {
     ///
     /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn save_routing(&self, profile: RoutingProfile) -> Result<RoutingProfile, DomainError> {
+        self.ensure_commit_writable()?;
         let mut normalized = crate::routing::normalize_routing(profile)?;
         // The DTO shape has no room for unknown keys: merge stored extras
         // (profile + per-rule, by id) back so an unrelated edit never wipes
@@ -2008,6 +2014,7 @@ impl AppEngine {
     /// A persist failure restores the removed and re-promoted rows (H10
     /// pattern).
     pub fn delete_routing(&self, id: &str) -> Result<bool, DomainError> {
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -2064,6 +2071,7 @@ impl AppEngine {
     ///
     /// A persist failure restores the previous default (H10 pattern).
     pub fn set_default_routing(&self, id: &str) -> Result<(), DomainError> {
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -2205,6 +2213,7 @@ impl AppEngine {
     ///
     /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn save_dns(&self, profile: DnsProfile) -> Result<DnsProfile, DomainError> {
+        self.ensure_commit_writable()?;
         let mut normalized = crate::dns::normalize_dns(profile)?;
         if !normalized.id.trim().is_empty() {
             let stored = self
@@ -2278,6 +2287,7 @@ impl AppEngine {
         &self,
         preset: crate::dns::RegionalPreset,
     ) -> Result<(Vec<String>, crate::dns::RegionalPreset), DomainError> {
+        self.ensure_commit_writable()?;
         // Snapshot first: every branch below mutates the settings tree and/or
         // the DNS rows, and a persist failure must restore all of them plus
         // the desired revision (S4a-01 class half-write).
@@ -2431,6 +2441,7 @@ impl AppEngine {
     /// The mode guard is never held across [`Self::persist_config`], which
     /// re-locks it for the write.
     pub fn set_rule_mode(&self, mode: RuleMode) -> Result<(), DomainError> {
+        self.ensure_commit_writable()?;
         let lock_error = || DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned");
         let mut revisions = self.revisions.lock().map_err(|_| lock_error())?;
         let previous = *self.rule_mode.lock().map_err(|_| lock_error())?;
@@ -2659,6 +2670,9 @@ impl AppEngine {
         patch: Value,
         expected_revision: u64,
     ) -> Result<SaveSettingsOutcome, DomainError> {
+        // Defense in depth: the only caller (`save_settings_group`) already
+        // passed the gate, but identity writes must never bypass it.
+        self.ensure_commit_writable()?;
         let id: Option<String> = match &patch {
             Value::Null => None,
             Value::String(text) => present_id(Some(text)).map(str::to_string),
@@ -2755,14 +2769,13 @@ impl AppEngine {
         if valid {
             Ok(())
         } else {
-            Err(DomainError::new(
-                domain::codes::INVALID_ARGUMENT,
-                "error.invalid_mutation",
-            )
-            .with_detail(
-                "mutation_id must be 1..=128 chars of [A-Za-z0-9-_.], \
+            Err(
+                DomainError::new(domain::codes::INVALID_ARGUMENT, "error.invalid_mutation")
+                    .with_detail(
+                        "mutation_id must be 1..=128 chars of [A-Za-z0-9-_.], \
                  with no path separators or '..'",
-            ))
+                    ),
+            )
         }
     }
 
@@ -3764,6 +3777,10 @@ impl AppEngine {
     /// `desired`; settings and rule-mode go through here so the UI can show
     /// "saved, not applied" and offer an apply entry point.
     fn bump_desired_for_change(&self) -> Result<(), DomainError> {
+        // The desired bump is itself a document write: it must not land while
+        // a journal is pending either. A rejection here propagates like any
+        // persist failure (the preceding write already rolled back or stood).
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -3783,6 +3800,25 @@ impl AppEngine {
     fn persist_config(&self, revisions: &RevisionStore) -> Result<(), DomainError> {
         let Some(dir) = &self.data_dir else {
             return Ok(());
+        };
+        // S4a-02 (plan A, approved): serialize document writes against an
+        // in-flight journal commit or recovery. `try_lock` only, held across
+        // the write — a blocking lock here could self-deadlock (B02 lesson:
+        // `set_rule_mode` re-locked `rule_mode` inside this same function).
+        // Verified re-entrancy-free: the only `commit_lock` holders
+        // (`save_settings_commit`, `recover_pending_commits`) call no persist
+        // path and no mutator inside their critical sections
+        // (`install_committed_doc` touches memory only), and no persist caller
+        // holds `commit_lock` on entry.
+        let _commit_guard = match self.commit_lock.try_lock() {
+            Ok(guard) => guard,
+            Err(_) => {
+                return Err(
+                    DomainError::new(domain::codes::INTERNAL, "error.recovery_required")
+                        .with_detail("a commit is in flight; retry the write")
+                        .retryable(),
+                );
+            }
         };
         let active = self.active.lock().ok().and_then(|guard| guard.clone());
         let rule_mode = self
@@ -4491,6 +4527,7 @@ impl AppEngine {
     /// A persist failure restores the previous row and revision (H10 pattern).
     pub fn save_sub_item(&self, mut item: SubItem) -> Result<SubItem, DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         item.validate()?;
         let mut revisions = self
             .revisions
@@ -4545,6 +4582,7 @@ impl AppEngine {
     /// its data on the next reopen.
     pub fn delete_sub_items(&self, ids: &[String]) -> Result<u64, DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -4673,6 +4711,7 @@ impl AppEngine {
     /// pattern).
     pub fn reorder_sub_items(&self, ids: &[String]) -> Result<(), DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -4890,6 +4929,7 @@ impl AppEngine {
         expected_epoch: u64,
     ) -> Result<(usize, usize), DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         if self.restore_epoch() != expected_epoch {
             return Err(
                 DomainError::new(domain::codes::CONFLICT, "error.restore_in_progress")
@@ -5258,6 +5298,7 @@ impl AppEngine {
         item: FullConfigTemplate,
     ) -> Result<FullConfigTemplate, DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         crate::templates::validate(&item)?;
         let mut revisions = self
             .revisions
@@ -5299,6 +5340,7 @@ impl AppEngine {
     /// A persist failure restores the removed row and revision (H10 pattern).
     pub fn delete_template(&self, id: &str) -> Result<bool, DomainError> {
         self.guard_storage()?;
+        self.ensure_commit_writable()?;
         let mut revisions = self
             .revisions
             .lock()
@@ -7055,8 +7097,9 @@ mod tests {
             "in-bounds files must still resolve"
         );
         assert!(
-            diagnostics.iter().any(|d| d.message.contains("outside.txt")
-                && !d.message.contains("SECRET")),
+            diagnostics
+                .iter()
+                .any(|d| d.message.contains("outside.txt") && !d.message.contains("SECRET")),
             "escape attempts must be diagnosed by filename only, got {diagnostics:?}"
         );
     }
@@ -7106,8 +7149,7 @@ mod tests {
         a.index_id = "s4b3-a".into();
         a.config_type = ConfigType::Custom;
         a.remarks = "s4b3-a".into();
-        a.extra
-            .insert("RawConfig".into(), serde_json::json!(raw));
+        a.extra.insert("RawConfig".into(), serde_json::json!(raw));
         let mut b = a.clone();
         b.index_id = "s4b3-b".into();
         b.remarks = "s4b3-b".into();
@@ -7149,8 +7191,7 @@ mod tests {
         a.index_id = "s4b3-r".into();
         a.config_type = ConfigType::Custom;
         a.remarks = "s4b3-r".into();
-        a.extra
-            .insert("RawConfig".into(), serde_json::json!(raw));
+        a.extra.insert("RawConfig".into(), serde_json::json!(raw));
         let profiles = vec![a];
         let token = engine.register_import_preview("s4b3-rollback", &profiles);
         engine
@@ -7196,7 +7237,10 @@ mod tests {
             code
         );
         assert_eq!(
-            engine.delete_sub_items(&["s-g".to_string()]).unwrap_err().code,
+            engine
+                .delete_sub_items(&["s-g".to_string()])
+                .unwrap_err()
+                .code,
             code
         );
         assert_eq!(
@@ -7206,10 +7250,16 @@ mod tests {
                 .code,
             code
         );
-        assert_eq!(engine.touch_sub_update_time("s-g", 0).unwrap_err().code, code);
+        assert_eq!(
+            engine.touch_sub_update_time("s-g", 0).unwrap_err().code,
+            code
+        );
         let template = crate::templates::builtins()[0].clone();
         assert_eq!(engine.save_template(template).unwrap_err().code, code);
-        assert_eq!(engine.delete_template("builtin-xray").unwrap_err().code, code);
+        assert_eq!(
+            engine.delete_template("builtin-xray").unwrap_err().code,
+            code
+        );
         assert_eq!(engine.list_sub_items().unwrap_err().code, code);
         assert_eq!(engine.get_sub_item("s-g").unwrap_err().code, code);
         assert_eq!(engine.group_children("s-g").unwrap_err().code, code);
@@ -7326,8 +7376,7 @@ mod tests {
         let raw = r#"{"inbounds":[],"outbounds":[]}"#;
         let mut p = synthetic_full_profile(1);
         p.config_type = ConfigType::Custom;
-        p.extra
-            .insert("RawConfig".into(), serde_json::json!(raw));
+        p.extra.insert("RawConfig".into(), serde_json::json!(raw));
         let id = p.index_id.clone();
         let profiles = vec![p];
         let token = engine.register_import_preview("s4b6-text", &profiles);
@@ -7424,6 +7473,181 @@ mod tests {
             .map(|p| p.index_id)
             .collect::<Vec<_>>();
         assert_eq!(ids, vec!["m-a", "m-b", "m-c"]);
+    }
+
+    #[test]
+    fn journal_blocks_direct_writes() {
+        use ipc_contract::stable::SettingsSaveState;
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let p = synthetic_full_profile(1);
+        engine.save_profile(p, DesiredRevision::ZERO).unwrap();
+        engine
+            .save_sub_item(crate::subs::SubItem {
+                id: "s-j".into(),
+                remarks: "j".into(),
+                url: "https://example.com/j".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        // Hang a staged journal (crash before the DB commit).
+        engine.set_commit_test_fault(crate::recoverable_commit::CommitTestFault::CrashAfterStage);
+        let loaded = engine.load_settings().unwrap();
+        let mut staged = loaded.settings.clone();
+        staged.gui_item.tray_menu_servers_limit = 29;
+        let unknown = engine.save_settings_commit(
+            engine.dataset_epoch(),
+            loaded.revision,
+            "m-journal-hang",
+            staged,
+        );
+        assert_eq!(unknown.save, SettingsSaveState::CommitUnknown);
+        engine.set_commit_test_fault(crate::recoverable_commit::CommitTestFault::None);
+        assert!(engine.pending_commit_recovery());
+
+        // Every direct write is rejected before any in-memory mutation.
+        let revision = engine.desired_revision();
+        for result in [
+            engine.set_current_group(None).map(|_| ()),
+            engine
+                .save_sub_item(crate::subs::SubItem {
+                    id: "s-j2".into(),
+                    remarks: "j2".into(),
+                    url: "https://example.com/j2".into(),
+                    ..Default::default()
+                })
+                .map(|_| ()),
+        ] {
+            let error = result.unwrap_err();
+            assert_eq!(error.code, domain::codes::INTERNAL);
+            assert_eq!(error.message_key, "error.recovery_required");
+        }
+        assert_eq!(engine.desired_revision(), revision);
+
+        // Recovery reopens writes.
+        let receipts = engine.recover_pending_commits();
+        assert!(!receipts.is_empty());
+        assert!(!engine.pending_commit_recovery());
+        engine.set_current_group(None).unwrap();
+    }
+
+    #[test]
+    fn publish_preserves_rejected_direct_save() {
+        use ipc_contract::stable::SettingsSaveState;
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        for (id, remarks) in [("s-x", "x"), ("s-y", "y")] {
+            engine
+                .save_sub_item(crate::subs::SubItem {
+                    id: id.into(),
+                    remarks: remarks.into(),
+                    url: format!("https://example.com/{id}"),
+                    ..Default::default()
+                })
+                .unwrap();
+        }
+        engine.set_current_group(Some("s-x".into())).unwrap();
+        // Hang a DB-committed journal (crash before the file publish).
+        engine.set_commit_test_fault(crate::recoverable_commit::CommitTestFault::FailFilePublish);
+        let loaded = engine.load_settings().unwrap();
+        let mut staged = loaded.settings.clone();
+        staged.gui_item.tray_menu_servers_limit = 29;
+        let failed = engine.save_settings_commit(
+            engine.dataset_epoch(),
+            loaded.revision,
+            "m-publish-hang",
+            staged,
+        );
+        assert_eq!(failed.save, SettingsSaveState::CommitUnknown);
+        engine.set_commit_test_fault(crate::recoverable_commit::CommitTestFault::None);
+
+        // The direct group switch is rejected, so the later publish cannot
+        // silently clobber it.
+        let error = engine.set_current_group(Some("s-y".into())).unwrap_err();
+        assert_eq!(error.code, domain::codes::INTERNAL);
+        assert_eq!(error.message_key, "error.recovery_required");
+
+        // Recover (roll-forward publish), then the direct save lands durably.
+        assert!(!engine.recover_pending_commits().is_empty());
+        engine.set_current_group(Some("s-y".into())).unwrap();
+        drop(engine);
+        let reopened = rollback_test_engine(&dir);
+        let settings = reopened.load_settings().unwrap().settings;
+        assert_eq!(settings.gui_item.tray_menu_servers_limit, 29);
+        assert_eq!(settings.sub_index_id.as_deref(), Some("s-y"));
+    }
+
+    #[test]
+    fn commit_lock_occupied_rejects_and_rolls_back() {
+        // Approval condition 4: occupy `commit_lock` and prove both arms —
+        // the entry gate (before any mutation) and the in-persist `try_lock`
+        // (after mutation, through the B02 rollback).
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        let _held = engine.commit_lock.lock().unwrap();
+        let revision = engine.desired_revision();
+        let error = engine
+            .save_sub_item(crate::subs::SubItem {
+                id: "s-l".into(),
+                remarks: "l".into(),
+                url: "https://example.com/l".into(),
+                ..Default::default()
+            })
+            .unwrap_err();
+        assert_eq!(error.code, domain::codes::INTERNAL);
+        assert_eq!(error.message_key, "error.recovery_required");
+        assert_eq!(engine.desired_revision(), revision);
+
+        let error = engine
+            .persist_config(&crate::repository::RevisionStore::with_desired(
+                domain::DesiredRevision::new(engine.desired_revision()),
+            ))
+            .unwrap_err();
+        assert_eq!(error.code, domain::codes::INTERNAL);
+        assert_eq!(error.message_key, "error.recovery_required");
+    }
+
+    #[test]
+    fn set_current_group_rolls_back_on_persist_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = rollback_test_engine(&dir);
+        for (id, remarks) in [("s-g1", "g1"), ("s-g2", "g2")] {
+            engine
+                .save_sub_item(crate::subs::SubItem {
+                    id: id.into(),
+                    remarks: remarks.into(),
+                    url: format!("https://example.com/{id}"),
+                    ..Default::default()
+                })
+                .unwrap();
+        }
+        engine.set_current_group(Some("s-g1".into())).unwrap();
+        let revision = engine.desired_revision();
+        break_config_persist(&dir);
+
+        assert!(engine.set_current_group(Some("s-g2".into())).is_err());
+        assert_eq!(engine.desired_revision(), revision);
+        assert_eq!(
+            engine
+                .load_settings()
+                .unwrap()
+                .settings
+                .sub_index_id
+                .as_deref(),
+            Some("s-g1")
+        );
+
+        unbreak_config_persist(&dir);
+        engine.set_current_group(Some("s-g2".into())).unwrap();
+        assert_eq!(
+            engine
+                .load_settings()
+                .unwrap()
+                .settings
+                .sub_index_id
+                .as_deref(),
+            Some("s-g2")
+        );
     }
 
     #[tokio::test]

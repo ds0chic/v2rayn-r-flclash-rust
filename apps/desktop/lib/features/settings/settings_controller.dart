@@ -18,6 +18,81 @@ import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 /// round trip. Saving goes through the Rust engine's optimistic revision check;
 /// the `immediate` subset of fields is applied to the live UI right after a
 /// successful load or save.
+/// UB2-08: structural equality for JSON-ish settings values. Maps and lists
+/// compare recursively; numbers compare by value so `10808` and `10808.0`
+/// count as equal. Pure: no provider, no I/O, safe to call from widgets and
+/// unit tests.
+bool settingsValueEquals(Object? a, Object? b) {
+  if (identical(a, b)) return true;
+  if (a is num && b is num) return a.toDouble() == b.toDouble();
+  if (a is Map && b is Map) {
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (!b.containsKey(key)) return false;
+      if (!settingsValueEquals(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  if (a is List && b is List) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!settingsValueEquals(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  return a == b;
+}
+
+/// UB2-08: top-level groups whose draft content differs from [canonical]
+/// (usually `defaultSettingsJson()`). A map key missing on one side counts
+/// as equal when the canonical value is null (older persisted documents omit
+/// null-default keys and `mergeWithSettingsDefaults` does not re-add them,
+/// so they render exactly as the default); an unknown extra key or a missing
+/// non-null default counts as modified. Pure: save semantics untouched.
+Set<String> modifiedSettingsGroups(
+  Map<String, dynamic> draft,
+  Map<String, dynamic> canonical,
+) {
+  final modified = <String>{};
+  for (final entry in canonical.entries) {
+    if (!draft.containsKey(entry.key)) {
+      if (entry.value != null) modified.add(entry.key);
+      continue;
+    }
+    if (!_settingsGroupEquals(draft[entry.key], entry.value)) {
+      modified.add(entry.key);
+    }
+  }
+  return modified;
+}
+
+bool _settingsGroupEquals(Object? draftValue, Object? canonicalValue) {
+  if (draftValue is Map && canonicalValue is Map) {
+    for (final key in canonicalValue.keys) {
+      final canonicalChild = canonicalValue[key];
+      if (!draftValue.containsKey(key)) {
+        if (canonicalChild != null) return false;
+        continue;
+      }
+      if (!_settingsGroupEquals(draftValue[key], canonicalChild)) return false;
+    }
+    for (final key in draftValue.keys) {
+      if (!canonicalValue.containsKey(key)) return false;
+    }
+    return true;
+  }
+  if (draftValue is List && canonicalValue is List) {
+    if (draftValue.length != canonicalValue.length) return false;
+    for (var i = 0; i < draftValue.length; i++) {
+      if (!_settingsGroupEquals(draftValue[i], canonicalValue[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return settingsValueEquals(draftValue, canonicalValue);
+}
+
 /// Per-phase apply fact for the last save/retry (SP-12).
 ///
 /// `save` is the persistence fact; `core`/`platform`/`autostart` are the

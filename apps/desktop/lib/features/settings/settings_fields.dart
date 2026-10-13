@@ -12,6 +12,7 @@ class SettingsCheckbox extends StatelessWidget {
     required this.onChanged,
     this.helpText,
     this.risk,
+    this.dirtyKey,
   });
 
   final String label;
@@ -23,6 +24,10 @@ class SettingsCheckbox extends StatelessWidget {
 
   /// UB2-01: risk note rendered under [helpText] in the warning color.
   final String? risk;
+
+  /// UB2-08: `'Group.Key'` marks the row modified (warning dot after the
+  /// label); null renders no dot. Display only, hit areas unchanged.
+  final String? dirtyKey;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +56,7 @@ class SettingsCheckbox extends StatelessWidget {
                     style: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                 ),
+                if (dirtyKey != null) _DirtyDot(dirtyKey: dirtyKey!),
               ],
             ),
           ),
@@ -73,6 +79,7 @@ class SettingsTextField extends StatefulWidget {
     this.identifier,
     this.helpText,
     this.risk,
+    this.dirtyKey,
   });
 
   final String label;
@@ -84,6 +91,9 @@ class SettingsTextField extends StatefulWidget {
   /// UB2-01: explainer / risk note under the row (see [SettingsCheckbox]).
   final String? helpText;
   final String? risk;
+
+  /// UB2-08: `'Group.Key'` marks the row modified (see [SettingsCheckbox]).
+  final String? dirtyKey;
 
   /// Stable semantics identifier for UI-automation locators; applied to the
   /// editable field itself so the located node carries the field value.
@@ -156,6 +166,8 @@ class _SettingsTextFieldState extends State<SettingsTextField> {
                   ),
                 ),
               ),
+              if (widget.dirtyKey != null)
+                _DirtyDot(dirtyKey: widget.dirtyKey!),
             ],
           ),
           _HelpLines(helpText: widget.helpText, risk: widget.risk, indent: 168),
@@ -174,6 +186,7 @@ class SettingsNumberField extends StatefulWidget {
     this.width = 120,
     this.helpText,
     this.risk,
+    this.dirtyKey,
   });
 
   final String label;
@@ -184,6 +197,9 @@ class SettingsNumberField extends StatefulWidget {
   /// UB2-01: explainer / risk note under the row (see [SettingsCheckbox]).
   final String? helpText;
   final String? risk;
+
+  /// UB2-08: `'Group.Key'` marks the row modified (see [SettingsCheckbox]).
+  final String? dirtyKey;
 
   @override
   State<SettingsNumberField> createState() => _SettingsNumberFieldState();
@@ -245,6 +261,8 @@ class _SettingsNumberFieldState extends State<SettingsNumberField> {
                   ),
                 ),
               ),
+              if (widget.dirtyKey != null)
+                _DirtyDot(dirtyKey: widget.dirtyKey!),
             ],
           ),
           _HelpLines(helpText: widget.helpText, risk: widget.risk, indent: 168),
@@ -264,6 +282,7 @@ class SettingsDropdown<T> extends StatelessWidget {
     this.width = 200,
     this.helpText,
     this.risk,
+    this.dirtyKey,
   });
 
   final String label;
@@ -275,6 +294,9 @@ class SettingsDropdown<T> extends StatelessWidget {
   /// UB2-01: explainer / risk note under the row (see [SettingsCheckbox]).
   final String? helpText;
   final String? risk;
+
+  /// UB2-08: `'Group.Key'` marks the row modified (see [SettingsCheckbox]).
+  final String? dirtyKey;
 
   @override
   Widget build(BuildContext context) {
@@ -303,6 +325,7 @@ class SettingsDropdown<T> extends StatelessWidget {
                   onChanged: onChanged,
                 ),
               ),
+              if (dirtyKey != null) _DirtyDot(dirtyKey: dirtyKey!),
             ],
           ),
           _HelpLines(helpText: helpText, risk: risk, indent: 168),
@@ -346,6 +369,32 @@ class _HelpLines extends StatelessWidget {
   }
 }
 
+/// UB2-08: modified marker shared by the four field rows. A trailing 8px dot
+/// in the warning color; the key carries the `'Group.Key'` identity so tests
+/// can assert exactly which rows are dirty. Renders after the control, so
+/// label width (168) and hit areas are untouched.
+class _DirtyDot extends StatelessWidget {
+  const _DirtyDot({required this.dirtyKey});
+
+  final String dirtyKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 6),
+      child: Container(
+        key: ValueKey('settings-dirty-$dirtyKey'),
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: context.semantics.warning,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
 /// A labelled sub-section inside a tab.
 class SettingsSection extends StatefulWidget {
   const SettingsSection({
@@ -353,6 +402,10 @@ class SettingsSection extends StatefulWidget {
     required this.title,
     required this.child,
     this.collapsed = false,
+    this.sectionId,
+    this.expanded,
+    this.onExpandedChanged,
+    this.onReset,
   });
 
   final String title;
@@ -362,12 +415,42 @@ class SettingsSection extends StatefulWidget {
   /// expands; folding never touches persisted values (display only).
   final bool collapsed;
 
+  /// UB2-08: stable id for search jumps (`settings-reset-<id>` key).
+  final String? sectionId;
+
+  /// UB2-08: controlled open state. Null keeps the UB2-01 internal toggle.
+  final bool? expanded;
+
+  /// UB2-08: called with the new open state when controlled.
+  final ValueChanged<bool>? onExpandedChanged;
+
+  /// UB2-08: per-group "restore defaults" entry (with its own confirm
+  /// dialog at the call site). Null renders no button.
+  final VoidCallback? onReset;
+
   @override
   State<SettingsSection> createState() => _SettingsSectionState();
 }
 
 class _SettingsSectionState extends State<SettingsSection> {
-  late bool _open = !widget.collapsed;
+  late bool _open = widget.expanded ?? !widget.collapsed;
+
+  @override
+  void didUpdateWidget(covariant SettingsSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.expanded != null && widget.expanded != _open) {
+      _open = widget.expanded!;
+    }
+  }
+
+  void _toggle() {
+    final next = !_open;
+    if (widget.expanded != null) {
+      widget.onExpandedChanged?.call(next);
+      return;
+    }
+    setState(() => _open = next);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -375,7 +458,7 @@ class _SettingsSectionState extends State<SettingsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         InkWell(
-          onTap: () => setState(() => _open = !_open),
+          onTap: _toggle,
           child: Padding(
             padding: const EdgeInsets.only(top: 10, bottom: 4),
             child: Row(
@@ -386,6 +469,18 @@ class _SettingsSectionState extends State<SettingsSection> {
                     style: AppForm.sectionTitleStyle(Theme.of(context)),
                   ),
                 ),
+                if (widget.onReset != null && widget.sectionId != null)
+                  IconButton(
+                    key: ValueKey('settings-reset-${widget.sectionId}'),
+                    tooltip: '恢复本组默认',
+                    iconSize: 16,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: widget.onReset,
+                    icon: Icon(
+                      AppTokens.icon('refresh'),
+                      color: context.semantics.muted,
+                    ),
+                  ),
                 Icon(
                   AppTokens.icon(_open ? 'arrowUp' : 'dropdown'),
                   size: 16,

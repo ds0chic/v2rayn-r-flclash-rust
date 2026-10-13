@@ -14,13 +14,18 @@
 //! current value still equals the value we wrote. Externally modified fields
 //! are kept and surfaced as conflicts.
 
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use platform::pac::DEFAULT_PAC_PATH;
+use platform::sysproxy::journal::{
+    clear_journal, journal_path, load_journal, save_journal, JournalLoad, OwnershipJournal,
+    StoredOwner,
+};
 use platform::{
     restore_if_owned, AppliedChange, AutoStartBackend, CustomSystemProxySetting, PacConfig,
-    PacServer, PacSource, ProxyField, ProxySettings, ProxyState, RestoreReport, SysProxyMode,
-    SystemProxyBackend, DEFAULT_PAC_PORT_BASE,
+    PacServer, PacSource, ProxyField, ProxySettings, ProxyState, RestoreFailure, RestoreReport,
+    SysProxyMode, SystemProxyBackend, DEFAULT_PAC_PORT_BASE,
 };
 
 /// Port arithmetic base for derived local ports (upstream `AppManager.GetLocalPort`):
@@ -118,6 +123,9 @@ pub struct ProxyRestoreOutcome {
     pub restored: RestoreReport,
     /// True when every restored/conflict field is settled (no conflicts).
     pub clean: bool,
+    /// True when a journaled previous owner is still alive, so no restore was
+    /// attempted. Only set by [`PlatformService::init_persistence`].
+    pub skipped_owner_alive: bool,
 }
 
 /// Who wrote the field currently owning a proxy value.
@@ -165,6 +173,9 @@ pub struct PlatformService {
     /// Content identity of the last *successful* OS apply. Only success
     /// advances this; failures leave it so the gap stays retryable.
     applied_hash: Arc<Mutex<Option<String>>>,
+    /// Crash-recovery journal path (`<data_dir>/sysproxy-ownership.journal`).
+    /// `None` disables persistence (default; tests and backend-only use).
+    journal_path: Arc<Mutex<Option<PathBuf>>>,
 }
 
 impl PlatformService {
@@ -181,6 +192,7 @@ impl PlatformService {
             pac_content: Arc::new(Mutex::new(None)),
             desired_hash: Arc::new(Mutex::new(None)),
             applied_hash: Arc::new(Mutex::new(None)),
+            journal_path: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -336,6 +348,7 @@ impl PlatformService {
                 });
             }
         }
+        self.persist_ledger();
         self.record_applied(&desired);
         Ok(ProxyApplyOutcome {
             ok: true,
@@ -402,27 +415,47 @@ impl PlatformService {
     }
 
     /// Restore only the fields this process still owns. Idempotent.
+    ///
+    /// Every owned field is attempted even when an earlier write fails; failed
+    /// writes are recorded on `restored.failed` and kept in the ledger for
+    /// retry. `ok` is false when any owned field could not be written back.
     pub fn restore_proxy(&self) -> Result<ProxyRestoreOutcome, platform::PlatformError> {
         let current = self.proxy.snapshot()?;
         let applied = self.applied.lock().map(|g| g.clone()).unwrap_or_default();
-        let report = restore_if_owned(&applied, &current);
-        for action in &report.restored {
-            self.proxy
-                .set_field(action.field, action.restore_to.as_deref())?;
+        let mut report = restore_if_owned(&applied, &current);
+        let owned = std::mem::take(&mut report.restored);
+        for action in owned {
+            match self
+                .proxy
+                .set_field(action.field, action.restore_to.as_deref())
+            {
+                Ok(()) => report.restored.push(action),
+                Err(error) => report.failed.push(RestoreFailure {
+                    field: action.field,
+                    restore_to: action.restore_to,
+                    error: error.to_string(),
+                }),
+            }
         }
         if !report.restored.is_empty() {
             self.proxy.notify_changed()?;
         }
-        // Keep only the fields that are still owned (finished restores drop out;
-        // conflicts stay visible until the caller acknowledges them).
+        // Keep only the fields that still need attention: conflicts stay
+        // visible until acknowledged, failed restores stay retryable.
+        // Confirmed restores drop out.
         if let Ok(mut ledger) = self.applied.lock() {
-            let conflicted: Vec<ProxyField> = report.conflicts.iter().map(|c| c.field).collect();
-            ledger.retain(|change| conflicted.contains(&change.field));
+            let pending = report.conflicted_fields();
+            let failed = report.failed_fields();
+            ledger
+                .retain(|change| pending.contains(&change.field) || failed.contains(&change.field));
         }
+        self.persist_ledger();
+        let ok = !report.has_failures();
         Ok(ProxyRestoreOutcome {
-            ok: true,
+            ok,
             clean: report.is_clean(),
             restored: report,
+            skipped_owner_alive: false,
         })
     }
 
@@ -443,6 +476,129 @@ impl PlatformService {
         // Per-field ownership already covers both the "still ours" and
         // "externally modified" cases, so the exit path is the same restore.
         self.restore_proxy()
+    }
+
+    // -- Crash-recovery journal (H19) ---------------------------------------
+
+    /// Emergency kill-switch: `V2RAYN_R_NO_PROXY_JOURNAL=1` disables all
+    /// journal load/save. Diagnostics stay filename-only either way.
+    fn journal_disabled_by_env() -> bool {
+        std::env::var_os("V2RAYN_R_NO_PROXY_JOURNAL").is_some_and(|v| v == "1")
+    }
+
+    #[cfg(windows)]
+    fn protect_backend() -> platform::DpapiBackend {
+        platform::DpapiBackend
+    }
+
+    #[cfg(not(windows))]
+    fn protect_backend() -> platform::PlainBackend {
+        platform::PlainBackend
+    }
+
+    /// File name of a journal path for filename-only diagnostics.
+    fn journal_file_name(path: &Path) -> String {
+        path.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "?".to_string())
+    }
+
+    /// Mirror the in-memory ledger to the journal file (best effort: failures
+    /// are logged and never fail the apply/restore). An empty ledger deletes
+    /// a stale journal instead of leaving one behind.
+    fn persist_ledger(&self) {
+        if Self::journal_disabled_by_env() {
+            return;
+        }
+        let path = self.journal_path.lock().ok().and_then(|g| g.clone());
+        let Some(path) = path else {
+            return;
+        };
+        let ledger = self.applied.lock().map(|g| g.clone()).unwrap_or_default();
+        if ledger.is_empty() {
+            if let Err(e) = clear_journal(&path) {
+                eprintln!(
+                    "[platform] clear ownership journal {}: {e}",
+                    Self::journal_file_name(&path)
+                );
+            }
+            return;
+        }
+        let identity = runtime::current_identity();
+        let journal = OwnershipJournal::new(
+            StoredOwner {
+                pid: identity.pid,
+                created_at_ms: identity.created_at_ms,
+            },
+            ledger,
+        );
+        if let Err(e) = save_journal(&path, &journal, &Self::protect_backend()) {
+            eprintln!(
+                "[platform] save ownership journal {}: {e}",
+                Self::journal_file_name(&path)
+            );
+        }
+    }
+
+    /// Whether the journal owner is still alive. Shared helper for the startup
+    /// wiring: a pid match alone is not enough, the creation time must match
+    /// or the pid was recycled by the OS.
+    pub fn is_process_alive(pid: u32, created_at_ms: i64) -> bool {
+        runtime::process_creation_time_ms(pid) == Some(created_at_ms)
+    }
+
+    /// Enable crash recovery and reconcile any journaled previous session.
+    ///
+    /// Call once at startup, before the first `apply_proxy`. Loads the
+    /// journal at `<data_dir>/sysproxy-ownership.journal` into the ledger and,
+    /// when the recording owner is verifiably gone, restores the owned fields
+    /// (same ownership rules as `restore_proxy`). Returns `None` when there is
+    /// nothing to reconcile (no journal, kill-switch, or a ledger already
+    /// built in this process). A still-live owner skips the restore, keeps the
+    /// journal, and reports `skipped_owner_alive`.
+    pub fn init_persistence(
+        &self,
+        data_dir: &Path,
+        is_owner_alive: impl Fn(u32, i64) -> bool,
+    ) -> Result<Option<ProxyRestoreOutcome>, platform::PlatformError> {
+        if Self::journal_disabled_by_env() {
+            return Ok(None);
+        }
+        let path = journal_path(data_dir);
+        if let Ok(mut guard) = self.journal_path.lock() {
+            *guard = Some(path.clone());
+        }
+        // A ledger already built in this process is fresher than any file.
+        if !self.applied.lock().map(|g| g.is_empty()).unwrap_or(true) {
+            return Ok(None);
+        }
+        let loaded = match load_journal(&path, &Self::protect_backend())? {
+            JournalLoad::Absent => return Ok(None),
+            JournalLoad::Loaded(journal) => journal,
+            JournalLoad::Quarantined(moved) => {
+                eprintln!(
+                    "[platform] quarantined corrupt ownership journal {}",
+                    Self::journal_file_name(&moved)
+                );
+                return Ok(None);
+            }
+        };
+        if loaded.applied.is_empty() {
+            let _ = clear_journal(&path);
+            return Ok(None);
+        }
+        if is_owner_alive(loaded.owner.pid, loaded.owner.created_at_ms) {
+            return Ok(Some(ProxyRestoreOutcome {
+                ok: true,
+                clean: true,
+                restored: RestoreReport::default(),
+                skipped_owner_alive: true,
+            }));
+        }
+        if let Ok(mut ledger) = self.applied.lock() {
+            *ledger = loaded.applied;
+        }
+        self.restore_proxy().map(Some)
     }
 
     /// Current ownership classification per field.

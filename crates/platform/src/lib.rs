@@ -51,8 +51,8 @@ pub use script::{CustomSystemProxySetting, CUSTOM_PAC_FIELD, CUSTOM_SCRIPT_FIELD
 pub use single_instance::{fallback_name, SingleInstanceGuard};
 pub use sysproxy::{
     restore_if_owned, AppliedChange, FakeSystemProxyBackend, JournalLoad, OwnershipJournal,
-    ProxyField, ProxySettings, ProxyState, RestoreAction, RestoreConflict, RestoreReport,
-    StoredOwner, SysProxyMode, SystemProxyBackend, JOURNAL_FILE_NAME,
+    ProxyField, ProxySettings, ProxyState, RestoreAction, RestoreConflict, RestoreFailure,
+    RestoreReport, StoredOwner, SysProxyMode, SystemProxyBackend, JOURNAL_FILE_NAME,
 };
 
 #[cfg(windows)]

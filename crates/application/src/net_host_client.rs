@@ -778,15 +778,27 @@ fn reconcile_after_resync(shared: &Arc<Shared>, ask: &ResyncAsk) -> Option<(u64,
     }
 }
 
-fn subscribe(shared: &Arc<Shared>, file: &mut File) -> Result<(u64, u64), DomainError> {
-    let request = RequestEnvelope {
+/// Build the subscribe envelope for one (re)subscribe attempt. The
+/// `request_id` is unique per attempt (shared control-request sequence): a
+/// reconnect never reuses the previous attempt's id, so a server-side id-dedup
+/// window cannot swallow a resubscribe as a duplicate.
+fn subscribe_envelope(shared: &Arc<Shared>) -> RequestEnvelope {
+    RequestEnvelope {
         session: shared.session.clone(),
-        request_id: format!("sub-{}", shared.session.peer_pid),
+        request_id: format!(
+            "sub-{}-{}",
+            shared.session.peer_pid,
+            shared.request_seq.fetch_add(1, Ordering::AcqRel) + 1
+        ),
         operation: IpcOperation::SubscribeEvents {
             epoch: EventEpoch(0),
             from_seq: 0,
         },
-    };
+    }
+}
+
+fn subscribe(shared: &Arc<Shared>, file: &mut File) -> Result<(u64, u64), DomainError> {
+    let request = subscribe_envelope(shared);
     let bytes =
         encode_frame(&request).map_err(|e| unavailable(format!("encode subscribe failed: {e}")))?;
     file.write_all(&bytes)
@@ -1249,5 +1261,19 @@ mod tests {
             .resync
             .expect("resync_required must renew via snapshot");
         assert_eq!(ask.reason, "lagged");
+    }
+
+    #[test]
+    fn subscribe_request_ids_are_unique_per_attempt() {
+        // S5-09: every (re)subscribe must carry its own id so a server-side
+        // id-dedup window can never swallow a resubscribe as a duplicate.
+        let client = NetHostClient::with_pipe("\\\\.\\pipe\\rr01-test-subid");
+        let first = subscribe_envelope(&client.shared);
+        let second = subscribe_envelope(&client.shared);
+        assert!(first.request_id.starts_with("sub-"));
+        assert_ne!(
+            first.request_id, second.request_id,
+            "reconnects must not reuse the previous attempt's id"
+        );
     }
 }

@@ -196,11 +196,22 @@ fn sub_jobs() -> &'static Mutex<Vec<JobId>> {
 ///
 /// Kept after the job finishes so the UI can resolve the same job id into its
 /// true per-group outcome instead of inferring "all succeeded" from the job
-/// state. `sub_update_report` exposes it once FRB bindings are regenerated.
+/// state. `sub_update_report` exposes them directly; the map is bounded so
+/// frequent updates cannot grow it without limit.
 static SUB_REPORTS: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+
+/// Upper bound for parked terminal reports (S8-08).
+pub const MAX_SUB_REPORTS: usize = 50;
+
+/// Insertion order backing the `SUB_REPORTS` bound (oldest first).
+static SUB_REPORT_ORDER: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 
 fn sub_reports() -> &'static Mutex<HashMap<String, String>> {
     SUB_REPORTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn sub_report_order() -> &'static Mutex<Vec<String>> {
+    SUB_REPORT_ORDER.get_or_init(|| Mutex::new(Vec::new()))
 }
 
 /// Marker prefix for the report parked on the terminal job's stage key.
@@ -214,15 +225,23 @@ pub const SUB_REPORT_STAGE_PREFIX: &str = "subs.report:";
 pub(crate) fn remember_sub_report(job_id: &str, report_json: String) {
     if let Ok(mut reports) = sub_reports().lock() {
         reports.insert(job_id.to_string(), report_json);
+        // S8-08: evict the oldest reports past the bound. Lock order is always
+        // reports-then-order; no path takes them in reverse.
+        if let Ok(mut order) = sub_report_order().lock() {
+            order.retain(|id| id != job_id);
+            order.push(job_id.to_string());
+            while order.len() > MAX_SUB_REPORTS {
+                let oldest = order.remove(0);
+                reports.remove(&oldest);
+            }
+        }
     }
 }
 
 /// `sub_update_report` — the terminal per-group report JSON for `job_id`.
 ///
-/// Returns `None` for an unknown/never-run id. Implemented here but absent
-/// from the checked-in `frb_generated` bindings; the bridge currently reaches
-/// the report through the job stage key. Regenerating FRB wires this getter
-/// directly, replacing the stage-key carrier.
+/// Returns `None` for an unknown/never-run id (or an id evicted past the
+/// `MAX_SUB_REPORTS` bound).
 #[frb(sync)]
 pub fn sub_update_report(job_id: String) -> Option<String> {
     sub_reports()
@@ -914,9 +933,35 @@ fn render_export(profiles: &[Profile], kind: &str) -> Result<String, DomainError
 
 /// `write_export_file` — write export text to a file (URI text only; kernel
 /// config export is deferred to T10+).
+///
+/// S8-04: confined to the system temp dir. The parent is canonicalized
+/// (resolving symlinks) and must equal the canonical temp dir; anything else
+/// is refused with zero disk effects. `detail` carries only the file name.
 #[frb(sync)]
 pub fn write_export_file(path: String, text: String) -> SimpleResult {
-    match std::fs::write(&path, text) {
+    let confined = (|| {
+        let candidate = std::path::Path::new(&path);
+        let parent = candidate.parent().filter(|p| !p.as_os_str().is_empty())?;
+        let parent = parent.canonicalize().ok()?;
+        let temp = std::env::temp_dir().canonicalize().ok()?;
+        (parent == temp).then(|| candidate.to_path_buf())
+    })();
+    let Some(confined) = confined else {
+        return SimpleResult {
+            ok: false,
+            error: Some(ErrorDto {
+                code: domain::codes::INVALID_ARGUMENT.to_string(),
+                message_key: "error.file_write_failed".to_string(),
+                field_path: Some("path".to_string()),
+                retryable: false,
+                operation_id: None,
+                detail: std::path::Path::new(&path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned()),
+            }),
+        };
+    };
+    match std::fs::write(&confined, text) {
         Ok(()) => SimpleResult {
             ok: true,
             error: None,
@@ -1432,5 +1477,52 @@ mod tests {
                 .delete_profiles(std::slice::from_ref(&profile.index_id))
                 .map_err(|_| ());
         }
+    }
+
+    #[test]
+    fn write_export_file_refuses_paths_outside_temp() {
+        // S8-04: the parent exists (so canonicalize succeeds) but lies outside
+        // the temp dir; the write must be refused with zero disk effects.
+        let outside = std::env::temp_dir()
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| std::path::PathBuf::from("C:\\"));
+        let probe = outside.join(format!("b07b-outside-{}.txt", std::process::id()));
+        let _ = std::fs::remove_file(&probe);
+        let result = write_export_file(
+            probe.to_string_lossy().into_owned(),
+            "synthetic".to_string(),
+        );
+        assert!(!result.ok, "outside-temp write must be refused");
+        let error = result.error.expect("structured error");
+        assert_eq!(error.code, domain::codes::INVALID_ARGUMENT);
+        assert_eq!(error.field_path.as_deref(), Some("path"));
+        assert!(!probe.exists(), "zero writes on refusal");
+    }
+
+    #[test]
+    fn write_export_file_accepts_temp_paths() {
+        let probe =
+            std::env::temp_dir().join(format!("b07b-inside-{}.txt", std::process::id()));
+        let _ = std::fs::remove_file(&probe);
+        let result = write_export_file(
+            probe.to_string_lossy().into_owned(),
+            "synthetic".to_string(),
+        );
+        assert!(result.ok, "{:?}", result.error.map(|e| e.code));
+        assert_eq!(std::fs::read_to_string(&probe).unwrap(), "synthetic");
+        let _ = std::fs::remove_file(&probe);
+    }
+
+    #[test]
+    fn sub_reports_are_bounded() {
+        // S8-08: the parked terminal reports must not grow without limit.
+        for i in 0..(MAX_SUB_REPORTS + 5) {
+            remember_sub_report(&format!("b07b-job-{i}"), format!("{{\"n\":{i}}}"));
+        }
+        let len = sub_reports().lock().map(|r| r.len()).unwrap_or(0);
+        assert!(len <= MAX_SUB_REPORTS, "reports must stay bounded, got {len}");
+        assert!(sub_update_report(format!("b07b-job-{}", MAX_SUB_REPORTS + 4)).is_some());
+        assert!(sub_update_report("b07b-job-0".to_string()).is_none());
     }
 }

@@ -27,6 +27,10 @@ unsafe impl Sync for SingleInstanceGuard {}
 impl SingleInstanceGuard {
     /// Acquire the named instance or fail with
     /// [`PlatformError::AlreadyRunning`].
+    ///
+    /// A `Global\` name that the caller may not create (standard user token)
+    /// falls back to the session-local [`fallback_name`] instead of failing
+    /// outright; the guard reports the name actually held via [`Self::name`].
     pub fn acquire(name: &str) -> Result<Self> {
         if name.is_empty() {
             return Err(PlatformError::Invalid(
@@ -47,6 +51,21 @@ impl SingleInstanceGuard {
     }
 }
 
+/// Session-local fallback for a `Global\` instance name (S7b-09).
+///
+/// Creating `Global\` objects needs a privilege a standard user token lacks;
+/// callers that cannot create the machine-wide mutex guard the current
+/// session instead. Non-`Global\` names (including `Local\`) have no fallback.
+pub fn fallback_name(name: &str) -> Option<String> {
+    let rest = name
+        .strip_prefix("Global\\")
+        .or_else(|| name.strip_prefix("GLOBAL\\"))?;
+    if rest.is_empty() {
+        return None;
+    }
+    Some(format!("Local\\{rest}"))
+}
+
 impl core::fmt::Debug for SingleInstanceGuard {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("SingleInstanceGuard")
@@ -65,10 +84,11 @@ impl Drop for SingleInstanceGuard {
 mod imp {
     use core::ffi::c_void;
 
-    use super::SingleInstanceGuard;
+    use super::{fallback_name, SingleInstanceGuard};
     use crate::error::{PlatformError, Result};
 
     const ERROR_ALREADY_EXISTS: u32 = 183;
+    const ERROR_ACCESS_DENIED: u32 = 5;
 
     #[link(name = "kernel32")]
     extern "system" {
@@ -86,21 +106,62 @@ mod imp {
     }
 
     pub(super) fn acquire(name: &str) -> Result<SingleInstanceGuard> {
+        match try_create(name) {
+            CreateOutcome::Held(guard) => Ok(guard),
+            CreateOutcome::AlreadyRunning => Err(PlatformError::AlreadyRunning(name.to_string())),
+            // A standard user token cannot create `Global\` objects: guard
+            // the session instead. Any other failure (bad name, …) is
+            // reported as-is so real errors are never masked by the fallback.
+            CreateOutcome::AccessDenied => {
+                let Some(fallback) = fallback_name(name) else {
+                    return Err(PlatformError::Backend(format!(
+                        "CreateMutexW({name}) failed: access denied"
+                    )));
+                };
+                match try_create(&fallback) {
+                    CreateOutcome::Held(guard) => Ok(guard),
+                    CreateOutcome::AlreadyRunning => Err(PlatformError::AlreadyRunning(fallback)),
+                    _ => Err(PlatformError::Backend(format!(
+                        "CreateMutexW({fallback}) failed"
+                    ))),
+                }
+            }
+            CreateOutcome::Failed => Err(PlatformError::Backend(format!(
+                "CreateMutexW({name}) returned a null handle"
+            ))),
+        }
+    }
+
+    enum CreateOutcome {
+        Held(SingleInstanceGuard),
+        AlreadyRunning,
+        AccessDenied,
+        Failed,
+    }
+
+    fn try_create(name: &str) -> CreateOutcome {
         let wide = to_wide(name);
+        // SAFETY: `wide` is a live nul-terminated UTF-16 buffer for the call;
+        // no ownership is transferred and the handle is closed on every error
+        // path below.
         let handle = unsafe { CreateMutexW(core::ptr::null_mut(), 0, wide.as_ptr()) };
         if handle.is_null() {
-            return Err(PlatformError::Backend(
-                "CreateMutexW returned a null handle".to_string(),
-            ));
+            // SAFETY: `GetLastError` is valid immediately after the failed call.
+            if unsafe { GetLastError() } == ERROR_ACCESS_DENIED {
+                return CreateOutcome::AccessDenied;
+            }
+            return CreateOutcome::Failed;
         }
+        // SAFETY: same; queried before any other fallible Win32 call.
         let last_error = unsafe { GetLastError() };
         if last_error == ERROR_ALREADY_EXISTS {
+            // SAFETY: `handle` is ours from `CreateMutexW` above.
             unsafe {
                 CloseHandle(handle);
             }
-            return Err(PlatformError::AlreadyRunning(name.to_string()));
+            return CreateOutcome::AlreadyRunning;
         }
-        Ok(SingleInstanceGuard {
+        CreateOutcome::Held(SingleInstanceGuard {
             name: name.to_string(),
             handle,
         })

@@ -90,6 +90,84 @@ fn reject_unsafe_relative(path: &str) -> Result<()> {
     Ok(())
 }
 
+/// Validate a manifest-supplied bundle entry and resolve it under `root`
+/// (B04b, same bar as the extraction side `updater::safe_join` plus the
+/// persistence `:` rule).
+///
+/// The manifest is attacker-controlled input: absolute paths, drive prefixes,
+/// UNC shares, `..` components, Windows reserved names and `:` (drive/ADS
+/// syntax) are rejected with a structured [`PersistenceError::PathRejected`].
+/// Surviving components are re-joined under `root` and the normalized result
+/// must stay inside `root`, so no entry can name a file outside the bundle.
+fn resolve_bundle_relative(root: &Path, relative: &str) -> Result<PathBuf> {
+    if relative.trim().is_empty() {
+        return Err(PersistenceError::PathRejected(relative.to_string()));
+    }
+    let normalized = relative.replace('\\', "/");
+    if normalized.starts_with('/') || looks_absolute_windows(&normalized) {
+        return Err(PersistenceError::PathRejected(relative.to_string()));
+    }
+    if relative.contains(':') {
+        return Err(PersistenceError::PathRejected(relative.to_string()));
+    }
+    let mut out = root.to_path_buf();
+    for component in Path::new(&normalized).components() {
+        match component {
+            std::path::Component::Normal(part) => {
+                if is_reserved_windows_name(part) {
+                    return Err(PersistenceError::PathRejected(relative.to_string()));
+                }
+                out.push(part);
+            }
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir
+            | std::path::Component::RootDir
+            | std::path::Component::Prefix(_) => {
+                return Err(PersistenceError::PathRejected(relative.to_string()));
+            }
+        }
+    }
+    if out == root || !out.starts_with(root) {
+        return Err(PersistenceError::PathRejected(relative.to_string()));
+    }
+    Ok(out)
+}
+
+fn looks_absolute_windows(member: &str) -> bool {
+    let bytes = member.as_bytes();
+    bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic()
+}
+
+fn is_reserved_windows_name(part: &std::ffi::OsStr) -> bool {
+    let text = part.to_string_lossy();
+    let text = text.to_ascii_uppercase();
+    matches!(
+        text.as_str(),
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
+    )
+}
+
 /// Write a backup bundle. `resources` are `(relative_path, absolute_source)`
 /// pairs; each is verified to stay inside the bundle.
 pub fn create_backup(
@@ -188,7 +266,10 @@ pub fn verify_backup(root: &Path) -> Result<BackupVerification> {
         }
     }
     for resource in &manifest.referenced_resources {
-        let path = root.join(&resource.relative_path);
+        // B04b: the manifest is untrusted — bound every entry before touching
+        // the filesystem. A violation fails closed with a structured
+        // rejection, never a pass-through.
+        let path = resolve_bundle_relative(root, &resource.relative_path)?;
         if !path.is_file() {
             result.missing.push(resource.relative_path.clone());
         } else if sha256_file(&path)? != resource.sha256 {
@@ -400,5 +481,85 @@ mod tests {
         assert!(recognition.is_upstream);
         assert!(recognition.has_db);
         assert!(recognition.has_config);
+    }
+
+    /// Build a valid bundle, then swap its single resource entry for
+    /// `malicious` and verify. The manifest is attacker-controlled input, so
+    /// the swap models a hostile bundle.
+    fn verify_with_resource_path(malicious: &str) -> crate::error::Result<BackupVerification> {
+        let src = tempfile::tempdir().unwrap();
+        let db = src.path().join("guiNDB.db");
+        make_db(&db);
+        let resource = src.path().join("ok.json");
+        std::fs::write(&resource, r#"{"x":1}"#).unwrap();
+        let backup_root = tempfile::tempdir().unwrap();
+        create_backup(
+            backup_root.path(),
+            &db,
+            None,
+            &[("custom/ok.json".to_string(), resource)],
+            &[],
+            1,
+            "c",
+        )
+        .unwrap();
+        let manifest_path = backup_root.path().join(MANIFEST_NAME);
+        let mut manifest: BackupManifest =
+            serde_json::from_str(&std::fs::read_to_string(&manifest_path).unwrap()).unwrap();
+        manifest.referenced_resources[0].relative_path = malicious.to_string();
+        std::fs::write(
+            &manifest_path,
+            serde_json::to_vec_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+        verify_backup(backup_root.path())
+    }
+
+    #[test]
+    fn verify_rejects_hostile_resource_paths() {
+        // B04b: every manifest-supplied entry path is bounded with the same
+        // bar as the extraction side — absolute, drive, UNC, `..`, reserved
+        // names and `:` are structured rejections, never pass-through.
+        for evil in [
+            "/abs/evil.json",
+            "C:\\win\\evil.json",
+            "C:/win/evil.json",
+            "\\\\host\\share\\evil.json",
+            "../escape.json",
+            "a/../../escape.json",
+            "NUL",
+            "COM1",
+            "lpt9",
+            "custom/evil:stream.json",
+            "",
+        ] {
+            let err = verify_with_resource_path(evil).unwrap_err();
+            assert!(
+                matches!(err, PersistenceError::PathRejected(_)),
+                "must reject {evil:?}, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn verify_accepts_benign_nested_resource_path() {
+        let src = tempfile::tempdir().unwrap();
+        let db = src.path().join("guiNDB.db");
+        make_db(&db);
+        let resource = src.path().join("ok.json");
+        std::fs::write(&resource, r#"{"x":1}"#).unwrap();
+        let backup_root = tempfile::tempdir().unwrap();
+        create_backup(
+            backup_root.path(),
+            &db,
+            None,
+            &[("custom/sub/ok.json".to_string(), resource)],
+            &[],
+            1,
+            "c",
+        )
+        .unwrap();
+        let verification = verify_backup(backup_root.path()).unwrap();
+        assert!(verification.ok);
     }
 }

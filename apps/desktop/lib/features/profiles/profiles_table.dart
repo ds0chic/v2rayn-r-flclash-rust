@@ -13,6 +13,7 @@ import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_models.dart';
 import 'package:v2rayn_desktop/features/profiles/table_actions.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
+import 'package:v2rayn_desktop/features/onboarding/first_run_wizard.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/shared/widgets/app_dialog.dart';
 import 'package:v2rayn_desktop/shared/widgets/context_menu_session.dart';
@@ -126,7 +127,15 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     super.initState();
     _ownsVertical = widget.verticalController == null;
     _ownsHorizontal = widget.horizontalController == null;
+    _focusNode.addListener(_onTableFocusChanged);
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// U-B1 focus ring (UX2-08): repaint the leading markers when the table
+  /// gains or loses keyboard focus so the current row is only badged while
+  /// keyboard input actually lands here.
+  void _onTableFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -134,6 +143,7 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
     _stopDragAutoScroll();
     _rowSpanCache.clear();
     WidgetsBinding.instance.removeObserver(this);
+    _focusNode.removeListener(_onTableFocusChanged);
     _focusNode.dispose();
     for (final node in _menuRowFocusNodes) {
       node.dispose();
@@ -214,12 +224,15 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
       rows: rows,
       selected: state.selected,
       activeId: state.activeId,
+      primaryId: state.primaryId,
+      tableFocused: _focusNode.hasFocus,
       sort: state.sort,
       dragSortEnabled: dragSortEnabled,
       controller: ref.read(profilesControllerProvider.notifier),
       selectedRowFill: semantics.selectedRow,
       activeFill: activeRowFill(context),
       activeMarker: activeRowMarkerColor(context),
+      focusOutline: semantics.focusOutline,
       numberBadgeFill: scheme.primaryContainer,
       dragFeedbackFill: scheme.secondaryContainer,
       dropTargetBorder: scheme.primary,
@@ -309,13 +322,31 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
                       left: 0,
                       right: 0,
                       bottom: 0,
-                      child: const IgnorePointer(
-                        child: EmptyState(
-                          message: '暂无节点',
-                          semanticIcon: 'empty',
-                          detail: '可从剪贴板导入或添加节点',
-                          messageKey: ValueKey('profiles-empty'),
-                        ),
+                      // U-B1: the empty state carries tappable actions, so it
+                      // must receive pointer events (the old IgnorePointer
+                      // would swallow the buttons).
+                      child: EmptyState(
+                        message: '暂无节点',
+                        semanticIcon: 'empty',
+                        detail: '可从剪贴板导入或添加订阅',
+                        messageKey: const ValueKey('profiles-empty'),
+                        actions: <Widget>[
+                          FilledButton.tonal(
+                            key: const ValueKey('empty-action-import'),
+                            onPressed: () => importFromClipboard(context, ref),
+                            child: const Text('从剪贴板导入'),
+                          ),
+                          OutlinedButton(
+                            key: const ValueKey('empty-action-sub'),
+                            onPressed: () => openSubSettings(context, ref),
+                            child: const Text('添加订阅'),
+                          ),
+                          TextButton(
+                            key: const ValueKey('empty-action-wizard'),
+                            onPressed: () => showFirstRunWizard(context, ref),
+                            child: const Text('新手向导'),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -704,13 +735,22 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
 
     // A solid leading marker independent from the selectable row fill, so the
     // active node stays visible even when the same row is also selected.
+    // U-B1: the keyboard current row borrows this slot for the focus outline
+    // (either/or coloring, no extra per-row widget). The active identity
+    // survives through its fill when focus sits on the same row.
+    final focused =
+        scope.tableFocused &&
+        scope.primaryId != null &&
+        scope.primaryId == row.id;
     final cell = Row(
       children: <Widget>[
         SizedBox(
           width: 3,
           child: ColoredBox(
             key: ValueKey('active-marker-${row.id}'),
-            color: isActive ? scope.activeMarker : Colors.transparent,
+            color: focused
+                ? scope.focusOutline
+                : (isActive ? scope.activeMarker : Colors.transparent),
           ),
         ),
         Expanded(child: numberBox),
@@ -1453,12 +1493,15 @@ class _CellBuildScope {
     required this.rows,
     required this.selected,
     required this.activeId,
+    required this.primaryId,
+    required this.tableFocused,
     required this.sort,
     required this.dragSortEnabled,
     required this.controller,
     required this.selectedRowFill,
     required this.activeFill,
     required this.activeMarker,
+    required this.focusOutline,
     required this.numberBadgeFill,
     required this.dragFeedbackFill,
     required this.dropTargetBorder,
@@ -1468,12 +1511,19 @@ class _CellBuildScope {
   final List<ProfileSummary> rows;
   final Set<String> selected;
   final String? activeId;
+
+  /// Keyboard current row (`DataGrid.SelectedItem` counterpart). While the
+  /// table holds focus it carries the focus-outline marker, independent from
+  /// the multi-select fill and the active-node identity.
+  final String? primaryId;
+  final bool tableFocused;
   final SortSpec sort;
   final bool dragSortEnabled;
   final ProfilesController controller;
   final Color selectedRowFill;
   final Color activeFill;
   final Color activeMarker;
+  final Color focusOutline;
   final Color numberBadgeFill;
   final Color dragFeedbackFill;
   final Color dropTargetBorder;

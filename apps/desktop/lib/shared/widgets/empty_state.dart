@@ -11,6 +11,7 @@ class EmptyState extends StatelessWidget {
     this.semanticIcon = 'empty',
     this.detail,
     this.messageKey,
+    this.actions,
   });
 
   final String message;
@@ -19,6 +20,11 @@ class EmptyState extends StatelessWidget {
   final String semanticIcon;
   final String? detail;
   final Key? messageKey;
+
+  /// Optional call-to-action buttons rendered under the text (U-B1: empty
+  /// states become actionable instead of dead ends). Null keeps the legacy
+  /// icon-plus-text rendering untouched.
+  final List<Widget>? actions;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +57,15 @@ class EmptyState extends StatelessWidget {
                   fontSize: AppTokens.fontSizeSmall,
                   color: muted.withValues(alpha: 0.8),
                 ),
+              ),
+            ],
+            if (actions != null && actions!.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: actions!,
               ),
             ],
           ],

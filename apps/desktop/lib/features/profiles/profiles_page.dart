@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
@@ -67,14 +68,32 @@ class _ProfilesPageState extends ConsumerState<ProfilesPage> {
 
   @override
   Widget build(BuildContext context) {
+    // U-B1 table density (UX2-07): override only the row-height extension for
+    // the table subtree. The span cache keys on the resolved height (via
+    // visualRevision), so switching density recomputes extents; no per-row
+    // widget is added (SP-31).
+    final density = ref.watch(
+      uiShellControllerProvider.select((s) => s.tableDensity),
+    );
+    final theme = Theme.of(context);
+    final semantics = theme.extension<AppSemanticColors>() ?? context.semantics;
+    final kept = theme.extensions.values.where((e) => e is! AppSemanticColors);
+    final densityTheme = theme.copyWith(
+      extensions: kept.followedBy([
+        semantics.copyWith(tableRowHeight: density.height),
+      ]),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         _Toolbar(filterController: _filterController),
         Expanded(
-          child: ProfilesTable(
-            verticalController: _vertical,
-            horizontalController: _horizontal,
+          child: Theme(
+            data: densityTheme,
+            child: ProfilesTable(
+              verticalController: _vertical,
+              horizontalController: _horizontal,
+            ),
           ),
         ),
       ],

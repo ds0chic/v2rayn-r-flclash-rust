@@ -50,7 +50,13 @@ void main() {
 
   test('help submenu keeps 检查更新 and the dynamic core-website entry', () {
     final help = mainMenuModel.firstWhere((e) => e.label == '帮助');
-    expect(help.submenu.map((e) => e.label).toList(), <String>['检查更新', '核心网站']);
+    // U-B1 P2 appends two UI-* entries after the untouched upstream rows.
+    expect(help.submenu.map((e) => e.label).toList(), <String>[
+      '检查更新',
+      '核心网站',
+      '首次启动向导…',
+      '重置界面提示',
+    ]);
     final check = help.submenu.firstWhere((e) => e.label == '检查更新');
     expect(check.actionId, 'ACT-WIN-005');
     expect(check.isInvocable, isTrue);

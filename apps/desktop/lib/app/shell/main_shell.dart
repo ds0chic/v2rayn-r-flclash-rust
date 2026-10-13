@@ -18,6 +18,7 @@ import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart'
     as profile_actions;
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/onboarding/first_run_wizard.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart'
@@ -60,6 +61,9 @@ class _MainShellState extends ConsumerState<MainShell> {
             .read(routingControllerProvider.notifier)
             .setDefaultAndReload(id),
       );
+      // U-B1: the first-run wizard runs the identical ACT-MAIN-* use cases.
+      ref.read(menuActionDelegateProvider).value = (command) =>
+          _onMenuActionId(context, ref, command);
       final open = Platform.environment['V2RAYN_R_OPEN_SUBS'];
       if (open == '1' || open == 'true') {
         openSubSettings(context, ref);
@@ -151,6 +155,9 @@ class _MainShellState extends ConsumerState<MainShell> {
         };
         ref.read(uiShellControllerProvider.notifier).setTabIndex(index);
       }
+      // U-B1: one-shot first-run wizard (production-gated, evidence-gated,
+      // empty-library only; no-op in widget tests and evidence runs).
+      maybeShowFirstRunWizard(context, ref);
     });
   }
 
@@ -463,6 +470,11 @@ class _MainShellState extends ConsumerState<MainShell> {
         }
       case 'ACT-MAIN-035':
         ref.read(runtimeControllerProvider.notifier).reload();
+      case 'UI-ONBOARDING':
+        showFirstRunWizard(context, ref);
+      case 'UI-RESET-HINTS':
+        resetInterfaceHints(ref);
+        shell.setMessage('已重置界面提示（密度与布局保持不变）');
       default:
         final entry = _findMenuEntry(actionId);
         if (entry != null && entry.preservedOnly) {
@@ -541,6 +553,16 @@ class _MenuToolbarBar extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
+          // U-B1 table density (UX2-07): cycles compact 24 / standard 28 /
+          // relaxed 32. The settings-window dropdown (U-B2) will reuse the
+          // same UiShellState field when it lands.
+          IconButton(
+            key: const ValueKey('density-cycle'),
+            tooltip: '表格密度：${shell.tableDensity.label}（点击切换）',
+            iconSize: 18,
+            onPressed: controller.cycleDensity,
+            icon: Icon(AppTokens.icon('columns')),
           ),
           IconButton(
             key: const ValueKey('theme-toggle'),

@@ -652,6 +652,28 @@ kResUiStrings = <String, Map<String, String>>{
     'id': 'Antarmuka utama (placeholder)',
     'az': 'Əsas interfeys (müvəqqəti)',
   },
+  // ---- U-B1 new UI entries (not upstream ResUI; other locales fall back
+  // to `en` per L10n.t, satisfying the required-l10nKey menu contract).
+  'uiOnboardingWizard': {
+    'en': 'First-run wizard…',
+    'zh-Hans': '首次启动向导…',
+    'zh-Hant': '首次啟動向導…',
+  },
+  'uiResetHints': {
+    'en': 'Reset interface hints',
+    'zh-Hans': '重置界面提示',
+    'zh-Hant': '重置界面提示',
+  },
+  'uiSubUpdate': {
+    'en': 'Update subscriptions',
+    'zh-Hans': '更新订阅',
+    'zh-Hant': '更新訂閱',
+  },
+  'uiSubMoreWays': {
+    'en': 'More update options…',
+    'zh-Hans': '更多更新方式…',
+    'zh-Hant': '更多更新方式…',
+  },
   'uiStart': {
     'en': 'Start',
     'zh-Hans': '启动',

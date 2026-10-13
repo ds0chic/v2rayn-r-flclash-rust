@@ -13,10 +13,15 @@ use serde::{Deserialize, Serialize};
 use crate::error::{PlatformError, Result};
 
 pub mod fake;
+pub mod journal;
 #[cfg(windows)]
 pub mod windows;
 
 pub use fake::FakeSystemProxyBackend;
+pub use journal::{
+    clear_journal, journal_path, load_journal, save_journal, JournalLoad, OwnershipJournal,
+    StoredOwner, JOURNAL_FILE_NAME, JOURNAL_VERSION, MAX_QUARANTINE_KEPT,
+};
 
 /// The four upstream system-proxy modes (`ESysProxyType`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -348,6 +349,16 @@ Future<void> exportProfiles(
   _toast(ref, '已导出 ${result.count} 个节点到剪贴板');
 }
 
+/// Build the export file path inside [tempDir].
+///
+/// The filename carries a random component so concurrent exports never collide
+/// and the path is not guessable from the timestamp alone (S8-04 confines
+/// `write_export_file` to the system temp dir; the name is the remaining
+/// hardening). Pure for tests.
+String buildExportFilePath(String tempDir, int millis, String randHex) =>
+    '$tempDir${Platform.pathSeparator}'
+    'v2rayn-export-$millis-$randHex.txt';
+
 /// F-IMPORT-008: write the URI text to a file (kernel-config export is T10+).
 Future<void> exportProfilesToFile(BuildContext context, WidgetRef ref) async {
   final state = ref.read(profilesControllerProvider);
@@ -361,10 +372,11 @@ Future<void> exportProfilesToFile(BuildContext context, WidgetRef ref) async {
     _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
     return;
   }
-  final dir = Directory.systemTemp.path;
-  final path =
-      '$dir${Platform.pathSeparator}'
-      'v2rayn-export-${DateTime.now().millisecondsSinceEpoch}.txt';
+  final path = buildExportFilePath(
+    Directory.systemTemp.path,
+    DateTime.now().millisecondsSinceEpoch,
+    Random().nextInt(1 << 32).toRadixString(16).padLeft(8, '0'),
+  );
   final written = bridge.writeExportFile(path, result.text);
   _toast(ref, written.ok ? '已导出到 $path（仅分享URI文本）' : '写入文件失败');
 }

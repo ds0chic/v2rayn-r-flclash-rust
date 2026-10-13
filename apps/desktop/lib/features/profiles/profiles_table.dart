@@ -1182,7 +1182,10 @@ class _ProfilesTableState extends ConsumerState<ProfilesTable>
               padding: const EdgeInsets.only(left: 24),
               child: Text(
                 entry.shortcut!,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSizeTiny,
+                  color: context.semantics.muted,
+                ),
               ),
             ),
         ],

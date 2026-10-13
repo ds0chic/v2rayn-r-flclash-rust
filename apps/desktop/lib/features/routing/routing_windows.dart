@@ -168,7 +168,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                 child: Text(
                   context.messageText(state.status!),
                   key: const ValueKey('routing-status'),
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.muted,
+                  ),
                 ),
               ),
           ],
@@ -364,11 +367,14 @@ class _SchemeTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 11, color: Colors.grey);
+    final style = TextStyle(
+      fontSize: AppTokens.fontSizeTiny,
+      color: context.semantics.muted,
+    );
     // Upstream DataGrid columns (RoutingSettingWindow.xaml:157-177):
     // Remarks(*) / Count(60) / Sort(60) / Url(*) / CustomIcon(300).
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: <Widget>[
           Expanded(flex: 3, child: Text('别名', style: style)),
@@ -407,7 +413,9 @@ class _SchemeRow extends StatelessWidget {
       onDoubleTap: onEdit,
       onSecondaryTapDown: (details) => onContextMenu(details.globalPosition),
       child: Container(
-        color: selected ? Colors.blue.withValues(alpha: 0.08) : null,
+        color: selected
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+            : null,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: <Widget>[
@@ -419,7 +427,10 @@ class _SchemeRow extends StatelessWidget {
               child: Text(
                 item.url.isEmpty ? '—' : item.url,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             ),
             Expanded(
@@ -427,7 +438,10 @@ class _SchemeRow extends StatelessWidget {
               child: Text(
                 item.customIcon,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             ),
           ],
@@ -628,7 +642,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
                 child: Text(
                   _warnings.first.message,
                   key: const ValueKey('rule-warning'),
-                  style: const TextStyle(fontSize: 11, color: Colors.orange),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.warning,
+                  ),
                 ),
               ),
           ],
@@ -857,9 +874,12 @@ class _RuleTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 11, color: Colors.grey);
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    final style = TextStyle(
+      fontSize: AppTokens.fontSizeTiny,
+      color: context.semantics.muted,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: <Widget>[
           Expanded(flex: 2, child: Text('备注', style: style)),
@@ -922,7 +942,9 @@ class _RuleRow extends StatelessWidget {
     // single tap never resolves), so nesting them silently kills T/U/D/B.
     return Container(
       key: ValueKey('rule-row-$index'),
-      color: selected ? Colors.blue.withValues(alpha: 0.08) : null,
+      color: selected
+          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+          : null,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         children: <Widget>[
@@ -941,7 +963,10 @@ class _RuleRow extends StatelessWidget {
                     child: Text(
                       match.isEmpty ? '—' : match,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: AppTokens.fontSize,
+                        color: context.semantics.muted,
+                      ),
                     ),
                   ),
                   Expanded(child: Text(rule.enabled ? '是' : '否')),
@@ -2572,7 +2597,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                     child: Text(
                       _error!,
                       key: const ValueKey('routing-error'),
-                      style: const TextStyle(fontSize: 11, color: Colors.red),
+                      style: TextStyle(
+                        fontSize: AppTokens.fontSizeTiny,
+                        color: context.semantics.error,
+                      ),
                     ),
                   ),
                 if (_status != null)
@@ -2581,7 +2609,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                     child: Text(
                       _status!,
                       key: const ValueKey('routing-status'),
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: AppTokens.fontSizeTiny,
+                        color: context.semantics.muted,
+                      ),
                     ),
                   ),
                 const Divider(height: 1),

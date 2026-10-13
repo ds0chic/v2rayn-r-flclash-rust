@@ -129,13 +129,17 @@ class AppTokens {
   static const Color darkZebra = Color(0x0AFFFFFF);
   static const Color darkDisabled = Color(0x61FFFFFF);
 
-  // -- Semantic status colors -------------------------------------------
-  static const Color lightSuccess = Color(0xFF2E7D32);
-  static const Color darkSuccess = Color(0xFF81C784);
-  static const Color lightWarning = Color(0xFFED6C02);
-  static const Color darkWarning = Color(0xFFFFB74D);
-  static const Color lightInfo = Color(0xFF0277BD);
-  static const Color darkInfo = Color(0xFF4FC3F7);
+  // -- Semantic status colors (all text-safe on their surface, >= 4.5:1) --
+  static const Color lightSuccess = Color(0xFF1E7A34);
+  static const Color darkSuccess = Color(0xFF7BD8A0);
+  static const Color lightWarning = Color(0xFF8A4B00);
+  static const Color darkWarning = Color(0xFFFFC46B);
+  static const Color lightError = Color(0xFFB3261E);
+  static const Color darkError = Color(0xFFFF8A80);
+  static const Color lightInfo = Color(0xFF0B5FA5);
+  static const Color darkInfo = Color(0xFF7CC4FF);
+  static const Color lightMuted = Color(0xFF4A5A64);
+  static const Color darkMuted = Color(0xFFA9B8C2);
 
   /// Upstream glyph map: one family for toolbar/menu/status bar so a semantic
   /// name always resolves to the same outlined Material icon.
@@ -245,7 +249,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   const AppSemanticColors({
     required this.success,
     required this.warning,
+    required this.error,
     required this.info,
+    required this.muted,
     required this.hover,
     required this.selectedRow,
     required this.disabledForeground,
@@ -259,7 +265,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
 
   final Color success;
   final Color warning;
+  final Color error;
   final Color info;
+  final Color muted;
   final Color hover;
   final Color selectedRow;
   final Color disabledForeground;
@@ -279,7 +287,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     return AppSemanticColors(
       success: isLight ? AppTokens.lightSuccess : AppTokens.darkSuccess,
       warning: isLight ? AppTokens.lightWarning : AppTokens.darkWarning,
+      error: isLight ? AppTokens.lightError : AppTokens.darkError,
       info: isLight ? AppTokens.lightInfo : AppTokens.darkInfo,
+      muted: isLight ? AppTokens.lightMuted : AppTokens.darkMuted,
       hover: isLight ? AppTokens.lightHover : AppTokens.darkHover,
       selectedRow: scheme.primaryContainer,
       disabledForeground: isLight
@@ -298,7 +308,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   AppSemanticColors copyWith({
     Color? success,
     Color? warning,
+    Color? error,
     Color? info,
+    Color? muted,
     Color? hover,
     Color? selectedRow,
     Color? disabledForeground,
@@ -312,7 +324,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     return AppSemanticColors(
       success: success ?? this.success,
       warning: warning ?? this.warning,
+      error: error ?? this.error,
       info: info ?? this.info,
+      muted: muted ?? this.muted,
       hover: hover ?? this.hover,
       selectedRow: selectedRow ?? this.selectedRow,
       disabledForeground: disabledForeground ?? this.disabledForeground,
@@ -331,7 +345,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     return AppSemanticColors(
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
+      error: Color.lerp(error, other.error, t)!,
       info: Color.lerp(info, other.info, t)!,
+      muted: Color.lerp(muted, other.muted, t)!,
       hover: Color.lerp(hover, other.hover, t)!,
       selectedRow: Color.lerp(selectedRow, other.selectedRow, t)!,
       disabledForeground: Color.lerp(

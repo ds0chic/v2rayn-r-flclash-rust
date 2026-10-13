@@ -329,9 +329,12 @@ class _LogRow extends StatelessWidget {
             ),
           ),
           if (line.truncated)
-            const Text(
+            Text(
               '[截断]',
-              style: TextStyle(fontSize: 11, color: Colors.orange),
+              style: TextStyle(
+                fontSize: AppTokens.fontSizeTiny,
+                color: context.semantics.warning,
+              ),
             ),
         ],
       ),

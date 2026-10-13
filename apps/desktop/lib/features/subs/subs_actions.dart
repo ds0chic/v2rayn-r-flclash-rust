@@ -11,6 +11,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/subs/import_persistence.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/features/subs/sub_setting_window.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// ACT-MAIN-016: import share links from the clipboard (F-IMPORT-001/002/005).
 ///
@@ -185,13 +186,19 @@ Future<bool> _confirmImportPreview(
               const SizedBox(height: 8),
               Text(
                 '${preview.errors.length} 行未识别，将跳过（首项：${preview.errors.first.message}）。',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             ],
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '取消不产生任何文件或节点；提交失败不留半批。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(
+                fontSize: AppTokens.fontSize,
+                color: context.semantics.muted,
+              ),
             ),
           ],
         ),
@@ -254,7 +261,10 @@ Future<void> _offerAddSubscription(
                 url,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             if (urls.length > 5)
               Text('…共 ${urls.length} 条', style: const TextStyle(fontSize: 12)),

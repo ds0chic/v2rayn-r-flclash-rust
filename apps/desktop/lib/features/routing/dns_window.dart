@@ -9,6 +9,7 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/dns_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// The DNS settings window (upstream `DNSSettingWindow`, LAY-DNSSET-001,
 /// F-DNS-001/002). Four tabs: basic / advanced / custom Xray / custom
@@ -394,9 +395,9 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                       context.trf('dnsPendingUrls', <Object?>[
                         state.pendingUrls.length,
                       ]),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.orange,
+                      style: TextStyle(
+                        fontSize: AppTokens.fontSizeTiny,
+                        color: context.semantics.warning,
                       ),
                     ),
                   ),
@@ -408,7 +409,10 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                 child: Text(
                   context.messageText(state.status!),
                   key: const ValueKey('dns-status'),
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.muted,
+                  ),
                 ),
               ),
           ],
@@ -490,7 +494,10 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
               child: Text(
                 context.tr('dnsDisabledHint'),
                 key: const ValueKey('dns-simple-disabled-hint'),
-                style: const TextStyle(fontSize: 11, color: Colors.orange),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSizeTiny,
+                  color: context.semantics.warning,
+                ),
               ),
             ),
         ],
@@ -582,10 +589,13 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
                 onPressed: onImport,
                 child: const Text('导入兼容默认配置'),
               ),
-              const Expanded(
+              Expanded(
                 child: Text(
                   '未联网时使用内置模板',
-                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.muted,
+                  ),
                 ),
               ),
             ],

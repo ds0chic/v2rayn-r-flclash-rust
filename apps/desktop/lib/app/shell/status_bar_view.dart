@@ -925,9 +925,15 @@ class _Sep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 6),
-      child: Text('|', style: TextStyle(fontSize: 11, color: Colors.grey)),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Text(
+        '|',
+        style: TextStyle(
+          fontSize: AppTokens.fontSizeTiny,
+          color: context.semantics.muted,
+        ),
+      ),
     );
   }
 }

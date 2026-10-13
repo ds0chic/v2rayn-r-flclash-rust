@@ -600,7 +600,10 @@ class _MenuToolbarBar extends ConsumerWidget {
                 const SizedBox(width: 6),
                 Text(
                   entry.shortcut!,
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.muted,
+                  ),
                 ),
               ],
             ],
@@ -678,7 +681,10 @@ class _MenuToolbarBar extends ConsumerWidget {
             padding: const EdgeInsets.only(left: 24),
             child: Text(
               entry.shortcut!,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: TextStyle(
+                fontSize: AppTokens.fontSizeTiny,
+                color: context.semantics.muted,
+              ),
             ),
           ),
       ],

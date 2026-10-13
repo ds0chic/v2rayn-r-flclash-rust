@@ -320,6 +320,13 @@ const _settingEntries = <AppMenuEntry>[
     l10nKey: 'uiCleanup',
     actionId: 'UI-CLEANUP',
   ),
+  // U-C2 (UX1-05): recommended-setup entry opening the U-B2 preset dialog in
+  // independent mode. No separatorAfter so the M8 separator count stays 2.
+  AppMenuEntry(
+    label: '推荐配置…',
+    l10nKey: 'uiPresetDialog',
+    actionId: 'UI-PRESET-DLG',
+  ),
   AppMenuEntry(
     label: '主界面 (占位)',
     l10nKey: 'uiMainPlaceholder',

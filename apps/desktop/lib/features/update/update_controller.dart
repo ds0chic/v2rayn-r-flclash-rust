@@ -317,7 +317,9 @@ class UpdateController extends Notifier<UpdateState> {
     final updates = result.checks.where((c) => c.hasUpdate).length;
     final blocked = result.checks.where((c) => !c.supported).length;
     final String message;
-    if (updates > 0) {
+    if (result.checks.isEmpty) {
+      message = '未选择检查目标';
+    } else if (updates > 0) {
       message = blocked > 0
           ? '发现 $updates 个可更新目标（$blocked 个无法检查）'
           : '发现 $updates 个可更新目标';

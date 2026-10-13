@@ -215,6 +215,15 @@ pub struct AppEngine {
     /// briefly, recovery holds it for the whole pass. A save that cannot take
     /// it reports `RecoveryRequired` instead of queuing behind recovery.
     commit_lock: Arc<Mutex<()>>,
+    /// Serialises whole-store exchanges (`quiesce`/`reopen`, S4a-07) against
+    /// every store-backed read and write. The swap holds it for writing while
+    /// each store access holds it for reading, so no observer ever sees a
+    /// partially exchanged backend set. Lock order is always `store_swap`
+    /// first: a `store_swap` guard is never live across a call that takes
+    /// another `store_swap` guard (std `RwLock` read re-entrance deadlocks
+    /// under a queued writer), nor across `.await`, network calls, or persist
+    /// file I/O — mutators scope it narrowly around each store access.
+    store_swap: Arc<std::sync::RwLock<()>>,
     /// Serialises runtime-affecting commands in this process (SP-04): apply,
     /// stop and cleanup join one authoritative sequence in admission order so
     /// two windows/isolates cannot interleave submits behind the UI queue.
@@ -519,6 +528,7 @@ impl AppEngine {
             storage_error: Arc::new(Mutex::new(None)),
             commit_fault: Arc::new(Mutex::new(CommitTestFault::None)),
             commit_lock: Arc::new(Mutex::new(())),
+            store_swap: Arc::new(std::sync::RwLock::new(())),
             runtime_cmd_lock: Arc::new(Mutex::new(())),
             mem_commits: Arc::new(Mutex::new(HashMap::new())),
             mem_pending: Arc::new(Mutex::new(None)),
@@ -614,6 +624,7 @@ impl AppEngine {
             storage_error: Arc::new(Mutex::new(None)),
             commit_fault: Arc::new(Mutex::new(CommitTestFault::None)),
             commit_lock: Arc::new(Mutex::new(())),
+            store_swap: Arc::new(std::sync::RwLock::new(())),
             runtime_cmd_lock: Arc::new(Mutex::new(())),
             mem_commits: Arc::new(Mutex::new(HashMap::new())),
             mem_pending: Arc::new(Mutex::new(None)),
@@ -749,11 +760,18 @@ impl AppEngine {
     /// bare `import-*` name in the config directory (see
     /// [`Self::confined_custom_file`]). Delete failures are logged with the
     /// filename only, never fatal.
+    ///
+    /// Holds [`Self::store_swap`] for reading across the whole pass (short,
+    /// synchronous, no persist): the query and the orphan check must see one
+    /// backend generation. Callers run it after a successful persist holding
+    /// no swap guard. The query uses the lock-free core because this function
+    /// already holds the read guard.
     fn cleanup_orphaned_import_files(&self, removed: &[(String, Profile)]) {
         if removed.is_empty() || self.data_dir().is_none() {
             return;
         }
-        let referenced: Vec<String> = match self.query_profiles(
+        let _swap = self.swap_read();
+        let referenced: Vec<String> = match self.query_profiles_inner(
             ProfileFilter::default(),
             ProfileSort::IndexId,
             PageRequest {
@@ -802,8 +820,11 @@ impl AppEngine {
         cause: DomainError,
     ) -> DomainError {
         let mut cause = cause;
-        if let Ok(mut dns) = self.dns_items.lock() {
-            cause = self.rollback_dns_snapshot(&mut dns, previous_dns, cause);
+        {
+            let _swap = self.swap_read();
+            if let Ok(mut dns) = self.dns_items.lock() {
+                cause = self.rollback_dns_snapshot(&mut dns, previous_dns, cause);
+            }
         }
         if let Ok(mut revisions) = self.revisions.lock() {
             *revisions = RevisionStore::with_desired(previous_desired);
@@ -859,10 +880,15 @@ impl AppEngine {
     /// exchanged by a restore/replace. In-memory engines are a no-op. After
     /// this call the engine must be [`AppEngine::reopen`]ed before serving
     /// queries; otherwise it answers from the empty in-memory backends.
+    ///
+    /// Holds [`Self::store_swap`] for writing across the whole exchange, so
+    /// concurrent readers (which hold it for reading) observe either the full
+    /// SQLite set or the full Memory set, never a mixture (S4a-07).
     pub fn quiesce(&self) -> Result<(), DomainError> {
         if self.data_dir.is_none() {
             return Ok(());
         }
+        let _swap = self.store_swap.write().map_err(|_| lock_error())?;
         *self.repo.lock().map_err(|_| lock_error())? =
             ProfileStore::Memory(InMemoryProfileRepository::new());
         *self.subs.lock().map_err(|_| lock_error())? =
@@ -878,6 +904,13 @@ impl AppEngine {
     /// (`settings`, active id, revisions, templates, rule mode) from
     /// `guiNConfig.json`. Used after `quiesce` + a file exchange so later
     /// saves never overwrite a restored configuration.
+    ///
+    /// File I/O (opening the SQLite repos, reading the config) happens before
+    /// [`Self::store_swap`] is taken for writing; only the pointer swaps and
+    /// the memory reloads run under the write guard. Everything called under
+    /// the guard uses lock-free store access (`query_profiles_inner`,
+    /// `ensure_builtin_routing_dns`, `write_identity_unified`): taking another
+    /// `store_swap` guard here would self-deadlock.
     pub fn reopen(&self) -> Result<(), DomainError> {
         let Some(dir) = self.data_dir.clone() else {
             return Ok(());
@@ -909,7 +942,10 @@ impl AppEngine {
                 _ => RuleMode::Rule,
             })
             .unwrap_or(RuleMode::Rule);
+        let templates = read_templates(&config);
+        let settings = read_settings_state(&config)?;
 
+        let _swap = self.store_swap.write().map_err(|_| lock_error())?;
         *self.repo.lock().map_err(|_| lock_error())? = ProfileStore::Sqlite(repo);
         *self.subs.lock().map_err(|_| lock_error())? = SubStore::Sqlite(subs);
         *self.routing.lock().map_err(|_| lock_error())? = RoutingStore::Sqlite(routing);
@@ -918,8 +954,8 @@ impl AppEngine {
         *self.revisions.lock().map_err(|_| lock_error())? =
             RevisionStore::with_desired(DesiredRevision::new(desired));
         *self.active.lock().map_err(|_| lock_error())? = active;
-        *self.templates.lock().map_err(|_| lock_error())? = read_templates(&config);
-        *self.settings.lock().map_err(|_| lock_error())? = read_settings_state(&config)?;
+        *self.templates.lock().map_err(|_| lock_error())? = templates;
+        *self.settings.lock().map_err(|_| lock_error())? = settings;
         self.restore_epoch.store(dataset_epoch, Ordering::Release);
         // SP-05: same frozen-history restore as `open_with_runtime`, so a
         // reopened engine reports the same applied-vs-actual truth.
@@ -1074,12 +1110,14 @@ impl AppEngine {
 
     /// Seed profiles (test/bootstrap helper).
     pub fn seed(&self, profiles: Vec<Profile>) {
+        let _swap = self.swap_read();
         if let Ok(mut repo) = self.repo.lock() {
             *repo = ProfileStore::Memory(InMemoryProfileRepository::with_profiles(profiles));
         }
     }
 
     pub fn profile_count(&self) -> u64 {
+        let _swap = self.swap_read();
         self.repo.lock().map(|r| r.count() as u64).unwrap_or(0)
     }
 
@@ -1094,13 +1132,15 @@ impl AppEngine {
     /// Fetch one profile by stable id.
     pub fn profile_by_id(&self, index_id: &str) -> Result<Option<Profile>, DomainError> {
         self.guard_storage()?;
+        let _swap = self.swap_read();
         self.repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
             .get(index_id)
     }
 
-    /// `query_profiles` use case.
+    /// `query_profiles` use case. Holds [`Self::store_swap`] for reading so
+    /// the view cannot straddle a `quiesce`/`reopen` exchange (S4a-07).
     pub fn query_profiles(
         &self,
         filter: ProfileFilter,
@@ -1108,6 +1148,20 @@ impl AppEngine {
         page: PageRequest,
     ) -> Result<ProfilePage, DomainError> {
         self.guard_storage()?;
+        let _swap = self.swap_read();
+        self.query_profiles_inner(filter, sort, page)
+    }
+
+    /// Lock-free query core for callers that already hold [`Self::store_swap`]
+    /// for reading, or run under the swap write guard (`reopen` → repair).
+    /// Never takes `store_swap` itself: taking a read guard while the write
+    /// guard (or another read guard with a queued writer) is held deadlocks.
+    fn query_profiles_inner(
+        &self,
+        filter: ProfileFilter,
+        sort: ProfileSort,
+        page: PageRequest,
+    ) -> Result<ProfilePage, DomainError> {
         self.repo
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -1166,15 +1220,25 @@ impl AppEngine {
             crate::custom::validate_server(&draft)?;
         }
 
-        let mut repo = self
-            .repo
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let snapshot = vec![(draft.index_id.clone(), repo.get(&draft.index_id)?)];
-        repo.upsert(draft.clone())?;
+        let snapshot;
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            snapshot = vec![(draft.index_id.clone(), repo.get(&draft.index_id)?)];
+            repo.upsert(draft.clone())?;
+        }
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         let new_revision = next_revision.bump();
         if let Err(error) = self.persist_config(&next_revision) {
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
             return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
         }
         *revisions = next_revision;
@@ -1230,15 +1294,25 @@ impl AppEngine {
                 crate::custom::apply_reality_fingerprint_default(draft, def_fingerprint.as_deref());
         }
 
-        let mut repo = self
-            .repo
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let snapshot = vec![(draft.index_id.clone(), repo.get(&draft.index_id)?)];
-        repo.upsert(draft.clone())?;
+        let snapshot;
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            snapshot = vec![(draft.index_id.clone(), repo.get(&draft.index_id)?)];
+            repo.upsert(draft.clone())?;
+        }
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         let new_revision = next_revision.bump();
         if let Err(error) = self.persist_config(&next_revision) {
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
             return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
         }
         *revisions = next_revision;
@@ -1253,23 +1327,27 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut repo = self
-            .repo
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         let mut snapshot = Vec::new();
-        for id in ids {
-            if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
-                snapshot.push((id.clone(), repo.get(id)?));
-            }
-        }
         let mut removed = 0u64;
-        for id in ids {
-            match repo.remove(id) {
-                Ok(true) => removed += 1,
-                Ok(false) => {}
-                Err(error) => {
-                    return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for id in ids {
+                if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
+                    snapshot.push((id.clone(), repo.get(id)?));
+                }
+            }
+            for id in ids {
+                match repo.remove(id) {
+                    Ok(true) => removed += 1,
+                    Ok(false) => {}
+                    Err(error) => {
+                        return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+                    }
                 }
             }
         }
@@ -1277,17 +1355,20 @@ impl AppEngine {
             let mut next_revision = RevisionStore::with_desired(revisions.desired());
             next_revision.bump();
             if let Err(error) = self.persist_config(&next_revision) {
+                let _swap = self.swap_read();
+                let mut repo = self.repo.lock().map_err(|_| {
+                    DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
+                })?;
                 return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
             }
             *revisions = next_revision;
             // Only now that the delete is durable: drop orphaned staged
-            // import files (S4b-03). The repo guard must be released first;
-            // the cleanup re-locks it for the reference check.
+            // import files (S4b-03). No store guard is held here; the cleanup
+            // takes the swap read guard itself.
             let removed_rows: Vec<(String, Profile)> = snapshot
                 .into_iter()
                 .filter_map(|(id, old)| old.map(|profile| (id, profile)))
                 .collect();
-            drop(repo);
             self.cleanup_orphaned_import_files(&removed_rows);
         }
         Ok(removed)
@@ -1299,6 +1380,7 @@ impl AppEngine {
     /// startup so a reopened process sees the previous run's delay/speed/sort.
     pub fn profile_ex_all(&self) -> Result<Vec<crate::speedtest::ProfileExItem>, DomainError> {
         self.guard_storage()?;
+        let _swap = self.swap_read();
         let repo = self
             .repo
             .lock()
@@ -1334,6 +1416,7 @@ impl AppEngine {
         rows: &[crate::speedtest::ProfileExItem],
     ) -> Result<(), DomainError> {
         self.guard_storage()?;
+        let _swap = self.swap_read();
         let repo = self
             .repo
             .lock()
@@ -1450,23 +1533,27 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut repo = self
-            .repo
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         let mut snapshot = Vec::new();
-        for id in &removed_ids {
-            if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
-                snapshot.push((id.clone(), repo.get(id)?));
-            }
-        }
         let mut removed = 0u64;
-        for id in &removed_ids {
-            match repo.remove(id) {
-                Ok(true) => removed += 1,
-                Ok(false) => {}
-                Err(error) => {
-                    return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for id in &removed_ids {
+                if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
+                    snapshot.push((id.clone(), repo.get(id)?));
+                }
+            }
+            for id in &removed_ids {
+                match repo.remove(id) {
+                    Ok(true) => removed += 1,
+                    Ok(false) => {}
+                    Err(error) => {
+                        return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+                    }
                 }
             }
         }
@@ -1474,6 +1561,10 @@ impl AppEngine {
             let mut next_revision = RevisionStore::with_desired(revisions.desired());
             next_revision.bump();
             if let Err(error) = self.persist_config(&next_revision) {
+                let _swap = self.swap_read();
+                let mut repo = self.repo.lock().map_err(|_| {
+                    DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
+                })?;
                 return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
             }
             *revisions = next_revision;
@@ -1626,36 +1717,44 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut repo = self
-            .repo
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         let mut copies = Vec::new();
         let mut snapshot = Vec::new();
-        for id in ids {
-            let source = match repo.get(id) {
-                Ok(source) => source,
-                Err(error) => {
-                    return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for id in ids {
+                let source = match repo.get(id) {
+                    Ok(source) => source,
+                    Err(error) => {
+                        return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+                    }
+                };
+                if let Some(source) = source {
+                    let mut copy = source;
+                    copy.index_id = crate::repository::new_index_id();
+                    if !copy.remarks.is_empty() {
+                        copy.remarks = format!("{} (副本)", copy.remarks);
+                    }
+                    snapshot.push((copy.index_id.clone(), None));
+                    if let Err(error) = repo.upsert(copy.clone()) {
+                        return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+                    }
+                    copies.push(copy);
                 }
-            };
-            if let Some(source) = source {
-                let mut copy = source;
-                copy.index_id = crate::repository::new_index_id();
-                if !copy.remarks.is_empty() {
-                    copy.remarks = format!("{} (副本)", copy.remarks);
-                }
-                snapshot.push((copy.index_id.clone(), None));
-                if let Err(error) = repo.upsert(copy.clone()) {
-                    return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
-                }
-                copies.push(copy);
             }
         }
         if !copies.is_empty() {
             let mut next_revision = RevisionStore::with_desired(revisions.desired());
             next_revision.bump();
             if let Err(error) = self.persist_config(&next_revision) {
+                let _swap = self.swap_read();
+                let mut repo = self.repo.lock().map_err(|_| {
+                    DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
+                })?;
                 return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
             }
             *revisions = next_revision;
@@ -1673,27 +1772,39 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut repo = self
-            .repo
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut profile = repo
-            .get(id)?
-            .ok_or_else(|| DomainError::not_found("profile", id))?;
-        if remarks.trim().is_empty() {
-            return Err(
-                DomainError::new(domain::codes::FIELD_REQUIRED, "error.remarks_required")
-                    .with_field("remarks"),
-            );
-        }
-        let snapshot = vec![(id.to_string(), Some(profile.clone()))];
-        profile.remarks = remarks;
-        if let Err(error) = repo.upsert(profile.clone()) {
-            return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+        let mut profile;
+        let snapshot;
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            profile = repo
+                .get(id)?
+                .ok_or_else(|| DomainError::not_found("profile", id))?;
+            if remarks.trim().is_empty() {
+                return Err(DomainError::new(
+                    domain::codes::FIELD_REQUIRED,
+                    "error.remarks_required",
+                )
+                .with_field("remarks"));
+            }
+            snapshot = vec![(id.to_string(), Some(profile.clone()))];
+            profile.remarks = remarks;
+            if let Err(error) = repo.upsert(profile.clone()) {
+                return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
+            }
         }
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         next_revision.bump();
         if let Err(error) = self.persist_config(&next_revision) {
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
             return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
         }
         *revisions = next_revision;
@@ -1716,6 +1827,7 @@ impl AppEngine {
         self.guard_storage()?;
         self.ensure_commit_writable()?;
         if let Some(target) = &id {
+            let _swap = self.swap_read();
             let repo = self
                 .repo
                 .lock()
@@ -1817,7 +1929,7 @@ impl AppEngine {
             .settings
             .index_id
             .clone();
-        let page = self.query_profiles(
+        let page = self.query_profiles_inner(
             ProfileFilter::default(),
             ProfileSort::IndexId,
             PageRequest {
@@ -1960,6 +2072,10 @@ impl AppEngine {
     /// Seed built-in routing profiles + DNS rows when the stores are empty
     /// (upstream `ConfigHandler.InitBuiltinRouting` / `InitBuiltinDNS`).
     fn ensure_builtin_routing_dns(&self) {
+        // No swap guard here by design: the only callers are the constructors
+        // (single-threaded) and `reopen` (which holds the write guard — taking
+        // a read guard under it would self-deadlock). Direct store access is
+        // covered by the caller's context in both cases.
         let empty_routing = self.routing.lock().map(|r| r.count() == 0).unwrap_or(false);
         if empty_routing {
             let mut seq = 0;
@@ -1990,6 +2106,7 @@ impl AppEngine {
 
     /// All routing profiles in `Sort` order.
     pub fn list_routings(&self) -> Result<Vec<RoutingProfile>, DomainError> {
+        let _swap = self.swap_read();
         self.routing
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -1998,6 +2115,7 @@ impl AppEngine {
 
     /// One routing profile by id.
     pub fn get_routing(&self, id: &str) -> Result<Option<RoutingProfile>, DomainError> {
+        let _swap = self.swap_read();
         self.routing
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -2040,17 +2158,31 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut store = self
-            .routing
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let snapshot = vec![(normalized.id.clone(), store.get(&normalized.id)?)];
-        if let Err(error) = store.upsert(normalized.clone()) {
-            return Err(self.rollback_store("routing", store.restore_routing(&snapshot), error));
+        let snapshot;
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut store = self
+                .routing
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            snapshot = vec![(normalized.id.clone(), store.get(&normalized.id)?)];
+            if let Err(error) = store.upsert(normalized.clone()) {
+                return Err(self.rollback_store(
+                    "routing",
+                    store.restore_routing(&snapshot),
+                    error,
+                ));
+            }
         }
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         next_revision.bump();
         if let Err(error) = self.persist_config(&next_revision) {
+            let _swap = self.swap_read();
+            let mut store = self
+                .routing
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
             return Err(self.rollback_store("routing", store.restore_routing(&snapshot), error));
         }
         *revisions = next_revision;
@@ -2068,35 +2200,42 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut store = self
-            .routing
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let previous = store.get(id)?;
-        let was_active = previous.as_ref().is_some_and(|r| r.is_active);
-        let mut snapshot = vec![(id.to_string(), previous)];
-        let removed = match store.remove(id) {
-            Ok(removed) => removed,
-            Err(error) => {
-                return Err(self.rollback_store(
-                    "routing",
-                    store.restore_routing(&snapshot),
-                    error,
-                ));
-            }
-        };
-        if removed && was_active {
-            let items = store.list()?;
-            if let Some(first) = items.into_iter().next() {
-                snapshot.push((first.id.clone(), Some(first.clone())));
-                let mut first = first;
-                first.is_active = true;
-                if let Err(error) = store.upsert(first) {
+        let previous;
+        let mut snapshot;
+        let removed;
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut store = self
+                .routing
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            previous = store.get(id)?;
+            let was_active = previous.as_ref().is_some_and(|r| r.is_active);
+            snapshot = vec![(id.to_string(), previous)];
+            removed = match store.remove(id) {
+                Ok(removed) => removed,
+                Err(error) => {
                     return Err(self.rollback_store(
                         "routing",
                         store.restore_routing(&snapshot),
                         error,
                     ));
+                }
+            };
+            if removed && was_active {
+                let items = store.list()?;
+                if let Some(first) = items.into_iter().next() {
+                    snapshot.push((first.id.clone(), Some(first.clone())));
+                    let mut first = first;
+                    first.is_active = true;
+                    if let Err(error) = store.upsert(first) {
+                        return Err(self.rollback_store(
+                            "routing",
+                            store.restore_routing(&snapshot),
+                            error,
+                        ));
+                    }
                 }
             }
         }
@@ -2104,6 +2243,10 @@ impl AppEngine {
             let mut next_revision = RevisionStore::with_desired(revisions.desired());
             next_revision.bump();
             if let Err(error) = self.persist_config(&next_revision) {
+                let _swap = self.swap_read();
+                let mut store = self.routing.lock().map_err(|_| {
+                    DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
+                })?;
                 return Err(self.rollback_store(
                     "routing",
                     store.restore_routing(&snapshot),
@@ -2125,38 +2268,43 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut store = self
-            .routing
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let items = store.list()?;
-        if items.iter().any(|r| r.id == id && r.is_active) {
-            return Err(DomainError::new(
-                domain::codes::CONFLICT,
-                "error.routing_already_default",
-            ));
-        }
-        if !items.iter().any(|r| r.id == id) {
-            return Err(DomainError::not_found("routing", id));
-        }
-        let snapshot: Vec<(String, Option<RoutingProfile>)> = items
-            .iter()
-            .map(|item| (item.id.clone(), Some(item.clone())))
-            .collect();
-        for mut item in items {
-            item.is_active = item.id == id;
-            if let Err(error) = store.upsert(item) {
-                return Err(self.rollback_store(
-                    "routing",
-                    store.restore_routing(&snapshot),
-                    error,
+        // Swap scope covers the store access only; dropped before persist.
+        let snapshot: Vec<(String, Option<RoutingProfile>)>;
+        {
+            let _swap = self.swap_read();
+            let mut store = self
+                .routing
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            let items = store.list()?;
+            if items.iter().any(|r| r.id == id && r.is_active) {
+                return Err(DomainError::new(
+                    domain::codes::CONFLICT,
+                    "error.routing_already_default",
                 ));
+            }
+            if !items.iter().any(|r| r.id == id) {
+                return Err(DomainError::not_found("routing", id));
+            }
+            snapshot = items
+                .iter()
+                .map(|item| (item.id.clone(), Some(item.clone())))
+                .collect();
+            for mut item in items {
+                item.is_active = item.id == id;
+                if let Err(error) = store.upsert(item) {
+                    return Err(self.rollback_store(
+                        "routing",
+                        store.restore_routing(&snapshot),
+                        error,
+                    ));
+                }
             }
         }
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         next_revision.bump();
-        drop(store);
         if let Err(error) = self.persist_config(&next_revision) {
+            let _swap = self.swap_read();
             let mut store = self
                 .routing
                 .lock()
@@ -2230,6 +2378,7 @@ impl AppEngine {
     }
 
     fn profile_remarks(&self) -> Result<Vec<String>, DomainError> {
+        let _swap = self.swap_read();
         let repo = self
             .repo
             .lock()
@@ -2247,6 +2396,7 @@ impl AppEngine {
 
     /// All DNS profiles ordered by core then remarks.
     pub fn list_dns(&self) -> Result<Vec<DnsProfile>, DomainError> {
+        let _swap = self.swap_read();
         self.dns_items
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -2265,6 +2415,8 @@ impl AppEngine {
         self.ensure_commit_writable()?;
         let mut normalized = crate::dns::normalize_dns(profile)?;
         if !normalized.id.trim().is_empty() {
+            // Swap scope covers the store access only.
+            let _swap = self.swap_read();
             let stored = self
                 .dns_items
                 .lock()
@@ -2276,17 +2428,27 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut store = self
-            .dns_items
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let snapshot = vec![(normalized.id.clone(), store.get(&normalized.id)?)];
-        if let Err(error) = store.upsert(normalized.clone()) {
-            return Err(self.rollback_store("dns", store.restore_dns(&snapshot), error));
+        let snapshot;
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut store = self
+                .dns_items
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            snapshot = vec![(normalized.id.clone(), store.get(&normalized.id)?)];
+            if let Err(error) = store.upsert(normalized.clone()) {
+                return Err(self.rollback_store("dns", store.restore_dns(&snapshot), error));
+            }
         }
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         next_revision.bump();
         if let Err(error) = self.persist_config(&next_revision) {
+            let _swap = self.swap_read();
+            let mut store = self
+                .dns_items
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
             return Err(self.rollback_store("dns", store.restore_dns(&snapshot), error));
         }
         *revisions = next_revision;
@@ -2345,14 +2507,17 @@ impl AppEngine {
             let guard = self.settings.lock().map_err(|_| lock_error())?;
             (guard.settings.clone(), guard.revision)
         };
-        let previous_dns: Vec<(String, Option<DnsProfile>)> = self
-            .dns_items
-            .lock()
-            .map_err(|_| lock_error())?
-            .list()?
-            .into_iter()
-            .map(|item| (item.id.clone(), Some(item)))
-            .collect();
+        let previous_dns: Vec<(String, Option<DnsProfile>)> = {
+            // Swap scope covers the store access only.
+            let _swap = self.swap_read();
+            self.dns_items
+                .lock()
+                .map_err(|_| lock_error())?
+                .list()?
+                .into_iter()
+                .map(|item| (item.id.clone(), Some(item)))
+                .collect()
+        };
         let previous_desired = self.revisions.lock().map_err(|_| lock_error())?.desired();
         {
             let mut settings = self
@@ -2389,6 +2554,8 @@ impl AppEngine {
         }
         if preset == crate::dns::RegionalPreset::Default {
             {
+                // Swap scope covers the store access only.
+                let _swap = self.swap_read();
                 let mut store = self.dns_items.lock().map_err(|_| {
                     DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
                 })?;
@@ -2396,7 +2563,11 @@ impl AppEngine {
                     let _ = store.remove(id);
                 }
             }
-            self.ensure_builtin_routing_dns();
+            {
+                // Swap scope covers the store access only.
+                let _swap = self.swap_read();
+                self.ensure_builtin_routing_dns();
+            }
             if let Err(error) = self.persist_config_standalone() {
                 return Err(self.rollback_regional_preset(
                     &previous_dns,
@@ -2733,6 +2904,7 @@ impl AppEngine {
             }
         };
         if let Some(target) = &id {
+            let _swap = self.swap_read();
             let repo = self
                 .repo
                 .lock()
@@ -4555,6 +4727,7 @@ impl AppEngine {
     /// `list_sub_items` use case, ordered by `Sort`.
     pub fn list_sub_items(&self) -> Result<Vec<SubItem>, DomainError> {
         self.guard_storage()?;
+        let _swap = self.swap_read();
         self.subs
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -4564,6 +4737,7 @@ impl AppEngine {
     /// One subscription by id.
     pub fn get_sub_item(&self, id: &str) -> Result<Option<SubItem>, DomainError> {
         self.guard_storage()?;
+        let _swap = self.swap_read();
         self.subs
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?
@@ -4582,29 +4756,39 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut subs = self
-            .subs
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        if item.id.trim().is_empty() {
-            item.id = new_sub_id();
-        }
-        if subs.get(&item.id)?.is_none() && item.sort == 0 {
-            item.sort = subs
-                .list()?
-                .iter()
-                .map(|s| s.sort)
-                .max()
-                .map_or(1, |m| m + 1);
-        }
-        let snapshot = vec![(item.id.clone(), subs.get(&item.id)?)];
-        if let Err(error) = subs.upsert(item.clone()) {
-            return Err(self.rollback_store("subscription", subs.restore_subs(&snapshot), error));
+        let snapshot;
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut subs = self
+                .subs
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            if item.id.trim().is_empty() {
+                item.id = new_sub_id();
+            }
+            if subs.get(&item.id)?.is_none() && item.sort == 0 {
+                item.sort = subs
+                    .list()?
+                    .iter()
+                    .map(|s| s.sort)
+                    .max()
+                    .map_or(1, |m| m + 1);
+            }
+            snapshot = vec![(item.id.clone(), subs.get(&item.id)?)];
+            if let Err(error) = subs.upsert(item.clone()) {
+                return Err(self.rollback_store(
+                    "subscription",
+                    subs.restore_subs(&snapshot),
+                    error,
+                ));
+            }
         }
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         next_revision.bump();
-        drop(subs);
         if let Err(error) = self.persist_config(&next_revision) {
+            // Swap scope covers the store access only.
+            let _swap = self.swap_read();
             let mut subs = self
                 .subs
                 .lock()
@@ -4637,8 +4821,12 @@ impl AppEngine {
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         // Snapshot every row the delete can touch before removing anything.
+        // Each block below holds the swap read guard only for its own store
+        // access; nested re-acquires reuse the enclosing guard (taking another
+        // read guard while holding one deadlocks under a queued writer).
         let mut profile_snapshot = Vec::new();
         {
+            let _swap = self.swap_read();
             let repo = self
                 .repo
                 .lock()
@@ -4667,6 +4855,7 @@ impl AppEngine {
         }
         let mut sub_snapshot = Vec::new();
         {
+            let _swap = self.swap_read();
             let subs = self
                 .subs
                 .lock()
@@ -4679,6 +4868,7 @@ impl AppEngine {
         }
         // Remove dependent nodes first (upstream `RemoveServersViaSubid`).
         {
+            let _swap = self.swap_read();
             let mut repo = self
                 .repo
                 .lock()
@@ -4691,6 +4881,7 @@ impl AppEngine {
         }
         let mut removed = 0u64;
         {
+            let _swap = self.swap_read();
             let mut subs = self
                 .subs
                 .lock()
@@ -4721,6 +4912,7 @@ impl AppEngine {
             let mut next_revision = RevisionStore::with_desired(revisions.desired());
             next_revision.bump();
             if let Err(error) = self.persist_config(&next_revision) {
+                let _swap = self.swap_read();
                 let error = match self.subs.lock() {
                     Ok(mut subs) => {
                         self.rollback_store("subscription", subs.restore_subs(&sub_snapshot), error)
@@ -4765,40 +4957,44 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut subs = self
-            .subs
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         let mut snapshot = Vec::new();
-        for (index, id) in ids.iter().enumerate() {
-            let item = match subs.get(id) {
-                Ok(item) => item,
-                Err(error) => {
-                    return Err(self.rollback_store(
-                        "subscription",
-                        subs.restore_subs(&snapshot),
-                        error,
-                    ));
-                }
-            };
-            if let Some(mut item) = item {
-                if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
-                    snapshot.push((id.clone(), Some(item.clone())));
-                }
-                item.sort = (index + 1) as i32;
-                if let Err(error) = subs.upsert(item) {
-                    return Err(self.rollback_store(
-                        "subscription",
-                        subs.restore_subs(&snapshot),
-                        error,
-                    ));
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut subs = self
+                .subs
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            for (index, id) in ids.iter().enumerate() {
+                let item = match subs.get(id) {
+                    Ok(item) => item,
+                    Err(error) => {
+                        return Err(self.rollback_store(
+                            "subscription",
+                            subs.restore_subs(&snapshot),
+                            error,
+                        ));
+                    }
+                };
+                if let Some(mut item) = item {
+                    if !snapshot.iter().any(|(saved_id, _)| saved_id == id) {
+                        snapshot.push((id.clone(), Some(item.clone())));
+                    }
+                    item.sort = (index + 1) as i32;
+                    if let Err(error) = subs.upsert(item) {
+                        return Err(self.rollback_store(
+                            "subscription",
+                            subs.restore_subs(&snapshot),
+                            error,
+                        ));
+                    }
                 }
             }
         }
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         next_revision.bump();
-        drop(subs);
         if let Err(error) = self.persist_config(&next_revision) {
+            let _swap = self.swap_read();
             let mut subs = self
                 .subs
                 .lock()
@@ -4998,49 +5194,59 @@ impl AppEngine {
             .revisions
             .lock()
             .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
-        let mut repo = self
-            .repo
-            .lock()
-            .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
         let mut snapshot = Vec::new();
-        if remove_existing {
-            let old = repo.query(
-                &ProfileFilter {
-                    subid: Some(subid.to_string()),
-                    ..ProfileFilter::default()
-                },
-                ProfileSort::IndexId,
-                PageRequest {
-                    cursor: 0,
-                    page_size: u32::MAX,
-                },
-            )?;
-            snapshot.extend(
-                old.items
-                    .into_iter()
-                    .map(|profile| (profile.index_id.clone(), Some(profile))),
-            );
-        }
-        for profile in &profiles {
-            if !snapshot.iter().any(|(id, _)| id == &profile.index_id) {
-                snapshot.push((profile.index_id.clone(), repo.get(&profile.index_id)?));
+        let added;
+        let removed;
+        {
+            // Swap scope covers the store access only; dropped before persist.
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
+            if remove_existing {
+                let old = repo.query(
+                    &ProfileFilter {
+                        subid: Some(subid.to_string()),
+                        ..ProfileFilter::default()
+                    },
+                    ProfileSort::IndexId,
+                    PageRequest {
+                        cursor: 0,
+                        page_size: u32::MAX,
+                    },
+                )?;
+                snapshot.extend(
+                    old.items
+                        .into_iter()
+                        .map(|profile| (profile.index_id.clone(), Some(profile))),
+                );
             }
+            for profile in &profiles {
+                if !snapshot.iter().any(|(id, _)| id == &profile.index_id) {
+                    snapshot.push((profile.index_id.clone(), repo.get(&profile.index_id)?));
+                }
+            }
+            (added, removed) = repo.replace_for_sub(subid, profiles, remove_existing, false)?;
         }
-        let (added, removed) = repo.replace_for_sub(subid, profiles, remove_existing, false)?;
         let mut next_revision = RevisionStore::with_desired(revisions.desired());
         next_revision.bump();
         if let Err(error) = self.persist_config(&next_revision) {
+            let _swap = self.swap_read();
+            let mut repo = self
+                .repo
+                .lock()
+                .map_err(|_| DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned"))?;
             return Err(self.rollback_profile_rows(&mut repo, &snapshot, error));
         }
         *revisions = next_revision;
         // Durable now: drop staged import files of replaced-away Custom rows
-        // that no remaining row references (S4b-03). The repo guard must be
-        // released first; the cleanup re-locks it for the reference check.
+        // that no remaining row references (S4b-03). No store guard is held
+        // here; the cleanup takes the swap read guard itself.
         let replaced_rows: Vec<(String, Profile)> = snapshot
             .into_iter()
             .filter_map(|(id, old)| old.map(|profile| (id, profile)))
             .collect();
-        drop(repo);
         self.cleanup_orphaned_import_files(&replaced_rows);
         Ok((added, removed))
     }
@@ -5232,6 +5438,8 @@ impl AppEngine {
             .get_sub_item(id)?
             .ok_or_else(|| DomainError::not_found("subscription", id))?;
         item.update_time = time;
+        // Swap scope covers the store access only.
+        let _swap = self.swap_read();
         let mut subs = self
             .subs
             .lock()
@@ -5246,6 +5454,7 @@ impl AppEngine {
     fn all_profiles_map_locked(
         &self,
     ) -> Result<std::collections::HashMap<String, Profile>, DomainError> {
+        let _swap = self.swap_read();
         let repo = self
             .repo
             .lock()
@@ -6410,6 +6619,21 @@ impl Default for AppEngine {
 
 fn lock_error() -> DomainError {
     DomainError::new(domain::codes::INTERNAL, "error.lock_poisoned")
+}
+
+impl AppEngine {
+    /// Hold [`Self::store_swap`] for reading across one store access. The
+    /// guard is bound to a `let _swap` so it lives to the end of the enclosing
+    /// scope; every use site keeps the scope to the store access itself (never
+    /// across `.await`, network calls, persist file I/O, or a call that takes
+    /// another `store_swap` guard).
+    ///
+    /// A poisoned swap lock degrades to unguarded access (pre-S4a-07
+    /// behavior) instead of failing the operation: poison means a holder
+    /// panicked, and the store `Mutex`es still serialize the access itself.
+    fn swap_read(&self) -> Option<std::sync::RwLockReadGuard<'_, ()>> {
+        self.store_swap.read().ok()
+    }
 }
 
 /// Split the compound `"<operation_id>:<job_id>"` correlation
@@ -7819,6 +8043,9 @@ mod tests {
             Some("s-g2")
         );
     }
+
+    // -- S4a-07 store_swap (quiesce/reopen atomicity) ----------------------
+    // Soak test + `store_kinds_snapshot` helper land in the follow-up commit.
 
     #[tokio::test]
     async fn refresh_reports_target_failure() {

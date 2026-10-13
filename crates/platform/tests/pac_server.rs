@@ -202,3 +202,79 @@ fn query_string_is_ignored_for_routing() {
     assert_eq!(body, "pac-body");
     server.stop().expect("stop");
 }
+
+#[test]
+fn oversized_request_line_is_rejected_and_server_survives() {
+    // S7b-06: the request line must be capped; an over-long line is rejected
+    // without being read fully, and the server keeps serving afterwards.
+    let port = free_port();
+    let mut server = PacServer::new(PacConfig::with_port(port)).expect("config");
+    server
+        .start(PacSource::Inline(
+            "function FindProxyForURL(){return 'DIRECT';}".to_string(),
+        ))
+        .expect("start");
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
+    stream
+        .set_write_timeout(Some(Duration::from_secs(5)))
+        .expect("timeout");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("timeout");
+    // 32 KiB with no newline and no terminator: the server must stop at the
+    // cap and answer 414 instead of waiting for (or consuming) the whole line.
+    let chunk = vec![b'A'; 1024];
+    for _ in 0..32 {
+        stream.write_all(&chunk).expect("write");
+    }
+    // A close with unread bytes may surface as a reset; bytes already queued
+    // are still delivered first, so tolerate the reset and inspect them.
+    let mut buf = Vec::new();
+    let mut one = [0u8; 512];
+    loop {
+        match stream.read(&mut one) {
+            Ok(0) => break,
+            Ok(n) => buf.extend_from_slice(&one[..n]),
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionReset => break,
+            Err(e) => panic!("read: {e}"),
+        }
+    }
+    let text = String::from_utf8_lossy(&buf).into_owned();
+    let status = text.lines().next().unwrap_or_default().to_string();
+    assert!(
+        status.contains("414"),
+        "oversized line must be rejected, got {status:?}"
+    );
+    let (head, _) = http_get(port, "/pac");
+    assert!(head.contains("200 OK"), "server must survive, got {head:?}");
+    server.stop().expect("stop");
+}
+
+#[test]
+fn non_get_method_is_rejected() {
+    // S7b-06: only GET/HEAD serve the PAC; anything else is a 405.
+    let port = free_port();
+    let mut server = PacServer::new(PacConfig::with_port(port)).expect("config");
+    server
+        .start(PacSource::Inline(
+            "function FindProxyForURL(){return 'DIRECT';}".to_string(),
+        ))
+        .expect("start");
+    let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("timeout");
+    stream
+        .write_all(b"POST /pac HTTP/1.0\r\nHost: 127.0.0.1\r\nContent-Length: 0\r\n\r\n")
+        .expect("write");
+    let mut raw = String::new();
+    stream.read_to_string(&mut raw).expect("read");
+    let status = raw.lines().next().unwrap_or_default().to_string();
+    assert!(
+        status.contains("405"),
+        "POST must be rejected, got {status:?}"
+    );
+    let (head, _) = http_get(port, "/pac");
+    assert!(head.contains("200 OK"), "server must survive, got {head:?}");
+    server.stop().expect("stop");
+}

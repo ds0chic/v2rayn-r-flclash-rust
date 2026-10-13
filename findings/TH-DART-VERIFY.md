@@ -16,8 +16,9 @@
 - 清单：`test/` 下共 352 个 `*_test.dart`，排除 3 个 scan（`scan_image_qr`、`scan_screen_qr`、`ux_parity_fix05_scan`）后 **349 个待跑**（基线时 327 个，B13–B16 新增约 22 个）。
 - Runner：`scratchpad/run_chunk.ps1`（逐文件 `flutter test <file>`，单文件 300s 超时记 HANG 并 `taskkill /T` 只杀自有子进程树，CSV 记录 exit/耗时/尾部输出）。注意：必须用 **pwsh** 调用，`powershell` 5.1 下 `$p.ExitCode` 取不到（已踩坑，冒烟时 exit 列为空，改 pwsh 后正常）。
 - 运行记录文件（scratchpad）：`run_list.txt`（349 行）、`results_1-2.csv`。
-- 已完成：冒烟 2 文件全绿——`test\audit_r2_flows_test.dart`（exit 0，10/10）、`test\b07b_bridge_seams_test.dart`（exit 0，9/9）。
-- 未完成（暂停前未启动，恢复后按序跑）：chunk `3-52`、`53-102`、`103-152`、`153-202`、`203-252`、`253-302`、`303-349`，共 347 文件。跑完每 chunk 后删 `apps/desktop/build`（冒烟后已删一次，工作区干净）。
+- 已完成：冒烟 2 文件全绿——`test\audit_r2_flows_test.dart`（exit 0，10/10）、`test\b07b_bridge_seams_test.dart`（exit 0，9/9）；`run_chunk.ps1 -Start 3 -End 3`（`b13_d102_picker_order_test`，exit 0）。
+- chunk `4-52`（49 文件，Idle + `-j 1` 串行）：44 exit 0；4 exit 1（均为 did not complete：`fix02_tuic_editor`、`fix03c_proxy_chain_editor`、`fix08c_routing_draft`、`fix15c_autostart_timing`——Idle 下疑似饿死，待 solo 复判）；1 exit 79（`fix08_option_apply_test`，`No tests were found`——疑似 D 组同类 loader，待 solo 复判）。build 已删，generated_plugin* 噪声已还原。
+- 未完成（低负载恢复后按序跑）：chunk `53-102`、`103-152`、`153-202`、`203-252`、`253-302`、`303-349`，共 297 文件（第 1–52 行已跑：52/349）。跑完每 chunk 后删 `apps/desktop/build` + 还原 generated_plugin* 噪声。
 - 与 `BASELINE.md` Flutter 清单（10 deterministic / 5 load failures / 9 flaky）的逐项对比：**待跑完后补**。
 
 ## 3. 未完成清单（恢复后继续）

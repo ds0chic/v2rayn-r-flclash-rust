@@ -241,12 +241,15 @@ pub fn recognize_archive(path: &Path) -> Result<ArchiveRecognition> {
     let file = std::fs::File::open(path)?;
     let archive = zip::ZipArchive::new(file)?;
     let entries: Vec<String> = archive.file_names().map(str::to_string).collect();
-    let has_config = entries
-        .iter()
-        .any(|name| name.rsplit(['/', '\\']).next() == Some(CONFIG_FILE_NAME));
-    let has_db = entries
-        .iter()
-        .any(|name| name.rsplit(['/', '\\']).next() == Some(DB_FILE_NAME));
+    // S1-18: leaf matching is case-insensitive like the import side
+    // (`upstream_db::is_member`), so `guindb.db` still counts.
+    let leaf_is = |name: &String, base: &str| {
+        name.rsplit(['/', '\\'])
+            .next()
+            .is_some_and(|leaf| leaf.eq_ignore_ascii_case(base))
+    };
+    let has_config = entries.iter().any(|name| leaf_is(name, CONFIG_FILE_NAME));
+    let has_db = entries.iter().any(|name| leaf_is(name, DB_FILE_NAME));
     let layout = if entries.iter().any(|n| n.starts_with("guiConfigs/")) {
         "guiConfigs/".to_string()
     } else {
@@ -373,5 +376,29 @@ mod tests {
         assert!(recognition.has_config);
         assert!(!recognition.has_db);
         assert_eq!(recognition.layout, "guiConfigs/");
+    }
+
+    #[test]
+    fn recognizes_lowercase_archive_names() {
+        // S1-18: member matching is case-insensitive like the import side
+        // (`is_member`), so a lowercase `guindb.db` still counts.
+        use std::io::Write;
+
+        let dir = tempfile::tempdir().unwrap();
+        let zip_path = dir.path().join("lower.zip");
+        {
+            let file = std::fs::File::create(&zip_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default();
+            writer.start_file("files/guindb.db", options).unwrap();
+            writer.write_all(b"fake-db").unwrap();
+            writer.start_file("files/GuinConfig.JSON", options).unwrap();
+            writer.write_all(b"{}").unwrap();
+            writer.finish().unwrap();
+        }
+        let recognition = recognize_archive(&zip_path).unwrap();
+        assert!(recognition.is_upstream);
+        assert!(recognition.has_db);
+        assert!(recognition.has_config);
     }
 }

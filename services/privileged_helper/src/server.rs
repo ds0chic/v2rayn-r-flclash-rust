@@ -287,8 +287,13 @@ impl<B: HelperBackend> HelperServer<B> {
                 result: HelperResult::Error { error },
             };
         }
+        // S7b-05: constant-time token comparison (no early-exit oracle on
+        // the secret bytes; lengths still leak, which is not sensitive here).
         if self.config.session_token.is_empty()
-            || request.session.session_token != self.config.session_token
+            || !ipc_contract::constant_time_eq(
+                &request.session.session_token,
+                &self.config.session_token,
+            )
         {
             let error = HelperError::Unauthorized {
                 detail: "session token mismatch".to_string(),
@@ -472,10 +477,25 @@ impl<B: HelperBackend> HelperServer<B> {
             }
             HelperOp::PollCoreExits { handles } => {
                 validate_poll_handles(handles)?;
+                // S7b-03: a session only ever observes its own handles. A
+                // requested handle this lease never owned is rejected (like
+                // `GetLeaseStatus` rejects it), and observations for unowned
+                // handles are neither recorded here nor returned: handles are
+                // enumerable, so any same-token session could otherwise read
+                // another session's core pids and exit codes.
+                if let Some(unowned) = handles
+                    .iter()
+                    .find(|handle| lease.core_lease_status(**handle).is_none())
+                {
+                    return Err(HelperError::UnknownHandle { handle: *unowned });
+                }
                 let observed = self.backend.poll_core_exits();
                 let at_ms = now_ms();
                 let mut exits = Vec::new();
                 for exit in observed {
+                    if lease.core_lease_status(exit.handle).is_none() {
+                        continue;
+                    }
                     let observation = CoreExitObservation {
                         handle: exit.handle,
                         pid: exit.pid,

@@ -18,7 +18,8 @@ use domain::runtime_plan::{
 };
 use domain::CoreType;
 use ipc_contract::{
-    IpcOperation, IpcResult, RequestEnvelope, SessionIdentity, IPC_PROTOCOL_VERSION,
+    expected_session_token, IpcOperation, IpcResult, RequestEnvelope, SessionIdentity,
+    IPC_PROTOCOL_VERSION,
 };
 use runtime::{
     current_identity, decode_payload, encode_frame, frame_len, sha256_hex, ServerFrame,
@@ -159,7 +160,7 @@ fn connect() -> std::io::Result<Client> {
                     file,
                     session: SessionIdentity {
                         protocol_version: IPC_PROTOCOL_VERSION,
-                        session_token: format!("t03-client-{}", id.pid),
+                        session_token: expected_session_token(id.pid),
                         peer_pid: id.pid,
                         peer_created_at_ms: id.created_at_ms,
                     },

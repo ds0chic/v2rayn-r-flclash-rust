@@ -139,10 +139,18 @@ fn add_routes_records_and_counts() {
 
 #[test]
 fn remove_routes_records() {
+    // H16 ownership: only routes this session added may be removed.
     let fake = Arc::new(FakeBackend::new());
     let server = server_with(fake.clone(), LeasePolicy::CleanOwned);
+    let mut lease = lease("s1");
+    server.handle(
+        &mut lease,
+        &request(HelperOp::AddRoutes {
+            entries: vec![v4_route()],
+        }),
+    );
     let response = server.handle(
-        &mut lease("s1"),
+        &mut lease,
         &request(HelperOp::RemoveRoutes {
             entries: vec![v4_route()],
         }),
@@ -151,7 +159,22 @@ fn remove_routes_records() {
         response.result,
         HelperResult::RoutesRemoved { count: 1 }
     ));
-    assert!(matches!(fake.calls()[0], FakeCall::RemoveRoutes(_)));
+    assert!(matches!(fake.calls()[1], FakeCall::RemoveRoutes(_)));
+
+    // A session that never owned the route is rejected, not served.
+    let mut stranger = ConnectionLease::new("s-stranger");
+    let foreign = server.handle(
+        &mut stranger,
+        &request(HelperOp::RemoveRoutes {
+            entries: vec![v4_route()],
+        }),
+    );
+    assert!(matches!(
+        foreign.result,
+        HelperResult::Error {
+            error: HelperError::Unauthorized { .. }
+        }
+    ));
 }
 
 #[test]
@@ -257,7 +280,9 @@ fn run_core_returns_handle_and_records() {
 }
 
 #[test]
-fn stop_core_is_idempotent() {
+fn stop_released_handle_is_rejected() {
+    // H16 ownership: a stop succeeds once; the released handle is no longer
+    // owned, so a second stop is rejected rather than served again.
     let fake = Arc::new(FakeBackend::new());
     let server = server_with(fake.clone(), LeasePolicy::CleanOwned);
     let mut lease = lease("s1");
@@ -272,12 +297,21 @@ fn stop_core_is_idempotent() {
     let first = server.handle(&mut lease, &request(HelperOp::StopElevatedCore { handle }));
     let second = server.handle(&mut lease, &request(HelperOp::StopElevatedCore { handle }));
     assert!(matches!(first.result, HelperResult::CoreStopped { .. }));
-    assert!(matches!(second.result, HelperResult::CoreStopped { .. }));
+    assert!(
+        matches!(
+            second.result,
+            HelperResult::Error {
+                error: HelperError::Unauthorized { .. }
+            }
+        ),
+        "a released handle is no longer owned: {second:?}"
+    );
     assert!(!fake.is_running(handle));
 }
 
 #[test]
-fn stop_unknown_handle_is_not_found() {
+fn stop_unowned_handle_is_rejected() {
+    // H16 ownership: stopping a handle this session never owned is rejected.
     let fake = Arc::new(FakeBackend::new());
     let server = server_with(fake, LeasePolicy::CleanOwned);
     let response = server.handle(
@@ -286,9 +320,9 @@ fn stop_unknown_handle_is_not_found() {
     );
     match response.result {
         HelperResult::Error {
-            error: HelperError::UnknownHandle { handle },
-        } => assert_eq!(handle, 999_999),
-        other => panic!("expected unknown handle, got {other:?}"),
+            error: HelperError::Unauthorized { .. },
+        } => {}
+        other => panic!("expected ownership rejection, got {other:?}"),
     }
 }
 
@@ -822,4 +856,51 @@ fn sp10_poll_handles_validate_before_backend() {
         ));
     }
     assert_eq!(fake.call_count(), 0, "no backend work for invalid lists");
+}
+
+#[test]
+fn sp10_poll_core_exits_rejects_foreign_handles() {
+    // S7b-03: session B (same token, its own lease) must not observe session
+    // A's core exits; the rejection happens before any backend drain, so A's
+    // exit is still there for A afterwards.
+    let fake = Arc::new(FakeBackend::new());
+    let server = server_with(fake.clone(), LeasePolicy::CleanOwned);
+    let mut lease_a = lease("s-poll-a");
+    let mut lease_b = lease("s-poll-b");
+    let handle = start_core(&server, &mut lease_a);
+    fake.inject_exit(handle, Some(3));
+
+    let foreign = server
+        .handle(
+            &mut lease_b,
+            &request(HelperOp::PollCoreExits {
+                handles: vec![handle],
+            }),
+        )
+        .result;
+    assert!(
+        matches!(
+            foreign,
+            HelperResult::Error {
+                error: HelperError::UnknownHandle { .. }
+            }
+        ),
+        "a foreign handle must be rejected, not observed: {foreign:?}"
+    );
+
+    let owned = match server
+        .handle(
+            &mut lease_a,
+            &request(HelperOp::PollCoreExits {
+                handles: vec![handle],
+            }),
+        )
+        .result
+    {
+        HelperResult::CoreExits { exits } => exits,
+        other => panic!("expected CoreExits, got {other:?}"),
+    };
+    assert_eq!(owned.len(), 1, "the owner's exit was not drained by B");
+    assert_eq!(owned[0].handle, handle);
+    assert_eq!(owned[0].exit_code, Some(3));
 }

@@ -35,7 +35,11 @@ impl CoreInstallLayout {
     /// Directory name of a core under the cores root (`xray`, `singbox`, ...).
     ///
     /// `sing_box` is stored as `singbox` (the project's fixture layout) so the
-    /// updater and the runtime cannot diverge on hyphenation.
+    /// updater and the runtime cannot diverge on hyphenation. Every proxy core
+    /// has its own directory (S7a-02): the `"cores"` fallback only remains for
+    /// the `App` self-update identity, which has no adapter and never resolves
+    /// through here. Upstream likewise keeps a per-core subdirectory
+    /// (`bin/<coreLower>`, `Utils.GetBinPath`).
     pub fn dir_name(core: CoreType) -> &'static str {
         match core {
             CoreType::Xray => "xray",
@@ -43,7 +47,14 @@ impl CoreInstallLayout {
             CoreType::Mihomo => "mihomo",
             CoreType::V2fly | CoreType::V2flyV5 => "v2fly",
             CoreType::Hysteria2 | CoreType::Hysteria => "hysteria",
-            _ => "cores",
+            CoreType::NaiveProxy => "naiveproxy",
+            CoreType::Tuic => "tuic",
+            CoreType::Juicity => "juicity",
+            CoreType::Brook => "brook",
+            CoreType::OverTls => "overtls",
+            CoreType::ShadowQuic => "shadowquic",
+            CoreType::Mieru => "mieru",
+            CoreType::App => "cores",
         }
     }
 
@@ -120,10 +131,17 @@ impl CoreInstallLayout {
     pub fn resolve_exe(&self, core: CoreType, version: Option<&str>) -> Option<PathBuf> {
         let exe = Self::exe_name(core)?;
         let base = self.core_dir(core);
-        let candidate = match version.map(str::trim).filter(|v| !v.is_empty()) {
+        let pinned = version.map(str::trim).filter(|v| !v.is_empty());
+        if let Some(version) = pinned {
+            // S7a-06: a pinned version that is not version-shaped (`..`,
+            // absolute paths) can never name a directory under this core.
+            version_key(version)?;
+        }
+        let candidate = match pinned {
             Some(version) => base.join(version).join(exe),
             None => base.join(self.latest_version(core)?).join(exe),
         };
+        debug_assert!(candidate.starts_with(&base));
         candidate.is_file().then_some(candidate)
     }
 
@@ -131,10 +149,15 @@ impl CoreInstallLayout {
     pub fn resolve_exe_str(&self, core: &str, version: Option<&str>) -> Option<PathBuf> {
         let exe = Self::exe_name_str(core)?;
         let base = self.core_dir_str(core);
-        let candidate = match version.map(str::trim).filter(|v| !v.is_empty()) {
+        let pinned = version.map(str::trim).filter(|v| !v.is_empty());
+        if let Some(version) = pinned {
+            version_key(version)?;
+        }
+        let candidate = match pinned {
             Some(version) => base.join(version).join(exe),
             None => base.join(self.latest_version_str(core)?).join(exe),
         };
+        debug_assert!(candidate.starts_with(&base));
         candidate.is_file().then_some(candidate)
     }
 }
@@ -256,5 +279,46 @@ mod tests {
         assert!(layout
             .version_dir_str("sing_box", "1.14.2")
             .ends_with(Path::new("singbox").join("1.14.2")));
+    }
+
+    #[test]
+    fn dir_name_agrees_with_str_key_for_every_proxy_core() {
+        // S7a-02: the runtime (`CoreType`) and the update pipeline (string
+        // key) must resolve the same directory, or an updated core is never
+        // found at runtime.
+        for core in CoreType::PROXY_CORES {
+            let key = crate::adapter::update_core_key(core);
+            assert_eq!(
+                CoreInstallLayout::dir_name(core),
+                CoreInstallLayout::dir_name_str(key),
+                "layout mismatch for {} (key {key})",
+                core.as_str(),
+            );
+        }
+        // The `App` self-update identity has no adapter and keeps the legacy
+        // shared directory.
+        assert_eq!(CoreInstallLayout::dir_name(CoreType::App), "cores");
+    }
+
+    #[test]
+    fn resolve_rejects_non_version_pinned_names() {
+        // S7a-06 containment: `..` and absolute paths never resolve, even
+        // when a matching executable sits exactly where the traversal lands
+        // (pre-fix this resolved to the outside file).
+        let root = temp_root("escape");
+        let exe = if cfg!(windows) { "xray.exe" } else { "xray" };
+        let escaped = root.join("xray").join("../../evil");
+        std::fs::create_dir_all(&escaped).unwrap();
+        std::fs::write(escaped.join(exe), b"stub").unwrap();
+        let layout = CoreInstallLayout::new(&root);
+        assert!(
+            layout
+                .resolve_exe(CoreType::Xray, Some("../../evil"))
+                .is_none(),
+            "a traversal pinned version must never resolve outside the core dir"
+        );
+        assert!(layout.resolve_exe_str("xray", Some("../evil")).is_none());
+        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::remove_dir_all(root.join("..").join("evil"));
     }
 }

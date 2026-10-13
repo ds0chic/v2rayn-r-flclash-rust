@@ -742,6 +742,18 @@ fn clear_update_token(token: &Arc<CancellationToken>) {
     }
 }
 
+/// Test-only peek: whether an entry currently holds the slot, without
+/// cancelling anybody. Sibling entry tests run in parallel and briefly hold
+/// the process-wide slot; the slot-mechanics test polls this to quiescence
+/// instead of racing them.
+#[cfg(test)]
+fn update_slot_occupied() -> bool {
+    current_update_token()
+        .lock()
+        .map(|slot| slot.is_some())
+        .unwrap_or(false)
+}
+
 /// `cancel_update` — cancel the in-flight update operation, if any (B07b).
 ///
 /// `ok: true` means a cancellation was newly requested; `ok: false` with a
@@ -1898,6 +1910,19 @@ mod tests {
 
     #[test]
     fn b07b_cancel_update_slot_mechanics() {
+        // Sibling entry tests run in parallel and briefly hold the
+        // process-wide slot. Poll to quiescence without cancelling (a cancel
+        // would perturb their assertions); entries finish in seconds.
+        for _ in 0..300 {
+            if !update_slot_occupied() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(
+            !update_slot_occupied(),
+            "update slot never quiesced for the mechanics test"
+        );
         // No op in flight: structured NOT_FOUND, never a fake success.
         let idle = t16_cancel_update();
         assert!(!idle.ok);
@@ -1911,6 +1936,14 @@ mod tests {
         assert!(!t16_cancel_update().ok);
         assert!(token.is_cancelled());
         clear_update_token(&token);
+        // A sibling entry may install between the clear and this read; poll
+        // back to quiescence before asserting the idle contract again.
+        for _ in 0..300 {
+            if !update_slot_occupied() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
         assert!(!t16_cancel_update().ok);
     }
 

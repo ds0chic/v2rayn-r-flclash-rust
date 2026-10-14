@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Theme setting window (LAY-THEME-001).
@@ -239,7 +240,8 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  _status!,
+                  // D-LEFT2: a bare key localizes; human text passes through.
+                  context.messageText(_status!),
                   style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
                 ),
               ),

@@ -11,6 +11,8 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/subs/import_persistence.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/features/subs/sub_setting_window.dart';
+import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// ACT-MAIN-016: import share links from the clipboard (F-IMPORT-001/002/005).
@@ -364,7 +366,14 @@ Future<void> exportProfiles(
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.exportProfiles(state.selected.toList(), kind);
   if (!result.ok) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = result.error == null
+        ? '无导出项'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            result.error!.messageKey,
+          );
+    _toast(ref, '导出失败：$detail');
     return;
   }
   await Clipboard.setData(ClipboardData(text: result.text));
@@ -391,7 +400,14 @@ Future<void> exportProfilesToFile(BuildContext context, WidgetRef ref) async {
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.exportProfiles(state.selected.toList(), 'share');
   if (!result.ok) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = result.error == null
+        ? '无导出项'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            result.error!.messageKey,
+          );
+    _toast(ref, '导出失败：$detail');
     return;
   }
   final path = buildExportFilePath(

@@ -923,7 +923,12 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
     final saved = controller.save(draft);
     if (!saved.ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败：${saved.error?.messageKey}')),
+        // D-LEFT2: the key is localized; the snackbar renders raw.
+        SnackBar(
+          content: Text(
+            '保存失败：${context.messageText(saved.error?.messageKey ?? 'error.unknown')}',
+          ),
+        ),
       );
       return;
     }

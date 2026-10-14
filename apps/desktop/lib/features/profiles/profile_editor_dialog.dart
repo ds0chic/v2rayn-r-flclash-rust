@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Modal editor for one node of any of the 11 basic protocol kinds.
@@ -184,7 +185,8 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
         borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
       ),
       child: Text(
-        '保存失败: ${error.messageKey} (${error.code})',
+        // D-LEFT2: the key is localized; the dialog renders raw.
+        '保存失败: ${context.messageText(error.messageKey)} (${error.code})',
         style: AppForm.contentStyle(theme)
             .copyWith(color: theme.colorScheme.onErrorContainer),
       ),
@@ -615,7 +617,10 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       _fieldErrors.clear();
       final path = result.error?.fieldPath;
       if (path != null) {
-        _fieldErrors[path] = result.error?.messageKey ?? '字段无效';
+        // D-LEFT2: the key is localized; the form renders raw.
+        _fieldErrors[path] = context.messageText(
+          result.error?.messageKey ?? '字段无效',
+        );
       }
     });
   }

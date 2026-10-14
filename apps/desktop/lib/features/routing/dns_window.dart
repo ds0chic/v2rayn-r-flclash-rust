@@ -786,7 +786,12 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
       }
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('应用预设失败：${result.error?.messageKey}')),
+        SnackBar(
+          content: Text(
+            // D-LEFT2: the key is localized; the snackbar renders raw.
+            '应用预设失败：${context.messageText(result.error?.messageKey ?? 'error.unknown')}',
+          ),
+        ),
       );
     }
   }
@@ -897,7 +902,12 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
     final simpleResult = controller.saveSimple(simple);
     if (!simpleResult.ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败：${simpleResult.error?.messageKey}')),
+        SnackBar(
+          // D-LEFT2: the key is localized; the snackbar renders raw.
+          content: Text(
+            '保存失败：${context.messageText(simpleResult.error?.messageKey ?? 'error.unknown')}',
+          ),
+        ),
       );
       return;
     }
@@ -924,7 +934,12 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
       if (!saved.ok) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Xray DNS 保存失败：${saved.error?.messageKey}')),
+            // D-LEFT2: the key is localized; the snackbar renders raw.
+            SnackBar(
+              content: Text(
+                'Xray DNS 保存失败：${context.messageText(saved.error?.messageKey ?? 'error.unknown')}',
+              ),
+            ),
           );
         }
         return;
@@ -952,7 +967,10 @@ class _DnsSettingWindowState extends ConsumerState<DnsSettingWindow>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('sing-box DNS 保存失败：${saved.error?.messageKey}'),
+              // D-LEFT2: the key is localized; the snackbar renders raw.
+              content: Text(
+                'sing-box DNS 保存失败：${context.messageText(saved.error?.messageKey ?? 'error.unknown')}',
+              ),
             ),
           );
         }

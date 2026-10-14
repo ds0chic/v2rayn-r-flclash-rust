@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
@@ -130,7 +132,14 @@ Future<void> exportSelectedClientConfig(
   final bridge = ref.read(bridgePortProvider);
   final result = bridge.exportClientConfigText(id);
   if (!result.ok) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = result.error == null
+        ? '无导出项'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            result.error!.messageKey,
+          );
+    _toast(ref, '导出失败：$detail');
     return;
   }
 
@@ -157,7 +166,14 @@ Future<void> exportSelectedClientConfig(
   }
   final write = bridge.writeExportFile(path, result.text);
   if (!write.ok) {
-    _toast(ref, '保存失败：${write.error?.messageKey ?? "写入被拒绝"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = write.error == null
+        ? '写入被拒绝'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            write.error!.messageKey,
+          );
+    _toast(ref, '保存失败：$detail');
     return;
   }
   _toast(ref, '已保存完整配置：$path');
@@ -432,7 +448,14 @@ Future<void> exportSelectedShareUrls(WidgetRef ref) async {
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.exportProfiles(state.selected.toList(), 'share');
   if (!result.ok) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = result.error == null
+        ? '无导出项'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            result.error!.messageKey,
+          );
+    _toast(ref, '导出失败：$detail');
     return;
   }
   await Clipboard.setData(ClipboardData(text: result.text));

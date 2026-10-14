@@ -23,6 +23,7 @@
 - 取消/退出：`stopScheduler()`（Dart）→ `stop_sub_scheduler()` → `SubScheduler::stop` 置停止标志并 `notify_one` 唤醒循环；循环在下一轮顶部退出，运行时随线程结束释放，无残留定时器。
 - 权限：仅本机 UI + FRB/Rust/SQLite；不启动内核、不写系统代理/TUN、不监听入站端口（测试的本地 HTTP 端点为回环合成，端口 ≥11808）。
 - 持久化：仅在成功分支 touch `UpdateTime` 并替换节点；失败/取消不落盘替换。
+- 审计修正（2026-10-09）：定时 tick 对每个到期项尝试后都写 `UpdateTime`（取消除外），对齐 `TaskManager.cs:112` 的无条件 `item.UpdateTime = updateTime`；此前失败项每 60s 重复下载。节点替换仍只在成功分支。
 - 生效：正常启动即启动 scheduler（非测试 env 武装）；退出即停止。
 
 ## 允许修改的模块（本轮实际改动）

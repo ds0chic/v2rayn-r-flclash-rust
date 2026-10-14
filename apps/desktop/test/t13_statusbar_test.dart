@@ -71,8 +71,15 @@ void main() {
       expect(find.textContaining(mode.label), findsWidgets);
     }
 
-    // Select 自动配置系统代理 (ForcedChange) -> bridge apply is recorded.
+    // Select 自动配置系统代理 (ForcedChange) -> U-B1 danger gate (UX1-03)
+    // asks for confirmation first; confirming records the bridge apply.
     await tester.tap(find.text('自动配置系统代理').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('sysproxy-apply-confirm')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('danger-confirm-ok')));
     await tester.pumpAndSettle();
     expect(bridge.appliedModes, contains(SysProxyMode.forcedChange));
     final view = container.read(platformControllerProvider);

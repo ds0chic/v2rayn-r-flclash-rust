@@ -6,8 +6,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
+import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart';
+import 'package:v2rayn_desktop/features/routing/help_bits.dart';
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_window_host.dart';
@@ -54,6 +56,11 @@ class RoutingSettingWindow extends ConsumerStatefulWidget {
 }
 
 class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
+  // U-B1 default fold (UX1-10): the bulk builtin-rules import hides behind an
+  // "高级" toggle so newcomers don't overwrite rules by accident. The entry
+  // keeps its key and action; only its default visibility changes.
+  bool _showAdvanced = false;
+
   @override
   void initState() {
     super.initState();
@@ -75,7 +82,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
       key: const ValueKey('routing-setting-window'),
       title: Text(
         context.tr('menuRoutingSetting'),
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
@@ -85,22 +92,29 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             // Upstream ToolBarTray (RoutingSettingWindow.xaml:27):
-            // 添加规则集 / 一键导入规则集 sit above the strategy rows.
+            // 添加规则集 stays visible; 一键导入规则集 folds into 高级.
             Row(
               children: <Widget>[
                 TextButton.icon(
                   key: const ValueKey('routing-add'),
                   onPressed: () => _openRuleset(null),
-                  icon: const Icon(Icons.add, size: 16),
+                  icon: Icon(AppTokens.icon('add'), size: 16),
                   label: Text(context.tr('menuRoutingAdvancedAdd')),
                 ),
                 const SizedBox(width: 4),
-                TextButton.icon(
-                  key: const ValueKey('routing-import-builtin'),
-                  onPressed: _importBuiltinRules,
-                  icon: const Icon(Icons.download, size: 16),
-                  label: Text(context.tr('menuRoutingAdvancedImportRules')),
+                TextButton(
+                  key: const ValueKey('routing-advanced-toggle'),
+                  onPressed: () =>
+                      setState(() => _showAdvanced = !_showAdvanced),
+                  child: Text(_showAdvanced ? '收起高级' : '高级…'),
                 ),
+                if (_showAdvanced)
+                  TextButton.icon(
+                    key: const ValueKey('routing-import-builtin'),
+                    onPressed: _importBuiltinRules,
+                    icon: Icon(AppTokens.icon('download'), size: 16),
+                    label: Text(context.tr('menuRoutingAdvancedImportRules')),
+                  ),
               ],
             ),
             const Divider(height: 1),
@@ -112,6 +126,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
               value: _strategyValue(),
               options: domainStrategyOptions,
               onChanged: _saveStrategy,
+              help: '默认 AsIs（保持原样）别动；改成 UseIP 会让按域名的规则批量失效（待核实）。',
             ),
             const SizedBox(height: 4),
             _strategyRow(
@@ -121,7 +136,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
               value: _strategySboxValue(),
               options: domainStrategySboxOptions,
               onChanged: _saveStrategySbox,
+              help: '用 sing-box 内核才需要看；ipv4_only/ipv6_only 是“断一臂”，别碰。',
             ),
+            const SizedBox(height: 4),
+            const HelpText('日常用“绕过大陆”，想省心用“全局”；网站打不开先切全局试。删方案前确认它不是活动方案。'),
             const SizedBox(height: 8),
             // Upstream TabItem header (RoutingSettingWindow.xaml:105).
             Align(
@@ -130,7 +148,7 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                 context.tr('TbRoutingTabRuleList'),
                 key: const ValueKey('routing-block-title'),
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: AppTokens.fontSizeSubtitle,
                   color: primary,
                   decoration: TextDecoration.underline,
                 ),
@@ -167,7 +185,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
                 child: Text(
                   context.messageText(state.status!),
                   key: const ValueKey('routing-status'),
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.muted,
+                  ),
                 ),
               ),
           ],
@@ -196,13 +217,18 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
     required String value,
     required List<String> options,
     required ValueChanged<String> onChanged,
+    String? help,
   }) {
     final primary = Theme.of(context).colorScheme.primary;
     return Row(
       children: <Widget>[
-        Text(label, style: TextStyle(fontSize: 12, color: primary)),
+        Text(
+          label,
+          style: TextStyle(fontSize: AppTokens.fontSize, color: primary),
+        ),
         const SizedBox(width: 2),
-        Icon(Icons.link, size: 14, color: primary),
+        Icon(AppTokens.icon('link'), size: 14, color: primary),
+        if (help != null) ...[const SizedBox(width: 2), HelpTip(help)],
         const SizedBox(width: 8),
         SizedBox(
           width: 300,
@@ -214,7 +240,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
               for (final s in options)
                 DropdownMenuItem(
                   value: s,
-                  child: Text(s, style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    s,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
             ],
             onChanged: (v) => onChanged(v ?? ''),
@@ -337,7 +366,10 @@ class _RoutingSettingWindowState extends ConsumerState<RoutingSettingWindow> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除路由方案', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '删除路由方案',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         content: const Text('确定删除选中的路由方案吗？'),
         actions: <Widget>[
           TextButton(
@@ -363,11 +395,14 @@ class _SchemeTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 11, color: Colors.grey);
+    final style = TextStyle(
+      fontSize: AppTokens.fontSizeTiny,
+      color: context.semantics.muted,
+    );
     // Upstream DataGrid columns (RoutingSettingWindow.xaml:157-177):
     // Remarks(*) / Count(60) / Sort(60) / Url(*) / CustomIcon(300).
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: <Widget>[
           Expanded(flex: 3, child: Text('别名', style: style)),
@@ -406,7 +441,9 @@ class _SchemeRow extends StatelessWidget {
       onDoubleTap: onEdit,
       onSecondaryTapDown: (details) => onContextMenu(details.globalPosition),
       child: Container(
-        color: selected ? Colors.blue.withValues(alpha: 0.08) : null,
+        color: selected
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+            : null,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: <Widget>[
@@ -418,7 +455,10 @@ class _SchemeRow extends StatelessWidget {
               child: Text(
                 item.url.isEmpty ? '—' : item.url,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             ),
             Expanded(
@@ -426,7 +466,10 @@ class _SchemeRow extends StatelessWidget {
               child: Text(
                 item.customIcon,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             ),
           ],
@@ -475,6 +518,9 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
 
   bool get isNew => widget.item == null;
 
+  /// Ghost source for the read-only legacy rows (UC1-07).
+  r.RoutingProfileDto? get _ghostSource => widget.item;
+
   @override
   void initState() {
     super.initState();
@@ -516,7 +562,7 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
       key: const ValueKey('routing-ruleset-window'),
       title: Text(
         isNew ? '新增路由方案' : '编辑路由方案',
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
@@ -526,7 +572,12 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             _field('备注', _remarks, const ValueKey('ruleset-remarks')),
-            _field('URL', _url, const ValueKey('ruleset-url')),
+            _field(
+              'URL',
+              _url,
+              const ValueKey('ruleset-url'),
+              help: '从网上拉规则，只用可信地址；被改过先看这里。',
+            ),
             Row(
               children: <Widget>[
                 Expanded(
@@ -557,7 +608,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
                 const SizedBox(width: 8),
                 Row(
                   children: <Widget>[
-                    const Text('启用', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      '启用',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     Switch(
                       key: const ValueKey('ruleset-enabled'),
                       value: _enabled,
@@ -567,6 +621,15 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
                 ),
               ],
             ),
+            // U-C1 legacy rows (UC1-07): scheme-level domain strategies have
+            // no editor upstream; shown read-only, passed through on save.
+            if (_ghostSource != null) ...[
+              LegacyRow(label: '方案级域名策略', value: _ghostSource!.domainStrategy),
+              LegacyRow(
+                label: '方案级 sing-box 域名策略',
+                value: _ghostSource!.domainStrategy4Singbox,
+              ),
+            ],
             Row(
               children: <Widget>[
                 _tool('新增规则', const ValueKey('rule-add'), _addRule),
@@ -627,7 +690,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
                 child: Text(
                   _warnings.first.message,
                   key: const ValueKey('rule-warning'),
-                  style: const TextStyle(fontSize: 11, color: Colors.orange),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.warning,
+                  ),
                 ),
               ),
           ],
@@ -653,22 +719,30 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
     TextEditingController controller,
     ValueKey<String> key, {
     bool numeric = false,
+    String? help,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: TextField(
-        key: key,
-        controller: controller,
-        keyboardType: numeric ? TextInputType.number : null,
-        inputFormatters: numeric
-            ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
-            : null,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          isDense: true,
-        ),
-        style: const TextStyle(fontSize: 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          TextField(
+            key: key,
+            controller: controller,
+            keyboardType: numeric ? TextInputType.number : null,
+            inputFormatters: numeric
+                ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
+                : null,
+            decoration: InputDecoration(
+              labelText: label,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+          ),
+          if (help != null) HelpText(help),
+        ],
       ),
     );
   }
@@ -684,7 +758,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
     final draft = ref.read(routingControllerProvider.notifier).newRuleDraft();
     final saved = await showRoutingRuleDetailsDialog(context, ref, draft);
     if (saved != null && mounted) {
-      setState(() => _rules = [..._rules, saved]);
+      // Upstream `RuleEditAsync(true)` inserts the new rule at the top
+      // (`_rules.Insert(0, item)`); routing is first-match-wins, so appending
+      // would silently demote it to the lowest priority.
+      setState(() => _rules = [saved, ..._rules]);
     }
   }
 
@@ -705,7 +782,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('rule-delete-confirm-dialog'),
-        title: const Text('删除规则', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '删除规则',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         content: Text('确定删除选中的 ${_selectedRuleIds.length} 条规则吗？'),
         actions: <Widget>[
           TextButton(
@@ -781,7 +861,10 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('routing-import-url-dialog'),
-        title: const Text('从 URL 导入规则', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          '从 URL 导入规则',
+          style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+        ),
         content: SizedBox(
           width: 420,
           child: TextField(
@@ -806,6 +889,7 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
         ],
       ),
     );
+    urlController.dispose();
     if (url == null || !mounted) return;
     pickRulesFromUrl(context, url).then(_mergeImported);
   }
@@ -839,7 +923,12 @@ class _RoutingRulesetWindowState extends ConsumerState<RoutingRulesetWindow> {
     final saved = controller.save(draft);
     if (!saved.ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('保存失败：${saved.error?.messageKey}')),
+        // D-LEFT2: the key is localized; the snackbar renders raw.
+        SnackBar(
+          content: Text(
+            '保存失败：${context.messageText(saved.error?.messageKey ?? 'error.unknown')}',
+          ),
+        ),
       );
       return;
     }
@@ -852,9 +941,12 @@ class _RuleTableHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(fontSize: 11, color: Colors.grey);
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    final style = TextStyle(
+      fontSize: AppTokens.fontSizeTiny,
+      color: context.semantics.muted,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: <Widget>[
           Expanded(flex: 2, child: Text('备注', style: style)),
@@ -917,7 +1009,9 @@ class _RuleRow extends StatelessWidget {
     // single tap never resolves), so nesting them silently kills T/U/D/B.
     return Container(
       key: ValueKey('rule-row-$index'),
-      color: selected ? Colors.blue.withValues(alpha: 0.08) : null,
+      color: selected
+          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.08)
+          : null,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         children: <Widget>[
@@ -936,7 +1030,10 @@ class _RuleRow extends StatelessWidget {
                     child: Text(
                       match.isEmpty ? '—' : match,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: AppTokens.fontSize,
+                        color: context.semantics.muted,
+                      ),
                     ),
                   ),
                   Expanded(child: Text(rule.enabled ? '是' : '否')),
@@ -972,7 +1069,10 @@ class _RuleRow extends StatelessWidget {
         key: ValueKey('${key.value}-$index'),
         onPressed: onPressed,
         style: TextButton.styleFrom(padding: EdgeInsets.zero),
-        child: Text(label, style: const TextStyle(fontSize: 12)),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: AppTokens.fontSize),
+        ),
       ),
     );
   }
@@ -1063,7 +1163,10 @@ class _RoutingRuleDetailsDialogState
   Widget build(BuildContext context) {
     return AlertDialog(
       key: const ValueKey('routing-rule-details-window'),
-      title: const Text('规则详情', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '规则详情',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
         width: 720,
@@ -1084,7 +1187,10 @@ class _RoutingRuleDetailsDialogState
                   const SizedBox(width: 8),
                   Row(
                     children: <Widget>[
-                      const Text('启用', style: TextStyle(fontSize: 12)),
+                      const Text(
+                        '启用',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                       Switch(
                         key: const ValueKey('rule-enabled'),
                         value: _enabled,
@@ -1105,6 +1211,9 @@ class _RoutingRuleDetailsDialogState
                   ),
                 ],
               ),
+              const HelpText(
+                '类型 DNS 只管解析不管走路，Routing 只管走路；选错会“路对了但 DNS 漏了”（待核实）。',
+              ),
               Row(
                 children: <Widget>[
                   Expanded(
@@ -1122,6 +1231,7 @@ class _RoutingRuleDetailsDialogState
                   ),
                 ],
               ),
+              const HelpText('出站填错（如别字）会回落到 proxy 并在方案页显示警告，本想直连的会走代理。'),
               Row(
                 children: <Widget>[
                   Expanded(
@@ -1135,7 +1245,10 @@ class _RoutingRuleDetailsDialogState
                   Expanded(
                     child: Row(
                       children: <Widget>[
-                        const Text('网络', style: TextStyle(fontSize: 12)),
+                        const Text(
+                          '网络',
+                          style: TextStyle(fontSize: AppTokens.fontSize),
+                        ),
                         const SizedBox(width: 8),
                         DropdownButton<String>(
                           key: const ValueKey('rule-network'),
@@ -1148,7 +1261,9 @@ class _RoutingRuleDetailsDialogState
                                 value: n,
                                 child: Text(
                                   n.isEmpty ? '(空)' : n,
-                                  style: const TextStyle(fontSize: 12),
+                                  style: const TextStyle(
+                                    fontSize: AppTokens.fontSize,
+                                  ),
                                 ),
                               ),
                           ],
@@ -1160,21 +1275,43 @@ class _RoutingRuleDetailsDialogState
                   ),
                 ],
               ),
-              _checkGroup(
-                '协议',
-                protocolOptions,
-                _protocols,
-                const ValueKey('rule-protocol'),
-              ),
-              _checkGroup(
-                '入站标签',
-                inboundOptions,
-                _inbounds,
-                const ValueKey('rule-inbound'),
+              // U-C1 expert fold (UC1-06): protocol/inboundTag hide by default,
+              // but an already-effective selection must never be hidden: the
+              // section auto-expands and carries a count badge (condition A).
+              Builder(
+                builder: (context) {
+                  final setCount = _protocols.length + _inbounds.length;
+                  return FoldSection(
+                    title: '专家匹配条件',
+                    badge: setCount > 0 ? '已设置 $setCount 项' : null,
+                    initiallyExpanded: setCount > 0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        _checkGroup(
+                          '协议',
+                          protocolOptions,
+                          _protocols,
+                          const ValueKey('rule-protocol'),
+                        ),
+                        _checkGroup(
+                          '入站标签',
+                          inboundOptions,
+                          _inbounds,
+                          const ValueKey('rule-inbound'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
               Row(
                 children: <Widget>[
-                  const Text('自动排序列表', style: TextStyle(fontSize: 12)),
+                  const Text(
+                    '自动排序列表',
+                    style: TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                   Switch(
                     key: const ValueKey('rule-autosort'),
                     value: _autoSort,
@@ -1232,7 +1369,7 @@ class _RoutingRuleDetailsDialogState
           border: const OutlineInputBorder(),
           isDense: true,
         ),
-        style: const TextStyle(fontSize: 13),
+        style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
       ),
     );
   }
@@ -1251,7 +1388,10 @@ class _RoutingRuleDetailsDialogState
         children: <Widget>[
           SizedBox(
             width: 64,
-            child: Text(label, style: const TextStyle(fontSize: 12)),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: AppTokens.fontSize),
+            ),
           ),
           Expanded(
             child: Wrap(
@@ -1260,7 +1400,10 @@ class _RoutingRuleDetailsDialogState
                 for (final option in options)
                   FilterChip(
                     key: ValueKey('${key.value}-$option'),
-                    label: Text(option, style: const TextStyle(fontSize: 12)),
+                    label: Text(
+                      option,
+                      style: const TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     selected: selected.contains(option),
                     onSelected: (v) => setState(() {
                       if (v) {
@@ -1286,21 +1429,31 @@ class _RoutingRuleDetailsDialogState
     final options = supplied != null
         ? List<String>.of(supplied)
         : () {
+            // S8-03: a storage failure leaves the built-in tags, without the
+            // live node remarks.
             final bridge = ref.read(bridgePortProvider);
-            final remarks =
-                bridge
-                    .queryAllProfiles()
-                    .where((p) => p.configType != ConfigType.custom)
-                    .map((p) => p.remarks)
-                    .toList()
-                  ..sort();
+            List<String> remarks = const [];
+            try {
+              remarks =
+                  bridge
+                      .queryAllProfiles()
+                      .where((p) => p.configType != ConfigType.custom)
+                      .map((p) => p.remarks)
+                      .toList()
+                    ..sort();
+            } on BridgeDataError {
+              remarks = const [];
+            }
             return <String>['proxy', 'direct', 'block', ...remarks];
           }();
     final picked = await showDialog<String>(
       context: context,
       builder: (context) => SimpleDialog(
         key: const ValueKey('rule-outbound-picker'),
-        title: const Text('选择目标出站', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '选择目标出站',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         children: [
           for (final option in options)
             SimpleDialogOption(
@@ -2271,7 +2424,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除路由方案', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '删除路由方案',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         content: Text('确定删除选中的 ${ids.length} 个路由方案吗？'),
         actions: <Widget>[
           TextButton(
@@ -2482,14 +2638,14 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                     TextButton.icon(
                       key: const ValueKey('routing-add'),
                       onPressed: () => _openSchemeEditor(null),
-                      icon: const Icon(Icons.add, size: 16),
+                      icon: Icon(AppTokens.icon('add'), size: 16),
                       label: Text(context.tr('menuRoutingAdvancedAdd')),
                     ),
                     const SizedBox(width: 4),
                     TextButton.icon(
                       key: const ValueKey('routing-import-builtin'),
                       onPressed: _importBuiltin,
-                      icon: const Icon(Icons.download, size: 16),
+                      icon: Icon(AppTokens.icon('download'), size: 16),
                       label: Text(context.tr('menuRoutingAdvancedImportRules')),
                     ),
                   ],
@@ -2502,6 +2658,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                   value: _domainStrategy,
                   options: domainStrategyOptions,
                   onChanged: (v) => _onStrategyChanged(v, sbox: false),
+                  help: '默认 AsIs（保持原样）别动；改成 UseIP 会让按域名的规则批量失效（待核实）。',
                 ),
                 const SizedBox(height: 4),
                 _strategyRow(
@@ -2510,7 +2667,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                   value: _domainStrategySbox,
                   options: domainStrategySboxOptions,
                   onChanged: (v) => _onStrategyChanged(v, sbox: true),
+                  help: '用 sing-box 内核才需要看；ipv4_only/ipv6_only 是“断一臂”，别碰。',
                 ),
+                const SizedBox(height: 4),
+                const HelpText('日常用“绕过大陆”，想省心用“全局”；网站打不开先切全局试。删方案前确认它不是活动方案。'),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -2518,7 +2678,7 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                     context.tr('TbRoutingTabRuleList'),
                     key: const ValueKey('routing-block-title'),
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: AppTokens.fontSizeSubtitle,
                       color: Theme.of(context).colorScheme.primary,
                       decoration: TextDecoration.underline,
                     ),
@@ -2560,7 +2720,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                     child: Text(
                       _error!,
                       key: const ValueKey('routing-error'),
-                      style: const TextStyle(fontSize: 11, color: Colors.red),
+                      style: TextStyle(
+                        fontSize: AppTokens.fontSizeTiny,
+                        color: context.semantics.error,
+                      ),
                     ),
                   ),
                 if (_status != null)
@@ -2569,7 +2732,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
                     child: Text(
                       _status!,
                       key: const ValueKey('routing-status'),
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: AppTokens.fontSizeTiny,
+                        color: context.semantics.muted,
+                      ),
                     ),
                   ),
                 const Divider(height: 1),
@@ -2606,13 +2772,18 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
     required String value,
     required List<String> options,
     required ValueChanged<String> onChanged,
+    String? help,
   }) {
     final primary = Theme.of(context).colorScheme.primary;
     return Row(
       children: <Widget>[
-        Text(label, style: TextStyle(fontSize: 12, color: primary)),
+        Text(
+          label,
+          style: TextStyle(fontSize: AppTokens.fontSize, color: primary),
+        ),
         const SizedBox(width: 2),
-        Icon(Icons.link, size: 14, color: primary),
+        Icon(AppTokens.icon('link'), size: 14, color: primary),
+        if (help != null) ...[const SizedBox(width: 2), HelpTip(help)],
         const SizedBox(width: 8),
         SizedBox(
           width: 300,
@@ -2624,7 +2795,10 @@ class _RoutingEditorWindowState extends State<RoutingEditorWindow> {
               for (final s in options)
                 DropdownMenuItem(
                   value: s,
-                  child: Text(s, style: const TextStyle(fontSize: 12)),
+                  child: Text(
+                    s,
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
+                  ),
                 ),
             ],
             onChanged: (v) => onChanged(v ?? ''),
@@ -2759,6 +2933,9 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
 
   bool get isNew => widget.scheme == null;
 
+  /// Ghost source for the read-only legacy rows (UC1-07).
+  r.RoutingProfileDto? get _ghostSource => widget.scheme?.profile;
+
   @override
   void initState() {
     super.initState();
@@ -2792,7 +2969,7 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
       key: const ValueKey('routing-ruleset-window'),
       title: Text(
         isNew ? '新增路由方案' : '编辑路由方案',
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       content: SizedBox(
@@ -2802,7 +2979,12 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             _field('备注', _remarks, const ValueKey('ruleset-remarks')),
-            _field('URL', _url, const ValueKey('ruleset-url')),
+            _field(
+              'URL',
+              _url,
+              const ValueKey('ruleset-url'),
+              help: '从网上拉规则，只用可信地址；被改过先看这里。',
+            ),
             Row(
               children: <Widget>[
                 Expanded(
@@ -2833,7 +3015,10 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
                 const SizedBox(width: 8),
                 Row(
                   children: <Widget>[
-                    const Text('启用', style: TextStyle(fontSize: 12)),
+                    const Text(
+                      '启用',
+                      style: TextStyle(fontSize: AppTokens.fontSize),
+                    ),
                     Switch(
                       key: const ValueKey('ruleset-enabled'),
                       value: _enabled,
@@ -2843,6 +3028,15 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
                 ),
               ],
             ),
+            // U-C1 legacy rows (UC1-07): scheme-level domain strategies have
+            // no editor upstream; shown read-only, passed through on save.
+            if (_ghostSource != null) ...[
+              LegacyRow(label: '方案级域名策略', value: _ghostSource!.domainStrategy),
+              LegacyRow(
+                label: '方案级 sing-box 域名策略',
+                value: _ghostSource!.domainStrategy4Singbox,
+              ),
+            ],
             Row(
               children: <Widget>[
                 _tool('新增规则', const ValueKey('rule-add'), _addRule),
@@ -2920,22 +3114,30 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
     TextEditingController controller,
     ValueKey<String> key, {
     bool numeric = false,
+    String? help,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: TextField(
-        key: key,
-        controller: controller,
-        keyboardType: numeric ? TextInputType.number : null,
-        inputFormatters: numeric
-            ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
-            : null,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          isDense: true,
-        ),
-        style: const TextStyle(fontSize: 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          TextField(
+            key: key,
+            controller: controller,
+            keyboardType: numeric ? TextInputType.number : null,
+            inputFormatters: numeric
+                ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
+                : null,
+            decoration: InputDecoration(
+              labelText: label,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            style: const TextStyle(fontSize: AppTokens.fontSizeSubtitle),
+          ),
+          if (help != null) HelpText(help),
+        ],
       ),
     );
   }
@@ -2956,7 +3158,8 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
       ),
     );
     if (saved != null && mounted) {
-      setState(() => _rules = <r.RoutingRuleDto>[..._rules, saved]);
+      // Same upstream `Insert(0)` order as the embedded ruleset editor above.
+      setState(() => _rules = <r.RoutingRuleDto>[saved, ..._rules]);
     }
   }
 
@@ -2981,7 +3184,10 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('rule-delete-confirm-dialog'),
-        title: const Text('删除规则', style: TextStyle(fontSize: 14)),
+        title: const Text(
+          '删除规则',
+          style: TextStyle(fontSize: AppTokens.fontSizeTitle),
+        ),
         content: Text('确定删除选中的 ${_selectedRuleIds.length} 条规则吗？'),
         actions: <Widget>[
           TextButton(
@@ -3051,7 +3257,10 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
       context: context,
       builder: (context) => AlertDialog(
         key: const ValueKey('routing-import-url-dialog'),
-        title: const Text('从 URL 导入规则', style: TextStyle(fontSize: 15)),
+        title: const Text(
+          '从 URL 导入规则',
+          style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+        ),
         content: SizedBox(
           width: 420,
           child: TextField(
@@ -3076,6 +3285,7 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
         ],
       ),
     );
+    urlController.dispose();
     if (url == null || !mounted) return;
     pickRulesFromUrl(context, url).then(_mergeImported);
   }
@@ -3088,8 +3298,14 @@ class _RoutingSchemeEditorState extends State<_RoutingSchemeEditor> {
     }
     final existing = widget.scheme?.profile;
     final profile = r.RoutingProfileDto(
-      // A new scheme carries a stable id before it is committed, so the relayed
-      // save and the window's local list agree on the row identity.
+      // A new scheme carries a stable client id before it is committed, so the
+      // relayed save and the window's local list agree on the row identity.
+      // D-LEFT: deliberately NOT `''` — the SP-13 relay verifies the commit by
+      // re-querying the authoritative list for this exact id
+      // (`verifyRoutingIncrement`, routing_actions.dart); an empty id would
+      // fail verification after a successful save and a retry would duplicate
+      // the row. The backend keeps client ids (`normalize_routing` only
+      // allocates when empty), so both paths stay consistent.
       id: existing?.id ?? 'rt-${DateTime.now().microsecondsSinceEpoch}',
       remarks: _remarks.text.trim(),
       url: _url.text.trim(),

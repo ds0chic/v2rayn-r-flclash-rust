@@ -6,9 +6,17 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
+};
 use std::time::Duration;
 
-use application::{CoreApplyRequest, UpdateService};
+use application::runtime_client::{
+    ApplyOutcome, OperationStatusView, RuntimeClient, RuntimeSnapshot,
+};
+use application::{AppEngine, CoreApplyRequest, UpdateService};
+use domain::{CancelOutcome, ConfigType, DesiredRevision, DomainError, JobId, Profile};
 use sha2::{Digest, Sha256};
 use tiny_http::{Response, Server};
 use updater::arch::{HostTarget, Os, PlatformArch};
@@ -143,6 +151,221 @@ fn request_from(check: &application::CoreUpdateCheck) -> CoreApplyRequest {
         dgst_url: check.dgst_url.clone(),
         proxy: None,
     }
+}
+
+/// Recording fake runtime (no sockets, no processes): the managed-update
+/// order tests assert stop-before-replace and resume-after-failure against
+/// this call log. `snapshot` reports `Running` once an apply lands, so the
+/// engine publishes an applied session exactly like against the real client.
+struct RecordingFake {
+    calls: Mutex<Vec<String>>,
+    next_op: AtomicUsize,
+    running: Mutex<bool>,
+    port: Mutex<u16>,
+}
+
+impl RecordingFake {
+    fn new() -> Self {
+        Self {
+            calls: Mutex::new(Vec::new()),
+            next_op: AtomicUsize::new(0),
+            running: Mutex::new(false),
+            port: Mutex::new(0),
+        }
+    }
+
+    fn calls(&self) -> Vec<String> {
+        self.calls.lock().unwrap().clone()
+    }
+}
+
+impl RuntimeClient for RecordingFake {
+    fn snapshot(&self) -> Result<RuntimeSnapshot, DomainError> {
+        let running = *self.running.lock().unwrap();
+        Ok(RuntimeSnapshot {
+            state: if running {
+                domain::RuntimeState::Running
+            } else {
+                domain::RuntimeState::Stopped
+            },
+            ports: vec![*self.port.lock().unwrap()],
+            ..RuntimeSnapshot::default()
+        })
+    }
+
+    fn operation_status(&self, operation_id: &str) -> Result<OperationStatusView, DomainError> {
+        Ok(OperationStatusView {
+            operation_id: operation_id.to_string(),
+            job_id: None,
+            state: domain::JobState::Running,
+            cancel: None,
+            error: None,
+        })
+    }
+
+    fn apply(&self, _plan: &domain::RuntimePlan) -> Result<ApplyOutcome, DomainError> {
+        self.calls.lock().unwrap().push("apply".to_string());
+        *self.running.lock().unwrap() = true;
+        Ok(ApplyOutcome::Accepted {
+            operation_id: format!("op-{}", self.next_op.fetch_add(1, Ordering::SeqCst) + 1),
+        })
+    }
+
+    fn stop(&self) -> Result<(), DomainError> {
+        self.calls.lock().unwrap().push("stop".to_string());
+        *self.running.lock().unwrap() = false;
+        Ok(())
+    }
+
+    fn cancel(&self, _job_id: &JobId) -> Result<CancelOutcome, DomainError> {
+        Ok(CancelOutcome::NotCancellable)
+    }
+}
+
+fn seed_xray_node(engine: &AppEngine) {
+    engine.seed(vec![Profile {
+        index_id: "node-a".to_string(),
+        config_type: ConfigType::Vless,
+        remarks: "synthetic-node-a".to_string(),
+        address: "192.0.2.10".into(),
+        port: 443,
+        password: "11111111-2222-3333-4444-555555555555".into(),
+        ..Default::default()
+    }]);
+    engine.set_active(Some("node-a".to_string())).unwrap();
+}
+
+/// Probe a free loopback port (>= 11808, never 10808) for the synthetic
+/// inbound; the fake binds nothing but the plan refuses the live port.
+fn free_port(mut base: u16) -> u16 {
+    loop {
+        assert!(base < 60000, "port scan exhausted");
+        if base == 10808 {
+            base += 1;
+            continue;
+        }
+        if std::net::TcpListener::bind(("127.0.0.1", base)).is_ok() {
+            return base;
+        }
+        base += 1;
+    }
+}
+
+fn start_session(engine: &AppEngine, fake: &RecordingFake, base: u16) {
+    let port = free_port(base);
+    *fake.port.lock().unwrap() = port;
+    let loaded = engine.load_settings().expect("load settings");
+    let mut settings = loaded.settings;
+    if let Some(first) = settings.inbound.first_mut() {
+        first.local_port = port as i32;
+    }
+    engine
+        .save_settings(settings, loaded.revision)
+        .expect("save settings");
+    let revision = engine.desired_revision();
+    let plan = engine
+        .build_runtime_plan("node-a", revision)
+        .expect("synthetic plan must build");
+    engine
+        .apply_runtime(plan, DesiredRevision::new(revision))
+        .expect("session must start");
+    // Publishing runs through snapshot reconciliation, as against the real
+    // client: only then does the engine hold an applied session.
+    engine.snapshot().expect("snapshot must reconcile");
+    assert!(
+        engine.applied_session().is_some(),
+        "test setup: a session must be running"
+    );
+}
+
+#[test]
+fn managed_apply_stops_before_replace_and_restarts() {
+    let mock = build_mock();
+    let cores = tempfile::tempdir().expect("cores");
+    let service = service(cores.path(), mock.port);
+    let fake = Arc::new(RecordingFake::new());
+    let engine = AppEngine::with_runtime(fake.clone());
+    seed_xray_node(&engine);
+    start_session(&engine, &fake, 11951);
+    // Seed an older installed version so the replacement keeps a rollback copy.
+    let old_dir = cores.path().join("xray").join("v26.3.27");
+    std::fs::create_dir_all(&old_dir).expect("old dir");
+    std::fs::write(old_dir.join("xray.exe"), pe_x64()).expect("old exe");
+
+    let rt = runtime();
+    rt.block_on(async {
+        let check = service
+            .check_core("xray", false, None)
+            .await
+            .expect("check");
+        let token = application::CancellationToken::new();
+        let outcome = service
+            .apply_core_managed(&engine, &request_from(&check), &token)
+            .await
+            .expect("managed apply");
+        assert_eq!(outcome.version, "26.4.0");
+        // The replacement kept a rollback copy: `rollback_core` is reachable
+        // through the managed path, not only through tests.
+        assert!(cores.path().join("xray.previous").is_dir());
+    });
+    engine.snapshot().expect("snapshot must reconcile");
+    assert_eq!(
+        fake.calls(),
+        vec!["apply".to_string(), "stop".to_string(), "apply".to_string()],
+        "running core update must stop before replacing and restart after"
+    );
+    assert!(
+        engine.applied_session().is_some(),
+        "the session must resume on the new core"
+    );
+    assert!(cores
+        .path()
+        .join("xray")
+        .join("26.4.0")
+        .join("xray.exe")
+        .is_file());
+}
+
+#[test]
+fn managed_apply_failure_rolls_back_and_resumes() {
+    let mock = build_mock();
+    let cores = tempfile::tempdir().expect("cores");
+    let service = service(cores.path(), mock.port);
+    let fake = Arc::new(RecordingFake::new());
+    let engine = AppEngine::with_runtime(fake.clone());
+    seed_xray_node(&engine);
+    start_session(&engine, &fake, 11961);
+
+    let rt = runtime();
+    rt.block_on(async {
+        let check = service
+            .check_core("xray", false, None)
+            .await
+            .expect("check");
+        let mut request = request_from(&check);
+        request.expected_sha256 = Some("0".repeat(64));
+        request.dgst_url = None;
+        let token = application::CancellationToken::new();
+        let error = service
+            .apply_core_managed(&engine, &request, &token)
+            .await
+            .expect_err("digest");
+        assert_eq!(error.code, "E_CONFLICT");
+    });
+    engine.snapshot().expect("snapshot must reconcile");
+    assert_eq!(
+        fake.calls(),
+        vec!["apply".to_string(), "stop".to_string(), "apply".to_string()],
+        "a failed replace must resume the previous version"
+    );
+    assert!(
+        engine.applied_session().is_some(),
+        "the session must be running again after the failed update"
+    );
+    assert!(
+        !cores.path().join("xray").exists(),
+        "no install may be left behind"
+    );
 }
 
 #[test]
@@ -332,4 +555,66 @@ fn app_update_rejects_wpf_payload_for_flutter_binary() {
         assert_eq!(error.code, "E_CONFLICT");
         assert!(!layout.app_exe().exists());
     });
+}
+
+#[test]
+fn concurrent_same_target_installs_leave_complete_layout() {
+    use std::sync::Barrier;
+    // Two barrier-started installs of the same target+version race through
+    // disjoint working directories: at least one must succeed and the
+    // installed layout must be complete either way (the loser fails closed).
+    let cores = tempfile::tempdir().expect("cores");
+    let mock = build_mock();
+    let service = Arc::new(service(cores.path(), mock.port));
+    let barrier = Arc::new(Barrier::new(2));
+    let handles: Vec<_> = (0..2)
+        .map(|_| {
+            let service = service.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                let staged = tempfile::tempdir().expect("staged");
+                std::fs::write(staged.path().join("xray.exe"), pe_x64()).expect("exe");
+                barrier.wait();
+                service
+                    .install_core_from_dir("xray", "26.4.0", staged.path())
+                    .map(|_| ())
+                    .map_err(|e| e.to_string())
+            })
+        })
+        .collect();
+    let outcomes: Vec<_> = handles
+        .into_iter()
+        .map(|h| h.join().expect("worker"))
+        .collect();
+    assert!(
+        outcomes.iter().any(|r| r.is_ok()),
+        "at least one same-target install must succeed: {outcomes:?}"
+    );
+    let exe = cores.path().join("xray").join("26.4.0").join("xray.exe");
+    assert_eq!(
+        std::fs::read(&exe).expect("installed exe"),
+        pe_x64(),
+        "the installed layout must be complete"
+    );
+    let manifest: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(cores.path().join("xray").join("install-manifest.json"))
+            .expect("manifest"),
+    )
+    .expect("manifest json");
+    assert_eq!(manifest["version"], serde_json::json!("26.4.0"));
+    // No per-call working directory may be left behind.
+    let staging = cores.path().join(".staging");
+    if staging.exists() {
+        for entry in std::fs::read_dir(&staging).expect("read staging") {
+            let name = entry
+                .expect("entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned();
+            assert!(
+                !name.starts_with(".install-xray-26.4.0"),
+                "working residue {name} must be removed"
+            );
+        }
+    }
 }

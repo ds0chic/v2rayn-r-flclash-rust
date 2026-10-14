@@ -17,6 +17,7 @@ pub mod error;
 pub mod hash;
 pub mod http;
 pub mod pac;
+pub mod protect;
 pub mod script;
 pub mod single_instance;
 pub mod sysproxy;
@@ -43,11 +44,15 @@ pub use pac::{
     render_pac, resolve_pac_path, resolve_pac_script, PacConfig, PacServer, PacSource, ResolvedPac,
     DEFAULT_PAC_FILE_NAME, DEFAULT_PAC_PORT_BASE, DEFAULT_PAC_TEMPLATE,
 };
+#[cfg(windows)]
+pub use protect::DpapiBackend;
+pub use protect::{FakeProtectBackend, PlainBackend, ProtectBackend};
 pub use script::{CustomSystemProxySetting, CUSTOM_PAC_FIELD, CUSTOM_SCRIPT_FIELD};
-pub use single_instance::SingleInstanceGuard;
+pub use single_instance::{fallback_name, SingleInstanceGuard};
 pub use sysproxy::{
-    restore_if_owned, AppliedChange, FakeSystemProxyBackend, ProxyField, ProxySettings, ProxyState,
-    RestoreAction, RestoreConflict, RestoreReport, SysProxyMode, SystemProxyBackend,
+    restore_if_owned, AppliedChange, FakeSystemProxyBackend, JournalLoad, OwnershipJournal,
+    ProxyField, ProxySettings, ProxyState, RestoreAction, RestoreConflict, RestoreFailure,
+    RestoreReport, StoredOwner, SysProxyMode, SystemProxyBackend, JOURNAL_FILE_NAME,
 };
 
 #[cfg(windows)]

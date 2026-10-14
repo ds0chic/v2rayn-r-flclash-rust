@@ -273,7 +273,11 @@ fn build_chain_outbounds_list(
     let children = resolve_children(input, node)?;
     let nodes_reverse: Vec<&&CodegenProfile> = children.iter().rev().collect();
     let count = nodes_reverse.len();
-    let mut result = BuiltServers::default();
+    // Combined processing-order sequence of (is_endpoint, server). Upstream
+    // keeps outbounds and endpoints in one list; the fan-out below must clone
+    // and rewire both (S3-03). Split back into `BuiltServers` at the end.
+    let mut seq: Vec<(bool, Value)> = Vec::new();
+    let mut custom_tags: Vec<(String, String)> = Vec::new();
 
     for (i, child) in nodes_reverse.iter().enumerate() {
         let child: &CodegenProfile = child;
@@ -311,22 +315,18 @@ fn build_chain_outbounds_list(
                     0 => {}
                     1 => {
                         let first = chain_start_tags[0].clone();
-                        for existed in result
-                            .outbounds
-                            .iter_mut()
-                            .chain(result.endpoints.iter_mut())
-                        {
+                        for (_, existed) in seq.iter_mut() {
                             if outbound_detour(existed).as_deref() == Some(current_tag.as_str()) {
                                 fill_detour(existed, &first);
                             }
                         }
                     }
                     _ => {
-                        let existed_clones = result.outbounds.clone();
-                        result.outbounds.clear();
+                        let existed_clones = seq.clone();
+                        seq.clear();
                         for (j, chain_start_tag) in chain_start_tags.iter().enumerate() {
                             let mut clone_list = existed_clones.clone();
-                            for existed in clone_list.iter_mut() {
+                            for (_, existed) in clone_list.iter_mut() {
                                 if let Some(tag) = existed.get("tag").and_then(Value::as_str) {
                                     let clone_tag = format!("{tag}-clone-{}", j + 1);
                                     if let Some(map) = existed.as_object_mut() {
@@ -337,15 +337,15 @@ fn build_chain_outbounds_list(
                             let len = clone_list.len();
                             let clone_tags: Vec<String> = clone_list
                                 .iter()
-                                .map(|v| {
+                                .map(|(_, v)| {
                                     v.get("tag")
                                         .and_then(Value::as_str)
                                         .unwrap_or("")
                                         .to_string()
                                 })
                                 .collect();
-                            for (k, existed) in clone_list.iter_mut().enumerate() {
-                                let previous = outbound_detour(existed);
+                            for k in 0..len {
+                                let previous = outbound_detour(&clone_list[k].1);
                                 let next_tag = if k + 1 < len {
                                     clone_tags[k + 1].clone()
                                 } else {
@@ -356,16 +356,16 @@ fn build_chain_outbounds_list(
                                 } else {
                                     next_tag
                                 };
-                                fill_detour(existed, &target);
-                                result.outbounds.push(existed.clone());
+                                fill_detour(&mut clone_list[k].1, &target);
+                                seq.push(clone_list[k].clone());
                             }
                         }
                     }
                 }
             }
-            result.outbounds.extend(built.outbounds);
-            result.endpoints.extend(built.endpoints);
-            result.custom_tags.extend(built.custom_tags);
+            seq.extend(built.outbounds.into_iter().map(|v| (false, v)));
+            seq.extend(built.endpoints.into_iter().map(|v| (true, v)));
+            custom_tags.extend(built.custom_tags);
             continue;
         }
 
@@ -376,8 +376,20 @@ fn build_chain_outbounds_list(
         if let Some(detour) = &dialer_proxy_tag {
             fill_detour(&mut value, detour);
         }
-        result.push(value, is_endpoint, custom, &current_tag);
+        if let Some(index_id) = custom {
+            custom_tags.push((current_tag.clone(), index_id));
+        }
+        seq.push((is_endpoint, value));
     }
+    let mut result = BuiltServers::default();
+    for (is_endpoint, value) in seq {
+        if is_endpoint {
+            result.endpoints.push(value);
+        } else {
+            result.outbounds.push(value);
+        }
+    }
+    result.custom_tags = custom_tags;
     Ok(result)
 }
 
@@ -876,20 +888,13 @@ fn fill_outbound_tls(
         tls.insert("fragment".into(), json!(true));
         tls.insert("record_fragment".into(), json!(true));
     }
-    let fingerprint = if !node.fingerprint.trim().is_empty() {
-        Some(node.fingerprint.trim().to_string())
-    } else {
-        input
-            .settings
-            .core_basic
-            .def_fingerprint
-            .clone()
-            .filter(|s| !s.is_empty())
-    };
-    if let Some(fingerprint) = fingerprint {
+    // Upstream `FillOutboundTls` emits utls only for an explicit node
+    // fingerprint; the global DefFingerprint fallback exists on the Xray side
+    // only (S3-01).
+    if !node.fingerprint.trim().is_empty() {
         tls.insert(
             "utls".into(),
-            json!({"enabled": true, "fingerprint": fingerprint}),
+            json!({"enabled": true, "fingerprint": node.fingerprint.trim()}),
         );
     }
     if node.stream_security == STREAM_SECURITY {
@@ -1031,12 +1036,13 @@ fn build_transport(input: &CodegenInput, node: &CodegenProfile) -> Option<Value>
     Some(Value::Object(transport))
 }
 
-/// Extract `?ed=N` / `?eh=...` out of a websocket path.
+/// Extract `ed=N` / `eh=...` out of a websocket path. Upstream matches
+/// `[?&]ed=` / `[?&]eh=` (S3-02); `ed` is stripped from the path, `eh` stays.
 fn parse_ws_path(path: &str) -> (Option<String>, Option<i32>, Option<String>) {
     let mut result = path.to_string();
     let mut max_early_data = None;
     let mut eh = None;
-    if let Some(idx) = result.find("?ed=") {
+    if let Some(idx) = query_marker(&result, "ed") {
         let rest = &result[idx + 4..];
         let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
         if let Ok(value) = digits.parse::<i32>() {
@@ -1045,7 +1051,7 @@ fn parse_ws_path(path: &str) -> (Option<String>, Option<i32>, Option<String>) {
             result = result.replace("?&", "?").trim_end_matches('?').to_string();
         }
     }
-    if let Some(idx) = result.find("?eh=") {
+    if let Some(idx) = query_marker(&result, "eh") {
         let rest = &result[idx + 4..];
         let value: String = rest.chars().take_while(|c| *c != '&').collect();
         eh = Some(percent_decode(&value));
@@ -1056,6 +1062,17 @@ fn parse_ws_path(path: &str) -> (Option<String>, Option<i32>, Option<String>) {
         Some(result)
     };
     (path, max_early_data, eh)
+}
+
+/// Locate a `?name=` / `&name=` query marker, earliest first.
+fn query_marker(haystack: &str, name: &str) -> Option<usize> {
+    let question = format!("?{name}=");
+    let ampersand = format!("&{name}=");
+    haystack
+        .find(question.as_str())
+        .into_iter()
+        .chain(haystack.find(ampersand.as_str()))
+        .min()
 }
 
 fn percent_decode(value: &str) -> String {

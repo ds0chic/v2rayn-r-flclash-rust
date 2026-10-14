@@ -93,8 +93,16 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('runtime-start')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
+    // R4-30: the headline keeps the readable cause on screen, never the raw
+    // code; the stable code lives in the 查看失败 details dialog.
     expect(find.byKey(const ValueKey('runtime-error')), findsOneWidget);
-    expect(find.textContaining('E_NO_ACTIVE_PROFILE'), findsWidgets);
+    expect(find.textContaining('E_NO_ACTIVE_PROFILE'), findsNothing);
+    final viewButton = find.byKey(const ValueKey('runtime-error-view'));
+    expect(viewButton, findsOneWidget);
+    await tester.tap(viewButton);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('E_NO_ACTIVE_PROFILE'), findsOneWidget);
+    expect(find.textContaining('error.no_active_profile'), findsOneWidget);
   });
 
   test('hasUnappliedChanges is true only on a real mismatch', () {

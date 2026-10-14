@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_fields.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Theme setting window (LAY-THEME-001).
@@ -63,6 +66,33 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
   /// draft entry back to this snapshot and keeps the old theme applied.
   Map<String, dynamic> _lastSaved = <String, dynamic>{};
 
+  /// Debounced persist timer: rapid edits coalesce into one group save instead
+  /// of one `saveGroup` per keystroke (D2-03).
+  Timer? _saveTimer;
+
+  /// True while the draft holds edits not yet persisted.
+  bool _dirty = false;
+
+  @override
+  void dispose() {
+    _saveTimer?.cancel();
+    if (_dirty && _draftInit) {
+      // Flush pending edits without touching widget state: the route is gone,
+      // so no status update may run. A failed flush keeps the old theme.
+      try {
+        final result = ref
+            .read(settingsControllerProvider.notifier)
+            .saveGroup('UiItem', _ui);
+        if (result.ok) {
+          _applyTheme(_ui);
+        } else {
+          _applyTheme(_lastSaved);
+        }
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
   void _ensureDraft() {
     final state = ref.read(settingsControllerProvider);
     if (!state.loaded) return;
@@ -73,7 +103,10 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
     _lastSaved = Map<String, dynamic>.of(_ui);
   }
 
-  void _apply(String key) {
+  void _apply() {
+    _saveTimer?.cancel();
+    if (!_dirty) return;
+    _dirty = false;
     final result = ref
         .read(settingsControllerProvider.notifier)
         .saveGroup('UiItem', _ui);
@@ -84,9 +117,10 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
         _status = '已应用';
       });
     } else {
-      // Save first, apply second: on failure the old theme stays applied
-      // and the draft entry is reverted so the UI cannot diverge from it.
-      _ui[key] = _lastSaved[key];
+      // Save first, apply second: on failure nothing was persisted, so the
+      // whole draft returns to the last saved snapshot and the old theme
+      // stays applied; the UI cannot diverge from storage.
+      _ui = Map<String, dynamic>.of(_lastSaved);
       _applyTheme(_lastSaved);
       setState(() {
         _status = result.error?.messageKey ?? '保存失败';
@@ -110,7 +144,11 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
 
   void _set(String key, Object? value) {
     setState(() => _ui[key] = value);
-    _apply(key);
+    _dirty = true;
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 400), () {
+      if (mounted) _apply();
+    });
   }
 
   bool _draftInit = false;
@@ -127,66 +165,85 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
     final language = (_ui['CurrentLanguage'] as String?) ?? 'zh-Hans';
     final size = (_ui['CurrentFontSize'] as num?)?.toInt() ?? 0;
     return AlertDialog(
-      title: const Text('主题设置', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '主题设置',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 420,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            SettingsDropdown<String>(
-              label: '主题',
-              value: theme,
-              width: 200,
-              items: _dropdown(const <String>[
-                'FollowSystem',
-                'Light',
-                'Dark',
-                'Aquatic',
-                'Desert',
-                'Dusk',
-                'NightSky',
-              ]),
-              onChanged: (v) => _set('CurrentTheme', v),
+            SettingsSection(
+              title: '外观',
+              child: <Widget>[
+                SettingsDropdown<String>(
+                  label: '主题',
+                  value: theme,
+                  width: 200,
+                  items: _dropdown(const <String>[
+                    'FollowSystem',
+                    'Light',
+                    'Dark',
+                    // UX2-10(B): Aquatic/Desert/Dusk/NightSky had no mapping in
+                    // buildAppTheme and silently fell back; the options are
+                    // retired. Previously persisted values still read back
+                    // through _themeModeFrom's default branch (system), so
+                    // existing configurations keep rendering as before.
+                  ]),
+                  onChanged: (v) => _set('CurrentTheme', v),
+                ),
+                SettingsDropdown<String>(
+                  label: '强调色',
+                  value: accent,
+                  width: 200,
+                  items: _dropdown(<String>['', ...accentColors.keys]),
+                  onChanged: (v) =>
+                      _set('ColorPrimaryName', v == '' ? null : v),
+                ),
+                SettingsTextField(
+                  label: '字体族',
+                  value: _ui['CurrentFontFamily'] as String?,
+                  onChanged: (v) => _set('CurrentFontFamily', v),
+                ),
+                SettingsNumberField(
+                  label: '字号',
+                  value: size,
+                  onChanged: (v) => _set('CurrentFontSize', v),
+                ),
+              ],
             ),
-            SettingsDropdown<String>(
-              label: '强调色',
-              value: accent,
-              width: 200,
-              items: _dropdown(<String>['', ...accentColors.keys]),
-              onChanged: (v) => _set('ColorPrimaryName', v == '' ? null : v),
-            ),
-            SettingsTextField(
-              label: '字体族',
-              value: _ui['CurrentFontFamily'] as String?,
-              onChanged: (v) => _set('CurrentFontFamily', v),
-            ),
-            SettingsNumberField(
-              label: '字号',
-              value: size,
-              onChanged: (v) => _set('CurrentFontSize', v),
-            ),
-            SettingsDropdown<String>(
-              label: '语言 (需重启应用)',
-              value: language,
-              width: 200,
-              items: _dropdown(const <String>[
-                'zh-Hans',
-                'zh-Hant',
-                'en',
-                'fa',
-                'fr',
-                'ru',
-                'hu',
-                'id',
-                'az',
-              ]),
-              onChanged: (v) => _set('CurrentLanguage', v),
+            SettingsSection(
+              title: '语言',
+              child: <Widget>[
+                SettingsDropdown<String>(
+                  label: '语言 (需重启应用)',
+                  value: language,
+                  width: 200,
+                  items: _dropdown(const <String>[
+                    'zh-Hans',
+                    'zh-Hant',
+                    'en',
+                    'fa',
+                    'fr',
+                    'ru',
+                    'hu',
+                    'id',
+                    'az',
+                  ]),
+                  onChanged: (v) => _set('CurrentLanguage', v),
+                ),
+              ],
             ),
             if (_status != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(_status!, style: const TextStyle(fontSize: 11)),
+                child: Text(
+                  // D-LEFT2: a bare key localizes; human text passes through.
+                  context.messageText(_status!),
+                  style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+                ),
               ),
           ],
         ),
@@ -206,7 +263,7 @@ class _ThemeSettingDialogState extends ConsumerState<ThemeSettingDialog> {
           value: v,
           child: Text(
             v.isEmpty ? '（默认）' : v,
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
           ),
         ),
       )

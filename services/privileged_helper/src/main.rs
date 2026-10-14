@@ -38,12 +38,19 @@ async fn main() -> std::io::Result<()> {
             .cloned()
             .filter(|value| !value.is_empty())
     };
-    // The elevated launch passes the token/root list as arguments because
-    // `ShellExecuteW`/UAC does not forward the launching environment; the
-    // legacy environment variables remain accepted for service-style setups.
-    let token = arg_value("--token")
-        .or_else(|| std::env::var("V2RAYN_R_HELPER_TOKEN").ok())
-        .unwrap_or_default();
+    // ShellExecuteW does not forward the launching environment. The elevated
+    // launch uses a short-lived token file instead of exposing the secret in
+    // the process command line; environment and --token remain for service
+    // installs and compatibility with existing launch scripts.
+    let token = if let Some(path) = arg_value("--token-file") {
+        let token = std::fs::read_to_string(&path)?;
+        let _ = std::fs::remove_file(path);
+        token
+    } else {
+        arg_value("--token")
+            .or_else(|| std::env::var("V2RAYN_R_HELPER_TOKEN").ok())
+            .unwrap_or_default()
+    };
     if token.is_empty() {
         eprintln!("privileged_helper: a helper token is required (--token)");
         return Ok(());

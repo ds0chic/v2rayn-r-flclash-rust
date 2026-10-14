@@ -35,6 +35,9 @@ fn server_with(backend: Arc<FakeBackend>) -> HelperServer<FakeBackend> {
     HelperServer::new(
         backend,
         HelperServerConfig {
+            // H16: the server fail-closes on an empty token, so the harness
+            // must configure the token the test requests carry.
+            session_token: "tok".to_string(),
             lease_policy: LeasePolicy::CleanOwned,
             allowed_run_roots: vec![ALLOWED_ROOT.to_string()],
             request_timeout: Duration::from_millis(100),
@@ -302,4 +305,33 @@ fn sp08_partial_failure_releases_only_confirmed_resources() {
     assert_eq!(lease.owned_core_count(), 0, "confirmed cores release");
     assert_eq!(lease.owned_tun_count(), 1, "failed TUN stays owned");
     assert!(!lease.is_closed());
+}
+
+#[test]
+fn sp08_wrong_session_token_is_rejected_without_backend_work() {
+    // H16 guard retained: a mismatched token fails before dispatch, and the
+    // rejection is audited (never silently dropped).
+    let fake = Arc::new(FakeBackend::new());
+    let server = server_with(fake.clone());
+    let mut lease = ConnectionLease::new("sp08-bad-token");
+    let mut bad = request(HelperOp::AddRoutes {
+        entries: vec![v4_route()],
+    });
+    bad.session.session_token = "wrong".to_string();
+    let response = server.handle(&mut lease, &bad);
+    assert!(matches!(
+        response.result,
+        HelperResult::Error {
+            error: HelperError::Unauthorized { .. }
+        }
+    ));
+    assert_eq!(fake.call_count(), 0, "rejected before any backend work");
+    assert_eq!(lease.owned_route_count(), 0);
+    let last = server
+        .audit()
+        .records()
+        .last()
+        .expect("audit record")
+        .clone();
+    assert_eq!(last.outcome, privileged_helper::AuditOutcome::Rejected);
 }

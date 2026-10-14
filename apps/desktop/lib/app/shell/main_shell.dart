@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/evidence_hooks.dart';
 import 'package:v2rayn_desktop/app/menu/main_menu.dart';
 import 'package:v2rayn_desktop/app/shell/desktop_integration.dart';
 import 'package:v2rayn_desktop/app/shell/side_tabs.dart';
@@ -17,6 +18,7 @@ import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart'
     as profile_actions;
 import 'package:v2rayn_desktop/features/monitor/monitor_controller.dart';
+import 'package:v2rayn_desktop/features/onboarding/first_run_wizard.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_page.dart';
 import 'package:v2rayn_desktop/features/routing/routing_actions.dart'
@@ -24,7 +26,9 @@ import 'package:v2rayn_desktop/features/routing/routing_actions.dart'
 import 'package:v2rayn_desktop/features/routing/routing_controller.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
+import 'package:v2rayn_desktop/features/settings/preset_dialog.dart';
 import 'package:v2rayn_desktop/features/settings/settings_actions.dart';
+import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/subs/scan_image_qr.dart';
 import 'package:v2rayn_desktop/features/subs/scan_screen_qr.dart';
 import 'package:v2rayn_desktop/features/subs/subs_actions.dart';
@@ -59,6 +63,9 @@ class _MainShellState extends ConsumerState<MainShell> {
             .read(routingControllerProvider.notifier)
             .setDefaultAndReload(id),
       );
+      // U-B1: the first-run wizard runs the identical ACT-MAIN-* use cases.
+      ref.read(menuActionDelegateProvider).value = (command) =>
+          _onMenuActionId(context, ref, command);
       final open = Platform.environment['V2RAYN_R_OPEN_SUBS'];
       if (open == '1' || open == 'true') {
         openSubSettings(context, ref);
@@ -111,24 +118,21 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (openUpdate == '1' || openUpdate == 'true') {
         showCheckUpdateWindow(context, ref);
       }
-      // T15a evidence hooks: configure the monitor against a loopback Xray
-      // stats port and open a monitor tab for release screenshots. No-ops in
-      // normal runs.
-      final xrayPort = Platform.environment['V2RAYN_R_MONITOR_XRAY_PORT'];
-      if (xrayPort != null) {
-        final port = int.tryParse(xrayPort);
-        if (port != null && port > 0) {
-          final monitor = ref.read(monitorControllerProvider.notifier);
-          monitor.configure(
-            core: 2, // domain CoreType::Xray
-            statePort: port,
-            statePort2: 0,
-            enableStatistics: true,
-            displayRealTimeSpeed: true,
-            refreshIntervalMs: 1000,
-          );
-          monitor.startPolling();
-        }
+      // T15a evidence hook, armed-only (ISSUE-08): unarmed builds ignore the
+      // variable entirely, and the reserved user-proxy port is never polled
+      // (hard constraint 1).
+      final monitorPort = evidenceMonitorXrayPort(Platform.environment);
+      if (monitorPort != null) {
+        final monitor = ref.read(monitorControllerProvider.notifier);
+        monitor.configure(
+          core: 2, // domain CoreType::Xray
+          statePort: monitorPort,
+          statePort2: 0,
+          enableStatistics: true,
+          displayRealTimeSpeed: true,
+          refreshIntervalMs: 1000,
+        );
+        monitor.startPolling();
       }
       // T15a/T20 evidence hook (only in smoke-armed builds, see main.dart):
       // apply the real persisted plan on launch so the logs tab has real core
@@ -153,6 +157,9 @@ class _MainShellState extends ConsumerState<MainShell> {
         };
         ref.read(uiShellControllerProvider.notifier).setTabIndex(index);
       }
+      // U-B1: one-shot first-run wizard (production-gated, evidence-gated,
+      // empty-library only; no-op in widget tests and evidence runs).
+      maybeShowFirstRunWizard(context, ref);
     });
   }
 
@@ -465,6 +472,13 @@ class _MainShellState extends ConsumerState<MainShell> {
         }
       case 'ACT-MAIN-035':
         ref.read(runtimeControllerProvider.notifier).reload();
+      case 'UI-ONBOARDING':
+        showFirstRunWizard(context, ref);
+      case 'UI-RESET-HINTS':
+        resetInterfaceHints(ref);
+        shell.setMessage('已重置界面提示（密度与布局保持不变）');
+      case 'UI-PRESET-DLG':
+        _openPresetDialogFromShell(context, ref);
       default:
         final entry = _findMenuEntry(actionId);
         if (entry != null && entry.preservedOnly) {
@@ -481,6 +495,35 @@ class _MainShellState extends ConsumerState<MainShell> {
           );
         }
     }
+  }
+
+  /// U-C2 (UX1-05): open the U-B2 preset dialog in independent mode (the same
+  /// dialog the settings window hosts). Only the dialog's public surface is
+  /// used (`showPresetDialog` + `settingsControllerProvider.document/saveGroup`
+  /// + the dialog's own routing `setDefault`); no settings implementation is
+  /// touched. Writes go through the desired chain only; undo stays disabled
+  /// (no snapshot API, UX3-12), so the post-apply message only records.
+  Future<void> _openPresetDialogFromShell(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final shell = ref.read(uiShellControllerProvider.notifier);
+    final outcome = await showPresetDialog(
+      context: context,
+      hostMode: false,
+      readDocument: () => ref.read(settingsControllerProvider).document,
+      writeGroup: (group, fullValue) async {
+        final result = ref
+            .read(settingsControllerProvider.notifier)
+            .saveGroup(group, fullValue);
+        return result.ok;
+      },
+    );
+    if (outcome == null || !context.mounted) return;
+    shell.setMessage(
+      '已应用 ${outcome.wroteCount} 项设置'
+      '${outcome.routingChanged ? '＋路由方案已切换' : ''}（系统代理/TUN/端口未动）',
+    );
   }
 }
 
@@ -524,7 +567,7 @@ class _MenuToolbarBar extends ConsumerWidget {
                       const SizedBox(width: 8),
                       Text(
                         _layoutLabel(context, mode),
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: AppTokens.fontSize),
                       ),
                     ],
                   ),
@@ -538,11 +581,21 @@ class _MenuToolbarBar extends ConsumerWidget {
                   const SizedBox(width: 4),
                   Text(
                     _layoutLabel(context, shell.layout),
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
                   ),
                 ],
               ),
             ),
+          ),
+          // U-B1 table density (UX2-07): cycles compact 24 / standard 28 /
+          // relaxed 32. The settings-window dropdown (U-B2) will reuse the
+          // same UiShellState field when it lands.
+          IconButton(
+            key: const ValueKey('density-cycle'),
+            tooltip: '表格密度：${shell.tableDensity.label}（点击切换）',
+            iconSize: 18,
+            onPressed: controller.cycleDensity,
+            icon: Icon(AppTokens.icon('columns')),
           ),
           IconButton(
             key: const ValueKey('theme-toggle'),
@@ -570,7 +623,7 @@ class _MenuToolbarBar extends ConsumerWidget {
                 ),
                 child: Text(
                   context.tr('NewUpdate'),
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                 ),
               ),
             ),
@@ -602,7 +655,10 @@ class _MenuToolbarBar extends ConsumerWidget {
                 const SizedBox(width: 6),
                 Text(
                   entry.shortcut!,
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: AppTokens.fontSizeTiny,
+                    color: context.semantics.muted,
+                  ),
                 ),
               ],
             ],
@@ -672,7 +728,7 @@ class _MenuToolbarBar extends ConsumerWidget {
         Expanded(
           child: Text(
             entry.labelFor(context.l10n),
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
           ),
         ),
         if (entry.shortcut != null)
@@ -680,7 +736,10 @@ class _MenuToolbarBar extends ConsumerWidget {
             padding: const EdgeInsets.only(left: 24),
             child: Text(
               entry.shortcut!,
-              style: const TextStyle(fontSize: 11, color: Colors.grey),
+              style: TextStyle(
+                fontSize: AppTokens.fontSizeTiny,
+                color: context.semantics.muted,
+              ),
             ),
           ),
       ],
@@ -718,7 +777,7 @@ class _RuntimeToolbar extends ConsumerWidget {
               ? '${context.tr('statusRuntime')}: ${runtime.state} (${context.tr('statusUnapplied')})'
               : '${context.tr('statusRuntime')}: ${runtime.state}',
           key: const ValueKey('runtime-state-chip'),
-          style: const TextStyle(fontSize: 12),
+          style: const TextStyle(fontSize: AppTokens.fontSize),
         ),
         const SizedBox(width: 8),
         Tooltip(
@@ -739,7 +798,7 @@ class _RuntimeToolbar extends ConsumerWidget {
                   },
             child: Text(
               context.tr('uiStart'),
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
             ),
           ),
         ),
@@ -751,7 +810,7 @@ class _RuntimeToolbar extends ConsumerWidget {
             onPressed: controller.stop,
             child: Text(
               context.tr('uiStop'),
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
             ),
           ),
         ),

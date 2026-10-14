@@ -9,7 +9,7 @@ import 'mirrors.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `commit_import_fail_next`, `content_stem`, `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `materialize_custom_configs`, `parse_error_result`, `parse_import`, `parse_issue_dto`, `register_sub_job`, `remember_sub_report`, `render_export`, `spawn_sub_update`, `sub_jobs`, `sub_reports`, `sub_to_dto`
+// These functions are ignored because they are not marked as `pub`: `commit_import_fail_next`, `content_stem`, `dto_to_sub`, `finish_sub_job`, `load_outbound_json`, `materialize_custom_configs`, `parse_error_result`, `parse_import`, `parse_issue_dto`, `register_sub_job`, `remember_sub_report`, `render_export`, `spawn_sub_update`, `sub_jobs`, `sub_report_order`, `sub_reports`, `sub_to_dto`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `ParsedImport`
 
 /// `list_sub_items` — every subscription ordered by `Sort`.
@@ -45,10 +45,8 @@ void setLocalProxyPort({int? port}) =>
 
 /// `sub_update_report` — the terminal per-group report JSON for `job_id`.
 ///
-/// Returns `None` for an unknown/never-run id. Implemented here but absent
-/// from the checked-in `frb_generated` bindings; the bridge currently reaches
-/// the report through the job stage key. Regenerating FRB wires this getter
-/// directly, replacing the stage-key carrier.
+/// Returns `None` for an unknown/never-run id (or an id evicted past the
+/// `MAX_SUB_REPORTS` bound).
 String? subUpdateReport({required String jobId}) =>
     RustLib.instance.api.crateApiSubsSubUpdateReport(jobId: jobId);
 
@@ -163,5 +161,9 @@ Future<ShareExportResult> exportProfiles({
 
 /// `write_export_file` — write export text to a file (URI text only; kernel
 /// config export is deferred to T10+).
+///
+/// S8-04: confined to the system temp dir. The parent is canonicalized
+/// (resolving symlinks) and must equal the canonical temp dir; anything else
+/// is refused with zero disk effects. `detail` carries only the file name.
 SimpleResult writeExportFile({required String path, required String text}) =>
     RustLib.instance.api.crateApiSubsWriteExportFile(path: path, text: text);

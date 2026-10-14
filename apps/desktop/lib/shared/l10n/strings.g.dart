@@ -652,6 +652,34 @@ kResUiStrings = <String, Map<String, String>>{
     'id': 'Antarmuka utama (placeholder)',
     'az': 'Əsas interfeys (müvəqqəti)',
   },
+  // ---- U-B1 new UI entries (not upstream ResUI; other locales fall back
+  // to `en` per L10n.t, satisfying the required-l10nKey menu contract).
+  'uiOnboardingWizard': {
+    'en': 'First-run wizard…',
+    'zh-Hans': '首次启动向导…',
+    'zh-Hant': '首次啟動向導…',
+  },
+  'uiResetHints': {
+    'en': 'Reset interface hints',
+    'zh-Hans': '重置界面提示',
+    'zh-Hant': '重置界面提示',
+  },
+  // ---- U-C2 preset entry (not upstream ResUI; same fallback rule as U-B1).
+  'uiPresetDialog': {
+    'en': 'Recommended setup…',
+    'zh-Hans': '推荐配置…',
+    'zh-Hant': '推薦配置…',
+  },
+  'uiSubUpdate': {
+    'en': 'Update subscriptions',
+    'zh-Hans': '更新订阅',
+    'zh-Hant': '更新訂閱',
+  },
+  'uiSubMoreWays': {
+    'en': 'More update options…',
+    'zh-Hans': '更多更新方式…',
+    'zh-Hant': '更多更新方式…',
+  },
   'uiStart': {
     'en': 'Start',
     'zh-Hans': '启动',
@@ -1963,6 +1991,31 @@ kResUiStrings = <String, Map<String, String>>{
     'hu': 'Az előfizetés frissítése nem igazolható; a korábbi csomópontok megmaradtak',
     'id': 'Pembaruan langganan tidak terkonfirmasi; node lama dipertahankan',
     'az': 'Abunə yeniləməsi təsdiqlənmədi; əvvəlki node-lar saxlanıldı',
+  },
+  // D-LEFT: keys that reach the UI need human text (contract keys unchanged).
+  // Only en + zh-Hans/zh-Hant are authored; other locales fall back to en
+  // through `L10n.t`, the table's documented mechanism.
+  'errorRecoveryRequired': {
+    'en': 'Recovering, please retry in a moment',
+    'zh-Hans': '恢复中，请稍后重试',
+    'zh-Hant': '恢復中，請稍後重試',
+  },
+  'errorSubUpdateFailed': {
+    'en': 'Subscription update failed',
+    'zh-Hans': '订阅更新失败',
+    'zh-Hant': '訂閱更新失敗',
+  },
+  'errorStorage': {
+    'en': 'Storage write failed, please retry',
+    'zh-Hans': '存储写入失败，请重试',
+    'zh-Hant': '存儲寫入失敗，請重試',
+  },
+  // D-LEFT2: Dart-fabricated fallback shown when a custom import fails without
+  // a bridge error. Only en + zh authored; other locales fall back to en.
+  'errorImportCustomFailed': {
+    'en': 'Custom config import failed',
+    'zh-Hans': '自定义配置导入失败',
+    'zh-Hant': '自定義配置導入失敗',
   },
   'errorBackupInvalid': {
     'en': 'The backup file is invalid or unsupported',

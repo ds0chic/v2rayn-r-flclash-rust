@@ -45,17 +45,32 @@ $outDir = Join-Path $work 'out'
 New-Item -ItemType Directory -Path $data -Force | Out-Null
 New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 
-$env:V2RAYN_R_DATA_DIR = $data
-$env:V2RAYN_R_T18_BENCH = '1'
-$env:V2RAYN_R_T18_SCENARIO = $Scenario
-$env:V2RAYN_R_T18_ROWS = "$Rows"
-$env:V2RAYN_R_T18_STEPS = "$Steps"
-$env:V2RAYN_R_T18_DIR = $outDir
-if ($Tag -ne '') { $env:V2RAYN_R_T18_TAG = $Tag }
+# S11-04: process env is caller-visible. Set it only around the child spawn
+# (the child inherits at Start-Process time) and restore immediately after,
+# so later commands in the same shell are unaffected.
+$benchVars = [ordered]@{
+  V2RAYN_R_DATA_DIR   = $data
+  V2RAYN_R_T18_BENCH  = '1'
+  V2RAYN_R_T18_SCENARIO = $Scenario
+  V2RAYN_R_T18_ROWS   = "$Rows"
+  V2RAYN_R_T18_STEPS  = "$Steps"
+  V2RAYN_R_T18_DIR    = $outDir
+}
+if ($Tag -ne '') { $benchVars['V2RAYN_R_T18_TAG'] = $Tag }
+$__benchOldEnv = @{}
+foreach ($k in $benchVars.Keys) { $__benchOldEnv[$k] = [Environment]::GetEnvironmentVariable($k) }
+function Restore-T18BenchEnv {
+  foreach ($k in $__benchOldEnv.Keys) { [Environment]::SetEnvironmentVariable($k, $__benchOldEnv[$k]) }
+}
 
 $marker = if ($Scenario -eq 'startup') { 'startup' } else { "scroll_$Rows" }
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-$proc = Start-Process -FilePath $exe -PassThru
+try {
+  foreach ($k in $benchVars.Keys) { [Environment]::SetEnvironmentVariable($k, [string]$benchVars[$k]) }
+  $proc = Start-Process -FilePath $exe -PassThru
+} finally {
+  Restore-T18BenchEnv
+}
 $deadline = (Get-Date).AddSeconds($TimeoutSec)
 $file = $null
 while ((Get-Date) -lt $deadline) {

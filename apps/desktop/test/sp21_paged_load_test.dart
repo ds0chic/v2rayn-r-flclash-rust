@@ -313,8 +313,8 @@ void main() {
     expect(partial.pagedLoading, isFalse);
     expect(
       partial.all.length,
-      lessThan(1200),
-      reason: 'late pages never overwrite after cancel',
+      1200,
+      reason: 'cancel keeps the pre-walk view (D1-08 restore)',
     );
 
     bridge.resetCounts();
@@ -431,5 +431,34 @@ void main() {
     expect(last.requestGeneration, BigInt.from(8));
     expect(last.items.length, 1);
     expect(last.nextCursor, isNull, reason: 'end of list is real, not faked');
+  });
+
+  test('cancelled paged walk restores the pre-walk table (D1-08)', () async {
+    final bridge = RecordingAsyncBridge();
+    final container = makeAsyncContainer(bridge, rows: 1200);
+    addTearDown(container.dispose);
+    final controller = container.read(profilesControllerProvider.notifier);
+    expect(container.read(profilesControllerProvider).all.length, 1200);
+
+    final pending = controller.reloadPaged(pageSize: 500);
+    // Let the first async page land (incremental publish), then cancel: the
+    // walk must not leave a partial base behind for the live overlay.
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    controller.cancelProfilePageQuery();
+    await pending;
+
+    final state = container.read(profilesControllerProvider);
+    expect(state.pagedLoading, isFalse);
+    expect(
+      state.all.length,
+      1200,
+      reason: 'cancel keeps the pre-walk view, never a partial walk',
+    );
+    expect(
+      state.all.map((r) => r.id).toSet().length,
+      1200,
+      reason: 'no dup or miss after the restore',
+    );
   });
 }

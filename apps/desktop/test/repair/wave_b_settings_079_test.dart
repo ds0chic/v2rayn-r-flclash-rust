@@ -1,17 +1,17 @@
-// Wave B (FLD-CFG-059/060/079/110/112): GuiItem/UiItem/SpeedTestItem rows.
+// Wave B (FLD-CFG-079): UiItem Hide2TrayWhenClose (Windows half).
+//
+// Split from `wave_b_settings_059_079_test.dart`: the locked flutter_tester
+// segfaults after a handful of settings-window builds in one process, so the
+// 079 trio lives here and the 059/060 entries in
+// `wave_b_settings_059_060_test.dart`.
 //
 // 原版对照（v2rayN 7.25.4 / 7d6a967，只读 work/）：
-// - `ConfigItems.cs:67-85` `GUIItem`（`KeepOlderDedupl=false` /
-//   `AutoUpdateInterval=0`，0=关闭）；
 // - `ConfigItems.cs:88-108` `UIItem.Hide2TrayWhenClose=false`；
 // - `v2rayN/Views/MainWindow.xaml.cs:193-197` WPF：X 无条件隐藏到托盘
 //   （`Hide2TrayWhenClose` 在 Windows 无 observable effect）；
 // - `v2rayN.Desktop/Views/MainWindow.axaml.cs:192-213 + 340-362`：
 //   X 取消关闭并隐藏；Linux 且开关关→最小化，否则隐藏；真退出只走菜单确认
-//   （`MenuClose_Click`）；独立窗（Sub/Routing/Option）关闭只存状态、不退出；
-// - `ConfigItems.cs:157-166` `SpeedTestItem`（`IPAPIUrl` /
-//   `SpeedTestPageSize` 可空）；`OptionSettingWindow.xaml:1078` 有 IPAPI 行，
-//   无 PageSize 行（112 正式入口未定，本文件只登记缺口、不加控件）。
+//   （`MenuClose_Click`）；独立窗（Sub/Routing/Option）关闭只存状态、不退出。
 //
 // 本文件合成数据 + SyntheticBridgePort/SyntheticRuntimeBridge（无 socket、
 // 无代理、无 10808/注册表/系统代理操作），断言正式入口→保存→重开。
@@ -91,9 +91,6 @@ Future<void> _reopen(WidgetTester tester, SyntheticBridgePort bridge) async {
 Map<String, dynamic> _persisted(SyntheticBridgePort bridge) =>
     jsonDecode(bridge.getSettings().settingsJson) as Map<String, dynamic>;
 
-Finder _field(ValueKey<String> key) =>
-    find.descendant(of: find.byKey(key), matching: find.byType(TextField));
-
 bool _checkbox(WidgetTester tester, ValueKey<String> key) =>
     tester
         .widget<Checkbox>(
@@ -125,94 +122,6 @@ class _FakeEditorHost implements SettingsEditorHost {
 }
 
 void main() {
-  group('FLD-CFG-059 KeepOlderDedupl entry', () {
-    testWidgets('勾选 → 保存 → 重开保持', (tester) async {
-      final bridge = SyntheticBridgePort();
-      await _pumpOption(tester, _container(bridge));
-      await _showDisplay(tester);
-
-      expect(
-        _checkbox(tester, const ValueKey('settings-keep-older-dedupl')),
-        isFalse,
-      );
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('settings-keep-older-dedupl')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('settings-keep-older-dedupl')),
-      );
-      await tester.pump();
-      expect(
-        _checkbox(tester, const ValueKey('settings-keep-older-dedupl')),
-        isTrue,
-      );
-
-      await tester.tap(find.byKey(const ValueKey('settings-save')));
-      await tester.pumpAndSettle();
-      expect(find.byType(OptionSettingWindow), findsNothing);
-      expect(
-        (_persisted(bridge)['GuiItem']
-            as Map<String, dynamic>)['KeepOlderDedupl'],
-        isTrue,
-      );
-
-      await _reopen(tester, bridge);
-      expect(
-        _checkbox(tester, const ValueKey('settings-keep-older-dedupl')),
-        isTrue,
-      );
-      await tester.pumpWidget(const SizedBox());
-    });
-  });
-
-  group('FLD-CFG-060 AutoUpdateInterval entry', () {
-    testWidgets('填 6 小时 → 保存 → 重开一致', (tester) async {
-      final bridge = SyntheticBridgePort();
-      await _pumpOption(tester, _container(bridge));
-      await _showDisplay(tester);
-
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('settings-auto-update-interval')),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<TextField>(
-              _field(const ValueKey('settings-auto-update-interval')),
-            )
-            .controller
-            ?.text,
-        '0',
-      );
-      await tester.enterText(
-        _field(const ValueKey('settings-auto-update-interval')),
-        '6',
-      );
-      await tester.pump();
-
-      await tester.tap(find.byKey(const ValueKey('settings-save')));
-      await tester.pumpAndSettle();
-      expect(
-        (_persisted(bridge)['GuiItem']
-            as Map<String, dynamic>)['AutoUpdateInterval'],
-        6,
-      );
-
-      await _reopen(tester, bridge);
-      expect(
-        tester
-            .widget<TextField>(
-              _field(const ValueKey('settings-auto-update-interval')),
-            )
-            .controller
-            ?.text,
-        '6',
-      );
-      await tester.pumpWidget(const SizedBox());
-    });
-  });
-
   group('FLD-CFG-079 Hide2TrayWhenClose (Windows half)', () {
     test('079 ruling 前置：文档缺省 false；Windows 下 X恒隐藏', () {
       // 缺 UiItem / 缺字段 → 均为 false（冻结默认）。

@@ -65,7 +65,11 @@
 4. **自启动删除用 `RegDeleteValueW`**：上游 `ClearTaskWindows` 写空串；本实现删除值，
    `is_enabled` 对空串/缺失均判 false，语义等价且更幂等（不残留空值）。
 5. **单实例**：与 T01 探针一致使用命名互斥体 `CreateMutexW` + `ERROR_ALREADY_EXISTS`；
-   默认名 `Global\v2rayN-R-single-instance`。`Global\` 命名空间与上游/探针保持一致。
+   默认名 `Global\v2rayN-R-single-instance`。更正（B11b）：此前"与上游保持一致"失实——
+   上游 `v2rayN.Desktop/Program.cs:41` 用的是无 `Global\` 前缀的会话级 `Mutex("v2rayN")`，
+   从未用过 `Global\` 命名空间。保留 `Global\` 默认是有意选择（机器级单实例），
+   标准用户建不了时回退 `Local\` 同名（`fallback_name`，仅 `ACCESS_DENIED` 才回退，
+   其余错误原样返回），guard 上报实际持有名。
 
 ## 决策 D5 —— PAC 服务边界
 

@@ -7,6 +7,7 @@ import 'package:v2rayn_desktop/app/app.dart';
 import 'package:v2rayn_desktop/bridge/bridge_port.dart';
 import 'package:v2rayn_desktop/bridge/frb_generated.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
+import 'package:v2rayn_desktop/features/onboarding/first_run_wizard.dart';
 import 'package:v2rayn_desktop/features/routing/routing_windows.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window_entry.dart';
 import 'package:v2rayn_desktop/perf/import_synth_hook.dart';
@@ -79,17 +80,20 @@ Future<void> main() async {
   }
   runApp(
     ProviderScope(
-      overrides: T18Bench.enabled
-          ? [
-              bridgePortProvider.overrideWithValue(
-                T18BenchBridgePort(T18Bench.rows),
-              ),
-              profileRowCountProvider.overrideWithValue(T18Bench.rows),
-              applyPlanOnLaunchProvider.overrideWithValue(true),
-            ]
-          : applyOnLaunch
-          ? [applyPlanOnLaunchProvider.overrideWithValue(true)]
-          : const [],
+      overrides: [
+        // U-B1: the first-run wizard may auto-show in production only.
+        // Widget tests pump MainShell directly and keep the default (false).
+        firstRunAutoPopupProvider.overrideWithValue(true),
+        if (T18Bench.enabled) ...[
+          bridgePortProvider.overrideWithValue(
+            T18BenchBridgePort(T18Bench.rows),
+          ),
+          profileRowCountProvider.overrideWithValue(T18Bench.rows),
+          applyPlanOnLaunchProvider.overrideWithValue(true),
+        ] else if (applyOnLaunch) ...[
+          applyPlanOnLaunchProvider.overrideWithValue(true),
+        ],
+      ],
       child: const V2rayNRApp(),
     ),
   );

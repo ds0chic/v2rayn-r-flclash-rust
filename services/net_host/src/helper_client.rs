@@ -1020,10 +1020,11 @@ impl PipeHelperLink {
             .bin
             .clone()
             .ok_or_else(|| tun_helper_unavailable("helper executable is not configured"))?;
-        launch_helper(&bin, &self.config, &token)?;
+        let token_file = launch_helper(&bin, &self.config, &token)?;
         let deadline = std::time::Instant::now() + Duration::from_secs(10);
         loop {
             if let Ok(file) = open_pipe(&self.config.pipe_name) {
+                let _ = std::fs::remove_file(&token_file);
                 self.conn = Some(PipeHelperConn {
                     file,
                     session_id: format!("nh-{}", runtime::current_identity().pid),
@@ -1032,6 +1033,7 @@ impl PipeHelperLink {
                 return Ok(());
             }
             if std::time::Instant::now() >= deadline {
+                let _ = std::fs::remove_file(&token_file);
                 return Err(tun_helper_unavailable(
                     "helper did not accept a connection within 10s",
                 ));
@@ -1216,31 +1218,83 @@ fn open_pipe(pipe_name: &str) -> std::io::Result<std::fs::File> {
         .open(pipe_name)
 }
 
-/// Launch the helper elevated through UAC (`runas`). The token and allowed run
-/// roots travel as command-line arguments (the helper also still honors the
-/// legacy environment variables), so a plain RC no longer needs the operator to
-/// export them. A user cancel (Windows error 1223) is a structured denial and
-/// leaves no half-started helper behind; any other `ShellExecuteW` failure is an
-/// unavailable-helper error. The caller never falls back to an unelevated path.
+/// Launch the helper elevated through UAC (`runas`). The token is passed through
+/// a short-lived file so it does not appear in the process command line. A user
+/// cancel (Windows error 1223) is a structured denial and leaves no helper
+/// behind; the caller never falls back to an unelevated path.
 #[cfg(windows)]
 fn launch_helper(
     bin: &std::path::Path,
     config: &HelperConfig,
     token: &str,
-) -> Result<(), DomainError> {
+) -> Result<std::path::PathBuf, DomainError> {
+    use std::io::Write;
+
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| tun_helper_unavailable(error.to_string()))?
+        .as_nanos();
+    let token_file = std::env::temp_dir().join(helper_token_file_name(std::process::id(), nonce));
+    sweep_stale_helper_token_files();
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&token_file)
+        .map_err(|error| tun_helper_unavailable(error.to_string()))?;
+    if let Err(error) = file.write_all(token.as_bytes()) {
+        let _ = std::fs::remove_file(&token_file);
+        return Err(tun_helper_unavailable(error.to_string()));
+    }
+    // S7a-07: the token file carries the helper secret; restrict it to the
+    // current user immediately. Best-effort (logged, non-fatal): the pipe
+    // DACL remains the primary boundary.
+    if let Err(error) = crate::dacl::restrict_to_current_user(&token_file, false) {
+        eprintln!("[net_host] helper token file ACL not applied: {error}");
+    }
     let params = format!(
-        "--serve --token {} --run-roots {}",
-        quote_arg(token),
+        "--serve --token-file {} --run-roots {}",
+        quote_arg(&token_file.to_string_lossy()),
         quote_arg(&config.allowed_run_roots.join(";")),
     );
     match elevation::shell_execute_runas(bin.as_os_str(), std::ffi::OsStr::new(&params)) {
-        Ok(()) => Ok(()),
-        Err(code) if elevation::is_user_cancelled(code) => Err(tun_helper_denied(
-            "TUN helper elevation was cancelled by the user",
-        )),
-        Err(code) => Err(tun_helper_unavailable(format!(
-            "failed to elevate TUN helper (ShellExecuteW code {code})"
-        ))),
+        Ok(()) => Ok(token_file),
+        Err(code) => {
+            let _ = std::fs::remove_file(&token_file);
+            if elevation::is_user_cancelled(code) {
+                Err(tun_helper_denied(
+                    "TUN helper elevation was cancelled by the user",
+                ))
+            } else {
+                Err(tun_helper_unavailable(format!(
+                    "failed to elevate TUN helper (ShellExecuteW code {code})"
+                )))
+            }
+        }
+    }
+}
+
+/// File name for one helper-launch token (S7a-07). Pid-scoped so the sweep
+/// below can tell our stale files from anyone else's.
+#[cfg(windows)]
+fn helper_token_file_name(pid: u32, nonce: u128) -> String {
+    format!("v2rayn-helper-{pid}-{nonce}.token")
+}
+
+/// Remove stale helper token files left by earlier crashes of this process
+/// (S7a-07): without this a crash inside the launch window leaves a valid
+/// token in `%TEMP%` while the helper may still run. Best-effort and narrow:
+/// only our own pid prefix with the `.token` suffix is ever removed.
+#[cfg(windows)]
+fn sweep_stale_helper_token_files() {
+    let prefix = format!("v2rayn-helper-{}-", std::process::id());
+    let Ok(entries) = std::fs::read_dir(std::env::temp_dir()) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with(&prefix) && name.ends_with(".token") {
+            let _ = std::fs::remove_file(entry.path());
+        }
     }
 }
 
@@ -1367,6 +1421,35 @@ mod tests {
         assert_eq!(quote_arg("abc"), "abc");
         assert_eq!(quote_arg("a b"), "\"a b\"");
         assert_eq!(quote_arg(""), "\"\"");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn token_file_name_is_pid_scoped() {
+        let name = helper_token_file_name(7, 9);
+        assert!(
+            name.starts_with("v2rayn-helper-7-"),
+            "sweep keys on our pid"
+        );
+        assert!(name.ends_with(".token"));
+        assert_ne!(name, helper_token_file_name(8, 9));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn stale_helper_token_files_are_swept_by_pid_prefix() {
+        // Our stale file (same pid prefix) goes; anyone else's stays.
+        let ours = std::env::temp_dir().join(helper_token_file_name(std::process::id(), 4242));
+        let alien = std::env::temp_dir().join(helper_token_file_name(
+            std::process::id().wrapping_add(1),
+            4242,
+        ));
+        std::fs::write(&ours, b"stale").unwrap();
+        std::fs::write(&alien, b"theirs").unwrap();
+        sweep_stale_helper_token_files();
+        assert!(!ours.exists(), "our stale token must not survive a launch");
+        assert!(alien.exists(), "never touch another pid's files");
+        let _ = std::fs::remove_file(&alien);
     }
 
     fn spec() -> TunSpec {

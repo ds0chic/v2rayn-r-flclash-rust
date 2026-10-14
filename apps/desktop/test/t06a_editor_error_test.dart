@@ -63,7 +63,9 @@ void main() {
     // Dialog still open, input preserved, both error surfaces shown.
     expect(find.byKey(const ValueKey('profile-editor')), findsOneWidget);
     expect(find.byKey(const ValueKey('editor-error')), findsOneWidget);
-    expect(find.text('error.remarks_required'), findsWidgets);
+    // D-LEFT2: both error surfaces show the localized text, never the raw key.
+    expect(find.text('error.remarks_required'), findsNothing);
+    expect(find.textContaining('请填写备注'), findsWidgets);
     final field = tester.widget<TextFormField>(
       find.byKey(const ValueKey('field-remarks')),
     );

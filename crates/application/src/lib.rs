@@ -48,8 +48,9 @@ pub use app_log::{
     DEFAULT_KEEP_ROTATED, DEFAULT_ROTATE_BYTES, GUI_LOG_DIR_NAME, REDACTED,
 };
 pub use backup_service::{
-    extract_bundle_zip, persist_error, zip_bundle, zip_upstream_layout, BackupService, LocalBackup,
-    APP_SOURCE_COMMIT, UPSTREAM_GUI_CONFIGS,
+    extract_bundle_zip, persist_error, zip_bundle, zip_upstream_layout,
+    zip_upstream_layout_to_file, BackupService, LocalBackup, APP_SOURCE_COMMIT,
+    UPSTREAM_GUI_CONFIGS,
 };
 pub use dns::{new_dns_id, DnsRepository, InMemoryDnsRepository, RegionalPreset};
 pub use domain::CancellationToken;

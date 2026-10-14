@@ -151,6 +151,42 @@ fn fail_point(name: &str) -> Result<FailPoint, String> {
     }
 }
 
+/// Reject runner arguments that would escape the managed install root or make
+/// the restart target resolve unpredictably. Mirrors the `keep_name` check in
+/// `updater::install`: the manifest name is always a bare file name, and every
+/// legitimate caller passes absolute restart paths.
+fn validate_arg_paths(args: &Args) -> Result<(), String> {
+    if !args.manifest_name.is_empty()
+        && (args.manifest_name.contains('/')
+            || args.manifest_name.contains('\\')
+            || args.manifest_name == "..")
+    {
+        return Err(format!(
+            "unsafe --manifest-name {:?}: must be a bare file name",
+            args.manifest_name
+        ));
+    }
+    if !args.no_restart {
+        if let Some(exe) = &args.restart_exe {
+            if !exe.is_absolute() {
+                return Err(format!(
+                    "--restart-exe must be an absolute path, got {}",
+                    exe.display()
+                ));
+            }
+        }
+        if let Some(cwd) = &args.restart_cwd {
+            if !cwd.is_absolute() {
+                return Err(format!(
+                    "--restart-cwd must be an absolute path, got {}",
+                    cwd.display()
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn spawn_restart(exe: &PathBuf, cwd: &PathBuf) -> Result<u32, String> {
     let mut command = Command::new(exe);
     command.current_dir(cwd);
@@ -258,6 +294,15 @@ fn main() {
     result.install_root = plan.root.display().to_string();
     result.current_dir = plan.current_dir.display().to_string();
     result.staged_dir = plan.staged_dir.display().to_string();
+
+    // S7b-07: fail closed on crafted argv before touching anything. The
+    // manifest name is always a bare file name and restart paths are always
+    // absolute in every legitimate flow (see `update_service.rs`).
+    if let Err(e) = validate_arg_paths(&args) {
+        result.stage = "validate".into();
+        result.error = Some(e);
+        finish(&result_path, &mut result, start_instant);
+    }
 
     if let Some(pid) = args.pid.filter(|p| *p != 0) {
         result.stage = "wait".into();

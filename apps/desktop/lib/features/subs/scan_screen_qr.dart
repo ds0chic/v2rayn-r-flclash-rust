@@ -61,6 +61,7 @@ Future<void> scanScreenQr(
   ScreenCapture capture = capturePrimaryScreenPng,
   ScanWindowControl window = const WindowManagerScanWindowControl(),
   Duration settle = const Duration(milliseconds: 180),
+  QrDecoder decoder = decodeQrImageAsync,
 }) async {
   Uint8List? bytes;
   String? decoded;
@@ -75,7 +76,13 @@ Future<void> scanScreenQr(
     }
     bytes = await capture();
     if (bytes != null && bytes.isNotEmpty) {
-      decoded = decodeQrImage(bytes);
+      // D3a-11: full-screen PNGs decode off the UI isolate. A decode/isolate
+      // failure is not a capture failure: it reads as "no QR found" below.
+      try {
+        decoded = await decoder(bytes);
+      } catch (_) {
+        decoded = null;
+      }
     }
   } catch (error) {
     failure = error;

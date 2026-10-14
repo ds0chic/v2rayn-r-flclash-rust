@@ -30,13 +30,40 @@ class AppTokens {
   const AppTokens._();
 
   // -- Typography scale --------------------------------------------------
+  // Six rungs: caption 11 / body 12.5 / small 11.5 / subtitle 13 /
+  // title 14 / dialogTitle 15, plus mono 12. Bare numeric fontSize
+  // literals are banned outside this block; body (12.5) is the default
+  // for anything that used to say 12.
   static const double fontSizeTitle = 14;
+  static const double fontSizeDialogTitle = 15;
   static const double fontSizeSubtitle = 13;
   static const double fontSize = 12.5;
   static const double fontSizeSmall = 11.5;
   static const double fontSizeTiny = 11;
+  static const double fontSizeCaption = 11;
   static const double monoFontSize = 12;
-  static const String monoFontFamily = 'monospace';
+  static const String monoFontFamily = 'Cascadia Mono';
+  static const List<String> monoFontFallback = <String>[
+    'Consolas',
+    'Microsoft YaHei UI',
+    'monospace',
+  ];
+
+  /// Default UI font stack (used only when the user has no `CurrentFontFamily`).
+  /// Western variable font first, then CJK fallbacks; never overrides a saved
+  /// user choice.
+  static const String fontFamily = 'Segoe UI Variable';
+  static const List<String> fontFamilyFallback = <String>[
+    'Segoe UI',
+    'Microsoft YaHei UI',
+    'Microsoft YaHei',
+  ];
+
+  /// Tabular (fixed-width) figures for rates/ports/latencies so live numbers
+  /// never make their column jitter.
+  static const List<FontFeature> tabularFigures = <FontFeature>[
+    FontFeature.tabularFigures(),
+  ];
 
   // -- Compact desktop chrome heights ------------------------------------
   static const double menuBarHeight = 30;
@@ -109,33 +136,49 @@ class AppTokens {
   static const double toolbarGroupFilterGap = 12;
   static const double toolbarFilterWidth = 200;
 
-  // -- Neutrals (light) --------------------------------------------------
-  static const Color lightSurface = Color(0xFFF3F4F6);
-  static const Color lightSurfaceContainer = Color(0xFFEAECEF);
-  static const Color lightSurfaceHighest = Color(0xFFE1E4E8);
-  static const Color lightOutline = Color(0xFFB9BEC6);
+  // -- Shape: one radius for every control and dialog ----------------------
+  // Menus, inputs, tooltips, selector faces and dialogs all use 6. The menu
+  // bar stays square (0) and the scrollbar thumb keeps its functional 4.
+  static const double radiusMedium = 6;
+
+  // -- Motion (UX2-12): dialog/menu/badge transitions only ------------------
+  // The table and log row builders must never use Animated* or own an
+  // AnimationController (SP-31 frame budget); grep-gated in review.
+  static const Duration motionFast = Duration(milliseconds: 120);
+  static const Duration motionStandard = Duration(milliseconds: 200);
+  static const Curve motionCurve = Curves.easeOutCubic;
+
+  // -- Neutrals (light, cool grey) ----------------------------------------
+  static const Color lightSurface = Color(0xFFF4F6F7);
+  static const Color lightSurfaceContainer = Color(0xFFE8ECEF);
+  static const Color lightSurfaceHighest = Color(0xFFDDE3E8);
+  static const Color lightOutline = Color(0xFFAEB8C2);
   static const Color lightGrid = Color(0x33000000);
   static const Color lightHover = Color(0x14000000);
   static const Color lightZebra = Color(0x08000000);
   static const Color lightDisabled = Color(0x61000000);
 
-  // -- Neutrals (dark) ---------------------------------------------------
-  static const Color darkSurface = Color(0xFF1E2126);
-  static const Color darkSurfaceContainer = Color(0xFF262A31);
-  static const Color darkSurfaceHighest = Color(0xFF2E333B);
-  static const Color darkOutline = Color(0xFF4A505A);
+  // -- Neutrals (dark, layered slate, never pure black) --------------------
+  static const Color darkSurface = Color(0xFF1B2228);
+  static const Color darkSurfaceContainer = Color(0xFF232C33);
+  static const Color darkSurfaceHighest = Color(0xFF2C3640);
+  static const Color darkOutline = Color(0xFF4A5560);
   static const Color darkGrid = Color(0x33FFFFFF);
   static const Color darkHover = Color(0x1FFFFFFF);
   static const Color darkZebra = Color(0x0AFFFFFF);
   static const Color darkDisabled = Color(0x61FFFFFF);
 
-  // -- Semantic status colors -------------------------------------------
-  static const Color lightSuccess = Color(0xFF2E7D32);
-  static const Color darkSuccess = Color(0xFF81C784);
-  static const Color lightWarning = Color(0xFFED6C02);
-  static const Color darkWarning = Color(0xFFFFB74D);
-  static const Color lightInfo = Color(0xFF0277BD);
-  static const Color darkInfo = Color(0xFF4FC3F7);
+  // -- Semantic status colors (all text-safe on their surface, >= 4.5:1) --
+  static const Color lightSuccess = Color(0xFF1E7A34);
+  static const Color darkSuccess = Color(0xFF7BD8A0);
+  static const Color lightWarning = Color(0xFF8A4B00);
+  static const Color darkWarning = Color(0xFFFFC46B);
+  static const Color lightError = Color(0xFFB3261E);
+  static const Color darkError = Color(0xFFFF8A80);
+  static const Color lightInfo = Color(0xFF0B5FA5);
+  static const Color darkInfo = Color(0xFF7CC4FF);
+  static const Color lightMuted = Color(0xFF4A5A64);
+  static const Color darkMuted = Color(0xFFA9B8C2);
 
   /// Upstream glyph map: one family for toolbar/menu/status bar so a semantic
   /// name always resolves to the same outlined Material icon.
@@ -176,6 +219,19 @@ class AppTokens {
     'empty': Icons.inbox_outlined,
     'running': Icons.play_circle_outline,
     'stopped': Icons.stop_circle_outlined,
+    'bolt': Icons.bolt_outlined,
+    'speed': Icons.speed,
+    'dismiss': Icons.close,
+    'download': Icons.download,
+    'link': Icons.link,
+    'folder': Icons.folder_open,
+    'arrowUp': Icons.arrow_upward,
+    'arrowDown': Icons.arrow_downward,
+    'remove': Icons.remove,
+    'autoColumns': Icons.vertical_split_outlined,
+    'dropdown': Icons.arrow_drop_down,
+    'copyAll': Icons.content_copy,
+    'editSolid': Icons.edit,
   };
 
   static IconData icon(String semantic) =>
@@ -196,8 +252,8 @@ class AppForm {
   /// Target height for a single-line outlined input at the default font size.
   static const double controlHeight = 36;
 
-  /// Net vertical gap between two adjacent field rows.
-  static const double fieldGap = 10;
+  /// Net vertical gap between two adjacent field rows (4px grid).
+  static const double fieldGap = 12;
 
   /// Net vertical gap between two section groups.
   static const double groupGap = 16;
@@ -245,7 +301,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   const AppSemanticColors({
     required this.success,
     required this.warning,
+    required this.error,
     required this.info,
+    required this.muted,
     required this.hover,
     required this.selectedRow,
     required this.disabledForeground,
@@ -259,7 +317,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
 
   final Color success;
   final Color warning;
+  final Color error;
   final Color info;
+  final Color muted;
   final Color hover;
   final Color selectedRow;
   final Color disabledForeground;
@@ -279,7 +339,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     return AppSemanticColors(
       success: isLight ? AppTokens.lightSuccess : AppTokens.darkSuccess,
       warning: isLight ? AppTokens.lightWarning : AppTokens.darkWarning,
+      error: isLight ? AppTokens.lightError : AppTokens.darkError,
       info: isLight ? AppTokens.lightInfo : AppTokens.darkInfo,
+      muted: isLight ? AppTokens.lightMuted : AppTokens.darkMuted,
       hover: isLight ? AppTokens.lightHover : AppTokens.darkHover,
       selectedRow: scheme.primaryContainer,
       disabledForeground: isLight
@@ -298,7 +360,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   AppSemanticColors copyWith({
     Color? success,
     Color? warning,
+    Color? error,
     Color? info,
+    Color? muted,
     Color? hover,
     Color? selectedRow,
     Color? disabledForeground,
@@ -312,7 +376,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     return AppSemanticColors(
       success: success ?? this.success,
       warning: warning ?? this.warning,
+      error: error ?? this.error,
       info: info ?? this.info,
+      muted: muted ?? this.muted,
       hover: hover ?? this.hover,
       selectedRow: selectedRow ?? this.selectedRow,
       disabledForeground: disabledForeground ?? this.disabledForeground,
@@ -331,7 +397,9 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     return AppSemanticColors(
       success: Color.lerp(success, other.success, t)!,
       warning: Color.lerp(warning, other.warning, t)!,
+      error: Color.lerp(error, other.error, t)!,
       info: Color.lerp(info, other.info, t)!,
+      muted: Color.lerp(muted, other.muted, t)!,
       hover: Color.lerp(hover, other.hover, t)!,
       selectedRow: Color.lerp(selectedRow, other.selectedRow, t)!,
       disabledForeground: Color.lerp(
@@ -363,8 +431,12 @@ extension AppSemanticContext on BuildContext {
 }
 
 /// Upstream `UIItem.ColorPrimaryName` values are Material swatch names. Map
-/// them onto concrete seeds; unknown names fall back to the default blue.
+/// them onto concrete seeds; unknown names fall back to the default teal-green.
+/// `TealGreen` is a v2rayN-R addition (display-only seed choice); the persisted
+/// `ColorPrimaryName` default stays `null` (see `settings_defaults.dart`), so
+/// this fallback never rewrites any saved configuration.
 const Map<String, Color> accentColors = <String, Color>{
+  'TealGreen': Color(0xFF0E6B5E),
   'Red': Color(0xFFF44336),
   'Pink': Color(0xFFE91E63),
   'Purple': Color(0xFF9C27B0),
@@ -386,7 +458,7 @@ const Map<String, Color> accentColors = <String, Color>{
   'BlueGrey': Color(0xFF607D8B),
 };
 
-const Color defaultAccent = Color(0xFF1565C0);
+const Color defaultAccent = Color(0xFF0E6B5E);
 
 Color accentColorFor(String? name) => accentColors[name] ?? defaultAccent;
 
@@ -416,7 +488,10 @@ ThemeData buildAppTheme(
       : AppTokens.fontSize;
   final family = (fontFamily != null && fontFamily.isNotEmpty)
       ? fontFamily
-      : null;
+      : AppTokens.fontFamily;
+  final familyFallback = (fontFamily != null && fontFamily.isNotEmpty)
+      ? null
+      : AppTokens.fontFamilyFallback;
   final rowHeight = AppTokens.rowHeightFor(
     (fontSize != null && fontSize >= 8) ? fontSize : null,
   );
@@ -432,6 +507,7 @@ ThemeData buildAppTheme(
     colorScheme: scheme,
     visualDensity: VisualDensity.compact,
     fontFamily: family,
+    fontFamilyFallback: familyFallback,
     extensions: <ThemeExtension<dynamic>>[semantics],
     dividerTheme: DividerThemeData(
       space: 1,
@@ -460,7 +536,9 @@ ThemeData buildAppTheme(
         backgroundColor: WidgetStatePropertyAll(scheme.surface),
         shape: const WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(4)),
+            borderRadius: BorderRadius.all(
+              Radius.circular(AppTokens.radiusMedium),
+            ),
           ),
         ),
         visualDensity: VisualDensity.compact,
@@ -472,7 +550,7 @@ ThemeData buildAppTheme(
       surfaceTintColor: Colors.transparent,
       elevation: 4,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(4)),
+        borderRadius: BorderRadius.all(Radius.circular(AppTokens.radiusMedium)),
       ),
       textStyle: TextStyle(fontSize: AppTokens.fontSize),
     ),
@@ -481,7 +559,9 @@ ThemeData buildAppTheme(
       textStyle: TextStyle(fontSize: AppTokens.fontSizeSmall),
       decoration: BoxDecoration(
         color: isLight ? const Color(0xE6303030) : const Color(0xF0E6E6E6),
-        borderRadius: const BorderRadius.all(Radius.circular(3)),
+        borderRadius: const BorderRadius.all(
+          Radius.circular(AppTokens.radiusMedium),
+        ),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
@@ -510,7 +590,7 @@ ThemeData buildAppTheme(
         color: scheme.onSurfaceVariant,
       ),
       border: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(3)),
+        borderRadius: BorderRadius.all(Radius.circular(AppTokens.radiusMedium)),
       ),
     ),
     dialogTheme: DialogThemeData(
@@ -518,7 +598,7 @@ ThemeData buildAppTheme(
       backgroundColor: scheme.surfaceContainerHigh,
       surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(6)),
+        borderRadius: BorderRadius.all(Radius.circular(AppTokens.radiusMedium)),
       ),
       titleTextStyle: TextStyle(
         fontSize: AppTokens.fontSizeTitle,

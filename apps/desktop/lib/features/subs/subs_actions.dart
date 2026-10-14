@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,9 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/subs/import_persistence.dart';
 import 'package:v2rayn_desktop/features/subs/subs_controller.dart';
 import 'package:v2rayn_desktop/features/subs/sub_setting_window.dart';
+import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// ACT-MAIN-016: import share links from the clipboard (F-IMPORT-001/002/005).
 ///
@@ -44,7 +48,10 @@ Future<void> importFromTextDialog(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('import-paste-dialog'),
-      title: const Text('从文本导入节点', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '从文本导入节点',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         height: 240,
@@ -172,7 +179,10 @@ Future<bool> _confirmImportPreview(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('import-preview-dialog'),
-      title: const Text('预览导入', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '预览导入',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -184,13 +194,19 @@ Future<bool> _confirmImportPreview(
               const SizedBox(height: 8),
               Text(
                 '${preview.errors.length} 行未识别，将跳过（首项：${preview.errors.first.message}）。',
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             ],
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '取消不产生任何文件或节点；提交失败不留半批。',
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(
+                fontSize: AppTokens.fontSize,
+                color: context.semantics.muted,
+              ),
             ),
           ],
         ),
@@ -239,7 +255,10 @@ Future<void> _offerAddSubscription(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('sub-url-import-dialog'),
-      title: const Text('检测到订阅链接', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '检测到订阅链接',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 480,
         child: Column(
@@ -253,10 +272,16 @@ Future<void> _offerAddSubscription(
                 url,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: AppTokens.fontSize,
+                  color: context.semantics.muted,
+                ),
               ),
             if (urls.length > 5)
-              Text('…共 ${urls.length} 条', style: const TextStyle(fontSize: 12)),
+              Text(
+                '…共 ${urls.length} 条',
+                style: const TextStyle(fontSize: AppTokens.fontSize),
+              ),
             const SizedBox(height: 12),
             const Text('是否将其作为订阅添加并立即更新？'),
           ],
@@ -281,7 +306,7 @@ Future<void> _offerAddSubscription(
     return;
   }
   final subs = ref.read(subsControllerProvider.notifier);
-  var added = 0;
+  final addedIds = <String>[];
   for (final url in urls) {
     final saved = subs.save(
       c.SubItemDto(
@@ -296,15 +321,16 @@ Future<void> _offerAddSubscription(
         updateTime: 0,
       ),
     );
-    if (saved.ok) added++;
+    final id = saved.item?.id;
+    if (saved.ok && id != null && id.isNotEmpty) addedIds.add(id);
   }
-  if (added == 0) {
+  if (addedIds.isEmpty) {
     _toast(ref, '订阅添加失败：未能保存任何订阅');
     return;
   }
-  _toast(ref, '已添加 $added 个订阅，正在更新…');
-  final update = await subs.update();
-  ref.read(profilesControllerProvider.notifier).reload();
+  _toast(ref, '已添加 ${addedIds.length} 个订阅，正在更新…');
+  // Only the subscriptions just added, not every configured one.
+  final update = await subs.update(subIds: addedIds);
   if (update.ok) {
     final nodes = update.entries.fold<int>(
       0,
@@ -340,12 +366,29 @@ Future<void> exportProfiles(
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.exportProfiles(state.selected.toList(), kind);
   if (!result.ok) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = result.error == null
+        ? '无导出项'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            result.error!.messageKey,
+          );
+    _toast(ref, '导出失败：$detail');
     return;
   }
   await Clipboard.setData(ClipboardData(text: result.text));
   _toast(ref, '已导出 ${result.count} 个节点到剪贴板');
 }
+
+/// Build the export file path inside [tempDir].
+///
+/// The filename carries a random component so concurrent exports never collide
+/// and the path is not guessable from the timestamp alone (S8-04 confines
+/// `write_export_file` to the system temp dir; the name is the remaining
+/// hardening). Pure for tests.
+String buildExportFilePath(String tempDir, int millis, String randHex) =>
+    '$tempDir${Platform.pathSeparator}'
+    'v2rayn-export-$millis-$randHex.txt';
 
 /// F-IMPORT-008: write the URI text to a file (kernel-config export is T10+).
 Future<void> exportProfilesToFile(BuildContext context, WidgetRef ref) async {
@@ -357,13 +400,21 @@ Future<void> exportProfilesToFile(BuildContext context, WidgetRef ref) async {
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.exportProfiles(state.selected.toList(), 'share');
   if (!result.ok) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = result.error == null
+        ? '无导出项'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            result.error!.messageKey,
+          );
+    _toast(ref, '导出失败：$detail');
     return;
   }
-  final dir = Directory.systemTemp.path;
-  final path =
-      '$dir${Platform.pathSeparator}'
-      'v2rayn-export-${DateTime.now().millisecondsSinceEpoch}.txt';
+  final path = buildExportFilePath(
+    Directory.systemTemp.path,
+    DateTime.now().millisecondsSinceEpoch,
+    Random().nextInt(1 << 32).toRadixString(16).padLeft(8, '0'),
+  );
   final written = bridge.writeExportFile(path, result.text);
   _toast(ref, written.ok ? '已导出到 $path（仅分享URI文本）' : '写入文件失败');
 }
@@ -387,7 +438,10 @@ Future<void> shareProfilesQr(BuildContext context, WidgetRef ref) async {
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('profile-share-qr'),
-      title: const Text('分享节点', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '分享节点',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 256,
         height: 256,
@@ -426,7 +480,6 @@ Future<void> updateAllSubscriptions(
   final subs = ref.read(subsControllerProvider.notifier);
   ref.read(subsControllerProvider.notifier).reload();
   final result = await subs.update(viaProxy: viaProxy);
-  ref.read(profilesControllerProvider.notifier).reload();
   _toast(ref, subsUpdateSummary(result, viaProxy: viaProxy));
   if (hasSubUpdateFailures(result) && context.mounted) {
     await _showSubUpdateDetails(context, result);
@@ -479,7 +532,10 @@ Future<void> _showSubUpdateDetails(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('subs-update-failures'),
-      title: const Text('订阅更新失败详情', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '订阅更新失败详情',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 520,
         child: ListView(
@@ -528,7 +584,6 @@ Future<void> updateCurrentGroup(
   final result = (groupSubId == null || groupSubId.isEmpty)
       ? await subs.update(viaProxy: viaProxy)
       : await subs.update(subIds: <String>[groupSubId], viaProxy: viaProxy);
-  ref.read(profilesControllerProvider.notifier).reload();
   _toast(
     ref,
     '${_currentGroupLabel(ref, groupSubId)}：'

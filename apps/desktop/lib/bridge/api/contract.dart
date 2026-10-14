@@ -1165,12 +1165,18 @@ class ProfilePageDto {
   /// SP-21: caller-supplied request generation, echoed back unchanged.
   final BigInt requestGeneration;
 
+  /// S8-03: storage failure that produced this page. `Some` only when the
+  /// read failed (items are then empty); the cursor loops must treat such a
+  /// page as an error, never as end-of-list.
+  final ErrorDto? error;
+
   const ProfilePageDto({
     required this.items,
     required this.total,
     this.nextCursor,
     required this.datasetRevision,
     required this.requestGeneration,
+    this.error,
   });
 
   @override
@@ -1179,7 +1185,8 @@ class ProfilePageDto {
       total.hashCode ^
       nextCursor.hashCode ^
       datasetRevision.hashCode ^
-      requestGeneration.hashCode;
+      requestGeneration.hashCode ^
+      error.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1190,7 +1197,8 @@ class ProfilePageDto {
           total == other.total &&
           nextCursor == other.nextCursor &&
           datasetRevision == other.datasetRevision &&
-          requestGeneration == other.requestGeneration;
+          requestGeneration == other.requestGeneration &&
+          error == other.error;
 }
 
 /// Sort key for `query_profiles`.

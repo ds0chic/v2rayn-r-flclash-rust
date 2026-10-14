@@ -155,6 +155,9 @@ class RuntimeController extends Notifier<RuntimeView> {
       // changed underneath us; stale snapshots/results from the old epoch must
       // not overwrite the new state (R4-04).
       if (_activeCommand == null) _stateGeneration++;
+      // The warning belongs to the old epoch's stream; a new session starts
+      // without it (D3b-04).
+      state = state.copyWith(clearSequenceWarning: true);
       debugPrint('[runtime] event epoch changed: $previousEpoch -> $epoch');
     }
     _lastEpoch = epoch;
@@ -606,7 +609,7 @@ class RuntimeController extends Notifier<RuntimeView> {
   /// Enqueue a stop barrier (SP-04). Stops are never merged: two rapid
   /// stops keep two barrier slots (stop is idempotent, so executing both is
   /// safe), and a stop is never overtaken by a later apply.
-  Future<void> stop() {
+  Future<bool> stop() {
     final command = _RuntimeCommand.stop(clock(), ++_intentSeq);
     final waiter = Completer<bool>();
     command.waiters.add(waiter);
@@ -617,7 +620,7 @@ class RuntimeController extends Notifier<RuntimeView> {
       reconcileNeeded: false,
     );
     unawaited(_pumpCommands());
-    return waiter.future.then((_) {});
+    return waiter.future;
   }
 
   void _enqueueStop(_RuntimeCommand command) {

@@ -165,6 +165,11 @@ const _serverEntries = <AppMenuEntry>[
 ];
 
 /// ACT-MAIN-019 (sub settings) and ACT-* subscription update entries.
+///
+/// U-B1 convergence (UX1-07): the default entry updates the current group
+/// without proxy (ACT-MAIN-022, behavior unchanged); the original four stay
+/// intact inside the "more ways" submenu (ledger rows kept, folded by
+/// default).
 const _subscriptionEntries = <AppMenuEntry>[
   AppMenuEntry(
     label: '订阅分组设置',
@@ -172,25 +177,33 @@ const _subscriptionEntries = <AppMenuEntry>[
     actionId: 'ACT-MAIN-019',
     separatorAfter: true,
   ),
+  AppMenuEntry(label: '更新订阅', l10nKey: 'uiSubUpdate', actionId: 'ACT-MAIN-022'),
   AppMenuEntry(
-    label: '更新全部订阅 (不通过代理)',
-    l10nKey: 'menuSubUpdate',
-    actionId: 'ACT-MAIN-020',
-  ),
-  AppMenuEntry(
-    label: '更新全部订阅 (通过代理)',
-    l10nKey: 'menuSubUpdateViaProxy',
-    actionId: 'ACT-MAIN-021',
-  ),
-  AppMenuEntry(
-    label: '更新当前订阅 (不通过代理)',
-    l10nKey: 'menuSubGroupUpdate',
-    actionId: 'ACT-MAIN-022',
-  ),
-  AppMenuEntry(
-    label: '更新当前订阅 (通过代理)',
-    l10nKey: 'menuSubGroupUpdateViaProxy',
-    actionId: 'ACT-MAIN-023',
+    label: '更多更新方式…',
+    l10nKey: 'uiSubMoreWays',
+    actionId: 'UI-SUB-MORE',
+    submenu: <AppMenuEntry>[
+      AppMenuEntry(
+        label: '更新全部订阅 (不通过代理)',
+        l10nKey: 'menuSubUpdate',
+        actionId: 'ACT-MAIN-020',
+      ),
+      AppMenuEntry(
+        label: '更新全部订阅 (通过代理)',
+        l10nKey: 'menuSubUpdateViaProxy',
+        actionId: 'ACT-MAIN-021',
+      ),
+      AppMenuEntry(
+        label: '更新当前订阅 (不通过代理)',
+        l10nKey: 'menuSubGroupUpdate',
+        actionId: 'ACT-MAIN-022',
+      ),
+      AppMenuEntry(
+        label: '更新当前订阅 (通过代理)',
+        l10nKey: 'menuSubGroupUpdateViaProxy',
+        actionId: 'ACT-MAIN-023',
+      ),
+    ],
   ),
 ];
 
@@ -307,6 +320,13 @@ const _settingEntries = <AppMenuEntry>[
     l10nKey: 'uiCleanup',
     actionId: 'UI-CLEANUP',
   ),
+  // U-C2 (UX1-05): recommended-setup entry opening the U-B2 preset dialog in
+  // independent mode. No separatorAfter so the M8 separator count stays 2.
+  AppMenuEntry(
+    label: '推荐配置…',
+    l10nKey: 'uiPresetDialog',
+    actionId: 'UI-PRESET-DLG',
+  ),
   AppMenuEntry(
     label: '主界面 (占位)',
     l10nKey: 'uiMainPlaceholder',
@@ -330,6 +350,19 @@ const _helpEntries = <AppMenuEntry>[
     label: '核心网站',
     l10nKey: 'menuWebsiteItem',
     actionId: 'ACT-WIN-008',
+  ),
+  // U-B1 onboarding entries (new UI-* ids, upstream rows untouched): reopen
+  // the first-run wizard any time, and reset hint-class UI state (confirm
+  // suppressions + wizard completion; density/layout/business untouched).
+  AppMenuEntry(
+    label: '首次启动向导…',
+    l10nKey: 'uiOnboardingWizard',
+    actionId: 'UI-ONBOARDING',
+  ),
+  AppMenuEntry(
+    label: '重置界面提示',
+    l10nKey: 'uiResetHints',
+    actionId: 'UI-RESET-HINTS',
   ),
 ];
 

@@ -55,15 +55,6 @@ pub fn renew_reconcile_due(consecutive_failures: u32) -> bool {
     consecutive_failures >= HELPER_RENEW_FAILURES_BEFORE_RECONCILE
 }
 
-/// Ownership rule for recovery (SP-09): a lease survives UI inactivity and
-/// manager silence; only a dead owner loses it. A reopened manager must
-/// recover by the journaled ownership (helper session + adapter identity +
-/// route digest), never by the current desired settings or by guessing.
-#[allow(dead_code)]
-pub fn active_lease_survives_ui_idle() -> bool {
-    true
-}
-
 /// Overall readiness of one managed session (SP-10, CP-12 / TUN-A05).
 ///
 /// One pure decision over the main core, every sidecar and the

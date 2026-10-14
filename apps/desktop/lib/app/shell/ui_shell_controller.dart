@@ -2,19 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Main-window grid orientation, mirroring upstream `EGirdOrientation`
 /// (compat/layouts.yaml LAY-MAIN-001/002/003).
 enum AppLayoutMode {
-  horizontal('horizontal', '水平布局', Icons.view_column_outlined),
-  vertical('vertical', '垂直布局', Icons.view_agenda_outlined),
-  tab('tab', '标签布局', Icons.tab_outlined);
+  horizontal('horizontal', '水平布局', 'layout-horizontal'),
+  vertical('vertical', '垂直布局', 'layout-vertical'),
+  tab('tab', '标签布局', 'layout-tab');
 
-  const AppLayoutMode(this.id, this.label, this.icon);
+  const AppLayoutMode(this.id, this.label, this.iconName);
 
   final String id;
   final String label;
-  final IconData icon;
+
+  /// Semantic name resolved through the shared icon family.
+  final String iconName;
+
+  IconData get icon => AppTokens.icon(iconName);
 
   static AppLayoutMode fromId(String? id) {
     return AppLayoutMode.values.firstWhere(
@@ -24,29 +29,31 @@ enum AppLayoutMode {
   }
 }
 
-/// The four system-proxy semantics from LAY-STATUSBAR-001 /
-/// outputs plan §09 (ForcedClear / ForcedChange / Unchanged / Pac).
-/// T05 only switches UI state; the real WinINET work lands in T13.
-class SystemProxyMode {
-  const SystemProxyMode(this.label);
+/// Node-table density (UX2-07, U-B1). Persisted in the UI-state `layout`
+/// section (never in the business settings document). Default `standard`
+/// renders at 28 (see UI-DENSITY-DEFAULT).
+enum TableDensity {
+  compact('compact', '紧凑', 24),
+  standard('standard', '标准', 28),
+  relaxed('relaxed', '宽松', 32);
 
+  const TableDensity(this.id, this.label, this.height);
+
+  final String id;
   final String label;
+  final double height;
 
-  static const modes = <SystemProxyMode>[
-    SystemProxyMode('清除系统代理'),
-    SystemProxyMode('自动配置系统代理'),
-    SystemProxyMode('不改变系统代理'),
-    SystemProxyMode('Pac 模式'),
-  ];
-}
+  static TableDensity fromId(String? id) {
+    return TableDensity.values.firstWhere(
+      (m) => m.id == id,
+      orElse: () => TableDensity.standard,
+    );
+  }
 
-class TrafficSpeed {
-  const TrafficSpeed({this.up = '--', this.down = '--'});
-
-  final String up;
-  final String down;
-
-  bool get hasData => up != '--' || down != '--';
+  TableDensity get next {
+    final values = TableDensity.values;
+    return values[(index + 1) % values.length];
+  }
 }
 
 /// Single UI-state source of truth for the shell. Values that require a live
@@ -58,6 +65,7 @@ class UiShellState {
     this.horizontalSplit = 0.5,
     this.verticalSplit = 0.5,
     this.tabIndex = 0,
+    this.tableDensity = TableDensity.standard,
     this.themeMode = ThemeMode.light,
     this.accentName,
     this.fontFamily,
@@ -68,13 +76,6 @@ class UiShellState {
     this.autoAdjustColWidth = false,
     this.zebraStriping = false,
     this.trayMenuServersLimit = 20,
-    this.systemProxyIndex = 2,
-    this.routingLabel,
-    this.tunEnabled = false,
-    this.proxySpeed = const TrafficSpeed(),
-    this.directSpeed = const TrafficSpeed(),
-    this.inbound,
-    this.inboundLan,
     this.message,
   });
 
@@ -87,6 +88,7 @@ class UiShellState {
   final double verticalSplit;
 
   final int tabIndex;
+  final TableDensity tableDensity;
   final ThemeMode themeMode;
 
   /// `UIItem.ColorPrimaryName` (Material swatch name), applied immediately.
@@ -102,14 +104,6 @@ class UiShellState {
   final bool zebraStriping;
   final int trayMenuServersLimit;
 
-  final int systemProxyIndex;
-  final String? routingLabel;
-  final bool tunEnabled;
-  final TrafficSpeed proxySpeed;
-  final TrafficSpeed directSpeed;
-  final String? inbound;
-  final String? inboundLan;
-
   /// Last transient UI feedback, shown in the status bar. Used for
   /// "尚未实现" notices so the shell never pretends a backend action ran.
   final String? message;
@@ -119,6 +113,7 @@ class UiShellState {
     double? horizontalSplit,
     double? verticalSplit,
     int? tabIndex,
+    TableDensity? tableDensity,
     ThemeMode? themeMode,
     String? accentName,
     bool clearAccent = false,
@@ -132,13 +127,6 @@ class UiShellState {
     bool? autoAdjustColWidth,
     bool? zebraStriping,
     int? trayMenuServersLimit,
-    int? systemProxyIndex,
-    String? routingLabel,
-    bool? tunEnabled,
-    TrafficSpeed? proxySpeed,
-    TrafficSpeed? directSpeed,
-    String? inbound,
-    String? inboundLan,
     String? message,
     bool clearMessage = false,
   }) {
@@ -147,6 +135,7 @@ class UiShellState {
       horizontalSplit: horizontalSplit ?? this.horizontalSplit,
       verticalSplit: verticalSplit ?? this.verticalSplit,
       tabIndex: tabIndex ?? this.tabIndex,
+      tableDensity: tableDensity ?? this.tableDensity,
       themeMode: themeMode ?? this.themeMode,
       accentName: clearAccent ? null : (accentName ?? this.accentName),
       fontFamily: clearFontFamily ? null : (fontFamily ?? this.fontFamily),
@@ -157,13 +146,6 @@ class UiShellState {
       autoAdjustColWidth: autoAdjustColWidth ?? this.autoAdjustColWidth,
       zebraStriping: zebraStriping ?? this.zebraStriping,
       trayMenuServersLimit: trayMenuServersLimit ?? this.trayMenuServersLimit,
-      systemProxyIndex: systemProxyIndex ?? this.systemProxyIndex,
-      routingLabel: routingLabel ?? this.routingLabel,
-      tunEnabled: tunEnabled ?? this.tunEnabled,
-      proxySpeed: proxySpeed ?? this.proxySpeed,
-      directSpeed: directSpeed ?? this.directSpeed,
-      inbound: inbound ?? this.inbound,
-      inboundLan: inboundLan ?? this.inboundLan,
       message: clearMessage ? null : (message ?? this.message),
     );
   }
@@ -175,7 +157,6 @@ final uiShellControllerProvider =
 class UiShellController extends Notifier<UiShellState> {
   static const layoutSection = 'layout';
   static const themeSection = 'theme';
-  static const statusSection = 'status_ui';
 
   UiStateStore get _store => ref.read(uiStateStoreProvider);
 
@@ -183,18 +164,17 @@ class UiShellController extends Notifier<UiShellState> {
   UiShellState build() {
     final layout = _store.loadSection(layoutSection) ?? const {};
     final theme = _store.loadSection(themeSection) ?? const {};
-    final status = _store.loadSection(statusSection) ?? const {};
     return UiShellState(
       layout: AppLayoutMode.fromId(layout['mode'] as String?),
       horizontalSplit: (layout['horizontal_split'] as num?)?.toDouble() ?? 0.5,
       verticalSplit: (layout['vertical_split'] as num?)?.toDouble() ?? 0.5,
+      tableDensity: TableDensity.fromId(layout['density'] as String?),
       themeMode: _themeModeFrom(theme['mode'] as String?),
       accentName: theme['accent'] as String?,
       zebraStriping: theme['zebra'] == true,
       fontFamily: theme['font_family'] as String?,
       fontSize: (theme['font_size'] as num?)?.toDouble(),
       language: theme['language'] as String?,
-      systemProxyIndex: (status['system_proxy'] as num?)?.toInt() ?? 2,
     );
   }
 
@@ -305,6 +285,13 @@ class UiShellController extends Notifier<UiShellState> {
 
   void setTabIndex(int index) => state = state.copyWith(tabIndex: index);
 
+  void setDensity(TableDensity density) {
+    state = state.copyWith(tableDensity: density);
+    _persistLayout();
+  }
+
+  void cycleDensity() => setDensity(state.tableDensity.next);
+
   void toggleTheme() {
     final next = state.themeMode == ThemeMode.light
         ? ThemeMode.dark
@@ -325,17 +312,6 @@ class UiShellController extends Notifier<UiShellState> {
     _persistTheme();
   }
 
-  void setSystemProxyIndex(int index) {
-    state = state.copyWith(systemProxyIndex: index);
-    _store.saveSection(statusSection, <String, dynamic>{'system_proxy': index});
-    setMessage('系统代理仅切换 UI 状态，后端接入见 T13');
-  }
-
-  void setTunEnabled(bool value) {
-    state = state.copyWith(tunEnabled: value);
-    setMessage('TUN 模式后端尚未接入');
-  }
-
   void setMessage(String? message) {
     state = state.copyWith(message: message, clearMessage: message == null);
   }
@@ -352,6 +328,7 @@ class UiShellController extends Notifier<UiShellState> {
       'mode': state.layout.id,
       'horizontal_split': state.horizontalSplit,
       'vertical_split': state.verticalSplit,
+      'density': state.tableDensity.id,
     });
   }
 }

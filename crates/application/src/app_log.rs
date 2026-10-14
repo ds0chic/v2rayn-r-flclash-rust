@@ -192,6 +192,15 @@ fn redact_userinfo(line: &str) -> String {
     let bytes = line.as_bytes();
     let mut i = 0;
     while i < bytes.len() {
+        // Only ASCII positions can start a `scheme://` token. A non-ASCII lead
+        // byte is copied with its full UTF-8 sequence so multi-byte text is
+        // never split (`&line[i..]` below always sits on a char boundary).
+        if !bytes[i].is_ascii() {
+            let ch_len = line[i..].chars().next().map(|c| c.len_utf8()).unwrap_or(1);
+            out.push_str(&line[i..i + ch_len]);
+            i += ch_len;
+            continue;
+        }
         if let Some(scheme_end) = match_scheme(line, i) {
             let rest = &line[scheme_end..];
             let at = rest.find('@');
@@ -381,6 +390,27 @@ mod tests {
     fn ymd_known_dates() {
         assert_eq!(ymd_from_unix(0), "1970-01-01");
         assert_eq!(ymd_from_unix(1_704_067_200), "2024-01-01");
+    }
+
+    #[test]
+    fn redact_preserves_non_ascii_and_still_redacts() {
+        // S5-06: non-ASCII log content must survive redaction byte-identical
+        // (previously the byte walk split UTF-8 sequences and panicked on the
+        // first CJK line); secrets are still redacted.
+        let line = "节点 同步完成 password=secret123";
+        let redacted = redact_line(line);
+        assert!(redacted.contains("节点 同步完成"), "got {redacted}");
+        assert!(!redacted.contains("secret123"), "got {redacted}");
+        assert!(redacted.contains("password=[redacted]"), "got {redacted}");
+
+        let link = "收到 vmess://dGVzdA@host:443 备注中文";
+        let redacted = redact_line(link);
+        assert!(redacted.contains("vmess://[redacted]"), "got {redacted}");
+        assert!(redacted.contains("备注中文"), "got {redacted}");
+
+        let userinfo = "http://user:pass@host/路径";
+        let redacted = redact_line(userinfo);
+        assert_eq!(redacted, "http://[redacted]@host/路径", "got {redacted}");
     }
 
     #[test]

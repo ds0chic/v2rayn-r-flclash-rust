@@ -5,7 +5,7 @@
 //! [`DEFAULT_PAC_PORT_BASE`] (11808). Port 10808 is deliberately out of scope:
 //! it is the user's live proxy inbound port.
 
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -195,6 +195,12 @@ impl PacServer {
             .map(|addr| format!("http://{}:{}{}", addr.ip(), addr.port(), self.config.path))
     }
 
+    /// Replace the proxy rule rendered by the next [`Self::start`]; a refresh of
+    /// a running server re-renders its content with it.
+    pub fn set_proxy_rule(&mut self, proxy_rule: Option<String>) {
+        self.config.proxy_rule = proxy_rule;
+    }
+
     /// Start serving `source`. Idempotent: a second call while running only
     /// refreshes the content and keeps the existing listener/port.
     pub fn start(&mut self, source: PacSource) -> Result<u16> {
@@ -294,14 +300,33 @@ fn is_loopback_host(host: &str) -> bool {
     matches!(host, "127.0.0.1" | "localhost" | "::1")
 }
 
+/// Maximum accepted HTTP request-line bytes (S7b-06). Longer lines are
+/// rejected without being read fully.
+pub const MAX_REQUEST_LINE_BYTES: usize = 8 * 1024;
+
 fn serve(mut stream: TcpStream, path: &str, content: &RwLock<Vec<u8>>) -> std::io::Result<()> {
     stream.set_read_timeout(Some(IO_TIMEOUT))?;
     stream.set_write_timeout(Some(IO_TIMEOUT))?;
     let mut reader = BufReader::new(stream.try_clone()?);
+    let mut capped = reader.by_ref().take(MAX_REQUEST_LINE_BYTES as u64 + 1);
     let mut request_line = String::new();
-    reader.read_line(&mut request_line)?;
+    capped.read_line(&mut request_line)?;
+    // The cap exhausted before a newline: reject without reading further.
+    if !request_line.ends_with('\n') {
+        return respond(
+            &mut stream,
+            "414 Request Line Too Long",
+            "text/plain",
+            b"414 Request Line Too Long",
+        );
+    }
 
-    let target = request_line.split_whitespace().nth(1).unwrap_or("");
+    let mut parts = request_line.split_whitespace();
+    let method = parts.next().unwrap_or("");
+    if method != "GET" && method != "HEAD" {
+        return respond(&mut stream, "405 Method Not Allowed", "text/plain", b"405");
+    }
+    let target = parts.next().unwrap_or("");
     let path_only = target.split('?').next().unwrap_or("");
 
     if path_only == path {
@@ -309,21 +334,44 @@ fn serve(mut stream: TcpStream, path: &str, content: &RwLock<Vec<u8>>) -> std::i
             Ok(guard) => guard.clone(),
             Err(_) => Vec::new(),
         };
-        let header = format!(
-            "HTTP/1.0 200 OK\r\nContent-Type: application/x-ns-proxy-autoconfig\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
-            body.len()
-        );
-        stream.write_all(header.as_bytes())?;
-        stream.write_all(&body)?;
+        if method == "HEAD" {
+            return respond_head(&mut stream, "application/x-ns-proxy-autoconfig", body.len());
+        }
+        respond(
+            &mut stream,
+            "200 OK",
+            "application/x-ns-proxy-autoconfig",
+            &body,
+        )
     } else {
-        let body = b"404 Not Found".to_vec();
-        let header = format!(
-            "HTTP/1.0 404 Not Found\r\nContent-Type: text/plain\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
-            body.len()
-        );
-        stream.write_all(header.as_bytes())?;
-        stream.write_all(&body)?;
+        respond(&mut stream, "404 Not Found", "text/plain", b"404 Not Found")
     }
+}
+
+fn respond(
+    stream: &mut TcpStream,
+    status: &str,
+    content_type: &str,
+    body: &[u8],
+) -> std::io::Result<()> {
+    let header = format!(
+        "HTTP/1.0 {status}\r\nContent-Type: {content_type}\r\nConnection: close\r\nContent-Length: {}\r\n\r\n",
+        body.len()
+    );
+    stream.write_all(header.as_bytes())?;
+    stream.write_all(body)?;
+    stream.flush()
+}
+
+fn respond_head(
+    stream: &mut TcpStream,
+    content_type: &str,
+    content_length: usize,
+) -> std::io::Result<()> {
+    let header = format!(
+        "HTTP/1.0 200 OK\r\nContent-Type: {content_type}\r\nConnection: close\r\nContent-Length: {content_length}\r\n\r\n"
+    );
+    stream.write_all(header.as_bytes())?;
     stream.flush()
 }
 

@@ -99,10 +99,6 @@ pub(crate) fn build(input: &CodegenInput) -> Result<GeneratedConfigs, CodegenErr
     if input.settings.core_basic.enable_fragment {
         apply_outbound_fragment(&mut state);
     }
-    if input.settings.core_basic.enable_final_fragment {
-        apply_final_fragment(&mut state);
-    }
-
     // Final rule (only when a proxy balancer exists).
     let routing_value = state
         .config
@@ -132,6 +128,11 @@ pub(crate) fn build(input: &CodegenInput) -> Result<GeneratedConfigs, CodegenErr
     }
     let mut main = Value::Object(main_map);
     apply_custom_outbound_replace(&mut main, input, &state.custom_tags)?;
+    if input.settings.core_basic.enable_final_fragment {
+        if let Some(outbounds) = main.get_mut("outbounds").and_then(Value::as_array_mut) {
+            apply_final_fragment(outbounds, input);
+        }
+    }
     if let Some(template) = &input.template {
         full_config_template(&mut main, input, template)?;
     }
@@ -182,10 +183,9 @@ fn apply_outbound_fragment(state: &mut XrayState<'_>) {
     }
 }
 
-fn apply_final_fragment(state: &mut XrayState<'_>) {
-    let fragment_mask = build_fragments_mask(state.input);
-    let indices: Vec<usize> = state
-        .outbounds
+fn apply_final_fragment(outbounds: &mut Vec<Value>, input: &CodegenInput) {
+    let fragment_mask = build_fragments_mask(input);
+    let indices: Vec<usize> = outbounds
         .iter()
         .enumerate()
         .filter(|(_, o)| {
@@ -197,7 +197,7 @@ fn apply_final_fragment(state: &mut XrayState<'_>) {
         .collect();
     for (offset, index) in indices.into_iter().enumerate() {
         let index = index + offset;
-        let original_tag = state.outbounds[index]
+        let original_tag = outbounds[index]
             .get("tag")
             .and_then(Value::as_str)
             .unwrap_or("")
@@ -223,10 +223,10 @@ fn apply_final_fragment(state: &mut XrayState<'_>) {
                 }
             }
         }
-        if let Some(map) = state.outbounds[index].as_object_mut() {
+        if let Some(map) = outbounds[index].as_object_mut() {
             map.insert("tag".into(), json!(after_tag));
         }
-        state.outbounds.insert(index, clone);
+        outbounds.insert(index, clone);
     }
 }
 
@@ -591,9 +591,14 @@ pub(crate) fn full_config_template(
             .and_then(Value::as_str)
             .unwrap_or("")
             .to_lowercase();
-        if matches!(protocol.as_str(), "blackhole" | "dns" | "freedom") && template.add_proxy_only {
+        if matches!(protocol.as_str(), "blackhole" | "dns" | "freedom") {
+            if template.add_proxy_only {
+                continue;
+            }
+            merged.push(outbound);
             continue;
-        } else if let Some(detour) = template.proxy_detour.as_deref().filter(|s| !s.is_empty()) {
+        }
+        if let Some(detour) = template.proxy_detour.as_deref().filter(|s| !s.is_empty()) {
             let has_dialer = outbound_dialer_proxy(&outbound).is_some();
             if !has_dialer {
                 let address = outbound_address(&outbound);

@@ -49,6 +49,36 @@ fn xray_full_template_injection_from_fixture() {
 }
 
 #[test]
+fn xray_template_detour_keeps_builtin_outbounds_direct() {
+    let template = CodegenTemplate {
+        enabled: true,
+        config: Some(r#"{"log":{},"inbounds":[],"outbounds":[]}"#.into()),
+        tun_config: Some(r#"{"log":{},"inbounds":[],"outbounds":[]}"#.into()),
+        add_proxy_only: false,
+        proxy_detour: Some("corp-detour".into()),
+    };
+    let mut input = codegen_input(vless_base());
+    input.settings.tun.enabled = true;
+    input.template = Some(template);
+
+    let main = generate_xray(&input).expect("template").main;
+    let outbounds = main["outbounds"].as_array().unwrap();
+    for tag in ["direct", "block", "dns"] {
+        let outbound = outbounds
+            .iter()
+            .find(|outbound| outbound.get("tag").and_then(|v| v.as_str()) == Some(tag))
+            .expect("built-in outbound");
+        assert!(outbound
+            .pointer("/streamSettings/sockopt/dialerProxy")
+            .is_none());
+    }
+    assert_eq!(
+        string_at(&main, "/outbounds/0/streamSettings/sockopt/dialerProxy"),
+        "corp-detour"
+    );
+}
+
+#[test]
 fn xray_template_balancer_rewrite() {
     let mut group = profile(ConfigType::PolicyGroup, "", 0);
     group.index_id = "group-1".into();
@@ -131,6 +161,30 @@ fn xray_custom_outbound_placeholders() {
         json!("")
     );
     assert!(json_at(main, "/outbounds/0/streamSettings/sockopt/dialerProxy").is_null());
+}
+
+#[test]
+fn xray_final_fragment_wraps_replaced_custom_outbound() {
+    let mut profile = profile(ConfigType::Outbound, "custom-outbound-file.json", 1);
+    profile.index_id = "custom-1".into();
+    let mut input = codegen_input(profile);
+    input.settings.core_basic.enable_final_fragment = true;
+    input.custom_outbound_content.insert(
+        "custom-1".into(),
+        r#"{"tag":"{{tag}}","protocol":"socks","settings":{"servers":[{"address":"192.0.2.99","port":11840}]}}"#.into(),
+    );
+
+    let main = generate_xray(&input)
+        .expect("custom outbound with final fragment")
+        .main;
+    assert_eq!(string_at(&main, "/outbounds/0/tag"), "proxy");
+    assert_eq!(string_at(&main, "/outbounds/0/protocol"), "freedom");
+    assert_eq!(
+        string_at(&main, "/outbounds/0/streamSettings/sockopt/dialerProxy"),
+        "fragment-proxy"
+    );
+    assert_eq!(string_at(&main, "/outbounds/1/tag"), "fragment-proxy");
+    assert_eq!(string_at(&main, "/outbounds/1/protocol"), "socks");
 }
 
 #[test]

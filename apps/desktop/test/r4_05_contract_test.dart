@@ -51,8 +51,9 @@ class _FakeLifecycle implements DesktopLifecycle {
   }
 
   @override
-  Future<void> exitForUpdate() async {
+  Future<bool> exitForUpdate() async {
     updateExits++;
+    return true;
   }
 
   @override

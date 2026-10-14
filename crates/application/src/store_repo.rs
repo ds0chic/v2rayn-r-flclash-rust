@@ -18,10 +18,12 @@ use serde_json::{json, Value};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc};
 
+use crate::dns::DnsRepository;
 use crate::repository::{
     InMemoryProfileRepository, PageRequest, ProfileFilter, ProfilePage, ProfileRepository,
     ProfileSort, SubRepository,
 };
+use crate::routing::RoutingRepository;
 use crate::subs::SubItem;
 
 /// Columns retained verbatim in `Profile::extra` (superseded by the JSON
@@ -469,8 +471,11 @@ impl ProfileRepository for SqliteProfileRepository {
             ProfileSort::Remarks => " ORDER BY \"Remarks\" COLLATE NOCASE ASC, \"IndexId\" ASC",
             ProfileSort::Address => " ORDER BY \"Address\" ASC, \"IndexId\" ASC",
             ProfileSort::Delay => {
-                " ORDER BY (SELECT \"Delay\" FROM \"ProfileExItem\" e WHERE e.\"IndexId\" = \
-                 \"ProfileItem\".\"IndexId\") ASC, \"IndexId\" ASC"
+                // Untested nodes (no `ProfileExItem` row) sort as delay 0,
+                // matching upstream `SortServers` (`t33?.Delay ?? 0`); failed
+                // tests (-1) come first, then measured delays ascending (S6-07).
+                " ORDER BY COALESCE((SELECT \"Delay\" FROM \"ProfileExItem\" e WHERE e.\"IndexId\" = \
+                 \"ProfileItem\".\"IndexId\"), 0) ASC, \"IndexId\" ASC"
             }
             ProfileSort::IndexId => " ORDER BY \"IndexId\" ASC",
         };
@@ -665,8 +670,12 @@ fn build_where(filter: &ProfileFilter) -> (String, Vec<String>) {
     let mut parts: Vec<String> = Vec::new();
     let mut params: Vec<String> = Vec::new();
     if let Some(text) = &filter.text {
-        let needle = format!("%{text}%");
-        parts.push("(\"Remarks\" LIKE ? OR \"Address\" LIKE ?)".to_string());
+        // User input is a literal substring (S6-06): escape LIKE
+        // metacharacters so `%`/`_` match themselves, matching the in-memory
+        // backend's plain-substring semantics.
+        let needle = format!("%{}%", escape_like(text));
+        parts
+            .push("(\"Remarks\" LIKE ? ESCAPE '\\' OR \"Address\" LIKE ? ESCAPE '\\')".to_string());
         params.push(needle.clone());
         params.push(needle);
     }
@@ -689,6 +698,18 @@ fn build_where(filter: &ProfileFilter) -> (String, Vec<String>) {
         format!(" WHERE {}", parts.join(" AND "))
     };
     (where_sql, params)
+}
+
+/// Escape a user-supplied substring for a `LIKE ? ESCAPE '\'` pattern.
+fn escape_like(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        if matches!(c, '\\' | '%' | '_') {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
 }
 
 /// Build a `ProfileItem` row from a domain profile.
@@ -781,6 +802,12 @@ pub fn row_from_profile(profile: &Profile) -> RawRow {
 }
 
 /// Build a domain profile from a `ProfileItem` row.
+///
+/// Note (S6-14): `outbound_tag` is intentionally not round-tripped. Upstream
+/// `ProfileItem` has no such column — `OutboundTag` exists only on routing
+/// rules (mirrored here by `RoutingRule.outbound_tag`) — and no production
+/// logic consumes the profile-level field, so there is nothing to project it
+/// into. The field stays (public API); the database simply carries no value.
 pub fn profile_from_row(row: &RawRow) -> Profile {
     let config_type = row
         .opt_i64("ConfigType")
@@ -862,6 +889,48 @@ pub enum ProfileStore {
 }
 
 impl ProfileStore {
+    /// Restore exactly the profile rows touched by a mutation. SQLite applies
+    /// the compensation as one transaction so a failed config write cannot
+    /// leave a partially restored row set.
+    pub fn restore_profiles(
+        &mut self,
+        snapshot: &[(String, Option<Profile>)],
+    ) -> Result<(), DomainError> {
+        match self {
+            ProfileStore::Memory(repo) => {
+                for (id, profile) in snapshot {
+                    match profile {
+                        Some(profile) => repo.upsert(profile.clone())?,
+                        None => {
+                            repo.remove(id)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            ProfileStore::Sqlite(repo) => {
+                let tx = repo.store.begin().map_err(persistence_storage_error)?;
+                for (id, profile) in snapshot {
+                    match profile {
+                        Some(profile) => repo
+                            .store
+                            .upsert_row(&tx, &row_from_profile(profile))
+                            .map_err(persistence_storage_error)?,
+                        None => {
+                            tx.execute(
+                                "DELETE FROM \"ProfileItem\" WHERE \"IndexId\" = ?1",
+                                rusqlite::params![id],
+                            )
+                            .map_err(|error| persistence_storage_error(error.into()))?;
+                        }
+                    }
+                }
+                tx.commit()
+                    .map_err(|error| persistence_storage_error(error.into()))
+            }
+        }
+    }
+
     /// Transactional replace for one subscription (see
     /// [`SqliteProfileRepository::replace_for_sub`]). The in-memory backend
     /// snapshots the affected rows and restores them on failure so the
@@ -963,6 +1032,51 @@ pub enum SubStore {
     Sqlite(SqliteSubRepository),
 }
 
+impl SubStore {
+    /// Restore exactly the subscription rows touched by a mutation. Mirrors
+    /// [`ProfileStore::restore_profiles`]: the SQLite path applies the
+    /// compensation as one transaction so a failed config write cannot leave
+    /// a partially restored row set.
+    pub fn restore_subs(
+        &mut self,
+        snapshot: &[(String, Option<SubItem>)],
+    ) -> Result<(), DomainError> {
+        match self {
+            SubStore::Memory(repo) => {
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo.upsert(item.clone())?,
+                        None => {
+                            repo.remove(id)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            SubStore::Sqlite(repo) => {
+                let tx = repo.store.begin().map_err(persistence_storage_error)?;
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo
+                            .store
+                            .upsert_row(&tx, &item.to_row())
+                            .map_err(persistence_storage_error)?,
+                        None => {
+                            tx.execute(
+                                "DELETE FROM \"SubItem\" WHERE \"Id\" = ?1",
+                                rusqlite::params![id],
+                            )
+                            .map_err(|error| persistence_storage_error(error.into()))?;
+                        }
+                    }
+                }
+                tx.commit()
+                    .map_err(|error| persistence_storage_error(error.into()))
+            }
+        }
+    }
+}
+
 impl SubRepository for SubStore {
     fn list(&self) -> Result<Vec<SubItem>, DomainError> {
         match self {
@@ -1006,6 +1120,49 @@ pub enum RoutingStore {
     Sqlite(SqliteRoutingRepository),
 }
 
+impl RoutingStore {
+    /// Restore exactly the routing rows touched by a mutation. Mirrors
+    /// [`ProfileStore::restore_profiles`].
+    pub fn restore_routing(
+        &mut self,
+        snapshot: &[(String, Option<domain::RoutingProfile>)],
+    ) -> Result<(), DomainError> {
+        match self {
+            RoutingStore::Memory(repo) => {
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo.upsert(item.clone())?,
+                        None => {
+                            repo.remove(id)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            RoutingStore::Sqlite(repo) => {
+                let tx = repo.store.begin().map_err(persistence_storage_error)?;
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo
+                            .store
+                            .upsert_row(&tx, &crate::routing::routing_to_row(item))
+                            .map_err(persistence_storage_error)?,
+                        None => {
+                            tx.execute(
+                                "DELETE FROM \"RoutingItem\" WHERE \"Id\" = ?1",
+                                rusqlite::params![id],
+                            )
+                            .map_err(|error| persistence_storage_error(error.into()))?;
+                        }
+                    }
+                }
+                tx.commit()
+                    .map_err(|error| persistence_storage_error(error.into()))
+            }
+        }
+    }
+}
+
 impl crate::routing::RoutingRepository for RoutingStore {
     fn list(&self) -> Result<Vec<domain::RoutingProfile>, DomainError> {
         match self {
@@ -1047,6 +1204,49 @@ impl crate::routing::RoutingRepository for RoutingStore {
 pub enum DnsStore {
     Memory(crate::dns::InMemoryDnsRepository),
     Sqlite(SqliteDnsRepository),
+}
+
+impl DnsStore {
+    /// Restore exactly the DNS rows touched by a mutation. Mirrors
+    /// [`ProfileStore::restore_profiles`].
+    pub fn restore_dns(
+        &mut self,
+        snapshot: &[(String, Option<domain::DnsProfile>)],
+    ) -> Result<(), DomainError> {
+        match self {
+            DnsStore::Memory(repo) => {
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo.upsert(item.clone())?,
+                        None => {
+                            repo.remove(id)?;
+                        }
+                    }
+                }
+                Ok(())
+            }
+            DnsStore::Sqlite(repo) => {
+                let tx = repo.store.begin().map_err(persistence_storage_error)?;
+                for (id, item) in snapshot {
+                    match item {
+                        Some(item) => repo
+                            .store
+                            .upsert_row(&tx, &crate::dns::dns_to_row(item))
+                            .map_err(persistence_storage_error)?,
+                        None => {
+                            tx.execute(
+                                "DELETE FROM \"DNSItem\" WHERE \"Id\" = ?1",
+                                rusqlite::params![id],
+                            )
+                            .map_err(|error| persistence_storage_error(error.into()))?;
+                        }
+                    }
+                }
+                tx.commit()
+                    .map_err(|error| persistence_storage_error(error.into()))
+            }
+        }
+    }
 }
 
 impl crate::dns::DnsRepository for DnsStore {
@@ -1180,6 +1380,52 @@ mod tests {
             .unwrap()
             .items;
         assert_eq!(kept.len(), 2);
+    }
+
+    #[test]
+    fn text_filter_escapes_like_wildcards() {
+        // S6-06: `%`/`_` in user input match literally on both backends.
+        use crate::repository::{PageRequest, ProfileFilter, ProfileRepository, ProfileSort};
+        use crate::synthetic::synthetic_full_profile;
+        fn seed(repo: &mut dyn ProfileRepository) {
+            for (i, remarks) in ["100%", "1000", "10_0"].iter().enumerate() {
+                let mut p = synthetic_full_profile(i as u32 + 1);
+                p.index_id = format!("like-{i}");
+                p.remarks = remarks.to_string();
+                repo.upsert(p).unwrap();
+            }
+        }
+        fn query_remarks(repo: &dyn ProfileRepository, text: &str) -> Vec<String> {
+            repo.query(
+                &ProfileFilter {
+                    text: Some(text.to_string()),
+                    ..Default::default()
+                },
+                ProfileSort::IndexId,
+                PageRequest {
+                    cursor: 0,
+                    page_size: u32::MAX,
+                },
+            )
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|p| p.remarks)
+            .collect()
+        }
+        let mut mem = InMemoryProfileRepository::new();
+        seed(&mut mem);
+        let mut sql = SqliteProfileRepository::open(":memory:").unwrap();
+        seed(&mut sql);
+        for text in ["%", "_", "100%"] {
+            assert_eq!(
+                query_remarks(&mem, text),
+                query_remarks(&sql, text),
+                "backend mismatch for {text:?}"
+            );
+        }
+        assert_eq!(query_remarks(&sql, "%"), vec!["100%".to_string()]);
+        assert_eq!(query_remarks(&sql, "_"), vec!["10_0".to_string()]);
     }
 
     #[test]
@@ -1788,8 +2034,49 @@ mod tests {
     }
 
     #[test]
-    fn sp21_real_sqlite_100k_worker_walk_covers_every_row_once() {
+    fn sp21_real_sqlite_20k_worker_walk_covers_every_row_once() {
         use std::sync::Arc;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("sp21-scale-20k.db");
+        // TH-RUST P2: 100k rows cost ~58s (seed ~21s + 200-page walk ~37s)
+        // and dominated the suite. 20k rows still walks 40 bounded pages
+        // with the same every-row-once assertions; the row count is purely
+        // test-local, no production default changes.
+        let total = 20_000usize;
+        let mut expected = sp21_seed_file_db(&path, total, false);
+        expected.sort();
+
+        let pager = Arc::new(ProfilePageQuery::new());
+        pager.notify_mutated();
+        let worker = AsyncPageWorker::open_readonly(&path, pager.clone()).unwrap();
+        let revision = pager.dataset_revision();
+        let generation = pager.next_generation();
+
+        let timer = std::time::Instant::now();
+        let (seen, pages) = sp21_worker_walk_all(&worker, revision, generation, 500);
+        let elapsed = timer.elapsed();
+        println!(
+            "SP21 real-sqlite 20k worker walk rows={total} pages={pages} elapsed_ms={}",
+            elapsed.as_millis()
+        );
+
+        let mut seen_sorted = seen;
+        seen_sorted.sort();
+        assert_eq!(seen_sorted, expected, "every row exactly once");
+        assert!(pages > 1, "large store is read in bounded pages");
+        drop(worker);
+    }
+
+    #[test]
+    fn sp21_real_sqlite_100k_worker_walk_opt_in() {
+        use std::sync::Arc;
+        // Scale proof kept out of the default suite: 100k rows cost ~58s
+        // and dominated it. Opt in with SP21_SCALE_100K=1; default prints
+        // a note and passes without seeding.
+        if std::env::var("SP21_SCALE_100K").ok().as_deref() != Some("1") {
+            println!("SP21 100k walk skipped (set SP21_SCALE_100K=1 to run)");
+            return;
+        }
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("sp21-scale-100k.db");
         let total = 100_000usize;

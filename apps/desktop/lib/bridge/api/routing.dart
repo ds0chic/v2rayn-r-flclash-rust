@@ -80,7 +80,11 @@ RoutingRulesTextResult importRoutingRules({
   replace: replace,
 );
 
-/// `export_routing_rules` — all rules (or the `ids` selection) as JSON.
+/// `export_routing_rules` — the `ids` selection as JSON.
+///
+/// S8-09: an empty selection is rejected instead of widening to all rules
+/// (contrast `speedtest_start`, where empty means "nothing to test" and never
+/// widens to the whole database).
 RoutingRulesTextResult exportRoutingRules({
   required String routingId,
   required List<String> ids,

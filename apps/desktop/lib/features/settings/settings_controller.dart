@@ -10,6 +10,8 @@ import 'package:v2rayn_desktop/features/runtime/runtime_controller.dart';
 import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/platform_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
+import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
 
 /// Riverpod view of the persisted `guiNConfig.json` settings document.
 ///
@@ -18,6 +20,112 @@ import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
 /// round trip. Saving goes through the Rust engine's optimistic revision check;
 /// the `immediate` subset of fields is applied to the live UI right after a
 /// successful load or save.
+/// UB2-08: structural equality for JSON-ish settings values. Maps and lists
+/// compare recursively; numbers compare by value so `10808` and `10808.0`
+/// count as equal. Pure: no provider, no I/O, safe to call from widgets and
+/// unit tests.
+bool settingsValueEquals(Object? a, Object? b) {
+  if (identical(a, b)) return true;
+  if (a is num && b is num) return a.toDouble() == b.toDouble();
+  if (a is Map && b is Map) {
+    if (a.length != b.length) return false;
+    for (final key in a.keys) {
+      if (!b.containsKey(key)) return false;
+      if (!settingsValueEquals(a[key], b[key])) return false;
+    }
+    return true;
+  }
+  if (a is List && b is List) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!settingsValueEquals(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  return a == b;
+}
+
+/// UB2-08: top-level groups whose draft content differs from [canonical]
+/// (usually `defaultSettingsJson()`). A map key missing on one side counts
+/// as equal when the canonical value is null (older persisted documents omit
+/// null-default keys and `mergeWithSettingsDefaults` does not re-add them,
+/// so they render exactly as the default); an unknown extra key or a missing
+/// non-null default counts as modified. Pure: save semantics untouched.
+Set<String> modifiedSettingsGroups(
+  Map<String, dynamic> draft,
+  Map<String, dynamic> canonical,
+) {
+  final modified = <String>{};
+  for (final entry in canonical.entries) {
+    if (!draft.containsKey(entry.key)) {
+      if (entry.value != null) modified.add(entry.key);
+      continue;
+    }
+    if (!_settingsGroupEquals(draft[entry.key], entry.value)) {
+      modified.add(entry.key);
+    }
+  }
+  return modified;
+}
+
+bool _settingsGroupEquals(Object? draftValue, Object? canonicalValue) {
+  if (draftValue is Map && canonicalValue is Map) {
+    for (final key in canonicalValue.keys) {
+      final canonicalChild = canonicalValue[key];
+      if (!draftValue.containsKey(key)) {
+        if (canonicalChild != null) return false;
+        continue;
+      }
+      if (!_settingsGroupEquals(draftValue[key], canonicalChild)) return false;
+    }
+    for (final key in draftValue.keys) {
+      if (!canonicalValue.containsKey(key)) return false;
+    }
+    return true;
+  }
+  if (draftValue is List && canonicalValue is List) {
+    if (draftValue.length != canonicalValue.length) return false;
+    for (var i = 0; i < draftValue.length; i++) {
+      if (!_settingsGroupEquals(draftValue[i], canonicalValue[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return settingsValueEquals(draftValue, canonicalValue);
+}
+
+/// UB2-11: leaf-level difference count between the settings-window draft and
+/// its last-saved snapshot (tri-state row + Esc-dirty-confirm source). Maps
+/// recurse; a differing list counts once; a key missing on one side counts
+/// only when the present value is meaningfully non-blank (a missing key reads
+/// as its null default, matching the UB2-08 missing≡null semantics). Pure.
+int countDraftDifferences(Object? draft, Object? saved) {
+  if (draft is Map && saved is Map) {
+    var count = 0;
+    final keys = <Object?>{...draft.keys, ...saved.keys};
+    for (final key in keys) {
+      final hasDraft = draft.containsKey(key);
+      final hasSaved = saved.containsKey(key);
+      if (!hasDraft || !hasSaved) {
+        if (!_isBlankValue(hasDraft ? draft[key] : saved[key])) count++;
+        continue;
+      }
+      count += countDraftDifferences(draft[key], saved[key]);
+    }
+    return count;
+  }
+  return settingsValueEquals(draft, saved) ? 0 : 1;
+}
+
+bool _isBlankValue(Object? value) {
+  if (value == null) return true;
+  if (value is String && value.isEmpty) return true;
+  if (value is List && value.isEmpty) return true;
+  if (value is Map && value.isEmpty) return true;
+  return false;
+}
+
 /// Per-phase apply fact for the last save/retry (SP-12).
 ///
 /// `save` is the persistence fact; `core`/`platform`/`autostart` are the
@@ -160,10 +268,10 @@ class SettingsController extends Notifier<SettingsViewState> {
   @override
   SettingsViewState build() => const SettingsViewState();
 
-  /// Revision captured when a draft was created, keyed by draft identity. A
-  /// save must submit the revision the editor started from, not whatever the
+  /// Revision captured when a draft was created, attached to the draft object.
+  /// A save must submit the revision the editor started from, not whatever the
   /// controller has advanced to since (AUD-DESK-02).
-  final Map<int, int> _draftRevisions = <int, int>{};
+  final Expando<int> _draftRevisions = Expando<int>('draftRevision');
 
   /// Last autostart value confirmed written to the OS, or null while unknown.
   /// A persisted `AutoRun` value is not proof the Run key write succeeded, so a
@@ -240,14 +348,12 @@ class SettingsController extends Notifier<SettingsViewState> {
   /// remembers the revision it was taken from so [saveDocument] can submit it.
   Map<String, dynamic> draft() {
     final copy = _deepCopy(state.document);
-    _draftRevisions[identityHashCode(copy)] = state.revision;
+    _draftRevisions[copy] = state.revision;
     return copy;
   }
 
   int _revisionFor(Map<String, dynamic> draft, int? expectedRevision) =>
-      expectedRevision ??
-      _draftRevisions[identityHashCode(draft)] ??
-      state.revision;
+      expectedRevision ?? _draftRevisions[draft] ?? state.revision;
 
   /// Canonical content hash of a settings document (SP-12 retry guard).
   ///
@@ -259,12 +365,11 @@ class SettingsController extends Notifier<SettingsViewState> {
 
   static Object? _canonicalize(Object? value) {
     if (value is Map) {
-      final keys = value.keys.map((k) => k.toString()).toList()..sort();
+      final entries =
+          value.entries.map((e) => MapEntry(e.key.toString(), e.value)).toList()
+            ..sort((a, b) => a.key.compareTo(b.key));
       return <String, Object?>{
-        for (final k in keys)
-          k: _canonicalize(
-            value[value.keys.firstWhere((e) => e.toString() == k)],
-          ),
+        for (final e in entries) e.key: _canonicalize(e.value),
       };
     }
     if (value is List) return value.map(_canonicalize).toList();
@@ -291,6 +396,7 @@ class SettingsController extends Notifier<SettingsViewState> {
     if (!state.loaded || state.loadFailed) return _notLoadedSaveFailure();
     _normalizeCoreBasicBindings(draft);
     _normalizeRootCertProvider(draft);
+    _normalizeMuxConcurrency(draft);
     final result = ref
         .read(bridgePortProvider)
         .saveSettingsJson(
@@ -305,7 +411,7 @@ class SettingsController extends Notifier<SettingsViewState> {
         loaded: true,
         revision: newRevision,
         document: _deepCopy(draft),
-        status: _statusFor(result),
+        status: _statusKeyFor(result),
         needsCoreRestart: result.restartCoreFields.isNotEmpty,
         needsAppRestart: result.restartAppFields.isNotEmpty,
         needsNextLaunch: result.nextLaunchFields.isNotEmpty,
@@ -315,7 +421,7 @@ class SettingsController extends Notifier<SettingsViewState> {
           contentHash: _lastSavedHash,
         ),
       );
-      _draftRevisions[identityHashCode(draft)] = newRevision;
+      _draftRevisions[draft] = newRevision;
       // A whole save advances every group counter in the engine; refresh the
       // authoritative revisions so the next group save is not stale
       // (AUD-ROOT-01).
@@ -379,7 +485,7 @@ class SettingsController extends Notifier<SettingsViewState> {
         revision: result.newRevision?.toInt() ?? state.revision,
         document: document,
         groupRevisions: revisions,
-        status: _statusFor(result),
+        status: _statusKeyFor(result),
         needsCoreRestart: result.restartCoreFields.isNotEmpty,
         needsAppRestart: result.restartAppFields.isNotEmpty,
         needsNextLaunch: result.nextLaunchFields.isNotEmpty,
@@ -406,7 +512,7 @@ class SettingsController extends Notifier<SettingsViewState> {
     Map<String, dynamic> draft, {
     int? expectedRevision,
   }) async {
-    final previousAutoRun = _documentAutoRun(state.document);
+    final previousAutoRun = _autoRunOf(state.document);
     final result = saveDocument(draft, expectedRevision: expectedRevision);
     if (!result.ok) {
       // Idempotent window retry (SP-12): the window's own draft was already
@@ -426,7 +532,7 @@ class SettingsController extends Notifier<SettingsViewState> {
           saved: true,
           applied: retry.applied,
           message: retry.message,
-          statusKey: _statusKeyForSaveGroup(result),
+          statusKey: _statusKeyFor(result),
           newRevision: state.revision,
           contentHash: contentHashOf(state.document),
           coreOk: retry.coreOk,
@@ -509,7 +615,7 @@ class SettingsController extends Notifier<SettingsViewState> {
       savedRevision: savedRevision,
       savedContentHash: savedContentHash,
       statusKey: null,
-      previousAutoRun: _documentAutoRun(state.document),
+      previousAutoRun: _autoRunOf(state.document),
       phases: phases,
     );
   }
@@ -523,19 +629,6 @@ class SettingsController extends Notifier<SettingsViewState> {
     } on Object {
       return false;
     }
-  }
-
-  static String? _statusKeyForSaveGroup(settings.SaveSettingsResult result) {
-    if (result.restartAppFields.isNotEmpty) {
-      return 'settings.saved_need_app_restart';
-    }
-    if (result.restartCoreFields.isNotEmpty) {
-      return 'settings.saved_need_core_restart';
-    }
-    if (result.nextLaunchFields.isNotEmpty) {
-      return 'settings.saved_need_next_launch';
-    }
-    return 'settings.saved';
   }
 
   void _recordReceipt({
@@ -574,7 +667,7 @@ class SettingsController extends Notifier<SettingsViewState> {
     // `AutoRun` value is not proof the Run key exists (AUD-DESK-01, SP-12).
     bool? autostartOk;
     if (phases.contains('autostart')) {
-      final desiredAutoRun = _draftAutoRun(draft);
+      final desiredAutoRun = _autoRunOf(draft);
       if (desiredAutoRun != previousAutoRun ||
           _autostartApplied != desiredAutoRun) {
         final written = _writeAutostart(desiredAutoRun);
@@ -600,12 +693,15 @@ class SettingsController extends Notifier<SettingsViewState> {
         coreOk = applied;
         if (!applied) {
           final error = ref.read(runtimeControllerProvider).error;
-          applyMessage = '配置已保存，但应用失败：${error?.messageKey ?? 'unknown'}';
+          // D-LEFT2: keys/exceptions are localized here; the shell message
+          // line and the outcome message render raw.
+          applyMessage =
+              '配置已保存，但应用失败：${ErrorLocalizer.localizeStatusKey(ref.read(productLanguageProvider), error?.messageKey)}';
           errors.add(error?.code ?? 'E_CORE_APPLY');
         }
-      } on Object catch (e) {
+      } on Object catch (_) {
         coreOk = false;
-        applyMessage = '配置已保存，但应用失败：$e';
+        applyMessage = '配置已保存，但应用失败';
         errors.add('E_CORE_APPLY');
       }
       if (coreOk == false) {
@@ -784,13 +880,8 @@ class SettingsController extends Notifier<SettingsViewState> {
     }
   }
 
-  static bool _documentAutoRun(Map<String, dynamic> document) {
+  static bool _autoRunOf(Map<String, dynamic> document) {
     final gui = document['GuiItem'];
-    return gui is Map && gui['AutoRun'] == true;
-  }
-
-  static bool _draftAutoRun(Map<String, dynamic> draft) {
-    final gui = draft['GuiItem'];
     return gui is Map && gui['AutoRun'] == true;
   }
 
@@ -810,8 +901,6 @@ class SettingsController extends Notifier<SettingsViewState> {
     }
   }
 
-  void clearStatus() => state = state.copyWith(status: null);
-
   /// Upstream `OptionSettingViewModel.SaveSettingAsync`: `SendThrough.TrimEx()`
   /// and `BindInterface.TrimEx()`. A whitespace/empty value is written back as
   /// `null`, a non-empty value is trimmed.
@@ -823,6 +912,17 @@ class SettingsController extends Notifier<SettingsViewState> {
       if (value is! String) continue;
       final trimmed = value.trim();
       core[key] = trimmed.isEmpty ? null : trimmed;
+    }
+  }
+
+  /// Upstream `OptionSettingViewModel.SaveSettingAsync`: `Mux4RayConcurrency`
+  /// and `Mux4RayXudpConcurrency` are stored as null unless positive.
+  static void _normalizeMuxConcurrency(Map<String, dynamic> draft) {
+    final mux = draft['Mux4RayItem'];
+    if (mux is! Map) return;
+    for (final key in const <String>['Concurrency', 'XudpConcurrency']) {
+      final value = mux[key];
+      if (value is num && value <= 0) mux[key] = null;
     }
   }
 
@@ -849,19 +949,6 @@ class SettingsController extends Notifier<SettingsViewState> {
           .read(profilesControllerProvider.notifier)
           .setDoubleClick2Activate(ui['DoubleClick2Activate'] == true);
     }
-  }
-
-  String? _statusFor(settings.SaveSettingsResult result) {
-    if (result.restartAppFields.isNotEmpty) {
-      return 'settings.saved_need_app_restart';
-    }
-    if (result.restartCoreFields.isNotEmpty) {
-      return 'settings.saved_need_core_restart';
-    }
-    if (result.nextLaunchFields.isNotEmpty) {
-      return 'settings.saved_need_next_launch';
-    }
-    return 'settings.saved';
   }
 
   static Map<String, dynamic>? _tryDecode(String raw) {

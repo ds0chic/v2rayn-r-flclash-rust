@@ -23,12 +23,13 @@ use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{mpsc, Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use domain::{CancellationToken, DomainError, Profile, SpeedTestAction};
 use rustls::pki_types::ServerName;
 use rustls::{ClientConnection, RootCertStore, StreamOwned};
+use rustls_pki_types::pem::PemObject;
 use serde::{Deserialize, Serialize};
 
 /// Test-port floor: the reserved live proxy port `10808` can never be used.
@@ -43,11 +44,29 @@ pub const DEFAULT_PAGE_SIZE: usize = 1_000;
 /// Upstream `Global.SpeedTestConcurrencyCountMin`.
 pub const MIN_MIXED_CONCURRENCY: usize = 10;
 
+/// Ceiling for `mixed_concurrency` (both the settings item and the FRB path).
+pub const MAX_MIXED_CONCURRENCY: usize = 64;
+
+/// Ceiling for `page_size` on the FRB configure path.
+pub const MAX_PAGE_SIZE: usize = 5_000;
+
+/// Ceiling for the speedtest timeout, in seconds.
+pub const MAX_SPEEDTEST_TIMEOUT_SECS: u64 = 300;
+
 /// Upstream `Global.LocalFetch` used by RealPing per request.
 pub const LOCAL_FETCH_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// TCPing connect timeout (upstream `GetTcpingTime` hard-codes 5 s).
 pub const TCPING_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Hard cap on concurrent Tcping workers. Upstream `RunTcpingAsync` fans out one
+/// async task per page item (`MaxDegreeOfParallelism = lst.Count`, page default
+/// 1000); C# tasks are cheap, but this port spawns one OS thread per worker, so
+/// the page-bounded fan-out is clamped here (deliberate adaptation, not parity).
+pub const TCPING_MAX_CONCURRENCY: usize = 64;
+
+/// Hard cap on [`SpeedTestRunner::pool`] workers (second line of defence).
+pub const MAX_POOL_WORKERS: usize = 64;
 
 /// Result batch cadence (plan: 50-100 ms batches, never per-item UI churn).
 pub const BATCH_FLUSH_MS: u64 = 75;
@@ -90,27 +109,41 @@ impl Default for SpeedTestSettings {
 }
 
 impl SpeedTestSettings {
+    /// Shared normalize-not-reject for the numeric knobs. A zero page means
+    /// "unset" and falls back to [`DEFAULT_PAGE_SIZE`]; the rest are clamped
+    /// into their floors and ceilings. Both [`Self::from_item`] and the FRB
+    /// `speedtest_configure` entry go through here so the two paths agree.
+    pub fn normalize_parts(
+        page_size: usize,
+        mixed_concurrency: usize,
+        timeout_secs: u64,
+    ) -> (usize, usize, Duration) {
+        let page = if page_size == 0 {
+            DEFAULT_PAGE_SIZE
+        } else {
+            page_size.clamp(1, MAX_PAGE_SIZE)
+        };
+        let mixed = mixed_concurrency.clamp(MIN_MIXED_CONCURRENCY, MAX_MIXED_CONCURRENCY);
+        let timeout = timeout_secs.clamp(
+            MIN_SPEEDTEST_TIMEOUT_SECS as u64,
+            MAX_SPEEDTEST_TIMEOUT_SECS,
+        );
+        (page, mixed, Duration::from_secs(timeout))
+    }
+
     /// Apply the same normalize-not-reject corrections as
     /// `domain::settings::AppSettings::normalize`.
     pub fn from_item(item: &domain::SpeedTestItem) -> Self {
-        let timeout = if item.speed_test_timeout < MIN_SPEEDTEST_TIMEOUT_SECS as i32 {
-            MIN_SPEEDTEST_TIMEOUT_SECS as u64
-        } else {
-            item.speed_test_timeout as u64
-        };
-        let mut mixed = item.mixed_concurrency_count.max(0) as usize;
-        if mixed < MIN_MIXED_CONCURRENCY {
-            mixed = MIN_MIXED_CONCURRENCY;
-        }
-        let mut page = item.speed_test_page_size.unwrap_or(0).max(0) as usize;
-        if page == 0 {
-            page = DEFAULT_PAGE_SIZE;
-        }
+        let (page, mixed, timeout) = Self::normalize_parts(
+            item.speed_test_page_size.unwrap_or(0).max(0) as usize,
+            item.mixed_concurrency_count.max(0) as usize,
+            item.speed_test_timeout.max(0) as u64,
+        );
         let delay = item.speed_test_delay_interval.unwrap_or(1).max(0) as u64;
         Self {
             page_size: page,
             mixed_concurrency: mixed,
-            timeout: Duration::from_secs(timeout),
+            timeout,
             speed_test_url: non_empty(&item.speed_test_url)
                 .unwrap_or_else(|| DEFAULT_SPEED_URL.to_string()),
             speed_ping_test_url: non_empty(&item.speed_ping_test_url)
@@ -258,7 +291,10 @@ impl ProfileExStore {
     }
 
     /// Apply one result. Only present fields overwrite (upstream semantics:
-    /// a progress-only message must not clear a measured delay).
+    /// a progress-only message must not clear a measured delay). A present
+    /// speed always overwrites, including `0.0`: the only `Some(0.0)` producer
+    /// is a failed download, and keeping the previous run's speed next to a
+    /// failure would show a stale value. Speed-less results use `None`.
     pub fn apply(&mut self, result: &SpeedTestResult) {
         let entry = self
             .rows
@@ -275,9 +311,7 @@ impl ProfileExStore {
             entry.delay = delay;
         }
         if let Some(speed) = result.speed {
-            if speed > 0.0 {
-                entry.speed = speed;
-            }
+            entry.speed = speed;
         }
         if let Some(message) = &result.message {
             entry.message = message.clone();
@@ -514,8 +548,7 @@ fn native_root_store() -> Arc<RootCertStore> {
             }
             if let Ok(path) = std::env::var(EXTRA_CA_ENV) {
                 if let Ok(pem) = std::fs::read(path) {
-                    let mut cursor = std::io::Cursor::new(pem);
-                    for cert in rustls_pemfile::certs(&mut cursor).flatten() {
+                    for cert in rustls_pki_types::CertificateDer::pem_slice_iter(&pem).flatten() {
                         let _ = store.add(cert);
                     }
                 }
@@ -798,6 +831,18 @@ impl SpeedTestJobs {
         job.token.cancel()
     }
 
+    pub fn cancel_all(&self) -> Vec<SpeedTestJob> {
+        let jobs: Vec<_> = self
+            .inner
+            .lock()
+            .map(|jobs| jobs.values().cloned().collect())
+            .unwrap_or_default();
+        for job in &jobs {
+            job.token.cancel();
+        }
+        jobs
+    }
+
     pub fn finish(&self, job_id: &str) {
         if let Ok(mut map) = self.inner.lock() {
             map.remove(job_id);
@@ -954,6 +999,10 @@ impl SpeedTestRunner {
                 }
             }
 
+            if ct.is_cancelled() {
+                *stop.lock().expect("stop") = StopReason::Cancelled;
+            }
+
             done.store(true, Ordering::Release);
         });
 
@@ -963,6 +1012,15 @@ impl SpeedTestRunner {
             results,
             stop_reason,
         }
+    }
+
+    /// Tcping worker budget for one page: the normalized mixed-concurrency
+    /// floor applies, then the OS-thread hard cap.
+    fn tcping_concurrency(&self, batch_len: usize) -> usize {
+        batch_len
+            .max(1)
+            .min(self.settings.mixed_concurrency.max(MIN_MIXED_CONCURRENCY))
+            .min(TCPING_MAX_CONCURRENCY)
     }
 
     fn run_tcping(
@@ -977,7 +1035,7 @@ impl SpeedTestRunner {
                 *stop.lock().expect("stop") = StopReason::Cancelled;
                 return;
             }
-            let concurrency = batch.len().max(1);
+            let concurrency = self.tcping_concurrency(batch.len());
             self.pool(batch, concurrency, ct, pending, |node| {
                 if ct.is_cancelled() {
                     return SpeedTestResult::failed(node.index_id.clone(), "cancelled");
@@ -1159,6 +1217,10 @@ impl SpeedTestRunner {
 
     /// Bounded worker pool over one batch. Results are pushed to `pending` as
     /// they complete (the emitter throttles them into batches).
+    ///
+    /// `concurrency` is additionally clamped to [`MAX_POOL_WORKERS`]: no caller
+    /// may fan out an unbounded OS-thread burst by passing a huge page as the
+    /// worker count.
     fn pool<F>(
         &self,
         batch: &[TestNode],
@@ -1170,7 +1232,10 @@ impl SpeedTestRunner {
         F: Fn(&TestNode) -> SpeedTestResult + Sync,
     {
         let next = AtomicUsize::new(0);
-        let workers = concurrency.min(batch.len().max(1));
+        let workers = concurrency
+            .min(batch.len().max(1))
+            .clamp(1, MAX_POOL_WORKERS);
+        debug_assert!(workers <= MAX_POOL_WORKERS);
         std::thread::scope(|scope| {
             for _ in 0..workers {
                 scope.spawn(|| loop {
@@ -1181,7 +1246,17 @@ impl SpeedTestRunner {
                     if ct.is_cancelled() {
                         break;
                     }
-                    let result = f(&batch[i]);
+                    let mut result = f(&batch[i]);
+                    if ct.is_cancelled() {
+                        result = SpeedTestResult {
+                            index_id: result.index_id,
+                            delay: result.delay.filter(|delay| *delay > 0),
+                            speed: None,
+                            message: Some("Speedtesting".to_string()),
+                            ip_info: result.ip_info,
+                            failed: false,
+                        };
+                    }
                     pending.lock().expect("pending").push(result);
                 });
             }
@@ -1226,18 +1301,43 @@ pub fn tcping(address: &str, port: i32, timeout: Duration, ct: &CancellationToke
     let Some(addr) = addrs.next() else {
         return -1;
     };
-    let start = Instant::now();
-    match TcpStream::connect_timeout(&addr, timeout.min(TCPING_CONNECT_TIMEOUT)) {
-        Ok(_stream) => {
-            if ct.is_cancelled() {
-                return -1;
-            }
-            // A loopback connect can be sub-millisecond. Report at least 1 ms so
-            // a successful measurement is never confused with "not tested"
-            // (upstream `Delay == 0` is the untested default).
-            (start.elapsed().as_millis() as i32).max(1)
+    let effective = timeout.min(TCPING_CONNECT_TIMEOUT);
+    // `connect_timeout` is uninterruptible, and std has no cancellable connect
+    // (upstream links its own CTS into `ConnectAsync` instead). Run the blocking
+    // connect on a short-lived helper thread and poll for it, so a cancel
+    // preempts the wait instead of riding out the full timeout. A helper left
+    // behind by a cancel always terminates on its own: the connect itself is
+    // still bounded by `effective`, and its result is simply dropped.
+    let (tx, rx) = mpsc::channel();
+    let spawned = std::thread::Builder::new()
+        .name("tcping-connect".into())
+        .spawn(move || {
+            let start = Instant::now();
+            let connected = TcpStream::connect_timeout(&addr, effective).is_ok();
+            let _ = tx.send((connected, start.elapsed()));
+        })
+        .is_ok();
+    if !spawned {
+        return -1;
+    }
+    loop {
+        if ct.is_cancelled() {
+            return -1;
         }
-        Err(_) => -1,
+        match rx.recv_timeout(Duration::from_millis(50)) {
+            Ok((true, elapsed)) => {
+                if ct.is_cancelled() {
+                    return -1;
+                }
+                // A loopback connect can be sub-millisecond. Report at least 1 ms so
+                // a successful measurement is never confused with "not tested"
+                // (upstream `Delay == 0` is the untested default).
+                return (elapsed.as_millis() as i32).max(1);
+            }
+            Ok((false, _)) => return -1,
+            Err(mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(mpsc::RecvTimeoutError::Disconnected) => return -1,
+        }
     }
 }
 
@@ -2442,6 +2542,59 @@ mod tests {
     }
 
     #[test]
+    fn pool_clamps_workers_to_hard_cap() {
+        use std::sync::atomic::Ordering as Ord;
+        let runner =
+            SpeedTestRunner::new(SpeedTestSettings::default(), Arc::new(UnsupportedSession));
+        let nodes: Vec<TestNode> = (0..100)
+            .map(|i| TestNode {
+                index_id: format!("n{i}"),
+                address: "127.0.0.1".into(),
+                port: 1,
+                config_type: 5,
+                core_type: 1,
+            })
+            .collect();
+        let active = AtomicI64::new(0);
+        let max_seen = AtomicI64::new(0);
+        let pending = Mutex::new(Vec::new());
+        runner.pool(
+            &nodes,
+            nodes.len(),
+            &CancellationToken::new(),
+            &pending,
+            |node| {
+                let cur = active.fetch_add(1, Ord::AcqRel) + 1;
+                max_seen.fetch_max(cur, Ord::AcqRel);
+                std::thread::sleep(Duration::from_millis(5));
+                active.fetch_sub(1, Ord::AcqRel);
+                SpeedTestResult::delay(node.index_id.clone(), 1)
+            },
+        );
+        let max = max_seen.load(Ord::Acquire);
+        assert!(
+            max <= MAX_POOL_WORKERS as i64,
+            "pool burst must be capped at {MAX_POOL_WORKERS}, saw {max}"
+        );
+    }
+
+    #[test]
+    fn tcping_concurrency_follows_mixed_floor_and_hard_cap() {
+        let capped = SpeedTestRunner::new(
+            SpeedTestSettings {
+                mixed_concurrency: 1_000,
+                ..SpeedTestSettings::default()
+            },
+            Arc::new(UnsupportedSession),
+        );
+        assert_eq!(capped.tcping_concurrency(1000), TCPING_MAX_CONCURRENCY);
+        let floored =
+            SpeedTestRunner::new(SpeedTestSettings::default(), Arc::new(UnsupportedSession));
+        assert_eq!(floored.tcping_concurrency(1000), MIN_MIXED_CONCURRENCY);
+        assert_eq!(floored.tcping_concurrency(3), 3);
+    }
+
+    #[test]
     fn cancel_at_safe_point_stops_and_retains_completed() {
         let mut session = FakeSession::with_delays(&[("a", 5), ("b", 5), ("c", 5), ("d", 5)]);
         session.block = Some(Duration::from_millis(50));
@@ -2488,6 +2641,47 @@ mod tests {
             "cancel must be prompt"
         );
         assert!(outcome.cancelled());
+        assert_eq!(outcome.results[0].delay, None);
+        assert!(!outcome.results[0].failed);
+    }
+
+    #[test]
+    fn cancel_preempts_blocked_tcping_run() {
+        // S5-03: cancelling while Tcping connects are blocked must return
+        // promptly, not wait out the 5s connect timeout per worker.
+        // `10.255.255.1` is TEST-NET documentation space: unroutable, so the
+        // connects stay blocked until the timeout on a normal host.
+        let ns: Vec<TestNode> = (0..4)
+            .map(|i| TestNode {
+                index_id: format!("c{i}"),
+                address: "10.255.255.1".into(),
+                port: 81,
+                config_type: 5,
+                core_type: 1,
+            })
+            .collect();
+        let runner = SpeedTestRunner::new(
+            SpeedTestSettings {
+                page_size: 100,
+                delay_interval: Duration::from_secs(0),
+                ..SpeedTestSettings::default()
+            },
+            Arc::new(UnsupportedSession),
+        );
+        let token = CancellationToken::new();
+        let canceller = token.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            canceller.cancel();
+        });
+        let start = Instant::now();
+        let outcome = runner.run(SpeedTestAction::Tcping, &ns, &token, |_| {});
+        let elapsed = start.elapsed();
+        assert_eq!(outcome.stop_reason, StopReason::Cancelled);
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "cancel must preempt blocked connects, took {elapsed:?}"
+        );
     }
 
     #[test]
@@ -2628,6 +2822,49 @@ mod tests {
     }
 
     #[test]
+    fn failed_download_clears_stale_speed() {
+        let mut store = ProfileExStore::new();
+        store.apply(&SpeedTestResult {
+            index_id: "a".into(),
+            delay: Some(20),
+            speed: Some(42.5),
+            message: Some("42.5".into()),
+            ip_info: None,
+            failed: false,
+        });
+        // A later run pings fine but the download fails: the stored speed must
+        // become 0.0, not keep the previous run's 42.5 next to a failure.
+        store.apply(&SpeedTestResult {
+            index_id: "a".into(),
+            delay: Some(20),
+            speed: Some(0.0),
+            message: Some("speedtest.timeout".into()),
+            ip_info: None,
+            failed: true,
+        });
+        assert_eq!(store.get("a").unwrap().speed, 0.0);
+    }
+
+    #[test]
+    fn ping_only_result_preserves_prior_speed() {
+        let mut store = ProfileExStore::new();
+        store.apply(&SpeedTestResult {
+            index_id: "a".into(),
+            delay: Some(20),
+            speed: Some(42.5),
+            message: Some("42.5".into()),
+            ip_info: None,
+            failed: false,
+        });
+        // A ping-only result carries no speed (`None`): the prior measured
+        // speed survives, only the delay is refreshed.
+        store.apply(&SpeedTestResult::delay("a", 30));
+        let row = store.get("a").unwrap();
+        assert_eq!(row.delay, 30);
+        assert_eq!(row.speed, 42.5);
+    }
+
+    #[test]
     fn apply_order_writes_step_ten_and_reads_back_stably() {
         // FIX-10B: `speedtest_apply_profile_order` rewrites `ProfileExItem.Sort`
         // as `(position + 1) * 10` and this order is what a reopened reader
@@ -2763,6 +3000,20 @@ mod tests {
         assert_eq!(s.mixed_concurrency, MIN_MIXED_CONCURRENCY);
         assert_eq!(s.page_size, DEFAULT_PAGE_SIZE);
         assert_eq!(s.speed_test_url, DEFAULT_SPEED_URL);
+    }
+
+    #[test]
+    fn settings_normalize_enforces_ceilings() {
+        let item = domain::SpeedTestItem {
+            speed_test_timeout: 9_999,
+            mixed_concurrency_count: 999,
+            speed_test_page_size: Some(999_999),
+            ..Default::default()
+        };
+        let s = SpeedTestSettings::from_item(&item);
+        assert_eq!(s.timeout, Duration::from_secs(MAX_SPEEDTEST_TIMEOUT_SECS));
+        assert_eq!(s.mixed_concurrency, MAX_MIXED_CONCURRENCY);
+        assert_eq!(s.page_size, MAX_PAGE_SIZE);
     }
 
     #[test]

@@ -212,14 +212,20 @@ const _fingerprints = <String>[
   '',
 ];
 
-const _headerTypes = <String>[
+/// Upstream `AddServerWindow.xaml.cs:21`: the raw (TCP) header combo only
+/// offers `None` + `RawHeaderHttp` ("http").
+const _rawHeaderTypes = <String>['none', 'http'];
+
+/// Upstream `AddServerWindow.xaml.cs:23-25`: the KCP header combo offers
+/// `None` + `Global.KcpHeaderTypes` (which includes "dns", `Global.cs:340-348`).
+const _kcpHeaderTypes = <String>[
   'none',
-  'http',
   'srtp',
   'utp',
   'wechat-video',
   'dtls',
   'wireguard',
+  'dns',
 ];
 
 /// Upstream `AppManager.GetShadowsocksSecurities`: the Shadowsocks method list
@@ -556,7 +562,7 @@ List<FieldSpec> transportFields(String network) {
           '伪装类型',
           (d) => d.rawHeaderType,
           (d, v) => d.rawHeaderType = v,
-          _headerTypes,
+          _rawHeaderTypes,
         ),
         _text('host', 'Host', (d) => d.host, (d, v) => d.host = v),
         _text('path', 'Path', (d) => d.path, (d, v) => d.path = v),
@@ -568,7 +574,7 @@ List<FieldSpec> transportFields(String network) {
           '伪装类型',
           (d) => d.kcpHeaderType,
           (d, v) => d.kcpHeaderType = v,
-          _headerTypes,
+          _kcpHeaderTypes,
         ),
         _text(
           'kcpSeed',

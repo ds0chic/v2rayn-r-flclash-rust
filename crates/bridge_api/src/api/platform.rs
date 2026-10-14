@@ -228,9 +228,30 @@ pub fn init_platform_backend(backend: String) {
         "windows" => windows_service(),
         _ => fake_service(),
     };
+    let service = reconciled(
+        service,
+        &application::AppEngine::default_data_dir(),
+        PlatformService::is_process_alive,
+    );
     if let Ok(mut guard) = slot().lock() {
         *guard = Some(service);
     }
+}
+
+/// H19 startup wiring: reconcile a journaled previous session before this
+/// process applies anything. Separated from [`init_platform_backend`] so
+/// tests can pass fakes plus a temp dir; production passes the real
+/// backends plus the application data dir. Failures are logged, the service
+/// installs either way.
+fn reconciled(
+    service: PlatformService,
+    data_dir: &std::path::Path,
+    is_owner_alive: impl Fn(u32, i64) -> bool,
+) -> PlatformService {
+    if let Err(e) = service.init_persistence(data_dir, is_owner_alive) {
+        eprintln!("[platform] startup proxy reconcile failed: {e}");
+    }
+    service
 }
 
 /// The active service, defaulting to fake backends on first use.
@@ -1060,5 +1081,61 @@ mod tests {
         assert!(!bad.ok);
         assert!(bad.args.is_empty());
         assert_eq!(bad.error.unwrap().code, "E_INVALID_ARGUMENT");
+    }
+}
+
+#[cfg(test)]
+mod wiring_tests {
+    use super::*;
+
+    fn unique_temp_dir(tag: &str) -> std::path::PathBuf {
+        static N: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+        let n = N.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let dir = std::env::temp_dir().join(format!(
+            "v2rayn-r-bridge-wire-{tag}-{}-{n}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("create temp dir");
+        dir
+    }
+
+    /// H19 wiring: one `reconciled` call over a crash journal restores the
+    /// pre-apply values and consumes the journal. Fake backend plus temp dir
+    /// only; the host proxy and registry are never touched.
+    #[test]
+    fn wiring_consumes_crash_journal_in_one_call() {
+        use platform::ProxyState;
+
+        let dir = unique_temp_dir("crash");
+        let machine = Arc::new(FakeSystemProxyBackend::new(ProxyState::default()));
+        // Session 1 wires, applies, then crashes (dropped without restore).
+        // The owner check reports dead: both sessions share this test
+        // process, whose identity would otherwise read as still alive.
+        let session1 = reconciled(
+            PlatformService::new(machine.clone(), Arc::new(FakeRegistry::new())),
+            &dir,
+            |_, _| false,
+        );
+        session1
+            .apply_proxy(&ProxyApplyRequest {
+                mode: SysProxyMode::ForcedChange,
+                server: Some("127.0.0.1:11809".to_string()),
+                bypass: Some("localhost".to_string()),
+                auto_config_url: None,
+                auto_detect: None,
+            })
+            .expect("apply");
+        assert!(dir.join(platform::JOURNAL_FILE_NAME).is_file());
+        drop(session1);
+        // Session 2 through the same wiring entry recovers in one call.
+        let _session2 = reconciled(
+            PlatformService::new(machine.clone(), Arc::new(FakeRegistry::new())),
+            &dir,
+            |_, _| false,
+        );
+        assert_eq!(machine.state(), ProxyState::default());
+        assert!(!dir.join(platform::JOURNAL_FILE_NAME).exists());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

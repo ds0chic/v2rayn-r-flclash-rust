@@ -51,8 +51,8 @@ pub const DEFAULT_MAX_BYTES: usize = 16 * 1024 * 1024;
 /// Default redirect bound for [`FetchOptions`].
 pub const DEFAULT_MAX_REDIRECTS: usize = 10;
 
-/// Root trust for outbound HTTPS (mirrors `platform::cert` selection and the
-/// `subscriptions`/`updater` `HttpsTrust` contracts).
+/// Root trust for outbound HTTPS (mirrors `platform::cert` selection).
+/// `subscriptions::tls` and `updater::tls` re-export this type.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum HttpsTrust {
     /// OS/native roots only (upstream `system`).
@@ -336,8 +336,14 @@ impl Fetched {
 
     /// Strict UTF-8 view of the body.
     pub fn text(&self) -> Result<String, HttpError> {
-        String::from_utf8(self.body.clone())
+        std::str::from_utf8(&self.body)
+            .map(str::to_owned)
             .map_err(|e| HttpError::Http(format!("invalid utf-8: {e}")))
+    }
+
+    /// Strict UTF-8 text, taking the body without a copy.
+    pub fn into_text(self) -> Result<String, HttpError> {
+        String::from_utf8(self.body).map_err(|e| HttpError::Http(format!("invalid utf-8: {e}")))
     }
 }
 
@@ -445,7 +451,6 @@ pub async fn fetch_bytes(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn follow(
     client: &SharedHttpClient,
     start: Url,
@@ -562,7 +567,7 @@ pub async fn fetch_text(
 ) -> Result<String, HttpError> {
     fetch_bytes(client, url, options, cancellation)
         .await
-        .and_then(|fetched| fetched.text())
+        .and_then(Fetched::into_text)
 }
 
 #[cfg(test)]
@@ -587,6 +592,19 @@ mod tests {
             HttpsTrust::from_provider("bogus", b"c", b"m"),
             HttpsTrust::System
         );
+        assert_eq!(
+            HttpsTrust::from_provider("", b"c", b"m"),
+            HttpsTrust::System
+        );
+    }
+
+    #[test]
+    fn classifier_marks_only_tls_strings() {
+        assert!(HttpsTrust::is_trust_failure(
+            "invalid peer certificate: UnknownIssuer"
+        ));
+        assert!(!HttpsTrust::is_trust_failure("status 404"));
+        assert!(!HttpsTrust::is_trust_failure("timeout"));
     }
 
     #[test]

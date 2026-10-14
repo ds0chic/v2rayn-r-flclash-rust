@@ -339,28 +339,22 @@ impl ProcessGraph {
             *indegree.get_mut(edge.after.as_str()).unwrap() += 1;
         }
 
-        let mut ready: Vec<&str> = indegree
+        // Ordered set: always start the smallest ready id, so the order is
+        // stable regardless of edge insertion order.
+        let mut ready: BTreeSet<&str> = indegree
             .iter()
             .filter(|(_, d)| **d == 0)
             .map(|(id, _)| *id)
             .collect();
-        ready.sort_unstable();
         let mut order = Vec::with_capacity(self.nodes.len());
-        while let Some(id) = ready.first().copied() {
-            ready.remove(0);
+        while let Some(id) = ready.pop_first() {
             order.push(id.to_string());
-            if let Some(nexts) = adj.get(id) {
-                let mut newly_ready = Vec::new();
-                for next in nexts {
-                    let d = indegree.get_mut(next).unwrap();
-                    *d -= 1;
-                    if *d == 0 {
-                        newly_ready.push(*next);
-                    }
+            for next in adj.get(id).into_iter().flatten() {
+                let d = indegree.get_mut(next).unwrap();
+                *d -= 1;
+                if *d == 0 {
+                    ready.insert(next);
                 }
-                newly_ready.sort_unstable();
-                ready.extend(newly_ready);
-                ready.sort_unstable();
             }
         }
 
@@ -380,7 +374,9 @@ impl ProcessGraph {
     /// Detect ports claimed by more than one exclusive owner.
     ///
     /// A conflict exists when two ports share the same number and their
-    /// transport protocols overlap (`Both` overlaps `Tcp` and `Udp`).
+    /// transport protocols overlap (`Both` overlaps `Tcp` and `Udp`). A
+    /// repeated claim by the same owner counts too: a duplicate declaration
+    /// is a caller error, not sharing.
     pub fn validate_ports(&self) -> Result<(), DomainError> {
         let mut claimed: Vec<(&str, &PortRequest)> = Vec::new();
         for node in &self.nodes {
@@ -389,10 +385,7 @@ impl ProcessGraph {
                     continue;
                 }
                 for (prev_owner, prev) in &claimed {
-                    if prev.port == port.port
-                        && prev.transport.overlaps(port.transport)
-                        && *prev_owner != node.id.as_str()
-                    {
+                    if prev.port == port.port && prev.transport.overlaps(port.transport) {
                         return Err(
                             DomainError::new(codes::PORT_CONFLICT, "error.port_conflict")
                                 .with_field("port")
@@ -441,20 +434,120 @@ pub struct RuntimePlan {
     pub resources: Vec<ContentHash>,
 }
 
+/// Upper bound for an inline plan config body (16 MiB). Generated core
+/// configs are kilobytes; anything larger is a caller error, not a config.
+pub const MAX_INLINE_CONFIG_BYTES: usize = 16 * 1024 * 1024;
+
 impl RuntimePlan {
     /// Full structural validation. Returns the first structured error.
     pub fn validate(&self) -> Result<(), DomainError> {
+        self.validate_identity()?;
+        self.validate_configs()?;
         self.outbound_graph.validate_unique_tags()?;
         self.outbound_graph.validate_references()?;
         self.outbound_graph.validate_acyclic()?;
         self.process_graph.start_order()?;
         self.process_graph.validate_ports()?;
         self.validate_port_set()?;
+        self.validate_privileges()?;
+        Ok(())
+    }
+
+    /// The plan must carry a non-empty identity (stable across retries of
+    /// the same operation).
+    fn validate_identity(&self) -> Result<(), DomainError> {
+        if self.plan_id.trim().is_empty() {
+            return Err(DomainError::new(codes::INVALID_PLAN, "error.invalid_plan")
+                .with_field("plan_id")
+                .with_detail("plan_id must not be empty"));
+        }
+        Ok(())
+    }
+
+    /// Every config source must be resolvable by net-host: a `ControlledFile`
+    /// needs its staging token and content hash, an `Inline` body must exist
+    /// and stay within a sane bound (16 MiB; generated configs are kilobytes).
+    fn validate_configs(&self) -> Result<(), DomainError> {
+        Self::validate_config_source("target.config", &self.target.config)?;
+        for node in &self.process_graph.nodes {
+            Self::validate_config_source(&format!("process.{}.config", node.id), &node.config)?;
+        }
+        Ok(())
+    }
+
+    fn validate_config_source(field: &str, source: &ConfigSource) -> Result<(), DomainError> {
+        match source {
+            ConfigSource::ControlledFile {
+                staged_token,
+                sha256,
+            } => {
+                if staged_token.trim().is_empty() {
+                    return Err(DomainError::new(codes::INVALID_PLAN, "error.invalid_plan")
+                        .with_field(field)
+                        .with_detail("controlled file staged_token must not be empty"));
+                }
+                if sha256.as_str().trim().is_empty() {
+                    return Err(DomainError::new(codes::INVALID_PLAN, "error.invalid_plan")
+                        .with_field(field)
+                        .with_detail("controlled file sha256 must not be empty"));
+                }
+            }
+            ConfigSource::Inline { body } => {
+                if body.trim().is_empty() {
+                    return Err(DomainError::new(codes::INVALID_PLAN, "error.invalid_plan")
+                        .with_field(field)
+                        .with_detail("inline config body must not be empty"));
+                }
+                if body.len() > MAX_INLINE_CONFIG_BYTES {
+                    return Err(DomainError::new(codes::INVALID_PLAN, "error.invalid_plan")
+                        .with_field(field)
+                        .with_detail(format!(
+                            "inline config body exceeds {MAX_INLINE_CONFIG_BYTES} bytes"
+                        )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Privilege/port consistency: `PrivilegedPort` requires a <1024 port
+    /// somewhere in the plan, and `Tun` requires `tun_enabled` in the
+    /// network policy. Union of plan-level and per-process privileges.
+    fn validate_privileges(&self) -> Result<(), DomainError> {
+        let wants_privileged = self.privileges.contains(&RequiredPrivilege::PrivilegedPort)
+            || self
+                .process_graph
+                .nodes
+                .iter()
+                .any(|n| n.privileges.contains(&RequiredPrivilege::PrivilegedPort));
+        if wants_privileged {
+            let has_low_port = self
+                .ports
+                .iter()
+                .chain(self.process_graph.nodes.iter().flat_map(|n| n.ports.iter()))
+                .any(|p| p.port < 1024);
+            if !has_low_port {
+                return Err(DomainError::new(codes::INVALID_PLAN, "error.invalid_plan")
+                    .with_field("privileges")
+                    .with_detail("PrivilegedPort requires a port below 1024"));
+            }
+        }
+        let wants_tun = self.privileges.contains(&RequiredPrivilege::Tun)
+            || self
+                .process_graph
+                .nodes
+                .iter()
+                .any(|n| n.privileges.contains(&RequiredPrivilege::Tun));
+        if wants_tun && !self.network_policy.tun_enabled {
+            return Err(DomainError::new(codes::INVALID_PLAN, "error.invalid_plan")
+                .with_field("network_policy.tun_enabled")
+                .with_detail("Tun privilege requires tun_enabled"));
+        }
         Ok(())
     }
 
     /// Validate the plan-level port list for overlaps between exclusive
-    /// owners.
+    /// owners (a repeated claim by the same owner counts as a conflict).
     pub fn validate_port_set(&self) -> Result<(), DomainError> {
         let mut claimed: Vec<(&str, &PortRequest)> = Vec::new();
         for port in &self.ports {
@@ -462,10 +555,7 @@ impl RuntimePlan {
                 continue;
             }
             for (prev_owner, prev) in &claimed {
-                if prev.port == port.port
-                    && prev.transport.overlaps(port.transport)
-                    && *prev_owner != port.owner.as_str()
-                {
+                if prev.port == port.port && prev.transport.overlaps(port.transport) {
                     return Err(
                         DomainError::new(codes::PORT_CONFLICT, "error.port_conflict")
                             .with_field("port")
@@ -601,6 +691,116 @@ mod tests {
             core_type: CoreType::SingBox,
             config: ConfigSource::Inline { body: "{}".into() },
             ports: vec![PortRequest::tcp(12808, "b")],
+            privileges: vec![],
+        });
+        assert_eq!(g.validate_ports().unwrap_err().code, codes::PORT_CONFLICT);
+    }
+
+    fn valid_plan() -> RuntimePlan {
+        let mut g = ProcessGraph::default();
+        g.add_process(ProcessNode {
+            id: "main".into(),
+            core_type: CoreType::Xray,
+            config: ConfigSource::Inline { body: "{}".into() },
+            ports: vec![],
+            privileges: vec![],
+        });
+        RuntimePlan {
+            plan_id: "plan-1".into(),
+            desired_revision: 1,
+            target: RuntimeTarget {
+                core_type: CoreType::Xray,
+                version: None,
+                config: ConfigSource::Inline { body: "{}".into() },
+                config_sha256: ContentHash::new("ab"),
+            },
+            process_graph: g,
+            outbound_graph: OutboundGraph::default(),
+            ports: vec![],
+            privileges: vec![],
+            network_policy: NetworkPolicy::default(),
+            resources: vec![],
+        }
+    }
+
+    #[test]
+    fn empty_plan_id_is_rejected() {
+        // S1-07: an empty identity must not pass the IPC-applied gate.
+        let mut plan = valid_plan();
+        plan.plan_id.clear();
+        assert_eq!(plan.validate().unwrap_err().code, codes::INVALID_PLAN);
+    }
+
+    #[test]
+    fn controlled_file_with_empty_token_or_hash_is_rejected() {
+        // S1-07: a `ControlledFile` reference without its staging token or
+        // content hash cannot be resolved by net-host.
+        let mut plan = valid_plan();
+        plan.target.config = ConfigSource::ControlledFile {
+            staged_token: String::new(),
+            sha256: ContentHash::new("ab"),
+        };
+        assert_eq!(plan.validate().unwrap_err().code, codes::INVALID_PLAN);
+        plan.target.config = ConfigSource::ControlledFile {
+            staged_token: "t".into(),
+            sha256: ContentHash::new(""),
+        };
+        assert_eq!(plan.validate().unwrap_err().code, codes::INVALID_PLAN);
+    }
+
+    #[test]
+    fn empty_or_oversize_inline_body_is_rejected() {
+        // S1-07: inline content must exist and stay within a sane bound.
+        let mut plan = valid_plan();
+        plan.target.config = ConfigSource::Inline {
+            body: String::new(),
+        };
+        assert_eq!(plan.validate().unwrap_err().code, codes::INVALID_PLAN);
+        plan.target.config = ConfigSource::Inline {
+            body: "x".repeat(17 * 1024 * 1024),
+        };
+        assert_eq!(plan.validate().unwrap_err().code, codes::INVALID_PLAN);
+    }
+
+    #[test]
+    fn privileged_port_claim_requires_a_sub_1024_port() {
+        // S1-07: claiming `PrivilegedPort` without any <1024 port is
+        // inconsistent and must not reach net-host.
+        let mut plan = valid_plan();
+        plan.privileges = vec![RequiredPrivilege::PrivilegedPort];
+        plan.ports = vec![PortRequest::tcp(11808, "inbound")];
+        assert_eq!(plan.validate().unwrap_err().code, codes::INVALID_PLAN);
+        plan.ports = vec![PortRequest::tcp(443, "inbound")];
+        assert!(plan.validate().is_ok());
+    }
+
+    #[test]
+    fn tun_privilege_requires_tun_enabled() {
+        // S1-07: a plan asking for TUN while its network policy forbids it
+        // is contradictory.
+        let mut plan = valid_plan();
+        plan.privileges = vec![RequiredPrivilege::Tun];
+        assert!(!plan.network_policy.tun_enabled);
+        assert_eq!(plan.validate().unwrap_err().code, codes::INVALID_PLAN);
+        plan.network_policy.tun_enabled = true;
+        assert!(plan.validate().is_ok());
+    }
+
+    #[test]
+    fn same_owner_duplicate_port_is_rejected() {
+        // S1-07: the old owner exemption hid same-process double claims.
+        let mut plan = valid_plan();
+        plan.ports = vec![
+            PortRequest::tcp(11808, "inbound"),
+            PortRequest::tcp(11808, "inbound"),
+        ];
+        assert_eq!(plan.validate().unwrap_err().code, codes::PORT_CONFLICT);
+        let mut g = ProcessGraph::default();
+        g.add_process(ProcessNode {
+            id: "a".into(),
+            core_type: CoreType::Xray,
+            config: ConfigSource::Inline { body: "{}".into() },
+            ports: vec![PortRequest::tcp(11808, "a"), PortRequest::tcp(11808, "a")],
             privileges: vec![],
         });
         assert_eq!(g.validate_ports().unwrap_err().code, codes::PORT_CONFLICT);

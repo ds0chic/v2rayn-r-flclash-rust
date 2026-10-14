@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:v2rayn_desktop/shared/l10n/error_localizer.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
@@ -129,7 +132,14 @@ Future<void> exportSelectedClientConfig(
   final bridge = ref.read(bridgePortProvider);
   final result = bridge.exportClientConfigText(id);
   if (!result.ok) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = result.error == null
+        ? '无导出项'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            result.error!.messageKey,
+          );
+    _toast(ref, '导出失败：$detail');
     return;
   }
 
@@ -156,7 +166,14 @@ Future<void> exportSelectedClientConfig(
   }
   final write = bridge.writeExportFile(path, result.text);
   if (!write.ok) {
-    _toast(ref, '保存失败：${write.error?.messageKey ?? "写入被拒绝"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = write.error == null
+        ? '写入被拒绝'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            write.error!.messageKey,
+          );
+    _toast(ref, '保存失败：$detail');
     return;
   }
   _toast(ref, '已保存完整配置：$path');
@@ -431,7 +448,14 @@ Future<void> exportSelectedShareUrls(WidgetRef ref) async {
   final bridge = ref.read(bridgePortProvider);
   final result = await bridge.exportProfiles(state.selected.toList(), 'share');
   if (!result.ok) {
-    _toast(ref, '导出失败：${result.error?.messageKey ?? "无导出项"}');
+    // D-LEFT2: the key is localized here; the shell message line renders raw.
+    final detail = result.error == null
+        ? '无导出项'
+        : ErrorLocalizer.localizeStatusKey(
+            ref.read(productLanguageProvider),
+            result.error!.messageKey,
+          );
+    _toast(ref, '导出失败：$detail');
     return;
   }
   await Clipboard.setData(ClipboardData(text: result.text));
@@ -466,7 +490,10 @@ Future<void> shareProfileQr(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('profile-share-qr'),
-      title: const Text('分享节点', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '分享节点',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: SizedBox(
         width: 256,
         height: 256,
@@ -504,34 +531,9 @@ Future<void> renameSelectedProfile(
     return;
   }
   final current = controller.profileById(id);
-  final textController = TextEditingController(text: current?.remarks ?? '');
   final remarks = await showDialog<String>(
     context: context,
-    builder: (context) => AlertDialog(
-      key: const ValueKey('remarks-dialog'),
-      title: const Text('修改备注', style: TextStyle(fontSize: 15)),
-      content: TextField(
-        key: const ValueKey('remarks-field'),
-        controller: textController,
-        autofocus: true,
-        decoration: const InputDecoration(
-          isDense: true,
-          border: OutlineInputBorder(),
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(
-          key: const ValueKey('remarks-cancel'),
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-        FilledButton(
-          key: const ValueKey('remarks-save'),
-          onPressed: () => Navigator.of(context).pop(textController.text),
-          child: const Text('保存'),
-        ),
-      ],
-    ),
+    builder: (context) => _RemarksDialog(initial: current?.remarks ?? ''),
   );
   if (remarks == null) {
     _toast(ref, '已取消修改备注');
@@ -760,7 +762,14 @@ Future<void> openFullConfigTemplateWindow(
   );
   if (saved == true) {
     controller.reload();
-    _toast(ref, '完整配置模板已保存');
+    if (ref.read(runtimeControllerProvider).isRunning) {
+      final applied = await ref
+          .read(runtimeControllerProvider.notifier)
+          .applyActive();
+      _toast(ref, applied ? '完整配置模板已保存并应用' : '模板已保存，但运行中的配置应用失败');
+    } else {
+      _toast(ref, '完整配置模板已保存');
+    }
   } else {
     _toast(ref, '已取消模板设置');
   }
@@ -768,4 +777,61 @@ Future<void> openFullConfigTemplateWindow(
 
 void _toast(WidgetRef ref, String message) {
   ref.read(uiShellControllerProvider.notifier).setMessage(message);
+}
+
+/// Rename dialog owning its [TextEditingController] (D1-06): the controller
+/// lives exactly as long as the dialog route, so every exit path (save,
+/// cancel, barrier dismiss) releases it after unmount instead of leaking it
+/// or disposing it under a still-animating route.
+class _RemarksDialog extends StatefulWidget {
+  const _RemarksDialog({required this.initial});
+
+  final String initial;
+
+  @override
+  State<_RemarksDialog> createState() => _RemarksDialogState();
+}
+
+class _RemarksDialogState extends State<_RemarksDialog> {
+  late final TextEditingController _textController = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('remarks-dialog'),
+      title: const Text(
+        '修改备注',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
+      content: TextField(
+        key: const ValueKey('remarks-field'),
+        controller: _textController,
+        autofocus: true,
+        decoration: const InputDecoration(
+          isDense: true,
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          key: const ValueKey('remarks-cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        FilledButton(
+          key: const ValueKey('remarks-save'),
+          onPressed: () => Navigator.of(context).pop(_textController.text),
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
 }

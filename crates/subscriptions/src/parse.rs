@@ -288,7 +288,14 @@ fn parse_plain_list(
     let mut offset = 0usize;
     for (index, line) in split_lines(content).iter().enumerate() {
         let line_start = offset;
-        offset += line.len() + 1;
+        // `split_lines` strips a trailing `\r`; step over the full separator
+        // so `byte_offset` stays exact on CRLF content.
+        offset += line.len();
+        if content[offset..].starts_with("\r\n") {
+            offset += 2;
+        } else if content[offset..].starts_with('\n') {
+            offset += 1;
+        }
         if let Err(err) = opts.cancellation.check() {
             errors.push(ParseIssue::new(err.code(), err.to_string()));
             break;
@@ -465,6 +472,17 @@ mod tests {
         assert_eq!(result.profiles.len(), 1);
         assert_eq!(result.errors.len(), 1);
         assert_eq!(result.errors[0].item_index, Some(0));
+    }
+
+    #[test]
+    fn crlf_byte_offsets_count_the_carriage_return() {
+        let first = "vless://uuid@a.example:443?encryption=none#ok";
+        let content = format!("{first}\r\nbogus\r\n");
+        let result = parse_content(&content, ContentHint::PlainList, &opts());
+        assert_eq!(result.profiles.len(), 1);
+        assert_eq!(result.errors.len(), 1);
+        assert_eq!(result.errors[0].item_index, Some(1));
+        assert_eq!(result.errors[0].byte_offset, Some(first.len() + 2));
     }
 
     #[test]

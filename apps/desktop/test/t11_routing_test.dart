@@ -105,8 +105,9 @@ void main() {
     expect(imported.ok, isTrue);
     expect(imported.ruleCount, 2);
     final exported = controller.exportRules(id, const []);
-    expect(exported.ok, isTrue);
-    expect(exported.ruleCount, 2);
+    // S8-09: an empty selection is rejected, never exported as "all rules".
+    expect(exported.ok, isFalse);
+    expect(exported.error?.messageKey, 'error.routing_no_selection');
     final bad = controller.importRules(id, 'not json');
     expect(bad.ok, isFalse);
   });

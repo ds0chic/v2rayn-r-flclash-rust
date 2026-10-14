@@ -83,9 +83,12 @@ function ClickAt([int]$X, [int]$Y) {
 }
 
 $exe = Join-Path $AppDir 'build\windows\x64\runner\Release\v2rayn_desktop.exe'
+# S11-04: process env is caller-visible; save and restore so later commands
+# in the same shell are not redirected to this run's throwaway data dir.
+$__t06aOldDataDir = [Environment]::GetEnvironmentVariable('V2RAYN_R_DATA_DIR')
 $env:V2RAYN_R_DATA_DIR = Join-Path $env:TEMP ('t06a_shot_' + [guid]::NewGuid().ToString('N'))
-$proc = Start-Process -FilePath $exe -PassThru
 try {
+$proc = Start-Process -FilePath $exe -PassThru
   $hwnd = Get-Hwnd -TargetPid ([uint32]$proc.Id)
   [Nat]::ForceForeground($hwnd)
   Start-Sleep -Milliseconds 3000
@@ -141,6 +144,7 @@ try {
   Write-Output 'capture complete'
 }
 finally {
+  [Environment]::SetEnvironmentVariable('V2RAYN_R_DATA_DIR', $__t06aOldDataDir)
   if ($proc -and -not $proc.HasExited) {
     Stop-Process -Id $proc.Id -Force
     Write-Output "stopped pid $($proc.Id)"

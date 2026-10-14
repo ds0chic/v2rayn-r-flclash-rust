@@ -114,6 +114,25 @@ pub const CORE_TYPE_CONTROLS: [ConfigType; 8] = [
 ];
 
 const DEFAULT_LANGUAGE: &str = "zh-Hans";
+
+/// Default UI language for a fresh config, mirroring upstream
+/// `ConfigHandler.LoadConfig` (`ConfigHandler.cs:108-113`, `Global.cs:498-514`):
+/// a Chinese culture selects `Languages[0]` (`zh-Hans`), any other culture
+/// selects `Languages[2]` (`en`). `None` (no locale info available) keeps the
+/// legacy `zh-Hans` default so existing callers are unaffected; the
+/// application layer should pass the OS locale explicitly.
+pub fn default_language_for_locale(locale: Option<&str>) -> &'static str {
+    let is_zh = locale.is_some_and(|tag| {
+        tag.split(['-', '_'])
+            .next()
+            .is_some_and(|lang| lang.eq_ignore_ascii_case("zh"))
+    });
+    if locale.is_none() || is_zh {
+        DEFAULT_LANGUAGE
+    } else {
+        "en"
+    }
+}
 const ROUTING_DOMAIN_STRATEGY: &str = "AsIs";
 const ROOT_CERT_PROVIDER: &str = "system";
 const SINGBOX_MUX: &str = "h2mux";
@@ -183,6 +202,19 @@ where
     T: Deserialize<'de> + Default,
 {
     Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
+}
+
+/// Treat an explicit `null` inbound list like a missing one (upstream
+/// `LoadConfig` fills the default listener when `Inbound == null`), while an
+/// explicit `[]` deserialises to an empty vec and stays empty.
+fn deserialize_null_inbound_default<'de, D>(
+    deserializer: D,
+) -> Result<Vec<InboundListener>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(Option::<Vec<InboundListener>>::deserialize(deserializer)?
+        .unwrap_or_else(default_inbound_list))
 }
 
 fn non_empty(value: &Option<String>) -> bool {
@@ -958,7 +990,7 @@ pub struct AppSettings {
     pub fragment4_ray_item: Option<Fragment4RayItem>,
     #[serde(
         default = "default_inbound_list",
-        deserialize_with = "deserialize_null_default"
+        deserialize_with = "deserialize_null_inbound_default"
     )]
     pub inbound: Vec<InboundListener>,
     #[serde(default, deserialize_with = "deserialize_null_default")]
@@ -1030,11 +1062,17 @@ impl AppSettings {
     /// Apply the object-level `ConfigHandler.LoadConfig` synthesis and
     /// corrections that cannot be expressed as serde field defaults.
     pub fn apply_load_defaults(&mut self) {
-        // Inbound: a missing/empty list gets the default socks listener and the
-        // first listener is always forced to `socks`.
-        if self.inbound.is_empty() {
-            self.inbound.push(default_inbound());
-        }
+        self.apply_load_defaults_for_locale(None);
+    }
+
+    /// [`AppSettings::apply_load_defaults`] with the OS locale supplied by
+    /// the caller (BCP-47 / culture name, e.g. `"en-US"`); `None` keeps the
+    /// legacy default. Only the language default depends on it.
+    pub fn apply_load_defaults_for_locale(&mut self, locale: Option<&str>) {
+        // Inbound: only a missing/null list gets the default socks listener
+        // (upstream `ConfigHandler.LoadConfig`: `Inbound == null` fills, an
+        // explicit `[]` stays empty); the first listener is always forced to
+        // `socks`.
         if let Some(first) = self.inbound.first_mut() {
             first.protocol = crate::enums::InboundProtocol::Socks;
         }
@@ -1058,7 +1096,7 @@ impl AppSettings {
         }
 
         if !non_empty(&self.ui_item.current_language) {
-            self.ui_item.current_language = Some(DEFAULT_LANGUAGE.to_string());
+            self.ui_item.current_language = Some(default_language_for_locale(locale).to_string());
         }
 
         // SimpleDNSItem: only the `??=` fills apply to a present object; the
@@ -1367,6 +1405,49 @@ mod tests {
         assert_eq!(s.core_basic_item.loglevel.as_deref(), Some("warning"));
         assert_eq!(s.kcp_item.mtu, 1350);
         assert_eq!(s.inbound.len(), 1);
+    }
+
+    #[test]
+    fn explicit_empty_inbound_stays_empty_like_upstream() {
+        // S1-05: upstream `ConfigHandler.LoadConfig` only synthesises the
+        // default listener when `Inbound == null`; an explicit `[]` keeps
+        // zero listeners (user-cleared listeners must not come back).
+        let mut s: AppSettings = serde_json::from_str(r#"{"Inbound":[]}"#).unwrap();
+        s.apply_load_defaults();
+        assert!(s.inbound.is_empty());
+    }
+
+    #[test]
+    fn explicit_null_inbound_gets_default_listener() {
+        // The `null` twin of the case above: missing/null still means
+        // "no user choice", so the default socks listener applies.
+        for raw in ["{}", r#"{"Inbound":null}"#] {
+            let mut s: AppSettings = serde_json::from_str(raw).unwrap();
+            s.apply_load_defaults();
+            assert_eq!(s.inbound.len(), 1, "raw: {raw}");
+            assert_eq!(s.inbound[0].local_port, 10808);
+        }
+    }
+
+    #[test]
+    fn default_language_follows_locale_like_upstream() {
+        // S1-14: upstream picks `Languages[0]` (zh-Hans) for Chinese
+        // cultures and `Languages[2]` (en) otherwise; unknown locale keeps
+        // the legacy default.
+        assert_eq!(default_language_for_locale(Some("zh")), "zh-Hans");
+        assert_eq!(default_language_for_locale(Some("zh-CN")), "zh-Hans");
+        assert_eq!(default_language_for_locale(Some("zh_Hant")), "zh-Hans");
+        assert_eq!(default_language_for_locale(Some("en-US")), "en");
+        assert_eq!(default_language_for_locale(Some("fr")), "en");
+        assert_eq!(default_language_for_locale(None), "zh-Hans");
+        let mut s: AppSettings = serde_json::from_str(r#"{"UiItem":{}}"#).unwrap();
+        s.apply_load_defaults_for_locale(Some("en-US"));
+        assert_eq!(s.ui_item.current_language.as_deref(), Some("en"));
+        // The locale never overrides an explicit user choice.
+        let mut s: AppSettings =
+            serde_json::from_str(r#"{"UiItem":{"CurrentLanguage":"fa"}}"#).unwrap();
+        s.apply_load_defaults_for_locale(Some("en-US"));
+        assert_eq!(s.ui_item.current_language.as_deref(), Some("fa"));
     }
 
     #[test]

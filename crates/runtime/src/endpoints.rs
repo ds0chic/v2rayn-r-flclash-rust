@@ -119,7 +119,18 @@ fn parse_xray(value: &Value) -> Result<CustomEndpoints, String> {
             else {
                 continue;
             };
-            let udp = item.get("network").and_then(Value::as_str) == Some("udp");
+            // Xray `network` is commonly `tcp`, `udp` or the dual-stack
+            // `tcp,udp`: an exact match would misread the most common
+            // dual-stack spelling as TCP-only (S7a-13).
+            let udp = item
+                .get("network")
+                .and_then(Value::as_str)
+                .map(|network| {
+                    network
+                        .split(',')
+                        .any(|part| part.trim().eq_ignore_ascii_case("udp"))
+                })
+                .unwrap_or(false);
             inbounds.push(ResolvedInbound {
                 protocol: proto,
                 port,
@@ -358,6 +369,29 @@ mod tests {
         let body = r#"{"inbounds":[{"port":12021,"protocol":"http","settings":{"accounts":[{"user":"u","pass":"p"}]}}]}"#;
         let eps = parse_custom_endpoints(CoreType::Xray, body).expect("parse");
         assert!(eps.primary().unwrap().authentication);
+    }
+
+    #[test]
+    fn xray_network_tcp_udp_reports_udp() {
+        // S7a-13: the dual-stack spelling must read as UDP-capable.
+        let body = r#"{"inbounds":[
+            {"port":12040,"protocol":"socks","network":"tcp,udp"},
+            {"port":12041,"protocol":"socks","network":"udp"},
+            {"port":12042,"protocol":"socks","network":"tcp"},
+            {"port":12043,"protocol":"socks","network":" TCP , UDP "}
+        ]}"#;
+        let eps = parse_custom_endpoints(CoreType::Xray, body).expect("parse");
+        let udp = |port| {
+            eps.inbounds
+                .iter()
+                .find(|inbound| inbound.port == port)
+                .expect("inbound")
+                .udp
+        };
+        assert!(udp(12040), "\"tcp,udp\" is UDP-capable");
+        assert!(udp(12041));
+        assert!(!udp(12042));
+        assert!(udp(12043), "surrounding whitespace is tolerated");
     }
 
     #[test]

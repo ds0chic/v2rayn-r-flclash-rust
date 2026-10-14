@@ -25,16 +25,24 @@ String? _findLibrary() {
 
 void main() {
   late Directory dir;
+  var bridgeReady = false;
+
+  /// `markTestSkipped` inside `setUpAll` does not stop the test bodies from
+  /// running (it only records a phantom skip); each test must guard itself,
+  /// mirroring `t21e_import_real_bridge_test.dart`.
+  bool skipUnlessBridge() {
+    if (bridgeReady) return false;
+    markTestSkipped('bridge_api.dll not built');
+    return true;
+  }
 
   setUpAll(() async {
     final libraryPath = _findLibrary();
-    if (libraryPath == null) {
-      markTestSkipped('bridge_api.dll not built');
-      return;
-    }
+    if (libraryPath == null) return;
     await RustLib.init(externalLibrary: ExternalLibrary.open(libraryPath));
     dir = Directory.systemTemp.createTempSync('t21e_forms_');
     engine.initEngine(dataDir: dir.path);
+    bridgeReady = true;
   });
 
   tearDownAll(() {
@@ -47,6 +55,7 @@ void main() {
   });
 
   test('hysteria2 with params parses', () {
+    if (skipUnlessBridge()) return;
     final result = subs.parseShareUri(
       line: 'hysteria2://secret@h.example:443/?sni=x.example&insecure=1#hy2',
     );
@@ -55,6 +64,7 @@ void main() {
   });
 
   test('IPv6 authority parses', () {
+    if (skipUnlessBridge()) return;
     final result = subs.parseShareUri(
       line: 'vless://11111111-1111-1111-1111-111111111111@[2001:db8::1]:443?encryption=none&type=tcp#ipv6',
     );
@@ -63,6 +73,7 @@ void main() {
   });
 
   test('emoji remarks survive', () {
+    if (skipUnlessBridge()) return;
     final result = subs.parseShareUri(
       line: 'vless://11111111-1111-1111-1111-111111111111@a.example:443?encryption=none#emoji%20%F0%9F%9A%80',
     );
@@ -71,6 +82,7 @@ void main() {
   });
 
   test('CRLF-separated list parses', () async {
+    if (skipUnlessBridge()) return;
     const text =
         'vless://11111111-1111-1111-1111-111111111111@a.example:443?encryption=none#one\r\n'
         'trojan://pw@b.example:443#two\r\n';
@@ -80,6 +92,7 @@ void main() {
   });
 
   test('uppercase scheme probe (recorded, no parity claim)', () {
+    if (skipUnlessBridge()) return;
     final result = subs.parseShareUri(
       line: 'VLESS://11111111-1111-1111-1111-111111111111@a.example:443#upper',
     );

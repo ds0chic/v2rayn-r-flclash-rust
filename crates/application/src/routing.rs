@@ -24,11 +24,6 @@ pub fn new_routing_id() -> String {
     format!("rt-{nanos:x}-{seq:x}")
 }
 
-#[allow(dead_code)]
-fn non_empty(value: Option<String>) -> Option<String> {
-    value.filter(|v| !v.is_empty())
-}
-
 /// Map a `RoutingProfile` onto a `RoutingItem` row.
 pub fn routing_to_row(profile: &RoutingProfile) -> RawRow {
     let mut row = RawRow::new("RoutingItem");
@@ -501,18 +496,6 @@ pub fn read_custom_ruleset(path: &str) -> Option<Value> {
         return None;
     }
     serde_json::from_str(&text).ok()
-}
-
-fn opt_json(value: Option<&str>) -> Value {
-    match value {
-        Some(v) if !v.is_empty() => json!(v),
-        _ => Value::Null,
-    }
-}
-
-#[allow(dead_code)]
-fn _opt_json_keepalive(value: Option<&str>) -> Value {
-    opt_json(value)
 }
 
 #[cfg(test)]

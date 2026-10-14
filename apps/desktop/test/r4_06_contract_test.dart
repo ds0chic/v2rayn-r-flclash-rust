@@ -115,6 +115,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Pac 模式').last);
     await tester.pumpAndSettle();
+    // U-B1 danger gate (UX1-03): Pac/forcedChange selection asks for
+    // confirmation first; the honest no-session error surfaces after confirm.
+    expect(
+      find.byKey(const ValueKey('sysproxy-apply-confirm')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('danger-confirm-ok')));
+    await tester.pumpAndSettle();
     final platformView = container.read(platformControllerProvider);
     expect(platformView.error?.code, 'E_NO_RUNNING_SESSION');
     expect(platformView.message, contains('没有运行中的代理会话'));

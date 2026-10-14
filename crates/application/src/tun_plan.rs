@@ -348,6 +348,18 @@ pub fn tun_deferred_spec_from_settings_with_warnings(
     for route in &mut spec.routes {
         route.interface_index = 0;
     }
+    // Enforce every contract bound except the still-unknown index: probe a clone
+    // with a nonzero sentinel through `validate` (its only index checks are
+    // `!= 0`). Without this an out-of-range MTU or bad address would sail
+    // through here and fail much later at helper-apply time.
+    {
+        let mut probe = spec.clone();
+        probe.interface_index = u32::MAX;
+        for route in &mut probe.routes {
+            route.interface_index = u32::MAX;
+        }
+        probe.validate()?;
+    }
     Ok((Some(spec), warnings))
 }
 
@@ -625,6 +637,19 @@ mod tests {
         let mut bad = item();
         bad.mtu = 100;
         assert!(tun_spec_from_settings(&bad, &hints()).is_err());
+    }
+
+    #[test]
+    fn deferred_spec_rejects_out_of_range_mtu() {
+        // S5-05: the deferred path must enforce the same MTU/contract bounds as
+        // the resolved path; only the interface index may stay unknown.
+        let mut bad = item();
+        bad.mtu = 100;
+        let mut zero = hints();
+        zero.interface_index = 0;
+        let error = tun_deferred_spec_from_settings(&bad, &zero).unwrap_err();
+        // The contract MTU bound surfaces through the helper-error mapping.
+        assert_eq!(error.code, codes::INVALID_ARGUMENT);
     }
 
     #[test]

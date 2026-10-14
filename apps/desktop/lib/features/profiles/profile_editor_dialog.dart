@@ -5,6 +5,7 @@ import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_fields.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
 import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 
 /// Modal editor for one node of any of the 11 basic protocol kinds.
@@ -62,9 +63,12 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       _draft.coreType = ProfileCapabilities.defaultCore(_draft.configType);
     }
     if (_draft.port <= 0) _draft.port = 443;
-    // Clamp a persisted network (e.g. synthetic "tcp") to the protocol's set.
-    final networks = ProfileCapabilities.allowedNetworks(_draft.configType);
-    if (!networks.contains(_draft.network)) _draft.network = 'raw';
+    // A persisted non-empty network outside the per-protocol candidate subset
+    // is kept as-is (upstream only resets a network missing from the global
+    // Networks list on save): the dropdown preserves it as an unknown
+    // candidate, so a remarks-only save stays lossless (D1-03). Only a blank
+    // network falls back to the upstream default, matching the save behavior.
+    if (_draft.network.isEmpty) _draft.network = 'raw';
     // Upstream `AddHysteria2Server`/`AddTuicServer`/`AddAnytlsServer`/
     // `AddNaiveServer` force `Global.StreamSecurity` ("tls") when the imported
     // value is empty; never touch a non-empty (imported) value so a remarks-only
@@ -178,10 +182,11 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: theme.colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(AppTokens.radiusMedium),
       ),
       child: Text(
-        '保存失败: ${error.messageKey} (${error.code})',
+        // D-LEFT2: the key is localized; the dialog renders raw.
+        '保存失败: ${context.messageText(error.messageKey)} (${error.code})',
         style: AppForm.contentStyle(theme)
             .copyWith(color: theme.colorScheme.onErrorContainer),
       ),
@@ -386,7 +391,10 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
           initialValue: value,
           minLines: 2,
           maxLines: 4,
-          style: contentStyle.copyWith(fontFamily: AppTokens.monoFontFamily),
+          style: contentStyle.copyWith(
+            fontFamily: AppTokens.monoFontFamily,
+            fontFamilyFallback: AppTokens.monoFontFallback,
+          ),
           decoration: decoration(hint: spec.hint),
           onChanged: (v) {
             spec.set(_draft, v);
@@ -609,7 +617,10 @@ class _ProfileEditorDialogState extends State<ProfileEditorDialog> {
       _fieldErrors.clear();
       final path = result.error?.fieldPath;
       if (path != null) {
-        _fieldErrors[path] = result.error?.messageKey ?? '字段无效';
+        // D-LEFT2: the key is localized; the form renders raw.
+        _fieldErrors[path] = context.messageText(
+          result.error?.messageKey ?? '字段无效',
+        );
       }
     });
   }

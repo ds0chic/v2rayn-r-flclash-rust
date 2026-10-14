@@ -206,6 +206,44 @@ fn custom_staging_rolls_back_on_db_failure() {
 }
 
 #[test]
+fn custom_commit_persist_failure_rolls_back_rows_and_staged_file() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let engine =
+        AppEngine::open_with_runtime(dir.path(), Arc::new(application::NullRuntimeClient::new()))
+            .expect("open engine");
+    let mut custom = DomainProfile {
+        index_id: String::new(),
+        config_type: ConfigType::Custom,
+        remarks: "sp14-persist-failure".to_string(),
+        ..Default::default()
+    };
+    custom.extra.insert(
+        "RawConfig".to_string(),
+        serde_json::Value::String(r#"{"outbounds":[{"tag":"persist-failure"}]}"#.into()),
+    );
+    let profiles = vec![custom];
+    let token = engine.register_import_preview("custom-persist-failure", &profiles);
+    let commit = ImportCommit {
+        profiles,
+        target_group: None,
+        expected_revision: engine.desired_revision(),
+        mutation_id: "sp14-m-persist-failure".to_string(),
+        preview_token: token,
+    };
+    std::fs::create_dir(dir.path().join("guiNConfig.json.tmp")).unwrap();
+
+    assert!(engine.commit_import_batch(commit).is_err());
+    assert_eq!(engine.profile_count(), 0);
+    assert_eq!(engine.desired_revision(), 0);
+    assert_eq!(
+        std::fs::read_dir(dir.path().join("config"))
+            .unwrap()
+            .count(),
+        0
+    );
+}
+
+#[test]
 fn custom_commit_succeeds_and_reopens() {
     let dir = tempfile::tempdir().expect("temp dir");
     let engine =

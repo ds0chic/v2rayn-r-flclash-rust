@@ -51,6 +51,7 @@ fn xray_simple_dns_fakeip_and_rule_types() {
     let mut input = codegen_input(vless_base());
     input.routing = Some(routing);
     input.dns = Some(dns);
+    input.settings.tun.enabled = true;
 
     let generated = generate_xray(&input).expect("dns");
     let main = &generated.main;
@@ -77,6 +78,17 @@ fn xray_simple_dns_fakeip_and_rule_types() {
     assert!(domains.contains(&"full:dns.example.test".to_string()));
     assert!(!domains.contains(&"full:direct.example.test".to_string()));
     assert_eq!(string_at(main, "/dns/tag"), "dns-module");
+    let tun = main["inbounds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|inbound| inbound.get("tag").and_then(|v| v.as_str()) == Some("tun"))
+        .expect("TUN inbound");
+    assert!(tun["sniffing"]["destOverride"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|value| value.as_str() == Some("fakedns")));
 
     // RuleType==DNS is skipped by routing, RuleType==Routing is skipped by DNS.
     let rules = main["routing"]["rules"].as_array().unwrap();

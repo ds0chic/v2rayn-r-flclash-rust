@@ -10,6 +10,7 @@ domain.workspace = true
 ipc_contract.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.10.9"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.58", features = [

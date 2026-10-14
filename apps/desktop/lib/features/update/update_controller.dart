@@ -286,6 +286,14 @@ class UpdateController extends Notifier<UpdateState> {
 
   Future<void> checkOnly() async {
     if (state.busy) return;
+    if (_selectedCores.isEmpty) {
+      // UB2-05: visible empty-selection guard; skip the bridge roundtrip and
+      // report the same message the empty result used to produce.
+      state = state.copyWith(
+        status: UpdateStatus(kind: 'info', message: '未选择检查目标'),
+      );
+      return;
+    }
     // Freeze the current selection for this operation (SP-27): the check
     // carries its own prerelease/viaProxy instead of re-reading live state.
     final prerelease = state.prerelease;
@@ -317,7 +325,9 @@ class UpdateController extends Notifier<UpdateState> {
     final updates = result.checks.where((c) => c.hasUpdate).length;
     final blocked = result.checks.where((c) => !c.supported).length;
     final String message;
-    if (updates > 0) {
+    if (result.checks.isEmpty) {
+      message = '未选择检查目标';
+    } else if (updates > 0) {
       message = blocked > 0
           ? '发现 $updates 个可更新目标（$blocked 个无法检查）'
           : '发现 $updates 个可更新目标';
@@ -339,6 +349,13 @@ class UpdateController extends Notifier<UpdateState> {
 
   Future<void> checkAndApply() async {
     if (state.busy) return;
+    if (_selectedCores.isEmpty) {
+      // UB2-05: same empty-selection guard as [checkOnly].
+      state = state.copyWith(
+        status: UpdateStatus(kind: 'info', message: '未选择检查目标'),
+      );
+      return;
+    }
     // Frozen per-operation selection (SP-27): check and apply share the
     // toggles as they were when the user pressed the button.
     final prerelease = state.prerelease;
@@ -573,21 +590,29 @@ class UpdateController extends Notifier<UpdateState> {
     // Runner waits on this PID, replaces files, then relaunches. Prefer the
     // real desktop lifecycle so the core is stopped and stats flushed before
     // the hand-off; fall back to the injected exit in tests / no-integration.
-    await handoffExit();
+    if (!await handoffExit()) {
+      state = state.copyWith(
+        status: const UpdateStatus(
+          kind: 'error',
+          message: '更新未交接',
+          detail: '退出清理未完成，应用保持运行。',
+        ),
+      );
+    }
   }
 
   /// Exit after a successful runner hand-off.
   ///
   /// When the real desktop integration is present it runs the bounded shutdown
-  /// first (stop core -> drain/flush -> platform restore) so the runner does
-  /// not replace files behind a live core holding them, then exits. Otherwise
-  /// the injected [AppExit] is used unchanged.
-  Future<void> handoffExit() async {
+  /// first (stop core -> drain/flush -> platform restore) and exits only when
+  /// cleanup succeeds. Otherwise the injected [AppExit] is used unchanged.
+  Future<bool> handoffExit() async {
     final integration = ref.read(desktopIntegrationProvider).value;
     if (integration != null) {
-      await integration.exitForUpdate();
+      return integration.exitForUpdate();
     } else {
       _exitApp();
+      return true;
     }
   }
 }

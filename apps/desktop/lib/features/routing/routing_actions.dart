@@ -5,6 +5,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/routing.dart' as r;
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
@@ -438,25 +439,26 @@ Future<DraftRuleImport?> pickRulesFromUrl(
     _toast(context, '请先填写规则 URL');
     return null;
   }
-  String text;
+  final client = HttpClient();
+  client.connectionTimeout = const Duration(seconds: 15);
+  String? text;
   try {
-    final client = HttpClient();
-    client.connectionTimeout = const Duration(seconds: 15);
     final request = await client.getUrl(Uri.parse(url.trim()));
     final response = await request.close().timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       if (!context.mounted) return null;
       _toast(context, '下载失败：HTTP ${response.statusCode}');
-      client.close();
       return null;
     }
     text = await response.transform(utf8.decoder).join();
-    client.close();
   } catch (_) {
     if (!context.mounted) return null;
     _toast(context, '下载失败，请检查 URL');
     return null;
+  } finally {
+    client.close(force: true);
   }
+  // Every path that skips the assignment returns above.
   if (!context.mounted) return null;
   return _parseAndAsk(context, text);
 }
@@ -480,7 +482,10 @@ Future<DraftRuleImport?> _askReplace(
     context: context,
     builder: (context) => AlertDialog(
       key: const ValueKey('routing-import-mode-dialog'),
-      title: const Text('导入规则', style: TextStyle(fontSize: 15)),
+      title: const Text(
+        '导入规则',
+        style: TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
+      ),
       content: const Text('追加到现有规则，还是替换全部规则？'),
       actions: <Widget>[
         TextButton(

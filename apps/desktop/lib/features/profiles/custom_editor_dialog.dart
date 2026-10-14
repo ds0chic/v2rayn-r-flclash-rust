@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_draft.dart';
@@ -32,15 +34,71 @@ Future<String?> pickCustomConfigFile() async {
   return file?.path;
 }
 
+/// OS-handler opener without a shell (D1-09): `explorer.exe <target>` takes the
+/// target through CreateProcess directly, so no cmd re-parse ever sees it and
+/// `!&|^%` are all literal. Only http(s) URLs and existing absolute file/dir
+/// paths may reach it (enforced by the callers' gates below).
+const String osOpenProgram = 'explorer';
+
+/// Single-argument launch: the target travels as one argv element, never
+/// re-split. Dart quotes it for CreateProcess when it contains spaces.
+List<String> buildOsOpenArgs(String target) => <String>[target];
+
+/// Process-spawn seam for the OS opener (same shape as the settings-side
+/// `DesktopLauncher`, so recording fakes are interchangeable in tests).
+typedef OsProcessLauncher = Future<ProcessResult> Function(
+  String program,
+  List<String> arguments,
+);
+
+/// Real spawn: no shell, so metacharacters stay literal.
+Future<ProcessResult> defaultOsProcessLauncher(
+  String program,
+  List<String> arguments,
+) => Process.run(program, arguments, runInShell: false);
+
 /// Open [fullPath] with the OS default handler (upstream
-/// `ProcUtils.ProcessStart`). Returns false when the file does not exist.
-Future<bool> openConfigFileExternally(String fullPath) async {
-  if (fullPath.trim().isEmpty || !File(fullPath).existsSync()) return false;
-  if (Platform.isWindows) {
-    await Process.run('cmd', <String>['/c', 'start', '', fullPath]);
-    return true;
+/// `ProcUtils.ProcessStart`). Returns false when the file does not exist or
+/// the path is not a plain absolute config path.
+///
+/// `explorer.exe` reports exit code 1 even on success, so only a spawn
+/// exception counts as failure; the exit code is deliberately ignored.
+Future<bool> openConfigFileExternally(
+  String fullPath, {
+  OsProcessLauncher launcher = defaultOsProcessLauncher,
+}) async {
+  if (!isSafeExternalOpenPath(fullPath) || !File(fullPath).existsSync()) {
+    return false;
   }
-  return false;
+  if (!Platform.isWindows) return false;
+  try {
+    await launcher(osOpenProgram, buildOsOpenArgs(fullPath));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Whether [path] may be handed to the external-open command (D1-09).
+///
+/// Only drive-letter absolute paths pass: UNC/device paths, `/`-rooted paths
+/// and anything parsing as a flag are rejected, as are shell metacharacters,
+/// `%`-expansion syntax and control characters. `!` is allowed: with no shell
+/// left in the launch path it has no special meaning. Bare file names are
+/// rejected here; the caller resolves them under `<dataDir>/config` first.
+bool isSafeExternalOpenPath(String path) {
+  final trimmed = path.trim();
+  if (trimmed.isEmpty) return false;
+  // Shell metacharacters, %-expansion, statement separators, controls.
+  if (RegExp('["&|<>^%`\$;\\x00-\\x1f]').hasMatch(trimmed)) return false;
+  // UNC/device paths, /-rooted paths, flags.
+  if (trimmed.startsWith(r'\\') ||
+      trimmed.startsWith('//') ||
+      trimmed.startsWith('/') ||
+      trimmed.startsWith('-')) {
+    return false;
+  }
+  return RegExp(r'^[A-Za-z]:[\\/]').hasMatch(trimmed);
 }
 
 /// Absolute path used as-is; a bare file name joins
@@ -213,8 +271,9 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
     setState(() {
       _busy = false;
       if (!result.ok || result.fileName == null) {
+        // D-LEFT2: the key is localized; the dialog renders raw.
         _fileError =
-            '导入失败: ${result.error?.messageKey ?? 'error.import_custom_failed'}';
+            '导入失败: ${context.messageText(result.error?.messageKey ?? 'error.import_custom_failed')}';
         return;
       }
       _draft.address = result.fileName!;
@@ -267,7 +326,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
         widget.initial.isNew
             ? '添加 [${_draft.configType.name}]'
             : '编辑 [${_draft.configType.name}]',
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       content: SizedBox(
         width: 640,
@@ -285,12 +344,15 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        AppTokens.radiusMedium,
+                      ),
                     ),
                     child: Text(
-                      '保存失败: ${_serverError!.messageKey} (${_serverError!.code})',
+                      // D-LEFT2: the key is localized; the dialog renders raw.
+                      '保存失败: ${context.messageText(_serverError!.messageKey)} (${_serverError!.code})',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTokens.fontSize,
                         color: theme.colorScheme.onErrorContainer,
                       ),
                     ),
@@ -310,14 +372,14 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                         value: 'custom',
                         child: Text(
                           '自定义配置 (Custom)',
-                          style: TextStyle(fontSize: 12),
+                          style: TextStyle(fontSize: AppTokens.fontSize),
                         ),
                       ),
                       DropdownMenuItem<String>(
                         value: 'outbound',
                         child: Text(
                           '自定义出站 (Outbound)',
-                          style: TextStyle(fontSize: 12),
+                          style: TextStyle(fontSize: AppTokens.fontSize),
                         ),
                       ),
                     ],
@@ -342,7 +404,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                         value: core.name,
                         child: Text(
                           core.name,
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: AppTokens.fontSize),
                         ),
                       ),
                   ],
@@ -356,7 +418,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                 TextFormField(
                   key: const ValueKey('custom-remarks'),
                   controller: _remarks,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                   decoration: const InputDecoration(
                     labelText: '备注',
                     isDense: true,
@@ -369,7 +431,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                 TextFormField(
                   key: const ValueKey('custom-address'),
                   controller: _address,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                   decoration: const InputDecoration(
                     labelText: '配置文件路径 (Address)',
                     isDense: true,
@@ -384,15 +446,21 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                     OutlinedButton.icon(
                       key: const ValueKey('custom-browse'),
                       onPressed: _busy ? null : _browse,
-                      icon: const Icon(Icons.folder_open, size: 16),
-                      label: const Text('浏览', style: TextStyle(fontSize: 12)),
+                      icon: Icon(AppTokens.icon('folder'), size: 16),
+                      label: const Text(
+                        '浏览',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
                       key: const ValueKey('custom-edit'),
                       onPressed: _busy ? null : _edit,
-                      icon: const Icon(Icons.edit, size: 16),
-                      label: const Text('编辑', style: TextStyle(fontSize: 12)),
+                      icon: Icon(AppTokens.icon('editSolid'), size: 16),
+                      label: const Text(
+                        '编辑',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                   ],
                 ),
@@ -403,7 +471,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                     child: Text(
                       _fileError!,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTokens.fontSize,
                         color: theme.colorScheme.error,
                       ),
                     ),
@@ -414,7 +482,10 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   controller: _configText,
                   minLines: 8,
                   maxLines: 14,
-                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                  style: const TextStyle(
+                    fontSize: AppTokens.fontSize,
+                    fontFamily: 'monospace',
+                  ),
                   decoration: InputDecoration(
                     labelText: '透传配置 (JSON 对象 / YAML 映射, 空=用文件)',
                     isDense: true,
@@ -428,7 +499,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   key: const ValueKey('custom-pre-socks-port'),
                   initialValue: _draft.preSocksPort?.toString() ?? '',
                   keyboardType: TextInputType.number,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                   decoration: const InputDecoration(
                     labelText: '前置 SOCKS 端口 (PreSocksPort, 空=不使用)',
                     isDense: true,
@@ -453,7 +524,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   dense: true,
                   title: const Text(
                     '显示日志 (DisplayLog)',
-                    style: TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: AppTokens.fontSize),
                   ),
                   value: _draft.displayLog,
                   onChanged: (v) => setState(() => _draft.displayLog = v),
@@ -464,7 +535,7 @@ class _CustomEditorDialogState extends State<CustomEditorDialog> {
                   tristate: true,
                   title: const Text(
                     'sing-box 端点 (IsSingboxEndpoint, 空=未设置)',
-                    style: TextStyle(fontSize: 12),
+                    style: TextStyle(fontSize: AppTokens.fontSize),
                   ),
                   value: _draft.isSingboxEndpoint,
                   onChanged: (v) =>

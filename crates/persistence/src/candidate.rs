@@ -121,8 +121,10 @@ fn import_from_path_with_mode(
     let snapshot = upstream_db::snapshot(&source, &work_dir.join("snapshot"))?;
     let source_fingerprint = snapshot.fingerprint();
 
-    // Idempotency: same source fingerprint already recorded -> no-op.
-    if target_db.exists() {
+    // Idempotency: re-merging a recorded source is a no-op. A replace restore
+    // always rebuilds, so restoring the same backup after local edits still
+    // brings the backup back.
+    if mode == ImportMode::Merge && target_db.exists() {
         let existing = Store::open_readonly(target_db)?;
         if let Some(batch) = existing.find_batch(&source_fingerprint)? {
             return Ok(already_imported_report(&batch, &snapshot));
@@ -141,7 +143,15 @@ fn import_from_path_with_mode(
     let outcome = build_candidate(&store, &snapshot, options)?;
 
     // Validation gate.
-    let warnings = outcome.warnings;
+    let mut warnings = outcome.warnings;
+    // S1-08: the source carried a config file that could not be parsed. The
+    // database half still imported; the downgrade stays visible.
+    if snapshot.config.is_none() && source.config_member.is_some() {
+        warnings.push(ReportIssue::new(
+            "W_CONFIG_SKIP",
+            "guiNConfig.json is present but unreadable; continuing with the database only",
+        ));
+    }
     let mut errors = outcome.errors;
     if options.fault == ImportFault::ValidationFailure {
         errors.push(ReportIssue::new(
@@ -166,6 +176,14 @@ fn import_from_path_with_mode(
         return Ok(report);
     }
 
+    // S1-01: fold WAL frames into the candidate main file before handing it
+    // to the commit. Best-effort: commit_candidate moves any surviving
+    // sidecars together with the main file regardless.
+    let _ = store
+        .connection()
+        .query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |r| {
+            r.get::<_, i32>(0)
+        });
     drop(store);
     let target_backup = commit_candidate(&candidate_path, target_db)?;
     let mut report = base_report(
@@ -612,20 +630,26 @@ fn build_counts(
     groups: &[RawRow],
     migration_stats: &MigrationStats,
 ) -> Vec<EntityCount> {
-    let count = |table: &str, source: usize, imported: usize, migrated: u64| EntityCount {
+    // S1-03: `skipped` is an explicit count of deliberately unimported rows,
+    // never the plug figure `source - imported` (which made E_VALIDATE_COUNT
+    // a tautology and panicked on underflow when imported > source).
+    // Migrations never drop rows — failing rows keep their old version
+    // (`migrate.rs: run_migrations`) — so only legacy groups are skipped.
+    let count = |table: &str, source: usize, imported: usize, skipped: u64| EntityCount {
         table: table.to_string(),
         source_rows: source as u64,
         imported_rows: imported as u64,
-        migrated_rows: migrated,
-        skipped_rows: (source - imported) as u64,
+        migrated_rows: 0,
+        skipped_rows: skipped,
     };
     vec![
-        count(
-            "ProfileItem",
-            source_profiles.len(),
-            profiles.len(),
-            u64::from(migration_stats.profiles_migrated),
-        ),
+        EntityCount {
+            table: "ProfileItem".to_string(),
+            source_rows: source_profiles.len() as u64,
+            imported_rows: profiles.len() as u64,
+            migrated_rows: u64::from(migration_stats.profiles_migrated),
+            skipped_rows: 0,
+        },
         count("SubItem", subs.len(), subs.len(), 0),
         count("ServerStatItem", stats.len(), stats.len(), 0),
         count("RoutingItem", routing.len(), routing.len(), 0),
@@ -638,7 +662,7 @@ fn build_counts(
             0,
         ),
         // Group rows are a migration source only: retained as raw, not imported.
-        count("ProfileGroupItem", groups.len(), 0, 0),
+        count("ProfileGroupItem", groups.len(), 0, groups.len() as u64),
     ]
 }
 
@@ -751,32 +775,92 @@ fn rejected_report(source_id: &str, kind: &str, message: &str) -> ImportReport {
 
 /// Atomically replace `target` with `candidate`, backing up the old target.
 /// Returns the backup path when one was created.
+///
+/// The live target's `-wal`/`-shm` sidecars move aside together with the main
+/// file (S1-01): at no point may a stale target WAL sit beside the incoming
+/// main file, on Windows or anywhere else. Any failure restores the previous
+/// set and reports loudly — sidecar renames are never swallowed.
 pub fn commit_candidate(candidate: &Path, target: &Path) -> Result<Option<String>> {
     let backup = if target.exists() {
-        let bak = sidecar(target, ".bak");
-        if bak.exists() {
-            std::fs::remove_file(&bak)?;
-        }
-        std::fs::rename(target, &bak)?;
-        Some(bak.to_string_lossy().to_string())
+        move_target_aside(target)?
     } else {
+        // No live target: still drop orphaned sidecars so a resurrected main
+        // file can never pair with a stale WAL.
+        for suffix in ["-wal", "-shm"] {
+            let stale = sidecar(target, suffix);
+            if stale.exists() {
+                std::fs::remove_file(&stale)?;
+            }
+        }
         None
     };
 
     if let Err(err) = std::fs::rename(candidate, target) {
-        if let Some(bak) = &backup {
-            let _ = std::fs::rename(bak, target);
-        }
+        restore_target_from_backup(&backup, target);
         return Err(err.into());
     }
     for suffix in ["-wal", "-shm"] {
         let src = sidecar(candidate, suffix);
         if src.exists() {
             let dst = sidecar(target, suffix);
-            let _ = std::fs::rename(src, dst);
+            if let Err(err) = std::fs::rename(&src, &dst) {
+                restore_target_from_backup(&backup, target);
+                return Err(err.into());
+            }
         }
     }
     Ok(backup)
+}
+
+/// Move the live target (main file plus any `-wal`/`-shm` sidecars) aside to
+/// the `.bak` set. Returns the backup main path.
+fn move_target_aside(target: &Path) -> Result<Option<String>> {
+    let bak = sidecar(target, ".bak");
+    if bak.exists() {
+        std::fs::remove_file(&bak)?;
+    }
+    for suffix in ["-wal", "-shm"] {
+        let bak_side = sidecar(&bak, suffix);
+        if bak_side.exists() {
+            std::fs::remove_file(&bak_side)?;
+        }
+    }
+    std::fs::rename(target, &bak)?;
+    for suffix in ["-wal", "-shm"] {
+        let old = sidecar(target, suffix);
+        if old.exists() {
+            let bak_side = sidecar(&bak, suffix);
+            if let Err(err) = std::fs::rename(&old, &bak_side) {
+                let _ = std::fs::rename(&bak, target);
+                return Err(err.into());
+            }
+        }
+    }
+    Ok(Some(bak.to_string_lossy().to_string()))
+}
+
+/// Undo a half-done commit: remove the incoming files, restore the backup
+/// set (main plus sidecars). Best-effort; the caller already has the error.
+fn restore_target_from_backup(backup: &Option<String>, target: &Path) {
+    for partial in [
+        target.to_path_buf(),
+        sidecar(target, "-wal"),
+        sidecar(target, "-shm"),
+    ] {
+        if partial.exists() {
+            let _ = std::fs::remove_file(partial);
+        }
+    }
+    if let Some(bak) = backup {
+        let bak = PathBuf::from(bak);
+        let _ = std::fs::rename(&bak, target);
+        for suffix in ["-wal", "-shm"] {
+            let bak_side = sidecar(&bak, suffix);
+            if bak_side.exists() {
+                let _ = std::fs::rename(&bak_side, sidecar(target, suffix));
+            }
+        }
+    }
 }
 
 fn sidecar(path: &Path, suffix: &str) -> PathBuf {
@@ -1096,6 +1180,272 @@ mod tests {
         let rows = store.read_rows("ProfileItem").unwrap();
         assert_eq!(rows.len(), 1, "restore must replace, not merge");
         assert_eq!(rows[0].string("Remarks"), "B");
+    }
+
+    #[test]
+    fn restoring_the_same_source_again_replaces_local_changes() {
+        let base = tempfile::tempdir().unwrap();
+        let target = base.path().join("target.db");
+        let work = tempfile::tempdir().unwrap();
+        let opts = ImportOptions {
+            now: 1,
+            fault: ImportFault::None,
+        };
+
+        let source_a = mk_upstream_source(base.path(), "a", "pA", "A", r#"{"IndexId":"pA"}"#);
+        let source_b = mk_upstream_source(base.path(), "b", "pB", "B", r#"{"IndexId":"pB"}"#);
+        let first = restore_from_path(&source_a, &target, work.path(), &opts).unwrap();
+        assert_eq!(first.status, ImportStatus::Imported);
+        // A local change after the restore: B's rows are merged in.
+        let merged = import_from_path(&source_b, &target, work.path(), &opts).unwrap();
+        assert_eq!(merged.status, ImportStatus::Imported);
+
+        let again = restore_from_path(&source_a, &target, work.path(), &opts).unwrap();
+        assert_eq!(again.status, ImportStatus::Imported);
+        let store = Store::open_readonly(&target).unwrap();
+        let rows = store.read_rows("ProfileItem").unwrap();
+        assert_eq!(rows.len(), 1, "the second restore must replace again");
+        assert_eq!(rows[0].string("Remarks"), "A");
+    }
+
+    #[test]
+    fn commit_replaces_stale_target_wal_with_candidate_wal() {
+        // S1-01 (Windows): the live target's `-wal` must never survive next
+        // to the incoming main file. The stale WAL bytes are captured from
+        // a WAL-mode target with un-checkpointed content, then planted back
+        // after close — exactly the residue the old code left behind (the
+        // commit itself runs with no open handles, as in production).
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("t.db");
+        let candidate = dir.path().join("c.db");
+        let stale_wal = {
+            let holder = Connection::open(&target).unwrap();
+            holder.pragma_update(None, "journal_mode", "WAL").unwrap();
+            holder
+                .execute_batch("CREATE TABLE kv(k TEXT PRIMARY KEY, v TEXT);")
+                .unwrap();
+            holder
+                .execute("INSERT INTO kv VALUES ('k','old')", [])
+                .unwrap();
+            let wal = sidecar(&target, "-wal");
+            assert!(wal.exists(), "target WAL must exist before close");
+            std::fs::read(&wal).unwrap()
+        };
+        {
+            let conn = Connection::open(&candidate).unwrap();
+            conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+            conn.execute_batch("CREATE TABLE kv(k TEXT PRIMARY KEY, v TEXT);")
+                .unwrap();
+            conn.execute("INSERT INTO kv VALUES ('k','new')", [])
+                .unwrap();
+        }
+        // Residue simulation: the old target's WAL beside the new main file.
+        std::fs::write(sidecar(&target, "-wal"), &stale_wal).unwrap();
+
+        commit_candidate(&candidate, &target).unwrap();
+
+        // The stale WAL is gone from beside the new main file (moved into
+        // the `.bak` sidecar set); the candidate had no sidecars of its own.
+        assert!(
+            !sidecar(&target, "-wal").exists(),
+            "no stale target WAL frame may survive the commit"
+        );
+        assert_eq!(
+            std::fs::read(sidecar(&sidecar(&target, ".bak"), "-wal")).unwrap_or_default(),
+            stale_wal,
+            "the backup set must stay complete (main + WAL)"
+        );
+        let check = Connection::open(&target).unwrap();
+        let integrity: String = check
+            .query_row("PRAGMA integrity_check", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(integrity, "ok");
+        let value: String = check
+            .query_row("SELECT v FROM kv WHERE k='k'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(value, "new");
+    }
+
+    #[test]
+    fn commit_moves_candidate_sidecars_together() {
+        // Guard: when the candidate genuinely owns WAL content, its sidecar
+        // moves beside the new main file in the same commit (never orphaned
+        // in the work dir, never mixed with a stale target WAL). Genuine WAL
+        // bytes are harvested with two handles so the writer's close cannot
+        // checkpoint them away; the commit itself runs handle-free.
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("t.db");
+        let candidate = dir.path().join("c.db");
+        {
+            let conn = Connection::open(&target).unwrap();
+            conn.execute_batch("CREATE TABLE kv(k TEXT PRIMARY KEY, v TEXT);")
+                .unwrap();
+            conn.execute("INSERT INTO kv VALUES ('k','old')", [])
+                .unwrap();
+        }
+        let cand_wal = {
+            let writer = Connection::open(&candidate).unwrap();
+            writer.pragma_update(None, "journal_mode", "WAL").unwrap();
+            writer
+                .execute_batch("CREATE TABLE kv(k TEXT PRIMARY KEY, v TEXT);")
+                .unwrap();
+            let keeper = Connection::open(&candidate).unwrap();
+            writer
+                .execute("INSERT INTO kv VALUES ('k','new')", [])
+                .unwrap();
+            let wal = sidecar(&candidate, "-wal");
+            assert!(wal.exists(), "candidate WAL must exist before close");
+            let bytes = std::fs::read(&wal).unwrap();
+            drop(writer);
+            drop(keeper);
+            bytes
+        };
+        // Re-plant the genuine candidate WAL (the closes checkpointed it).
+        std::fs::write(sidecar(&candidate, "-wal"), &cand_wal).unwrap();
+
+        commit_candidate(&candidate, &target).unwrap();
+
+        assert_eq!(
+            std::fs::read(sidecar(&target, "-wal")).unwrap(),
+            cand_wal,
+            "candidate WAL must move with its main file"
+        );
+        let check = Connection::open(&target).unwrap();
+        let integrity: String = check
+            .query_row("PRAGMA integrity_check", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(integrity, "ok");
+        let value: String = check
+            .query_row("SELECT v FROM kv WHERE k='k'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(value, "new");
+    }
+
+    #[test]
+    fn failed_commit_restores_backup_and_reports() {
+        // Guard: a commit whose candidate is missing leaves the live target
+        // (main file and WAL) exactly as it was and reports the error.
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("t.db");
+        {
+            let conn = Connection::open(&target).unwrap();
+            conn.pragma_update(None, "journal_mode", "WAL").unwrap();
+            conn.execute_batch("CREATE TABLE kv(k TEXT PRIMARY KEY, v TEXT);")
+                .unwrap();
+            conn.execute("INSERT INTO kv VALUES ('k','old')", [])
+                .unwrap();
+        }
+        let missing = dir.path().join("no-such-candidate.db");
+        assert!(commit_candidate(&missing, &target).is_err());
+
+        let check = Connection::open(&target).unwrap();
+        let value: String = check
+            .query_row("SELECT v FROM kv WHERE k='k'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(value, "old");
+    }
+
+    #[test]
+    fn lost_rows_are_not_absorbed_into_skipped() {
+        // S1-03: `skipped` is an explicit count of deliberately unimported
+        // rows (legacy groups), never the plug figure `source - imported`.
+        // A silently dropped profile row must trip E_VALIDATE_COUNT.
+        let row = |id: &str| {
+            let mut r = RawRow::new("ProfileItem");
+            r.set("IndexId", serde_json::Value::String(id.into()));
+            r
+        };
+        let source = vec![row("a"), row("b"), row("c")];
+        let imported = vec![row("a"), row("b")];
+        let counts = build_counts(
+            &source,
+            &imported,
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &[],
+            &MigrationStats::default(),
+        );
+        let profile_count = counts.iter().find(|c| c.table == "ProfileItem").unwrap();
+        assert_eq!(profile_count.source_rows, 3);
+        assert_eq!(profile_count.imported_rows, 2);
+        assert_eq!(profile_count.skipped_rows, 0);
+        let view = crate::validate::CandidateView {
+            profiles: &[],
+            expected_counts: &counts,
+            ..Default::default()
+        };
+        let outcome = crate::validate::validate_candidate(&view);
+        assert!(!outcome.is_ok());
+        assert!(outcome.errors.iter().any(|e| e.code == "E_VALIDATE_COUNT"));
+    }
+
+    #[test]
+    fn plain_text_source_is_rejected_not_error() {
+        // S1-08: selecting a non-zip file is a structured rejection, not a
+        // whole-import error.
+        let src = tempfile::tempdir().unwrap();
+        std::fs::write(src.path().join("note.txt"), "hello").unwrap();
+        let work = tempfile::tempdir().unwrap();
+        let target = src.path().join("target.db");
+        let report = import_from_path(
+            &src.path().join("note.txt"),
+            &target,
+            work.path(),
+            &ImportOptions {
+                now: 1,
+                fault: ImportFault::None,
+            },
+        )
+        .unwrap();
+        assert_eq!(report.status, ImportStatus::Rejected);
+        assert!(!target.exists());
+    }
+
+    #[test]
+    fn corrupt_config_does_not_block_db_import() {
+        // S1-08: a hand-broken guiNConfig.json degrades to "no config plus
+        // a warning"; the healthy database still imports.
+        let src = tempfile::tempdir().unwrap();
+        std::fs::write(
+            src.path().join("guiNConfig.json"),
+            r#"{"IndexId":broken,,,"#,
+        )
+        .unwrap();
+        let conn = Connection::open(src.path().join("guiNDB.db")).unwrap();
+        for table in crate::schema::UPSTREAM_TABLES {
+            conn.execute_batch(&table.create_sql()).unwrap();
+        }
+        conn.execute(
+            "INSERT INTO ProfileItem (IndexId, ConfigType, ConfigVersion, Remarks) VALUES ('p1',5,4,'A')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let work = tempfile::tempdir().unwrap();
+        let target = src.path().join("target.db");
+        let report = import_from_path(
+            src.path(),
+            &target,
+            work.path(),
+            &ImportOptions {
+                now: 1,
+                fault: ImportFault::None,
+            },
+        )
+        .unwrap();
+        assert_eq!(report.status, ImportStatus::Imported);
+        assert!(
+            report.warnings.iter().any(|w| w.code == "W_CONFIG_SKIP"),
+            "config downgrade must be visible, warnings: {:?}",
+            report.warnings
+        );
+        let store = Store::open_readonly(&target).unwrap();
+        assert_eq!(store.count_rows("ProfileItem").unwrap(), 1);
     }
 
     #[test]

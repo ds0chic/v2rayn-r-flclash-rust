@@ -14,7 +14,9 @@
 param(
   [string]$Zip = '',
   [string]$XrayBin = '',
-  [string]$EvidenceDir = ''
+  [string]$EvidenceDir = '',
+  [string]$ExpectedCommit = '',
+  [switch]$ExpectArmed
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,6 +27,23 @@ New-Item -ItemType Directory -Path $EvidenceDir -Force | Out-Null
 if ($Zip -eq '') {
   $Zip = (Get-ChildItem (Join-Path $RepoRoot 'dist') -Filter 'v2rayN-R-*-windows-x64.zip' |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName
+}
+if (-not $Zip -or -not (Test-Path -LiteralPath $Zip)) { throw "zip not found: $Zip" }
+$Zip = (Resolve-Path -LiteralPath $Zip).Path
+
+# S11-13: package identity gate. The AUTO_SMOKE flow may target an armed
+# evidence package: pass -ExpectArmed for dist/evidence-armed zips.
+$shaFile = Join-Path (Split-Path -Parent $Zip) 'SHA256SUMS'
+if (Test-Path -LiteralPath $shaFile) {
+  $idParams = @{ Zip = $Zip; ShaFile = $shaFile }
+  if ($ExpectedCommit -ne '') { $idParams['ExpectedCommit'] = $ExpectedCommit }
+  if ($ExpectArmed) { $idParams['ExpectArmed'] = $true }
+  $idScript = Join-Path $RepoRoot 'tools\acceptance\sp30_package_identity.ps1'
+  $idOut = (& $idScript @idParams 2>&1 | Out-String)
+  if ($LASTEXITCODE -ne 0) { throw "package identity check failed for $Zip : $idOut" }
+  Write-Host "   package identity: pass (sha256sums pinned)"
+} else {
+  Write-Host "   package identity: skipped (no SHA256SUMS next to zip)"
 }
 if ($XrayBin -eq '') { $XrayBin = Join-Path $RepoRoot 'tools\cores\xray\v26.3.27\xray.exe' }
 

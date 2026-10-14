@@ -13,10 +13,15 @@ use serde::{Deserialize, Serialize};
 use crate::error::{PlatformError, Result};
 
 pub mod fake;
+pub mod journal;
 #[cfg(windows)]
 pub mod windows;
 
 pub use fake::FakeSystemProxyBackend;
+pub use journal::{
+    clear_journal, journal_path, load_journal, save_journal, JournalLoad, OwnershipJournal,
+    StoredOwner, JOURNAL_FILE_NAME, JOURNAL_VERSION, MAX_QUARANTINE_KEPT,
+};
 
 /// The four upstream system-proxy modes (`ESysProxyType`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -151,11 +156,26 @@ pub struct RestoreConflict {
     pub current_value: Option<String>,
 }
 
+/// A field whose restore write failed. The remaining owned fields were still
+/// attempted, so callers must inspect [`RestoreReport::failed`] instead of
+/// treating the restore as all-or-nothing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RestoreFailure {
+    pub field: ProxyField,
+    /// The value that was supposed to be written back.
+    pub restore_to: Option<String>,
+    /// Backend error text for the failed write.
+    pub error: String,
+}
+
 /// Outcome of [`restore_if_owned`].
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RestoreReport {
     pub restored: Vec<RestoreAction>,
     pub conflicts: Vec<RestoreConflict>,
+    /// Fields whose restore write failed (S7b-04). Empty on full success.
+    #[serde(default)]
+    pub failed: Vec<RestoreFailure>,
 }
 
 impl RestoreReport {
@@ -163,8 +183,17 @@ impl RestoreReport {
         self.conflicts.is_empty()
     }
 
+    /// True when at least one owned field could not be written back.
+    pub fn has_failures(&self) -> bool {
+        !self.failed.is_empty()
+    }
+
     pub fn restored_fields(&self) -> Vec<ProxyField> {
         self.restored.iter().map(|a| a.field).collect()
+    }
+
+    pub fn failed_fields(&self) -> Vec<ProxyField> {
+        self.failed.iter().map(|f| f.field).collect()
     }
 
     pub fn conflicted_fields(&self) -> Vec<ProxyField> {
@@ -274,10 +303,18 @@ pub trait SystemProxyBackend {
             }
         }
 
+        let mut written = Vec::new();
         for change in &changes {
-            self.set_field(change.field, change.after.as_deref())?;
+            if let Err(error) = self.set_field(change.field, change.after.as_deref()) {
+                rollback_partial_apply(self, &written, &error)?;
+                return Err(error);
+            }
+            written.push(change.clone());
         }
-        self.notify_changed()?;
+        if let Err(error) = self.notify_changed() {
+            rollback_partial_apply(self, &written, &error)?;
+            return Err(error);
+        }
         Ok(changes)
     }
 
@@ -298,17 +335,48 @@ pub trait SystemProxyBackend {
     }
 
     /// Restore only the fields this application still owns.
+    ///
+    /// Every owned field is attempted even when an earlier write fails; failed
+    /// writes are recorded on the returned report. Callers must check
+    /// [`RestoreReport::has_failures`] — a returned report is not a guarantee
+    /// that every field was written back.
     fn restore(&self, applied: &[AppliedChange]) -> Result<RestoreReport> {
         let current = self.snapshot()?;
-        let report = restore_if_owned(applied, &current);
-        for action in &report.restored {
-            self.set_field(action.field, action.restore_to.as_deref())?;
+        let mut report = restore_if_owned(applied, &current);
+        let owned = std::mem::take(&mut report.restored);
+        for action in owned {
+            match self.set_field(action.field, action.restore_to.as_deref()) {
+                Ok(()) => report.restored.push(action),
+                Err(error) => report.failed.push(RestoreFailure {
+                    field: action.field,
+                    restore_to: action.restore_to,
+                    error: error.to_string(),
+                }),
+            }
         }
         if !report.restored.is_empty() {
             self.notify_changed()?;
         }
         Ok(report)
     }
+}
+
+fn rollback_partial_apply<B: SystemProxyBackend + ?Sized>(
+    backend: &B,
+    written: &[AppliedChange],
+    original: &crate::error::PlatformError,
+) -> Result<()> {
+    for change in written.iter().rev() {
+        if let Err(error) = backend.set_field(change.field, change.before.as_deref()) {
+            return Err(crate::error::PlatformError::Backend(format!(
+                "system proxy apply failed ({original}); rollback failed ({error})"
+            )));
+        }
+    }
+    if !written.is_empty() {
+        backend.notify_changed()?;
+    }
+    Ok(())
 }
 
 /// Canonical applied-content hash (SP-12/SP-15 platform dedupe).
@@ -467,5 +535,33 @@ mod tests {
         let report = restore_if_owned(&applied, &current);
         assert!(report.restored.is_empty());
         assert!(report.is_clean());
+    }
+
+    #[test]
+    fn failed_apply_restores_fields_written_before_the_failure() {
+        let initial = ProxyState::default();
+        let backend = FakeSystemProxyBackend::new(initial.clone());
+        backend.fail_on_field(ProxyField::Server);
+
+        let error = backend
+            .apply(
+                SysProxyMode::ForcedChange,
+                &ProxySettings {
+                    server: Some("127.0.0.1:11809".into()),
+                    ..ProxySettings::default()
+                },
+            )
+            .unwrap_err();
+
+        assert!(error.to_string().contains("injected proxy write failure"));
+        assert_eq!(backend.state(), initial);
+        assert_eq!(
+            backend.writes(),
+            vec![
+                (ProxyField::Enabled, Some("1".into())),
+                (ProxyField::Server, Some("127.0.0.1:11809".into())),
+                (ProxyField::Enabled, Some("0".into())),
+            ]
+        );
     }
 }

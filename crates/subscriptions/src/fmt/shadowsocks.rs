@@ -159,8 +159,7 @@ fn parse_sip002(input: &str) -> Result<Option<Profile>, SubError> {
         raw_user.push_str(password);
     }
     let raw_user = url_decode(&raw_user);
-    let (method, password) = if raw_user.contains(':') {
-        let (method, password) = raw_user.split_once(':').unwrap();
+    let (method, password) = if let Some((method, password)) = raw_user.split_once(':') {
         (method.to_string(), url_decode(password))
     } else {
         let decoded = base64_decode(&raw_user)?;

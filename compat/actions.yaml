@@ -3310,6 +3310,56 @@ items:
   implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart
   test_ids: []
   status: implemented
+- id: ACT-TRAY-016
+  name: 托盘菜单-重启服务
+  domain: tray
+  entry:
+    menu_path: 托盘菜单/重启服务
+    shortcut: null
+    mouse: null
+    tray: 菜单项
+    hotkey: null
+  scope: 全局
+  selection_rule: 无条件
+  confirm: 无
+  cancel: 无
+  async:
+    job: false
+    cancellable: false
+  feedback: 经 sharedCommand 复用 ACT-MAIN-035（重载内核：刷新并应用活动方案；无活动配置时诚实提示）
+  scheduled: null
+  upstream_symbol: null
+  source_file: []
+  evidence:
+  - U-B1 P12（UX1-11）：ACT-MAIN-035 核实为 start-or-reapply（reload 语义），故复用；停止无 ACT、混测无托盘 delegate 通路，均不新造 action（见 FIXREPORT-U-B1）
+  implementation_location: apps/desktop/lib/app/shell/desktop_integration.dart; apps/desktop/lib/app/shell/tray_menu_model.dart
+  test_ids: [apps/desktop/test/u_b1_tray_restart_test.dart]
+  status: implemented
+- id: UI-PRESET-DLG
+  name: 设置菜单-推荐配置（预设对话框主入口）
+  domain: menu
+  entry:
+    menu_path: 设置/推荐配置…
+    shortcut: null
+    mouse: null
+    tray: null
+    hotkey: null
+  scope: 全局
+  selection_rule: 无条件
+  confirm: 预设对话框内强制 diff 预览后应用
+  cancel: 对话框取消则零写入
+  async:
+    job: false
+    cancellable: false
+  feedback: 独立模式调 U-B2 showPresetDialog（只写预览列出的 desired 项＋可选路由 setDefault）；应用后 shell message 留痕；SysProxyType 永不写、TUN 只写 false、端口/凭据不动；撤销保持禁用（无快照 API，UX3-12）
+  scheduled: null
+  upstream_symbol: null
+  source_file: []
+  evidence:
+  - U-C2（UX1-05）：编排入口，写链/约束/禁用态全沿 U-B2 条件 E（见 FIXREPORT-U-C2）
+  implementation_location: apps/desktop/lib/app/menu/main_menu.dart; apps/desktop/lib/app/shell/main_shell.dart
+  test_ids: [apps/desktop/test/u_c2_preset_menu_test.dart]
+  status: implemented
 - id: ACT-STAT-001
   name: 状态栏-系统代理下拉切换
   domain: statusbar

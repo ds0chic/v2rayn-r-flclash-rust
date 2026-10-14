@@ -13,6 +13,15 @@ fn vless(index: &str, remarks: &str, address: &str) -> CodegenProfile {
     p
 }
 
+fn wireguard(index: &str, remarks: &str) -> CodegenProfile {
+    let mut p = profile(ConfigType::WireGuard, "192.0.2.130", 51820);
+    p.index_id = index.into();
+    p.remarks = remarks.into();
+    p.password = "SYNTHETIC_PRIVATE_KEY".into();
+    p.proto_extra.wg_public_key = Some("SYNTHETIC_PUBLIC_KEY".into());
+    p
+}
+
 #[test]
 fn singbox_policy_group_selector() {
     let mut group = profile(ConfigType::PolicyGroup, "", 0);
@@ -114,4 +123,65 @@ fn singbox_rule_targets_group_tag() {
         })
         .expect("rule");
     assert_eq!(rule["outbound"].as_str(), Some("group-1-proxy-Group Node"));
+}
+
+// S3-03: a ProxyChain hop that is a multi-child group fans out the already
+// accumulated servers. Endpoints (WireGuard) must be fanned out and rewired
+// exactly like outbounds (upstream keeps a single `List<BaseServer4Sbox>`);
+// a stale `detour` pointing at the group tag matches no emitted tag.
+#[test]
+fn singbox_chain_group_fanout_rewires_endpoints() {
+    let mut chain = profile(ConfigType::ProxyChain, "", 0);
+    chain.index_id = "chain-1".into();
+    chain.proto_extra.child_items = Some("grp,wg".into());
+    let mut group = profile(ConfigType::PolicyGroup, "", 0);
+    group.index_id = "grp".into();
+    group.remarks = "grp".into();
+    group.proto_extra.child_items = Some("a,b".into());
+
+    let mut input = codegen_input(chain);
+    input.profiles.insert("grp".into(), group);
+    input
+        .profiles
+        .insert("a".into(), vless("a", "a", "192.0.2.131"));
+    input
+        .profiles
+        .insert("b".into(), vless("b", "b", "192.0.2.132"));
+    input.profiles.insert("wg".into(), wireguard("wg", "wg"));
+
+    let generated = generate_singbox(&input).expect("chain");
+    let main = &generated.main;
+    let outbounds = main["outbounds"].as_array().unwrap();
+    let endpoints = main
+        .get("endpoints")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let tags: Vec<&str> = outbounds
+        .iter()
+        .chain(endpoints.iter())
+        .filter_map(|v| v.get("tag").and_then(|t| t.as_str()))
+        .collect();
+    // Every detour must resolve to an emitted tag (no dangling detour).
+    for server in outbounds.iter().chain(endpoints.iter()) {
+        if let Some(detour) = server.get("detour").and_then(|d| d.as_str()) {
+            assert!(
+                tags.contains(&detour),
+                "dangling detour {detour:?} on {:?}: {main}",
+                server.get("tag")
+            );
+        }
+    }
+    // The exit endpoint is fanned out once per chain-start branch.
+    assert_eq!(endpoints.len(), 2, "{main}");
+    let mut endpoint_detours: Vec<&str> = endpoints
+        .iter()
+        .filter_map(|e| e.get("detour").and_then(|d| d.as_str()))
+        .collect();
+    endpoint_detours.sort_unstable();
+    assert_eq!(
+        endpoint_detours,
+        vec!["chain-proxy-1-grp-1-a", "chain-proxy-1-grp-2-b"],
+        "{main}"
+    );
 }

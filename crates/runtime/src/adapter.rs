@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 
 use domain::{CoreType, DomainError};
 
-use crate::install_layout::CoreInstallLayout;
+use crate::install_layout::{version_key, CoreInstallLayout};
 
 /// Where a managed core executable was found.
 pub struct CoreLocator {
@@ -83,6 +83,21 @@ impl CoreLocator {
 
         let exe = adapter.exe_name();
         let pinned = version.map(|v| v.trim()).filter(|v| !v.is_empty());
+        // S7a-06: a pinned version that is not version-shaped (`..`,
+        // absolute paths) can never name a directory under the core root;
+        // reject it before any path is built from it.
+        if let Some(version) = pinned {
+            if version_key(version).is_none() {
+                return Err(
+                    DomainError::new(domain::codes::NOT_FOUND, "error.core_not_found")
+                        .with_field("core")
+                        .with_detail(format!(
+                            "{} has no version shaped like {version:?}",
+                            core.as_str()
+                        )),
+                );
+            }
+        }
         let mut searched = Vec::new();
         let mut invalid: Vec<String> = Vec::new();
         for root in &self.roots {
@@ -386,6 +401,18 @@ impl CoreAdapter for XrayAdapter {
     fn version_args(&self) -> Vec<OsString> {
         vec!["version".into()]
     }
+
+    fn env_vars(&self, _config: &Path) -> Vec<(String, String)> {
+        std::env::var_os("V2RAYN_R_ASSET_DIR")
+            .map(|dir| dir.to_string_lossy().into_owned())
+            .map(|dir| {
+                vec![
+                    ("XRAY_LOCATION_ASSET".into(), dir.clone()),
+                    ("XRAY_LOCATION_CERT".into(), dir),
+                ]
+            })
+            .unwrap_or_default()
+    }
 }
 
 /// sing-box adapter.
@@ -551,16 +578,24 @@ impl CoreAdapter for MihomoAdapter {
         }
     }
     fn run_args(&self, config: &Path) -> Vec<OsString> {
-        // Upstream `Arguments = "-f {0}" + PortableMode() -d <bin dir>`.
+        // Upstream `Arguments = "-f {0}" + PortableMode() -d <bin dir>`
+        // (`CoreInfoManager`: mihomo's `-d` home holds the GeoIP/GeoSite
+        // assets). The app forwards that directory as `V2RAYN_R_ASSET_DIR`
+        // (S7a-03); without it, keep the staged parent as before.
+        let home = std::env::var_os("V2RAYN_R_ASSET_DIR")
+            .filter(|dir| !dir.is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                config
+                    .parent()
+                    .unwrap_or_else(|| Path::new("."))
+                    .to_path_buf()
+            });
         vec![
             "-f".into(),
             config.as_os_str().to_os_string(),
             "-d".into(),
-            config
-                .parent()
-                .unwrap_or_else(|| Path::new("."))
-                .as_os_str()
-                .to_os_string(),
+            home.as_os_str().to_os_string(),
         ]
     }
     fn test_args(&self, _config: &Path) -> Vec<OsString> {
@@ -1161,6 +1196,51 @@ mod tests {
     }
 
     #[test]
+    fn mihomo_home_dir_is_the_asset_dir_not_the_staged_parent() {
+        // S7a-03: upstream `-d` is the bin/asset home, not the staged config
+        // parent (pre-fix this always asserted the staged parent).
+        let _guard = ENV_GUARD.lock().unwrap();
+        let adapter = MihomoAdapter;
+        let config = Path::new("C:\\run\\sess-1\\config.json");
+        let _env = EnvScope::set(&[("V2RAYN_R_ASSET_DIR", Some("C:\\data\\bin"))]);
+        let args = adapter.run_args(config);
+        assert_eq!(args[0], OsString::from("-f"));
+        assert_eq!(args[2], OsString::from("-d"));
+        assert_eq!(args[3], OsString::from("C:\\data\\bin"));
+        drop(_env);
+        // Without a forwarded asset dir the legacy staged-parent fallback
+        // stays (backward compatible).
+        let _env = EnvScope::set(&[("V2RAYN_R_ASSET_DIR", None)]);
+        let args = adapter.run_args(config);
+        assert_eq!(args[3], OsString::from("C:\\run\\sess-1"));
+    }
+
+    #[test]
+    fn pinned_version_cannot_escape_the_core_dir() {
+        // S7a-06: a traversal pinned version must be rejected even when a
+        // runnable (non-empty, so it passes the executable sanity check)
+        // file sits exactly where it lands (pre-fix this resolved to the
+        // outside file and returned Ok).
+        let root = temp_root("pinned-escape");
+        let exe = if cfg!(windows) { "xray.exe" } else { "xray" };
+        let escaped = root.join("xray").join("../../evil");
+        std::fs::create_dir_all(&escaped).unwrap();
+        std::fs::write(escaped.join(exe), b"runnable-outside-stub").unwrap();
+        let locator = CoreLocator::with_roots(vec![root.clone()], None);
+        let err = locator
+            .resolve(CoreType::Xray, Some("../../evil"))
+            .expect_err("traversal version must be rejected");
+        assert_eq!(err.code, domain::codes::NOT_FOUND);
+        // Legitimate pinned versions still resolve.
+        let legit = root.join("xray").join("v1.0.0");
+        std::fs::create_dir_all(&legit).unwrap();
+        std::fs::write(legit.join(exe), core_stub()).unwrap();
+        assert!(locator.resolve(CoreType::Xray, Some("v1.0.0")).is_ok());
+        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::remove_dir_all(root.join("..").join("evil"));
+    }
+
+    #[test]
     fn resolve_override_wins_and_missing_is_not_found() {
         let root = temp_root("override");
         let override_exe = root.join("custom-xray.exe");
@@ -1174,8 +1254,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
-    /// Serializes the two env-mutating tests in this module; no other test in
-    /// the crate reads `V2RAYN_R_CORES_ROOT` / `V2RAYN_R_DATA_DIR`.
+    /// Serializes the env-mutating tests in this module; no other test in the
+    /// crate reads `V2RAYN_R_CORES_ROOT` / `V2RAYN_R_DATA_DIR` /
+    /// `V2RAYN_R_ASSET_DIR` outside this guard.
     static ENV_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     struct EnvScope(Vec<(&'static str, Option<std::ffi::OsString>)>);

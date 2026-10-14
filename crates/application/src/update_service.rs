@@ -8,9 +8,10 @@
 //! is ever spawned here.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use domain::{codes, CancellationToken, DomainError};
+use domain::{codes, CancellationToken, DesiredRevision, DomainError};
 use runtime::CoreInstallLayout;
 use updater::app_upgrade::{
     apply_app_upgrade, rollback_app_upgrade, AppInstallLayout, AppRestartCommand, AppUpgradeOutcome,
@@ -28,8 +29,10 @@ use updater::install::{
 use updater::metadata::ReleasesClient;
 use updater::semver::Semver;
 use updater::tls::HttpsTrust;
-use updater::unpack::{safe_unpack_targz, safe_unpack_zip, UnpackLimits};
+use updater::unpack::{safe_unpack_gzip, safe_unpack_targz, safe_unpack_zip, UnpackLimits};
 use updater::UpdateError;
+
+use crate::engine::AppEngine;
 
 /// Maximum wall-clock for one metadata fetch or artifact download.
 pub const UPDATE_TIMEOUT: Duration = Duration::from_secs(30);
@@ -264,6 +267,25 @@ pub struct CoreUpdateCheck {
     pub sig_url: Option<String>,
 }
 
+impl CoreUpdateCheck {
+    /// A check without any remote release, version or asset.
+    fn unsupported(core: &str, note: &str, installed_version: Option<String>) -> Self {
+        Self {
+            core: core.to_string(),
+            supported: false,
+            note: Some(note.to_string()),
+            installed_version,
+            remote_version: None,
+            has_update: false,
+            asset_name: None,
+            download_url: None,
+            expected_sha256: None,
+            dgst_url: None,
+            sig_url: None,
+        }
+    }
+}
+
 /// Request to download+verify+install one core artifact.
 #[derive(Debug, Clone)]
 pub struct CoreApplyRequest {
@@ -468,7 +490,11 @@ impl UpdateService {
         let bin_dir = self.geo_bin_dir();
         let requests = geo_file_requests(&template, &bin_dir).map_err(update_error)?;
         std::fs::create_dir_all(&bin_dir).map_err(|e| io_error("error.update_install", e))?;
-        let staging = self.cores_root.join(".staging").join("geo-pending");
+        let staging = self.cores_root.join(".staging").join(format!(
+            "geo-pending-{}-{}",
+            std::process::id(),
+            staging_seq()
+        ));
         reset_dir(&staging)?;
         let options = DownloaderOptions {
             proxy: proxy.map(str::to_string),
@@ -490,14 +516,37 @@ impl UpdateService {
                 }
             }
         }
+        let mut applied: Vec<(PathBuf, Option<PathBuf>)> = Vec::new();
         for (request, done) in &staged {
+            // Snapshot the live file before replacing it: a later landing
+            // failure rolls every already-replaced file back instead of
+            // leaving half-new geo files behind.
+            let prior = if request.target.is_file() {
+                let prior = staging.join(format!("{}.prior", request.file_name));
+                std::fs::copy(&request.target, &prior)
+                    .map_err(|e| io_error("error.update_install", e))?;
+                Some(prior)
+            } else {
+                None
+            };
             if std::fs::rename(&done.path, &request.target).is_err()
                 && std::fs::copy(&done.path, &request.target).is_err()
             {
+                for (target, prior) in applied.iter().rev() {
+                    match prior {
+                        Some(prior) => {
+                            let _ = std::fs::copy(prior, target);
+                        }
+                        None => {
+                            let _ = std::fs::remove_file(target);
+                        }
+                    }
+                }
                 let _ = std::fs::remove_dir_all(&staging);
                 return Err(DomainError::new(codes::INTERNAL, "error.update_install")
                     .with_detail(request.target.display().to_string()));
             }
+            applied.push((request.target.clone(), prior));
         }
         let mut files = Vec::new();
         for request in &requests {
@@ -571,6 +620,9 @@ impl UpdateService {
                         executable: find_executable(&root)
                             .map(|p| p.to_string_lossy().into_owned()),
                     });
+                    // A managed install holds exactly its manifest version under
+                    // `<version>/`; scanning it again would list the core twice.
+                    continue;
                 }
             }
             let Ok(entries) = std::fs::read_dir(&root) else {
@@ -643,19 +695,11 @@ impl UpdateService {
     /// but never a fabricated remote release/asset, so the UI cannot present
     /// the upstream v2rayN release as an available self-update.
     pub fn app_source_unconfigured_check(&self) -> CoreUpdateCheck {
-        CoreUpdateCheck {
-            core: "v2rayN".to_string(),
-            supported: false,
-            note: Some("error.update_app_source_unconfigured".to_string()),
-            installed_version: self.installed_version("v2rayN"),
-            remote_version: None,
-            has_update: false,
-            asset_name: None,
-            download_url: None,
-            expected_sha256: None,
-            dgst_url: None,
-            sig_url: None,
-        }
+        CoreUpdateCheck::unsupported(
+            "v2rayN",
+            "error.update_app_source_unconfigured",
+            self.installed_version("v2rayN"),
+        )
     }
 
     async fn check_core_inner(
@@ -672,47 +716,17 @@ impl UpdateService {
         }
         let installed = self.installed_version(core);
         let spec = match channel::core_spec(core) {
-            Some(spec) => spec,
-            None => {
-                // A runnable core with no update-channel spec (the 11 manual
-                // cores) is reported as manual; an unknown key stays blocked.
+            Some(spec) if channel::is_check_update_supported(core, self.packaged) => spec,
+            // A runnable core with no update-channel spec (the 11 manual cores)
+            // or no in-app download asset (R4-21) is reported as manual, never
+            // as a fake update; a packaged self-update or an unknown key stays
+            // explicitly unsupported.
+            _ => {
                 let note = core_entry_note(core_entry_kind(core, self.packaged))
                     .unwrap_or("error.update_unsupported");
-                return Ok(CoreUpdateCheck {
-                    core: core.to_string(),
-                    supported: false,
-                    note: Some(note.to_string()),
-                    installed_version: installed,
-                    remote_version: None,
-                    has_update: false,
-                    asset_name: None,
-                    download_url: None,
-                    expected_sha256: None,
-                    dgst_url: None,
-                    sig_url: None,
-                });
+                return Ok(CoreUpdateCheck::unsupported(core, note, installed));
             }
         };
-        if !channel::is_check_update_supported(core, self.packaged) {
-            // R4-21: a runnable core with no in-app download asset is reported
-            // as manual (never as a fake update); a packaged self-update or an
-            // unknown key stays explicitly unsupported.
-            let note = core_entry_note(core_entry_kind(core, self.packaged))
-                .unwrap_or("error.update_unsupported");
-            return Ok(CoreUpdateCheck {
-                core: core.to_string(),
-                supported: false,
-                note: Some(note.to_string()),
-                installed_version: installed,
-                remote_version: None,
-                has_update: false,
-                asset_name: None,
-                download_url: None,
-                expected_sha256: None,
-                dgst_url: None,
-                sig_url: None,
-            });
-        }
         let prerelease = channel::check_pre_release(core, prerelease_requested);
         // The releases repository is resolved by the shared provider: an
         // explicit override wins, otherwise the application uses its own
@@ -785,14 +799,92 @@ impl UpdateService {
             );
         }
         let staging = self.cores_root.join(".staging").join(format!(
-            "{}-{}",
+            "{}-{}-{}-{}",
             Self::core_dir_name(&request.core),
-            request.version
+            request.version,
+            std::process::id(),
+            staging_seq(),
         ));
         reset_dir(&staging)?;
         let staged = self.stage_artifact(request, &staging, cancellation).await?;
         self.verify_arch(&staged)?;
-        self.install_core_from_dir(&request.core, &request.version, &staged)
+        // The staging directory carries a per-call suffix (concurrent
+        // same-target updates must not share it), so drop it once the
+        // install settles instead of accumulating one per update.
+        let outcome = self.install_core_from_dir(&request.core, &request.version, &staged);
+        let _ = std::fs::remove_dir_all(&staging);
+        outcome
+    }
+
+    /// Stop → replace → restart orchestration for updating a core that may be
+    /// running (upstream `CheckUpdateViewModel.UpdateFinishedResult(false)`
+    /// stops the core before `UpgradeCore`, then reloads).
+    ///
+    /// Only a session this project holds is ever stopped (`engine` owns the
+    /// managed session; foreign processes are untouched), and only a core
+    /// that was running before the update is restarted from its run plan. A
+    /// failed replacement rolls back to `.previous` (when one exists) and
+    /// resumes the previous version when it was running, so a bad artifact
+    /// never leaves a stopped session behind. `rollback_core` is reachable
+    /// through this path, not only through tests.
+    pub async fn apply_core_managed(
+        &self,
+        engine: &AppEngine,
+        request: &CoreApplyRequest,
+        cancellation: &CancellationToken,
+    ) -> Result<CoreApplyOutcome, DomainError> {
+        let running_target = Self::running_update_target(engine, &request.core);
+        if running_target.is_some() {
+            engine.stop_runtime()?;
+        }
+        match self.apply_core(request, cancellation).await {
+            Ok(outcome) => {
+                if let Some(target_id) = &running_target {
+                    Self::restart_managed(engine, target_id)?;
+                }
+                Ok(outcome)
+            }
+            Err(error) => {
+                let _ = self.rollback_core(&request.core);
+                if let Some(target_id) = &running_target {
+                    if let Err(restart_error) = Self::restart_managed(engine, target_id) {
+                        let mut error = error;
+                        let resume = restart_error
+                            .detail
+                            .clone()
+                            .unwrap_or(restart_error.message_key.clone());
+                        let note = format!("rolled back to .previous but resume failed: {resume}");
+                        error.detail = Some(match error.detail {
+                            Some(detail) => format!("{detail}; {note}"),
+                            None => note,
+                        });
+                        return Err(error);
+                    }
+                }
+                Err(error)
+            }
+        }
+    }
+
+    /// The active target id when `core` (an update key like `xray`) is the
+    /// currently applied core, else `None`. A session without an active
+    /// profile, or a target resolving to another core, is left alone.
+    fn running_update_target(engine: &AppEngine, core: &str) -> Option<String> {
+        engine.applied_session()?;
+        let target_id = engine.active_profile()?;
+        let requested = runtime::adapter::core_type_for_update_key(core)?;
+        let profile = engine.profile_by_id(&target_id).ok()??;
+        let active = engine.resolve_target_core(&profile).ok()?;
+        (active == requested).then_some(target_id)
+    }
+
+    /// Rebuild the run plan for a previously running target and re-apply it.
+    fn restart_managed(engine: &AppEngine, target_id: &str) -> Result<(), DomainError> {
+        let revision = engine.desired_revision();
+        let hints = crate::tun_plan::tun_hints_from_env();
+        let plan = engine.build_runtime_plan_with_hints(target_id, revision, &hints)?;
+        engine.apply_runtime_for_target(plan, target_id, DesiredRevision::new(revision))?;
+        Ok(())
     }
 
     /// Install an already-unpacked core directory under
@@ -817,19 +909,25 @@ impl UpdateService {
             .map_err(|e| io_error("error.update_install", e))?;
 
         // Wrap the unpacked tree in a version directory so several versions can
-        // coexist and the runtime resolves `<dir>/<version>/<exe>`.
-        let versioned_parent = self
-            .cores_root
-            .join(".staging")
-            .join(format!(".install-{dir_name}-{version}"));
+        // coexist and the runtime resolves `<dir>/<version>/<exe>`. The
+        // working directory carries a per-call suffix so two concurrent
+        // installs of the same target never reset each other's tree.
+        let versioned_parent = self.cores_root.join(".staging").join(format!(
+            ".install-{dir_name}-{version}-{}-{}",
+            std::process::id(),
+            staging_seq()
+        ));
         reset_dir(&versioned_parent)?;
         let versioned = versioned_parent.join("versioned");
         copy_tree(staged, &versioned.join(version))?;
 
         let keep_name = format!("{dir_name}.previous");
         let keep_dir = self.cores_root.join(&keep_name);
-        if keep_dir.exists() {
-            std::fs::remove_dir_all(&keep_dir).map_err(|e| io_error("error.update_install", e))?;
+        let saved_previous = versioned_parent.join("previous");
+        let had_previous = keep_dir.exists();
+        if had_previous {
+            std::fs::rename(&keep_dir, &saved_previous)
+                .map_err(|e| io_error("error.update_install", e))?;
         }
         let plan = InstallPlan::new(
             &self.cores_root,
@@ -841,10 +939,18 @@ impl UpdateService {
         let outcome = match apply_atomic(&plan) {
             Ok(outcome) => outcome,
             Err(error) => {
+                if had_previous {
+                    std::fs::rename(&saved_previous, &keep_dir)
+                        .map_err(|e| io_error("error.update_install", e))?;
+                }
                 let _ = std::fs::remove_dir_all(&versioned_parent);
                 return Err(update_error(error));
             }
         };
+        if had_previous {
+            std::fs::remove_dir_all(&saved_previous)
+                .map_err(|e| io_error("error.update_install", e))?;
+        }
         let _ = std::fs::remove_dir_all(&versioned_parent);
 
         let manifest_path = core_dir.join(INSTALL_MANIFEST_NAME);
@@ -1005,17 +1111,7 @@ impl UpdateService {
             ));
         }
         let trash = self.cores_root.join(format!(".{dir_name}.old"));
-        if trash.exists() {
-            std::fs::remove_dir_all(&trash).map_err(|e| io_error("error.update_rollback", e))?;
-        }
-        if current.exists() {
-            std::fs::rename(&current, &trash).map_err(|e| io_error("error.update_rollback", e))?;
-        }
-        std::fs::rename(&previous, &current).map_err(|e| io_error("error.update_rollback", e))?;
-        if trash.exists() {
-            let _ = std::fs::remove_dir_all(&trash);
-        }
-        Ok(())
+        swap_dirs(&current, &previous, &trash).map_err(|e| io_error("error.update_rollback", e))
     }
 
     async fn stage_artifact(
@@ -1068,6 +1164,9 @@ impl UpdateService {
             safe_unpack_zip(&downloaded.path, &unpacked, limits).map_err(update_error)?;
         } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
             safe_unpack_targz(&downloaded.path, &unpacked, limits).map_err(update_error)?;
+        } else if name.ends_with(".gz") && request.core.eq_ignore_ascii_case("mihomo") {
+            safe_unpack_gzip(&downloaded.path, &unpacked, "mihomo", limits)
+                .map_err(update_error)?;
         } else {
             return Err(update_error(UpdateError::UnsupportedArchive(
                 request.asset_name.clone(),
@@ -1078,6 +1177,16 @@ impl UpdateService {
             return Err(update_error(UpdateError::UnsafeArchive(
                 "archive produced no directory".into(),
             )));
+        }
+        #[cfg(unix)]
+        if let Some(executable) = find_executable(&staged) {
+            use std::os::unix::fs::PermissionsExt;
+            let mut permissions = std::fs::metadata(&executable)
+                .map_err(|e| io_error("error.update_install", e))?
+                .permissions();
+            permissions.set_mode(permissions.mode() | 0o111);
+            std::fs::set_permissions(executable, permissions)
+                .map_err(|e| io_error("error.update_install", e))?;
         }
         Ok(staged)
     }
@@ -1093,7 +1202,13 @@ impl UpdateService {
                 expected: self.target.key(),
                 found: "mismatch".to_string(),
             })),
-            Err(_) => Ok(()),
+            // An unrecognizable candidate is not a pass: a staged tree with
+            // no identifiable binary cannot be verified, so fail closed
+            // instead of silently skipping the architecture check.
+            Err(_) => Err(update_error(UpdateError::ArchMismatch {
+                expected: self.target.key(),
+                found: "unrecognized".to_string(),
+            })),
         }
     }
 }
@@ -1191,6 +1306,39 @@ fn reset_dir(dir: &Path) -> Result<(), DomainError> {
     std::fs::create_dir_all(dir).map_err(|e| io_error("error.update_staging", e))
 }
 
+/// Per-call staging suffix: concurrent installs of the same target must not
+/// share (and reset) one deterministic working directory.
+fn staging_seq() -> u64 {
+    static SEQ: AtomicU64 = AtomicU64::new(0);
+    SEQ.fetch_add(1, Ordering::Relaxed)
+}
+
+/// Move `current` aside to `trash`, promote `previous` to `current`, then
+/// drop the trash. If the promotion fails, the trashed `current` is moved
+/// back first, so the install directory is never left missing (a double
+/// fault still returns the promotion error with the trash in place).
+fn swap_dirs(current: &Path, previous: &Path, trash: &Path) -> std::io::Result<()> {
+    if trash.exists() {
+        std::fs::remove_dir_all(trash)?;
+    }
+    if current.exists() {
+        std::fs::rename(current, trash)?;
+    }
+    match std::fs::rename(previous, current) {
+        Ok(()) => {}
+        Err(error) => {
+            if trash.exists() {
+                let _ = std::fs::rename(trash, current);
+            }
+            return Err(error);
+        }
+    }
+    if trash.exists() {
+        let _ = std::fs::remove_dir_all(trash);
+    }
+    Ok(())
+}
+
 fn flatten_single_dir(unpacked: &Path) -> PathBuf {
     let Ok(entries) = std::fs::read_dir(unpacked) else {
         return unpacked.to_path_buf();
@@ -1205,7 +1353,14 @@ fn flatten_single_dir(unpacked: &Path) -> PathBuf {
     unpacked.to_path_buf()
 }
 
+/// Locate the staged core binary: `.exe` files win over extensionless names
+/// so a leading `LICENSE` file is never mistaken for the executable (it also
+/// reads as an unrecognizable binary under the fail-closed `verify_arch`).
 fn find_executable(dir: &Path) -> Option<PathBuf> {
+    find_candidate(dir, true).or_else(|| find_candidate(dir, false))
+}
+
+fn find_candidate(dir: &Path, require_exe: bool) -> Option<PathBuf> {
     let mut stack = vec![dir.to_path_buf()];
     while let Some(current) = stack.pop() {
         let entries = std::fs::read_dir(&current).ok()?;
@@ -1216,7 +1371,8 @@ fn find_executable(dir: &Path) -> Option<PathBuf> {
                 stack.push(path);
             } else if file_type.is_file() {
                 let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
-                if name.ends_with(".exe") || (!name.contains('.') && !name.is_empty()) {
+                let is_exe = name.ends_with(".exe");
+                if is_exe || (!require_exe && !name.contains('.') && !name.is_empty()) {
                     return Some(path);
                 }
             }
@@ -1255,9 +1411,17 @@ async fn download_dgst_sha256(
     parse_dgst_sha256(&text)
 }
 
-/// Manual trigger of the upstream scheduled cleanup (`TaskManager`):
-/// `Test*` files older than `test_age_hours`, logs and temp/`.partial` files
-/// older than `log_age_days`. `now` is Unix seconds, injected for tests.
+/// Manual trigger of the upstream scheduled cleanup (`TaskManager`,
+/// `FileUtils.DeleteExpiredFiles`): files under `<root>/bin` whose name
+/// contains `Test` (case-sensitive, like `String.Contains`) older than
+/// `test_age_hours`, plus every top-level file of `<root>/guiLogs`,
+/// `<root>/logs` and `<root>/guiTemps` older than `log_age_days`. `now` is
+/// Unix seconds, injected for tests.
+///
+/// Every scan is single-level: unlike the previous recursive sweep, user
+/// files elsewhere (e.g. `config/test-rules.json`) are never touched. The
+/// mtime clock is kept instead of upstream's creation time; a recently
+/// modified file counts as young, so this only ever deletes less.
 pub fn cleanup_logs_tmp(
     root: &Path,
     now: i64,
@@ -1270,49 +1434,61 @@ pub fn cleanup_logs_tmp(
     let mut report = CleanupReport::default();
     let log_age = log_age_days.max(0) * 86_400;
     let test_age = test_age_hours.max(0) * 3_600;
-    let mut stack = vec![root.to_path_buf()];
-    let mut files = Vec::new();
-    while let Some(current) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&current) else {
+    let mut scanned: Vec<PathBuf> = Vec::new();
+    expire_stale_files(
+        &root.join("bin"),
+        Some("Test"),
+        test_age,
+        now,
+        &mut report,
+        &mut scanned,
+    );
+    for dir in ["guiLogs", "guilogs", "logs", "guiTemps"] {
+        expire_stale_files(
+            &root.join(dir),
+            None,
+            log_age,
+            now,
+            &mut report,
+            &mut scanned,
+        );
+    }
+    Ok(report)
+}
+
+/// Delete expired top-level files of one managed directory. `contains`
+/// restricts to matching file names (the `Test` filter of the bin dir);
+/// `None` collects every expired file (log/temp dirs).
+fn expire_stale_files(
+    dir: &Path,
+    contains: Option<&str>,
+    max_age_secs: i64,
+    now: i64,
+    report: &mut CleanupReport,
+    scanned: &mut Vec<PathBuf>,
+) {
+    // One scan per directory even when two spellings resolve to the same
+    // folder (Windows is case-insensitive: `guiLogs` == `guilogs`).
+    let canon = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+    if scanned.contains(&canon) {
+        return;
+    }
+    scanned.push(canon);
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
             continue;
-        };
-        for entry in entries.flatten() {
-            let path = entry.path();
-            match entry.file_type() {
-                Ok(t) if t.is_dir() => stack.push(path),
-                Ok(t) if t.is_file() => files.push(path),
-                _ => {}
+        }
+        if let Some(needle) = contains {
+            if !entry.file_name().to_string_lossy().contains(needle) {
+                continue;
             }
         }
-    }
-    for path in files {
-        let name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_ascii_lowercase())
-            .unwrap_or_default();
-        let in_log_dir = path.components().any(|c| {
-            matches!(
-                c.as_os_str()
-                    .to_string_lossy()
-                    .to_ascii_lowercase()
-                    .as_str(),
-                "log" | "logs"
-            )
-        });
-        let is_test = name.starts_with("test");
-        let is_log = name.ends_with(".log") || in_log_dir;
-        let is_temp =
-            name.ends_with(".tmp") || name.ends_with(".partial") || name.ends_with("tmp-restore");
-        if !(is_test || is_log || is_temp) {
-            continue;
-        }
         let age_seconds = modified_epoch(&path).map(|m| now - m).unwrap_or(0);
-        let expired = if is_test {
-            age_seconds >= test_age
-        } else {
-            age_seconds >= log_age
-        };
-        if !expired {
+        if age_seconds < max_age_secs {
             report.skipped += 1;
             continue;
         }
@@ -1325,7 +1501,6 @@ pub fn cleanup_logs_tmp(
             Err(_) => report.skipped += 1,
         }
     }
-    Ok(report)
 }
 
 fn modified_epoch(path: &Path) -> Option<i64> {
@@ -1419,6 +1594,115 @@ mod tests {
         let newest = locator.resolve(domain::CoreType::SingBox, None).unwrap();
         assert!(newest.ends_with(std::path::Path::new("1.15.0").join(exe)));
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cleanup_keeps_user_files_outside_managed_dirs() {
+        // Upstream `TaskManager`: `binConfigs` files containing `Test`
+        // (case-sensitive, 1h) + the log/temp dirs (7d), all single-level.
+        // Age thresholds of zero expire everything by age, so only the scope
+        // decides what survives.
+        let base = tempfile::tempdir().unwrap();
+        let root = base.path();
+        std::fs::create_dir_all(root.join("config")).unwrap();
+        write_stub(&root.join("config").join("test-rules.json"), b"user");
+        std::fs::create_dir_all(root.join("bin")).unwrap();
+        write_stub(&root.join("bin").join("Test123.tmp"), b"stale");
+        write_stub(&root.join("bin").join("geoip.dat"), b"geo");
+        std::fs::create_dir_all(root.join("guiLogs")).unwrap();
+        write_stub(&root.join("guiLogs").join("app.log"), b"log");
+        std::fs::create_dir_all(root.join("archive").join("logs")).unwrap();
+        write_stub(
+            &root.join("archive").join("logs").join("old.log"),
+            b"nested",
+        );
+
+        cleanup_logs_tmp(root, 9_999_999_999, 0, 0).unwrap();
+
+        assert!(
+            root.join("config").join("test-rules.json").is_file(),
+            "user files outside the managed dirs must survive"
+        );
+        assert!(
+            !root.join("bin").join("Test123.tmp").exists(),
+            "stale Test files under bin are still collected"
+        );
+        assert!(
+            root.join("bin").join("geoip.dat").is_file(),
+            "managed geo files without Test in the name must survive"
+        );
+        assert!(
+            !root.join("guiLogs").join("app.log").exists(),
+            "log-dir files are still collected"
+        );
+        assert!(
+            root.join("archive").join("logs").join("old.log").is_file(),
+            "log-named dirs outside the managed set must survive"
+        );
+    }
+
+    fn pe_image(machine: u16) -> Vec<u8> {
+        let mut bytes = vec![0u8; 0x80];
+        bytes[0] = b'M';
+        bytes[1] = b'Z';
+        bytes[0x3c..0x40].copy_from_slice(&0x40u32.to_le_bytes());
+        bytes[0x40..0x44].copy_from_slice(b"PE\0\0");
+        bytes[0x44..0x46].copy_from_slice(&machine.to_le_bytes());
+        bytes
+    }
+
+    fn arch_service(cores: &std::path::Path) -> UpdateService {
+        let mut service = UpdateService::new(cores);
+        service.target = updater::arch::HostTarget::new(
+            updater::arch::Os::Windows,
+            updater::arch::PlatformArch::X64,
+        );
+        service
+    }
+
+    #[test]
+    fn verify_arch_rejects_unrecognizable_candidate() {
+        // A staged tree with no identifiable binary (only a LICENSE file)
+        // must fail closed instead of silently skipping the arch check.
+        let base = tempfile::tempdir().unwrap();
+        let staged = base.path().join("staged");
+        write_stub(&staged.join("LICENSE"), b"license text, not a binary");
+        let service = arch_service(base.path());
+        let error = service
+            .verify_arch(&staged)
+            .expect_err("LICENSE is not verifiable");
+        assert_eq!(error.code, domain::codes::FIELD_FORMAT);
+    }
+
+    #[test]
+    fn verify_arch_prefers_exe_over_license() {
+        let base = tempfile::tempdir().unwrap();
+        let staged = base.path().join("staged");
+        write_stub(&staged.join("LICENSE"), b"license text, not a binary");
+        // x64 PE machine field (0x8664).
+        write_stub(&staged.join("xray.exe"), &pe_image(0x8664));
+        let service = arch_service(base.path());
+        service
+            .verify_arch(&staged)
+            .expect("matching exe must verify");
+    }
+
+    #[test]
+    fn rollback_restores_current_when_promotion_fails() {
+        // A missing `previous` fails the promotion rename after `current`
+        // was already moved aside: the trashed install must come back.
+        let base = tempfile::tempdir().unwrap();
+        let current = base.path().join("current");
+        let previous = base.path().join("previous");
+        let trash = base.path().join("trash");
+        std::fs::create_dir_all(&current).unwrap();
+        write_stub(&current.join("core.exe"), b"live");
+        assert!(swap_dirs(&current, &previous, &trash).is_err());
+        assert!(
+            current.join("core.exe").is_file(),
+            "the install directory must be moved back, not left missing"
+        );
+        assert_eq!(std::fs::read(current.join("core.exe")).unwrap(), b"live");
     }
 
     #[test]

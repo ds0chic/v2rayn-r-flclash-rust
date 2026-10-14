@@ -717,8 +717,8 @@ pub fn profiles_match(o: &Profile, n: &Profile, remarks: bool) -> bool {
 
 /// Upstream `ConfigHandler.FindMatchedProfileItem` (`ConfigHandler.cs:1317-1355`):
 /// full identity match (remarks included), then remarks, then
-/// address+port+password. `source` is the candidate set, `target` the node the
-/// caller is trying to re-locate after a replace.
+/// address+port+password, then address+port. `source` is the candidate set,
+/// `target` the node the caller is trying to re-locate after a replace.
 pub fn find_matched_profile<'a>(source: &'a [Profile], target: &Profile) -> Option<&'a Profile> {
     if let Some(found) = source.iter().find(|p| profiles_match(p, target, true)) {
         return Some(found);
@@ -729,11 +729,18 @@ pub fn find_matched_profile<'a>(source: &'a [Profile], target: &Profile) -> Opti
         }
     }
     if !target.address.is_empty() && target.port > 0 && !target.password.is_empty() {
-        return source.iter().find(|p| {
+        if let Some(found) = source.iter().find(|p| {
             p.address.eq_ignore_ascii_case(&target.address)
                 && p.port == target.port
                 && p.password.eq_ignore_ascii_case(&target.password)
-        });
+        }) {
+            return Some(found);
+        }
+    }
+    if !target.address.is_empty() && target.port > 0 {
+        return source
+            .iter()
+            .find(|p| p.address.eq_ignore_ascii_case(&target.address) && p.port == target.port);
     }
     None
 }
@@ -1078,6 +1085,16 @@ pub async fn run_scheduler_pass(
         };
         let item_report =
             refresh_subscriptions_with_convert(engine, request, cancellation, max_items).await;
+        // Upstream `TaskManager.UpdateTaskRunSubscription` stamps `UpdateTime`
+        // after every attempt, so a failing URL waits a full interval instead
+        // of being downloaded again on every tick.
+        let cancelled = item_report
+            .entries
+            .iter()
+            .any(|e| matches!(e.outcome, SubUpdateOutcome::Cancelled));
+        if !cancelled {
+            let _ = engine.touch_sub_update_time(&item.id, now);
+        }
         report.entries.extend(item_report.entries);
     }
     report
@@ -1462,6 +1479,11 @@ mod tests {
             report.entries[0].outcome
         );
         assert!(engine.profiles_by_subid(&saved.id).unwrap().is_empty());
+        // The failed attempt is stamped, so the next tick does not retry it.
+        let reread = engine.get_sub_item(&saved.id).unwrap().unwrap();
+        assert_eq!(reread.update_time, 1_000_000);
+        let next = run_scheduler_pass(&engine, 100, 1_000_060, &CancellationToken::new()).await;
+        assert!(next.entries.is_empty(), "{:?}", next.entries);
     }
 
     #[tokio::test]
@@ -1893,6 +1915,23 @@ mod tests {
         let mut c = b.clone();
         c.address = "203.0.113.7".into();
         assert!(!profiles_match(&a, &c, false), "address differs");
+    }
+
+    #[test]
+    fn find_matched_profile_falls_back_to_addr_port_without_password() {
+        use crate::synthetic::synthetic_full_profile;
+        // Upstream fourth level (`FindMatchedProfileItem`): a passwordless
+        // node (Socks/Http) whose remarks changed still matches on
+        // address+port.
+        let mut target = synthetic_full_profile(1);
+        target.password = String::new();
+        target.remarks = "renamed".into();
+        let mut candidate = target.clone();
+        candidate.index_id = "n-2".into();
+        candidate.remarks = "old-name".into();
+        candidate.password = String::new();
+        let found = find_matched_profile(std::slice::from_ref(&candidate), &target).unwrap();
+        assert_eq!(found.index_id, "n-2");
     }
 
     #[test]

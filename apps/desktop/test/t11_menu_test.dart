@@ -56,8 +56,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('routing-setting-window')), findsNothing);
     // Status bar: mode switch + scheme selector are wired, not placeholders.
+    // SP-19: the mode face shows the value only (no `路由模式:` prefix).
     expect(find.byKey(const ValueKey('routing-mode-selector')), findsOneWidget);
     expect(find.byKey(const ValueKey('routing-selector')), findsOneWidget);
-    expect(find.textContaining('路由模式:'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('routing-mode-selector')),
+        matching: find.text('Rule'),
+      ),
+      findsOneWidget,
+    );
   });
 }

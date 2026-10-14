@@ -3,7 +3,7 @@
 use serde_json::{json, Value};
 
 use crate::input::CodegenInput;
-use crate::util::{obj, LOOPBACK};
+use crate::util::LOOPBACK;
 
 /// Returns `(stats, metrics, policy)` values, any of which may be absent.
 pub(crate) fn build_statistic(
@@ -22,10 +22,4 @@ pub(crate) fn build_statistic(
         }
     });
     (Some(stats), Some(metrics), Some(policy))
-}
-
-/// Unused helper kept for symmetry with the sing-box module.
-#[allow(dead_code)]
-pub(crate) fn empty_object() -> Value {
-    Value::Object(obj())
 }

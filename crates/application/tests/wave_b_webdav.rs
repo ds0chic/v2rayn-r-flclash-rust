@@ -326,20 +326,27 @@ fn waveb_e2e_save_upload_list_download_restore_reopen() {
 
     let src = tempfile::tempdir().expect("src");
     seed_source(src.path());
-    let bundle = zip_upstream_layout(src.path()).expect("zip upstream layout");
+    let transfer = tempfile::tempdir().expect("transfer");
+    let bundle_path = transfer.path().join("backup.zip");
+    let bundle_len = application::zip_upstream_layout_to_file(src.path(), &bundle_path)
+        .expect("stream upstream layout");
+    let bundle = std::fs::read(&bundle_path).expect("read expected bundle");
     let bundle_hash = sha256_hex(&bundle);
 
     let downloaded = rt.block_on(async {
         let check = client.check().await.expect("check");
         assert!(check.status == 207 || check.status == 201);
-        let uploaded = client.upload(bundle.clone()).await.expect("upload");
-        assert_eq!(uploaded, bundle.len() as u64);
+        let uploaded = client
+            .upload_file(&bundle_path, bundle_len)
+            .await
+            .expect("upload");
+        assert_eq!(uploaded, bundle_len);
         let entries = client.list().await.expect("list");
         let entry = entries
             .iter()
             .find(|e| e.href.ends_with("backup.zip"))
             .expect("list must contain backup.zip");
-        assert_eq!(entry.size, bundle.len() as u64);
+        assert_eq!(entry.size, bundle_len);
         client.download().await.expect("download")
     });
     assert_eq!(

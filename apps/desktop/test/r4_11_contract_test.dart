@@ -12,8 +12,11 @@ import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/ui_state_store.dart';
 import 'package:v2rayn_desktop/features/runtime/runtime_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/option_setting_window.dart';
+import 'package:v2rayn_desktop/features/settings/platform_bridge.dart';
 import 'package:v2rayn_desktop/features/settings/settings_controller.dart';
 import 'package:v2rayn_desktop/features/settings/settings_defaults.dart';
+
+import 'support/fake_platform_bridge.dart';
 
 import 'support/synthetic_runtime_bridge.dart';
 
@@ -23,6 +26,10 @@ ProviderContainer _container() {
       bridgePortProvider.overrideWithValue(SyntheticBridgePort()),
       // R4-13: the in-process 确定 now awaits the real plan apply, so the
       // runtime seam must be present for a successful save to close.
+      // The save path also runs the autostart phase, which needs a platform
+      // bridge; the fake one (like every sibling settings harness) keeps the
+      // test off the real Run key.
+      platformBridgeProvider.overrideWithValue(FakePlatformBridge()),
       runtimeBridgeProvider.overrideWithValue(SyntheticRuntimeBridge()),
       uiStateStoreProvider.overrideWithValue(MemoryUiStateStore()),
       profileRowCountProvider.overrideWithValue(4),
@@ -170,7 +177,10 @@ void main() {
     );
     expect(userField().enabled, isFalse);
 
-    // Toggle "为局域网开启新的端口".
+    // Toggle "为局域网开启新的端口". (UB2-09 added help lines above this
+    // row; ensure it is scrolled into view before tapping.)
+    await tester.ensureVisible(find.text('为局域网开启新的端口'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('为局域网开启新的端口'));
     await tester.pumpAndSettle();
     expect(userField().enabled, isTrue);

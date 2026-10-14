@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/shared/l10n/l10n_context.dart';
+import 'package:v2rayn_desktop/shared/theme/app_theme.dart';
 import 'package:v2rayn_desktop/bridge/api/contract.dart' as c;
 import 'package:v2rayn_desktop/bridge/api/mirrors.dart';
 import 'package:v2rayn_desktop/bridge/api/speedtest.dart' as speedtest;
@@ -294,7 +296,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
         widget.initial.isNew
             ? '添加 [${_draft.configType.name}]'
             : '编辑 [${_draft.configType.name}]',
-        style: const TextStyle(fontSize: 15),
+        style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
       ),
       content: SizedBox(
         width: 640,
@@ -312,12 +314,15 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(
+                        AppTokens.radiusMedium,
+                      ),
                     ),
                     child: Text(
-                      '保存失败: ${_serverError!.messageKey} (${_serverError!.code})',
+                      // D-LEFT2: the key is localized; the dialog renders raw.
+                      '保存失败: ${context.messageText(_serverError!.messageKey)} (${_serverError!.code})',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTokens.fontSize,
                         color: theme.colorScheme.onErrorContainer,
                       ),
                     ),
@@ -344,7 +349,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                 TextFormField(
                   key: const ValueKey('group-remarks'),
                   initialValue: _draft.remarks,
-                  style: const TextStyle(fontSize: 12),
+                  style: const TextStyle(fontSize: AppTokens.fontSize),
                   decoration: const InputDecoration(
                     labelText: '备注',
                     isDense: true,
@@ -380,7 +385,10 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                   padding: EdgeInsets.only(top: 12, bottom: 4),
                   child: Text(
                     '子节点 (ChildItems, 保序)',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: AppTokens.fontSizeSubtitle,
+                    ),
                   ),
                 ),
                 _addRow(),
@@ -390,7 +398,10 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                   padding: EdgeInsets.only(top: 12, bottom: 4),
                   child: Text(
                     '订阅子项 (SubChildItems + Filter)',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: AppTokens.fontSizeSubtitle,
+                    ),
                   ),
                 ),
                 _dropdown<String?>(
@@ -411,7 +422,10 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                 TextFormField(
                   key: const ValueKey('group-filter'),
                   initialValue: _draft.filter ?? '',
-                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                  style: const TextStyle(
+                    fontSize: AppTokens.fontSize,
+                    fontFamily: 'monospace',
+                  ),
                   decoration: const InputDecoration(
                     labelText: 'Filter (备注正则, 空=全部)',
                     isDense: true,
@@ -494,8 +508,11 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
         OutlinedButton.icon(
           key: const ValueKey('group-pick-open'),
           onPressed: _candidates.isEmpty ? null : _pickNodes,
-          icon: const Icon(Icons.add, size: 16),
-          label: const Text('选择节点... (多选)', style: TextStyle(fontSize: 12)),
+          icon: Icon(AppTokens.icon('add'), size: 16),
+          label: const Text(
+            '选择节点... (多选)',
+            style: TextStyle(fontSize: AppTokens.fontSize),
+          ),
         ),
         const SizedBox(width: 8),
         OutlinedButton.icon(
@@ -506,17 +523,17 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
                   _childIds.removeWhere(_selectedChildren.contains);
                   _selectedChildren.clear();
                 }),
-          icon: const Icon(Icons.delete_outline, size: 16),
+          icon: Icon(AppTokens.icon('delete'), size: 16),
           label: Text(
             '移除选中 ($selectedCount)',
-            style: const TextStyle(fontSize: 12),
+            style: const TextStyle(fontSize: AppTokens.fontSize),
           ),
         ),
         const SizedBox(width: 8),
         Text(
           '已选 ${_childIds.length}',
           key: const ValueKey('group-child-count'),
-          style: const TextStyle(fontSize: 12),
+          style: const TextStyle(fontSize: AppTokens.fontSize),
         ),
       ],
     );
@@ -549,7 +566,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
       }),
       title: Text(
         profile == null ? id : _labelOf(profile),
-        style: const TextStyle(fontSize: 12),
+        style: const TextStyle(fontSize: AppTokens.fontSize),
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -566,7 +583,10 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
               iconSize: 16,
               visualDensity: VisualDensity.compact,
               onPressed: entry.$3,
-              icon: Text(entry.$1, style: const TextStyle(fontSize: 11)),
+              icon: Text(
+                entry.$1,
+                style: const TextStyle(fontSize: AppTokens.fontSizeCaption),
+              ),
             ),
           IconButton(
             key: ValueKey('group-remove-$id'),
@@ -577,7 +597,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
               _childIds.remove(id);
               _selectedChildren.remove(id);
             }),
-            icon: const Icon(Icons.close, size: 14),
+            icon: Icon(AppTokens.icon('dismiss'), size: 14),
           ),
         ],
       ),
@@ -619,13 +639,19 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
               const Expanded(
                 child: Text(
                   '组合预览 (按当前草稿解析，订阅匹配优先)',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: AppTokens.fontSizeSubtitle,
+                  ),
                 ),
               ),
               OutlinedButton(
                 key: const ValueKey('group-preview-refresh'),
                 onPressed: () => setState(_refreshPreview),
-                child: const Text('刷新预览', style: TextStyle(fontSize: 12)),
+                child: const Text(
+                  '刷新预览',
+                  style: TextStyle(fontSize: AppTokens.fontSize),
+                ),
               ),
             ],
           ),
@@ -634,14 +660,14 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
           const Text(
             '暂无解析子节点',
             key: ValueKey('group-preview-empty'),
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: AppTokens.fontSize),
           )
         else
           for (var i = 0; i < _preview.length; i++)
             Text(
               '${i + 1}. ${labelOf(_preview[i].indexId)}',
               key: ValueKey('group-preview-${_preview[i].indexId}'),
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: AppTokens.fontSize),
             ),
       ],
     );
@@ -672,7 +698,7 @@ class _GroupEditorDialogState extends State<GroupEditorDialog> {
               value: option,
               child: Text(
                 labels?[option] ?? '$option',
-                style: const TextStyle(fontSize: 12),
+                style: const TextStyle(fontSize: AppTokens.fontSize),
               ),
             ),
         ],
@@ -836,7 +862,12 @@ const List<_PickerColumn> _pickerColumns = <_PickerColumn>[
 ];
 
 const Map<String, double> _pickerDefaultWidths = <String, double>{
-  'configType': 70,
+  // U-FIX (r3_picker "vless" truncation): 5-char names need >62px at the
+  // current body token size (measured 62.5 in-test for vless/vmess; longest
+  // enum names shadowsocks/policyGroup measure 137.5), so the default fits
+  // the closed enum max plus the 8px cell padding instead of truncating.
+  // Autofit can still shrink it per content.
+  'configType': 146,
   'remarks': 140,
   'address': 180,
   'port': 60,
@@ -846,6 +877,15 @@ const Map<String, double> _pickerDefaultWidths = <String, double>{
   'delay': 60,
   'speed': 60,
 };
+
+/// Autofit sampling cap, shared with the main table (`_autofitSampleRows =
+/// 500` in the profiles controller): measuring runs on UI-thread
+/// `TextPainter.layout`, so only the first [cap] rows are sampled and a huge
+/// candidate set cannot freeze the picker (D1-07).
+const int pickerAutofitSampleRows = 500;
+
+List<T> capAutofitRows<T>(List<T> rows, [int cap = pickerAutofitSampleRows]) =>
+    rows.length > cap ? rows.sublist(0, cap) : rows;
 
 class _NodePickerDialog extends StatefulWidget {
   const _NodePickerDialog({
@@ -970,7 +1010,9 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
       for (final p in list) _summaryById[p.indexId] ?? _fallbackSummary(p),
     ];
     final ordered = _sortKey.isEmpty
-        ? orderByPersistedSort(models, _persistedOrder)
+        // Stable merge like the main table (D1-02): candidates without a
+        // result row hold their slots instead of sinking to the bottom.
+        ? mergeResultOrder(models, _persistedOrder)
         : applySort(
             models,
             defaultProfileColumns(),
@@ -1153,9 +1195,12 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
       _widths[column.key] ?? _pickerDefaultWidths[column.key]!;
 
   void _autofit() {
-    const headerStyle = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
-    const cellStyle = TextStyle(fontSize: 12);
-    final rows = _rows;
+    const headerStyle = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: AppTokens.fontSize,
+    );
+    const cellStyle = TextStyle(fontSize: AppTokens.fontSize);
+    final rows = capAutofitRows(_rows);
     final updated = <String, double>{};
     for (final column in _pickerColumns) {
       var width = _measure('${column.title} \u25B2', headerStyle);
@@ -1215,7 +1260,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
           key: const ValueKey('group-picker'),
           title: Text(
             widget.multiSelect ? '选择子节点 (多选)' : '选择子节点',
-            style: const TextStyle(fontSize: 15),
+            style: const TextStyle(fontSize: AppTokens.fontSizeDialogTitle),
           ),
           content: SizedBox(
             width: 720,
@@ -1232,7 +1277,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
                         key: ValueKey('group-pick-group-${group.$1 ?? 'all'}'),
                         label: Text(
                           group.$2,
-                          style: const TextStyle(fontSize: 12),
+                          style: const TextStyle(fontSize: AppTokens.fontSize),
                         ),
                         selected: _groupSubId == group.$1,
                         onSelected: (_) => _setGroup(group.$1),
@@ -1247,7 +1292,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
                       child: TextField(
                         key: const ValueKey('group-pick-search'),
                         controller: _search,
-                        style: const TextStyle(fontSize: 12),
+                        style: const TextStyle(fontSize: AppTokens.fontSize),
                         decoration: const InputDecoration(
                           labelText: '搜索 (备注/地址)',
                           isDense: true,
@@ -1263,7 +1308,10 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
                     OutlinedButton(
                       key: const ValueKey('group-pick-autofit'),
                       onPressed: _autofit,
-                      child: const Text('自动列宽', style: TextStyle(fontSize: 12)),
+                      child: const Text(
+                        '自动列宽',
+                        style: TextStyle(fontSize: AppTokens.fontSize),
+                      ),
                     ),
                     if (widget.multiSelect) ...<Widget>[
                       const SizedBox(width: 8),
@@ -1282,7 +1330,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
                     Text(
                       '已选 $_visiblePickedCount/${rows.length}',
                       key: const ValueKey('group-pick-count'),
-                      style: const TextStyle(fontSize: 12),
+                      style: const TextStyle(fontSize: AppTokens.fontSize),
                     ),
                   ],
                 ),
@@ -1328,7 +1376,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
                       child: Text(
                         '没有可选节点',
                         key: ValueKey('group-pick-empty'),
-                        style: TextStyle(fontSize: 12),
+                        style: TextStyle(fontSize: AppTokens.fontSize),
                       ),
                     )
                   : ListView.builder(
@@ -1343,7 +1391,10 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
   }
 
   Widget _headerRow() {
-    const style = TextStyle(fontWeight: FontWeight.bold, fontSize: 12);
+    const style = TextStyle(
+      fontWeight: FontWeight.bold,
+      fontSize: AppTokens.fontSize,
+    );
     return Row(
       children: <Widget>[
         const SizedBox(width: 32),
@@ -1408,7 +1459,7 @@ class _NodePickerDialogState extends State<_NodePickerDialog> {
                   ),
                   child: Text(
                     column.display(p, _summaryById[p.indexId]),
-                    style: const TextStyle(fontSize: 12),
+                    style: const TextStyle(fontSize: AppTokens.fontSize),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),

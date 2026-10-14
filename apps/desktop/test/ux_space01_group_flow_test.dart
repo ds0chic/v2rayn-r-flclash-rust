@@ -66,8 +66,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('group-filter-sub-001')));
     await tester.pumpAndSettle();
     expect(readState(container).groupSubId, 'sub-001');
+    // D1-01: the column shows the joined subscription remarks.
     expect(
-      readState(container).visible.every((r) => r.subRemarks == 'sub-001'),
+      readState(container).visible.every((r) => r.subRemarks == '演示订阅B'),
       isTrue,
     );
 

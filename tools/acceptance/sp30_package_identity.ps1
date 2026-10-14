@@ -3,7 +3,8 @@
   SP-30 候选包身份核对（只读：消费候选包，不改生产代码/不触网/无 OS 副作用）。
 
 .DESCRIPTION
-  对一个未武装候选包做身份核对并输出判定 JSON：
+  对一个候选包做身份核对并输出判定 JSON（默认期望未武装官方包；
+  传 -ExpectArmed 则期望武装证据包）：
     1. zip/sha：计算 SHA256，与 -ShaFile（默认 RC 运行须传 dist/SHA256SUMS）
        中的同名条目比对；缺文件/缺条目/hash 不一致即 fail。
     2. -Setup <setup.exe>：同上比对 setup 条目（可选；传了才验）。
@@ -20,18 +21,19 @@
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -DryRun
 .EXAMPLE
-  powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -Zip dist/v2rayN-R-*-windows-x64.zip -ShaFile dist/SHA256SUMS -ExpectedCommit 3635392ed519a26b4da1862d99019f07e6a8de5c -RequireCleanTree
+  powershell -NoProfile -ExecutionPolicy Bypass -File tools/acceptance/sp30_package_identity.ps1 -Zip dist/v2rayN-R-*-windows-x64.zip -ShaFile dist/SHA256SUMS -ExpectedCommit <当前基线commit> -RequireCleanTree
 #>
 [CmdletBinding()]
 param(
   [string]$Zip = '',
   [string]$ShaFile = '',
   [string]$Setup = '',
-  [string]$ExpectedCommit = '3635392ed519a26b4da1862d99019f07e6a8de5c',
+  [string]$ExpectedCommit = '',
   [switch]$VerifyFixture,
   [switch]$RequireCleanTree,
   [string]$RepoRootOverride = '',
-  [switch]$DryRun
+  [switch]$DryRun,
+  [switch]$ExpectArmed
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,8 +49,8 @@ if ($DryRun -and $Zip -eq '' -and -not $VerifyFixture) {
     plan = @(
       'sha256(zip) 并与 -ShaFile（RC 传 dist/SHA256SUMS）同名条目比对；缺文件/缺条目/不一致即 fail'
       '-Setup <setup.exe>：同文件内同名条目比对（可选；传了才验）'
-      '读取 zip 内 build-info.json：断言 smoke_armed=false, git_dirty=false；缺文件/缺字段即 fail'
-      '断言 build-info.git_commit == ExpectedCommit（RC 重建时传新基线 commit）'
+      '读取 zip 内 build-info.json：断言 smoke_armed=false（-ExpectArmed 则为 true）, git_dirty=false；缺文件/缺字段即 fail'
+      '断言 build-info.git_commit == ExpectedCommit（RC 重建时显式传新基线 commit；未传则跳过并记录）'
       '断言 flat layout 四 exe 齐全；断言无 xray/sing-box 被捆绑'
       '-RequireCleanTree：git status --porcelain 非空即 fail（dirty tree live 侧）'
       '-VerifyFixture：合成订阅形状校验（只读）'
@@ -162,9 +164,14 @@ if ($Zip -ne '') {
       foreach ($f in @('smoke_armed', 'git_dirty', 'git_commit')) {
         if ($null -eq $info.PSObject.Properties[$f]) { $report.failures += "build-info missing field: $f" }
       }
-      if ($info.smoke_armed -ne $false) { $report.failures += 'smoke_armed != false' }
+      if ($ExpectArmed -and $info.smoke_armed -ne $true) { $report.failures += 'smoke_armed != true (armed evidence package expected)' }
+      elseif (-not $ExpectArmed -and $info.smoke_armed -ne $false) { $report.failures += 'smoke_armed != false' }
       if ($info.git_dirty -ne $false) { $report.failures += 'git_dirty != false' }
-      if ($info.git_commit -ne $ExpectedCommit) { $report.failures += "git_commit $($info.git_commit) != expected $ExpectedCommit" }
+      # S11-11: a stale default commit produced false failures after every
+      # baseline move. Empty means "not pinned": skip with a note; RC runs
+      # pass the current baseline explicitly via -ExpectedCommit.
+      if ($ExpectedCommit -eq '') { $report.notes += 'git_commit pinning skipped (no -ExpectedCommit given)' }
+      elseif ($info.git_commit -ne $ExpectedCommit) { $report.failures += "git_commit $($info.git_commit) != expected $ExpectedCommit" }
       }
     }
   } finally { $fs.Close() }

@@ -108,15 +108,22 @@ String? sharedCommandForTrayAction(String trayActionId) {
       return 'ACT-MAIN-020'; // 更新订阅（不通过代理）
     case 'ACT-TRAY-011':
       return 'ACT-MAIN-021'; // 更新订阅（通过代理）
+    case 'ACT-TRAY-016':
+      // UX1-11: tray restart-service leaf. ACT-MAIN-035 (`menuReload` "重启服务")
+      // is verified start-or-reapply (reload refreshes + applies the active
+      // plan), so the tray runs the identical use case through the existing
+      // delegate path instead of a tray-only reimplementation.
+      return 'ACT-MAIN-035'; // 重启服务
     default:
       return null;
   }
 }
 
 /// Static tray menu model, in the exact upstream `StatusBarView.xaml`
-/// `ContextMenu` order (ACT-TRAY-002..013). Dynamic submenu contents (routings,
-/// nodes) are synced from the live controllers so the menu matches the main
-/// window (RT-11).
+/// `ContextMenu` order (ACT-TRAY-002..013) plus the U-B1 restart-service leaf
+/// (ACT-TRAY-016, after the copy-command item, exit stays last). Dynamic
+/// submenu contents (routings, nodes) are synced from the live controllers so
+/// the menu matches the main window (RT-11).
 List<TrayMenuItem> trayMenuModel({
   required SysProxyMode currentMode,
   required bool pacVisible,
@@ -155,10 +162,6 @@ List<TrayMenuItem> trayMenuModel({
       ),
     );
   }
-  final serversVisible = trayServersVisible(
-    nodeCount: nodes.length,
-    limit: serversLimit,
-  );
   items.addAll(<TrayMenuItem>[
     TrayMenuItem(
       actionId: 'ACT-TRAY-006',
@@ -171,7 +174,7 @@ List<TrayMenuItem> trayMenuModel({
       actionId: 'ACT-TRAY-007',
       label: '节点',
       kind: TrayItemKind.serversSubmenu,
-      children: serversVisible ? nodes : const <TraySubEntry>[],
+      children: trayServersSubmenuChildren(nodes: nodes, limit: serversLimit),
     ),
     const TrayMenuItem(
       actionId: 'ACT-TRAY-008',
@@ -186,6 +189,7 @@ List<TrayMenuItem> trayMenuModel({
       label: '复制代理命令到剪贴板',
       separatorBefore: true,
     ),
+    const TrayMenuItem(actionId: 'ACT-TRAY-016', label: '重启服务'),
     const TrayMenuItem(
       actionId: 'ACT-TRAY-013',
       label: '退出',
@@ -200,6 +204,30 @@ List<TrayMenuItem> trayMenuModel({
 bool trayServersVisible({required int nodeCount, required int limit}) {
   if (limit <= 0) return true;
   return nodeCount <= limit;
+}
+
+/// Sentinel id for the servers-over-limit hint entry (UX1-11). It is never a
+/// real node id: the shell answers a click on it with an explanatory message
+/// instead of a node switch, and the label never mimics a node name.
+const String trayServersOverflowHintId = '__tray_servers_overflow__';
+
+/// True for the over-limit hint entry id, false for real node ids.
+bool isTrayServersOverflowHint(String id) => id == trayServersOverflowHintId;
+
+/// Build the children of the tray servers submenu. Within the limit the live
+/// node entries pass through; above it a single hint entry explains the fold
+/// (count/limit included) so the submenu never opens silently empty.
+List<TraySubEntry> trayServersSubmenuChildren({
+  required List<TraySubEntry> nodes,
+  required int limit,
+}) {
+  if (trayServersVisible(nodeCount: nodes.length, limit: limit)) return nodes;
+  return <TraySubEntry>[
+    TraySubEntry(
+      id: trayServersOverflowHintId,
+      label: '节点过多已折叠（${nodes.length}/上限$limit），请在主窗口切换',
+    ),
+  ];
 }
 
 /// Build the node entries shown in the tray submenu (empty when hidden).

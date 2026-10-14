@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:v2rayn_desktop/app/shell/ui_shell_controller.dart';
 import 'package:v2rayn_desktop/features/profiles/column_settings_dialog.dart';
 import 'package:v2rayn_desktop/features/profiles/profile_actions.dart';
 import 'package:v2rayn_desktop/features/profiles/profiles_controller.dart';
@@ -67,14 +68,32 @@ class _ProfilesPageState extends ConsumerState<ProfilesPage> {
 
   @override
   Widget build(BuildContext context) {
+    // U-B1 table density (UX2-07): override only the row-height extension for
+    // the table subtree. The span cache keys on the resolved height (via
+    // visualRevision), so switching density recomputes extents; no per-row
+    // widget is added (SP-31).
+    final density = ref.watch(
+      uiShellControllerProvider.select((s) => s.tableDensity),
+    );
+    final theme = Theme.of(context);
+    final semantics = theme.extension<AppSemanticColors>() ?? context.semantics;
+    final kept = theme.extensions.values.where((e) => e is! AppSemanticColors);
+    final densityTheme = theme.copyWith(
+      extensions: kept.followedBy([
+        semantics.copyWith(tableRowHeight: density.height),
+      ]),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         _Toolbar(filterController: _filterController),
         Expanded(
-          child: ProfilesTable(
-            verticalController: _vertical,
-            horizontalController: _horizontal,
+          child: Theme(
+            data: densityTheme,
+            child: ProfilesTable(
+              verticalController: _vertical,
+              horizontalController: _horizontal,
+            ),
           ),
         ),
       ],
@@ -175,19 +194,19 @@ class _Toolbar extends ConsumerWidget {
           _IconTool(
             keyId: 'toolbar-sub-edit',
             tooltip: '编辑当前订阅',
-            icon: Icons.edit_outlined,
+            icon: AppTokens.icon('edit'),
             onPressed: () => openEditCurrentSub(context, ref),
           ),
           _IconTool(
             keyId: 'toolbar-sub-add',
             tooltip: '新增订阅',
-            icon: Icons.add,
+            icon: AppTokens.icon('add'),
             onPressed: () => openAddSub(context, ref),
           ),
           _IconTool(
             keyId: 'toolbar-sub-delete',
             tooltip: '删除当前订阅',
-            icon: Icons.delete_outlined,
+            icon: AppTokens.icon('delete'),
             onPressed: () => deleteCurrentSub(context, ref),
           ),
           const SizedBox(
@@ -197,20 +216,20 @@ class _Toolbar extends ConsumerWidget {
           _IconTool(
             keyId: 'toolbar-自动列宽',
             tooltip: '自动调整列宽',
-            icon: Icons.vertical_split_outlined,
+            icon: AppTokens.icon('autoColumns'),
             onPressed: () =>
                 controller.emitAction(ProfileAction.autofitColumns),
           ),
           _IconTool(
             keyId: 'toolbar-快速真延迟',
             tooltip: '一键测试真连接延迟',
-            icon: Icons.bolt_outlined,
+            icon: AppTokens.icon('bolt'),
             onPressed: () => controller.emitAction(ProfileAction.fastRealping),
           ),
           _IconTool(
             keyId: 'toolbar-混合',
             tooltip: '一键多线程测试延迟和速度 (Ctrl+E)',
-            icon: Icons.speed_outlined,
+            icon: AppTokens.icon('test'),
             onPressed: () => controller.emitAction(ProfileAction.mixedTest),
           ),
           // Actions with no upstream top-row slot but no other reachable entry
@@ -218,13 +237,13 @@ class _Toolbar extends ConsumerWidget {
           _IconTool(
             keyId: 'toolbar-备注',
             tooltip: '编辑备注',
-            icon: Icons.drive_file_rename_outline,
+            icon: AppTokens.icon('remarks'),
             onPressed: () => renameSelectedProfile(context, ref),
           ),
           _IconTool(
             keyId: 'column-settings-button',
             tooltip: '显示列设置',
-            icon: Icons.view_column_outlined,
+            icon: AppTokens.icon('columns'),
             onPressed: () => showColumnSettingsDialog(context, ref),
           ),
           if (state.speedTestRunning) ...<Widget>[
@@ -238,7 +257,7 @@ class _Toolbar extends ConsumerWidget {
             _IconTool(
               keyId: 'toolbar-停止测试',
               tooltip: '停止测试 (Esc)',
-              icon: Icons.stop_circle_outlined,
+              icon: AppTokens.icon('stopped'),
               onPressed: controller.cancelSpeedTest,
             ),
           ],
@@ -251,7 +270,7 @@ class _Toolbar extends ConsumerWidget {
                   state.speedTestMessage!,
                   key: const ValueKey('speedtest-message'),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: AppTokens.fontSize,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                   maxLines: 1,
@@ -268,7 +287,7 @@ class _Toolbar extends ConsumerWidget {
                   state.orderMessage!,
                   key: const ValueKey('order-message'),
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: AppTokens.fontSize,
                     color: Theme.of(context).colorScheme.error,
                   ),
                   maxLines: 1,
@@ -303,7 +322,10 @@ class _GroupChip extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 360),
       child: ChoiceChip(
         key: ValueKey(keyId),
-        label: Text(label, style: const TextStyle(fontSize: 12)),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: AppTokens.fontSize),
+        ),
         selected: selected,
         onSelected: (_) => onTap(),
         visualDensity: VisualDensity.compact,
@@ -371,10 +393,10 @@ class _FilterField extends ConsumerWidget {
       child: TextField(
         key: const ValueKey('filter-field'),
         controller: controller,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           isDense: true,
           hintText: '过滤器，按回车执行',
-          prefixIcon: Icon(Icons.search, size: 18),
+          prefixIcon: Icon(AppTokens.icon('search'), size: 18),
           prefixIconConstraints: BoxConstraints(minWidth: 30, minHeight: 30),
           border: OutlineInputBorder(),
           contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),

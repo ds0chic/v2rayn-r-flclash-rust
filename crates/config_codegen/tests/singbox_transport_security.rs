@@ -211,3 +211,66 @@ fn singbox_tls_reality_fragment_ech() {
         json!(["-----BEGIN ECH CONFIGS-----\nAEXD+abc\n-----END ECH CONFIGS-----"])
     );
 }
+
+// S3-01: sing-box uTLS comes only from the node fingerprint. Upstream
+// `FillOutboundTls` guards the utls block with
+// `_node.Fingerprint.IsNotEmpty()`; the global DefFingerprint fallback exists
+// only on the Xray side and must not leak into sing-box TLS.
+#[test]
+fn singbox_utls_ignores_global_default_fingerprint() {
+    let mut p = vless_with_network("raw");
+    p.stream_security = "tls".into();
+    p.sni = "tls.test".into();
+    let mut settings = settings();
+    settings.core_basic.def_fingerprint = Some("chrome".into());
+    let mut input = codegen_input(p);
+    input.settings = settings;
+
+    let generated = generate_singbox(&input).expect("tls");
+    assert!(
+        json_at(&generated.main, "/outbounds/0/tls/utls").is_null(),
+        "global DefFingerprint must not emit sing-box utls: {}",
+        json_at(&generated.main, "/outbounds/0/tls")
+    );
+
+    // Control: an explicit node fingerprint still emits utls.
+    let mut p = vless_with_network("raw");
+    p.stream_security = "tls".into();
+    p.sni = "tls.test".into();
+    p.fingerprint = "firefox".into();
+    let input = codegen_input(p);
+    let generated = generate_singbox(&input).expect("tls");
+    assert_eq!(
+        string_at(&generated.main, "/outbounds/0/tls/utls/fingerprint"),
+        "firefox"
+    );
+}
+
+// S3-02: upstream parses ws `ed`/`eh` params with `[?&]ed=` / `[?&]eh=`, so
+// non-leading `&ed=` / `&eh=` params must also be honoured (and `ed` stripped
+// from the path).
+#[test]
+fn singbox_ws_early_data_ampersand_params() {
+    let mut p = vless_with_network("ws");
+    p.transport_extra.host = Some("ws.test".into());
+    p.transport_extra.path = Some("/p?x=1&ed=100".into());
+    let generated = generate_singbox(&codegen_input(p)).expect("ws");
+    let main = &generated.main;
+    assert_eq!(
+        json_at(main, "/outbounds/0/transport/max_early_data"),
+        json!(100),
+        "{main}"
+    );
+    assert_eq!(string_at(main, "/outbounds/0/transport/path"), "/p?x=1");
+
+    let mut p = vless_with_network("ws");
+    p.transport_extra.host = Some("ws.test".into());
+    p.transport_extra.path = Some("/p?x=1&eh=SGVsbG8".into());
+    let generated = generate_singbox(&codegen_input(p)).expect("ws");
+    let main = &generated.main;
+    assert_eq!(
+        string_at(main, "/outbounds/0/transport/early_data_header_name"),
+        "SGVsbG8",
+        "{main}"
+    );
+}

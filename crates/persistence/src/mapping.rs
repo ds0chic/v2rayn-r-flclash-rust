@@ -62,7 +62,7 @@ fn collect_unknown(row: &RawRow, known: &[&str]) -> Map<String, Value> {
 }
 
 fn config_type(row: &RawRow) -> Result<ConfigType> {
-    let value = row.opt_i64("ConfigType").unwrap_or(0) as i32;
+    let value = saturating_i32(row.opt_i64("ConfigType").unwrap_or(0));
     ConfigType::from_value(value).ok_or_else(|| {
         PersistenceError::internal(format!(
             "unknown ConfigType {value} on {}",
@@ -73,7 +73,7 @@ fn config_type(row: &RawRow) -> Result<ConfigType> {
 
 fn core_type(row: &RawRow) -> Option<CoreType> {
     row.opt_i64("CoreType")
-        .and_then(|v| CoreType::from_value(v as i32))
+        .and_then(|v| CoreType::from_value(saturating_i32(v)))
 }
 
 fn security_params(row: &RawRow) -> SecurityParams {
@@ -98,6 +98,14 @@ fn nullable(value: Option<String>) -> Option<String> {
     value.filter(|v| !v.is_empty())
 }
 
+/// Saturating i64 -> i32 conversion (S1-15): a hostile out-of-range database
+/// value clamps to the bounds instead of wrapping into a plausible small
+/// number (e.g. `Port = 2^32 + 443` must not become `443`). Downstream
+/// validation still flags the clamped value as out of range.
+fn saturating_i32(value: i64) -> i32 {
+    i32::try_from(value).unwrap_or(if value < 0 { i32::MIN } else { i32::MAX })
+}
+
 /// Map a `ProfileItem` row to a [`Profile`].
 pub fn map_profile(row: &RawRow) -> Result<Profile> {
     let proto_extra = ProtocolExtraBlob::parse(row.opt_string("ProtoExtra").as_deref())?;
@@ -106,14 +114,14 @@ pub fn map_profile(row: &RawRow) -> Result<Profile> {
         index_id: row.string("IndexId"),
         config_type: config_type(row)?,
         core_type: core_type(row),
-        config_version: row.opt_i64("ConfigVersion").unwrap_or(0) as i32,
+        config_version: saturating_i32(row.opt_i64("ConfigVersion").unwrap_or(0)),
         subid: row.string("Subid"),
         is_sub: row.bool("IsSub"),
-        pre_socks_port: row.opt_i64("PreSocksPort").map(|v| v as i32),
+        pre_socks_port: row.opt_i64("PreSocksPort").map(saturating_i32),
         display_log: row.bool("DisplayLog"),
         remarks: row.string("Remarks"),
         address: row.string("Address"),
-        port: row.opt_i64("Port").unwrap_or(0) as i32,
+        port: saturating_i32(row.opt_i64("Port").unwrap_or(0)),
         password: row.string("Password"),
         username: row.string("Username"),
         network: row.string("Network"),
@@ -137,18 +145,18 @@ pub fn map_subscription(row: &RawRow) -> Subscription {
         enabled: row.bool("Enabled"),
         user_agent: row.string("UserAgent"),
         request_headers: row.opt_string("RequestHeaders"),
-        sort: row.opt_i64("Sort").unwrap_or(0) as i32,
+        sort: saturating_i32(row.opt_i64("Sort").unwrap_or(0)),
         filter: row.opt_string("Filter"),
-        auto_update_interval: row.opt_i64("AutoUpdateInterval").unwrap_or(0) as i32,
+        auto_update_interval: saturating_i32(row.opt_i64("AutoUpdateInterval").unwrap_or(0)),
         update_time: row.opt_i64("UpdateTime").unwrap_or(0),
         convert_target: row.opt_string("ConvertTarget"),
         prev_profile: row.opt_string("PrevProfile"),
         next_profile: row.opt_string("NextProfile"),
-        pre_socks_port: row.opt_i64("PreSocksPort").map(|v| v as i32),
+        pre_socks_port: row.opt_i64("PreSocksPort").map(saturating_i32),
         memo: row.opt_string("Memo"),
         custom_core_type: row
             .opt_i64("CustomCoreType")
-            .and_then(|v| CoreType::from_value(v as i32)),
+            .and_then(|v| CoreType::from_value(saturating_i32(v))),
         extra: collect_unknown(
             row,
             &[
@@ -181,16 +189,33 @@ pub fn map_routing_profile(row: &RawRow) -> RoutingProfile {
         remarks: row.string("Remarks"),
         url: row.string("Url"),
         rule_set: row.string("RuleSet"),
-        rule_num: row.opt_i64("RuleNum").unwrap_or(0) as i32,
+        rule_num: saturating_i32(row.opt_i64("RuleNum").unwrap_or(0)),
         enabled: row.bool("Enabled"),
         locked: row.bool("Locked"),
         custom_icon: row.string("CustomIcon"),
         custom_ruleset_path4_singbox: row.string("CustomRulesetPath4Singbox"),
         domain_strategy: row.string("DomainStrategy"),
         domain_strategy4_singbox: row.string("DomainStrategy4Singbox"),
-        sort: row.opt_i64("Sort").unwrap_or(0) as i32,
+        sort: saturating_i32(row.opt_i64("Sort").unwrap_or(0)),
         is_active: row.bool("IsActive"),
-        extra: Map::new(),
+        extra: collect_unknown(
+            row,
+            &[
+                "Id",
+                "Remarks",
+                "Url",
+                "RuleSet",
+                "RuleNum",
+                "Enabled",
+                "Locked",
+                "CustomIcon",
+                "CustomRulesetPath4Singbox",
+                "DomainStrategy",
+                "DomainStrategy4Singbox",
+                "Sort",
+                "IsActive",
+            ],
+        ),
     }
 }
 
@@ -198,7 +223,7 @@ pub fn map_routing_profile(row: &RawRow) -> RoutingProfile {
 pub fn map_dns(row: &RawRow) -> Result<DnsProfile> {
     let core_type = row
         .opt_i64("CoreType")
-        .and_then(|v| CoreType::from_value(v as i32))
+        .and_then(|v| CoreType::from_value(saturating_i32(v)))
         .unwrap_or_default();
     Ok(DnsProfile {
         id: row.string("Id"),
@@ -210,7 +235,20 @@ pub fn map_dns(row: &RawRow) -> Result<DnsProfile> {
         tun_dns: row.opt_string("TunDNS"),
         domain_strategy4_freedom: row.opt_string("DomainStrategy4Freedom"),
         domain_dns_address: row.opt_string("DomainDNSAddress"),
-        extra: Map::new(),
+        extra: collect_unknown(
+            row,
+            &[
+                "Id",
+                "Remarks",
+                "Enabled",
+                "CoreType",
+                "UseSystemHosts",
+                "NormalDNS",
+                "TunDNS",
+                "DomainStrategy4Freedom",
+                "DomainDNSAddress",
+            ],
+        ),
     })
 }
 
@@ -218,7 +256,7 @@ pub fn map_dns(row: &RawRow) -> Result<DnsProfile> {
 pub fn map_template(row: &RawRow) -> Result<FullConfigTemplate> {
     let core_type = row
         .opt_i64("CoreType")
-        .and_then(|v| CoreType::from_value(v as i32))
+        .and_then(|v| CoreType::from_value(saturating_i32(v)))
         .unwrap_or_default();
     Ok(FullConfigTemplate {
         id: row.string("Id"),
@@ -229,7 +267,19 @@ pub fn map_template(row: &RawRow) -> Result<FullConfigTemplate> {
         tun_config: row.opt_string("TunConfig"),
         add_proxy_only: row.opt_i64("AddProxyOnly").map(|v| v != 0),
         proxy_detour: row.opt_string("ProxyDetour"),
-        extra: Map::new(),
+        extra: collect_unknown(
+            row,
+            &[
+                "Id",
+                "Remarks",
+                "Enabled",
+                "CoreType",
+                "Config",
+                "TunConfig",
+                "AddProxyOnly",
+                "ProxyDetour",
+            ],
+        ),
     })
 }
 
@@ -242,7 +292,17 @@ pub fn map_traffic(row: &RawRow) -> TrafficStats {
         today_up: row.opt_i64("TodayUp").unwrap_or(0),
         today_down: row.opt_i64("TodayDown").unwrap_or(0),
         date_now: row.opt_i64("DateNow").unwrap_or(0),
-        extra: Map::new(),
+        extra: collect_unknown(
+            row,
+            &[
+                "IndexId",
+                "TotalUp",
+                "TotalDown",
+                "TodayUp",
+                "TodayDown",
+                "DateNow",
+            ],
+        ),
     }
 }
 
@@ -267,9 +327,9 @@ impl ProfileExRow {
     pub fn from_raw(row: &RawRow) -> Self {
         Self {
             index_id: row.string("IndexId"),
-            delay: row.opt_i64("Delay").unwrap_or(0) as i32,
+            delay: saturating_i32(row.opt_i64("Delay").unwrap_or(0)),
             speed: row.opt_f64("Speed").unwrap_or(0.0),
-            sort: row.opt_i64("Sort").unwrap_or(0) as i32,
+            sort: saturating_i32(row.opt_i64("Sort").unwrap_or(0)),
             message: row.opt_string("Message"),
             ip_info: row.opt_string("IpInfo"),
             extra: collect_unknown(
@@ -330,6 +390,15 @@ pub struct RulesItemStorage {
 
 impl RulesItemStorage {
     pub fn to_domain(&self) -> RoutingRule {
+        // S1-15: an unrecognised raw RuleType integer is preserved in `extra`
+        // so the typed round-trip never silently drops it; the domain type
+        // check (`validate_rule`) only ever sees decoded values.
+        let mut extra = self.extra.clone();
+        if let Some(raw) = self.rule_type {
+            if RuleType::from_value(raw).is_none() {
+                extra.insert("RuleType".to_string(), Value::from(raw));
+            }
+        }
         RoutingRule {
             id: self.id.clone().unwrap_or_default(),
             rule_kind: self.rule_kind.clone(),
@@ -344,7 +413,7 @@ impl RulesItemStorage {
             enabled: self.enabled,
             remarks: self.remarks.clone(),
             rule_type: self.rule_type.and_then(RuleType::from_value),
-            extra: self.extra.clone(),
+            extra,
         }
     }
 
@@ -452,5 +521,92 @@ mod tests {
     fn unknown_config_type_is_an_error_not_a_panic() {
         let r = row(&[("IndexId", json!("x")), ("ConfigType", json!(250))]);
         assert!(map_profile(&r).is_err());
+    }
+
+    #[test]
+    fn oversized_integers_clamp_instead_of_wrapping() {
+        // S1-15: `Port = 2^32 + 443` must not wrap into a plausible 443.
+        let r = row(&[
+            ("IndexId", json!("p1")),
+            ("ConfigType", json!(5)),
+            ("ConfigVersion", json!(4)),
+            ("Remarks", json!("node")),
+            ("Address", json!("192.0.2.1")),
+            ("Port", json!(4294967740_i64)),
+            ("Sort", json!(1)),
+        ]);
+        let profile = map_profile(&r).unwrap();
+        assert_eq!(profile.port, i32::MAX);
+        // Below the i32 floor the value saturates instead of wrapping into a
+        // plausible port; in-range negatives pass through faithfully for
+        // domain validation to flag.
+        let r = row(&[
+            ("IndexId", json!("p1")),
+            ("ConfigType", json!(5)),
+            ("ConfigVersion", json!(4)),
+            ("Port", json!(-2147483649_i64)),
+        ]);
+        assert_eq!(map_profile(&r).unwrap().port, i32::MIN);
+        let r = row(&[
+            ("IndexId", json!("p1")),
+            ("ConfigType", json!(5)),
+            ("ConfigVersion", json!(4)),
+            ("Port", json!(-5_i64)),
+        ]);
+        assert_eq!(map_profile(&r).unwrap().port, -5);
+    }
+
+    #[test]
+    fn typed_maps_keep_unknown_columns_in_extra() {
+        // S1-15: routing/dns/template/traffic must retain unknown columns
+        // like profile/subscription already do.
+        let r = row(&[
+            ("Id", json!("route1")),
+            ("Remarks", json!("r")),
+            ("RuleSet", json!("[]")),
+            ("FutureCol", json!("keep-me")),
+        ]);
+        assert_eq!(
+            map_routing_profile(&r).extra.get("FutureCol"),
+            Some(&json!("keep-me"))
+        );
+        let r = row(&[
+            ("Id", json!("dns1")),
+            ("Remarks", json!("d")),
+            ("CoreType", json!(24)),
+            ("FutureCol", json!("keep-me")),
+        ]);
+        assert_eq!(
+            map_dns(&r).unwrap().extra.get("FutureCol"),
+            Some(&json!("keep-me"))
+        );
+        let r = row(&[
+            ("Id", json!("t1")),
+            ("Remarks", json!("t")),
+            ("FutureCol", json!("keep-me")),
+        ]);
+        assert_eq!(
+            map_template(&r).unwrap().extra.get("FutureCol"),
+            Some(&json!("keep-me"))
+        );
+        let r = row(&[("IndexId", json!("p1")), ("FutureCol", json!("keep-me"))]);
+        assert_eq!(
+            map_traffic(&r).extra.get("FutureCol"),
+            Some(&json!("keep-me"))
+        );
+    }
+
+    #[test]
+    fn unknown_rule_type_roundtrips_through_extra() {
+        // S1-15: an unrecognised RuleType integer must survive the typed
+        // round-trip instead of silently becoming typeless.
+        let storage: RulesItemStorage =
+            serde_json::from_str(r#"{"Id":"r1","RuleType":99,"Enabled":true}"#).unwrap();
+        let rule = storage.to_domain();
+        assert_eq!(rule.rule_type, None);
+        assert_eq!(rule.extra.get("RuleType"), Some(&json!(99)));
+        let back = RulesItemStorage::from_domain(&rule);
+        let text = serde_json::to_string(&back).unwrap();
+        assert!(text.contains("99"), "unknown RuleType lost: {text}");
     }
 }

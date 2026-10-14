@@ -7,6 +7,7 @@
 //! configuration (plan §15). Upstream `guiConfigs/` ZIP archives are recognised
 //! and imported through the T04 candidate flow.
 
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use domain::{codes, DomainError};
@@ -44,6 +45,12 @@ pub fn persist_error(err: PersistenceError) -> DomainError {
 
 fn internal(message: impl Into<String>) -> DomainError {
     DomainError::new(codes::INTERNAL, "error.backup_failed").with_detail(message.into())
+}
+
+/// A malformed or hostile archive member: the bundle itself is unusable, not
+/// an internal failure.
+fn archive_error(message: impl Into<String>) -> DomainError {
+    DomainError::new(codes::FIELD_FORMAT, "error.backup_archive").with_detail(message.into())
 }
 
 /// Local backup / restore rooted at one data directory.
@@ -106,7 +113,24 @@ impl BackupService {
 
     /// Verify a bundle's manifest and every hashed member.
     pub fn verify(&self, root: &Path) -> Result<BackupVerification, DomainError> {
-        backup::verify_backup(root).map_err(persist_error)
+        let report = backup::verify_backup(root).map_err(persist_error)?;
+        if !report.ok {
+            return Ok(report);
+        }
+        // A hand-edited manifest can reference paths the hash check alone
+        // accepts (e.g. `../escape.txt` whose bytes sit next to the bundle);
+        // report it invalid here too so callers never trust it.
+        let manifest = backup::read_manifest(root).map_err(persist_error)?;
+        for entry in &manifest.referenced_resources {
+            if let Err(error) = validate_resource_path(root, &self.data_dir, &entry.relative_path) {
+                return Ok(BackupVerification {
+                    ok: false,
+                    missing: Vec::new(),
+                    mismatched: vec![error.detail.unwrap_or(error.message_key)],
+                });
+            }
+        }
+        Ok(report)
     }
 
     /// Restore a verified bundle into the live database, config and every
@@ -117,6 +141,10 @@ impl BackupService {
     /// fails, the previously restored members (database, config, resources)
     /// are rolled back so the live directory is never left half-restored.
     pub fn restore(&self, root: &Path, work_dir: &Path) -> Result<RestoreReport, DomainError> {
+        // Fail closed before any byte is written: a crafted manifest must be
+        // rejected before verification, the database swap and the copies.
+        let manifest = backup::read_manifest(root).map_err(persist_error)?;
+        validate_resource_paths(root, &self.data_dir, &manifest.referenced_resources)?;
         let verification = self.verify(root)?;
         if !verification.ok {
             return Err(
@@ -126,7 +154,6 @@ impl BackupService {
                 )),
             );
         }
-        let manifest = backup::read_manifest(root).map_err(persist_error)?;
         // SP-03: the replacement creates a new dataset generation. Capture
         // both epochs before the exchange so the persisted value advances
         // monotonically however the bundled config relates to the live one.
@@ -157,13 +184,14 @@ impl BackupService {
             }
         }
         match self.restore_resources(root, &manifest.referenced_resources) {
-            Ok(_) => {
+            Ok(applied) => {
                 // The exchange committed: publish the new dataset generation
                 // so pre-restore requests stay rejected after reopen (plan
                 // §3.1). A failed epoch publish rolls back like any other
-                // late activation failure.
+                // late activation failure, including the installed resources.
                 let new_epoch = live_epoch.max(bundled_epoch).saturating_add(1);
                 if let Err(error) = write_dataset_epoch(&config_path, new_epoch) {
+                    rollback_previous(&applied);
                     // Only undo the config when this restore replaced it; a
                     // bundle without config leaves the live file untouched, so
                     // there is nothing to restore (deleting it would destroy
@@ -173,6 +201,11 @@ impl BackupService {
                     }
                     rollback_database(&self.db_path(), report.target_backup.as_deref());
                     return Err(error);
+                }
+                for (_, prior) in &applied {
+                    if let Some(prior) = prior {
+                        let _ = std::fs::remove_file(prior);
+                    }
                 }
                 if let Some(prior) = &config_prior {
                     let _ = std::fs::remove_file(prior);
@@ -188,14 +221,23 @@ impl BackupService {
     }
 
     /// Copy every manifest-listed resource (nested paths included) back into
-    /// the data directory. Returns the number copied.
+    /// the data directory. Returns the installed destinations with their
+    /// rollback snapshots; the caller drops the snapshots only after the tail
+    /// activation (dataset epoch) succeeds, so a late failure still rolls the
+    /// resources back.
     fn restore_resources(
         &self,
         root: &Path,
         resources: &[ResourceEntry],
-    ) -> Result<usize, DomainError> {
+    ) -> Result<Vec<(PathBuf, Option<PathBuf>)>, DomainError> {
         let mut applied: Vec<(PathBuf, Option<PathBuf>)> = Vec::new();
         for entry in resources {
+            // Backstop: `restore` validates the whole manifest upfront, but a
+            // direct caller still gets fail-closed behavior here.
+            if let Err(error) = validate_resource_path(root, &self.data_dir, &entry.relative_path) {
+                rollback_previous(&applied);
+                return Err(error);
+            }
             let src = root.join(&entry.relative_path);
             let dest = self.data_dir.join(&entry.relative_path);
             let prior = match backup_previous(&dest) {
@@ -212,12 +254,7 @@ impl BackupService {
             }
             applied.push((dest, prior));
         }
-        for (_, prior) in &applied {
-            if let Some(prior) = prior {
-                let _ = std::fs::remove_file(prior);
-            }
-        }
-        Ok(applied.len())
+        Ok(applied)
     }
 
     /// Recognise an upstream `guiConfigs/` archive (or this project's ZIP).
@@ -399,6 +436,13 @@ impl BackupService {
     fn install_staged_resources(&self, staged: &[StagedResource]) -> Result<usize, DomainError> {
         let mut applied: Vec<(PathBuf, Option<PathBuf>)> = Vec::new();
         for resource in staged {
+            // Staged paths passed `sanitize_upstream_relative`, but a live
+            // symlink at the destination would still redirect the write
+            // outside the data dir.
+            if let Err(error) = reject_install_dest(&self.data_dir, &resource.relative_path) {
+                rollback_previous(&applied);
+                return Err(error);
+            }
             let dest = self.data_dir.join(&resource.relative_path);
             let prior = match backup_previous(&dest) {
                 Ok(prior) => prior,
@@ -514,8 +558,9 @@ impl BackupService {
         Ok(active)
     }
 
-    /// List bundles directly under `parent` (a directory with a manifest).
-    pub fn list(parent: &Path) -> Result<Vec<BackupManifest>, DomainError> {
+    /// List bundles directly under `parent` (a directory with a manifest),
+    /// newest first, each with its bundle root.
+    pub fn list(parent: &Path) -> Result<Vec<(PathBuf, BackupManifest)>, DomainError> {
         if !parent.is_dir() {
             return Ok(Vec::new());
         }
@@ -526,17 +571,18 @@ impl BackupService {
             let path = entry.path();
             if path.is_dir() && path.join(MANIFEST_NAME).is_file() {
                 if let Ok(manifest) = backup::read_manifest(&path) {
-                    manifests.push(manifest);
+                    manifests.push((path, manifest));
                 }
             }
         }
-        manifests.sort_by_key(|manifest| std::cmp::Reverse(manifest.created_at));
+        manifests.sort_by_key(|(_, manifest)| std::cmp::Reverse(manifest.created_at));
         Ok(manifests)
     }
 }
 
 /// One upstream resource extracted under the import work directory, keyed by
 /// its forward-slash path relative to the live data directory.
+#[derive(Debug)]
 struct StagedResource {
     relative_path: String,
     staged_path: PathBuf,
@@ -550,6 +596,14 @@ struct StagedResource {
 fn stage_upstream_resources(
     source: &Path,
     work_dir: &Path,
+) -> Result<Vec<StagedResource>, DomainError> {
+    stage_upstream_resources_with_limits(source, work_dir, UnpackLimits::default())
+}
+
+fn stage_upstream_resources_with_limits(
+    source: &Path,
+    work_dir: &Path,
+    limits: UnpackLimits,
 ) -> Result<Vec<StagedResource>, DomainError> {
     let staging = work_dir.join("resources");
     if staging.exists() {
@@ -583,12 +637,47 @@ fn stage_upstream_resources(
     } else {
         let file = std::fs::File::open(source).map_err(|e| internal(e.to_string()))?;
         let mut archive = zip::ZipArchive::new(file).map_err(|e| internal(e.to_string()))?;
+        // Same caps as the core pipeline (`safe_unpack_zip`): a hostile
+        // archive must fail here, not fill the disk.
+        if archive.len() > limits.max_entries {
+            return Err(archive_error(format!(
+                "{} entries exceeds limit {}",
+                archive.len(),
+                limits.max_entries
+            )));
+        }
+        let mut total_bytes: u64 = 0;
         for index in 0..archive.len() {
             let mut entry = archive
                 .by_index(index)
                 .map_err(|e| internal(e.to_string()))?;
             if entry.is_dir() {
                 continue;
+            }
+            let name = entry.name().to_string();
+            if entry.is_symlink()
+                || entry
+                    .unix_mode()
+                    .map(|m| m & 0o170000 == 0o120000)
+                    .unwrap_or(false)
+            {
+                return Err(archive_error(format!("symlink entry: {name}")));
+            }
+            if entry.size() > limits.max_entry_bytes {
+                return Err(archive_error(format!(
+                    "entry {name} size {} exceeds limit {}",
+                    entry.size(),
+                    limits.max_entry_bytes
+                )));
+            }
+            total_bytes = total_bytes
+                .checked_add(entry.size())
+                .ok_or_else(|| archive_error("size overflow".to_string()))?;
+            if total_bytes > limits.max_total_bytes {
+                return Err(archive_error(format!(
+                    "total bytes exceed limit {}",
+                    limits.max_total_bytes
+                )));
             }
             let raw = entry.name().replace('\\', "/");
             let Some(relative) = sanitize_upstream_relative(&raw) else {
@@ -600,7 +689,14 @@ fn stage_upstream_resources(
             }
             let mut out =
                 std::fs::File::create(&staged_path).map_err(|e| internal(e.to_string()))?;
-            std::io::copy(&mut entry, &mut out).map_err(|e| internal(e.to_string()))?;
+            // The declared size can lie: cap the actual copy too.
+            let mut limited = (&mut entry).take(limits.max_entry_bytes + 1);
+            let written =
+                std::io::copy(&mut limited, &mut out).map_err(|e| internal(e.to_string()))?;
+            if written > limits.max_entry_bytes {
+                let _ = std::fs::remove_file(&staged_path);
+                return Err(archive_error(format!("entry {name} wrote past limit")));
+            }
             staged.push(StagedResource {
                 relative_path: relative,
                 staged_path,
@@ -631,6 +727,130 @@ fn stage_file(
         staged_path,
     });
     Ok(())
+}
+
+/// Validate every manifest resource path before any byte is written: any
+/// violation rejects the whole bundle (fail-closed, zero writes).
+fn validate_resource_paths(
+    root: &Path,
+    data_dir: &Path,
+    resources: &[ResourceEntry],
+) -> Result<(), DomainError> {
+    for entry in resources {
+        validate_resource_path(root, data_dir, &entry.relative_path)?;
+    }
+    Ok(())
+}
+
+/// Reject one manifest resource path: absolute paths, drive/UNC prefixes,
+/// `..` segments, stream syntax (`:`), Windows reserved names and symlinks.
+/// The destination must stay lexically inside `data_dir` after
+/// normalization; neither the staged source, the live destination nor any
+/// destination ancestor up to the data dir may be a symlink (a symlinked
+/// parent would redirect the write outside).
+fn validate_resource_path(root: &Path, data_dir: &Path, relative: &str) -> Result<(), DomainError> {
+    reject_unsafe_relative_path(relative)?;
+    reject_install_dest(data_dir, relative)?;
+    if is_symlink(&root.join(relative)) {
+        return Err(invalid_resource_path(relative));
+    }
+    Ok(())
+}
+
+/// Pure path-shape check shared by the restore and upstream-install paths.
+fn reject_unsafe_relative_path(relative: &str) -> Result<(), DomainError> {
+    let path = Path::new(relative);
+    let mut has_normal = false;
+    for component in path.components() {
+        match component {
+            std::path::Component::Normal(part) => {
+                has_normal = true;
+                let part = part.to_string_lossy();
+                if part.contains(':') || is_reserved_file_stem(&part) {
+                    return Err(invalid_resource_path(relative));
+                }
+            }
+            _ => return Err(invalid_resource_path(relative)),
+        }
+    }
+    if !has_normal {
+        return Err(invalid_resource_path(relative));
+    }
+    Ok(())
+}
+
+/// Destination-side check: the normalized join must stay inside `data_dir`
+/// and neither it nor any ancestor up to the data dir may be a symlink.
+fn reject_install_dest(data_dir: &Path, relative: &str) -> Result<(), DomainError> {
+    let mut normalized = PathBuf::new();
+    for component in Path::new(relative).components() {
+        match component {
+            std::path::Component::Normal(part) => normalized.push(part),
+            std::path::Component::CurDir => {}
+            _ => return Err(invalid_resource_path(relative)),
+        }
+    }
+    let dest = data_dir.join(&normalized);
+    if !dest.starts_with(data_dir) {
+        return Err(invalid_resource_path(relative));
+    }
+    let mut current = dest.as_path();
+    loop {
+        if is_symlink(current) {
+            return Err(invalid_resource_path(relative));
+        }
+        if current == data_dir {
+            break;
+        }
+        match current.parent() {
+            Some(parent) if parent != current => current = parent,
+            _ => break,
+        }
+    }
+    Ok(())
+}
+
+fn invalid_resource_path(relative: &str) -> DomainError {
+    DomainError::new(codes::FIELD_FORMAT, "error.backup_invalid")
+        .with_detail(format!("rejected resource path: {relative}"))
+}
+
+/// Windows reserved file stems (`NUL`, `COM1`, ...), with or without an
+/// extension: the OS refuses to create them as regular files, so a manifest
+/// entry naming one is either crafted or unrestorable — reject either way.
+fn is_reserved_file_stem(name: &str) -> bool {
+    let stem = name.split(['.', ':']).next().unwrap_or_default();
+    matches!(
+        stem.to_ascii_uppercase().as_str(),
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
+    )
+}
+
+fn is_symlink(path: &Path) -> bool {
+    std::fs::symlink_metadata(path)
+        .map(|meta| meta.file_type().is_symlink())
+        .unwrap_or(false)
 }
 
 /// Normalize an upstream member path to a live-relative path and reject
@@ -735,8 +955,14 @@ fn collect_resources(data_dir: &Path) -> Result<Vec<(String, PathBuf)>, DomainEr
             let path = entry.path();
             let file_type = entry.file_type().map_err(|e| internal(e.to_string()))?;
             if file_type.is_dir() {
-                // Never walk into the transient work dir (restore candidates).
-                if entry.file_name() == ".work" {
+                // Core installations and runtime logs are reproducible state,
+                // not user configuration. Never copy them into backups.
+                let name = entry.file_name();
+                if path.parent() == Some(data_dir)
+                    && [".work", "cores", "guilogs", "logs", "run"]
+                        .iter()
+                        .any(|excluded| name.to_string_lossy().eq_ignore_ascii_case(excluded))
+                {
                     continue;
                 }
                 stack.push(path);
@@ -768,6 +994,8 @@ fn is_reserved_name(path: &Path) -> bool {
         || name == MANIFEST_NAME
         || name.ends_with(".tmp")
         || name.ends_with(".partial")
+        || name.ends_with(".tmp-restore")
+        || name.ends_with(".restore-prev")
         || name.ends_with("-wal")
         || name.ends_with("-shm")
 }
@@ -836,13 +1064,35 @@ pub const UPSTREAM_GUI_CONFIGS: &str = "guiConfigs";
 /// The project's own `manifest.json` is not part of the upstream layout and is
 /// dropped, so the remote `backup.zip` a `v2rayN` client GETs restores as-is.
 pub fn zip_upstream_layout(bundle_root: &Path) -> Result<Vec<u8>, DomainError> {
-    use std::io::Write;
+    let output = zip_upstream_layout_into(bundle_root, std::io::Cursor::new(Vec::new()))?;
+    Ok(output.into_inner())
+}
 
+/// Stream an upstream-compatible ZIP directly to disk for WebDAV upload.
+pub fn zip_upstream_layout_to_file(
+    bundle_root: &Path,
+    destination: &Path,
+) -> Result<u64, DomainError> {
+    if let Some(parent) = destination.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| internal(e.to_string()))?;
+    }
+    let file = std::fs::File::create(destination).map_err(|e| internal(e.to_string()))?;
+    let output = zip_upstream_layout_into(bundle_root, file)?;
+    Ok(output
+        .metadata()
+        .map_err(|e| internal(e.to_string()))?
+        .len())
+}
+
+fn zip_upstream_layout_into<W: Write + std::io::Seek>(
+    bundle_root: &Path,
+    output: W,
+) -> Result<W, DomainError> {
     if !bundle_root.is_dir() {
         return Err(DomainError::new(codes::NOT_FOUND, "error.backup_not_found")
             .with_detail(bundle_root.display().to_string()));
     }
-    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    let mut writer = zip::ZipWriter::new(output);
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
     let mut stack = vec![bundle_root.to_path_buf()];
@@ -873,14 +1123,11 @@ pub fn zip_upstream_layout(bundle_root: &Path) -> Result<Vec<u8>, DomainError> {
             writer
                 .start_file(format!("{UPSTREAM_GUI_CONFIGS}/{relative}"), options)
                 .map_err(|e| internal(e.to_string()))?;
-            let bytes = std::fs::read(&path).map_err(|e| internal(e.to_string()))?;
-            writer
-                .write_all(&bytes)
-                .map_err(|e| internal(e.to_string()))?;
+            let mut source = std::fs::File::open(&path).map_err(|e| internal(e.to_string()))?;
+            std::io::copy(&mut source, &mut writer).map_err(|e| internal(e.to_string()))?;
         }
     }
-    let cursor = writer.finish().map_err(|e| internal(e.to_string()))?;
-    Ok(cursor.into_inner())
+    writer.finish().map_err(|e| internal(e.to_string()))
 }
 
 fn copy_atomic(src: &Path, dest: &Path) -> Result<(), DomainError> {
@@ -1027,6 +1274,99 @@ mod tests {
         )
         .unwrap();
         drop(store);
+    }
+
+    #[test]
+    fn reserved_names_exclude_restore_litter() {
+        use std::path::PathBuf;
+        for litter in [
+            "guiNConfig.json.tmp-restore",
+            "guiNConfig.json.restore-prev",
+            "guiNDB.db.tmp-restore",
+        ] {
+            assert!(
+                is_reserved_name(&PathBuf::from(litter)),
+                "{litter} must be reserved"
+            );
+        }
+        assert!(!is_reserved_name(&PathBuf::from("notes.txt")));
+        // Crash litter is never collected into a new bundle.
+        let base = tempfile::tempdir().unwrap();
+        let data = base.path().join("data");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join("notes.txt"), b"user").unwrap();
+        std::fs::write(data.join("notes.txt.restore-prev"), b"stale").unwrap();
+        std::fs::write(data.join("notes.txt.tmp-restore"), b"stale").unwrap();
+        let collected = collect_resources(&data).unwrap();
+        assert_eq!(
+            collected,
+            vec![("notes.txt".to_string(), data.join("notes.txt"))],
+            "restore litter must stay out of backups"
+        );
+    }
+
+    #[test]
+    fn upstream_zip_bomb_is_rejected() {
+        let base = tempfile::tempdir().unwrap();
+        let zip_path = base.path().join("bomb.zip");
+        {
+            let file = std::fs::File::create(&zip_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            for i in 0..4 {
+                writer
+                    .start_file(format!("guiConfigs/blob{i}.bin"), options)
+                    .unwrap();
+                writer.write_all(&[0xA5u8; 64]).unwrap();
+            }
+            writer.finish().unwrap();
+        }
+        let limits = UnpackLimits {
+            max_total_bytes: 100,
+            max_entry_bytes: 1024,
+            max_entries: 100,
+        };
+        let error =
+            stage_upstream_resources_with_limits(&zip_path, &base.path().join("work"), limits)
+                .expect_err("over-limit archive must be rejected, not staged");
+        assert_eq!(error.message_key, "error.backup_archive");
+        // The failure stops the stream: later members never land on disk.
+        assert!(
+            !base
+                .path()
+                .join("work")
+                .join("resources")
+                .join("blob3.bin")
+                .exists()
+                && !base
+                    .path()
+                    .join("work")
+                    .join("resources")
+                    .join("guiConfigs")
+                    .join("blob3.bin")
+                    .exists(),
+            "staging must stop at the limit"
+        );
+    }
+
+    #[test]
+    fn upstream_zip_symlink_entry_is_rejected() {
+        let base = tempfile::tempdir().unwrap();
+        let zip_path = base.path().join("link.zip");
+        {
+            let file = std::fs::File::create(&zip_path).unwrap();
+            let mut writer = zip::ZipWriter::new(file);
+            let options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Stored);
+            writer
+                .add_symlink("guiConfigs/link", "elsewhere", options)
+                .unwrap();
+            writer.finish().unwrap();
+        }
+        let error = stage_upstream_resources(&zip_path, &base.path().join("work"))
+            .expect_err("symlink entries must be rejected, not materialized");
+        assert_eq!(error.message_key, "error.backup_archive");
     }
 
     #[test]
